@@ -1,0 +1,10 @@
+{
+  "key-str-1": "string value",
+  "key-num-2": 42,
+  "key-flt-3": 42.23,
+  "key-arr-int-4": [0,1,2,3,4],
+  "key-obj-string-5": {
+    "inner-key-6": "inner-value"
+  },
+  "key-bool-7": true
+}
