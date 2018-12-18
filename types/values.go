@@ -7,11 +7,13 @@ import (
 	"time"
 )
 
-func New(val interface{}) Value {
-	v := Value(Make(val))
+func NewUnary(v interface{}) Value { return U(v) }
+func U(val interface{}) Value {
+	v := Value(V(val))
 	return v.Ref().(Value)
 }
-func Make(val interface{}) (rval Value) {
+func NewValue(v interface{}) Value { return V(v) }
+func V(val interface{}) (rval Value) {
 	switch val.(type) {
 	case bool:
 		rval = BoolVal(val.(bool))
@@ -51,31 +53,93 @@ func Make(val interface{}) (rval Value) {
 	return rval
 }
 
+//////// INTERNAL TYPE CONSTRUCTORS ///////
+func S(v ...Value) Value { return &cell{1, Flag(Slice), Sliced(SliceVal(v))} } // SLICE
+func L(v ...Value) (l Value) { // LIST
+	s := *newSlice(v...)
+	return &cell{1, Flag(List), Listed(&s)}
+}
+func ML(v ...Value) (l Value) { // MULILIST
+	s := *newSlice(v...)
+	return &cell{1, Flag(MuliList), &s}
+}
+func SS(v ...Value) (l Value) { // SIMPLE SET
+	// TODO: test unique & filter
+	s := *newSlice(v...)
+	return &cell{1, Flag(Set), &s}
+}
+func AS(v ...Value) (l Value) { // ATTRIBUT ACCESSABLE SET
+	// TODO: test unique & filter
+	s := *newSlice(v...)
+	return &cell{1, Flag(AttrSet), &s}
+}
+func MS(v ...Value) (l Value) { // MULTI TYPED SET
+	// TODO: test unique & filter
+	s := *newSlice(v...)
+	return &cell{1, Flag(AttrSet), &s}
+}
+func R(v ...Value) (l Value) { // MULTI TYPED SET
+	// TODO: test unique & filter
+	s := *newSlice(v...)
+	return &cell{1, Flag(Record), &s}
+}
+
 //////// INTERNAL TYPE SYSTEM ///////////
 type Flag uint
 
-func (t Flag) uint(u uint)        { t = Flag(u) }
-func (t Flag) Uint() uint         { return uint(t) }
-func (t Flag) Type() Type         { return t }
-func (t Flag) Flag() Flag         { return t }
-func (t Flag) Ref() interface{}   { return &t }
-func (t Flag) Value() Value       { return t }
-func (t Flag) Copy() Value        { n := t; return n }
-func (v Flag) String() string     { return v.Type().String() }
-func (t Flag) Len() int           { return bits.Len(uint(t)) }
-func (t Flag) Count() int         { return bits.OnesCount(uint(t)) }
-func (t Flag) LeastSig() int      { return bits.TrailingZeros(uint(t)) + 1 }
-func (t Flag) MostSig() int       { return bits.LeadingZeros(uint(t)) - 1 }
-func (t Flag) Reverse() Flag      { return Flag(bits.Reverse(uint(t))) }
-func (t Flag) Rotate(n int) Flag  { return Flag(bits.RotateLeft(uint(t), n)) }
-func (t Flag) Toggle(v Flag) Flag { return Flag(uint(t) ^ v.Uint()) }
-func (t Flag) Concat(v Flag) Flag { return Flag(uint(t) | v.Uint()) }
-func (t Flag) Mask(v Flag) Flag   { return Flag(uint(t) &^ v.Uint()) }
-func (t Flag) Match(v Flag) bool {
-	if t.Uint()&v.Uint() != 0 {
+func (t Flag) uint(u uint)         { t = Flag(u) }
+func (t Flag) Uint() uint          { return uint(t) }
+func (t Flag) Type() Type          { return t }
+func (t Flag) Flag() Flag          { return t }
+func (t Flag) Ref() interface{}    { return &t }
+func (t Flag) Value() Value        { return t }
+func (t Flag) Copy() Value         { n := t; return n }
+func (t Flag) Len() int            { return bits.Len(uint(t)) }
+func (t Flag) Count() int          { return bits.OnesCount(uint(t)) }
+func (t Flag) LeastSig() int       { return bits.TrailingZeros(uint(t)) + 1 }
+func (t Flag) MostSig() int        { return bits.LeadingZeros(uint(t)) - 1 }
+func (t Flag) Reverse() Flag       { return Flag(bits.Reverse(uint(t))) }
+func (t Flag) Rotate(n int) Flag   { return Flag(bits.RotateLeft(uint(t), n)) }
+func (t Flag) Toggle(v Typed) Flag { return Flag(uint(t) ^ v.Flag().Uint()) }
+func (t Flag) Concat(v Typed) Flag { return Flag(uint(t) | v.Flag().Uint()) }
+func (t Flag) Mask(v Typed) Flag   { return Flag(uint(t) &^ v.Flag().Uint()) }
+func (t Flag) Match(v Typed) bool {
+	if t.Uint()&v.Flag().Uint() != 0 {
 		return true
 	}
 	return false
+}
+func (t Flag) MultiTyped() bool {
+	if t.Count() <= 1 {
+		return false
+	}
+	return true
+}
+func (t Flag) TypeSig() []Type {
+	return []Type{}
+}
+func flagSet(f Typed, b uint) bool {
+	var u uint
+	u = 1 << b
+	if _, ok := Type(Flag(ValType(u))).(Flag); ok {
+		return true
+	}
+	return false
+}
+func (v Flag) String() string {
+	if bits.OnesCount(v.Uint()) == 1 {
+		return v.Type().String()
+	}
+	var str string
+	var u, i uint
+	for u < uint(MAX_VALUE_TYPE) {
+		if v.Flag().Match(ValType(u)) {
+			str = str + ValType(u).String() + "\n"
+		}
+		i = i + 1
+		u = uint(1) << i
+	}
+	return str
 }
 
 type ValType Flag
@@ -109,20 +173,23 @@ const (
 	List     // ordered, indexed, monotyped values
 	MuliList // ordered, indexed, multityped values
 	Set      // unique, monotyped values
-	AttrSet  // unique, attribute mapped, monotyped values (aka map)
-	MuliSet  // unique, attribute mapped, multityped values
-	Record   // unique, attribute mapped, type declared values
+	AttrSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
+	MuliSet  // unique, attribute mapped, multityped values		 [attr,type,val]
+	Record   // unique, multityped, attributed, mapped, type declared values
 	// LINKED COLLECTIONS // (also slice based, but pretend not to)
-	Linked       // nodes referencing next node and value (possibly nested)
-	DoubleLinked // nodes referencing previous, next node and nested value (possibly nested)
-	Tuple        // references a head value and nest of tail values
-	Node         // node of a tree, or liked list
-	Tree         // nodes referencing parent, root and a value of contained node(s)
+	Chain      // nodes referencing next node and value (possibly nested)
+	Link       // nodes referencing previous, next node and nested value (possibly nested)
+	DoubleLink // nodes referencing previous, next node and nested value (possibly nested)
+	Tuple      // references a head value and nest of tail values
+	Node       // node of a tree, or liked list
+	Tree       // nodes referencing parent, root and a value of contained node(s)
 	// INTERNAL TYPES //
 	MetaType // ValType   // values
 	FuncType // FnType    // functions (user defined, as well as internal)
 	Intern   // InterType // instances internal data structures (for self reference)
 	Native   // type(val) // instances of native go values represented by empty inerfaces
+	///////////
+	MAX_VALUE_TYPE
 
 	// flat values
 	Unary = Bool | Int | Int8 | Int16 | Int32 | Uint |
@@ -130,25 +197,25 @@ const (
 		Complex64 | Byte | Bytes | String | Error
 
 	// Next() Value
-	Chain = Linked | DoubleLinked | Tuple | Node | Tree
+	Chained = Chain | DoubleLink | Tuple | Node | Tree
 
 	// Head() Value
-	Head = Linked | DoubleLinked
+	Linked = Link | DoubleLink
 
-	// Previous() Value
-	Prev = DoubleLinked
+	// Reversedious() Value
+	Reversed = DoubleLink
 
 	// Decap() (Value, Tupled)
-	Reduce = Tuple | Node | Tree
+	Consumed = Tuple | Node | Tree
 
 	// Slice() []Value
-	OrdAccess = Slice | List | MuliList
+	Ordered = Slice | List | MuliList
 
 	// Get(attr) Attribute
-	AttrAccess = Set | AttrSet | MuliSet | Record
+	Mapped = Set | AttrSet | MuliSet | Record
 
 	// sum of all collections
-	Nary = Chain | Reduce | OrdAccess | AttrAccess
+	Nary = Chained | Linked | Reversed | Consumed | Ordered | Mapped
 )
 
 //////// native types /////////////
@@ -283,6 +350,8 @@ func (v StringVal) Value() Value     { return v }
 func (v StringVal) Ref() interface{} { return &v }
 func (v StringVal) Copy() Value      { var r StringVal = v; return r }
 
+func (v SliceVal) Slice() []Value   { return v }
+func (v SliceVal) Len() int         { return len(v) }
 func (v SliceVal) Value() Value     { return v }
 func (v SliceVal) Ref() interface{} { return &v }
 func (v SliceVal) Copy() Value      { var ret = []Value{}; return SliceVal(append(ret, v)) }

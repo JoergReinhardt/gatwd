@@ -32,8 +32,8 @@ type slice struct {
 }
 
 // VALUE
-func (s slice) Type() Type           { return OrdAccess.Type() }
-func (s slice) Flag() Flag           { return OrdAccess.Flag() }
+func (s slice) Type() Type           { return Ordered.Type() }
+func (s slice) Flag() Flag           { return Ordered.Flag() }
 func (s slice) Value() (v Value)     { return v }
 func (s slice) Ref() (r interface{}) { return r }
 func (s slice) String() (str string) {
@@ -52,10 +52,10 @@ func (s slice) Copy() (v Value) {
 }
 
 // ACCESSABLE SLICE
-func (s slice) get(i int) Value              { return s.s[i] }
-func (s slice) Get(attr OrdAttr) Value       { return s.s[attr.Idx()] }
-func (s *slice) set(i int, v Value)          { (*s).s[i] = v }
-func (s *slice) Set(attr OrdAttr, val Value) { (*s).s[attr.Idx()] = val }
+func (s slice) get(i int) Value                  { return s.s[i] }
+func (s slice) Get(attr OrdinalAttr) Value       { return s.s[attr.Idx()] }
+func (s *slice) set(i int, v Value)              { (*s).s[i] = v }
+func (s *slice) Set(attr OrdinalAttr, val Value) { (*s).s[attr.Idx()] = val }
 
 // ITERATOR
 func (s slice) Next() (v Value, i Iterable) {
@@ -123,9 +123,6 @@ func (s *slice) Pop() (v Value) {
 }
 
 // ARITY
-func (s slice) Empty() bool { return empty(s) }
-func (s slice) Unary() bool { return unary(s) }
-func (s slice) Arity() int  { return arity(s) }
 
 // TUPLE
 func (s *slice) Head() (h Value)              { return (*s).s[0] }
@@ -133,9 +130,6 @@ func (s *slice) Tail() (c Value)              { return &slice{s.s[:1]} }
 func (s *slice) HeadNary(arity int) (h Value) { return &slice{(*s).s[:arity]} }
 func (s *slice) TailNary(arity int) (c Value) { return &slice{s.s[arity:]} }
 func (s slice) Decap() (h Value, t Tupled) {
-	if s.Len() > 0 {
-		h, t = s.s[0], &slice{s.s[1:]}
-	}
 	return h, t
 }
 func (s *slice) DecapNary(arity int) (h *slice, t *slice) {
@@ -172,7 +166,7 @@ func (s *slice) Insert(i int, v Value) {
 func (s *slice) InsertVariadic(i int, v ...Value) {
 	(*s).s = append((*s).s[:i], append(v, s.s[i:]...)...)
 }
-func (s slice) AttrType() Type { return Int.Type() }
+func (s slice) AttrType() Flag { return Int.Flag() }
 
 //// typed slice embeds slice and only needs its own methods implemented
 // internal typed slice instance, embeds the base slice and adds type flag to
@@ -182,27 +176,27 @@ type flatTypedSlice struct {
 	*slice
 }
 
-func (s flatTypedSlice) UnaryTyped() bool    { return s.t.Match(Unary.Flag()) }
-func (s *flatTypedSlice) AttrType() Type     { return s.t.Type() }
+func (s flatTypedSlice) UnaryTyped() bool    { return s.t.Match(Unary) }
+func (s *flatTypedSlice) AttrType() Flag     { return s.t.Flag() }
 func (s *flatTypedSlice) Get(i int) Value    { return s.s[i] }
 func (s *flatTypedSlice) Set(i int, v Value) { (*s).s[i] = v }
 func (s *flatTypedSlice) Put(v Value) {
-	(*s).t = s.t.Concat(v.Type().Flag())
+	(*s).t = s.t.Concat(v.Flag())
 	(*s).s = append(s.s, v)
 }
 func (s *flatTypedSlice) Append(v ...Value) {
 	(*s).slice.Append(v...)
 	for _, val := range v {
-		(*s).t = s.t.Concat(val.Type().Flag())
+		(*s).t = s.t.Concat(val.Type())
 	}
 }
 func (s *flatTypedSlice) Push(v Value) {
-	(*s).t = s.t.Concat(v.Type().Flag())
+	(*s).t = s.t.Concat(v.Type())
 	(*s).slice.Push(v)
 }
 func (s *flatTypedSlice) Add(v ...Value) {
 	for _, val := range v {
-		(*s).t = s.t.Concat(val.Type().Flag())
+		(*s).t = s.t.Concat(val.Type())
 	}
 	(*s).slice.Add(v...)
 }

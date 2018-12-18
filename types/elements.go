@@ -15,45 +15,111 @@ func newTupled(v ...Value) Tupled {
 // provides a pointer of known type
 type cell struct {
 	arity int
-	typ   Type
+	typ   Flag
 	cells Value
 }
 
+func unaryEmpty(v Value) bool {
+	if v != nil {
+		if val, ok := v.(Value); ok {
+			if v.Flag().Match(Unary) {
+				if !v.Flag().Match(Nil) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+func isUnary(v Value) bool {
+	if !unaryEmpty(v) {
+		if v.Flag().Match(Unary) {
+			return true
+		}
+	}
+	return false
+}
+func fetchUnary(v Value) Value {
+	if isUnary(v) {
+		return v
+	}
+}
+func tupleEmpty(v Value) bool {
+	if unaryEmpty(v) {
+		return true
+	}
+	v := v.Flag().Match(Tuple)
+	switch {
+	case unaryEmpty(v.Head()):
+		return true
+	case unaryEmpty(v.Tail()):
+		return true
+	case collectEmpty(v.Head()):
+		return true
+	case collectEmpty(v.Tail()):
+		return true
+	}
+	return false
+}
+func isBinary(v Value) bool {
+	if v.Flag().Match(Tuple) {
+		if tup, ok := v.(Tupled); ok {
+			if tup.Arity() == 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
+func isNary(v Value) bool {
+	if v.Flag().Match(Tuple) {
+		if tup, ok := v.(Tupled); ok {
+			if tup.Arity() > 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
+func binaryEmpty(v Value) bool {
+	if v == nil {
+		if val, ok := v.(Value); ok {
+			if !v.Flag().Match(Nil) {
+				if isBinary(v) {
+					head, tail := v.(Tupled).Head(), v.(Tupled).Tail()
+					if !tupleEmpty(head) && !tupleEmpty(tail) {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
+}
 func fetchUnary(v Value) Value {
 	if v != nil {
 		if v, ok := v.(Value); ok {
-			t := v.Type()
-			if t.Flag().Match(Nil.Flag()) {
+			t := v.Flag()
+			if t.Match(Nil) {
 				return NilVal{}
 			}
-			if t.Flag().Match(Unary.Flag()) {
+			if t.Flag().Match(Unary) {
 				return v.Value()
 			}
 		}
 	}
 	return NilVal{}
 }
-func emptyVal(v Value) bool {
-	if v := fetchUnary(v); v != nil {
-		if !v.Flag().Match(Unary.Flag()) {
-			if !v.Flag().Match(Nil.Flag()) {
-				return true
-			}
-			return false
-		}
-		switch {
-		}
-	}
-	return true
+func fetchHead(v Value) Value {
 }
 func decapN(arity int, s *slice) (*slice, *slice) {
 	return (*s).DecapNary(arity)
 }
 func newEmpty(v Value) *cell {
-	return &cell{0, Nil.Type(), NilVal{}}
+	return &cell{0, Flag(Nil), NilVal{}}
 }
 func newUnary(v Value) *cell {
-	return &cell{1, v.Type(), newSlice(v)}
+	return &cell{1, v.Flag(), newSlice(v)}
 }
 func newNary(head []Value, tail []Value) *cell {
 	var c *cell
@@ -66,16 +132,16 @@ func newTuple(head Value, tail []Value) *cell {
 func newCell(arity int, typ Type, v ...Value) *cell {
 	len := len(v)
 	if len <= arity {
-		return &cell{arity, typ, newSlice(v...)}
+		return &cell{arity, typ.Flag(), newSlice(v...)}
 	}
 	return &cell{
 		arity,
-		typ.Type(),
+		typ.Flag(),
 		newSlice( // <-- heads last elements needs to be postponed...
 			append(v[:arity-1], // until the cell holding the tail...
 				&cell{ // has been created, containing...
 					1,                      // a unary of type tuple...
-					typ.Type(),             // to hold the slice...
+					typ.Flag(),             // to hold the slice...
 					newSlice(v[arity:]...), // and append the final elements...
 				},
 			)...),
@@ -85,11 +151,11 @@ func (c cell) Arity() int {
 	if val, ok := c.cells.(Value); ok {
 		vt := val.Flag()
 		switch {
-		case vt.Match(Nil.Flag()):
+		case vt.Match(Nil):
 			return 0
-		case vt.Match(Unary.Flag()):
+		case vt.Match(Unary):
 			return 1
-		case vt.Match(Slice.Flag()):
+		case vt.Match(Slice):
 			return len(val.(SliceVal))
 		default:
 			// we have something... consider it flat by definition
@@ -104,6 +170,25 @@ func (c cell) Unary() bool {
 	}
 	return false
 }
+func empty(v Value) bool {
+	if v != nil {
+		if v, ok := v.(Value); ok {
+			switch {
+			case !v.Flag().Match(Nil):
+				return true
+			case !v.Flag().Match(Unary):
+				return false
+			case !v.Flag().Match(Chained):
+			case !v.Flag().Match(Linked):
+			case !v.Flag().Match(Consumed):
+			case !v.Flag().Match(Ordered):
+			case !v.Flag().Match(Mapped):
+				return false
+			}
+		}
+	}
+	return true
+}
 func (c cell) Empty() bool {
 	if c.cells == nil {
 		return true
@@ -111,9 +196,9 @@ func (c cell) Empty() bool {
 	if val, ok := c.cells.(Value); ok {
 		vt := val.Flag()
 		switch {
-		case vt.Match(Nil.Flag()):
+		case vt.Match(Nil):
 			return true
-		case vt.Match(Unary.Flag()):
+		case vt.Match(Unary):
 			return false
 		case vt.Match(Slice.Flag()):
 			if len(val.(SliceVal)) > 0 {
@@ -149,7 +234,3 @@ func (c *cell) Decap() (head Value, tail Tupled) {
 }
 func (c *cell) Head() (head Value) { return head }
 func (c *cell) Tail() (tail Value) { return tail }
-
-func empty(v Value) bool { return false }
-func unary(v Value) bool { return false }
-func arity(v Value) int  { return 0 }

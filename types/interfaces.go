@@ -34,20 +34,24 @@ type Value interface {
 
 //// LIST COMPOSITIONS ////
 type Collected interface {
-	Ordered
+	Voidable
+	Sliced
 }
 type IdxCollected interface {
-	Getter
-	Setter
+	OrdinalGetter
+	OrdinalSetter
 }
 type DoubleEnded interface {
 	First
 	Last
 }
 type Listed interface {
-	IdxCollected
-	DoubleEnded
-	Ordered
+	IdxCollected // Get | Set
+	Sliced       // Sliced
+}
+type MultiTypedList interface {
+	AttrByType
+	Listed
 }
 
 ///// LINKED ELEMENTS /////
@@ -58,9 +62,56 @@ type Consumeable interface {
 }
 
 ///// LIST BEHAVIOUR /////
-type Ordered interface {
+type Voidable interface {
+	Empty() bool
+}
+type Sliced interface {
+	Value
 	Len() int
-	Order() []Value
+	Slice() []Value
+}
+type Attributeable interface {
+	Attributes() []Attribute
+	Values() []Value
+}
+type AttrBySlice interface {
+	Elements() []Cell // Cell[OrdAttr,Value]
+}
+type AttrByKey interface {
+	Keys() []Attribute
+	Fields() []Cell // Cell[StrAttr,Value]
+}
+type AttrByType interface {
+	Attr() []Attribute
+	Members() []Cell // Cell[StrAttr,Value]
+}
+type Attribute interface {
+	Attr() Value
+	AttrType() Type
+}
+type OrdinalAttr interface {
+	Idx() int
+}
+type StringAttr interface {
+	Key() string
+}
+type OrdinalGetter interface {
+	Get(OrdinalAttr) Value
+}
+type OrdinalSetter interface {
+	Set(OrdinalAttr, Value)
+}
+type StringGetter interface {
+	Get(StringAttr) Value
+}
+type StringSetter interface {
+	Set(StringAttr, Value)
+}
+type Getter interface {
+	Get(Attribute) Value
+}
+type Setter interface {
+	Set(Attribute, Value)
 }
 type LiFo interface {
 	Pull() Value
@@ -78,18 +129,18 @@ type First interface {
 type Last interface {
 	Last() Value
 }
-type Chained interface {
-	HeadLinked
+type Referenced interface {
+	HeadReferenced
 	Next() Value
 }
-type TailLinked interface {
+type TailReferenced interface {
 	Tail() Tupled
 }
-type HeadLinked interface {
+type HeadReferenced interface {
 	Head() Value
 }
-type DoublyLinked interface {
-	Previous() Element
+type DoublyReferenced interface {
+	Reversedious() Element
 }
 type Stackable interface {
 	Push(Value)
@@ -110,35 +161,6 @@ type Identifyable interface {
 type Arity interface {
 	Arity() int
 	Unary() bool
-}
-type Voidable interface {
-	Empty() bool
-}
-type Attributeable interface {
-	Attributes() []Attribute
-	Values() []Value
-}
-type AttrByOrder interface {
-	Elements() []Cell // Cell[OrdAttr,Value]
-}
-type AttrByKey interface {
-	Fields() []Cell // Cell[StrAttr,Value]
-}
-type Attribute interface {
-	Attr() Value
-	AttrType() Type
-}
-type OrdAttr interface {
-	Idx() int
-}
-type StringAttr interface {
-	Key() string
-}
-type Getter interface {
-	Get(Attribute) Value
-}
-type Setter interface {
-	Set(Attribute, Value)
 }
 type Iterable interface {
 	Next() (Value, Iterable)

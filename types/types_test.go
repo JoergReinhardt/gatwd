@@ -5,9 +5,23 @@ import (
 	"testing"
 )
 
+func TestTypeStringer(t *testing.T) {
+	var str string
+	var u uint
+	var i uint
+	for u < uint(MAX_VALUE_TYPE) {
+		if Flag(Unary).Match(ValType(u)) {
+			str = str + ValType(u).String() + "\n"
+		}
+		i = i + 1
+		u = uint(1) << i
+	}
+	fmt.Println(str)
+	fmt.Println(Flag(Unary).String())
+}
 func TestMutability(t *testing.T) {
-	a := New(true).(*BoolVal)
-	b := Make(false).(BoolVal)
+	a := U(true).(*BoolVal)
+	b := V(false).(BoolVal)
 	if *a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -19,18 +33,18 @@ func TestMutability(t *testing.T) {
 func TestTypeAllocation(t *testing.T) {
 	//var output = []string{}
 	s0 := newSlice(
-		New(true),
-		New(1),
-		New(int8(8)),
-		New(int16(16)),
-		New(int32(32)),
-		New(float32(32.16)),
-		New(float64(64.64)),
-		New(complex64(float32(32))),
-		New(complex128(float64(1.6))),
-		New(byte(3)),
-		New([]byte("test")),
-		New("test"))
+		U(true),
+		U(1),
+		U(int8(8)),
+		U(int16(16)),
+		U(int32(32)),
+		U(float32(32.16)),
+		U(float64(64.64)),
+		U(complex64(float32(32))),
+		U(complex128(float64(1.6))),
+		U(byte(3)),
+		U([]byte("test")),
+		U("test"))
 
 	s1 := newSlice()
 
