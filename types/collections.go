@@ -9,11 +9,21 @@ func newSlice(val ...Value) *slice {
 	l = append(l, val...)
 	return &slice{l}
 }
-func newTypedSlice(t Type, val ...Value) *typedSlice {
+func newTypedSlice(t Type, val ...Value) *flatTypedSlice {
 	for _, v := range val {
-		t = t.Concat(v.Type().Flag())
+		t = t.Flag().Concat(v.Flag())
 	}
-	return &typedSlice{t.Flag(), newSlice(val...)}
+	return &flatTypedSlice{t.Flag(), newSlice(val...)}
+}
+func guardArity(arity int, v ...Value) []Value {
+	return v[:arity]
+}
+func nestSlice(arity int, v []Value) [][]Value {
+	var acc [][]Value
+	for len(v) > arity {
+		v, acc = v[arity:], append(acc, v[0:arity:arity])
+	}
+	return append(acc, v)
 }
 
 // internal slice instance, base of almost all collection implementations
@@ -22,7 +32,8 @@ type slice struct {
 }
 
 // VALUE
-func (s slice) Type() (t Type)       { return Arry.Type() }
+func (s slice) Type() Type           { return OrdAccess.Type() }
+func (s slice) Flag() Flag           { return OrdAccess.Flag() }
 func (s slice) Value() (v Value)     { return v }
 func (s slice) Ref() (r interface{}) { return r }
 func (s slice) String() (str string) {
@@ -40,16 +51,11 @@ func (s slice) Copy() (v Value) {
 	return v
 }
 
-// SLICE
-func (s slice) Len() int       { return len(s.s) }
-func (s slice) Slice() []Value { return s.s }
-func (s slice) AttrType() Type { return Int.Type() }
-
-// MUTABLE SLICE
-func (s slice) get(i int) Value            { return s.s[i] }
-func (s slice) Get(acc IdxAcc) Value       { return s.s[acc.Idx()] }
-func (s *slice) set(i int, v Value)        { (*s).s[i] = v }
-func (s *slice) Set(acc IdxAcc, val Value) { (*s).s[acc.Idx()] = val }
+// ACCESSABLE SLICE
+func (s slice) get(i int) Value              { return s.s[i] }
+func (s slice) Get(attr OrdAttr) Value       { return s.s[attr.Idx()] }
+func (s *slice) set(i int, v Value)          { (*s).s[i] = v }
+func (s *slice) Set(attr OrdAttr, val Value) { (*s).s[attr.Idx()] = val }
 
 // ITERATOR
 func (s slice) Next() (v Value, i Iterable) {
@@ -116,111 +122,93 @@ func (s *slice) Pop() (v Value) {
 	return v
 }
 
+// ARITY
+func (s slice) Empty() bool { return empty(s) }
+func (s slice) Unary() bool { return unary(s) }
+func (s slice) Arity() int  { return arity(s) }
+
 // TUPLE
+func (s *slice) Head() (h Value)              { return (*s).s[0] }
+func (s *slice) Tail() (c Value)              { return &slice{s.s[:1]} }
+func (s *slice) HeadNary(arity int) (h Value) { return &slice{(*s).s[:arity]} }
+func (s *slice) TailNary(arity int) (c Value) { return &slice{s.s[arity:]} }
 func (s slice) Decap() (h Value, t Tupled) {
 	if s.Len() > 0 {
 		h, t = s.s[0], &slice{s.s[1:]}
 	}
 	return h, t
 }
-func (s slice) Head() (h Value)  { return s.s[0] }
-func (s slice) Tail() (c Tupled) { return newTupled(s.s[:1]...) }
+func (s *slice) DecapNary(arity int) (h *slice, t *slice) {
+	if (*s).Len()+1 > arity {
+		return &slice{(*s).s[:arity]}, &slice{(*s).s[arity:]}
+	}
+	return h, t
+}
 
-// ARITY
-func (s slice) Arity() int    { return ary(s) }
-func (s slice) Empty() bool   { return empty(s) }
-func (s slice) Split() Tupled { return Tupled(s) }
+// SLICE
+func (s slice) Len() int       { return len(s.s) }
+func (s slice) Slice() []Value { return s.s }
+func (s slice) Split(i int) (*slice, *slice) {
+	h, t := s.s[:i], s.s[i:]
+	return &slice{h}, &slice{t}
+}
+func (s *slice) Cut(i, j int) {
+	copy((*s).s[i:], s.s[j:])
+	for k, n := len(s.s)-j+i, len(s.s); k < n; k++ {
+		(*s).s[k] = nil // <- prevents possib. mem leak
+	}
+	(*s).s = s.s[:len(s.s)-j+i]
+}
+func (s *slice) Delete(i int) {
+	copy((*s).s[i:], s.s[i+1:])
+	(*s).s[len(s.s)-1] = nil
+	(*s).s = s.s[:len(s.s)-1]
+}
+func (s *slice) Insert(i int, v Value) {
+	(*s).s = append((*s).s, NilVal{})
+	copy(s.s[i+1:], s.s[i:])
+	(*s).s[i] = v
+}
+func (s *slice) InsertVariadic(i int, v ...Value) {
+	(*s).s = append((*s).s[:i], append(v, s.s[i:]...)...)
+}
+func (s slice) AttrType() Type { return Int.Type() }
 
 //// typed slice embeds slice and only needs its own methods implemented
 // internal typed slice instance, embeds the base slice and adds type flag to
 // keep track of content types
-type typedSlice struct {
+type flatTypedSlice struct {
 	t Flag
 	*slice
 }
 
-func (s typedSlice) UnaryTyped() bool    { return s.t.Match(Unary.Flag()) }
-func (s *typedSlice) AttrType() Type     { return s.t.Type() }
-func (s *typedSlice) Get(i int) Value    { return s.s[i] }
-func (s *typedSlice) Set(i int, v Value) { (*s).s[i] = v }
-func (s *typedSlice) Put(v Value) {
+func (s flatTypedSlice) UnaryTyped() bool    { return s.t.Match(Unary.Flag()) }
+func (s *flatTypedSlice) AttrType() Type     { return s.t.Type() }
+func (s *flatTypedSlice) Get(i int) Value    { return s.s[i] }
+func (s *flatTypedSlice) Set(i int, v Value) { (*s).s[i] = v }
+func (s *flatTypedSlice) Put(v Value) {
 	(*s).t = s.t.Concat(v.Type().Flag())
 	(*s).s = append(s.s, v)
 }
-func (s *typedSlice) Append(v ...Value) {
+func (s *flatTypedSlice) Append(v ...Value) {
+	(*s).slice.Append(v...)
 	for _, val := range v {
 		(*s).t = s.t.Concat(val.Type().Flag())
-		(*s).s = append(s.s, val)
 	}
 }
-func (s *typedSlice) Push(v Value) {
+func (s *flatTypedSlice) Push(v Value) {
 	(*s).t = s.t.Concat(v.Type().Flag())
-	(*s).s = append(s.s, v)
+	(*s).slice.Push(v)
 }
-func (s *typedSlice) Add(v ...Value) {
+func (s *flatTypedSlice) Add(v ...Value) {
 	for _, val := range v {
 		(*s).t = s.t.Concat(val.Type().Flag())
 	}
-	(*s).s = append(v, s.s...)
+	(*s).slice.Add(v...)
 }
-func (s typedSlice) MultiTyped() bool {
+func (s flatTypedSlice) MultiTyped() bool {
 	if s.t.Flag().Count() > 1 {
 		return true
 	}
 	return false
-}
-
-//// SLICE HELPERS ////
-func ary(v Value) int {
-	if v, ok := v.(Value); ok {
-		if v.Type().Match(Unary.Flag()) {
-			return 1
-		}
-		if l, ok := v.(Size); ok {
-			if l.Len() > 0 {
-				return l.Len()
-			}
-		}
-	}
-	return 0
-}
-func flat(v Value) bool {
-	if v, ok := v.(Value); ok {
-		if v.Type().Match(Unary.Flag()) {
-			return true
-		}
-		if a, ok := v.(Array); ok {
-			for _, f := range a.Slice() {
-				if !flat(f) {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
-func empty(v Value) bool {
-	if v, ok := v.(Value); ok {
-		if v.Type().Match(Unary.Flag()) {
-			if v.Value() != nil {
-				return true
-			}
-			if v.Type().Match(Nil.Flag()) {
-				return true
-			}
-			return false
-		}
-		if l, ok := v.(Size); ok {
-			if l.Len() > 0 {
-				if a, ok := v.(Array); ok {
-					for _, v := range a.Slice() {
-						if !empty(v) {
-							return false
-						}
-					}
-				}
-			}
-		}
-	}
-	return true
 }

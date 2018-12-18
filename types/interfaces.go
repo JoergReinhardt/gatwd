@@ -7,10 +7,9 @@ package types
 // comprehendible to the library types are typesafe, but also intended to be
 // automagicly inferred whenever that's possible. a bitflag is providing
 // composable type identificators.
-type TypeFlag uint
-
 type Typed interface {
 	Type() Type
+	Flag() Flag
 }
 
 // typemarkers for buildtin and user defined typed need to implement the type
@@ -20,10 +19,6 @@ type Type interface {
 	String() string
 	Type() Type
 	Flag() Flag
-	Concat(Flag) Flag
-	Toggle(Flag) Flag
-	Mask(Flag) Flag
-	Match(Flag) bool
 }
 
 // VALUE PROPERTYS //
@@ -37,12 +32,35 @@ type Value interface {
 	Copy() Value
 }
 
-///// LIST BEHAVIOUR /////
-type Size interface {
-	Len() int
+//// LIST COMPOSITIONS ////
+type Collected interface {
+	Ordered
 }
-type Array interface {
-	Slice() []Value
+type IdxCollected interface {
+	Getter
+	Setter
+}
+type DoubleEnded interface {
+	First
+	Last
+}
+type Listed interface {
+	IdxCollected
+	DoubleEnded
+	Ordered
+}
+
+///// LINKED ELEMENTS /////
+type Consumeable interface {
+	Decap() (Value, Tupled)
+	Head() Value
+	Tail() Value
+}
+
+///// LIST BEHAVIOUR /////
+type Ordered interface {
+	Len() int
+	Order() []Value
 }
 type LiFo interface {
 	Pull() Value
@@ -60,26 +78,9 @@ type First interface {
 type Last interface {
 	Last() Value
 }
-
-//// LIST COMPOSITIONS ////
-type Accessible interface {
-	Getter
-	Setter
-}
-type DoubleEnded interface {
-	First
-	Last
-}
-type Listed interface {
-	Accessible
-	DoubleEnded
-	Array
-	Size
-}
-
-///// LINKED ELEMENTS /////
-type Consumeable interface {
-	Decap() (Value, Tupled)
+type Chained interface {
+	HeadLinked
+	Next() Value
 }
 type TailLinked interface {
 	Tail() Tupled
@@ -108,22 +109,30 @@ type Identifyable interface {
 }
 type Arity interface {
 	Arity() int
+	Unary() bool
 }
-type Void interface {
+type Voidable interface {
 	Empty() bool
+}
+type Attributeable interface {
+	Attributes() []Attribute
+	Values() []Value
+}
+type AttrByOrder interface {
+	Elements() []Cell // Cell[OrdAttr,Value]
+}
+type AttrByKey interface {
+	Fields() []Cell // Cell[StrAttr,Value]
 }
 type Attribute interface {
 	Attr() Value
 	AttrType() Type
 }
-type Ordered interface {
+type OrdAttr interface {
 	Idx() int
 }
-type Mapped interface {
+type StringAttr interface {
 	Key() string
-}
-type IdenAcc interface {
-	Identity() string
 }
 type Getter interface {
 	Get(Attribute) Value
@@ -137,31 +146,17 @@ type Iterable interface {
 
 //////////////////////////
 type Element interface {
+	Voidable // aka Empty() bool
+	Arity    // aka Unary() bool
 	Value
-	Arity // aka Unary() bool
-	Void  // aka Empty() bool
 }
 type Cell interface {
-	Attribute
-	Element
+	Attribute // accessor attribute
+	Value
 }
 type Tupled interface {
 	Element
-	HeadLinked
 	Consumeable
-	TailLinked
-}
-type OrderedTup interface {
-	Ordered
-	Tupled
-	Size
-}
-type MappedTup interface {
-	OrderedTup
-	Mapped
-}
-type TupleNest interface {
-	Tupled
 }
 type Nodular interface {
 	Attribute
@@ -171,7 +166,6 @@ type Nodular interface {
 type NestNodul interface {
 	Nodular
 	Nested
-	Size
 }
 type ChildNodul interface {
 	Parented
@@ -232,7 +226,7 @@ const (
 	ParamFunc
 )
 
-type FnType Flag
+type FnType uint
 
 func (t FnType) Type() Type { return t.Type() }
 func (t FnType) Flag() Flag { return Flag(t) }

@@ -105,7 +105,7 @@ const (
 	Error
 	// SLICE BASED COLLECTIONS //
 	Attr     // identitys, arity,  predicates, attribute accessors...
-	Slice    // [Value]
+	Arry     // [Value]
 	List     // ordered, indexed, monotyped values
 	MuliList // ordered, indexed, multityped values
 	Set      // unique, monotyped values
@@ -124,31 +124,13 @@ const (
 	Intern   // InterType // instances internal data structures (for self reference)
 	Native   // type(val) // instances of native go values represented by empty inerfaces
 
-	// flat values
-	Unary = Bool | Int | Int8 | Int16 | Int32 | Uint |
-		Uint16 | Uint32 | Float | Flt32 | Complex |
-		Complex64 | Byte | Bytes | String | Error
+	Unary = Bool | Int | Int8 | Int16 | Int32 | Uint | Uint16 | Uint32 |
+		Float | Flt32 | Complex | Complex64 | Byte | Bytes | String | Error
 
-	// Next() Value
-	Chain = Linked | DoubleLinked | Tuple | Node | Tree
+	Nary = List | MuliList | Set | AttrSet | MuliSet | Record | Linked |
+		DoubleLinked | Tuple | Node | Tree
 
-	// Head() Value
-	Head = Linked | DoubleLinked
-
-	// Previous() Value
-	Prev = DoubleLinked
-
-	// Decap() (Value, Tupled)
-	Reduce = Tuple | Node | Tree
-
-	// Slice() []Value
-	OrdAccess = Slice | List | MuliList
-
-	// Get(attr) Attribute
-	AttrAccess = Set | AttrSet | MuliSet | Record
-
-	// sum of all collections
-	Nary = Chain | Reduce | OrdAccess | AttrAccess
+	Collection = List | MuliList | Set | AttrSet | MuliSet | Record | Linked | DoubleLinked
 )
 
 //////// native types /////////////
@@ -170,7 +152,6 @@ type (
 	ByteVal      byte
 	BytesVal     []byte
 	StringVal    string
-	SliceVal     []Value
 	BigIntVal    *big.Int
 	TimeVal      *time.Time
 	ErrorVal     struct{ error }
@@ -178,27 +159,7 @@ type (
 	TypeVal      Flag
 )
 
-func (NilVal) Flag() Flag         { return Nil.Flag() }
-func (v BoolVal) Flag() Flag      { return Bool.Flag() }
-func (v IntVal) Flag() Flag       { return Int.Flag() }
-func (v Int8Val) Flag() Flag      { return Int8.Flag() }
-func (v Int16Val) Flag() Flag     { return Int16.Flag() }
-func (v Int32Val) Flag() Flag     { return Int32.Flag() }
-func (v UintVal) Flag() Flag      { return Uint.Flag() }
-func (v Uint16Val) Flag() Flag    { return Uint16.Flag() }
-func (v Uint32Val) Flag() Flag    { return Uint32.Flag() }
-func (v FloatVal) Flag() Flag     { return Float.Flag() }
-func (v Flt32Val) Flag() Flag     { return Flt32.Flag() }
-func (v ComplexVal) Flag() Flag   { return Complex.Flag() }
-func (v Complex64Val) Flag() Flag { return Complex64.Flag() }
-func (v ByteVal) Flag() Flag      { return Byte.Flag() }
-func (v BytesVal) Flag() Flag     { return Bytes.Flag() }
-func (v StringVal) Flag() Flag    { return String.Flag() }
-func (v SliceVal) Flag() Flag     { return Slice.Flag() }
-func (v ErrorVal) Flag() Flag     { return Error.Flag() }
-func (v TypeVal) Flag() Flag      { return MetaType.Flag() }
-
-func (NilVal) Type() Type         { return Nil.Type() }
+func (NilVal) Type() Type         { return Nil }
 func (v BoolVal) Type() Type      { return Bool.Type() }
 func (v IntVal) Type() Type       { return Int.Type() }
 func (v Int8Val) Type() Type      { return Int8.Type() }
@@ -213,83 +174,8 @@ func (v Complex64Val) Type() Type { return Complex64.Type() }
 func (v ByteVal) Type() Type      { return Byte.Type() }
 func (v BytesVal) Type() Type     { return Bytes.Type() }
 func (v StringVal) Type() Type    { return String.Type() }
-func (v SliceVal) Type() Type     { return Slice.Type() }
 func (v ErrorVal) Type() Type     { return Error.Type() }
 func (v TypeVal) Type() Type      { return MetaType.Type() }
-
-///// methods implementing the value interface
-func (n NilVal) Ref() interface{} { return &n }
-func (n NilVal) Value() Value     { return n }
-func (n NilVal) Copy() Value      { return NilVal(struct{}{}) }
-
-func (v BoolVal) Ref() interface{} { return &v }
-func (v BoolVal) Value() Value     { return v }
-func (v BoolVal) Copy() Value      { var r BoolVal = v; return r }
-
-func (v IntVal) Ref() interface{} { return &v }
-func (v IntVal) Value() Value     { return v }
-func (v IntVal) Copy() Value      { var r IntVal = v; return r }
-
-func (v Int8Val) Value() Value     { return v }
-func (v Int8Val) Ref() interface{} { return &v }
-func (v Int8Val) Copy() Value      { var r Int8Val = v; return r }
-
-func (v Int16Val) Value() Value     { return v }
-func (v Int16Val) Ref() interface{} { return &v }
-func (v Int16Val) Copy() Value      { var r Int16Val = v; return r }
-
-func (v Int32Val) Value() Value     { return v }
-func (v Int32Val) Ref() interface{} { return &v }
-func (v Int32Val) Copy() Value      { var r Int32Val = v; return r }
-
-func (v UintVal) Value() Value     { return v }
-func (v UintVal) Ref() interface{} { return &v }
-func (v UintVal) Copy() Value      { var r UintVal = v; return r }
-
-func (v Uint16Val) Value() Value     { return v }
-func (v Uint16Val) Ref() interface{} { return &v }
-func (v Uint16Val) Copy() Value      { var r Uint16Val = v; return r }
-
-func (v Uint32Val) Value() Value     { return v }
-func (v Uint32Val) Ref() interface{} { return &v }
-func (v Uint32Val) Copy() Value      { var r Uint32Val = v; return r }
-
-func (v FloatVal) Value() Value     { return v }
-func (v FloatVal) Ref() interface{} { return &v }
-func (v FloatVal) Copy() Value      { var r FloatVal = v; return r }
-
-func (v Flt32Val) Value() Value     { return v }
-func (v Flt32Val) Ref() interface{} { return &v }
-func (v Flt32Val) Type() Type       { return Flt32.Type() }
-func (v Flt32Val) Copy() Value      { var r Flt32Val = v; return r }
-
-func (v ComplexVal) Value() Value     { return v }
-func (v ComplexVal) Ref() interface{} { return &v }
-func (v ComplexVal) Copy() Value      { var r ComplexVal = v; return r }
-
-func (v Complex64Val) Value() Value     { return v }
-func (v Complex64Val) Ref() interface{} { return &v }
-func (v Complex64Val) Copy() Value      { var r Complex64Val = v; return r }
-
-func (v ByteVal) Value() Value     { return v }
-func (v ByteVal) Ref() interface{} { return &v }
-func (v ByteVal) Copy() Value      { var r ByteVal = v; return r }
-
-func (v BytesVal) Value() Value     { return v }
-func (v BytesVal) Ref() interface{} { return &v }
-func (v BytesVal) Copy() Value      { var r BytesVal = v; return r }
-
-func (v StringVal) Value() Value     { return v }
-func (v StringVal) Ref() interface{} { return &v }
-func (v StringVal) Copy() Value      { var r StringVal = v; return r }
-
-func (v SliceVal) Value() Value     { return v }
-func (v SliceVal) Ref() interface{} { return &v }
-func (v SliceVal) Copy() Value      { var ret = []Value{}; return SliceVal(append(ret, v)) }
-
-func (v ErrorVal) Value() Value     { return v }
-func (v ErrorVal) Ref() interface{} { return &v }
-func (v ErrorVal) Copy() Value      { var r ErrorVal = v; return r }
 
 ///// STRING (CONVERSION) METHODS ///////
 func (NilVal) String() string      { return Nil.String() }
@@ -306,16 +192,9 @@ func (v Flt32Val) String() string  { return strconv.FormatFloat(float64(v), 'G',
 func (v ByteVal) String() string   { return strconv.Itoa(int(v)) }
 func (v BytesVal) String() string  { return string(v) }
 func (v StringVal) String() string { return string(v) }
-func (v SliceVal) String() string {
-	var str string
-	for i, v := range v {
-		str = str + "\t" + string(i) + ": " + v.String() + "\n"
-	}
-	return str
-}
-func (v StringVal) Key() string   { return string(v) }
-func (v ErrorVal) String() string { return v.error.Error() }
-func (v ErrorVal) Error() error   { return v.error }
+func (v StringVal) Key() string    { return string(v) }
+func (v ErrorVal) String() string  { return v.error.Error() }
+func (v ErrorVal) Error() error    { return v.error }
 func (v ComplexVal) String() string {
 	return strconv.FormatFloat(float64(real(v)), 'G', -1, 64) + " + " +
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 64) + "i"
@@ -427,3 +306,73 @@ func (v BoolVal) Uint() UintVal {
 	}
 	return UintVal(0)
 }
+
+///// methods implementing the value interface
+func (n NilVal) Ref() interface{} { return &n }
+func (n NilVal) Value() Value     { return n }
+func (n NilVal) Copy() Value      { return struct{}{} }
+
+func (v BoolVal) Ref() interface{} { return &v }
+func (v BoolVal) Value() Value     { return v }
+func (v BoolVal) Copy() Value      { var r BoolVal = v; return r }
+
+func (v IntVal) Ref() interface{} { return &v }
+func (v IntVal) Value() Value     { return v }
+func (v IntVal) Copy() Value      { var r IntVal = v; return r }
+
+func (v Int8Val) Value() Value     { return v }
+func (v Int8Val) Ref() interface{} { return &v }
+func (v Int8Val) Copy() Value      { var r Int8Val = v; return r }
+
+func (v Int16Val) Value() Value     { return v }
+func (v Int16Val) Ref() interface{} { return &v }
+func (v Int16Val) Copy() Value      { var r Int16Val = v; return r }
+
+func (v Int32Val) Value() Value     { return v }
+func (v Int32Val) Ref() interface{} { return &v }
+func (v Int32Val) Copy() Value      { var r Int32Val = v; return r }
+
+func (v UintVal) Value() Value     { return v }
+func (v UintVal) Ref() interface{} { return &v }
+func (v UintVal) Copy() Value      { var r UintVal = v; return r }
+
+func (v Uint16Val) Value() Value     { return v }
+func (v Uint16Val) Ref() interface{} { return &v }
+func (v Uint16Val) Copy() Value      { var r Uint16Val = v; return r }
+
+func (v Uint32Val) Value() Value     { return v }
+func (v Uint32Val) Ref() interface{} { return &v }
+func (v Uint32Val) Copy() Value      { var r Uint32Val = v; return r }
+
+func (v FloatVal) Value() Value     { return v }
+func (v FloatVal) Ref() interface{} { return &v }
+func (v FloatVal) Copy() Value      { var r FloatVal = v; return r }
+
+func (v Flt32Val) Value() Value     { return v }
+func (v Flt32Val) Ref() interface{} { return &v }
+func (v Flt32Val) Type() Type       { return Flt32.Type() }
+func (v Flt32Val) Copy() Value      { var r Flt32Val = v; return r }
+
+func (v ComplexVal) Value() Value     { return v }
+func (v ComplexVal) Ref() interface{} { return &v }
+func (v ComplexVal) Copy() Value      { var r ComplexVal = v; return r }
+
+func (v Complex64Val) Value() Value     { return v }
+func (v Complex64Val) Ref() interface{} { return &v }
+func (v Complex64Val) Copy() Value      { var r Complex64Val = v; return r }
+
+func (v ByteVal) Value() Value     { return v }
+func (v ByteVal) Ref() interface{} { return &v }
+func (v ByteVal) Copy() Value      { var r ByteVal = v; return r }
+
+func (v BytesVal) Value() Value     { return v }
+func (v BytesVal) Ref() interface{} { return &v }
+func (v BytesVal) Copy() Value      { var r BytesVal = v; return r }
+
+func (v StringVal) Value() Value     { return v }
+func (v StringVal) Ref() interface{} { return &v }
+func (v StringVal) Copy() Value      { var r StringVal = v; return r }
+
+func (v ErrorVal) Value() Value     { return v }
+func (v ErrorVal) Ref() interface{} { return &v }
+func (v ErrorVal) Copy() Value      { var r ErrorVal = v; return r }
