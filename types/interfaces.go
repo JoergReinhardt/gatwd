@@ -26,10 +26,15 @@ type Type interface {
 // the core data types implement it. That selfreferentiality provides flexibility.
 type Value interface {
 	Typed
-	Value() Value
-	Ref() interface{}
+	Value() interface{}
 	String() string
 	Copy() Value
+	Ref() interface{}
+	DeRef() Value
+}
+
+type Pointer interface {
+	DeRef() Value
 }
 
 //// LIST COMPOSITIONS ////
@@ -42,8 +47,8 @@ type IdxCollected interface {
 	OrdinalSetter
 }
 type DoubleEnded interface {
-	First
-	Last
+	Topped
+	Bottomed
 }
 type Listed interface {
 	IdxCollected // Get | Set
@@ -56,7 +61,7 @@ type MultiTypedList interface {
 
 ///// LINKED ELEMENTS /////
 type Consumeable interface {
-	Decap() (Value, Tupled)
+	Decap() (Value, Tupular)
 	Head() Value
 	Tail() Value
 }
@@ -75,15 +80,15 @@ type Attributeable interface {
 	Values() []Value
 }
 type AttrBySlice interface {
-	Elements() []Cell // Cell[OrdAttr,Value]
+	Elements() []Cellular // Cell[OrdAttr,Value]
 }
 type AttrByKey interface {
 	Keys() []Attribute
-	Fields() []Cell // Cell[StrAttr,Value]
+	Fields() []Cellular // Cell[StrAttr,Value]
 }
 type AttrByType interface {
 	Attr() []Attribute
-	Members() []Cell // Cell[StrAttr,Value]
+	Members() []Cellular // Cell[StrAttr,Value]
 }
 type Attribute interface {
 	Attr() Value
@@ -113,20 +118,20 @@ type Getter interface {
 type Setter interface {
 	Set(Attribute, Value)
 }
-type LiFo interface {
+type Stacked interface {
 	Pull() Value
 	Put(Value)
 	Append(...Value)
 }
-type FiFo interface {
+type Queued interface {
 	Pop() Value
 	Push(Value)
 	Add(...Value)
 }
-type First interface {
+type Topped interface {
 	First() Value
 }
-type Last interface {
+type Bottomed interface {
 	Last() Value
 }
 type Referenced interface {
@@ -134,13 +139,13 @@ type Referenced interface {
 	Next() Value
 }
 type TailReferenced interface {
-	Tail() Tupled
+	Tail() Tupular
 }
 type HeadReferenced interface {
 	Head() Value
 }
 type DoublyReferenced interface {
-	Reversedious() Element
+	Reversedious() Elementar
 }
 type Stackable interface {
 	Push(Value)
@@ -167,17 +172,17 @@ type Iterable interface {
 }
 
 //////////////////////////
-type Element interface {
+type Elementar interface {
 	Voidable // aka Empty() bool
 	Arity    // aka Unary() bool
 	Value
 }
-type Cell interface {
+type Cellular interface {
 	Attribute // accessor attribute
 	Value
 }
-type Tupled interface {
-	Element
+type Tupular interface {
+	Elementar
 	Consumeable
 }
 type Nodular interface {

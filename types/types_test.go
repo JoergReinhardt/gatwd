@@ -20,8 +20,8 @@ func TestTypeStringer(t *testing.T) {
 	fmt.Println(Flag(Unary).String())
 }
 func TestMutability(t *testing.T) {
-	a := U(true).(*BoolVal)
-	b := V(false).(BoolVal)
+	a := U(true).(*boolVal)
+	b := Val(false).(boolVal)
 	if *a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
