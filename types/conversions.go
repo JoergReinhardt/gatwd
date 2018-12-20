@@ -3,6 +3,7 @@ package types
 import (
 	"math/bits"
 	"strconv"
+	"time"
 )
 
 ///// TYPE CONVERSION //////
@@ -18,11 +19,13 @@ func (v uintVal) String() string   { return strconv.Itoa(int(v)) }
 func (v uint16Val) String() string { return strconv.Itoa(int(v)) }
 func (v uint32Val) String() string { return strconv.Itoa(int(v)) }
 func (v byteVal) String() string   { return strconv.Itoa(int(v)) }
+func (v timeVal) String() string   { return time.Time(v).String() }
+func (v duraVal) String() string   { return time.Duration(v).String() }
 func (v bytesVal) String() string  { return string(v) }
 func (v strVal) String() string    { return string(v) }
 func (v strVal) Key() string       { return string(v) }
-func (v errorVal) String() string  { return v.error.Error() }
-func (v errorVal) Error() error    { return v.error }
+func (v errorVal) String() string  { return v.v.Error() }
+func (v errorVal) Error() error    { return v.v }
 func (v fltVal) String() string {
 	return strconv.FormatFloat(float64(v), 'G', -1, 64)
 }
@@ -31,8 +34,11 @@ func (v flt32Val) String() string {
 }
 func (v slice) String() string {
 	var str string
-	for i, v := range v {
-		str = str + "\t" + string(i) + ": " + v.String() + "\n"
+	for i, val := range v.Slice() {
+		str = str + val.String()
+		if i < v.Len()-1 {
+			str = str + ", "
+		}
 	}
 	return str
 }
@@ -53,19 +59,19 @@ func (s collection) String() (str string) {
 func flagSet(f Typed, b uint) bool {
 	var u uint
 	u = 1 << b
-	if _, ok := Type(Flag(ValType(u))).(Flag); ok {
+	if _, ok := Typed(flag(ValType(u))).(flag); ok {
 		return true
 	}
 	return false
 }
-func (v Flag) String() string {
-	if bits.OnesCount(v.Uint()) == 1 {
-		return v.Type().String()
+func (v flag) String() string {
+	if bits.OnesCount(v.uint()) == 1 {
+		return ValType(v).String()
 	}
 	var str string
 	var u, i uint
-	for u < uint(MAX_VALUE_TYPE) {
-		if v.Flag().Match(ValType(u)) {
+	for u < uint(NATIVES) {
+		if v.Type().match(ValType(u)) {
 			str = str + ValType(u).String() + "\n"
 		}
 		i = i + 1

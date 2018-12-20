@@ -5,11 +5,11 @@ func newSlice(val ...Value) *collection {
 	l = append(l, val...)
 	return &collection{l}
 }
-func newTypedSlice(t Type, val ...Value) *flatTypedSlice {
+func newTypedSlice(t Typed, val ...Value) *flatTypedSlice {
 	for _, v := range val {
-		t = t.Flag().Concat(v.Flag())
+		t = t.Type().concat(v.Type())
 	}
-	return &flatTypedSlice{t.Flag(), newSlice(val...)}
+	return &flatTypedSlice{t.Type(), newSlice(val...)}
 }
 func guardArity(arity int, v ...Value) []Value {
 	return v[:arity]
@@ -141,42 +141,42 @@ func (s *collection) Insert(i int, v Value) {
 func (s *collection) InsertVariadic(i int, v ...Value) {
 	(*s).s = append((*s).s[:i], append(v, s.s[i:]...)...)
 }
-func (s collection) AttrType() Flag { return Int.Flag() }
+func (s collection) AttrType() flag { return Int.Type() }
 
 //// typed slice embeds slice and only needs its own methods implemented
 // internal typed slice instance, embeds the base slice and adds type flag to
 // keep track of content types
 type flatTypedSlice struct {
-	t Flag
+	t flag
 	*collection
 }
 
-func (s flatTypedSlice) UnaryTyped() bool    { return s.t.Match(Unary) }
-func (s *flatTypedSlice) AttrType() Flag     { return s.t.Flag() }
+func (s flatTypedSlice) UnaryTyped() bool    { return s.t.match(Unary) }
+func (s *flatTypedSlice) AttrType() flag     { return s.t.Type() }
 func (s *flatTypedSlice) Get(i int) Value    { return s.s[i] }
 func (s *flatTypedSlice) Set(i int, v Value) { (*s).s[i] = v }
 func (s *flatTypedSlice) Put(v Value) {
-	(*s).t = s.t.Concat(v.Flag())
+	(*s).t = s.t.concat(v.Type())
 	(*s).s = append(s.s, v)
 }
 func (s *flatTypedSlice) Append(v ...Value) {
 	(*s).collection.Append(v...)
 	for _, val := range v {
-		(*s).t = s.t.Concat(val.Type())
+		(*s).t = s.t.concat(val.Type())
 	}
 }
 func (s *flatTypedSlice) Push(v Value) {
-	(*s).t = s.t.Concat(v.Type())
+	(*s).t = s.t.concat(v.Type())
 	(*s).collection.Push(v)
 }
 func (s *flatTypedSlice) Add(v ...Value) {
 	for _, val := range v {
-		(*s).t = s.t.Concat(val.Type())
+		(*s).t = s.t.concat(val.Type())
 	}
 	(*s).collection.Add(v...)
 }
 func (s flatTypedSlice) MultiTyped() bool {
-	if s.t.Flag().Count() > 1 {
+	if s.t.Type().count() > 1 {
 		return true
 	}
 	return false

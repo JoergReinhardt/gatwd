@@ -3,25 +3,26 @@ package types
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestTypeStringer(t *testing.T) {
 	var str string
 	var u uint
 	var i uint
-	for u < uint(MAX_VALUE_TYPE) {
-		if Flag(Unary).Match(ValType(u)) {
+	for u < uint(NATIVES) {
+		if flag(Unary).match(ValType(u)) {
 			str = str + ValType(u).String() + "\n"
 		}
 		i = i + 1
 		u = uint(1) << i
 	}
 	fmt.Println(str)
-	fmt.Println(Flag(Unary).String())
+	fmt.Println(flag(Unary).String())
 }
 func TestMutability(t *testing.T) {
-	a := U(true).(*boolVal)
-	b := Val(false).(boolVal)
+	a := Make(true).(boolVal).Ref().(*boolVal)
+	b := Make(false).(boolVal)
 	if *a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -31,20 +32,21 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestTypeAllocation(t *testing.T) {
-	//var output = []string{}
 	s0 := newSlice(
-		U(true),
-		U(1),
-		U(int8(8)),
-		U(int16(16)),
-		U(int32(32)),
-		U(float32(32.16)),
-		U(float64(64.64)),
-		U(complex64(float32(32))),
-		U(complex128(float64(1.6))),
-		U(byte(3)),
-		U([]byte("test")),
-		U("test"))
+		New(true),
+		New(1),
+		New(1, 2, 3, 4, 5, 6, 7),
+		New(int8(8)),
+		New(int16(16)),
+		New(int32(32)),
+		New(float32(32.16)),
+		New(float64(64.64)),
+		New(complex64(float32(32))),
+		New(complex128(float64(1.6))),
+		New(byte(3)),
+		New(time.Now()),
+		New([]byte("test")),
+		New("test"))
 
 	s1 := newSlice()
 
@@ -52,4 +54,9 @@ func TestTypeAllocation(t *testing.T) {
 }
 
 func TestCellType(t *testing.T) {
+}
+func TestTimeType(t *testing.T) {
+	ts := time.Now()
+	v := timeVal(ts)
+	fmt.Printf("time stamp: %s\n", v)
 }

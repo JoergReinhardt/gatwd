@@ -7,18 +7,11 @@ package types
 // comprehendible to the library types are typesafe, but also intended to be
 // automagicly inferred whenever that's possible. a bitflag is providing
 // composable type identificators.
-type Typed interface {
-	Type() Type
-	Flag() Flag
-}
 
 // typemarkers for buildtin and user defined typed need to implement the type
 // interface
-type Type interface {
-	Uint() uint
-	String() string
-	Type() Type
-	Flag() Flag
+type Typed interface {
+	Type() flag
 }
 
 // VALUE PROPERTYS //
@@ -26,15 +19,11 @@ type Type interface {
 // the core data types implement it. That selfreferentiality provides flexibility.
 type Value interface {
 	Typed
-	Value() interface{}
-	String() string
+	Eval() Value
+	Ref() Value
+	DeRef() Value
 	Copy() Value
-	Ref() interface{}
-	DeRef() Value
-}
-
-type Pointer interface {
-	DeRef() Value
+	String() string
 }
 
 //// LIST COMPOSITIONS ////
@@ -73,7 +62,7 @@ type Voidable interface {
 type Sliced interface {
 	Value
 	Len() int
-	Slice() []Value
+	Values() []Value
 }
 type Attributeable interface {
 	Attributes() []Attribute
@@ -92,7 +81,7 @@ type AttrByType interface {
 }
 type Attribute interface {
 	Attr() Value
-	AttrType() Type
+	AttrType() Typed
 }
 type OrdinalAttr interface {
 	Idx() int
@@ -211,7 +200,7 @@ type LeaveNodule interface {
 //////////////////////////
 // input item data interface
 type Item interface {
-	ItemType() Type
+	ItemType() Typed
 	Idx() int
 	Value() Value
 }
@@ -229,14 +218,14 @@ type Queue interface {
 type State interface {
 	Queue
 	Run()
-	ItemType() Type
+	ItemType() Typed
 	State(string) StateFn
 }
 
 // takes a state and advances it. returns the next state fn to run
 type StateFn func(State) StateFn
 
-func (p StateFn) Type() Type { return StateFunc.Type() }
+func (p StateFn) Type() Typed { return StateFunc.Type() }
 
 // a thing that can be changed by calling the args method passing a parameter
 // function. the parameter function gets called with the parametric instance as
@@ -255,11 +244,11 @@ const (
 
 type FnType uint
 
-func (t FnType) Type() Type { return t.Type() }
-func (t FnType) Flag() Flag { return Flag(t) }
+func (t FnType) Type() Typed { return t.Type() }
+func (t FnType) Flag() flag  { return flag(t) }
 
 // function to change parameters and return the changed instance accompanied by
 // the new ParamFn closing over the replaced arguments
 type ParamFn func(Parametric) (Parametric, ParamFn)
 
-func (p ParamFn) Type() Type { return ParamFunc.Type() }
+func (p ParamFn) Type() Typed { return ParamFunc.Type() }
