@@ -27,10 +27,10 @@ func nestSlice(arity int, v []Value) [][]Value {
 // VALUE
 
 // ACCESSABLE SLICE
-func (s collection) get(i int) Value                  { return s.s[i] }
-func (s collection) Get(attr OrdinalAttr) Value       { return s.s[attr.Idx()] }
-func (s *collection) set(i int, v Value)              { (*s).s[i] = v }
-func (s *collection) Set(attr OrdinalAttr, val Value) { (*s).s[attr.Idx()] = val }
+func (s collection) get(i int) Value              { return s.s[i] }
+func (s collection) Get(attr IndexAt) Value       { return s.s[attr.Idx()] }
+func (s *collection) set(i int, v Value)          { (*s).s[i] = v }
+func (s *collection) Set(attr IndexAt, val Value) { (*s).s[attr.Idx()] = val }
 
 // ITERATOR
 func (s collection) Next() (v Value, i Iterable) {
@@ -151,7 +151,7 @@ type flatTypedSlice struct {
 	*collection
 }
 
-func (s flatTypedSlice) UnaryTyped() bool    { return s.t.match(Unary) }
+func (s flatTypedSlice) UnaryTyped() bool    { return s.t.match(Unarys) }
 func (s *flatTypedSlice) AttrType() flag     { return s.t.Type() }
 func (s *flatTypedSlice) Get(i int) Value    { return s.s[i] }
 func (s *flatTypedSlice) Set(i int, v Value) { (*s).s[i] = v }

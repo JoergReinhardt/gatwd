@@ -1,11 +1,11 @@
 package types
 
 // ACCESSABLE SLICE
-func get(s slice, i int) Value            { return s[i] }
-func Get(s slice, attr OrdinalAttr) Value { return s[attr.Idx()] }
-func set(s slice, i int, v Value)         { s[i] = v }
+func get(s slice, i int) Value        { return s[i] }
+func Get(s slice, attr IndexAt) Value { return s[attr.Idx()] }
+func set(s slice, i int, v Value)     { s[i] = v }
 
-func Set(s slice, attr OrdinalAttr, val Value) { s[attr.Idx()] = val }
+func Set(s slice, attr IndexAt, val Value) { s[attr.Idx()] = val }
 
 // ITERATOR
 func Next(s slice) (v Value, i Iterable) {

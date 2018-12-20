@@ -10,9 +10,9 @@ package types
 
 // typemarkers for buildtin and user defined typed need to implement the type
 // interface
-type TypedFn Instance
+type typedFn Instance
 
-func (t TypedFn) Type() flag { return Typed(t()).Type() }
+func (t typedFn) Type() flag { return Typed(t()).Type() }
 
 type Typed interface {
 	Type() flag
@@ -31,42 +31,43 @@ type Value interface {
 	String() string
 }
 
-type DataFn Instance
+type dataFn Instance
 
-func (t DataFn) Eval() Value    { return Value(t()).Eval() }
-func (t DataFn) Ref() Value     { return Value(t()).Ref() }
-func (t DataFn) DeRef() Value   { return Value(t()).DeRef() }
-func (t DataFn) Copy() Value    { return Value(t()).Copy() }
-func (t DataFn) String() string { return Value(t()).String() }
+func (t dataFn) Eval() Value    { return Value(t()).Eval() }
+func (t dataFn) Ref() Value     { return Value(t()).Ref() }
+func (t dataFn) DeRef() Value   { return Value(t()).DeRef() }
+func (t dataFn) Copy() Value    { return Value(t()).Copy() }
+func (t dataFn) String() string { return Value(t()).String() }
 
 ///// LINKED ELEMENTS /////
 type Voidable interface {
 	Empty() bool
 }
-type Sliced interface {
+type Chained interface {
 	Value
 	Len() int
 	Values() []Value
 }
-type SliceFn Instance
+type chainFn Instance
 
-func (s SliceFn) Len() int        { return s().(Sliced).Len() }
-func (s SliceFn) Empty() bool     { return s().(Voidable).Empty() }
-func (s SliceFn) Values() []Value { return s().(Sliced).Values() }
+func (s chainFn) Len() int        { return s().(Chained).Len() }
+func (s chainFn) Empty() bool     { return s().(Voidable).Empty() }
+func (s chainFn) Values() []Value { return s().(Chained).Values() }
 
-type Consumeable interface {
+type Consumed interface {
 	Decap() (Value, Tupular)
 	Head() Value
 	Tail() Value
 }
-type ListFn Instance
+type recursiveListFn recursiveFn
+type recursiveFn Instance
 
-func (s ListFn) Decap() (Value, Tupular) { return s().(Consumeable).Decap() }
-func (s ListFn) Head() Value             { return s().(Consumeable).Head() }
-func (s ListFn) Tail() Value             { return s().(Consumeable).Tail() }
+func (s recursiveFn) Decap() (Value, Tupular) { return s().(Consumed).Decap() }
+func (s recursiveFn) Head() Value             { return s().(Consumed).Head() }
+func (s recursiveFn) Tail() Value             { return s().(Consumed).Tail() }
 
 ///// ATTRIBUTE ACCESSORS /////
-type Attributeable interface {
+type Attributed interface {
 	Attributes() []Attribute
 	Values() []Value
 }
@@ -85,23 +86,23 @@ type Attribute interface {
 	Attr() Value
 	AttrType() Typed
 }
-type OrdinalAttr interface {
+type IndexAt interface {
 	Idx() int
 }
-type StringAttr interface {
+type StringAt interface {
 	Key() string
 }
-type OrdinalGetter interface {
-	Get(OrdinalAttr) Value
+type IdxGet interface {
+	Get(IndexAt) Value
 }
-type OrdinalSetter interface {
-	Set(OrdinalAttr, Value)
+type IdxSet interface {
+	Set(IndexAt, Value)
 }
-type StringGetter interface {
-	Get(StringAttr) Value
+type StrGet interface {
+	Get(StringAt) Value
 }
-type StringSetter interface {
-	Set(StringAttr, Value)
+type StrSet interface {
+	Set(StringAt, Value)
 }
 type Getter interface {
 	Get(Attribute) Value
@@ -176,7 +177,7 @@ type Cellular interface {
 }
 type Tupular interface {
 	Elementar
-	Consumeable
+	Consumed
 }
 type Nodular interface {
 	Attribute
@@ -229,11 +230,11 @@ type State interface {
 //// LIST COMPOSITIONS ////
 type Collected interface {
 	Voidable
-	Sliced
+	Chained
 }
 type IdxCollected interface {
-	OrdinalGetter
-	OrdinalSetter
+	IdxGet
+	IdxSet
 }
 type DoubleEnded interface {
 	Topped
@@ -241,7 +242,7 @@ type DoubleEnded interface {
 }
 type Listed interface {
 	IdxCollected // Get | Set
-	Sliced       // Sliced
+	Chained      // Sliced
 }
 type MultiTypedList interface {
 	AttrByType

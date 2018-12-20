@@ -16,11 +16,10 @@ func (v ValType) Type() flag { return flag(v) }
 
 //go:generate stringer -type=ValType
 const (
-	Nil      ValType = 0
-	MetaType ValType = 1
+	Nil  ValType = 0
+	Bool ValType = 1
 	// FLAT VALUES
-	Bool ValType = 1 << iota
-	Int
+	Int ValType = 1 << iota
 	Int8
 	Int16
 	Int32
@@ -43,16 +42,16 @@ const (
 	// "...life is nothing but distribution indifferences in a semi
 	// permeably compartimented solution..." cell's to contain stuff, and
 	// cells  are important, is what i'm saying here!
-	Cell     // general thing to contain things and stuff...
-	Attr     // identitys, arity,  predicates, attribute accessors...
-	Chain    // [Value]
-	List     // ordered, indexed, monotyped values
-	Link     // nodes referencing previous, next node and nested value (possibly nested)
-	DLink    // nodes referencing previous, next node and nested value (possibly nested)
-	AttrList // ordered, indexed, with search/sort attributation
-	UniSet   // unique, monotyped values
-	AttrSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
-	Record   // unique, multityped, attributed, mapped, type declared values
+	Cell   // general thing to contain things and stuff...
+	Attr   // identitys, arity,  predicates, attribute accessors...
+	Chain  // [Value]
+	List   // ordered, indexed, monotyped values
+	Link   // nodes referencing previous, next node and nested value (possibly nested)
+	DLink  // nodes referencing previous, next node and nested value (possibly nested)
+	AtList // ordered, indexed, with search/sort attributation
+	UniSet // unique, monotyped values
+	AtSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
+	Record // unique, multityped, attributed, mapped, type declared values
 	// LINKED COLLECTIONS // (also slice based, but pretend not to)
 	Tuple // references a head value and nest of tail values
 	Node  // node of a tree, or liked list
@@ -60,33 +59,33 @@ const (
 	// FUNCTIONS
 	Function
 	///////////
-	NATIVE
+	NATIVES
 
 	// flat value types
-	Unary = Nil | Bool | Int | Int8 | Int16 | Int32 | Uint | Uint16 |
+	Unarys = Nil | Bool | Int | Int8 | Int16 | Int32 | Uint | Uint16 |
 		Uint32 | Float | Flt32 | Imag | Imag64 | Byte | Bytes | String |
 		Time | Duration | Error
 
 	// combined value types
-	Nary = Ordered | Mapped
+	Narys = Indices | Maps
 
 	// types that come with type constuctors
-	Nullable = Unary | Chain
+	Nullables = Unarys | Chain
 
 	// Slice() []Value
-	Ordered = Chain | List | AttrList
+	Indices = Chain | List | AtList
 
 	// Next() Value
-	Chained = Tuple | Node | Tree
+	Chaines = Tuple | Node | Tree
 
 	// Get(attr) Attribute
-	Mapped = UniSet | AttrSet | Record
+	Maps = UniSet | AtSet | Record
 
 	// higher order types combined from a finite set of other types, defined by a signature
 	SumTypes = Chain | List | UniSet
 
 	// Product Types are combinations of arbitrary other types in arbitrary combination
-	ProductTypes = List | AttrList | AttrSet | Record | Tuple | Node | Tree
+	ProductTypes = List | AtList | AtSet | Record | Tuple | Node | Tree
 )
 
 var HIGH_MASK uint
@@ -97,7 +96,7 @@ func initMasks() {
 	var i, tmp uint
 	for i = 0; i < 64; i++ {
 		tmp = 1 << i
-		if tmp < uint(NATIVE) {
+		if tmp < uint(NATIVES) {
 			nativesCount = int(i) + 2
 			LOW_MASK = LOW_MASK | tmp
 			continue
@@ -156,7 +155,7 @@ func (v timeVal) Type() flag    { return Time.Type() }
 func (v duraVal) Type() flag    { return Duration.Type() }
 func (v slice) Type() flag      { return Chain.Type() }
 func (v errorVal) Type() flag   { return Error.Type() }
-func (s collection) Type() flag { return Ordered.Type() }
+func (s collection) Type() flag { return Indices.Type() }
 
 /// VALUE
 func (v nilVal) Eval() Value     { return v }
@@ -392,7 +391,7 @@ func fsplit(f flag) (left, right flag) {
 	left = frot(
 		f,
 		flen(
-			flag(NATIVE),
+			flag(NATIVES),
 		),
 	)
 	return left, f
@@ -418,11 +417,11 @@ type Constructor func(...Value) Value
 type Instance func() Value
 
 // eight bits to mark type class
-type TypeClass uint8
+type MetaClass uint8
 
 //go:generate stringer -type=TypeClass
 const (
-	metaTypeName TypeClass = 0 + iota
+	metaTypeNamer MetaClass = 0 + iota
 	dataConstructor
 	typeConstructor
 	typeConverter

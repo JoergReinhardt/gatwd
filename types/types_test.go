@@ -12,7 +12,7 @@ func TestBitFlag(t *testing.T) {
 	//fmt.Printf("masks:\n%064b\n%064b\n", h, l)
 	fmt.Printf("masks:\n%064b\n%064b\t%d\n", flag(HIGH_MASK), flag(LOW_MASK), nativesCount)
 
-	f := flag(ProductTypes | SumTypes | Unary | NATIVE)
+	f := flag(ProductTypes | SumTypes | Unarys | NATIVES)
 	fmt.Printf("%064b\n", f)
 	left, right := fsplit(f)
 	fmt.Printf("%064b\n%064b\n", flag(left), flag(right))
@@ -41,15 +41,15 @@ func TestTypeStringer(t *testing.T) {
 	var str string
 	var u uint
 	var i uint
-	for u < uint(NATIVE) {
-		if flag(Unary).match(ValType(u)) {
+	for u < uint(NATIVES) {
+		if flag(Unarys).match(ValType(u)) {
 			str = str + ValType(u).String() + "\n"
 		}
 		i = i + 1
 		u = uint(1) << i
 	}
 	fmt.Println(str)
-	fmt.Println(flag(Unary).String())
+	fmt.Println(flag(Unarys).String())
 }
 func TestMutability(t *testing.T) {
 	a := Make(true).(boolVal).Ref().(*boolVal)
@@ -92,7 +92,7 @@ func TestTimeType(t *testing.T) {
 	fmt.Printf("time stamp: %s\n", v)
 }
 func TestTypeSignature(t *testing.T) {
-	s := flag(NATIVE)
+	s := flag(NATIVES)
 
 	fmt.Printf("highest bit: %d\n", s.most())
 }
