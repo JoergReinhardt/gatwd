@@ -24,11 +24,13 @@ const (
 	Int8
 	Int16
 	Int32
+	BigInt
 	Uint
 	Uint16
 	Uint32
 	Float
 	Flt32
+	BigFlt
 	Imag
 	Imag64
 	Byte
@@ -38,30 +40,27 @@ const (
 	Duration
 	Error
 	// SLICE BASED COLLECTIONS //
-	Attr // identitys, arity,  predicates, attribute accessors...
-	//Cell     // Element to contain other elements
-	Slice      // [Value]
-	List       // ordered, indexed, monotyped values
-	MuliList   // ordered, indexed, multityped values
-	AttrList   // ordered, indexed, with search/sort attributation
-	RecordList // ordered, indexes list of records, search-/sortable by any field
-	UniSet     // unique, monotyped values
-	MuliSet    // unique, attribute mapped, multityped values		 [attr,type,val]
-	AttrSet    // unique, attribute mapped, monotyped values (aka map) [attr,val]
-	Record     // unique, multityped, attributed, mapped, type declared values
+	// "...life is nothing but distribution indifferences in a semi
+	// permeably compartimented solution..." cell's to contain stuff, and
+	// cells  are important, is what i'm saying here!
+	Cell     // general thing to contain things and stuff...
+	Attr     // identitys, arity,  predicates, attribute accessors...
+	Chain    // [Value]
+	List     // ordered, indexed, monotyped values
+	Link     // nodes referencing previous, next node and nested value (possibly nested)
+	DLink    // nodes referencing previous, next node and nested value (possibly nested)
+	AttrList // ordered, indexed, with search/sort attributation
+	UniSet   // unique, monotyped values
+	AttrSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
+	Record   // unique, multityped, attributed, mapped, type declared values
 	// LINKED COLLECTIONS // (also slice based, but pretend not to)
-	ChainedList // nodes referencing next node and value (possibly nested)
-	LinkedList  // nodes referencing previous, next node and nested value (possibly nested)
-	DoubleLink  // nodes referencing previous, next node and nested value (possibly nested)
-	Tuple       // references a head value and nest of tail values
-	Node        // node of a tree, or liked list
-	Tree        // nodes referencing parent, root and a value of contained node(s)
+	Tuple // references a head value and nest of tail values
+	Node  // node of a tree, or liked list
+	Tree  // nodes referencing parent, root and a value of contained node(s)
 	// FUNCTIONS
 	Function
-	// POINTER REFERENCE //
-	Pttr // value guaranueed to contain a pointer to the instance referenced by Value
 	///////////
-	NATIVES
+	NATIVE
 
 	// flat value types
 	Unary = Nil | Bool | Int | Int8 | Int16 | Int32 | Uint | Uint16 |
@@ -69,37 +68,43 @@ const (
 		Time | Duration | Error
 
 	// combined value types
-	Nary = Ordered | Linked | Reversed | Chained | Consumed | Mapped
+	Nary = Ordered | Mapped
 
 	// types that come with type constuctors
-	Nullable = Unary | Slice
+	Nullable = Unary | Chain
 
 	// Slice() []Value
-	Ordered = Slice | List | MuliList | AttrList | RecordList
-
-	// Head() Value
-	Linked = List | MuliList | AttrList | RecordList
-
-	// Reversedious() Value
-	Reversed = DoubleLink
+	Ordered = Chain | List | AttrList
 
 	// Next() Value
-	Chained = ChainedList | LinkedList | DoubleLink | Tuple | Node | Tree
-
-	// Decap() (Value, Tupled)
-	Consumed = Tuple | Node | Tree
+	Chained = Tuple | Node | Tree
 
 	// Get(attr) Attribute
-	Mapped = UniSet | AttrSet | MuliSet | Record
+	Mapped = UniSet | AttrSet | Record
 
 	// higher order types combined from a finite set of other types, defined by a signature
-	SumTypes = Slice | List | UniSet
+	SumTypes = Chain | List | UniSet
 
 	// Product Types are combinations of arbitrary other types in arbitrary combination
-	ProductTypes = List | MuliList | AttrList | RecordList | AttrSet |
-		MuliSet | Record | ChainedList | LinkedList | DoubleLink |
-		Tuple | Node | Tree
+	ProductTypes = List | AttrList | AttrSet | Record | Tuple | Node | Tree
 )
+
+var HIGH_MASK uint
+var LOW_MASK uint
+var nativesCount int
+
+func initMasks() {
+	var i, tmp uint
+	for i = 0; i < 64; i++ {
+		tmp = 1 << i
+		if tmp < uint(NATIVE) {
+			nativesCount = int(i) + 2
+			LOW_MASK = LOW_MASK | tmp
+			continue
+		}
+		HIGH_MASK = HIGH_MASK | tmp
+	}
+}
 
 //////// INTERNAL TYPES /////////////
 type (
@@ -128,93 +133,122 @@ type (
 	attribute  Value
 	slice      []Value
 	collection struct{ s slice }
-	pair       struct {
-		one Value
-		two Value
-	}
-	triple struct {
-		one   Value
-		two   Value
-		three Value
-	}
-	quadruple struct {
-		one   Value
-		two   Value
-		three Value
-		four  Value
-	}
-	quintiple struct {
-		one   Value
-		two   Value
-		three Value
-		four  Value
-		five  Value
-	}
-	sextuple struct {
-		one   Value
-		two   Value
-		three Value
-		four  Value
-		five  Value
-		six   Value
-	}
-	septupel struct {
-		one   Value
-		two   Value
-		three Value
-		four  Value
-		five  Value
-		six   Value
-		seven Value
-	}
-	octuple struct {
-		one   Value
-		two   Value
-		three Value
-		four  Value
-		five  Value
-		six   Value
-		seven Value
-		eight Value
-	}
 )
 
-///// HIGHER ORDER TYPES /////
+/// Type
+func (nilVal) Type() flag       { return Nil.Type() }
+func (v boolVal) Type() flag    { return Bool.Type() }
+func (v intVal) Type() flag     { return Int.Type() }
+func (v int8Val) Type() flag    { return Int8.Type() }
+func (v int16Val) Type() flag   { return Int16.Type() }
+func (v int32Val) Type() flag   { return Int32.Type() }
+func (v uintVal) Type() flag    { return Uint.Type() }
+func (v uint16Val) Type() flag  { return Uint16.Type() }
+func (v uint32Val) Type() flag  { return Uint32.Type() }
+func (v fltVal) Type() flag     { return Float.Type() }
+func (v flt32Val) Type() flag   { return Flt32.Type() }
+func (v imagVal) Type() flag    { return Imag.Type() }
+func (v imag64Val) Type() flag  { return Imag64.Type() }
+func (v byteVal) Type() flag    { return Byte.Type() }
+func (v bytesVal) Type() flag   { return Bytes.Type() }
+func (v strVal) Type() flag     { return String.Type() }
+func (v timeVal) Type() flag    { return Time.Type() }
+func (v duraVal) Type() flag    { return Duration.Type() }
+func (v slice) Type() flag      { return Chain.Type() }
+func (v errorVal) Type() flag   { return Error.Type() }
+func (s collection) Type() flag { return Ordered.Type() }
 
-///// TYPE Flag /////
-func (t flag) Type() flag          { return t }
-func (t flag) Eval() Value         { return t }
-func (t flag) Ref() Value          { return &t }
-func (t flag) DeRef() Value        { inst := t; return inst }
-func (t flag) Copy() Value         { n := t; return n }
-func (t flag) uint() uint          { return uint(t) }
-func (t flag) len() int            { return bits.Len(uint(t)) }
-func (t flag) count() int          { return bits.OnesCount(uint(t)) }
-func (t flag) least() int          { return bits.TrailingZeros(uint(t)) + 1 }
-func (t flag) most() int           { return bits.LeadingZeros(uint(t)) - 1 }
-func (t flag) reverse() flag       { return flag(bits.Reverse(uint(t))) }
-func (t flag) rotate(n int) flag   { return flag(bits.RotateLeft(uint(t), n)) }
-func (t flag) toggle(v Typed) flag { return flag(uint(t) ^ v.Type().uint()) }
-func (t flag) concat(v Typed) flag { return flag(uint(t) | v.Type().uint()) }
-func (t flag) mask(v Typed) flag   { return flag(uint(t) &^ v.Type().uint()) }
-func (t flag) match(v Typed) bool {
-	if t.uint()&v.Type().uint() != 0 {
-		return true
-	}
-	return false
-}
-func (t flag) meta() bool {
-	if t.count() <= 1 {
-		return false
-	}
-	return true
-}
+/// VALUE
+func (v nilVal) Eval() Value     { return v }
+func (v boolVal) Eval() Value    { return v }
+func (v intVal) Eval() Value     { return v }
+func (v int8Val) Eval() Value    { return v }
+func (v int16Val) Eval() Value   { return v }
+func (v int32Val) Eval() Value   { return v }
+func (v uintVal) Eval() Value    { return v }
+func (v uint16Val) Eval() Value  { return v }
+func (v uint32Val) Eval() Value  { return v }
+func (v imagVal) Eval() Value    { return v }
+func (v imag64Val) Eval() Value  { return v }
+func (v flt32Val) Eval() Value   { return v }
+func (v fltVal) Eval() Value     { return v }
+func (v byteVal) Eval() Value    { return v }
+func (v bytesVal) Eval() Value   { return v }
+func (v strVal) Eval() Value     { return v }
+func (v slice) Eval() Value      { return v }
+func (v errorVal) Eval() Value   { return v }
+func (v collection) Eval() Value { return v }
+func (v timeVal) Eval() Value    { return v }
+func (v duraVal) Eval() Value    { return v }
 
-//// TYPE CONSTRUCTOR ////
-type TypeImplementation func(v ...interface{}) Value
-type TypeConstructor func(t ...Typed) Typed
-type Instanciator func(...Value) Value
-type Instance func() Value
+/// REFERENCE
+func (v nilVal) Ref() Value     { return nil }
+func (v boolVal) Ref() Value    { return &v }
+func (v intVal) Ref() Value     { return &v }
+func (v int8Val) Ref() Value    { return &v }
+func (v int16Val) Ref() Value   { return &v }
+func (v int32Val) Ref() Value   { return &v }
+func (v uintVal) Ref() Value    { return &v }
+func (v uint16Val) Ref() Value  { return &v }
+func (v uint32Val) Ref() Value  { return &v }
+func (v fltVal) Ref() Value     { return &v }
+func (v flt32Val) Ref() Value   { return &v }
+func (v imagVal) Ref() Value    { return &v }
+func (v imag64Val) Ref() Value  { return &v }
+func (v byteVal) Ref() Value    { return &v }
+func (v bytesVal) Ref() Value   { return &v }
+func (v strVal) Ref() Value     { return &v }
+func (v slice) Ref() Value      { return &v }
+func (v errorVal) Ref() Value   { return &v }
+func (v collection) Ref() Value { return &v }
+func (v timeVal) Ref() Value    { return &v }
+func (v duraVal) Ref() Value    { return &v }
+
+/// DEREFERENCE
+func (v nilVal) DeRef() Value     { return nil }
+func (v boolVal) DeRef() Value    { inst := *(v.Eval().(*boolVal)); return inst }
+func (v intVal) DeRef() Value     { inst := *(v.Eval().(*intVal)); return inst }
+func (v int16Val) DeRef() Value   { inst := *(v.Eval().(*int16Val)); return inst }
+func (v int8Val) DeRef() Value    { inst := *(v.Eval().(*int8Val)); return inst }
+func (v int32Val) DeRef() Value   { inst := *(v.Eval().(*int32Val)); return inst }
+func (v uintVal) DeRef() Value    { inst := *(v.Eval().(*uintVal)); return inst }
+func (v uint16Val) DeRef() Value  { inst := *(v.Eval().(*uint16Val)); return inst }
+func (v uint32Val) DeRef() Value  { inst := *(v.Eval().(*uint32Val)); return inst }
+func (v fltVal) DeRef() Value     { inst := *(v.Eval().(*fltVal)); return inst }
+func (v flt32Val) DeRef() Value   { inst := *(v.Eval().(*flt32Val)); return inst }
+func (v imagVal) DeRef() Value    { inst := *(v.Eval().(*imagVal)); return inst }
+func (v imag64Val) DeRef() Value  { inst := *(v.Eval().(*imag64Val)); return inst }
+func (v byteVal) DeRef() Value    { inst := *(v.Eval().(*byteVal)); return inst }
+func (v bytesVal) DeRef() Value   { inst := *(v.Eval().(*bytesVal)); return inst }
+func (v strVal) DeRef() Value     { inst := *(v.Eval().(*strVal)); return inst }
+func (v timeVal) DeRef() Value    { inst := *(v.Eval().(*timeVal)); return inst }
+func (v duraVal) DeRef() Value    { inst := *(v.Eval().(*duraVal)); return inst }
+func (v slice) DeRef() Value      { inst := *(v.Eval().(*slice)); return inst }
+func (v errorVal) DeRef() Value   { inst := *(v.Eval().(*errorVal)); return inst }
+func (v collection) DeRef() Value { inst := *(v.Eval().(*collection)); return inst }
+
+/// COPY
+func (v int32Val) Copy() Value       { var r int32Val = v; return r }
+func (v int16Val) Copy() Value       { var r int16Val = v; return r }
+func (v int8Val) Copy() Value        { var r int8Val = v; return r }
+func (v intVal) Copy() Value         { var r intVal = v; return r }
+func (n nilVal) Copy() Value         { return nilVal(struct{}{}) }
+func (v fltVal) Copy() Value         { var r fltVal = v; return r }
+func (v uint32Val) Copy() Value      { var r uint32Val = v; return r }
+func (v uint16Val) Copy() Value      { var r uint16Val = v; return r }
+func (v uintVal) Copy() Value        { var r uintVal = v; return r }
+func (v boolVal) Copy() Value        { var r boolVal = v; return r }
+func (v flt32Val) Copy() Value       { var r flt32Val = v; return r }
+func (v imagVal) Copy() Value        { var r imagVal = v; return r }
+func (v imag64Val) Copy() Value      { var r imag64Val = v; return r }
+func (v byteVal) Copy() Value        { var r byteVal = v; return r }
+func (v bytesVal) Copy() Value       { var r bytesVal = v; return r }
+func (v strVal) Copy() Value         { var r strVal = v; return r }
+func (v timeVal) Copy() Value        { var r timeVal = v; return r }
+func (v duraVal) Copy() Value        { var r duraVal = v; return r }
+func (v slice) Copy() Value          { var ret = []Value{}; return slice(append(ret, v)) }
+func (v errorVal) Copy() Value       { var r errorVal = v; return r }
+func (s collection) Copy() (v Value) { return collection{s.s.Copy().(slice)} }
 
 func New(vals ...interface{}) (rval Value) {
 	sli := make([]Value, 0, len(vals))
@@ -310,7 +344,7 @@ func newNull(t Typed) (val Value) {
 		var b []byte = []byte{}
 		return Make(b)
 	case String.Type().match(t):
-		s := ""
+		s := " "
 		return Make(s)
 	case Error.Type().match(t):
 		var e error = fmt.Errorf("")
@@ -320,117 +354,119 @@ func newNull(t Typed) (val Value) {
 	return val
 }
 
-/// Type
-func (nilVal) Type() flag       { return Nil.Type() }
-func (v boolVal) Type() flag    { return Bool.Type() }
-func (v intVal) Type() flag     { return Int.Type() }
-func (v int8Val) Type() flag    { return Int8.Type() }
-func (v int16Val) Type() flag   { return Int16.Type() }
-func (v int32Val) Type() flag   { return Int32.Type() }
-func (v uintVal) Type() flag    { return Uint.Type() }
-func (v uint16Val) Type() flag  { return Uint16.Type() }
-func (v uint32Val) Type() flag  { return Uint32.Type() }
-func (v fltVal) Type() flag     { return Float.Type() }
-func (v flt32Val) Type() flag   { return Flt32.Type() }
-func (v imagVal) Type() flag    { return Imag.Type() }
-func (v imag64Val) Type() flag  { return Imag64.Type() }
-func (v byteVal) Type() flag    { return Byte.Type() }
-func (v bytesVal) Type() flag   { return Bytes.Type() }
-func (v strVal) Type() flag     { return String.Type() }
-func (v timeVal) Type() flag    { return Time.Type() }
-func (v duraVal) Type() flag    { return Duration.Type() }
-func (v slice) Type() flag      { return Slice.Type() }
-func (v errorVal) Type() flag   { return Error.Type() }
-func (s collection) Type() flag { return Ordered.Type() }
+//// BOUND TYPE FLAG METHODS ////
+func (t flag) uint() uint          { return fuint(t) }
+func (t flag) len() int            { return flen(t) }
+func (t flag) count() int          { return fcount(t) }
+func (t flag) least() int          { return fleast(t) }
+func (t flag) most() int           { return fmost(t) }
+func (t flag) reverse() flag       { return frev(t) }
+func (t flag) rotate(n int) flag   { return frot(t, n) }
+func (t flag) toggle(v Typed) flag { return ftog(t, v) }
+func (t flag) concat(v Typed) flag { return fconc(t, v) }
+func (t flag) mask(v Typed) flag   { return fmask(t, v) }
+func (t flag) match(v Typed) bool  { return fmatch(t, v) }
+func (t flag) meta() bool          { return fmeta(t) }
 
-/// VALUE
-func (v nilVal) Eval() Value     { return v }
-func (v boolVal) Eval() Value    { return v }
-func (v intVal) Eval() Value     { return v }
-func (v int8Val) Eval() Value    { return v }
-func (v int16Val) Eval() Value   { return v }
-func (v int32Val) Eval() Value   { return v }
-func (v uintVal) Eval() Value    { return v }
-func (v uint16Val) Eval() Value  { return v }
-func (v uint32Val) Eval() Value  { return v }
-func (v imagVal) Eval() Value    { return v }
-func (v imag64Val) Eval() Value  { return v }
-func (v flt32Val) Eval() Value   { return v }
-func (v fltVal) Eval() Value     { return v }
-func (v byteVal) Eval() Value    { return v }
-func (v bytesVal) Eval() Value   { return v }
-func (v strVal) Eval() Value     { return v }
-func (v slice) Eval() Value      { return v }
-func (v errorVal) Eval() Value   { return v }
-func (v collection) Eval() Value { return v }
-func (v timeVal) Eval() Value    { return v }
-func (v duraVal) Eval() Value    { return v }
+// ...is a typed value all by itself
+func (t flag) Type() flag   { return t }
+func (t flag) Eval() Value  { return t }
+func (t flag) Ref() Value   { return &t }
+func (t flag) DeRef() Value { inst := t; return inst }
+func (t flag) Copy() Value  { n := t; return n }
 
-/// REFERENCE
-func (v nilVal) Ref() Value     { return nil }
-func (v boolVal) Ref() Value    { return &v }
-func (v intVal) Ref() Value     { return &v }
-func (v int8Val) Ref() Value    { return &v }
-func (v int16Val) Ref() Value   { return &v }
-func (v int32Val) Ref() Value   { return &v }
-func (v uintVal) Ref() Value    { return &v }
-func (v uint16Val) Ref() Value  { return &v }
-func (v uint32Val) Ref() Value  { return &v }
-func (v fltVal) Ref() Value     { return &v }
-func (v flt32Val) Ref() Value   { return &v }
-func (v imagVal) Ref() Value    { return &v }
-func (v imag64Val) Ref() Value  { return &v }
-func (v byteVal) Ref() Value    { return &v }
-func (v bytesVal) Ref() Value   { return &v }
-func (v strVal) Ref() Value     { return &v }
-func (v slice) Ref() Value      { return &v }
-func (v errorVal) Ref() Value   { return &v }
-func (v collection) Ref() Value { return &v }
-func (v timeVal) Ref() Value    { return &v }
-func (v duraVal) Ref() Value    { return &v }
+///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
+func fmatch(t flag, v Typed) bool {
+	if t.uint()&v.Type().uint() != 0 {
+		return true
+	}
+	return false
+}
+func fmeta(t flag) bool {
+	if t.count() <= 1 {
+		return false
+	}
+	return true
+}
+func fsplit(f flag) (left, right flag) {
+	left = frot(
+		f,
+		flen(
+			flag(NATIVE),
+		),
+	)
+	return left, f
+}
+func fshow(f flag) string {
+	return fmt.Sprintf("%64b\n", f)
+}
+func fuint(t flag) uint          { return uint(t) }
+func flen(t flag) int            { return bits.Len(uint(t)) }
+func fcount(t flag) int          { return bits.OnesCount(uint(t)) }
+func fleast(t flag) int          { return bits.TrailingZeros(uint(t)) + 1 }
+func fmost(t flag) int           { return bits.LeadingZeros(uint(t)) - 1 }
+func frev(t flag) flag           { return flag(bits.Reverse(uint(t))) }
+func frot(t flag, n int) flag    { return flag(bits.RotateLeft(uint(t), n)) }
+func ftog(t flag, v Typed) flag  { return flag(uint(t) ^ v.Type().uint()) }
+func fconc(t flag, v Typed) flag { return flag(uint(t) | v.Type().uint()) }
+func fmask(t flag, v Typed) flag { return flag(uint(t) &^ v.Type().uint()) }
 
-/// DEREFERENCE
-func (v nilVal) DeRef() Value     { return nil }
-func (v boolVal) DeRef() Value    { inst := *(v.Eval().(*boolVal)); return inst }
-func (v intVal) DeRef() Value     { inst := *(v.Eval().(*intVal)); return inst }
-func (v int16Val) DeRef() Value   { inst := *(v.Eval().(*int16Val)); return inst }
-func (v int8Val) DeRef() Value    { inst := *(v.Eval().(*int8Val)); return inst }
-func (v int32Val) DeRef() Value   { inst := *(v.Eval().(*int32Val)); return inst }
-func (v uintVal) DeRef() Value    { inst := *(v.Eval().(*uintVal)); return inst }
-func (v uint16Val) DeRef() Value  { inst := *(v.Eval().(*uint16Val)); return inst }
-func (v uint32Val) DeRef() Value  { inst := *(v.Eval().(*uint32Val)); return inst }
-func (v fltVal) DeRef() Value     { inst := *(v.Eval().(*fltVal)); return inst }
-func (v flt32Val) DeRef() Value   { inst := *(v.Eval().(*flt32Val)); return inst }
-func (v imagVal) DeRef() Value    { inst := *(v.Eval().(*imagVal)); return inst }
-func (v imag64Val) DeRef() Value  { inst := *(v.Eval().(*imag64Val)); return inst }
-func (v byteVal) DeRef() Value    { inst := *(v.Eval().(*byteVal)); return inst }
-func (v bytesVal) DeRef() Value   { inst := *(v.Eval().(*bytesVal)); return inst }
-func (v strVal) DeRef() Value     { inst := *(v.Eval().(*strVal)); return inst }
-func (v timeVal) DeRef() Value    { inst := *(v.Eval().(*timeVal)); return inst }
-func (v duraVal) DeRef() Value    { inst := *(v.Eval().(*duraVal)); return inst }
-func (v slice) DeRef() Value      { inst := *(v.Eval().(*slice)); return inst }
-func (v errorVal) DeRef() Value   { inst := *(v.Eval().(*errorVal)); return inst }
-func (v collection) DeRef() Value { inst := *(v.Eval().(*collection)); return inst }
+///// HIGHER ORDER TYPES /////
+//// CONSTRUCTORS ////
+type Constructor func(...Value) Value
 
-/// COPY
-func (v int32Val) Copy() Value       { var r int32Val = v; return r }
-func (v int16Val) Copy() Value       { var r int16Val = v; return r }
-func (v int8Val) Copy() Value        { var r int8Val = v; return r }
-func (v intVal) Copy() Value         { var r intVal = v; return r }
-func (n nilVal) Copy() Value         { return nilVal(struct{}{}) }
-func (v fltVal) Copy() Value         { var r fltVal = v; return r }
-func (v uint32Val) Copy() Value      { var r uint32Val = v; return r }
-func (v uint16Val) Copy() Value      { var r uint16Val = v; return r }
-func (v uintVal) Copy() Value        { var r uintVal = v; return r }
-func (v boolVal) Copy() Value        { var r boolVal = v; return r }
-func (v flt32Val) Copy() Value       { var r flt32Val = v; return r }
-func (v imagVal) Copy() Value        { var r imagVal = v; return r }
-func (v imag64Val) Copy() Value      { var r imag64Val = v; return r }
-func (v byteVal) Copy() Value        { var r byteVal = v; return r }
-func (v bytesVal) Copy() Value       { var r bytesVal = v; return r }
-func (v strVal) Copy() Value         { var r strVal = v; return r }
-func (v timeVal) Copy() Value        { var r timeVal = v; return r }
-func (v duraVal) Copy() Value        { var r duraVal = v; return r }
-func (v slice) Copy() Value          { var ret = []Value{}; return slice(append(ret, v)) }
-func (v errorVal) Copy() Value       { var r errorVal = v; return r }
-func (s collection) Copy() (v Value) { return collection{s.s.Copy().(slice)} }
+type Instance func() Value
+
+// eight bits to mark type class
+type TypeClass uint8
+
+//go:generate stringer -type=TypeClass
+const (
+	metaTypeName TypeClass = 0 + iota
+	dataConstructor
+	typeConstructor
+	typeConverter
+	functionSignature
+	functionBody
+)
+
+func lenID(s []flag) int   { return len(s) }
+func lenMS(s []constr) int { return len(s) }
+
+func less(a, b flag) bool { return less(b, a) }
+func more(a, b flag) bool { return less(a, b) }
+func lessID(a, b flag) bool {
+	if a <= b {
+		return true
+	}
+	return false
+}
+func swapID(a, b int, s []flag) []flag {
+	tmp := s[a]
+	s[a] = s[b]
+	s[b] = tmp
+	return s
+}
+
+type constr struct {
+	id  flag        // reference to type id
+	sig []flag      // type signature, param/retval def, etc...
+	fnc Constructor // constructs instances of types, data, signatures...
+}
+type typeReg struct {
+	id  []flag
+	con []constr
+}
+
+func newTypeReg() *typeReg {
+	return &typeReg{
+		[]flag{},
+		[]constr{},
+	}
+}
+
+var types *typeReg
+
+func initTypeReg() {
+	types = newTypeReg()
+}

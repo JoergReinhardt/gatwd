@@ -10,6 +10,10 @@ package types
 
 // typemarkers for buildtin and user defined typed need to implement the type
 // interface
+type TypedFn Instance
+
+func (t TypedFn) Type() flag { return Typed(t()).Type() }
+
 type Typed interface {
 	Type() flag
 }
@@ -17,6 +21,7 @@ type Typed interface {
 // VALUE PROPERTYS //
 // interface needs to be implementd by allmost every part, even most of
 // the core data types implement it. That selfreferentiality provides flexibility.
+
 type Value interface {
 	Typed
 	Eval() Value
@@ -26,36 +31,15 @@ type Value interface {
 	String() string
 }
 
-//// LIST COMPOSITIONS ////
-type Collected interface {
-	Voidable
-	Sliced
-}
-type IdxCollected interface {
-	OrdinalGetter
-	OrdinalSetter
-}
-type DoubleEnded interface {
-	Topped
-	Bottomed
-}
-type Listed interface {
-	IdxCollected // Get | Set
-	Sliced       // Sliced
-}
-type MultiTypedList interface {
-	AttrByType
-	Listed
-}
+type DataFn Instance
+
+func (t DataFn) Eval() Value    { return Value(t()).Eval() }
+func (t DataFn) Ref() Value     { return Value(t()).Ref() }
+func (t DataFn) DeRef() Value   { return Value(t()).DeRef() }
+func (t DataFn) Copy() Value    { return Value(t()).Copy() }
+func (t DataFn) String() string { return Value(t()).String() }
 
 ///// LINKED ELEMENTS /////
-type Consumeable interface {
-	Decap() (Value, Tupular)
-	Head() Value
-	Tail() Value
-}
-
-///// LIST BEHAVIOUR /////
 type Voidable interface {
 	Empty() bool
 }
@@ -64,6 +48,24 @@ type Sliced interface {
 	Len() int
 	Values() []Value
 }
+type SliceFn Instance
+
+func (s SliceFn) Len() int        { return s().(Sliced).Len() }
+func (s SliceFn) Empty() bool     { return s().(Voidable).Empty() }
+func (s SliceFn) Values() []Value { return s().(Sliced).Values() }
+
+type Consumeable interface {
+	Decap() (Value, Tupular)
+	Head() Value
+	Tail() Value
+}
+type ListFn Instance
+
+func (s ListFn) Decap() (Value, Tupular) { return s().(Consumeable).Decap() }
+func (s ListFn) Head() Value             { return s().(Consumeable).Head() }
+func (s ListFn) Tail() Value             { return s().(Consumeable).Tail() }
+
+///// ATTRIBUTE ACCESSORS /////
 type Attributeable interface {
 	Attributes() []Attribute
 	Values() []Value
@@ -107,6 +109,8 @@ type Getter interface {
 type Setter interface {
 	Set(Attribute, Value)
 }
+
+///////////////////////////
 type Stacked interface {
 	Pull() Value
 	Put(Value)
@@ -220,6 +224,28 @@ type State interface {
 	Run()
 	ItemType() Typed
 	State(string) StateFn
+}
+
+//// LIST COMPOSITIONS ////
+type Collected interface {
+	Voidable
+	Sliced
+}
+type IdxCollected interface {
+	OrdinalGetter
+	OrdinalSetter
+}
+type DoubleEnded interface {
+	Topped
+	Bottomed
+}
+type Listed interface {
+	IdxCollected // Get | Set
+	Sliced       // Sliced
+}
+type MultiTypedList interface {
+	AttrByType
+	Listed
 }
 
 // takes a state and advances it. returns the next state fn to run

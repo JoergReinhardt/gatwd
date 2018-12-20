@@ -70,7 +70,7 @@ func (v flag) String() string {
 	}
 	var str string
 	var u, i uint
-	for u < uint(NATIVES) {
+	for u < uint(NATIVE) {
 		if v.Type().match(ValType(u)) {
 			str = str + ValType(u).String() + "\n"
 		}

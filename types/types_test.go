@@ -6,11 +6,42 @@ import (
 	"time"
 )
 
+func TestBitFlag(t *testing.T) {
+
+	initMasks()
+	//fmt.Printf("masks:\n%064b\n%064b\n", h, l)
+	fmt.Printf("masks:\n%064b\n%064b\t%d\n", flag(HIGH_MASK), flag(LOW_MASK), nativesCount)
+
+	f := flag(ProductTypes | SumTypes | Unary | NATIVE)
+	fmt.Printf("%064b\n", f)
+	left, right := fsplit(f)
+	fmt.Printf("%064b\n%064b\n", flag(left), flag(right))
+	left, right = fsplit(left)
+	fmt.Printf("%064b\n%064b\n", flag(left), flag(right))
+
+}
+func TestTypeRegistry(t *testing.T) {
+	//	reg := newTypeReg()
+	//	var u uint
+	//	var i uint
+	//	for u < uint(NATIVES) {
+	//		if flag(Unary).match(ValType(u)) {
+	//			newType(reg, flag(u), ValType(u).String())
+	//		}
+	//		i = i + 1
+	//		u = uint(1) << i
+	//	}
+	//	fmt.Println(reg)
+	//	for _, v := range reg.id {
+	//		fmt.Println(frev(flag(v)))
+	//	}
+	//	fmt.Printf("fetched flag: %v\n", getIdsByFlag(reg, flag(Error)))
+}
 func TestTypeStringer(t *testing.T) {
 	var str string
 	var u uint
 	var i uint
-	for u < uint(NATIVES) {
+	for u < uint(NATIVE) {
 		if flag(Unary).match(ValType(u)) {
 			str = str + ValType(u).String() + "\n"
 		}
@@ -59,4 +90,9 @@ func TestTimeType(t *testing.T) {
 	ts := time.Now()
 	v := timeVal(ts)
 	fmt.Printf("time stamp: %s\n", v)
+}
+func TestTypeSignature(t *testing.T) {
+	s := flag(NATIVE)
+
+	fmt.Printf("highest bit: %d\n", s.most())
 }

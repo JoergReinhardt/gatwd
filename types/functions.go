@@ -1,11 +1,5 @@
 package types
 
-// functions to implement the value interface on arbitrary types during runtime
-func FlagFn(v Value) flag       { return v.Type() }
-func CopyFn(v Value) Value      { return v.Copy() }
-func RefFn(v Value) interface{} { return v.Ref() }
-func DeRefFn(v Value) Value     { return v.DeRef() }
-
 // ACCESSABLE SLICE
 func get(s slice, i int) Value            { return s[i] }
 func Get(s slice, attr OrdinalAttr) Value { return s[attr.Idx()] }
@@ -14,7 +8,7 @@ func set(s slice, i int, v Value)         { s[i] = v }
 func Set(s slice, attr OrdinalAttr, val Value) { s[attr.Idx()] = val }
 
 // ITERATOR
-func (s slice) Next() (v Value, i Iterable) {
+func Next(s slice) (v Value, i Iterable) {
 	if len(s) > 0 {
 		v = s[0]
 		if len(s) > 1 {
@@ -25,13 +19,13 @@ func (s slice) Next() (v Value, i Iterable) {
 }
 
 // BOOTOM & TOP
-func (s slice) First() Value {
+func First(s slice) Value {
 	if s.Len() > 0 {
 		return s[0]
 	}
 	return s
 }
-func (s slice) Last() Value {
+func Last(s slice) Value {
 	if s.Len() > 0 {
 		return s[s.Len()-1]
 	}
