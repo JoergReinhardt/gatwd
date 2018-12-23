@@ -67,7 +67,7 @@ const (
 	Elements = Attr | Cell
 	Indices  = Chain | List | AtList
 	Sets     = UniSet | AtSet | Record
-	Links    = Link | DLink | Tuple | Node | Tree
+	Links    = Link | DLink | Tuple | Node | Tree // Consumeables
 	Composed = Elements | Indices | Sets | Links
 	Natives  = Nullable | Composed
 	Mask     = 0xFFFFFFFFFFFFFFFF ^ Natives
@@ -130,9 +130,12 @@ func Make(vals ...interface{}) (rval Evaluable) {
 		return nilVal{}
 	}
 	if len(vals) > 1 {
+		sl := newSlice()
 		for _, val := range vals {
 			val = val
+			sl = Append(sl, Make(val))
 		}
+		return sl
 	}
 	val = vals[0]
 	switch val.(type) {
@@ -400,15 +403,19 @@ func (v imag64Val) String() string {
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
 func (v flag) String() string {
-	if bits.OnesCount(v.Uint()) == 1 {
+	if uint(bits.OnesCount(v.Uint())) == 1 {
 		return ValType(v).String()
 	}
-	var err error
+	len := uint(flen(v))
 	str := &strings.Builder{}
+	var err error
 	var u, i uint
 	for u < uint(Tree) {
 		if v.Type().Match(ValType(u)) {
-			_, err = (*str).WriteString(ValType(u).String() + "\n")
+			_, err = (*str).WriteString(ValType(u).String())
+			if i < len-1 {
+				_, err = (*str).WriteString(" | ")
+			}
 		}
 		i = i + 1
 		u = uint(1) << i

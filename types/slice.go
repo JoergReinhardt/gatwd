@@ -109,7 +109,8 @@ func DecapNary(s slice, arity int) (h Evaluable, t slice) {
 }
 
 // SLICE
-func Len(s slice) int { return len(s) }
+func Slice(s slice) []Evaluable { return []Evaluable(s) }
+func Len(s slice) int           { return len(s) }
 func Split(s slice, i int) (slice, slice) {
 	h, t := s[:i], s[i:]
 	return h, t

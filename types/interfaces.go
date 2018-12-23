@@ -26,8 +26,12 @@ type Applyable interface {
 type Voidable interface {
 	Empty() bool
 }
-type Chained interface {
+type Size interface {
 	Len() int
+}
+type Chained interface {
+	Size
+	Voidable
 	Values() []Evaluable
 }
 
@@ -39,6 +43,7 @@ type Destructable interface {
 //// RECURSIVE ELEMENTS //////
 // designated 'main mode of transportation' in the world of ffp
 type Consumed interface {
+	Cellular
 	Decap() (Evaluable, Tupular)
 	Head() Evaluable
 	Tail() Evaluable
@@ -162,7 +167,6 @@ type AttributedCell interface {
 	Attribute
 }
 type Tupular interface {
-	Cellular
 	Consumed
 }
 type Nodular interface {
@@ -214,7 +218,6 @@ type State interface {
 
 //// LIST COMPOSITIONS ////
 type Collected interface {
-	Voidable
 	Chained
 }
 type IdxCollected interface {
