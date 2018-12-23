@@ -2,57 +2,30 @@ package types
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 )
 
-func TestBitFlag(t *testing.T) {
-
-	initMasks()
-	//fmt.Printf("masks:\n%064b\n%064b\n", h, l)
-	fmt.Printf("masks:\n%064b\n%064b\t%d\n", flag(HIGH_MASK), flag(LOW_MASK), nativesCount)
-
-	f := flag(ProductTypes | SumTypes | Unarys | NATIVES)
-	fmt.Printf("%064b\n", f)
-	left, right := fsplit(f)
-	fmt.Printf("%064b\n%064b\n", flag(left), flag(right))
-	left, right = fsplit(left)
-	fmt.Printf("%064b\n%064b\n", flag(left), flag(right))
-
-}
-func TestTypeRegistry(t *testing.T) {
-	//	reg := newTypeReg()
-	//	var u uint
-	//	var i uint
-	//	for u < uint(NATIVES) {
-	//		if flag(Unary).match(ValType(u)) {
-	//			newType(reg, flag(u), ValType(u).String())
-	//		}
-	//		i = i + 1
-	//		u = uint(1) << i
-	//	}
-	//	fmt.Println(reg)
-	//	for _, v := range reg.id {
-	//		fmt.Println(frev(flag(v)))
-	//	}
-	//	fmt.Printf("fetched flag: %v\n", getIdsByFlag(reg, flag(Error)))
-}
-func TestTypeStringer(t *testing.T) {
-	var str string
-	var u uint
-	var i uint
-	for u < uint(NATIVES) {
-		if flag(Unarys).match(ValType(u)) {
-			str = str + ValType(u).String() + "\n"
-		}
-		i = i + 1
-		u = uint(1) << i
-	}
-	fmt.Println(str)
-	fmt.Println(flag(Unarys).String())
+func TestTypeFlag(t *testing.T) {
+	fmt.Printf("null:\t\t%scomp:\t\t%snat:\t\t%smask:\t\t%s\n",
+		fshow(Nullable),
+		fshow(Composed),
+		fshow(Natives),
+		fshow(Mask),
+	)
+	fmt.Printf("tree:\t\t%stree rotated:\t%stree shifted:\t%s\n",
+		fshow(Tree),
+		fshow(frot(Tree.Type(), flen(Natives.Type()))),
+		fshow(fhigh(Tree)),
+	)
+	fmt.Printf("test match true: %t, false: %t\n",
+		BigInt.Type().Match(BigInt.Type()),
+		BigInt.Type().Match(Attr.Type()),
+	)
 }
 func TestMutability(t *testing.T) {
-	a := Make(true).(boolVal).Ref().(*boolVal)
+	a := Make(true).(boolVal).ref().(*boolVal)
 	b := Make(false).(boolVal)
 	if *a == b {
 		t.Log("freh assigned values should be different", a, b)
@@ -76,6 +49,10 @@ func TestTypeAllocation(t *testing.T) {
 		New(complex128(float64(1.6))),
 		New(byte(3)),
 		New(time.Now()),
+		New(rune('ö')),
+		New(big.NewInt(23)),
+		New(big.NewFloat(23.42)),
+		New(big.NewRat(23, 42)),
 		New([]byte("test")),
 		New("test"))
 
@@ -83,16 +60,16 @@ func TestTypeAllocation(t *testing.T) {
 
 	fmt.Printf("List-1: %s\tList-2: %s\n", s0, s1)
 }
-
-func TestCellType(t *testing.T) {
-}
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
 	v := timeVal(ts)
 	fmt.Printf("time stamp: %s\n", v)
 }
-func TestTypeSignature(t *testing.T) {
-	s := flag(NATIVES)
-
-	fmt.Printf("highest bit: %d\n", s.most())
+func TestTokenTypes(t *testing.T) {
+	var i uint
+	var typ TokenType = 1
+	for i = 0; i < uint(len(syntax))-1; i++ {
+		typ = 1 << i
+		fmt.Printf("index:\t%d\tString:\t%s\t\tSyntax:\t%s\n", i, typ.String(), typ.Syntax())
+	}
 }

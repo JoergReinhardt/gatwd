@@ -3,73 +3,55 @@ package types
 // VALUES AND TYPES
 ///////////////////
 // TYPED //
-// is THE interface each and every part needs to implement to even become
-// comprehendible to the library types are typesafe, but also intended to be
-// automagicly inferred whenever that's possible. a bitflag is providing
-// composable type identificators.
+type Reproduceable interface{ Copy() Evaluable }
+type Printable interface{ String() string }
+type Named interface{ Name() string }
+type Typed interface{ Type() flag }
 
-// typemarkers for buildtin and user defined typed need to implement the type
-// interface
-type typedFn Instance
-
-func (t typedFn) Type() flag { return Typed(t()).Type() }
-
-type Typed interface {
-	Type() flag
-}
-
-// VALUE PROPERTYS //
-// interface needs to be implementd by allmost every part, even most of
-// the core data types implement it. That selfreferentiality provides flexibility.
-
-type Value interface {
+type Evaluable interface {
+	Reproduceable
+	Printable
 	Typed
-	Eval() Value
-	Ref() Value
-	DeRef() Value
-	Copy() Value
-	String() string
+	Eval() Evaluable
+	ref() Evaluable
+}
+type Callable interface {
+	Arity() int
+}
+type Applyable interface {
+	Fix() int
 }
 
-type dataFn Instance
-
-func (t dataFn) Eval() Value    { return Value(t()).Eval() }
-func (t dataFn) Ref() Value     { return Value(t()).Ref() }
-func (t dataFn) DeRef() Value   { return Value(t()).DeRef() }
-func (t dataFn) Copy() Value    { return Value(t()).Copy() }
-func (t dataFn) String() string { return Value(t()).String() }
-
-///// LINKED ELEMENTS /////
+///// LINEAR ELEMENTS /////
 type Voidable interface {
 	Empty() bool
 }
 type Chained interface {
-	Value
 	Len() int
-	Values() []Value
+	Values() []Evaluable
 }
-type chainFn Instance
 
-func (s chainFn) Len() int        { return s().(Chained).Len() }
-func (s chainFn) Empty() bool     { return s().(Voidable).Empty() }
-func (s chainFn) Values() []Value { return s().(Chained).Values() }
+// one of the very few exceptions to the 'everything is an expression' rule
+type Destructable interface {
+	Clear()
+}
 
+//// RECURSIVE ELEMENTS //////
+// designated 'main mode of transportation' in the world of ffp
 type Consumed interface {
-	Decap() (Value, Tupular)
-	Head() Value
-	Tail() Value
+	Decap() (Evaluable, Tupular)
+	Head() Evaluable
+	Tail() Evaluable
 }
-type recursiveListFn recursiveFn
-type recursiveFn Instance
 
-func (s recursiveFn) Decap() (Value, Tupular) { return s().(Consumed).Decap() }
-func (s recursiveFn) Head() Value             { return s().(Consumed).Head() }
-func (s recursiveFn) Tail() Value             { return s().(Consumed).Tail() }
-
-///// ATTRIBUTE ACCESSORS /////
+///// ATTRIBUTATION /////
 type Attributed interface {
 	Attributes() []Attribute
-	Values() []Value
+	Values() []Evaluable
+}
+type Attribute interface {
+	Attr() Evaluable
+	AttrType() Typed
 }
 type AttrBySlice interface {
 	Elements() []Cellular // Cell[OrdAttr,Value]
@@ -78,14 +60,23 @@ type AttrByKey interface {
 	Keys() []Attribute
 	Fields() []Cellular // Cell[StrAttr,Value]
 }
-type AttrByType interface {
+type AttrByMembership interface {
 	Attr() []Attribute
 	Members() []Cellular // Cell[StrAttr,Value]
 }
-type Attribute interface {
-	Attr() Value
-	AttrType() Typed
+
+/////
+type Any interface {
+	Any(func(a Attribute, v Evaluable) bool) bool
 }
+type All interface {
+	All(func(a Attribute, v Evaluable) bool) bool
+}
+type Membership interface {
+	Match() bool
+}
+
+///// COLLECTION ACCESSORS //////
 type IndexAt interface {
 	Idx() int
 }
@@ -93,56 +84,56 @@ type StringAt interface {
 	Key() string
 }
 type IdxGet interface {
-	Get(IndexAt) Value
+	Get(IndexAt) Evaluable
 }
 type IdxSet interface {
-	Set(IndexAt, Value)
+	Set(IndexAt, Evaluable)
 }
 type StrGet interface {
-	Get(StringAt) Value
+	Get(StringAt) Evaluable
 }
 type StrSet interface {
-	Set(StringAt, Value)
+	Set(StringAt, Evaluable)
 }
 type Getter interface {
-	Get(Attribute) Value
+	Get(Attribute) Evaluable
 }
 type Setter interface {
-	Set(Attribute, Value)
+	Set(Attribute, Evaluable)
 }
 
 ///////////////////////////
 type Stacked interface {
-	Pull() Value
-	Put(Value)
-	Append(...Value)
+	Pull() Evaluable
+	Put(Evaluable)
+	Append(...Evaluable)
 }
 type Queued interface {
-	Pop() Value
-	Push(Value)
-	Add(...Value)
+	Pop() Evaluable
+	Push(Evaluable)
+	Add(...Evaluable)
 }
 type Topped interface {
-	First() Value
+	First() Evaluable
 }
 type Bottomed interface {
-	Last() Value
+	Last() Evaluable
 }
 type Referenced interface {
 	HeadReferenced
-	Next() Value
+	Next() Evaluable
 }
 type TailReferenced interface {
 	Tail() Tupular
 }
 type HeadReferenced interface {
-	Head() Value
+	Head() Evaluable
 }
 type DoublyReferenced interface {
-	Reversedious() Elementar
+	Reverse() Evaluable
 }
 type Stackable interface {
-	Push(Value)
+	Push(Evaluable)
 	Pop()
 }
 type Rooted interface {
@@ -157,32 +148,26 @@ type Nested interface {
 type Identifyable interface {
 	Ident() Attribute
 }
-type Arity interface {
-	Arity() int
-	Unary() bool
-}
 type Iterable interface {
-	Next() (Value, Iterable)
+	Next() (Evaluable, Iterable)
 }
 
 //////////////////////////
-type Elementar interface {
-	Voidable // aka Empty() bool
-	Arity    // aka Unary() bool
-	Value
-}
 type Cellular interface {
-	Attribute // accessor attribute
-	Value
+	Evaluable
+	Voidable // aka Empty() bool
+}
+type AttributedCell interface {
+	Cellular
+	Attribute
 }
 type Tupular interface {
-	Elementar
+	Cellular
 	Consumed
 }
 type Nodular interface {
 	Attribute
 	Rooted
-	Arity
 }
 type NestNodul interface {
 	Nodular
@@ -199,7 +184,7 @@ type BranchNodul interface {
 }
 type LeaveNodule interface {
 	ChildNodul
-	Value
+	Evaluable
 }
 
 //////////////////////////
@@ -207,7 +192,7 @@ type LeaveNodule interface {
 type Item interface {
 	ItemType() Typed
 	Idx() int
-	Value() Value
+	Value() Evaluable
 }
 
 //////////////////////////
@@ -245,7 +230,7 @@ type Listed interface {
 	Chained      // Sliced
 }
 type MultiTypedList interface {
-	AttrByType
+	AttrByMembership
 	Listed
 }
 
@@ -279,3 +264,9 @@ func (t FnType) Flag() flag  { return flag(t) }
 type ParamFn func(Parametric) (Parametric, ParamFn)
 
 func (p ParamFn) Type() Typed { return ParamFunc.Type() }
+
+// data to parse
+type Token interface {
+	Type() TokenType
+	String() string
+}
