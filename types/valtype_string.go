@@ -4,7 +4,7 @@ package types
 
 import "strconv"
 
-const _ValType_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationErrorAttrCellChainListAtListUniSetAtSetRecordLinkDLinkTupleNodeTree"
+const _ValType_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorCellTupleChainListAtListUniSetAtSetRecordLinkDLinkNodeTree"
 
 var _ValType_map = map[ValType]string{
 	1:           _ValType_name[0:3],
@@ -30,17 +30,17 @@ var _ValType_map = map[ValType]string{
 	1048576:     _ValType_name[95:101],
 	2097152:     _ValType_name[101:105],
 	4194304:     _ValType_name[105:113],
-	8388608:     _ValType_name[113:118],
-	16777216:    _ValType_name[118:122],
+	8388608:     _ValType_name[113:117],
+	16777216:    _ValType_name[117:122],
 	33554432:    _ValType_name[122:126],
 	67108864:    _ValType_name[126:131],
-	134217728:   _ValType_name[131:135],
-	268435456:   _ValType_name[135:141],
-	536870912:   _ValType_name[141:147],
-	1073741824:  _ValType_name[147:152],
-	2147483648:  _ValType_name[152:158],
-	4294967296:  _ValType_name[158:162],
-	8589934592:  _ValType_name[162:167],
+	134217728:   _ValType_name[131:136],
+	268435456:   _ValType_name[136:140],
+	536870912:   _ValType_name[140:146],
+	1073741824:  _ValType_name[146:152],
+	2147483648:  _ValType_name[152:157],
+	4294967296:  _ValType_name[157:163],
+	8589934592:  _ValType_name[163:167],
 	17179869184: _ValType_name[167:172],
 	34359738368: _ValType_name[172:176],
 	68719476736: _ValType_name[176:180],

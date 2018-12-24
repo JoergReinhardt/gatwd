@@ -42,15 +42,15 @@ func (v strVal) Bool() boolVal {
 }
 
 // INT -> VALUE
-func (v intVal) Idx() int        { return int(v) }     // implements Idx Attribut
-func (v intVal) Key() string     { return v.String() } // implements Key Attribut
-func (v intVal) FltNat() float64 { return float64(v) }
-func (v intVal) IntNat() int     { return int(v) }
-func (v intVal) UintNat() uint {
+func (v intVal) Idx() intVal { return v } // implements Idx Attribut
+//func (v intVal) Key() strVal    { return v.String() } // implements Key Attribut
+func (v intVal) FltNat() fltVal { return fltVal(v) }
+func (v intVal) IntNat() intVal { return v }
+func (v intVal) UintNat() uintVal {
 	if v < 0 {
-		return uint(v * -1)
+		return uintVal(v * -1)
 	}
-	return uint(v)
+	return uintVal(v)
 }
 
 // VALUE -> INT
@@ -109,5 +109,5 @@ func (v bytesVal) Len() intVal { return intVal(len(v)) }
 func (v strVal) Len() intVal   { return intVal(len(string(v))) }
 
 // SLICE ->
-func (v slice) Slice() []Evaluable { return v }
-func (v slice) Len() int           { return len(v) }
+func (v slice) Slice() []Data { return v }
+func (v slice) Len() int      { return len(v) }

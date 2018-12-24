@@ -2,8 +2,8 @@ package types
 
 // DESTRUCTABLE SLICE
 
-func newSlice(val ...Evaluable) slice {
-	l := make([]Evaluable, 0, len(val))
+func newSlice(val ...Data) slice {
+	l := make([]Data, 0, len(val))
 	l = append(l, val...)
 	return l
 }
@@ -23,30 +23,30 @@ func sliceClear(s slice) {
 }
 
 // ACCESSABLE SLICE
-func sliceGetInt(s slice, i int) Evaluable { return s[i] }
+func sliceGetInt(s slice, i int) Data { return s[i] }
 
 // MUTABLE SLICE
-func sliceSetInt(s slice, i int, v Evaluable) slice { s[i] = v; return s }
+func sliceSetInt(s slice, i int, v Data) slice { s[i] = v; return s }
 
 // ITERATOR
-func sliceNext(s slice) (v Evaluable, i slice) {
+func sliceNext(s slice) (v Data, i slice) {
 	if len(s) > 0 {
 		if len(s) > 1 {
 			return s[0], s[1:]
 		}
-		return s[0], slice([]Evaluable{nilVal{}})
+		return s[0], slice([]Data{nilVal{}})
 	}
-	return nilVal{}, slice([]Evaluable{nilVal{}})
+	return nilVal{}, slice([]Data{nilVal{}})
 }
 
 // BOOTOM & TOP
-func sliceFirst(s slice) Evaluable {
+func sliceFirst(s slice) Data {
 	if s.Len() > 0 {
 		return s[0]
 	}
 	return s
 }
-func sliceLast(s slice) Evaluable {
+func sliceLast(s slice) Data {
 	if s.Len() > 0 {
 		return s[s.Len()-1]
 	}
@@ -54,19 +54,19 @@ func sliceLast(s slice) Evaluable {
 }
 
 // LIFO QUEUE
-func slicePut(s slice, v Evaluable) slice {
+func slicePut(s slice, v Data) slice {
 	if len(s) == cap(s) {
-		return append(append(make([]Evaluable, 0, len(s)*2), s...), v)
+		return append(append(make([]Data, 0, len(s)*2), s...), v)
 	}
 	return append(s, v)
 }
-func sliceAppend(s slice, v ...Evaluable) slice {
+func sliceAppend(s slice, v ...Data) slice {
 	if len(s) == cap(s) {
-		return append(append(make([]Evaluable, 0, (len(s)+len(v))), s...), v...)
+		return append(append(make([]Data, 0, (len(s)+len(v))), s...), v...)
 	}
 	return append(s, v...)
 }
-func slicePull(s slice) (Evaluable, slice) {
+func slicePull(s slice) (Data, slice) {
 	if s.Len() > 0 {
 		return s[s.Len()-1], s[:s.Len()-1]
 	}
@@ -74,19 +74,19 @@ func slicePull(s slice) (Evaluable, slice) {
 }
 
 // FIFO STACK
-func sliceAdd(s slice, v ...Evaluable) slice {
+func sliceAdd(s slice, v ...Data) slice {
 	if len(s) == cap(s)+len(v) {
-		return append(append(make([]Evaluable, 0, len(v)+len(s)), v...), s...)
+		return append(append(make([]Data, 0, len(v)+len(s)), v...), s...)
 	}
 	return append(v, s...)
 }
-func slicePush(s slice, v Evaluable) slice {
+func slicePush(s slice, v Data) slice {
 	if len(s) == cap(s) {
-		return append(append(make([]Evaluable, 0, (len(s))*2), v), s...)
+		return append(append(make([]Data, 0, (len(s))*2), v), s...)
 	}
-	return append([]Evaluable{v}, s...)
+	return append([]Data{v}, s...)
 }
-func slicePop(s slice) (Evaluable, slice) {
+func slicePop(s slice) (Data, slice) {
 	if s.Len() > 0 {
 		return s[0], s[1:]
 	}
@@ -96,16 +96,16 @@ func slicePop(s slice) (Evaluable, slice) {
 // ARITY
 
 // TUPLE
-func sliceHead(s slice) (h Evaluable) { return s[0] }
-func sliceTail(s slice) (c Evaluable) { return s[:1] }
-func sliceDecap(s slice) (h Evaluable, t Nested) {
+func sliceHead(s slice) (h Data) { return s[0] }
+func sliceTail(s slice) (c Data) { return s[:1] }
+func sliceDecap(s slice) (h Data, t Nested) {
 	return h, t
 }
 
 // N-TUPLE
-func sliceHeadNary(s slice, arity int) (h Evaluable) { return s[:arity] }
-func sliceTailNary(s slice, arity int) (c Evaluable) { return s[arity:] }
-func sliceDecapNary(s slice, arity int) (h Evaluable, t slice) {
+func sliceHeadNary(s slice, arity int) (h Data) { return s[:arity] }
+func sliceTailNary(s slice, arity int) (c Data) { return s[arity:] }
+func sliceDecapNary(s slice, arity int) (h Data, t slice) {
 	if s.Len()+1 > arity {
 		return s[:arity], s[arity:]
 	}
@@ -113,8 +113,8 @@ func sliceDecapNary(s slice, arity int) (h Evaluable, t slice) {
 }
 
 // SLICE
-func sliceSlice(s slice) []Evaluable { return []Evaluable(s) }
-func sliceLen(s slice) int           { return len(s) }
+func sliceSlice(s slice) []Data { return []Data(s) }
+func sliceLen(s slice) int      { return len(s) }
 func sliceSplit(s slice, i int) (slice, slice) {
 	h, t := s[:i], s[i:]
 	return h, t
@@ -132,13 +132,13 @@ func sliceDelete(s slice, i int) slice {
 	s[len(s)-1] = nil
 	return s[:len(s)-1]
 }
-func sliceInsert(s slice, i int, v Evaluable) slice {
+func sliceInsert(s slice, i int, v Data) slice {
 	s = append(s, nilVal{})
 	copy(s[i+1:], s[i:])
 	s[i] = v
 	return s
 }
-func sliceInsertVari(s slice, i int, v ...Evaluable) slice {
+func sliceInsertVari(s slice, i int, v ...Data) slice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
 func sliceAttrType(s slice) flag { return Int.Type() }

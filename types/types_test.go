@@ -60,9 +60,9 @@ func TestTypeAllocation(t *testing.T) {
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 
-	fmt.Printf("List-0: %s\n", s0)
+	fmt.Printf("List-0: %s\n", s0.String())
 
-	for i := 0; i < 1000000000; i++ {
+	for i := 0; i < 1000; i++ {
 		s1 = sliceAppend(s1, Make(i))
 		//s1 = append(s1, i)
 	}
@@ -72,7 +72,7 @@ func TestTypeAllocation(t *testing.T) {
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
 	v := timeVal(ts)
-	fmt.Printf("time stamp: %s\n", v)
+	fmt.Printf("time stamp: %s\n", v.String())
 }
 func TestTokenTypes(t *testing.T) {
 	var i uint

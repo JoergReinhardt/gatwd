@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"strconv"
 	"strings"
+
 	"time"
 )
 
@@ -41,33 +42,34 @@ const (
 	String
 	Time
 	Duration
-	Error
-	// SLICE BASED COLLECTIONS //
-	// "...life is nothing but distribution indifferences in a semi
-	// permeably compartimented solution..." cell's to contain stuff, and
-	// cells  are important, is what i'm saying here!
-	Attr   // identitys, arity,  predicates, attribute accessors...
+	Attr   // attribute special type
+	Error  // let's do something sophisticated here...
 	Cell   // general thing to contain things and stuff...
+	Tuple  // references a head value and nest of tail values
 	Chain  // [Value]
 	List   // ordered, indexed, monotyped values
 	AtList // ordered, indexed, with search/sort attributation
 	UniSet // unique, monotyped values
 	AtSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
 	Record // unique, multityped, attributed, mapped, type declared values
-	// LINKED COLLECTIONS // (also slice based, but pretend not to)
-	Link  // nodes referencing previous, next node and nested value (possibly nested)
-	DLink // nodes referencing previous, next node and nested value (possibly nested)
-	Tuple // references a head value and nest of tail values
-	Node  // node of a tree, or liked list
-	Tree  // nodes referencing parent, root and a value of contained node(s)
+	Link   // nodes referencing previous, next node and nested value
+	DLink  // nodes referencing previous, next node and nested value
+	Node   // node of a tree, or liked list
+	Tree   // nodes referencing parent, root and a value of contained node(s)
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
-		Imag64 | Byte | Rune | Bytes | String | Time | Duration | Error
-	Elements = Attr | Cell
-	Indices  = Chain | List | AtList
+		Imag64 | Byte | Rune | Bytes | String | Time | Duration |
+		Attr | Error
+
+	Numbers = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
+		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
+		Imag64
+
+	Elements = Cell | Tuple | List
+	Indices  = Chain | AtList
 	Sets     = UniSet | AtSet | Record
-	Links    = Link | DLink | Tuple | Node | Tree // Consumeables
+	Links    = Link | DLink | Node | Tree // Consumeables
 	Composed = Elements | Indices | Sets | Links
 	Natives  = Nullable | Composed
 	Mask     = 0xFFFFFFFFFFFFFFFF ^ Natives
@@ -101,11 +103,11 @@ type (
 	duraVal   time.Duration
 	errorVal  struct{ v error }
 	//////
-	attribute Evaluable
-	slice     []Evaluable
+	attribute Data
+	slice     []Data
 )
 
-func Make(vals ...interface{}) (rval Evaluable) {
+func Make(vals ...interface{}) (rval Data) {
 	var val interface{}
 	if len(vals) == 0 {
 		return nilVal{}
@@ -114,7 +116,7 @@ func Make(vals ...interface{}) (rval Evaluable) {
 		sl := newSlice()
 		for _, val := range vals {
 			val = val
-			sl = sliceAppend(sl, Make(val))
+			sl = slicePut(sl, Make(val))
 		}
 		return sl
 	}
@@ -165,14 +167,16 @@ func Make(vals ...interface{}) (rval Evaluable) {
 	case *big.Rat:
 		v := ratioVal(*val.(*big.Rat))
 		rval = &v
-	case []Evaluable:
-		rval = slice(val.([]Evaluable))
+	case []Data:
+		rval = slice(val.([]Data))
 	case FnType, ValType, Typed:
 		rval = flag(val.(ValType))
 	}
 	return rval
 }
-func newNull(t Typed) (val Evaluable) {
+
+//// GENERATE NULL VALUE OF EACH TYPE ////////
+func newNull(t Typed) (val Data) {
 	switch {
 	case Nil.Type().Match(t):
 		return nilVal{}
@@ -234,6 +238,57 @@ func newNull(t Typed) (val Evaluable) {
 	return val
 }
 
+var ( // named typed functions to have a typesafe representation of internal
+	NilFnType, NilFn           = func() flag { return flag(Nil) }, func(d Data) nilVal { return nilVal{} }
+	BoolFnType, BoolFn         = func() flag { return flag(Bool) }, func(d Data) boolVal { return d.(boolVal) }
+	IntFnType, IntFn           = func() flag { return flag(Int) }, func(d Data) intVal { return d.(intVal) }
+	Int8FnType, Int8Fn         = func() flag { return flag(Int8) }, func(d Data) int8Val { return d.(int8Val) }
+	Int16FnType, Int16Fn       = func() flag { return flag(Int16) }, func(d Data) int16Val { return d.(int16Val) }
+	Int32FnType, Int32Fn       = func() flag { return flag(Int32) }, func(d Data) int32Val { return d.(int32Val) }
+	BigIntFnType, BigIntFn     = func() flag { return flag(BigInt) }, func(d Data) bigIntVal { return d.(bigIntVal) }
+	UintFnType, UintFn         = func() flag { return flag(Uint) }, func(d Data) uintVal { return d.(uintVal) }
+	Uint8FnType, Uint8Fn       = func() flag { return flag(Uint8) }, func(d Data) uint8Val { return d.(uint8Val) }
+	Uint16FnType, Uint16Fn     = func() flag { return flag(Uint16) }, func(d Data) uint16Val { return d.(uint16Val) }
+	Uint32FnType, Uint32Fn     = func() flag { return flag(Uint32) }, func(d Data) uint32Val { return d.(uint32Val) }
+	FloatFnType, FloatFn       = func() flag { return flag(Float) }, func(d Data) fltVal { return d.(fltVal) }
+	Flt32FnType, Flt32Fn       = func() flag { return flag(Flt32) }, func(d Data) flt32Val { return d.(flt32Val) }
+	BigFltFnType, BigFltFn     = func() flag { return flag(BigFlt) }, func(d Data) bigFltVal { return d.(bigFltVal) }
+	RatioFnType, RatioFn       = func() flag { return flag(Ratio) }, func(d Data) ratioVal { return d.(ratioVal) }
+	ImagFnType, ImagFn         = func() flag { return flag(Imag) }, func(d Data) imagVal { return d.(imagVal) }
+	Imag64FnType, Imag64Fn     = func() flag { return flag(Imag64) }, func(d Data) imag64Val { return d.(imag64Val) }
+	ByteFnType, ByteFn         = func() flag { return flag(Byte) }, func(d Data) byteVal { return d.(byteVal) }
+	RuneFnType, RuneFn         = func() flag { return flag(Rune) }, func(d Data) runeVal { return d.(runeVal) }
+	BytesFnType, BytesFn       = func() flag { return flag(Bytes) }, func(d Data) bytesVal { return d.(bytesVal) }
+	StringFnType, StringFn     = func() flag { return flag(String) }, func(d Data) strVal { return d.(strVal) }
+	TimeFnType, TimeFn         = func() flag { return flag(Time) }, func(d Data) timeVal { return d.(timeVal) }
+	DurationFnType, DurationFn = func() flag { return flag(Duration) }, func(d Data) duraVal { return d.(duraVal) }
+)
+var internalTypeMap = map[ValType]interface{}{
+	Nil:      NilFn,
+	Bool:     BoolFn,
+	Int:      IntFn,
+	Int8:     Int8Fn,
+	Int16:    Int16Fn,
+	Int32:    Int32Fn,
+	BigInt:   BigIntFn,
+	Uint:     UintFn,
+	Uint8:    Uint8Fn,
+	Uint16:   Uint16Fn,
+	Uint32:   Uint32Fn,
+	Float:    FloatFn,
+	Flt32:    Flt32Fn,
+	BigFlt:   BigFltFn,
+	Ratio:    RatioFn,
+	Imag:     ImagFn,
+	Imag64:   Imag64Fn,
+	Byte:     ByteFn,
+	Rune:     RuneFn,
+	Bytes:    BytesFn,
+	String:   StringFn,
+	Time:     TimeFn,
+	Duration: DurationFn,
+}
+
 /// Type
 func (nilVal) Type() flag      { return Nil.Type() }
 func (v flag) Type() flag      { return v }
@@ -262,102 +317,46 @@ func (v duraVal) Type() flag   { return Duration.Type() }
 func (v slice) Type() flag     { return Chain.Type() }
 func (v errorVal) Type() flag  { return Error.Type() }
 
-/// VALUE
-func (v nilVal) Eval() Evaluable    { return v }
-func (t flag) Eval() Evaluable      { return t }
-func (v boolVal) Eval() Evaluable   { return v }
-func (v intVal) Eval() Evaluable    { return v }
-func (v int8Val) Eval() Evaluable   { return v }
-func (v int16Val) Eval() Evaluable  { return v }
-func (v int32Val) Eval() Evaluable  { return v }
-func (v bigIntVal) Eval() Evaluable { return v }
-func (v uintVal) Eval() Evaluable   { return v }
-func (v uint8Val) Eval() Evaluable  { return v }
-func (v uint16Val) Eval() Evaluable { return v }
-func (v uint32Val) Eval() Evaluable { return v }
-func (v imagVal) Eval() Evaluable   { return v }
-func (v imag64Val) Eval() Evaluable { return v }
-func (v bigFltVal) Eval() Evaluable { return v }
-func (v flt32Val) Eval() Evaluable  { return v }
-func (v fltVal) Eval() Evaluable    { return v }
-func (v ratioVal) Eval() Evaluable  { return v }
-func (v byteVal) Eval() Evaluable   { return v }
-func (v runeVal) Eval() Evaluable   { return v }
-func (v bytesVal) Eval() Evaluable  { return v }
-func (v strVal) Eval() Evaluable    { return v }
-func (v slice) Eval() Evaluable     { return v }
-func (v errorVal) Eval() Evaluable  { return v }
-func (v timeVal) Eval() Evaluable   { return v }
-func (v duraVal) Eval() Evaluable   { return v }
-
-/// COPY
-func (t flag) Copy() Evaluable      { n := t; return n }
-func (n nilVal) Copy() Evaluable    { return nilVal(struct{}{}) }
-func (v boolVal) Copy() Evaluable   { var r boolVal = v; return r }
-func (v int32Val) Copy() Evaluable  { var r int32Val = v; return r }
-func (v int16Val) Copy() Evaluable  { var r int16Val = v; return r }
-func (v int8Val) Copy() Evaluable   { var r int8Val = v; return r }
-func (v intVal) Copy() Evaluable    { var r intVal = v; return r }
-func (v bigIntVal) Copy() Evaluable { var r bigIntVal = v; return r }
-func (v uint32Val) Copy() Evaluable { var r uint32Val = v; return r }
-func (v uint16Val) Copy() Evaluable { var r uint16Val = v; return r }
-func (v uint8Val) Copy() Evaluable  { var r uint8Val = v; return r }
-func (v uintVal) Copy() Evaluable   { var r uintVal = v; return r }
-func (v fltVal) Copy() Evaluable    { var r fltVal = v; return r }
-func (v flt32Val) Copy() Evaluable  { var r flt32Val = v; return r }
-func (v bigFltVal) Copy() Evaluable { var r bigFltVal = v; return r }
-func (v imagVal) Copy() Evaluable   { var r imagVal = v; return r }
-func (v imag64Val) Copy() Evaluable { var r imag64Val = v; return r }
-func (v ratioVal) Copy() Evaluable  { var r ratioVal = v; return r }
-func (v byteVal) Copy() Evaluable   { var r byteVal = v; return r }
-func (v runeVal) Copy() Evaluable   { var r runeVal = v; return r }
-func (v bytesVal) Copy() Evaluable  { var r bytesVal = v; return r }
-func (v strVal) Copy() Evaluable    { var r strVal = v; return r }
-func (v timeVal) Copy() Evaluable   { var r timeVal = v; return r }
-func (v duraVal) Copy() Evaluable   { var r duraVal = v; return r }
-func (v slice) Copy() Evaluable     { var ret = []Evaluable{}; return slice(append(ret, v)) }
-func (v errorVal) Copy() Evaluable  { var r errorVal = v; return r }
-
-/// STRING
-func (nilVal) String() string      { return Nil.String() }
-func (v errorVal) String() string  { return v.v.Error() }
-func (v errorVal) Error() error    { return v.v }
-func (v boolVal) String() string   { return strconv.FormatBool(bool(v)) }
-func (v intVal) String() string    { return strconv.Itoa(int(v)) }
-func (v int8Val) String() string   { return strconv.Itoa(int(v)) }
-func (v int16Val) String() string  { return strconv.Itoa(int(v)) }
-func (v int32Val) String() string  { return strconv.Itoa(int(v)) }
-func (v uintVal) String() string   { return strconv.Itoa(int(v)) }
-func (v uint8Val) String() string  { return strconv.Itoa(int(v)) }
-func (v uint16Val) String() string { return strconv.Itoa(int(v)) }
-func (v uint32Val) String() string { return strconv.Itoa(int(v)) }
-func (v byteVal) String() string   { return strconv.Itoa(int(v)) }
-func (v runeVal) String() string   { return string(v) }
-func (v bytesVal) String() string  { return string(v) }
-func (v strVal) String() string    { return string(v) }
-func (v strVal) Key() string       { return string(v) }
-func (v timeVal) String() string   { return time.Time(v).String() }
-func (v duraVal) String() string   { return time.Duration(v).String() }
-func (v bigIntVal) String() string { return ((*big.Int)(&v)).String() }
-func (v ratioVal) String() string  { return ((*big.Rat)(&v)).String() }
-func (v bigFltVal) String() string { return ((*big.Float)(&v)).String() }
-func (v fltVal) String() string {
-	return strconv.FormatFloat(float64(v), 'G', -1, 64)
+///// STRING
+func (nilVal) String() strVal      { return strVal(Nil.String()) }
+func (v errorVal) String() strVal  { return strVal(v.v.Error()) }
+func (v errorVal) Error() errorVal { return errorVal{v.v} }
+func (v boolVal) String() strVal   { return strVal(strconv.FormatBool(bool(v))) }
+func (v intVal) String() strVal    { return strVal(strconv.Itoa(int(v))) }
+func (v int8Val) String() strVal   { return strVal(strconv.Itoa(int(v))) }
+func (v int16Val) String() strVal  { return strVal(strconv.Itoa(int(v))) }
+func (v int32Val) String() strVal  { return strVal(strconv.Itoa(int(v))) }
+func (v uintVal) String() strVal   { return strVal(strconv.Itoa(int(v))) }
+func (v uint8Val) String() strVal  { return strVal(strconv.Itoa(int(v))) }
+func (v uint16Val) String() strVal { return strVal(strconv.Itoa(int(v))) }
+func (v uint32Val) String() strVal { return strVal(strconv.Itoa(int(v))) }
+func (v byteVal) String() strVal   { return strVal(strconv.Itoa(int(v))) }
+func (v runeVal) String() strVal   { return strVal(string(v)) }
+func (v bytesVal) String() strVal  { return strVal(string(v)) }
+func (v strVal) String() strVal    { return strVal(string(v)) }
+func (v strVal) Key() strVal       { return strVal(string(v)) }
+func (v timeVal) String() strVal   { return strVal(time.Time(v).String()) }
+func (v duraVal) String() strVal   { return strVal(time.Duration(v).String()) }
+func (v bigIntVal) String() strVal { return strVal(((*big.Int)(&v)).String()) }
+func (v ratioVal) String() strVal  { return strVal(((*big.Rat)(&v)).String()) }
+func (v bigFltVal) String() strVal { return strVal(((*big.Float)(&v)).String()) }
+func (v fltVal) String() strVal {
+	return strVal(strconv.FormatFloat(float64(v), 'G', -1, 64))
 }
-func (v flt32Val) String() string {
-	return strconv.FormatFloat(float64(v), 'G', -1, 32)
+func (v flt32Val) String() strVal {
+	return strVal(strconv.FormatFloat(float64(v), 'G', -1, 32))
 }
-func (v imagVal) String() string {
-	return strconv.FormatFloat(float64(real(v)), 'G', -1, 64) + " + " +
-		strconv.FormatFloat(float64(imag(v)), 'G', -1, 64) + "i"
+func (v imagVal) String() strVal {
+	return strVal(strconv.FormatFloat(float64(real(v)), 'G', -1, 64) + " + " +
+		strconv.FormatFloat(float64(imag(v)), 'G', -1, 64) + "i")
 }
-func (v imag64Val) String() string {
-	return strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
-		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
+func (v imag64Val) String() strVal {
+	return strVal(strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
+		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i")
 }
-func (v flag) String() string {
+func (v flag) String() strVal {
 	if uint(bits.OnesCount(v.Uint())) == 1 {
-		return ValType(v).String()
+		return strVal(ValType(v).String())
 	}
 	len := uint(flen(v))
 	str := &strings.Builder{}
@@ -374,16 +373,16 @@ func (v flag) String() string {
 		u = uint(1) << i
 	}
 	if err != nil {
-		return "ERROR: could not decompose value type name to string"
+		return strVal("ERROR: could not decompose value type name to string")
 	}
-	return str.String()
+	return strVal(str.String())
 }
-func (v slice) String() string {
+func (v slice) String() strVal {
 	var err error
 	str := &strings.Builder{}
 	_, err = (*str).WriteString("[")
 	for i, val := range v.Slice() {
-		_, err = (*str).WriteString(val.String())
+		_, err = (*str).WriteString(string(val.(strVal)))
 		if i < v.Len()-1 {
 			(*str).WriteString(", ")
 		}
@@ -392,5 +391,5 @@ func (v slice) String() string {
 	if err != nil {
 		return "ERROR: could not concatenate slice values to string"
 	}
-	return str.String()
+	return strVal(str.String())
 }
