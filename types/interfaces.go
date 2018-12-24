@@ -44,9 +44,9 @@ type Destructable interface {
 // designated 'main mode of transportation' in the world of ffp
 type Consumed interface {
 	Cellular
-	Decap() (Evaluable, Tupular)
-	Head() Evaluable
-	Tail() Evaluable
+	Decap() (Cellular, Tupular)
+	Head() Cellular
+	Tail() Tupular
 }
 
 ///// ATTRIBUTATION /////
