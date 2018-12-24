@@ -105,25 +105,6 @@ type (
 	slice     []Evaluable
 )
 
-func New(vals ...interface{}) (rval Evaluable) {
-	if len(vals) > 0 {
-		if len(vals) > 1 {
-			sli := make([]Evaluable, 0, len(vals))
-			for _, val := range vals {
-				v := Make(val)
-				// big.Int is allways a pointer
-				if v.Type().Match(BigInt | BigFlt | Ratio) {
-					sli = append(sli, v)
-					continue
-				}
-				sli = append(sli, v.ref())
-			}
-			return Make(sli).ref()
-		}
-		return Make(vals[0]).ref()
-	}
-	return nilVal{}.ref()
-}
 func Make(vals ...interface{}) (rval Evaluable) {
 	var val interface{}
 	if len(vals) == 0 {
@@ -133,7 +114,7 @@ func Make(vals ...interface{}) (rval Evaluable) {
 		sl := newSlice()
 		for _, val := range vals {
 			val = val
-			sl = Append(sl, Make(val))
+			sl = sliceAppend(sl, Make(val))
 		}
 		return sl
 	}
@@ -255,7 +236,7 @@ func newNull(t Typed) (val Evaluable) {
 
 /// Type
 func (nilVal) Type() flag      { return Nil.Type() }
-func (t flag) Type() flag      { return t }
+func (v flag) Type() flag      { return v }
 func (v boolVal) Type() flag   { return Bool.Type() }
 func (v intVal) Type() flag    { return Int.Type() }
 func (v int8Val) Type() flag   { return Int8.Type() }
@@ -308,34 +289,6 @@ func (v slice) Eval() Evaluable     { return v }
 func (v errorVal) Eval() Evaluable  { return v }
 func (v timeVal) Eval() Evaluable   { return v }
 func (v duraVal) Eval() Evaluable   { return v }
-
-/// REFERENCE
-func (v nilVal) ref() Evaluable    { return nil }
-func (t flag) ref() Evaluable      { return &t }
-func (v boolVal) ref() Evaluable   { return &v }
-func (v intVal) ref() Evaluable    { return &v }
-func (v int8Val) ref() Evaluable   { return &v }
-func (v int16Val) ref() Evaluable  { return &v }
-func (v int32Val) ref() Evaluable  { return &v }
-func (v bigIntVal) ref() Evaluable { return v }
-func (v uintVal) ref() Evaluable   { return &v }
-func (v uint8Val) ref() Evaluable  { return &v }
-func (v uint16Val) ref() Evaluable { return &v }
-func (v uint32Val) ref() Evaluable { return &v }
-func (v fltVal) ref() Evaluable    { return &v }
-func (v flt32Val) ref() Evaluable  { return &v }
-func (v bigFltVal) ref() Evaluable { return v }
-func (v imagVal) ref() Evaluable   { return &v }
-func (v imag64Val) ref() Evaluable { return &v }
-func (v ratioVal) ref() Evaluable  { return v }
-func (v byteVal) ref() Evaluable   { return &v }
-func (v runeVal) ref() Evaluable   { return &v }
-func (v bytesVal) ref() Evaluable  { return &v }
-func (v strVal) ref() Evaluable    { return &v }
-func (v slice) ref() Evaluable     { return &v }
-func (v errorVal) ref() Evaluable  { return &v }
-func (v timeVal) ref() Evaluable   { return &v }
-func (v duraVal) ref() Evaluable   { return &v }
 
 /// COPY
 func (t flag) Copy() Evaluable      { n := t; return n }

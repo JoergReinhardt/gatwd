@@ -7,188 +7,64 @@ type Reproduceable interface{ Copy() Evaluable }
 type Printable interface{ String() string }
 type Named interface{ Name() string }
 type Typed interface{ Type() flag }
+type Destructable interface{ Clear() }
 
+///// FLAT VALUES ///////
 type Evaluable interface {
 	Reproduceable
 	Printable
 	Typed
 	Eval() Evaluable
-	ref() Evaluable
-}
-type Callable interface {
-	Arity() int
-}
-type Applyable interface {
-	Fix() int
 }
 
-///// LINEAR ELEMENTS /////
-type Voidable interface {
+///// COLLECTIONS ///////
+type Collected interface {
+	Evaluable
 	Empty() bool
 }
-type Size interface {
-	Len() int
-}
-type Chained interface {
-	Size
-	Voidable
-	Values() []Evaluable
-}
 
-// one of the very few exceptions to the 'everything is an expression' rule
-type Destructable interface {
-	Clear()
-}
-
-//// RECURSIVE ELEMENTS //////
-// designated 'main mode of transportation' in the world of ffp
-type Consumed interface {
-	Cellular
-	Decap() (Cellular, Tupular)
-	Head() Cellular
-	Tail() Tupular
-}
-
-///// ATTRIBUTATION /////
-type Attributed interface {
-	Attributes() []Attribute
-	Values() []Evaluable
-}
-type Attribute interface {
-	Attr() Evaluable
-	AttrType() Typed
-}
-type AttrBySlice interface {
-	Elements() []Cellular // Cell[OrdAttr,Value]
-}
-type AttrByKey interface {
-	Keys() []Attribute
-	Fields() []Cellular // Cell[StrAttr,Value]
-}
-type AttrByMembership interface {
-	Attr() []Attribute
-	Members() []Cellular // Cell[StrAttr,Value]
-}
-
-/////
-type Any interface {
-	Any(func(a Attribute, v Evaluable) bool) bool
-}
-type All interface {
-	All(func(a Attribute, v Evaluable) bool) bool
-}
-type Membership interface {
-	Match() bool
-}
-
-///// COLLECTION ACCESSORS //////
-type IndexAt interface {
-	Idx() int
-}
-type StringAt interface {
-	Key() string
-}
-type IdxGet interface {
-	Get(IndexAt) Evaluable
-}
-type IdxSet interface {
-	Set(IndexAt, Evaluable)
-}
-type StrGet interface {
-	Get(StringAt) Evaluable
-}
-type StrSet interface {
-	Set(StringAt, Evaluable)
-}
-type Getter interface {
-	Get(Attribute) Evaluable
-}
-type Setter interface {
-	Set(Attribute, Evaluable)
-}
-
-///////////////////////////
-type Stacked interface {
-	Pull() Evaluable
-	Put(Evaluable)
-	Append(...Evaluable)
-}
-type Queued interface {
-	Pop() Evaluable
-	Push(Evaluable)
-	Add(...Evaluable)
-}
-type Topped interface {
-	First() Evaluable
-}
-type Bottomed interface {
-	Last() Evaluable
-}
-type Referenced interface {
-	HeadReferenced
+/// FLAT COLLECTIONS /////
+type Ordered interface {
+	Collected
 	Next() Evaluable
 }
-type TailReferenced interface {
-	Tail() Tupular
+type Reverseable interface {
+	Ordered
+	Prev() Evaluable
 }
-type HeadReferenced interface {
-	Head() Evaluable
+type Limited interface {
+	Len() int
 }
-type DoublyReferenced interface {
-	Reverse() Evaluable
-}
-type Stackable interface {
-	Push(Evaluable)
-	Pop()
-}
-type Rooted interface {
-	Root() Nodular
-}
-type Parented interface {
-	Parent() Nodular
-}
-type Nested interface {
-	Nest() []Nodular
-}
-type Identifyable interface {
-	Ident() Attribute
-}
-type Iterable interface {
-	Next() (Evaluable, Iterable)
+type Attributed interface {
+	AttrType() Typed
+	Get(Evaluable) Evaluable
 }
 
-//////////////////////////
-type Cellular interface {
-	Evaluable
-	Voidable // aka Empty() bool
+//// LAST IN FIRST OUT //////
+type Stacked interface {
+	Push(Evaluable)
+	Pop() Evaluable
+	Add(...Evaluable)
 }
-type AttributedCell interface {
-	Cellular
-	Attribute
+
+//// FIRST IN FIRST OUT /////
+type Queued interface {
+	Put(Evaluable)
+	Pull() Evaluable
+	Append(...Evaluable)
 }
-type Tupular interface {
-	Consumed
+
+/// NESTED COLLECTIONS /////
+type Nested interface {
+	Decap() (Evaluable, Nested)
+	Head() Evaluable
+	Tail() Nested
 }
-type Nodular interface {
-	Attribute
-	Rooted
-}
-type NestNodul interface {
-	Nodular
-	Nested
-}
-type ChildNodul interface {
-	Parented
-	Nodular
-}
-type BranchNodul interface {
-	ChildNodul
-	Left() Nodular
-	Right() Nodular
-}
-type LeaveNodule interface {
-	ChildNodul
-	Evaluable
+
+///// FUNCTIONS /////////
+type Parametric interface {
+	Arity() int
+	Fix() int
 }
 
 //////////////////////////
@@ -214,27 +90,6 @@ type State interface {
 	Run()
 	ItemType() Typed
 	State(string) StateFn
-}
-
-//// LIST COMPOSITIONS ////
-type Collected interface {
-	Chained
-}
-type IdxCollected interface {
-	IdxGet
-	IdxSet
-}
-type DoubleEnded interface {
-	Topped
-	Bottomed
-}
-type Listed interface {
-	IdxCollected // Get | Set
-	Chained      // Sliced
-}
-type MultiTypedList interface {
-	AttrByMembership
-	Listed
 }
 
 // takes a state and advances it. returns the next state fn to run

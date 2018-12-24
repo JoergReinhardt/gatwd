@@ -25,40 +25,49 @@ func TestTypeFlag(t *testing.T) {
 	)
 }
 func TestMutability(t *testing.T) {
-	a := Make(true).(boolVal).ref().(*boolVal)
+	a := Make(true).(boolVal)
 	b := Make(false).(boolVal)
-	if *a == b {
+	if a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
-	*a = b
-	if *a != b {
+	a = b
+	if a != b {
 		t.Log("value of value has been assigned and should not differ", a, b)
 	}
 }
 func TestTypeAllocation(t *testing.T) {
 	s0 := newSlice(
-		New(true),
-		New(1),
-		New(1, 2, 3, 4, 5, 6, 7),
-		New(int8(8)),
-		New(int16(16)),
-		New(int32(32)),
-		New(float32(32.16)),
-		New(float64(64.64)),
-		New(complex64(float32(32))),
-		New(complex128(float64(1.6))),
-		New(byte(3)),
-		New(time.Now()),
-		New(rune('ö')),
-		New(big.NewInt(23)),
-		New(big.NewFloat(23.42)),
-		New(big.NewRat(23, 42)),
-		New([]byte("test")),
-		New("test"))
+		Make(true),
+		Make(1),
+		Make(1, 2, 3, 4, 5, 6, 7),
+		Make(int8(8)),
+		Make(int16(16)),
+		Make(int32(32)),
+		Make(float32(32.16)),
+		Make(float64(64.64)),
+		Make(complex64(float32(32))),
+		Make(complex128(float64(1.6))),
+		Make(byte(3)),
+		Make(time.Now()),
+		Make(rune('ö')),
+		Make(big.NewInt(23)),
+		Make(big.NewFloat(23.42)),
+		Make(big.NewRat(23, 42)),
+		Make([]byte("test")),
+		Make("test"))
 
 	s1 := newSlice()
+	//s1 := []Evaluable{}
+	//s1 := []int{}
 
-	fmt.Printf("List-1: %s\tList-2: %s\n", s0, s1)
+	fmt.Printf("List-0: %s\n", s0)
+
+	for i := 0; i < 1000000000; i++ {
+		s1 = sliceAppend(s1, Make(i))
+		//s1 = append(s1, i)
+	}
+
+	fmt.Printf("List-1 len: %d\t\n", len(s1))
 }
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
