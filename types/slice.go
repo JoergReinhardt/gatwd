@@ -141,4 +141,4 @@ func sliceInsert(s slice, i int, v Data) slice {
 func sliceInsertVari(s slice, i int, v ...Data) slice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
-func sliceAttrType(s slice) flag { return Int.Flag() }
+func sliceAttrType(s slice) BitFlag { return Int.Flag() }

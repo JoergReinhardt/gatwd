@@ -3,9 +3,9 @@ package types
 import "text/scanner"
 
 ///// SYNTAX DEFINITION /////
-type TokType flag
+type TokType BitFlag
 
-func (t TokType) Type() flag     { return flag(t) }
+func (t TokType) Type() BitFlag  { return BitFlag(t) }
 func (t TokType) Syntax() string { return syntax[t] }
 
 //go:generate stringer -type=TokType

@@ -3,32 +3,73 @@ package types
 import (
 	"fmt"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
+
+func TestApplyPartial(t *testing.T) {
+	data := conData(1, 2.0, "three", uint(4), (uint(1) << 5)).(slice)
+
+	lambds := []lambda{}
+
+	for _, dat := range data.Slice() {
+		l := composeLambda(encloseData(dat), dat.Flag(), PostFix)
+		lambds = append(lambds, l)
+	}
+
+	spew.Dump(lambds)
+
+	argtypes := args{}
+
+	for i, l := range lambds {
+		fmt.Printf("lambda %d:\ntype: %s\nargs: %s\n\n",
+			i, l.Flag().String(), l.Args())
+		argtypes = append(argtypes, l.Flag())
+	}
+
+	part := enclsoseLambda(
+		composeLambda(func(...Data) Data { return strVal("partial") },
+			String.Flag(), PostFix, argtypes...))
+
+	fmt.Printf("partial fn args: %s", part.Args())
+
+	var d1 = []Data{}
+	part, d1 = applyPartial(part.Enclosed(), argtypes, data.Slice()[:2]...)
+
+	fmt.Printf("args after partial arg application: %s\nresult s1: %s\n\n",
+		part.Args(), d1)
+
+	var d2 = []Data{}
+	part, d2 = applyPartial(part.Enclosed(), argtypes, data.Slice()[2:]...)
+
+	fmt.Printf("args after full arg application: %s\nresult: %s\n\n",
+		part.Args(), d2)
+}
 
 func TestFunctionComposition(t *testing.T) {
 
 	helloWorld := func(...Data) Data { return conData("hello, world!") }
 	helloData := conData("hello World data")
 
-	lam := composeLambda(helloWorld, String, ConFix, List)
+	lam := composeLambda(helloWorld, String, ConFix, List.Flag())
 	clo := enclsoseLambda(lam)
 	dtc := encloseData(helloData)
 
 	fmt.Printf("calling helloWorld function directly: %s\n", helloWorld())
 	fmt.Printf("calling closure:%v\n"+
-		"type: %s\nenclosed: %s\n"+
+		"type: %s\n"+
 		"call closure directy, assert as lambda: %s\n"+
 		"call Enclosed %s\n",
-		clo, clo.Type().String(),
-		clo.Enclosed(), clo().(lambda).Call(),
-		clo.Enclosed().(lambda).Call())
+		clo, clo.Flag().String(),
+		clo().(lambda).Call(),
+		clo.Enclosed().Call())
 
 	fmt.Printf("calling lamba:\n"+
 		"type: %s\targs: %v\n"+
 		"arity: %s\tfixity: %s\n"+
 		"calling call method: %s\n",
 		lam.Flag().String(),
-		lam.ArgTypes(),
+		lam.Args(),
 		lam.Arity().String(),
 		lam.Fixity().String(),
 		lam.Call())
@@ -55,7 +96,7 @@ func TestFunctionComposition(t *testing.T) {
 		fenc,
 		fenc.Name(),
 		fenc.Flag().String(),
-		fenc.ArgTypes(),
+		fenc.Args(),
 		fenc.Arity(),
 		fenc.Fixity(),
 		fenc.Call(),

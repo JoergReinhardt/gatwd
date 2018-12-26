@@ -15,7 +15,6 @@ func conData(vals ...interface{}) (rval Data) {
 	if len(vals) > 1 {
 		sl := newSlice()
 		for _, val := range vals {
-			val = val
 			sl = slicePut(sl, conData(val))
 		}
 		return sl
@@ -71,8 +70,8 @@ func conData(vals ...interface{}) (rval Data) {
 		rval = val.(Data)
 	case []Data:
 		rval = slice(val.([]Data))
-	case FnType, ValType, Typed:
-		rval = flag(val.(ValType))
+	case FnType, Type, Typed:
+		rval = BitFlag(val.(Type))
 	}
 	return rval
 }
@@ -113,19 +112,19 @@ func conNull(t Typed) (val Data) {
 	case Imag64.Flag().Match(t):
 		return conData(complex64(float32(0)))
 	case Byte.Flag().Match(t):
-		var b byte = 0
+		var b = 0
 		return conData(b)
 	case Bytes.Flag().Match(t):
-		var b []byte = []byte{}
+		var b = []byte{}
 		return conData(b)
 	case Rune.Flag().Match(t):
-		var b rune = ' '
+		var b = ' '
 		return conData(b)
 	case String.Flag().Match(t):
 		s := " "
 		return conData(s)
 	case Error.Flag().Match(t):
-		var e error = fmt.Errorf("")
+		var e = fmt.Errorf("")
 		return conData(e)
 	case t.Flag().Match(BigInt):
 		v := &big.Int{}

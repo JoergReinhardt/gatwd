@@ -10,16 +10,16 @@ import (
 //////// INTERNAL TYPE SYSTEM ///////////
 //
 // intended to be accessable and extendable
-type ValType flag
+type Type BitFlag
 
-func (v ValType) Flag() flag { return flag(v) }
+func (v Type) Flag() BitFlag { return BitFlag(v) }
 
-//go:generate stringer -type=ValType
+//go:generate stringer -type=Type
 const (
-	Nil  ValType = 0
-	Bool ValType = 1
-	Int  ValType = 1 << iota
-	Int8         // Int8 -> Int8
+	Nil  Type = 0
+	Bool Type = 1
+	Int  Type = 1 << iota
+	Int8      // Int8 -> Int8
 	Int16
 	Int32
 	BigInt
@@ -52,12 +52,13 @@ const (
 	DLink  // nodes referencing previous, next node and nested value
 	Node   // node of a tree, or liked list
 	Tree   // nodes referencing parent, root and a value of contained node(s)
+	Function
 	///////
-	BitFlag   // generic bitflag role
+	Flag      // generic bitflag role
 	DataType  // types of the user defineable type system
 	NodeType  // types of nodes in linked trees
 	TokenType // types of tokens in parsed input
-	HOType    // higher order type
+	MetaType  // higher order type
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
@@ -104,9 +105,9 @@ type (
 	duraVal   time.Duration
 	errorVal  struct{ v error }
 	//////
-	flag            uint
+	BitFlag         uint
 	slice           []Data
-	args            []flag
+	args            []BitFlag
 	parms           []Attribute
 	Attribute       Constant
 	Constant        func() Data
@@ -118,69 +119,70 @@ type (
 )
 
 /// Flag Method for all types
-func (c Constant) Flag() flag      { return c().Flag() }
-func (a Attribute) Flag() flag     { return Attr.Flag() }
-func (a Attribute) AttrType() flag { return a().Flag() }
-func (v flag) Flag() flag          { return v }
-func (nilVal) Flag() flag          { return BitFlag.Flag() }
-func (v boolVal) Flag() flag       { return Bool.Flag() }
-func (v intVal) Flag() flag        { return Int.Flag() }
-func (v int8Val) Flag() flag       { return Int8.Flag() }
-func (v int16Val) Flag() flag      { return Int16.Flag() }
-func (v int32Val) Flag() flag      { return Int32.Flag() }
-func (v uintVal) Flag() flag       { return Uint.Flag() }
-func (v uint8Val) Type() flag      { return Uint8.Flag() }
-func (v uint16Val) Flag() flag     { return Uint16.Flag() }
-func (v uint32Val) Type() flag     { return Uint32.Flag() }
-func (v bigIntVal) Flag() flag     { return BigInt.Flag() }
-func (v fltVal) Flag() flag        { return Float.Flag() }
-func (v flt32Val) Flag() flag      { return Flt32.Flag() }
-func (v bigFltVal) Flag() flag     { return BigFlt.Flag() }
-func (v imagVal) Flag() flag       { return Imag.Flag() }
-func (v imag64Val) Type() flag     { return Imag64.Flag() }
-func (v ratioVal) Flag() flag      { return Ratio.Flag() }
-func (v runeVal) Type() flag       { return Rune.Flag() }
-func (v byteVal) Flag() flag       { return Byte.Flag() }
-func (v bytesVal) Flag() flag      { return Bytes.Flag() }
-func (v strVal) Flag() flag        { return String.Flag() }
-func (v timeVal) Flag() flag       { return Time.Flag() }
-func (v duraVal) Flag() flag       { return Duration.Flag() }
-func (v slice) Flag() flag         { return Chain.Flag() }
-func (v errorVal) Flag() flag      { return Error.Flag() }
+func (a Attribute) Flag() BitFlag {
+	return a().Flag().Concat(Attr.Flag())
+}
+func (nilVal) Flag() BitFlag          { return Nil.Flag() }
+func (a Attribute) AttrType() BitFlag { return Attr.Flag() }
+func (v BitFlag) Flag() BitFlag       { return Flag.Flag() }
+func (v boolVal) Flag() BitFlag       { return Bool.Flag() }
+func (v intVal) Flag() BitFlag        { return Int.Flag() }
+func (v int8Val) Flag() BitFlag       { return Int8.Flag() }
+func (v int16Val) Flag() BitFlag      { return Int16.Flag() }
+func (v int32Val) Flag() BitFlag      { return Int32.Flag() }
+func (v uintVal) Flag() BitFlag       { return Uint.Flag() }
+func (v uint8Val) Flag() BitFlag      { return Uint8.Flag() }
+func (v uint16Val) Flag() BitFlag     { return Uint16.Flag() }
+func (v uint32Val) Flag() BitFlag     { return Uint32.Flag() }
+func (v bigIntVal) Flag() BitFlag     { return BigInt.Flag() }
+func (v fltVal) Flag() BitFlag        { return Float.Flag() }
+func (v flt32Val) Flag() BitFlag      { return Flt32.Flag() }
+func (v bigFltVal) Flag() BitFlag     { return BigFlt.Flag() }
+func (v imagVal) Flag() BitFlag       { return Imag.Flag() }
+func (v imag64Val) Flag() BitFlag     { return Imag64.Flag() }
+func (v ratioVal) Flag() BitFlag      { return Ratio.Flag() }
+func (v runeVal) Flag() BitFlag       { return Rune.Flag() }
+func (v byteVal) Flag() BitFlag       { return Byte.Flag() }
+func (v bytesVal) Flag() BitFlag      { return Bytes.Flag() }
+func (v strVal) Flag() BitFlag        { return String.Flag() }
+func (v timeVal) Flag() BitFlag       { return Time.Flag() }
+func (v duraVal) Flag() BitFlag       { return Duration.Flag() }
+func (v slice) Flag() BitFlag         { return Chain.Flag() }
+func (v errorVal) Flag() BitFlag      { return Error.Flag() }
 
 //// BOUND TYPE FLAG METHODS ////
-func (t flag) Uint() uint         { return fuint(t) }
-func (t flag) Len() int           { return flen(t) }
-func (t flag) Count() int         { return fcount(t) }
-func (t flag) Least() int         { return fleast(t) }
-func (t flag) Most() int          { return fmost(t) }
-func (t flag) Low(v Typed) Typed  { return flow(t) }
-func (t flag) High(v Typed) Typed { return fhigh(t) }
-func (t flag) Reverse() flag      { return frev(t) }
-func (t flag) Rotate(n int) flag  { return frot(t, n) }
-func (t flag) Toggle(v flag) flag { return ftog(t, v) }
-func (t flag) Concat(v flag) flag { return fconc(t, v) }
-func (t flag) Mask(v flag) flag   { return fmask(t, v) }
-func (t flag) Match(v Typed) bool { return fmatch(t, v) }
+func (v BitFlag) Uint() uint               { return fuint(v) }
+func (v BitFlag) Len() int                 { return flen(v) }
+func (v BitFlag) Count() int               { return fcount(v) }
+func (v BitFlag) Least() int               { return fleast(v) }
+func (v BitFlag) Most() int                { return fmost(v) }
+func (v BitFlag) Low(f Typed) Typed        { return flow(f) }
+func (v BitFlag) High(f Typed) Typed       { return fhigh(f) }
+func (v BitFlag) Reverse() BitFlag         { return frev(v) }
+func (v BitFlag) Rotate(n int) BitFlag     { return frot(v, n) }
+func (v BitFlag) Toggle(f BitFlag) BitFlag { return ftog(v, f) }
+func (v BitFlag) Concat(f BitFlag) BitFlag { return fconc(v, f) }
+func (v BitFlag) Mask(f BitFlag) BitFlag   { return fmask(v, f) }
+func (v BitFlag) Match(f Typed) bool       { return fmatch(v, f) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func fuint(t flag) uint         { return uint(t) }
-func flen(t flag) int           { return bits.Len(uint(t)) }
-func fcount(t flag) int         { return bits.OnesCount(uint(t)) }
-func fleast(t flag) int         { return bits.TrailingZeros(uint(t)) + 1 }
-func fmost(t flag) int          { return bits.LeadingZeros(uint(t)) - 1 }
-func frev(t flag) flag          { return flag(bits.Reverse(uint(t))) }
-func frot(t flag, n int) flag   { return flag(bits.RotateLeft(uint(t), n)) }
-func ftog(t flag, v flag) flag  { return flag(uint(t) ^ v.Flag().Uint()) }
-func fconc(t flag, v flag) flag { return flag(uint(t) | v.Flag().Uint()) }
-func fmask(t flag, v flag) flag { return flag(uint(t) &^ v.Flag().Uint()) }
-func fshow(f Typed) string      { return fmt.Sprintf("%64b\n", f) }
-func flow(t Typed) Typed        { return fmask(t.Flag(), flag(Mask)) }
+func fuint(t BitFlag) uint               { return uint(t) }
+func flen(t BitFlag) int                 { return bits.Len(uint(t)) }
+func fcount(t BitFlag) int               { return bits.OnesCount(uint(t)) }
+func fleast(t BitFlag) int               { return bits.TrailingZeros(uint(t)) + 1 }
+func fmost(t BitFlag) int                { return bits.LeadingZeros(uint(t)) - 1 }
+func frev(t BitFlag) BitFlag             { return BitFlag(bits.Reverse(uint(t))) }
+func frot(t BitFlag, n int) BitFlag      { return BitFlag(bits.RotateLeft(uint(t), n)) }
+func ftog(t BitFlag, v BitFlag) BitFlag  { return BitFlag(uint(t) ^ v.Flag().Uint()) }
+func fconc(t BitFlag, v BitFlag) BitFlag { return BitFlag(uint(t) | v.Flag().Uint()) }
+func fmask(t BitFlag, v BitFlag) BitFlag { return BitFlag(uint(t) &^ v.Flag().Uint()) }
+func fshow(f Typed) string               { return fmt.Sprintf("%64b\n", f) }
+func flow(t Typed) Typed                 { return fmask(t.Flag(), BitFlag(Mask)) }
 func fhigh(t Typed) Typed {
-	len := flen(flag(Natives))
-	return fmask(frot(t.Flag(), len), frot(flag(Natives), len))
+	len := flen(BitFlag(Natives))
+	return fmask(frot(t.Flag(), len), frot(BitFlag(Natives), len))
 }
-func fmatch(t flag, v Typed) bool {
+func fmatch(t BitFlag, v Typed) bool {
 	if t.Uint()&v.Flag().Uint() != 0 {
 		return true
 	}

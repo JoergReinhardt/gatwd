@@ -8,10 +8,22 @@ type Destructable interface{ Clear() }
 type Stringer interface{ String() strVal }
 
 //// USER DEFINED DATA & FUNCTION TYPES ///////
-type Typed interface{ Flag() flag } //<- lowest common denominator
+type Typed interface{ Flag() BitFlag } //<- lowest common denominator
 type Named interface{ Name() }
 type Data interface{ Typed }
 type Functional interface{ Typed }
+
+type Lambda interface {
+	Functional
+	Enclosed() Data
+	ArgTypes() []BitFlag
+	Arity() Arity
+	Fixity() FixType
+}
+type NamedFuntion interface {
+	Lambda
+	Named
+}
 
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
@@ -38,7 +50,7 @@ type Limited interface {
 // element, according to list type, need accessors, to pass in attributes on
 // which element(s) to access. attributes are a type alias of Data, to ensure
 // type safety on argument propagation
-type Attributed interface {
+type Associative interface {
 	AttrType() Typed
 	Get(Attribute) Data
 }
@@ -140,8 +152,8 @@ const (
 
 type FnType uint
 
-func (t FnType) Type() Typed { return t.Type() }
-func (t FnType) Flag() flag  { return flag(t) }
+func (t FnType) Type() Typed   { return t.Type() }
+func (t FnType) Flag() BitFlag { return BitFlag(t) }
 
 // function to change parameters and return the changed instance accompanied by
 // the new ParamFn closing over the replaced arguments
@@ -151,6 +163,6 @@ func (p ParamFn) Type() Typed { return ParamFunc.Type() }
 
 // data to parse
 type Token interface {
-	Type() flag
+	Type() BitFlag
 	String() string
 }
