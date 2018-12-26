@@ -2,26 +2,14 @@ package types
 
 // FUNCTION CONSTRUCTORS
 //
-// the closure implementations, for better performance not actually returns any
-// data, when no arguments got passed. instead return data get's only yielded,
-// when called with arguments.
-
-// the abscence of parameters indicates, that the argument-/ and return value
-// types are the intended and expected result by the caller.
-//
-// the result of an actual call is returned and the parameters omitted,
-// whenever the 'call' method get's called explicitly.  the passing of
-// parameters indicates that the enclosed function is intended to actually be
-// called and the result to be returned.
-//
 //go:generate stringer -type FixType
 type FixType flag
 
 //go:generate stringer -type ArgPosition
-type ArgPosition flag
+type ArgPosition int8
 
 //go:generate stringer -type Arity
-type Arity int
+type Arity int8 // <-- this sounds terribly wrong, when born in germany8
 
 const (
 	Nullary Arity = 0 + iota
@@ -41,20 +29,15 @@ const (
 	PreFix FixType = 0 + iota
 	InFix
 	PostFix
-	Constant
-	FixNil
+	ConFix
 
 	// argument array layout:
-	return_type    ArgPosition = 0
-	fixity                     = 1
-	argument_types             = 2
+	ReturnType ArgPosition = 0
+	Fixity                 = 1
+	ArgTypes               = 2
 )
 
-type args []flag
-
-type dataClosure func(...Data) Data
-
-func (d dataClosure) Type() flag { return d().Type() }
+func (d dataClosure) Type() flag { return d().Flag() }
 func chainData(x []Data, y []Data) Data {
 	if len(x) > 0 {
 		return sliceAppend(newSlice(x...), y...)
@@ -65,8 +48,6 @@ func encloseData(dat ...Data) dataClosure {
 	return func(d ...Data) Data { return chainData(dat, d) }
 }
 
-type lambda func(...Data) (args, Data)
-
 func (l lambda) Call(in ...Data) Data {
 	if len(in) == 0 {
 		in = []Data{nilVal{}}
@@ -75,24 +56,24 @@ func (l lambda) Call(in ...Data) Data {
 	return dat
 }
 func (l lambda) Arity() Arity { return Arity(len(l.ArgTypes())) }
-func (l lambda) Type() flag {
+func (l lambda) Flag() flag {
 	a, _ := l()
-	if len(a) > int(return_type) {
-		return a[return_type].Type()
+	if len(a) > int(ReturnType) {
+		return a[ReturnType].Flag()
 	}
-	return Nil.Type()
+	return Nil.Flag()
 }
 func (l lambda) Fixity() FixType {
 	a, _ := l()
-	if len(a) > int(fixity) {
-		return FixType(a[fixity])
+	if len(a) > int(Fixity) {
+		return FixType(a[Fixity])
 	}
-	return FixNil
+	return ConFix
 }
 func (l lambda) ArgTypes() []flag {
 	a, _ := l()
-	if len(a) > int(argument_types) {
-		return a[argument_types:]
+	if len(a) > int(ArgTypes) {
+		return a[ArgTypes:]
 	}
 	return []flag{}
 }
@@ -106,9 +87,9 @@ func composeLambda(
 
 	var f = fn
 
-	var flags = []flag{typ.Type(), flag(fix)}
+	var flags = []flag{typ.Flag(), flag(fix)}
 	for _, at := range argTypes {
-		flags = append(flags, at.Type())
+		flags = append(flags, at.Flag())
 	}
 
 	return func(d ...Data) (args, Data) {
@@ -119,10 +100,8 @@ func composeLambda(
 	}
 }
 
-type lambdaClosure func(...Data) Data
-
 func (lr lambdaClosure) Enclosed() Data   { return lr().(lambda) }
-func (lr lambdaClosure) Type() flag       { return lr().(lambda).Type() }
+func (lr lambdaClosure) Type() flag       { return lr().(lambda).Flag() }
 func (lr lambdaClosure) ArgTypes() []flag { return lr().(lambda).ArgTypes() }
 func (lr lambdaClosure) Arity() Arity     { return lr().(lambda).Arity() }
 func (lr lambdaClosure) Fixity() FixType  { return lr().(lambda).Fixity() }
@@ -137,10 +116,8 @@ func enclsoseLambda(lmbd lambda) lambdaClosure {
 }
 
 // wrapper type for named functions
-type function func() (lambda, strVal)
-
 func (f function) Name() strVal        { _, n := f(); return n }
-func (f function) Type() flag          { l, _ := f(); return l.Type() }
+func (f function) Flag() flag          { l, _ := f(); return l.Flag() }
 func (f function) ArgTypes() []flag    { l, _ := f(); return l.ArgTypes() }
 func (f function) Arity() Arity        { l, _ := f(); return l.Arity() }
 func (f function) Fixity() FixType     { l, _ := f(); return l.Fixity() }
@@ -151,11 +128,9 @@ func composeFunction(name string, lambd lambda) function {
 	return func() (lambda, strVal) { return l, n }
 }
 
-type functionClosure func(...Data) Data
-
 func (fr functionClosure) Enclosed() Data   { return fr().(function) }
 func (fr functionClosure) Name() strVal     { return fr().(function).Name() }
-func (fr functionClosure) Type() flag       { return fr().(function).Type() }
+func (fr functionClosure) Type() flag       { return fr().(function).Flag() }
 func (fr functionClosure) ArgTypes() []flag { return fr().(function).ArgTypes() }
 func (fr functionClosure) Arity() Arity     { return fr().(function).Arity() }
 func (fr functionClosure) Fixity() FixType  { return fr().(function).Fixity() }

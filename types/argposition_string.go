@@ -4,12 +4,12 @@ package types
 
 import "strconv"
 
-const _ArgPosition_name = "encFunc"
+const _ArgPosition_name = "ReturnType"
 
-var _ArgPosition_index = [...]uint8{0, 7}
+var _ArgPosition_index = [...]uint8{0, 10}
 
 func (i ArgPosition) String() string {
-	if i >= ArgPosition(len(_ArgPosition_index)-1) {
+	if i < 0 || i >= ArgPosition(len(_ArgPosition_index)-1) {
 		return "ArgPosition(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ArgPosition_name[_ArgPosition_index[i]:_ArgPosition_index[i+1]]

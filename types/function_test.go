@@ -7,10 +7,10 @@ import (
 
 func TestFunctionComposition(t *testing.T) {
 
-	helloWorld := func(...Data) Data { return data("hello, world!") }
-	helloData := data("hello World data")
+	helloWorld := func(...Data) Data { return conData("hello, world!") }
+	helloData := conData("hello World data")
 
-	lam := composeLambda(helloWorld, String, Constant, List)
+	lam := composeLambda(helloWorld, String, ConFix, List)
 	clo := enclsoseLambda(lam)
 	dtc := encloseData(helloData)
 
@@ -27,7 +27,7 @@ func TestFunctionComposition(t *testing.T) {
 		"type: %s\targs: %v\n"+
 		"arity: %s\tfixity: %s\n"+
 		"calling call method: %s\n",
-		lam.Type().String(),
+		lam.Flag().String(),
 		lam.ArgTypes(),
 		lam.Arity().String(),
 		lam.Fixity().String(),
@@ -54,7 +54,7 @@ func TestFunctionComposition(t *testing.T) {
 		"returns from call: %s\n",
 		fenc,
 		fenc.Name(),
-		fenc.Type().String(),
+		fenc.Flag().String(),
 		fenc.ArgTypes(),
 		fenc.Arity(),
 		fenc.Fixity(),

@@ -4,9 +4,9 @@ package types
 
 import "strconv"
 
-const _FixType_name = "PreFixInFixPostFixConstantFixNil"
+const _FixType_name = "PreFixInFixPostFixConFix"
 
-var _FixType_index = [...]uint8{0, 6, 11, 18, 26, 32}
+var _FixType_index = [...]uint8{0, 6, 11, 18, 24}
 
 func (i FixType) String() string {
 	i -= 13

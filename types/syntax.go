@@ -3,15 +3,15 @@ package types
 import "text/scanner"
 
 ///// SYNTAX DEFINITION /////
-type TokenType flag
+type TokType flag
 
-func (t TokenType) Type() flag     { return flag(t) }
-func (t TokenType) Syntax() string { return syntax[t] }
+func (t TokType) Type() flag     { return flag(t) }
+func (t TokType) Syntax() string { return syntax[t] }
 
-//go:generate stringer -type=TokenType
+//go:generate stringer -type=TokType
 const (
-	tok_none  TokenType = 1
-	tok_blank TokenType = 1 << iota
+	tok_none  TokType = 1
+	tok_blank TokType = 1 << iota
 	tok_underscore
 	tok_asterisk
 	tok_dot
@@ -68,7 +68,7 @@ const (
 	tok_funcIdent
 )
 
-var syntax = map[TokenType]string{
+var syntax = map[TokType]string{
 	tok_none:          "",
 	tok_blank:         " ",
 	tok_underscore:    "_",

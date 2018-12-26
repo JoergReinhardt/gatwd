@@ -11,7 +11,7 @@ func newSlice(val ...Data) slice {
 func sliceClear(s slice) {
 	if len(s) > 0 {
 		for i, v := range s {
-			if !fmatch(v.Type(), Nullable) {
+			if !fmatch(v.Flag(), Nullable) {
 				if d, ok := v.(Destructable); ok {
 					d.Clear()
 				}
@@ -141,4 +141,4 @@ func sliceInsert(s slice, i int, v Data) slice {
 func sliceInsertVari(s slice, i int, v ...Data) slice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
-func sliceAttrType(s slice) flag { return Int.Type() }
+func sliceAttrType(s slice) flag { return Int.Flag() }
