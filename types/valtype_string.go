@@ -4,11 +4,11 @@ package types
 
 import "strconv"
 
-const _ValType_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorCellTupleChainListAtListUniSetAtSetRecordLinkDLinkNodeTree"
+const _ValType_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorTupleListChainAtListUniSetAtSetRecordLinkDLinkNodeTree"
 
 var _ValType_map = map[ValType]string{
-	1:           _ValType_name[0:3],
-	2:           _ValType_name[3:7],
+	0:           _ValType_name[0:3],
+	1:           _ValType_name[3:7],
 	4:           _ValType_name[7:10],
 	8:           _ValType_name[10:14],
 	16:          _ValType_name[14:19],
@@ -32,18 +32,17 @@ var _ValType_map = map[ValType]string{
 	4194304:     _ValType_name[105:113],
 	8388608:     _ValType_name[113:117],
 	16777216:    _ValType_name[117:122],
-	33554432:    _ValType_name[122:126],
-	67108864:    _ValType_name[126:131],
+	33554432:    _ValType_name[122:127],
+	67108864:    _ValType_name[127:131],
 	134217728:   _ValType_name[131:136],
-	268435456:   _ValType_name[136:140],
-	536870912:   _ValType_name[140:146],
-	1073741824:  _ValType_name[146:152],
-	2147483648:  _ValType_name[152:157],
-	4294967296:  _ValType_name[157:163],
-	8589934592:  _ValType_name[163:167],
-	17179869184: _ValType_name[167:172],
+	268435456:   _ValType_name[136:142],
+	536870912:   _ValType_name[142:148],
+	1073741824:  _ValType_name[148:153],
+	2147483648:  _ValType_name[153:159],
+	4294967296:  _ValType_name[159:163],
+	8589934592:  _ValType_name[163:168],
+	17179869184: _ValType_name[168:172],
 	34359738368: _ValType_name[172:176],
-	68719476736: _ValType_name[176:180],
 }
 
 func (i ValType) String() string {

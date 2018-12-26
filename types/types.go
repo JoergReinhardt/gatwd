@@ -43,3 +43,5 @@ func fmatch(t flag, v Typed) bool {
 	}
 	return false
 }
+
+//////// IDENTITY & TYPE-REGISTER TYPES /////////

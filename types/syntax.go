@@ -127,6 +127,7 @@ var syntax = map[TokenType]string{
 	tok_funcIdent:     "([a-w|y|z][a-z])|(x[a-r|t-z])",
 }
 
+//// item type according to text, scanner tokenizer.
 type item struct {
 	typ  rune
 	text string

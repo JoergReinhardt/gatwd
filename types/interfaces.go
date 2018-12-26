@@ -27,10 +27,11 @@ type Typed interface{ Type() flag }
 type Data interface {
 	Typed
 }
-type Function interface {
-	Typed
-	Name() strVal
-}
+
+//type Function interface {
+//	Typed
+//	Name() strVal
+//}
 
 ///// COLLECTIONS ///////
 type Collected interface {

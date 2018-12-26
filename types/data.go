@@ -19,10 +19,10 @@ func (v ValType) Type() flag { return flag(v) }
 
 //go:generate stringer -type=ValType
 const (
-	Nil  ValType = 1
-	Bool ValType = 1 << iota
-	Int
-	Int8
+	Nil  ValType = 0
+	Bool ValType = 1
+	Int  ValType = 1 << iota
+	Int8         // Int8 -> Int8
 	Int16
 	Int32
 	BigInt
@@ -44,10 +44,9 @@ const (
 	Duration
 	Attr   // attribute special type
 	Error  // let's do something sophisticated here...
-	Cell   // general thing to contain things and stuff...
 	Tuple  // references a head value and nest of tail values
-	Chain  // [Value]
 	List   // ordered, indexed, monotyped values
+	Chain  // [Value]
 	AtList // ordered, indexed, with search/sort attributation
 	UniSet // unique, monotyped values
 	AtSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
@@ -66,7 +65,7 @@ const (
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 
-	Elements = Cell | Tuple | List
+	Elements = Tuple | List
 	Indices  = Chain | AtList
 	Sets     = UniSet | AtSet | Record
 	Links    = Link | DLink | Node | Tree // Consumeables
@@ -107,7 +106,7 @@ type (
 	slice     []Data
 )
 
-func Make(vals ...interface{}) (rval Data) {
+func data(vals ...interface{}) (rval Data) {
 	var val interface{}
 	if len(vals) == 0 {
 		return nilVal{}
@@ -116,7 +115,7 @@ func Make(vals ...interface{}) (rval Data) {
 		sl := newSlice()
 		for _, val := range vals {
 			val = val
-			sl = slicePut(sl, Make(val))
+			sl = slicePut(sl, data(val))
 		}
 		return sl
 	}
@@ -167,6 +166,8 @@ func Make(vals ...interface{}) (rval Data) {
 	case *big.Rat:
 		v := ratioVal(*val.(*big.Rat))
 		rval = &v
+	case Data:
+		rval = val.(Data)
 	case []Data:
 		rval = slice(val.([]Data))
 	case FnType, ValType, Typed:
@@ -181,112 +182,61 @@ func newNull(t Typed) (val Data) {
 	case Nil.Type().Match(t):
 		return nilVal{}
 	case Bool.Type().Match(t):
-		return Make(false)
+		return data(false)
 	case Int.Type().Match(t):
-		return Make(0)
+		return data(0)
 	case Int8.Type().Match(t):
-		return Make(int8(0))
+		return data(int8(0))
 	case Int16.Type().Match(t):
-		return Make(int16(0))
+		return data(int16(0))
 	case Int32.Type().Match(t):
-		return Make(int32(0))
+		return data(int32(0))
 	case BigInt.Type().Match(t):
-		return Make(big.NewInt(0))
+		return data(big.NewInt(0))
 	case Uint.Type().Match(t):
-		return Make(uint(0))
+		return data(uint(0))
 	case Uint16.Type().Match(t):
-		return Make(uint16(0))
+		return data(uint16(0))
 	case Uint32.Type().Match(t):
-		return Make(uint32(0))
+		return data(uint32(0))
 	case Float.Type().Match(t):
-		return Make(float64(0))
+		return data(float64(0))
 	case Flt32.Type().Match(t):
-		return Make(float32(0))
+		return data(float32(0))
 	case BigFlt.Type().Match(t):
-		return Make(big.NewFloat(0))
+		return data(big.NewFloat(0))
 	case Ratio.Type().Match(t):
-		return Make(big.NewRat(1, 1))
+		return data(big.NewRat(1, 1))
 	case Imag.Type().Match(t):
-		return Make(complex128(float64(0)))
+		return data(complex128(float64(0)))
 	case Imag64.Type().Match(t):
-		return Make(complex64(float32(0)))
+		return data(complex64(float32(0)))
 	case Byte.Type().Match(t):
 		var b byte = 0
-		return Make(b)
+		return data(b)
 	case Bytes.Type().Match(t):
 		var b []byte = []byte{}
-		return Make(b)
+		return data(b)
 	case Rune.Type().Match(t):
 		var b rune = ' '
-		return Make(b)
+		return data(b)
 	case String.Type().Match(t):
 		s := " "
-		return Make(s)
+		return data(s)
 	case Error.Type().Match(t):
 		var e error = fmt.Errorf("")
-		return Make(e)
+		return data(e)
 	case t.Type().Match(BigInt):
 		v := &big.Int{}
-		return Make(v)
+		return data(v)
 	case t.Type().Match(BigFlt):
 		v := &big.Float{}
-		return Make(v)
+		return data(v)
 	case t.Type().Match(Ratio):
 		v := &big.Rat{}
-		return Make(v)
+		return data(v)
 	}
 	return val
-}
-
-var ( // named typed functions to have a typesafe representation of internal
-	NilFnType, NilFn           = func() flag { return flag(Nil) }, func(d Data) nilVal { return nilVal{} }
-	BoolFnType, BoolFn         = func() flag { return flag(Bool) }, func(d Data) boolVal { return d.(boolVal) }
-	IntFnType, IntFn           = func() flag { return flag(Int) }, func(d Data) intVal { return d.(intVal) }
-	Int8FnType, Int8Fn         = func() flag { return flag(Int8) }, func(d Data) int8Val { return d.(int8Val) }
-	Int16FnType, Int16Fn       = func() flag { return flag(Int16) }, func(d Data) int16Val { return d.(int16Val) }
-	Int32FnType, Int32Fn       = func() flag { return flag(Int32) }, func(d Data) int32Val { return d.(int32Val) }
-	BigIntFnType, BigIntFn     = func() flag { return flag(BigInt) }, func(d Data) bigIntVal { return d.(bigIntVal) }
-	UintFnType, UintFn         = func() flag { return flag(Uint) }, func(d Data) uintVal { return d.(uintVal) }
-	Uint8FnType, Uint8Fn       = func() flag { return flag(Uint8) }, func(d Data) uint8Val { return d.(uint8Val) }
-	Uint16FnType, Uint16Fn     = func() flag { return flag(Uint16) }, func(d Data) uint16Val { return d.(uint16Val) }
-	Uint32FnType, Uint32Fn     = func() flag { return flag(Uint32) }, func(d Data) uint32Val { return d.(uint32Val) }
-	FloatFnType, FloatFn       = func() flag { return flag(Float) }, func(d Data) fltVal { return d.(fltVal) }
-	Flt32FnType, Flt32Fn       = func() flag { return flag(Flt32) }, func(d Data) flt32Val { return d.(flt32Val) }
-	BigFltFnType, BigFltFn     = func() flag { return flag(BigFlt) }, func(d Data) bigFltVal { return d.(bigFltVal) }
-	RatioFnType, RatioFn       = func() flag { return flag(Ratio) }, func(d Data) ratioVal { return d.(ratioVal) }
-	ImagFnType, ImagFn         = func() flag { return flag(Imag) }, func(d Data) imagVal { return d.(imagVal) }
-	Imag64FnType, Imag64Fn     = func() flag { return flag(Imag64) }, func(d Data) imag64Val { return d.(imag64Val) }
-	ByteFnType, ByteFn         = func() flag { return flag(Byte) }, func(d Data) byteVal { return d.(byteVal) }
-	RuneFnType, RuneFn         = func() flag { return flag(Rune) }, func(d Data) runeVal { return d.(runeVal) }
-	BytesFnType, BytesFn       = func() flag { return flag(Bytes) }, func(d Data) bytesVal { return d.(bytesVal) }
-	StringFnType, StringFn     = func() flag { return flag(String) }, func(d Data) strVal { return d.(strVal) }
-	TimeFnType, TimeFn         = func() flag { return flag(Time) }, func(d Data) timeVal { return d.(timeVal) }
-	DurationFnType, DurationFn = func() flag { return flag(Duration) }, func(d Data) duraVal { return d.(duraVal) }
-)
-var internalTypeMap = map[ValType]interface{}{
-	Nil:      NilFn,
-	Bool:     BoolFn,
-	Int:      IntFn,
-	Int8:     Int8Fn,
-	Int16:    Int16Fn,
-	Int32:    Int32Fn,
-	BigInt:   BigIntFn,
-	Uint:     UintFn,
-	Uint8:    Uint8Fn,
-	Uint16:   Uint16Fn,
-	Uint32:   Uint32Fn,
-	Float:    FloatFn,
-	Flt32:    Flt32Fn,
-	BigFlt:   BigFltFn,
-	Ratio:    RatioFn,
-	Imag:     ImagFn,
-	Imag64:   Imag64Fn,
-	Byte:     ByteFn,
-	Rune:     RuneFn,
-	Bytes:    BytesFn,
-	String:   StringFn,
-	Time:     TimeFn,
-	Duration: DurationFn,
 }
 
 /// Type
@@ -317,7 +267,6 @@ func (v duraVal) Type() flag   { return Duration.Type() }
 func (v slice) Type() flag     { return Chain.Type() }
 func (v errorVal) Type() flag  { return Error.Type() }
 
-///// STRING
 func (nilVal) String() strVal      { return strVal(Nil.String()) }
 func (v errorVal) String() strVal  { return strVal(v.v.Error()) }
 func (v errorVal) Error() errorVal { return errorVal{v.v} }
@@ -382,7 +331,7 @@ func (v slice) String() strVal {
 	str := &strings.Builder{}
 	_, err = (*str).WriteString("[")
 	for i, val := range v.Slice() {
-		_, err = (*str).WriteString(string(val.(strVal)))
+		_, err = (*str).WriteString(fmt.Sprintf("%v", val))
 		if i < v.Len()-1 {
 			(*str).WriteString(", ")
 		}
