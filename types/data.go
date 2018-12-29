@@ -13,9 +13,9 @@ func conData(vals ...interface{}) (rval Data) {
 		return nilVal{}
 	}
 	if len(vals) > 1 {
-		sl := newSlice()
+		sl := conChain()
 		for _, val := range vals {
-			sl = slicePut(sl, conData(val))
+			sl = chainPut(sl, conData(val))
 		}
 		return sl
 	}
@@ -69,7 +69,7 @@ func conData(vals ...interface{}) (rval Data) {
 	case Data:
 		rval = val.(Data)
 	case []Data:
-		rval = slice(val.([]Data))
+		rval = chain(val.([]Data))
 	case FnType, Type, Typed:
 		rval = BitFlag(val.(Type))
 	}
@@ -77,7 +77,7 @@ func conData(vals ...interface{}) (rval Data) {
 }
 
 //// GENERATE NULL VALUE OF EACH TYPE ////////
-func conNull(t Typed) (val Data) {
+func conNull(t BitFlag) (val Data) {
 	switch {
 	case Nil.Flag().Match(t):
 		return nilVal{}
@@ -126,13 +126,13 @@ func conNull(t Typed) (val Data) {
 	case Error.Flag().Match(t):
 		var e = fmt.Errorf("")
 		return conData(e)
-	case t.Flag().Match(BigInt):
+	case t.Flag().Match(BigInt.Flag()):
 		v := &big.Int{}
 		return conData(v)
-	case t.Flag().Match(BigFlt):
+	case t.Flag().Match(BigFlt.Flag()):
 		v := &big.Float{}
 		return conData(v)
-	case t.Flag().Match(Ratio):
+	case t.Flag().Match(Ratio.Flag()):
 		v := &big.Rat{}
 		return conData(v)
 	}

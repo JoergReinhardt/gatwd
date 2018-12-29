@@ -4,7 +4,7 @@ package types
 
 import "strconv"
 
-const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorTupleListChainAtListUniSetAtSetRecordLinkDLinkNodeTreeFlagDataTypeNodeTypeTokenTypeMetaType"
+const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorTupleListChainAtListUniSetAtSetRecordLinkDLinkNodeTreeFunctionFlagDataTypeNodeTypeTokenTypeMetaType"
 
 var _Type_map = map[Type]string{
 	0:             _Type_name[0:3],
@@ -43,11 +43,12 @@ var _Type_map = map[Type]string{
 	8589934592:    _Type_name[163:168],
 	17179869184:   _Type_name[168:172],
 	34359738368:   _Type_name[172:176],
-	68719476736:   _Type_name[176:180],
-	137438953472:  _Type_name[180:188],
+	68719476736:   _Type_name[176:184],
+	137438953472:  _Type_name[184:188],
 	274877906944:  _Type_name[188:196],
-	549755813888:  _Type_name[196:205],
-	1099511627776: _Type_name[205:213],
+	549755813888:  _Type_name[196:204],
+	1099511627776: _Type_name[204:213],
+	2199023255552: _Type_name[213:221],
 }
 
 func (i Type) String() string {

@@ -5,30 +5,32 @@ package types
 // propertys intendet for internal use
 type Reproduceable interface{ Copy() Data }
 type Destructable interface{ Clear() }
-type Stringer interface{ String() strVal }
+type Stringer interface{ String() string }
 
 //// USER DEFINED DATA & FUNCTION TYPES ///////
 type Typed interface{ Flag() BitFlag } //<- lowest common denominator
 type Named interface{ Name() }
-type Data interface{ Typed }
-type Functional interface{ Typed }
+type Data interface {
+	Typed
+	Stringer
+	Eval() Data
+}
+type Functional interface{ Data }
 
 type Lambda interface {
 	Functional
 	Enclosed() Data
-	ArgTypes() []BitFlag
-	Arity() Arity
-	Fixity() FixType
 }
 type NamedFuntion interface {
-	Lambda
 	Named
+	Lambda
 }
 
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
 type Collected interface {
-	Empty() boolVal //<-- no more nil pointers & 'out of index'!
+	Data
+	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 
 /// FLAT COLLECTIONS /////
@@ -75,25 +77,29 @@ type Queued interface {
 
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
-type Nested interface {
-	Collected()
-	Decap() (Data, Nested)
+type Recursive interface {
 	Head() Data
-	Tail() Nested
+	Tail() Recursive
 }
 type Tupled interface {
-	Nested
-	Arity() intVal // number of fields
-	Get(i intVal) Data
+	Recursive
+	Arity() Arity // number of fields
 }
 
 //////// TREES ////////
 type Nodular interface {
 	Root() Nodular
 }
-type Parental interface {
+type Nested interface {
 	Nodular
 	Members() Nodular
+}
+type Chained interface {
+	Nodular
+	Next() Nodular
+}
+type RevChained interface {
+	Prev() Nodular
 }
 type Branched interface {
 	Nodular

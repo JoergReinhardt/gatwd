@@ -54,8 +54,8 @@ func (v BitFlag) String() string {
 	var err error
 	var u, i uint
 	for u < uint(Tree) {
-		if v.Flag().Match(Type(u)) {
-			_, err = (*str).WriteString(Type(u).String())
+		if v.Flag().Match(BitFlag(u)) {
+			_, err = (*str).WriteString(BitFlag(u).String())
 			if i < len-1 {
 				_, err = (*str).WriteString(" | ")
 			}
@@ -68,7 +68,7 @@ func (v BitFlag) String() string {
 	}
 	return str.String()
 }
-func (v slice) String() string {
+func (v chain) String() string {
 	var err error
 	str := &strings.Builder{}
 	_, err = (*str).WriteString("[")
@@ -84,3 +84,12 @@ func (v slice) String() string {
 	}
 	return str.String()
 }
+func recolString(r recol) string {
+	head, tail := r()
+	str := "[" + head.String()
+	if !tail.Empty() {
+		str = "[" + head.String() + " " + recolString(tail) + "]"
+	}
+	return str
+}
+func (r recol) String() string { return recolString(r) }

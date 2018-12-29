@@ -9,15 +9,15 @@ import (
 
 func TestTypeFlag(t *testing.T) {
 	fmt.Printf("null:\t\t%scomp:\t\t%snat:\t\t%smask:\t\t%s\n",
-		fshow(Nullable),
-		fshow(Composed),
-		fshow(Natives),
-		fshow(Mask),
+		fshow(Nullable.Flag()),
+		fshow(Composed.Flag()),
+		fshow(Natives.Flag()),
+		fshow(Mask.Flag()),
 	)
 	fmt.Printf("tree:\t\t%stree rotated:\t%stree shifted:\t%s\n",
-		fshow(Tree),
+		fshow(Tree.Flag()),
 		fshow(frot(Tree.Flag(), flen(Natives.Flag()))),
-		fshow(fhigh(Tree)),
+		fshow(fhigh(Tree.Flag())),
 	)
 	fmt.Printf("test match true: %t, false: %t\n",
 		BigInt.Flag().Match(BigInt.Flag()),
@@ -36,7 +36,7 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestTypeAllocation(t *testing.T) {
-	s0 := newSlice(
+	s0 := conChain(
 		conData(true),
 		conData(1),
 		conData(1, 2, 3, 4, 5, 6, 7),
@@ -56,15 +56,14 @@ func TestTypeAllocation(t *testing.T) {
 		conData([]byte("test")),
 		conData("test"))
 
-	s1 := newSlice()
+	s1 := conChain()
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 
 	fmt.Printf("List-0: %s\n", s0.String())
 
 	for i := 0; i < 1000; i++ {
-		s1 = sliceAppend(s1, conData(i))
-		//s1 = append(s1, i)
+		s1 = slideAdd(s1, s0...)
 	}
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))

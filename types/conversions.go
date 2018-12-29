@@ -109,5 +109,5 @@ func (v bytesVal) Len() intVal { return intVal(len(v)) }
 func (v strVal) Len() intVal   { return intVal(len(string(v))) }
 
 // SLICE ->
-func (v slice) Slice() []Data { return v }
-func (v slice) Len() int      { return len(v) }
+func (v chain) Slice() []Data { return v }
+func (v chain) Len() int      { return len(v) }

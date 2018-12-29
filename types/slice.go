@@ -2,16 +2,16 @@ package types
 
 // DESTRUCTABLE SLICE
 
-func newSlice(val ...Data) slice {
+func conChain(val ...Data) chain {
 	l := make([]Data, 0, len(val))
 	l = append(l, val...)
 	return l
 }
 
-func sliceClear(s slice) {
+func chainClear(s chain) {
 	if len(s) > 0 {
 		for i, v := range s {
-			if !fmatch(v.Flag(), Nullable) {
+			if !fmatch(v.Flag(), Nullable.Flag()) {
 				if d, ok := v.(Destructable); ok {
 					d.Clear()
 				}
@@ -22,31 +22,69 @@ func sliceClear(s slice) {
 	s = nil
 }
 
+// COLLECTION
+func elemEmpty(d Data) bool {
+	// not flagged nil, not a composition either...
+	if !fmatch(d.Flag(), (Nil.Flag() | Composed.Flag())) {
+		if d != nil { // not a nil pointer...
+			// --> not empty
+			return false
+		}
+	}
+	// since it's a composition, inspect...
+	if fmatch(d.Flag(), Composed.Flag()) {
+		// slice --> call sliceEmpty
+		if sl, ok := d.(chain); ok {
+			return chainEmpty(sl)
+		}
+		// other sort of collection...
+		if col, ok := d.(Collected); ok {
+			// --> call it's empty method
+			return col.Empty()
+		}
+	}
+	// no idea, what this is, so better call it empty
+	return true
+}
+func chainEmpty(s chain) bool {
+	if len(s) == 0 { // empty, as in no element...
+		return true
+	}
+	if len(s) > 0 { // empty as in contains empty elements exclusively...
+		for _, elem := range chainSlice(s) { // return at first non empty
+			if !elemEmpty(elem) {
+				return false
+			}
+		}
+	} // --> all contained elements are empty
+	return true
+}
+
 // ACCESSABLE SLICE
-func sliceGetInt(s slice, i int) Data { return s[i] }
+func chainGetInt(s chain, i int) Data { return s[i] }
 
 // MUTABLE SLICE
-func sliceSetInt(s slice, i int, v Data) slice { s[i] = v; return s }
+func chainSetInt(s chain, i int, v Data) chain { s[i] = v; return s }
 
 // ITERATOR
-func sliceNext(s slice) (v Data, i slice) {
+func chainNext(s chain) (v Data, i chain) {
 	if len(s) > 0 {
 		if len(s) > 1 {
 			return s[0], s[1:]
 		}
-		return s[0], slice([]Data{nilVal{}})
+		return s[0], chain([]Data{nilVal{}})
 	}
-	return nilVal{}, slice([]Data{nilVal{}})
+	return nilVal{}, chain([]Data{nilVal{}})
 }
 
 // BOOTOM & TOP
-func sliceFirst(s slice) Data {
+func chainFirst(s chain) Data {
 	if s.Len() > 0 {
 		return s[0]
 	}
 	return s
 }
-func sliceLast(s slice) Data {
+func chainLast(s chain) Data {
 	if s.Len() > 0 {
 		return s[s.Len()-1]
 	}
@@ -54,19 +92,13 @@ func sliceLast(s slice) Data {
 }
 
 // LIFO QUEUE
-func slicePut(s slice, v Data) slice {
-	if len(s) == cap(s) {
-		return append(append(make([]Data, 0, len(s)*2), s...), v)
-	}
+func chainPut(s chain, v Data) chain {
 	return append(s, v)
 }
-func sliceAppend(s slice, v ...Data) slice {
-	if len(s) == cap(s) {
-		return append(append(make([]Data, 0, (len(s)+len(v))), s...), v...)
-	}
+func chainAppend(s chain, v ...Data) chain {
 	return append(s, v...)
 }
-func slicePull(s slice) (Data, slice) {
+func chainPull(s chain) (Data, chain) {
 	if s.Len() > 0 {
 		return s[s.Len()-1], s[:s.Len()-1]
 	}
@@ -74,20 +106,34 @@ func slicePull(s slice) (Data, slice) {
 }
 
 // FIFO STACK
-func sliceAdd(s slice, v ...Data) slice {
-	if len(s) == cap(s)+len(v) {
+func slideAdd(s chain, v ...Data) chain {
+	return append(v, s...)
+}
+func slidePush(s chain, v Data) chain {
+	return append([]Data{v}, s...)
+}
+func slidePop(s chain) (Data, chain) {
+	if len(s) > 0 {
+		return s[0], s[1:]
+	}
+	return nilVal{}, s
+}
+
+/////
+func chainAdd(s chain, v ...Data) chain {
+	if len(s) >= cap(s)+len(v)/2 {
 		return append(append(make([]Data, 0, len(v)+len(s)), v...), s...)
 	}
 	return append(v, s...)
 }
-func slicePush(s slice, v Data) slice {
-	if len(s) == cap(s) {
+func chainPush(s chain, v Data) chain {
+	if len(s) >= cap(s)/2 {
 		return append(append(make([]Data, 0, (len(s))*2), v), s...)
 	}
 	return append([]Data{v}, s...)
 }
-func slicePop(s slice) (Data, slice) {
-	if s.Len() > 0 {
+func chainPop(s chain) (Data, chain) {
+	if len(s) > 0 {
 		return s[0], s[1:]
 	}
 	return nilVal{}, s
@@ -96,30 +142,23 @@ func slicePop(s slice) (Data, slice) {
 // ARITY
 
 // TUPLE
-func sliceHead(s slice) (h Data) { return s[0] }
-func sliceTail(s slice) (c Data) { return s[:1] }
-func sliceDecap(s slice) (h Data, t Nested) {
-	return h, t
-}
-
-// N-TUPLE
-func sliceHeadNary(s slice, arity int) (h Data) { return s[:arity] }
-func sliceTailNary(s slice, arity int) (c Data) { return s[arity:] }
-func sliceDecapNary(s slice, arity int) (h Data, t slice) {
-	if s.Len()+1 > arity {
-		return s[:arity], s[arity:]
+func chainHead(s chain) (h Data)   { return s[0] }
+func chainTail(s chain) (c []Data) { return s[:1] }
+func chainDecap(s chain) (h Data, t chain) {
+	if !chainEmpty(s) {
+		return s[0], t[:1]
 	}
-	return h, t
+	return nilVal{}, conChain(nilVal{})
 }
 
 // SLICE
-func sliceSlice(s slice) []Data { return []Data(s) }
-func sliceLen(s slice) int      { return len(s) }
-func sliceSplit(s slice, i int) (slice, slice) {
+func chainSlice(s chain) []Data { return []Data(s) }
+func chainLen(s chain) int      { return len(s) }
+func chainSplit(s chain, i int) (chain, chain) {
 	h, t := s[:i], s[i:]
 	return h, t
 }
-func sliceCut(s slice, i, j int) slice {
+func chainCut(s chain, i, j int) chain {
 	copy(s[i:], s[j:])
 	// to prevent a possib. mem leak
 	for k, n := len(s)-j+i, len(s); k < n; k++ {
@@ -127,18 +166,18 @@ func sliceCut(s slice, i, j int) slice {
 	}
 	return s[:len(s)-j+i]
 }
-func sliceDelete(s slice, i int) slice {
+func chainDelete(s chain, i int) chain {
 	copy(s[i:], s[i+1:])
 	s[len(s)-1] = nil
 	return s[:len(s)-1]
 }
-func sliceInsert(s slice, i int, v Data) slice {
+func chainInsert(s chain, i int, v Data) chain {
 	s = append(s, nilVal{})
 	copy(s[i+1:], s[i:])
 	s[i] = v
 	return s
 }
-func sliceInsertVari(s slice, i int, v ...Data) slice {
+func chainInsertVector(s chain, i int, v ...Data) chain {
 	return append(s[:i], append(v, s[i:]...)...)
 }
-func sliceAttrType(s slice) BitFlag { return Int.Flag() }
+func chainAttrType(s chain) BitFlag { return Int.Flag() }
