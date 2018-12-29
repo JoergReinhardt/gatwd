@@ -70,10 +70,10 @@ const (
 		Imag64
 
 	Recursives = Tuple | List
-	Indices    = Chain | AtList
+	Chains     = Chain | AtList
 	Sets       = UniSet | AtSet | Record
 	Links      = Link | DLink | Node | Tree // Consumeables
-	Composed   = Recursives | Indices | Sets | Links
+	Composed   = Recursives | Chains | Sets | Links
 	Natives    = Nullable | Composed
 	Mask       = 0xFFFFFFFFFFFFFFFF ^ Natives
 )
@@ -162,9 +162,9 @@ func paramSetToData(p ParamSet) []Data {
 func (a Attribute) Flag() BitFlag {
 	return a().Flag().Concat(Attr.Flag())
 }
+func (v BitFlag) Flag() BitFlag       { return v }
 func (nilVal) Flag() BitFlag          { return Nil.Flag() }
 func (a Attribute) AttrType() BitFlag { return Attr.Flag() }
-func (v BitFlag) Flag() BitFlag       { return Flag.Flag() }
 func (v boolVal) Flag() BitFlag       { return Bool.Flag() }
 func (v intVal) Flag() BitFlag        { return Int.Flag() }
 func (v int8Val) Flag() BitFlag       { return Int8.Flag() }

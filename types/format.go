@@ -1,11 +1,8 @@
 package types
 
 import (
-	"fmt"
 	"math/big"
-	"math/bits"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -46,43 +43,35 @@ func (v imag64Val) String() string {
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
 func (v BitFlag) String() string {
-	if uint(bits.OnesCount(v.Uint())) == 1 {
-		return Type(v).String()
+	var str = "["
+	if fcount(v) == 1 {
+		str = str + Type(v).String()
 	}
-	len := uint(flen(v))
-	str := &strings.Builder{}
-	var err error
-	var u, i uint
-	for u < uint(Tree) {
-		if v.Flag().Match(BitFlag(u)) {
-			_, err = (*str).WriteString(BitFlag(u).String())
-			if i < len-1 {
-				_, err = (*str).WriteString(" | ")
+	var u = uint(1)
+	var i = 0
+	for i < 63 {
+		if fmatch(BitFlag(u), v) {
+			str = str + Type(u).String()
+			if i < flen(v)-1 {
+				str = str + "|"
 			}
 		}
 		i = i + 1
-		u = uint(1) << i
+		u = uint(1) << uint(i)
 	}
-	if err != nil {
-		return "ERROR: could not decompose value type name to string"
-	}
-	return str.String()
+	str = str + "]"
+	return str
 }
 func (v chain) String() string {
-	var err error
-	str := &strings.Builder{}
-	_, err = (*str).WriteString("[")
-	for i, val := range v.Slice() {
-		_, err = (*str).WriteString(fmt.Sprintf("%v", val))
+	var str = "["
+	for i, d := range v.Slice() {
+		str = str + d.String()
 		if i < v.Len()-1 {
-			(*str).WriteString(", ")
+			str = str + ", "
 		}
 	}
-	_, err = (*str).WriteString("]")
-	if err != nil {
-		return "ERROR: could not concatenate slice values to string"
-	}
-	return str.String()
+	str = str + "]"
+	return str
 }
 func recolString(r recol) string {
 	head, tail := r()

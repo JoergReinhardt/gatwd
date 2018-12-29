@@ -69,11 +69,11 @@ func recolEmpty(r recol) bool {
 }
 
 // recursive behaviour as method to implement interfaces
-func (r recol) Eval() Data    { return r }
-func (r recol) Flag() BitFlag { return Recursives.Flag() }
-func (r recol) Head() Data    { return recolHead(r) } // --> current head
-func (r recol) Tail() recol   { return recolTail(r) } // --> current tail
-func (r recol) Empty() bool   { return recolEmpty(r) }
+func (r recol) Eval() Data      { return r }
+func (r recol) Flag() BitFlag   { return (List.Flag() | r.Head().Flag()) }
+func (r recol) Head() Data      { return recolHead(r) } // --> current head
+func (r recol) Tail() Recursive { return recolTail(r) } // --> current tail
+func (r recol) Empty() bool     { return recolEmpty(r) }
 
 ////////////////////////////////////////////////////////
 

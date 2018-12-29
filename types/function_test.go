@@ -15,11 +15,14 @@ func TestRecursiveCollection(t *testing.T) {
 		data = append(data, conData(s))
 	}
 	rec := conRecursive(data...)
-	fmt.Printf("recursive stringer: %s\n", rec.String())
-	h, rec := rec()
-	for !rec.Empty() {
+	fmt.Printf("recursive method call head: %s\n", rec.Head())
+	fmt.Printf("recursive method call tail: %s\n", rec.Tail())
+	fmt.Printf("recursive method call Empty: %t\n", rec.Empty())
+	fmt.Printf("recursive method call Flag: %s\n", rec.Flag().String())
+	h, recu := rec.Head(), rec.Tail()
+	for !recu.Empty() {
 		//for rec != nil {
 		fmt.Printf("recursive collection head: %s\n", h)
-		h, rec = rec()
+		h, recu = recu.Head(), recu.Tail()
 	}
 }

@@ -78,6 +78,7 @@ type Queued interface {
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
 type Recursive interface {
+	Collected
 	Head() Data
 	Tail() Recursive
 }
