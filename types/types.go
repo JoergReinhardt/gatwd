@@ -16,10 +16,10 @@ func (v Type) Flag() BitFlag { return BitFlag(v) }
 
 //go:generate stringer -type=Type
 const (
-	Nil  Type = 0
-	Bool Type = 1
-	Int  Type = 1 << iota
-	Int8      // Int8 -> Int8
+	Nil  Type = 1
+	Bool Type = 1 << iota
+	Int
+	Int8 // Int8 -> Int8
 	Int16
 	Int32
 	BigInt
@@ -54,11 +54,7 @@ const (
 	Tree   // nodes referencing parent, root and a value of contained node(s)
 	Function
 	///////
-	Flag      // generic bitflag role
-	DataType  // types of the user defineable type system
-	NodeType  // types of nodes in linked trees
-	TokenType // types of tokens in parsed input
-	MetaType  // higher order type
+	Flag // generic bitflag role
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
@@ -69,13 +65,17 @@ const (
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 
+	Internals = Flag
+
 	Recursives = Tuple | List
 	Chains     = Chain | AtList
 	Sets       = UniSet | AtSet | Record
 	Links      = Link | DLink | Node | Tree // Consumeables
 	Composed   = Recursives | Chains | Sets | Links
-	Natives    = Nullable | Composed
-	Mask       = 0xFFFFFFFFFFFFFFFF ^ Natives
+	Natives    = Function | Nullable | Composed | Internals
+
+	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
+	Mask         = MAX_INT ^ Natives
 )
 
 //////// INTERNAL TYPES /////////////
@@ -114,6 +114,30 @@ type ( ////// INTERNAL TYPES /////
 	timeVal   time.Time
 	duraVal   time.Duration
 	errorVal  struct{ v error }
+	///// ENUMERATED TYPED /////
+	ColnilVal    []struct{}
+	ColboolVal   []bool
+	ColintVal    []int
+	Colint8Val   []int8
+	Colint16Val  []int16
+	Colint32Val  []int32
+	ColuintVal   []uint
+	Coluint8Val  []uint8
+	Coluint16Val []uint16
+	Coluint32Val []uint32
+	ColfltVal    []float64
+	Colflt32Val  []float32
+	ColimagVal   []complex128
+	Colimag64Val []complex64
+	ColbyteVal   []byte
+	ColruneVal   []rune
+	ColstrVal    []string
+	ColbigIntVal []big.Int
+	ColbigFltVal []big.Float
+	ColratioVal  []big.Rat
+	ColtimeVal   []time.Time
+	ColduraVal   []time.Duration
+	ColerrorVal  []struct{ v error }
 	///// FUNCTION TYPES //////
 	ConstFnc  func() Data
 	UnaryFnc  func(d Data) Data
@@ -144,6 +168,31 @@ type ( ////// INTERNAL TYPES /////
 	timeFnc   func(d Data) timeVal
 	duraFnc   func(d Data) duraVal
 	errorFnc  func(d Data) errorVal
+	///// TYPED ENUMERATED RETURNS /////
+	ColnilFnc    func(d Data) []nilVal
+	ColboolFnc   func(d Data) []boolVal
+	ColintFnc    func(d Data) []intVal
+	Colint8Fnc   func(d Data) []int8Val
+	Colint16Fnc  func(d Data) []int16Val
+	Colint32Fnc  func(d Data) []int32Val
+	ColuintFnc   func(d Data) []uintVal
+	Coluint8Fnc  func(d Data) []uint8Val
+	Coluint16Fnc func(d Data) []uint16Val
+	Coluint32Fnc func(d Data) []uint32Val
+	ColfltFnc    func(d Data) []fltVal
+	Colflt32Fnc  func(d Data) []flt32Val
+	ColimagFnc   func(d Data) []imagVal
+	Colimag64Fnc func(d Data) []imag64Val
+	ColbyteFnc   func(d Data) []byteVal
+	ColruneFnc   func(d Data) []runeVal
+	ColbytesFnc  func(d Data) []bytesVal
+	ColstrFnc    func(d Data) []strVal
+	ColbigIntFnc func(d Data) []bigIntVal
+	ColbigFltFnc func(d Data) []bigFltVal
+	ColratioFnc  func(d Data) []ratioVal
+	ColtimeFnc   func(d Data) []timeVal
+	ColduraFnc   func(d Data) []duraVal
+	ColerrorFnc  func(d Data) []errorVal
 )
 
 func conAttr(d Data) Attribute { return Attribute(d.Eval) }
@@ -284,58 +333,3 @@ func fmatch(t BitFlag, v BitFlag) bool {
 	}
 	return false
 }
-
-//////// IDENTITY & TYPE-REGISTER TYPES /////////
-//go:generate stringer -type NodeT
-type NodeT BitFlag
-
-func (n NodeT) Flag() BitFlag { return BitFlag(n) }
-
-const (
-	NodeRoot  NodeT = 0
-	NodeChain NodeT = 1 + iota
-	NodeLeave
-)
-
-// all user defined types get registered, indexed and mapped by name
-type typeIdx []typeDef
-type typeReg map[string]typeDef
-type typeDef struct {
-	Princ    BitFlag      // <-- principle type
-	Name     string       // <-- name of this type
-	Deri     []int        // <-- id's of derived types
-	Fnc      []Functional // <-- constructors (type&data)
-	next     Nodular
-	Id       int // id == own index position in typeIdx
-	*sigNode     // <-- type signature is a tree
-}
-
-// the def struct is also the root node of this particular type sub-tree
-func (td typeDef) Root() Nodular  { return nil }
-func (td *typeDef) Next() Nodular { return (*td).next }
-
-// base node containing id, token, text & reference to tree root
-type sigNode struct {
-	Id   int
-	Tok  BitFlag // either Type, or tokType
-	Text string
-	root *typeDef
-}
-
-func (s *sigNode) Root() Nodular { return (*s).root }
-
-// a chain linked node
-type chainSigNode struct {
-	*sigNode
-	next Nodular
-}
-
-func (c *chainSigNode) Next() Nodular { return (*c).next }
-func (c chainSigNode) Flag() BitFlag  { return NodeChain.Flag() }
-
-// a leave node
-type leaveSigNode struct {
-	*sigNode
-}
-
-func (c leaveSigNode) Flag() BitFlag { return NodeLeave.Flag() }

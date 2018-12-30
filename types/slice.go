@@ -46,6 +46,7 @@ func elemEmpty(d Data) bool {
 	// no idea, what this is, so better call it empty
 	return true
 }
+func (s chain) Empty() bool { return chainEmpty(s) }
 func chainEmpty(s chain) bool {
 	if len(s) == 0 { // empty, as in no element...
 		return true

@@ -7,23 +7,6 @@ import (
 	"time"
 )
 
-func TestTypeFlag(t *testing.T) {
-	fmt.Printf("null:\t\t%scomp:\t\t%snat:\t\t%smask:\t\t%s\n",
-		fshow(Nullable.Flag()),
-		fshow(Composed.Flag()),
-		fshow(Natives.Flag()),
-		fshow(Mask.Flag()),
-	)
-	fmt.Printf("tree:\t\t%stree rotated:\t%stree shifted:\t%s\n",
-		fshow(Tree.Flag()),
-		fshow(frot(Tree.Flag(), flen(Natives.Flag()))),
-		fshow(fhigh(Tree.Flag())),
-	)
-	fmt.Printf("test match true: %t, false: %t\n",
-		BigInt.Flag().Match(BigInt.Flag()),
-		BigInt.Flag().Match(Attr.Flag()),
-	)
-}
 func TestMutability(t *testing.T) {
 	a := conData(true).(boolVal)
 	b := conData(false).(boolVal)
@@ -73,11 +56,6 @@ func TestTimeType(t *testing.T) {
 	v := timeVal(ts)
 	fmt.Printf("time stamp: %s\n", v.String())
 }
-func TestTokenTypes(t *testing.T) {
-	var i uint
-	var typ TokType = 1
-	for i = 0; i < uint(len(syntax))-1; i++ {
-		typ = 1 << i
-		fmt.Printf("index:\t%d\tString:\t%s\t\tSyntax:\t%s\n", i, typ.String(), typ.Syntax())
-	}
+func TestAllTypesList(t *testing.T) {
+	fmt.Printf("types list: %s\n", allTypes())
 }

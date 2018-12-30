@@ -17,20 +17,19 @@ type Data interface {
 }
 type Functional interface{ Data }
 
-type Lambda interface {
-	Functional
-	Enclosed() Data
-}
-type NamedFuntion interface {
-	Named
-	Lambda
-}
-
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
 type Collected interface {
 	Data
 	Empty() bool //<-- no more nil pointers & 'out of index'!
+}
+type Countable interface {
+	Len() int // <- performs mutch better on slices
+}
+type Splitable interface {
+	Collected
+	Countable
+	Slice() []Data //<-- no more nil pointers & 'out of index'!
 }
 
 /// FLAT COLLECTIONS /////
@@ -43,9 +42,6 @@ type Ordered interface {
 type Reverseable interface {
 	Ordered
 	Prev() Data
-}
-type Limited interface {
-	Len() intVal // <- performs mutch better on slices
 }
 
 // collections that are accessable by other means than retrieving the 'next'
@@ -77,23 +73,26 @@ type Queued interface {
 
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
-type Recursive interface {
+type Consumeable interface {
 	Collected
 	Head() Data
-	Tail() Recursive
+	Tail() Consumeable
+	Shift() Consumeable
 }
 type Tupled interface {
-	Recursive
+	Consumeable
 	Arity() Arity // number of fields
 }
 
 //////// TREES ////////
 type Nodular interface {
+	Collected
+	NodeType() BitFlag
 	Root() Nodular
 }
 type Nested interface {
 	Nodular
-	Members() Nodular
+	Member() []Nodular
 }
 type Chained interface {
 	Nodular
