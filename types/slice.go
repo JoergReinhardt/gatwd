@@ -143,8 +143,11 @@ func chainPop(s chain) (Data, chain) {
 // ARITY
 
 // TUPLE
-func chainHead(s chain) (h Data)   { return s[0] }
-func chainTail(s chain) (c []Data) { return s[:1] }
+func (s chain) Head() (h Data)         { return s[0] }
+func (s chain) Tail() (c Consumeable)  { return s[:1] }
+func (s chain) Shift() (c Consumeable) { return s[:1] }
+func chainHead(s chain) (h Data)       { return s[0] }
+func chainTail(s chain) (c []Data)     { return s[:1] }
 func chainDecap(s chain) (h Data, t chain) {
 	if !chainEmpty(s) {
 		return s[0], t[:1]

@@ -4,14 +4,38 @@ package types
 
 import "strconv"
 
-const _FnType_name = "StateFuncParamFunc"
+const (
+	_FnType_name_0 = "StateFuncParamFunc"
+	_FnType_name_1 = "ConstFunc"
+	_FnType_name_2 = "UnaryFunc"
+	_FnType_name_3 = "BinaryFunc"
+	_FnType_name_4 = "NnaryFunc"
+	_FnType_name_5 = "PrediFunc"
+	_FnType_name_6 = "SetoidFunc"
+)
 
-var _FnType_index = [...]uint8{0, 9, 18}
+var (
+	_FnType_index_0 = [...]uint8{0, 9, 18}
+)
 
 func (i FnType) String() string {
-	i -= 1
-	if i >= FnType(len(_FnType_index)-1) {
-		return "FnType(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	switch {
+	case 1 <= i && i <= 2:
+		i -= 1
+		return _FnType_name_0[_FnType_index_0[i]:_FnType_index_0[i+1]]
+	case i == 4:
+		return _FnType_name_1
+	case i == 8:
+		return _FnType_name_2
+	case i == 16:
+		return _FnType_name_3
+	case i == 32:
+		return _FnType_name_4
+	case i == 64:
+		return _FnType_name_5
+	case i == 128:
+		return _FnType_name_6
+	default:
+		return "FnType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _FnType_name[_FnType_index[i]:_FnType_index[i+1]]
 }

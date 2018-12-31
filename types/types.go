@@ -39,7 +39,9 @@ const (
 	String
 	Time
 	Duration
+	Const  // constant Data and fucntions
 	Attr   // attribute special type
+	Param  // parameter function
 	Error  // let's do something sophisticated here...
 	Tuple  // references a head value and nest of tail values
 	List   // ordered, indexed, monotyped values
@@ -84,12 +86,8 @@ const (
 // associate them with a bitflag, without having to actually asign, let alone
 // attach it to the instance.
 type ( ////// INTERNAL TYPES /////
-	BitFlag   uint
-	chain     []Data
-	FLagSet   []BitFlag
-	ParamSet  []Attribute
-	Attribute ConstFnc
-	////// SIMPLE TYPES ///////
+	BitFlag uint
+	////// TYPE ALIASES ///////
 	nilVal    struct{}
 	boolVal   bool
 	intVal    int
@@ -114,87 +112,44 @@ type ( ////// INTERNAL TYPES /////
 	timeVal   time.Time
 	duraVal   time.Duration
 	errorVal  struct{ v error }
-	///// ENUMERATED TYPED /////
-	ColnilVal    []struct{}
-	ColboolVal   []bool
-	ColintVal    []int
-	Colint8Val   []int8
-	Colint16Val  []int16
-	Colint32Val  []int32
-	ColuintVal   []uint
-	Coluint8Val  []uint8
-	Coluint16Val []uint16
-	Coluint32Val []uint32
-	ColfltVal    []float64
-	Colflt32Val  []float32
-	ColimagVal   []complex128
-	Colimag64Val []complex64
-	ColbyteVal   []byte
-	ColruneVal   []rune
-	ColstrVal    []string
-	ColbigIntVal []big.Int
-	ColbigFltVal []big.Float
-	ColratioVal  []big.Rat
-	ColtimeVal   []time.Time
-	ColduraVal   []time.Duration
-	ColerrorVal  []struct{ v error }
-	///// FUNCTION TYPES //////
-	ConstFnc  func() Data
-	UnaryFnc  func(d Data) Data
-	BinaryFnc func(a, b Data) Data
-	NnaryFnc  func(...Data) Data
-	////// TYPED RETURNS ///////
-	nilFnc    func(d Data) nilVal
-	boolFnc   func(d Data) boolVal
-	intFnc    func(d Data) intVal
-	int8Fnc   func(d Data) int8Val
-	int16Fnc  func(d Data) int16Val
-	int32Fnc  func(d Data) int32Val
-	uintFnc   func(d Data) uintVal
-	uint8Fnc  func(d Data) uint8Val
-	uint16Fnc func(d Data) uint16Val
-	uint32Fnc func(d Data) uint32Val
-	fltFnc    func(d Data) fltVal
-	flt32Fnc  func(d Data) flt32Val
-	imagFnc   func(d Data) imagVal
-	imag64Fnc func(d Data) imag64Val
-	byteFnc   func(d Data) byteVal
-	runeFnc   func(d Data) runeVal
-	bytesFnc  func(d Data) bytesVal
-	strFnc    func(d Data) strVal
-	bigIntFnc func(d Data) bigIntVal
-	bigFltFnc func(d Data) bigFltVal
-	ratioFnc  func(d Data) ratioVal
-	timeFnc   func(d Data) timeVal
-	duraFnc   func(d Data) duraVal
-	errorFnc  func(d Data) errorVal
-	///// TYPED ENUMERATED RETURNS /////
-	ColnilFnc    func(d Data) []nilVal
-	ColboolFnc   func(d Data) []boolVal
-	ColintFnc    func(d Data) []intVal
-	Colint8Fnc   func(d Data) []int8Val
-	Colint16Fnc  func(d Data) []int16Val
-	Colint32Fnc  func(d Data) []int32Val
-	ColuintFnc   func(d Data) []uintVal
-	Coluint8Fnc  func(d Data) []uint8Val
-	Coluint16Fnc func(d Data) []uint16Val
-	Coluint32Fnc func(d Data) []uint32Val
-	ColfltFnc    func(d Data) []fltVal
-	Colflt32Fnc  func(d Data) []flt32Val
-	ColimagFnc   func(d Data) []imagVal
-	Colimag64Fnc func(d Data) []imag64Val
-	ColbyteFnc   func(d Data) []byteVal
-	ColruneFnc   func(d Data) []runeVal
-	ColbytesFnc  func(d Data) []bytesVal
-	ColstrFnc    func(d Data) []strVal
-	ColbigIntFnc func(d Data) []bigIntVal
-	ColbigFltFnc func(d Data) []bigFltVal
-	ColratioFnc  func(d Data) []ratioVal
-	ColtimeFnc   func(d Data) []timeVal
-	ColduraFnc   func(d Data) []duraVal
-	ColerrorFnc  func(d Data) []errorVal
 )
 
+func (c chain) Eval() Data    { return c }
+func (c FLagSet) Eval() Data  { return c }
+func (c ParamSet) Eval() Data { return c }
+func (c cell) Eval() Data     { return c }
+func (c cons) Eval() Data     { return c }
+
+func (c unc) Eval() Data { return c }
+func (c bnc) Eval() Data { return c }
+func (c fnc) Eval() Data { return c }
+
+func (c cell) Flag() BitFlag      { return Flag.Flag() }
+func (c chain) Flag() BitFlag     { return Chain.Flag() }
+func (c FLagSet) Flag() BitFlag   { return Flag.Flag() }
+func (c ParamSet) Flag() BitFlag  { return Param.Flag() }
+func (c ConstFnc) Flag() BitFlag  { return Const.Flag() }
+func (c cons) Flag() BitFlag      { return Function.Flag() }
+func (c unc) Flag() BitFlag       { return Function.Flag() }
+func (c bnc) Flag() BitFlag       { return Function.Flag() }
+func (c fnc) Flag() BitFlag       { return Function.Flag() }
+func (c UnaryFnc) Flag() BitFlag  { return Function.Flag() }
+func (c BinaryFnc) Flag() BitFlag { return Function.Flag() }
+func (c NnaryFnc) Flag() BitFlag  { return Function.Flag() }
+
+func (c cell) String() string      { return c.Data.String() + ": " + c.Data.String() }
+func (c cons) String() string      { return c().String() }
+func (c unc) String() string       { return "λ" }
+func (c bnc) String() string       { return "λ" }
+func (c fnc) String() string       { return "λ" }
+func (c FLagSet) String() string   { return fshow((Flag | List)) }
+func (c ParamSet) String() string  { return Param.Flag().String() }
+func (c ConstFnc) String() string  { return "λ" }
+func (c UnaryFnc) String() string  { return "λ" }
+func (c BinaryFnc) String() string { return "λ" }
+func (c NnaryFnc) String() string  { return "λ" }
+
+//////// ATTRIBUTE TYPE ALIAS /////////////////
 func conAttr(d Data) Attribute { return Attribute(d.Eval) }
 func paramSetToData(p ParamSet) []Data {
 	var data = []Data{}
@@ -236,7 +191,6 @@ func (v bytesVal) Flag() BitFlag      { return Bytes.Flag() }
 func (v strVal) Flag() BitFlag        { return String.Flag() }
 func (v timeVal) Flag() BitFlag       { return Time.Flag() }
 func (v duraVal) Flag() BitFlag       { return Duration.Flag() }
-func (v chain) Flag() BitFlag         { return Chain.Flag() }
 func (v errorVal) Flag() BitFlag      { return Error.Flag() }
 
 ///
@@ -265,64 +219,62 @@ func (v bytesVal) Eval() Data  { return v }
 func (v strVal) Eval() Data    { return v }
 func (v timeVal) Eval() Data   { return v }
 func (v duraVal) Eval() Data   { return v }
-func (v chain) Eval() Data     { return v }
 func (v errorVal) Eval() Data  { return v }
 
 ///
-func (nilFnc) Flag() BitFlag      { return fconc(Nil.Flag(), Function.Flag()) }
-func (v boolFnc) Flag() BitFlag   { return fconc(Bool.Flag(), Function.Flag()) }
-func (v intFnc) Flag() BitFlag    { return fconc(Int.Flag(), Function.Flag()) }
-func (v int8Fnc) Flag() BitFlag   { return fconc(Int8.Flag(), Function.Flag()) }
-func (v int16Fnc) Flag() BitFlag  { return fconc(Int16.Flag(), Function.Flag()) }
-func (v int32Fnc) Flag() BitFlag  { return fconc(Int32.Flag(), Function.Flag()) }
-func (v uintFnc) Flag() BitFlag   { return fconc(Uint.Flag(), Function.Flag()) }
-func (v uint8Fnc) Flag() BitFlag  { return fconc(Uint8.Flag(), Function.Flag()) }
-func (v uint16Fnc) Flag() BitFlag { return fconc(Uint16.Flag(), Function.Flag()) }
-func (v uint32Fnc) Flag() BitFlag { return fconc(Uint32.Flag(), Function.Flag()) }
-func (v bigIntFnc) Flag() BitFlag { return fconc(BigInt.Flag(), Function.Flag()) }
-func (v fltFnc) Flag() BitFlag    { return fconc(Float.Flag(), Function.Flag()) }
-func (v flt32Fnc) Flag() BitFlag  { return fconc(Flt32.Flag(), Function.Flag()) }
-func (v bigFltFnc) Flag() BitFlag { return fconc(BigFlt.Flag(), Function.Flag()) }
-func (v imagFnc) Flag() BitFlag   { return fconc(Imag.Flag(), Function.Flag()) }
-func (v imag64Fnc) Flag() BitFlag { return fconc(Imag64.Flag(), Function.Flag()) }
-func (v ratioFnc) Flag() BitFlag  { return fconc(Ratio.Flag(), Function.Flag()) }
-func (v runeFnc) Flag() BitFlag   { return fconc(Rune.Flag(), Function.Flag()) }
-func (v byteFnc) Flag() BitFlag   { return fconc(Byte.Flag(), Function.Flag()) }
-func (v bytesFnc) Flag() BitFlag  { return fconc(Bytes.Flag(), Function.Flag()) }
-func (v strFnc) Flag() BitFlag    { return fconc(String.Flag(), Function.Flag()) }
-func (v timeFnc) Flag() BitFlag   { return fconc(Time.Flag(), Function.Flag()) }
-func (v duraFnc) Flag() BitFlag   { return fconc(Duration.Flag(), Function.Flag()) }
-func (v errorFnc) Flag() BitFlag  { return fconc(Error.Flag(), Function.Flag()) }
+func (nilFnc) Flag() BitFlag      { return fconc(Nil, Function).Flag() }
+func (v boolFnc) Flag() BitFlag   { return fconc(Bool, Function).Flag() }
+func (v intFnc) Flag() BitFlag    { return fconc(Int, Function).Flag() }
+func (v int8Fnc) Flag() BitFlag   { return fconc(Int8, Function).Flag() }
+func (v int16Fnc) Flag() BitFlag  { return fconc(Int16, Function).Flag() }
+func (v int32Fnc) Flag() BitFlag  { return fconc(Int32, Function).Flag() }
+func (v uintFnc) Flag() BitFlag   { return fconc(Uint, Function).Flag() }
+func (v uint8Fnc) Flag() BitFlag  { return fconc(Uint8, Function).Flag() }
+func (v uint16Fnc) Flag() BitFlag { return fconc(Uint16, Function).Flag() }
+func (v uint32Fnc) Flag() BitFlag { return fconc(Uint32, Function).Flag() }
+func (v bigIntFnc) Flag() BitFlag { return fconc(BigInt, Function).Flag() }
+func (v fltFnc) Flag() BitFlag    { return fconc(Float, Function).Flag() }
+func (v flt32Fnc) Flag() BitFlag  { return fconc(Flt32, Function).Flag() }
+func (v bigFltFnc) Flag() BitFlag { return fconc(BigFlt, Function).Flag() }
+func (v imagFnc) Flag() BitFlag   { return fconc(Imag, Function).Flag() }
+func (v imag64Fnc) Flag() BitFlag { return fconc(Imag64, Function).Flag() }
+func (v ratioFnc) Flag() BitFlag  { return fconc(Ratio, Function).Flag() }
+func (v runeFnc) Flag() BitFlag   { return fconc(Rune, Function).Flag() }
+func (v byteFnc) Flag() BitFlag   { return fconc(Byte, Function).Flag() }
+func (v bytesFnc) Flag() BitFlag  { return fconc(Bytes, Function).Flag() }
+func (v strFnc) Flag() BitFlag    { return fconc(String, Function).Flag() }
+func (v timeFnc) Flag() BitFlag   { return fconc(Time, Function).Flag() }
+func (v duraFnc) Flag() BitFlag   { return fconc(Duration, Function).Flag() }
+func (v errorFnc) Flag() BitFlag  { return fconc(Error, Function).Flag() }
 
 //// BOUND TYPE FLAG METHODS ////
-func (v BitFlag) Uint() uint               { return fuint(v) }
+func (v BitFlag) Uint() uint               { return uint(v) }
 func (v BitFlag) Len() int                 { return flen(v) }
 func (v BitFlag) Count() int               { return fcount(v) }
 func (v BitFlag) Least() int               { return fleast(v) }
 func (v BitFlag) Most() int                { return fmost(v) }
-func (v BitFlag) Low(f BitFlag) BitFlag    { return flow(f) }
-func (v BitFlag) High(f BitFlag) BitFlag   { return fhigh(f) }
-func (v BitFlag) Reverse() BitFlag         { return frev(v) }
-func (v BitFlag) Rotate(n int) BitFlag     { return frot(v, n) }
-func (v BitFlag) Toggle(f BitFlag) BitFlag { return ftog(v, f) }
-func (v BitFlag) Concat(f BitFlag) BitFlag { return fconc(v, f) }
-func (v BitFlag) Mask(f BitFlag) BitFlag   { return fmask(v, f) }
+func (v BitFlag) Low(f BitFlag) BitFlag    { return flow(f).Flag() }
+func (v BitFlag) High(f BitFlag) BitFlag   { return fhigh(f).Flag() }
+func (v BitFlag) Reverse() BitFlag         { return frev(v).Flag() }
+func (v BitFlag) Rotate(n int) BitFlag     { return frot(v, n).Flag() }
+func (v BitFlag) Toggle(f BitFlag) BitFlag { return ftog(v, f).Flag() }
+func (v BitFlag) Concat(f BitFlag) BitFlag { return fconc(v, f).Flag() }
+func (v BitFlag) Mask(f BitFlag) BitFlag   { return fmask(v, f).Flag() }
 func (v BitFlag) Match(f BitFlag) bool     { return fmatch(v, f) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Typed) BitFlag               { return t.Flag() }
-func fuint(t BitFlag) uint               { return uint(t) }
-func flen(t BitFlag) int                 { return bits.Len(uint(t)) }
-func fcount(t BitFlag) int               { return bits.OnesCount(uint(t)) }
-func fleast(t BitFlag) int               { return bits.TrailingZeros(uint(t)) + 1 }
-func fmost(t BitFlag) int                { return bits.LeadingZeros(uint(t)) - 1 }
-func frev(t BitFlag) BitFlag             { return BitFlag(bits.Reverse(uint(t))) }
-func frot(t BitFlag, n int) BitFlag      { return BitFlag(bits.RotateLeft(uint(t), n)) }
-func ftog(t BitFlag, v BitFlag) BitFlag  { return BitFlag(uint(t) ^ v.Flag().Uint()) }
-func fconc(t BitFlag, v BitFlag) BitFlag { return BitFlag(uint(t) | v.Flag().Uint()) }
-func fmask(t BitFlag, v BitFlag) BitFlag { return BitFlag(uint(t) &^ v.Flag().Uint()) }
-func fshow(f BitFlag) string             { return fmt.Sprintf("%64b\n", f) }
-func flow(t BitFlag) BitFlag             { return fmask(t.Flag(), BitFlag(Mask)) }
+func flag(t Typed) BitFlag           { return t.Flag() }
+func flen(t Typed) int               { return bits.Len(t.Flag().Uint()) }
+func fcount(t Typed) int             { return bits.OnesCount(t.Flag().Uint()) }
+func fleast(t Typed) int             { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
+func fmost(t Typed) int              { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
+func frev(t Typed) BitFlag           { return BitFlag(bits.Reverse(t.Flag().Uint())) }
+func frot(t Typed, n int) BitFlag    { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
+func ftog(t Typed, v Typed) BitFlag  { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
+func fconc(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
+func fmask(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
+func fshow(f Typed) string           { return fmt.Sprintf("%64b\n", f) }
+func flow(t Typed) Typed             { return fmask(t.Flag(), Typed(Mask)) }
 func fhigh(t BitFlag) BitFlag {
 	len := flen(BitFlag(Natives))
 	return fmask(frot(t.Flag(), len), frot(BitFlag(Natives), len))

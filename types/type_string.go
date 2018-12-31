@@ -4,7 +4,7 @@ package types
 
 import "strconv"
 
-const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationAttrErrorTupleListChainAtListUniSetAtSetRecordLinkDLinkNodeTreeFunctionFlagMAX_INT"
+const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationConstAttrParamErrorTupleListChainAtListUniSetAtSetRecordLinkDLinkNodeTreeFunctionFlagMAX_INT"
 
 var _Type_map = map[Type]string{
 	1:                    _Type_name[0:3],
@@ -30,22 +30,24 @@ var _Type_map = map[Type]string{
 	1048576:              _Type_name[95:101],
 	2097152:              _Type_name[101:105],
 	4194304:              _Type_name[105:113],
-	8388608:              _Type_name[113:117],
-	16777216:             _Type_name[117:122],
+	8388608:              _Type_name[113:118],
+	16777216:             _Type_name[118:122],
 	33554432:             _Type_name[122:127],
-	67108864:             _Type_name[127:131],
-	134217728:            _Type_name[131:136],
-	268435456:            _Type_name[136:142],
-	536870912:            _Type_name[142:148],
-	1073741824:           _Type_name[148:153],
-	2147483648:           _Type_name[153:159],
-	4294967296:           _Type_name[159:163],
-	8589934592:           _Type_name[163:168],
-	17179869184:          _Type_name[168:172],
-	34359738368:          _Type_name[172:176],
-	68719476736:          _Type_name[176:184],
-	137438953472:         _Type_name[184:188],
-	18446744073709551615: _Type_name[188:195],
+	67108864:             _Type_name[127:132],
+	134217728:            _Type_name[132:137],
+	268435456:            _Type_name[137:141],
+	536870912:            _Type_name[141:146],
+	1073741824:           _Type_name[146:152],
+	2147483648:           _Type_name[152:158],
+	4294967296:           _Type_name[158:163],
+	8589934592:           _Type_name[163:169],
+	17179869184:          _Type_name[169:173],
+	34359738368:          _Type_name[173:178],
+	68719476736:          _Type_name[178:182],
+	137438953472:         _Type_name[182:186],
+	274877906944:         _Type_name[186:194],
+	549755813888:         _Type_name[194:198],
+	18446744073709551615: _Type_name[198:205],
 }
 
 func (i Type) String() string {

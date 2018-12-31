@@ -169,7 +169,7 @@ func initTypeDef() {
 
 type typeDef struct {
 	Id    int          // id == own index position in typeIdx
-	Princ BitFlag      // <-- principle type
+	Princ Typed        // <-- principle type
 	Name  string       // <-- name of this type
 	Deri  []int        // <-- id's of derived types
 	Fnc   []Functional // <-- constructors (type&data)
@@ -193,7 +193,7 @@ func (td *typeDef) Derive(princ BitFlag, name string, flags ...BitFlag) *typeDef
 	(*td).Deri = append(td.Deri, dtd.Id)
 	return dtd
 }
-func conTypeDef(princ BitFlag, name string, flags ...BitFlag) *typeDef {
+func conTypeDef(princ Typed, name string, flags ...BitFlag) *typeDef {
 	var id = len(typeIndex)
 	var fid = BitFlag(id)
 	var highfid = fhigh(fid)

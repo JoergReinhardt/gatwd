@@ -62,19 +62,6 @@ func (v BitFlag) String() string {
 	str = str + "]"
 	return str
 }
-func (v flatCol) String() string {
-	var slice = chainSlice(v())
-	var length = len(slice)
-	var str = "("
-	for i, d := range slice {
-		str = str + d.String()
-		if i < length-1 {
-			str = str + ", "
-		}
-	}
-	str = str + ")"
-	return str
-}
 func (v chain) String() string {
 	var str = "["
 	for i, d := range v.Slice() {
@@ -86,34 +73,6 @@ func (v chain) String() string {
 	str = str + "]"
 	return str
 }
-func referencedConsumeable(v Consumeable) string {
-	var str = "["
-	for i, d := range v.(Splitable).Slice() {
-		str = str + d.String()
-		if i < v.(Countable).Len()-1 {
-			str = str + ", "
-		}
-	}
-	str = str + "]"
-	return str
-}
-func recursiveConsumeableString(v Consumeable) string {
-	head, tail := v.Head(), v.Tail()
-	str := "[" + head.String()
-	if !tail.Empty() {
-		str = "[" + head.String() + " " + recursiveConsumeableString(tail) + "]"
-	}
-	return str
-}
-func recolString(r reCol) string {
-	head, tail := r()
-	str := "[" + head.String()
-	if !tail.Empty() {
-		str = "[" + head.String() + " " + recolString(tail) + "]"
-	}
-	return str
-}
-func (r reCol) String() string { return recolString(r) }
 func allTokens() []string {
 	var str = []string{}
 	var i uint

@@ -81,7 +81,6 @@ type Consumeable interface {
 }
 type Tupled interface {
 	Consumeable
-	Arity() Arity // number of fields
 }
 
 //////// TREES ////////
@@ -136,39 +135,23 @@ type State interface {
 	State(string) StateFn
 }
 
-// takes a state and advances it. returns the next state fn to run
-type StateFn func(State) StateFn
-
-func (p StateFn) Type() Typed { return StateFunc.Type() }
-
-// a thing that can be changed by calling the args method passing a parameter
-// function. the parameter function gets called with the parametric instance as
-// it's argument and returns an altered version of the instance and a new
-// parameter function that closes over the old set of parameters to enable a
-// possible rollback to the former instance state.
-type Parametric interface {
-	Params(ParamFn) (Parametric, ParamFn)
-}
-
-//go:generate stringer -type=FnType
-const (
-	StateFunc FnType = 1 << iota
-	ParamFunc
-)
-
-type FnType uint
-
-func (t FnType) Type() Typed   { return t.Type() }
-func (t FnType) Flag() BitFlag { return BitFlag(t) }
-
-// function to change parameters and return the changed instance accompanied by
-// the new ParamFn closing over the replaced arguments
-type ParamFn func(Parametric) (Parametric, ParamFn)
-
-func (p ParamFn) Type() Typed { return ParamFunc.Type() }
-
 // data to parse
 type Token interface {
 	Type() BitFlag
 	String() string
 }
+
+type StateFn func(State) StateFn
+
+func (p StateFn) Type() Typed { return StateFunc.Type() }
+
+///
+type Parametric interface {
+	Options(Parameter) (Parametric, Parameter)
+}
+
+// function to change parameters and return the changed instance accompanied by
+// the new ParamFn closing over the replaced arguments
+type Parameter func(Parametric) (Parametric, Parameter)
+
+func (p Parameter) Type() Typed { return Param.Flag() }
