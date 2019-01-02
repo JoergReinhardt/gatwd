@@ -211,7 +211,3 @@ func (v uintVal) Len() intVal  { return intVal(bits.Len64(uint64(v))) }
 func (v byteVal) Len() intVal  { return intVal(bits.Len64(uint64(v))) }
 func (v bytesVal) Len() intVal { return intVal(len(v)) }
 func (v strVal) Len() intVal   { return intVal(len(string(v))) }
-
-// SLICE ->
-func (v chain) Slice() []Data { return v }
-func (v chain) Len() int      { return len(v) }

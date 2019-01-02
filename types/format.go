@@ -73,6 +73,50 @@ func (v chain) String() string {
 	str = str + "]"
 	return str
 }
+func (a keyAcc) String() string {
+	return "[" + a.Acc().String() + "]⇒ ( " + a.Value().Eval().String() + ")"
+}
+func (a idxAcc) String() string   { return "[" + a.Acc().String() + "]⇒ (" + a.Value().String() + ")" }
+func (a accessor) String() string { return "[" + a.Acc().String() + "]⇒ (" + a.Value().String() + ")" }
+func (c paramSet) String() string {
+	var str string
+	for i, p := range c {
+		str = str + p().String()
+		if i < len(c)-1 {
+			str = str + ", "
+		}
+	}
+	return str
+}
+func (c argSet) String() string {
+	var str string
+	for i, a := range c {
+		str = str + a().String()
+		if i < len(c)-1 {
+			str = str + ", "
+		}
+	}
+	return str
+}
+func (c retValSet) String() string {
+	var str string
+	for i, r := range c {
+		str = str + r().String()
+		if i < len(c)-1 {
+			str = str + ", "
+		}
+	}
+	return str
+}
+
+func (c cons) String() string      { return "λ → " + c().String() }
+func (c unc) String() string       { return "d → λ → d" }
+func (c bnc) String() string       { return "d → d → λ → d" }
+func (c fnc) String() string       { return "d → ‥.→ λ → d" }
+func (c constFnc) String() string  { return "λ → " + c().String() }
+func (c unaryFnc) String() string  { return "Data → λ → Data" }
+func (c binaryFnc) String() string { return "Data → Data → λ → Data" }
+func (c naryFnc) String() string   { return "Data → ‥.→ λ → Data" }
 func allTokens() []string {
 	var str = []string{}
 	var i uint

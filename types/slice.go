@@ -1,13 +1,12 @@
 package types
 
-// DESTRUCTABLE SLICE
-
 func conChain(val ...Data) chain {
 	l := make([]Data, 0, len(val))
 	l = append(l, val...)
 	return l
 }
-
+func (c chain) Flag() BitFlag { return Vector.Flag() }
+func (c chain) Eval() Data    { return c }
 func chainClear(s chain) {
 	if len(s) > 0 {
 		for i, v := range s {
@@ -21,6 +20,10 @@ func chainClear(s chain) {
 	}
 	s = nil
 }
+
+// SLICE ->
+func (v chain) Slice() []Data { return v }
+func (v chain) Len() int      { return len(v) }
 
 // COLLECTION
 func elemEmpty(d Data) bool {

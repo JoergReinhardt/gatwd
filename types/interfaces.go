@@ -8,14 +8,34 @@ type Destructable interface{ Clear() }
 type Stringer interface{ String() string }
 
 //// USER DEFINED DATA & FUNCTION TYPES ///////
-type Typed interface{ Flag() BitFlag } //<- lowest common denominator
+type Typed interface{ Flag() BitFlag }        //<- lowest common denominator
+type DataTyped interface{ Flag() Type }       //<- lowest common denominator
+type FunctionTyped interface{ Flag() FnType } //<- lowest common denominator
 type Named interface{ Name() }
+type DataType interface {
+	Typed
+}
 type Data interface {
 	Typed
 	Stringer
 	Eval() Data
 }
-type Functional interface{ Data }
+type Functional interface { // RENAME: FunctionType
+	Typed
+	Call(...Data) Data
+}
+type Accessed interface {
+	AccType() // 0: int | 1: string | 3: bitflag
+	Value() attrVal
+}
+type KeyAccessed interface {
+	Accessed
+	Key() string
+}
+type IdxAccessed interface {
+	Accessed
+	Idx() int
+}
 
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
@@ -50,7 +70,7 @@ type Reverseable interface {
 // type safety on argument propagation
 type Associative interface {
 	AttrType() Typed
-	Get(Attribute) Data
+	Get(attrVal) Data
 }
 
 ////////// STACK ////////////
@@ -147,11 +167,5 @@ func (p StateFn) Type() Typed { return StateFunc.Type() }
 
 ///
 type Parametric interface {
-	Options(Parameter) (Parametric, Parameter)
+	Options(paramVal) (Parametric, Parametric)
 }
-
-// function to change parameters and return the changed instance accompanied by
-// the new ParamFn closing over the replaced arguments
-type Parameter func(Parametric) (Parametric, Parameter)
-
-func (p Parameter) Type() Typed { return Param.Flag() }

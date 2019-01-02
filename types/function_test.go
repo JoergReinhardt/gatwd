@@ -61,24 +61,9 @@ func TestAcceptTypes(t *testing.T) {
 	}
 }
 
-func TestArityGuard(t *testing.T) {
-	camstring := arity(5, stringer)
-	fmt.Printf("the lesser of the camelii: %s\n", binary(stringer)(camaeleon.(chain)...))
-	if !(camstring(camaeleon.(chain)...).String() == "commacommacommacommacomma") {
-		t.Fail()
-
-	}
+func camaeleonFn(d ...Data) Data {
+	return camaeleon
 }
-func testFn(d ...Data) Data {
+func testFn(d Data) Data {
 	return strVal(fmt.Sprintf("%s", d))
-}
-
-func TestCurry(t *testing.T) {
-	ca := curry(testFn, 4)
-	//fmt.Printf("freshly curryd: %s\n", ca)
-	one := ca(conData("one")).(fnc)
-	two := one(conData("two")).(fnc)
-	three := two(conData("three")).(fnc)
-	str := three(conData("four")).(strVal)
-	fmt.Printf("first parameter applyed curryd: %v\n", str)
 }

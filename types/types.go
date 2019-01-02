@@ -39,13 +39,11 @@ const (
 	String
 	Time
 	Duration
-	Const  // constant Data and fucntions
-	Attr   // attribute special type
-	Param  // parameter function
-	Error  // let's do something sophisticated here...
+	Error // let's do something sophisticated here...
+	/// HIGHER ORDER TYPES
 	Tuple  // references a head value and nest of tail values
 	List   // ordered, indexed, monotyped values
-	Chain  // [Value]
+	Vector // [Value]
 	AtList // ordered, indexed, with search/sort attributation
 	UniSet // unique, monotyped values
 	AtSet  // unique, attribute mapped, monotyped values (aka map) [attr,val]
@@ -54,27 +52,36 @@ const (
 	DLink  // nodes referencing previous, next node and nested value
 	Node   // node of a tree, or liked list
 	Tree   // nodes referencing parent, root and a value of contained node(s)
-	Function
+	/// KIND OF HIGHER ORDER TYPE
+	Attribute // attribute special type
+	Parameter // parameter function
+	Argument  // argument to pass
+	Return    // return value
+	/// FUNCTION KINDS OF HIGHER ORDER
+	Constant // constant Data and fucntions
+	Unary
+	Binary
+	Nary
 	///////
 	Flag // generic bitflag role
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64 | Byte | Rune | Bytes | String | Time | Duration |
-		Attr | Error
+		Attribute | Error
 
 	Numbers = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 
-	Internals = Flag
+	Function = Constant | Unary | Binary | Nary
 
 	Recursives = Tuple | List
-	Chains     = Chain | AtList
+	Chains     = Vector | AtList
 	Sets       = UniSet | AtSet | Record
 	Links      = Link | DLink | Node | Tree // Consumeables
 	Composed   = Recursives | Chains | Sets | Links
-	Natives    = Function | Nullable | Composed | Internals
+	Natives    = Function | Nullable | Composed
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Natives
@@ -114,84 +121,35 @@ type ( ////// INTERNAL TYPES /////
 	errorVal  struct{ v error }
 )
 
-func (c chain) Eval() Data    { return c }
-func (c FLagSet) Eval() Data  { return c }
-func (c ParamSet) Eval() Data { return c }
-func (c cell) Eval() Data     { return c }
-func (c cons) Eval() Data     { return c }
-
-func (c unc) Eval() Data { return c }
-func (c bnc) Eval() Data { return c }
-func (c fnc) Eval() Data { return c }
-
-func (c cell) Flag() BitFlag      { return Flag.Flag() }
-func (c chain) Flag() BitFlag     { return Chain.Flag() }
-func (c FLagSet) Flag() BitFlag   { return Flag.Flag() }
-func (c ParamSet) Flag() BitFlag  { return Param.Flag() }
-func (c ConstFnc) Flag() BitFlag  { return Const.Flag() }
-func (c cons) Flag() BitFlag      { return Function.Flag() }
-func (c unc) Flag() BitFlag       { return Function.Flag() }
-func (c bnc) Flag() BitFlag       { return Function.Flag() }
-func (c fnc) Flag() BitFlag       { return Function.Flag() }
-func (c UnaryFnc) Flag() BitFlag  { return Function.Flag() }
-func (c BinaryFnc) Flag() BitFlag { return Function.Flag() }
-func (c NnaryFnc) Flag() BitFlag  { return Function.Flag() }
-
-func (c cell) String() string      { return c.Data.String() + ": " + c.Data.String() }
-func (c cons) String() string      { return c().String() }
-func (c unc) String() string       { return "λ" }
-func (c bnc) String() string       { return "λ" }
-func (c fnc) String() string       { return "λ" }
-func (c FLagSet) String() string   { return fshow((Flag | List)) }
-func (c ParamSet) String() string  { return Param.Flag().String() }
-func (c ConstFnc) String() string  { return "λ" }
-func (c UnaryFnc) String() string  { return "λ" }
-func (c BinaryFnc) String() string { return "λ" }
-func (c NnaryFnc) String() string  { return "λ" }
-
 //////// ATTRIBUTE TYPE ALIAS /////////////////
-func conAttr(d Data) Attribute { return Attribute(d.Eval) }
-func paramSetToData(p ParamSet) []Data {
-	var data = []Data{}
-	if len(p) == 0 {
-		return []Data{nilVal{}}
-	}
-	for _, parm := range p {
-		data = append(data, parm())
-	}
-	return data
-}
 
 /// bind the appropriate Flag Method to every type
-func (a Attribute) Flag() BitFlag {
-	return a().Flag().Concat(Attr.Flag())
-}
-func (v BitFlag) Flag() BitFlag       { return v }
-func (nilVal) Flag() BitFlag          { return Nil.Flag() }
-func (a Attribute) AttrType() BitFlag { return Attr.Flag() }
-func (v boolVal) Flag() BitFlag       { return Bool.Flag() }
-func (v intVal) Flag() BitFlag        { return Int.Flag() }
-func (v int8Val) Flag() BitFlag       { return Int8.Flag() }
-func (v int16Val) Flag() BitFlag      { return Int16.Flag() }
-func (v int32Val) Flag() BitFlag      { return Int32.Flag() }
-func (v uintVal) Flag() BitFlag       { return Uint.Flag() }
-func (v uint8Val) Flag() BitFlag      { return Uint8.Flag() }
-func (v uint16Val) Flag() BitFlag     { return Uint16.Flag() }
-func (v uint32Val) Flag() BitFlag     { return Uint32.Flag() }
-func (v bigIntVal) Flag() BitFlag     { return BigInt.Flag() }
-func (v fltVal) Flag() BitFlag        { return Float.Flag() }
-func (v flt32Val) Flag() BitFlag      { return Flt32.Flag() }
-func (v bigFltVal) Flag() BitFlag     { return BigFlt.Flag() }
-func (v imagVal) Flag() BitFlag       { return Imag.Flag() }
-func (v imag64Val) Flag() BitFlag     { return Imag64.Flag() }
-func (v ratioVal) Flag() BitFlag      { return Ratio.Flag() }
-func (v runeVal) Flag() BitFlag       { return Rune.Flag() }
-func (v byteVal) Flag() BitFlag       { return Byte.Flag() }
-func (v bytesVal) Flag() BitFlag      { return Bytes.Flag() }
-func (v strVal) Flag() BitFlag        { return String.Flag() }
-func (v timeVal) Flag() BitFlag       { return Time.Flag() }
-func (v duraVal) Flag() BitFlag       { return Duration.Flag() }
-func (v errorVal) Flag() BitFlag      { return Error.Flag() }
+func (v BitFlag) Flag() BitFlag     { return v }
+func (nilVal) Flag() BitFlag        { return Nil.Flag() }
+func (a attrVal) AttrType() BitFlag { return Attribute.Flag() }
+func (v boolVal) Flag() BitFlag     { return Bool.Flag() }
+func (v intVal) Flag() BitFlag      { return Int.Flag() }
+func (v int8Val) Flag() BitFlag     { return Int8.Flag() }
+func (v int16Val) Flag() BitFlag    { return Int16.Flag() }
+func (v int32Val) Flag() BitFlag    { return Int32.Flag() }
+func (v uintVal) Flag() BitFlag     { return Uint.Flag() }
+func (v uint8Val) Flag() BitFlag    { return Uint8.Flag() }
+func (v uint16Val) Flag() BitFlag   { return Uint16.Flag() }
+func (v uint32Val) Flag() BitFlag   { return Uint32.Flag() }
+func (v bigIntVal) Flag() BitFlag   { return BigInt.Flag() }
+func (v fltVal) Flag() BitFlag      { return Float.Flag() }
+func (v flt32Val) Flag() BitFlag    { return Flt32.Flag() }
+func (v bigFltVal) Flag() BitFlag   { return BigFlt.Flag() }
+func (v imagVal) Flag() BitFlag     { return Imag.Flag() }
+func (v imag64Val) Flag() BitFlag   { return Imag64.Flag() }
+func (v ratioVal) Flag() BitFlag    { return Ratio.Flag() }
+func (v runeVal) Flag() BitFlag     { return Rune.Flag() }
+func (v byteVal) Flag() BitFlag     { return Byte.Flag() }
+func (v bytesVal) Flag() BitFlag    { return Bytes.Flag() }
+func (v strVal) Flag() BitFlag      { return String.Flag() }
+func (v timeVal) Flag() BitFlag     { return Time.Flag() }
+func (v duraVal) Flag() BitFlag     { return Duration.Flag() }
+func (v errorVal) Flag() BitFlag    { return Error.Flag() }
 
 ///
 

@@ -12,6 +12,7 @@ const (
 	_FnType_name_4 = "NnaryFunc"
 	_FnType_name_5 = "PrediFunc"
 	_FnType_name_6 = "SetoidFunc"
+	_FnType_name_7 = "ApplicFunc"
 )
 
 var (
@@ -35,6 +36,8 @@ func (i FnType) String() string {
 		return _FnType_name_5
 	case i == 128:
 		return _FnType_name_6
+	case i == 256:
+		return _FnType_name_7
 	default:
 		return "FnType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
