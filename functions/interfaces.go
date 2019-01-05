@@ -17,6 +17,7 @@ import (
 type Named interface{ Name() string }
 type Fixity uint8
 
+//go:generate stringer -type Fixity
 const (
 	PostFix Fixity = 0
 	InFix   Fixity = 1
@@ -32,7 +33,6 @@ type Instance interface {
 	Ari() int8
 	Fix() Fixity
 	Sig() Signature
-	Fnc() []Implement
 }
 
 ///// COLLECTION ///////

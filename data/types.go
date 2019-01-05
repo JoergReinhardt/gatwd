@@ -49,7 +49,7 @@ const (
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64 | Byte | Rune | Bytes | String | Time | Duration | Error
 
-	Numbers = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
+	Numeral = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 

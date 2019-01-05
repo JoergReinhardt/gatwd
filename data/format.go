@@ -48,9 +48,9 @@ func (v Imag64Val) String() string {
 // operation on a list of principle flags, that yielded this flag
 func (v BitFlag) String() string {
 	if Count(v) == 1 {
-		return "[" + Type(v).String() + "]"
+		return Type(v).String()
 	}
-	var str = "["
+	var str string
 	var u = uint(1)
 	var i = 0
 	for i < 63 {
@@ -63,7 +63,6 @@ func (v BitFlag) String() string {
 		i = i + 1
 		u = uint(1) << uint(i)
 	}
-	str = str + "]"
 	return str
 }
 

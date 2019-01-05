@@ -3,56 +3,112 @@ package functions
 import (
 	"fmt"
 	d "github.com/JoergReinhardt/godeep/data"
+	l "github.com/JoergReinhardt/godeep/lang"
 	"testing"
 )
 
 func TestIdGenerator(t *testing.T) {
 	var id int
-	id, initSig = initSig()
+	id = conId()
 	fmt.Println(id)
-	id, initSig = initSig()
+	id = conId()
 	fmt.Println(id)
 	if id != 1 {
 		t.Fail()
 	}
-	id, initSig = initSig()
-	id, initSig = initSig()
-	id, initSig = initSig()
-	id, initSig = initSig()
-	id, initSig = initSig()
+	id = conId()
+	id = conId()
+	id = conId()
+	id = conId()
+	id = conId()
 	fmt.Println(id)
 	if id != 6 {
 		t.Fail()
 	}
 }
-func TestTokenSlice(t *testing.T) {
-	ts1 := [][]token{
-		[]token{token{Argument.Flag()}},
-		[]token{token{Parameter.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Argument.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Argument.Flag()}},
-	}
-	ts2 := [][]token{
-		[]token{token{d.Bool.Flag()}},
-		[]token{token{Parameter.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Argument.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Return.Flag()}},
-		[]token{token{Argument.Flag()}},
+func TestSliceMatch(t *testing.T) {
+	ts := [][]Token{
+		[]Token{
+			conToken(Syntax, l.Lambda.Flag()),
+			conToken(Syntax, l.DoubCol.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+		},
+		[]Token{
+			conToken(Syntax, l.Lambda.Flag()),
+			conToken(Syntax, l.DoubCol.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+		},
+		[]Token{
+			conToken(Syntax, l.Lambda.Flag()),
+			conToken(Syntax, l.DoubCol.Flag()),
+			conToken(Data_Type, d.Slice.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Numeral.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Int.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+		},
+		[]Token{
+			conToken(Syntax, l.Lambda.Flag()),
+			conToken(Syntax, l.DoubCol.Flag()),
+			conToken(Data_Type, d.Slice.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Numeral.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Int.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+		},
+		[]Token{
+			conToken(Syntax, l.Lambda.Flag()),
+			conToken(Syntax, l.DoubCol.Flag()),
+			conToken(Data_Type, d.Symbolic.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Numeral.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Int.Flag()),
+			conToken(Syntax, l.LeftArrow.Flag()),
+			conToken(Data_Type, d.Bool.Flag()),
+		},
 	}
 
-	sortSlice(ts1)
-	sortSlice(ts2)
-	tss1 := byToken(ts1, token{Argument.Flag()})
-	tss2 := byToken(ts2, token{Parameter.Flag()})
-	tss3 := byToken(ts2, token{Return.Flag()})
-	tss4 := byToken(tss2, token{Return.Flag()})
-	fmt.Println(tss1)
-	fmt.Println(tss2)
-	fmt.Println(tss3)
-	fmt.Println(tss4)
+	sortTokens(ts)
+
+	ok := smatch(ts[0], ts[1])
+	fmt.Println(Tokens(ts[0]))
+	fmt.Println(Tokens(ts[1]))
+	fmt.Println(ok)
+	if !ok {
+		t.Fail()
+	}
+
+	ok = sigsMatch(ts[0], ts[2])
+	fmt.Println(Tokens(ts[0]))
+	fmt.Println(Tokens(ts[2]))
+	fmt.Println(ok)
+	if ok {
+		t.Fail()
+	}
+
+	ok = sigsMatch(ts[2], ts[3])
+	fmt.Println(Tokens(ts[2]))
+	fmt.Println(Tokens(ts[3]))
+	fmt.Println(ok)
+	if !ok {
+		t.Fail()
+	}
+
+	ok = sigsMatch(ts[3], ts[4])
+	fmt.Println(Tokens(ts[3]))
+	fmt.Println(Tokens(ts[4]))
+	fmt.Println(ok)
+	if ok {
+		t.Fail()
+	}
+
 }

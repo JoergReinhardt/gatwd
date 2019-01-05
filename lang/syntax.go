@@ -136,27 +136,25 @@ var syntax = map[TokType]string{
 }
 
 //// Token type according to text, scanner tokenizer.
-type Token struct {
-	d.BitFlag
-	syntax bool
-}
+type Token d.BitFlag
 
 func Con(t d.Typed) Token {
 	if tok, ok := t.(d.Type); ok {
-		return Token{tok.Flag(), false}
+		return Token(tok.Flag())
 	}
-	return Token{t.Flag(), true}
+	return Token(t.Flag())
 }
 func newTypeToken(typ d.Type) Token {
-	return Token{typ.Flag(), false}
+	return Token(typ.Flag())
 }
 func newSyntaxToken(typ TokType) Token {
-	return Token{typ.Flag(), true}
+	return Token(typ.Flag())
 }
-func (t Token) String() string {
-	if t.syntax {
-		return d.Type(t.BitFlag).String()
-	}
+func (t Token) Flag() d.BitFlag { return d.BitFlag(t) }
+func (t Token) Text() string {
 	return syntax[TokType(t.Flag())]
 }
-func (t Token) Type() d.BitFlag { return d.BitFlag(t.BitFlag) }
+func (t Token) String() string {
+	return syntax[TokType(t.Flag())]
+}
+func (t Token) Type() d.BitFlag { return d.BitFlag(t) }
