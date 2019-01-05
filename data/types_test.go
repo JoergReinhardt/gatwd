@@ -1,4 +1,4 @@
-package types
+package data
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestMutability(t *testing.T) {
-	a := conData(true).(boolVal)
-	b := conData(false).(boolVal)
+	a := conData(true).(BoolVal)
+	b := conData(false).(BoolVal)
 	if a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -46,16 +46,13 @@ func TestTypeAllocation(t *testing.T) {
 	fmt.Printf("List-0: %s\n", s0.String())
 
 	for i := 0; i < 1000; i++ {
-		s1 = slideAdd(s1, s0...)
+		s1 = ChainAdd(s1, s0...)
 	}
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
 }
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
-	v := timeVal(ts)
+	v := TimeVal(ts)
 	fmt.Printf("time stamp: %s\n", v.String())
-}
-func TestAllTypesList(t *testing.T) {
-	fmt.Printf("types list: %s\n", allTypes())
 }

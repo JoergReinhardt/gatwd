@@ -1,3 +1,3 @@
-package types
+package data
 
 //func conSet(acc ...Acce)
