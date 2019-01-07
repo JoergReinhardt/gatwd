@@ -8,8 +8,8 @@ import (
 )
 
 func TestMutability(t *testing.T) {
-	a := conData(true).(BoolVal)
-	b := conData(false).(BoolVal)
+	a := Con(true).(BoolVal)
+	b := Con(false).(BoolVal)
 	if a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -19,27 +19,27 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestTypeAllocation(t *testing.T) {
-	s0 := conChain(
-		conData(true),
-		conData(1),
-		conData(1, 2, 3, 4, 5, 6, 7),
-		conData(int8(8)),
-		conData(int16(16)),
-		conData(int32(32)),
-		conData(float32(32.16)),
-		conData(float64(64.64)),
-		conData(complex64(float32(32))),
-		conData(complex128(float64(1.6))),
-		conData(byte(3)),
-		conData(time.Now()),
-		conData(rune('ö')),
-		conData(big.NewInt(23)),
-		conData(big.NewFloat(23.42)),
-		conData(big.NewRat(23, 42)),
-		conData([]byte("test")),
-		conData("test"))
+	s0 := ConChain(
+		Con(true),
+		Con(1),
+		Con(1, 2, 3, 4, 5, 6, 7),
+		Con(int8(8)),
+		Con(int16(16)),
+		Con(int32(32)),
+		Con(float32(32.16)),
+		Con(float64(64.64)),
+		Con(complex64(float32(32))),
+		Con(complex128(float64(1.6))),
+		Con(byte(3)),
+		Con(time.Now()),
+		Con(rune('ö')),
+		Con(big.NewInt(23)),
+		Con(big.NewFloat(23.42)),
+		Con(big.NewRat(23, 42)),
+		Con([]byte("test")),
+		Con("test"))
 
-	s1 := conChain()
+	s1 := ConChain()
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 

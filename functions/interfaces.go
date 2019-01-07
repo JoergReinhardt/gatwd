@@ -84,6 +84,16 @@ type Identified interface{ Id() int }
 // the latter case they need to provide the name method.
 type Named interface{ Name() string }
 
+// interface to wrap data from the data module and function module specific
+// data alike
+type DataValue interface{ d.Typed }
+
+type Data interface {
+	DataValue
+	Eval() Data
+	Type() Flag
+}
+
 // least invasive, general abbreveation of a golang function in terms of
 // godeeps typesystem: it can be called, optionally using no to n parameters of
 // the generalized data type and returns a value, also of general data type
@@ -117,10 +127,21 @@ type Collected interface {
 type Countable interface {
 	Len() int // <- performs mutch better on slices
 }
-type Splitable interface {
-	Collected
+type Sliceable interface {
+	Data
 	Countable
-	Slice() []data //<-- no more nil pointers & 'out of index'!
+	Empty() bool
+	Slice() []Data //<-- no more nil pointers & 'out of index'!
+}
+type AccessableSlice interface {
+	Sliceable
+	Elem(i int) Data
+	Range(i, j int) []Data
+}
+type SliceOfNatives interface {
+	AccessableSlice
+	Native(i int) interface{}
+	Natives(i, j int) []interface{}
 }
 
 /// FLAT COLLECTIONS /////

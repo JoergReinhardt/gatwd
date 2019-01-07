@@ -104,7 +104,7 @@ type ( ////// INTERNAL TYPES /////
 	RatioVal  big.Rat
 	TimeVal   time.Time
 	DuraVal   time.Duration
-	ErrorVal  struct{ v error }
+	ErrorVal  struct{ e error }
 	Native    struct{ i interface{} }
 )
 

@@ -29,51 +29,51 @@ func TestIdGenerator(t *testing.T) {
 func TestSliceMatch(t *testing.T) {
 	ts := [][]Token{
 		[]Token{
-			conToken(Syntax, l.Lambda.Flag()),
-			conToken(Syntax, l.DoubCol.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax_Token, l.Lambda.Flag()),
+			conToken(Syntax_Token, l.DoubCol.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax, l.Lambda.Flag()),
-			conToken(Syntax, l.DoubCol.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax_Token, l.Lambda.Flag()),
+			conToken(Syntax_Token, l.DoubCol.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax, l.Lambda.Flag()),
-			conToken(Syntax, l.DoubCol.Flag()),
-			conToken(Data_Type, d.Slice.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Numeral.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Int.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax_Token, l.Lambda.Flag()),
+			conToken(Syntax_Token, l.DoubCol.Flag()),
+			conToken(Data_Value_Token, d.Slice.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Numeral.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Int.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax, l.Lambda.Flag()),
-			conToken(Syntax, l.DoubCol.Flag()),
-			conToken(Data_Type, d.Slice.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Numeral.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Int.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax_Token, l.Lambda.Flag()),
+			conToken(Syntax_Token, l.DoubCol.Flag()),
+			conToken(Data_Value_Token, d.Slice.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Numeral.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Int.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax, l.Lambda.Flag()),
-			conToken(Syntax, l.DoubCol.Flag()),
-			conToken(Data_Type, d.Symbolic.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Numeral.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Int.Flag()),
-			conToken(Syntax, l.LeftArrow.Flag()),
-			conToken(Data_Type, d.Bool.Flag()),
+			conToken(Syntax_Token, l.Lambda.Flag()),
+			conToken(Syntax_Token, l.DoubCol.Flag()),
+			conToken(Data_Value_Token, d.Symbolic.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Numeral.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Int.Flag()),
+			conToken(Syntax_Token, l.LeftArrow.Flag()),
+			conToken(Data_Value_Token, d.Bool.Flag()),
 		},
 	}
 
@@ -111,15 +111,15 @@ func TestSliceMatch(t *testing.T) {
 		t.Fail()
 	}
 	nomatch := []Token{
-		conToken(Syntax, l.Lambda.Flag()),
-		conToken(Syntax, l.DoubCol.Flag()),
-		conToken(Data_Type, d.Symbolic.Flag()),
-		conToken(Syntax, l.LeftArrow.Flag()),
-		conToken(Data_Type, d.Numeral.Flag()),
-		conToken(Syntax, l.FatLArrow.Flag()),
-		conToken(Data_Type, d.Int.Flag()),
-		conToken(Syntax, l.LeftArrow.Flag()),
-		conToken(Data_Type, d.Bool.Flag()),
+		conToken(Syntax_Token, l.Lambda.Flag()),
+		conToken(Syntax_Token, l.DoubCol.Flag()),
+		conToken(Data_Value_Token, d.Symbolic.Flag()),
+		conToken(Syntax_Token, l.LeftArrow.Flag()),
+		conToken(Data_Value_Token, d.Numeral.Flag()),
+		conToken(Syntax_Token, l.FatLArrow.Flag()),
+		conToken(Data_Value_Token, d.Int.Flag()),
+		conToken(Syntax_Token, l.LeftArrow.Flag()),
+		conToken(Data_Value_Token, d.Bool.Flag()),
 	}
 
 	ok = sliceContainsSignature(nomatch, ts)
@@ -127,4 +127,10 @@ func TestSliceMatch(t *testing.T) {
 
 	ok = sliceContainsSignature(ts[0], ts)
 	fmt.Println(ok)
+}
+func TestEnclosures(t *testing.T) {
+	data := con(d.Con("this is the testfunction speaking"))
+	fmt.Println(data)
+	fmt.Println(data.Type())
+	fmt.Println(data.Flag())
 }

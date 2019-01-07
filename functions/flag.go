@@ -3,7 +3,7 @@ package functions
 import d "github.com/JoergReinhardt/godeep/data"
 
 //////// RUNTIME TYPE SPECIFICATIONS ////////
-///// GLOBAL STATE OF THE TYPE SYSTEM ///////
+///// UID & USER DEFINED TYPE REGISTRATION ////
 // TODO: make that portable, serializeable, parallelizeable, modular,
 // selfcontained, distributely executed, and all the good things. by wrapping it all in a state monad
 var (
@@ -30,19 +30,19 @@ func genCount() idGenerator {
 
 func conUID() int { var id int; id, uid = uid(); return id }
 
-type Flag d.BitFlag
-
-func ComposeFlag(high, low Flag) Flag {
-	return Flag(d.High(d.BitFlag(high)).Flag() | d.Low(d.BitFlag(low)).Flag())
+///// BIT_FLAG ////////
+func composeHighLow(high, low d.BitFlag) d.BitFlag {
+	return d.High(d.BitFlag(high).Flag() | d.Low(d.BitFlag(low)).Flag())
 }
 
-func (t Flag) String() string  { return DataType(t).String() }
-func (t Flag) Low() Flag       { return Flag(d.Low(d.BitFlag(t)).Flag()) }
-func (t Flag) High() Flag      { return Flag(d.High(d.BitFlag(t)).Flag()) }
-func (t Flag) Uint() uint      { return uint(t) }
-func (t Flag) Flag() d.BitFlag { return d.BitFlag(t) }
+type Flag func() (high DataType, prec d.BitFlag)
 
-type DataType Flag
-
-func (t DataType) Flag() d.BitFlag { return d.BitFlag(t).Flag() }
-func (t DataType) Uint() uint      { return d.BitFlag(t).Uint() }
+func conFlag(high, prec d.BitFlag) Flag {
+	return func() (h DataType, l d.BitFlag) { return DataType(high), prec }
+}
+func (t Flag) Type() Flag      { return t }                               // higher order type
+func (t Flag) Flag() d.BitFlag { _, l := t(); return DataType(l).Flag() } // precedence type
+func (t Flag) String() string {
+	high, prec := t()
+	return DataType(high).String() + "||" + d.Type(prec).String()
+}

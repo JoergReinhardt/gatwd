@@ -24,13 +24,14 @@ type TokType uint8
 
 //go:generate stringer -type TokType
 const (
-	Syntax TokType = 1 << iota
-	Symbol
-	Number
-	Return   // contains a data type-/ & value pair
-	Argument // like Return
-	Data_Type
-	Data_Value
+	Syntax_Token TokType = 1 << iota
+	Symbolic_Token
+	Number_Token
+	Return_Token   // contains a data type-/ & value pair
+	Argument_Token // like Return
+	Data_Type_Token
+	Func_Type_Token
+	Data_Value_Token
 )
 
 type token struct {
@@ -39,24 +40,27 @@ type token struct {
 }
 type dataToken struct {
 	token
-	d d.Data
+	d DataValue
 }
 
 // syntax, symbol, number and data-type nodes all fit the bitflag. all other
 // existing and later defined tokens, are considered data tokens and keep
 // their content in the additional field
-func conToken(t TokType, dat d.Data) Token {
+func conToken(t TokType, dat DataValue) Token {
 	switch t {
-	case Syntax:
+	case Syntax_Token:
 		return token{t, dat.Flag()}
-	case Data_Type:
+	case Data_Type_Token:
 		return token{t, dat.Flag()}
-	case Return:
+	case Return_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
-	case Argument:
+	case Argument_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
-	case Data_Value:
+	case Data_Value_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
+	case Func_Type_Token:
+		h, p := dat.(Flag)()
+		return dataToken{token{t, h.Flag()}, p.Flag()}
 	}
 	return nil
 }
@@ -66,9 +70,9 @@ func (t token) Flag() d.BitFlag { return t.flag }
 func (t token) String() string {
 	var str string
 	switch t.typ {
-	case Syntax:
+	case Syntax_Token:
 		str = l.Token(t.flag).Text()
-	case Data_Type:
+	case Data_Type_Token:
 		str = d.Type(t.flag).Flag().String()
 	default:
 		str = "Don't know how to print this token"
@@ -78,12 +82,24 @@ func (t token) String() string {
 func (t dataToken) String() string {
 	var str string
 	switch t.typ {
-	case Data_Value:
-		str = t.d.String()
-	case Argument:
-		str = "Arg [" + d.Type(t.Flag()).String() + "] " + t.d.String()
-	case Return:
-		str = "Ret [" + d.Type(t.Flag()).String() + "] " + t.d.String()
+	case Data_Value_Token:
+		str = t.d.(d.Data).String()
+	case Argument_Token:
+		str = "Arg [" +
+			d.Type(t.Flag()).String() +
+			"] " +
+			t.d.(d.Data).String()
+	case Return_Token:
+		str = "Ret [" +
+			d.Type(t.Flag()).String() +
+			"] " +
+			t.d.(d.Data).String()
+	case Func_Type_Token:
+		str = "Ret [" +
+			t.token.Flag().String() +
+			"||" +
+			t.d.Flag().String() +
+			"] "
 	}
 	return str
 }

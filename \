@@ -67,11 +67,11 @@ const (
 
 type (
 	// HIGHER ORDER FUNCTION TYPES
-	data     func() d.Data      // <- implements data.Typed
+	data     func() DataValue   // <- implements data.Typed
 	constant func() Data        // <- guarantueed to allways evaluate identicly
 	pair     func() (a, b Data) // <- base element of all tuples and collections
-	vector   func() d.Sliceable // <- indexable native golang slice of data instances
-	unary    func(d Data) Data
+	vector   func() []Data      // <- indexable native golang slice of data instances
+	unary    func(d Data) DataValue
 	binary   func(a, b Data) Data
 	nary     func(...Data) Data
 
@@ -103,64 +103,49 @@ type (
 // flag modules data closure can contain either data module instances, or
 // instances of the types of the function module itself. flag get's converted
 // into function module flag out of precaution.
-func (dat data) Flag() d.BitFlag { return dat().Flag() }
+func con(dat d.Data) data        { return func() DataValue { return dat.Eval() } }
+func (dat data) Flag() d.BitFlag { return Constant.Flag() }
+func (dat data) Prec() d.BitFlag { return dat().Flag() }
 func (dat data) Type() Flag      { return conFlag(Constant.Flag(), dat().Flag()) }
-func (dat data) Eval() Data      { return dat }
-func con(dat d.Data) data        { return data(func() d.Data { return dat.Eval() }) }
 
+func conConst(dat Data) constant   { return func() Data { return dat } }
 func (c constant) Flag() d.BitFlag { return Constant.Flag() }
 func (c constant) Prec() d.BitFlag { return c().Flag() }
 func (c constant) Type() Flag      { return conFlag(Constant.Flag(), c().Flag()) }
-func (c constant) Eval() Data      { return c() }
-func conConst(dat Data) constant   { return func() Data { return dat } }
 
 // pair encloses two data instances
+func conPair(a, b Data) pair   { return func() (a, b Data) { return a, b } }
 func (p pair) Flag() d.BitFlag { a, b := p(); return a.Flag() | b.Flag() }
 func (p pair) Type() Flag      { return conFlag(Pair.Flag(), p.Flag()) }
-func (p pair) Eval() Data      { return p }
-func conPair(a, b Data) pair   { return func() (a, b Data) { return a, b } }
 
-func (v vector) Flag() d.BitFlag { return v().Flag() }
-func (v vector) Slice() []Data   { return sliceSanitize(v().(d.Sliceable).Slice()...) }
-func (v vector) Type() Flag      { return conFlag(Vector.Flag(), v.Flag()) }
-func conVector(dd ...d.Data) vector {
-	var ddd = []d.Data{}
-	for _, dat := range dd {
-		ddd = append(ddd, dat)
+func conVector(dat ...Data) vector {
+	var flag d.BitFlag = 0
+	for _, dd := range dat {
+		flag = dd.Flag() | flag
 	}
-	return func() d.Sliceable {
-		return d.ConChain(ddd...)
+	if d.Count(flag) == 1 { // get type-monolithic vector
+		dat = d.ConChain(ConNativeSlice(dat...))
+	}
+	return func() []Data {
+		return dat
 	}
 }
-func sliceSanitize(dd ...d.Data) []Data {
-	var dat = []Data{}
-	for _, ddd := range dd {
-		dat = append(dat, con(ddd.Eval()))
-	}
-	return dat
-}
+
+// construct closures
 
 ///////// POLYMORPHISM ///////////
 type (
-	signature func() (id int, tok tokens)
-	derivate  func() (id int, from int, tok tokens)
-	isomorph  func() (id int, tok tokens, fnc Function)
-	polymorph func() (id int, tok tokens, iso isomorphs)
-	namedPoly func() (id int, name string, sig tokens, iso isomorphs)
+	signature func() (id int, tok tokens)                             // <- 1 : 1 type/data cons., ops‥. (tokens)
+	isomorph  func() (id int, tok tokens, fnc Function)               // <- 1 : 1 implementation  (golang)
+	polymorph func() (id int, tok tokens, iso isomorphs)              // 1 : n id/Isomorphisms (pattern matching)
+	namedPoly func() (id int, name string, sig tokens, iso isomorphs) // 1 : 1 name/Polymorphism
 )
 
-func (s signature) Id() int         { id, _ := s(); return id }
-func (s signature) Tokens() []Token { _, tok := s(); return tok }
-func (d derivate) Id() int          { id, _, _ := d(); return id }
-func (d derivate) DerivedFrom() int { _, id, _ := d(); return id }
-func (d derivate) Tokens() []Token  { _, _, tok := d(); return tok }
-func (i isomorph) Id() int          { id, _, _ := i(); return id }
-func (i isomorph) Tokens() []Token  { _, tok, _ := i(); return tok }
-func (p polymorph) Id() int         { id, _, _ := p(); return id }
-func (p polymorph) Tokens() []Token { _, tok, _ := p(); return tok }
-func (n namedPoly) Id() int         { id, _, _, _ := n(); return id }
-func (n namedPoly) Name() string    { _, name, _, _ := n(); return name }
-func (n namedPoly) Tokens() []Token { _, _, tok, _ := n(); return tok }
+func (s signature) Id() int      { id, _ := s(); return id }
+func (i isomorph) Id() int       { id, _, _ := i(); return id }
+func (p polymorph) Id() int      { id, _, _ := p(); return id }
+func (n namedPoly) Id() int      { id, _, _, _ := n(); return id }
+func (n namedPoly) Name() string { _, name, _, _ := n(); return name }
 
 // isomorphic functions implement the function interface by forwarding passed
 // parameters to the embedded functions eval method. TODO: handle arguments and returns

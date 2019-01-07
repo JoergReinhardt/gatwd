@@ -5,16 +5,17 @@ package functions
 import "strconv"
 
 const (
-	_TokType_name_0 = "SyntaxSymbol"
-	_TokType_name_1 = "Number"
-	_TokType_name_2 = "Return"
-	_TokType_name_3 = "Argument"
-	_TokType_name_4 = "Data_Type"
-	_TokType_name_5 = "Data_Value"
+	_TokType_name_0 = "Syntax_TokenSymbolic_Token"
+	_TokType_name_1 = "Number_Token"
+	_TokType_name_2 = "Return_Token"
+	_TokType_name_3 = "Argument_Token"
+	_TokType_name_4 = "Data_Type_Token"
+	_TokType_name_5 = "Func_Type_Token"
+	_TokType_name_6 = "Data_Value_Token"
 )
 
 var (
-	_TokType_index_0 = [...]uint8{0, 6, 12}
+	_TokType_index_0 = [...]uint8{0, 12, 26}
 )
 
 func (i TokType) String() string {
@@ -32,6 +33,8 @@ func (i TokType) String() string {
 		return _TokType_name_4
 	case i == 64:
 		return _TokType_name_5
+	case i == 128:
+		return _TokType_name_6
 	default:
 		return "TokType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

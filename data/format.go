@@ -8,8 +8,8 @@ import (
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }
-func (v ErrorVal) String() string  { return v.v.Error() }
-func (v ErrorVal) Error() ErrorVal { return ErrorVal{v.v} }
+func (v ErrorVal) String() string  { return v.e.Error() }
+func (v ErrorVal) Error() ErrorVal { return ErrorVal{v.e} }
 func (v BoolVal) String() string   { return strconv.FormatBool(bool(v)) }
 func (v IntVal) String() string    { return strconv.Itoa(int(v)) }
 func (v Int8Val) String() string   { return strconv.Itoa(int(v)) }
@@ -87,5 +87,17 @@ func stringChain(v ...Data) string {
 		}
 	}
 	str = str + "]"
+	return str
+}
+func (v ErrorVec) String() string {
+	var str string
+	for i, err := range v {
+		str = str +
+			"ERROR " +
+			strconv.Itoa(i) +
+			": " +
+			err.Error() +
+			"\n"
+	}
 	return str
 }

@@ -18,15 +18,30 @@ type Data interface {
 	Stringer
 	Eval() Data
 }
+type Sliceable interface {
+	Data
+	Empty() bool
+	Len() int
+	Slice() []Data
+}
 type NativeVal interface {
 	Data
 	Null() func() Data
 	DataFnc() func(Data) Data
 }
-type NativeVec interface {
+type Vector interface {
 	Data
-	Null() func() []Data
-	VectorFnc() func(Data) []Data
+	Len() int
+	Empty() bool
+	Slice() []Data
+	Elem(i int) Data
+	Range(i, j int) []Data
+}
+type NativeVec interface {
+	Vector
+	Natives() []interface{}
+	Native(i int) interface{}
+	NativesRange(i, j int) []interface{}
 }
 type Collected interface {
 	Data
