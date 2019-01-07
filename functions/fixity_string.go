@@ -9,8 +9,9 @@ const _Fixity_name = "PostFixInFixPreFix"
 var _Fixity_index = [...]uint8{0, 7, 12, 18}
 
 func (i Fixity) String() string {
-	if i >= Fixity(len(_Fixity_index)-1) {
-		return "Fixity(" + strconv.FormatInt(int64(i), 10) + ")"
+	i -= -1
+	if i < 0 || i >= Fixity(len(_Fixity_index)-1) {
+		return "Fixity(" + strconv.FormatInt(int64(i+-1), 10) + ")"
 	}
 	return _Fixity_name[_Fixity_index[i]:_Fixity_index[i+1]]
 }

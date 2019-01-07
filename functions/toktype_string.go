@@ -7,8 +7,10 @@ import "strconv"
 const (
 	_TokType_name_0 = "SyntaxSymbol"
 	_TokType_name_1 = "Number"
-	_TokType_name_2 = "D_Type"
-	_TokType_name_3 = "H_Type"
+	_TokType_name_2 = "Return"
+	_TokType_name_3 = "Argument"
+	_TokType_name_4 = "Data_Type"
+	_TokType_name_5 = "Data_Value"
 )
 
 var (
@@ -26,6 +28,10 @@ func (i TokType) String() string {
 		return _TokType_name_2
 	case i == 16:
 		return _TokType_name_3
+	case i == 32:
+		return _TokType_name_4
+	case i == 64:
+		return _TokType_name_5
 	default:
 		return "TokType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

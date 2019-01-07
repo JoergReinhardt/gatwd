@@ -60,6 +60,7 @@ const (
 	InWord
 	ConWord
 	LetWord
+	MutableWord
 	WhereWord
 	OtherwiseWord
 	IfWord
@@ -77,7 +78,7 @@ var syntax = map[TokType]string{
 	None:          "",
 	Blank:         " ",
 	Underscore:    "_",
-	Asterisk:      "*",
+	Asterisk:      "∗",
 	Dot:           ".",
 	Comma:         ",",
 	Colon:         ":",
@@ -85,7 +86,7 @@ var syntax = map[TokType]string{
 	Minus:         "-",
 	Plus:          "+",
 	Or:            "∨",
-	Xor:           "O",
+	Xor:           "※",
 	And:           "∧",
 	Equal:         "=",
 	Lesser:        "≪",
@@ -122,6 +123,7 @@ var syntax = map[TokType]string{
 	InWord:        "in",
 	ConWord:       "con",
 	LetWord:       "let",
+	MutableWord:   "mutable",
 	WhereWord:     "where",
 	OtherwiseWord: "otherwise",
 	IfWord:        "if",

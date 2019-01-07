@@ -14,25 +14,99 @@ import (
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
-type Named interface{ Name() string }
-type Fixity uint8
+type Arity int8
+type Fixity int8
+type Equality int8
+type Lazynes bool
 
+func (l Lazynes) String() string {
+	if l {
+		return "Lazy"
+	}
+	return "Eager"
+}
+
+type Bind bool
+
+func (b Bind) String() string {
+	if b {
+		return "Left_Binding"
+	}
+	return "Right_Binding"
+}
+
+type Mutability bool
+
+func (b Mutability) String() string {
+	if b {
+		return "Mutable"
+	}
+	return "Immutable"
+}
+
+type SideEffect bool
+
+func (b SideEffect) String() string {
+	if b {
+		return "Side Effected"
+	}
+	return "Pure"
+}
+
+//go:generate stringer -type Arity
 //go:generate stringer -type Fixity
+//go:generate stringer -type Equality
 const (
-	PostFix Fixity = 0
-	InFix   Fixity = 1
-	PreFix  Fixity = 2
+	Constant_Function Arity      = 0
+	Unary_Function    Arity      = 1
+	Binary_Function   Arity      = 2
+	PostFix           Fixity     = -1
+	InFix             Fixity     = 0
+	PreFix            Fixity     = 1
+	Lesser            Equality   = -1
+	Equal             Equality   = 0
+	Greater           Equality   = 1
+	Eager             Lazynes    = false
+	Lazy              Lazynes    = true
+	Right_Binding     Bind       = false
+	Left_Binding      Bind       = true
+	Mutable           Mutability = true
+	Immutable         Mutability = false
+	Side_Effected     SideEffect = true
+	Pure              SideEffect = false
 )
 
-type Function interface { // RENAME: FunctionType
-	Eval(Data) Data // of types Argumemnt & Return
+// to be handled by the runtime, all that is defined, declared, instanciated‥.
+// needs to be identifieable by unique numeric id.
+type Identified interface{ Id() int }
+
+// type definitions and variable declarations can be anonymous, or named.  In
+// the latter case they need to provide the name method.
+type Named interface{ Name() string }
+
+// least invasive, general abbreveation of a golang function in terms of
+// godeeps typesystem: it can be called, optionally using no to n parameters of
+// the generalized data type and returns a value, also of general data type
+type Function interface {
+	Call(...data) data // calls enclosed fnc, passes params & return
 }
-type Instance interface {
+
+// least invasive wrapper to represent a function and it's runtime parameters
+// within godeeps typesystem
+type Functor interface {
 	Function
-	Flag() Flag
-	Ari() int8
+	Eval() data        // calls enclosed fnc, with enclosed parameters
+	Params(...Token) ( // either set (when params are passed), or get parameters
+		arguments tokens,
+		returns tokens,
+	)
+}
+
+// operators expect their parameters within syntactic context to either be
+// left, right, or on both sides of the operators position.
+type Operator interface {
+	Functor
 	Fix() Fixity
-	Sig() Signature
 }
 
 ///// COLLECTION ///////
@@ -46,7 +120,7 @@ type Countable interface {
 type Splitable interface {
 	Collected
 	Countable
-	Slice() []Data //<-- no more nil pointers & 'out of index'!
+	Slice() []data //<-- no more nil pointers & 'out of index'!
 }
 
 /// FLAT COLLECTIONS /////
@@ -54,11 +128,11 @@ type Splitable interface {
 // performance is mandatory
 type Ordered interface {
 	Collected
-	Next() Data
+	Next() data
 }
 type Reverseable interface {
 	Ordered
-	Prev() Data
+	Prev() data
 }
 
 // collections that are accessable by other means than retrieving the 'next'
@@ -67,40 +141,40 @@ type Reverseable interface {
 // type safety on argument propagation
 type Accessable interface {
 	AccType() // 0: int | 1: string | 3: bitflag
-	Value(Data)
+	Value(data)
 }
 type KeyAccessable interface {
 	Accessable
-	Key(string) Data
+	Key(string) data
 }
 type IdxAccessable interface {
 	Accessable
-	Idx(int) Data
+	Idx(int) data
 }
 
 ////////// STACK ////////////
 //// LAST IN FIRST OUT //////
 type Stacked interface {
 	Collected
-	Push(Data)
-	Pop() Data
-	Add(...Data)
+	Push(data)
+	Pop() data
+	Add(...data)
 }
 
 ///////// QUEUE /////////////
 //// FIRST IN FIRST OUT /////
 type Queued interface {
 	Collected
-	Put(Data)
-	Pull() Data
-	Append(...Data)
+	Put(data)
+	Pull() data
+	Append(...data)
 }
 
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
 type Reduceable interface {
 	Collected
-	Head() Data
+	Head() data
 	Tail() Reduceable
 	Shift() Reduceable
 }
@@ -113,7 +187,7 @@ type Tupled interface {
 type Item interface {
 	ItemType() d.BitFlag
 	Idx() int
-	Value() Data
+	Value() data
 }
 
 //////////////////////////
@@ -155,5 +229,5 @@ type Branched interface {
 }
 type Edged interface {
 	Nodular
-	Value() Data
+	Value() data
 }

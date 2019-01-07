@@ -4,23 +4,27 @@ package functions
 
 import "strconv"
 
-const _DataType_name = "ParameterArgumentReturnTupleListChainUniSetMuliSetAssocARecordLinkDLinkNodeTree"
+const _DataType_name = "DataPairVectorConstantUnaryBinaryNnaryTupleListChainUniSetMuliSetAssocARecordLinkDLinkNodeTree"
 
 var _DataType_map = map[DataType]string{
-	1:    _DataType_name[0:9],
-	2:    _DataType_name[9:17],
-	4:    _DataType_name[17:23],
-	8:    _DataType_name[23:28],
-	16:   _DataType_name[28:32],
-	32:   _DataType_name[32:37],
-	64:   _DataType_name[37:43],
-	128:  _DataType_name[43:50],
-	256:  _DataType_name[50:56],
-	512:  _DataType_name[56:62],
-	1024: _DataType_name[62:66],
-	2048: _DataType_name[66:71],
-	4096: _DataType_name[71:75],
-	8192: _DataType_name[75:79],
+	1:      _DataType_name[0:4],
+	2:      _DataType_name[4:8],
+	4:      _DataType_name[8:14],
+	8:      _DataType_name[14:22],
+	16:     _DataType_name[22:27],
+	32:     _DataType_name[27:33],
+	64:     _DataType_name[33:38],
+	128:    _DataType_name[38:43],
+	256:    _DataType_name[43:47],
+	512:    _DataType_name[47:52],
+	1024:   _DataType_name[52:58],
+	2048:   _DataType_name[58:65],
+	4096:   _DataType_name[65:71],
+	8192:   _DataType_name[71:77],
+	16384:  _DataType_name[77:81],
+	32768:  _DataType_name[81:86],
+	65536:  _DataType_name[86:90],
+	131072: _DataType_name[90:94],
 }
 
 func (i DataType) String() string {

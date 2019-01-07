@@ -4,7 +4,7 @@ package lang
 
 import "strconv"
 
-const _TokType_name = "NoneBlankUnderscoreAsteriskDotCommaColonSemicolonMinusPlusOrXorAndEqualLesserGreaterLesseqGreaterqLeftParRightParLeftBraRightBraLeftCurRightCurSlashNotDecIncDoubEqualTripEqualRightArrowLeftArrowFatLArrowFatRArrowDoubColSing_quoteDoub_quoteBckSlaLambdaNumberLetterCapitalGenTypeHeadWordTailWordInWordConWordLetWordWhereWordOtherwiseWordIfWordThenWordElseWordCaseWordOfWordDataWordTypeWordTypeIdentFuncIdent"
+const _TokType_name = "NoneBlankUnderscoreAsteriskDotCommaColonSemicolonMinusPlusOrXorAndEqualLesserGreaterLesseqGreaterqLeftParRightParLeftBraRightBraLeftCurRightCurSlashNotDecIncDoubEqualTripEqualRightArrowLeftArrowFatLArrowFatRArrowDoubColSing_quoteDoub_quoteBckSlaLambdaNumberLetterCapitalGenTypeHeadWordTailWordInWordConWordLetWordMutableWordWhereWordOtherwiseWordIfWordThenWordElseWordCaseWordOfWordDataWordTypeWordTypeIdentFuncIdent"
 
 var _TokType_map = map[TokType]string{
 	1:                  _TokType_name[0:4],
@@ -55,17 +55,18 @@ var _TokType_map = map[TokType]string{
 	35184372088832:     _TokType_name[293:299],
 	70368744177664:     _TokType_name[299:306],
 	140737488355328:    _TokType_name[306:313],
-	281474976710656:    _TokType_name[313:322],
-	562949953421312:    _TokType_name[322:335],
-	1125899906842624:   _TokType_name[335:341],
-	2251799813685248:   _TokType_name[341:349],
-	4503599627370496:   _TokType_name[349:357],
-	9007199254740992:   _TokType_name[357:365],
-	18014398509481984:  _TokType_name[365:371],
-	36028797018963968:  _TokType_name[371:379],
-	72057594037927936:  _TokType_name[379:387],
-	144115188075855872: _TokType_name[387:396],
-	288230376151711744: _TokType_name[396:405],
+	281474976710656:    _TokType_name[313:324],
+	562949953421312:    _TokType_name[324:333],
+	1125899906842624:   _TokType_name[333:346],
+	2251799813685248:   _TokType_name[346:352],
+	4503599627370496:   _TokType_name[352:360],
+	9007199254740992:   _TokType_name[360:368],
+	18014398509481984:  _TokType_name[368:376],
+	36028797018963968:  _TokType_name[376:382],
+	72057594037927936:  _TokType_name[382:390],
+	144115188075855872: _TokType_name[390:398],
+	288230376151711744: _TokType_name[398:407],
+	576460752303423488: _TokType_name[407:416],
 }
 
 func (i TokType) String() string {

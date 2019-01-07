@@ -1,39 +1,49 @@
+/*
+FUNCTION GENERALIZATION
+
+lambda calculus states, that all functions can be expressed as functions
+taking one argument, by currying in additional data and behaviour. all
+computation can then be expressed in those terms‥. and while that's the base
+of all that's done here, and generally considered to be a great thing, it
+also turns out to be a pain in the behind, when applyed to a strongly typed
+language on real world problems.
+
+to get things done anyway, data types and function signatures need to be
+generalized over, in a more reasonable way. data types of arguments and
+return values already get generalized by the data package using type
+aliasing and adding the flag method.
+
+functions can be further discriminated by means of arity (number & type of
+input arguments) and fixity (syntactical side, on which they expect to bind
+there parameter(s)). golangs capability of returning multiple values, is of
+no relevance in terms of functional programming, but very usefull in
+imlementing a type system on top of it. so is the ability to define methods
+on function types. functions in the terms of godeep are closures, closing
+over arbitrary functions together with there arguments and return values,
+btw. placeholders there of and an id/signature poir for typesystem and
+runtime, to handle (partial} application and evaluation.
+
+to deal with golang index operators and conrol structures, a couple of internal
+function signatures, containing non aliased types (namely bool, int & string)
+will also be made avaiable for enclosure.
+*/
 package functions
 
 import (
 	"sort"
 
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lang"
 )
-
-///
-//// Functional higher order types ////
-// takes a state and advances it. returns the next state fn to run
-type Flag d.BitFlag
-
-func ComposeFlag(high, low Flag) Flag {
-	return Flag(d.High(d.BitFlag(high)).Flag() | d.Low(d.BitFlag(low)).Flag())
-}
-
-func (t Flag) String() string  { return DataType(t).String() }
-func (t Flag) Low() Flag       { return Flag(d.Low(d.BitFlag(t)).Flag()) }
-func (t Flag) High() Flag      { return Flag(d.High(d.BitFlag(t)).Flag()) }
-func (t Flag) Uint() uint      { return uint(t) }
-func (t Flag) Flag() d.BitFlag { return d.BitFlag(t) }
-
-type DataType Flag
-
-func (t DataType) Flag() d.BitFlag { return d.BitFlag(t).Flag() }
-func (t DataType) Uint() uint      { return d.BitFlag(t).Uint() }
 
 //go:generate stringer -type=DataType
 const (
-	/// FUNCTIONAL ATTRIBUTES
-	Parameter DataType = 1 << iota
-	Argument
-	Return
-	/// FUNCTIONAL DATATYPES
+	Data DataType = 1 << iota
+	Pair
+	Vector
+	Constant
+	Unary
+	Binary
+	Nnary
 	Tuple
 	List
 	Chain
@@ -46,203 +56,157 @@ const (
 	Node
 	Tree
 
-	Attributes = Parameter | Argument | Return
-
 	Recursives = Tuple | List
 	Sets       = UniSet | MuliSet | AssocA | Record
 	Links      = Link | DLink | Node | Tree // Consumeables
 )
 
 type (
-	// functional base types
-	Data     func(d.Data) d.Data
-	Vector   func() []Data
-	Constant func() Data
-	Unary    func(d Data) Data
-	Binary   func(a, b Data) Data
-	Nnary    func(...Data) Data
-	// higher order function types
-	Generator   func() (Data, Generator)
-	Predicate   func(Data) bool
-	Condition   func(d Data) bool // true if predicate(d) == true
-	Conditional func(Data) Data   // returns either data, or not
+	// HIGHER ORDER FUNCTION TYPES
+	data     func() d.Data      // <- represents a data instance from the data module
+	pair     func() (a, b data) // <- base element of all tuples and collections
+	vector   func() []data      // <- indexable native golang slice of data instances
+	constant func() data        // <- guarantueed to allways evaluate identicly
+	unary    func(d data) data
+	binary   func(a, b data) data
+	nary     func(...data) data
+
+	// parameter
+	// returns previously enclosed data and another parameter instance,
+	// optionaly containing the passed data, if any was passed, or the
+	// previous data again.
+	parameter func(data) (data, parameter)
+
+	// applicative
+	// parameter that contains index/key & value pair to be applyed as
+	// positional, or named parameter, argument, or result of an operation
+	// involving a accessable collection.
+	applicative func(pair) (pair, applicative)
+
+	// Generator
+	// returns data and another generator instance. can either represent
+	// endless lists, streams and the like, or consumeable data structures
+	// that implement methods to be reduced on a per element basis
+	generator func() (data, generator)
+
+	// Predicate
+	//
+	// returns true, when the passed data meets the enclosed condition, a
+	// native boolean for use in golang control structures
+	predicate func(data) bool
 )
 
-type idGenerator func() (int, idGenerator)
-
-func genCount() idGenerator {
-	return func() (int, idGenerator) {
-		var id int
-		var gen idGenerator
-		gen = func() (int, idGenerator) {
-			id = id + 1
-			return id, gen
-		}
-		return id, gen
-	}
-}
-
-// TYPESPEC STATE
-var (
-	names = map[string]Polymorph{}
-	sig   = []Signature{}
-	iso   = []Isomorph{}  // sig & fnc
-	poly  = []Polymorph{} // []sig & []fnc
-	uid   = genCount()
-)
-
-func conId() int { var id int; id, uid = uid(); return id }
-
-// PARTS OF TYPE SPEC
+///////// POLYMORPHISM ///////////
 type (
-	Signature func() (id int, sig []Token)                          // <- 1 : 1 type/data cons., ops‥. (tokens)
-	Isomorph  func() (pid int, id int, sig Signature, fnc Function) // <- 1 : 1 implementation  (golang)
-	Polymorph func() (id int, sig Signature, iso []Isomorph)        // 1 : n id/Isomorphisms (pattern matching)
-	NamedDef  func() (id int, name string, p Polymorph)             // 1 : 1 name/Polymorphism
+	signature func() (id int, tok tokens)                             // <- 1 : 1 type/data cons., ops‥. (tokens)
+	isomorph  func() (id int, tok tokens, fnc Function)               // <- 1 : 1 implementation  (golang)
+	polymorph func() (id int, tok tokens, iso isomorphs)              // 1 : n id/Isomorphisms (pattern matching)
+	namedPoly func() (id int, name string, sig tokens, iso isomorphs) // 1 : 1 name/Polymorphism
 )
 
-func conSignature(tok ...Token) Signature {
-	return func() (id int, sig []Token) {
-		return conId(), sig
+func (s signature) Id() int      { id, _ := s(); return id }
+func (i isomorph) Id() int       { id, _, _ := i(); return id }
+func (p polymorph) Id() int      { id, _, _ := p(); return id }
+func (n namedPoly) Id() int      { id, _, _, _ := n(); return id }
+func (n namedPoly) Name() string { _, name, _, _ := n(); return name }
+
+// isomorphic functions implement the function interface by forwarding passed
+// parameters to the embedded functions eval method. TODO: handle arguments and returns
+func (i isomorph) Call(d ...data) data { _, _, fn := i(); return fn.Call(d...) }
+
+func conSignature(tok ...Token) signature {
+	i := conUID()
+	s := tok
+	return func() (id int, sig tokens) {
+		return i, s
 	}
 }
-func conIsomorph(pid int, sig Signature, fnc Function) Isomorph {
+func conIsomorph(sig signature, fnc Function) isomorph {
+	s := sig
+	f := fnc
 	return func() (
-		pid int,
 		id int,
-		sig Signature,
-		fnc Function,
+		tok tokens,
+		fn Function,
 	) {
-		id, _ = sig()
-		return pid, id, sig, fnc
+		id, tok = s()
+		return id, tok, f
 	}
 }
-func conPolymorph(sig Signature, iso ...Isomorph) Polymorph {
+func conPolymorph(sig signature, iso ...isomorph) polymorph {
+	s := sig
 	return func() (
 		id int,
-		sig Signature,
-		iso []Isomorph,
+		tok tokens,
+		iso isomorphs,
 	) {
-		id, _ = sig()
-		return id, sig, iso
+		id, tok = s()
+		return id, tok, iso
+	}
+}
+func conNamedDef(name string, pol polymorph) namedPoly {
+	p := pol
+	return func() (
+		id int,
+		name string,
+		tok tokens,
+		iso isomorphs,
+	) {
+		id, tok, iso = p()
+		return id, name, tok, iso
 	}
 }
 
-// TOKEN GENERATION
-type TokType uint8
+type signatures []signature
 
-//go:generate stringer -type TokType
-const (
-	Syntax TokType = 1 << iota
-	Symbol
-	Number
-	Data_Type
-	Data_Value
-)
+func (s signatures) Len() int           { return len(s) }
+func (s signatures) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s signatures) Less(i, j int) bool { return s[i].Id() < s[j].Id() }
+func (s signatures) hasId(id int) bool  { return s.getById(id).Id() == id }
+func (s signatures) getById(id int) signature {
+	var sig = s[sort.Search(len(s),
+		func(i int) bool {
+			return s[i].Id() >= id
+		})]
+	if sig.Id() == id {
+		return sig
+	}
+	return sig
+}
+func sortSignatures(s signatures) signatures { sort.Sort(s); return s }
 
-type token struct {
-	flag d.BitFlag
-	typ  TokType
-}
-type dataToken struct {
-	token
-	d d.Data
-}
+type isomorphs []isomorph
 
-func (t token) Type() TokType   { return t.typ }
-func (t token) Flag() d.BitFlag { return t.flag }
-func (t token) String() string {
-	var str string
-	switch t.typ {
-	case Syntax:
-		str = l.Token(t.flag).Text()
-	case Data_Type:
-		str = d.Type(t.flag).Flag().String()
+func (m isomorphs) Len() int           { return len(m) }
+func (m isomorphs) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m isomorphs) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
+func (m isomorphs) hasId(id int) bool  { return m.getById(id).Id() == id }
+func (m isomorphs) getById(id int) isomorph {
+	var iso = m[sort.Search(len(m),
+		func(i int) bool {
+			return m[i].Id() >= id
+		})]
+	if iso.Id() == id {
+		return iso
 	}
-	return str
+	return iso
 }
+func sortIsomorphs(m isomorphs) isomorphs { sort.Sort(m); return m }
 
-func conToken(t TokType, dat d.Data) Token {
-	switch t {
-	case Syntax:
-		return token{dat.Flag(), Syntax}
-	case Data_Type:
-		return token{dat.Flag(), Data_Type}
-	case Data_Value:
-		return dataToken{token{dat.Flag(), Data_Value}, dat}
-	}
-	return nil
-}
+type polymorphs []polymorph
 
-type Tokens []Token
-
-func (t Tokens) String() string {
-	var str string
-	for _, tok := range t {
-		str = str + " " + tok.String()
+func (p polymorphs) Len() int           { return len(p) }
+func (p polymorphs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p polymorphs) Less(i, j int) bool { return p[i].Id() < p[j].Id() }
+func (m polymorphs) hasId(id int) bool  { return m.getById(id).Id() == id }
+func (m polymorphs) getById(id int) polymorph {
+	var poly = m[sort.Search(len(m),
+		func(i int) bool {
+			return m[i].Id() >= id
+		})]
+	if poly.Id() == id {
+		return poly
 	}
-	return str
+	return poly
 }
-
-type TokSlice [][]Token
-
-func (t TokSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t TokSlice) Len() int           { return len(t) }
-func (t TokSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }
-func sortTokens(t TokSlice) TokSlice {
-	sort.Sort(t)
-	return t
-}
-func decapTokSlice(t TokSlice) ([]Token, TokSlice) {
-	if len(t) > 0 {
-		if len(t) > 1 {
-			return t[0], t[1:]
-		}
-		return t[0], nil
-	}
-	return nil, nil
-}
-func byToken(t TokSlice, match token) [][]Token {
-	ret := [][]Token{}
-	i := sort.Search(len(t), func(i int) bool { return t[i][0].Flag().Uint() >= match.Flag().Uint() })
-	var j = i
-	for j < len(t) && d.Match(t[j][0].Flag(), match.Flag()) {
-		ret = append(ret, t[j])
-		j++
-	}
-	return ret
-}
-func matchSigByTokSlice(sig []Token, matches TokSlice) bool {
-	match, matches := decapTokSlice(matches)
-	if len(sig) == 0 {
-		return true
-	}
-	if !sigsMatch(sig, match) {
-		return false
-	}
-	return matchSigByTokSlice(sig, matches)
-}
-func sigsMatch(sig, match []Token) bool {
-	if len(sig) > len(match) {
-		return smatch(sig, match)
-	}
-	return smatch(match, sig)
-}
-func smatch(long, short []Token) bool {
-	if len(short) == 0 {
-		if len(long) != 0 {
-			return false
-		}
-		return true
-	}
-	l, s := long[0], short[0]
-	if !d.Match(l.Flag(), s.Flag()) {
-		return false
-	}
-	return smatch(long[1:], short[1:])
-}
-
-// SIGNATURE MATCHING
-type SigSlice []Signature
-
-func (s SigSlice) Len() int { return len(s) }
+func sortPolymorphs(p polymorphs) polymorphs { sort.Sort(p); return p }
