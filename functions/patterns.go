@@ -72,21 +72,21 @@ func (s pattern) Tokens() tokens { _, tok := s(); return tok }
 // parametric types construct derived patterns for derived types
 func (d derivate) Id() int          { id, _, _ := d(); return id }
 func (d derivate) DerivedFrom() int { _, id, _ := d(); return id }
-func (d derivate) Tokens() []Token  { _, _, tok := d(); return tok }
+func (d derivate) Tokens() tokens   { _, _, tok := d(); return tok }
 
 // signature pattern of a literal function that takes a particular set of input
 // parameters and returns a particular set of return values (this get's called)
-func (i isomorph) Id() int         { id, _, _ := i(); return id }
-func (i isomorph) Tokens() []Token { _, tok, _ := i(); return tok }
+func (i isomorph) Id() int        { id, _, _ := i(); return id }
+func (i isomorph) Tokens() tokens { _, tok, _ := i(); return tok }
 
 // slice of signatures and associated isomorphic implementations
-func (p polymorph) Id() int         { id, _, _ := p(); return id }
-func (p polymorph) Tokens() []Token { _, tok, _ := p(); return tok }
+func (p polymorph) Id() int        { id, _, _ := p(); return id }
+func (p polymorph) Tokens() tokens { _, tok, _ := p(); return tok }
 
 // polymorph defined with a name
-func (n namedPoly) Id() int         { id, _, _, _ := n(); return id }
-func (n namedPoly) Name() string    { _, name, _, _ := n(); return name }
-func (n namedPoly) Tokens() []Token { _, _, tok, _ := n(); return tok }
+func (n namedPoly) Id() int        { id, _, _, _ := n(); return id }
+func (n namedPoly) Name() string   { _, name, _, _ := n(); return name }
+func (n namedPoly) Tokens() tokens { _, _, tok, _ := n(); return tok }
 
 // isomorphic functions implement the function interface by forwarding passed
 // parameters to the embedded functions eval method. TODO: handle arguments and returns

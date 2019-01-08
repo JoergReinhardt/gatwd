@@ -119,16 +119,16 @@ func conVector(dd ...d.Data) vector {
 		ddd = append(ddd, dat)
 	}
 	return func() d.Sliceable {
-		return d.ConChain(ddd...)
+		return d.ChainToNativeSlice(d.ConChain(ddd...))
 	}
 }
 func (v vector) Flag() d.BitFlag { return v().Flag() }
-func (v vector) Slice() []Data   { return sliceSanitize(v().(d.Sliceable).Slice()...) }
+func (v vector) Slice() []Data   { return sliceFunctionalize(v().(d.Sliceable).Slice()...) }
 func (v vector) Type() Flag      { return conFlag(Vector.Flag(), v.Flag()) }
 func (v vector) String() string  { return v().String() }
 
-// helper to retype slices initialized by the data package
-func sliceSanitize(dd ...d.Data) []Data {
+// helper to type alias slices, initially initialized by the data package
+func sliceFunctionalize(dd ...d.Data) []Data {
 	var dat = []Data{}
 	for _, ddd := range dd {
 		dat = append(dat, con(ddd.Eval()))

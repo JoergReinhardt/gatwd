@@ -38,10 +38,11 @@ type Vector interface {
 	Range(i, j int) []Data
 }
 type NativeVec interface {
-	Vector
-	Natives() []interface{}
-	Native(i int) interface{}
-	NativesRange(i, j int) []interface{}
+	Data
+	Len() int
+	Empty() bool
+	Slice() []Data
+	NativeSlice() interface{}
 }
 type Collected interface {
 	Data

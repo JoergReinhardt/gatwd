@@ -78,8 +78,23 @@ func (v Chain) String() string {
 	str = str + "]"
 	return str
 }
+func stringNativeSlice(v NativeVec) string {
+	i := v.NativeSlice().([]interface{})
+	var str = "["
+	for n, d := range i {
+		str = str + Con(d).String()
+		if n < len(i)-1 {
+			str = str + ", "
+		}
+	}
+	str = str + "]"
+	return str
+}
 func stringChain(v ...Data) string {
 	var str = "["
+	if s, ok := Chain(v).(NativeVec); ok {
+		return stringNativeSlice(v)
+	}
 	for i, d := range v {
 		str = str + d.String()
 		if i < len(v)-1 {
