@@ -621,7 +621,7 @@ func ChainClear(s Chain) {
 	}
 	s = nil
 }
-func elemEmpty(d Data) bool {
+func ElemEmpty(d Data) bool {
 	// not flagged nil, not a composition either...
 	if !Match(d.Flag(), (Nil.Flag() | Slice.Flag())) {
 		if d != nil { // not a nil pointer...
@@ -650,7 +650,7 @@ func ChainEmpty(s Chain) bool {
 	}
 	if len(s) > 0 { // empty as in contains empty elements exclusively...
 		for _, elem := range ChainSlice(s) { // return at first non empty
-			if !elemEmpty(elem) {
+			if !ElemEmpty(elem) {
 				return false
 			}
 		}

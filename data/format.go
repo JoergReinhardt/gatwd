@@ -57,7 +57,7 @@ func (v BitFlag) String() string {
 		if Match(BitFlag(u), v) {
 			str = str + Type(u).String()
 			if i < FlagLength(v)-1 {
-				str = str + "|"
+				str = str + " "
 			}
 		}
 		i = i + 1

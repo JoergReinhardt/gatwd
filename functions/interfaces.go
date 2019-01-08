@@ -86,12 +86,9 @@ type Named interface{ Name() string }
 
 // interface to wrap data from the data module and function module specific
 // data alike
-type DataValue interface{ d.Typed }
-
 type Data interface {
-	DataValue
-	Eval() Data
-	Type() Flag
+	d.Typed
+	String() string
 }
 
 // least invasive, general abbreveation of a golang function in terms of
@@ -222,6 +219,7 @@ type Queue interface {
 
 // data to parse
 type Token interface {
+	Type() TokType
 	Flag() d.BitFlag
 	String() string
 }

@@ -165,6 +165,30 @@ func (v TimeVal) Eval() Data   { return v }
 func (v DuraVal) Eval() Data   { return v }
 func (v ErrorVal) Eval() Data  { return v }
 
+//// native nullable typed ///////
+func (v NilVal) Null() struct{}       { return struct{}{} }
+func (v BoolVal) Null() bool          { return false }
+func (v IntVal) Null() int            { return 0 }
+func (v Int8Val) Null() int8          { return 0 }
+func (v Int16Val) Null() int16        { return 0 }
+func (v Int32Val) Null() int32        { return 0 }
+func (v UintVal) Null() uint          { return 0 }
+func (v Uint8Val) Null() uint8        { return 0 }
+func (v Uint16Val) Null() uint16      { return 0 }
+func (v Uint32Val) Null() uint32      { return 0 }
+func (v FltVal) Null() float64        { return 0 }
+func (v Flt32Val) Null() float32      { return 0 }
+func (v ImagVal) Null() complex128    { return complex128(0.0) }
+func (v Imag64Val) Null() complex64   { return complex64(0.0) }
+func (v ByteVal) Null() byte          { return byte(0) }
+func (v RuneVal) Null() rune          { return rune(' ') }
+func (v StrVal) Null() string         { return string("") }
+func (v BigIntVal) Null() *big.Int    { return big.NewInt(0) }
+func (v BigFltVal) Null() *big.Float  { return big.NewFloat(0) }
+func (v RatioVal) Null() *big.Rat     { return big.NewRat(1, 1) }
+func (v TimeVal) Null() time.Time     { return time.Now() }
+func (v DuraVal) Null() time.Duration { return time.Duration(0) }
+
 //// BOUND TYPE FLAG METHODS ////
 func (v BitFlag) Uint() uint               { return uint(v) }
 func (v BitFlag) Len() int                 { return FlagLength(v) }
