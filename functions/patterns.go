@@ -60,7 +60,7 @@ func sortPolymorphs(p polymorphs) polymorphs { sort.Sort(p); return p }
 type (
 	pattern   func() (id int, tok tokens)
 	derivate  func() (id int, from int, tok tokens)
-	isomorph  func() (id int, tok tokens, fnc Function)
+	isomorph  func() (id int, tok tokens, fnc Functional)
 	polymorph func() (id int, tok tokens, iso isomorphs)
 	namedPoly func() (id int, name string, sig tokens, iso isomorphs)
 )
@@ -90,7 +90,7 @@ func (n namedPoly) Tokens() tokens { _, _, tok, _ := n(); return tok }
 
 // isomorphic functions implement the function interface by forwarding passed
 // parameters to the embedded functions eval method. TODO: handle arguments and returns
-func (i isomorph) Call(d ...data) data { _, _, fn := i(); return fn.Call(d...) }
+func (i isomorph) Call(d ...Val) Val { _, _, fn := i(); return fn.Call(d...) }
 
 func conPattern(tok ...Token) pattern {
 	i := conUID()
@@ -107,14 +107,13 @@ func conDerivate(deri int, tok ...Token) derivate {
 		return i, d, s
 	}
 }
-func conIsomorph(sig pattern, fnc Function) isomorph {
+func conIsomorph(sig pattern, fnc Functional) isomorph {
 	s := sig
 	f := fnc
 	return func() (
 		id int,
 		tok tokens,
-		fn Function,
-	) {
+		fn Functional) {
 		id, tok = s()
 		return id, tok, f
 	}

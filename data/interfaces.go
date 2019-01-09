@@ -34,15 +34,12 @@ type Vector interface {
 	Len() int
 	Empty() bool
 	Slice() []Data
-	Elem(i int) Data
-	Range(i, j int) []Data
 }
 type NativeVec interface {
 	Data
 	Len() int
 	Empty() bool
 	Slice() []Data
-	NativeSlice() interface{}
 }
 type Collected interface {
 	Data

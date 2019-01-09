@@ -47,17 +47,17 @@ func (v Imag64Val) String() string {
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag
 func (v BitFlag) String() string {
-	if Count(v) == 1 {
+	if FlagCount(v) == 1 {
 		return Type(v).String()
 	}
 	var str string
 	var u = uint(1)
 	var i = 0
 	for i < 63 {
-		if Match(BitFlag(u), v) {
+		if FlagMatch(BitFlag(u), v) {
 			str = str + Type(u).String()
 			if i < FlagLength(v)-1 {
-				str = str + " "
+				str = str + " ⊕ "
 			}
 		}
 		i = i + 1
@@ -78,23 +78,8 @@ func (v Chain) String() string {
 	str = str + "]"
 	return str
 }
-func stringNativeSlice(v NativeVec) string {
-	i := v.NativeSlice().([]interface{})
-	var str = "["
-	for n, d := range i {
-		str = str + Con(d).String()
-		if n < len(i)-1 {
-			str = str + ", "
-		}
-	}
-	str = str + "]"
-	return str
-}
 func stringChain(v ...Data) string {
 	var str = "["
-	if s, ok := Chain(v).(NativeVec); ok {
-		return stringNativeSlice(v)
-	}
 	for i, d := range v {
 		str = str + d.String()
 		if i < len(v)-1 {

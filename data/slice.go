@@ -10,7 +10,16 @@ func ConChain(val ...Data) Chain {
 	l = append(l, val...)
 	return l
 }
-func (c Chain) Flag() BitFlag { return Slice.Flag() }
+func (c Chain) flag(fo ...BitFlag) BitFlag {
+	var fi BitFlag
+	if len(fo) > 0 {
+		for _, d := range c.Slice() {
+			fi = fi | d.Flag()
+		}
+	}
+	return fi
+}
+func (c Chain) Flag() BitFlag { return c.flag() }
 func (c Chain) Eval() Data    { return c }
 
 // SLICE ->
@@ -26,7 +35,7 @@ func (s Chain) Shift() (c Consumeable) { return s[:1] }
 func ChainClear(s Chain) {
 	if len(s) > 0 {
 		for i, v := range s {
-			if !Match(v.Flag(), Nullable.Flag()) {
+			if !FlagMatch(v.Flag(), Nullable.Flag()) {
 				if d, ok := v.(Destructable); ok {
 					d.Clear()
 				}
@@ -38,14 +47,14 @@ func ChainClear(s Chain) {
 }
 func ElemEmpty(d Data) bool {
 	// not flagged nil, not a composition either...
-	if !Match(d.Flag(), (Nil.Flag() | Slice.Flag())) {
+	if !FlagMatch(d.Flag(), (Nil.Flag() | Slice.Flag())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if Match(d.Flag(), Slice.Flag()) {
+	if FlagMatch(d.Flag(), Slice.Flag()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(Chain); ok {
 			return ChainEmpty(sl)
@@ -77,13 +86,13 @@ func ChainEmpty(s Chain) bool {
 func ChainToNativeSlice(c Chain) NativeVec {
 	f := ChainGet(c, 0).Flag()
 	if ChainAll(c, func(i int, c Data) bool {
-		return Match(f, c.Flag())
+		return FlagMatch(f, c.Flag())
 	}) {
 		return ConNativeSlice(f, c.Slice()...)
 	}
 	return c
 }
-func (c Chain) NativeSlice() interface{} {
+func (c Chain) NativeSlice() []interface{} {
 	var s = make([]interface{}, 0, c.Len())
 	for _, d := range c.Slice() {
 		s = append(s, d.Eval())

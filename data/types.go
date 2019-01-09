@@ -192,36 +192,36 @@ func (v DuraVal) Null() time.Duration { return time.Duration(0) }
 //// BOUND TYPE FLAG METHODS ////
 func (v BitFlag) Uint() uint               { return uint(v) }
 func (v BitFlag) Len() int                 { return FlagLength(v) }
-func (v BitFlag) Count() int               { return Count(v) }
-func (v BitFlag) Least() int               { return LeastSig(v) }
-func (v BitFlag) Most() int                { return MostSig(v) }
-func (v BitFlag) Low(f BitFlag) BitFlag    { return Low(f).Flag() }
-func (v BitFlag) High(f BitFlag) BitFlag   { return High(f).Flag() }
-func (v BitFlag) Reverse() BitFlag         { return Reverse(v).Flag() }
-func (v BitFlag) Rotate(n int) BitFlag     { return Rotate(v, n).Flag() }
-func (v BitFlag) Toggle(f BitFlag) BitFlag { return Toggle(v, f).Flag() }
-func (v BitFlag) Concat(f BitFlag) BitFlag { return Concat(v, f).Flag() }
-func (v BitFlag) Mask(f BitFlag) BitFlag   { return MaskFlag(v, f).Flag() }
-func (v BitFlag) Match(f BitFlag) bool     { return Match(v, f) }
+func (v BitFlag) Count() int               { return FlagCount(v) }
+func (v BitFlag) Least() int               { return FlagLeastSig(v) }
+func (v BitFlag) Most() int                { return FlagMostSig(v) }
+func (v BitFlag) Low(f BitFlag) BitFlag    { return FlagLow(f).Flag() }
+func (v BitFlag) High(f BitFlag) BitFlag   { return FlagHigh(f).Flag() }
+func (v BitFlag) Reverse() BitFlag         { return FlagReverse(v).Flag() }
+func (v BitFlag) Rotate(n int) BitFlag     { return FlagRotate(v, n).Flag() }
+func (v BitFlag) Toggle(f BitFlag) BitFlag { return FlagToggle(v, f).Flag() }
+func (v BitFlag) Concat(f BitFlag) BitFlag { return FlagConcat(v, f).Flag() }
+func (v BitFlag) Mask(f BitFlag) BitFlag   { return FlagMask(v, f).Flag() }
+func (v BitFlag) Match(f BitFlag) bool     { return FlagMatch(v, f) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Typed) BitFlag              { return t.Flag() }
-func FlagLength(t Typed) int            { return bits.Len(t.Flag().Uint()) }
-func Count(t Typed) int                 { return bits.OnesCount(t.Flag().Uint()) }
-func LeastSig(t Typed) int              { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
-func MostSig(t Typed) int               { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
-func Reverse(t Typed) BitFlag           { return BitFlag(bits.Reverse(t.Flag().Uint())) }
-func Rotate(t Typed, n int) BitFlag     { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
-func Toggle(t Typed, v Typed) BitFlag   { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
-func Concat(t Typed, v Typed) BitFlag   { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
-func MaskFlag(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
-func Show(f Typed) string               { return fmt.Sprintf("%64b\n", f) }
-func Low(t Typed) Typed                 { return MaskFlag(t.Flag(), Typed(Mask)) }
-func High(t BitFlag) BitFlag {
+func flag(t Typed) BitFlag                { return t.Flag() }
+func FlagLength(t Typed) int              { return bits.Len(t.Flag().Uint()) }
+func FlagCount(t Typed) int               { return bits.OnesCount(t.Flag().Uint()) }
+func FlagLeastSig(t Typed) int            { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
+func FlagMostSig(t Typed) int             { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
+func FlagReverse(t Typed) BitFlag         { return BitFlag(bits.Reverse(t.Flag().Uint())) }
+func FlagRotate(t Typed, n int) BitFlag   { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
+func FlagToggle(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
+func FlagConcat(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
+func FlagMask(t Typed, v Typed) BitFlag   { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
+func FlagShow(f Typed) string             { return fmt.Sprintf("%64b\n", f) }
+func FlagLow(t Typed) Typed               { return FlagMask(t.Flag(), Typed(Mask)) }
+func FlagHigh(t BitFlag) BitFlag {
 	len := FlagLength(BitFlag(Flag))
-	return MaskFlag(Rotate(t.Flag(), len), Rotate(BitFlag(Flag), len))
+	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Flag), len))
 }
-func Match(t BitFlag, v BitFlag) bool {
+func FlagMatch(t BitFlag, v BitFlag) bool {
 	if t.Uint()&v.Flag().Uint() != 0 {
 		return true
 	}

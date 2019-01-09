@@ -62,12 +62,11 @@ func conToken(t TokType, dat Data) Token {
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Func_Type_Token:
 		_, h, p := dat.(Flag)()
-		return dataToken{token{t, h.Flag()}, p.Flag()}
+		return dataToken{token{t, h.Flag()}, Con(p)}
 	}
 	return nil
 }
 
-func (t token) Eval() Data      { return t }
 func (t token) Type() TokType   { return t.typ }
 func (t token) Flag() d.BitFlag { return t.flag }
 func (t token) String() string {
@@ -140,7 +139,7 @@ func decapTokens(t tokens) (Token, []Token) {
 }
 
 func sliceContainsToken(ts tokens, t Token) bool {
-	return d.Match(t.Flag(), ts[sort.Search(
+	return d.FlagMatch(t.Flag(), ts[sort.Search(
 		len(ts),
 		func(i int) bool {
 			return ts[i].Flag().Uint() >= t.Flag().Uint()
@@ -173,7 +172,7 @@ func pickSliceByFirstToken(t tokenSlice, match token) [][]Token {
 	ret := [][]Token{}
 	i := sort.Search(len(t), func(i int) bool { return t[i][0].Flag().Uint() >= match.Flag().Uint() })
 	var j = i
-	for j < len(t) && d.Match(t[j][0].Flag(), match.Flag()) {
+	for j < len(t) && d.FlagMatch(t[j][0].Flag(), match.Flag()) {
 		ret = append(ret, t[j])
 		j++
 	}
@@ -205,7 +204,7 @@ func compareTokenSequence(long, short []Token) bool {
 	}
 	l, s := long[0], short[0]
 	// if either token type or flag value mismatches, return false
-	if (s.Type() != l.Type()) || (!d.Match(l.Flag(), s.Flag())) {
+	if (s.Type() != l.Type()) || (!d.FlagMatch(l.Flag(), s.Flag())) {
 		return false
 	}
 	// recurse over tails of slices

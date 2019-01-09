@@ -56,3 +56,15 @@ func TestTimeType(t *testing.T) {
 	v := TimeVal(ts)
 	fmt.Printf("time stamp: %s\n", v.String())
 }
+func TestNativeSlice(t *testing.T) {
+	var ds = Con(0, 7, 45,
+		134, 4, 465, 3, 645,
+		2452, 34, 45, 3535,
+		24, 4, 24, 2245,
+		24, 42, 4, 24)
+
+	var ns = ds.(Chain).NativeSlice()
+
+	fmt.Println(ns)
+	fmt.Println(ds.Flag())
+}

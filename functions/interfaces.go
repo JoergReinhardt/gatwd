@@ -94,15 +94,16 @@ type Data interface {
 // least invasive, general abbreveation of a golang function in terms of
 // godeeps typesystem: it can be called, optionally using no to n parameters of
 // the generalized data type and returns a value, also of general data type
-type Function interface {
-	Call(...data) data // calls enclosed fnc, passes params & return
+type Functional interface {
+	Type() Flag
+	Call(...Val) Val // calls enclosed fnc, passes params & return
 }
 
 // least invasive wrapper to represent a function and it's runtime parameters
 // within godeeps typesystem
 type Functor interface {
-	Function
-	Eval() data        // calls enclosed fnc, with enclosed parameters
+	Functional
+	Eval() Val         // calls enclosed fnc, with enclosed parameters
 	Params(...Token) ( // either set (when params are passed), or get parameters
 		arguments tokens,
 		returns tokens,
@@ -118,6 +119,11 @@ type Operator interface {
 
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
+type Paired interface {
+	Left() Data
+	Right() Data
+	Both() (Data, Data)
+}
 type Collected interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
@@ -146,11 +152,11 @@ type SliceOfNatives interface {
 // performance is mandatory
 type Ordered interface {
 	Collected
-	Next() data
+	Next() Val
 }
 type Reverseable interface {
 	Ordered
-	Prev() data
+	Prev() Val
 }
 
 // collections that are accessable by other means than retrieving the 'next'
@@ -159,40 +165,40 @@ type Reverseable interface {
 // type safety on argument propagation
 type Accessable interface {
 	AccType() // 0: int | 1: string | 3: bitflag
-	Value(data)
+	Value(Val)
 }
 type KeyAccessable interface {
 	Accessable
-	Key(string) data
+	Key(string) Val
 }
 type IdxAccessable interface {
 	Accessable
-	Idx(int) data
+	Idx(int) Val
 }
 
 ////////// STACK ////////////
 //// LAST IN FIRST OUT //////
 type Stacked interface {
 	Collected
-	Push(data)
-	Pop() data
-	Add(...data)
+	Push(Val)
+	Pop() Val
+	Add(...Val)
 }
 
 ///////// QUEUE /////////////
 //// FIRST IN FIRST OUT /////
 type Queued interface {
 	Collected
-	Put(data)
-	Pull() data
-	Append(...data)
+	Put(Val)
+	Pull() Val
+	Append(...Val)
 }
 
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
 type Reduceable interface {
 	Collected
-	Head() data
+	Head() Val
 	Tail() Reduceable
 	Shift() Reduceable
 }
@@ -205,7 +211,7 @@ type Tupled interface {
 type Item interface {
 	ItemType() d.BitFlag
 	Idx() int
-	Value() data
+	Value() Val
 }
 
 //////////////////////////
@@ -248,5 +254,5 @@ type Branched interface {
 }
 type Edged interface {
 	Nodular
-	Value() data
+	Value() Val
 }

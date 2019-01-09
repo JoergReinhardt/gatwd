@@ -7,30 +7,28 @@ import (
 	"time"
 )
 
-func Vec(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
-func Con(vals ...interface{}) Data     { return conData(vals...) }
-func conData(vals ...interface{}) (rval Data) {
-	var val interface{}
+func Vec(f BitFlag, vals ...Data) Data             { return conVec(f, vals...) }
+func Con(vals ...interface{}) Data                 { d, _ := conData(vals...); return d }
+func ConTyped(vals ...interface{}) (Data, BitFlag) { return conData(vals...) }
+func conData(vals ...interface{}) (rval Data, flag BitFlag) {
+
 	if len(vals) == 0 {
-		return NilVal{}
+		return NilVal{}, Nil.Flag()
 	}
+	var val = vals[0]
 	if len(vals) > 1 {
-
-		var flag BitFlag
 		var dat = Chain(make([]Data, 0, len(vals)))
-
 		for _, val := range vals {
-			d := conData(val)
+			var d Data
+			d, flag = conData(val)
 			flag = flag | d.Flag()
 			dat = append(dat, d)
-			if FlagLength(flag) == 1 {
-				return conVec(flag, dat...)
-			}
 		}
-
-		return dat
+		if FlagLength(flag) == 1 {
+			return conVec(flag, dat...), flag
+		}
+		return dat, flag
 	}
-	val = vals[0]
 	switch val.(type) {
 	case bool:
 		rval = BoolVal(val.(bool))
@@ -82,104 +80,104 @@ func conData(vals ...interface{}) (rval Data) {
 	case []Data:
 		rval = Chain(val.([]Data))
 	}
-	return rval
+	return rval, flag
 }
 func conVec(f BitFlag, d ...Data) (val Data) {
 	var slice Chain = []Data{}
 	switch {
-	case Match(f, Nil.Flag()):
+	case FlagMatch(f, Nil.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(NilVal))
 		}
-	case Match(f, Bool.Flag()):
+	case FlagMatch(f, Bool.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(BoolVal))
 		}
-	case Match(f, Int.Flag()):
+	case FlagMatch(f, Int.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(IntVal))
 		}
-	case Match(f, Int8.Flag()):
+	case FlagMatch(f, Int8.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Int8Val))
 		}
-	case Match(f, Int16.Flag()):
+	case FlagMatch(f, Int16.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Int16Val))
 		}
-	case Match(f, Int32.Flag()):
+	case FlagMatch(f, Int32.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Int32Val))
 		}
-	case Match(f, Uint.Flag()):
+	case FlagMatch(f, Uint.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(UintVal))
 		}
-	case Match(f, Uint8.Flag()):
+	case FlagMatch(f, Uint8.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint8Val))
 		}
-	case Match(f, Uint16.Flag()):
+	case FlagMatch(f, Uint16.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint16Val))
 		}
-	case Match(f, Uint32.Flag()):
+	case FlagMatch(f, Uint32.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint32Val))
 		}
-	case Match(f, Float.Flag()):
+	case FlagMatch(f, Float.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(FltVal))
 		}
-	case Match(f, Flt32.Flag()):
+	case FlagMatch(f, Flt32.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Flt32Val))
 		}
-	case Match(f, Imag.Flag()):
+	case FlagMatch(f, Imag.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case Match(f, Imag64.Flag()):
+	case FlagMatch(f, Imag64.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case Match(f, Byte.Flag()):
+	case FlagMatch(f, Byte.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(ByteVal))
 		}
-	case Match(f, Rune.Flag()):
+	case FlagMatch(f, Rune.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(RuneVal))
 		}
-	case Match(f, Bytes.Flag()):
+	case FlagMatch(f, Bytes.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(BytesVal))
 		}
-	case Match(f, String.Flag()):
+	case FlagMatch(f, String.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(StrVal))
 		}
-	case Match(f, BigInt.Flag()):
+	case FlagMatch(f, BigInt.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(BigIntVal))
 		}
-	case Match(f, BigFlt.Flag()):
+	case FlagMatch(f, BigFlt.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(BigFltVal))
 		}
-	case Match(f, Ratio.Flag()):
+	case FlagMatch(f, Ratio.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(RatioVal))
 		}
-	case Match(f, Time.Flag()):
+	case FlagMatch(f, Time.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(TimeVal))
 		}
-	case Match(f, Duration.Flag()):
+	case FlagMatch(f, Duration.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(DuraVal))
 		}
-	case Match(f, Error.Flag()):
+	case FlagMatch(f, Error.Flag()):
 		for _, v := range d {
 			slice = append(slice, v.(ErrorVal))
 		}

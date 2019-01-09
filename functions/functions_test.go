@@ -129,19 +129,19 @@ func TestSliceMatch(t *testing.T) {
 	fmt.Println(ok)
 }
 func TestDataEnclosures(t *testing.T) {
-	data := con(d.Con("this is the testfunction speaking from within enclosure"))
+	data := Con(d.Con("this is the testfunction speaking from within enclosure"))
 	fmt.Println(data)
 	fmt.Println(data.Type())
 	fmt.Println(data.Flag())
 }
 func TestPairEnclosures(t *testing.T) {
-	pair := conPair(d.Con("test key:"), d.Con("test data in a pair"))
+	pair := ConPair(d.Con("test key:"), d.Con("test data in a pair"))
 	a, b := pair()
 	fmt.Println(a)
 	fmt.Println(b)
 }
 func TestVectorEnclosures(t *testing.T) {
-	vec := conVector(
+	vec := ConVec(
 		d.Con("first data in slice"),
 		d.Con("second data entry in slice"),
 		d.Con("third data entry in slice"),
@@ -165,21 +165,38 @@ func TestVectorEnclosures(t *testing.T) {
 		24, 42, 4, 24)
 	fmt.Println(vec1.Flag())
 	fmt.Println(vec1.String())
+
+	vec2 := ConVec(
+		d.Con("this is"),
+		d.Con("a vector of"),
+		d.Con("mixed type"),
+		d.Con(5, 7, 234, 4, 546, 324, 4),
+	)
+	fmt.Println(vec2.Flag())
+	fmt.Println(vec2.Type())
+	fmt.Println(vec2.Len())
+	fmt.Println(vec2.Empty())
 }
 func TestParameterEnclosure(t *testing.T) {
 	var dat Data
-	parm := conParam(d.Con("test parameter"))
+	parm := ConParm(d.Con("test parameter"))
 	dat, parm = parm()
 	fmt.Println(dat)
-	dat, parm = parm(con(d.Con("changer parameter")))
+	dat, parm = parm(Con(d.Con("changer parameter")))
 	dat, parm = parm()
 	fmt.Println(dat)
-	dat, parm = parm(con(d.Con("yet another parameter")))
+	dat, parm = parm(Con(d.Con("yet another parameter")))
 	dat, parm = parm()
 	fmt.Println(dat)
 	fmt.Println(dat)
-	dat, parm = parm(con(d.Con("yup, works just fine ;)")))
+	dat, parm = parm(Con(d.Con("yup, works just fine ;)")))
 	fmt.Println(dat)
 	fmt.Println(parm.Type())
 	fmt.Println(dat.Flag())
+}
+func TestAccParamEnclosure(t *testing.T) {
+	acc := ConAcc(ConPair(d.Con("test-key"), d.Con("test value")))
+	fmt.Println(acc)
+	_, acc = acc(ConPair(d.Con(12), d.Con("one million dollar")))
+	fmt.Println(acc)
 }
