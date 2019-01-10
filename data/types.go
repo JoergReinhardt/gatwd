@@ -42,8 +42,8 @@ const (
 	Error // let's do something sophisticated here...
 	Slice
 	Map
-	Flag // marks most signifficant native type & data of type bitflag
 	Function
+	Flag // marks most signifficant native type & data of type bitflag
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
@@ -226,4 +226,15 @@ func FlagMatch(t BitFlag, v BitFlag) bool {
 		return true
 	}
 	return false
+}
+func AllTypes() []Type {
+	var tt = []Type{}
+	var i uint
+	var t Type = 0
+	for !FlagMatch(t.Flag(), Flag.Flag()) {
+		t = 1 << i
+		i = i + 1
+		tt = append(tt, Type(t))
+	}
+	return tt
 }

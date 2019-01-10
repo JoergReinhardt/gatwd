@@ -8,19 +8,20 @@ import (
 )
 
 func TestIdGenerator(t *testing.T) {
+	ts := newTypeState()
 	var id int
-	id = conUID()
+	id = ts.NewUid()
 	fmt.Println(id)
-	id = conUID()
+	id = ts.NewUid()
 	fmt.Println(id)
 	if id != 1 {
 		t.Fail()
 	}
-	id = conUID()
-	id = conUID()
-	id = conUID()
-	id = conUID()
-	id = conUID()
+	id = ts.NewUid()
+	id = ts.NewUid()
+	id = ts.NewUid()
+	id = ts.NewUid()
+	id = ts.NewUid()
 	fmt.Println(id)
 	if id != 6 {
 		t.Fail()
@@ -29,51 +30,51 @@ func TestIdGenerator(t *testing.T) {
 func TestSliceMatch(t *testing.T) {
 	ts := [][]Token{
 		[]Token{
-			conToken(Syntax_Token, l.Lambda.Flag()),
-			conToken(Syntax_Token, l.DoubCol.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.Lambda.Flag()),
+			newToken(Hacksell_Token, l.DoubCol.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax_Token, l.Lambda.Flag()),
-			conToken(Syntax_Token, l.DoubCol.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.Lambda.Flag()),
+			newToken(Hacksell_Token, l.DoubCol.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax_Token, l.Lambda.Flag()),
-			conToken(Syntax_Token, l.DoubCol.Flag()),
-			conToken(Data_Value_Token, d.Slice.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Numeral.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Int.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.Lambda.Flag()),
+			newToken(Hacksell_Token, l.DoubCol.Flag()),
+			newToken(Data_Value_Token, d.Slice.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Numeral.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Int.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax_Token, l.Lambda.Flag()),
-			conToken(Syntax_Token, l.DoubCol.Flag()),
-			conToken(Data_Value_Token, d.Slice.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Numeral.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Int.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.Lambda.Flag()),
+			newToken(Hacksell_Token, l.DoubCol.Flag()),
+			newToken(Data_Value_Token, d.Slice.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Numeral.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Int.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
 		},
 		[]Token{
-			conToken(Syntax_Token, l.Lambda.Flag()),
-			conToken(Syntax_Token, l.DoubCol.Flag()),
-			conToken(Data_Value_Token, d.Symbolic.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Numeral.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Int.Flag()),
-			conToken(Syntax_Token, l.LeftArrow.Flag()),
-			conToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Hacksell_Token, l.Lambda.Flag()),
+			newToken(Hacksell_Token, l.DoubCol.Flag()),
+			newToken(Data_Value_Token, d.Symbolic.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Numeral.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Int.Flag()),
+			newToken(Hacksell_Token, l.RightArrow.Flag()),
+			newToken(Data_Value_Token, d.Bool.Flag()),
 		},
 	}
 
@@ -111,15 +112,15 @@ func TestSliceMatch(t *testing.T) {
 		t.Fail()
 	}
 	nomatch := []Token{
-		conToken(Syntax_Token, l.Lambda.Flag()),
-		conToken(Syntax_Token, l.DoubCol.Flag()),
-		conToken(Data_Value_Token, d.Symbolic.Flag()),
-		conToken(Syntax_Token, l.LeftArrow.Flag()),
-		conToken(Data_Value_Token, d.Numeral.Flag()),
-		conToken(Syntax_Token, l.FatLArrow.Flag()),
-		conToken(Data_Value_Token, d.Int.Flag()),
-		conToken(Syntax_Token, l.LeftArrow.Flag()),
-		conToken(Data_Value_Token, d.Bool.Flag()),
+		newToken(Hacksell_Token, l.Lambda.Flag()),
+		newToken(Hacksell_Token, l.DoubCol.Flag()),
+		newToken(Data_Value_Token, d.Symbolic.Flag()),
+		newToken(Hacksell_Token, l.LeftArrow.Flag()),
+		newToken(Data_Value_Token, d.Numeral.Flag()),
+		newToken(Hacksell_Token, l.FatLArrow.Flag()),
+		newToken(Data_Value_Token, d.Int.Flag()),
+		newToken(Hacksell_Token, l.LeftArrow.Flag()),
+		newToken(Data_Value_Token, d.Bool.Flag()),
 	}
 
 	ok = sliceContainsSignature(nomatch, ts)
@@ -129,36 +130,36 @@ func TestSliceMatch(t *testing.T) {
 	fmt.Println(ok)
 }
 func TestDataEnclosures(t *testing.T) {
-	data := Con(d.Con("this is the testfunction speaking from within enclosure"))
+	data := newData(d.New("this is the testfunction speaking from within enclosure"))
 	fmt.Println(data)
 	fmt.Println(data.Type())
 	fmt.Println(data.Flag())
 }
 func TestPairEnclosures(t *testing.T) {
-	pair := ConPair(d.Con("test key:"), d.Con("test data in a pair"))
+	pair := newPair(d.New("test key:"), d.New("test data in a pair"))
 	a, b := pair()
 	fmt.Println(a)
 	fmt.Println(b)
 }
 func TestVectorEnclosures(t *testing.T) {
-	vec := ConVec(
-		d.Con("first data in slice"),
-		d.Con("second data entry in slice"),
-		d.Con("third data entry in slice"),
-		d.Con("fourth data entry in slice"),
-		d.Con("fifth data entry in slice"),
-		d.Con("sixt data entry in slice"),
-		d.Con("seventh data entry in slice"),
-		d.Con("eigth data entry in slice"),
-		d.Con("nineth data entry in slice"),
-		d.Con("tenth data entry in slice"),
+	vec := newVector(
+		d.New("first data in slice"),
+		d.New("second data entry in slice"),
+		d.New("third data entry in slice"),
+		d.New("fourth data entry in slice"),
+		d.New("fifth data entry in slice"),
+		d.New("sixt data entry in slice"),
+		d.New("seventh data entry in slice"),
+		d.New("eigth data entry in slice"),
+		d.New("nineth data entry in slice"),
+		d.New("tenth data entry in slice"),
 	)
 	fmt.Println(vec.Flag())
 	fmt.Println(vec.Type())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
 
-	vec1 := d.Con(0, 7, 45,
+	vec1 := d.New(0, 7, 45,
 		134, 4, 465, 3, 645,
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
@@ -166,11 +167,11 @@ func TestVectorEnclosures(t *testing.T) {
 	fmt.Println(vec1.Flag())
 	fmt.Println(vec1.String())
 
-	vec2 := ConVec(
-		d.Con("this is"),
-		d.Con("a vector of"),
-		d.Con("mixed type"),
-		d.Con(5, 7, 234, 4, 546, 324, 4),
+	vec2 := newVector(
+		d.New("this is"),
+		d.New("a vector of"),
+		d.New("mixed type"),
+		d.New(5, 7, 234, 4, 546, 324, 4),
 	)
 	fmt.Println(vec2.Flag())
 	fmt.Println(vec2.Type())
@@ -179,24 +180,47 @@ func TestVectorEnclosures(t *testing.T) {
 }
 func TestParameterEnclosure(t *testing.T) {
 	var dat Data
-	parm := ConParm(d.Con("test parameter"))
+	parm := newArgument(d.New("test parameter"))
 	dat, parm = parm()
 	fmt.Println(dat)
-	dat, parm = parm(Con(d.Con("changer parameter")))
+	dat, parm = parm(newData(d.New("changer parameter")))
 	dat, parm = parm()
 	fmt.Println(dat)
-	dat, parm = parm(Con(d.Con("yet another parameter")))
+	dat, parm = parm(newData(d.New("yet another parameter")))
 	dat, parm = parm()
 	fmt.Println(dat)
 	fmt.Println(dat)
-	dat, parm = parm(Con(d.Con("yup, works just fine ;)")))
+	dat, parm = parm(newData(d.New("yup, works just fine ;)")))
 	fmt.Println(dat)
 	fmt.Println(parm.Type())
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := ConAcc(ConPair(d.Con("test-key"), d.Con("test value")))
+	acc := newAccAttribute(newPair(d.New("test-key"), d.New("test value")))
 	fmt.Println(acc)
-	_, acc = acc(ConPair(d.Con(12), d.Con("one million dollar")))
+	_, acc = acc(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
+}
+func TestTokenToSignature(t *testing.T) {
+	syn := toksS(
+		l.RightArrow,
+		l.RightArrow,
+		l.LeftBra,
+		l.Pipe,
+		l.Pipe,
+		l.RightBra,
+		l.RightArrow,
+		l.RightArrow,
+	)
+	typ := toksD(
+		d.Int,
+		d.Int,
+		d.Byte,
+		d.Rune,
+		d.Int,
+		d.Int,
+	)
+	fmt.Println(syn)
+	fmt.Println(typ)
+
 }

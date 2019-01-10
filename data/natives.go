@@ -424,175 +424,175 @@ func (v FlagSet) Len() int   { return len(v) }
 func (v NilVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v BoolVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v IntVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Int8Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Int16Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Int32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v UintVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Uint8Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Uint16Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Uint32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v FltVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Flt32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v ImagVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v Imag64Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v ByteVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v RuneVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v BytesVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v StrVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v BigIntVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v BigFltVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v RatioVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v TimeVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v DuraVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v ErrorVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }
 func (v FlagSet) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, Con(val))
+		d = append(d, New(val))
 	}
 	return d
 }

@@ -22,11 +22,16 @@ import (
 	"sort"
 )
 
-type TokType uint8
+type TokType uint16
+
+func (t TokType) Flag() BitFlag { return Internal.Flag() }
 
 //go:generate stringer -type TokType
 const (
-	Syntax_Token TokType = 1 << iota
+	Flat_Token TokType = 1 << iota
+	Branch_Token
+	Collection_Token
+	Hacksell_Token
 	Symbolic_Token
 	Number_Token
 	Return_Token   // contains a data type-/ & value pair
@@ -40,17 +45,67 @@ type token struct {
 	typ  TokType
 	flag d.BitFlag
 }
+
+func (t token) Type() TokType { return t.typ }
+
 type dataToken struct {
 	token
 	d Data
 }
 
+func (t dataToken) Type() TokType { return Data_Value_Token }
+
+type branchToken struct {
+	token
+	left  Token
+	right Token
+}
+
+func (t branchToken) Type() TokType { return Branch_Token }
+
+type collectToken struct {
+	dataToken
+	mem []Data
+}
+
+func (t collectToken) Type() TokType { return Collection_Token }
+
 // syntax, symbol, number and data-type nodes all fit the bitflag. all other
 // existing and later defined tokens, are considered data tokens and keep
 // their content in the additional field
-func conToken(t TokType, dat Data) Token {
+func newToken(t TokType, dat Data) Token {
 	switch t {
-	case Syntax_Token:
+	case Flat_Token:
+		return &dataToken{token{t, dat.Flag()}, dat}
+	case Branch_Token:
+		var left, right Token
+		s := dat.(Sliceable)
+		if s.Len() > 2 {
+			left = newToken(Collection_Token, s.Slice()[0])
+			right = newToken(Collection_Token, d.New(s.Slice()[1:]))
+		}
+		if s.Len() == 2 {
+			left = newToken(Branch_Token, s.Slice()[0])
+			right = newToken(Branch_Token, s.Slice()[1])
+		}
+		if s.Len() == 1 {
+			newToken(Flat_Token, dat)
+		}
+		return &branchToken{
+			token{t, dat.Flag()},
+			left,
+			right,
+		}
+	case Collection_Token:
+		chain := dat.(Sliceable).Slice()
+		if len(chain) > 1 {
+			chain = chain[1:]
+		}
+		if len(chain) == 1 {
+			return newToken(Flat_Token, dat)
+		}
+		return &collectToken{dataToken{token{t, chain[0].Flag()}, chain[0]}, chain}
+	case Hacksell_Token:
 		return token{t, dat.Flag()}
 	case Data_Type_Token:
 		return token{t, dat.Flag()}
@@ -61,18 +116,17 @@ func conToken(t TokType, dat Data) Token {
 	case Data_Value_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Func_Type_Token:
-		_, h, p := dat.(Flag)()
-		return dataToken{token{t, h.Flag()}, Con(p)}
+		k, p := dat.(Flag)()
+		return dataToken{token{t, k.Flag()}, newData(p)}
 	}
 	return nil
 }
 
-func (t token) Type() TokType   { return t.typ }
 func (t token) Flag() d.BitFlag { return t.flag }
 func (t token) String() string {
 	var str string
 	switch t.typ {
-	case Syntax_Token:
+	case Hacksell_Token:
 		str = l.Token(t.flag).Text()
 	case Data_Type_Token:
 		str = d.Type(t.flag).Flag().String()
@@ -113,7 +167,6 @@ type tokens []Token
 func (t tokens) Len() int           { return len(t) }
 func (t tokens) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
 func (t tokens) Less(i, j int) bool { return t[i].Flag() < t[j].Flag() }
-
 func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t

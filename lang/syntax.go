@@ -1,14 +1,42 @@
 package lang
 
 import (
+	"strings"
+
 	d "github.com/JoergReinhardt/godeep/data"
+	"github.com/olekukonko/tablewriter"
 )
 
 ///// SYNTAX DEFINITION /////
 type TokType d.BitFlag
 
+func (t TokType) Type() TokType   { return TypeIdent }
 func (t TokType) Flag() d.BitFlag { return d.BitFlag(t) }
 func (t TokType) Syntax() string  { return syntax[t] }
+
+func AllSyntax() string {
+	str := &strings.Builder{}
+	tab := tablewriter.NewWriter(str)
+	for _, t := range AllTokens() {
+		row := []string{
+			t.String(), syntax[t], matchSyntax[syntax[t]],
+		}
+		tab.Append(row)
+	}
+	tab.Render()
+	return str.String()
+}
+func AllTokens() []TokType {
+	var tt = []TokType{}
+	var i uint
+	var t TokType = 0
+	for !d.FlagMatch(t.Flag(), TypeIdent.Flag()) {
+		t = 1 << i
+		i = i + 1
+		tt = append(tt, TokType(t))
+	}
+	return tt
+}
 
 //go:generate stringer -type=TokType
 const (
@@ -37,7 +65,9 @@ const (
 	LeftCur
 	RightCur
 	Slash
+	Pipe
 	Not
+	Unequal
 	Dec
 	Inc
 	DoubEqual
@@ -51,9 +81,6 @@ const (
 	Doub_quote
 	BckSla
 	Lambda
-	Number
-	Letter
-	Capital
 	GenType
 	HeadWord
 	TailWord
@@ -70,12 +97,142 @@ const (
 	OfWord
 	DataWord
 	TypeWord
-	TypeIdent
+	Number
+	Letter
+	Capital
 	FuncIdent
+	TypeIdent
 )
 
+var match = map[string]TokType{
+	"":                   None,
+	" ":                  Blank,
+	"_":                  Underscore,
+	"*":                  Asterisk,
+	".":                  Dot,
+	",":                  Comma,
+	":":                  Colon,
+	";":                  Semicolon,
+	"-":                  Minus,
+	"+":                  Plus,
+	"OR":                 Or,
+	"XOR":                Xor,
+	"AND":                And,
+	"=":                  Equal,
+	"<<":                 Lesser,
+	">>":                 Greater,
+	"=<":                 Lesseq,
+	">=":                 Greaterq,
+	"(":                  LeftPar,
+	")":                  RightPar,
+	"[":                  LeftBra,
+	"]":                  RightBra,
+	"{":                  LeftCur,
+	"}":                  RightCur,
+	"/":                  Slash,
+	"|":                  Pipe,
+	"!":                  Not,
+	"!=":                 Unequal,
+	"--":                 Dec,
+	"++":                 Inc,
+	"==":                 DoubEqual,
+	"===":                TripEqual,
+	"->":                 RightArrow,
+	"<-":                 LeftArrow,
+	"<=":                 FatLArrow,
+	"=>":                 FatRArrow,
+	"::":                 DoubCol,
+	`'`:                  Sing_quote,
+	`"`:                  Doub_quote,
+	`\`:                  BckSla,
+	"\\x":                Lambda,
+	"x":                  HeadWord,
+	"xs":                 TailWord,
+	"in":                 InWord,
+	"con":                ConWord,
+	"let":                LetWord,
+	"mutable":            MutableWord,
+	"where":              WhereWord,
+	"otherwise":          OtherwiseWord,
+	"if":                 IfWord,
+	"then":               ThenWord,
+	"else":               ElseWord,
+	"case":               CaseWord,
+	"of":                 OfWord,
+	"data":               DataWord,
+	"type":               TypeWord,
+	"[Number]":           Number,
+	"[Letter]":           Letter,
+	"[Capital]":          Capital,
+	"[letter]":           GenType,
+	"[letter]*":          FuncIdent,
+	"[Capital][letter]*": TypeIdent,
+}
+var matchSyntax = map[string]string{
+	"⊥":                             "",
+	" ":                             " ",
+	"_":                             "_",
+	"∗":                             "*",
+	".":                             ".",
+	",":                             ",",
+	":":                             ":",
+	";":                             ";",
+	"-":                             "-",
+	"+":                             "+",
+	"∨":                             "OR",
+	"※":                             "XOR",
+	"∧":                             "AND",
+	"=":                             "=",
+	"≪":                             "<<",
+	"≫":                             ">>",
+	"≤":                             "=<",
+	"≥":                             ">=",
+	"(":                             "(",
+	")":                             ")",
+	"[":                             "[",
+	"]":                             "]",
+	"{":                             "{",
+	"}":                             "}",
+	"/":                             "/",
+	"¬":                             "!",
+	"≠":                             "!=",
+	"--":                            "--",
+	"++":                            "++",
+	"==":                            "==",
+	"≡":                             "===",
+	"→":                             "->",
+	"←":                             "<-",
+	"⇐":                             "<=",
+	"⇒":                             "=>",
+	"∷":                             "::",
+	`'`:                             `'`,
+	`"`:                             `"`,
+	`\`:                             `\`,
+	"λ":                             "\\x",
+	"x":                             "x",
+	"xs":                            "xs",
+	"in":                            "in",
+	"con":                           "con",
+	"let":                           "let",
+	"mutable":                       "mutable",
+	"where":                         "where",
+	"otherwise":                     "otherwise",
+	"if":                            "if",
+	"then":                          "then",
+	"else":                          "else",
+	"case":                          "case",
+	"of":                            "of",
+	"data":                          "data",
+	"type":                          "type",
+	"[0-9]":                         "[Number]",
+	"[a-z]":                         "[Letter]",
+	"[A-Z]":                         "[Capital]",
+	"[[a-w]|y|z]":                   "[letter]",
+	"([a-w|y|z][a-z])|(x[a-r|t-z])": "[letter]*",
+	"[A-z][a-z]*":                   "[Capital][letter]*",
+}
 var syntax = map[TokType]string{
-	None:          "",
+	None:          "⊥",
 	Blank:         " ",
 	Underscore:    "_",
 	Asterisk:      "∗",
@@ -100,13 +257,15 @@ var syntax = map[TokType]string{
 	LeftCur:       "{",
 	RightCur:      "}",
 	Slash:         "/",
-	Not:           "≠",
+	Pipe:          "|",
+	Not:           "¬",
+	Unequal:       "≠",
 	Dec:           "--",
 	Inc:           "++",
 	DoubEqual:     "==",
 	TripEqual:     "≡",
-	RightArrow:    "←",
-	LeftArrow:     "→",
+	RightArrow:    "→",
+	LeftArrow:     "←",
 	FatLArrow:     "⇐",
 	FatRArrow:     "⇒",
 	DoubCol:       "∷",
@@ -114,10 +273,6 @@ var syntax = map[TokType]string{
 	Doub_quote:    `"`,
 	BckSla:        `\`,
 	Lambda:        "λ",
-	Number:        "[0-9]",
-	Letter:        "[a-z]",
-	Capital:       "[A-Z]",
-	GenType:       "[[a-w]|y|z]",
 	HeadWord:      "x",
 	TailWord:      "xs",
 	InWord:        "in",
@@ -133,14 +288,18 @@ var syntax = map[TokType]string{
 	OfWord:        "of",
 	DataWord:      "data",
 	TypeWord:      "type",
-	TypeIdent:     "[A-z][a-z]*",
+	Number:        "[0-9]",
+	Letter:        "[a-z]",
+	Capital:       "[A-Z]",
+	GenType:       "[[a-w]|y|z]",
 	FuncIdent:     "([a-w|y|z][a-z])|(x[a-r|t-z])",
+	TypeIdent:     "[A-z][a-z]*",
 }
 
 //// Token type according to text, scanner tokenizer.
 type Token d.BitFlag
 
-func Con(t d.Typed) Token {
+func New(t d.Typed) Token {
 	if tok, ok := t.(d.Type); ok {
 		return Token(tok.Flag())
 	}
@@ -159,4 +318,13 @@ func (t Token) Text() string {
 func (t Token) String() string {
 	return syntax[TokType(t.Flag())]
 }
-func (t Token) Type() d.BitFlag { return d.BitFlag(t) }
+
+func ParseToken(t []string) []Token {
+	var to = []Token{}
+	for _, str := range t {
+		if tok, ok := match[str]; ok {
+			to = append(to, Token(tok.Flag()))
+		}
+	}
+	return to
+}

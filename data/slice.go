@@ -101,7 +101,7 @@ func (c Chain) NativeSlice() []interface{} {
 }
 
 //// LIST OPERATIONS ///////
-func ChainFold(
+func ChainFoldL(
 	c Chain,
 	fn func(i int, data Data, accu Data) Data,
 	init Data,
@@ -169,6 +169,15 @@ func ChainNext(s Chain) (v Data, i Chain) {
 		return s[0], Chain([]Data{NilVal{}})
 	}
 	return NilVal{}, Chain([]Data{NilVal{}})
+}
+
+type Iter func() (Data, Iter)
+
+func ConIter(c Chain) Iter {
+	data, chain := ChainNext(c)
+	return func() (Data, Iter) {
+		return data, ConIter(chain)
+	}
 }
 
 // BOOTOM & TOP

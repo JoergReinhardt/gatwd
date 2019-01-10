@@ -5,17 +5,20 @@ package functions
 import "strconv"
 
 const (
-	_TokType_name_0 = "Syntax_TokenSymbolic_Token"
-	_TokType_name_1 = "Number_Token"
-	_TokType_name_2 = "Return_Token"
-	_TokType_name_3 = "Argument_Token"
-	_TokType_name_4 = "Data_Type_Token"
-	_TokType_name_5 = "Func_Type_Token"
-	_TokType_name_6 = "Data_Value_Token"
+	_TokType_name_0 = "Flat_TokenBranch_Token"
+	_TokType_name_1 = "Collection_Token"
+	_TokType_name_2 = "Hacksell_Token"
+	_TokType_name_3 = "Symbolic_Token"
+	_TokType_name_4 = "Number_Token"
+	_TokType_name_5 = "Return_Token"
+	_TokType_name_6 = "Argument_Token"
+	_TokType_name_7 = "Data_Type_Token"
+	_TokType_name_8 = "Func_Type_Token"
+	_TokType_name_9 = "Data_Value_Token"
 )
 
 var (
-	_TokType_index_0 = [...]uint8{0, 12, 26}
+	_TokType_index_0 = [...]uint8{0, 10, 22}
 )
 
 func (i TokType) String() string {
@@ -35,6 +38,12 @@ func (i TokType) String() string {
 		return _TokType_name_5
 	case i == 128:
 		return _TokType_name_6
+	case i == 256:
+		return _TokType_name_7
+	case i == 512:
+		return _TokType_name_8
+	case i == 1024:
+		return _TokType_name_9
 	default:
 		return "TokType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

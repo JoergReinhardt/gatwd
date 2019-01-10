@@ -61,7 +61,7 @@ const (
 	DLink
 	Node
 	Tree
-	BitFlag
+	Internal
 
 	Recursives = Tuple | List
 	Sets       = UniSet | MuliSet | AssocA | Record
@@ -69,58 +69,58 @@ const (
 )
 
 type ( // HIGHER ORDER FUNCTION TYPES
-	// Arg
-	// returns previously enclosed data and another Arg instance,
+	// argument
+	// returns previously enclosed data and another argument instance,
 	// optionaly containing the passed data, if any was passed, or the
 	// previous data again.
-	Arg func(d ...Data) (Data, Arg)
-	// AccAtt
+	argument func(d ...Data) (Data, argument)
+	// accessAttribut
 	// shares the behaviour with that of a parameter, but yields and takes
 	// a pair to contain a position/key & value pair instead.
-	AccAtt func(d ...Pair) (Pair, AccAtt)
+	accessAttribut func(d ...pair) (pair, accessAttribut)
 	// argset
 	// set of placeholder arguments for signatures, promises, values passed
 	// in a function call, partially applied values‥.
-	ArgSet func(d ...AccAtt) ([]AccAtt, ArgSet)
-	// RetVal
+	ArgumentSet func(d ...accessAttribut) ([]accessAttribut, ArgumentSet)
+	// returnValue
 	// the return has the propertys of an arg set, but enclosed to be
 	// addressable as a single value
-	RetVal func() []AccAtt
+	returnValue func() []accessAttribut
 	// Predicate
 	// returns true, when the passed data meets the enclosed condition, a
 	// native boolean for use in golang control structures
-	Predic func(Data) bool
+	predicat func(Data) bool
 	// generic function wrapper
-	Val   func() Data        // <- implements data.Typed
-	Const func() Data        // <- guarantueed to allways evaluate identicly
-	Pair  func() (a, b Data) // <- base element of all tuples and collections
-	Vec   func() d.Sliceable // <- indexable native golang slice of data instances
-	Tup   func() ([]Flag, Sliceable)
+	value    func() Data        // <- implements data.Typed
+	constant func() Data        // <- guarantueed to allways evaluate identicly
+	pair     func() (a, b Data) // <- base element of all tuples and collections
+	vector   func() d.Sliceable // <- indexable native golang slice of data instances
+	tuple    func() (FlagSet, Sliceable)
 )
 
 // closure that wraps instances of precedence types from data package
-func Con(dat d.Data) Val        { return Val(func() Data { return dat.Eval() }) }
-func (dat Val) Flag() d.BitFlag { return dat().Flag() }
-func (dat Val) Type() Flag      { return conFlag(Constant.Flag(), dat().Flag()) }
-func (dat Val) String() string  { return dat().(d.Data).String() }
+func newData(dat d.Data) value    { return value(func() Data { return dat.Eval() }) }
+func (dat value) Flag() d.BitFlag { return dat().Flag() }
+func (dat value) Type() Flag      { return newFlag(Constant, dat().Flag()) }
+func (dat value) String() string  { return dat().(d.Data).String() }
 
 // constant also conains immutable data, but it may be the result of a constant experssion
-func ConConst(dat Data) Const   { return func() Data { return dat } }
-func (c Const) Flag() d.BitFlag { return Constant.Flag() }
-func (c Const) Type() Flag      { return conFlag(Constant.Flag(), c().Flag()) }
-func (c Const) String() string  { return c().(d.Data).String() }
+func newConstant(dat Data) constant { return func() Data { return dat } }
+func (c constant) Flag() d.BitFlag  { return Constant.Flag() }
+func (c constant) Type() Flag       { return newFlag(Constant, c().Flag()) }
+func (c constant) String() string   { return c().(d.Data).String() }
 
 // pair encloses two data instances
-func ConPair(l, r Data) Pair      { return func() (Data, Data) { return l, r } }
-func (p Pair) Both() (Data, Data) { return p() }
-func (p Pair) Left() Data         { l, _ := p(); return l }
-func (p Pair) Right() Data        { _, r := p(); return r }
-func (p Pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() }
-func (p Pair) Type() Flag         { return conFlag(Double.Flag(), p.Flag()) }
-func (p Pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
+func newPair(l, r Data) pair      { return func() (Data, Data) { return l, r } }
+func (p pair) Both() (Data, Data) { return p() }
+func (p pair) Left() Data         { l, _ := p(); return l }
+func (p pair) Right() Data        { _, r := p(); return r }
+func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() }
+func (p pair) Type() Flag         { return newFlag(Double, p.Flag()) }
+func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
 
 // vector keeps a slice of data instances
-func ConVec(dd ...d.Data) Vec {
+func newVector(dd ...d.Data) vector {
 	var ddd = []d.Data{}
 	for _, dat := range dd {
 		ddd = append(ddd, dat)
@@ -131,18 +131,18 @@ func ConVec(dd ...d.Data) Vec {
 }
 
 // implements functions/sliceable interface
-func (v Vec) Slice() []Data   { return sliceFunctionalize(v().(d.NativeVec).Slice()...) }
-func (v Vec) Len() int        { return v().(d.NativeVec).Len() }
-func (v Vec) Empty() bool     { return v().(d.NativeVec).Empty() }
-func (v Vec) Flag() d.BitFlag { return v().Flag() }
-func (v Vec) Type() Flag      { return conFlag(Vector.Flag(), v().Flag()) }
-func (v Vec) String() string  { return v().String() }
+func (v vector) Slice() []Data   { return sliceFunctionalize(v().(d.NativeVec).Slice()...) }
+func (v vector) Len() int        { return v().(d.NativeVec).Len() }
+func (v vector) Empty() bool     { return v().(d.NativeVec).Empty() }
+func (v vector) Flag() d.BitFlag { return v().Flag() }
+func (v vector) Type() Flag      { return newFlag(Vector, v().Flag()) }
+func (v vector) String() string  { return v().String() }
 
 // helper to type alias slices, initially initialized by the data package
 func sliceFunctionalize(dd ...d.Data) []Data {
 	var dat = []Data{}
 	for _, ddd := range dd {
-		dat = append(dat, Con(ddd.Eval()))
+		dat = append(dat, newData(ddd.Eval()))
 	}
 	return dat
 }
@@ -150,43 +150,43 @@ func sliceFunctionalize(dd ...d.Data) []Data {
 ///////// PARAMETRIZATION //////////
 // parameters can be retrieved, by calling the closure without passing
 // parameters, or set, when parameters are indenet to be set
-func ConParm(do Data) Arg {
-	return func(di ...Data) (Data, Arg) {
+func newArgument(do Data) argument {
+	return func(di ...Data) (Data, argument) {
 		// if parameters where passed‥.
 		if len(di) > 0 { // return former parameter‥.
 			// ‥.and enclosure over newly passed parameters
-			return di[0], ConParm(di[0])
+			return di[0], newArgument(di[0])
 		} //‥.otherwise, pass on unaltered results from last/first call
-		return do, ConParm(do)
+		return do, newArgument(do)
 	}
 }
-func (p Arg) Param() Arg      { _, pa := p(); return pa }
-func (p Arg) Data() Data      { d, _ := p(); return d }
-func (p Arg) Arg() Data       { d, _ := p(); return d }
-func (p Arg) Flag() d.BitFlag { d, _ := p(); return d.Flag() }
-func (p Arg) Type() Flag      { d, _ := p(); return conFlag(Parameter.Flag(), d.Flag()) }
-func (p Arg) String() string  { d, _ := p(); return "Parm: " + d.String() }
+func (p argument) Param() argument { _, pa := p(); return pa }
+func (p argument) Data() Data      { d, _ := p(); return d }
+func (p argument) Arg() Data       { d, _ := p(); return d }
+func (p argument) Flag() d.BitFlag { d, _ := p(); return d.Flag() }
+func (p argument) Type() Flag      { d, _ := p(); return newFlag(Parameter, d.Flag()) }
+func (p argument) String() string  { d, _ := p(); return "Parm: " + d.String() }
 
-func ConAcc(do Pair) AccAtt {
-	return func(di ...Pair) (Pair, AccAtt) {
+func newAccAttribute(do pair) accessAttribut {
+	return func(di ...pair) (pair, accessAttribut) {
 		// if parameters where passed‥.
 		if len(di) > 0 { // return former parameter‥.
 			// ‥.and enclosure over newly passed parameters
-			return di[0], ConAcc(di[0])
+			return di[0], newAccAttribute(di[0])
 		} //‥.otherwise, pass on unaltered results from last/first call
-		return do, ConAcc(do)
+		return do, newAccAttribute(do)
 	}
 }
-func (p AccAtt) Param() AccAtt      { _, pa := p(); return pa }
-func (p AccAtt) Data() Paired       { d, _ := p(); return d }
-func (p AccAtt) Both() (Data, Data) { l, r := p.Data().Both(); return l, r }
-func (p AccAtt) Acc() Data          { return p.Data().Left() }
-func (p AccAtt) Left() Data         { return p.Data().Left() }
-func (p AccAtt) Arg() Data          { return p.Data().Right() }
-func (p AccAtt) Right() Data        { return p.Data().Right() }
-func (p AccAtt) Flag() d.BitFlag    { d, _ := p(); return d.Flag() }
-func (p AccAtt) Type() Flag         { d, _ := p(); return conFlag(Accessor.Flag(), d.Flag()) }
-func (p AccAtt) String() string     { l, r := p.Both(); return l.String() + ": " + r.String() }
+func (p accessAttribut) Param() accessAttribut { _, pa := p(); return pa }
+func (p accessAttribut) Data() Paired          { d, _ := p(); return d }
+func (p accessAttribut) Both() (Data, Data)    { l, r := p.Data().Both(); return l, r }
+func (p accessAttribut) Acc() Data             { return p.Data().Left() }
+func (p accessAttribut) Left() Data            { return p.Data().Left() }
+func (p accessAttribut) Arg() Data             { return p.Data().Right() }
+func (p accessAttribut) Right() Data           { return p.Data().Right() }
+func (p accessAttribut) Flag() d.BitFlag       { d, _ := p(); return d.Flag() }
+func (p accessAttribut) Type() Flag            { d, _ := p(); return newFlag(Accessor, d.Flag()) }
+func (p accessAttribut) String() string        { l, r := p.Both(); return l.String() + ": " + r.String() }
 
 type (
 	unary  func(Data) Data

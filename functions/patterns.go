@@ -3,6 +3,63 @@ package functions
 import "sort"
 
 ///////// POLYMORPHISM ///////////
+
+type (
+	pattern    func() (id int, pat tokens)
+	monomorph  func() (pat pattern, fnc Functor)
+	polymorph  func() (id int, monom monomorphs)
+	namedMorph func() (id int, name string, monom monomorphs)
+)
+
+// patterns are slices of tokens that can be compared with one another
+func (s pattern) Id() int     { id, _ := s(); return id }
+func (s pattern) Pat() tokens { _, tok := s(); return tok }
+
+// signature pattern of a literal function that takes a particular set of input
+// parameters and returns a particular set of return values (this get's called)
+func (i monomorph) Id() int             { pat, _ := i(); return pat.Id() }
+func (i monomorph) Pat() tokens         { pat, _ := i(); return pat.Pat() }
+func (i monomorph) Fnc() Functor        { _, fnc := i(); return fnc }
+func (i monomorph) Call(d ...Data) Data { _, fnc := i(); return fnc.Call(d...) }
+
+// slice of signatures and associated isomorphic implementations
+func (p polymorph) Id() int           { id, _ := p(); return id }
+func (p polymorph) Monom() monomorphs { _, monom := p(); return monom }
+
+// polymorph defined with a name
+func (n namedMorph) Id() int           { id, _, _ := n(); return id }
+func (n namedMorph) Name() string      { _, name, _ := n(); return name }
+func (n namedMorph) Monom() monomorphs { _, _, p := n(); return p }
+
+// generation of new types starts with the generation of a pattern, which in
+// turn retrieves, or generates an id depending on preexistence of the
+// particular pattern. One way of passing the pattern in, is as a slice of
+// mixed syntax, type-flag & string-data tokens.
+func newPattern(ts *typeState, tok ...Token) pattern {
+	return getOrCreatePattern(ts, tok...)
+}
+func newMonomorph(pat pattern, fnc Functor) monomorph {
+	return func() (pattern, Functor) { return pat, fnc }
+}
+func newPolymorph(i int, mono ...monomorph) polymorph {
+	return func() (
+		id int,
+		monom monomorphs,
+	) {
+		return i, mono
+	}
+}
+func newNamedMorph(name string, poly polymorph) namedMorph {
+	return func() (
+		i int,
+		n string,
+		monom monomorphs,
+	) {
+		i, mon := poly()
+		return i, name, mon
+	}
+}
+
 type patterns []pattern
 
 func (s patterns) Len() int           { return len(s) }
@@ -21,13 +78,13 @@ func (s patterns) getById(id int) pattern {
 }
 func sortPatterns(s patterns) patterns { sort.Sort(s); return s }
 
-type isomorphs []isomorph
+type monomorphs []monomorph
 
-func (m isomorphs) Len() int           { return len(m) }
-func (m isomorphs) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m isomorphs) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
-func (m isomorphs) hasId(id int) bool  { return m.getById(id).Id() == id }
-func (m isomorphs) getById(id int) isomorph {
+func (m monomorphs) Len() int           { return len(m) }
+func (m monomorphs) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m monomorphs) Less(i, j int) bool { return m[i].Id() < m[j].Id() }
+func (m monomorphs) hasId(id int) bool  { return m.getById(id).Id() == id }
+func (m monomorphs) getById(id int) monomorph {
 	var iso = m[sort.Search(len(m),
 		func(i int) bool {
 			return m[i].Id() >= id
@@ -37,7 +94,7 @@ func (m isomorphs) getById(id int) isomorph {
 	}
 	return iso
 }
-func sortIsomorphs(m isomorphs) isomorphs { sort.Sort(m); return m }
+func sortIsomorphs(m monomorphs) monomorphs { sort.Sort(m); return m }
 
 type polymorphs []polymorph
 
@@ -56,88 +113,3 @@ func (m polymorphs) getById(id int) polymorph {
 	return poly
 }
 func sortPolymorphs(p polymorphs) polymorphs { sort.Sort(p); return p }
-
-type (
-	pattern   func() (id int, tok tokens)
-	derivate  func() (id int, from int, tok tokens)
-	isomorph  func() (id int, tok tokens, fnc Functional)
-	polymorph func() (id int, tok tokens, iso isomorphs)
-	namedPoly func() (id int, name string, sig tokens, iso isomorphs)
-)
-
-// patterns are slices of tokens that can be compared with one another
-func (s pattern) Id() int        { id, _ := s(); return id }
-func (s pattern) Tokens() tokens { _, tok := s(); return tok }
-
-// parametric types construct derived patterns for derived types
-func (d derivate) Id() int          { id, _, _ := d(); return id }
-func (d derivate) DerivedFrom() int { _, id, _ := d(); return id }
-func (d derivate) Tokens() tokens   { _, _, tok := d(); return tok }
-
-// signature pattern of a literal function that takes a particular set of input
-// parameters and returns a particular set of return values (this get's called)
-func (i isomorph) Id() int        { id, _, _ := i(); return id }
-func (i isomorph) Tokens() tokens { _, tok, _ := i(); return tok }
-
-// slice of signatures and associated isomorphic implementations
-func (p polymorph) Id() int        { id, _, _ := p(); return id }
-func (p polymorph) Tokens() tokens { _, tok, _ := p(); return tok }
-
-// polymorph defined with a name
-func (n namedPoly) Id() int        { id, _, _, _ := n(); return id }
-func (n namedPoly) Name() string   { _, name, _, _ := n(); return name }
-func (n namedPoly) Tokens() tokens { _, _, tok, _ := n(); return tok }
-
-// isomorphic functions implement the function interface by forwarding passed
-// parameters to the embedded functions eval method. TODO: handle arguments and returns
-func (i isomorph) Call(d ...Val) Val { _, _, fn := i(); return fn.Call(d...) }
-
-func conPattern(tok ...Token) pattern {
-	i := conUID()
-	s := tok
-	return func() (id int, sig tokens) {
-		return i, s
-	}
-}
-func conDerivate(deri int, tok ...Token) derivate {
-	d := deri
-	i := conUID()
-	s := tok
-	return func() (id int, deri int, sig tokens) {
-		return i, d, s
-	}
-}
-func conIsomorph(sig pattern, fnc Functional) isomorph {
-	s := sig
-	f := fnc
-	return func() (
-		id int,
-		tok tokens,
-		fn Functional) {
-		id, tok = s()
-		return id, tok, f
-	}
-}
-func conPolymorph(sig pattern, iso ...isomorph) polymorph {
-	s := sig
-	return func() (
-		id int,
-		tok tokens,
-		iso isomorphs,
-	) {
-		id, tok = s()
-		return id, tok, iso
-	}
-}
-func conNamedDef(name string, pol polymorph) namedPoly {
-	p := pol
-	return func() (
-		id int,
-		name string,
-		tok tokens,
-		iso isomorphs,
-	) {
-		id, tok, iso = p()
-		return id, name, tok, iso
-	}
-}

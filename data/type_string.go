@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationErrorSliceMapFlagFunctionMAX_INT"
+const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationErrorSliceMapFunctionFlagMAX_INT"
 
 var _Type_map = map[Type]string{
 	1:                    _Type_name[0:3],
@@ -33,8 +33,8 @@ var _Type_map = map[Type]string{
 	8388608:              _Type_name[113:118],
 	16777216:             _Type_name[118:123],
 	33554432:             _Type_name[123:126],
-	67108864:             _Type_name[126:130],
-	134217728:            _Type_name[130:138],
+	67108864:             _Type_name[126:134],
+	134217728:            _Type_name[134:138],
 	18446744073709551615: _Type_name[138:145],
 }
 

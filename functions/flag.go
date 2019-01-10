@@ -2,24 +2,33 @@ package functions
 
 import (
 	d "github.com/JoergReinhardt/godeep/data"
-	"strconv"
 )
 
 ///// BIT_FLAG ////////
-func composeHighLow(high, low d.BitFlag) d.BitFlag {
-	return d.FlagHigh(d.BitFlag(high).Flag() | d.FlagLow(d.BitFlag(low)).Flag())
+func composeHighLow(high, low BitFlag) BitFlag {
+	return d.FlagHigh(BitFlag(high).Flag() | d.FlagLow(BitFlag(low)).Flag())
 }
 
-type Flag func() (tid int, kind Kind, prec d.BitFlag)
+type Flag func() (kind Kind, prec BitFlag)
 
-func conFlag(kind, prec d.BitFlag) Flag {
-	return func() (t int, h Kind, l d.BitFlag) { tid := 0; return tid, Kind(kind), prec }
+func newFlag(kind Kind, prec BitFlag) Flag {
+	return func() (k Kind, p BitFlag) { return Kind(kind), prec }
 }
-func (t Flag) Kind() Flag      { return t }                                 // higher order type
-func (t Flag) Type() Flag      { return conFlag(BitFlag.Flag(), t.Flag()) } // higher order type
-func (t Flag) TypeId() int     { i, _, _ := t(); return i }                 // precedence type
-func (t Flag) Flag() d.BitFlag { _, _, l := t(); return Kind(l).Flag() }    // precedence type
+func (t Flag) Flag() d.BitFlag { return d.Flag.Flag() | t.Prec() }         // higher order type
+func (t Flag) Type() Flag      { return newFlag(Internal, d.Flag.Flag()) } // higher order type
+func (t Flag) Kind() BitFlag   { k, _ := t(); return Kind(k).Flag() }      // precedence type
+func (t Flag) Prec() d.BitFlag { _, p := t(); return p.Flag() }            // precedence type
 func (t Flag) String() string {
-	id, kind, prec := t()
-	return strconv.Itoa(id) + ": " + Kind(kind).String() + "||" + prec.String()
+	kind, prec := t()
+	return Kind(kind).String() + "||" + prec.String()
+}
+
+type FlagSet func() []Flag
+
+func newFlagSet(fs ...Flag) FlagSet {
+	fo := make([]Flag, 0, len(fs))
+	for _, f := range fs {
+		fo = append(fo, f)
+	}
+	return func() []Flag { return fo }
 }

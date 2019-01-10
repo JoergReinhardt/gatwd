@@ -1,8 +1,10 @@
 package data
 
 import (
+	"github.com/olekukonko/tablewriter"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -57,7 +59,7 @@ func (v BitFlag) String() string {
 		if FlagMatch(BitFlag(u), v) {
 			str = str + Type(u).String()
 			if i < FlagLength(v)-1 {
-				str = str + " ⊕ "
+				str = str + "|"
 			}
 		}
 		i = i + 1
@@ -77,6 +79,18 @@ func (v Chain) String() string {
 	}
 	str = str + "]"
 	return str
+}
+func stringChainTable(v ...Data) string {
+	str := &strings.Builder{}
+	tab := tablewriter.NewWriter(str)
+	for i, d := range v {
+		row := []string{
+			strconv.Itoa(i), d.String(),
+		}
+		tab.Append(row)
+	}
+	tab.Render()
+	return str.String()
 }
 func stringChain(v ...Data) string {
 	var str = "["

@@ -8,8 +8,8 @@ import (
 )
 
 func TestMutability(t *testing.T) {
-	a := Con(true).(BoolVal)
-	b := Con(false).(BoolVal)
+	a := New(true).(BoolVal)
+	b := New(false).(BoolVal)
 	if a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -20,24 +20,24 @@ func TestMutability(t *testing.T) {
 }
 func TestTypeAllocation(t *testing.T) {
 	s0 := ConChain(
-		Con(true),
-		Con(1),
-		Con(1, 2, 3, 4, 5, 6, 7),
-		Con(int8(8)),
-		Con(int16(16)),
-		Con(int32(32)),
-		Con(float32(32.16)),
-		Con(float64(64.64)),
-		Con(complex64(float32(32))),
-		Con(complex128(float64(1.6))),
-		Con(byte(3)),
-		Con(time.Now()),
-		Con(rune('ö')),
-		Con(big.NewInt(23)),
-		Con(big.NewFloat(23.42)),
-		Con(big.NewRat(23, 42)),
-		Con([]byte("test")),
-		Con("test"))
+		New(true),
+		New(1),
+		New(1, 2, 3, 4, 5, 6, 7),
+		New(int8(8)),
+		New(int16(16)),
+		New(int32(32)),
+		New(float32(32.16)),
+		New(float64(64.64)),
+		New(complex64(float32(32))),
+		New(complex128(float64(1.6))),
+		New(byte(3)),
+		New(time.Now()),
+		New(rune('ö')),
+		New(big.NewInt(23)),
+		New(big.NewFloat(23.42)),
+		New(big.NewRat(23, 42)),
+		New([]byte("test")),
+		New("test"))
 
 	s1 := ConChain()
 	//s1 := []Evaluable{}
@@ -57,7 +57,7 @@ func TestTimeType(t *testing.T) {
 	fmt.Printf("time stamp: %s\n", v.String())
 }
 func TestNativeSlice(t *testing.T) {
-	var ds = Con(0, 7, 45,
+	var ds = New(0, 7, 45,
 		134, 4, 465, 3, 645,
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
@@ -67,4 +67,9 @@ func TestNativeSlice(t *testing.T) {
 
 	fmt.Println(ns)
 	fmt.Println(ds.Flag())
+
+	fmt.Println(stringChainTable(ds.(Chain)...))
+}
+func TestAllTypes(t *testing.T) {
+	fmt.Println(AllTypes())
 }

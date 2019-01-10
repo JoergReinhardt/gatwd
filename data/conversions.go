@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-func Vec(f BitFlag, vals ...Data) Data             { return conVec(f, vals...) }
-func Con(vals ...interface{}) Data                 { d, _ := conData(vals...); return d }
-func ConTyped(vals ...interface{}) (Data, BitFlag) { return conData(vals...) }
-func conData(vals ...interface{}) (rval Data, flag BitFlag) {
+func NewVector(f BitFlag, vals ...Data) Data       { return conVec(f, vals...) }
+func New(vals ...interface{}) Data                 { d, _ := NewData(vals...); return d }
+func NewTyped(vals ...interface{}) (Data, BitFlag) { return NewData(vals...) }
+func NewData(vals ...interface{}) (rval Data, flag BitFlag) {
 
 	if len(vals) == 0 {
 		return NilVal{}, Nil.Flag()
@@ -20,7 +20,7 @@ func conData(vals ...interface{}) (rval Data, flag BitFlag) {
 		var dat = Chain(make([]Data, 0, len(vals)))
 		for _, val := range vals {
 			var d Data
-			d, flag = conData(val)
+			d, flag = NewData(val)
 			flag = flag | d.Flag()
 			dat = append(dat, d)
 		}

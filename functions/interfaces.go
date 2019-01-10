@@ -1,5 +1,9 @@
 package functions
 
+import (
+//	l "github.com/JoergReinhardt/godeep/lang"
+)
+
 /////////////////////////
 //type StateFn func(State) StateFn
 //
@@ -44,9 +48,9 @@ func (b Mutability) String() string {
 	return "Immutable"
 }
 
-type SideEffect bool
+type SideEffects bool
 
-func (b SideEffect) String() string {
+func (b SideEffects) String() string {
 	if b {
 		return "Side Effected"
 	}
@@ -57,23 +61,23 @@ func (b SideEffect) String() string {
 //go:generate stringer -type Fixity
 //go:generate stringer -type Equality
 const (
-	Constant_Function Arity      = 0
-	Unary_Function    Arity      = 1
-	Binary_Function   Arity      = 2
-	PostFix           Fixity     = -1
-	InFix             Fixity     = 0
-	PreFix            Fixity     = 1
-	Lesser            Equality   = -1
-	Equal             Equality   = 0
-	Greater           Equality   = 1
-	Eager             Lazynes    = false
-	Lazy              Lazynes    = true
-	Right_Binding     Bind       = false
-	Left_Binding      Bind       = true
-	Mutable           Mutability = true
-	Immutable         Mutability = false
-	Side_Effected     SideEffect = true
-	Pure              SideEffect = false
+	Constant_Function Arity       = 0
+	Unary_Function    Arity       = 1
+	Binary_Function   Arity       = 2
+	PostFix           Fixity      = -1
+	InFix             Fixity      = 0
+	PreFix            Fixity      = 1
+	Lesser            Equality    = -1
+	Equal             Equality    = 0
+	Greater           Equality    = 1
+	Eager             Lazynes     = false
+	Lazy              Lazynes     = true
+	Right_Binding     Bind        = false
+	Left_Binding      Bind        = true
+	Mutable           Mutability  = true
+	Immutable         Mutability  = false
+	Side_Effected     SideEffects = true
+	Pure              SideEffects = false
 )
 
 // to be handled by the runtime, all that is defined, declared, instanciated‥.
@@ -87,8 +91,27 @@ type Named interface{ Name() string }
 // interface to wrap data from the data module and function module specific
 // data alike
 type Data interface {
-	d.Typed
+	Flag() d.BitFlag
 	String() string
+}
+
+// forward methods of data.BitFlag
+type BitFlag interface {
+	Eval() d.Data
+	Flag() d.BitFlag
+	String() string
+	Uint() uint
+	Len() int
+	Count() int
+	Least() int
+	Most() int
+	High(d.BitFlag) d.BitFlag
+	Reverse() d.BitFlag
+	Rotate(n int) d.BitFlag
+	Toggle(f d.BitFlag) d.BitFlag
+	Concat(f d.BitFlag) d.BitFlag
+	Mask(f d.BitFlag) d.BitFlag
+	Match(f d.BitFlag) bool
 }
 
 // least invasive, general abbreveation of a golang function in terms of
@@ -96,18 +119,27 @@ type Data interface {
 // the generalized data type and returns a value, also of general data type
 type Functional interface {
 	Type() Flag
-	Call(...Val) Val // calls enclosed fnc, passes params & return
+	Eval() Data // calls enclosed fnc, with enclosed parameters
 }
 
 // least invasive wrapper to represent a function and it's runtime parameters
 // within godeeps typesystem
 type Functor interface {
 	Functional
-	Eval() Val         // calls enclosed fnc, with enclosed parameters
-	Params(...Token) ( // either set (when params are passed), or get parameters
-		arguments tokens,
-		returns tokens,
-	)
+	Call(...Data) Data // calls enclosed fnc, passes params & return
+}
+
+// lifts the vectorized interface from the data package onto the functions
+// level to make those interchangeable.
+type Vectorized interface {
+	Data
+	Len() int
+	Empty() bool
+	Slice() []Data
+}
+type Collected interface {
+	Data
+	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 
 // operators expect their parameters within syntactic context to either be
@@ -123,9 +155,6 @@ type Paired interface {
 	Left() Data
 	Right() Data
 	Both() (Data, Data)
-}
-type Collected interface {
-	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 type Countable interface {
 	Len() int // <- performs mutch better on slices
@@ -152,11 +181,11 @@ type SliceOfNatives interface {
 // performance is mandatory
 type Ordered interface {
 	Collected
-	Next() Val
+	Next() value
 }
 type Reverseable interface {
 	Ordered
-	Prev() Val
+	Prev() value
 }
 
 // collections that are accessable by other means than retrieving the 'next'
@@ -165,40 +194,40 @@ type Reverseable interface {
 // type safety on argument propagation
 type Accessable interface {
 	AccType() // 0: int | 1: string | 3: bitflag
-	Value(Val)
+	Value(value)
 }
 type KeyAccessable interface {
 	Accessable
-	Key(string) Val
+	Key(string) value
 }
 type IdxAccessable interface {
 	Accessable
-	Idx(int) Val
+	Idx(int) value
 }
 
 ////////// STACK ////////////
 //// LAST IN FIRST OUT //////
 type Stacked interface {
 	Collected
-	Push(Val)
-	Pop() Val
-	Add(...Val)
+	Push(value)
+	Pop() value
+	Add(...value)
 }
 
 ///////// QUEUE /////////////
 //// FIRST IN FIRST OUT /////
 type Queued interface {
 	Collected
-	Put(Val)
-	Pull() Val
-	Append(...Val)
+	Put(value)
+	Pull() value
+	Append(...value)
 }
 
 /// NESTED COLLECTIONS /////
 //// RECURSIVE LISTS ///////
 type Reduceable interface {
 	Collected
-	Head() Val
+	Head() value
 	Tail() Reduceable
 	Shift() Reduceable
 }
@@ -211,7 +240,7 @@ type Tupled interface {
 type Item interface {
 	ItemType() d.BitFlag
 	Idx() int
-	Value() Val
+	Value() value
 }
 
 //////////////////////////
@@ -254,5 +283,5 @@ type Branched interface {
 }
 type Edged interface {
 	Nodular
-	Value() Val
+	Value() value
 }
