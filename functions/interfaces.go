@@ -254,7 +254,7 @@ type Queue interface {
 
 // data to parse
 type Token interface {
-	Type() TokType
+	Type() d.BitFlag
 	Flag() d.BitFlag
 	String() string
 }

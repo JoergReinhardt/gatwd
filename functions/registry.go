@@ -25,24 +25,96 @@ func genCount() idGenerator {
 }
 
 type typeState struct {
-	uid   idGenerator
-	patts patterns
-	monos monomorphs
-	polys polymorphs
-	names map[string]patterns
+	uid     idGenerator
+	tree    tokens
+	names   map[string]polymorph
+	polys   polymorphs
+	datacon monomorphs
+	typecon monomorphs
 }
 
 func (ts *typeState) NewUid() (id int) { id, (*ts).uid = ts.uid(); return id }
 
 func newTypeState() *typeState {
 	return &typeState{
-		uid:   genCount(),
-		names: map[string]patterns{},
-		patts: patterns{},
-		monos: monomorphs{}, // sig & fnc
-		polys: polymorphs{}, // []sig & []fnc
+		uid:     genCount(),
+		tree:    tokens([]Token{}),
+		names:   map[string]polymorph{},
+		polys:   polymorphs{}, // []sig & []fnc
+		datacon: monomorphs{}, // sig & fnc
+		typecon: monomorphs{}, // sig & fnc
 	}
 }
+
+////////
+func tokS(f l.TokType) Token {
+	return newToken(Syntax_Token, f.Flag())
+}
+func toksS(f ...l.TokType) []Token {
+	var t = make([]Token, 0, len(f))
+	for _, flag := range f {
+		t = append(t, newToken(Syntax_Token, flag.Flag()))
+	}
+	return t
+}
+func tokD(f d.Type) Token {
+	return newToken(Data_Type_Token, f.Flag())
+}
+func toksD(f ...d.Type) []Token {
+	var t = make([]Token, 0, len(f))
+	for _, flag := range f {
+		t = append(t, newToken(Data_Type_Token, flag.Flag()))
+	}
+	return t
+}
+func putAppend(last Token, tok []Token) []Token {
+	return append(tok, last)
+}
+func putFront(first Token, tok []Token) []Token {
+	return append([]Token{first}, tok...)
+}
+func join(sep Token, tok []Token) []Token {
+	var args = tokens{}
+	for i, t := range tok {
+		args = append(args, t)
+		if i < len(tok)-1 {
+			args = append(args, sep)
+		}
+	}
+	return args
+}
+func enclose(left, right Token, tok []Token) []Token {
+	var args = tokens{left}
+	for _, t := range tok {
+		args = append(args, t)
+	}
+	args = append(args, right)
+	return args
+}
+func embed(left, tok, right []Token) []Token {
+	var args = left
+	args = append(args, tok...)
+	args = append(args, right...)
+	return args
+}
+
+func newArgs(f ...d.Type) []Token {
+	return join(tokS(l.LeftArrow), toksD(f...))
+}
+func newRetVal(f Flag) Token {
+	return newToken(Func_Type_Token, f)
+}
+func tokenizeTypeDef(name string, args []d.Type, retval Token) []Token {
+	return append( // concat arguments, token & name
+		append(
+			newArgs(args...),
+			newToken(Data_Value_Token, d.New(name)),
+		),
+		retval,
+	)
+}
+
+/////
 func padMissing(pat []Token) (head Token, tail []Token) {
 	if len(pat) > 0 {
 		if len(pat) > 1 {
@@ -71,14 +143,14 @@ func getOrCreatePattern(ts *typeState, tok ...Token) pattern {
 		//Type | name | Name | data | let | \x
 		switch {
 		// name definition
-		case head.Type() == Data_Value_Token:
+		case head.Type() == Data_Value_Token.Flag():
 			switch {
 			case d.FlagMatch(head.Flag(), d.String.Flag()):
 				pat = parseIdentDef(ts, tok...)
 			case d.FlagMatch(head.Flag(), d.Int.Flag()):
 				pat = parseIdentDef(ts, tok...)
 			}
-		case head.Type() == Hacksell_Token:
+		case head.Type() == Syntax_Token.Flag():
 			switch {
 			case d.FlagMatch(head.Flag(), l.Lambda.Flag()):
 				pat = parseLambdaDef(ts, tail...)
@@ -97,7 +169,7 @@ func getOrCreatePattern(ts *typeState, tok ...Token) pattern {
 			case d.FlagMatch(l.DoubCol.Flag(), head.Flag()):
 				pat = parseDoubleColon(ts, tail...)
 			}
-		case head.Type() == Data_Type_Token:
+		case head.Type() == Data_Type_Token.Flag():
 			pat = compDataType(ts, tok...)
 		}
 	}

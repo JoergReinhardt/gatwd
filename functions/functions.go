@@ -98,6 +98,12 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	tuple    func() (FlagSet, Sliceable)
 )
 
+type (
+	unary  func(Data) Data
+	binary func(a, b Data) Data
+	nary   func(...Data) Data
+)
+
 // closure that wraps instances of precedence types from data package
 func newData(dat d.Data) value    { return value(func() Data { return dat.Eval() }) }
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
@@ -187,9 +193,3 @@ func (p accessAttribut) Right() Data           { return p.Data().Right() }
 func (p accessAttribut) Flag() d.BitFlag       { d, _ := p(); return d.Flag() }
 func (p accessAttribut) Type() Flag            { d, _ := p(); return newFlag(Accessor, d.Flag()) }
 func (p accessAttribut) String() string        { l, r := p.Both(); return l.String() + ": " + r.String() }
-
-type (
-	unary  func(Data) Data
-	binary func(a, b Data) Data
-	nary   func(...Data) Data
-)

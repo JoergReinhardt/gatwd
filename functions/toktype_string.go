@@ -7,7 +7,7 @@ import "strconv"
 const (
 	_TokType_name_0 = "Flat_TokenBranch_Token"
 	_TokType_name_1 = "Collection_Token"
-	_TokType_name_2 = "Hacksell_Token"
+	_TokType_name_2 = "Syntax_Token"
 	_TokType_name_3 = "Symbolic_Token"
 	_TokType_name_4 = "Number_Token"
 	_TokType_name_5 = "Return_Token"

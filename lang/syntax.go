@@ -296,35 +296,8 @@ var syntax = map[TokType]string{
 	TypeIdent:     "[A-z][a-z]*",
 }
 
-//// Token type according to text, scanner tokenizer.
 type Token d.BitFlag
 
-func New(t d.Typed) Token {
-	if tok, ok := t.(d.Type); ok {
-		return Token(tok.Flag())
-	}
-	return Token(t.Flag())
-}
-func newTypeToken(typ d.Type) Token {
-	return Token(typ.Flag())
-}
-func newSyntaxToken(typ TokType) Token {
-	return Token(typ.Flag())
-}
-func (t Token) Flag() d.BitFlag { return d.BitFlag(t) }
-func (t Token) Text() string {
-	return syntax[TokType(t.Flag())]
-}
-func (t Token) String() string {
-	return syntax[TokType(t.Flag())]
-}
-
-func ParseToken(t []string) []Token {
-	var to = []Token{}
-	for _, str := range t {
-		if tok, ok := match[str]; ok {
-			to = append(to, Token(tok.Flag()))
-		}
-	}
-	return to
-}
+func (t Token) Type() d.BitFlag { return TokType(t).Flag() }
+func (t Token) String() string  { return syntax[TokType(t)] }
+func (t Token) Flag() d.BitFlag { return d.Flag.Flag() }

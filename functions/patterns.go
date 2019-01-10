@@ -5,10 +5,9 @@ import "sort"
 ///////// POLYMORPHISM ///////////
 
 type (
-	pattern    func() (id int, pat tokens)
-	monomorph  func() (pat pattern, fnc Functor)
-	polymorph  func() (id int, monom monomorphs)
-	namedMorph func() (id int, name string, monom monomorphs)
+	pattern   func() (id int, pat tokens)
+	monomorph func() (pat pattern, fnc Functor)
+	polymorph func() (id int, name string, mon monomorphs)
 )
 
 // patterns are slices of tokens that can be compared with one another
@@ -23,13 +22,11 @@ func (i monomorph) Fnc() Functor        { _, fnc := i(); return fnc }
 func (i monomorph) Call(d ...Data) Data { _, fnc := i(); return fnc.Call(d...) }
 
 // slice of signatures and associated isomorphic implementations
-func (p polymorph) Id() int           { id, _ := p(); return id }
-func (p polymorph) Monom() monomorphs { _, monom := p(); return monom }
-
 // polymorph defined with a name
-func (n namedMorph) Id() int           { id, _, _ := n(); return id }
-func (n namedMorph) Name() string      { _, name, _ := n(); return name }
-func (n namedMorph) Monom() monomorphs { _, _, p := n(); return p }
+func (n polymorph) Id() int           { id, _, _ := n(); return id }
+func (n polymorph) Pat() monomorphs   { _, _, m := n(); return m }
+func (n polymorph) Name() string      { _, name, _ := n(); return name }
+func (n polymorph) Monom() monomorphs { _, _, m := n(); return m }
 
 // generation of new types starts with the generation of a pattern, which in
 // turn retrieves, or generates an id depending on preexistence of the
@@ -41,21 +38,22 @@ func newPattern(ts *typeState, tok ...Token) pattern {
 func newMonomorph(pat pattern, fnc Functor) monomorph {
 	return func() (pattern, Functor) { return pat, fnc }
 }
-func newPolymorph(i int, mono ...monomorph) polymorph {
+func newPolymorph(i int, name string, mono ...monomorph) polymorph {
 	return func() (
 		id int,
+		name string,
 		monom monomorphs,
 	) {
-		return i, mono
+		return i, name, mono
 	}
 }
-func newNamedMorph(name string, poly polymorph) namedMorph {
+func newNamedMorph(name string, poly polymorph) polymorph {
 	return func() (
 		i int,
 		n string,
 		monom monomorphs,
 	) {
-		i, mon := poly()
+		i, name, mon := poly()
 		return i, name, mon
 	}
 }
