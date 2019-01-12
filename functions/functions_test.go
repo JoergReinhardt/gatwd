@@ -234,3 +234,7 @@ func TestTokenToSignature(t *testing.T) {
 	fmt.Println(typ)
 
 }
+func TestApplyArgs(t *testing.T) {
+	args := newArgSet(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
+	fmt.Println(args)
+}

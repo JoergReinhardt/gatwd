@@ -85,6 +85,19 @@ func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
 	str = str + rdelim
 	return str
 }
+func StringChainTable(v ...[]Data) string {
+	var str = &strings.Builder{}
+	var tab = tablewriter.NewWriter(str)
+	for _, dr := range v {
+		var row = []string{}
+		for _, d := range dr {
+			row = append(row, d.String())
+		}
+		tab.Append(row)
+	}
+	tab.Render()
+	return str.String()
+}
 func stringChainTable(v ...Data) string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
