@@ -136,7 +136,7 @@ func (p pair) String() string     { l, r := p(); return l.String() + " " + r.Str
 // vector keeps a slice of data instances
 func newVector(dd ...d.Data) vector {
 	return func() d.Sliceable {
-		return d.ConChain(dd...)
+		return d.NewChain(dd...)
 	}
 }
 

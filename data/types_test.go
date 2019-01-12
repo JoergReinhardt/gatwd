@@ -150,6 +150,30 @@ func TestFiFo(t *testing.T) {
 		t.Fail()
 	}
 }
+func TestConDecap(t *testing.T) {
+	//var sr = Chain{}
+	var d Data
+	var s = Chain{}
+	var sr = Chain{}
+	for i := 0; i < 10; i++ {
+		s = ChainCon(s, New(i))
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(ChainLen(s))
+	}
+	for !ChainEmpty(s) {
+		d, s = ChainDecap(s)
+		sr = append(sr, d)
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(ChainLen(s))
+	}
+	fmt.Println(sr)
+
+	if sr[0] != New(9) {
+		t.Fail()
+	}
+}
 func BenchmarkListAdd(b *testing.B) {
 	var s1 = Chain{}
 	for i := 0; i < b.N; i++ {
@@ -178,6 +202,15 @@ func BenchmarkListPutPull(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		_, s1 = ChainPull(s1)
+	}
+}
+func BenchmarkConDecap(b *testing.B) {
+	var s1 = Chain{}
+	for i := 0; i < b.N; i++ {
+		s1 = ChainCon(s1, s0[0])
+	}
+	for i := 0; i < b.N; i++ {
+		_, s1 = ChainDecap(s1)
 	}
 }
 func TestTimeType(t *testing.T) {

@@ -9,11 +9,11 @@ const (
 	_TokType_name_1 = "Collection_Token"
 	_TokType_name_2 = "Syntax_Token"
 	_TokType_name_3 = "Symbolic_Token"
-	_TokType_name_4 = "Number_Token"
-	_TokType_name_5 = "Return_Token"
-	_TokType_name_6 = "Argument_Token"
-	_TokType_name_7 = "Data_Type_Token"
-	_TokType_name_8 = "Func_Type_Token"
+	_TokType_name_4 = "Kind_Token"
+	_TokType_name_5 = "Number_Token"
+	_TokType_name_6 = "Return_Token"
+	_TokType_name_7 = "Argument_Token"
+	_TokType_name_8 = "Data_Type_Token"
 	_TokType_name_9 = "Data_Value_Token"
 )
 

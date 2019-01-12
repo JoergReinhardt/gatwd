@@ -96,12 +96,19 @@ func embed(left, tok, right []Token) []Token {
 	return args
 }
 
+// concatenate typeflags with right arrows as seperators, to generate a chain
+// of curryed arguments
 func newArgs(f ...d.Type) []Token {
 	return join(tokS(l.LeftArrow), toksD(f...))
 }
 func newRetVal(f Flag) Token {
-	return newToken(Func_Type_Token, f)
+	return newToken(Return_Token, f)
 }
+
+// concatenates arguments, name of the type this signature is associated with
+// and the type of the value, the associated function wil return. and returns
+// the resulting signature as a chain of tokens (the name get's converted to a
+// data-value token)
 func tokenizeTypeDef(name string, args []d.Type, retval Token) []Token {
 	return append( // concat arguments, token & name
 		append(

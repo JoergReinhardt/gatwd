@@ -223,11 +223,12 @@ func ChainPop(s Chain) (Data, Chain) {
 }
 
 // TUPLE
-func ChainHead(s Chain) (h Data)   { return s[0] }
-func ChainTail(s Chain) (c []Data) { return s[:1] }
+func ChainHead(s Chain) (h Data)     { return s[0] }
+func ChainTail(s Chain) (c []Data)   { return s[:1] }
+func ChainCon(s Chain, v Data) Chain { return ChainPush(s, v) }
 func ChainDecap(s Chain) (h Data, t Chain) {
 	if !ChainEmpty(s) {
-		return s[0], t[:1]
+		return ChainPop(s)
 	}
 	return nil, nil
 }

@@ -34,11 +34,11 @@ const (
 	Collection_Token
 	Syntax_Token
 	Symbolic_Token
+	Kind_Token
 	Number_Token
 	Return_Token   // contains a data type-/ & value pair
 	Argument_Token // like Return
 	Data_Type_Token
-	Func_Type_Token
 	Data_Value_Token
 )
 
@@ -65,15 +65,14 @@ func newToken(t TokType, dat Data) Token {
 		return token{t, dat.(l.TokType)}
 	case Data_Type_Token:
 		return token{t, dat.(d.Type)}
+	case Kind_Token:
+		return token{t, dat.(Kind)}
 	case Return_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Argument_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Data_Value_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
-	case Func_Type_Token:
-		k, p := dat.(Flag)()
-		return dataToken{token{t, k.Flag()}, newData(p)}
 	}
 	return nil
 }
@@ -86,6 +85,8 @@ func (t token) String() string {
 		str = t.flag.(l.TokType).Syntax()
 	case Data_Type_Token:
 		str = d.StringBitFlag(t.flag.(d.Type).Flag())
+	case Kind_Token:
+		str = d.StringBitFlag(t.flag.(Kind).Flag())
 	default:
 		str = "Don't know how to print this token"
 	}
@@ -97,21 +98,9 @@ func (t dataToken) String() string {
 	case Data_Value_Token:
 		str = t.d.(d.Data).String()
 	case Argument_Token:
-		str = "Arg [" +
-			d.Type(t.Flag()).String() +
-			"] " +
-			t.d.(d.Data).String()
+		str = "Arg: " + d.Type(t.Flag()).String()
 	case Return_Token:
-		str = "Ret [" +
-			d.Type(t.Flag()).String() +
-			"] " +
-			t.d.(d.Data).String()
-	case Func_Type_Token:
-		str = "Ret [" +
-			t.token.Flag().String() +
-			"||" +
-			t.d.Flag().String() +
-			"] "
+		str = "Ret: " + d.Type(t.Flag()).String()
 	}
 	return str
 }
