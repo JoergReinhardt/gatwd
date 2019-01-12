@@ -243,9 +243,9 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 	sl.Sort(Int)
 	fmt.Println(sl)
-	dat := sl.Search(New(324))
+	dat := sl.Search(New(2))
 	fmt.Println(dat)
-	if dat.(IntegerVal).Int() != 324 {
+	if dat.(IntegerVal).Int() != 2 {
 		t.Fail()
 	}
 	fmt.Println(sl)
@@ -255,6 +255,7 @@ func TestSearchChainString(t *testing.T) {
 	fmt.Println(sl)
 	sl.Sort(String)
 	fmt.Println(sl)
-	text := sl.Search(New("Bool"))
+	fmt.Printf("%s == %s ??\n'", sl[2].String(), New("Int").String())
+	text := sl.Search(New("Int"))
 	fmt.Println(text)
 }

@@ -343,50 +343,26 @@ func newChainSearchFnc(c Chain, comp Data) func(i int) bool {
 	switch {
 	case FlagMatch(f, Symbolic.Flag()):
 		fn = func(i int) bool {
-			if i <= c.Len()-1 &&
-				c[i].String() == comp.String() {
-				//				strings.Compare(
-				//					c[i].String(),
-				//					comp.String(),
-				//				) == 0 {
-				return true
-			}
-			return false
+			return strings.Compare(c[i].String(),
+				comp.String()) >= 0
 		}
 	case FlagMatch(f, Flag.Flag()):
-		fn = func(i int) bool {
-			if i <= c.Len()-1 &&
-				FlagMatch(
-					c[i].Flag(),
-					comp.Flag(),
-				) {
-				return true
-			}
-			return false
-		}
+		fn = func(i int) bool { return FlagMatch(c[i].Flag(), comp.Flag()) }
 	case FlagMatch(f, Unsigned.Flag()):
 		fn = func(i int) bool {
-			if i <= c.Len()-1 &&
-				uint(c[i].(UnsignedVal).Uint()) ==
-					uint(comp.(UnsignedVal).Uint()) {
-				return true
-			}
-			return false
+			return uint(c[i].(UnsignedVal).Uint()) >=
+				uint(comp.(UnsignedVal).Uint())
 		}
 	case FlagMatch(f, Integer.Flag()):
 		fn = func(i int) bool {
-			if i < c.Len()-1 &&
-				int(c[i].(IntegerVal).Int()) ==
-					int(comp.(IntegerVal).Int()) {
-				return true
-			}
-			return false
+			return int(c[i].(IntegerVal).Int()) >=
+				int(comp.(IntegerVal).Int())
 		}
 	}
 	return fn
 }
 func ChainSearch(c Chain, comp Data) Data {
-	idx := sort.Search(c.Len()-1, newChainSearchFnc(c, comp))
+	idx := sort.Search(c.Len(), newChainSearchFnc(c, comp))
 	fmt.Printf("index found: %d\n", idx)
 	fmt.Printf("element found: %s\n", ChainGet(c, idx))
 	var dat = ChainGet(c, idx)
