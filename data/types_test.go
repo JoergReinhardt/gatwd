@@ -238,14 +238,23 @@ func TestAllTypes(t *testing.T) {
 	}
 }
 
-func TestSearchChain(t *testing.T) {
+func TestSearchChainInt(t *testing.T) {
 	sl := New(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(Chain)
 	fmt.Println(sl)
 	sl.Sort(Int)
 	fmt.Println(sl)
-	comp := New(11)
-	dat := sl.Search(comp)
+	dat := sl.Search(New(324))
 	fmt.Println(dat)
-	data := sl.Search(New(11))
-	fmt.Println(data)
+	if dat.(IntegerVal).Int() != 324 {
+		t.Fail()
+	}
+	fmt.Println(sl)
+}
+func TestSearchChainString(t *testing.T) {
+	sl := New("Nil", "Bool", "Int", "Int8", "Int16", "Int32", "BigInt", "Uint", "Uint8", "Uint16", "Uint32", "and one more").(Chain)
+	fmt.Println(sl)
+	sl.Sort(String)
+	fmt.Println(sl)
+	text := sl.Search(New("Bool"))
+	fmt.Println(text)
 }
