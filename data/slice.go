@@ -7,16 +7,21 @@ func ConChain(val ...Data) Chain {
 	l = append(l, val...)
 	return l
 }
-func ChainContainedTypes(c Chain) BitFlag {
+func ChainContainedTypes(c []Data) BitFlag {
 	var flag = BitFlag(0)
-	for _, f := range c.Slice() {
-		flag = flag | f.Flag()
+	for _, d := range c {
+		if FlagMatch(d.Flag(), Slice.Flag()) {
+			ChainContainedTypes(d.(Chain))
+			continue
+		}
+		flag = flag | d.Flag()
 	}
 	return flag
 }
-func (c Chain) Flag() BitFlag { return Slice.Flag() }
-func (c Chain) Eval() Data    { return c }
-func (c Chain) Null() Chain   { return []Data{} }
+func (c Chain) Flag() BitFlag           { return Slice.Flag() }
+func (c Chain) ContainedTypes() BitFlag { return ChainContainedTypes(c.Slice()) }
+func (c Chain) Eval() Data              { return c }
+func (c Chain) Null() Chain             { return []Data{} }
 
 // SLICE ->
 func (v Chain) Slice() []Data { return v }

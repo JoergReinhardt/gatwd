@@ -35,47 +35,82 @@ func TestFlag(t *testing.T) {
 	if ok {
 		t.Fail()
 	}
-	fmt.Println(FlagCount(Type(String.Flag() | Int.Flag() | Float.Flag())))
+	count := FlagCount(String | Int | Float)
+	fmt.Println(count)
+	if count != 3 {
+		t.Fail()
+	}
 
 	fmt.Println(BitFlag(Int.Flag() | Float.Flag()).Decompose())
-	fmt.Println(FlagCount(BitFlag(Int.Flag() | Float.Flag())))
 	fmt.Println(BitFlag(Int | Float).String())
+
 	fmt.Println(BitFlag(Symbolic))
 
-}
-func TestTypeAllocation(t *testing.T) {
-	s0 := ConChain(
-		New(true),
-		New(1),
-		New(1, 2, 3, 4, 5, 6, 7),
-		New(int8(8)),
-		New(int16(16)),
-		New(int32(32)),
-		New(float32(32.16)),
-		New(float64(64.64)),
-		New(complex64(float32(32))),
-		New(complex128(float64(1.6))),
-		New(byte(3)),
-		New(time.Now()),
-		New(rune('ö')),
-		New(big.NewInt(23)),
-		New(big.NewFloat(23.42)),
-		New(big.NewRat(23, 42)),
-		New([]byte("test")),
-		New("test"))
+	if fmt.Sprint(BitFlag(Symbolic)) != "Byte|Rune|Bytes|String|Error|Flag" {
+		t.Fail()
+	}
 
+	fmt.Println(BitFlag(Symbolic))
+}
+
+var s0 = ConChain(
+	New(true),
+	New(1),
+	New(1, 2, 3, 4, 5, 6, 7),
+	New(int8(8)),
+	New(int16(16)),
+	New(int32(32)),
+	New(float32(32.16)),
+	New(float64(64.64)),
+	New(complex64(float32(32))),
+	New(complex128(float64(1.6))),
+	New(byte(3)),
+	New(time.Now()),
+	New(rune('ö')),
+	New(big.NewInt(23)),
+	New(big.NewFloat(23.42)),
+	New(big.NewRat(23, 42)),
+	New([]byte("test")),
+	New("test"))
+
+func TestTypeAllocation(t *testing.T) {
+
+	fmt.Println(s0.ContainedTypes())
+	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int|Int8|Int16|Int32|BigInt|Float|Flt32|BigFlt|Ratio|Imag|Byte|Bytes|String|Time" {
+		t.Fail()
+	}
 	s1 := ConChain()
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 
 	fmt.Printf("List-0: %s\n", s0.String())
+	fmt.Printf("List-0 Length: %d\n", s0.Len())
+	if len(s0) != 18 {
+		t.Fail()
+	}
 
 	for i := 0; i < 1000; i++ {
 		s1 = ChainAdd(s1, s0...)
 	}
+	if len(s1) != 18000 {
+		t.Fail()
+	}
+	fmt.Printf("contained types s1: %s\n", s1.ContainedTypes())
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
 	fmt.Printf("List-1 type: %s\t\n", s1.Flag().String())
+}
+func BenchmarkListAdd(b *testing.B) {
+	var s1 = Chain{}
+	for i := 0; i < b.N; i++ {
+		s1 = ChainAdd(s1, s0...)
+	}
+}
+func BenchmarkListAppend(b *testing.B) {
+	var s1 = Chain{}
+	for i := 0; i < b.N; i++ {
+		s1 = ChainAppend(s1, s0...)
+	}
 }
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
@@ -97,4 +132,7 @@ func TestNativeSlice(t *testing.T) {
 }
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int Int8 Int16 Int32 BigInt Uint Uint8 Uint16 Uint32 Float Flt32 BigFlt Ratio Imag Imag64 Byte Rune Bytes String Time Duration Error Slice Map Function Flag]" {
+		t.Fail()
+	}
 }
