@@ -46,7 +46,7 @@ func TestFlag(t *testing.T) {
 
 	fmt.Println(BitFlag(Symbolic))
 
-	if fmt.Sprint(BitFlag(Symbolic)) != "Byte|Rune|Bytes|String|Error|Flag" {
+	if fmt.Sprint(BitFlag(Symbolic)) != "Byte|Rune|Bytes|String|Error" {
 		t.Fail()
 	}
 
@@ -236,4 +236,16 @@ func TestAllTypes(t *testing.T) {
 	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int Int8 Int16 Int32 BigInt Uint Uint8 Uint16 Uint32 Float Flt32 BigFlt Ratio Imag Imag64 Byte Rune Bytes String Time Duration Error Slice Map Function Flag]" {
 		t.Fail()
 	}
+}
+
+func TestSearchChain(t *testing.T) {
+	sl := New(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(Chain)
+	fmt.Println(sl)
+	sl.Sort(Int)
+	fmt.Println(sl)
+	comp := New(11)
+	dat := sl.Search(comp)
+	fmt.Println(dat)
+	data := sl.Search(New(11))
+	fmt.Println(data)
 }

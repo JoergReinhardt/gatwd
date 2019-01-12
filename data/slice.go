@@ -1,5 +1,11 @@
 package data
 
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
 type Chain []Data
 
 func NewChain(val ...Data) Chain {
@@ -158,6 +164,18 @@ func ChainGet(s Chain, i int) Data { return s[i] }
 // MUTABLE SLICE
 func ChainSet(s Chain, i int, v Data) Chain { s[i] = v; return s }
 
+// reversed index to access stacks and tuples, since their order is reversed
+// for improved performance
+func (c Chain) IdxRev(i int) int { return c.Len() - 1 - i }
+
+// reversed Get method to access elements on stacks and tuples, since their
+// order is reversed for improved performance
+func ChainGetRev(s Chain, i int) Data { return s[s.IdxRev(i)] }
+
+// reversed Get method to mutate elements on stacks and tuples, since their
+// order is reversed for improved performance
+func ChainSetRev(s Chain, i int, v Data) Chain { s[s.IdxRev(i)] = v; return s }
+
 // ITERATOR
 func ChainNext(s Chain) (v Data, i Chain) {
 	if len(s) > 0 {
@@ -264,16 +282,113 @@ func ChainInsertVector(s Chain, i int, v ...Data) Chain {
 }
 func ChainAttrType(s Chain) BitFlag { return Int.Flag() }
 
-///// TODO: perf test that‥. test sliding window, or similar sophistited shenaegans.
-//func ChainAdd(s Chain, v ...Data) Chain {
-//	if len(s) >= cap(s)+len(v)/2 {
-//		return append(append(make([]Data, 0, len(v)+len(s)), v...), s...)
-//	}
-//	return append(v, s...)
-//}
-//func ChainPush(s Chain, v Data) Chain {
-//	if len(s) >= cap(s)/2 {
-//		return append(append(make([]Data, 0, (len(s))*2), v), s...)
-//	}
-//	return append([]Data{v}, s...)
-//}
+func (c Chain) Swap(i, j int) { c = ChainSwap(c, i, j) }
+func ChainSwap(c Chain, i, j int) Chain {
+	c[i], c[j] = c[j], c[i]
+	return c
+}
+func newChainLessFnc(c Chain, compT Type) func(i, j int) bool {
+	chain := c
+	var fn func(i, j int) bool
+	f := compT.Flag()
+	switch {
+	case FlagMatch(f, Symbolic.Flag()):
+		fn = func(i, j int) bool {
+			if strings.Compare(
+				string(chain[i].String()),
+				string(chain[j].String()),
+			) <= 0 {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Flag.Flag()):
+		fn = func(i, j int) bool {
+			if chain[i].(Type).Flag() <
+				chain[j].(Type).Flag() {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Unsigned.Flag()):
+		fn = func(i, j int) bool {
+			if uint(chain[i].(UnsignedVal).Uint()) <
+				uint(chain[j].(UnsignedVal).Uint()) {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Integer.Flag()):
+		fn = func(i, j int) bool {
+			if int(chain[i].(IntegerVal).Int()) <
+				int(chain[j].(IntegerVal).Int()) {
+				return true
+			}
+			return false
+		}
+	}
+	return fn
+}
+func ChainSort(c Chain, compT Type) Chain {
+	sort.Slice(c, newChainLessFnc(c, compT))
+	return c
+}
+func (c Chain) Sort(compT Type) {
+	c = ChainSort(c, compT)
+}
+
+func newChainSearchFnc(c Chain, comp Data) func(i int) bool {
+	var fn func(i int) bool
+	f := comp.Flag()
+	switch {
+	case FlagMatch(f, Symbolic.Flag()):
+		fn = func(i int) bool {
+			if i < c.Len() &&
+				strings.Compare(
+					string(c[i].String()),
+					string(comp.String()),
+				) == 0 {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Flag.Flag()):
+		fn = func(i int) bool {
+			if i < c.Len() &&
+				FlagMatch(
+					c[i].Flag(),
+					comp.Flag(),
+				) {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Unsigned.Flag()):
+		fn = func(i int) bool {
+			if i < c.Len() &&
+				uint(c[i].(UnsignedVal).Uint()) ==
+					uint(comp.(UnsignedVal).Uint()) {
+				return true
+			}
+			return false
+		}
+	case FlagMatch(f, Integer.Flag()):
+		fn = func(i int) bool {
+			if i < c.Len() &&
+				int(c[i].(IntegerVal).Int()) ==
+					int(comp.(IntegerVal).Int()) {
+				return true
+			}
+			return false
+		}
+	}
+	return fn
+}
+func ChainSearch(c Chain, comp Data) Data {
+	idx := sort.Search(c.Len(), newChainSearchFnc(c, comp))
+	fmt.Printf("index found: %d\n", idx)
+	fmt.Printf("element found: %s\n", ChainGet(c, idx))
+	var dat = ChainGet(c, idx)
+	return dat
+}
+func (c Chain) Search(comp Data) Data { return ChainSearch(c, comp) }

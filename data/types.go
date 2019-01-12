@@ -64,11 +64,11 @@ const (
 
 	Temporal = Time | Duration
 
-	Symbolic = Byte | Rune | Bytes | String | Error | Flag
+	Symbolic = Byte | Rune | Bytes | String | Error
 
 	Collections = Map | Slice
 
-	Bitwise = Unsigned | Byte
+	Bitwise = Unsigned | Byte | Flag
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag

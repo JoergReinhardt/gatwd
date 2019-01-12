@@ -190,10 +190,25 @@ func newAccAttribute(do pair) accessAttribut {
 func (p accessAttribut) Param() accessAttribut { _, pa := p(); return pa }
 func (p accessAttribut) Data() Paired          { d, _ := p(); return d }
 func (p accessAttribut) Both() (Data, Data)    { l, r := p.Data().Both(); return l, r }
+func (p accessAttribut) Idx() Data             { return p.Data().Left() }
+func (p accessAttribut) Key() Data             { return p.Data().Left() }
 func (p accessAttribut) Acc() Data             { return p.Data().Left() }
 func (p accessAttribut) Left() Data            { return p.Data().Left() }
+func (p accessAttribut) Val() Data             { return p.Data().Right() }
 func (p accessAttribut) Arg() Data             { return p.Data().Right() }
 func (p accessAttribut) Right() Data           { return p.Data().Right() }
 func (p accessAttribut) Flag() d.BitFlag       { d, _ := p(); return d.Flag() }
 func (p accessAttribut) Type() Flag            { d, _ := p(); return newFlag(Accessor, d.Flag()) }
 func (p accessAttribut) String() string        { l, r := p.Both(); return l.String() + ": " + r.String() }
+
+func newArgSet(accAttr ...accessAttribut) argSet {
+	return func(acc ...accessAttribut) ([]accessAttribut, argSet) {
+		if len(acc) > 0 {
+			return acc, newArgSet(acc...)
+		}
+		return accAttr, newArgSet(accAttr...)
+	}
+}
+func (a argSet) Attributs() []accessAttribut       { attr, _ := a(); return attr }
+func (a argSet) ArgSet() argSet                    { _, set := a(); return set }
+func (a argSet) Append(v ...accessAttribut) argSet { return newArgSet(append(a.Attributs(), v...)...) }

@@ -43,6 +43,7 @@ func (v StrVal) Bool() BoolVal {
 }
 
 // INT -> VALUE
+func (v IntVal) Int() int     { return int(v) } // implements Idx Attribut
 func (v IntVal) Integer() int { return int(v) } // implements Idx Attribut
 func (v IntVal) Idx() IntVal  { return v }      // implements Idx Attribut
 //func (v intVal) Key() strVal    { return v.String() } // implements Key Attribut
@@ -54,6 +55,16 @@ func (v IntVal) UintNat() UintVal {
 	}
 	return UintVal(v)
 }
+
+// VALUE -> UINT
+func (v Uint8Val) Uint() UintVal  { return UintVal(uint(v)) }
+func (v Uint16Val) Uint() UintVal { return UintVal(uint(v)) }
+func (v Uint32Val) Uint() UintVal { return UintVal(uint(v)) }
+func (v UintVal) Uint() UintVal   { return UintVal(uint(v)) }
+func (v FltVal) Uint() UintVal    { return UintVal(uint(v)) }
+func (v Flt32Val) Uint() UintVal  { return UintVal(uint(v)) }
+func (v ByteVal) Uint() UintVal   { return UintVal(uint(v)) }
+func (v ImagVal) Uint() UintVal   { return UintVal(uint(real(v))) }
 
 // VALUE -> INT
 func (v Int8Val) Int() IntVal   { return IntVal(int(v)) }
@@ -87,7 +98,6 @@ func (v StrVal) Float() FltVal {
 }
 
 // VALUE -> UINT
-func (v UintVal) Uint() UintVal { return v }
 func (v UintVal) UintNat() uint { return uint(v) }
 func (v IntVal) Uint() UintVal  { return UintVal(v.UintNat()) }
 func (v StrVal) Uint() UintVal {

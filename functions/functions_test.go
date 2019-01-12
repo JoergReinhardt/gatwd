@@ -202,6 +202,14 @@ func TestAccParamEnclosure(t *testing.T) {
 	fmt.Println(acc)
 	_, acc = acc(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
+	if acc.Key() != d.New(12) {
+		t.Fail()
+	}
+	_, acc = acc(newPair(d.New(13), d.New("two million dollar")))
+	fmt.Println(acc)
+	if acc.Key() != d.New(13) {
+		t.Fail()
+	}
 }
 func TestTokenToSignature(t *testing.T) {
 	syn := toksS(

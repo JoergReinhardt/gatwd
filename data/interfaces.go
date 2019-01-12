@@ -25,6 +25,8 @@ type NativeVal interface {
 	Null() func() Data
 	DataFnc() func(Data) Data
 }
+type UnsignedVal interface{ Uint() uint }
+type IntegerVal interface{ Int() int }
 type Sliceable interface {
 	Data
 	Empty() bool
