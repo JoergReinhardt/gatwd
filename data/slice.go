@@ -2,7 +2,7 @@ package data
 
 type Chain []Data
 
-func ConChain(val ...Data) Chain {
+func NewChain(val ...Data) Chain {
 	l := make([]Data, 0, len(val))
 	l = append(l, val...)
 	return l
@@ -25,7 +25,7 @@ func (c Chain) Null() Chain             { return []Data{} }
 
 // SLICE ->
 func (v Chain) Slice() []Data { return v }
-func (v Chain) Len() int      { return len(v) }
+func (v Chain) Len() int      { return len([]Data(v)) }
 
 // COLLECTION
 func (s Chain) Empty() bool            { return ChainEmpty(s) }
@@ -183,13 +183,13 @@ func ChainFirst(s Chain) Data {
 	if s.Len() > 0 {
 		return s[0]
 	}
-	return NilVal{}
+	return nil
 }
 func ChainLast(s Chain) Data {
 	if s.Len() > 0 {
 		return s[s.Len()-1]
 	}
-	return NilVal{}
+	return nil
 }
 
 // LIFO QUEUE
@@ -200,10 +200,10 @@ func ChainAppend(s Chain, v ...Data) Chain {
 	return append(s, v...)
 }
 func ChainPull(s Chain) (Data, Chain) {
-	if s.Len() > 0 {
-		return s[s.Len()-1], s[:s.Len()-1]
+	if len(s) > 0 {
+		return s[0], s[1:]
 	}
-	return NilVal{}, s
+	return nil, nil
 }
 
 // FIFO STACK
@@ -211,13 +211,15 @@ func ChainAdd(s Chain, v ...Data) Chain {
 	return append(v, s...)
 }
 func ChainPush(s Chain, v Data) Chain {
-	return append([]Data{v}, s...)
+	//return append([]Data{v}, s...)
+	return ChainPut(s, v)
 }
 func ChainPop(s Chain) (Data, Chain) {
-	if len(s) > 0 {
-		return s[0], s[1:]
+	if ChainLen(s) > 0 {
+		//	return s[0], s[1:]
+		return s[ChainLen(s)-1], s[:ChainLen(s)-1]
 	}
-	return NilVal{}, s
+	return nil, nil
 }
 
 // TUPLE
@@ -227,7 +229,7 @@ func ChainDecap(s Chain) (h Data, t Chain) {
 	if !ChainEmpty(s) {
 		return s[0], t[:1]
 	}
-	return NilVal{}, ConChain(NilVal{})
+	return nil, nil
 }
 
 // SLICE

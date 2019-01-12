@@ -53,7 +53,7 @@ func TestFlag(t *testing.T) {
 	fmt.Println(BitFlag(Symbolic))
 }
 
-var s0 = ConChain(
+var s0 = NewChain(
 	New(true),
 	New(1),
 	New(1, 2, 3, 4, 5, 6, 7),
@@ -79,7 +79,7 @@ func TestTypeAllocation(t *testing.T) {
 	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int|Int8|Int16|Int32|BigInt|Float|Flt32|BigFlt|Ratio|Imag|Byte|Bytes|String|Time" {
 		t.Fail()
 	}
-	s1 := ConChain()
+	s1 := NewChain()
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 
@@ -100,6 +100,56 @@ func TestTypeAllocation(t *testing.T) {
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
 	fmt.Printf("List-1 type: %s\t\n", s1.Flag().String())
 }
+
+func TestLiFo(t *testing.T) {
+	//var sr = Chain{}
+	var d Data
+	var s = NewChain()
+	var sr = NewChain()
+	for i := 0; i < 10; i++ {
+		s = ChainPush(s, New(i))
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(ChainLen(s))
+	}
+	fmt.Println(s)
+	for ChainLen(s) > 0 {
+		d, s = ChainPop(s)
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(s.Len())
+		sr = append(sr, d)
+	}
+	fmt.Println(sr)
+	if sr[0] != New(9) {
+		t.Fail()
+	}
+
+}
+func TestFiFo(t *testing.T) {
+	//var sr = Chain{}
+	var d Data
+	var s = Chain{}
+	var sr = Chain{}
+	for i := 0; i < 10; i++ {
+		s = ChainPut(s, New(i))
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(ChainLen(s))
+	}
+	for !ChainEmpty(s) {
+		d, s = ChainPull(s)
+		sr = append(sr, d)
+		fmt.Println(d)
+		fmt.Println(s)
+		fmt.Println(ChainLen(s))
+	}
+	fmt.Println(sr)
+
+	if sr[0] != New(0) {
+		t.Fail()
+	}
+}
 func BenchmarkListAdd(b *testing.B) {
 	var s1 = Chain{}
 	for i := 0; i < b.N; i++ {
@@ -110,6 +160,24 @@ func BenchmarkListAppend(b *testing.B) {
 	var s1 = Chain{}
 	for i := 0; i < b.N; i++ {
 		s1 = ChainAppend(s1, s0...)
+	}
+}
+func BenchmarkListPushPop(b *testing.B) {
+	var s1 = Chain{}
+	for i := 0; i < b.N; i++ {
+		s1 = ChainPush(s1, s0[0])
+	}
+	for i := 0; i < b.N; i++ {
+		_, s1 = ChainPop(s1)
+	}
+}
+func BenchmarkListPutPull(b *testing.B) {
+	var s1 = Chain{}
+	for i := 0; i < b.N; i++ {
+		s1 = ChainPut(s1, s0[0])
+	}
+	for i := 0; i < b.N; i++ {
+		_, s1 = ChainPull(s1)
 	}
 }
 func TestTimeType(t *testing.T) {

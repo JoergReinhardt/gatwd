@@ -11,7 +11,7 @@ func NewWithTypeInfo(vals ...interface{}) (Data, BitFlag) { return NewData(vals.
 func NewData(vals ...interface{}) (rval Data, flag BitFlag) {
 
 	if len(vals) == 0 {
-		return NilVal{}, Nil.Flag()
+		return nil, Nil.Flag()
 	}
 	var val = vals[0]
 	if len(vals) > 1 {
