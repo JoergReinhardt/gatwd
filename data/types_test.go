@@ -18,6 +18,31 @@ func TestMutability(t *testing.T) {
 		t.Log("value of value has been assigned and should not differ", a, b)
 	}
 }
+func TestFlag(t *testing.T) {
+	flag := Flag.Flag()
+	ok := FlagMatch(flag, Flag.Flag())
+	fmt.Println(ok)
+	if !ok {
+		t.Fail()
+	}
+	ok = FlagMatch(flag, Flag.Flag()|Int.Flag())
+	fmt.Println(ok)
+	if !ok {
+		t.Fail()
+	}
+	ok = FlagMatch(flag, Int.Flag())
+	fmt.Println(ok)
+	if ok {
+		t.Fail()
+	}
+	fmt.Println(FlagCount(Type(String.Flag() | Int.Flag() | Float.Flag())))
+
+	fmt.Println(BitFlag(Int.Flag() | Float.Flag()).Decompose())
+	fmt.Println(FlagCount(BitFlag(Int.Flag() | Float.Flag())))
+	fmt.Println(BitFlag(Int | Float).String())
+	fmt.Println(BitFlag(Symbolic))
+
+}
 func TestTypeAllocation(t *testing.T) {
 	s0 := ConChain(
 		New(true),
@@ -50,6 +75,7 @@ func TestTypeAllocation(t *testing.T) {
 	}
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
+	fmt.Printf("List-1 type: %s\t\n", s1.Flag().String())
 }
 func TestTimeType(t *testing.T) {
 	ts := time.Now()
@@ -65,11 +91,10 @@ func TestNativeSlice(t *testing.T) {
 
 	var ns = ds.(Chain).NativeSlice()
 
+	fmt.Println(ds)
 	fmt.Println(ns)
-	fmt.Println(ds.Flag())
 
-	fmt.Println(stringChainTable(ds.(Chain)...))
 }
 func TestAllTypes(t *testing.T) {
-	fmt.Println(AllTypes())
+	fmt.Println(ListAllTypes())
 }

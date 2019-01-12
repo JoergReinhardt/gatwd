@@ -1,18 +1,16 @@
 package data
 
 import (
+	"github.com/olekukonko/tablewriter"
 	"math/big"
-	"math/bits"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }
-func (v ErrorVal) String() string  { return "Error: " + v.e.Error() }
+func (v ErrorVal) String() string  { return v.e.Error() }
 func (v ErrorVal) Error() ErrorVal { return ErrorVal{v.e} }
 func (v BoolVal) String() string   { return strconv.FormatBool(bool(v)) }
 func (v IntVal) String() string    { return strconv.Itoa(int(v)) }
@@ -50,39 +48,57 @@ func (v Imag64Val) String() string {
 
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag
-func (v BitFlag) String() string { return StringBitFlag(v) }
-func StringBitFlag(v BitFlag) string {
+func (v BitFlag) String() string {
+	if FlagCount(v) == 1 {
+		return Type(v).String()
+	}
 	var str string
-	if bits.OnesCount(v.Uint()) > 1 {
-		for i, f := range FlagDecompose(v) {
-			str = str + Type(f).String()
-			if i < len(FlagDecompose(v))-1 {
+	var u = uint(1)
+	var i = 0
+	for i < 63 {
+		if FlagMatch(BitFlag(u), v) {
+			str = str + Type(u).String()
+			if i < FlagLength(v)-1 {
 				str = str + "|"
 			}
 		}
-	} else {
-		str = Type(v).String()
+		i = i + 1
+		u = uint(1) << uint(i)
 	}
 	return str
 }
-func (v Chain) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v ErrorVec) String() string { return StringSlice("\n", "", "", v) }
 
 // stringer for ordered chains, without any further specification.
-func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
-	var str string
-	str = str + ldelim
-	for i, d := range s {
-		if FlagMatch(d.Flag(), Slice.Flag()) {
-			str = str + StringSlice(sep, ldelim, rdelim, d.(Chain).Slice()...)
-		} else {
-			str = str + d.String()
-		}
-		if i < len(s)-1 {
-			str = str + sep
+func (v Chain) String() string {
+	var str = "["
+	for i, d := range v.Slice() {
+		str = str + d.String()
+		if i < v.Len()-1 {
+			str = str + ", "
 		}
 	}
-	str = str + rdelim
+	str = str + "]"
+	return str
+}
+func stringSlice(v ...Data) string {
+	var str string
+	for i, d := range v {
+		str = str + d.String()
+		if i < len(v)-1 {
+			str = str + ", "
+		}
+	}
+	return str
+}
+func stringChain(v ...Data) string {
+	var str = "["
+	for i, d := range v {
+		str = str + d.String()
+		if i < len(v)-1 {
+			str = str + ", "
+		}
+	}
+	str = str + "]"
 	return str
 }
 func stringChainTable(v ...Data) string {
@@ -96,4 +112,16 @@ func stringChainTable(v ...Data) string {
 	}
 	tab.Render()
 	return str.String()
+}
+func (v ErrorVec) String() string {
+	var str string
+	for i, err := range v {
+		str = str +
+			"ERROR " +
+			strconv.Itoa(i) +
+			": " +
+			err.Error() +
+			"\n"
+	}
+	return str
 }

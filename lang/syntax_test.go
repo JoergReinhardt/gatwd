@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+func TestStringer(t *testing.T) {
+	fmt.Println(RightArrow)
+	fmt.Println(RightArrow.Syntax())
+}
 func TestAllSyntax(t *testing.T) {
 	fmt.Println(AllTokens())
 }
@@ -14,7 +18,7 @@ func TestParseToken(t *testing.T) {
 		"",
 		"\\x",
 	}
-	fmt.Println(ParseToken(str))
+	fmt.Println(ParseToken(str...))
 
 }
 func TestMaphyntax(t *testing.T) {

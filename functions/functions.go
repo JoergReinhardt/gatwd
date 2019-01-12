@@ -1,7 +1,7 @@
 /*
 FUNCTION GENERALIZATION
 
-lambda calculus states, that all functions can be expressed as functions
+ambda calculus states, that all functions can be expressed as functions
 taking one argument, by currying in additional data and behaviour. all
 computation can then be expressed in those terms‥. and while that's the base
 of all that's done here, and generally considered to be a great thing, it
@@ -63,9 +63,17 @@ const (
 	Tree
 	Internal
 
-	Recursives = Tuple | List
-	Sets       = UniSet | MuliSet | AssocA | Record
-	Links      = Link | DLink | Node | Tree // Consumeables
+	AccIndex = Vector | Chain
+
+	AccSymbol = Tuple | AssocA | Record
+
+	AccCollect = AccIndex | AccSymbol
+
+	Nests = Tuple | List
+
+	Sets = UniSet | MuliSet | AssocA | Record
+
+	Links = Link | DLink | Node | Tree // Consumeables
 )
 
 type ( // HIGHER ORDER FUNCTION TYPES
@@ -81,21 +89,17 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	// argset
 	// set of placeholder arguments for signatures, promises, values passed
 	// in a function call, partially applied values‥.
-	ArgumentSet func(d ...accessAttribut) ([]accessAttribut, ArgumentSet)
+	argSet func(d ...accessAttribut) ([]accessAttribut, argSet)
 	// returnValue
 	// the return has the propertys of an arg set, but enclosed to be
 	// addressable as a single value
 	returnValue func() []accessAttribut
-	// Predicate
-	// returns true, when the passed data meets the enclosed condition, a
-	// native boolean for use in golang control structures
-	predicat func(Data) bool
 	// generic function wrapper
 	value    func() Data        // <- implements data.Typed
 	constant func() Data        // <- guarantueed to allways evaluate identicly
 	pair     func() (a, b Data) // <- base element of all tuples and collections
 	vector   func() d.Sliceable // <- indexable native golang slice of data instances
-	tuple    func() (FlagSet, Sliceable)
+	tuple    func() (Data, Sliceable)
 )
 
 type (
@@ -104,8 +108,12 @@ type (
 	nary   func(...Data) Data
 )
 
+func (tup tuple) Flag() d.BitFlag { d, _ := tup(); return d.Flag() }
+func (tup tuple) Type() Flag      { d, _ := tup(); return newFlag(Tuple, d.Flag()) }
+func (tup tuple) String() string  { d, c := tup(); return d.String() + " " + c.String() }
+
 // closure that wraps instances of precedence types from data package
-func newData(dat d.Data) value    { return value(func() Data { return dat.Eval() }) }
+func newData(dat d.Data) value    { return value(func() Data { return dat.(d.Evaluable).Eval() }) }
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
 func (dat value) Type() Flag      { return newFlag(Constant, dat().Flag()) }
 func (dat value) String() string  { return dat().(d.Data).String() }
@@ -127,12 +135,8 @@ func (p pair) String() string     { l, r := p(); return l.String() + " " + r.Str
 
 // vector keeps a slice of data instances
 func newVector(dd ...d.Data) vector {
-	var ddd = []d.Data{}
-	for _, dat := range dd {
-		ddd = append(ddd, dat)
-	}
 	return func() d.Sliceable {
-		return d.ChainToNativeSlice(d.ConChain(ddd...))
+		return d.ConChain(dd...)
 	}
 }
 
@@ -148,7 +152,7 @@ func (v vector) String() string  { return v().String() }
 func sliceFunctionalize(dd ...d.Data) []Data {
 	var dat = []Data{}
 	for _, ddd := range dd {
-		dat = append(dat, newData(ddd.Eval()))
+		dat = append(dat, newData(ddd.(d.Evaluable).Eval()))
 	}
 	return dat
 }

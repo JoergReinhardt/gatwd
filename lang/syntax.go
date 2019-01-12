@@ -30,7 +30,7 @@ func AllTokens() []TokType {
 	var tt = []TokType{}
 	var i uint
 	var t TokType = 0
-	for !d.FlagMatch(t.Flag(), TypeIdent.Flag()) {
+	for i < 63 {
 		t = 1 << i
 		i = i + 1
 		tt = append(tt, TokType(t))
@@ -296,8 +296,17 @@ var syntax = map[TokType]string{
 	TypeIdent:     "[A-z][a-z]*",
 }
 
+func ParseToken(tos ...string) string {
+	var sto string
+	for _, s := range tos {
+		sto = sto + matchSyntax[s]
+	}
+	return sto
+}
+
 type Token d.BitFlag
 
-func (t Token) Type() d.BitFlag { return TokType(t).Flag() }
-func (t Token) String() string  { return syntax[TokType(t)] }
-func (t Token) Flag() d.BitFlag { return d.Flag.Flag() }
+func (t Token) Type() d.BitFlag   { return TokType(t).Flag() }
+func (t Token) String() string    { return TokType(t).Syntax() }
+func (t Token) StringAlt() string { return matchSyntax[syntax[TokType(t)]] }
+func (t Token) Flag() d.BitFlag   { return d.Flag.Flag() }

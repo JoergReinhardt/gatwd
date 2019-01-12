@@ -30,51 +30,51 @@ func TestIdGenerator(t *testing.T) {
 func TestSliceMatch(t *testing.T) {
 	ts := [][]Token{
 		[]Token{
-			newToken(Syntax_Token, l.Lambda.Flag()),
-			newToken(Syntax_Token, l.DoubCol.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Syntax_Token, l.Lambda),
+			newToken(Syntax_Token, l.DoubCol),
+			newToken(Data_Type_Token, d.Bool),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Bool),
 		},
 		[]Token{
-			newToken(Syntax_Token, l.Lambda.Flag()),
-			newToken(Syntax_Token, l.DoubCol.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Syntax_Token, l.Lambda),
+			newToken(Syntax_Token, l.DoubCol),
+			newToken(Data_Type_Token, d.Bool),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Bool),
 		},
 		[]Token{
-			newToken(Syntax_Token, l.Lambda.Flag()),
-			newToken(Syntax_Token, l.DoubCol.Flag()),
-			newToken(Data_Value_Token, d.Slice.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Numeral.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Int.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Syntax_Token, l.Lambda),
+			newToken(Syntax_Token, l.DoubCol),
+			newToken(Data_Type_Token, d.Slice),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Numeral),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Int),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Bool),
 		},
 		[]Token{
-			newToken(Syntax_Token, l.Lambda.Flag()),
-			newToken(Syntax_Token, l.DoubCol.Flag()),
-			newToken(Data_Value_Token, d.Slice.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Numeral.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Int.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Syntax_Token, l.Lambda),
+			newToken(Syntax_Token, l.DoubCol),
+			newToken(Data_Type_Token, d.Slice),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Numeral),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Int),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Bool),
 		},
 		[]Token{
-			newToken(Syntax_Token, l.Lambda.Flag()),
-			newToken(Syntax_Token, l.DoubCol.Flag()),
-			newToken(Data_Value_Token, d.Symbolic.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Numeral.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Int.Flag()),
-			newToken(Syntax_Token, l.RightArrow.Flag()),
-			newToken(Data_Value_Token, d.Bool.Flag()),
+			newToken(Syntax_Token, l.Lambda),
+			newToken(Syntax_Token, l.DoubCol),
+			newToken(Data_Type_Token, d.Symbolic),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Numeral),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Int),
+			newToken(Syntax_Token, l.RightArrow),
+			newToken(Data_Type_Token, d.Bool),
 		},
 	}
 
@@ -112,15 +112,15 @@ func TestSliceMatch(t *testing.T) {
 		t.Fail()
 	}
 	nomatch := []Token{
-		newToken(Syntax_Token, l.Lambda.Flag()),
-		newToken(Syntax_Token, l.DoubCol.Flag()),
-		newToken(Data_Value_Token, d.Symbolic.Flag()),
-		newToken(Syntax_Token, l.LeftArrow.Flag()),
-		newToken(Data_Value_Token, d.Numeral.Flag()),
-		newToken(Syntax_Token, l.FatLArrow.Flag()),
-		newToken(Data_Value_Token, d.Int.Flag()),
-		newToken(Syntax_Token, l.LeftArrow.Flag()),
-		newToken(Data_Value_Token, d.Bool.Flag()),
+		newToken(Syntax_Token, l.Lambda),
+		newToken(Syntax_Token, l.DoubCol),
+		newToken(Data_Value_Token, d.Symbolic),
+		newToken(Syntax_Token, l.LeftArrow),
+		newToken(Data_Value_Token, d.Numeral),
+		newToken(Syntax_Token, l.FatLArrow),
+		newToken(Data_Value_Token, d.Int),
+		newToken(Syntax_Token, l.LeftArrow),
+		newToken(Data_Value_Token, d.Bool),
 	}
 
 	ok = sliceContainsSignature(nomatch, ts)
@@ -141,7 +141,7 @@ func TestPairEnclosures(t *testing.T) {
 	fmt.Println(a)
 	fmt.Println(b)
 }
-func TestVectorEnclosures(t *testing.T) {
+func TestStringVectorEnclosures(t *testing.T) {
 	vec := newVector(
 		d.New("first data in slice"),
 		d.New("second data entry in slice"),
@@ -158,25 +158,27 @@ func TestVectorEnclosures(t *testing.T) {
 	fmt.Println(vec.Type())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
-
-	vec1 := d.New(0, 7, 45,
-		134, 4, 465, 3, 645,
-		2452, 34, 45, 3535,
-		24, 4, 24, 2245,
-		24, 42, 4, 24)
-	fmt.Println(vec1.Flag())
-	fmt.Println(vec1.String())
-
-	vec2 := newVector(
+}
+func TestMixedVectorEnclosures(t *testing.T) {
+	vec := newVector(
 		d.New("this is"),
 		d.New("a vector of"),
 		d.New("mixed type"),
 		d.New(5, 7, 234, 4, 546, 324, 4),
 	)
-	fmt.Println(vec2.Flag())
-	fmt.Println(vec2.Type())
-	fmt.Println(vec2.Len())
-	fmt.Println(vec2.Empty())
+	fmt.Println(vec.Flag())
+	fmt.Println(vec.Type())
+	fmt.Println(vec.Len())
+	fmt.Println(vec.Empty())
+}
+func TestIntegerVectorEnclosures(t *testing.T) {
+	vec := d.New(0, 7, 45,
+		134, 4, 465, 3, 645,
+		2452, 34, 45, 3535,
+		24, 4, 24, 2245,
+		24, 42, 4, 24)
+	fmt.Println(vec.Flag())
+	fmt.Println(vec.String())
 }
 func TestParameterEnclosure(t *testing.T) {
 	var dat Data

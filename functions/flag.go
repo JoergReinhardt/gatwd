@@ -20,7 +20,7 @@ func (t Flag) Kind() BitFlag   { k, _ := t(); return Kind(k).Flag() }      // pr
 func (t Flag) Prec() d.BitFlag { _, p := t(); return p.Flag() }            // precedence type
 func (t Flag) String() string {
 	kind, prec := t()
-	return Kind(kind).String() + "||" + prec.String()
+	return Kind(kind).String() + ":" + prec.String()
 }
 
 type FlagSet func() []Flag

@@ -1,9 +1,7 @@
 package data
 
 import (
-	"fmt"
 	"math/big"
-	"math/bits"
 	"time"
 )
 
@@ -44,6 +42,7 @@ const (
 	Map
 	Function
 	Flag // marks most signifficant native type & data of type bitflag
+	Native
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
@@ -67,7 +66,9 @@ const (
 
 	Symbolic = Byte | Rune | Bytes | String | Error | Flag
 
-	Enumerable = Map | Slice
+	Collections = Map | Slice
+
+	Bitwise = Unsigned | Byte
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag
@@ -105,13 +106,12 @@ type ( ////// INTERNAL TYPES /////
 	TimeVal   time.Time
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
-	Native    struct{ i interface{} }
 )
 
 //////// ATTRIBUTE TYPE ALIAS /////////////////
 
 /// bind the appropriate Flag Method to every type
-func (v BitFlag) Flag() BitFlag   { return v }
+func (v BitFlag) Flag() BitFlag   { return Flag.Flag() }
 func (NilVal) Flag() BitFlag      { return Nil.Flag() }
 func (v BoolVal) Flag() BitFlag   { return Bool.Flag() }
 func (v IntVal) Flag() BitFlag    { return Int.Flag() }
@@ -189,49 +189,12 @@ func (v RatioVal) Null() *big.Rat     { return big.NewRat(1, 1) }
 func (v TimeVal) Null() time.Time     { return time.Now() }
 func (v DuraVal) Null() time.Duration { return time.Duration(0) }
 
-//// BOUND TYPE FLAG METHODS ////
-func (v BitFlag) Uint() uint               { return uint(v) }
-func (v BitFlag) Len() int                 { return FlagLength(v) }
-func (v BitFlag) Count() int               { return FlagCount(v) }
-func (v BitFlag) Least() int               { return FlagLeastSig(v) }
-func (v BitFlag) Most() int                { return FlagMostSig(v) }
-func (v BitFlag) Low(f BitFlag) BitFlag    { return FlagLow(f).Flag() }
-func (v BitFlag) High(f BitFlag) BitFlag   { return FlagHigh(f).Flag() }
-func (v BitFlag) Reverse() BitFlag         { return FlagReverse(v).Flag() }
-func (v BitFlag) Rotate(n int) BitFlag     { return FlagRotate(v, n).Flag() }
-func (v BitFlag) Toggle(f BitFlag) BitFlag { return FlagToggle(v, f).Flag() }
-func (v BitFlag) Concat(f BitFlag) BitFlag { return FlagConcat(v, f).Flag() }
-func (v BitFlag) Mask(f BitFlag) BitFlag   { return FlagMask(v, f).Flag() }
-func (v BitFlag) Match(f BitFlag) bool     { return FlagMatch(v, f) }
-
-///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Typed) BitFlag                { return t.Flag() }
-func FlagLength(t Typed) int              { return bits.Len(t.Flag().Uint()) }
-func FlagCount(t Typed) int               { return bits.OnesCount(t.Flag().Uint()) }
-func FlagLeastSig(t Typed) int            { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
-func FlagMostSig(t Typed) int             { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
-func FlagReverse(t Typed) BitFlag         { return BitFlag(bits.Reverse(t.Flag().Uint())) }
-func FlagRotate(t Typed, n int) BitFlag   { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
-func FlagToggle(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
-func FlagConcat(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
-func FlagMask(t Typed, v Typed) BitFlag   { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
-func FlagShow(f Typed) string             { return fmt.Sprintf("%64b\n", f) }
-func FlagLow(t Typed) Typed               { return FlagMask(t.Flag(), Typed(Mask)) }
-func FlagHigh(t BitFlag) BitFlag {
-	len := FlagLength(BitFlag(Flag))
-	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Flag), len))
-}
-func FlagMatch(t BitFlag, v BitFlag) bool {
-	if t.Uint()&v.Flag().Uint() != 0 {
-		return true
-	}
-	return false
-}
-func AllTypes() []Type {
+//
+func ListAllTypes() []Type {
 	var tt = []Type{}
 	var i uint
 	var t Type = 0
-	for !FlagMatch(t.Flag(), Flag.Flag()) {
+	for t < Flag {
 		t = 1 << i
 		i = i + 1
 		tt = append(tt, Type(t))

@@ -44,7 +44,7 @@ const (
 
 type token struct {
 	typ  TokType
-	flag d.BitFlag
+	flag d.Typed
 }
 
 func (t token) Type() d.BitFlag { return t.typ.Flag() }
@@ -62,9 +62,9 @@ func (t dataToken) Type() d.BitFlag { return Data_Value_Token.Flag() }
 func newToken(t TokType, dat Data) Token {
 	switch t {
 	case Syntax_Token:
-		return token{t, dat.Flag()}
+		return token{t, dat.(l.TokType)}
 	case Data_Type_Token:
-		return token{t, dat.Flag()}
+		return token{t, dat.(d.Type)}
 	case Return_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Argument_Token:
@@ -78,14 +78,14 @@ func newToken(t TokType, dat Data) Token {
 	return nil
 }
 
-func (t token) Flag() d.BitFlag { return t.flag }
+func (t token) Flag() d.BitFlag { return t.flag.Flag() }
 func (t token) String() string {
 	var str string
 	switch t.typ {
 	case Syntax_Token:
-		str = l.Token(t.flag).String()
+		str = t.flag.(l.TokType).Syntax()
 	case Data_Type_Token:
-		str = d.Type(t.flag).Flag().String()
+		str = d.StringBitFlag(t.flag.(d.Type).Flag())
 	default:
 		str = "Don't know how to print this token"
 	}
@@ -127,7 +127,7 @@ func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t
 }
-
+func (t tokens) Flag() BitFlag { return Internal.Flag() }
 func (t tokens) String() string {
 	var str string
 	for _, tok := range t {
@@ -159,6 +159,14 @@ func sliceContainsToken(ts tokens, t Token) bool {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
+func (t tokenSlice) Flag() BitFlag { return Internal.Flag() }
+func (t tokenSlice) String() string {
+	var str string
+	for _, s := range t {
+		str = str + tokens(s).String() + "\n"
+	}
+	return str
+}
 func (t tokenSlice) Len() int           { return len(t) }
 func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
 func (t tokenSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }

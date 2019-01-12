@@ -1,22 +1,27 @@
 package data
 
-type Chain []Data
+type (
+	Chain []Data
+	Set   map[Data]Data
+)
 
 func ConChain(val ...Data) Chain {
 	l := make([]Data, 0, len(val))
 	l = append(l, val...)
 	return l
 }
-func ChainContainedTypes(c Chain) BitFlag {
-	var flag = BitFlag(0)
-	for _, f := range c.Slice() {
-		flag = flag | f.Flag()
+func (c Chain) flag() BitFlag {
+	var fi BitFlag
+	if c.Len() > 0 {
+		for _, d := range c.Slice() {
+			fi = fi | BitFlag(d)
+		}
 	}
-	return flag
+	fi = fi | Slice.Flag()
+	return fi
 }
-func (c Chain) Flag() BitFlag { return Slice.Flag() }
+func (c Chain) Flag() BitFlag { return c.flag() }
 func (c Chain) Eval() Data    { return c }
-func (c Chain) Null() Chain   { return []Data{} }
 
 // SLICE ->
 func (v Chain) Slice() []Data { return v }
@@ -30,10 +35,13 @@ func (s Chain) Shift() (c Consumeable) { return s[:1] }
 
 func ChainClear(s Chain) {
 	if len(s) > 0 {
-		for _, v := range s {
-			if d, ok := v.(Destructable); ok {
-				d.Clear()
+		for i, v := range s {
+			if !FlagMatch(v.Flag(), Nullable.Flag()) {
+				if d, ok := v.(Destructable); ok {
+					d.Clear()
+				}
 			}
+			s[i] = nil
 		}
 	}
 	s = nil

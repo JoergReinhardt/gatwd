@@ -1,3 +1,3 @@
 package data
 
-//func conSet(acc ...Acce)
+type Set map[Data]Data

@@ -16,9 +16,9 @@ type DataType interface {
 type Data interface {
 	Typed
 	Stringer
-	Eval() Data
 }
 type Evaluable interface {
+	Eval() Data
 }
 type NativeVal interface {
 	Data
