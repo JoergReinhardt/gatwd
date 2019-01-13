@@ -152,6 +152,7 @@ type Operator interface {
 ///// COLLECTION ///////
 ///// PROPERTYS ////////
 type Paired interface {
+	Data
 	Left() Data
 	Right() Data
 	Both() (Data, Data)
@@ -192,9 +193,11 @@ type Reverseable interface {
 // element, according to list type, need accessors, to pass in attributes on
 // which element(s) to access. attributes are a type alias of Data, to ensure
 // type safety on argument propagation
+type Integer interface{ Int() int }
+type Unsigned interface{ Uint() uint }
 type Accessable interface {
-	AccType() // 0: int | 1: string | 3: bitflag
-	Value(value)
+	Acc() Data
+	Arg() Data
 }
 type KeyAccessable interface {
 	Accessable

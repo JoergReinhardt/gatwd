@@ -12,6 +12,18 @@ type Type BitFlag
 
 func (v Type) Flag() BitFlag { return BitFlag(v) }
 
+func ListAllTypes() []Type {
+	var tt = []Type{}
+	var i uint
+	var t Type = 0
+	for t < Flag {
+		t = 1 << i
+		i = i + 1
+		tt = append(tt, Type(t))
+	}
+	return tt
+}
+
 //go:generate stringer -type=Type
 const (
 	Nil  Type = 1
@@ -41,8 +53,10 @@ const (
 	Slice
 	Map
 	Function
-	Flag // marks most signifficant native type & data of type bitflag
+	Argument
+	Parameter
 	Native
+	Flag // marks most signifficant native type & data of type bitflag
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
@@ -69,6 +83,8 @@ const (
 	Collections = Map | Slice
 
 	Bitwise = Unsigned | Byte | Flag
+
+	HigherOrder = Function | Argument | Parameter
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag
@@ -138,7 +154,33 @@ func (v DuraVal) Flag() BitFlag   { return Duration.Flag() }
 func (v ErrorVal) Flag() BitFlag  { return Error.Flag() }
 
 ///
+func (NilVal) Copy() Data      { return NilVal{} }
+func (v BitFlag) Copy() Data   { return BitFlag(v) }
+func (v BoolVal) Copy() Data   { return BoolVal(v) }
+func (v IntVal) Copy() Data    { return IntVal(v) }
+func (v Int8Val) Copy() Data   { return Int8Val(v) }
+func (v Int16Val) Copy() Data  { return Int16Val(v) }
+func (v Int32Val) Copy() Data  { return Int32Val(v) }
+func (v UintVal) Copy() Data   { return UintVal(v) }
+func (v Uint8Val) Copy() Data  { return Uint8Val(v) }
+func (v Uint16Val) Copy() Data { return Uint16Val(v) }
+func (v Uint32Val) Copy() Data { return Uint32Val(v) }
+func (v BigIntVal) Copy() Data { return BigIntVal(v) }
+func (v FltVal) Copy() Data    { return FltVal(v) }
+func (v Flt32Val) Copy() Data  { return Flt32Val(v) }
+func (v BigFltVal) Copy() Data { return BigFltVal(v) }
+func (v ImagVal) Copy() Data   { return ImagVal(v) }
+func (v Imag64Val) Copy() Data { return Imag64Val(v) }
+func (v RatioVal) Copy() Data  { return RatioVal(v) }
+func (v RuneVal) Copy() Data   { return RuneVal(v) }
+func (v ByteVal) Copy() Data   { return ByteVal(v) }
+func (v BytesVal) Copy() Data  { return BytesVal(v) }
+func (v StrVal) Copy() Data    { return StrVal(v) }
+func (v TimeVal) Copy() Data   { return TimeVal(v) }
+func (v DuraVal) Copy() Data   { return DuraVal(v) }
+func (v ErrorVal) Copy() Data  { return ErrorVal(v) }
 
+///
 func (NilVal) Eval() Data      { return NilVal{} }
 func (v BitFlag) Eval() Data   { return v }
 func (v BoolVal) Eval() Data   { return v }
@@ -188,16 +230,3 @@ func (v BigFltVal) Null() *big.Float  { return big.NewFloat(0) }
 func (v RatioVal) Null() *big.Rat     { return big.NewRat(1, 1) }
 func (v TimeVal) Null() time.Time     { return time.Now() }
 func (v DuraVal) Null() time.Duration { return time.Duration(0) }
-
-//
-func ListAllTypes() []Type {
-	var tt = []Type{}
-	var i uint
-	var t Type = 0
-	for t < Flag {
-		t = 1 << i
-		i = i + 1
-		tt = append(tt, Type(t))
-	}
-	return tt
-}

@@ -1,7 +1,6 @@
 package data
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -347,7 +346,10 @@ func newChainSearchFnc(c Chain, comp Data) func(i int) bool {
 				comp.String()) >= 0
 		}
 	case FlagMatch(f, Flag.Flag()):
-		fn = func(i int) bool { return FlagMatch(c[i].Flag(), comp.Flag()) }
+		fn = func(i int) bool {
+			return c[i].Flag() >=
+				comp.Flag()
+		}
 	case FlagMatch(f, Unsigned.Flag()):
 		fn = func(i int) bool {
 			return uint(c[i].(UnsignedVal).Uint()) >=
@@ -363,9 +365,15 @@ func newChainSearchFnc(c Chain, comp Data) func(i int) bool {
 }
 func ChainSearch(c Chain, comp Data) Data {
 	idx := sort.Search(c.Len(), newChainSearchFnc(c, comp))
-	fmt.Printf("index found: %d\n", idx)
-	fmt.Printf("element found: %s\n", ChainGet(c, idx))
 	var dat = ChainGet(c, idx)
+	return dat
+}
+func ChainSearchRange(c Chain, comp Data) []Data {
+	var idx = sort.Search(c.Len(), newChainSearchFnc(c, comp))
+	var dat = []Data{}
+	for ChainGet(c, idx).Flag().Match(comp.Flag()) {
+		dat = append(dat, ChainGet(c, idx))
+	}
 	return dat
 }
 func (c Chain) Search(comp Data) Data { return ChainSearch(c, comp) }

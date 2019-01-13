@@ -17,6 +17,15 @@ type Data interface {
 	Typed
 	Stringer
 }
+type Accessor interface {
+	Acc() Data
+	Arg() Data
+}
+type Pair interface {
+	Left() Data
+	Right() Data
+	Both() (Data, Data)
+}
 type Evaluable interface {
 	Eval() Data
 }

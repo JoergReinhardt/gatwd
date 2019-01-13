@@ -198,16 +198,16 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := newAccAttribute(newPair(d.New("test-key"), d.New("test value")))
+	acc := newAccAttribute(d.New("test-key"), d.New("test value"))
 	fmt.Println(acc)
 	_, acc = acc(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
-	if acc.Key() != d.New(12) {
+	if acc.Acc() != d.New(12) {
 		t.Fail()
 	}
 	_, acc = acc(newPair(d.New(13), d.New("two million dollar")))
 	fmt.Println(acc)
-	if acc.Key() != d.New(13) {
+	if acc.Acc() != d.New(13) {
 		t.Fail()
 	}
 }
@@ -237,4 +237,99 @@ func TestTokenToSignature(t *testing.T) {
 func TestApplyArgs(t *testing.T) {
 	args := newArgSet(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
 	fmt.Println(args)
+	_, args = args(d.New(0), d.New(1), d.New(2), d.New(5), d.New(4), d.New(5))
+	fmt.Println(args)
+	if args.Args()[3].(d.IntVal) != 5 {
+		t.Fail()
+	}
+
+	_, args = args(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8))
+	fmt.Println(args)
+	if args.Args()[3].(d.IntVal) != 5 &&
+		args.Args()[0].(d.IntVal) != 7 &&
+		args.Args()[5].(d.IntVal) != 8 {
+		t.Fail()
+	}
 }
+
+var acc = newAccSet(
+	newPair(
+		d.New("first key"),
+		d.New("first value"),
+	),
+	newPair(
+		d.New("second key"),
+		d.New("second value"),
+	),
+	newPair(
+		d.New("third key"),
+		d.New("third value"),
+	),
+	newPair(
+		d.New("fourth key"),
+		d.New("fourth value"),
+	),
+	newPair(
+		d.New("fifth key"),
+		d.New("fifth value"),
+	),
+	newPair(
+		d.New("sixt key"),
+		d.New("sixt value")))
+
+func TestAccAttrs(t *testing.T) {
+	fmt.Println(acc)
+	p, acc1 := acc(
+		newPair(
+			d.New("first key"),
+			d.New("first value"),
+		),
+		newPair(
+			d.New("second key"),
+			d.New("changed second value"),
+		),
+		newPair(
+			d.New("third key"),
+			d.New("third value"),
+		),
+		newPair(
+			d.New("fourth key"),
+			d.New("changed fourth value"),
+		),
+		newPair(
+			d.New("fifth key"),
+			d.New("fifth value"),
+		),
+		newPair(
+			d.New("sixt key"),
+			d.New("sixt value")))
+
+	fmt.Println(p)
+	fmt.Println(acc1)
+
+	_, acc2 := acc1(
+		newPair(
+			d.New("second key"),
+			d.New("changed second value again"),
+		),
+		newPair(
+			d.New("fourth key"),
+			d.New("changed fourth value again")))
+
+	fmt.Println(acc2)
+}
+
+//
+//func TestSearchAccAttrs(t *testing.T) {
+//	pair := newPair(
+//		d.New("third Key"),
+//		d.New("Value set thrue search"),
+//	)
+//	var cha = []d.Chain{}
+//	args, _ := acc()
+//	for _, c := range args {
+//		cha = append(cha, c...)
+//	}
+//	fmt.Println(cha)
+//	fmt.Println(d.ChainSearch(cha, pair))
+//}

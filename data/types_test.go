@@ -233,7 +233,7 @@ func TestNativeSlice(t *testing.T) {
 }
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int Int8 Int16 Int32 BigInt Uint Uint8 Uint16 Uint32 Float Flt32 BigFlt Ratio Imag Imag64 Byte Rune Bytes String Time Duration Error Slice Map Function Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int Int8 Int16 Int32 BigInt Uint Uint8 Uint16 Uint32 Float Flt32 BigFlt Ratio Imag Imag64 Byte Rune Bytes String Time Duration Error Slice Map Function Argument Parameter Native Flag]" {
 		t.Fail()
 	}
 }
