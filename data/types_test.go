@@ -251,7 +251,9 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 }
 func TestSearchChainString(t *testing.T) {
-	sl := New("Nil", "Bool", "Int", "Int8", "Int16", "Int32", "BigInt", "Uint", "Uint8", "Uint16", "Uint32", "and one more").(Chain)
+	sl := New("Nil", "Bool", "Int", "Int8",
+		"Int16", "Int32", "BigInt", "Uint",
+		"Uint8", "Uint16", "Uint32", "and one more").(Chain)
 	fmt.Println(sl)
 	sl.Sort(String)
 	fmt.Println(sl)

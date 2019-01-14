@@ -133,6 +133,8 @@ func newPair(l, r Data) pair      { return func() (Data, Data) { return l, r } }
 func (p pair) Both() (Data, Data) { return p() }
 func (p pair) Left() Data         { l, _ := p(); return l }
 func (p pair) Right() Data        { _, r := p(); return r }
+func (p pair) Acc() Data          { return p.Left() }
+func (p pair) Arg() Data          { return p.Right() }
 func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() | Double.Flag() }
 func (p pair) Type() Flag         { return newFlag(Double, p.Flag()) }
 func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
@@ -339,22 +341,25 @@ func (a accSet) Append(v ...Paired) accSet { return newAccSet(append(a.Accs(), v
 // accessor (key) in an accessor/value pair.
 type pairSorter []Paired
 
-func newPairSorte() pairSorter       { return []Paired{} }
-func (p pairSorter) Len() int        { return len(p) }
-func (p pairSorter) Swap(i, j int)   { p[i], p[j] = p[j], p[i] }
-func (p pairSorter) Sort(acc Paired) { sort.Slice(p, newAccLess(p, acc)) }
+func newPairSorte() pairSorter     { return []Paired{} }
+func (p pairSorter) Len() int      { return len(p) }
+func (p pairSorter) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p pairSorter) Sort(acc Paired) {
+	less := newAccLess(p, acc)
+	sort.Slice(p, less)
+}
 func (p pairSorter) Search(acc Paired) Paired {
-	var idx = sort.Search(len(p), newAccSearch(p, acc))
+	search := newAccSearch(p, acc)
+	var idx = sort.Search(len(p), search)
 	return p[idx]
 }
 
-func newAccLess(accs []Paired, acc Paired) func(i, j int) bool {
-	chain := accs
-	var fn func(i, j int) bool
+func newAccLess(accs pairSorter, acc Paired) func(i, j int) bool {
 	f := acc.Flag()
 	switch {
-	case d.FlagMatch(f, d.Symbolic.Flag()):
-		fn = func(i, j int) bool {
+	case d.FlagMatch(d.String.Flag(), f):
+		return func(i, j int) bool {
+			chain := accs
 			if strings.Compare(
 				string(chain[i].(Accessable).Acc().String()),
 				string(chain[j].(Accessable).Acc().String()),
@@ -363,24 +368,27 @@ func newAccLess(accs []Paired, acc Paired) func(i, j int) bool {
 			}
 			return false
 		}
-	case d.FlagMatch(f, d.Flag.Flag()):
-		fn = func(i, j int) bool { // sort by value-, NOT accessor type
+	case d.FlagMatch(d.Flag.Flag(), f):
+		return func(i, j int) bool { // sort by value-, NOT accessor type
+			chain := accs
 			if chain[i].(Accessable).Arg().Flag() <
 				chain[j].(Accessable).Arg().Flag() {
 				return true
 			}
 			return false
 		}
-	case d.FlagMatch(f, d.Unsigned.Flag()):
-		fn = func(i, j int) bool {
+	case d.FlagMatch(d.Unsigned.Flag(), f):
+		return func(i, j int) bool {
+			chain := accs
 			if uint(chain[i].(Accessable).Acc().(Unsigned).Uint()) <
 				uint(chain[j].(Accessable).Acc().(Unsigned).Uint()) {
 				return true
 			}
 			return false
 		}
-	case d.FlagMatch(f, d.Integer.Flag()):
-		fn = func(i, j int) bool {
+	case d.FlagMatch(d.Integer.Flag(), f):
+		return func(i, j int) bool {
+			chain := accs
 			if int(chain[i].(Accessable).Acc().(Integer).Int()) <
 				int(chain[j].(Accessable).Acc().(Integer).Int()) {
 				return true
@@ -388,29 +396,29 @@ func newAccLess(accs []Paired, acc Paired) func(i, j int) bool {
 			return false
 		}
 	}
-	return fn
+	return nil
 }
-func newAccSearch(accs []Paired, acc Paired) func(i int) bool {
+func newAccSearch(accs pairSorter, acc Paired) func(i int) bool {
 	var fn func(i int) bool
 	f := acc.Flag()
 	switch { // parameters are accessor/value pairs to be applyed.
-	case d.FlagMatch(f, d.Unsigned.Flag()):
+	case d.FlagMatch(d.Unsigned.Flag(), f):
 		fn = func(i int) bool {
 			return uint(accs[i].(Accessable).Acc().(Unsigned).Uint()) >=
 				uint(acc.(Accessable).Acc().(Unsigned).Uint())
 		}
-	case d.FlagMatch(f, d.Integer.Flag()):
+	case d.FlagMatch(d.Integer.Flag(), f):
 		fn = func(i int) bool {
 			return int(accs[i].(Accessable).Acc().(Integer).Int()) >=
 				int(acc.(Accessable).Acc().(Integer).Int())
 		}
-	case d.FlagMatch(f, d.Symbolic.Flag()):
+	case d.FlagMatch(d.String.Flag(), f):
 		fn = func(i int) bool {
 			return strings.Compare(
 				accs[i].(Accessable).Acc().String(),
 				acc.(Accessable).Acc().String()) >= 0
 		}
-	case d.FlagMatch(f, d.Flag.Flag()):
+	case d.FlagMatch(d.Flag.Flag(), f):
 		fn = func(i int) bool {
 			return accs[i].(Accessable).Acc().Flag() >=
 				acc.(Accessable).Acc().Flag()

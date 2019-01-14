@@ -2,9 +2,10 @@ package functions
 
 import (
 	"fmt"
+	"testing"
+
 	d "github.com/JoergReinhardt/godeep/data"
 	l "github.com/JoergReinhardt/godeep/lang"
-	"testing"
 )
 
 func TestIdGenerator(t *testing.T) {
@@ -319,17 +320,18 @@ func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc2)
 }
 
-//
-//func TestSearchAccAttrs(t *testing.T) {
-//	pair := newPair(
-//		d.New("third Key"),
-//		d.New("Value set thrue search"),
-//	)
-//	var cha = []d.Chain{}
-//	args, _ := acc()
-//	for _, c := range args {
-//		cha = append(cha, c...)
-//	}
-//	fmt.Println(cha)
-//	fmt.Println(d.ChainSearch(cha, pair))
-//}
+func TestSearchAccAttrs(t *testing.T) {
+	pair := newPair(
+		d.New("fourth key"),
+		d.New("Value set thrue search"),
+	)
+	fmt.Println(pair)
+	var cha = pairSorter{}
+	args, _ := acc()
+	for _, c := range args {
+		cha = append(cha, c)
+	}
+	fmt.Println(cha)
+	cha.Sort(pair)
+	fmt.Println(cha.Search(pair))
+}
