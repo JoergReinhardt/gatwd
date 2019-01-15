@@ -255,13 +255,13 @@ func applyArgs(ao argSet, args ...Argumented) Arguments {
 	var i int
 	for i, _ = range an {
 		// copy old arguments to return set, if any are set at this pos.
-		if oargs[i] != nil && d.FlagMatch(oargs[i].Flag(), d.Nil.Flag()) {
+		if oargs[i] != nil && d.Nil.Flag().Match(oargs[i].Flag()) {
 			an[i] = oargs[i]
 		}
 		// copy new arguments to return set, if any are set at this
 		// position. overwrite old arguments in case any where set at
 		// this position.
-		if args[i] != nil && d.FlagMatch(args[i].Flag(), d.Nil.Flag()) {
+		if args[i] != nil && d.Nil.Flag().Match(args[i].Flag()) {
 			an[i] = args[i]
 		}
 
@@ -392,15 +392,17 @@ func (p pairSorter) Search(praed d.Data) int {
 			return idx
 		}
 	}
-	if p[idx].Left() == praed {
-		return idx
+	if idx < len(p) {
+		if p[idx].Left() == praed {
+			return idx
+		}
 	}
 	return -1
 }
 
 func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	switch {
-	case d.FlagMatch(d.String.Flag(), f):
+	case f.Match(d.String.Flag()):
 		return func(i, j int) bool {
 			chain := accs
 			if strings.Compare(
@@ -411,7 +413,7 @@ func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 			}
 			return false
 		}
-	case d.FlagMatch(d.Flag.Flag(), f):
+	case f.Match(d.Flag.Flag()):
 		return func(i, j int) bool { // sort by value-, NOT accessor type
 			chain := accs
 			if chain[i].(Paired).Right().Flag() <
@@ -420,7 +422,7 @@ func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 			}
 			return false
 		}
-	case d.FlagMatch(d.Unsigned.Flag(), f):
+	case f.Match(d.Unsigned.Flag()):
 		return func(i, j int) bool {
 			chain := accs
 			if uint(chain[i].(Paired).Left().(Unsigned).Uint()) <
@@ -429,7 +431,7 @@ func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 			}
 			return false
 		}
-	case d.FlagMatch(d.Integer.Flag(), f):
+	case f.Match(d.Integer.Flag()):
 		return func(i, j int) bool {
 			chain := accs
 			if int(chain[i].(Paired).Left().(Integer).Int()) <
@@ -445,23 +447,23 @@ func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
 	var f = praed.Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
-	case d.FlagMatch(d.Unsigned.Flag(), f):
+	case f.Match(d.Unsigned.Flag()):
 		fn = func(i int) bool {
 			return uint(accs[i].(Paired).Left().(Unsigned).Uint()) >=
 				uint(praed.(Unsigned).Uint())
 		}
-	case d.FlagMatch(d.Integer.Flag(), f):
+	case f.Match(d.Integer.Flag()):
 		fn = func(i int) bool {
 			return int(accs[i].(Paired).Left().(Integer).Int()) >=
 				int(praed.(Integer).Int())
 		}
-	case d.FlagMatch(d.String.Flag(), f):
+	case f.Match(d.String.Flag()):
 		fn = func(i int) bool {
 			return strings.Compare(
 				accs[i].(Paired).Left().String(),
 				praed.String()) >= 0
 		}
-	case d.FlagMatch(d.Flag.Flag(), f):
+	case f.Match(d.Flag.Flag()):
 		fn = func(i int) bool {
 			return accs[i].(Paired).Right().Flag() >=
 				praed.(d.BitFlag)
@@ -471,9 +473,10 @@ func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
 }
 func applyAccs(acc Accessables, praed ...Paired) Accessables {
 	var ps = newPairSorter(acc.Pairs()...)
+	ps.Sort(praed[0].Left().Flag())
 	for _, p := range praed {
 		idx := ps.Search(p.Left())
-		if idx > 0 {
+		if idx >= 0 {
 			ps[idx] = p
 			continue
 		}

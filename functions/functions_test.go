@@ -446,16 +446,57 @@ var accl = newAccessables(
 			d.New("twelveth value"))}...)...)
 
 func TestFmtAccessorBenchmarkExpression(t *testing.T) {
-	fmt.Println(accc)
-	fmt.Println(accl)
-	accl = applyAccs(accl, newPair(
-		d.New("thirteenth key"),
-		d.New("hirteenth value")))
-	fmt.Println(accl)
+	fmt.Printf("accessors to replace:\n%s\n", accc)
+	fmt.Printf("accessor set to replace accessors in:\n%s\n", accl)
 }
 func BenchmarkAccessorApply(b *testing.B) {
 	//var accn = []Accessable{}
 	for i := 0; i < b.N; i++ {
 		_ = applyAccs(accl, accc.Pairs()...)
+	}
+}
+
+var accc1 = newAccessables(
+	newPair(
+		d.New("fourteenth key"),
+		d.New("changed fourteenth value"),
+	),
+	newPair(
+		d.New("third key"),
+		d.New("changed third value"),
+	),
+	newPair(
+		d.New("seventh key"),
+		d.New("changed seventh value"),
+	),
+	newPair(
+		d.New("first key"),
+		d.New("changed first value"),
+	),
+	newPair(
+		d.New("eigth key"),
+		d.New("changed changed eigth value"),
+	),
+	newPair(
+		d.New("second key"),
+		d.New("changed second value"),
+	),
+	newPair(
+		d.New("thirteenth key"),
+		d.New("changed hirteenth value"),
+	),
+	newPair(
+		d.New("nineth key"),
+		d.New("changed nineth value"),
+	))
+
+func TestFmtMoreAccessorsBenchmarkExpression(t *testing.T) {
+	fmt.Printf("more accessors to replace:\n%s\n", accc1)
+	fmt.Printf("same accessor set to replace accessors in:\n%s\n", applyAccs(accl, accc1.Pairs()...))
+}
+func BenchmarkMoreAccessorApply(b *testing.B) {
+	//var accn = []Accessable{}
+	for i := 0; i < b.N; i++ {
+		_ = applyAccs(accl, accc1.Pairs()...)
 	}
 }
