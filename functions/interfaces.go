@@ -19,6 +19,7 @@ package functions
 
 import (
 	"math/big"
+	"time"
 
 	d "github.com/JoergReinhardt/godeep/data"
 )
@@ -154,12 +155,37 @@ type SliceOfNatives interface {
 	Native(i int) interface{}
 	Natives(i, j int) []interface{}
 }
-type Integer interface{ Int() int }
+
+// map data packages type classes, defined by binary flag composistion, to
+// method sets to be implemented by higher order types.
+type Nullable interface{ Null() Data }
+type Numeric interface {
+	Uint() uint
+	Int() int
+	Flt() float64
+	Imag() complex128
+	BitWise() uint
+	Dura() time.Duration
+}
+type Synbolic interface {
+	String() string
+	Bytes() []byte
+	Time() time.Time
+}
 type Unsigned interface{ Uint() uint }
+type Integer interface{ Int() int }
 type Rational interface{ Rat() *big.Rat }
 type Irrational interface{ Float() float64 }
 type Imaginary interface{ Imag() complex128 }
+type BinaryData interface{ Bytes() []byte }
 type Symbolic interface{ String() string }
+type BitWise interface{ Bytes() uint }
+type Temporal interface {
+	Time() time.Time
+	Dura() time.Duration
+}
+type Collection interface{ Len() int }
+
 type Argumented interface {
 	Data
 	Typed
@@ -180,20 +206,18 @@ type Parametric interface {
 	Pair() Paired
 	Set(...Paired) (Paired, Parametric)
 }
-type Accessables interface {
+type Preadicates interface {
 	Accs() []Parametric
 	Pairs() []Paired
-	Set(...Paired) ([]Paired, Accessables)
-}
-type Tupled interface {
-	Reduceable
+	Set(...Paired) ([]Paired, Preadicates)
 }
 
 //// RECURSIVE LISTS ///////
 type Reduceable interface {
-	Collected
-	Head() value
-	Tail() Reduceable
+	Data
+	Collection
+	Head() Data
+	Tail() []Data
 	Shift() Reduceable
 }
 

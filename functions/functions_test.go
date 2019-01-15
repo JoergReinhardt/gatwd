@@ -49,7 +49,7 @@ func TestSliceMatch(t *testing.T) {
 			newToken(Syntax_Token, l.DoubCol),
 			newToken(Data_Type_Token, d.Slice),
 			newToken(Syntax_Token, l.RightArrow),
-			newToken(Data_Type_Token, d.Numeral),
+			newToken(Data_Type_Token, d.Numeric),
 			newToken(Syntax_Token, l.RightArrow),
 			newToken(Data_Type_Token, d.Int),
 			newToken(Syntax_Token, l.RightArrow),
@@ -60,7 +60,7 @@ func TestSliceMatch(t *testing.T) {
 			newToken(Syntax_Token, l.DoubCol),
 			newToken(Data_Type_Token, d.Slice),
 			newToken(Syntax_Token, l.RightArrow),
-			newToken(Data_Type_Token, d.Numeral),
+			newToken(Data_Type_Token, d.Numeric),
 			newToken(Syntax_Token, l.RightArrow),
 			newToken(Data_Type_Token, d.Int),
 			newToken(Syntax_Token, l.RightArrow),
@@ -71,7 +71,7 @@ func TestSliceMatch(t *testing.T) {
 			newToken(Syntax_Token, l.DoubCol),
 			newToken(Data_Type_Token, d.Symbolic),
 			newToken(Syntax_Token, l.RightArrow),
-			newToken(Data_Type_Token, d.Numeral),
+			newToken(Data_Type_Token, d.Numeric),
 			newToken(Syntax_Token, l.RightArrow),
 			newToken(Data_Type_Token, d.Int),
 			newToken(Syntax_Token, l.RightArrow),
@@ -117,7 +117,7 @@ func TestSliceMatch(t *testing.T) {
 		newToken(Syntax_Token, l.DoubCol),
 		newToken(Data_Value_Token, d.Symbolic),
 		newToken(Syntax_Token, l.LeftArrow),
-		newToken(Data_Value_Token, d.Numeral),
+		newToken(Data_Value_Token, d.Numeric),
 		newToken(Syntax_Token, l.FatLArrow),
 		newToken(Data_Value_Token, d.Int),
 		newToken(Syntax_Token, l.LeftArrow),
@@ -198,7 +198,7 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := newAccAttribute(newPair(d.New("test-key"), d.New("test value")))
+	acc := newPraedicate(newPair(d.New("test-key"), d.New("test value")))
 	fmt.Println(acc)
 	_, acc = acc.Set(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
@@ -255,7 +255,7 @@ func TestApplyArgs(t *testing.T) {
 	}
 }
 
-var acc = newAccessables(
+var acc = newPraedicates(
 	newPair(
 		d.New("first key"),
 		d.New("first value"),
@@ -279,7 +279,7 @@ var acc = newAccessables(
 	newPair(
 		d.New("sixt key"),
 		d.New("sixt value")))
-var acc2 = newAccessables(
+var acc2 = newPraedicates(
 	newPair(
 		d.New("first key"),
 		d.New("changed first value"),
@@ -290,7 +290,7 @@ var acc2 = newAccessables(
 
 func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc)
-	p, acc1 := acc.Set(newAccessables(
+	p, acc1 := acc.Set(newPraedicates(
 		newPair(
 			d.New("first key"),
 			d.New("first value"),
@@ -318,7 +318,7 @@ func TestAccAttrs(t *testing.T) {
 	fmt.Println(p)
 	fmt.Println(acc1)
 
-	_, acc2 := acc1.Set(newAccessables(
+	_, acc2 := acc1.Set(newPraedicates(
 		newPair(
 			d.New("second key"),
 			d.New("changed second value again"),
@@ -398,12 +398,12 @@ func TestMixedTypeAccessor(t *testing.T) {
 	}
 }
 func TestApplyAccessAttrs(t *testing.T) {
-	acc3 := applyAccs(acc, acc2.Pairs()...)
+	acc3 := applyPraedicate(acc, acc2.Pairs()...)
 	fmt.Println(acc3)
-	acc2 = newAccSet(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
+	acc2 = newPraedSet(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
 }
 
-var accc = newAccessables(
+var accc = newPraedicates(
 	newPair(
 		d.New("eigth key"),
 		d.New("changed eigth value"),
@@ -420,7 +420,7 @@ var accc = newAccessables(
 		d.New("nineth key"),
 		d.New("nineth value"),
 	))
-var accl = newAccessables(
+var accl = newPraedicates(
 	append(acc.Pairs(), []Paired{newPair(
 		d.New("seventh key"),
 		d.New("seventh value"),
@@ -452,11 +452,11 @@ func TestFmtAccessorBenchmarkExpression(t *testing.T) {
 func BenchmarkAccessorApply(b *testing.B) {
 	//var accn = []Accessable{}
 	for i := 0; i < b.N; i++ {
-		_ = applyAccs(accl, accc.Pairs()...)
+		_ = applyPraedicate(accl, accc.Pairs()...)
 	}
 }
 
-var accc1 = newAccessables(
+var accc1 = newPraedicates(
 	newPair(
 		d.New("fourteenth key"),
 		d.New("changed fourteenth value"),
@@ -492,11 +492,11 @@ var accc1 = newAccessables(
 
 func TestFmtMoreAccessorsBenchmarkExpression(t *testing.T) {
 	fmt.Printf("more accessors to replace:\n%s\n", accc1)
-	fmt.Printf("same accessor set to replace accessors in:\n%s\n", applyAccs(accl, accc1.Pairs()...))
+	fmt.Printf("same accessor set to replace accessors in:\n%s\n", applyPraedicate(accl, accc1.Pairs()...))
 }
 func BenchmarkMoreAccessorApply(b *testing.B) {
 	//var accn = []Accessable{}
 	for i := 0; i < b.N; i++ {
-		_ = applyAccs(accl, accc1.Pairs()...)
+		_ = applyPraedicate(accl, accc1.Pairs()...)
 	}
 }

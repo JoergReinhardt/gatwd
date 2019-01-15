@@ -1,18 +1,18 @@
 /*
 TOKEN GENERATION
 
-tokens are closures over a token data structure. the purpose of a token depends
-on the context. the enclosed data can range from a single bitflag, to kb's of
-unparsed sourcecode. tokens can recursively contain, or reference other tokens,
-to form linked lists, or graphs (in which case they also implement the
-'linked', 'node' & 'tree' interfaces). streams, and more so trees of tokens can
-express program source, parsed code in different levels of abstraction,
-typespec-, runtime information and last but not least references to executable
-golang code generated elsewhere in the program.
+  tokens are closures over a token data structure. the purpose of a token depends
+  on the context. the enclosed data can range from a single bitflag, to kb's of
+  unparsed sourcecode. tokens can recursively contain, or reference other tokens,
+  to form linked lists, or graphs (in which case they also implement the
+  'linked', 'node' & 'tree' interfaces). streams, and more so trees of tokens can
+  express program source, parsed code in different levels of abstraction,
+  typespec-, runtime information and last but not least references to executable
+  golang code generated elsewhere in the program.
 
-tokens are implementet as data structure, to leaverage golang slices. loops and
-index operations for serialization of internal structures, whenever that seems
-oportune.
+  tokens are implementet as data structure, to leaverage golang slices. loops and
+  index operations for serialization of internal structures, whenever that seems
+  oportune.
 */
 package functions
 

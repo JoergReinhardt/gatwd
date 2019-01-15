@@ -67,17 +67,17 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	// ARGSET
 	// set of placeholder arguments for signatures, promises, values passed
 	// in a function call, partially applied values‥.
-	argSet func(d ...Argumented) ([]Argumented, Arguments)
+	arguments func(d ...Argumented) ([]Argumented, Arguments)
 	// ACCESSATTRIBUT
 	// shares the behaviour with that of a parameter, but yields and takes
 	// a pair to contain a position/key & value pair instead.
 	praedicate func(d ...Paired) (Paired, Parametric)
 	// ACCSET
-	preadciates func(d ...Paired) ([]Paired, Accessables)
-	// generic function wrapper
-	value    func() Data        // <- implements data.Typed
-	constant func() Data        // <- guarantueed to allways evaluate identicly
-	pair     func() (a, b Data) // <- base element of all tuples and collections
+	preadciates func(d ...Paired) ([]Paired, Preadicates)
+	// generic functional data wrapper
+	value func() Data // <- implements data.Typed
+	// wraps generic pairs of functional data
+	pair func() (a, b Data) // <- base element of all tuples and collections
 )
 
 // DATA
@@ -87,14 +87,15 @@ func (dat value) Flag() d.BitFlag { return dat().Flag() }
 func (dat value) Type() Flag      { return newFlag(Constant, dat().Flag()) }
 func (dat value) String() string  { return dat().(d.Data).String() }
 func (dat value) Eval() Data      { return dat }
-
-// CONSTANT
-// constant also conains immutable data, but it may be the result of a constant experssion
-func newConstant(dat Data) Data    { return constant(func() Data { return dat.(Functional).Eval() }) }
-func (c constant) Flag() d.BitFlag { return Constant.Flag() }
-func (c constant) Type() Flag      { return newFlag(Constant, c().Flag()) }
-func (c constant) String() string  { return c().(d.Data).String() }
-func (c constant) Eval() Data      { return c }
+func (dat value) Empty() bool     { return elemEmpty(dat) }
+func elemEmpty(dat Data) bool {
+	if dat != nil {
+		if !dat.Flag().Match(d.Nil.Flag()) {
+			return false
+		}
+	}
+	return true
+}
 
 // PAIR
 // pair encloses two data instances
@@ -102,12 +103,15 @@ func newPair(l, r Data) Paired    { return pair(func() (Data, Data) { return l, 
 func (p pair) Both() (Data, Data) { return p() }
 func (p pair) Left() Data         { l, _ := p(); return l }
 func (p pair) Right() Data        { _, r := p(); return r }
-func (p pair) Acc() Parametric    { return newAccAttribute(newPair(p.Left(), p.Right())) }
+func (p pair) Acc() Parametric    { return newPraedicate(newPair(p.Left(), p.Right())) }
 func (p pair) Arg() Argumented    { return newArgument(p.Right()) }
 func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() | Double.Flag() }
 func (p pair) Type() Flag         { return newFlag(Double, p.Flag()) }
 func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
 func (p pair) Eval() Data         { return p }
+func (p pair) Empty() bool {
+	return elemEmpty(p.Left()) && elemEmpty(p.Right())
+}
 
 /// PARAMETRIZATION
 // parameters can be either retrieved, by calling the closure without passing
@@ -144,6 +148,7 @@ func (p argument) ParamType() BitFlag { return p.Data().Flag() }
 func (p argument) DataType() BitFlag  { return p.Data().Flag() }
 func (p argument) ArgType() BitFlag   { return p.Data().Flag() }
 func (p argument) Type() Flag         { return newFlag(Attribut, p.Data().Flag()) }
+func (p argument) Empty() bool        { return elemEmpty(p.Data()) }
 func (p argument) Flag() d.BitFlag {
 	return p.Data().Flag() |
 		d.Argument.Flag() |
@@ -158,15 +163,15 @@ func newArguments(do ...Data) Arguments {
 	}
 	return newArgSet(args...)
 }
-func newArgSet(args ...Argumented) argSet {
-	return argSet(func(a ...Argumented) ([]Argumented, Arguments) {
+func newArgSet(args ...Argumented) arguments {
+	return arguments(func(a ...Argumented) ([]Argumented, Arguments) {
 		if len(a) > 0 {
 			return a, newArgSet(a...)
 		}
 		return args, newArgSet(args...)
 	})
 }
-func (a argSet) String() string {
+func (a arguments) String() string {
 	var strdat = [][]d.Data{}
 	for i, dat := range a.Args() {
 		strdat = append(strdat, []d.Data{})
@@ -174,8 +179,8 @@ func (a argSet) String() string {
 	}
 	return d.StringChainTable(strdat...)
 }
-func (a argSet) Type() Flag { return newFlag(Attribut, a.Flag()) }
-func (a argSet) Flag() d.BitFlag {
+func (a arguments) Type() Flag { return newFlag(Attribut, a.Flag()) }
+func (a arguments) Flag() d.BitFlag {
 	var f = d.BitFlag(uint(0))
 	for _, arg := range a.Args() {
 		f = f |
@@ -186,11 +191,21 @@ func (a argSet) Flag() d.BitFlag {
 	}
 	return f
 }
-func (a argSet) Args() []Argumented                            { d, _ := a(); return d }
-func (a argSet) ArgSet() Arguments                             { _, as := a(); return as }
-func (a argSet) Eval() Data                                    { return a }
-func (a argSet) Set(d ...Argumented) ([]Argumented, Arguments) { return newArgSet(d...)() }
-func applyArgs(ao argSet, args ...Argumented) Arguments {
+func (a arguments) Args() []Argumented { d, _ := a(); return d }
+func (a arguments) Empty() bool {
+	if len(a.Args()) > 0 {
+		for _, arg := range a.Args() {
+			if !elemEmpty(arg.Data()) {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (a arguments) ArgSet() Arguments                             { _, as := a(); return as }
+func (a arguments) Eval() Data                                    { return a }
+func (a arguments) Set(d ...Argumented) ([]Argumented, Arguments) { return newArgSet(d...)() }
+func applyArgs(ao arguments, args ...Argumented) Arguments {
 	oargs, _ := ao()
 	var l = len(oargs)
 	if l < len(args) {
@@ -215,15 +230,15 @@ func applyArgs(ao argSet, args ...Argumented) Arguments {
 }
 
 // ACCESSS ATTRIBUTE
-func newAccAttribute(d ...Paired) Parametric {
+func newPraedicate(d ...Paired) Parametric {
 	return praedicate(func(di ...Paired) (Paired, Parametric) {
 		// if parameters where passed‥.
 		if len(di) > 0 { // return former parameter‥.
 			// ‥.and enclosure over newly passed parameters
-			return di[0], newAccAttribute(newPair(di[0].Left(), di[0].Right()))
+			return di[0], newPraedicate(newPair(di[0].Left(), di[0].Right()))
 		} //‥.otherwise, pass on unaltered results from last/first call
 		return newPair(d[0].Left(), d[0].Right()),
-			newAccAttribute(newPair(d[0].Left(), d[0].Right()))
+			newPraedicate(newPair(d[0].Left(), d[0].Right()))
 	})
 }
 func (p praedicate) Set(pa ...Paired) (Paired, Parametric) { return p(pa...) }
@@ -236,7 +251,11 @@ func (p praedicate) Data() Data                            { return p.Pair().Rig
 func (p praedicate) Left() Data                            { return p.Pair().Left() }
 func (p praedicate) Right() Data                           { return p.Pair().Right() }
 func (p praedicate) Both() (Data, Data)                    { return p.Pair().Both() }
-func (p praedicate) AccType() d.BitFlag                    { return p.Key().Flag() }
+func (p praedicate) Empty() bool {
+	l, r := p.Pair().Both()
+	return elemEmpty(l) && elemEmpty(r)
+}
+func (p praedicate) AccType() d.BitFlag { return p.Key().Flag() }
 func (p praedicate) Flag() d.BitFlag {
 	dat, _ := p()
 	return dat.Flag() |
@@ -254,24 +273,24 @@ func (p praedicate) String() string {
 }
 
 // ACCESS ATTRIBUTE SET
-func newAccessables(pairs ...Paired) Accessables {
+func newPraedicates(pairs ...Paired) Preadicates {
 	var acc = []Parametric{}
 	for _, p := range pairs {
-		acc = append(acc, newAccAttribute(p))
+		acc = append(acc, newPraedicate(p))
 	}
-	return newAccSet(pairs...)
+	return newPraedSet(pairs...)
 }
-func newAccSet(accAttr ...Paired) preadciates {
-	return preadciates(func(acc ...Paired) ([]Paired, Accessables) {
+func newPraedSet(accAttr ...Paired) preadciates {
+	return preadciates(func(acc ...Paired) ([]Paired, Preadicates) {
 		if len(acc) > 0 {
-			return acc, newAccSet(acc...)
+			return acc, newPraedSet(acc...)
 		}
-		return accAttr, newAccSet(accAttr...)
+		return accAttr, newPraedSet(accAttr...)
 	})
 }
-func (a preadciates) Set(acc ...Paired) ([]Paired, Accessables) {
+func (a preadciates) Set(acc ...Paired) ([]Paired, Preadicates) {
 	if len(acc) > 0 {
-		return newAccSet(acc...)()
+		return newPraedSet(acc...)()
 	}
 	return a()
 }
@@ -301,14 +320,24 @@ func (a preadciates) Type() Flag { return newFlag(AccCollect, a.Flag()) }
 func (a preadciates) Accs() (accs []Parametric) {
 	pairs, _ := a()
 	for _, p := range pairs {
-		accs = append(accs, newAccAttribute(p))
+		accs = append(accs, newPraedicate(p))
 	}
 	return accs
 }
-func (a preadciates) Pairs() []Paired                { pairs, _ := a(); return pairs }
-func (a preadciates) AccSet() Accessables            { _, set := a(); return set }
+func (a preadciates) Pairs() []Paired { pairs, _ := a(); return pairs }
+func (a preadciates) Empty() bool {
+	if len(a.Pairs()) > 0 {
+		for _, p := range a.Pairs() {
+			if !elemEmpty(p) {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (a preadciates) AccSet() Preadicates            { _, set := a(); return set }
 func (a preadciates) Eval() Data                     { return a }
-func (a preadciates) Append(v ...Paired) Accessables { return newAccSet(append(a.Pairs(), v...)...) }
+func (a preadciates) Append(v ...Paired) Preadicates { return newPraedSet(append(a.Pairs(), v...)...) }
 
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the
@@ -316,14 +345,24 @@ func (a preadciates) Append(v ...Paired) Accessables { return newAccSet(append(a
 type pairSorter []Paired
 
 func newPairSorter(p ...Paired) pairSorter { return append(pairSorter{}, p...) }
-func (p pairSorter) Len() int              { return len(p) }
-func (p pairSorter) Swap(i, j int)         { p[i], p[j] = p[j], p[i] }
+func (a pairSorter) Empty() bool {
+	if len(a) > 0 {
+		for _, p := range a {
+			if !elemEmpty(p) {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (p pairSorter) Len() int      { return len(p) }
+func (p pairSorter) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 func (p pairSorter) Sort(f d.BitFlag) {
-	less := newAccLess(p, f)
+	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
 func (p pairSorter) Search(praed d.Data) int {
-	var idx = sort.Search(len(p), newAccSearch(p, praed))
+	var idx = sort.Search(len(p), newFindPraedicate(p, praed))
 	if praed.Flag().Match(d.Flag.Flag()) {
 		if p[idx].Right() == praed {
 			return idx
@@ -337,7 +376,7 @@ func (p pairSorter) Search(praed d.Data) int {
 	return -1
 }
 
-func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
+func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	switch {
 	case f.Match(d.String.Flag()):
 		return func(i, j int) bool {
@@ -380,7 +419,7 @@ func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	}
 	return nil
 }
-func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
+func newFindPraedicate(accs pairSorter, praed Data) func(i int) bool {
 	var f = praed.Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
@@ -408,7 +447,7 @@ func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
 	}
 	return fn
 }
-func applyAccs(acc Accessables, praed ...Paired) Accessables {
+func applyPraedicate(acc Preadicates, praed ...Paired) Preadicates {
 	var ps = newPairSorter(acc.Pairs()...)
 	ps.Sort(praed[0].Left().Flag())
 	for _, p := range praed {
@@ -419,5 +458,5 @@ func applyAccs(acc Accessables, praed ...Paired) Accessables {
 		}
 		ps = append(ps, p)
 	}
-	return newAccessables(ps...)
+	return newPraedicates(ps...)
 }

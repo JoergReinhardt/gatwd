@@ -62,7 +62,7 @@ const (
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64 | Byte | Rune | Bytes | String | Time | Duration | Error
 
-	Numeral = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
+	Numeric = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 
@@ -80,7 +80,9 @@ const (
 
 	Symbolic = Byte | Rune | Bytes | String | Error
 
-	Collections = Map | Slice
+	Collection = Map | Slice
+
+	Binary = Unsigned | Byte | Flag
 
 	Bitwise = Unsigned | Byte | Flag
 
