@@ -1,3 +1,15 @@
+/*
+TYPE IDENTITY PATTERNS
+
+  composes type id tokenized representation of the type constructors syntax &
+  patterns to identify data instances that match the given parameter type.
+  results in a unique type identity pattern that can efficiently be parsed and
+  checked against, as well as, dynamicly be created and extended during
+  runtime. in the following steps, patterns get composed with function base
+  types and flag identifyers, to declare monoids which then in turn get
+  constructed to declare polymophic, possibly parametric types during prelude
+  and runtime.
+*/
 package functions
 
 import (
@@ -7,7 +19,7 @@ import (
 	l "github.com/JoergReinhardt/godeep/lang"
 )
 
-///////// POLYMORPHISM ///////////
+///////// MONO- / POLY-MORPHISM ///////////
 
 type (
 	pattern   func() (id int, args []Token, ret Token)

@@ -1,3 +1,10 @@
+/*
+TYPE FLAG
+
+  compose id, precedence type flag and kind flag to form part of a types unique
+  idetity, to first pass filter tokens by combination of propertys in a highly
+  efficient manner.
+*/
 package functions
 
 import (

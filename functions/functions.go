@@ -1,31 +1,10 @@
 /*
-FUNCTION GENERALIZATION
+BASE FUNCTIONS ARGUMENTS & ACCESSABLE PRAEDICATES
 
-ambda calculus states, that all functions can be expressed as functions
-taking one argument, by currying in additional data and behaviour. all
-computation can then be expressed in those terms‥. and while that's the base
-of all that's done here, and generally considered to be a great thing, it
-also turns out to be a pain in the behind, when applyed to a strongly typed
-language on real world problems.
-
-to get things done anyway, data types and function signatures need to be
-generalized over, in a more reasonable way. data types of arguments and
-return values already get generalized by the data package using type
-aliasing and adding the flag method.
-
-functions can be further discriminated by means of arity (number & type of
-input arguments) and fixity (syntactical side, on which they expect to bind
-there parameter(s)). golangs capability of returning multiple values, is of
-no relevance in terms of functional programming, but very usefull in
-imlementing a type system on top of it. so is the ability to define methods
-on function types. functions in the terms of godeep are closures, closing
-over arbitrary functions together with there arguments and return values,
-btw. placeholders there of and an id/signature poir for typesystem and
-runtime, to handle (partial} application and evaluation.
-
-to deal with golang index operators and conrol structures, a couple of internal
-function signatures, containing non aliased types (namely bool, int & string)
-will also be made avaiable for enclosure.
+  base functional data types to wrap data instances, pairs thereof as well as
+  arguments and accessors as datastructure intended to pass data between
+  function calls, and assist in handling od currying, partial application‥., of
+  higher order functions and the like.
 */
 package functions
 
@@ -92,25 +71,13 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	// ACCESSATTRIBUT
 	// shares the behaviour with that of a parameter, but yields and takes
 	// a pair to contain a position/key & value pair instead.
-	accessAttribut func(d ...Paired) (Paired, Accessable)
+	praedicate func(d ...Paired) (Paired, Parametric)
 	// ACCSET
-	accSet func(d ...Paired) ([]Paired, Accessables)
-	// returnValue
-	// the return has the propertys of an arg set, but enclosed to be
-	// addressable as a single value
-	returnValue func() Accessables
+	preadciates func(d ...Paired) ([]Paired, Accessables)
 	// generic function wrapper
 	value    func() Data        // <- implements data.Typed
 	constant func() Data        // <- guarantueed to allways evaluate identicly
 	pair     func() (a, b Data) // <- base element of all tuples and collections
-	vector   func() d.Sliceable // <- indexable native golang slice of data instances
-	tuple    func() (Data, Sliceable)
-)
-
-type (
-	unary  func(Data) Data
-	binary func(a, b Data) Data
-	nary   func(...Data) Data
 )
 
 // DATA
@@ -119,13 +86,15 @@ func newData(dat d.Data) Data     { return value(func() Data { return dat.(d.Eva
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
 func (dat value) Type() Flag      { return newFlag(Constant, dat().Flag()) }
 func (dat value) String() string  { return dat().(d.Data).String() }
+func (dat value) Eval() Data      { return dat }
 
 // CONSTANT
 // constant also conains immutable data, but it may be the result of a constant experssion
-func newConstant(dat Data) Data    { return constant(func() Data { return dat }) }
+func newConstant(dat Data) Data    { return constant(func() Data { return dat.(Functional).Eval() }) }
 func (c constant) Flag() d.BitFlag { return Constant.Flag() }
 func (c constant) Type() Flag      { return newFlag(Constant, c().Flag()) }
 func (c constant) String() string  { return c().(d.Data).String() }
+func (c constant) Eval() Data      { return c }
 
 // PAIR
 // pair encloses two data instances
@@ -133,38 +102,12 @@ func newPair(l, r Data) Paired    { return pair(func() (Data, Data) { return l, 
 func (p pair) Both() (Data, Data) { return p() }
 func (p pair) Left() Data         { l, _ := p(); return l }
 func (p pair) Right() Data        { _, r := p(); return r }
-func (p pair) Acc() Accessable    { return newAccAttribute(newPair(p.Left(), p.Right())) }
+func (p pair) Acc() Parametric    { return newAccAttribute(newPair(p.Left(), p.Right())) }
 func (p pair) Arg() Argumented    { return newArgument(p.Right()) }
 func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() | Double.Flag() }
 func (p pair) Type() Flag         { return newFlag(Double, p.Flag()) }
 func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
-
-// VECTOR
-// vector keeps a slice of data instances
-func newVector(dd ...d.Data) Vectorized {
-	return vector(func() d.Sliceable {
-		return d.NewChain(dd...)
-	})
-}
-
-// implements functions/sliceable interface
-func (v vector) Len() int        { return v().(d.NativeVec).Len() }
-func (v vector) Empty() bool     { return v().(d.NativeVec).Empty() }
-func (v vector) Flag() d.BitFlag { return v().Flag() | Vector.Flag() }
-func (v vector) Type() Flag {
-	return newFlag(Vector,
-		d.Slice.Flag()|
-			d.Parameter.Flag()|
-			v().Flag())
-}
-func (v vector) String() string { return v().String() }
-func (v vector) Slice() []Data {
-	var vo = []Data{}
-	for _, val := range v().Slice() {
-		vo = append(vo, val)
-	}
-	return vo
-}
+func (p pair) Eval() Data         { return p }
 
 /// PARAMETRIZATION
 // parameters can be either retrieved, by calling the closure without passing
@@ -194,6 +137,7 @@ func (p argument) Set(d ...Data) (Data, Argumented) {
 	return p()
 }
 func (p argument) Data() Data         { d, _ := p(); return d }
+func (p argument) Eval() Data         { return p }
 func (p argument) Arg() Argumented    { return newArgument(p.Data()) }
 func (p argument) Param() Data        { return p.Data() }
 func (p argument) ParamType() BitFlag { return p.Data().Flag() }
@@ -244,6 +188,7 @@ func (a argSet) Flag() d.BitFlag {
 }
 func (a argSet) Args() []Argumented                            { d, _ := a(); return d }
 func (a argSet) ArgSet() Arguments                             { _, as := a(); return as }
+func (a argSet) Eval() Data                                    { return a }
 func (a argSet) Set(d ...Argumented) ([]Argumented, Arguments) { return newArgSet(d...)() }
 func applyArgs(ao argSet, args ...Argumented) Arguments {
 	oargs, _ := ao()
@@ -270,8 +215,8 @@ func applyArgs(ao argSet, args ...Argumented) Arguments {
 }
 
 // ACCESSS ATTRIBUTE
-func newAccAttribute(d ...Paired) Accessable {
-	return accessAttribut(func(di ...Paired) (Paired, Accessable) {
+func newAccAttribute(d ...Paired) Parametric {
+	return praedicate(func(di ...Paired) (Paired, Parametric) {
 		// if parameters where passed‥.
 		if len(di) > 0 { // return former parameter‥.
 			// ‥.and enclosure over newly passed parameters
@@ -281,65 +226,56 @@ func newAccAttribute(d ...Paired) Accessable {
 			newAccAttribute(newPair(d[0].Left(), d[0].Right()))
 	})
 }
-func (p accessAttribut) Set(pa ...Paired) (Paired, Accessable) { return p(pa...) }
-func (p accessAttribut) Arg() Argumented                       { return newArgument(p.Pair().Right()) }
-func (p accessAttribut) Acc() Accessable                       { _, acc := p(); return acc }
-func (p accessAttribut) Pair() Paired                          { pa, _ := p(); return pa }
-func (p accessAttribut) Key() Data                             { return p.Pair().Left() }
-func (p accessAttribut) Data() Data                            { return p.Pair().Right() }
-func (p accessAttribut) Left() Data                            { return p.Pair().Left() }
-func (p accessAttribut) Right() Data                           { return p.Pair().Right() }
-func (p accessAttribut) Both() (Data, Data)                    { return p.Pair().Both() }
-func (p accessAttribut) AccType() d.BitFlag                    { return p.Key().Flag() }
-func (p accessAttribut) Flag() d.BitFlag {
+func (p praedicate) Set(pa ...Paired) (Paired, Parametric) { return p(pa...) }
+func (p praedicate) Arg() Argumented                       { return newArgument(p.Pair().Right()) }
+func (p praedicate) Eval() Data                            { return p }
+func (p praedicate) Acc() Parametric                       { _, acc := p(); return acc }
+func (p praedicate) Pair() Paired                          { pa, _ := p(); return pa }
+func (p praedicate) Key() Data                             { return p.Pair().Left() }
+func (p praedicate) Data() Data                            { return p.Pair().Right() }
+func (p praedicate) Left() Data                            { return p.Pair().Left() }
+func (p praedicate) Right() Data                           { return p.Pair().Right() }
+func (p praedicate) Both() (Data, Data)                    { return p.Pair().Both() }
+func (p praedicate) AccType() d.BitFlag                    { return p.Key().Flag() }
+func (p praedicate) Flag() d.BitFlag {
 	dat, _ := p()
 	return dat.Flag() |
 		d.Slice.Flag() |
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (p accessAttribut) Type() Flag {
+func (p praedicate) Type() Flag {
 	d, _ := p()
 	return newFlag(Accessor, d.Flag())
 }
-func (p accessAttribut) String() string {
+func (p praedicate) String() string {
 	l, r := p.Both()
 	return l.String() + ": " + r.String()
 }
 
-// TUPLE
-func (tup tuple) Flag() d.BitFlag {
-	da, _ := tup()
-	return da.Flag() |
-		d.Parameter.Flag() |
-		Accessor.Flag()
-}
-func (tup tuple) Type() Flag     { d, _ := tup(); return newFlag(Tuple, d.Flag()) }
-func (tup tuple) String() string { d, c := tup(); return d.String() + " " + c.String() }
-
 // ACCESS ATTRIBUTE SET
 func newAccessables(pairs ...Paired) Accessables {
-	var acc = []Accessable{}
+	var acc = []Parametric{}
 	for _, p := range pairs {
 		acc = append(acc, newAccAttribute(p))
 	}
 	return newAccSet(pairs...)
 }
-func newAccSet(accAttr ...Paired) accSet {
-	return accSet(func(acc ...Paired) ([]Paired, Accessables) {
+func newAccSet(accAttr ...Paired) preadciates {
+	return preadciates(func(acc ...Paired) ([]Paired, Accessables) {
 		if len(acc) > 0 {
 			return acc, newAccSet(acc...)
 		}
 		return accAttr, newAccSet(accAttr...)
 	})
 }
-func (a accSet) Set(acc ...Paired) ([]Paired, Accessables) {
+func (a preadciates) Set(acc ...Paired) ([]Paired, Accessables) {
 	if len(acc) > 0 {
 		return newAccSet(acc...)()
 	}
 	return a()
 }
-func (a accSet) String() string {
+func (a preadciates) String() string {
 	var strout = [][]d.Data{}
 	for i, pa := range a.Accs() {
 		strout = append(strout, []d.Data{})
@@ -351,7 +287,7 @@ func (a accSet) String() string {
 	}
 	return d.StringChainTable(strout...)
 }
-func (a accSet) Flag() d.BitFlag {
+func (a preadciates) Flag() d.BitFlag {
 	var f = d.BitFlag(0)
 	for _, acc := range a.Accs() {
 		f = f | acc.Flag()
@@ -361,17 +297,18 @@ func (a accSet) Flag() d.BitFlag {
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (a accSet) Type() Flag { return newFlag(AccCollect, a.Flag()) }
-func (a accSet) Accs() (accs []Accessable) {
+func (a preadciates) Type() Flag { return newFlag(AccCollect, a.Flag()) }
+func (a preadciates) Accs() (accs []Parametric) {
 	pairs, _ := a()
 	for _, p := range pairs {
 		accs = append(accs, newAccAttribute(p))
 	}
 	return accs
 }
-func (a accSet) Pairs() []Paired                { pairs, _ := a(); return pairs }
-func (a accSet) AccSet() Accessables            { _, set := a(); return set }
-func (a accSet) Append(v ...Paired) Accessables { return newAccSet(append(a.Pairs(), v...)...) }
+func (a preadciates) Pairs() []Paired                { pairs, _ := a(); return pairs }
+func (a preadciates) AccSet() Accessables            { _, set := a(); return set }
+func (a preadciates) Eval() Data                     { return a }
+func (a preadciates) Append(v ...Paired) Accessables { return newAccSet(append(a.Pairs(), v...)...) }
 
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the

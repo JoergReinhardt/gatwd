@@ -1,3 +1,10 @@
+/*
+REGISTRY
+
+  data type that holds the runtime state of the type system. Comes with helper
+  functions to eanipulate chains of tokens when dealing with signatures during
+  type checking, or construction.
+*/
 package functions
 
 import (
