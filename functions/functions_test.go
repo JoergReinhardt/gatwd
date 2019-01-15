@@ -133,12 +133,11 @@ func TestSliceMatch(t *testing.T) {
 func TestDataEnclosures(t *testing.T) {
 	data := newData(d.New("this is the testfunction speaking from within enclosure"))
 	fmt.Println(data)
-	fmt.Println(data.Type())
 	fmt.Println(data.Flag())
 }
 func TestPairEnclosures(t *testing.T) {
 	pair := newPair(d.New("test key:"), d.New("test data in a pair"))
-	a, b := pair()
+	a, b := pair.Left(), pair.Right()
 	fmt.Println(a)
 	fmt.Println(b)
 }
@@ -183,32 +182,32 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 }
 func TestParameterEnclosure(t *testing.T) {
 	var dat Data
-	parm := newArgument(d.New("test parameter"))
-	dat, parm = parm()
+	var parm Argumented
+	parm = newArgument(d.New("test parameter"))
+	dat = parm.Arg()
 	fmt.Println(dat)
-	dat, parm = parm(newData(d.New("changer parameter")))
-	dat, parm = parm()
+	dat, parm = parm.Set(newData(d.New("changer parameter")))
 	fmt.Println(dat)
-	dat, parm = parm(newData(d.New("yet another parameter")))
-	dat, parm = parm()
+	dat, parm = parm.Set(newData(d.New("yet another parameter")))
+	dat, parm = parm.Set()
 	fmt.Println(dat)
 	fmt.Println(dat)
-	dat, parm = parm(newData(d.New("yup, works just fine ;)")))
+	dat, parm = parm.Set(newData(d.New("yup, works just fine ;)")))
 	fmt.Println(dat)
 	fmt.Println(parm.Type())
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := newAccAttribute(d.New("test-key"), d.New("test value"))
+	acc := newAccAttribute(newPair(d.New("test-key"), d.New("test value")))
 	fmt.Println(acc)
-	_, acc = acc(newPair(d.New(12), d.New("one million dollar")))
+	_, acc = acc.Set(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
-	if acc.Acc() != d.New(12) {
+	if acc.Key() != d.New(12) {
 		t.Fail()
 	}
-	_, acc = acc(newPair(d.New(13), d.New("two million dollar")))
+	_, acc = acc.Set(newPair(d.New(13), d.New("two million dollar")))
 	fmt.Println(acc)
-	if acc.Acc() != d.New(13) {
+	if acc.Key() != d.New(13) {
 		t.Fail()
 	}
 }
@@ -236,24 +235,27 @@ func TestTokenToSignature(t *testing.T) {
 
 }
 func TestApplyArgs(t *testing.T) {
-	args := newArgSet(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
+	args := newArguments(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
+
 	fmt.Println(args)
-	_, args = args(d.New(0), d.New(1), d.New(2), d.New(5), d.New(4), d.New(5))
+	_, args = args.Set(args.Args()...)
+
 	fmt.Println(args)
-	if args.Args()[3].(d.IntVal) != 5 {
+	if args.Args()[3].Data().(d.IntVal) != 3 {
 		t.Fail()
 	}
 
-	_, args = args(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8))
+	_, args = args.Set(newArguments(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8)).Args()...)
+
 	fmt.Println(args)
-	if args.Args()[3].(d.IntVal) != 5 &&
-		args.Args()[0].(d.IntVal) != 7 &&
-		args.Args()[5].(d.IntVal) != 8 {
+	if args.Args()[3].Data().(d.IntVal) != 5 &&
+		args.Args()[0].Data().(d.IntVal) != 7 &&
+		args.Args()[5].Data().(d.IntVal) != 8 {
 		t.Fail()
 	}
 }
 
-var acc = newAccSet(
+var acc = newAccessables(
 	newPair(
 		d.New("first key"),
 		d.New("first value"),
@@ -280,7 +282,7 @@ var acc = newAccSet(
 
 func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc)
-	p, acc1 := acc(
+	p, acc1 := acc.Set(newAccessables(
 		newPair(
 			d.New("first key"),
 			d.New("first value"),
@@ -303,35 +305,85 @@ func TestAccAttrs(t *testing.T) {
 		),
 		newPair(
 			d.New("sixt key"),
-			d.New("sixt value")))
+			d.New("sixt value"))).Accs()...)
 
 	fmt.Println(p)
 	fmt.Println(acc1)
 
-	_, acc2 := acc1(
+	_, acc2 := acc1.Set(newAccessables(
 		newPair(
 			d.New("second key"),
 			d.New("changed second value again"),
 		),
 		newPair(
 			d.New("fourth key"),
-			d.New("changed fourth value again")))
+			d.New("changed fourth value again"))).Accs()...)
 
 	fmt.Println(acc2)
 }
-
 func TestSearchAccAttrs(t *testing.T) {
-	pair := newPair(
-		d.New("fourth key"),
-		d.New("Value set thrue search"),
-	)
-	fmt.Println(pair)
+	praed := d.New("fourth key")
 	var cha = pairSorter{}
-	args, _ := acc()
+	args, _ := acc.Set()
 	for _, c := range args {
 		cha = append(cha, c)
 	}
+	cha.Sort(d.String.Flag())
 	fmt.Println(cha)
-	cha.Sort(pair)
-	fmt.Println(cha.Search(pair))
+	idx := cha.Search(praed)
+	fmt.Println(cha[idx].Left())
+	if cha[idx].Left().String() != praed.String() {
+		t.Fail()
+	}
+}
+
+var macc = newPairSorter(
+	newPair(
+		d.New("string"),
+		d.New("string value"),
+	),
+	newPair(
+		d.New("int"),
+		d.New(12),
+	),
+	newPair(
+		d.New("uint"),
+		d.New(uint(10)),
+	),
+	newPair(
+		d.New("float"),
+		d.New(4.2),
+	),
+)
+
+func TestMixedTypeAccessor(t *testing.T) {
+	macc.Sort(d.Flag.Flag())
+	idx := macc.Search(d.String.Flag())
+	fmt.Printf("%d\n", idx)
+	found := macc[idx]
+	fmt.Println(found.Right())
+	if found.Right().String() != "string value" {
+		t.Fail()
+	}
+
+	idx = macc.Search(d.Int.Flag())
+	foundi := macc[idx]
+	fmt.Printf("%d\n", foundi.Right())
+	if foundi.Right().(Integer).Int() != 12 {
+		t.Fail()
+	}
+
+	idx = macc.Search(d.Uint.Flag())
+	foundu := macc[idx]
+	fmt.Printf("%d\n", foundu.Right())
+	if foundu.Right().(Unsigned).Uint() != 10 {
+		t.Fail()
+	}
+
+	idx = macc.Search(d.Float.Flag())
+	foundf := macc[idx]
+	fmt.Printf("%f\n", foundf.Right())
+	if foundf.Right().(Irrational).Float() != 4.2 {
+		t.Fail()
+	}
 }

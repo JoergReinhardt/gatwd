@@ -66,9 +66,9 @@ const (
 		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64
 
-	Unsigned = Uint | Uint8 | Uint16 | Uint32
+	Unsigned = Uint | Uint8 | Uint16 | Uint32 | Byte
 
-	Integer = Int | Int8 | Int16 | Int32 | BigInt
+	Integer = Int | Int8 | Int16 | Int32 | BigInt | Byte
 
 	Rational = Integer | Ratio
 

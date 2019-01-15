@@ -1,8 +1,10 @@
 package data
 
 import (
+	"math/big"
 	"math/bits"
 	"strconv"
+	"time"
 )
 
 //func TypeCast(vals ...Data, b BitFlag) Data        { return NewData(vals...) }
@@ -43,9 +45,10 @@ func (v StrVal) Bool() BoolVal {
 }
 
 // INT -> VALUE
-func (v IntVal) Int() int     { return int(v) } // implements Idx Attribut
-func (v IntVal) Integer() int { return int(v) } // implements Idx Attribut
-func (v IntVal) Idx() IntVal  { return v }      // implements Idx Attribut
+func (v IntVal) Rat() *big.Rat   { return big.NewRat(1, int64(v)) } // implements Idx Attribut
+func (v IntVal) Int() int        { return int(v) }                  // implements Idx Attribut
+func (v IntVal) Integer() IntVal { return v }                       // implements Idx Attribut
+func (v IntVal) Idx() int        { return int(v) }                  // implements Idx Attribut
 //func (v intVal) Key() strVal    { return v.String() } // implements Key Attribut
 func (v IntVal) FltNat() FltVal { return FltVal(v) }
 func (v IntVal) IntNat() IntVal { return v }
@@ -56,66 +59,75 @@ func (v IntVal) UintNat() UintVal {
 	return UintVal(v)
 }
 
+// FLOAT -> VALUE
+func (v FltVal) Float() float64    { return float64(v) }
+func (v Flt32Val) Float() float64  { return float64(v) }
+func (v BigFltVal) Float() float64 { f, _ := (*big.Float)(&v).Float64(); return f }
+
+// UINT -> VALUE
+func (v Uint8Val) Byte() byte { return byte(v) }
+
 // VALUE -> UINT
-func (v Uint8Val) Uint() UintVal  { return UintVal(uint(v)) }
-func (v Uint16Val) Uint() UintVal { return UintVal(uint(v)) }
-func (v Uint32Val) Uint() UintVal { return UintVal(uint(v)) }
-func (v UintVal) Uint() UintVal   { return UintVal(uint(v)) }
-func (v FltVal) Uint() UintVal    { return UintVal(uint(v)) }
-func (v Flt32Val) Uint() UintVal  { return UintVal(uint(v)) }
-func (v ByteVal) Uint() UintVal   { return UintVal(uint(v)) }
-func (v ImagVal) Uint() UintVal   { return UintVal(uint(real(v))) }
+func (v Uint8Val) Uint() uint  { return uint(v) }
+func (v Uint16Val) Uint() uint { return uint(v) }
+func (v Uint32Val) Uint() uint { return uint(v) }
+func (v UintVal) Uint() uint   { return uint(v) }
+func (v FltVal) Uint() uint    { return uint(v) }
+func (v Flt32Val) Uint() uint  { return uint(v) }
+func (v ByteVal) Uint() uint   { return uint(v) }
+func (v ImagVal) Uint() uint   { return uint(real(v)) }
 
 // VALUE -> INT
-func (v Int8Val) Int() IntVal   { return IntVal(int(v)) }
-func (v Int16Val) Int() IntVal  { return IntVal(int(v)) }
-func (v Int32Val) Int() IntVal  { return IntVal(int(v)) }
-func (v UintVal) Int() IntVal   { return IntVal(int(v)) }
-func (v Uint16Val) Int() IntVal { return IntVal(int(v)) }
-func (v Uint32Val) Int() IntVal { return IntVal(int(v)) }
-func (v FltVal) Int() IntVal    { return IntVal(int(v)) }
-func (v Flt32Val) Int() IntVal  { return IntVal(int(v)) }
-func (v ByteVal) Int() IntVal   { return IntVal(int(v)) }
-func (v ImagVal) Real() IntVal  { return IntVal(real(v)) }
-func (v ImagVal) Imag() IntVal  { return IntVal(imag(v)) }
-func (v StrVal) Int() IntVal {
+func (v Int8Val) Int() int   { return int(v) }
+func (v Int16Val) Int() int  { return int(v) }
+func (v Int32Val) Int() int  { return int(v) }
+func (v UintVal) Int() int   { return int(v) }
+func (v Uint16Val) Int() int { return int(v) }
+func (v Uint32Val) Int() int { return int(v) }
+func (v FltVal) Int() int    { return int(v) }
+func (v Flt32Val) Int() int  { return int(v) }
+func (v ByteVal) Int() int   { return int(v) }
+func (v TimeVal) Int() int   { return int(time.Time(v).Unix()) }
+func (v DuraVal) Int() int   { return int(v) }
+func (v ImagVal) Real() int  { return int(real(v)) }
+func (v ImagVal) Imag() int  { return int(imag(v)) }
+func (v StrVal) Int() int {
 	s, err := strconv.Atoi(string(v))
 	if err != nil {
 		return -1
 	}
-	return IntVal(s)
+	return int(s)
 }
 
 // VALUE -> FLOAT
-func (v UintVal) Float() FltVal { return FltVal(v.Int().Float()) }
-func (v IntVal) Float() FltVal  { return FltVal(v.FltNat()) }
-func (v StrVal) Float() FltVal {
+func (v UintVal) Float() float64 { return v.Float() }
+func (v IntVal) Float() float64  { return float64(v.FltNat()) }
+func (v StrVal) Float() float64 {
 	s, err := strconv.ParseFloat(string(v), 64)
 	if err != nil {
 		return -1
 	}
-	return FltVal(s)
+	return float64(FltVal(s))
 }
 
 // VALUE -> UINT
-func (v UintVal) UintNat() uint { return uint(v) }
-func (v IntVal) Uint() UintVal  { return UintVal(v.UintNat()) }
-func (v StrVal) Uint() UintVal {
+func (v IntVal) Uint() uint { return uint(v.UintNat()) }
+func (v StrVal) Uint() uint {
 	u, err := strconv.ParseUint(string(v), 10, 64)
 	if err != nil {
 		return 0
 	}
-	return UintVal(u)
+	return uint(u)
 }
-func (v BoolVal) Uint() UintVal {
+func (v BoolVal) Uint() uint {
 	if v {
-		return UintVal(1)
+		return uint(1)
 	}
-	return UintVal(0)
+	return uint(0)
 }
 
 // INTEGERS FOR DEDICATED PURPOSES
-func (v UintVal) Len() IntVal  { return IntVal(bits.Len64(uint64(v))) }
-func (v ByteVal) Len() IntVal  { return IntVal(bits.Len64(uint64(v))) }
-func (v BytesVal) Len() IntVal { return IntVal(len(v)) }
-func (v StrVal) Len() IntVal   { return IntVal(len(string(v))) }
+func (v UintVal) Len() int  { return int(bits.Len64(uint64(v))) }
+func (v ByteVal) Len() int  { return int(bits.Len64(uint64(v))) }
+func (v BytesVal) Len() int { return int(len(v)) }
+func (v StrVal) Len() int   { return int(len(string(v))) }

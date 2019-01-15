@@ -1,8 +1,6 @@
 package functions
 
-import (
 //	l "github.com/JoergReinhardt/godeep/lang"
-)
 
 /////////////////////////
 //type StateFn func(State) StateFn
@@ -15,6 +13,8 @@ import (
 //}
 
 import (
+	"math/big"
+
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
@@ -88,6 +88,8 @@ type Identified interface{ Id() int }
 // the latter case they need to provide the name method.
 type Named interface{ Name() string }
 
+type Typed interface{ Type() Flag }
+
 // interface to wrap data from the data module and function module specific
 // data alike
 type Data interface {
@@ -118,7 +120,7 @@ type BitFlag interface {
 // godeeps typesystem: it can be called, optionally using no to n parameters of
 // the generalized data type and returns a value, also of general data type
 type Functional interface {
-	Type() Flag
+	Typed
 	Eval() Data // calls enclosed fnc, with enclosed parameters
 }
 
@@ -133,6 +135,7 @@ type Functor interface {
 // level to make those interchangeable.
 type Vectorized interface {
 	Data
+	Typed
 	Len() int
 	Empty() bool
 	Slice() []Data
@@ -166,13 +169,13 @@ type Sliceable interface {
 	Empty() bool
 	Slice() []Data //<-- no more nil pointers & 'out of index'!
 }
-type AccessableSlice interface {
+type IndexedSlice interface {
 	Sliceable
 	Elem(i int) Data
 	Range(i, j int) []Data
 }
 type SliceOfNatives interface {
-	AccessableSlice
+	IndexedSlice
 	Native(i int) interface{}
 	Natives(i, j int) []interface{}
 }
@@ -195,17 +198,33 @@ type Reverseable interface {
 // type safety on argument propagation
 type Integer interface{ Int() int }
 type Unsigned interface{ Uint() uint }
+type Rational interface{ Rat() *big.Rat }
+type Irrational interface{ Float() float64 }
+type Imaginary interface{ Imag() complex128 }
+type Symbolic interface{ String() string }
 type Accessable interface {
-	Acc() Data
-	Arg() Data
+	Paired
+	Acc() Accessable
+	Arg() Argumented
+	Key() Data
+	Data() Data
+	Pair() Paired
+	Set(...Paired) (Paired, Accessable)
 }
-type KeyAccessable interface {
-	Accessable
-	Key(string) value
+type Accessables interface {
+	Accs() []Accessable
+	Set(...Accessable) ([]Accessable, Accessables)
 }
-type IdxAccessable interface {
-	Accessable
-	Idx(int) value
+type Argumented interface {
+	Data
+	Typed
+	Arg() Argumented
+	Data() Data
+	Set(...Data) (Data, Argumented)
+}
+type Arguments interface {
+	Args() []Argumented
+	Set(...Argumented) ([]Argumented, Arguments)
 }
 
 ////////// STACK ////////////
