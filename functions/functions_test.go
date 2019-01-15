@@ -279,6 +279,14 @@ var acc = newAccessables(
 	newPair(
 		d.New("sixt key"),
 		d.New("sixt value")))
+var acc2 = newAccessables(
+	newPair(
+		d.New("first key"),
+		d.New("changed first value"),
+	),
+	newPair(
+		d.New("six key"),
+		d.New("changed sixt value")))
 
 func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc)
@@ -360,30 +368,94 @@ func TestMixedTypeAccessor(t *testing.T) {
 	macc.Sort(d.Flag.Flag())
 	idx := macc.Search(d.String.Flag())
 	fmt.Printf("%d\n", idx)
-	found := macc[idx]
-	fmt.Println(found.Right())
-	if found.Right().String() != "string value" {
-		t.Fail()
-	}
+	if idx > 0 {
+		found := macc[idx]
+		fmt.Println(found.Right())
+		if found.Right().String() != "string value" {
+			t.Fail()
+		}
 
-	idx = macc.Search(d.Int.Flag())
-	foundi := macc[idx]
-	fmt.Printf("%d\n", foundi.Right())
-	if foundi.Right().(Integer).Int() != 12 {
-		t.Fail()
-	}
+		idx = macc.Search(d.Int.Flag())
+		foundi := macc[idx]
+		fmt.Printf("%d\n", foundi.Right())
+		if foundi.Right().(Integer).Int() != 12 {
+			t.Fail()
+		}
 
-	idx = macc.Search(d.Uint.Flag())
-	foundu := macc[idx]
-	fmt.Printf("%d\n", foundu.Right())
-	if foundu.Right().(Unsigned).Uint() != 10 {
-		t.Fail()
-	}
+		idx = macc.Search(d.Uint.Flag())
+		foundu := macc[idx]
+		fmt.Printf("%d\n", foundu.Right())
+		if foundu.Right().(Unsigned).Uint() != 10 {
+			t.Fail()
+		}
 
-	idx = macc.Search(d.Float.Flag())
-	foundf := macc[idx]
-	fmt.Printf("%f\n", foundf.Right())
-	if foundf.Right().(Irrational).Float() != 4.2 {
-		t.Fail()
+		idx = macc.Search(d.Float.Flag())
+		foundf := macc[idx]
+		fmt.Printf("%f\n", foundf.Right())
+		if foundf.Right().(Irrational).Float() != 4.2 {
+			t.Fail()
+		}
+	}
+}
+func TestApplyAccessAttrs(t *testing.T) {
+	acc3 := applyAccs(acc, acc2.Pairs()...)
+	fmt.Println(acc3)
+	acc2 = newAccSet(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
+}
+
+var accc = newAccessables(
+	newPair(
+		d.New("eigth key"),
+		d.New("changed eigth value"),
+	),
+	newPair(
+		d.New("second key"),
+		d.New("second value"),
+	),
+	newPair(
+		d.New("thirteenth key"),
+		d.New("hirteenth value"),
+	),
+	newPair(
+		d.New("nineth key"),
+		d.New("nineth value"),
+	))
+var accl = newAccessables(
+	append(acc.Pairs(), []Paired{newPair(
+		d.New("seventh key"),
+		d.New("seventh value"),
+	),
+		newPair(
+			d.New("eigth key"),
+			d.New("eigth value"),
+		),
+		newPair(
+			d.New("nineth key"),
+			d.New("nineth value"),
+		),
+		newPair(
+			d.New("tenth key"),
+			d.New("tenth value"),
+		),
+		newPair(
+			d.New("eleventh key"),
+			d.New("eleventh value"),
+		),
+		newPair(
+			d.New("twelveth key"),
+			d.New("twelveth value"))}...)...)
+
+func TestFmtAccessorBenchmarkExpression(t *testing.T) {
+	fmt.Println(accc)
+	fmt.Println(accl)
+	accl = applyAccs(accl, newPair(
+		d.New("thirteenth key"),
+		d.New("hirteenth value")))
+	fmt.Println(accl)
+}
+func BenchmarkAccessorApply(b *testing.B) {
+	//var accn = []Accessable{}
+	for i := 0; i < b.N; i++ {
+		_ = applyAccs(accl, accc.Pairs()...)
 	}
 }

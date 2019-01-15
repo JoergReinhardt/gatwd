@@ -387,7 +387,12 @@ func (p pairSorter) Sort(f d.BitFlag) {
 }
 func (p pairSorter) Search(praed d.Data) int {
 	var idx = sort.Search(len(p), newAccSearch(p, praed))
-	if idx < len(p) {
+	if praed.Flag().Match(d.Flag.Flag()) {
+		if p[idx].Right() == praed {
+			return idx
+		}
+	}
+	if p[idx].Left() == praed {
 		return idx
 	}
 	return -1
@@ -465,18 +470,14 @@ func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
 	return fn
 }
 func applyAccs(acc Accessables, praed ...Paired) Accessables {
-	var f d.BitFlag = d.Nil.Flag()
-	ps := newPairSorter(acc.Pairs()...)
+	var ps = newPairSorter(acc.Pairs()...)
 	for _, p := range praed {
-		if !f.Match(p.Flag()) {
-			ps.Sort(f)
-		}
 		idx := ps.Search(p.Left())
-		if idx >= 0 {
-			ps[idx] = praed[idx]
+		if idx > 0 {
+			ps[idx] = p
 			continue
 		}
-		ps = append(ps, praed[idx])
+		ps = append(ps, p)
 	}
 	return newAccessables(ps...)
 }
