@@ -213,7 +213,8 @@ type Accessable interface {
 }
 type Accessables interface {
 	Accs() []Accessable
-	Set(...Accessable) ([]Accessable, Accessables)
+	Pairs() []Paired
+	Set(...Paired) ([]Paired, Accessables)
 }
 type Argumented interface {
 	Data

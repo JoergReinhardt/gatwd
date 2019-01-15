@@ -94,7 +94,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	// a pair to contain a position/key & value pair instead.
 	accessAttribut func(d ...Paired) (Paired, Accessable)
 	// ACCSET
-	accSet func(d ...Accessable) ([]Accessable, Accessables)
+	accSet func(d ...Paired) ([]Paired, Accessables)
 	// returnValue
 	// the return has the propertys of an arg set, but enclosed to be
 	// addressable as a single value
@@ -318,22 +318,22 @@ func (tup tuple) Type() Flag     { d, _ := tup(); return newFlag(Tuple, d.Flag()
 func (tup tuple) String() string { d, c := tup(); return d.String() + " " + c.String() }
 
 // ACCESS ATTRIBUTE SET
-func newAccessables(accAttr ...Paired) Accessables {
+func newAccessables(pairs ...Paired) Accessables {
 	var acc = []Accessable{}
-	for _, p := range accAttr {
+	for _, p := range pairs {
 		acc = append(acc, newAccAttribute(p))
 	}
-	return newAccSet(acc...)
+	return newAccSet(pairs...)
 }
-func newAccSet(accAttr ...Accessable) accSet {
-	return accSet(func(acc ...Accessable) ([]Accessable, Accessables) {
+func newAccSet(accAttr ...Paired) accSet {
+	return accSet(func(acc ...Paired) ([]Paired, Accessables) {
 		if len(acc) > 0 {
 			return acc, newAccSet(acc...)
 		}
 		return accAttr, newAccSet(accAttr...)
 	})
 }
-func (a accSet) Set(acc ...Accessable) ([]Accessable, Accessables) {
+func (a accSet) Set(acc ...Paired) ([]Paired, Accessables) {
 	if len(acc) > 0 {
 		return newAccSet(acc...)()
 	}
@@ -361,10 +361,17 @@ func (a accSet) Flag() d.BitFlag {
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (a accSet) Type() Flag                         { return newFlag(AccCollect, a.Flag()) }
-func (a accSet) Accs() []Accessable                 { acc, _ := a(); return acc }
-func (a accSet) AccSet() Accessables                { _, set := a(); return set }
-func (a accSet) Append(v ...Accessable) Accessables { return newAccSet(append(a.Accs(), v...)...) }
+func (a accSet) Type() Flag { return newFlag(AccCollect, a.Flag()) }
+func (a accSet) Accs() (accs []Accessable) {
+	pairs, _ := a()
+	for _, p := range pairs {
+		accs = append(accs, newAccAttribute(p))
+	}
+	return accs
+}
+func (a accSet) Pairs() []Paired                { pairs, _ := a(); return pairs }
+func (a accSet) AccSet() Accessables            { _, set := a(); return set }
+func (a accSet) Append(v ...Paired) Accessables { return newAccSet(append(a.Pairs(), v...)...) }
 
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the
@@ -429,7 +436,7 @@ func newAccLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	}
 	return nil
 }
-func newAccSearch(accs pairSorter, praed d.Data) func(i int) bool {
+func newAccSearch(accs pairSorter, praed Data) func(i int) bool {
 	var f = praed.Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
@@ -457,6 +464,19 @@ func newAccSearch(accs pairSorter, praed d.Data) func(i int) bool {
 	}
 	return fn
 }
-func applyAccs(acc Accessables, praed ...Accessable) Accessables {
-	return acc
+func applyAccs(acc Accessables, praed ...Paired) Accessables {
+	var f d.BitFlag = d.Nil.Flag()
+	ps := newPairSorter(acc.Pairs()...)
+	for _, p := range praed {
+		if !f.Match(p.Flag()) {
+			ps.Sort(f)
+		}
+		idx := ps.Search(p.Left())
+		if idx >= 0 {
+			ps[idx] = praed[idx]
+			continue
+		}
+		ps = append(ps, praed[idx])
+	}
+	return newAccessables(ps...)
 }

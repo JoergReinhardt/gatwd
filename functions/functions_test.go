@@ -305,7 +305,7 @@ func TestAccAttrs(t *testing.T) {
 		),
 		newPair(
 			d.New("sixt key"),
-			d.New("sixt value"))).Accs()...)
+			d.New("sixt value"))).Pairs()...)
 
 	fmt.Println(p)
 	fmt.Println(acc1)
@@ -317,7 +317,7 @@ func TestAccAttrs(t *testing.T) {
 		),
 		newPair(
 			d.New("fourth key"),
-			d.New("changed fourth value again"))).Accs()...)
+			d.New("changed fourth value again"))).Pairs()...)
 
 	fmt.Println(acc2)
 }
