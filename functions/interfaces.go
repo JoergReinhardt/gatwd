@@ -218,6 +218,7 @@ type Reduceable interface {
 	Collection
 	Head() Data
 	Tail() []Data
+	DeCap() (Data, []Data)
 	Shift() Reduceable
 }
 

@@ -61,6 +61,15 @@ func newTuple(tail ...Data) Reduceable {
 		return head, tail
 	})
 }
+func conTuple(d Data, t Reduceable) Reduceable {
+	return tuple(func(dd ...Data) (Data, []Data) {
+		return d, append([]Data{t.Head()}, t.Tail()...)
+	})
+}
+func (tup tuple) Type() Flag            { d, _ := tup(); return newFlag(Tuple, d.Flag()) }
+func (tup tuple) Head() Data            { h, _ := tup(); return h }
+func (tup tuple) Tail() []Data          { _, t := tup(); return t }
+func (tup tuple) DeCap() (Data, []Data) { return tup() }
 func (tup tuple) Flag() d.BitFlag {
 	da, _ := tup()
 	return da.Flag() |
@@ -76,9 +85,6 @@ func (tup tuple) Len() int {
 	l = l + len(t)
 	return l
 }
-func (tup tuple) Type() Flag   { d, _ := tup(); return newFlag(Tuple, d.Flag()) }
-func (tup tuple) Head() Data   { h, _ := tup(); return h }
-func (tup tuple) Tail() []Data { _, t := tup(); return t }
 func (tup tuple) Slice() []d.Data {
 	var head, tail = tup()
 	var slice = []d.Data{head}
@@ -88,17 +94,8 @@ func (tup tuple) Slice() []d.Data {
 	return slice
 }
 func (tup tuple) Shift() Reduceable {
-	var dat Reduceable
-	_, t := tup()
-	switch len(t) {
-	case 0:
-		dat = newTuple(nil, nil)
-	case 1:
-		dat = newTuple(tup.Tail()[0], nil)
-	default:
-		dat = newTuple(tup.Tail()...)
-	}
-	return dat
+	var _, t = tup()
+	return newTuple(t...)
 }
 
 func (tup tuple) String() string {
