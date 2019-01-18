@@ -186,13 +186,14 @@ func (a arguments) Flag() d.BitFlag {
 	for _, arg := range a.Args() {
 		f = f |
 			arg.Flag() |
-			d.Slice.Flag() |
+			d.Vector.Flag() |
 			d.Argument.Flag() |
 			d.Parameter.Flag()
 	}
 	return f
 }
 func (a arguments) Args() []Argumented { d, _ := a(); return d }
+func (a arguments) Len() int           { d, _ := a(); return len(d) }
 func (a arguments) Empty() bool {
 	if len(a.Args()) > 0 {
 		for _, arg := range a.Args() {
@@ -260,7 +261,7 @@ func (p praedicate) AccType() d.BitFlag { return p.Key().Flag() }
 func (p praedicate) Flag() d.BitFlag {
 	dat, _ := p()
 	return dat.Flag() |
-		d.Slice.Flag() |
+		d.Vector.Flag() |
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
@@ -313,7 +314,7 @@ func (a preadciates) Flag() d.BitFlag {
 		f = f | acc.Flag()
 	}
 	return f |
-		d.Slice.Flag() |
+		d.Vector.Flag() |
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
@@ -326,6 +327,7 @@ func (a preadciates) Accs() (accs []Parametric) {
 	return accs
 }
 func (a preadciates) Pairs() []Paired { pairs, _ := a(); return pairs }
+func (a preadciates) Len() int        { pairs, _ := a(); return len(pairs) }
 func (a preadciates) Empty() bool {
 	if len(a.Pairs()) > 0 {
 		for _, p := range a.Pairs() {

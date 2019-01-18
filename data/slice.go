@@ -15,7 +15,7 @@ func NewChain(val ...Data) Chain {
 func ChainContainedTypes(c []Data) BitFlag {
 	var flag = BitFlag(0)
 	for _, d := range c {
-		if FlagMatch(d.Flag(), Slice.Flag()) {
+		if FlagMatch(d.Flag(), Vector.Flag()) {
 			ChainContainedTypes(d.(Chain))
 			continue
 		}
@@ -23,7 +23,7 @@ func ChainContainedTypes(c []Data) BitFlag {
 	}
 	return flag
 }
-func (c Chain) Flag() BitFlag           { return Slice.Flag() }
+func (c Chain) Flag() BitFlag           { return Vector.Flag() }
 func (c Chain) ContainedTypes() BitFlag { return ChainContainedTypes(c.Slice()) }
 func (c Chain) Eval() Data              { return c }
 func (c Chain) Null() Chain             { return []Data{} }
@@ -50,14 +50,14 @@ func ChainClear(s Chain) {
 }
 func ElemEmpty(d Data) bool {
 	// not flagged nil, not a composition either...
-	if !FlagMatch(d.Flag(), (Nil.Flag() | Slice.Flag())) {
+	if !FlagMatch(d.Flag(), (Nil.Flag() | Vector.Flag())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if FlagMatch(d.Flag(), Slice.Flag()) {
+	if FlagMatch(d.Flag(), Vector.Flag()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(Chain); ok {
 			return ChainEmpty(sl)

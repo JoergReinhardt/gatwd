@@ -47,7 +47,7 @@ func TestSliceMatch(t *testing.T) {
 		[]Token{
 			newToken(Syntax_Token, l.Lambda),
 			newToken(Syntax_Token, l.DoubCol),
-			newToken(Data_Type_Token, d.Slice),
+			newToken(Data_Type_Token, d.Vector),
 			newToken(Syntax_Token, l.RightArrow),
 			newToken(Data_Type_Token, d.Numeric),
 			newToken(Syntax_Token, l.RightArrow),
@@ -58,7 +58,7 @@ func TestSliceMatch(t *testing.T) {
 		[]Token{
 			newToken(Syntax_Token, l.Lambda),
 			newToken(Syntax_Token, l.DoubCol),
-			newToken(Data_Type_Token, d.Slice),
+			newToken(Data_Type_Token, d.Vector),
 			newToken(Syntax_Token, l.RightArrow),
 			newToken(Data_Type_Token, d.Numeric),
 			newToken(Syntax_Token, l.RightArrow),

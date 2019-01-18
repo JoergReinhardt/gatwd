@@ -73,7 +73,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.Flag(), Slice.Flag()) {
+		if FlagMatch(d.Flag(), Vector.Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(Chain).Slice()...)
 		} else {
 			str = str + d.String()

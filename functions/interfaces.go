@@ -126,7 +126,7 @@ type Typed interface{ Type() Flag }
 type Functional interface {
 	Data
 	Typed
-	Eval() Data // calls enclosed fnc, with enclosed parameters
+	Ident() Data // calls enclosed fnc, with enclosed parameters
 }
 type Functor interface {
 	Functional
@@ -188,6 +188,7 @@ type Argumented interface {
 	Set(...Data) (Data, Argumented)
 }
 type Arguments interface {
+	Len() int
 	Args() []Argumented
 	Set(...Argumented) ([]Argumented, Arguments)
 }
@@ -201,6 +202,7 @@ type Parametric interface {
 	Set(...Paired) (Paired, Parametric)
 }
 type Preadicates interface {
+	Len() int
 	Accs() []Parametric
 	Pairs() []Paired
 	Set(...Paired) ([]Paired, Preadicates)
@@ -222,7 +224,13 @@ type Vectorized interface {
 type Tupled interface {
 	Vectorized
 	Arity() Arity
-	Sig() []d.BitFlag
+	ArgSig() FlagSet
+}
+type Recorded interface {
+	Vectorized
+	Tuple() Tupled
+	Arity() Arity
+	ArgSig() []Paired // key/data-type
 }
 
 //// RECURSIVE LISTS ///////

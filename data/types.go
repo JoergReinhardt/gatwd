@@ -50,12 +50,14 @@ const (
 	Time
 	Duration
 	Error // let's do something sophisticated here...
-	Slice
-	Map
+	Tuple
+	Record
+	Vector
+	List
 	Function
 	Argument
 	Parameter
-	Native
+	Precedence
 	Flag // marks most signifficant native type & data of type bitflag
 
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
@@ -80,13 +82,14 @@ const (
 
 	Symbolic = Byte | Rune | Bytes | String | Error
 
-	Collection = Map | Slice
+	Collection = Record | Vector
 
 	Binary = Unsigned | Byte | Flag
 
 	Bitwise = Unsigned | Byte | Flag
 
-	HigherOrder = Function | Argument | Parameter
+	HigherOrder = Function | Argument | Parameter | Tuple | Record |
+		Vector | List | Precedence
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag
