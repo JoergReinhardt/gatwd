@@ -26,12 +26,11 @@ import (
 
 type (
 	constant func() Data // <- guarantueed to allways evaluate identicly
-	tuple    func(...Data) (Data, []Data)
 	unary    func(Data) Data
 	binary   func(a, b Data) Data
 	nary     func(...Data) Data
 	vector   func() []Data // <- indexable native golang slice of data instances
-	list     func() (Data, Ordered)
+	list     func() (Data, Recursive)
 )
 
 // CONSTANT
@@ -43,73 +42,6 @@ func (c constant) String() string  { return c().(d.Data).String() }
 func (c constant) Eval() Data      { return c }
 
 // TUPLE
-func newTuple(tail ...Data) Reduceable {
-	var head Data
-	switch len(tail) {
-	case 0:
-		head, tail = nil, nil
-	case 1:
-		head, tail = tail[0], nil
-	case 2:
-		head, tail = tail[0], []Data{tail[1]}
-	default:
-		head, tail = tail[0], tail[1:]
-	}
-	return tuple(func(d ...Data) (Data, []Data) {
-		if len(d) > 0 {
-			newTuple(d...)
-		}
-		return head, tail
-	})
-}
-func conTuple(d Data, t Reduceable) Reduceable {
-	return tuple(func(dd ...Data) (Data, []Data) {
-		return d, append([]Data{t.Head()}, t.Tail()...)
-	})
-}
-func (tup tuple) Type() Flag            { d, _ := tup(); return newFlag(Tuple, d.Flag()) }
-func (tup tuple) Head() Data            { h, _ := tup(); return h }
-func (tup tuple) Tail() []Data          { _, t := tup(); return t }
-func (tup tuple) DeCap() (Data, []Data) { return tup() }
-func (tup tuple) Flag() d.BitFlag {
-	da, _ := tup()
-	return da.Flag() |
-		d.Parameter.Flag() |
-		Accessor.Flag()
-}
-func (tup tuple) Len() int {
-	var l int
-	var h, t = tup()
-	if !elemEmpty(h) {
-		l = l + 1
-	}
-	l = l + len(t)
-	return l
-}
-func (tup tuple) Slice() []d.Data {
-	var head, tail = tup()
-	var slice = []d.Data{head}
-	for _, t := range tail {
-		slice = append(slice, t)
-	}
-	return slice
-}
-func (tup tuple) Shift() Reduceable {
-	var _, t = tup()
-	return newTuple(t...)
-}
-
-func (tup tuple) String() string {
-	dat, _ := tup()
-	return dat.String() + " " + d.StringSlice("∙", "[", "]", tup.Slice()...)
-}
-func (tup tuple) Empty() bool {
-	h, _ := tup()
-	if h != nil {
-		return false
-	}
-	return true
-}
 
 // VECTOR
 // vector keeps a slice of data instances
@@ -178,31 +110,37 @@ func (v vector) Slice() []Data  { return v() }
 
 // LINKED LIST
 // base implementation of linked lists
-func conList(d ...Data) Ordered {
-	return list(func() (Data, Ordered) {
-		if len(d) <= 1 {
-			return d[0], nil
+func conRecursive(d ...Data) Recursive {
+	if len(d) > 0 {
+		if len(d) > 1 {
+			return list(func() (Data, Recursive) { return d[0], conRecursive(d[1:]...) })
 		}
-		return d[0], conList(d[1:]...)
-	})
-}
-func (l list) String() string {
-	d, o := l()
-	if o != nil {
-		return d.String() + " " + o.String()
+		return list(func() (Data, Recursive) { return d[0], nil })
 	}
-	return d.String()
+	return nil
 }
-func (l list) Flag() d.BitFlag       { return d.Function.Flag() }
-func (l list) Next() (Data, Ordered) { return l() }
+func (l list) Head() Data               { h, _ := l(); return h }
+func (l list) Tail() Recursive          { _, t := l(); return t }
+func (l list) DeCap() (Data, Recursive) { return l() }
+func (l list) Flag() d.BitFlag          { return d.Function.Flag() }
 func (l list) Empty() bool {
-	var dat, ord = l()
-	if (dat != nil) &&
-		(ord != nil) {
-		if (!dat.Flag().Match(d.Nil.Flag())) &&
-			(!ord.Flag().Match(d.Nil.Flag())) {
-			return false
-		}
+	var h, _ = l()
+	if h != nil {
+		return false
 	}
 	return true
+}
+func (l list) Len() int {
+	var _, t = l()
+	if t != nil {
+		return 1 + t.Len()
+	}
+	return 1
+}
+func (l list) String() string {
+	var h, t = l()
+	if t != nil {
+		return h.String() + ", " + t.String()
+	}
+	return h.String()
 }

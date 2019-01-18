@@ -213,13 +213,13 @@ type Preadicates interface {
 }
 
 //// RECURSIVE LISTS ///////
-type Reduceable interface {
+type Recursive interface {
 	Data
-	Collection
+	Len() int
+	Empty() bool
 	Head() Data
-	Tail() []Data
-	DeCap() (Data, []Data)
-	Shift() Reduceable
+	Tail() Recursive
+	DeCap() (Data, Recursive)
 }
 
 // LINKED LISTS

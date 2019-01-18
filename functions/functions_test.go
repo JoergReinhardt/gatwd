@@ -500,48 +500,19 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 		_ = applyPraedicate(accl, accc1.Pairs()...)
 	}
 }
-func TestTuple(t *testing.T) {
-	var slice []Data
-	for _, dat := range accl.Pairs() {
-		slice = append(slice, dat)
-	}
-	tup := newTuple(slice...)
-	fmt.Println(tup)
-	for tup.Tail() != nil {
-		tup = tup.Shift()
-		var head, tail = tup.Head(), tup.Tail()
-		fmt.Printf("head: %s\ntail %s\n\n", head, tail)
-		fmt.Println(tail)
-	}
-	dat := d.New("refill data-0")
-	tup = conTuple(d.New("refill data-1"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-2"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-3"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-4"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-5"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-6"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-7"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-8"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-9"), tup)
-	fmt.Println(conTuple(dat, tup))
-	tup = conTuple(d.New("refill data-10"), tup)
-	fmt.Println(conTuple(dat, tup))
-}
-func TestList(t *testing.T) {
-	l := conList(
+func TestRecursive(t *testing.T) {
+	l := conRecursive(
 		d.New("this"),
 		d.New("is"),
 		d.New("a"),
 		d.New("test"),
 		d.New("List"),
 	)
-	fmt.Println(l)
+	var h Data
+	fmt.Println(l.Len())
+	fmt.Println(l.Empty())
+	for l != nil {
+		h, l = l.DeCap()
+		fmt.Println(h)
+	}
 }
