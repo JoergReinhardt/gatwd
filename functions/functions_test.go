@@ -155,7 +155,7 @@ func TestStringVectorEnclosures(t *testing.T) {
 		d.New("tenth data entry in slice"),
 	)
 	fmt.Println(vec.Flag())
-	fmt.Println(vec.Type())
+	fmt.Println(vec.Type().String())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
 }

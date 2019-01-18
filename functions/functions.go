@@ -34,7 +34,6 @@ const (
 	Nnary
 	Tuple
 	List
-	Chain
 	UniSet
 	MuliSet
 	AssocA
@@ -44,6 +43,8 @@ const (
 	Node
 	Tree
 	Internal
+
+	Chain = Vector | Tuple
 
 	AccIndex = Vector | Chain
 

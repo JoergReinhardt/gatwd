@@ -135,12 +135,6 @@ type Functor interface {
 type Countable interface {
 	Len() int // <- performs mutch better on slices
 }
-type Quantified interface {
-	Functional
-	Countable
-	Empty() bool
-	Slice() []Data //<-- no more nil pointers & 'out of index'!
-}
 type Collected interface {
 	Data
 	Empty() bool //<-- no more nil pointers & 'out of index'!
@@ -211,11 +205,30 @@ type Preadicates interface {
 	Pairs() []Paired
 	Set(...Paired) ([]Paired, Preadicates)
 }
+type Quantified interface {
+	Functional
+	Countable
+	Empty() bool
+	Slice() []Data //<-- no more nil pointers & 'out of index'!
+}
+type Vectorized interface {
+	Quantified
+	Head() Data
+	Tail() []Data
+	DeCap() (Data, []Data)
+}
+
+//// TUPLES /////
+type Tupled interface {
+	Vectorized
+	Arity() Arity
+	Sig() []d.BitFlag
+}
 
 //// RECURSIVE LISTS ///////
 type Recursive interface {
-	Data
-	Len() int
+	Functional
+	Countable
 	Empty() bool
 	Head() Data
 	Tail() Recursive

@@ -29,7 +29,8 @@ type (
 	unary    func(Data) Data
 	binary   func(a, b Data) Data
 	nary     func(...Data) Data
-	vector   func() []Data // <- indexable native golang slice of data instances
+	vector   func() []Data                    // <- indexable native golang slice of data instances
+	tuple    func() (Vectorized, []d.BitFlag) // <- indexable native golang slice of fixed length and type signature
 	list     func() (Data, Recursive)
 )
 
@@ -45,10 +46,10 @@ func (c constant) Eval() Data      { return c }
 
 // VECTOR
 // vector keeps a slice of data instances
-func vectorConstructor(dd ...Data) Quantified {
+func vectorConstructor(dd ...Data) Vectorized {
 	return vector(func() []Data { return dd })
 }
-func newVector(dd ...d.Data) Quantified {
+func newVector(dd ...d.Data) Vectorized {
 	return vector(func() (vec []Data) {
 		for _, d := range dd {
 			vec = append(vec, newData(d))
@@ -102,7 +103,7 @@ func (v vector) Tail() []Data {
 	}
 	return nil
 }
-func (v vector) Decap() (Data, []Data) {
+func (v vector) DeCap() (Data, []Data) {
 	return v.Head(), v.Tail()
 }
 func (v vector) Vector() []Data { return v() }
@@ -119,6 +120,7 @@ func conRecursive(d ...Data) Recursive {
 	}
 	return nil
 }
+func (l list) Eval() Data               { return l }
 func (l list) Head() Data               { h, _ := l(); return h }
 func (l list) Tail() Recursive          { _, t := l(); return t }
 func (l list) DeCap() (Data, Recursive) { return l() }
@@ -143,4 +145,46 @@ func (l list) String() string {
 		return h.String() + ", " + t.String()
 	}
 	return h.String()
+}
+func (l list) Type() Flag {
+	return newFlag(List,
+		d.Slice.Flag()|
+			d.Parameter.Flag()|
+			l.Flag())
+}
+
+// TUPLE
+func conTuple(dat ...Data) Tupled {
+	var flags = []d.BitFlag{}
+	for _, data := range dat {
+		flags = append(flags, data.Flag())
+	}
+	var vec = vectorConstructor(dat...)
+	return tuple(func() (Vectorized, []d.BitFlag) {
+		return vec, flags
+	})
+}
+func (t tuple) Arity() Arity          { _, f := t(); return Arity(len(f)) }
+func (t tuple) Sig() []d.BitFlag      { _, f := t(); return f }
+func (t tuple) DeCap() (Data, []Data) { v, _ := t(); return v.DeCap() }
+func (t tuple) Slice() []Data         { v, _ := t(); return v.Slice() }
+func (t tuple) Head() Data            { v, _ := t(); return v.Head() }
+func (t tuple) Tail() []Data          { v, _ := t(); return v.Tail() }
+func (t tuple) Empty() bool           { v, _ := t(); return v.Empty() }
+func (t tuple) Len() int              { v, _ := t(); return v.Len() }
+func (t tuple) Flag() d.BitFlag       { return d.Function.Flag() }
+func (t tuple) Eval() Data            { return t }
+func (t tuple) String() string {
+	var slice []d.Data
+	var v, _ = t()
+	for _, dat := range v.(vector)() {
+		slice = append(slice, dat)
+	}
+	return d.StringSlice("∙", "(", ")", slice...)
+}
+func (t tuple) Type() Flag {
+	return newFlag(Tuple,
+		d.Slice.Flag()|
+			d.Parameter.Flag()|
+			t.Flag())
 }
