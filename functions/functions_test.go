@@ -535,3 +535,13 @@ func TestTuple(t *testing.T) {
 	tup = conTuple(d.New("refill data-10"), tup)
 	fmt.Println(conTuple(dat, tup))
 }
+func TestList(t *testing.T) {
+	l := conList(
+		d.New("this"),
+		d.New("is"),
+		d.New("a"),
+		d.New("test"),
+		d.New("List"),
+	)
+	fmt.Println(l)
+}

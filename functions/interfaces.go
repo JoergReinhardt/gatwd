@@ -225,7 +225,7 @@ type Reduceable interface {
 // LINKED LISTS
 type Ordered interface {
 	Collected
-	Next() value
+	Next() (Data, Ordered)
 }
 type Reverseable interface {
 	Ordered

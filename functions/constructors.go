@@ -31,6 +31,7 @@ type (
 	binary   func(a, b Data) Data
 	nary     func(...Data) Data
 	vector   func() []Data // <- indexable native golang slice of data instances
+	list     func() (Data, Ordered)
 )
 
 // CONSTANT
@@ -103,7 +104,10 @@ func (tup tuple) String() string {
 	return dat.String() + " " + d.StringSlice("∙", "[", "]", tup.Slice()...)
 }
 func (tup tuple) Empty() bool {
-
+	h, _ := tup()
+	if h != nil {
+		return false
+	}
 	return true
 }
 
@@ -121,7 +125,7 @@ func newVector(dd ...d.Data) Quantified {
 	})
 }
 
-// implements functions/sliceable interface
+// base implementation functions/sliceable interface
 func (v vector) Head() Data {
 	if v.Len() > 0 {
 		return v.Vector()[0]
@@ -159,6 +163,46 @@ func (v vector) String() string {
 	}
 	return d.StringSlice("∙", "[", "]", slice...)
 }
-func (v vector) Eval() Data     { return v }
+func (v vector) Eval() Data { return v }
+func (v vector) Tail() []Data {
+	if v.Len() > 1 {
+		return v.Vector()[1:]
+	}
+	return nil
+}
+func (v vector) Decap() (Data, []Data) {
+	return v.Head(), v.Tail()
+}
 func (v vector) Vector() []Data { return v() }
 func (v vector) Slice() []Data  { return v() }
+
+// LINKED LIST
+// base implementation of linked lists
+func conList(d ...Data) Ordered {
+	return list(func() (Data, Ordered) {
+		if len(d) <= 1 {
+			return d[0], nil
+		}
+		return d[0], conList(d[1:]...)
+	})
+}
+func (l list) String() string {
+	d, o := l()
+	if o != nil {
+		return d.String() + " " + o.String()
+	}
+	return d.String()
+}
+func (l list) Flag() d.BitFlag       { return d.Function.Flag() }
+func (l list) Next() (Data, Ordered) { return l() }
+func (l list) Empty() bool {
+	var dat, ord = l()
+	if (dat != nil) &&
+		(ord != nil) {
+		if (!dat.Flag().Match(d.Nil.Flag())) &&
+			(!ord.Flag().Match(d.Nil.Flag())) {
+			return false
+		}
+	}
+	return true
+}
