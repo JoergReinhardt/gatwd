@@ -21,4 +21,19 @@ func TestDefinition(t *testing.T) {
 	)
 
 	fmt.Println(def)
+
+	pos := newFuncDef(
+		12,
+		"TestFuncName",
+		d.Record.Flag(),
+		Value,
+		PreFix, Lazy, Right_Bound, Imutable,
+		newConstant(d.New("test string Constant")),
+		newFlag(11, UnaryFnc, d.Function.Flag()),
+		newFlag(11, Value, d.String.Flag()),
+		newFlag(11, Value, d.String.Flag()),
+		newFlag(11, Value, d.String.Flag()),
+	)
+
+	fmt.Println(pos)
 }

@@ -87,7 +87,7 @@ const (
 	Pure
 	////
 	Positional
-	AccArg
+	NamedArgs
 	////
 	Lesser
 	Equal
@@ -130,7 +130,7 @@ type FncDef interface {
 	Lazy() Property
 	Bound() Property
 	Mutable() Property
-	ArgsAcc() Property
+	AccessType() Property
 	ArgTypes() []Flag
 	RetType() Flag
 	Fnc() Function
