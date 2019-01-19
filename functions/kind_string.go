@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _Kind_name = "ValueParameterAttributAccessorDoubleVectorConstantUnaryBinaryNnaryTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeInternal"
+const _Kind_name = "ValueParameterAttributAccessorDoubleVectorConstantUnaryFncBinaryFncNaryFncTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeHigherOrder"
 
 var _Kind_map = map[Kind]string{
 	1:       _Kind_name[0:5],
@@ -14,20 +14,20 @@ var _Kind_map = map[Kind]string{
 	16:      _Kind_name[30:36],
 	32:      _Kind_name[36:42],
 	64:      _Kind_name[42:50],
-	128:     _Kind_name[50:55],
-	256:     _Kind_name[55:61],
-	512:     _Kind_name[61:66],
-	1024:    _Kind_name[66:71],
-	2048:    _Kind_name[71:75],
-	4096:    _Kind_name[75:81],
-	8192:    _Kind_name[81:88],
-	16384:   _Kind_name[88:94],
-	32768:   _Kind_name[94:100],
-	65536:   _Kind_name[100:104],
-	131072:  _Kind_name[104:109],
-	262144:  _Kind_name[109:113],
-	524288:  _Kind_name[113:117],
-	1048576: _Kind_name[117:125],
+	128:     _Kind_name[50:58],
+	256:     _Kind_name[58:67],
+	512:     _Kind_name[67:74],
+	1024:    _Kind_name[74:79],
+	2048:    _Kind_name[79:83],
+	4096:    _Kind_name[83:89],
+	8192:    _Kind_name[89:96],
+	16384:   _Kind_name[96:102],
+	32768:   _Kind_name[102:108],
+	65536:   _Kind_name[108:112],
+	131072:  _Kind_name[112:117],
+	262144:  _Kind_name[117:121],
+	524288:  _Kind_name[121:125],
+	1048576: _Kind_name[125:136],
 }
 
 func (i Kind) String() string {

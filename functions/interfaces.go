@@ -45,66 +45,45 @@ type BitFlag interface {
 	Match(f d.BitFlag) bool
 }
 
-type Arity int8
-type Fixity int8
-type Equality int8
-type Evaluation bool
-
-func (l Evaluation) String() string {
-	if l {
-		return "Lazy"
-	}
-	return "Eager"
-}
-
-type Boundness bool
-
-func (b Boundness) String() string {
-	if b {
-		return "Left_Binding"
-	}
-	return "Right_Binding"
-}
-
-type Mutability bool
-
-func (b Mutability) String() string {
-	if b {
-		return "Mutable"
-	}
-	return "Immutable"
-}
-
-type SideEffectedness bool
-
-func (b SideEffectedness) String() string {
-	if b {
-		return "Side Effected"
-	}
-	return "Pure"
-}
+type Arity uint8
 
 //go:generate stringer -type Arity
-//go:generate stringer -type Fixity
-//go:generate stringer -type Equality
 const (
-	Constant_Function Arity            = 0
-	Unary_Function    Arity            = 1
-	Binary_Function   Arity            = 2
-	PostFix           Fixity           = -1
-	InFix             Fixity           = 0
-	PreFix            Fixity           = 1
-	Lesser            Equality         = -1
-	Equal             Equality         = 0
-	Greater           Equality         = 1
-	Eager             Evaluation       = false
-	Lazy              Evaluation       = true
-	Right_Bound       Boundness        = false
-	Left_Bound        Boundness        = true
-	Mutable           Mutability       = true
-	Immutable         Mutability       = false
-	Side_Effected     SideEffectedness = true
-	Pure              SideEffectedness = false
+	Nullary Arity = 0 + iota
+	Unary
+	Binary
+	Ternary
+	Quaternary
+	Quinary
+	Senary
+	Septenary
+	Octonary
+	Novenary
+	Denary
+)
+
+type Property d.BitFlag
+
+func (p Property) Flag() BitFlag { return d.BitFlag(p) }
+
+//go:generate stringer -type Property
+const (
+	PostFix Property = 1
+	InFix   Property = 1 << iota
+	PreFix
+	Lesser
+	Equal
+	Greater
+	Eager
+	Lazy
+	Right_Bound
+	Left_Bound
+	Mutable
+	Imutable
+	Effected
+	Pure
+	Positional
+	NamedArgs
 )
 
 // interface to integrate data instanciated by the data module with functional
@@ -128,7 +107,7 @@ type Functional interface {
 	Typed
 	Ident() Data // calls enclosed fnc, with enclosed parameters
 }
-type Functor interface {
+type Function interface {
 	Functional
 	Call(...Data) Data // calls enclosed fnc, passes params & return
 }
@@ -185,12 +164,15 @@ type Argumented interface {
 	Typed
 	Arg() Argumented
 	Data() Data
-	Set(...Data) (Data, Argumented)
+	Apply(...Data) (Data, Argumented)
 }
 type Arguments interface {
 	Len() int
 	Args() []Argumented
-	Set(...Argumented) ([]Argumented, Arguments)
+	Data() []Data
+	Get(int) Argumented
+	Replace(int, Data) Arguments
+	Apply(...Data) ([]Data, Arguments)
 }
 type Parametric interface {
 	Paired
@@ -199,13 +181,15 @@ type Parametric interface {
 	Key() Data
 	Data() Data
 	Pair() Paired
-	Set(...Paired) (Paired, Parametric)
+	Apply(...Paired) (Paired, Parametric)
 }
-type Preadicates interface {
+type Praedicates interface {
 	Len() int
 	Accs() []Parametric
 	Pairs() []Paired
-	Set(...Paired) ([]Paired, Preadicates)
+	Get(Data) Paired
+	Replace(Paired) Praedicates
+	Apply(...Paired) ([]Paired, Praedicates)
 }
 type Quantified interface {
 	Functional
@@ -292,8 +276,8 @@ type Named interface{ Name() string }
 // operators expect their parameters within syntactic context to either be
 // left, right, or on both sides of the operators position.
 type Operator interface {
-	Functor
-	Fix() Fixity
+	Function
+	Fix() Property
 }
 
 ////////// STACK ////////////

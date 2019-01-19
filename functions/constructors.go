@@ -16,7 +16,7 @@ DATA CONSTRUCTORS
   consequtive curry/, the embedded funtion will be called passig those
   parameters and a yield the resulting value according to the return value
   definition. local value declarations, as well as names, and/or positions of
-  parameters and return values are enclosed by the constructor.
+  parameters and return values are enclosed by thetconstructor.
 */
 package functions
 
@@ -35,7 +35,7 @@ type (
 	list     func() (Data, Recursive)
 )
 
-// CONSTANT
+// ONSTANT
 // constant also conains immutable data, but it may be the result of a constant experssion
 func newConstant(dat Data) Data    { return constant(func() Data { return dat.(Functional).Ident() }) }
 func (c constant) Flag() d.BitFlag { return d.Precedence.Flag() }
@@ -172,7 +172,7 @@ func (t tuple) String() string {
 	for _, dat := range v.(vector)() {
 		slice = append(slice, dat)
 	}
-	return d.StringSlice("∙", "(", ")", slice...)
+	return d.StringSlice(", ", "(", ")", slice...)
 }
 func (t tuple) Type() Flag {
 	return newFlag(Tuple,
@@ -208,6 +208,14 @@ func (r record) Type() Flag {
 		r.Flag())
 }
 func (r record) String() string {
-	var str string
-	return str
+	var str = "{"
+	var l = r.Len()
+	for i, pair := range r.Slice() {
+		str = str + pair.(Paired).Left().String() + "::" +
+			pair.(Paired).Right().String()
+		if i < l-1 {
+			str = str + ", "
+		}
+	}
+	return str + "}"
 }

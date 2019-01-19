@@ -116,7 +116,7 @@ func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t
 }
-func (t tokens) Flag() BitFlag { return Internal.Flag() }
+func (t tokens) Flag() BitFlag { return HigherOrder.Flag() }
 func (t tokens) String() string {
 	var str string
 	for _, tok := range t {
@@ -148,7 +148,7 @@ func sliceContainsToken(ts tokens, t Token) bool {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() BitFlag { return Internal.Flag() }
+func (t tokenSlice) Flag() BitFlag { return HigherOrder.Flag() }
 func (t tokenSlice) String() string {
 	var str string
 	for _, s := range t {

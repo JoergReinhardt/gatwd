@@ -9,20 +9,20 @@ import (
 )
 
 func TestIdGenerator(t *testing.T) {
-	ts := newTypeState()
+	var state = initState()
 	var id int
-	id = ts.NewUid()
+	id, state = state.NewUID()
 	fmt.Println(id)
-	id = ts.NewUid()
+	id, state = state.NewUID()
 	fmt.Println(id)
 	if id != 1 {
 		t.Fail()
 	}
-	id = ts.NewUid()
-	id = ts.NewUid()
-	id = ts.NewUid()
-	id = ts.NewUid()
-	id = ts.NewUid()
+	id, state = state.NewUID()
+	id, state = state.NewUID()
+	id, state = state.NewUID()
+	id, state = state.NewUID()
+	id, state = state.NewUID()
 	fmt.Println(id)
 	if id != 6 {
 		t.Fail()
@@ -186,13 +186,13 @@ func TestParameterEnclosure(t *testing.T) {
 	parm = newArgument(d.New("test parameter"))
 	dat = parm.Arg()
 	fmt.Println(dat)
-	dat, parm = parm.Set(newData(d.New("changer parameter")))
+	dat, parm = parm.Apply(newData(d.New("changer parameter")))
 	fmt.Println(dat)
-	dat, parm = parm.Set(newData(d.New("yet another parameter")))
-	dat, parm = parm.Set()
+	dat, parm = parm.Apply(newData(d.New("yet another parameter")))
+	dat, parm = parm.Apply()
 	fmt.Println(dat)
 	fmt.Println(dat)
-	dat, parm = parm.Set(newData(d.New("yup, works just fine ;)")))
+	dat, parm = parm.Apply(newData(d.New("yup, works just fine ;)")))
 	fmt.Println(dat)
 	fmt.Println(parm.Type())
 	fmt.Println(dat.Flag())
@@ -200,12 +200,12 @@ func TestParameterEnclosure(t *testing.T) {
 func TestAccParamEnclosure(t *testing.T) {
 	acc := newPraedicate(newPair(d.New("test-key"), d.New("test value")))
 	fmt.Println(acc)
-	_, acc = acc.Set(newPair(d.New(12), d.New("one million dollar")))
+	_, acc = acc.Apply(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
 	if acc.Key() != d.New(12) {
 		t.Fail()
 	}
-	_, acc = acc.Set(newPair(d.New(13), d.New("two million dollar")))
+	_, acc = acc.Apply(newPair(d.New(13), d.New("two million dollar")))
 	fmt.Println(acc)
 	if acc.Key() != d.New(13) {
 		t.Fail()
@@ -238,21 +238,23 @@ func TestApplyArgs(t *testing.T) {
 	args := newArguments(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
 
 	fmt.Println(args)
-	_, args = args.Set(args.Args()...)
+	var dat []Data
+	dat, args = args.Apply(args.Data()...)
 
 	fmt.Println(args)
-	if args.Args()[3].Data().(d.IntVal) != 3 {
+	if dat[3].(d.IntVal) != 3 {
 		t.Fail()
 	}
 
-	_, args = args.Set(newArguments(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8)).Args()...)
+	dat, args = args.Apply(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8))
 
 	fmt.Println(args)
-	if args.Args()[3].Data().(d.IntVal) != 5 &&
+	if dat[3].(d.IntVal) != 5 &&
 		args.Args()[0].Data().(d.IntVal) != 7 &&
 		args.Args()[5].Data().(d.IntVal) != 8 {
 		t.Fail()
 	}
+	fmt.Println(args.Get(3))
 }
 
 var acc = newPraedicates(
@@ -288,51 +290,56 @@ var acc2 = newPraedicates(
 		d.New("six key"),
 		d.New("changed sixt value")))
 
-func TestAccAttrs(t *testing.T) {
-	fmt.Println(acc)
-	p, acc1 := acc.Set(newPraedicates(
-		newPair(
-			d.New("first key"),
-			d.New("first value"),
-		),
-		newPair(
-			d.New("second key"),
-			d.New("changed second value"),
-		),
-		newPair(
-			d.New("third key"),
-			d.New("third value"),
-		),
-		newPair(
-			d.New("fourth key"),
-			d.New("changed fourth value"),
-		),
-		newPair(
-			d.New("fifth key"),
-			d.New("fifth value"),
-		),
-		newPair(
-			d.New("sixt key"),
-			d.New("sixt value"))).Pairs()...)
-
-	fmt.Println(p)
-	fmt.Println(acc1)
-
-	_, acc2 := acc1.Set(newPraedicates(
-		newPair(
-			d.New("second key"),
-			d.New("changed second value again"),
-		),
-		newPair(
-			d.New("fourth key"),
-			d.New("changed fourth value again"))).Pairs()...)
-
-	fmt.Println(acc2)
-}
+//func TestAccAttrs(t *testing.T) {
+//	fmt.Println(acc)
+//	p, acc1 := acc.Apply(newPraedicates(
+//		newPair(
+//			d.New("first key"),
+//			d.New("first value"),
+//		),
+//		newPair(
+//			d.New("second key"),
+//			d.New("changed second value"),
+//		),
+//		newPair(
+//			d.New("third key"),
+//			d.New("third value"),
+//		),
+//		newPair(
+//			d.New("fourth key"),
+//			d.New("changed fourth value"),
+//		),
+//		newPair(
+//			d.New("fifth key"),
+//			d.New("fifth value"),
+//		),
+//		newPair(
+//			d.New("sixt key"),
+//			d.New("sixt value"))).Pairs()...)
+//
+//	fmt.Println(p)
+//	fmt.Println(acc1)
+//	fmt.Printf("get \"second key\" %s\n", acc1.Get(d.New("second key")))
+//	if acc1.Get(d.New("second key")).Right() != d.New("changed second value") {
+//		t.Fail()
+//	}
+//
+//	_, acc2 := acc1.Apply(newPraedicates(
+//		newPair(
+//			d.New("second key"),
+//			d.New("changed second value again"),
+//		),
+//		newPair(
+//			d.New("fourth key"),
+//			d.New("changed fourth value again"))).Pairs()...)
+//
+//	fmt.Println(acc2)
+//
+//}
 func TestSearchAccAttrs(t *testing.T) {
 	praed := d.New("fourth key")
 	var cha = pairSorter{}
-	args, _ := acc.Set()
+	args, _ := acc.Apply()
 	for _, c := range args {
 		cha = append(cha, c)
 	}
@@ -343,6 +350,7 @@ func TestSearchAccAttrs(t *testing.T) {
 	if cha[idx].Left().String() != praed.String() {
 		t.Fail()
 	}
+
 }
 
 var macc = newPairSorter(
@@ -398,9 +406,9 @@ func TestMixedTypeAccessor(t *testing.T) {
 	}
 }
 func TestApplyAccessAttrs(t *testing.T) {
-	acc3 := applyPraedicate(acc, acc2.Pairs()...)
+	acc3 := applyPraedicates(acc, acc2.Pairs()...)
 	fmt.Println(acc3)
-	acc2 = newPraedSet(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
+	acc2 = newPraedicates(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
 }
 
 var accc = newPraedicates(
@@ -452,7 +460,7 @@ func TestFmtAccessorBenchmarkExpression(t *testing.T) {
 func BenchmarkAccessorApply(b *testing.B) {
 	//var accn = []Accessable{}
 	for i := 0; i < b.N; i++ {
-		_ = applyPraedicate(accl, accc.Pairs()...)
+		_ = applyPraedicates(accl, accc.Pairs()...)
 	}
 }
 
@@ -492,12 +500,12 @@ var accc1 = newPraedicates(
 
 func TestFmtMoreAccessorsBenchmarkExpression(t *testing.T) {
 	fmt.Printf("more accessors to replace:\n%s\n", accc1)
-	fmt.Printf("same accessor set to replace accessors in:\n%s\n", applyPraedicate(accl, accc1.Pairs()...))
+	fmt.Printf("same accessor set to replace accessors in:\n%s\n", applyPraedicates(accl, accc1.Pairs()...))
 }
 func BenchmarkMoreAccessorApply(b *testing.B) {
 	//var accn = []Accessable{}
 	for i := 0; i < b.N; i++ {
-		_ = applyPraedicate(accl, accc1.Pairs()...)
+		_ = applyPraedicates(accl, accc1.Pairs()...)
 	}
 }
 func TestRecursive(t *testing.T) {
@@ -515,4 +523,32 @@ func TestRecursive(t *testing.T) {
 		h, l = l.DeCap()
 		fmt.Println(h)
 	}
+}
+func TestTuple(t *testing.T) {
+	tup := newTuple(
+		d.New("this"),
+		d.New("is"),
+		d.New("a"),
+		d.New("test"),
+		d.New("Tuple"),
+		d.New(19),
+		d.New(23.42),
+	)
+	fmt.Println(tup)
+	fmt.Println(tup.ArgSig())
+	fmt.Println(tup.Arity())
+}
+func TestRecord(t *testing.T) {
+	rec := newRecord(
+		newPair(d.New("key-0"), d.New("this")),
+		newPair(d.New("key-1"), d.New("is")),
+		newPair(d.New("key-2"), d.New("a")),
+		newPair(d.New("key-3"), d.New("test")),
+		newPair(d.New("key-4"), d.New("Tuple")),
+		newPair(d.New("key-5"), d.New(19)),
+		newPair(d.New("key-6"), d.New(23.42)),
+	)
+	fmt.Println(rec)
+	fmt.Println(rec.ArgSig())
+	fmt.Println(rec.Arity())
 }
