@@ -8,6 +8,6 @@ import (
 )
 
 func TestFlag(t *testing.T) {
-	flag := newFlag(Parameter|Vector, d.Vector.Flag()|d.Function.Flag())
+	flag := newFlag(42, Parameter|Vector, d.Vector.Flag()|d.Function.Flag())
 	fmt.Println(flag.String())
 }

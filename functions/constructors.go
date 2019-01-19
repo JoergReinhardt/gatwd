@@ -29,17 +29,17 @@ type (
 	unary    func(Data) Data
 	binary   func(a, b Data) Data
 	nary     func(...Data) Data
-	vector   func() []Data                // <- indexable native golang slice of data instances
-	tuple    func() (Vectorized, FlagSet) // <- indexable native golang slice of fixed length & type signature
-	record   func() (Tupled, []Paired)    // <- indexable native golang slice of fixed length, type signature & param keys
+	vector   func() []Data                    // <- indexable native golang slice of data instances
+	tuple    func() (Vectorized, []d.BitFlag) // <- indexable native golang slice of fixed length & type signature
+	record   func() (Tupled, []Paired)        // <- indexable native golang slice of fixed length, type signature & param keys
 	list     func() (Data, Recursive)
 )
 
 // ONSTANT
 // constant also conains immutable data, but it may be the result of a constant experssion
 func newConstant(dat Data) Data    { return constant(func() Data { return dat.(Functional).Ident() }) }
-func (c constant) Flag() d.BitFlag { return d.Precedence.Flag() }
-func (c constant) Type() Flag      { return newFlag(Constant, c().Flag()) }
+func (c constant) Flag() d.BitFlag { return d.Definition.Flag() }
+func (c constant) Type() Flag      { return newFlag(0, Constant, c().Flag()) }
 func (c constant) String() string  { return c().(d.Data).String() }
 func (c constant) Eval() Data      { return c }
 
@@ -78,10 +78,6 @@ func (v vector) Empty() bool {
 	return true
 }
 func (v vector) Flag() d.BitFlag { return d.Vector.Flag() }
-func (v vector) Type() Flag {
-	return newFlag(Vector,
-		v.Flag())
-}
 func (v vector) String() string {
 	var slice []d.Data
 	for _, dat := range v() {
@@ -139,25 +135,20 @@ func (l list) String() string {
 	}
 	return h.String()
 }
-func (l list) Type() Flag {
-	return newFlag(List,
-		l.Flag())
-}
 
 // TUPLE
 func newTuple(dat ...Data) Tupled {
-	var flags []Flag
+	var flags []d.BitFlag
 	for _, data := range dat {
-		flags = append(flags, newFlag(Value, data.Flag()))
+		flags = append(flags, data.Flag())
 	}
-	var sig = newFlagSet(flags...)
 	var vec = vectorConstructor(dat...)
-	return tuple(func() (Vectorized, FlagSet) {
-		return vec, sig
+	return tuple(func() (Vectorized, []d.BitFlag) {
+		return vec, flags
 	})
 }
-func (t tuple) Arity() Arity          { _, f := t(); return Arity(len(f())) }
-func (t tuple) ArgSig() FlagSet       { _, f := t(); return f }
+func (t tuple) Arity() Arity          { _, f := t(); return Arity(len(f)) }
+func (t tuple) Flags() []d.BitFlag    { _, f := t(); return f }
 func (t tuple) DeCap() (Data, []Data) { v, _ := t(); return v.DeCap() }
 func (t tuple) Slice() []Data         { v, _ := t(); return v.Slice() }
 func (t tuple) Head() Data            { v, _ := t(); return v.Head() }
@@ -173,10 +164,6 @@ func (t tuple) String() string {
 		slice = append(slice, dat)
 	}
 	return d.StringSlice(", ", "(", ")", slice...)
-}
-func (t tuple) Type() Flag {
-	return newFlag(Tuple,
-		t.Flag())
 }
 
 // RECORD
@@ -203,10 +190,6 @@ func (r record) Slice() []Data         { return r.Tuple().Slice() }
 func (r record) Empty() bool           { return r.Tuple().Empty() }
 func (r record) Len() int              { return r.Tuple().Len() }
 func (r record) Flag() d.BitFlag       { return d.Record.Flag() }
-func (r record) Type() Flag {
-	return newFlag(Record,
-		r.Flag())
-}
 func (r record) String() string {
 	var str = "{"
 	var l = r.Len()

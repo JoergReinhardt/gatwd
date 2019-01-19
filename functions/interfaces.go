@@ -47,6 +47,8 @@ type BitFlag interface {
 
 type Arity uint8
 
+func (a Arity) Flag() d.BitFlag { return d.BitFlag(a) }
+
 //go:generate stringer -type Arity
 const (
 	Nullary Arity = 0 + iota
@@ -64,26 +66,32 @@ const (
 
 type Property d.BitFlag
 
-func (p Property) Flag() BitFlag { return d.BitFlag(p) }
+func (p Property) Flag() d.BitFlag { return d.BitFlag(p) }
 
 //go:generate stringer -type Property
 const (
 	PostFix Property = 1
 	InFix   Property = 1 << iota
 	PreFix
+	///
+	Eager
+	Lazy
+	///
+	Right_Bound
+	Left_Bound
+	///
+	Mutable
+	Imutable
+	///
+	Effected
+	Pure
+	////
+	Positional
+	AccArg
+	////
 	Lesser
 	Equal
 	Greater
-	Eager
-	Lazy
-	Right_Bound
-	Left_Bound
-	Mutable
-	Imutable
-	Effected
-	Pure
-	Positional
-	NamedArgs
 )
 
 // interface to integrate data instanciated by the data module with functional
@@ -110,6 +118,20 @@ type Functional interface {
 type Function interface {
 	Functional
 	Call(...Data) Data // calls enclosed fnc, passes params & return
+}
+type FncDef interface {
+	Data
+	UID() int
+	Arity() Arity
+	Fix() Property
+	Lazy() Property
+	Bound() Property
+	Mutable() Property
+	Pure() Property
+	ArgProp() Property
+	ArgTypes() []Flag
+	RetType() Flag
+	Fnc() Function
 }
 type Countable interface {
 	Len() int // <- performs mutch better on slices
@@ -161,12 +183,12 @@ type Collection interface{ Len() int }
 
 type Argumented interface {
 	Data
-	Typed
 	Arg() Argumented
 	Data() Data
 	Apply(...Data) (Data, Argumented)
 }
 type Arguments interface {
+	Data
 	Len() int
 	Args() []Argumented
 	Data() []Data
@@ -184,6 +206,7 @@ type Parametric interface {
 	Apply(...Paired) (Paired, Parametric)
 }
 type Praedicates interface {
+	Data
 	Len() int
 	Accs() []Parametric
 	Pairs() []Paired
@@ -192,7 +215,7 @@ type Praedicates interface {
 	Apply(...Paired) ([]Paired, Praedicates)
 }
 type Quantified interface {
-	Functional
+	Data
 	Countable
 	Empty() bool
 	Slice() []Data //<-- no more nil pointers & 'out of index'!
@@ -208,7 +231,7 @@ type Vectorized interface {
 type Tupled interface {
 	Vectorized
 	Arity() Arity
-	ArgSig() FlagSet
+	Flags() []d.BitFlag
 }
 type Recorded interface {
 	Vectorized
@@ -219,7 +242,7 @@ type Recorded interface {
 
 //// RECURSIVE LISTS ///////
 type Recursive interface {
-	Functional
+	Data
 	Countable
 	Empty() bool
 	Head() Data

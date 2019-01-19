@@ -9,6 +9,7 @@ package functions
 
 import (
 	"math/bits"
+	"strconv"
 
 	d "github.com/JoergReinhardt/godeep/data"
 )
@@ -18,18 +19,19 @@ func composeHighLow(high, low BitFlag) BitFlag {
 	return d.FlagHigh(BitFlag(high).Flag() | d.FlagLow(BitFlag(low)).Flag())
 }
 
-type Flag func() (kind Kind, prec d.BitFlag)
+type Flag func() (uid int, kind Kind, prec d.BitFlag)
 
-func newFlag(kind Kind, prec d.BitFlag) Flag {
-	return func() (k Kind, p d.BitFlag) { return Kind(kind), prec }
+func newFlag(uid int, kind Kind, prec d.BitFlag) Flag {
+	return func() (uid int, k Kind, p d.BitFlag) { return uid, Kind(kind), prec }
 }
 func (t Flag) Flag() d.BitFlag { return HigherOrder.Flag() }             // higher order type
-func (t Flag) Type() Flag      { return newFlag(HigherOrder, t.Flag()) } // higher order type
-func (t Flag) Kind() BitFlag   { k, _ := t(); return Kind(k).Flag() }    // precedence type
-func (t Flag) Prec() d.BitFlag { _, p := t(); return p.Flag() }          // precedence type
+func (t Flag) Type() Flag      { return t }                              // higher order type
+func (t Flag) UID() int        { uid, _, _ := t(); return uid }          // precedence type
+func (t Flag) Kind() BitFlag   { _, k, _ := t(); return Kind(k).Flag() } // precedence type
+func (t Flag) Prec() d.BitFlag { _, _, p := t(); return p.Flag() }       // precedence type
 func (t Flag) String() string {
-	var str string
-	k, p := t()
+	u, k, p := t()
+	var str = "[" + strconv.Itoa(u) + "] "
 	if bits.OnesCount(k.Uint()) > 1 {
 		var flags = d.FlagDecompose(d.BitFlag(k))
 		for i, f := range flags {

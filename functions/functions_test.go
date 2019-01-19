@@ -155,7 +155,6 @@ func TestStringVectorEnclosures(t *testing.T) {
 		d.New("tenth data entry in slice"),
 	)
 	fmt.Println(vec.Flag())
-	fmt.Println(vec.Type().String())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
 }
@@ -167,7 +166,6 @@ func TestMixedVectorEnclosures(t *testing.T) {
 		d.New(5, 7, 234, 4, 546, 324, 4),
 	)
 	fmt.Println(vec.Flag())
-	fmt.Println(vec.Type())
 	fmt.Println(vec.Len())
 	fmt.Println(vec.Empty())
 }
@@ -194,7 +192,6 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(dat)
 	dat, parm = parm.Apply(newData(d.New("yup, works just fine ;)")))
 	fmt.Println(dat)
-	fmt.Println(parm.Type())
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
@@ -535,7 +532,6 @@ func TestTuple(t *testing.T) {
 		d.New(23.42),
 	)
 	fmt.Println(tup)
-	fmt.Println(tup.ArgSig())
 	fmt.Println(tup.Arity())
 }
 func TestRecord(t *testing.T) {

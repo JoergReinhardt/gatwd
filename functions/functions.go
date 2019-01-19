@@ -86,7 +86,6 @@ type ( // HIGHER ORDER FUNCTION TYPES
 // shares the behaviour with that of a parameter, but yields and takes
 func newData(dat d.Data) Data     { return value(func() Data { return dat.(d.Evaluable).Eval() }) }
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
-func (dat value) Type() Flag      { return newFlag(Constant, dat().Flag()) }
 func (dat value) String() string  { return dat().(d.Data).String() }
 func (dat value) Ident() Data     { return dat }
 func (dat value) Empty() bool     { return elemEmpty(dat) }
@@ -108,7 +107,6 @@ func (p pair) Right() Data        { _, r := p(); return r }
 func (p pair) Acc() Parametric    { return newPraedicate(newPair(p.Left(), p.Right())) }
 func (p pair) Arg() Argumented    { return newArgument(p.Right()) }
 func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() | Double.Flag() }
-func (p pair) Type() Flag         { return newFlag(Double, p.Flag()) }
 func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
 func (p pair) Ident() Data        { return p }
 func (p pair) Empty() bool {
@@ -149,7 +147,6 @@ func (p argument) Param() Data        { return p.Data() }
 func (p argument) ParamType() BitFlag { return p.Data().Flag() }
 func (p argument) DataType() BitFlag  { return p.Data().Flag() }
 func (p argument) ArgType() BitFlag   { return p.Data().Flag() }
-func (p argument) Type() Flag         { return newFlag(Attribut, p.Data().Flag()) }
 func (p argument) Empty() bool        { return elemEmpty(p.Data()) }
 func (p argument) Flag() d.BitFlag {
 	return p.Data().Flag() |
@@ -184,7 +181,6 @@ func (a arguments) String() string {
 	}
 	return d.StringChainTable(strdat...)
 }
-func (a arguments) Type() Flag { return newFlag(Attribut, a.Flag()) }
 func (a arguments) Flag() d.BitFlag {
 	var f = d.BitFlag(uint(0))
 	for _, arg := range a.Args() {
@@ -295,10 +291,6 @@ func (p praedicate) Flag() d.BitFlag {
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (p praedicate) Type() Flag {
-	d, _ := p()
-	return newFlag(Accessor, d.Flag())
-}
 func (p praedicate) String() string {
 	l, r := p.Both()
 	return l.String() + ": " + r.String()
@@ -374,7 +366,6 @@ func (a praedicates) Flag() d.BitFlag {
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (a praedicates) Type() Flag { return newFlag(AccCollect, a.Flag()) }
 func (a praedicates) Accs() (accs []Parametric) {
 	pairs, _ := a()
 	for _, p := range pairs {
