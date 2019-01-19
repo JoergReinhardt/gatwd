@@ -9,5 +9,5 @@ import (
 
 func TestFlag(t *testing.T) {
 	flag := newFlag(42, Parameter|Vector, d.Vector.Flag()|d.Function.Flag())
-	fmt.Println(flag.String())
+	fmt.Println(flag)
 }

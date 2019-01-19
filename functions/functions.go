@@ -84,7 +84,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 // in a function call, partially applied values‥.
 // ACCESSATTRIBUT
 // shares the behaviour with that of a parameter, but yields and takes
-func newData(dat d.Data) Data     { return value(func() Data { return dat.(d.Evaluable).Eval() }) }
+func newData(dat d.Data) Data     { return value(func() Data { return dat.(d.Ident).Ident() }) }
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
 func (dat value) String() string  { return dat().(d.Data).String() }
 func (dat value) Ident() Data     { return dat }

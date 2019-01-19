@@ -37,16 +37,39 @@ type (
 
 // ONSTANT
 // constant also conains immutable data, but it may be the result of a constant experssion
-func newConstant(dat Data) Data    { return constant(func() Data { return dat.(Functional).Ident() }) }
-func (c constant) Flag() d.BitFlag { return d.Definition.Flag() }
-func (c constant) Type() Flag      { return newFlag(0, Constant, c().Flag()) }
-func (c constant) String() string  { return c().(d.Data).String() }
-func (c constant) Eval() Data      { return c }
+func newConstant(dat Data) constant    { return constant(func() Data { return dat }) }
+func (c constant) Flag() d.BitFlag     { return d.Definition.Flag() }
+func (c constant) Type() Flag          { return newFlag(0, Constant, c().Flag()) }
+func (c constant) String() string      { return c().(d.Data).String() }
+func (c constant) Ident() Data         { return c }
+func (c constant) Call(d ...Data) Data { return c() }
+
+func (u unary) Call(d ...Data) Data {
+	if len(d) > 0 {
+		return u(d[0])
+	}
+	return nil
+}
+func (b binary) Call(d ...Data) Data {
+	if len(d) > 1 {
+		return b(d[0], d[1])
+	}
+	return nil
+}
+func (n nary) Call(d ...Data) Data {
+	if len(d) > 0 {
+		return n(d...)
+	}
+	return nil
+}
 
 // TUPLE
 
 // VECTOR
 // vector keeps a slice of data instances
+func conVec(vec Vectorized, dd ...Data) Vectorized {
+	return vectorConstructor(append(vec.Slice(), dd...)...)
+}
 func vectorConstructor(dd ...Data) Vectorized {
 	return vector(func() []Data { return dd })
 }
@@ -97,21 +120,46 @@ func (v vector) DeCap() (Data, []Data) {
 }
 func (v vector) Vector() []Data { return v() }
 func (v vector) Slice() []Data  { return v() }
+func (v vector) Call(d ...Data) Data {
+	if len(d) > 0 {
+		conVec(v, d...)
+	}
+	return v
+}
 
 // LINKED LIST
 // base implementation of linked lists
-func conRecursive(d ...Data) Recursive {
+func conRecurse(rec Recursive, d ...Data) Recursive {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return list(func() (Data, Recursive) { return d[0], conRecursive(d[1:]...) })
+			return list(func() (Data, Recursive) {
+				return d[0], conRecurse(rec, d...)
+			})
+		}
+		return list(func() (Data, Recursive) {
+			return d[0], rec
+		})
+	}
+	return nil
+}
+func newRecursive(d ...Data) Recursive {
+	if len(d) > 0 {
+		if len(d) > 1 {
+			return list(func() (Data, Recursive) { return d[0], newRecursive(d[1:]...) })
 		}
 		return list(func() (Data, Recursive) { return d[0], nil })
 	}
 	return nil
 }
-func (l list) Ident() Data              { return l }
-func (l list) Head() Data               { h, _ := l(); return h }
-func (l list) Tail() Recursive          { _, t := l(); return t }
+func (l list) Ident() Data     { return l }
+func (l list) Head() Data      { h, _ := l(); return h }
+func (l list) Tail() Recursive { _, t := l(); return t }
+func (l list) Call(d ...Data) Data {
+	if len(d) > 0 {
+		return conRecurse(l, d...)
+	}
+	return l
+}
 func (l list) DeCap() (Data, Recursive) { return l() }
 func (l list) Flag() d.BitFlag          { return d.List.Flag() }
 func (l list) Empty() bool {
@@ -137,6 +185,9 @@ func (l list) String() string {
 }
 
 // TUPLE
+func conTuple(tup Tupled, dat ...Data) Tupled {
+	return newTuple(append(tup.Slice(), dat...)...)
+}
 func newTuple(dat ...Data) Tupled {
 	var flags []d.BitFlag
 	for _, data := range dat {
@@ -157,6 +208,12 @@ func (t tuple) Empty() bool           { v, _ := t(); return v.Empty() }
 func (t tuple) Len() int              { v, _ := t(); return v.Len() }
 func (t tuple) Flag() d.BitFlag       { return d.Tuple.Flag() }
 func (t tuple) Ident() Data           { return t }
+func (t tuple) Call(d ...Data) Data {
+	if len(d) > 0 {
+		return conTuple(t, d...)
+	}
+	return t
+}
 func (t tuple) String() string {
 	var slice []d.Data
 	var v, _ = t()
@@ -167,6 +224,17 @@ func (t tuple) String() string {
 }
 
 // RECORD
+func conRecord(rec Recorded, pairs ...Paired) Recorded {
+	tup, ps := rec.(record)()
+	if len(pairs) > 0 {
+		return record(func() (Tupled, []Paired) {
+			return tup, pairs
+		})
+	}
+	return record(func() (Tupled, []Paired) {
+		return tup, ps
+	})
+}
 func newRecord(pairs ...Paired) Recorded {
 	var sig = []Paired{}
 	var dat = []Data{}
@@ -179,7 +247,17 @@ func newRecord(pairs ...Paired) Recorded {
 		return tup, sig
 	})
 }
-func (r record) Ident() Data           { return r }
+func (r record) Ident() Data { return r }
+func (r record) Call(d ...Data) Data {
+	if len(d) > 0 {
+		var pairs = []Paired{}
+		for _, pair := range d {
+			pairs = append(pairs, pair.(Paired))
+		}
+		return conRecord(r, pairs...)
+	}
+	return r
+}
 func (r record) Arity() Arity          { _, pairs := r(); return Arity(len(pairs)) }
 func (r record) ArgSig() []Paired      { _, pairs := r(); return pairs }
 func (r record) Tuple() Tupled         { tup, _ := r(); return tup }

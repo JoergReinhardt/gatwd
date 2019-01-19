@@ -506,7 +506,7 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 	}
 }
 func TestRecursive(t *testing.T) {
-	l := conRecursive(
+	l := newRecursive(
 		d.New("this"),
 		d.New("is"),
 		d.New("a"),

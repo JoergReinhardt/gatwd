@@ -4,25 +4,25 @@ package functions
 
 import "strconv"
 
-const _Property_name = "PostFixInFixPreFixLesserEqualGreaterEagerLazyRight_BoundLeft_BoundMutableImutableEffectedPurePositionalNamedArgs"
+const _Property_name = "PostFixInFixPreFixEagerLazyRight_BoundLeft_BoundMutableImutableEffectedPurePositionalAccArgLesserEqualGreater"
 
 var _Property_map = map[Property]string{
 	1:     _Property_name[0:7],
 	2:     _Property_name[7:12],
 	4:     _Property_name[12:18],
-	8:     _Property_name[18:24],
-	16:    _Property_name[24:29],
-	32:    _Property_name[29:36],
-	64:    _Property_name[36:41],
-	128:   _Property_name[41:45],
-	256:   _Property_name[45:56],
-	512:   _Property_name[56:66],
-	1024:  _Property_name[66:73],
-	2048:  _Property_name[73:81],
-	4096:  _Property_name[81:89],
-	8192:  _Property_name[89:93],
-	16384: _Property_name[93:103],
-	32768: _Property_name[103:112],
+	8:     _Property_name[18:23],
+	16:    _Property_name[23:27],
+	32:    _Property_name[27:38],
+	64:    _Property_name[38:48],
+	128:   _Property_name[48:55],
+	256:   _Property_name[55:63],
+	512:   _Property_name[63:71],
+	1024:  _Property_name[71:75],
+	2048:  _Property_name[75:85],
+	4096:  _Property_name[85:91],
+	8192:  _Property_name[91:97],
+	16384: _Property_name[97:102],
+	32768: _Property_name[102:109],
 }
 
 func (i Property) String() string {

@@ -22,7 +22,7 @@ func composeHighLow(high, low BitFlag) BitFlag {
 type Flag func() (uid int, kind Kind, prec d.BitFlag)
 
 func newFlag(uid int, kind Kind, prec d.BitFlag) Flag {
-	return func() (uid int, k Kind, p d.BitFlag) { return uid, Kind(kind), prec }
+	return func() (id int, k Kind, p d.BitFlag) { return uid, Kind(kind), prec }
 }
 func (t Flag) Flag() d.BitFlag { return HigherOrder.Flag() }             // higher order type
 func (t Flag) Type() Flag      { return t }                              // higher order type

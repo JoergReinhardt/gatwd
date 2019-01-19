@@ -108,27 +108,29 @@ type Paired interface {
 	Both() (Data, Data)
 }
 
-type Typed interface{ Type() Flag }
+type Typed interface {
+	Name() string
+	Type() Flag
+}
 
-type Functional interface {
+type Ident interface {
 	Data
-	Typed
 	Ident() Data // calls enclosed fnc, with enclosed parameters
 }
 type Function interface {
-	Functional
+	Ident
 	Call(...Data) Data // calls enclosed fnc, passes params & return
 }
 type FncDef interface {
 	Data
 	UID() int
+	Name() string
 	Arity() Arity
 	Fix() Property
 	Lazy() Property
 	Bound() Property
 	Mutable() Property
-	Pure() Property
-	ArgProp() Property
+	ArgsAcc() Property
 	ArgTypes() []Flag
 	RetType() Flag
 	Fnc() Function
@@ -174,7 +176,6 @@ type Irrational interface{ Float() float64 }
 type Imaginary interface{ Imag() complex128 }
 type BinaryData interface{ Bytes() []byte }
 type Symbolic interface{ String() string }
-type BitWise interface{ Bytes() uint }
 type Temporal interface {
 	Time() time.Time
 	Dura() time.Duration
