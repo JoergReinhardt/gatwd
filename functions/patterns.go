@@ -13,8 +13,6 @@ TYPE IDENTITY PATTERNS
 package functions
 
 import (
-	"strconv"
-
 	d "github.com/JoergReinhardt/godeep/data"
 	l "github.com/JoergReinhardt/godeep/lang"
 )
@@ -28,16 +26,6 @@ type (
 )
 
 // patterns are slices of tokens that can be compared with one another
-func (s pattern) String() string {
-	var str string
-	for i, tok := range s.Tokens() {
-		str = str + tok.String()
-		if i < len(s.Tokens())-1 {
-			str = str + " "
-		}
-	}
-	return strconv.Itoa(s.Id()) + str
-}
 func (s pattern) Flag() d.BitFlag { return HigherOrder.Flag() }
 func (s pattern) Id() int         { id, _, _ := s(); return id }
 func (s pattern) Args() []Flag    { _, flags, _ := s(); return flags }
@@ -59,9 +47,6 @@ func (i monoid) Tokens() []Token     { pat, _ := i(); return pat.Tokens() }
 func (i monoid) RetVal() Flag        { pat, _ := i(); return pat.RetVal() }
 func (i monoid) Fnc() Function       { _, fnc := i(); return fnc }
 func (i monoid) Call(d ...Data) Data { _, fnc := i(); return fnc.Call(d...) }
-func (s monoid) String() string {
-	return strconv.Itoa(s.Id()) + " " + tokens(s.Tokens()).String()
-}
 
 // slice of signatures and associated isomorphic implementations
 // polymorph defined with a name
@@ -69,13 +54,6 @@ func (n polymorph) Id() int         { id, _, _ := n(); return id }
 func (s polymorph) Flag() d.BitFlag { return HigherOrder.Flag() }
 func (n polymorph) Name() string    { _, name, _ := n(); return name }
 func (n polymorph) Monom() []monoid { _, _, m := n(); return m }
-func (s polymorph) String() string {
-	var str string
-	for _, mon := range s.Monom() {
-		str = str + tokens(mon.Tokens()).String() + "\n"
-	}
-	return strconv.Itoa(s.Id()) + " " + str
-}
 
 // generation of new types starts with the generation of a pattern, which in
 // turn retrieves, or generates an id depending on preexistence of the

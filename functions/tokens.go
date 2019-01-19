@@ -78,32 +78,6 @@ func newToken(t TokType, dat Data) Token {
 }
 
 func (t token) Flag() d.BitFlag { return t.flag.Flag() }
-func (t token) String() string {
-	var str string
-	switch t.typ {
-	case Syntax_Token:
-		str = t.flag.(l.TokType).Syntax()
-	case Data_Type_Token:
-		str = d.StringBitFlag(t.flag.(d.Type).Flag())
-	case Kind_Token:
-		str = d.StringBitFlag(t.flag.(Kind).Flag())
-	default:
-		str = "Don't know how to print this token"
-	}
-	return str
-}
-func (t dataToken) String() string {
-	var str string
-	switch t.typ {
-	case Data_Value_Token:
-		str = t.d.(d.Data).String()
-	case Argument_Token:
-		str = "Arg: " + d.Type(t.Flag()).String()
-	case Return_Token:
-		str = "Ret: " + d.Type(t.Flag()).String()
-	}
-	return str
-}
 
 // slice of tokens
 type tokens []Token
@@ -117,13 +91,6 @@ func sortTokens(t tokens) tokens {
 	return t
 }
 func (t tokens) Flag() BitFlag { return HigherOrder.Flag() }
-func (t tokens) String() string {
-	var str string
-	for _, tok := range t {
-		str = str + " " + tok.String()
-	}
-	return str
-}
 
 // consume the first token
 func decapTokens(t tokens) (Token, []Token) {
@@ -148,14 +115,7 @@ func sliceContainsToken(ts tokens, t Token) bool {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() BitFlag { return HigherOrder.Flag() }
-func (t tokenSlice) String() string {
-	var str string
-	for _, s := range t {
-		str = str + tokens(s).String() + "\n"
-	}
-	return str
-}
+func (t tokenSlice) Flag() BitFlag      { return HigherOrder.Flag() }
 func (t tokenSlice) Len() int           { return len(t) }
 func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
 func (t tokenSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }
@@ -176,7 +136,9 @@ func decapTokSlice(t tokenSlice) ([]Token, tokenSlice) {
 // match and filter tokens based on flags
 func pickSliceByFirstToken(t tokenSlice, match token) [][]Token {
 	ret := [][]Token{}
-	i := sort.Search(len(t), func(i int) bool { return t[i][0].Flag().Uint() >= match.Flag().Uint() })
+	i := sort.Search(len(t), func(i int) bool {
+		return t[i][0].Flag().Uint() >= match.Flag().Uint()
+	})
 	var j = i
 	for j < len(t) && d.FlagMatch(t[j][0].Flag(), match.Flag()) {
 		ret = append(ret, t[j])

@@ -40,7 +40,6 @@ type (
 func newConstant(dat Data) constant    { return constant(func() Data { return dat }) }
 func (c constant) Flag() d.BitFlag     { return d.Definition.Flag() }
 func (c constant) Type() Flag          { return newFlag(0, Constant, c().Flag()) }
-func (c constant) String() string      { return c().(d.Data).String() }
 func (c constant) Ident() Data         { return c }
 func (c constant) Call(d ...Data) Data { return c() }
 
@@ -101,14 +100,7 @@ func (v vector) Empty() bool {
 	return true
 }
 func (v vector) Flag() d.BitFlag { return d.Vector.Flag() }
-func (v vector) String() string {
-	var slice []d.Data
-	for _, dat := range v() {
-		slice = append(slice, dat)
-	}
-	return d.StringSlice("∙", "[", "]", slice...)
-}
-func (v vector) Ident() Data { return v }
+func (v vector) Ident() Data     { return v }
 func (v vector) Tail() []Data {
 	if v.Len() > 1 {
 		return v.Vector()[1:]
@@ -176,13 +168,6 @@ func (l list) Len() int {
 	}
 	return 1
 }
-func (l list) String() string {
-	var h, t = l()
-	if t != nil {
-		return h.String() + ", " + t.String()
-	}
-	return h.String()
-}
 
 // TUPLE
 func conTuple(tup Tupled, dat ...Data) Tupled {
@@ -213,14 +198,6 @@ func (t tuple) Call(d ...Data) Data {
 		return conTuple(t, d...)
 	}
 	return t
-}
-func (t tuple) String() string {
-	var slice []d.Data
-	var v, _ = t()
-	for _, dat := range v.(vector)() {
-		slice = append(slice, dat)
-	}
-	return d.StringSlice(", ", "(", ")", slice...)
 }
 
 // RECORD
@@ -268,15 +245,3 @@ func (r record) Slice() []Data         { return r.Tuple().Slice() }
 func (r record) Empty() bool           { return r.Tuple().Empty() }
 func (r record) Len() int              { return r.Tuple().Len() }
 func (r record) Flag() d.BitFlag       { return d.Record.Flag() }
-func (r record) String() string {
-	var str = "{"
-	var l = r.Len()
-	for i, pair := range r.Slice() {
-		str = str + pair.(Paired).Left().String() + "::" +
-			pair.(Paired).Right().String()
-		if i < l-1 {
-			str = str + ", "
-		}
-	}
-	return str + "}"
-}

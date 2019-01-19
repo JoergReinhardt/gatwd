@@ -287,52 +287,52 @@ var acc2 = newPraedicates(
 		d.New("six key"),
 		d.New("changed sixt value")))
 
-//func TestAccAttrs(t *testing.T) {
-//	fmt.Println(acc)
-//	p, acc1 := acc.Apply(newPraedicates(
-//		newPair(
-//			d.New("first key"),
-//			d.New("first value"),
-//		),
-//		newPair(
-//			d.New("second key"),
-//			d.New("changed second value"),
-//		),
-//		newPair(
-//			d.New("third key"),
-//			d.New("third value"),
-//		),
-//		newPair(
-//			d.New("fourth key"),
-//			d.New("changed fourth value"),
-//		),
-//		newPair(
-//			d.New("fifth key"),
-//			d.New("fifth value"),
-//		),
-//		newPair(
-//			d.New("sixt key"),
-//			d.New("sixt value"))).Pairs()...)
-//
-//	fmt.Println(p)
-//	fmt.Println(acc1)
-//	fmt.Printf("get \"second key\" %s\n", acc1.Get(d.New("second key")))
-//	if acc1.Get(d.New("second key")).Right() != d.New("changed second value") {
-//		t.Fail()
-//	}
-//
-//	_, acc2 := acc1.Apply(newPraedicates(
-//		newPair(
-//			d.New("second key"),
-//			d.New("changed second value again"),
-//		),
-//		newPair(
-//			d.New("fourth key"),
-//			d.New("changed fourth value again"))).Pairs()...)
-//
-//	fmt.Println(acc2)
-//
-//}
+func TestAccAttrs(t *testing.T) {
+	fmt.Println(acc)
+	p, acc1 := acc.Apply(newPraedicates(
+		newPair(
+			d.New("first key"),
+			d.New("first value"),
+		),
+		newPair(
+			d.New("second key"),
+			d.New("changed second value"),
+		),
+		newPair(
+			d.New("third key"),
+			d.New("third value"),
+		),
+		newPair(
+			d.New("fourth key"),
+			d.New("changed fourth value"),
+		),
+		newPair(
+			d.New("fifth key"),
+			d.New("fifth value"),
+		),
+		newPair(
+			d.New("sixt key"),
+			d.New("sixt value"))).Pairs()...)
+
+	fmt.Println(p)
+	fmt.Println(acc1)
+	fmt.Printf("get \"second key\" %s\n", acc1.Get(d.New("second key")))
+	if acc1.Get(d.New("second key")).Right() != d.New("changed second value") {
+		t.Fail()
+	}
+
+	_, acc2 := acc1.Apply(newPraedicates(
+		newPair(
+			d.New("second key"),
+			d.New("changed second value again"),
+		),
+		newPair(
+			d.New("fourth key"),
+			d.New("changed fourth value again"))).Pairs()...)
+
+	fmt.Println(acc2)
+
+}
 func TestSearchAccAttrs(t *testing.T) {
 	praed := d.New("fourth key")
 	var cha = pairSorter{}
@@ -340,7 +340,7 @@ func TestSearchAccAttrs(t *testing.T) {
 	for _, c := range args {
 		cha = append(cha, c)
 	}
-	cha.Sort(d.String.Flag())
+	cha.Sort(d.String)
 	fmt.Println(cha)
 	idx := cha.Search(praed)
 	fmt.Println(cha[idx].Left())
@@ -370,7 +370,7 @@ var macc = newPairSorter(
 )
 
 func TestMixedTypeAccessor(t *testing.T) {
-	macc.Sort(d.Flag.Flag())
+	macc.Sort(d.Flag)
 	idx := macc.Search(d.String.Flag())
 	fmt.Printf("%d\n", idx)
 	if idx > 0 {

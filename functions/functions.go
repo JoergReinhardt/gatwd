@@ -9,9 +9,6 @@ BASE FUNCTIONS ARGUMENTS & ACCESSABLE PRAEDICATES
 package functions
 
 import (
-	"sort"
-	"strings"
-
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
@@ -84,9 +81,10 @@ type ( // HIGHER ORDER FUNCTION TYPES
 // in a function call, partially applied values‥.
 // ACCESSATTRIBUT
 // shares the behaviour with that of a parameter, but yields and takes
-func newData(dat d.Data) Data     { return value(func() Data { return dat.(d.Ident).Ident() }) }
+func newData(dat d.Data) Data {
+	return value(func() Data { return dat })
+}
 func (dat value) Flag() d.BitFlag { return dat().Flag() }
-func (dat value) String() string  { return dat().(d.Data).String() }
 func (dat value) Ident() Data     { return dat }
 func (dat value) Empty() bool     { return elemEmpty(dat) }
 func elemEmpty(dat Data) bool {
@@ -107,7 +105,6 @@ func (p pair) Right() Data        { _, r := p(); return r }
 func (p pair) Acc() Parametric    { return newPraedicate(newPair(p.Left(), p.Right())) }
 func (p pair) Arg() Argumented    { return newArgument(p.Right()) }
 func (p pair) Flag() d.BitFlag    { a, b := p(); return a.Flag() | b.Flag() | Double.Flag() }
-func (p pair) String() string     { l, r := p(); return l.String() + " " + r.String() }
 func (p pair) Ident() Data        { return p }
 func (p pair) Empty() bool {
 	return elemEmpty(p.Left()) && elemEmpty(p.Right())
@@ -127,12 +124,6 @@ func newArgument(do ...Data) Argumented {
 		} //‥.otherwise, pass on unaltered results from last/first call
 		return do[0], newArgument(do[0])
 	})
-}
-func (p argument) String() string {
-	d, _ := p()
-	return d.Flag().String() +
-		" " +
-		d.String()
 }
 func (p argument) Apply(d ...Data) (Data, Argumented) {
 	if len(d) > 0 {
@@ -172,14 +163,6 @@ func newArgSet(dat ...Data) Arguments {
 				})
 
 	})
-}
-func (a arguments) String() string {
-	var strdat = [][]d.Data{}
-	for i, dat := range a.Args() {
-		strdat = append(strdat, []d.Data{})
-		strdat[i] = append(strdat[i], d.New(i), d.New(dat.String()))
-	}
-	return d.StringChainTable(strdat...)
 }
 func (a arguments) Flag() d.BitFlag {
 	var f = d.BitFlag(uint(0))
@@ -291,10 +274,6 @@ func (p praedicate) Flag() d.BitFlag {
 		d.Parameter.Flag() |
 		Accessor.Flag()
 }
-func (p praedicate) String() string {
-	l, r := p.Both()
-	return l.String() + ": " + r.String()
-}
 
 // ACCESS ATTRIBUTE SET
 func newPraedicateSet(pairs ...Paired) Praedicates {
@@ -318,11 +297,11 @@ func (a praedicates) getIdx(acc Data) (int, pairSorter) {
 	var ps = newPairSorter(a.Pairs()...)
 	switch {
 	case acc.Flag().Match(d.Symbolic.Flag()):
-		ps.Sort(d.String.Flag())
+		ps.Sort(d.String)
 	case acc.Flag().Match(d.Unsigned.Flag()):
-		ps.Sort(d.Unsigned.Flag())
+		ps.Sort(d.Unsigned)
 	case acc.Flag().Match(d.Integer.Flag()):
-		ps.Sort(d.Unsigned.Flag())
+		ps.Sort(d.Unsigned)
 	}
 	return ps.Search(acc), ps
 }
@@ -343,18 +322,6 @@ func (a praedicates) Apply(acc ...Paired) ([]Paired, Praedicates) {
 		return acc, newPraedicates(acc...)
 	}
 	return a()
-}
-func (a praedicates) String() string {
-	var strout = [][]d.Data{}
-	for i, pa := range a.Accs() {
-		strout = append(strout, []d.Data{})
-		strout[i] = append(
-			strout[i],
-			d.New(i),
-			d.New(pa.Left().String()),
-			d.New(pa.Right().String()))
-	}
-	return d.StringChainTable(strout...)
 }
 func (a praedicates) Flag() d.BitFlag {
 	var f = d.BitFlag(0)
@@ -390,120 +357,9 @@ func (a praedicates) Ident() Data         { return a }
 func (a praedicates) Append(v ...Paired) Praedicates {
 	return newPraedicates(append(a.Pairs(), v...)...)
 }
-
-// pair sorter has the methods to search for a pair in-/, and sort slices of
-// pairs. pairs will be sorted by the left parameter, since it references the
-// accessor (key) in an accessor/value pair.
-type pairSorter []Paired
-
-func newPairSorter(p ...Paired) pairSorter { return append(pairSorter{}, p...) }
-func (a pairSorter) Empty() bool {
-	if len(a) > 0 {
-		for _, p := range a {
-			if !elemEmpty(p) {
-				return false
-			}
-		}
-	}
-	return true
-}
-func (p pairSorter) Len() int      { return len(p) }
-func (p pairSorter) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-func (p pairSorter) Sort(f d.BitFlag) {
-	less := newPraedLess(p, f)
-	sort.Slice(p, less)
-}
-func (p pairSorter) Search(praed Data) int {
-	var idx = sort.Search(len(p), newFindPraedicate(p, praed))
-	// when praedicate is a precedence type encoding bit-flag
-	if praed.Flag().Match(d.Flag.Flag()) {
-		if d.Type(p[idx].Left().Flag()) == praed {
-			return idx
-		}
-	}
-	// otherwise check if key is equal to praedicate
-	if idx < len(p) {
-		if p[idx].Left() == praed {
-			return idx
-		}
-	}
-	return -1
-}
-
-func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
-	switch {
-	case f.Match(d.String.Flag()):
-		return func(i, j int) bool {
-			chain := accs
-			if strings.Compare(
-				string(chain[i].(Paired).Left().String()),
-				string(chain[j].(Paired).Left().String()),
-			) <= 0 {
-				return true
-			}
-			return false
-		}
-	case f.Match(d.Flag.Flag()):
-		return func(i, j int) bool { // sort by value-, NOT accessor type
-			chain := accs
-			if chain[i].(Paired).Right().Flag() <
-				chain[j].(Paired).Right().Flag() {
-				return true
-			}
-			return false
-		}
-	case f.Match(d.Unsigned.Flag()):
-		return func(i, j int) bool {
-			chain := accs
-			if uint(chain[i].(Paired).Left().(Unsigned).Uint()) <
-				uint(chain[i].(Paired).Left().(Unsigned).Uint()) {
-				return true
-			}
-			return false
-		}
-	case f.Match(d.Integer.Flag()):
-		return func(i, j int) bool {
-			chain := accs
-			if int(chain[i].(Paired).Left().(Integer).Int()) <
-				int(chain[i].(Paired).Left().(Integer).Int()) {
-				return true
-			}
-			return false
-		}
-	}
-	return nil
-}
-func newFindPraedicate(accs pairSorter, praed Data) func(i int) bool {
-	var f = praed.Flag()
-	var fn func(i int) bool
-	switch { // parameters are accessor/value pairs to be applyed.
-	case f.Match(d.Unsigned.Flag()):
-		fn = func(i int) bool {
-			return uint(accs[i].(Paired).Left().(Unsigned).Uint()) >=
-				uint(praed.(Unsigned).Uint())
-		}
-	case f.Match(d.Integer.Flag()):
-		fn = func(i int) bool {
-			return int(accs[i].(Paired).Left().(Integer).Int()) >=
-				int(praed.(Integer).Int())
-		}
-	case f.Match(d.String.Flag()):
-		fn = func(i int) bool {
-			return strings.Compare(
-				accs[i].(Paired).Left().String(),
-				praed.String()) >= 0
-		}
-	case f.Match(d.Flag.Flag()):
-		fn = func(i int) bool {
-			return accs[i].(Paired).Right().Flag() >=
-				praed.(d.BitFlag)
-		}
-	}
-	return fn
-}
 func applyPraedicates(acc Praedicates, praed ...Paired) Praedicates {
 	var ps = newPairSorter(acc.Pairs()...)
-	ps.Sort(praed[0].Left().Flag())
+	ps.Sort(d.Type(praed[0].Left().Flag()))
 	for _, p := range praed {
 		idx := ps.Search(p.Left())
 		if idx >= 0 {
