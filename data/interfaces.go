@@ -21,13 +21,20 @@ type Accessor interface {
 	Acc() Data
 	Arg() Data
 }
-type Pair interface {
+type Paired interface {
 	Left() Data
 	Right() Data
 	Both() (Data, Data)
 }
-type Evaluable interface {
-	Eval() Data
+type Mapped interface {
+	Keys() []Data
+	Data() []Data
+	Accs() []Paired
+	Get(acc Data) Data
+	Set(Data, Data) Mapped
+}
+type Ident interface {
+	Ident() Data
 }
 type NativeVal interface {
 	Data

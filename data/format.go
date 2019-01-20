@@ -88,6 +88,9 @@ func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
 func StringChainTable(v ...[]Data) string {
 	var str = &strings.Builder{}
 	var tab = tablewriter.NewWriter(str)
+	tab.SetBorder(false)
+	tab.SetColumnSeparator(" ")
+	tab.SetAlignment(tablewriter.ALIGN_LEFT)
 	for _, dr := range v {
 		var row = []string{}
 		for _, d := range dr {

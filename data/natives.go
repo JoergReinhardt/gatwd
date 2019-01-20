@@ -325,31 +325,31 @@ func (v DuraVec) NativesRange(i, j int) []time.Duration { return DuraVec(v[i:j])
 func (v ErrorVec) NativesRange(i, j int) []error        { return ErrorVec(v[i:j]) }
 func (v FlagSet) NativesRange(i, j int) []BitFlag       { return FlagSet(v[i:j]) }
 
-func (v NilVec) Flag() BitFlag    { return Precedence.Flag() | Vector.Flag() | Nil.Flag() }
-func (v BoolVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Bool.Flag() }
-func (v IntVec) Flag() BitFlag    { return Precedence.Flag() | Vector.Flag() | Int.Flag() }
-func (v Int8Vec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Int8.Flag() }
-func (v Int16Vec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Int16.Flag() }
-func (v Int32Vec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Int32.Flag() }
-func (v UintVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Uint.Flag() }
-func (v Uint8Vec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Uint8.Flag() }
-func (v Uint16Vec) Flag() BitFlag { return Precedence.Flag() | Vector.Flag() | Uint16.Flag() }
-func (v Uint32Vec) Flag() BitFlag { return Precedence.Flag() | Vector.Flag() | Uint32.Flag() }
-func (v FltVec) Flag() BitFlag    { return Precedence.Flag() | Vector.Flag() | Float.Flag() }
-func (v Flt32Vec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Flt32.Flag() }
-func (v ImagVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Imag.Flag() }
-func (v Imag64Vec) Flag() BitFlag { return Precedence.Flag() | Vector.Flag() | Imag64.Flag() }
-func (v ByteVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Byte.Flag() }
-func (v RuneVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Rune.Flag() }
-func (v BytesVec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Bytes.Flag() }
-func (v StrVec) Flag() BitFlag    { return Precedence.Flag() | Vector.Flag() | String.Flag() }
-func (v BigIntVec) Flag() BitFlag { return Precedence.Flag() | Vector.Flag() | BigInt.Flag() }
-func (v BigFltVec) Flag() BitFlag { return Precedence.Flag() | Vector.Flag() | BigFlt.Flag() }
-func (v RatioVec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Ratio.Flag() }
-func (v TimeVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Time.Flag() }
-func (v DuraVec) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Duration.Flag() }
-func (v ErrorVec) Flag() BitFlag  { return Precedence.Flag() | Vector.Flag() | Error.Flag() }
-func (v FlagSet) Flag() BitFlag   { return Precedence.Flag() | Vector.Flag() | Flag.Flag() }
+func (v NilVec) Flag() BitFlag    { return Definition.Flag() | Vector.Flag() | Nil.Flag() }
+func (v BoolVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Bool.Flag() }
+func (v IntVec) Flag() BitFlag    { return Definition.Flag() | Vector.Flag() | Int.Flag() }
+func (v Int8Vec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Int8.Flag() }
+func (v Int16Vec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Int16.Flag() }
+func (v Int32Vec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Int32.Flag() }
+func (v UintVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Uint.Flag() }
+func (v Uint8Vec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Uint8.Flag() }
+func (v Uint16Vec) Flag() BitFlag { return Definition.Flag() | Vector.Flag() | Uint16.Flag() }
+func (v Uint32Vec) Flag() BitFlag { return Definition.Flag() | Vector.Flag() | Uint32.Flag() }
+func (v FltVec) Flag() BitFlag    { return Definition.Flag() | Vector.Flag() | Float.Flag() }
+func (v Flt32Vec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Flt32.Flag() }
+func (v ImagVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Imag.Flag() }
+func (v Imag64Vec) Flag() BitFlag { return Definition.Flag() | Vector.Flag() | Imag64.Flag() }
+func (v ByteVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Byte.Flag() }
+func (v RuneVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Rune.Flag() }
+func (v BytesVec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Bytes.Flag() }
+func (v StrVec) Flag() BitFlag    { return Definition.Flag() | Vector.Flag() | String.Flag() }
+func (v BigIntVec) Flag() BitFlag { return Definition.Flag() | Vector.Flag() | BigInt.Flag() }
+func (v BigFltVec) Flag() BitFlag { return Definition.Flag() | Vector.Flag() | BigFlt.Flag() }
+func (v RatioVec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Ratio.Flag() }
+func (v TimeVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Time.Flag() }
+func (v DuraVec) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Duration.Flag() }
+func (v ErrorVec) Flag() BitFlag  { return Definition.Flag() | Vector.Flag() | Error.Flag() }
+func (v FlagSet) Flag() BitFlag   { return Definition.Flag() | Vector.Flag() | Flag.Flag() }
 
 func (v NilVec) String() string    { return StringSlice(", ", "[", "]", v) }
 func (v BoolVec) String() string   { return StringSlice(", ", "[", "]", v) }

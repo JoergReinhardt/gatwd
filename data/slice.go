@@ -98,7 +98,7 @@ func ChainToNativeSlice(c Chain) NativeVec {
 func (c Chain) NativeSlice() []interface{} {
 	var s = make([]interface{}, 0, c.Len())
 	for _, d := range c.Slice() {
-		s = append(s, d.(Evaluable).Eval())
+		s = append(s, d.(Ident).Ident())
 	}
 	return s
 }

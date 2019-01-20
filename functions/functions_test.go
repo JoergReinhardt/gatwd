@@ -371,7 +371,7 @@ var macc = newPairSorter(
 
 func TestMixedTypeAccessor(t *testing.T) {
 	macc.Sort(d.Flag)
-	idx := macc.Search(d.String.Flag())
+	idx := macc.Search(d.String)
 	fmt.Printf("%d\n", idx)
 	if idx > 0 {
 		found := macc[idx]

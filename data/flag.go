@@ -36,7 +36,7 @@ func FlagShow(f Typed) string             { return fmt.Sprintf("%64b\n", f) }
 func FlagLow(t Typed) Typed               { return FlagMask(t.Flag(), Typed(Mask)) }
 func FlagHigh(t BitFlag) BitFlag {
 	len := FlagLength(BitFlag(Flag))
-	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Precedence), len))
+	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Definition), len))
 }
 func FlagMatch(t BitFlag, v BitFlag) bool {
 	if t.Uint()&^v.Uint() != 0 {

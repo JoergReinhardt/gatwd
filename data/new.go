@@ -5,10 +5,16 @@ import (
 	"time"
 )
 
-func New(vals ...interface{}) Data                        { d, _ := NewData(vals...); return d }
-func NewVector(f BitFlag, vals ...Data) Data              { return conVec(f, vals...) }
-func NewWithTypeInfo(vals ...interface{}) (Data, BitFlag) { return NewData(vals...) }
-func NewData(vals ...interface{}) (rval Data, flag BitFlag) {
+func NewData(vals ...Data) Data {
+	var ifs = []interface{}{}
+	for _, val := range vals {
+		ifs = append(ifs, val.(interface{}))
+	}
+	return New(ifs...)
+}
+func NewVector(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
+func New(vals ...interface{}) Data           { dat, _ := NewWithTypeInfo(vals...); return dat }
+func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 
 	if len(vals) == 0 {
 		return nil, Nil.Flag()
@@ -18,7 +24,7 @@ func NewData(vals ...interface{}) (rval Data, flag BitFlag) {
 		var dat = Chain(make([]Data, 0, len(vals)))
 		for _, val := range vals {
 			var d Data
-			d, flag = NewData(val)
+			d, flag = NewWithTypeInfo(val)
 			flag = flag | d.Flag()
 			dat = append(dat, d)
 		}

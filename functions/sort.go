@@ -113,21 +113,19 @@ func newDataLess(argType d.Type, ds dataSorter) func(i, j int) bool {
 		}
 	case f.Match(d.Flag.Flag()):
 		return func(i, j int) bool {
-			return compInt2BooIncl(
-				compareFlag(
-					ds[j].Flag(), ds[i].Flag()))
+			return ds[j].Flag() == ds[i].Flag()
 		}
 	case f.Match(d.Unsigned.Flag()):
 		return func(i, j int) bool {
-			return compInt2BooIncl(
-				compareUnsigned( // Unsigned
-					ds[j].(Unsigned), ds[i].(Unsigned)))
+			return ds[j].(Unsigned) == ds[i].(Unsigned)
 		}
 	case f.Match(d.Integer.Flag()):
 		return func(i, j int) bool {
-			return compInt2BooIncl(
-				compareInteger( // Integer
-					ds[j].(Integer), ds[i].(Integer)))
+			return ds[j].(Integer) == ds[i].(Integer)
+		}
+	case f.Match(d.Irrational.Flag()):
+		return func(i, j int) bool {
+			return ds[j].(Irrational) == ds[i].(Irrational)
 		}
 	}
 	return nil
@@ -142,7 +140,7 @@ func newDataFind(ds dataSorter, praed Data) func(int) bool {
 		}
 	case f.Match(d.Flag.Flag()):
 		return func(i int) bool {
-			return compareFlag(ds[i].(d.BitFlag), praed.(d.BitFlag)) >= 0
+			return ds[i].Flag() >= praed.Flag()
 
 		}
 	case f.Match(d.Unsigned.Flag()):
@@ -153,6 +151,11 @@ func newDataFind(ds dataSorter, praed Data) func(int) bool {
 	case f.Match(d.Integer.Flag()):
 		return func(i int) bool {
 			return ds[i].(Integer).Int() >= praed.(Integer).Int()
+
+		}
+	case f.Match(d.Irrational.Flag()):
+		return func(i int) bool {
+			return ds[i].(Irrational).Float() >= praed.(Irrational).Float()
 
 		}
 	}
@@ -295,7 +298,7 @@ func newPraedFind(accs pairSorter, praed Data) func(i int) bool {
 		}
 	case f.Match(d.Flag.Flag()):
 		fn = func(i int) bool {
-			return accs[i].(Paired).Right().Flag() >
+			return accs[i].(Paired).Right().(d.BitFlag) >
 				praed.(d.BitFlag)
 		}
 	}

@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationErrorTupleRecordVectorListFunctionArgumentParameterConstantFlagMAX_INT"
+const _Type_name = "NilBoolIntInt8Int16Int32BigIntUintUint8Uint16Uint32FloatFlt32BigFltRatioImagImag64ByteRuneBytesStringTimeDurationErrorPairTupleRecordVectorListSetFunctionArgumentParameterDefinitionFlagMAX_INT"
 
 var _Type_map = map[Type]string{
 	1:                    _Type_name[0:3],
@@ -31,16 +31,18 @@ var _Type_map = map[Type]string{
 	2097152:              _Type_name[101:105],
 	4194304:              _Type_name[105:113],
 	8388608:              _Type_name[113:118],
-	16777216:             _Type_name[118:123],
-	33554432:             _Type_name[123:129],
-	67108864:             _Type_name[129:135],
-	134217728:            _Type_name[135:139],
-	268435456:            _Type_name[139:147],
-	536870912:            _Type_name[147:155],
-	1073741824:           _Type_name[155:164],
-	2147483648:           _Type_name[164:172],
-	4294967296:           _Type_name[172:176],
-	18446744073709551615: _Type_name[176:183],
+	16777216:             _Type_name[118:122],
+	33554432:             _Type_name[122:127],
+	67108864:             _Type_name[127:133],
+	134217728:            _Type_name[133:139],
+	268435456:            _Type_name[139:143],
+	536870912:            _Type_name[143:146],
+	1073741824:           _Type_name[146:154],
+	2147483648:           _Type_name[154:162],
+	4294967296:           _Type_name[162:171],
+	8589934592:           _Type_name[171:181],
+	17179869184:          _Type_name[181:185],
+	18446744073709551615: _Type_name[185:192],
 }
 
 func (i Type) String() string {

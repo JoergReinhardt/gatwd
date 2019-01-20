@@ -50,16 +50,20 @@ const (
 	Time
 	Duration
 	Error // let's do something sophisticated here...
+	Pair
 	Tuple
 	Record
 	Vector
 	List
+	Set
 	Function
 	Argument
 	Parameter
-	Precedence
+	Definition
 	Flag // marks most signifficant native type & data of type bitflag
 
+	// precedence type classes define argument types functions that accept
+	// a set of possible input types
 	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
 		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
 		Imag64 | Byte | Rune | Bytes | String | Time | Duration | Error
@@ -88,8 +92,8 @@ const (
 
 	Bitwise = Unsigned | Byte | Flag
 
-	HigherOrder = Function | Argument | Parameter | Tuple | Record |
-		Vector | List | Precedence
+	HigherOrder = Function | Argument | Parameter | Pair | Tuple |
+		Record | Vector | Set | List | Definition
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag
@@ -211,6 +215,33 @@ func (v StrVal) Eval() Data    { return v }
 func (v TimeVal) Eval() Data   { return v }
 func (v DuraVal) Eval() Data   { return v }
 func (v ErrorVal) Eval() Data  { return v }
+
+///
+func (NilVal) Ident() Data      { return NilVal{} }
+func (v BitFlag) Ident() Data   { return v }
+func (v BoolVal) Ident() Data   { return v }
+func (v IntVal) Ident() Data    { return v }
+func (v Int8Val) Ident() Data   { return v }
+func (v Int16Val) Ident() Data  { return v }
+func (v Int32Val) Ident() Data  { return v }
+func (v UintVal) Ident() Data   { return v }
+func (v Uint8Val) Ident() Data  { return v }
+func (v Uint16Val) Ident() Data { return v }
+func (v Uint32Val) Ident() Data { return v }
+func (v BigIntVal) Ident() Data { return v }
+func (v FltVal) Ident() Data    { return v }
+func (v Flt32Val) Ident() Data  { return v }
+func (v BigFltVal) Ident() Data { return v }
+func (v ImagVal) Ident() Data   { return v }
+func (v Imag64Val) Ident() Data { return v }
+func (v RatioVal) Ident() Data  { return v }
+func (v RuneVal) Ident() Data   { return v }
+func (v ByteVal) Ident() Data   { return v }
+func (v BytesVal) Ident() Data  { return v }
+func (v StrVal) Ident() Data    { return v }
+func (v TimeVal) Ident() Data   { return v }
+func (v DuraVal) Ident() Data   { return v }
+func (v ErrorVal) Ident() Data  { return v }
 
 //// native nullable typed ///////
 func (v NilVal) Null() struct{}       { return struct{}{} }
