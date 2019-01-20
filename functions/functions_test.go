@@ -11,18 +11,18 @@ import (
 func TestIdGenerator(t *testing.T) {
 	var state = initState()
 	var id int
-	id, state = state.NewUID()
+	id, state = state.newUID()
 	fmt.Println(id)
-	id, state = state.NewUID()
+	id, state = state.newUID()
 	fmt.Println(id)
 	if id != 1 {
 		t.Fail()
 	}
-	id, state = state.NewUID()
-	id, state = state.NewUID()
-	id, state = state.NewUID()
-	id, state = state.NewUID()
-	id, state = state.NewUID()
+	id, state = state.newUID()
+	id, state = state.newUID()
+	id, state = state.newUID()
+	id, state = state.newUID()
+	id, state = state.newUID()
 	fmt.Println(id)
 	if id != 6 {
 		t.Fail()
@@ -195,7 +195,7 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := newPraedicate(newPair(d.New("test-key"), d.New("test value")))
+	acc := newParameter(newPair(d.New("test-key"), d.New("test value")))
 	fmt.Println(acc)
 	_, acc = acc.Apply(newPair(d.New(12), d.New("one million dollar")))
 	fmt.Println(acc)
@@ -254,7 +254,7 @@ func TestApplyArgs(t *testing.T) {
 	fmt.Println(args.Get(3))
 }
 
-var acc = newPraedicates(
+var acc = newParameters(
 	newPair(
 		d.New("first key"),
 		d.New("first value"),
@@ -278,7 +278,7 @@ var acc = newPraedicates(
 	newPair(
 		d.New("sixt key"),
 		d.New("sixt value")))
-var acc2 = newPraedicates(
+var acc2 = newParameters(
 	newPair(
 		d.New("first key"),
 		d.New("changed first value"),
@@ -289,7 +289,7 @@ var acc2 = newPraedicates(
 
 func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc)
-	p, acc1 := acc.Apply(newPraedicates(
+	p, acc1 := acc.Apply(newParameters(
 		newPair(
 			d.New("first key"),
 			d.New("first value"),
@@ -321,7 +321,7 @@ func TestAccAttrs(t *testing.T) {
 		t.Fail()
 	}
 
-	_, acc2 := acc1.Apply(newPraedicates(
+	_, acc2 := acc1.Apply(newParameters(
 		newPair(
 			d.New("second key"),
 			d.New("changed second value again"),
@@ -405,10 +405,10 @@ func TestMixedTypeAccessor(t *testing.T) {
 func TestApplyAccessAttrs(t *testing.T) {
 	acc3 := applyPraedicates(acc, acc2.Pairs()...)
 	fmt.Println(acc3)
-	acc2 = newPraedicates(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
+	acc2 = newParameters(append(acc2.Pairs(), newPair(d.New("seventh key"), d.New("changed seventh value")))...)
 }
 
-var accc = newPraedicates(
+var accc = newParameters(
 	newPair(
 		d.New("eigth key"),
 		d.New("changed eigth value"),
@@ -425,7 +425,7 @@ var accc = newPraedicates(
 		d.New("nineth key"),
 		d.New("nineth value"),
 	))
-var accl = newPraedicates(
+var accl = newParameters(
 	append(acc.Pairs(), []Paired{newPair(
 		d.New("seventh key"),
 		d.New("seventh value"),
@@ -461,7 +461,7 @@ func BenchmarkAccessorApply(b *testing.B) {
 	}
 }
 
-var accc1 = newPraedicates(
+var accc1 = newParameters(
 	newPair(
 		d.New("fourteenth key"),
 		d.New("changed fourteenth value"),

@@ -5,9 +5,9 @@ import (
 	l "github.com/JoergReinhardt/godeep/lang"
 )
 
-type function praedicates
+type function parameters
 
-func (f function) get(acc Data) Paired { return praedicates(f).Get(acc) }
+func (f function) get(acc Data) Paired { return parameters(f).Get(acc) }
 func newFuncDef(
 	uid int, // unique id for this type
 	name string,
@@ -40,7 +40,7 @@ func newFuncDef(
 	}
 	var flagSet = newFlagSet(flags...)
 	var accSet = newArguments(accs...)
-	return function(newPraedicates(
+	return function(newParameters(
 		newPair(d.StrVal("UID"), d.UintVal(uid)),
 		newPair(d.StrVal("Name"), d.StrVal(name)),
 		newPair(d.StrVal("Precedence Type"), prec),
@@ -56,7 +56,7 @@ func newFuncDef(
 		newPair(d.StrVal("Access Type"), argsAcc),
 		newPair(d.StrVal("Arg Types"), flagSet),
 		newPair(d.StrVal("Accessors"), accSet),
-	).(praedicates))
+	).(parameters))
 }
 func (f function) Type() Flag           { return newFlag(f.UID(), f.Kind(), f.Prec()) }
 func (f function) Flag() d.BitFlag      { return f.Prec() }

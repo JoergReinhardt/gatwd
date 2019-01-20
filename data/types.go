@@ -28,28 +28,29 @@ func ListAllTypes() []Type {
 const (
 	Nil  Type = 1
 	Bool Type = 1 << iota
-	Int
-	Int8 // Int8 -> Int8
+	Int8      // Int8 -> Int8
 	Int16
 	Int32
+	Int
 	BigInt
-	Uint
 	Uint8
 	Uint16
 	Uint32
-	Float
+	Uint
 	Flt32
+	Float
 	BigFlt
 	Ratio
-	Imag
 	Imag64
+	Imag
+	Time
+	Duration
 	Byte
 	Rune
 	Bytes
 	String
-	Time
-	Duration
 	Error // let's do something sophisticated here...
+	//// HIGHERORDER TYPES
 	Pair
 	Tuple
 	Record
@@ -62,21 +63,25 @@ const (
 	Definition
 	Flag // marks most signifficant native type & data of type bitflag
 
+	// TYPE CLASSES
 	// precedence type classes define argument types functions that accept
 	// a set of possible input types
-	Nullable = Nil | Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint |
-		Uint8 | Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
-		Imag64 | Byte | Rune | Bytes | String | Time | Duration | Error
+	Nullable = Nil | Bool | Int8 | Int16 | Int32 |
+		Int | BigInt | Uint8 | Uint16 | Uint32 | Uint |
+		Flt32 | Float | BigFlt | Ratio | Imag64 | Imag |
+		Time | Duration | Byte | Rune | Bytes | String
 
-	Numeric = Bool | Int | Int8 | Int16 | Int32 | BigInt | Uint | Uint8 |
-		Uint16 | Uint32 | Float | Flt32 | BigFlt | Ratio | Imag |
-		Imag64
+	Bitwise = Unsigned | Byte | Flag
+
+	Boolean = Bool | Bitwise
 
 	Unsigned = Uint | Uint8 | Uint16 | Uint32 | Byte
 
-	Integer = Int | Int8 | Int16 | Int32 | BigInt | Byte
+	Signed = Int | Int8 | Int16 | Int32 | BigInt | Byte
 
-	Rational = Integer | Ratio
+	Integer = Unsigned | Signed
+
+	Rational = Unsigned | Integer | Ratio
 
 	Irrational = Float | Flt32 | BigFlt
 
@@ -84,16 +89,21 @@ const (
 
 	Temporal = Time | Duration
 
-	Symbolic = Byte | Rune | Bytes | String | Error
+	Textual = String | Rune | Bytes
 
-	Collection = Record | Vector
+	Numeric = Integer | Rational | Irrational |
+		Imaginary | Temporal
 
-	Binary = Unsigned | Byte | Flag
+	Symbolic = Textual | Boolean | Temporal | Error
 
-	Bitwise = Unsigned | Byte | Flag
+	/// here will be dragons‥.
+	HigherOrder = Functional | Collection
 
-	HigherOrder = Function | Argument | Parameter | Pair | Tuple |
-		Record | Vector | Set | List | Definition
+	Collection = Pair | Tuple | Record | Vector |
+		List | Set
+
+	Functional = Function | Argument | Parameter |
+		Definition | Flag
 
 	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
 	Mask         = MAX_INT ^ Flag

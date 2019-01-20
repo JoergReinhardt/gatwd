@@ -46,7 +46,7 @@ func TestFlag(t *testing.T) {
 
 	fmt.Println(BitFlag(Symbolic))
 
-	if fmt.Sprint(BitFlag(Symbolic)) != "Byte|Rune|Bytes|String|Error" {
+	if fmt.Sprint(BitFlag(Symbolic)) != "Bool|Uint8|Uint16|Uint32|Uint|Time|Duration|Byte|Rune|Bytes|String|Error|Flag" {
 		t.Fail()
 	}
 
@@ -76,7 +76,7 @@ var s0 = NewChain(
 func TestTypeAllocation(t *testing.T) {
 
 	fmt.Println(s0.ContainedTypes())
-	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int|Int8|Int16|Int32|BigInt|Float|Flt32|BigFlt|Ratio|Imag|Byte|Bytes|String|Time" {
+	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int8|Int16|Int32|Int|BigInt|Flt32|Float|BigFlt|Ratio|Imag|Time|Byte|Bytes|String" {
 		t.Fail()
 	}
 	s1 := NewChain()
@@ -233,7 +233,8 @@ func TestNativeSlice(t *testing.T) {
 }
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int Int8 Int16 Int32 BigInt Uint Uint8 Uint16 Uint32 Float Flt32 BigFlt Ratio Imag Imag64 Byte Rune Bytes String Time Duration Error Tuple Record Vector List Function Argument Parameter Definition Flag]" {
+
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Pair Tuple Record Vector List Set Function Argument Parameter Definition Flag]" {
 		t.Fail()
 	}
 }

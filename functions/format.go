@@ -31,11 +31,11 @@ func (a arguments) String() string {
 }
 
 /// PRAEDICATES
-func (p praedicate) String() string {
+func (p parameter) String() string {
 	l, r := p.Both()
 	return l.String() + ": " + r.String()
 }
-func (a praedicates) String() string {
+func (a parameters) String() string {
 	var strout = [][]d.Data{}
 	for i, pa := range a.Accs() {
 		strout = append(strout, []d.Data{})

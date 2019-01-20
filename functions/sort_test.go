@@ -103,7 +103,7 @@ func TestDataSorterMixedType(t *testing.T) {
 	ts := dataSorter(typs)
 	ts.Sort(d.Flag)
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
-
+}
 func TestPairSorterStrStr(t *testing.T) {
 	var strPairs = []Paired{
 		newPair(d.New("Aaron"), d.New("val 0")),

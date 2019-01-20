@@ -94,6 +94,32 @@ const (
 	Greater
 )
 
+type Nullable interface{ Null() Data }
+type Bitwise interface{ Uint() uint }
+type Boolean interface{ Bool() bool }
+type Unsigned interface{ Uint() uint }
+type Signed interface{ Int() int }
+type Integer interface{ Int() int }
+type Rational interface{ Rat() *big.Rat }
+type Irrational interface{ Float() float64 }
+type Imaginary interface{ Imag() complex128 }
+type Symbolic interface{ String() string }
+type Temporal interface {
+	Time() time.Time
+	Dura() time.Duration
+}
+type Collection interface{ Len() int }
+type Functional interface{ Call(...Data) Data }
+type Numeric interface {
+	Uint() uint
+	Int() int
+	Flt() float64
+}
+type Synbolic interface {
+	String() string
+	Bytes() []byte
+}
+
 // interface to integrate data instanciated by the data module with functional
 // types instanciated by the function module.
 // TODO: find more elegant way than loop to convert slices
@@ -155,32 +181,6 @@ type SliceOfNatives interface {
 
 // map data packages type classes, defined by binary flag composistion, to
 // method sets to be implemented by higher order types.
-type Nullable interface{ Null() Data }
-type Numeric interface {
-	Uint() uint
-	Int() int
-	Flt() float64
-	Imag() complex128
-	BitWise() uint
-	Dura() time.Duration
-}
-type Synbolic interface {
-	String() string
-	Bytes() []byte
-	Time() time.Time
-}
-type Unsigned interface{ Uint() uint }
-type Integer interface{ Int() int }
-type Rational interface{ Rat() *big.Rat }
-type Irrational interface{ Float() float64 }
-type Imaginary interface{ Imag() complex128 }
-type BinaryData interface{ Bytes() []byte }
-type Symbolic interface{ String() string }
-type Temporal interface {
-	Time() time.Time
-	Dura() time.Duration
-}
-type Collection interface{ Len() int }
 
 type Argumented interface {
 	Data
@@ -206,14 +206,14 @@ type Parametric interface {
 	Pair() Paired
 	Apply(...Paired) (Paired, Parametric)
 }
-type Praedicates interface {
+type Parameters interface {
 	Data
 	Len() int
 	Accs() []Parametric
 	Pairs() []Paired
 	Get(Data) Paired
-	Replace(Paired) Praedicates
-	Apply(...Paired) ([]Paired, Praedicates)
+	Replace(Paired) Parameters
+	Apply(...Paired) ([]Paired, Parameters)
 }
 type Quantified interface {
 	Data

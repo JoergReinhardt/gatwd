@@ -66,8 +66,9 @@ func (d dataSorter) Empty() bool {
 	}
 	return true
 }
-func (d dataSorter) Len() int      { return len(d) }
-func (d dataSorter) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
+func newDataSorter(dat ...Data) dataSorter { return dataSorter(dat) }
+func (d dataSorter) Len() int              { return len(d) }
+func (d dataSorter) Swap(i, j int)         { d[i], d[j] = d[j], d[i] }
 func (ds dataSorter) Sort(argType d.Type) {
 	less := newDataLess(argType, ds)
 	sort.Slice(ds, less)
