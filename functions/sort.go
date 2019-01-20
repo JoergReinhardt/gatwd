@@ -72,32 +72,31 @@ func (ds dataSorter) Sort(argType d.Type) {
 	less := newDataLess(argType, ds)
 	sort.Slice(ds, less)
 }
-func (ds dataSorter) Get(praed Data) Data {
-	idx := ds.Search(praed)
-	if idx != -1 {
-		return ds[idx]
-	}
-	return nil
-}
+
 func (ds dataSorter) Search(praed Data) int {
 	var idx = sort.Search(len(ds), newDataFind(ds, praed))
-	var f = praed.Flag()
-	switch {
-	case f.Match(d.Symbolic.Flag()):
-		if compareSymbolic(ds[idx].(Symbolic), praed.(Symbolic)) == 0 {
-			return idx
-		}
-	case f.Match(d.Flag.Flag()):
-		if compareFlag(ds[idx].Flag(), praed.Flag()) == 0 {
-			return idx
-		}
-	case f.Match(d.Unsigned.Flag()):
-		if compareUnsigned(ds[idx].(Unsigned), praed.(Unsigned)) == 0 {
-			return idx
-		}
-	case f.Match(d.Integer.Flag()):
-		if compareInteger(ds[idx].(Integer), praed.(Integer)) == 0 {
-			return idx
+	if idx < len(ds) {
+		switch {
+		case praed.Flag().Match(d.Symbolic.Flag()):
+			if ds[idx].(Symbolic).String() == praed.(Symbolic).String() {
+				return idx
+			}
+		case praed.Flag().Match(d.Flag.Flag()):
+			if ds[idx].Flag().Match(praed.Flag()) {
+				return idx
+			}
+		case praed.Flag().Match(d.Integer.Flag()):
+			if ds[idx].(Integer).Int() == praed.(Integer).Int() {
+				return idx
+			}
+		case praed.Flag().Match(d.Irrational.Flag()):
+			if ds[idx].(Irrational).Float() == praed.(Irrational).Float() {
+				return idx
+			}
+		case praed.Flag().Match(d.Unsigned.Flag()):
+			if ds[idx].(Unsigned).Uint() == praed.(Unsigned).Uint() {
+				return idx
+			}
 		}
 	}
 	return -1
@@ -138,26 +137,22 @@ func newDataFind(ds dataSorter, praed Data) func(int) bool {
 	switch {
 	case f.Match(d.Symbolic.Flag()):
 		return func(i int) bool {
-			return compareSymbolic(ds[i].(Symbolic),
-				praed.(Symbolic)) >= 0
+			return compareSymbolic(ds[i].(Symbolic), praed.(Symbolic)) >= 0
 
 		}
 	case f.Match(d.Flag.Flag()):
 		return func(i int) bool {
-			return compareFlag(ds[i].(d.BitFlag),
-				praed.(d.BitFlag)) >= 0
+			return compareFlag(ds[i].(d.BitFlag), praed.(d.BitFlag)) >= 0
 
 		}
 	case f.Match(d.Unsigned.Flag()):
 		return func(i int) bool {
-			return ds[i].(Unsigned).Uint() >=
-				praed.(Unsigned).Uint()
+			return ds[i].(Unsigned).Uint() >= praed.(Unsigned).Uint()
 
 		}
 	case f.Match(d.Integer.Flag()):
 		return func(i int) bool {
-			return ds[i].(Integer).Int() >=
-				praed.(Integer).Int()
+			return ds[i].(Integer).Int() >= praed.(Integer).Int()
 
 		}
 	}
@@ -183,7 +178,7 @@ func (a pairSorter) Empty() bool {
 func (p pairSorter) Len() int      { return len(p) }
 func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
 func (p pairSorter) Sort(f d.Type) {
-	less := newPraedLess(p, f.Flag())
+	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
 func (p pairSorter) Search(praed Data) int {
@@ -220,14 +215,15 @@ func (p pairSorter) Range(praed Data) []Paired {
 	return ran
 }
 
-func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
+func newPraedLess(accs pairSorter, t d.Type) func(i, j int) bool {
+	f := t.Flag()
 	switch {
 	case f.Match(d.Symbolic.Flag()):
 		return func(i, j int) bool {
 			chain := accs
 			if strings.Compare(
-				string(chain[i].(Paired).Left().String()),
-				string(chain[j].(Paired).Left().String()),
+				chain[i].(Paired).Left().String(),
+				chain[j].(Paired).Left().String(),
 			) <= 0 {
 				return true
 			}
@@ -236,7 +232,7 @@ func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	case f.Match(d.Flag.Flag()):
 		return func(i, j int) bool { // sort by value-, NOT accessor type
 			chain := accs
-			if chain[i].(Paired).Right().Flag() <
+			if chain[i].(Paired).Right().Flag() <=
 				chain[j].(Paired).Right().Flag() {
 				return true
 			}
@@ -245,8 +241,8 @@ func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	case f.Match(d.Unsigned.Flag()):
 		return func(i, j int) bool {
 			chain := accs
-			if uint(chain[i].(Paired).Left().(Unsigned).Uint()) <
-				uint(chain[i].(Paired).Left().(Unsigned).Uint()) {
+			if chain[i].(Paired).Left().(Unsigned).Uint() <=
+				chain[j].(Paired).Left().(Unsigned).Uint() {
 				return true
 			}
 			return false
@@ -254,8 +250,17 @@ func newPraedLess(accs pairSorter, f d.BitFlag) func(i, j int) bool {
 	case f.Match(d.Integer.Flag()):
 		return func(i, j int) bool {
 			chain := accs
-			if int(chain[i].(Paired).Left().(Integer).Int()) <
-				int(chain[i].(Paired).Left().(Integer).Int()) {
+			if chain[i].(Paired).Left().(Integer).Int() <=
+				chain[j].(Paired).Left().(Integer).Int() {
+				return true
+			}
+			return false
+		}
+	case f.Match(d.Irrational.Flag()):
+		return func(i, j int) bool {
+			chain := accs
+			if chain[i].(Paired).Left().(Irrational).Float() <=
+				chain[j].(Paired).Left().(Irrational).Float() {
 				return true
 			}
 			return false
@@ -269,13 +274,18 @@ func newPraedFind(accs pairSorter, praed Data) func(i int) bool {
 	switch { // parameters are accessor/value pairs to be applyed.
 	case f.Match(d.Unsigned.Flag()):
 		fn = func(i int) bool {
-			return uint(accs[i].(Paired).Left().(Unsigned).Uint()) >=
+			return uint(accs[i].(Paired).Left().(Unsigned).Uint()) >
 				uint(praed.(Unsigned).Uint())
 		}
 	case f.Match(d.Integer.Flag()):
 		fn = func(i int) bool {
-			return int(accs[i].(Paired).Left().(Integer).Int()) >=
+			return int(accs[i].(Paired).Left().(Integer).Int()) >
 				int(praed.(Integer).Int())
+		}
+	case f.Match(d.Irrational.Flag()):
+		fn = func(i int) bool {
+			return int(accs[i].(Paired).Left().(Irrational).Float()) >
+				int(praed.(Irrational).Float())
 		}
 	case f.Match(d.Symbolic.Flag()):
 		fn = func(i int) bool {
@@ -285,7 +295,7 @@ func newPraedFind(accs pairSorter, praed Data) func(i int) bool {
 		}
 	case f.Match(d.Flag.Flag()):
 		fn = func(i int) bool {
-			return accs[i].(Paired).Right().Flag() >=
+			return accs[i].(Paired).Right().Flag() >
 				praed.(d.BitFlag)
 		}
 	}

@@ -35,7 +35,7 @@ func (s pattern) Tokens() []Token {
 	for _, flag := range s.Args() {
 		toks = append(toks, newToken(Data_Type_Token, d.Type(flag.Flag())))
 	}
-	return append(join(newToken(Syntax_Token, l.RightArrow), toks))
+	return append(tokJoin(newToken(Syntax_Token, l.RightArrow), toks))
 }
 
 // signature pattern of a literal function that takes a particular set of input
@@ -75,34 +75,38 @@ func newPolymorph(i int, name string, mono ...monoid) polymorph {
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// SIGNATURES
+type signature func() (uid int, name string, signature string)
+
 // token mangling
-func tokS(f l.TokType) Token {
+func newSyntaxToken(f l.TokType) Token {
 	return newToken(Syntax_Token, f)
 }
-func toksS(f ...l.TokType) []Token {
+func newSyntaxTokens(f ...l.TokType) []Token {
 	var t = make([]Token, 0, len(f))
 	for _, flag := range f {
 		t = append(t, newToken(Syntax_Token, flag))
 	}
 	return t
 }
-func tokD(f d.Type) Token {
+func newDataToken(f d.Type) Token {
 	return newToken(Data_Type_Token, f)
 }
-func toksD(f ...d.Type) []Token {
+func newDataTokens(f ...d.Type) []Token {
 	var t = make([]Token, 0, len(f))
 	for _, flag := range f {
 		t = append(t, newToken(Data_Type_Token, flag))
 	}
 	return t
 }
-func putAppend(last Token, tok []Token) []Token {
+func tokPutAppend(last Token, tok []Token) []Token {
 	return append(tok, last)
 }
-func putFront(first Token, tok []Token) []Token {
+func tokPutUpFront(first Token, tok []Token) []Token {
 	return append([]Token{first}, tok...)
 }
-func join(sep Token, tok []Token) []Token {
+func tokJoin(sep Token, tok []Token) []Token {
 	var args = tokens{}
 	for i, t := range tok {
 		args = append(args, t)
@@ -112,7 +116,7 @@ func join(sep Token, tok []Token) []Token {
 	}
 	return args
 }
-func enclose(left, right Token, tok []Token) []Token {
+func tokEnclose(left, right Token, tok []Token) []Token {
 	var args = tokens{left}
 	for _, t := range tok {
 		args = append(args, t)
@@ -120,7 +124,7 @@ func enclose(left, right Token, tok []Token) []Token {
 	args = append(args, right)
 	return args
 }
-func embed(left, tok, right []Token) []Token {
+func tokEmbed(left, tok, right []Token) []Token {
 	var args = left
 	args = append(args, tok...)
 	args = append(args, right...)
@@ -129,21 +133,9 @@ func embed(left, tok, right []Token) []Token {
 
 // concatenate typeflags with right arrows as seperators, to generate a chain
 // of curryed arguments
-func newArgs(f ...d.Type) []Token {
-	return join(tokS(l.LeftArrow), toksD(f...))
+func newToksFromArguments(f ...d.Type) []Token {
+	return tokJoin(newSyntaxToken(l.LeftArrow), newDataTokens(f...))
 }
-func newRetVal(f Flag) Token {
+func newTokFromRetVal(f Flag) Token {
 	return newToken(Return_Token, f)
-}
-
-// concatenates arguments, name of the type this signature is associated with
-// and the type of the value, the associated function wil return. and returns
-// the resulting signature as a chain of tokens (the name get's converted to a
-// data-value token)
-func tokenizeTypeDef(name string, args []d.Type, retval Token) []Token {
-	return append( // concat arguments, token & name
-		append(
-			newArgs(args...),
-			newToken(Data_Value_Token, d.New(name)),
-		), retval)
 }

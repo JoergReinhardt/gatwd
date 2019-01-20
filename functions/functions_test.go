@@ -209,7 +209,7 @@ func TestAccParamEnclosure(t *testing.T) {
 	}
 }
 func TestTokenToSignature(t *testing.T) {
-	syn := toksS(
+	syn := newSyntaxTokens(
 		l.RightArrow,
 		l.RightArrow,
 		l.LeftBra,
@@ -219,7 +219,7 @@ func TestTokenToSignature(t *testing.T) {
 		l.RightArrow,
 		l.RightArrow,
 	)
-	typ := toksD(
+	typ := newDataTokens(
 		d.Int,
 		d.Int,
 		d.Byte,

@@ -2,6 +2,7 @@ package functions
 
 import (
 	d "github.com/JoergReinhardt/godeep/data"
+	l "github.com/JoergReinhardt/godeep/lang"
 )
 
 type function praedicates
@@ -73,3 +74,23 @@ func (f function) ArgTypes() []Flag     { return f.get(d.StrVal("Arg Types")).Ri
 func (f function) Accs() []Argumented   { return f.get(d.StrVal("Accessors")).Right().(arguments).Args() }
 func (f function) RetType() Flag        { return f.get(d.StrVal("Return Type")).Right().(Flag) }
 func (f function) Fnc() Function        { return f.get(d.StrVal("Function")).Right().(Function) }
+func (f function) nameToken() Token     { return newToken(Symbolic_Token, newData(d.StrVal(f.Name()))) }
+func (f function) returnToken() Token   { return newToken(Data_Type_Token, f.RetType()) }
+func (f function) argumentTokens() []Token {
+	var tok = []Token{}
+	for _, flag := range f.ArgTypes() {
+		// transform flags to tokens
+		tok = append(tok, newToken(Data_Type_Token, flag))
+	}
+	// arg0 → arg1 → argn
+	tok = tokJoin(newToken(Syntax_Token, l.RightArrow), tok)
+	return tok
+}
+func (f function) sigTokens() []Token {
+	return tokJoin(
+		// arguments → name → return-type
+		newToken(Syntax_Token, l.RightArrow),
+		append(
+			append(
+				f.argumentTokens(), f.nameToken()), f.returnToken()))
+}
