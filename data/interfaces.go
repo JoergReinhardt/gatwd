@@ -17,6 +17,7 @@ type Data interface {
 	Typed
 	Stringer
 }
+
 type Accessor interface {
 	Acc() Data
 	Arg() Data

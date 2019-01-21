@@ -8,16 +8,16 @@ import (
 )
 
 ///// SYNTAX DEFINITION /////
-type TokType d.BitFlag
+type TypeItem d.BitFlag
 
-func (t TokType) Type() TokType   { return TypeIdent }
-func (t TokType) Flag() d.BitFlag { return d.BitFlag(t) }
-func (t TokType) Syntax() string  { return syntax[t] }
+func (t TypeItem) Type() TypeItem  { return TypeIdent }
+func (t TypeItem) Flag() d.BitFlag { return d.BitFlag(t) }
+func (t TypeItem) Syntax() string  { return syntax[t] }
 
 func AllSyntax() string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
-	for _, t := range AllTokens() {
+	for _, t := range AllItems() {
 		row := []string{
 			t.String(), syntax[t], matchSyntax[syntax[t]],
 		}
@@ -26,22 +26,22 @@ func AllSyntax() string {
 	tab.Render()
 	return str.String()
 }
-func AllTokens() []TokType {
-	var tt = []TokType{}
+func AllItems() []TypeItem {
+	var tt = []TypeItem{}
 	var i uint
-	var t TokType = 0
+	var t TypeItem = 0
 	for i < 63 {
 		t = 1 << i
 		i = i + 1
-		tt = append(tt, TokType(t))
+		tt = append(tt, TypeItem(t))
 	}
 	return tt
 }
 
-//go:generate stringer -type=TokType
+//go:generate stringer -type=TypeItem
 const (
-	None  TokType = 1
-	Blank TokType = 1 << iota
+	None  TypeItem = 1
+	Blank TypeItem = 1 << iota
 	Underscore
 	Asterisk
 	Dot
@@ -104,7 +104,7 @@ const (
 	TypeIdent
 )
 
-var match = map[string]TokType{
+var match = map[string]TypeItem{
 	"":                   None,
 	" ":                  Blank,
 	"_":                  Underscore,
@@ -231,7 +231,7 @@ var matchSyntax = map[string]string{
 	"([a-w|y|z][a-z])|(x[a-r|t-z])": "[letter]*",
 	"[A-z][a-z]*":                   "[Capital][letter]*",
 }
-var syntax = map[TokType]string{
+var syntax = map[TypeItem]string{
 	None:          "⊥",
 	Blank:         " ",
 	Underscore:    "_",
@@ -304,9 +304,9 @@ func ParseToken(tos ...string) string {
 	return sto
 }
 
-type Token d.BitFlag
+type item d.BitFlag
 
-func (t Token) Type() d.BitFlag   { return TokType(t).Flag() }
-func (t Token) String() string    { return TokType(t).Syntax() }
-func (t Token) StringAlt() string { return matchSyntax[syntax[TokType(t)]] }
-func (t Token) Flag() d.BitFlag   { return d.Flag.Flag() }
+func (t item) Type() d.BitFlag   { return TypeItem(t).Flag() }
+func (t item) String() string    { return TypeItem(t).Syntax() }
+func (t item) StringAlt() string { return matchSyntax[syntax[TypeItem(t)]] }
+func (t item) Flag() d.BitFlag   { return d.Flag.Flag() }

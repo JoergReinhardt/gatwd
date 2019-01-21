@@ -7,16 +7,6 @@ INTERFACES
 */
 package functions
 
-/////////////////////////
-//type StateFn func(State) StateFn
-//
-//func (p StateFn) Type() Typed { return StateFunc.Type() }
-
-///
-//type Parametric interface {
-//	Options(paramVal) (Parametric, Parametric)
-//}
-
 import (
 	"math/big"
 	"time"
@@ -27,74 +17,14 @@ import (
 // exposes all metods of data.BitFlag on module layer. the  methods of
 // data.BitFlag
 // TODO: use the force luke‥. use it you goddamn'ed moron!!!
-type BitFlag interface {
-	Eval() d.Data
-	Flag() d.BitFlag
-	String() string
-	Uint() uint
-	Len() int
-	Count() int
-	Least() int
-	Most() int
-	High(d.BitFlag) d.BitFlag
-	Reverse() d.BitFlag
-	Rotate(n int) d.BitFlag
-	Toggle(f d.BitFlag) d.BitFlag
-	Concat(f d.BitFlag) d.BitFlag
-	Mask(f d.BitFlag) d.BitFlag
-	Match(f d.BitFlag) bool
-}
+type BitFlag interface{ d.Typed }
+type Function interface{ d.Data }
+type Functional interface{ Call(...Function) Function }
 
-type Arity uint8
-
-func (a Arity) Flag() d.BitFlag { return d.BitFlag(a) }
-
-//go:generate stringer -type Arity
-const (
-	Nullary Arity = 0 + iota
-	Unary
-	Binary
-	Ternary
-	Quaternary
-	Quinary
-	Senary
-	Septenary
-	Octonary
-	Novenary
-	Denary
-)
-
-type Property d.BitFlag
-
-func (p Property) Flag() d.BitFlag { return d.BitFlag(p) }
-
-//go:generate stringer -type Property
-const (
-	PostFix Property = 1
-	InFix   Property = 1 << iota
-	PreFix
-	///
-	Eager
-	Lazy
-	///
-	Right_Bound
-	Left_Bound
-	///
-	Mutable
-	Imutable
-	///
-	Effected
-	Pure
-	////
-	Positional
-	NamedArgs
-	////
-	Lesser
-	Equal
-	Greater
-)
-
-type Nullable interface{ Null() Data }
+// these interfaces reflect type class flag concatenations from the data
+// package and provide a least common denominator for all members of such
+// classes, to later define things like equality, operator overwrite‥.
+type Nullable interface{ Null() Function }
 type Bitwise interface{ Uint() uint }
 type Boolean interface{ Bool() bool }
 type Unsigned interface{ Uint() uint }
@@ -103,13 +33,10 @@ type Integer interface{ Int() int }
 type Rational interface{ Rat() *big.Rat }
 type Irrational interface{ Float() float64 }
 type Imaginary interface{ Imag() complex128 }
+type Timed interface{ Time() time.Time }
+type Temporal interface{ Dura() time.Duration }
 type Symbolic interface{ String() string }
-type Temporal interface {
-	Time() time.Time
-	Dura() time.Duration
-}
 type Collection interface{ Len() int }
-type Functional interface{ Call(...Data) Data }
 type Numeric interface {
 	Uint() uint
 	Int() int
@@ -123,55 +50,32 @@ type Synbolic interface {
 // interface to integrate data instanciated by the data module with functional
 // types instanciated by the function module.
 // TODO: find more elegant way than loop to convert slices
-type Data interface {
-	Flag() d.BitFlag
-	String() string
-}
 type Paired interface {
-	Data
-	Left() Data
-	Right() Data
-	Both() (Data, Data)
+	Function
+	Left() Function
+	Right() Function
+	Both() (Function, Function)
 }
 
 type Typed interface {
 	Name() string
-	Type() Flag
 }
 
 type Ident interface {
-	Data
-	Ident() Data // calls enclosed fnc, with enclosed parameters
-}
-type Function interface {
-	Ident
-	Call(...Data) Data // calls enclosed fnc, passes params & return
-}
-type FncDef interface {
-	Data
-	UID() int
-	Name() string
-	Arity() Arity
-	Fix() Property
-	Lazy() Property
-	Bound() Property
-	Mutable() Property
-	AccessType() Property
-	ArgTypes() []Flag
-	RetType() Flag
-	Fnc() Function
+	Function
+	Ident() Function // calls enclosed fnc, with enclosed parameters
 }
 type Countable interface {
 	Len() int // <- performs mutch better on slices
 }
 type Collected interface {
-	Data
+	Function
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 type IndexedSlice interface {
 	Quantified
-	Elem(i int) Data
-	Range(i, j int) []Data
+	Elem(i int) Function
+	Range(i, j int) []Function
 }
 type SliceOfNatives interface {
 	IndexedSlice
@@ -183,89 +87,85 @@ type SliceOfNatives interface {
 // method sets to be implemented by higher order types.
 
 type Argumented interface {
-	Data
+	Function
 	Arg() Argumented
-	Data() Data
-	Apply(...Data) (Data, Argumented)
+	Data() Function
+	Apply(...Function) (Function, Argumented)
 }
 type Arguments interface {
-	Data
+	Function
 	Len() int
 	Args() []Argumented
-	Data() []Data
+	Data() []Function
 	Get(int) Argumented
-	Replace(int, Data) Arguments
-	Apply(...Data) ([]Data, Arguments)
-}
-type Parametric interface {
-	Paired
-	Acc() Parametric
-	Arg() Argumented
-	Key() Data
-	Data() Data
-	Pair() Paired
-	Apply(...Paired) (Paired, Parametric)
+	Replace(int, Function) Arguments
+	Apply(...Function) ([]Function, Arguments)
 }
 type Parameters interface {
-	Data
+	Function
 	Len() int
-	Accs() []Parametric
 	Pairs() []Paired
-	Get(Data) Paired
+	Get(Function) Paired
 	Replace(Paired) Parameters
 	Apply(...Paired) ([]Paired, Parameters)
 }
+type Parametric interface {
+	Paired
+	Accs() Parametric
+	Arg() Argumented
+	Key() Function
+	Data() Function
+	Pair() Paired
+	Apply(...Paired) (Paired, Parametric)
+}
 type Quantified interface {
-	Data
+	Function
 	Countable
 	Empty() bool
-	Slice() []Data //<-- no more nil pointers & 'out of index'!
+	Slice() []Function //<-- no more nil pointers & 'out of index'!
 }
 type Vectorized interface {
 	Quantified
-	Head() Data
-	Tail() []Data
-	DeCap() (Data, []Data)
+	Head() Function
+	Tail() []Function
+	DeCap() (Function, []Function)
 }
 
 //// TUPLES /////
 type Tupled interface {
 	Vectorized
-	Arity() Arity
 	Flags() []d.BitFlag
 }
 type Recorded interface {
 	Vectorized
 	Tuple() Tupled
-	Arity() Arity
 	ArgSig() []Paired // key/data-type
 }
 
 //// RECURSIVE LISTS ///////
 type Recursive interface {
-	Data
+	Function
 	Countable
 	Empty() bool
-	Head() Data
+	Head() Function
 	Tail() Recursive
-	DeCap() (Data, Recursive)
+	DeCap() (Function, Recursive)
 }
 
 // LINKED LISTS
 type Ordered interface {
 	Collected
-	Next() (Data, Ordered)
+	Next() (Function, Ordered)
 }
 type Reverseable interface {
 	Ordered
-	Prev() value
+	Prev() Function
 }
 
 /// NESTED COLLECTIONS /////
 //////// TREES ////////
 type Nodular interface {
 	Collected
-	NodeType() Flag
 	Root() Nodular
 }
 type Nested interface {
@@ -286,7 +186,7 @@ type Branched interface {
 }
 type Edged interface {
 	Nodular
-	Value() value
+	Value() Function
 }
 
 // to be handled by the runtime, all that is defined, declared, instanciated‥.
@@ -300,48 +200,5 @@ type Named interface{ Name() string }
 // operators expect their parameters within syntactic context to either be
 // left, right, or on both sides of the operators position.
 type Operator interface {
-	Function
-	Fix() Property
-}
-
-////////// STACK ////////////
-//// LAST IN FIRST OUT //////
-type Stacked interface {
-	Collected
-	Push(value)
-	Pop() value
-	Add(...value)
-}
-
-///////// QUEUE /////////////
-//// FIRST IN FIRST OUT /////
-type Queued interface {
-	Collected
-	Put(value)
-	Pull() value
-	Append(...value)
-}
-
-//////////////////////////
-// input item data interface
-type Item interface {
-	ItemType() d.BitFlag
-	Idx() int
-	Value() value
-}
-
-//////////////////////////
-// interfaces dealing with instances of input items
-type Queue interface {
-	Next()
-	Peek() Item
-	Current() Item
-	Idx() int
-}
-
-// data to parse
-type Token interface {
-	Type() d.BitFlag
-	Flag() d.BitFlag
-	String() string
+	Functional
 }

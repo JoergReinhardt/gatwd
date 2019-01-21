@@ -1,22 +1,5 @@
 /*
 DATA CONSTRUCTORS
-
-  corpose base functional data constructors (functions.go) with type flags, a
-  monoid definition to construct, argument-/ and return pattern
-  sets(patterns.go), to form a constructor, or other type of callable higher
-  order function declaration.
-
-  implemets a monoidal runtime defined type according to is definition, which
-  it is referenced by.V the implementation maps the higher order arguments and
-  return values according to the parameter definition of the implementing
-  function, that is referenced by a higher order type as one possible
-  implementation to chose from, depending on input types pattern.
-
-  when called with a completed set of parameters (single call, or after
-  consequtive curry/, the embedded funtion will be called passig those
-  parameters and a yield the resulting value according to the return value
-  definition. local value declarations, as well as names, and/or positions of
-  parameters and return values are enclosed by thetconstructor.
 */
 package functions
 
@@ -25,37 +8,36 @@ import (
 )
 
 type (
-	constant func() Data // <- guarantueed to allways evaluate identicly
-	unary    func(Data) Data
-	binary   func(a, b Data) Data
-	nary     func(...Data) Data
-	vector   func() []Data                    // <- indexable native golang slice of data instances
-	tuple    func() (Vectorized, []d.BitFlag) // <- indexable native golang slice of fixed length & type signature
-	record   func() (Tupled, []Paired)        // <- indexable native golang slice of fixed length, type signature & param keys
-	list     func() (Data, Recursive)
+	ConstFnc  func() Function
+	UnaryFnc  func(Function) Function
+	BinaryFnc func(a, b Function) Function
+	NaryFnc   func(...Function) Function
+	VecFnc    func() []Function
+	TupleFnc  func() (Vectorized, []d.BitFlag)
+	RecordFnc func() (Tupled, []Paired)
+	ListFnc   func() (Function, Recursive)
 )
 
 // ONSTANT
 // constant also conains immutable data, but it may be the result of a constant experssion
-func newConstant(dat Data) constant    { return constant(func() Data { return dat }) }
-func (c constant) Flag() d.BitFlag     { return d.Definition.Flag() }
-func (c constant) Type() Flag          { return newFlag(0, Constant, c().Flag()) }
-func (c constant) Ident() Data         { return c }
-func (c constant) Call(d ...Data) Data { return c() }
+func newConstant(dat Function) ConstFnc        { return ConstFnc(func() Function { return dat }) }
+func (c ConstFnc) Flag() d.BitFlag             { return d.Definition.Flag() }
+func (c ConstFnc) Ident() Function             { return c }
+func (c ConstFnc) Call(d ...Function) Function { return c() }
 
-func (u unary) Call(d ...Data) Data {
+func (u UnaryFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		return u(d[0])
 	}
 	return nil
 }
-func (b binary) Call(d ...Data) Data {
+func (b BinaryFnc) Call(d ...Function) Function {
 	if len(d) > 1 {
 		return b(d[0], d[1])
 	}
 	return nil
 }
-func (n nary) Call(d ...Data) Data {
+func (n NaryFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		return n(d...)
 	}
@@ -66,30 +48,30 @@ func (n nary) Call(d ...Data) Data {
 
 // VECTOR
 // vector keeps a slice of data instances
-func conVec(vec Vectorized, dd ...Data) Vectorized {
+func conVec(vec Vectorized, dd ...Function) Vectorized {
 	return vectorConstructor(append(vec.Slice(), dd...)...)
 }
-func vectorConstructor(dd ...Data) Vectorized {
-	return vector(func() []Data { return dd })
+func vectorConstructor(dd ...Function) Vectorized {
+	return VecFnc(func() []Function { return dd })
 }
-func newVector(dd ...d.Data) Vectorized {
-	return vector(func() (vec []Data) {
+func newVector(dd ...Function) Vectorized {
+	return VecFnc(func() (vec []Function) {
 		for _, d := range dd {
-			vec = append(vec, newData(d))
+			vec = append(vec, NewFncData(d))
 		}
 		return vec
 	})
 }
 
 // base implementation functions/sliceable interface
-func (v vector) Head() Data {
+func (v VecFnc) Head() Function {
 	if v.Len() > 0 {
 		return v.Vector()[0]
 	}
 	return nil
 }
-func (v vector) Len() int { return len(v()) }
-func (v vector) Empty() bool {
+func (v VecFnc) Len() int { return len(v()) }
+func (v VecFnc) Empty() bool {
 	if len(v()) > 0 {
 		for _, dat := range v() {
 			if !d.Nil.Flag().Match(dat.Flag()) {
@@ -99,20 +81,20 @@ func (v vector) Empty() bool {
 	}
 	return true
 }
-func (v vector) Flag() d.BitFlag { return d.Vector.Flag() }
-func (v vector) Ident() Data     { return v }
-func (v vector) Tail() []Data {
+func (v VecFnc) Flag() d.BitFlag { return d.Vector.Flag() }
+func (v VecFnc) Ident() Function { return v }
+func (v VecFnc) Tail() []Function {
 	if v.Len() > 1 {
 		return v.Vector()[1:]
 	}
 	return nil
 }
-func (v vector) DeCap() (Data, []Data) {
+func (v VecFnc) DeCap() (Function, []Function) {
 	return v.Head(), v.Tail()
 }
-func (v vector) Vector() []Data { return v() }
-func (v vector) Slice() []Data  { return v() }
-func (v vector) Call(d ...Data) Data {
+func (v VecFnc) Vector() []Function { return v() }
+func (v VecFnc) Slice() []Function  { return v() }
+func (v VecFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		conVec(v, d...)
 	}
@@ -121,47 +103,47 @@ func (v vector) Call(d ...Data) Data {
 
 // LINKED LIST
 // base implementation of linked lists
-func conRecurse(rec Recursive, d ...Data) Recursive {
+func conRecurse(rec Recursive, d ...Function) Recursive {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return list(func() (Data, Recursive) {
+			return ListFnc(func() (Function, Recursive) {
 				return d[0], conRecurse(rec, d...)
 			})
 		}
-		return list(func() (Data, Recursive) {
+		return ListFnc(func() (Function, Recursive) {
 			return d[0], rec
 		})
 	}
 	return nil
 }
-func newRecursive(d ...Data) Recursive {
+func newRecursive(d ...Function) Recursive {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return list(func() (Data, Recursive) { return d[0], newRecursive(d[1:]...) })
+			return ListFnc(func() (Function, Recursive) { return d[0], newRecursive(d[1:]...) })
 		}
-		return list(func() (Data, Recursive) { return d[0], nil })
+		return ListFnc(func() (Function, Recursive) { return d[0], nil })
 	}
 	return nil
 }
-func (l list) Ident() Data     { return l }
-func (l list) Head() Data      { h, _ := l(); return h }
-func (l list) Tail() Recursive { _, t := l(); return t }
-func (l list) Call(d ...Data) Data {
+func (l ListFnc) Ident() Function { return l }
+func (l ListFnc) Head() Function  { h, _ := l(); return h }
+func (l ListFnc) Tail() Recursive { _, t := l(); return t }
+func (l ListFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		return conRecurse(l, d...)
 	}
 	return l
 }
-func (l list) DeCap() (Data, Recursive) { return l() }
-func (l list) Flag() d.BitFlag          { return d.List.Flag() }
-func (l list) Empty() bool {
+func (l ListFnc) DeCap() (Function, Recursive) { return l() }
+func (l ListFnc) Flag() d.BitFlag              { return d.List.Flag() }
+func (l ListFnc) Empty() bool {
 	var h, _ = l()
 	if h != nil {
 		return false
 	}
 	return true
 }
-func (l list) Len() int {
+func (l ListFnc) Len() int {
 	var _, t = l()
 	if t != nil {
 		return 1 + t.Len()
@@ -170,30 +152,29 @@ func (l list) Len() int {
 }
 
 // TUPLE
-func conTuple(tup Tupled, dat ...Data) Tupled {
+func conTuple(tup Tupled, dat ...Function) Tupled {
 	return newTuple(append(tup.Slice(), dat...)...)
 }
-func newTuple(dat ...Data) Tupled {
+func newTuple(dat ...Function) Tupled {
 	var flags []d.BitFlag
 	for _, data := range dat {
 		flags = append(flags, data.Flag())
 	}
 	var vec = vectorConstructor(dat...)
-	return tuple(func() (Vectorized, []d.BitFlag) {
+	return TupleFnc(func() (Vectorized, []d.BitFlag) {
 		return vec, flags
 	})
 }
-func (t tuple) Arity() Arity          { _, f := t(); return Arity(len(f)) }
-func (t tuple) Flags() []d.BitFlag    { _, f := t(); return f }
-func (t tuple) DeCap() (Data, []Data) { v, _ := t(); return v.DeCap() }
-func (t tuple) Slice() []Data         { v, _ := t(); return v.Slice() }
-func (t tuple) Head() Data            { v, _ := t(); return v.Head() }
-func (t tuple) Tail() []Data          { v, _ := t(); return v.Tail() }
-func (t tuple) Empty() bool           { v, _ := t(); return v.Empty() }
-func (t tuple) Len() int              { v, _ := t(); return v.Len() }
-func (t tuple) Flag() d.BitFlag       { return d.Tuple.Flag() }
-func (t tuple) Ident() Data           { return t }
-func (t tuple) Call(d ...Data) Data {
+func (t TupleFnc) Flags() []d.BitFlag            { _, f := t(); return f }
+func (t TupleFnc) DeCap() (Function, []Function) { v, _ := t(); return v.DeCap() }
+func (t TupleFnc) Slice() []Function             { v, _ := t(); return v.Slice() }
+func (t TupleFnc) Head() Function                { v, _ := t(); return v.Head() }
+func (t TupleFnc) Tail() []Function              { v, _ := t(); return v.Tail() }
+func (t TupleFnc) Empty() bool                   { v, _ := t(); return v.Empty() }
+func (t TupleFnc) Len() int                      { v, _ := t(); return v.Len() }
+func (t TupleFnc) Flag() d.BitFlag               { return d.Tuple.Flag() }
+func (t TupleFnc) Ident() Function               { return t }
+func (t TupleFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		return conTuple(t, d...)
 	}
@@ -202,30 +183,30 @@ func (t tuple) Call(d ...Data) Data {
 
 // RECORD
 func conRecord(rec Recorded, pairs ...Paired) Recorded {
-	tup, ps := rec.(record)()
+	tup, ps := rec.(RecordFnc)()
 	if len(pairs) > 0 {
-		return record(func() (Tupled, []Paired) {
+		return RecordFnc(func() (Tupled, []Paired) {
 			return tup, pairs
 		})
 	}
-	return record(func() (Tupled, []Paired) {
+	return RecordFnc(func() (Tupled, []Paired) {
 		return tup, ps
 	})
 }
 func newRecord(pairs ...Paired) Recorded {
 	var sig = []Paired{}
-	var dat = []Data{}
+	var dat = []Function{}
 	for _, pair := range pairs {
-		sig = append(sig, newPair(pair.Left(), pair.Right().Flag()))
+		sig = append(sig, NewPair(pair.Left(), pair.Right().Flag()))
 		dat = append(dat, pair)
 	}
 	var tup = newTuple(dat...)
-	return record(func() (Tupled, []Paired) {
+	return RecordFnc(func() (Tupled, []Paired) {
 		return tup, sig
 	})
 }
-func (r record) Ident() Data { return r }
-func (r record) Call(d ...Data) Data {
+func (r RecordFnc) Ident() Function { return r }
+func (r RecordFnc) Call(d ...Function) Function {
 	if len(d) > 0 {
 		var pairs = []Paired{}
 		for _, pair := range d {
@@ -235,13 +216,12 @@ func (r record) Call(d ...Data) Data {
 	}
 	return r
 }
-func (r record) Arity() Arity          { _, pairs := r(); return Arity(len(pairs)) }
-func (r record) ArgSig() []Paired      { _, pairs := r(); return pairs }
-func (r record) Tuple() Tupled         { tup, _ := r(); return tup }
-func (r record) DeCap() (Data, []Data) { return r.Tuple().DeCap() }
-func (r record) Head() Data            { return r.Tuple().Head() }
-func (r record) Tail() []Data          { return r.Tuple().Tail() }
-func (r record) Slice() []Data         { return r.Tuple().Slice() }
-func (r record) Empty() bool           { return r.Tuple().Empty() }
-func (r record) Len() int              { return r.Tuple().Len() }
-func (r record) Flag() d.BitFlag       { return d.Record.Flag() }
+func (r RecordFnc) ArgSig() []Paired              { _, pairs := r(); return pairs }
+func (r RecordFnc) Tuple() Tupled                 { tup, _ := r(); return tup }
+func (r RecordFnc) DeCap() (Function, []Function) { return r.Tuple().DeCap() }
+func (r RecordFnc) Head() Function                { return r.Tuple().Head() }
+func (r RecordFnc) Tail() []Function              { return r.Tuple().Tail() }
+func (r RecordFnc) Slice() []Function             { return r.Tuple().Slice() }
+func (r RecordFnc) Empty() bool                   { return r.Tuple().Empty() }
+func (r RecordFnc) Len() int                      { return r.Tuple().Len() }
+func (r RecordFnc) Flag() d.BitFlag               { return d.Record.Flag() }

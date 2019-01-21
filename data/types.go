@@ -141,6 +141,10 @@ type ( ////// INTERNAL TYPES /////
 	TimeVal   time.Time
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
+	PairVal   struct{ l, r Data }
+	SetVal    map[StrVal]Data
+	//	DataSlice []Data
+	FlagSlice []BitFlag
 )
 
 //////// ATTRIBUTE TYPE ALIAS /////////////////

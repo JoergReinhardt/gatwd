@@ -1,20 +1,7 @@
 /*
 TOKEN GENERATION
-
-  tokens are closures over a token data structure. the purpose of a token depends
-  on the context. the enclosed data can range from a single bitflag, to kb's of
-  unparsed sourcecode. tokens can recursively contain, or reference other tokens,
-  to form linked lists, or graphs (in which case they also implement the
-  'linked', 'node' & 'tree' interfaces). streams, and more so trees of tokens can
-  express program source, parsed code in different levels of abstraction,
-  typespec-, runtime information and last but not least references to executable
-  golang code generated elsewhere in the program.
-
-  tokens are implementet as data structure, to leaverage golang slices. loops and
-  index operations for serialization of internal structures, whenever that seems
-  oportune.
 */
-package functions
+package parse
 
 import (
 	"sort"
@@ -29,13 +16,8 @@ func (t TokType) Flag() d.BitFlag { return d.Flag.Flag() }
 
 //go:generate stringer -type TokType
 const (
-	Flat_Token TokType = 1 << iota
-	Branch_Token
-	Collection_Token
-	Syntax_Token
-	Symbolic_Token
+	Syntax_Token TokType = 1 << iota
 	Kind_Token
-	Number_Token
 	Return_Token   // contains a data type-/ & value pair
 	Argument_Token // like Return
 	Data_Type_Token
@@ -51,22 +33,17 @@ func (t token) Type() d.BitFlag { return t.typ.Flag() }
 
 type dataToken struct {
 	token
-	d Data
+	d d.Data
 }
 
 func (t dataToken) Type() d.BitFlag { return Data_Value_Token.Flag() }
 
-// syntax, symbol, number and data-type nodes all fit the bitflag. all other
-// existing and later defined tokens, are considered data tokens and keep
-// their content in the additional field
-func newToken(t TokType, dat Data) Token {
+func newToken(t TokType, dat d.Data) Token {
 	switch t {
 	case Syntax_Token:
-		return token{t, dat.(l.TokType)}
+		return token{t, dat.(l.TypeItem)}
 	case Data_Type_Token:
 		return token{t, dat.(d.Type)}
-	case Kind_Token:
-		return token{t, dat.(Kind)}
 	case Return_Token:
 		return dataToken{token{t, dat.Flag()}, dat}
 	case Argument_Token:
@@ -90,7 +67,7 @@ func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t
 }
-func (t tokens) Flag() BitFlag { return HigherOrder.Flag() }
+func (t tokens) Flag() d.BitFlag { return d.Flag.Flag() }
 
 // consume the first token
 func decapTokens(t tokens) (Token, []Token) {
@@ -115,7 +92,7 @@ func sliceContainsToken(ts tokens, t Token) bool {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() BitFlag      { return HigherOrder.Flag() }
+func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.Flag() }
 func (t tokenSlice) Len() int           { return len(t) }
 func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
 func (t tokenSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }
@@ -177,4 +154,69 @@ func compareTokenSequence(long, short []Token) bool {
 	}
 	// recurse over tails of slices
 	return compareTokenSequence(long[1:], short[1:])
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// SIGNATURES
+type signature func() (uid int, name string, signature string)
+
+// token mangling
+func newSyntaxToken(f l.TypeItem) Token {
+	return newToken(Syntax_Token, f)
+}
+func newSyntaxTokens(f ...l.TypeItem) []Token {
+	var t = make([]Token, 0, len(f))
+	for _, flag := range f {
+		t = append(t, newToken(Syntax_Token, flag))
+	}
+	return t
+}
+func newDataToken(f d.Type) Token {
+	return newToken(Data_Type_Token, f)
+}
+func newDataTokens(f ...d.Type) []Token {
+	var t = make([]Token, 0, len(f))
+	for _, flag := range f {
+		t = append(t, newToken(Data_Type_Token, flag))
+	}
+	return t
+}
+func tokPutAppend(last Token, tok []Token) []Token {
+	return append(tok, last)
+}
+func tokPutUpFront(first Token, tok []Token) []Token {
+	return append([]Token{first}, tok...)
+}
+func tokJoin(sep Token, tok []Token) []Token {
+	var args = tokens{}
+	for i, t := range tok {
+		args = append(args, t)
+		if i < len(tok)-1 {
+			args = append(args, sep)
+		}
+	}
+	return args
+}
+func tokEnclose(left, right Token, tok []Token) []Token {
+	var args = tokens{left}
+	for _, t := range tok {
+		args = append(args, t)
+	}
+	args = append(args, right)
+	return args
+}
+func tokEmbed(left, tok, right []Token) []Token {
+	var args = left
+	args = append(args, tok...)
+	args = append(args, right...)
+	return args
+}
+
+// concatenate typeflags with right arrows as seperators, to generate a chain
+// of curryed arguments
+func newToksFromArguments(f ...d.Type) []Token {
+	return tokJoin(newSyntaxToken(l.LeftArrow), newDataTokens(f...))
+}
+func newTokFromRetVal(f d.BitFlag) Token {
+	return newToken(Return_Token, f)
 }

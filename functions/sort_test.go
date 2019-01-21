@@ -8,29 +8,29 @@ import (
 )
 
 func TestDataSorter(t *testing.T) {
-	var dat = []Data{
-		newData(d.New("Aaron")),
-		newData(d.New("Aardvark")),
-		newData(d.New("Adam")),
-		newData(d.New("Victor")),
-		newData(d.New("Sylvest")),
-		newData(d.New("Stepen")),
-		newData(d.New("Sonja")),
-		newData(d.New("Tom")),
-		newData(d.New("Britta")),
-		newData(d.New("Peter")),
-		newData(d.New("Paul")),
-		newData(d.New("Mary")),
-		newData(d.New("Eve")),
-		newData(d.New("John")),
-		newData(d.New("Jill")),
+	var dat = []Function{
+		NewFncData(d.New("Aaron")),
+		NewFncData(d.New("Aardvark")),
+		NewFncData(d.New("Adam")),
+		NewFncData(d.New("Victor")),
+		NewFncData(d.New("Sylvest")),
+		NewFncData(d.New("Stepen")),
+		NewFncData(d.New("Sonja")),
+		NewFncData(d.New("Tom")),
+		NewFncData(d.New("Britta")),
+		NewFncData(d.New("Peter")),
+		NewFncData(d.New("Paul")),
+		NewFncData(d.New("Mary")),
+		NewFncData(d.New("Eve")),
+		NewFncData(d.New("John")),
+		NewFncData(d.New("Jill")),
 	}
 
 	ds := dataSorter(dat)
 	ds.Sort(d.String)
 
 	fmt.Printf("names sorted by string: %s\n", ds)
-	idx := ds.Search(newData(d.New("Sonja")))
+	idx := ds.Search(NewFncData(d.New("Sonja")))
 	fmt.Printf("name found via search: %s\n", ds[idx].String())
 	if idx != 10 {
 		t.Fail()
@@ -39,13 +39,13 @@ func TestDataSorter(t *testing.T) {
 		t.Fail()
 	}
 
-	fdx := ds.Search(newData(d.New("NotAName")))
+	fdx := ds.Search(NewFncData(d.New("NotAName")))
 	fmt.Printf("unfindable index supposed to be -1: %d\n", fdx)
 	if fdx != -1 {
 		t.Fail()
 	}
 
-	var flags = []Data{
+	var flags = []Function{
 		d.New(d.Nil),
 		d.New(d.Bool),
 		d.New(d.Int),
@@ -60,7 +60,7 @@ func TestDataSorter(t *testing.T) {
 	fs.Sort(d.Flag)
 	fmt.Printf("sorted flags: %s\n", fs)
 
-	var ints = []Data{
+	var ints = []Function{
 		d.New(int(11)),
 		d.New(int(-12)),
 		d.New(int(12321)),
@@ -77,7 +77,7 @@ func TestDataSorter(t *testing.T) {
 func TestDataSorterMixedType(t *testing.T) {
 
 	// TODO: make this work
-	var typs = []Data{
+	var typs = []Function{
 		d.New(int(11)),
 		d.New(uint(134)),
 		d.New("Peter"),
@@ -106,21 +106,21 @@ func TestDataSorterMixedType(t *testing.T) {
 }
 func TestPairSorterStrStr(t *testing.T) {
 	var strPairs = []Paired{
-		newPair(d.New("Aaron"), d.New("val 0")),
-		newPair(d.New("Aardvark"), d.New("val 1")),
-		newPair(d.New("Adam"), d.New("val 2")),
-		newPair(d.New("Victor"), d.New("val 3")),
-		newPair(d.New("Sylvest"), d.New("val 4")),
-		newPair(d.New("Stepen"), d.New("val 5")),
-		newPair(d.New("Sonja"), d.New("val 6")),
-		newPair(d.New("Tom"), d.New("val 7")),
-		newPair(d.New("Britta"), d.New("val 8")),
-		newPair(d.New("Peter"), d.New("val 9")),
-		newPair(d.New("Paul"), d.New("val 10")),
-		newPair(d.New("Mary"), d.New("val 11")),
-		newPair(d.New("Eve"), d.New("val 12")),
-		newPair(d.New("John"), d.New("val 13")),
-		newPair(d.New("Jill"), d.New("val 14")),
+		NewPair(d.New("Aaron"), d.New("val 0")),
+		NewPair(d.New("Aardvark"), d.New("val 1")),
+		NewPair(d.New("Adam"), d.New("val 2")),
+		NewPair(d.New("Victor"), d.New("val 3")),
+		NewPair(d.New("Sylvest"), d.New("val 4")),
+		NewPair(d.New("Stepen"), d.New("val 5")),
+		NewPair(d.New("Sonja"), d.New("val 6")),
+		NewPair(d.New("Tom"), d.New("val 7")),
+		NewPair(d.New("Britta"), d.New("val 8")),
+		NewPair(d.New("Peter"), d.New("val 9")),
+		NewPair(d.New("Paul"), d.New("val 10")),
+		NewPair(d.New("Mary"), d.New("val 11")),
+		NewPair(d.New("Eve"), d.New("val 12")),
+		NewPair(d.New("John"), d.New("val 13")),
+		NewPair(d.New("Jill"), d.New("val 14")),
 	}
 
 	ps := newPairSorter(strPairs...)
@@ -130,16 +130,16 @@ func TestPairSorterStrStr(t *testing.T) {
 }
 func TestPairSorterIntStr(t *testing.T) {
 	var pairs = []Paired{
-		newPair(d.New(10), d.New("valeu ten")),
-		newPair(d.New(13), d.New("valeu thirteen")),
-		newPair(d.New(7), d.New("valeu seven")),
-		newPair(d.New(8), d.New("valeu eight")),
-		newPair(d.New(1), d.New("valeu one")),
-		newPair(d.New(2), d.New("valeu two")),
-		newPair(d.New(3), d.New("valeu three")),
-		newPair(d.New(4), d.New("valeu four")),
-		newPair(d.New(5), d.New("valeu five")),
-		newPair(d.New(6), d.New("valeu six")),
+		NewPair(d.New(10), d.New("valeu ten")),
+		NewPair(d.New(13), d.New("valeu thirteen")),
+		NewPair(d.New(7), d.New("valeu seven")),
+		NewPair(d.New(8), d.New("valeu eight")),
+		NewPair(d.New(1), d.New("valeu one")),
+		NewPair(d.New(2), d.New("valeu two")),
+		NewPair(d.New(3), d.New("valeu three")),
+		NewPair(d.New(4), d.New("valeu four")),
+		NewPair(d.New(5), d.New("valeu five")),
+		NewPair(d.New(6), d.New("valeu six")),
 	}
 
 	ps := newPairSorter(pairs...)
@@ -148,16 +148,16 @@ func TestPairSorterIntStr(t *testing.T) {
 }
 func TestPairSorterUintStr(t *testing.T) {
 	var pairs = []Paired{
-		newPair(d.New(uint(10)), d.New("valeu ten")),
-		newPair(d.New(uint(13)), d.New("valeu thirteen")),
-		newPair(d.New(uint(7)), d.New("valeu seven")),
-		newPair(d.New(uint(8)), d.New("valeu eight")),
-		newPair(d.New(uint(1)), d.New("valeu one")),
-		newPair(d.New(uint(2)), d.New("valeu two")),
-		newPair(d.New(uint(3)), d.New("valeu three")),
-		newPair(d.New(uint(4)), d.New("valeu four")),
-		newPair(d.New(uint(5)), d.New("valeu five")),
-		newPair(d.New(uint(6)), d.New("valeu six")),
+		NewPair(d.New(uint(10)), d.New("valeu ten")),
+		NewPair(d.New(uint(13)), d.New("valeu thirteen")),
+		NewPair(d.New(uint(7)), d.New("valeu seven")),
+		NewPair(d.New(uint(8)), d.New("valeu eight")),
+		NewPair(d.New(uint(1)), d.New("valeu one")),
+		NewPair(d.New(uint(2)), d.New("valeu two")),
+		NewPair(d.New(uint(3)), d.New("valeu three")),
+		NewPair(d.New(uint(4)), d.New("valeu four")),
+		NewPair(d.New(uint(5)), d.New("valeu five")),
+		NewPair(d.New(uint(6)), d.New("valeu six")),
 	}
 
 	ps := newPairSorter(pairs...)
@@ -166,16 +166,16 @@ func TestPairSorterUintStr(t *testing.T) {
 }
 func TestPairSorterIrrationalStr(t *testing.T) {
 	var pairs = []Paired{
-		newPair(d.New(float64(10.21)), d.New("valeu ten")),
-		newPair(d.New(float64(13.23)), d.New("valeu thirteen")),
-		newPair(d.New(float64(7.72323)), d.New("valeu seven")),
-		newPair(d.New(float64(8.342)), d.New("valeu eight")),
-		newPair(d.New(float64(1.234)), d.New("valeu one")),
-		newPair(d.New(float64(2.25)), d.New("valeu two")),
-		newPair(d.New(float64(3.3333)), d.New("valeu three")),
-		newPair(d.New(float64(4)), d.New("valeu four")),
-		newPair(d.New(float64(5)), d.New("valeu five")),
-		newPair(d.New(float64(6)), d.New("valeu six")),
+		NewPair(d.New(float64(10.21)), d.New("valeu ten")),
+		NewPair(d.New(float64(13.23)), d.New("valeu thirteen")),
+		NewPair(d.New(float64(7.72323)), d.New("valeu seven")),
+		NewPair(d.New(float64(8.342)), d.New("valeu eight")),
+		NewPair(d.New(float64(1.234)), d.New("valeu one")),
+		NewPair(d.New(float64(2.25)), d.New("valeu two")),
+		NewPair(d.New(float64(3.3333)), d.New("valeu three")),
+		NewPair(d.New(float64(4)), d.New("valeu four")),
+		NewPair(d.New(float64(5)), d.New("valeu five")),
+		NewPair(d.New(float64(6)), d.New("valeu six")),
 	}
 
 	ps := newPairSorter(pairs...)

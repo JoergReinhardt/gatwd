@@ -53,12 +53,12 @@ func compareFlag(a, b d.BitFlag) int {
 func compInt2BooIncl(i int) bool { return i >= 0 }
 func compInt2BooExcl(i int) bool { return i > 0 }
 
-type dataSorter []Data
+type dataSorter []Function
 
 func (d dataSorter) Empty() bool {
 	if len(d) > 0 {
 		for _, dat := range d {
-			if !elemEmpty(dat) {
+			if !ElemEmpty(dat) {
 				return false
 
 			}
@@ -66,15 +66,15 @@ func (d dataSorter) Empty() bool {
 	}
 	return true
 }
-func newDataSorter(dat ...Data) dataSorter { return dataSorter(dat) }
-func (d dataSorter) Len() int              { return len(d) }
-func (d dataSorter) Swap(i, j int)         { d[i], d[j] = d[j], d[i] }
+func newDataSorter(dat ...Function) dataSorter { return dataSorter(dat) }
+func (d dataSorter) Len() int                  { return len(d) }
+func (d dataSorter) Swap(i, j int)             { d[i], d[j] = d[j], d[i] }
 func (ds dataSorter) Sort(argType d.Type) {
 	less := newDataLess(argType, ds)
 	sort.Slice(ds, less)
 }
 
-func (ds dataSorter) Search(praed Data) int {
+func (ds dataSorter) Search(praed Function) int {
 	var idx = sort.Search(len(ds), newDataFind(ds, praed))
 	if idx < len(ds) {
 		switch {
@@ -131,7 +131,7 @@ func newDataLess(argType d.Type, ds dataSorter) func(i, j int) bool {
 	}
 	return nil
 }
-func newDataFind(ds dataSorter, praed Data) func(int) bool {
+func newDataFind(ds dataSorter, praed Function) func(int) bool {
 	var f = praed.Flag()
 	switch {
 	case f.Match(d.Symbolic.Flag()):
@@ -172,7 +172,7 @@ func newPairSorter(p ...Paired) pairSorter { return append(pairSorter{}, p...) }
 func (a pairSorter) Empty() bool {
 	if len(a) > 0 {
 		for _, p := range a {
-			if !elemEmpty(p) {
+			if !ElemEmpty(p) {
 				return false
 			}
 		}
@@ -185,7 +185,7 @@ func (p pairSorter) Sort(f d.Type) {
 	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
-func (p pairSorter) Search(praed Data) int {
+func (p pairSorter) Search(praed Function) int {
 	var idx = sort.Search(len(p), newPraedFind(p, praed))
 	// when praedicate is a precedence type encoding bit-flag
 	if praed.Flag().Match(d.Flag.Flag()) {
@@ -201,14 +201,14 @@ func (p pairSorter) Search(praed Data) int {
 	}
 	return -1
 }
-func (p pairSorter) Get(praed Data) Paired {
+func (p pairSorter) Get(praed Function) Paired {
 	idx := p.Search(praed)
 	if idx != -1 {
 		return p[idx]
 	}
 	return nil
 }
-func (p pairSorter) Range(praed Data) []Paired {
+func (p pairSorter) Range(praed Function) []Paired {
 	var ran = []Paired{}
 	idx := p.Search(praed)
 	if idx != -1 {
@@ -272,7 +272,7 @@ func newPraedLess(accs pairSorter, t d.Type) func(i, j int) bool {
 	}
 	return nil
 }
-func newPraedFind(accs pairSorter, praed Data) func(i int) bool {
+func newPraedFind(accs pairSorter, praed Function) func(i int) bool {
 	var f = praed.Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
