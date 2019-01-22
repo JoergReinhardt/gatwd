@@ -142,15 +142,20 @@ type ( ////// INTERNAL TYPES /////
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
 	PairVal   struct{ l, r Data }
-	SetVal    map[StrVal]Data
-	//	DataSlice []Data
 	FlagSlice []BitFlag
+	DataSlice []Data
+	SetString map[StrVal]Data
+	SetUint   map[UintVal]Data
+	SetInt    map[IntVal]Data
+	SetFloat  map[FltVal]Data
+	SetFlag   map[BitFlag]Data
 )
 
 //////// ATTRIBUTE TYPE ALIAS /////////////////
 
 /// bind the appropriate Flag Method to every type
 func (v BitFlag) Flag() BitFlag   { return Flag.Flag() }
+func (v FlagSlice) Flag() BitFlag { return Flag.Flag() }
 func (NilVal) Flag() BitFlag      { return Nil.Flag() }
 func (v BoolVal) Flag() BitFlag   { return Bool.Flag() }
 func (v IntVal) Flag() BitFlag    { return Int.Flag() }
@@ -175,6 +180,7 @@ func (v StrVal) Flag() BitFlag    { return String.Flag() }
 func (v TimeVal) Flag() BitFlag   { return Time.Flag() }
 func (v DuraVal) Flag() BitFlag   { return Duration.Flag() }
 func (v ErrorVal) Flag() BitFlag  { return Error.Flag() }
+func (v PairVal) Flag() BitFlag   { return Pair.Flag() }
 
 ///
 func (NilVal) Copy() Data      { return NilVal{} }
@@ -202,6 +208,14 @@ func (v StrVal) Copy() Data    { return StrVal(v) }
 func (v TimeVal) Copy() Data   { return TimeVal(v) }
 func (v DuraVal) Copy() Data   { return DuraVal(v) }
 func (v ErrorVal) Copy() Data  { return ErrorVal(v) }
+func (v PairVal) Copy() Data   { return PairVal{v.l, v.r} }
+func (v FlagSlice) Copy() Data {
+	var nfs = DataSlice{}
+	for _, dat := range v {
+		nfs = append(nfs, dat)
+	}
+	return nfs
+}
 
 ///
 func (NilVal) Eval() Data      { return NilVal{} }
@@ -229,6 +243,7 @@ func (v StrVal) Eval() Data    { return v }
 func (v TimeVal) Eval() Data   { return v }
 func (v DuraVal) Eval() Data   { return v }
 func (v ErrorVal) Eval() Data  { return v }
+func (v PairVal) Eval() Data   { return v }
 
 ///
 func (NilVal) Ident() Data      { return NilVal{} }
@@ -256,8 +271,12 @@ func (v StrVal) Ident() Data    { return v }
 func (v TimeVal) Ident() Data   { return v }
 func (v DuraVal) Ident() Data   { return v }
 func (v ErrorVal) Ident() Data  { return v }
+func (v PairVal) Ident() Data   { return v }
 
 //// native nullable typed ///////
+func (v BitFlag) Null() BitFlag       { return Nil.Flag() }
+func (v FlagSlice) Null() FlagSlice   { return FlagSlice{} }
+func (v PairVal) Null() PairVal       { return PairVal{NilVal{}, NilVal{}} }
 func (v NilVal) Null() struct{}       { return struct{}{} }
 func (v BoolVal) Null() bool          { return false }
 func (v IntVal) Null() int            { return 0 }

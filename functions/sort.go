@@ -1,3 +1,11 @@
+/*
+SORT & SEARCH
+
+  implements golang sort and search slices of data and pairs of data. since
+  'data' can be of collection type, this implements search and sort for pretty
+  much every type thinkable of. generalizes over contained types by using godeeps
+  capabilitys.
+*/
 package functions
 
 import (
@@ -7,7 +15,7 @@ import (
 
 	d "github.com/JoergReinhardt/godeep/data"
 )
-
+// type class based comparison functions
 func compareSymbolic(a, b Symbolic) int {
 	return strings.Compare(a.String(), b.String())
 }
@@ -53,7 +61,8 @@ func compareFlag(a, b d.BitFlag) int {
 func compInt2BooIncl(i int) bool { return i >= 0 }
 func compInt2BooExcl(i int) bool { return i > 0 }
 
-type dataSorter []Function
+// type to sort slices of data
+type dataSorter []Functional
 
 func (d dataSorter) Empty() bool {
 	if len(d) > 0 {
@@ -66,15 +75,15 @@ func (d dataSorter) Empty() bool {
 	}
 	return true
 }
-func newDataSorter(dat ...Function) dataSorter { return dataSorter(dat) }
-func (d dataSorter) Len() int                  { return len(d) }
-func (d dataSorter) Swap(i, j int)             { d[i], d[j] = d[j], d[i] }
+func newDataSorter(dat ...Functional) dataSorter { return dataSorter(dat) }
+func (d dataSorter) Len() int                    { return len(d) }
+func (d dataSorter) Swap(i, j int)               { d[i], d[j] = d[j], d[i] }
 func (ds dataSorter) Sort(argType d.Type) {
 	less := newDataLess(argType, ds)
 	sort.Slice(ds, less)
 }
 
-func (ds dataSorter) Search(praed Function) int {
+func (ds dataSorter) Search(praed Functional) int {
 	var idx = sort.Search(len(ds), newDataFind(ds, praed))
 	if idx < len(ds) {
 		switch {
@@ -131,7 +140,7 @@ func newDataLess(argType d.Type, ds dataSorter) func(i, j int) bool {
 	}
 	return nil
 }
-func newDataFind(ds dataSorter, praed Function) func(int) bool {
+func newDataFind(ds dataSorter, praed Functional) func(int) bool {
 	var f = praed.Flag()
 	switch {
 	case f.Match(d.Symbolic.Flag()):
@@ -185,7 +194,7 @@ func (p pairSorter) Sort(f d.Type) {
 	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
-func (p pairSorter) Search(praed Function) int {
+func (p pairSorter) Search(praed d.Data) int {
 	var idx = sort.Search(len(p), newPraedFind(p, praed))
 	// when praedicate is a precedence type encoding bit-flag
 	if praed.Flag().Match(d.Flag.Flag()) {
@@ -201,14 +210,14 @@ func (p pairSorter) Search(praed Function) int {
 	}
 	return -1
 }
-func (p pairSorter) Get(praed Function) Paired {
+func (p pairSorter) Get(praed Functional) Paired {
 	idx := p.Search(praed)
 	if idx != -1 {
 		return p[idx]
 	}
 	return nil
 }
-func (p pairSorter) Range(praed Function) []Paired {
+func (p pairSorter) Range(praed Functional) []Paired {
 	var ran = []Paired{}
 	idx := p.Search(praed)
 	if idx != -1 {
@@ -272,7 +281,7 @@ func newPraedLess(accs pairSorter, t d.Type) func(i, j int) bool {
 	}
 	return nil
 }
-func newPraedFind(accs pairSorter, praed Function) func(i int) bool {
+func newPraedFind(accs pairSorter, praed d.Data) func(i int) bool {
 	var f = praed.Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

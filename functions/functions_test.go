@@ -8,7 +8,7 @@ import (
 )
 
 func TestDataEnclosures(t *testing.T) {
-	data := NewFncData(d.New("this is the testfunction speaking from within enclosure"))
+	data := NewValue(d.New("this is the testfunction speaking from within enclosure"))
 	fmt.Println(data)
 	fmt.Println(data.Flag())
 }
@@ -19,7 +19,7 @@ func TestPairEnclosures(t *testing.T) {
 	fmt.Println(b)
 }
 func TestStringVectorEnclosures(t *testing.T) {
-	vec := newVector(
+	vec := NewVector(
 		d.New("first data in slice"),
 		d.New("second data entry in slice"),
 		d.New("third data entry in slice"),
@@ -36,7 +36,7 @@ func TestStringVectorEnclosures(t *testing.T) {
 	fmt.Println(vec.String())
 }
 func TestMixedVectorEnclosures(t *testing.T) {
-	vec := newVector(
+	vec := NewVector(
 		d.New("this is"),
 		d.New("a vector of"),
 		d.New("mixed type"),
@@ -56,18 +56,18 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 	fmt.Println(vec.String())
 }
 func TestParameterEnclosure(t *testing.T) {
-	var dat Function
+	var dat Functional
 	var parm Argumented
 	parm = NewArgument(d.New("test parameter"))
 	dat = parm.Arg()
 	fmt.Println(dat)
-	dat, parm = parm.Apply(NewFncData(d.New("changer parameter")))
+	dat, parm = parm.Apply(NewValue(d.New("changer parameter")))
 	fmt.Println(dat)
-	dat, parm = parm.Apply(NewFncData(d.New("yet another parameter")))
+	dat, parm = parm.Apply(NewValue(d.New("yet another parameter")))
 	dat, parm = parm.Apply()
 	fmt.Println(dat)
 	fmt.Println(dat)
-	dat, parm = parm.Apply(NewFncData(d.New("yup, works just fine ;)")))
+	dat, parm = parm.Apply(NewValue(d.New("yup, works just fine ;)")))
 	fmt.Println(dat)
 	fmt.Println(dat.Flag())
 }
@@ -89,7 +89,7 @@ func TestApplyArgs(t *testing.T) {
 	args := NewwArguments(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
 
 	fmt.Println(args)
-	var dat []Function
+	var dat []d.Data
 	dat, args = args.Apply(args.Data()...)
 
 	fmt.Println(args)
@@ -360,14 +360,14 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 	}
 }
 func TestRecursive(t *testing.T) {
-	l := newRecursive(
+	l := NewRecursiveList(
 		d.New("this"),
 		d.New("is"),
 		d.New("a"),
 		d.New("test"),
 		d.New("List"),
 	)
-	var h Function
+	var h Functional
 	fmt.Println(l.Len())
 	fmt.Println(l.Empty())
 	for l != nil {
@@ -376,7 +376,7 @@ func TestRecursive(t *testing.T) {
 	}
 }
 func TestTuple(t *testing.T) {
-	tup := newTuple(
+	tup := NewTuple(
 		d.New("this"),
 		d.New("is"),
 		d.New("a"),
@@ -388,7 +388,7 @@ func TestTuple(t *testing.T) {
 	fmt.Println(tup)
 }
 func TestRecord(t *testing.T) {
-	rec := newRecord(
+	rec := NewRecord(
 		NewPair(d.New("key-0"), d.New("this")),
 		NewPair(d.New("key-1"), d.New("is")),
 		NewPair(d.New("key-2"), d.New("a")),

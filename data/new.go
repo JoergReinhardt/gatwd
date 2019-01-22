@@ -21,7 +21,7 @@ func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 	}
 	var val = vals[0]
 	if len(vals) > 1 {
-		var dat = Chain(make([]Data, 0, len(vals)))
+		var dat = DataSlice(make([]Data, 0, len(vals)))
 		for _, val := range vals {
 			var d Data
 			d, flag = NewWithTypeInfo(val)
@@ -82,12 +82,12 @@ func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 	case Data:
 		rval = val.(Data)
 	case []Data:
-		rval = Chain(val.([]Data))
+		rval = DataSlice(val.([]Data))
 	}
 	return rval, flag
 }
 func conVec(f BitFlag, d ...Data) (val Data) {
-	var slice Chain = []Data{}
+	var slice DataSlice = []Data{}
 	switch {
 	case FlagMatch(f, Nil.Flag()):
 		for _, v := range d {

@@ -8,29 +8,29 @@ import (
 )
 
 func TestDataSorter(t *testing.T) {
-	var dat = []Function{
-		NewFncData(d.New("Aaron")),
-		NewFncData(d.New("Aardvark")),
-		NewFncData(d.New("Adam")),
-		NewFncData(d.New("Victor")),
-		NewFncData(d.New("Sylvest")),
-		NewFncData(d.New("Stepen")),
-		NewFncData(d.New("Sonja")),
-		NewFncData(d.New("Tom")),
-		NewFncData(d.New("Britta")),
-		NewFncData(d.New("Peter")),
-		NewFncData(d.New("Paul")),
-		NewFncData(d.New("Mary")),
-		NewFncData(d.New("Eve")),
-		NewFncData(d.New("John")),
-		NewFncData(d.New("Jill")),
+	var dat = []Functional{
+		NewValue(d.New("Aaron")),
+		NewValue(d.New("Aardvark")),
+		NewValue(d.New("Adam")),
+		NewValue(d.New("Victor")),
+		NewValue(d.New("Sylvest")),
+		NewValue(d.New("Stepen")),
+		NewValue(d.New("Sonja")),
+		NewValue(d.New("Tom")),
+		NewValue(d.New("Britta")),
+		NewValue(d.New("Peter")),
+		NewValue(d.New("Paul")),
+		NewValue(d.New("Mary")),
+		NewValue(d.New("Eve")),
+		NewValue(d.New("John")),
+		NewValue(d.New("Jill")),
 	}
 
 	ds := dataSorter(dat)
 	ds.Sort(d.String)
 
 	fmt.Printf("names sorted by string: %s\n", ds)
-	idx := ds.Search(NewFncData(d.New("Sonja")))
+	idx := ds.Search(d.New("Sonja"))
 	fmt.Printf("name found via search: %s\n", ds[idx].String())
 	if idx != 10 {
 		t.Fail()
@@ -39,13 +39,13 @@ func TestDataSorter(t *testing.T) {
 		t.Fail()
 	}
 
-	fdx := ds.Search(NewFncData(d.New("NotAName")))
+	fdx := ds.Search(d.New("NotAName"))
 	fmt.Printf("unfindable index supposed to be -1: %d\n", fdx)
 	if fdx != -1 {
 		t.Fail()
 	}
 
-	var flags = []Function{
+	var flags = []Functional{
 		d.New(d.Nil),
 		d.New(d.Bool),
 		d.New(d.Int),
@@ -60,7 +60,7 @@ func TestDataSorter(t *testing.T) {
 	fs.Sort(d.Flag)
 	fmt.Printf("sorted flags: %s\n", fs)
 
-	var ints = []Function{
+	var ints = []Functional{
 		d.New(int(11)),
 		d.New(int(-12)),
 		d.New(int(12321)),
@@ -77,7 +77,7 @@ func TestDataSorter(t *testing.T) {
 func TestDataSorterMixedType(t *testing.T) {
 
 	// TODO: make this work
-	var typs = []Function{
+	var typs = []Functional{
 		d.New(int(11)),
 		d.New(uint(134)),
 		d.New("Peter"),

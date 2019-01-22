@@ -1,46 +1,33 @@
 package functions
 
 import (
+	"bytes"
+
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
 /// VALUE
 
 /// PAIR
-func (p Pair) String() string { l, r := p(); return l.String() + " " + r.String() }
-
-/// ARGUMENTS
-func (p Args) String() string {
-	d, _ := p()
-	return d.Flag().String() +
-		" " +
-		d.String()
-}
+func (dat DataVal) String() string { return dat().String() }
+func (p PairVal) String() string   { l, r := p(); return l.String() + " " + r.String() }
+func (p ArgVal) String() string    { l, r := p(); return l.String() + " " + r.String() }
 func (a ArgSet) String() string {
-	var strdat = [][]d.Data{}
-	for i, dat := range a.Args() {
-		strdat = append(strdat, []d.Data{})
-		strdat[i] = append(strdat[i], d.New(i), d.New(dat.String()))
+	var buf bytes.Buffer
+	slice, _ := a()
+	for _, a := range slice {
+		buf.WriteString(a.String() + "\n")
 	}
-	return d.StringChainTable(strdat...)
+	return buf.String()
 }
-
-/// PRAEDICATES
-func (p Param) String() string {
-	l, r := p.Both()
-	return l.String() + ": " + r.String()
-}
+func (p ParamVal) String() string { l, r := p(); return l.String() + " " + r.String() }
 func (a ParamSet) String() string {
-	var strout = [][]d.Data{}
-	for i, pa := range a.Pairs() {
-		strout = append(strout, []d.Data{})
-		strout[i] = append(
-			strout[i],
-			d.New(i),
-			d.New(pa.Left().String()),
-			d.New(pa.Right().String()))
+	var buf bytes.Buffer
+	slice, _ := a()
+	for _, a := range slice {
+		buf.WriteString(a.String() + "\n")
 	}
-	return d.StringChainTable(strout...)
+	return buf.String()
 }
 
 /// CONSTANT

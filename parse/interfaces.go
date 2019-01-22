@@ -2,7 +2,6 @@ package parse
 
 import d "github.com/JoergReinhardt/godeep/data"
 import f "github.com/JoergReinhardt/godeep/functions"
-import l "github.com/JoergReinhardt/godeep/lang"
 
 type Arity uint8
 
@@ -24,7 +23,7 @@ const (
 )
 
 type FncDef interface {
-	f.Function
+	f.Functional
 	UID() int
 	Name() string
 	Arity() Arity
@@ -66,35 +65,17 @@ const (
 	Greater
 )
 
-////////// STACK ////////////
-//// LAST IN FIRST OUT //////
-type Stacked interface {
-	f.Collected
-	Push(f.Function)
-	Pop() f.Function
-	Add(...f.Function)
-}
-
-///////// QUEUE /////////////
-//// FIRST IN FIRST OUT /////
-type Queued interface {
-	f.Collected
-	Put(f.Function)
-	Pull() f.Function
-	Append(...f.Function)
-}
-
-// interfaces dealing with instances of input items
-type Queue interface {
-	Next()
-	Peek() l.Item
-	Current() l.Item
-	Idx() int
-}
-
 // data to parse
 type Token interface {
 	Type() d.BitFlag
 	Flag() d.BitFlag
 	String() string
+}
+
+// Ident interface{}
+//
+// the ident interface is implemented by everything providing unique identification.
+type Ident interface {
+	f.Functional
+	Ident() f.Functional // calls enclosed fnc, with enclosed parameters
 }

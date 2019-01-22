@@ -28,6 +28,7 @@ type Paired interface {
 	Both() (Data, Data)
 }
 type Mapped interface {
+	Data
 	Keys() []Data
 	Data() []Data
 	Accs() []Paired

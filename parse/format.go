@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lang"
+	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 //// TOKENS
@@ -26,7 +26,7 @@ func (t token) String() string {
 	var str string
 	switch t.typ {
 	case Syntax_Token:
-		str = t.flag.(l.TypeItem).Syntax()
+		str = t.flag.(l.SyntaxItemFlag).Syntax()
 	case Data_Type_Token:
 		str = d.StringBitFlag(t.flag.(d.Type).Flag())
 	default:
@@ -48,23 +48,23 @@ func (t dataToken) String() string {
 }
 
 ///// PATTERNS MONOID
-func (s pattern) String() string {
+func (s Pattern) String() string {
 	var str string
-	for i, tok := range s.Tokens() {
+	for i, tok := range s.ArgToks() {
 		str = str + tok.String()
-		if i < len(s.Tokens())-1 {
+		if i < len(s.ArgToks())-1 {
 			str = str + " "
 		}
 	}
 	return strconv.Itoa(s.Id()) + str
 }
 
-func (s monoid) String() string {
+func (s Monoid) String() string {
 	return strconv.Itoa(s.Id()) + " " + tokens(s.Tokens()).String()
 }
-func (s polymorph) String() string {
+func (s Polymorph) String() string {
 	var str string
-	for _, mon := range s.Monom() {
+	for _, mon := range s.Monoids() {
 		str = str + tokens(mon.Tokens()).String() + "\n"
 	}
 	return strconv.Itoa(s.Id()) + " " + str

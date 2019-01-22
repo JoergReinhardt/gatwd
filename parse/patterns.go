@@ -14,23 +14,55 @@ package parse
 
 import (
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lang"
+	f "github.com/JoergReinhardt/godeep/functions"
+	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 ///////// MONO- / POLY-MORPHISM ///////////
 
 type (
-	pattern   func() (id int, args []d.BitFlag, ret d.BitFlag)
-	monoid    func() (pat pattern, fnc d.Data)
-	polymorph func() (id int, name string, mon []monoid)
+	Pattern   func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
+	Monoid    func() (pat Pattern, fnc f.Function)
+	Polymorph func() (pat Pattern, mon []Monoid)
 )
 
 // patterns are slices of tokens that can be compared with one another
-func (s pattern) Flag() d.BitFlag   { return d.Flag.Flag() }
-func (s pattern) Id() int           { id, _, _ := s(); return id }
-func (s pattern) Args() []d.BitFlag { _, flags, _ := s(); return flags }
-func (s pattern) RetVal() d.BitFlag { _, _, ret := s(); return ret }
-func (s pattern) Tokens() []Token {
+func NewPattern(
+	id int,
+	name string,
+	retVal d.BitFlag,
+	args ...d.BitFlag,
+) (p Pattern) {
+	return func() (
+		int,
+		string,
+		[]d.BitFlag,
+		d.BitFlag) {
+		return id, name, args, retVal
+	}
+}
+func (s Pattern) Flag() d.BitFlag   { return d.Flag.Flag() }
+func (s Pattern) Id() int           { id, _, _, _ := s(); return id }
+func (s Pattern) Name() string      { _, name, _, _ := s(); return name }
+func (s Pattern) Args() []d.BitFlag { _, _, flags, _ := s(); return flags }
+func (s Pattern) RetVal() d.BitFlag { _, _, _, retval := s(); return retval }
+func (s Pattern) Signature() string {
+	var sig string
+	for _, tok := range s.SigToks() {
+		sig = sig + " " + tok.String()
+	}
+	return sig
+}
+func (s Pattern) SigToks() []Token {
+	return append(
+		append(s.ArgToks(),
+			newToken(Data_Value_Token,
+				d.StrVal(s.Name()))),
+		newToken(
+			Data_Type_Token,
+			s.RetVal()))
+}
+func (s Pattern) ArgToks() []Token {
 	var toks = []Token{}
 	for _, flag := range s.Args() {
 		toks = append(toks, newToken(Data_Type_Token, d.Type(flag.Flag())))
@@ -38,40 +70,27 @@ func (s pattern) Tokens() []Token {
 	return append(tokJoin(newToken(Syntax_Token, l.RightArrow), toks))
 }
 
-// signature pattern of a literal function that takes a particular set of input
-// parameters and returns a particular set of return values (this get's called)
-func (i monoid) Id() int           { pat, _ := i(); return pat.Id() }
-func (s monoid) Flag() d.BitFlag   { return d.Flag.Flag() }
-func (i monoid) Args() []d.BitFlag { pat, _ := i(); return pat.Args() }
-func (i monoid) Tokens() []Token   { pat, _ := i(); return pat.Tokens() }
-func (i monoid) RetVal() d.BitFlag { pat, _ := i(); return pat.RetVal() }
-func (i monoid) Fnc() d.Data       { _, fnc := i(); return fnc }
-
-//func (i monoid) Call(d ...d.Data) d.Data { _, fnc := i(); return fnc.Call(d...) }
-
-// slice of signatures and associated isomorphic implementations
-// polymorph defined with a name
-func (n polymorph) Id() int         { id, _, _ := n(); return id }
-func (s polymorph) Flag() d.BitFlag { return d.Flag.Flag() }
-func (n polymorph) Name() string    { _, name, _ := n(); return name }
-func (n polymorph) Monom() []monoid { _, _, m := n(); return m }
-
-// generation of new types starts with the generation of a pattern, which in
-// turn retrieves, or generates an id depending on preexistence of the
-// particular pattern. One way of passing the pattern in, is as a slice of
-// mixed syntax, type-flag & string-data tokens.
-func newPattern(id int, retVal d.BitFlag, args ...d.BitFlag) (p pattern) {
-	return func() (int, []d.BitFlag, d.BitFlag) { return id, args, retVal }
+func NewMonoid(pat Pattern, fnc f.Function) Monoid {
+	return func() (Pattern, f.Function) { return pat, fnc }
 }
-func newMonoid(pat pattern, fnc d.Data) monoid {
-	return func() (pattern, d.Data) { return pat, fnc }
-}
-func newPolymorph(i int, name string, mono ...monoid) polymorph {
+func (i Monoid) Id() int                 { pat, _ := i(); return pat.Id() }
+func (s Monoid) Flag() d.BitFlag         { return d.Flag.Flag() }
+func (i Monoid) Args() []d.BitFlag       { pat, _ := i(); return pat.Args() }
+func (i Monoid) Tokens() []Token         { pat, _ := i(); return pat.ArgToks() }
+func (i Monoid) RetVal() d.BitFlag       { pat, _ := i(); return pat.RetVal() }
+func (i Monoid) Fnc() d.Data             { _, fnc := i(); return fnc }
+func (i Monoid) Call(d ...d.Data) d.Data { _, fnc := i(); return fnc.Call(d...) }
+
+func NewPolymorph(pats Pattern, mono ...Monoid) Polymorph {
 	return func() (
-		id int,
-		name string,
-		monom []monoid,
+		pat Pattern,
+		monom []Monoid,
 	) {
-		return i, name, mono
+		return pat, mono
 	}
 }
+func (s Polymorph) Flag() d.BitFlag   { return d.Flag.Flag() }
+func (n Polymorph) Pat() Pattern      { pat, _ := n(); return pat }
+func (n Polymorph) Id() int           { return n.Id() }
+func (n Polymorph) Name() string      { return n.Name() }
+func (n Polymorph) Monoids() []Monoid { _, m := n(); return m }

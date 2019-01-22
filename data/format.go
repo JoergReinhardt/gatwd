@@ -65,8 +65,8 @@ func StringBitFlag(v BitFlag) string {
 	}
 	return str
 }
-func (v Chain) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v ErrorVec) String() string { return StringSlice("\n", "", "", v) }
+func (v DataSlice) String() string { return StringSlice(", ", "[", "]", v) }
+func (v ErrorVec) String() string  { return StringSlice("\n", "", "", v) }
 
 // stringer for ordered chains, without any further specification.
 func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
@@ -74,7 +74,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
 	str = str + ldelim
 	for i, d := range s {
 		if FlagMatch(d.Flag(), Vector.Flag()) {
-			str = str + StringSlice(sep, ldelim, rdelim, d.(Chain).Slice()...)
+			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()
 		}

@@ -53,7 +53,7 @@ func TestFlag(t *testing.T) {
 	fmt.Println(BitFlag(Symbolic))
 }
 
-var s0 = NewChain(
+var s0 = NewSlice(
 	New(true),
 	New(1),
 	New(1, 2, 3, 4, 5, 6, 7),
@@ -79,7 +79,7 @@ func TestTypeAllocation(t *testing.T) {
 	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int8|Int16|Int32|Int|BigInt|Flt32|Float|BigFlt|Ratio|Imag|Time|Byte|Bytes|String" {
 		t.Fail()
 	}
-	s1 := NewChain()
+	s1 := NewSlice()
 	//s1 := []Evaluable{}
 	//s1 := []int{}
 
@@ -90,7 +90,7 @@ func TestTypeAllocation(t *testing.T) {
 	}
 
 	for i := 0; i < 1000; i++ {
-		s1 = ChainAdd(s1, s0...)
+		s1 = SliceAdd(s1, s0...)
 	}
 	if len(s1) != 18000 {
 		t.Fail()
@@ -104,17 +104,17 @@ func TestTypeAllocation(t *testing.T) {
 func TestLiFo(t *testing.T) {
 	//var sr = Chain{}
 	var d Data
-	var s = NewChain()
-	var sr = NewChain()
+	var s = NewSlice()
+	var sr = NewSlice()
 	for i := 0; i < 10; i++ {
-		s = ChainPush(s, New(i))
+		s = SlicePush(s, New(i))
 		fmt.Println(d)
 		fmt.Println(s)
-		fmt.Println(ChainLen(s))
+		fmt.Println(SliceLen(s))
 	}
 	fmt.Println(s)
-	for ChainLen(s) > 0 {
-		d, s = ChainPop(s)
+	for SliceLen(s) > 0 {
+		d, s = SlicePop(s)
 		fmt.Println(d)
 		fmt.Println(s)
 		fmt.Println(s.Len())
@@ -129,20 +129,20 @@ func TestLiFo(t *testing.T) {
 func TestFiFo(t *testing.T) {
 	//var sr = Chain{}
 	var d Data
-	var s = Chain{}
-	var sr = Chain{}
+	var s = DataSlice{}
+	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
-		s = ChainPut(s, New(i))
+		s = SlicePut(s, New(i))
 		fmt.Println(d)
 		fmt.Println(s)
-		fmt.Println(ChainLen(s))
+		fmt.Println(SliceLen(s))
 	}
-	for !ChainEmpty(s) {
-		d, s = ChainPull(s)
+	for !SliceEmpty(s) {
+		d, s = SlicePull(s)
 		sr = append(sr, d)
 		fmt.Println(d)
 		fmt.Println(s)
-		fmt.Println(ChainLen(s))
+		fmt.Println(SliceLen(s))
 	}
 	fmt.Println(sr)
 
@@ -153,20 +153,20 @@ func TestFiFo(t *testing.T) {
 func TestConDecap(t *testing.T) {
 	//var sr = Chain{}
 	var d Data
-	var s = Chain{}
-	var sr = Chain{}
+	var s = DataSlice{}
+	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
-		s = ChainCon(s, New(i))
+		s = SliceCon(s, New(i))
 		fmt.Println(d)
 		fmt.Println(s)
-		fmt.Println(ChainLen(s))
+		fmt.Println(SliceLen(s))
 	}
-	for !ChainEmpty(s) {
-		d, s = ChainDecap(s)
+	for !SliceEmpty(s) {
+		d, s = SliceDeCap(s)
 		sr = append(sr, d)
 		fmt.Println(d)
 		fmt.Println(s)
-		fmt.Println(ChainLen(s))
+		fmt.Println(SliceLen(s))
 	}
 	fmt.Println(sr)
 
@@ -175,42 +175,42 @@ func TestConDecap(t *testing.T) {
 	}
 }
 func BenchmarkListAdd(b *testing.B) {
-	var s1 = Chain{}
+	var s1 = DataSlice{}
 	for i := 0; i < b.N; i++ {
-		s1 = ChainAdd(s1, s0...)
+		s1 = SliceAdd(s1, s0...)
 	}
 }
 func BenchmarkListAppend(b *testing.B) {
-	var s1 = Chain{}
+	var s1 = DataSlice{}
 	for i := 0; i < b.N; i++ {
-		s1 = ChainAppend(s1, s0...)
+		s1 = SliceAppend(s1, s0...)
 	}
 }
 func BenchmarkListPushPop(b *testing.B) {
-	var s1 = Chain{}
+	var s1 = DataSlice{}
 	for i := 0; i < b.N; i++ {
-		s1 = ChainPush(s1, s0[0])
+		s1 = SlicePush(s1, s0[0])
 	}
 	for i := 0; i < b.N; i++ {
-		_, s1 = ChainPop(s1)
+		_, s1 = SlicePop(s1)
 	}
 }
 func BenchmarkListPutPull(b *testing.B) {
-	var s1 = Chain{}
+	var s1 = DataSlice{}
 	for i := 0; i < b.N; i++ {
-		s1 = ChainPut(s1, s0[0])
+		s1 = SlicePut(s1, s0[0])
 	}
 	for i := 0; i < b.N; i++ {
-		_, s1 = ChainPull(s1)
+		_, s1 = SlicePull(s1)
 	}
 }
 func BenchmarkConDecap(b *testing.B) {
-	var s1 = Chain{}
+	var s1 = DataSlice{}
 	for i := 0; i < b.N; i++ {
-		s1 = ChainCon(s1, s0[0])
+		s1 = SliceCon(s1, s0[0])
 	}
 	for i := 0; i < b.N; i++ {
-		_, s1 = ChainDecap(s1)
+		_, s1 = SliceDeCap(s1)
 	}
 }
 func TestTimeType(t *testing.T) {
@@ -225,7 +225,7 @@ func TestNativeSlice(t *testing.T) {
 		24, 4, 24, 2245,
 		24, 42, 4, 24)
 
-	var ns = ds.(Chain).NativeSlice()
+	var ns = ds.(DataSlice).NativeSlice()
 
 	fmt.Println(ds)
 	fmt.Println(ns)
@@ -240,7 +240,7 @@ func TestAllTypes(t *testing.T) {
 }
 
 func TestSearchChainInt(t *testing.T) {
-	sl := New(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(Chain)
+	sl := New(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(DataSlice)
 	fmt.Println(sl)
 	sl.Sort(Int)
 	fmt.Println(sl)
@@ -254,7 +254,7 @@ func TestSearchChainInt(t *testing.T) {
 func TestSearchChainString(t *testing.T) {
 	sl := New("Nil", "Bool", "Int", "Int8",
 		"Int16", "Int32", "BigInt", "Uint",
-		"Uint8", "Uint16", "Uint32", "and one more").(Chain)
+		"Uint8", "Uint16", "Uint32", "and one more").(DataSlice)
 	fmt.Println(sl)
 	sl.Sort(String)
 	fmt.Println(sl)

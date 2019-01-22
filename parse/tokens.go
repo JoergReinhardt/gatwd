@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lang"
+	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 type TokType uint16
@@ -41,7 +41,7 @@ func (t dataToken) Type() d.BitFlag { return Data_Value_Token.Flag() }
 func newToken(t TokType, dat d.Data) Token {
 	switch t {
 	case Syntax_Token:
-		return token{t, dat.(l.TypeItem)}
+		return token{t, dat.(l.SyntaxItemFlag)}
 	case Data_Type_Token:
 		return token{t, dat.(d.Type)}
 	case Return_Token:
@@ -161,10 +161,10 @@ func compareTokenSequence(long, short []Token) bool {
 type signature func() (uid int, name string, signature string)
 
 // token mangling
-func newSyntaxToken(f l.TypeItem) Token {
+func newSyntaxToken(f l.SyntaxItemFlag) Token {
 	return newToken(Syntax_Token, f)
 }
-func newSyntaxTokens(f ...l.TypeItem) []Token {
+func newSyntaxTokens(f ...l.SyntaxItemFlag) []Token {
 	var t = make([]Token, 0, len(f))
 	for _, flag := range f {
 		t = append(t, newToken(Syntax_Token, flag))
