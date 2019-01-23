@@ -10,8 +10,8 @@ import (
 
 /// PAIR
 func (dat DataVal) String() string { return dat().String() }
-func (p PairVal) String() string   { l, r := p(); return l.String() + " " + r.String() }
-func (p ArgVal) String() string    { l, r := p(); return l.String() + " " + r.String() }
+func (p PairVal) String() string   { return p.Left().String() + " " + p.Right().String() }
+func (p ArgVal) String() string    { return p.Data().String() }
 func (a ArgSet) String() string {
 	var buf bytes.Buffer
 	slice, _ := a()
@@ -20,7 +20,7 @@ func (a ArgSet) String() string {
 	}
 	return buf.String()
 }
-func (p ParamVal) String() string { l, r := p(); return l.String() + " " + r.String() }
+func (p ParamVal) String() string { return p.Left().String() + " " + p.Right().String() }
 func (a ParamSet) String() string {
 	var buf bytes.Buffer
 	slice, _ := a()

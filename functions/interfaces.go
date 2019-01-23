@@ -59,6 +59,7 @@ type Synbolic interface {
 type Functional interface {
 	d.Data
 	Kind() BitFlag
+	Eval() d.Data
 }
 type Function interface {
 	Functional

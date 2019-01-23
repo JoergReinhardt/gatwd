@@ -8,33 +8,32 @@ import (
 )
 
 func TestDataSorter(t *testing.T) {
-	var dat = []Functional{
-		NewValue(d.New("Aaron")),
-		NewValue(d.New("Aardvark")),
-		NewValue(d.New("Adam")),
-		NewValue(d.New("Victor")),
-		NewValue(d.New("Sylvest")),
-		NewValue(d.New("Stepen")),
-		NewValue(d.New("Sonja")),
-		NewValue(d.New("Tom")),
-		NewValue(d.New("Britta")),
-		NewValue(d.New("Peter")),
-		NewValue(d.New("Paul")),
-		NewValue(d.New("Mary")),
-		NewValue(d.New("Eve")),
-		NewValue(d.New("John")),
-		NewValue(d.New("Jill")),
+	var dat = []d.Data{
+		d.New("Aaron"),
+		d.New("Aardvark"),
+		d.New("Adam"),
+		d.New("Victor"),
+		d.New("Sylvest"),
+		d.New("Stepen"),
+		d.New("Sonja"),
+		d.New("Tom"),
+		d.New("Britta"),
+		d.New("Peter"),
+		d.New("Paul"),
+		d.New("Mary"),
+		d.New("Eve"),
+		d.New("John"),
+		d.New("Jill"),
 	}
 
-	ds := dataSorter(dat)
+	ds := newDataSorter(dat...)
 	ds.Sort(d.String)
 
-	fmt.Printf("names sorted by string: %s\n", ds)
 	idx := ds.Search(d.New("Sonja"))
-	fmt.Printf("name found via search: %s\n", ds[idx].String())
 	if idx != 10 {
 		t.Fail()
 	}
+	fmt.Println(idx)
 	if ds[idx].String() != "Sonja" {
 		t.Fail()
 	}
@@ -45,7 +44,7 @@ func TestDataSorter(t *testing.T) {
 		t.Fail()
 	}
 
-	var flags = []Functional{
+	var flags = []d.Data{
 		d.New(d.Nil),
 		d.New(d.Bool),
 		d.New(d.Int),
@@ -60,7 +59,7 @@ func TestDataSorter(t *testing.T) {
 	fs.Sort(d.Flag)
 	fmt.Printf("sorted flags: %s\n", fs)
 
-	var ints = []Functional{
+	var ints = []d.Data{
 		d.New(int(11)),
 		d.New(int(-12)),
 		d.New(int(12321)),
@@ -77,7 +76,7 @@ func TestDataSorter(t *testing.T) {
 func TestDataSorterMixedType(t *testing.T) {
 
 	// TODO: make this work
-	var typs = []Functional{
+	var flags = []d.Data{
 		d.New(int(11)),
 		d.New(uint(134)),
 		d.New("Peter"),
@@ -100,7 +99,7 @@ func TestDataSorterMixedType(t *testing.T) {
 		d.New("Mary"),
 	}
 
-	ts := dataSorter(typs)
+	ts := dataSorter(flags)
 	ts.Sort(d.Flag)
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
 }

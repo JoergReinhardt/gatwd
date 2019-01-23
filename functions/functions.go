@@ -94,8 +94,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 )
 
 // instanciate functionalized data
-func NewValue(dat d.Data) d.Data      { return ConstFnc(func() d.Data { return dat }) }
-
+func NewValue(dat d.Data) Functional { return DataVal(func() d.Data { return dat }) }
 
 // VALUE
 //
@@ -104,6 +103,7 @@ func (dat DataVal) Flag() d.BitFlag   { return dat().Flag() | d.Function.Flag() 
 func (dat DataVal) Kind() BitFlag     { return Value.Flag() }
 func (dat DataVal) Empty() bool       { return ElemEmpty(dat()) }
 func (dat DataVal) Ident() Functional { return dat }
+func (dat DataVal) Eval() d.Data      { return dat() }
 
 func ElemEmpty(dat d.Data) bool {
 	if dat != nil {
@@ -125,11 +125,13 @@ func (p PairVal) Left() d.Data           { l, _ := p(); return l }
 func (p PairVal) Right() d.Data          { _, r := p(); return r }
 func (p PairVal) Acc() Parametric        { return NewParameter(NewPair(p.Left(), p.Right())) }
 func (p PairVal) Arg() Argumented        { return NewArgument(p.Right()) }
-func (p PairVal) Ident() d.Data          { return p }
+func (p PairVal) Ident() Functional      { return p }
+func (p PairVal) Eval() d.Data           { return NewPair(p.Left(), p.Right()) }
 func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
 }
 
+//
 // ARGUMENT
 //
 // arguments are data instances that yield enclosed data and copy of the
@@ -153,7 +155,8 @@ func (p ArgVal) Apply(d ...d.Data) (d.Data, Argumented) {
 	return p()
 }
 func (p ArgVal) Data() d.Data       { d, _ := p(); return d }
-func (p ArgVal) Ident() d.Data      { return p }
+func (p ArgVal) Ident() Functional  { return p }
+func (p ArgVal) Eval() d.Data       { return p.Data() }
 func (p ArgVal) Arg() Argumented    { return NewArgument(p.Data()) }
 func (p ArgVal) Param() d.Data      { return p.Data() }
 func (p ArgVal) ParamType() BitFlag { return p.Data().Flag() }
@@ -163,8 +166,9 @@ func (p ArgVal) Empty() bool        { return ElemEmpty(p.Data()) }
 func (p ArgVal) Kind() BitFlag      { return d.Argument.Flag() }
 func (p ArgVal) Flag() d.BitFlag    { return p.Data().Flag() | d.Argument.Flag() }
 
+//
 // ARGUMENT SET
-// 
+//
 // collections of arguments provide methods to apply values contained in other
 // collections based on position to replace the given values and yield the
 // resulting collection of arguments.
@@ -214,9 +218,11 @@ func (a ArgSet) Empty() bool {
 	}
 	return true
 }
-func (a ArgSet) ArgSet() Arguments      { _, as := a(); return as }
-func (a ArgSet) Ident() Functional      { return a }
-func (a ArgSet) Get(idx int) Argumented { return a.Args()[idx] }
+func (a ArgSet) ArgSet() Arguments              { _, as := a(); return as }
+func (a ArgSet) Ident() Functional              { return a }
+func (a ArgSet) Eval() d.Data                   { return a.ArgSet() }
+func (a ArgSet) Get(idx int) Argumented         { return a.Args()[idx] }
+func (a ArgSet) Set(idx int, dat d.Data) ArgSet { a.Args()[idx] = NewArgument(dat); return a }
 func (a ArgSet) Replace(idx int, arg d.Data) Arguments {
 	dats, _ := a()
 	dats[idx] = arg
@@ -260,6 +266,7 @@ func ApplyArgs(ao ArgSet, args ...d.Data) Arguments {
 // parameteric values carry an accessor additional to the enclosed argument.
 // that accessor can be used as key, search praedicate, order in a list, among
 // other things.
+func NewKeyValueParm(k, v d.Data) Parametric { return NewParameter(NewPair(k, v)) }
 func NewParameter(dd ...Paired) Parametric {
 	return ParamVal(func(di ...Paired) (Paired, Parametric) {
 		// if parameters where passed‥.
@@ -279,6 +286,7 @@ func (p ParamVal) Apply(pa ...Paired) (Paired, Parametric) {
 }
 func (p ParamVal) Arg() Argumented        { return NewArgument(p.Pair().Right()) }
 func (p ParamVal) Ident() Functional      { return p }
+func (p ParamVal) Eval() d.Data           { return NewPair(p.Left(), p.Right()) }
 func (p ParamVal) Accs() Parametric       { _, acc := p(); return acc }
 func (p ParamVal) Pair() Paired           { pa, _ := p(); return pa }
 func (p ParamVal) Key() d.Data            { return p.Pair().Left() }
@@ -298,7 +306,7 @@ func (p ParamVal) Kind() BitFlag      { return Parameter.Flag() }
 //
 // collection of parameters has the methods to apply another collection of
 // parameters and replace the contained ones based on accessor (order doesn't
-// matter). 
+// matter).
 func NewParameterSet(pairs ...Paired) ParamSet {
 	return ParamSet(func(pairs ...Paired) ([]Paired, Parameters) {
 		return pairs, ParamSet(func(...Paired) ([]Paired, Parameters) {
@@ -335,6 +343,11 @@ func (a ParamSet) Get(acc d.Data) Paired {
 	}
 	return nil
 }
+func (a ParamSet) Set(acc d.Data, key, val d.Data) ParamSet {
+	idx, ps := a.GetIdx(acc)
+	ps[idx] = NewParameter(NewPair(key, val))
+	return NewParameterSet(ps...)
+}
 func (a ParamSet) Replace(acc Paired) Parameters {
 	idx, ps := a.GetIdx(acc.Left())
 	ps[idx] = acc
@@ -368,6 +381,7 @@ func (a ParamSet) Empty() bool {
 }
 func (a ParamSet) AccSet() Parameters { _, set := a(); return set }
 func (a ParamSet) Ident() Functional  { return a }
+func (a ParamSet) Eval() d.Data       { return NewVector(a.AccSet()) }
 func (a ParamSet) Append(v ...Paired) Parameters {
 	return NewParameters(append(a.Pairs(), v...)...)
 }
