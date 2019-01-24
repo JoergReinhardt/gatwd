@@ -67,7 +67,7 @@ const (
 
 // data to parse
 type Token interface {
-	Type() d.BitFlag
+	TokType() TokType
 	Flag() d.BitFlag
 	String() string
 }
@@ -77,5 +77,12 @@ type Token interface {
 // the ident interface is implemented by everything providing unique identification.
 type Ident interface {
 	f.Functional
-	Ident() f.Functional // calls enclosed fnc, with enclosed parameters
+	Ident() f.Function // calls enclosed fnc, with enclosed parameters
+}
+
+// the tree function type contains a node and can be referenced by name as
+// parent of the contained node.
+type Tree interface {
+	Token
+	Parent() Node
 }

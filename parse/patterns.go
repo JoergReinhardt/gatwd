@@ -1,14 +1,10 @@
 /*
 TYPE IDENTITY PATTERNS
 
-  composes type id tokenized representation of the type constructors syntax &
-  patterns to identify data instances that match the given parameter type.
-  results in a unique type identity pattern that can efficiently be parsed and
-  checked against, as well as, dynamicly be created and extended during
-  runtime. in the following steps, patterns get composed with function base
-  types and flag identifyers, to declare monoids which then in turn get
-  constructed to declare polymophic, possibly parametric types during prelude
-  and runtime.
+  patterns.go provides functions to deal with tokenized representation of
+  godeep constructs, by implementing the token types and helper functions that
+  get used internaly to split, join and shuffle sequences in assisting
+  signature generation, parsing and the like.
 */
 package parse
 
@@ -21,8 +17,30 @@ import (
 ///////// MONO- / POLY-MORPHISM ///////////
 
 type (
-	Pattern   func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
-	Monoid    func() (pat Pattern, fnc f.Function)
+	// Pattern   func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
+	//
+	// provides a mapping of unique id pointing to monoid implementation
+	// with to it's name, list of expected argument types and expected
+	// return type
+	Pattern func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
+
+	// Monoid    func() (pat Pattern, fnc f.Function)
+	//
+	// a monoid is the least common denominator of a function definition
+	// within the godeeps internal type system. it maps a pattern of id,
+	// name, list of expected argument-/ and return-types to a golang
+	// function which signature it describes, to enable typesafe
+	// application of generic function arguments during runtime.
+	Monoid func() (pat Pattern, fnc f.Function)
+
+	// Polymorph func() (pat Pattern, mon []Monoid)
+	//
+	// polymorphism provides different implementations for functions of the
+	// same name, depending on the particular argument type applye during
+	// runtime. the polymorph datatype maps the set of all monoids
+	// implementing a function type, to it's pattern. During pattern
+	// matching, that list will be matched against the instance encountered
+	// and it will be applyed to the first function that matches its type
 	Polymorph func() (pat Pattern, mon []Monoid)
 )
 

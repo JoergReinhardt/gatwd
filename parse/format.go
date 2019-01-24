@@ -22,27 +22,31 @@ func (t tokenSlice) String() string {
 	}
 	return str
 }
-func (t token) String() string {
+func (t TokVal) String() string {
 	var str string
-	switch t.typ {
+	switch t.TokType() {
 	case Syntax_Token:
-		str = t.flag.(l.SyntaxItemFlag).Syntax()
+		str = t.Typed.(l.SyntaxItemFlag).Syntax()
 	case Data_Type_Token:
-		str = d.StringBitFlag(t.flag.(d.Type).Flag())
+		str = t.Typed.(d.Type).String()
 	default:
 		str = "Don't know how to print this token"
 	}
 	return str
 }
-func (t dataToken) String() string {
+func (t dataTok) String() string {
 	var str string
-	switch t.typ {
+	switch t.TokType() {
 	case Data_Value_Token:
-		str = t.d.(d.Data).String()
+		str = t.Data.String()
 	case Argument_Token:
-		str = "Arg: " + d.Type(t.Flag()).String()
-	case Return_Token:
-		str = "Ret: " + d.Type(t.Flag()).String()
+		str = t.Data.String()
+	case Parameter_Token:
+		str = t.Data.String()
+	case Pair_Value_Token:
+		str = t.Data.String()
+	case Token_Collection:
+		str = t.Data.String()
 	}
 	return str
 }
