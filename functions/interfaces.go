@@ -58,12 +58,12 @@ type Synbolic interface {
 // the concept of type class.
 type Functional interface {
 	d.Data
-	Kind() BitFlag
+	Kind() d.BitFlag
 	Eval() d.Data
 }
 type Function interface {
 	Functional
-	Call(...d.Data) d.Data
+	Call(...Functional) Functional
 }
 
 // Identified interface{}
@@ -101,9 +101,9 @@ type Named interface{ Name() string }
 // or anyhing else that returns two values.
 type Paired interface {
 	Functional
-	Left() d.Data
-	Right() d.Data
-	Both() (d.Data, d.Data)
+	Left() Functional
+	Right() Functional
+	Both() (Functional, Functional)
 }
 
 // Typed interface{}
@@ -159,9 +159,9 @@ type SliceOfNatives interface {
 // 'Apply(...Data) (d.Data, Argumented)' method.
 type Argumented interface {
 	Functional
-	Arg() Argumented
-	Data() d.Data
-	Apply(...d.Data) (d.Data, Argumented)
+	ArgType() d.BitFlag
+	Arg() Functional
+	Apply(...Functional) (Functional, Argumented)
 }
 
 // Arguments interface{}
@@ -171,10 +171,10 @@ type Arguments interface {
 	Functional
 	Len() int
 	Args() []Argumented
-	Data() []d.Data
+	Data() []Functional
 	Get(int) Argumented
-	Replace(int, d.Data) Arguments
-	Apply(...d.Data) ([]d.Data, Arguments)
+	Replace(int, Functional) Arguments
+	Apply(...Functional) ([]Functional, Arguments)
 }
 
 // Parametric interface{}
@@ -185,13 +185,13 @@ type Arguments interface {
 // search, or sort praedicate that provides additional information for what to
 // search-/, or sort by.
 type Parametric interface {
-	Paired
-	Accs() Parametric
-	Arg() Argumented
-	Key() d.Data
-	Data() d.Data
+	Functional
+	Parm() Parametric
+	Arg() Functional
+	Acc() Functional
+	Both() (Functional, Functional)
 	Pair() Paired
-	Apply(...Paired) (Paired, Parametric)
+	Apply(...Parametric) (Functional, Parametric)
 }
 
 // Parameters interface{}
@@ -201,9 +201,12 @@ type Parameters interface {
 	Functional
 	Len() int
 	Pairs() []Paired
-	Get(d.Data) Paired
+	Parms() []Parametric
+	Get(Functional) Paired
 	Replace(Paired) Parameters
-	Apply(...Paired) ([]Paired, Parameters)
+	ReplaceKeyValue(k, v Functional) Parameters
+	Apply(...Parametric) ([]Parametric, Parameters)
+	AppendKeyValue(k, v Functional) Parameters
 }
 
 // Countable interface{}
@@ -244,8 +247,8 @@ type Collected interface {
 // turn out to work.
 type IndexedSlice interface {
 	Quantified
-	Elem(i int) d.Data
-	Range(i, j int) []d.Data
+	Elem(i int) Functional
+	Range(i, j int) []Functional
 }
 
 // Quantified interface{}
@@ -253,7 +256,7 @@ type IndexedSlice interface {
 // data
 type Quantified interface {
 	Collected
-	Slice() []d.Data //<-- no more nil pointers & 'out of index'!
+	Slice() []Functional //<-- no more nil pointers & 'out of index'!
 }
 
 // Vectorized interface{}
@@ -271,9 +274,9 @@ type Quantified interface {
 // 'Vectorized', or 'Recursive'.
 type Vectorized interface {
 	Quantified
-	Head() d.Data
-	Tail() []d.Data
-	DeCap() (d.Data, []d.Data)
+	Head() Functional
+	Tail() []Functional
+	DeCap() (Functional, []Functional)
 }
 
 //// TUPLES /////
@@ -307,9 +310,9 @@ type Recursive interface {
 	Functional
 	Countable
 	Empty() bool
-	Head() d.Data
+	Head() Functional
 	Tail() Recursive
-	DeCap() (d.Data, Recursive)
+	DeCap() (Functional, Recursive)
 }
 
 // LINKED LISTS
@@ -322,7 +325,7 @@ type Recursive interface {
 // allows slice based collections to be used in protty much the same way.
 type Ordered interface {
 	Collected
-	Next() (d.Data, Ordered)
+	Next() (Functional, Ordered)
 }
 
 // Reverseable interface{}
@@ -331,7 +334,7 @@ type Ordered interface {
 // additional reference to it's predeccessor node
 type Reverseable interface {
 	Ordered
-	Prev() d.Data
+	Prev() Functional
 }
 
 /// NESTED COLLECTIONS /////
@@ -378,5 +381,5 @@ type Edged interface {
 }
 type Leaved interface {
 	Nodular
-	Value() d.Data
+	Value() Functional
 }

@@ -40,6 +40,177 @@ func AllItems() []SyntaxItemFlag {
 	}
 	return tt
 }
+func Itemize(expression string) (res []Item) {
+	var tmp = []Item{}
+	for n, field := range strings.Fields(expression) {
+		tmp = append(tmp, itemizeField(field)...)
+		if n < len(strings.Fields(expression))-1 {
+			tmp = append(tmp, syntaxItem(Blank))
+		}
+	}
+	// return final result
+	return res
+}
+func itemizeField(field string) (res []Item) {
+	if item, ok := isSyntax(field); ok {
+		res = append(res, item)
+	}
+	if item, ok := isKeyWord(field); ok {
+		res = append(res, item)
+	}
+	if item, ok := isAllNumbers(field); ok {
+		res = append(res, item)
+	}
+	if isAllLetters(field) {
+		if item, ok := hasLowerCasePrefix(field); ok {
+			res = append(res, item)
+		}
+		if item, ok := hasCapitalPrefix(field); ok {
+			res = append(res, item)
+		}
+	}
+	// nothing matched so far, further investigation into what to
+	// split is in order‥.
+	if items, ok := hasSyntaxSuffix(field); ok {
+		for _, item := range items {
+			res = append(res, Itemize(item))
+		}
+	}
+	if items, ok := isSeperatedBySyntax(field); ok {
+		for _, item := range items {
+			res = append(res, Itemize(item))
+		}
+	}
+	if items, ok := hasSyntaxPrefix(field); ok {
+		for _, item := range items {
+			res = append(res, Itemize(item))
+		}
+	}
+	return res
+}
+
+// part of an expression recognized as nothing but a syntactic token.
+func isSyntax(str string) (Item, bool) {
+	if item, ok := match[str]; ok {
+		return syntaxItem(item), true
+	}
+	return nil, false
+}
+
+// if it contains syntax, but fails to 'be' syntax, it must be a concatenation
+// of items not seperated by whitespace, (which is where things get messy)
+func containsSyntax(str string) (Item, bool) {
+	if strings.ContainsAny(str, AllSyntax()) {
+		return stringItem{StringItem, str}, true
+	}
+	return nil, false
+}
+
+// item concatenation is either prefixed, or suffixed by syntax element.
+// item concatenation is either prefixed, or suffixed by syntax element.
+func hasSyntaxSuffix(str string) ([]string, bool) {
+	var res = []string{}
+	var has = false
+	// check for every syntax item if it's possibly either‥.
+	for _, item := range AllItems() {
+		var praed = item.Syntax()
+		if strings.HasSuffix(str, praed) {
+			has = true
+			res = append(res, strings.TrimSuffix(str, praed), praed)
+		}
+	}
+}
+func hasSyntaxPrefix(str string) ([]string, bool) {
+	var has = false
+	var res = []string{}
+	// check for every syntax item if it's possibly either‥.
+	for _, item := range AllItems() {
+		var praed = item.Syntax()
+		if strings.HasPrefix(str, praed) {
+			has = true
+			res = append(res, praed, strings.TrimPrefix(str, praed))
+
+		}
+	}
+	return res
+}
+
+// if concatenation contains syntax elements, that are neither suffix, nor
+// prefix, they must seperate two or more other parts‥.
+func isSeperatedBySyntax(str string) ([]string, bool) {
+	var res = []string{}
+	var has = false
+	for _, item := range AllItems() {
+		var praed = item.Syntax()
+		if strings.Contains(str, praed) {
+			has = true
+			var stra = strings.Split(str, praed)
+			var l = len(stra)
+			for n, str := range stra {
+				res = append(res, str)
+				if n < l-1 { // replace the seperators, eliminated by strings.split
+					res = append(res, " ")
+				}
+			}
+		}
+	}
+}
+func isKeyWord(str string) (Item, bool) {
+	for word, tok := range keywords {
+		if strings.Compare(str, word) == 0 {
+			return stringItem{tok, str}, true
+		}
+	}
+	return syntaxItem(SyntaxItemFlag(0)), false
+}
+func containsKeyWord(str string) (Item, bool) {
+	for word, tok := range keywords {
+		if strings.Contains(str, word) {
+			return stringItem{tok, str}, true
+		}
+	}
+	return syntaxItem(SyntaxItemFlag(0)), false
+}
+func hasCapitalPrefix(str string) (Item, bool) {
+	if strings.HasPrefix(str, "ABCDEFGHIJKLMNOPRSTUVWXYZ") {
+		return stringItem{TypeIdent, str}, true
+	}
+	return nil, false
+}
+func hasLowerCasePrefix(str string) (Item, bool) {
+	if strings.HasPrefix(str, "abcdefghijklmnoprstuvwxyzßäöü") {
+		return stringItem{FuncIdent, str}, true
+	}
+	return nil, false
+}
+func isAllNumbers(str string) (Item, bool) {
+	for _, r := range []rune(str) {
+		if !strings.Contains(string(r), "0123456789") {
+			return nil, false
+		}
+	}
+	return stringItem{NumeralItem, str}, true
+}
+func containsNumerals(str string) (Item, bool) {
+	if strings.ContainsAny(str, "0123456789") {
+		return stringItem{NumeralItem, str}, true
+	}
+	return nil, false
+}
+func containsLetters(str string) (Item, bool) {
+	if strings.ContainsAny(str, "abcdefghijklmnoprstuvwxyzßäöüABCDEFGHIJKLMNOPRSTUVWXYZ") {
+		return stringItem{StringItem, str}, true
+	}
+	return nil, false
+}
+func isAllLetters(str string) bool {
+	for _, r := range []rune(str) {
+		if !strings.ContainsAny(string(r), "abcdefghijklmnoprstuvwxyzßäöüABCDEFGHIJKLMNOPRSTUVWXYZ") {
+			return false
+		}
+	}
+	return true
+}
 
 //go:generate stringer -type=SyntaxItemFlag
 const (
@@ -82,10 +253,8 @@ const (
 	DoubCol
 	Sing_quote
 	Doub_quote
-	BackSlash
+	BckSla
 	Lambda
-	Function
-	Polymorph
 	HeadWord
 	TailWord
 	InWord
@@ -169,12 +338,10 @@ var matchSyntax = map[string]string{
 	`'`:  `'`,
 	`"`:  `"`,
 	`\`:  `\`,
-	`ϝ`:  `\f`,
-	"λ":  `\x`,
+	"λ":  "\\x",
 	"x":  "x",
 	"xs": "xs",
 }
-
 var syntax = map[SyntaxItemFlag]string{
 	None:       "⊥",
 	Blank:      " ",
@@ -215,14 +382,11 @@ var syntax = map[SyntaxItemFlag]string{
 	DoubCol:    "∷",
 	Sing_quote: `'`,
 	Doub_quote: `"`,
-	BackSlash:  `\`,
-	Function:   "ϝ",
-	Polymorph:  "Ф",
+	BckSla:     `\`,
 	Lambda:     "λ",
 	HeadWord:   "x",
 	TailWord:   "xs",
 }
-
 var match = map[string]SyntaxItemFlag{
 	"":    None,
 	" ":   Blank,
@@ -263,10 +427,8 @@ var match = map[string]SyntaxItemFlag{
 	"::":  DoubCol,
 	`'`:   Sing_quote,
 	`"`:   Doub_quote,
-	`\`:   BackSlash,
-	`\f`:  Function,
-	`\F`:  Polymorph,
-	`\x`:  Lambda,
+	`\`:   BckSla,
+	"\\x": Lambda,
 	"x":   HeadWord,
 	"xs":  TailWord,
 }

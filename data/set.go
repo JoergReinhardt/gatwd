@@ -181,11 +181,11 @@ func (s SetFlag) Data() []Data {
 	return dat
 }
 func (s SetFlag) Accs() []Paired {
-	var pairs = []Paired{}
+	var parms = []Paired{}
 	for k, d := range s {
-		pairs = append(pairs, PairVal(PairVal{k, d}))
+		parms = append(parms, PairVal{k, d})
 	}
-	return pairs
+	return parms
 }
 func (s SetFlag) Get(acc Data) Data             { return s[acc.(BitFlag)] }
 func (s SetFlag) Set(acc Data, dat Data) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }

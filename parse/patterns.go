@@ -9,29 +9,47 @@ TYPE IDENTITY PATTERNS
 package parse
 
 import (
+	"bytes"
+
 	d "github.com/JoergReinhardt/godeep/data"
 	f "github.com/JoergReinhardt/godeep/functions"
 	l "github.com/JoergReinhardt/godeep/lex"
 )
 
-///////// MONO- / POLY-MORPHISM ///////////
+type UID d.BitFlag
 
+func (u UID) Flag() d.BitFlag { return d.BitFlag(u) }
+func (u UID) Uint() uint      { return d.BitFlag(u).Uint() }
+func (u UID) uint(uid uint)   { u = UID(uid) }
+
+///////// MONO- / POLY-MORPHISM ///////////
 type (
+	Types func() d.SetString
 	// Pattern   func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
 	//
 	// provides a mapping of unique id pointing to monoid implementation
 	// with to it's name, list of expected argument types and expected
 	// return type
-	Pattern func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
+	//
+	// parameter:
+	// - name:  name of the polymorphic type, this is a part of
+	// - args:  types, order and optinally keys of the argument set
+	// - ret:   the return values type
+	Pattern func() (name string, args []Token)
 
-	// Monoid    func() (pat Pattern, fnc f.Function)
+	// Isomorph    func() (pat Pattern, fnc f.Function)
 	//
 	// a monoid is the least common denominator of a function definition
 	// within the godeeps internal type system. it maps a pattern of id,
 	// name, list of expected argument-/ and return-types to a golang
 	// function which signature it describes, to enable typesafe
 	// application of generic function arguments during runtime.
-	Monoid func() (pat Pattern, fnc f.Function)
+	//
+	// parameter:
+	// - uid:     the unique id
+	// - pattern: types of return value and argument set
+	// - fnc:     instance providing a Call(...Data) method
+	Isomorph func() (prop Property, pat Pattern, fnc f.Function)
 
 	// Polymorph func() (pat Pattern, mon []Monoid)
 	//
@@ -41,74 +59,146 @@ type (
 	// implementing a function type, to it's pattern. During pattern
 	// matching, that list will be matched against the instance encountered
 	// and it will be applyed to the first function that matches its type
-	Polymorph func() (pat Pattern, mon []Monoid)
+	Polymorph func() (name string, prop Property, toks []Token, mon []Isomorph)
 )
 
 // patterns are slices of tokens that can be compared with one another
-func NewPattern(
-	id int,
-	name string,
-	retVal d.BitFlag,
-	args ...d.BitFlag,
-) (p Pattern) {
-	return func() (
-		int,
-		string,
-		[]d.BitFlag,
-		d.BitFlag) {
-		return id, name, args, retVal
-	}
+func NewPattern(name string, args ...Token) (p Pattern) {
+	return func() (string, []Token) { return name, args }
 }
-func (s Pattern) Flag() d.BitFlag   { return d.Flag.Flag() }
-func (s Pattern) Id() int           { id, _, _, _ := s(); return id }
-func (s Pattern) Name() string      { _, name, _, _ := s(); return name }
-func (s Pattern) Args() []d.BitFlag { _, _, flags, _ := s(); return flags }
-func (s Pattern) RetVal() d.BitFlag { _, _, _, retval := s(); return retval }
+func (s Pattern) Name() string        { name, _ := s(); return name }
+func (s Pattern) Args() []Token       { _, toks := s(); return toks }
+func (s Pattern) TokenizeName() Token { return NewDataValueToken(d.StrVal(s.Name())) }
+func (s Pattern) TokenizeSignature() []Token {
+	var toks = []Token{
+		NewDataValueToken(d.StrVal(s.Name())),
+		NewSyntaxToken(l.Blank),
+		NewSyntaxToken(l.DoubCol),
+		NewSyntaxToken(l.Blank),
+	}
+	var ts = s.Args()
+	var al = len(ts)
+	for i, tok := range ts {
+		toks = append(toks, NewTypeToken(tok))
+		if i < al-1 {
+			toks = append(
+				append(
+					toks,
+					NewSyntaxToken(l.Blank),
+				),
+				NewSyntaxToken(l.RightArrow))
+		}
+	}
+	return toks
+}
+func (p Polymorph) FullName() string {
+	return l.Function.String() + l.Blank.String() + p.Signature()
+}
 func (s Pattern) Signature() string {
-	var sig string
-	for _, tok := range s.SigToks() {
-		sig = sig + " " + tok.String()
+	var buf = bytes.NewBuffer([]byte{})
+	for _, tok := range s.TokenizeSignature() {
+		buf.WriteString(tok.String())
 	}
-	return sig
+	return buf.String()
 }
-func (s Pattern) SigToks() []Token {
-	return append(
-		append(s.ArgToks(),
-			newToken(Data_Value_Token,
-				d.StrVal(s.Name()))),
-		newToken(
-			Data_Type_Token,
-			s.RetVal()))
-}
-func (s Pattern) ArgToks() []Token {
-	var toks = []Token{}
-	for _, flag := range s.Args() {
-		toks = append(toks, newToken(Data_Type_Token, d.Type(flag.Flag())))
-	}
-	return append(tokJoin(newToken(Syntax_Token, l.RightArrow), toks))
-}
+func (s Pattern) String() string { return s.Signature() }
 
-func NewMonoid(pat Pattern, fnc f.Function) Monoid {
-	return func() (Pattern, f.Function) { return pat, fnc }
+func NewMonoid(prop Property, pat Pattern, fnc f.Function) Isomorph {
+	return func() (Property, Pattern, f.Function) { return prop, pat, fnc }
 }
-func (i Monoid) Id() int                 { pat, _ := i(); return pat.Id() }
-func (s Monoid) Flag() d.BitFlag         { return d.Flag.Flag() }
-func (i Monoid) Args() []d.BitFlag       { pat, _ := i(); return pat.Args() }
-func (i Monoid) Tokens() []Token         { pat, _ := i(); return pat.ArgToks() }
-func (i Monoid) RetVal() d.BitFlag       { pat, _ := i(); return pat.RetVal() }
-func (i Monoid) Fnc() d.Data             { _, fnc := i(); return fnc }
-func (i Monoid) Call(d ...d.Data) d.Data { _, fnc := i(); return fnc.Call(d...) }
+func (s Isomorph) String() string {
+	return l.Function.String() +
+		l.Blank.String() +
+		s.Pattern().String()
+}
+func (m Isomorph) Flag() d.BitFlag     { return m.Fnc().Flag() }
+func (m Isomorph) Kind() d.BitFlag     { return m.Fnc().Kind() }
+func (m Isomorph) TokenizeFlag() Token { return NewDataTypeToken(m.Flag()) }
+func (m Isomorph) TokenizeKind() Token { return NewKindToken(m.Flag()) }
+func (m Isomorph) Propertys() Property { prop, _, _ := m(); return prop }
+func (m Isomorph) Pattern() Pattern    { _, pat, _ := m(); return pat }
+func (m Isomorph) Fnc() f.Function     { _, _, fnc := m(); return fnc }
 
-func NewPolymorph(pats Pattern, mono ...Monoid) Polymorph {
+//TODO: type checker action needs to be happening right here
+func (m Isomorph) Call(d ...d.Data) d.Data { return m.Fnc().Call(d...) }
+
+func NewPolymorph(
+	uid int,
+	prop Property,
+	toks []Token,
+	monom ...Isomorph) Polymorph {
 	return func() (
-		pat Pattern,
-		monom []Monoid,
-	) {
-		return pat, mono
+		name string,
+		prop Property,
+		toks []Token,
+		monom []Isomorph) {
+		return name, prop, toks, monom
 	}
 }
-func (s Polymorph) Flag() d.BitFlag   { return d.Flag.Flag() }
-func (n Polymorph) Pat() Pattern      { pat, _ := n(); return pat }
-func (n Polymorph) Id() int           { return n.Id() }
-func (n Polymorph) Name() string      { return n.Name() }
-func (n Polymorph) Monoids() []Monoid { _, m := n(); return m }
+func (p Polymorph) MonoidSigs() string {
+	var str string
+	if mons := p.Monoids(); len(mons) > 0 {
+
+	}
+	return str
+}
+func (p Polymorph) String() string      { return p.Signature() }
+func (p Polymorph) Flag() d.BitFlag     { return d.Machinery.Flag() }
+func (p Polymorph) Kind() d.BitFlag     { return f.Polymorph.Flag() }
+func (p Polymorph) Name() string        { name, _, _, _ := p(); return name }
+func (p Polymorph) Propertys() Property { _, prop, _, _ := p(); return prop }
+func (p Polymorph) TypeCon() []Token    { _, _, toks, _ := p(); return toks }
+func (p Polymorph) Monoids() []Isomorph { _, _, _, mons := p(); return mons }
+func (p Polymorph) Append(mon Isomorph) Polymorph {
+	name, prop, toks, mons := p()
+	mons = append(mons, mon)
+	return func() (string, Property, []Token, []Isomorph) {
+		return name, prop, toks, mons
+	}
+}
+func (p Polymorph) Signature() string {
+	var str = bytes.NewBuffer([]byte{})
+	var toks = p.TypeCon()
+	var lt = len(toks)
+	str.WriteString(p.Name())
+	str.WriteString(l.Blank.String())
+	str.WriteString(l.Equal.String())
+	for i, tok := range toks {
+		str.WriteString(l.Blank.String())
+		str.WriteString(tok.String())
+		if i < lt-1 {
+
+			str.WriteString(l.Blank.String())
+		}
+	}
+	return str.String()
+}
+
+// TYPE SYSTEM IMPLEMENTATION
+//
+// maps strings to polymorphic type definitions
+func (t Types) names() d.SetString { return t() }
+func (t Types) Lookup(name string) Polymorph {
+	return t.names().Get(d.StrVal(name)).(Polymorph)
+}
+func (t Types) DefinePoly(name string, pol Polymorph) {
+	t.names().Set(d.StrVal(name), pol)
+}
+func (t Types) AppendMonoid(name string, mon Isomorph) {
+	pol := t.names().Get(d.StrVal(name)).(Polymorph)
+	pol = pol.Append(mon)
+	t.DefinePoly(name, pol)
+}
+func (t Types) Define(
+	name string,
+	prop Property,
+	fnc f.Function,
+	args ...Token,
+) {
+}
+func InitTypes() TypeSystem {
+	var names = d.SetString{}
+	return Types(func() d.SetString {
+		return names
+	})
+}

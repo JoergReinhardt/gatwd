@@ -17,10 +17,26 @@ type Data interface {
 	Typed
 	Stringer
 }
+type Ident interface {
+	Data
+	Ident() Data
+}
+type Evaluable interface {
+	Eval() Data
+}
+
+type Nullable interface {
+	Data
+	Null() Data
+}
 
 type Accessor interface {
 	Acc() Data
 	Arg() Data
+}
+type Accessable interface {
+	Get(acc Data) Data
+	Set(acc Data, dat Data)
 }
 type Paired interface {
 	Left() Data
@@ -34,9 +50,6 @@ type Mapped interface {
 	Accs() []Paired
 	Get(acc Data) Data
 	Set(Data, Data) Mapped
-}
-type Ident interface {
-	Ident() Data
 }
 type NativeVal interface {
 	Data

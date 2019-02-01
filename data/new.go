@@ -5,15 +5,71 @@ import (
 	"time"
 )
 
+func New(vals ...interface{}) Nullable {
+	var nul Nullable
+	dat, flag := NewWithTypeInfo(vals...)
+	f := flag.Flag()
+	switch {
+	case FlagMatch(f, Nil.Flag()):
+		nul = Nullable(dat.(NilVal))
+	case FlagMatch(f, Bool.Flag()):
+		nul = Nullable(dat.(BoolVal))
+	case FlagMatch(f, Int.Flag()):
+		nul = Nullable(dat.(IntVal))
+	case FlagMatch(f, Int8.Flag()):
+		nul = Nullable(dat.(Int8Val))
+	case FlagMatch(f, Int16.Flag()):
+		nul = Nullable(dat.(Int16Val))
+	case FlagMatch(f, Int32.Flag()):
+		nul = Nullable(dat.(Int32Val))
+	case FlagMatch(f, Uint.Flag()):
+		nul = Nullable(dat.(UintVal))
+	case FlagMatch(f, Uint8.Flag()):
+		nul = Nullable(dat.(Uint8Val))
+	case FlagMatch(f, Uint16.Flag()):
+		nul = Nullable(dat.(Uint16Val))
+	case FlagMatch(f, Uint32.Flag()):
+		nul = Nullable(dat.(Uint32Val))
+	case FlagMatch(f, Float.Flag()):
+		nul = Nullable(dat.(FltVal))
+	case FlagMatch(f, Flt32.Flag()):
+		nul = Nullable(dat.(Flt32Val))
+	case FlagMatch(f, Imag.Flag()):
+		nul = Nullable(dat.(ImagVal))
+	case FlagMatch(f, Imag64.Flag()):
+		nul = Nullable(dat.(Imag64Val))
+	case FlagMatch(f, Byte.Flag()):
+		nul = Nullable(dat.(ByteVal))
+	case FlagMatch(f, Rune.Flag()):
+		nul = Nullable(dat.(RuneVal))
+	case FlagMatch(f, Bytes.Flag()):
+		nul = Nullable(dat.(BytesVal))
+	case FlagMatch(f, String.Flag()):
+		nul = Nullable(dat.(StrVal))
+	case FlagMatch(f, BigInt.Flag()):
+		nul = Nullable(dat.(BigIntVal))
+	case FlagMatch(f, BigFlt.Flag()):
+		nul = Nullable(dat.(BigFltVal))
+	case FlagMatch(f, Ratio.Flag()):
+		nul = Nullable(dat.(RatioVal))
+	case FlagMatch(f, Time.Flag()):
+		nul = Nullable(dat.(TimeVal))
+	case FlagMatch(f, Duration.Flag()):
+		nul = Nullable(dat.(DuraVal))
+	case FlagMatch(f, Error.Flag()):
+		nul = Nullable(dat.(ErrorVal))
+	}
+	return nul
+}
 func NewData(vals ...Data) Data {
 	var ifs = []interface{}{}
 	for _, val := range vals {
 		ifs = append(ifs, val.(interface{}))
 	}
-	return New(ifs...)
+	return NewFI(ifs...)
 }
 func NewVector(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
-func New(vals ...interface{}) Data           { dat, _ := NewWithTypeInfo(vals...); return dat }
+func NewFI(vals ...interface{}) Data         { dat, _ := NewWithTypeInfo(vals...); return dat }
 func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 
 	if len(vals) == 0 {

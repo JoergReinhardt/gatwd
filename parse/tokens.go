@@ -30,7 +30,6 @@ import (
 
 	d "github.com/JoergReinhardt/godeep/data"
 	f "github.com/JoergReinhardt/godeep/functions"
-	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 type TokType uint16
@@ -40,36 +39,40 @@ func (t TokType) Flag() d.BitFlag { return d.Flag.Flag() }
 //go:generate stringer -type TokType
 const (
 	Syntax_Token TokType = 1 << iota
+	Type_Token
 	Kind_Token
-	Argument_Token  // like Return
-	Parameter_Token // like Return
 	Data_Type_Token
 	Data_Value_Token
 	Pair_Value_Token
 	Token_Collection
+	Argument_Token  // like Return
+	Parameter_Token // like Return
+	Tree_Node_Token
 )
 
 func NewKindToken(dat d.Data) Token            { return newToken(Kind_Token, dat) }
+func NewTypeToken(dat d.Data) Token            { return newToken(Type_Token, dat) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
+func NewDataTypeToken(dat d.Typed) Token       { return newToken(Data_Type_Token, dat.Flag()) }
+func NewDataValueToken(dat d.Data) Token       { return newToken(Data_Value_Token, dat) }
+func NewPairValueToken(dat f.Paired) Token     { return newToken(Pair_Value_Token, dat) }
+func NewTokenCollection(dat ...Token) Token    { return newToken(Token_Collection, tokens(dat)) }
 func NewKeyValToken(key, val d.Data) Token {
 	return newToken(
 		Parameter_Token,
 		f.NewKeyValueParm(key, val),
 	)
 }
-func NewDataTypeToken(dat d.Typed) Token    { return newToken(Data_Type_Token, dat.Flag()) }
-func NewDataValueToken(dat d.Data) Token    { return newToken(Data_Value_Token, dat) }
-func NewPairValueToken(dat f.Paired) Token  { return newToken(Pair_Value_Token, dat) }
-func NewTokenCollection(dat ...Token) Token { return newToken(Token_Collection, tokens(dat)) }
 
 type TokVal struct {
 	tok TokType
-	d.Typed
+	d.BitFlag
 }
 
 func (t TokVal) TokType() TokType { return t.tok }
-func (t TokVal) Flag() d.BitFlag  { return t.Typed.Flag() }
+func (t TokVal) Flag() d.BitFlag  { return t.BitFlag.Flag() }
+func (t TokVal) Type() d.BitFlag  { return t.tok.Flag() }
 
 type dataTok struct {
 	TokVal
@@ -81,19 +84,25 @@ func (d dataTok) Flag() d.BitFlag  { return d.Data.Flag() }
 func newToken(t TokType, dat d.Data) Token {
 	switch t {
 	case Syntax_Token:
-		return TokVal{t, dat}
+		return TokVal{Syntax_Token, dat.(d.BitFlag)}
 	case Data_Type_Token:
-		return TokVal{t, dat}
+		return TokVal{Data_Type_Token, dat.(d.BitFlag)}
+	case Kind_Token:
+		return TokVal{Kind_Token, dat.(d.BitFlag)}
+	case Type_Token:
+		return dataTok{TokVal{Type_Token, dat.Flag()}, dat}
 	case Argument_Token:
-		return dataTok{TokVal{t, d.Type(dat.Flag())}, dat.(f.Argumented)}
+		return dataTok{TokVal{Argument_Token, dat.Flag()}, dat.(f.Argumented)}
 	case Parameter_Token:
-		return dataTok{TokVal{t, dat.Flag()}, dat.(f.Parametric)}
+		return dataTok{TokVal{Parameter_Token, dat.Flag()}, dat.(f.Parametric)}
 	case Data_Value_Token:
-		return dataTok{TokVal{t, dat.Flag()}, dat.(d.Data)}
+		return dataTok{TokVal{Data_Value_Token, dat.Flag()}, dat.(d.Data)}
 	case Pair_Value_Token:
-		return dataTok{TokVal{t, dat.Flag()}, dat.(f.Paired)}
+		return dataTok{TokVal{Pair_Value_Token, dat.Flag()}, dat.(f.Paired)}
 	case Token_Collection:
-		return dataTok{TokVal{t, dat.Flag()}, dat.(tokens)}
+		return dataTok{TokVal{Token_Collection, dat.Flag()}, dat.(tokens)}
+	case Tree_Node_Token:
+		return dataTok{TokVal{Tree_Node_Token, dat.Flag()}, dat.(f.Parametric)}
 	}
 	return nil
 }
@@ -128,128 +137,4 @@ func sliceContainsToken(ts tokens, t Token) bool {
 		func(i int) bool {
 			return ts[i].Flag().Uint() >= t.Flag().Uint()
 		})].Flag())
-}
-
-// slice of token slices
-type tokenSlice [][]Token
-
-// implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.Flag() }
-func (t tokenSlice) Len() int           { return len(t) }
-func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t tokenSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }
-func sortTokenSlice(t tokenSlice) tokenSlice {
-	sort.Sort(t)
-	return t
-}
-func decapTokSlice(t tokenSlice) ([]Token, tokenSlice) {
-	if len(t) > 0 {
-		if len(t) > 1 {
-			return t[0], t[1:]
-		}
-		return t[0], nil
-	}
-	return nil, nil
-}
-
-// match and filter tokens based on flags
-func pickSliceByFirstToken(t tokenSlice, match TokVal) [][]Token {
-	ret := [][]Token{}
-	i := sort.Search(len(t), func(i int) bool {
-		return t[i][0].Flag().Uint() >= match.Flag().Uint()
-	})
-	var j = i
-	for j < len(t) && d.FlagMatch(t[j][0].Flag(), match.Flag()) {
-		ret = append(ret, t[j])
-		j++
-	}
-	return ret
-}
-func sliceContainsSignature(sig []Token, matches tokenSlice) bool {
-	match, matches := decapTokSlice(matches)
-	if len(sig) == 0 {
-		return false
-	}
-	if sortSlicePairByLength(sig, match) {
-		return true
-	}
-	return sliceContainsSignature(sig, matches)
-}
-func sortSlicePairByLength(sig, match []Token) bool {
-	if len(sig) > 0 {
-		if len(sig) > len(match) {
-			return compareTokenSequence(sig, match)
-		}
-		return compareTokenSequence(match, sig)
-	}
-	return false
-}
-func compareTokenSequence(long, short []Token) bool {
-	// return when done with slice
-	if len(short) == 0 {
-		return true
-	}
-	l, s := long[0], short[0]
-	// if either token type or flag value mismatches, return false
-	if (s.TokType() != l.TokType()) || (!d.FlagMatch(l.Flag(), s.Flag())) {
-		return false
-	}
-	// recurse over tails of slices
-	return compareTokenSequence(long[1:], short[1:])
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// SIGNATURES
-type signature func() (uid int, name string, signature string)
-
-// token mangling
-func NewSyntaxToken(f l.SyntaxItemFlag) Token {
-	return newToken(Syntax_Token, f)
-}
-func NewSyntaxTokens(f ...l.SyntaxItemFlag) []Token {
-	var t = make([]Token, 0, len(f))
-	for _, flag := range f {
-		t = append(t, newToken(Syntax_Token, flag))
-	}
-	return t
-}
-func NewDataToken(f d.Type) Token {
-	return newToken(Data_Type_Token, f)
-}
-func NewDataTokens(f ...d.Type) []Token {
-	var t = make([]Token, 0, len(f))
-	for _, flag := range f {
-		t = append(t, newToken(Data_Type_Token, flag))
-	}
-	return t
-}
-func tokPutAppend(last Token, tok []Token) []Token {
-	return append(tok, last)
-}
-func tokPutUpFront(first Token, tok []Token) []Token {
-	return append([]Token{first}, tok...)
-}
-func tokJoin(sep Token, tok []Token) []Token {
-	var args = tokens{}
-	for i, t := range tok {
-		args = append(args, t)
-		if i < len(tok)-1 {
-			args = append(args, sep)
-		}
-	}
-	return args
-}
-func tokEnclose(left, right Token, tok []Token) []Token {
-	var args = tokens{left}
-	for _, t := range tok {
-		args = append(args, t)
-	}
-	args = append(args, right)
-	return args
-}
-func tokEmbed(left, tok, right []Token) []Token {
-	var args = left
-	args = append(args, tok...)
-	args = append(args, right...)
-	return args
 }

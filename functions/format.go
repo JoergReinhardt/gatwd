@@ -1,37 +1,12 @@
 package functions
 
 import (
-	"bytes"
-
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
 /// VALUE
 
 /// PAIR
-func (dat DataVal) String() string { return dat().String() }
-func (p PairVal) String() string   { return p.Left().String() + " " + p.Right().String() }
-func (p ArgVal) String() string    { return p.Data().String() }
-func (a ArgSet) String() string {
-	var buf bytes.Buffer
-	slice, _ := a()
-	for _, a := range slice {
-		buf.WriteString(a.String() + "\n")
-	}
-	return buf.String()
-}
-func (p ParamVal) String() string { return p.Left().String() + " " + p.Right().String() }
-func (a ParamSet) String() string {
-	var buf bytes.Buffer
-	slice, _ := a()
-	for _, a := range slice {
-		buf.WriteString(a.String() + "\n")
-	}
-	return buf.String()
-}
-
-/// CONSTANT
-func (c ConstFnc) String() string { return c().(d.Data).String() }
 
 /// VECTOR
 func (v VecFnc) String() string {

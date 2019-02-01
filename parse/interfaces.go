@@ -22,20 +22,49 @@ const (
 	Denary
 )
 
-type FncDef interface {
-	f.Functional
-	UID() int
-	Name() string
-	Arity() Arity
-	Fix() Property
-	Lazy() Property
-	Bound() Property
-	Mutable() Property
-	AccessType() Property
-	RetType() d.BitFlag
-}
-
 type Property d.BitFlag
+
+func (p Property) Lazy() Property {
+	if Eager == 1 {
+		return Eager
+	}
+	return Lazy
+}
+func (p Property) Bound() Property {
+	if Right_Bound == 1 {
+		return Right_Bound
+	}
+	return Left_Bound
+}
+func (p Property) Mutable() Property {
+	if Mutable == 1 {
+		return Mutable
+	}
+	return Imutable
+}
+func (p Property) Effected() Property {
+	if Effected == 1 {
+		return Effected
+	}
+	return Pure
+}
+func (p Property) AccessorType() Property {
+	if Positional == 1 {
+		return Positional
+	}
+	return NamedArgs
+}
+func (p Property) Fix() Property {
+	switch p {
+	case PostFix:
+		return PostFix
+	case InFix:
+		return InFix
+	case PreFix:
+		return PreFix
+	}
+	return PreFix
+}
 
 func (p Property) Flag() d.BitFlag { return d.BitFlag(p) }
 
@@ -59,10 +88,24 @@ const (
 	////
 	Positional
 	NamedArgs
-	////
+	///////////////
+	//// TRUTH ///
+	True
+	False
+	// ORDER & ///
+	// EQUALITY //
 	Lesser
 	Equal
 	Greater
+
+	Default = PostFix | Lazy | Left_Bound |
+		Imutable | Pure | Positional
+
+	Order = Lesser | Greater
+
+	Equality = Order | Equal
+
+	Truth = True | False
 )
 
 // data to parse
@@ -70,6 +113,17 @@ type Token interface {
 	TokType() TokType
 	Flag() d.BitFlag
 	String() string
+}
+
+type TypeSystem interface {
+	Lookup(string) Polymorph
+	DefinePoly(name string, poly Polymorph)
+	Define(
+		name string,
+		prop Property,
+		fnc f.Function,
+		args ...Token,
+	)
 }
 
 // Ident interface{}
@@ -80,9 +134,8 @@ type Ident interface {
 	Ident() f.Function // calls enclosed fnc, with enclosed parameters
 }
 
-// the tree function type contains a node and can be referenced by name as
-// parent of the contained node.
-type Tree interface {
-	Token
-	Parent() Node
+type Instanciated interface {
+	Id() int
+	Props() Property
+	Poly() Polymorph
 }

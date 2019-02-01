@@ -8,8 +8,8 @@ import (
 )
 
 func TestMutability(t *testing.T) {
-	a := New(true).(BoolVal)
-	b := New(false).(BoolVal)
+	a := NewFI(true).(BoolVal)
+	b := NewFI(false).(BoolVal)
 	if a == b {
 		t.Log("freh assigned values should be different", a, b)
 	}
@@ -54,24 +54,24 @@ func TestFlag(t *testing.T) {
 }
 
 var s0 = NewSlice(
-	New(true),
-	New(1),
-	New(1, 2, 3, 4, 5, 6, 7),
-	New(int8(8)),
-	New(int16(16)),
-	New(int32(32)),
-	New(float32(32.16)),
-	New(float64(64.64)),
-	New(complex64(float32(32))),
-	New(complex128(float64(1.6))),
-	New(byte(3)),
-	New(time.Now()),
-	New(rune('ö')),
-	New(big.NewInt(23)),
-	New(big.NewFloat(23.42)),
-	New(big.NewRat(23, 42)),
-	New([]byte("test")),
-	New("test"))
+	NewFI(true),
+	NewFI(1),
+	NewFI(1, 2, 3, 4, 5, 6, 7),
+	NewFI(int8(8)),
+	NewFI(int16(16)),
+	NewFI(int32(32)),
+	NewFI(float32(32.16)),
+	NewFI(float64(64.64)),
+	NewFI(complex64(float32(32))),
+	NewFI(complex128(float64(1.6))),
+	NewFI(byte(3)),
+	NewFI(time.Now()),
+	NewFI(rune('ö')),
+	NewFI(big.NewInt(23)),
+	NewFI(big.NewFloat(23.42)),
+	NewFI(big.NewRat(23, 42)),
+	NewFI([]byte("test")),
+	NewFI("test"))
 
 func TestTypeAllocation(t *testing.T) {
 
@@ -107,7 +107,7 @@ func TestLiFo(t *testing.T) {
 	var s = NewSlice()
 	var sr = NewSlice()
 	for i := 0; i < 10; i++ {
-		s = SlicePush(s, New(i))
+		s = SlicePush(s, NewFI(i))
 		fmt.Println(d)
 		fmt.Println(s)
 		fmt.Println(SliceLen(s))
@@ -121,7 +121,7 @@ func TestLiFo(t *testing.T) {
 		sr = append(sr, d)
 	}
 	fmt.Println(sr)
-	if sr[0] != New(9) {
+	if sr[0] != NewFI(9) {
 		t.Fail()
 	}
 
@@ -132,7 +132,7 @@ func TestFiFo(t *testing.T) {
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
-		s = SlicePut(s, New(i))
+		s = SlicePut(s, NewFI(i))
 		fmt.Println(d)
 		fmt.Println(s)
 		fmt.Println(SliceLen(s))
@@ -146,7 +146,7 @@ func TestFiFo(t *testing.T) {
 	}
 	fmt.Println(sr)
 
-	if sr[0] != New(0) {
+	if sr[0] != NewFI(0) {
 		t.Fail()
 	}
 }
@@ -156,7 +156,7 @@ func TestConDecap(t *testing.T) {
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
-		s = SliceCon(s, New(i))
+		s = SliceCon(s, NewFI(i))
 		fmt.Println(d)
 		fmt.Println(s)
 		fmt.Println(SliceLen(s))
@@ -170,7 +170,7 @@ func TestConDecap(t *testing.T) {
 	}
 	fmt.Println(sr)
 
-	if sr[0] != New(9) {
+	if sr[0] != NewFI(9) {
 		t.Fail()
 	}
 }
@@ -219,7 +219,7 @@ func TestTimeType(t *testing.T) {
 	fmt.Printf("time stamp: %s\n", v.String())
 }
 func TestNativeSlice(t *testing.T) {
-	var ds = New(0, 7, 45,
+	var ds = NewFI(0, 7, 45,
 		134, 4, 465, 3, 645,
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
@@ -234,17 +234,17 @@ func TestNativeSlice(t *testing.T) {
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Pair Tuple Record Vector List Set Function Argument Parameter Definition Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Pair Tuple Record Vector List Set Function Argument Parameter Machinery Flag]" {
 		t.Fail()
 	}
 }
 
 func TestSearchChainInt(t *testing.T) {
-	sl := New(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(DataSlice)
+	sl := NewFI(1, 11, 45, 324, 2, 35, 3, 435, 4, 3).(DataSlice)
 	fmt.Println(sl)
 	sl.Sort(Int)
 	fmt.Println(sl)
-	dat := sl.Search(New(2))
+	dat := sl.Search(NewFI(2))
 	fmt.Println(dat)
 	if dat.(IntegerVal).Int() != 2 {
 		t.Fail()
@@ -252,13 +252,13 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 }
 func TestSearchChainString(t *testing.T) {
-	sl := New("Nil", "Bool", "Int", "Int8",
+	sl := NewFI("Nil", "Bool", "Int", "Int8",
 		"Int16", "Int32", "BigInt", "Uint",
 		"Uint8", "Uint16", "Uint32", "and one more").(DataSlice)
 	fmt.Println(sl)
 	sl.Sort(String)
 	fmt.Println(sl)
-	fmt.Printf("%s == %s ??\n'", sl[2].String(), New("Int").String())
-	text := sl.Search(New("Int"))
+	fmt.Printf("%s == %s ??\n'", sl[2].String(), NewFI("Int").String())
+	text := sl.Search(NewFI("Int"))
 	fmt.Println(text)
 }

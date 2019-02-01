@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _Type_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairTupleRecordVectorListSetFunctionArgumentParameterDefinitionFlagMAX_INT"
+const _Type_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairTupleRecordVectorListSetFunctionArgumentParameterMachineryFlagMAX_INT"
 
 var _Type_map = map[Type]string{
 	1:                    _Type_name[0:3],
@@ -40,9 +40,9 @@ var _Type_map = map[Type]string{
 	1073741824:           _Type_name[146:154],
 	2147483648:           _Type_name[154:162],
 	4294967296:           _Type_name[162:171],
-	8589934592:           _Type_name[171:181],
-	17179869184:          _Type_name[181:185],
-	18446744073709551615: _Type_name[185:192],
+	8589934592:           _Type_name[171:180],
+	17179869184:          _Type_name[180:184],
+	18446744073709551615: _Type_name[184:191],
 }
 
 func (i Type) String() string {

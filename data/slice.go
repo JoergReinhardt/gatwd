@@ -25,8 +25,8 @@ func (c DataSlice) Flag() BitFlag           { return Vector.Flag() }
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
 func (c DataSlice) Eval() Data              { return c }
 func (c DataSlice) Null() DataSlice         { return []Data{} }
-func (c DataSlice) Copy() DataSlice {
-	var ns = []Data{}
+func (c DataSlice) Copy() Data {
+	var ns = DataSlice{}
 	for _, dat := range c {
 		ns = append(ns, dat.(Reproduceable).Copy())
 	}
@@ -34,8 +34,12 @@ func (c DataSlice) Copy() DataSlice {
 }
 
 // SLICE ->
-func (v DataSlice) Slice() []Data { return v }
-func (v DataSlice) Len() int      { return len([]Data(v)) }
+func (v DataSlice) Slice() []Data        { return v }
+func (v DataSlice) GetInt(i int) Data    { return v[i] }
+func (v DataSlice) Get(i Data) Data      { return v[i.(IntVal).Int()] }
+func (v DataSlice) SetInt(i int, d Data) { v[i] = d }
+func (v DataSlice) Set(i Data, d Data)   { v[i.(IntVal)] = d }
+func (v DataSlice) Len() int             { return len([]Data(v)) }
 
 // COLLECTION
 func (s DataSlice) Empty() bool            { return SliceEmpty(s) }

@@ -6,10 +6,13 @@ import "strconv"
 
 const (
 	_TokType_name_0 = "Syntax_TokenKind_Token"
-	_TokType_name_1 = "Return_Token"
-	_TokType_name_2 = "Argument_Token"
-	_TokType_name_3 = "Data_Type_Token"
-	_TokType_name_4 = "Data_Value_Token"
+	_TokType_name_1 = "Data_Type_Token"
+	_TokType_name_2 = "Data_Value_Token"
+	_TokType_name_3 = "Pair_Value_Token"
+	_TokType_name_4 = "Token_Collection"
+	_TokType_name_5 = "Argument_Token"
+	_TokType_name_6 = "Parameter_Token"
+	_TokType_name_7 = "Tree_Node_Token"
 )
 
 var (
@@ -29,6 +32,12 @@ func (i TokType) String() string {
 		return _TokType_name_3
 	case i == 32:
 		return _TokType_name_4
+	case i == 64:
+		return _TokType_name_5
+	case i == 128:
+		return _TokType_name_6
+	case i == 256:
+		return _TokType_name_7
 	default:
 		return "TokType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

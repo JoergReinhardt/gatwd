@@ -1,9 +1,8 @@
 package parse
 
 import (
-	"strconv"
-
 	d "github.com/JoergReinhardt/godeep/data"
+	f "github.com/JoergReinhardt/godeep/functions"
 	l "github.com/JoergReinhardt/godeep/lex"
 )
 
@@ -11,7 +10,7 @@ import (
 func (t tokens) String() string {
 	var str string
 	for _, tok := range t {
-		str = str + " " + tok.String()
+		str = str + " " + tok.String() + "\n"
 	}
 	return str
 }
@@ -25,10 +24,12 @@ func (t tokenSlice) String() string {
 func (t TokVal) String() string {
 	var str string
 	switch t.TokType() {
+	case Kind_Token:
+		str = f.Kind(t.BitFlag).String() + "\n"
 	case Syntax_Token:
-		str = t.Typed.(l.SyntaxItemFlag).Syntax()
+		str = l.SyntaxItemFlag(t.BitFlag).Syntax() + "\n"
 	case Data_Type_Token:
-		str = t.Typed.(d.Type).String()
+		str = d.Type(t.BitFlag).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}
@@ -37,6 +38,18 @@ func (t TokVal) String() string {
 func (t dataTok) String() string {
 	var str string
 	switch t.TokType() {
+	case Type_Token: // NAMED PARAMETERS
+		// if type token is a pair, parameters are named
+		if t.TokVal.Flag().Match(d.Parameter.Flag()) {
+			parm := t.Data.(f.Parametric)
+			// ARGUMENT NAME
+			str = str + parm.Acc().String() +
+				l.Colon.String() +
+				l.Blank.String() +
+				// ARGUMENT VALUE
+				parm.Arg().String()
+		}
+		str = t.Data.String()
 	case Data_Value_Token:
 		str = t.Data.String()
 	case Argument_Token:
@@ -49,27 +62,4 @@ func (t dataTok) String() string {
 		str = t.Data.String()
 	}
 	return str
-}
-
-///// PATTERNS MONOID
-func (s Pattern) String() string {
-	var str string
-	for i, tok := range s.ArgToks() {
-		str = str + tok.String()
-		if i < len(s.ArgToks())-1 {
-			str = str + " "
-		}
-	}
-	return strconv.Itoa(s.Id()) + str
-}
-
-func (s Monoid) String() string {
-	return strconv.Itoa(s.Id()) + " " + tokens(s.Tokens()).String()
-}
-func (s Polymorph) String() string {
-	var str string
-	for _, mon := range s.Monoids() {
-		str = str + tokens(mon.Tokens()).String() + "\n"
-	}
-	return strconv.Itoa(s.Id()) + " " + str
 }

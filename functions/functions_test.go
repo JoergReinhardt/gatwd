@@ -8,28 +8,28 @@ import (
 )
 
 func TestDataEnclosures(t *testing.T) {
-	data := NewValue(d.New("this is the testfunction speaking from within enclosure"))
+	data := New("this is the testfunction speaking from within enclosure")
 	fmt.Println(data)
 	fmt.Println(data.Flag())
 }
 func TestPairEnclosures(t *testing.T) {
-	pair := NewPair(d.New("test key:"), d.New("test data in a pair"))
+	pair := NewPair(New("test key:"), New("test data in a pair"))
 	a, b := pair.Left(), pair.Right()
 	fmt.Println(a)
 	fmt.Println(b)
 }
 func TestStringVectorEnclosures(t *testing.T) {
 	vec := NewVector(
-		d.New("first data in slice"),
-		d.New("second data entry in slice"),
-		d.New("third data entry in slice"),
-		d.New("fourth data entry in slice"),
-		d.New("fifth data entry in slice"),
-		d.New("sixt data entry in slice"),
-		d.New("seventh data entry in slice"),
-		d.New("eigth data entry in slice"),
-		d.New("nineth data entry in slice"),
-		d.New("tenth data entry in slice"),
+		New("first data in slice"),
+		New("second data entry in slice"),
+		New("third data entry in slice"),
+		New("fourth data entry in slice"),
+		New("fifth data entry in slice"),
+		New("sixt data entry in slice"),
+		New("seventh data entry in slice"),
+		New("eigth data entry in slice"),
+		New("nineth data entry in slice"),
+		New("tenth data entry in slice"),
 	)
 	fmt.Println(vec.Flag())
 	fmt.Println(vec.Slice())
@@ -37,17 +37,17 @@ func TestStringVectorEnclosures(t *testing.T) {
 }
 func TestMixedVectorEnclosures(t *testing.T) {
 	vec := NewVector(
-		d.New("this is"),
-		d.New("a vector of"),
-		d.New("mixed type"),
-		d.New(5, 7, 234, 4, 546, 324, 4),
+		New("this is"),
+		New("a vector of"),
+		New("mixed type"),
+		New(5, 7, 234, 4, 546, 324, 4),
 	)
 	fmt.Println(vec.Flag())
 	fmt.Println(vec.Len())
 	fmt.Println(vec.Empty())
 }
 func TestIntegerVectorEnclosures(t *testing.T) {
-	vec := d.New(0, 7, 45,
+	vec := New(0, 7, 45,
 		134, 4, 465, 3, 645,
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
@@ -58,35 +58,35 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 func TestParameterEnclosure(t *testing.T) {
 	var dat Functional
 	var parm Argumented
-	parm = NewArgument(d.New("test parameter"))
+	parm = NewArgument(New("test parameter"))
 	dat = parm.Arg()
-	fmt.Println(parm.Data())
-	_, parm = parm.Apply(NewValue(d.New("changer parameter")))
-	fmt.Println(parm.Data())
-	_, parm = parm.Apply(NewValue(d.New("yet another parameter")))
+	fmt.Println(parm.Arg())
+	_, parm = parm.Apply(New("changer parameter"))
+	fmt.Println(parm.Arg())
+	_, parm = parm.Apply(New("yet another parameter"))
 	_, parm = parm.Apply()
-	fmt.Println(parm.Data())
-	fmt.Println(parm.Data())
-	_, parm = parm.Apply(NewValue(d.New("yup, works just fine ;)")))
-	fmt.Println(parm.Data())
+	fmt.Println(parm.Arg())
+	fmt.Println(parm.Arg())
+	_, parm = parm.Apply(New("yup, works just fine ;)"))
+	fmt.Println(parm.Arg())
 	fmt.Println(dat.Flag())
 }
 func TestAccParamEnclosure(t *testing.T) {
-	acc := NewParameter(NewPair(d.New("test-key"), d.New("test value")))
+	acc := NewKeyValueParm(New("test-key"), New("test value"))
 	fmt.Println(acc)
-	_, acc = acc.Apply(NewPair(d.New(12), d.New("one million dollar")))
-	fmt.Println(acc)
-	if acc.Key() != d.New(12) {
+	_, acc = acc.Apply(NewKeyValueParm(New(12), New("one million dollar")))
+	fmt.Printf("Accessor: %s\n", acc.Acc().Flag())
+	if acc.Acc().Eval() != New(12).Eval() {
 		t.Fail()
 	}
-	_, acc = acc.Apply(NewPair(d.New(13), d.New("two million dollar")))
+	_, acc = acc.Apply(NewKeyValueParm(New(13), New("two million dollar")))
 	fmt.Println(acc)
-	if acc.Key() != d.New(13) {
+	if acc.Acc().Eval() != New(13).Eval() {
 		t.Fail()
 	}
 }
 func TestApplyArgs(t *testing.T) {
-	args := NewwArguments(d.New(0), d.New(1), d.New(2), d.New(3), d.New(4), d.New(5))
+	args := NewwArguments(New(0), New(1), New(2), New(3), New(4), New(5))
 
 	fmt.Println(args)
 	var dat []d.Data
@@ -97,7 +97,7 @@ func TestApplyArgs(t *testing.T) {
 	//		t.Fail()
 	//	}
 
-	_, args = args.Apply(d.New(7), d.New(1), d.New(2), d.New(5), d.New(4), d.New(8))
+	_, args = args.Apply(New(7), New(1), New(2), New(5), New(4), New(8))
 
 	fmt.Println(args)
 	fmt.Println(dat)
@@ -111,94 +111,94 @@ func TestApplyArgs(t *testing.T) {
 
 var acc = NewParameters(
 	NewPair(
-		d.New("first key"),
-		d.New("first value"),
+		New("first key"),
+		New("first value"),
 	),
 	NewPair(
-		d.New("second key"),
-		d.New("second value"),
+		New("second key"),
+		New("second value"),
 	),
 	NewPair(
-		d.New("third key"),
-		d.New("third value"),
+		New("third key"),
+		New("third value"),
 	),
 	NewPair(
-		d.New("fourth key"),
-		d.New("fourth value"),
+		New("fourth key"),
+		New("fourth value"),
 	),
 	NewPair(
-		d.New("fifth key"),
-		d.New("fifth value"),
+		New("fifth key"),
+		New("fifth value"),
 	),
 	NewPair(
-		d.New("sixt key"),
-		d.New("sixt value")))
+		New("sixt key"),
+		New("sixt value")))
 var acc2 = NewParameters(
 	NewPair(
-		d.New("first key"),
-		d.New("changed first value"),
+		New("first key"),
+		New("changed first value"),
 	),
 	NewPair(
-		d.New("six key"),
-		d.New("changed sixt value")))
+		New("six key"),
+		New("changed sixt value")))
 
 func TestAccAttrs(t *testing.T) {
 	fmt.Println(acc)
 	p, acc1 := acc.Apply(NewParameters(
 		NewPair(
-			d.New("first key"),
-			d.New("first value"),
+			New("first key"),
+			New("first value"),
 		),
 		NewPair(
-			d.New("second key"),
-			d.New("changed second value"),
+			New("second key"),
+			New("changed second value"),
 		),
 		NewPair(
-			d.New("third key"),
-			d.New("third value"),
+			New("third key"),
+			New("third value"),
 		),
 		NewPair(
-			d.New("fourth key"),
-			d.New("changed fourth value"),
+			New("fourth key"),
+			New("changed fourth value"),
 		),
 		NewPair(
-			d.New("fifth key"),
-			d.New("fifth value"),
+			New("fifth key"),
+			New("fifth value"),
 		),
 		NewPair(
-			d.New("sixt key"),
-			d.New("sixt value"))).Pairs()...)
+			New("sixt key"),
+			New("sixt value"))).Parms()...)
 
 	fmt.Println(p)
 	fmt.Println(acc1)
-	fmt.Printf("get \"second key\" %s\n", acc1.Get(d.New("second key")))
-	if acc1.Get(d.New("second key")).Right() != d.New("changed second value") {
+	fmt.Printf("parameters: %s\n", accl)
+	fmt.Printf("get \"second key\" %s\n", acc1.Get(New("second key")).Eval().String())
+	if acc1.Get(New("second key")).Right().Eval() != New("changed second value").Eval() {
 		t.Fail()
 	}
 
 	_, acc2 := acc1.Apply(NewParameters(
 		NewPair(
-			d.New("second key"),
-			d.New("changed second value again"),
+			New("second key"),
+			New("changed second value again"),
 		),
 		NewPair(
-			d.New("fourth key"),
-			d.New("changed fourth value again"))).Pairs()...)
+			New("fourth key"),
+			New("changed fourth value again"))).Parms()...)
 
 	fmt.Println(acc2)
 
 }
 func TestSearchAccAttrs(t *testing.T) {
-	praed := d.New("fourth key")
-	var cha = pairSorter{}
-	args, _ := acc.Apply()
-	for _, c := range args {
-		cha = append(cha, c)
-	}
+	praed := New("fourth key")
+	fmt.Printf("why nil: %s\n", praed.Flag())
+	var cha = newPairSorter(acc.Pairs()...)
 	cha.Sort(d.String)
 	fmt.Println(cha)
 	idx := cha.Search(praed)
-	fmt.Println(cha[idx].Left())
+	if idx != -1 {
+		fmt.Println(cha[idx].Left())
+	}
 	if cha[idx].Left().String() != praed.String() {
 		t.Fail()
 	}
@@ -207,26 +207,26 @@ func TestSearchAccAttrs(t *testing.T) {
 
 var macc = newPairSorter(
 	NewPair(
-		d.New("string"),
-		d.New("string value"),
+		New("string"),
+		New("string value"),
 	),
 	NewPair(
-		d.New("int"),
-		d.New(12),
+		New("int"),
+		New(12),
 	),
 	NewPair(
-		d.New("uint"),
-		d.New(uint(10)),
+		New("uint"),
+		New(uint(10)),
 	),
 	NewPair(
-		d.New("float"),
-		d.New(4.2),
+		New("float"),
+		New(4.2),
 	),
 )
 
 func TestMixedTypeAccessor(t *testing.T) {
 	macc.Sort(d.Flag)
-	idx := macc.Search(d.String)
+	idx := macc.Search(New(d.String))
 	fmt.Printf("%d\n", idx)
 	if idx > 0 {
 		found := macc[idx]
@@ -235,21 +235,21 @@ func TestMixedTypeAccessor(t *testing.T) {
 			t.Fail()
 		}
 
-		idx = macc.Search(d.Int.Flag())
+		idx = macc.Search(New(d.Int.Flag()))
 		foundi := macc[idx]
 		fmt.Printf("%d\n", foundi.Right())
 		if foundi.Right().(Integer).Int() != 12 {
 			t.Fail()
 		}
 
-		idx = macc.Search(d.Uint.Flag())
+		idx = macc.Search(New(d.Uint.Flag()))
 		foundu := macc[idx]
 		fmt.Printf("%d\n", foundu.Right())
 		if foundu.Right().(Unsigned).Uint() != 10 {
 			t.Fail()
 		}
 
-		idx = macc.Search(d.Float.Flag())
+		idx = macc.Search(New(d.Float.Flag()))
 		foundf := macc[idx]
 		fmt.Printf("%f\n", foundf.Right())
 		if foundf.Right().(Irrational).Float() != 4.2 {
@@ -257,53 +257,57 @@ func TestMixedTypeAccessor(t *testing.T) {
 		}
 	}
 }
+func TestFlag(t *testing.T) {
+	data := New("test string")
+	fmt.Printf("test strings flag: %s\n", data.Flag())
+}
 func TestApplyAccessAttrs(t *testing.T) {
 	acc3 := ApplyParams(acc, acc2.Pairs()...)
 	fmt.Println(acc3)
-	acc2 = NewParameters(append(acc2.Pairs(), NewPair(d.New("seventh key"), d.New("changed seventh value")))...)
+	acc2 = NewParameters(append(acc2.Pairs(), NewPair(New("seventh key"), New("changed seventh value")))...)
 }
 
 var accc = NewParameters(
 	NewPair(
-		d.New("eigth key"),
-		d.New("changed eigth value"),
+		New("eigth key"),
+		New("changed eigth value"),
 	),
 	NewPair(
-		d.New("second key"),
-		d.New("second value"),
+		New("second key"),
+		New("second value"),
 	),
 	NewPair(
-		d.New("thirteenth key"),
-		d.New("hirteenth value"),
+		New("thirteenth key"),
+		New("hirteenth value"),
 	),
 	NewPair(
-		d.New("nineth key"),
-		d.New("nineth value"),
+		New("nineth key"),
+		New("nineth value"),
 	))
 var accl = NewParameters(
 	append(acc.Pairs(), []Paired{NewPair(
-		d.New("seventh key"),
-		d.New("seventh value"),
+		New("seventh key"),
+		New("seventh value"),
 	),
 		NewPair(
-			d.New("eigth key"),
-			d.New("eigth value"),
+			New("eigth key"),
+			New("eigth value"),
 		),
 		NewPair(
-			d.New("nineth key"),
-			d.New("nineth value"),
+			New("nineth key"),
+			New("nineth value"),
 		),
 		NewPair(
-			d.New("tenth key"),
-			d.New("tenth value"),
+			New("tenth key"),
+			New("tenth value"),
 		),
 		NewPair(
-			d.New("eleventh key"),
-			d.New("eleventh value"),
+			New("eleventh key"),
+			New("eleventh value"),
 		),
 		NewPair(
-			d.New("twelveth key"),
-			d.New("twelveth value"))}...)...)
+			New("twelveth key"),
+			New("twelveth value"))}...)...)
 
 func TestFmtAccessorBenchmarkExpression(t *testing.T) {
 	fmt.Printf("accessors to replace:\n%s\n", accc)
@@ -318,36 +322,36 @@ func BenchmarkAccessorApply(b *testing.B) {
 
 var accc1 = NewParameters(
 	NewPair(
-		d.New("fourteenth key"),
-		d.New("changed fourteenth value"),
+		New("fourteenth key"),
+		New("changed fourteenth value"),
 	),
 	NewPair(
-		d.New("third key"),
-		d.New("changed third value"),
+		New("third key"),
+		New("changed third value"),
 	),
 	NewPair(
-		d.New("seventh key"),
-		d.New("changed seventh value"),
+		New("seventh key"),
+		New("changed seventh value"),
 	),
 	NewPair(
-		d.New("first key"),
-		d.New("changed first value"),
+		New("first key"),
+		New("changed first value"),
 	),
 	NewPair(
-		d.New("eigth key"),
-		d.New("changed changed eigth value"),
+		New("eigth key"),
+		New("changed changed eigth value"),
 	),
 	NewPair(
-		d.New("second key"),
-		d.New("changed second value"),
+		New("second key"),
+		New("changed second value"),
 	),
 	NewPair(
-		d.New("thirteenth key"),
-		d.New("changed hirteenth value"),
+		New("thirteenth key"),
+		New("changed hirteenth value"),
 	),
 	NewPair(
-		d.New("nineth key"),
-		d.New("changed nineth value"),
+		New("nineth key"),
+		New("changed nineth value"),
 	))
 
 func TestFmtMoreAccessorsBenchmarkExpression(t *testing.T) {
@@ -362,11 +366,11 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 }
 func TestRecursive(t *testing.T) {
 	l := NewRecursiveList(
-		d.New("this"),
-		d.New("is"),
-		d.New("a"),
-		d.New("test"),
-		d.New("List"),
+		New("this"),
+		New("is"),
+		New("a"),
+		New("test"),
+		New("List"),
 	)
 	var h d.Data
 	fmt.Println(l.Len())
@@ -378,25 +382,25 @@ func TestRecursive(t *testing.T) {
 }
 func TestTuple(t *testing.T) {
 	tup := NewTuple(
-		d.New("this"),
-		d.New("is"),
-		d.New("a"),
-		d.New("test"),
-		d.New("Tuple"),
-		d.New(19),
-		d.New(23.42),
+		New("this"),
+		New("is"),
+		New("a"),
+		New("test"),
+		New("Tuple"),
+		New(19),
+		New(23.42),
 	)
 	fmt.Println(tup)
 }
 func TestRecord(t *testing.T) {
 	rec := NewRecord(
-		NewPair(d.New("key-0"), d.New("this")),
-		NewPair(d.New("key-1"), d.New("is")),
-		NewPair(d.New("key-2"), d.New("a")),
-		NewPair(d.New("key-3"), d.New("test")),
-		NewPair(d.New("key-4"), d.New("Tuple")),
-		NewPair(d.New("key-5"), d.New(19)),
-		NewPair(d.New("key-6"), d.New(23.42)),
+		NewPair(New("key-0"), New("this")),
+		NewPair(New("key-1"), New("is")),
+		NewPair(New("key-2"), New("a")),
+		NewPair(New("key-3"), New("test")),
+		NewPair(New("key-4"), New("Tuple")),
+		NewPair(New("key-5"), New(19)),
+		NewPair(New("key-6"), New(23.42)),
 	)
 	fmt.Println(rec)
 	fmt.Println(rec.ArgSig())
