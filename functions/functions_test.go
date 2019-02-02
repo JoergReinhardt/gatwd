@@ -75,13 +75,15 @@ func TestAccParamEnclosure(t *testing.T) {
 	acc := NewKeyValueParm(New("test-key"), New("test value"))
 	fmt.Println(acc)
 	_, acc = acc.Apply(NewKeyValueParm(New(12), New("one million dollar")))
-	fmt.Printf("Accessor: %s\n", acc.Acc().Flag())
-	if acc.Acc().Eval() != New(12).Eval() {
+	fmt.Printf("Accessor Type: %s\n", acc.Acc().Flag())
+	fmt.Printf("Accessor: %s\n", acc.Acc())
+	fmt.Printf("Argument: %s\n", acc.Arg())
+	if acc.Arg().Eval() != New("one million dollar").Eval() {
 		t.Fail()
 	}
 	_, acc = acc.Apply(NewKeyValueParm(New(13), New("two million dollar")))
 	fmt.Println(acc)
-	if acc.Acc().Eval() != New(13).Eval() {
+	if acc.Arg().Eval() != New("two million dollar").Eval() {
 		t.Fail()
 	}
 }
@@ -143,50 +145,16 @@ var acc2 = NewParameters(
 		New("changed sixt value")))
 
 func TestAccAttrs(t *testing.T) {
-	fmt.Println(acc)
-	p, acc1 := acc.Apply(NewParameters(
-		NewPair(
-			New("first key"),
-			New("first value"),
-		),
-		NewPair(
-			New("second key"),
-			New("changed second value"),
-		),
-		NewPair(
-			New("third key"),
-			New("third value"),
-		),
-		NewPair(
-			New("fourth key"),
-			New("changed fourth value"),
-		),
-		NewPair(
-			New("fifth key"),
-			New("fifth value"),
-		),
-		NewPair(
-			New("sixt key"),
-			New("sixt value"))).Parms()...)
-
-	fmt.Println(p)
-	fmt.Println(acc1)
-	fmt.Printf("parameters: %s\n", accl)
-	fmt.Printf("get \"second key\" %s\n", acc1.Get(New("second key")).Eval().String())
-	if acc1.Get(New("second key")).Right().Eval() != New("changed second value").Eval() {
+	fmt.Printf("original list: %s\n", acc)
+	fmt.Printf("change set: %s\n", acc2)
+	_, acc1 := acc.Apply(acc2.Parms()...)
+	fmt.Printf("list after appying change set: %s\n", acc1)
+	if acc1.Get(New("first key")).Right().Eval() != New("changed first value").Eval() {
 		t.Fail()
 	}
-
-	_, acc2 := acc1.Apply(NewParameters(
-		NewPair(
-			New("second key"),
-			New("changed second value again"),
-		),
-		NewPair(
-			New("fourth key"),
-			New("changed fourth value again"))).Parms()...)
-
-	fmt.Println(acc2)
+	if acc1.Get(New("second key")).Right().Eval() != New("second value").Eval() {
+		t.Fail()
+	}
 
 }
 func TestSearchAccAttrs(t *testing.T) {

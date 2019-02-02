@@ -24,50 +24,18 @@ func (u UID) uint(uid uint)   { u = UID(uid) }
 
 ///////// MONO- / POLY-MORPHISM ///////////
 type (
-	Types func() d.SetString
-	// Pattern   func() (id int, name string, args []d.BitFlag, ret d.BitFlag)
-	//
-	// provides a mapping of unique id pointing to monoid implementation
-	// with to it's name, list of expected argument types and expected
-	// return type
-	//
-	// parameter:
-	// - name:  name of the polymorphic type, this is a part of
-	// - args:  types, order and optinally keys of the argument set
-	// - ret:   the return values type
-	Pattern func() (name string, args []Token)
-
-	// Isomorph    func() (pat Pattern, fnc f.Function)
-	//
-	// a monoid is the least common denominator of a function definition
-	// within the godeeps internal type system. it maps a pattern of id,
-	// name, list of expected argument-/ and return-types to a golang
-	// function which signature it describes, to enable typesafe
-	// application of generic function arguments during runtime.
-	//
-	// parameter:
-	// - uid:     the unique id
-	// - pattern: types of return value and argument set
-	// - fnc:     instance providing a Call(...Data) method
-	Isomorph func() (prop Property, pat Pattern, fnc f.Function)
-
-	// Polymorph func() (pat Pattern, mon []Monoid)
-	//
-	// polymorphism provides different implementations for functions of the
-	// same name, depending on the particular argument type applye during
-	// runtime. the polymorph datatype maps the set of all monoids
-	// implementing a function type, to it's pattern. During pattern
-	// matching, that list will be matched against the instance encountered
-	// and it will be applyed to the first function that matches its type
+	Types     func() d.SetString
+	Pattern   func() (name string, toks []Token)
+	Isomorph  func() (prop Property, pat Pattern, fnc f.Function)
 	Polymorph func() (name string, prop Property, toks []Token, mon []Isomorph)
 )
 
 // patterns are slices of tokens that can be compared with one another
-func NewPattern(name string, args ...Token) (p Pattern) {
-	return func() (string, []Token) { return name, args }
+func NewPattern(name string, toks ...Token) (p Pattern) {
+	return func() (string, []Token) { return name, toks }
 }
 func (s Pattern) Name() string        { name, _ := s(); return name }
-func (s Pattern) Args() []Token       { _, toks := s(); return toks }
+func (s Pattern) Tokens() []Token     { _, toks := s(); return toks }
 func (s Pattern) TokenizeName() Token { return NewDataValueToken(d.StrVal(s.Name())) }
 func (s Pattern) TokenizeSignature() []Token {
 	var toks = []Token{
@@ -76,20 +44,7 @@ func (s Pattern) TokenizeSignature() []Token {
 		NewSyntaxToken(l.DoubCol),
 		NewSyntaxToken(l.Blank),
 	}
-	var ts = s.Args()
-	var al = len(ts)
-	for i, tok := range ts {
-		toks = append(toks, NewTypeToken(tok))
-		if i < al-1 {
-			toks = append(
-				append(
-					toks,
-					NewSyntaxToken(l.Blank),
-				),
-				NewSyntaxToken(l.RightArrow))
-		}
-	}
-	return toks
+	return append(toks, s.Tokens()...)
 }
 func (p Polymorph) FullName() string {
 	return l.Function.String() + l.Blank.String() + p.Signature()
@@ -120,7 +75,7 @@ func (m Isomorph) Pattern() Pattern    { _, pat, _ := m(); return pat }
 func (m Isomorph) Fnc() f.Function     { _, _, fnc := m(); return fnc }
 
 //TODO: type checker action needs to be happening right here
-func (m Isomorph) Call(d ...d.Data) d.Data { return m.Fnc().Call(d...) }
+func (m Isomorph) Call(d ...f.Functional) f.Functional { return m.Fnc().Call(d...) }
 
 func NewPolymorph(
 	uid int,

@@ -8,14 +8,19 @@ type Destructable interface{ Clear() }
 type Stringer interface{ String() string }
 
 //// SER DEFINED DATA & FUNCTION TYPES ///////
-type Typed interface{ Flag() BitFlag }  //<- lowest common denominator
-type DataTyped interface{ Flag() Type } //<- lowest common denominator
+type Typed interface {
+	Flag() BitFlag
+	String() string
+} //<- lowest common denominator
+type DataTyped interface {
+	Flag() Type
+	String() string
+} //<- lowest common denominator
 type DataType interface {
 	Typed
 }
 type Data interface {
 	Typed
-	Stringer
 }
 type Ident interface {
 	Data

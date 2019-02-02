@@ -206,7 +206,7 @@ func (p ArgVal) Eval() d.Data           { return p.Arg() }
 func (p ArgVal) ArgType() d.BitFlag     { return p.Arg().Flag() }
 func (p ArgVal) Empty() bool            { return ElemEmpty(p.Arg()) }
 func (p ArgVal) Kind() d.BitFlag        { return d.Argument.Flag() }
-func (p ArgVal) Flag() d.BitFlag        { return p.Flag() | d.Argument.Flag() }
+func (p ArgVal) Flag() d.BitFlag        { return p.Arg().Eval().Flag() | d.Argument.Flag() }
 func (p ArgVal) String() string         { return p.Arg().String() }
 
 //
@@ -340,13 +340,10 @@ func (p ParamVal) ApplyKeyVal(k, v Functional) (Functional, Parametric) {
 	return p.Apply(NewKeyValueParm(k, v))
 }
 func (p ParamVal) Apply(pa ...Parametric) (Functional, Parametric) {
-	if len(pa) > 0 {
-		if len(pa) > 1 {
-			return pa[0], NewKeyValueParm(pa[0], pa[1])
-		}
-		return pa[0], NewKeyValueParm(pa[0], New(d.NilVal{}))
+	if len(pa) == 0 {
+		return p()
 	}
-	return p()
+	return pa[0].(ParamVal)()
 }
 func (p ParamVal) Ident() Functional              { return p }
 func (p ParamVal) Parm() Parametric               { _, parm := p(); return parm }
@@ -392,7 +389,7 @@ func NewParameters(pairs ...Paired) Parameters {
 		})
 }
 func (a ParamSet) AppendKeyValue(k, v Functional) Parameters {
-	return NewParameterSet(append(a.Accs(), NewKeyValueParm(k, v))...)
+	return NewParameterSet(append(a.Parms(), NewKeyValueParm(k, v))...)
 }
 func (a ParamSet) GetIdx(acc Functional) (int, pairSorter) {
 	var ps = newPairSorter(a.Pairs()...)
@@ -434,11 +431,22 @@ func (a ParamSet) ReplaceKeyValue(k, v Functional) Parameters {
 func (a ParamSet) ApplyKeyValue(k, v Functional) ([]Parametric, Parameters) {
 	return a.Apply(NewKeyValueParm(k, v))
 }
-func (a ParamSet) Apply(acc ...Parametric) ([]Parametric, Parameters) {
-	if len(acc) > 0 {
-		return acc, NewParameterSet(acc...)
+func (a ParamSet) Apply(args ...Parametric) ([]Parametric, Parameters) {
+	if len(args) == 0 {
+		return a()
 	}
-	return a()
+	ps := newPairSorter(a.Pairs()...)
+	for _, arg := range args {
+		idx := ps.GetIdx(arg.Acc())
+		if idx != -1 {
+			ps[idx] = arg.Pair()
+			continue
+		}
+		ps = append(ps, arg.Pair())
+		ps.Sort(d.Type(arg.Acc().Eval().Flag()))
+	}
+	parameters := NewParameters(ps...)
+	return parameters.Parms(), parameters
 }
 func (a ParamSet) Kind() d.BitFlag { return Parameter.Flag() }
 func (a ParamSet) Flag() d.BitFlag {
@@ -482,10 +490,8 @@ func (p ParamSet) String() string {
 	buf.WriteString(l.RightBra.Syntax())
 	return buf.String()
 }
-func (a ParamSet) AccSet() Parameters { _, set := a(); return set }
-func (a ParamSet) Accs() []Parametric { accs, _ := a(); return accs }
-func (a ParamSet) Ident() Functional  { return a }
-func (a ParamSet) Eval() d.Data       { return NewVector(a.AccSet()) }
+func (a ParamSet) Ident() Functional { return a }
+func (a ParamSet) Eval() d.Data      { return a }
 func (a ParamSet) Append(v ...Paired) Parameters {
 	return NewParameters(append(a.Pairs(), v...)...)
 }

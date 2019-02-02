@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -17,32 +16,8 @@ import (
 type signature func() (uid int, name string, signature string)
 
 //
-//// SYNTAX TOKEN
-//
-func NewSyntaxToken(f l.SyntaxItemFlag) Token {
-	return newToken(Syntax_Token, f.Flag())
-}
-func NewSyntaxTokens(f ...l.SyntaxItemFlag) []Token {
-	var t = make([]Token, 0, len(f))
-	for _, flag := range f {
-		t = append(t, newToken(Syntax_Token, flag))
-	}
-	return t
-}
-
-//
 //// DATA TOKEN
 //
-func NewDataToken(f d.Type) Token {
-	return newToken(Data_Type_Token, f)
-}
-func NewDataTokens(f ...d.Type) []Token {
-	var t = make([]Token, 0, len(f))
-	for _, flag := range f {
-		t = append(t, newToken(Data_Type_Token, flag))
-	}
-	return t
-}
 func tokPutAppend(last Token, tok []Token) []Token {
 	return append(tok, last)
 }

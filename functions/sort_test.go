@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	d "github.com/JoergReinhardt/godeep/data"
@@ -28,22 +29,29 @@ func TestDataSorter(t *testing.T) {
 
 	ds := newDataSorter(dat...)
 	ds.Sort(d.String)
+	fmt.Printf("list after sorterd by string: %s\n", ds)
 
 	idx := ds.Search(New("Sonja"))
+	fmt.Printf("Sonja idx: %d\n", idx)
 	if idx != 10 {
+		fmt.Printf("why fail!?: %d\n", idx)
 		t.Fail()
 	}
-	fmt.Println(idx)
-	if ds[idx].String() != "Sonja" {
+	fmt.Printf("access Sonja by idx: %s\n", ds[idx].String())
+	if strings.Compare(ds[idx].Eval().String(), "Sonja") != 0 {
+		fmt.Printf("why fail: access Sonja by idx: %s\n", ds[idx].String())
 		t.Fail()
 	}
 
 	fdx := ds.Search(New("NotAName"))
 	fmt.Printf("unfindable index supposed to be -1: %d\n", fdx)
 	if fdx != -1 {
+		fmt.Printf("why fail: unfindable index supposed to be -1: %d\n", fdx)
 		t.Fail()
 	}
 
+}
+func TestDataSorterFlags(t *testing.T) {
 	var flags = []Functional{
 		New(d.Nil),
 		New(d.Bool),

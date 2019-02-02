@@ -30,6 +30,7 @@ import (
 
 	d "github.com/JoergReinhardt/godeep/data"
 	f "github.com/JoergReinhardt/godeep/functions"
+	l "github.com/JoergReinhardt/godeep/lex"
 )
 
 type TokType uint16
@@ -39,7 +40,6 @@ func (t TokType) Flag() d.BitFlag { return d.Flag.Flag() }
 //go:generate stringer -type TokType
 const (
 	Syntax_Token TokType = 1 << iota
-	Type_Token
 	Kind_Token
 	Data_Type_Token
 	Data_Value_Token
@@ -50,28 +50,33 @@ const (
 	Tree_Node_Token
 )
 
-func NewKindToken(dat d.Data) Token            { return newToken(Kind_Token, dat) }
-func NewTypeToken(dat d.Data) Token            { return newToken(Type_Token, dat) }
+func NewSyntaxToken(f l.SyntaxItemFlag) Token {
+	return newToken(Syntax_Token, f)
+}
+func NewDataToken(f d.Type) Token {
+	return newToken(Data_Type_Token, f)
+}
+func NewKindToken(dat d.Data) Token            { return newToken(Kind_Token, dat.(d.Typed)) }
+func NewDataTypeToken(dat d.Typed) Token       { return newToken(Data_Type_Token, dat.(d.Typed)) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
-func NewDataTypeToken(dat d.Typed) Token       { return newToken(Data_Type_Token, dat.Flag()) }
 func NewDataValueToken(dat d.Data) Token       { return newToken(Data_Value_Token, dat) }
 func NewPairValueToken(dat f.Paired) Token     { return newToken(Pair_Value_Token, dat) }
 func NewTokenCollection(dat ...Token) Token    { return newToken(Token_Collection, tokens(dat)) }
 func NewKeyValToken(key, val d.Data) Token {
 	return newToken(
 		Parameter_Token,
-		f.NewKeyValueParm(key, val),
+		f.NewKeyValueParm(f.NewFromData(key), f.NewFromData(val)),
 	)
 }
 
 type TokVal struct {
 	tok TokType
-	d.BitFlag
+	d.Typed
 }
 
 func (t TokVal) TokType() TokType { return t.tok }
-func (t TokVal) Flag() d.BitFlag  { return t.BitFlag.Flag() }
+func (t TokVal) Flag() d.BitFlag  { return t.Typed.Flag() }
 func (t TokVal) Type() d.BitFlag  { return t.tok.Flag() }
 
 type dataTok struct {
@@ -84,13 +89,11 @@ func (d dataTok) Flag() d.BitFlag  { return d.Data.Flag() }
 func newToken(t TokType, dat d.Data) Token {
 	switch t {
 	case Syntax_Token:
-		return TokVal{Syntax_Token, dat.(d.BitFlag)}
+		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
 	case Data_Type_Token:
-		return TokVal{Data_Type_Token, dat.(d.BitFlag)}
+		return TokVal{Data_Type_Token, dat.(d.Type)}
 	case Kind_Token:
-		return TokVal{Kind_Token, dat.(d.BitFlag)}
-	case Type_Token:
-		return dataTok{TokVal{Type_Token, dat.Flag()}, dat}
+		return TokVal{Kind_Token, dat.(f.Kind)}
 	case Argument_Token:
 		return dataTok{TokVal{Argument_Token, dat.Flag()}, dat.(f.Argumented)}
 	case Parameter_Token:

@@ -192,6 +192,9 @@ func (p pairSorter) Search(praed Functional) int {
 	}
 	return -1
 }
+func (p pairSorter) GetIdx(praed Functional) int {
+	return p.Search(praed)
+}
 func (p pairSorter) Get(praed Functional) Paired {
 	idx := p.Search(praed)
 	if idx != -1 {
