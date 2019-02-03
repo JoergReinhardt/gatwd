@@ -50,14 +50,9 @@ const (
 	Tree_Node_Token
 )
 
-func NewSyntaxToken(f l.SyntaxItemFlag) Token {
-	return newToken(Syntax_Token, f)
-}
-func NewDataToken(f d.Type) Token {
-	return newToken(Data_Type_Token, f)
-}
-func NewKindToken(dat d.Data) Token            { return newToken(Kind_Token, dat.(d.Typed)) }
-func NewDataTypeToken(dat d.Typed) Token       { return newToken(Data_Type_Token, dat.(d.Typed)) }
+func NewSyntaxToken(f l.SyntaxItemFlag) Token  { return newToken(Syntax_Token, f) }
+func NewDataTypeToken(f d.Type) Token          { return newToken(Data_Type_Token, f) }
+func NewKindToken(flag f.Kind) Token           { return newToken(Kind_Token, flag) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
 func NewDataValueToken(dat d.Data) Token       { return newToken(Data_Value_Token, dat) }

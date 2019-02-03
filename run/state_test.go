@@ -26,7 +26,7 @@ var pat = p.NewPattern("testFnc",
 //var pol = p.NewPolymorph(pat, mon)
 //
 func TestState(t *testing.T) {
-	fmt.Println(pat.Signature())
+	//fmt.Println(pat.Signature())
 	//	fmt.Println(mon)
 	//	fmt.Println(pol)
 }

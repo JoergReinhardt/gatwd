@@ -40,7 +40,7 @@ type Accessor interface {
 	Arg() Data
 }
 type Accessable interface {
-	Get(acc Data) Data
+	Get(acc Data) (Data, bool)
 	Set(acc Data, dat Data)
 }
 type Paired interface {
@@ -53,7 +53,7 @@ type Mapped interface {
 	Keys() []Data
 	Data() []Data
 	Accs() []Paired
-	Get(acc Data) Data
+	Get(acc Data) (Data, bool)
 	Set(Data, Data) Mapped
 }
 type NativeVal interface {

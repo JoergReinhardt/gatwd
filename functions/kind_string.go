@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _Kind_name = "ValueInstancePolymorphArgumentParameterAttributAccessorGeneratorPairVectorTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeHigherOrder"
+const _Kind_name = "ValueInstancePolymorphArgumentParameterAttributAccessorGeneratorPairVectorTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeHigherOrderInternal"
 
 var _Kind_map = map[Kind]string{
 	1:       _Kind_name[0:5],
@@ -28,6 +28,7 @@ var _Kind_map = map[Kind]string{
 	262144:  _Kind_name[117:121],
 	524288:  _Kind_name[121:125],
 	1048576: _Kind_name[125:136],
+	2097152: _Kind_name[136:144],
 }
 
 func (i Kind) String() string {

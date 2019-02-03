@@ -45,6 +45,7 @@ const (
 	Node
 	Tree
 	HigherOrder
+	Internal
 
 	Chain = Vector | Tuple | Record
 

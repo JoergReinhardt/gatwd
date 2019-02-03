@@ -88,6 +88,9 @@ const (
 	////
 	Positional
 	NamedArgs
+	////
+	Static
+	Dynamic
 	///////////////
 	//// TRUTH ///
 	True
@@ -116,13 +119,13 @@ type Token interface {
 }
 
 type TypeSystem interface {
-	Lookup(string) Polymorph
+	f.Functional
+	Lookup(string) (Polymorph, bool)
 	DefinePoly(name string, poly Polymorph)
 	Define(
 		name string,
-		prop Property,
 		fnc f.Function,
-		args ...Token,
+		sig ...Token,
 	)
 }
 

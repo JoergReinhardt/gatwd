@@ -6,18 +6,7 @@ import (
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
-///////////////////////////////////////////////////////////////////////////////
-// SOURCE CODE HANDLING
-//
-// to implement the least neccessary parts of the type system and preccedence
-// types, a very rudimentary parser in golang is provided.
-//
-// BUILD SIGNATURES FROM SYNTAX ITEMS
-type signature func() (uid int, name string, signature string)
-
-//
-//// DATA TOKEN
-//
+//// DATA TOKEN HANDLING
 func tokPutAppend(last Token, tok []Token) []Token {
 	return append(tok, last)
 }
@@ -49,7 +38,6 @@ func tokEmbed(left, tok, right []Token) []Token {
 	return args
 }
 
-//
 //// TOKEN SLICE
 //
 type tokenSlice [][]Token

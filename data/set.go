@@ -1,5 +1,7 @@
 package data
 
+import "bytes"
+
 func NewPair(l, r Data) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
@@ -20,8 +22,16 @@ func NewStringSet(acc ...Paired) Mapped {
 	return SetString(m)
 }
 
-func (s SetString) Flag() BitFlag  { return Set.Flag() }
-func (s SetString) String() string { return "NTSHMO" }
+func (s SetString) Flag() BitFlag { return Set.Flag() }
+func (s SetString) String() string {
+	var str = bytes.NewBuffer([]byte{})
+	for k, v := range s {
+		str.WriteString(k.String())
+		str.WriteString(": ")
+		str.WriteString(v.String())
+	}
+	return str.String()
+}
 func (s SetString) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -43,7 +53,12 @@ func (s SetString) Accs() []Paired {
 	}
 	return pairs
 }
-func (s SetString) Get(acc Data) Data             { return s[acc.(StrVal)] }
+func (s SetString) Get(acc Data) (Data, bool) {
+	if dat, ok := s[acc.(StrVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
 func (s SetString) Set(acc Data, dat Data) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -56,8 +71,16 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) Flag() BitFlag  { return Set.Flag() }
-func (s SetInt) String() string { return "NTSHMO" }
+func (s SetInt) Flag() BitFlag { return Set.Flag() }
+func (s SetInt) String() string {
+	var str = bytes.NewBuffer([]byte{})
+	for k, v := range s {
+		str.WriteString(k.String())
+		str.WriteString(": ")
+		str.WriteString(v.String())
+	}
+	return str.String()
+}
 func (s SetInt) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -79,7 +102,12 @@ func (s SetInt) Accs() []Paired {
 	}
 	return pairs
 }
-func (s SetInt) Get(acc Data) Data             { return s[acc.(IntVal)] }
+func (s SetInt) Get(acc Data) (Data, bool) {
+	if dat, ok := s[acc.(IntVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
 func (s SetInt) Set(acc Data, dat Data) Mapped { s[acc.(IntVal)] = acc.(IntVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -92,8 +120,16 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) Flag() BitFlag  { return Set.Flag() }
-func (s SetUint) String() string { return "NTSHMO" }
+func (s SetUint) Flag() BitFlag { return Set.Flag() }
+func (s SetUint) String() string {
+	var str = bytes.NewBuffer([]byte{})
+	for k, v := range s {
+		str.WriteString(k.String())
+		str.WriteString(": ")
+		str.WriteString(v.String())
+	}
+	return str.String()
+}
 func (s SetUint) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -115,7 +151,12 @@ func (s SetUint) Accs() []Paired {
 	}
 	return pairs
 }
-func (s SetUint) Get(acc Data) Data             { return s[acc.(UintVal)] }
+func (s SetUint) Get(acc Data) (Data, bool) {
+	if dat, ok := s[acc.(UintVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
 func (s SetUint) Set(acc Data, dat Data) Mapped { s[acc.(UintVal)] = acc.(UintVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -128,8 +169,16 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) Flag() BitFlag  { return Set.Flag() }
-func (s SetFloat) String() string { return "NTSHMO" }
+func (s SetFloat) Flag() BitFlag { return Set.Flag() }
+func (s SetFloat) String() string {
+	var str = bytes.NewBuffer([]byte{})
+	for k, v := range s {
+		str.WriteString(k.String())
+		str.WriteString(": ")
+		str.WriteString(v.String())
+	}
+	return str.String()
+}
 func (s SetFloat) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -151,7 +200,12 @@ func (s SetFloat) Accs() []Paired {
 	}
 	return pairs
 }
-func (s SetFloat) Get(acc Data) Data             { return s[acc.(FltVal)] }
+func (s SetFloat) Get(acc Data) (Data, bool) {
+	if dat, ok := s[acc.(FltVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
 func (s SetFloat) Set(acc Data, dat Data) Mapped { s[acc.(FltVal)] = acc.(FltVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -164,8 +218,16 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) Flag() BitFlag  { return Set.Flag() }
-func (s SetFlag) String() string { return "NTSHMO" }
+func (s SetFlag) Flag() BitFlag { return Set.Flag() }
+func (s SetFlag) String() string {
+	var str = bytes.NewBuffer([]byte{})
+	for k, v := range s {
+		str.WriteString(k.String())
+		str.WriteString(": ")
+		str.WriteString(v.String())
+	}
+	return str.String()
+}
 func (s SetFlag) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -187,5 +249,10 @@ func (s SetFlag) Accs() []Paired {
 	}
 	return parms
 }
-func (s SetFlag) Get(acc Data) Data             { return s[acc.(BitFlag)] }
+func (s SetFlag) Get(acc Data) (Data, bool) {
+	if dat, ok := s[acc.(BitFlag)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
 func (s SetFlag) Set(acc Data, dat Data) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }

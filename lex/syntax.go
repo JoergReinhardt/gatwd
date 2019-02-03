@@ -10,9 +10,10 @@ import (
 ///// SYNTAX DEFINITION /////
 type SyntaxItemFlag d.BitFlag
 
-func (t SyntaxItemFlag) Flag() d.BitFlag      { return d.BitFlag(t) }
 func (t SyntaxItemFlag) Type() SyntaxItemFlag { return t }
+func (t SyntaxItemFlag) Flag() d.BitFlag      { return d.BitFlag(t) }
 func (t SyntaxItemFlag) Syntax() string       { return syntax[t] }
+func (t SyntaxItemFlag) StringAlt() string    { return matchSyntax[syntax[SyntaxItemFlag(t.Flag())]] }
 
 // all syntax items represented as string
 func AllSyntax() string {
@@ -43,7 +44,8 @@ func AllItems() []SyntaxItemFlag {
 
 //go:generate stringer -type=SyntaxItemFlag
 const (
-	None  SyntaxItemFlag = 1
+	None  SyntaxItemFlag = 0
+	Error SyntaxItemFlag = 1
 	Blank SyntaxItemFlag = 1 << iota
 	Underscore
 	Asterisk
@@ -86,51 +88,27 @@ const (
 	Lambda
 	Function
 	Polymorph
-	HeadWord
-	TailWord
-	InWord
-	ConWord
-	LetWord
-	MutableWord
-	WhereWord
-	OtherwiseWord
-	IfWord
-	ThenWord
-	ElseWord
-	CaseWord
-	OfWord
-	DataWord
-	TypeWord
-	StringItem
-	NumeralItem
-	FuncIdent
-	TypeIdent
-
-	// parts of syntax that constitute indipendent items, but commonly end
-	// up concatenated to other items without seperating space character to
-	// split by, which results in the need for further processing.
-	Appendices = Dot | Comma | Colon | Semicolon | LeftPar | RightPar | LeftBra |
-		RightBra | LeftCur | RightCur
+	Number
+	Text
 )
 
-var keywords = map[string]SyntaxItemFlag{
-	"in":        InWord,
-	"con":       ConWord,
-	"let":       LetWord,
-	"mutable":   MutableWord,
-	"where":     WhereWord,
-	"otherwise": OtherwiseWord,
-	"if":        IfWord,
-	"then":      ThenWord,
-	"else":      ElseWord,
-	"case":      CaseWord,
-	"of":        OfWord,
-	"data":      DataWord,
-	"type":      TypeWord,
+var keywords = []d.StrVal{
+	d.StrVal("in"),
+	d.StrVal("con"),
+	d.StrVal("let"),
+	d.StrVal("mutable"),
+	d.StrVal("where"),
+	d.StrVal("otherwise"),
+	d.StrVal("if"),
+	d.StrVal("then"),
+	d.StrVal("else"),
+	d.StrVal("case"), d.StrVal("of"), d.StrVal("data"),
+	d.StrVal("type"),
 }
 
 var matchSyntax = map[string]string{
-	"⊥":  "",
+	"":   "",
+	"⊥":  "_|_",
 	" ":  " ",
 	"_":  "_",
 	"∗":  "*",
@@ -159,7 +137,7 @@ var matchSyntax = map[string]string{
 	"≠":  "!=",
 	"--": "--",
 	"++": "++",
-	"==": "==",
+	"‗":  "==",
 	"≡":  "===",
 	"→":  "->",
 	"←":  "<-",
@@ -169,14 +147,14 @@ var matchSyntax = map[string]string{
 	`'`:  `'`,
 	`"`:  `"`,
 	`\`:  `\`,
+	"λ":  `\y`,
 	`ϝ`:  `\f`,
-	"λ":  `\x`,
-	"x":  "x",
-	"xs": "xs",
+	`Ф`:  `\F`,
 }
 
 var syntax = map[SyntaxItemFlag]string{
-	None:       "⊥",
+	None:       "",
+	Error:      "⊥",
 	Blank:      " ",
 	Underscore: "_",
 	Asterisk:   "∗",
@@ -206,7 +184,7 @@ var syntax = map[SyntaxItemFlag]string{
 	Unequal:    "≠",
 	Dec:        "--",
 	Inc:        "++",
-	DoubEqual:  "==",
+	DoubEqual:  "‗",
 	TripEqual:  "≡",
 	RightArrow: "→",
 	LeftArrow:  "←",
@@ -216,15 +194,14 @@ var syntax = map[SyntaxItemFlag]string{
 	Sing_quote: `'`,
 	Doub_quote: `"`,
 	BackSlash:  `\`,
+	Lambda:     "λ",
 	Function:   "ϝ",
 	Polymorph:  "Ф",
-	Lambda:     "λ",
-	HeadWord:   "x",
-	TailWord:   "xs",
 }
 
 var match = map[string]SyntaxItemFlag{
 	"":    None,
+	"_|_": Error,
 	" ":   Blank,
 	"_":   Underscore,
 	"*":   Asterisk,
@@ -264,16 +241,24 @@ var match = map[string]SyntaxItemFlag{
 	`'`:   Sing_quote,
 	`"`:   Doub_quote,
 	`\`:   BackSlash,
+	`\y`:  Lambda,
 	`\f`:  Function,
 	`\F`:  Polymorph,
-	`\x`:  Lambda,
-	"x":   HeadWord,
-	"xs":  TailWord,
 }
 
-// checks if a string matches any representation of a syntax item and yields
-// it, if that's the case
-func MatchString(tos string) Item { return syntaxItem(match[tos]) }
+// matches longest possible string
+func MatchUtf8(str string) (Item, bool) {
+	if item, ok := match[matchSyntax[str]]; ok {
+		return SyntaxItemFlag(item), ok
+	}
+	return nil, false
+}
+func Match(str string) (Item, bool) {
+	if item, ok := match[str]; ok {
+		return SyntaxItemFlag(item), ok
+	}
+	return nil, false
+}
 
 // convert item string representation from editable to pretty
 func ASCIIToUtf8(tos ...string) []SyntaxItemFlag {
@@ -298,24 +283,21 @@ type Item interface {
 	Flag() d.BitFlag
 	Type() SyntaxItemFlag
 	String() string
+	Syntax() string
 }
 
-type syntaxItem d.BitFlag
-type stringItem struct {
+type TextItem struct {
 	SyntaxItemFlag
-	string
+	Text string
 }
 
-func (t syntaxItem) Type() SyntaxItemFlag { return SyntaxItemFlag(t.Flag()) }
-func (t stringItem) Type() SyntaxItemFlag { return SyntaxItemFlag(t.Flag()) }
+func (t TextItem) Type() SyntaxItemFlag { return Text }
 
 // pretty utf-8 version of syntax item
-func (t syntaxItem) String() string { return SyntaxItemFlag(t.Flag()).Syntax() }
-func (t stringItem) String() string { return t.string }
+func (t TextItem) String() string { return t.Text }
+func (t TextItem) Syntax() string { return Text.Syntax() }
 
 // provides an alternative string representation that can be edited without
 // having to produce utf-8 digraphs
-func (t syntaxItem) StringAlt() string { return matchSyntax[syntax[SyntaxItemFlag(t.Flag())]] }
-func (t stringItem) StringAlt() string { return matchSyntax[syntax[SyntaxItemFlag(t.Flag())]] }
-func (t syntaxItem) Flag() d.BitFlag   { return d.Flag.Flag() }
-func (t stringItem) Flag() d.BitFlag   { return d.Flag.Flag() }
+func (t TextItem) StringAlt() string { return t.String() }
+func (t TextItem) Flag() d.BitFlag   { return d.Flag.Flag() }

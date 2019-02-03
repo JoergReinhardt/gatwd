@@ -58,10 +58,10 @@ const (
 	Vector
 	List
 	Set
-	Function
 	Argument
 	Parameter
-	Machinery
+	Function
+	Object
 	Flag // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
@@ -147,10 +147,9 @@ type ( ////// INTERNAL TYPES /////
 	DataSlice []Data
 	SetString map[StrVal]Data
 	SetUint   map[UintVal]Data
-
-	SetInt   map[IntVal]Data
-	SetFloat map[FltVal]Data
-	SetFlag  map[BitFlag]Data
+	SetInt    map[IntVal]Data
+	SetFloat  map[FltVal]Data
+	SetFlag   map[BitFlag]Data
 )
 
 //////// ATTRIBUTE TYPE ALIAS /////////////////
