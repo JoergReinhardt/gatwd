@@ -25,11 +25,11 @@ func (t TokVal) String() string {
 	var str string
 	switch t.TokType() {
 	case Kind_Token:
-		str = t.Typed.(f.Kind).String() + "\n"
+		str = t.Data.(f.Kind).String() + "\n"
 	case Syntax_Token:
-		str = t.Typed.(l.SyntaxItemFlag).Syntax() + "\n"
+		str = t.Data.(l.SyntaxItemFlag).Syntax() + "\n"
 	case Data_Type_Token:
-		str = t.Typed.(d.Type).String() + "\n"
+		str = t.Data.(d.Type).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}

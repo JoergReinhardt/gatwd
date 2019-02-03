@@ -19,7 +19,7 @@ import (
 // alias for the  bitflag interface from data package.  currently kind of
 // useless, since functions from the data package expect bitfags to be of type
 // data.BitFlag. => TODO: make usefull
-type BitFlag interface{ d.Typed }
+type BitFlag interface{ d.Data }
 
 // nullable 'classes'
 //

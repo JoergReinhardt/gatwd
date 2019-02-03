@@ -95,7 +95,7 @@ func SliceEmpty(s DataSlice) bool {
 }
 
 ///// CONVERT TO SLICE OF NATIVES ////////
-func SliceToNatives(c DataSlice) NativeVec {
+func SliceToNatives(c DataSlice) Sliceable {
 	f := SliceGet(c, 0).Flag()
 	if SliceAll(c, func(i int, c Data) bool {
 		return FlagMatch(f, c.Flag())

@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	NativeVector []interface{}
+	Sliceabletor []interface{}
 	NilVec       []struct{}
 	BoolVec      []bool
 	IntVec       []int
@@ -34,8 +34,8 @@ type (
 	FlagSet      []BitFlag
 )
 
-func ConNativeSlice(flag BitFlag, data ...Data) NativeVec {
-	var d NativeVec
+func ConNativeSlice(flag BitFlag, data ...Data) Sliceable {
+	var d Sliceable
 	switch Type(flag) {
 	case Nil:
 		d = NilVec{}
@@ -168,7 +168,7 @@ func ConNativeSlice(flag BitFlag, data ...Data) NativeVec {
 	return d
 }
 
-func (v NativeVector) GetInt(i int) interface{} { return v[i] }
+func (v Sliceabletor) GetInt(i int) interface{} { return v[i] }
 func (v NilVec) GetInt(i int) Data              { return NilVal(v[i]) }
 func (v BoolVec) GetInt(i int) Data             { return BoolVal(v[i]) }
 func (v IntVec) GetInt(i int) Data              { return IntVal(v[i]) }
@@ -194,7 +194,7 @@ func (v TimeVec) GetInt(i int) Data             { return TimeVal(v[i]) }
 func (v DuraVec) GetInt(i int) Data             { return DuraVal(v[i]) }
 func (v ErrorVec) GetInt(i int) Data            { return ErrorVal{v[i]} }
 
-func (v NativeVector) Get(i Data) interface{} { return v[i.(IntVal).Int()] }
+func (v Sliceabletor) Get(i Data) interface{} { return v[i.(IntVal).Int()] }
 func (v NilVec) Get(i Data) Data              { return NilVal(v[i.(IntVal).Int()]) }
 func (v BoolVec) Get(i Data) Data             { return BoolVal(v[i.(IntVal).Int()]) }
 func (v IntVec) Get(i Data) Data              { return IntVal(v[i.(IntVal).Int()]) }
@@ -220,7 +220,7 @@ func (v TimeVec) Get(i Data) Data             { return TimeVal(v[i.(IntVal).Int(
 func (v DuraVec) Get(i Data) Data             { return DuraVal(v[i.(IntVal).Int()]) }
 func (v ErrorVec) Get(i Data) Data            { return ErrorVal{v[i.(IntVal).Int()]} }
 
-func (v NativeVector) Range(i, j int) interface{} { return v[i] }
+func (v Sliceabletor) Range(i, j int) interface{} { return v[i] }
 func (v NilVec) Range(i, j int) NilVec            { return NilVec(v[i:j]) }
 func (v BoolVec) Range(i, j int) BoolVec          { return BoolVec(v[i:j]) }
 func (v IntVec) Range(i, j int) IntVec            { return IntVec(v[i:j]) }
@@ -246,7 +246,7 @@ func (v TimeVec) Range(i, j int) TimeVec          { return TimeVec(v[i:j]) }
 func (v DuraVec) Range(i, j int) DuraVec          { return DuraVec(v[i:j]) }
 func (v ErrorVec) Range(i, j int) ErrorVec        { return ErrorVec(v[i:j]) }
 
-func (v NativeVector) nat(i int) interface{}      { return v[i] }
+func (v Sliceabletor) nat(i int) interface{}      { return v[i] }
 func (v NilVec) Native(i int) struct{}            { return v[i] }
 func (v BoolVec) Native(i int) bool               { return v[i] }
 func (v IntVec) Native(i int) int                 { return v[i] }
@@ -659,175 +659,175 @@ func (v FlagSet) Copy() Data {
 func (v NilVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v BoolVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v IntVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Int8Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Int16Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Int32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v UintVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Uint8Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Uint16Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Uint32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v FltVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Flt32Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v ImagVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v Imag64Vec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v ByteVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v RuneVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v BytesVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v StrVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v BigIntVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v BigFltVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v RatioVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v TimeVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v DuraVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v ErrorVec) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }
 func (v FlagSet) Slice() []Data {
 	var d = []Data{}
 	for _, val := range v {
-		d = append(d, NewFI(val))
+		d = append(d, NewFromNative(val))
 	}
 	return d
 }

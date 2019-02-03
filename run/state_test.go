@@ -1,7 +1,6 @@
 package run
 
 import (
-	"fmt"
 	"testing"
 
 	d "github.com/JoergReinhardt/godeep/data"

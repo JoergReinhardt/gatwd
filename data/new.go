@@ -66,10 +66,10 @@ func NewData(vals ...Data) Data {
 	for _, val := range vals {
 		ifs = append(ifs, val.(interface{}))
 	}
-	return NewFI(ifs...)
+	return NewFromNative(ifs...)
 }
-func NewVector(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
-func NewFI(vals ...interface{}) Data         { dat, _ := NewWithTypeInfo(vals...); return dat }
+func NewUnBoxed(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
+func NewFromNative(vals ...interface{}) Data  { dat, _ := NewWithTypeInfo(vals...); return dat }
 func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 
 	if len(vals) == 0 {

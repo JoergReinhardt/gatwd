@@ -223,7 +223,7 @@ func (NilVal) Eval(d ...Data) Data { return NilVal{} }
 func (v BitFlag) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -232,7 +232,7 @@ func (v BitFlag) Eval(d ...Data) Data {
 func (v BoolVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -241,7 +241,7 @@ func (v BoolVal) Eval(d ...Data) Data {
 func (v IntVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -250,7 +250,7 @@ func (v IntVal) Eval(d ...Data) Data {
 func (v Int8Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -259,7 +259,7 @@ func (v Int8Val) Eval(d ...Data) Data {
 func (v Int16Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -268,7 +268,7 @@ func (v Int16Val) Eval(d ...Data) Data {
 func (v Int32Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -277,7 +277,7 @@ func (v Int32Val) Eval(d ...Data) Data {
 func (v UintVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -286,7 +286,7 @@ func (v UintVal) Eval(d ...Data) Data {
 func (v Uint8Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -295,7 +295,7 @@ func (v Uint8Val) Eval(d ...Data) Data {
 func (v Uint16Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -304,7 +304,7 @@ func (v Uint16Val) Eval(d ...Data) Data {
 func (v Uint32Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -313,7 +313,7 @@ func (v Uint32Val) Eval(d ...Data) Data {
 func (v BigIntVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -322,7 +322,7 @@ func (v BigIntVal) Eval(d ...Data) Data {
 func (v FltVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -331,7 +331,7 @@ func (v FltVal) Eval(d ...Data) Data {
 func (v Flt32Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -340,7 +340,7 @@ func (v Flt32Val) Eval(d ...Data) Data {
 func (v BigFltVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -349,7 +349,7 @@ func (v BigFltVal) Eval(d ...Data) Data {
 func (v ImagVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -358,7 +358,7 @@ func (v ImagVal) Eval(d ...Data) Data {
 func (v Imag64Val) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -367,7 +367,7 @@ func (v Imag64Val) Eval(d ...Data) Data {
 func (v RatioVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -376,7 +376,7 @@ func (v RatioVal) Eval(d ...Data) Data {
 func (v RuneVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -385,7 +385,7 @@ func (v RuneVal) Eval(d ...Data) Data {
 func (v ByteVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -394,7 +394,7 @@ func (v ByteVal) Eval(d ...Data) Data {
 func (v BytesVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -403,7 +403,7 @@ func (v BytesVal) Eval(d ...Data) Data {
 func (v StrVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -412,7 +412,7 @@ func (v StrVal) Eval(d ...Data) Data {
 func (v TimeVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -421,7 +421,7 @@ func (v TimeVal) Eval(d ...Data) Data {
 func (v DuraVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -430,7 +430,7 @@ func (v DuraVal) Eval(d ...Data) Data {
 func (v ErrorVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -439,7 +439,7 @@ func (v ErrorVal) Eval(d ...Data) Data {
 func (v PairVal) Eval(d ...Data) Data {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewVector(v.Flag(), d...)
+			return NewUnBoxed(v.Flag(), d...)
 		}
 		return d[0]
 	}
@@ -476,29 +476,29 @@ func (v PairVal) Ident() Data   { return v }
 
 //// native nullable typed ///////
 func (v BitFlag) Null() Data   { return Nil.Flag() }
-func (v FlagSlice) Null() Data { return NewFI(FlagSlice{}) }
+func (v FlagSlice) Null() Data { return NewFromNative(FlagSlice{}) }
 func (v PairVal) Null() Data   { return PairVal{NilVal{}, NilVal{}} }
 func (v NilVal) Null() Data    { return NilVal{} }
-func (v BoolVal) Null() Data   { return NewFI(false) }
-func (v IntVal) Null() Data    { return NewFI(0) }
-func (v Int8Val) Null() Data   { return NewFI(int8(0)) }
-func (v Int16Val) Null() Data  { return NewFI(int16(0)) }
-func (v Int32Val) Null() Data  { return NewFI(int32(0)) }
-func (v UintVal) Null() Data   { return NewFI(uint(0)) }
-func (v Uint8Val) Null() Data  { return NewFI(uint8(0)) }
-func (v Uint16Val) Null() Data { return NewFI(uint16(0)) }
-func (v Uint32Val) Null() Data { return NewFI(uint32(0)) }
-func (v FltVal) Null() Data    { return NewFI(0.0) }
-func (v Flt32Val) Null() Data  { return NewFI(float32(0.0)) }
-func (v ImagVal) Null() Data   { return NewFI(complex128(0.0)) }
-func (v Imag64Val) Null() Data { return NewFI(complex64(0.0)) }
-func (v ByteVal) Null() Data   { return NewFI(byte(0)) }
-func (v BytesVal) Null() Data  { return NewFI([]byte{}) }
-func (v RuneVal) Null() Data   { return NewFI(rune(' ')) }
-func (v StrVal) Null() Data    { return NewFI(string("")) }
-func (v ErrorVal) Null() Data  { return NewFI(error(fmt.Errorf(""))) }
-func (v BigIntVal) Null() Data { return NewFI(big.NewInt(0)) }
-func (v BigFltVal) Null() Data { return NewFI(big.NewFloat(0)) }
-func (v RatioVal) Null() Data  { return NewFI(big.NewRat(1, 1)) }
-func (v TimeVal) Null() Data   { return NewFI(time.Now()) }
-func (v DuraVal) Null() Data   { return NewFI(time.Duration(0)) }
+func (v BoolVal) Null() Data   { return NewFromNative(false) }
+func (v IntVal) Null() Data    { return NewFromNative(0) }
+func (v Int8Val) Null() Data   { return NewFromNative(int8(0)) }
+func (v Int16Val) Null() Data  { return NewFromNative(int16(0)) }
+func (v Int32Val) Null() Data  { return NewFromNative(int32(0)) }
+func (v UintVal) Null() Data   { return NewFromNative(uint(0)) }
+func (v Uint8Val) Null() Data  { return NewFromNative(uint8(0)) }
+func (v Uint16Val) Null() Data { return NewFromNative(uint16(0)) }
+func (v Uint32Val) Null() Data { return NewFromNative(uint32(0)) }
+func (v FltVal) Null() Data    { return NewFromNative(0.0) }
+func (v Flt32Val) Null() Data  { return NewFromNative(float32(0.0)) }
+func (v ImagVal) Null() Data   { return NewFromNative(complex128(0.0)) }
+func (v Imag64Val) Null() Data { return NewFromNative(complex64(0.0)) }
+func (v ByteVal) Null() Data   { return NewFromNative(byte(0)) }
+func (v BytesVal) Null() Data  { return NewFromNative([]byte{}) }
+func (v RuneVal) Null() Data   { return NewFromNative(rune(' ')) }
+func (v StrVal) Null() Data    { return NewFromNative(string("")) }
+func (v ErrorVal) Null() Data  { return NewFromNative(error(fmt.Errorf(""))) }
+func (v BigIntVal) Null() Data { return NewFromNative(big.NewInt(0)) }
+func (v BigFltVal) Null() Data { return NewFromNative(big.NewFloat(0)) }
+func (v RatioVal) Null() Data  { return NewFromNative(big.NewRat(1, 1)) }
+func (v TimeVal) Null() Data   { return NewFromNative(time.Now()) }
+func (v DuraVal) Null() Data   { return NewFromNative(time.Duration(0)) }

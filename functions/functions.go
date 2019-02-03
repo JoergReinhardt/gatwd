@@ -103,7 +103,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 
 // instanciate functionalized data
 func New(inf ...interface{}) Functional {
-	return DataVal(func() d.Data { return (d.NewFI(inf...)) })
+	return DataVal(func() d.Data { return (d.NewFromNative(inf...)) })
 }
 func NewFromData(dat d.Data) Functional {
 	return DataVal(func() d.Data { return dat })

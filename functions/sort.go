@@ -133,7 +133,7 @@ func newDataFind(ds dataSorter, praed Functional) func(int) bool {
 		}
 	case f.Match(d.Flag.Flag()):
 		fn = func(i int) bool {
-			return ds[i].(d.Typed).Flag() >= praed.(d.Typed).Flag()
+			return ds[i].(d.Data).Flag() >= praed.(d.Data).Flag()
 		}
 	case f.Match(d.Unsigned.Flag()):
 		fn = func(i int) bool {

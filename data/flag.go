@@ -22,18 +22,18 @@ func (v BitFlag) Match(f BitFlag) bool     { return FlagMatch(v, f) }
 func (v BitFlag) Decompose() []BitFlag     { return FlagDecompose(v) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Typed) BitFlag                { return t.Flag() }
-func FlagLength(t Typed) int              { return bits.Len(t.Flag().Uint()) }
-func FlagCount(t Typed) int               { return bits.OnesCount(t.Flag().Uint()) }
-func FlagLeastSig(t Typed) int            { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
-func FlagMostSig(t Typed) int             { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
-func FlagReverse(t Typed) BitFlag         { return BitFlag(bits.Reverse(t.Flag().Uint())) }
-func FlagRotate(t Typed, n int) BitFlag   { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
-func FlagToggle(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
-func FlagConcat(t Typed, v Typed) BitFlag { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
-func FlagMask(t Typed, v Typed) BitFlag   { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
-func FlagShow(f Typed) string             { return fmt.Sprintf("%64b\n", f) }
-func FlagLow(t Typed) Typed               { return FlagMask(t.Flag(), Typed(Mask)) }
+func flag(t Data) BitFlag               { return t.Flag() }
+func FlagLength(t Data) int             { return bits.Len(t.Flag().Uint()) }
+func FlagCount(t Data) int              { return bits.OnesCount(t.Flag().Uint()) }
+func FlagLeastSig(t Data) int           { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
+func FlagMostSig(t Data) int            { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
+func FlagReverse(t Data) BitFlag        { return BitFlag(bits.Reverse(t.Flag().Uint())) }
+func FlagRotate(t Data, n int) BitFlag  { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
+func FlagToggle(t Data, v Data) BitFlag { return BitFlag(t.Flag().Uint() ^ v.Flag().Uint()) }
+func FlagConcat(t Data, v Data) BitFlag { return BitFlag(t.Flag().Uint() | v.Flag().Uint()) }
+func FlagMask(t Data, v Data) BitFlag   { return BitFlag(t.Flag().Uint() &^ v.Flag().Uint()) }
+func FlagShow(f Data) string            { return fmt.Sprintf("%64b\n", f) }
+func FlagLow(t Data) Data               { return FlagMask(t.Flag(), Data(Mask)) }
 func FlagHigh(t BitFlag) BitFlag {
 	len := FlagLength(BitFlag(Flag))
 	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(HigherOrder), len))

@@ -46,7 +46,7 @@ func (s SetString) Data() []Data {
 	}
 	return dat
 }
-func (s SetString) Accs() []Paired {
+func (s SetString) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
 		pairs = append(pairs, PairVal(PairVal{k, d}))
@@ -95,7 +95,7 @@ func (s SetInt) Data() []Data {
 	}
 	return dat
 }
-func (s SetInt) Accs() []Paired {
+func (s SetInt) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
 		pairs = append(pairs, PairVal(PairVal{k, d}))
@@ -144,7 +144,7 @@ func (s SetUint) Data() []Data {
 	}
 	return dat
 }
-func (s SetUint) Accs() []Paired {
+func (s SetUint) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
 		pairs = append(pairs, PairVal(PairVal{k, d}))
@@ -193,7 +193,7 @@ func (s SetFloat) Data() []Data {
 	}
 	return dat
 }
-func (s SetFloat) Accs() []Paired {
+func (s SetFloat) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
 		pairs = append(pairs, PairVal(PairVal{k, d}))
@@ -242,7 +242,7 @@ func (s SetFlag) Data() []Data {
 	}
 	return dat
 }
-func (s SetFlag) Accs() []Paired {
+func (s SetFlag) Fields() []Paired {
 	var parms = []Paired{}
 	for k, d := range s {
 		parms = append(parms, PairVal{k, d})

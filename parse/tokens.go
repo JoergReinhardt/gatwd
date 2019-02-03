@@ -67,11 +67,11 @@ func NewKeyValToken(key, val d.Data) Token {
 
 type TokVal struct {
 	tok TokType
-	d.Typed
+	d.Data
 }
 
 func (t TokVal) TokType() TokType { return t.tok }
-func (t TokVal) Flag() d.BitFlag  { return t.Typed.Flag() }
+func (t TokVal) Flag() d.BitFlag  { return t.Data.Flag() }
 func (t TokVal) Type() d.BitFlag  { return t.tok.Flag() }
 
 type dataTok struct {
