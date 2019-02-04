@@ -3,54 +3,55 @@ package data
 // VALUES AND TYPES
 ///////////////////
 // propertys intendet for internal use
-type Reproduceable interface{ Copy() Data }
+type Reproduceable interface{ Copy() Primary }
 type Destructable interface{ Clear() }
 type Stringer interface{ String() string }
 
 //// SER DEFINED DATA & FUNCTION TYPES ///////
-type Data interface {
-	Flag() BitFlag
+type Primary interface {
+	TypePrim() BitFlag
 	String() string
 }
 type Ident interface {
-	Data
-	Ident() Data
+	Primary
+	Ident() Primary
 }
 type Evaluable interface {
-	Eval() Data
+	Eval() Primary
 }
 
 type Nullable interface {
-	Data
-	Null() Data
+	Primary
+	Null() Primary
 }
 type Paired interface {
-	Left() Data
-	Right() Data
-	Both() (Data, Data)
+	Primary
+	Left() Primary
+	Right() Primary
+	Both() (Primary, Primary)
 }
 type Mapped interface {
-	Data
-	Keys() []Data
-	Data() []Data
+	Primary
+	Keys() []Primary
+	Data() []Primary
 	Fields() []Paired
-	Get(acc Data) (Data, bool)
-	Set(Data, Data) Mapped
+	Get(acc Primary) (Primary, bool)
+	Set(Primary, Primary) Mapped
 }
 type UnsignedVal interface{ Uint() uint }
 type IntegerVal interface{ Int() int }
 type Collected interface {
-	Data
+	Primary
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 type Sliceable interface {
 	Collected
 	Len() int
-	Slice() []Data
+	Slice() []Primary
 }
 type Consumeable interface {
 	Collected
-	Head() Data
+	Head() Primary
 	Tail() Consumeable
 	Shift() Consumeable
 }

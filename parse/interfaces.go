@@ -113,7 +113,7 @@ const (
 
 // data to parse
 type Token interface {
-	TokType() TokType
+	TypeTok() TyToken
 	TypePrim() d.BitFlag
 	String() string
 }

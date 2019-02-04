@@ -19,18 +19,18 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestFlag(t *testing.T) {
-	flag := Flag.Flag()
-	ok := FlagMatch(flag, Flag.Flag())
+	flag := Flag.TypePrim()
+	ok := FlagMatch(flag, Flag.TypePrim())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Flag.Flag()|Int.Flag())
+	ok = FlagMatch(flag, Flag.TypePrim()|Int.TypePrim())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Int.Flag())
+	ok = FlagMatch(flag, Int.TypePrim())
 	fmt.Println(ok)
 	if ok {
 		t.Fail()
@@ -41,12 +41,12 @@ func TestFlag(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Int.Flag() | Float.Flag()).Decompose())
+	fmt.Println(BitFlag(Int.TypePrim() | Float.TypePrim()).Decompose())
 	fmt.Println(BitFlag(Int | Float).String())
 
 	fmt.Println(BitFlag(Symbolic))
 
-	if fmt.Sprint(BitFlag(Symbolic)) != "Bool|Uint8|Uint16|Uint32|Uint|Time|Duration|Byte|Rune|Bytes|String|Error|Flag" {
+	if fmt.Sprint(BitFlag(Symbolic)) != "Bool∙Uint8∙Uint16∙Uint32∙Uint∙Time∙Duration∙Byte∙Rune∙Bytes∙String∙Error∙Flag" {
 		t.Fail()
 	}
 
@@ -76,7 +76,7 @@ var s0 = NewSlice(
 func TestTypeAllocation(t *testing.T) {
 
 	fmt.Println(s0.ContainedTypes())
-	if fmt.Sprint(s0.ContainedTypes()) != "Bool|Int8|Int16|Int32|Int|BigInt|Flt32|Float|BigFlt|Ratio|Imag|Time|Byte|Bytes|String" {
+	if fmt.Sprint(s0.ContainedTypes()) != "Bool∙Int8∙Int16∙Int32∙Int∙BigInt∙Flt32∙Float∙BigFlt∙Ratio∙Imag∙Time∙Byte∙Bytes∙String" {
 		t.Fail()
 	}
 	s1 := NewSlice()
@@ -98,12 +98,12 @@ func TestTypeAllocation(t *testing.T) {
 	fmt.Printf("contained types s1: %s\n", s1.ContainedTypes())
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
-	fmt.Printf("List-1 type: %s\t\n", s1.Flag().String())
+	fmt.Printf("List-1 type: %s\t\n", s1.TypePrim().String())
 }
 
 func TestLiFo(t *testing.T) {
 	//var sr = Chain{}
-	var d Data
+	var d Primary
 	var s = NewSlice()
 	var sr = NewSlice()
 	for i := 0; i < 10; i++ {
@@ -128,7 +128,7 @@ func TestLiFo(t *testing.T) {
 }
 func TestFiFo(t *testing.T) {
 	//var sr = Chain{}
-	var d Data
+	var d Primary
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
@@ -152,7 +152,7 @@ func TestFiFo(t *testing.T) {
 }
 func TestConDecap(t *testing.T) {
 	//var sr = Chain{}
-	var d Data
+	var d Primary
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {

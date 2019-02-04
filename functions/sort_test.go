@@ -37,8 +37,8 @@ func TestDataSorter(t *testing.T) {
 		fmt.Printf("why fail!?: %d\n", idx)
 		t.Fail()
 	}
-	fmt.Printf("access Sonja by idx: %s\n", ds[idx].String())
-	if strings.Compare(ds[idx].Eval().String(), "Sonja") != 0 {
+	fmt.Printf("access Sonja by idx: %s\n", ds[idx].Eval().String())
+	if strings.Compare(ds[idx].Eval().String(), `"Sonja"`) != 0 {
 		fmt.Printf("why fail: access Sonja by idx: %s\n", ds[idx].String())
 		t.Fail()
 	}

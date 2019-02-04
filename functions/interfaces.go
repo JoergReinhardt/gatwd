@@ -20,6 +20,10 @@ import (
 // grouped by common methods they provide. the groups are defined as bitwise
 // concatenations of flags of all the types providing the common method. this
 // builds the base for implementing higher order type classes.
+type Primary interface {
+	d.Primary
+	Eval() d.Primary
+}
 type Nullable interface{ Null() Functional }
 type Bitwise interface{ Uint() uint }
 type Boolean interface{ Bool() bool }
@@ -50,9 +54,8 @@ type Synbolic interface {
 // packages 'classes' and there associated methods in the functions package, to
 // the concept of type class.
 type Functional interface {
-	d.Data
-	Kind() d.BitFlag
-	Eval() d.Data
+	Primary
+	TypeHO() d.BitFlag
 }
 type Function interface {
 	Functional
@@ -204,6 +207,14 @@ type Vectorized interface {
 	Head() Functional
 	Tail() []Functional
 	DeCap() (Functional, []Functional)
+}
+type Accessable interface {
+	Collected
+	Quantified
+	Pairs() []Paired
+	Head() Paired
+	Tail() []Paired
+	DeCap() (Paired, []Paired)
 }
 
 //// RECURSIVE LISTS ///////

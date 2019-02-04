@@ -1,32 +1,32 @@
 package data
 
-func NewPair(l, r Data) Paired { return PairVal{l, r} }
+func NewPair(l, r Primary) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) Left() Data         { return p.l }
-func (p PairVal) Right() Data        { return p.r }
-func (p PairVal) Both() (Data, Data) { return p.l, p.r }
+func (p PairVal) Left() Primary            { return p.l }
+func (p PairVal) Right() Primary           { return p.r }
+func (p PairVal) Both() (Primary, Primary) { return p.l, p.r }
 
 // implements Mapped flagged Set
 
 func NewStringSet(acc ...Paired) Mapped {
-	var m = make(map[StrVal]Data)
+	var m = make(map[StrVal]Primary)
 	for _, pair := range acc {
 		m[pair.Left().(StrVal)] = pair.Right()
 	}
 	return SetString(m)
 }
 
-func (s SetString) Flag() BitFlag { return Set.Flag() }
-func (s SetString) Keys() []Data {
-	var keys = []Data{}
+func (s SetString) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetString) Keys() []Primary {
+	var keys = []Primary{}
 	for k, _ := range s {
 		keys = append(keys, k)
 	}
 	return keys
 }
-func (s SetString) Data() []Data {
-	var dat = []Data{}
+func (s SetString) Data() []Primary {
+	var dat = []Primary{}
 	for _, d := range s {
 		dat = append(dat, d)
 	}
@@ -39,34 +39,34 @@ func (s SetString) Fields() []Paired {
 	}
 	return pairs
 }
-func (s SetString) Get(acc Data) (Data, bool) {
+func (s SetString) Get(acc Primary) (Primary, bool) {
 	if dat, ok := s[acc.(StrVal)]; ok {
 		return dat, ok
 	}
 	return nil, false
 }
-func (s SetString) Set(acc Data, dat Data) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
+func (s SetString) Set(acc Primary, dat Primary) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
 //////////////////////////////////////////////////////////////
 
 func NewIntSet(acc ...Paired) Mapped {
-	var m = make(map[IntVal]Data)
+	var m = make(map[IntVal]Primary)
 	for _, pair := range acc {
 		m[pair.Left().(IntVal)] = pair.Right()
 	}
 	return SetInt(m)
 }
 
-func (s SetInt) Flag() BitFlag { return Set.Flag() }
-func (s SetInt) Keys() []Data {
-	var keys = []Data{}
+func (s SetInt) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetInt) Keys() []Primary {
+	var keys = []Primary{}
 	for k, _ := range s {
 		keys = append(keys, k)
 	}
 	return keys
 }
-func (s SetInt) Data() []Data {
-	var dat = []Data{}
+func (s SetInt) Data() []Primary {
+	var dat = []Primary{}
 	for _, d := range s {
 		dat = append(dat, d)
 	}
@@ -79,34 +79,34 @@ func (s SetInt) Fields() []Paired {
 	}
 	return pairs
 }
-func (s SetInt) Get(acc Data) (Data, bool) {
+func (s SetInt) Get(acc Primary) (Primary, bool) {
 	if dat, ok := s[acc.(IntVal)]; ok {
 		return dat, ok
 	}
 	return nil, false
 }
-func (s SetInt) Set(acc Data, dat Data) Mapped { s[acc.(IntVal)] = acc.(IntVal); return s }
+func (s SetInt) Set(acc Primary, dat Primary) Mapped { s[acc.(IntVal)] = acc.(IntVal); return s }
 
 //////////////////////////////////////////////////////////////
 
 func NewUintSet(acc ...Paired) Mapped {
-	var m = make(map[UintVal]Data)
+	var m = make(map[UintVal]Primary)
 	for _, pair := range acc {
 		m[pair.Left().(UintVal)] = pair.Right()
 	}
 	return SetUint(m)
 }
 
-func (s SetUint) Flag() BitFlag { return Set.Flag() }
-func (s SetUint) Keys() []Data {
-	var keys = []Data{}
+func (s SetUint) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetUint) Keys() []Primary {
+	var keys = []Primary{}
 	for k, _ := range s {
 		keys = append(keys, k)
 	}
 	return keys
 }
-func (s SetUint) Data() []Data {
-	var dat = []Data{}
+func (s SetUint) Data() []Primary {
+	var dat = []Primary{}
 	for _, d := range s {
 		dat = append(dat, d)
 	}
@@ -119,34 +119,34 @@ func (s SetUint) Fields() []Paired {
 	}
 	return pairs
 }
-func (s SetUint) Get(acc Data) (Data, bool) {
+func (s SetUint) Get(acc Primary) (Primary, bool) {
 	if dat, ok := s[acc.(UintVal)]; ok {
 		return dat, ok
 	}
 	return nil, false
 }
-func (s SetUint) Set(acc Data, dat Data) Mapped { s[acc.(UintVal)] = acc.(UintVal); return s }
+func (s SetUint) Set(acc Primary, dat Primary) Mapped { s[acc.(UintVal)] = acc.(UintVal); return s }
 
 //////////////////////////////////////////////////////////////
 
 func NewFloatSet(acc ...Paired) Mapped {
-	var m = make(map[FltVal]Data)
+	var m = make(map[FltVal]Primary)
 	for _, pair := range acc {
 		m[pair.Left().(FltVal)] = pair.Right()
 	}
 	return SetFloat(m)
 }
 
-func (s SetFloat) Flag() BitFlag { return Set.Flag() }
-func (s SetFloat) Keys() []Data {
-	var keys = []Data{}
+func (s SetFloat) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetFloat) Keys() []Primary {
+	var keys = []Primary{}
 	for k, _ := range s {
 		keys = append(keys, k)
 	}
 	return keys
 }
-func (s SetFloat) Data() []Data {
-	var dat = []Data{}
+func (s SetFloat) Data() []Primary {
+	var dat = []Primary{}
 	for _, d := range s {
 		dat = append(dat, d)
 	}
@@ -159,34 +159,34 @@ func (s SetFloat) Fields() []Paired {
 	}
 	return pairs
 }
-func (s SetFloat) Get(acc Data) (Data, bool) {
+func (s SetFloat) Get(acc Primary) (Primary, bool) {
 	if dat, ok := s[acc.(FltVal)]; ok {
 		return dat, ok
 	}
 	return nil, false
 }
-func (s SetFloat) Set(acc Data, dat Data) Mapped { s[acc.(FltVal)] = acc.(FltVal); return s }
+func (s SetFloat) Set(acc Primary, dat Primary) Mapped { s[acc.(FltVal)] = acc.(FltVal); return s }
 
 //////////////////////////////////////////////////////////////
 
 func NewBitFlagSet(acc ...Paired) Mapped {
-	var m = make(map[BitFlag]Data)
+	var m = make(map[BitFlag]Primary)
 	for _, pair := range acc {
 		m[pair.Left().(BitFlag)] = pair.Right()
 	}
 	return SetFlag(m)
 }
 
-func (s SetFlag) Flag() BitFlag { return Set.Flag() }
-func (s SetFlag) Keys() []Data {
-	var keys = []Data{}
+func (s SetFlag) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetFlag) Keys() []Primary {
+	var keys = []Primary{}
 	for k, _ := range s {
 		keys = append(keys, k)
 	}
 	return keys
 }
-func (s SetFlag) Data() []Data {
-	var dat = []Data{}
+func (s SetFlag) Data() []Primary {
+	var dat = []Primary{}
 	for _, d := range s {
 		dat = append(dat, d)
 	}
@@ -199,10 +199,10 @@ func (s SetFlag) Fields() []Paired {
 	}
 	return parms
 }
-func (s SetFlag) Get(acc Data) (Data, bool) {
+func (s SetFlag) Get(acc Primary) (Primary, bool) {
 	if dat, ok := s[acc.(BitFlag)]; ok {
 		return dat, ok
 	}
 	return nil, false
 }
-func (s SetFlag) Set(acc Data, dat Data) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }
+func (s SetFlag) Set(acc Primary, dat Primary) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }

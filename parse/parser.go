@@ -100,7 +100,7 @@ func compareTokenSequence(long, short []Token) bool {
 	}
 	l, s := long[0], short[0]
 	// if either token type or flag value mismatches, return false
-	if (s.TokType() != l.TokType()) || (!d.FlagMatch(l.TypePrim(), s.TypePrim())) {
+	if (s.TypeTok() != l.TypeTok()) || (!d.FlagMatch(l.TypePrim(), s.TypePrim())) {
 		return false
 	}
 	// recurse over tails of slices

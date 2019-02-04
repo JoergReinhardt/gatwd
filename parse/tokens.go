@@ -33,13 +33,13 @@ import (
 	l "github.com/JoergReinhardt/godeep/lex"
 )
 
-type TokType uint16
+type TyToken uint16
 
-func (t TokType) Flag() d.BitFlag { return d.Flag.TypePrim() }
+func (t TyToken) Flag() d.BitFlag { return d.Flag.TypePrim() }
 
-//go:generate stringer -type TokType
+//go:generate stringer -type TyToken
 const (
-	Syntax_Token TokType = 1 << iota
+	Syntax_Token TyToken = 1 << iota
 	TypeHO_Token
 	TypePrim_Token
 	Property_Token
@@ -57,10 +57,10 @@ func NewKindToken(flag f.TyHigherOrder) Token  { return newToken(TypeHO_Token, f
 func NewPropertyToken(prop Property) Token     { return newToken(Property_Token, prop) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
-func NewDataValueToken(dat d.Data) Token       { return newToken(Data_Value_Token, dat) }
+func NewDataValueToken(dat d.Primary) Token    { return newToken(Data_Value_Token, dat) }
 func NewPairValueToken(dat f.Paired) Token     { return newToken(Pair_Value_Token, dat) }
 func NewTokenCollection(dat ...Token) Token    { return newToken(Token_Collection, tokens(dat)) }
-func NewKeyValToken(key, val d.Data) Token {
+func NewKeyValToken(key, val d.Primary) Token {
 	return newToken(
 		Parameter_Token,
 		f.NewKeyValueParm(f.NewFromData(key), f.NewFromData(val)),
@@ -68,22 +68,22 @@ func NewKeyValToken(key, val d.Data) Token {
 }
 
 type TokVal struct {
-	tok TokType
-	d.Data
+	tok TyToken
+	d.Primary
 }
 
-func (t TokVal) TokType() TokType    { return t.tok }
-func (t TokVal) TypePrim() d.BitFlag { return t.Data.TypePrim() }
+func (t TokVal) TypeTok() TyToken    { return t.tok }
+func (t TokVal) TypePrim() d.BitFlag { return t.Primary.TypePrim() }
 func (t TokVal) Type() d.BitFlag     { return t.tok.Flag() }
 
 type dataTok struct {
 	TokVal
-	d.Data
+	d.Primary
 }
 
-func (t dataTok) TokType() TokType    { return t.TokVal.TokType() }
-func (d dataTok) TypePrim() d.BitFlag { return d.Data.TypePrim() }
-func newToken(t TokType, dat d.Data) Token {
+func (t dataTok) TypeTok() TyToken    { return t.TokVal.TypeTok() }
+func (d dataTok) TypePrim() d.BitFlag { return d.Primary.TypePrim() }
+func newToken(t TyToken, dat d.Primary) Token {
 	switch t {
 	case Syntax_Token:
 		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
@@ -98,7 +98,7 @@ func newToken(t TokType, dat d.Data) Token {
 	case Parameter_Token:
 		return dataTok{TokVal{Parameter_Token, dat.TypePrim()}, dat.(f.Parametric)}
 	case Data_Value_Token:
-		return dataTok{TokVal{Data_Value_Token, dat.TypePrim()}, dat.(d.Data)}
+		return dataTok{TokVal{Data_Value_Token, dat.TypePrim()}, dat.(d.Primary)}
 	case Pair_Value_Token:
 		return dataTok{TokVal{Pair_Value_Token, dat.TypePrim()}, dat.(f.Paired)}
 	case Token_Collection:

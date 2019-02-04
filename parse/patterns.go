@@ -16,8 +16,8 @@ import (
 ///////// MONO- / POLY-MORPHISM ///////////
 type (
 	Info        func() (name string, toks []Token)
-	Alternative func() (sig Info, prop Property, fnc f.Function)
-	Function    func() (sig Info, clos []Alternative)
+	Function    func() (inf Info, alt []Alternative)
+	Alternative func() (inf Info, fnc f.Function)
 )
 
 // patterns are slices of tokens that can be compared with one another
@@ -26,19 +26,17 @@ func NewPattern(name string, toks ...Token) (p Info) {
 }
 func (s Info) Name() string        { name, _ := s(); return name }
 func (s Info) Tokens() []Token     { _, toks := s(); return toks }
-func (s Info) Flag() d.BitFlag     { return d.Object.TypePrim() }
-func (s Info) TokenizeName() Token { return NewDataValueToken(d.StrVal(s.Name())) }
+func (s Info) TypePrim() d.BitFlag { return d.Object.TypePrim() }
 
 // CLOSURE
-func NewClosure(pat Info, prop Property, fnc f.Function) Alternative {
-	return func() (Info, Property, f.Function) { return pat, prop, fnc }
+func NewClosure(pat Info, fnc f.Function) Alternative {
+	return func() (Info, f.Function) { return pat, fnc }
 }
 func (c Alternative) String() string       { return c.Function().String() }
-func (c Alternative) Flag() d.BitFlag      { return c.Function().TypePrim() }
-func (c Alternative) Kind() d.BitFlag      { return c.Function().TypeHO() }
-func (c Alternative) Signature() Info      { sig, _, _ := c(); return sig }
-func (c Alternative) Property() Property   { _, prop, _ := c(); return prop }
-func (c Alternative) Function() f.Function { _, _, fnc := c(); return fnc }
+func (c Alternative) TypePrim() d.BitFlag  { return c.Function().TypePrim() }
+func (c Alternative) TypeHO() d.BitFlag    { return c.Function().TypeHO() }
+func (c Alternative) Info() Info           { info, _ := c(); return info }
+func (c Alternative) Function() f.Function { _, fnc := c(); return fnc }
 
 //TODO: type checker action needs to be happening right here
 func (m Alternative) Call(d ...f.Functional) f.Functional { return m.Function().Call(d...) }
@@ -52,11 +50,11 @@ func NewPolymorph(
 		return signature, monom
 	}
 }
-func (p Function) String() string         { return p.Signature().Name() }
-func (p Function) Flag() d.BitFlag        { return d.Object.TypePrim() }
-func (p Function) Kind() d.BitFlag        { return f.Polymorph.TypePrim() }
-func (p Function) Signature() Info        { sig, _ := p(); return sig }
-func (p Function) Monoids() []Alternative { _, mons := p(); return mons }
+func (p Function) String() string              { return p.Info().Name() }
+func (p Function) TypePrim() d.BitFlag         { return d.Object.TypePrim() }
+func (p Function) TypeHO() d.BitFlag           { return f.Polymorph.TypePrim() }
+func (p Function) Info() Info                  { info, _ := p(); return info }
+func (p Function) Alternatives() []Alternative { _, alts := p(); return alts }
 func (p Function) Append(clo Alternative) Function {
 	sig, clos := p()
 	return func() (Info, []Alternative) {

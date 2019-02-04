@@ -23,9 +23,9 @@ func (t tokenSlice) String() string {
 }
 func (t TokVal) String() string {
 	var str string
-	switch t.TokType() {
+	switch t.TypeTok() {
 	case Property_Token:
-		var props = d.FlagDecompose(t.Data.(Property).TypePrim())
+		var props = d.FlagDecompose(t.Primary.(Property).TypePrim())
 		var l = len(props)
 		if l > 0 {
 			str = str + "《"
@@ -38,11 +38,11 @@ func (t TokVal) String() string {
 			str = str + "》"
 		}
 	case TypeHO_Token:
-		str = t.Data.(f.TyHigherOrder).String() + "\n"
+		str = t.Primary.(f.TyHigherOrder).String() + "\n"
 	case Syntax_Token:
-		str = t.Data.(l.SyntaxItemFlag).Syntax() + "\n"
+		str = t.Primary.(l.SyntaxItemFlag).Syntax() + "\n"
 	case TypePrim_Token:
-		str = t.Data.(d.TyPrimitive).String() + "\n"
+		str = t.Primary.(d.TyPrimitive).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}
@@ -50,17 +50,17 @@ func (t TokVal) String() string {
 }
 func (t dataTok) String() string {
 	var str string
-	switch t.TokType() {
+	switch t.TypeTok() {
 	case Data_Value_Token:
-		str = t.Data.String()
+		str = t.Primary.String()
 	case Argument_Token:
-		str = t.Data.String()
+		str = t.Primary.String()
 	case Parameter_Token:
-		str = t.Data.String()
+		str = t.Primary.String()
 	case Pair_Value_Token:
-		str = t.Data.String()
+		str = t.Primary.String()
 	case Token_Collection:
-		str = t.Data.String()
+		str = t.Primary.String()
 	}
 	return str
 }

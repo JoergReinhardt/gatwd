@@ -97,11 +97,11 @@ func StringBitFlag(v BitFlag) string {
 func (v ErrorVec) String() string { return StringSlice("\n", "", "", v) }
 
 // stringer for ordered chains, without any further specification.
-func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
+func StringSlice(sep, ldelim, rdelim string, s ...Primary) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.Flag(), Vector.Flag()) {
+		if FlagMatch(d.TypePrim(), Vector.TypePrim()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()
@@ -114,7 +114,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Data) string {
 	return str
 }
 
-func StringChainTable(v ...[]Data) string {
+func StringChainTable(v ...[]Primary) string {
 	var str = &strings.Builder{}
 	var tab = tablewriter.NewWriter(str)
 	tab.SetBorder(false)
@@ -131,7 +131,7 @@ func StringChainTable(v ...[]Data) string {
 	return str.String()
 }
 
-func stringChainTable(v ...Data) string {
+func stringChainTable(v ...Primary) string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
 	for i, d := range v {

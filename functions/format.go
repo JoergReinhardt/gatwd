@@ -8,12 +8,43 @@ import (
 )
 
 /// VALUE
+func (dat PrimeVal) String() string {
+	var buf = bytes.NewBuffer([]byte{})
+	buf.WriteString(l.Lambda.Syntax())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(l.RightArrow.Syntax())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(dat.TypePrim().String())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(dat.Eval().String())
+	return buf.String()
+}
 
-/// PAIR
+func (p PairVal) String() string {
+	var buf = bytes.NewBuffer([]byte{})
+	buf.WriteString(p.Left().String())
+	buf.WriteString(l.Colon.Syntax())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(p.Right().String())
+	return buf.String()
+}
+func (c ConstFnc) String() string  { return "ϝ → т" }
+func (u UnaryFnc) String() string  { return "т → ϝ → т" }
+func (b BinaryFnc) String() string { return "т → т → ϝ → т" }
+func (n NaryFnc) String() string   { return "[т...] → ϝ → т" }
 
 /// VECTOR
 func (v VecFnc) String() string {
-	var slice []d.Data
+	var slice []d.Primary
+	for _, dat := range v() {
+		slice = append(slice, dat)
+	}
+	return d.StringSlice("∙", "[", "]", slice...)
+}
+
+/// ACCESSABLE VECTOR (SLICE OF PAIRS)
+func (v AccVecFnc) String() string {
+	var slice []d.Primary
 	for _, dat := range v() {
 		slice = append(slice, dat)
 	}
@@ -31,7 +62,7 @@ func (l ListFnc) String() string {
 
 /// TUPLE
 func (t TupleFnc) String() string {
-	var slice []d.Data
+	var slice []d.Primary
 	var v, _ = t()
 	for _, dat := range v.(VecFnc)() {
 		slice = append(slice, dat)
@@ -53,30 +84,10 @@ func (r RecordFnc) String() string {
 	return str + "}"
 }
 
-////////////////////
-func (dat DataVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.Lambda.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(l.RightArrow.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.Flag().String())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.Eval().String())
-	return buf.String()
-}
-
-func (p PairVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(p.Left().String())
-	buf.WriteString(l.Colon.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(p.Right().String())
-	return buf.String()
-}
-
+/// ARGUMENT
 func (p ArgVal) String() string { return p.Arg().String() }
 
+/// ARGUMENTS
 func (p ArgSet) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(l.LeftBra.Syntax())
@@ -93,8 +104,10 @@ func (p ArgSet) String() string {
 	return buf.String()
 }
 
+//// PARAMETER
 func (p ParamVal) String() string { return p.Pair().String() }
 
+//// PARAMETERS
 func (p ParamSet) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(l.LeftBra.Syntax())

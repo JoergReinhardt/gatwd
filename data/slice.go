@@ -5,27 +5,27 @@ import (
 	"strings"
 )
 
-func NewSlice(val ...Data) DataSlice {
-	l := make([]Data, 0, len(val))
+func NewSlice(val ...Primary) DataSlice {
+	l := make([]Primary, 0, len(val))
 	l = append(l, val...)
 	return l
 }
-func SliceContainedTypes(c []Data) BitFlag {
+func SliceContainedTypes(c []Primary) BitFlag {
 	var flag = BitFlag(0)
 	for _, d := range c {
-		if FlagMatch(d.Flag(), Vector.Flag()) {
+		if FlagMatch(d.TypePrim(), Vector.TypePrim()) {
 			SliceContainedTypes(d.(DataSlice))
 			continue
 		}
-		flag = flag | d.Flag()
+		flag = flag | d.TypePrim()
 	}
 	return flag
 }
-func (c DataSlice) Flag() BitFlag           { return Vector.Flag() }
+func (c DataSlice) TypePrim() BitFlag       { return Vector.TypePrim() }
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
-func (c DataSlice) Eval() Data              { return c }
-func (c DataSlice) Null() DataSlice         { return []Data{} }
-func (c DataSlice) Copy() Data {
+func (c DataSlice) Eval() Primary           { return c }
+func (c DataSlice) Null() DataSlice         { return []Primary{} }
+func (c DataSlice) Copy() Primary {
 	var ns = DataSlice{}
 	for _, dat := range c {
 		ns = append(ns, dat.(Reproduceable).Copy())
@@ -34,16 +34,16 @@ func (c DataSlice) Copy() Data {
 }
 
 // SLICE ->
-func (v DataSlice) Slice() []Data        { return v }
-func (v DataSlice) GetInt(i int) Data    { return v[i] }
-func (v DataSlice) Get(i Data) Data      { return v[i.(IntVal).Int()] }
-func (v DataSlice) SetInt(i int, d Data) { v[i] = d }
-func (v DataSlice) Set(i Data, d Data)   { v[i.(IntVal)] = d }
-func (v DataSlice) Len() int             { return len([]Data(v)) }
+func (v DataSlice) Slice() []Primary         { return v }
+func (v DataSlice) GetInt(i int) Primary     { return v[i] }
+func (v DataSlice) Get(i Primary) Primary    { return v[i.(IntVal).Int()] }
+func (v DataSlice) SetInt(i int, d Primary)  { v[i] = d }
+func (v DataSlice) Set(i Primary, d Primary) { v[i.(IntVal)] = d }
+func (v DataSlice) Len() int                 { return len([]Primary(v)) }
 
 // COLLECTION
 func (s DataSlice) Empty() bool            { return SliceEmpty(s) }
-func (s DataSlice) Head() (h Data)         { return s[0] }
+func (s DataSlice) Head() (h Primary)      { return s[0] }
 func (s DataSlice) Tail() (c Consumeable)  { return s[:1] }
 func (s DataSlice) Shift() (c Consumeable) { return s[:1] }
 
@@ -57,16 +57,16 @@ func SliceClear(s DataSlice) {
 	}
 	s = nil
 }
-func ElemEmpty(d Data) bool {
+func ElemEmpty(d Primary) bool {
 	// not flagged nil, not a composition either...
-	if !FlagMatch(d.Flag(), (Nil.Flag() | Vector.Flag())) {
+	if !FlagMatch(d.TypePrim(), (Nil.TypePrim() | Vector.TypePrim())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if FlagMatch(d.Flag(), Vector.Flag()) {
+	if FlagMatch(d.TypePrim(), Vector.TypePrim()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(DataSlice); ok {
 			return SliceEmpty(sl)
@@ -96,9 +96,9 @@ func SliceEmpty(s DataSlice) bool {
 
 ///// CONVERT TO SLICE OF NATIVES ////////
 func SliceToNatives(c DataSlice) Sliceable {
-	f := SliceGet(c, 0).Flag()
-	if SliceAll(c, func(i int, c Data) bool {
-		return FlagMatch(f, c.Flag())
+	f := SliceGet(c, 0).TypePrim()
+	if SliceAll(c, func(i int, c Primary) bool {
+		return FlagMatch(f, c.TypePrim())
 	}) {
 		return ConNativeSlice(f, c.Slice()...)
 	}
@@ -114,24 +114,22 @@ func (c DataSlice) NativeSlice() []interface{} {
 
 //// LIST OPERATIONS ///////
 func SliceFoldL(
-	c DataSlice, fn func(i int, data Data, accu Data) Data,
-	init Data,
-) Data {
+	c DataSlice, fn func(i int, data Primary, accu Primary) Primary, init Primary) Primary {
 	var accu = init
 	for i, d := range c.Slice() {
 		accu = fn(i, d, accu)
 	}
 	return accu
 }
-func SliceMap(c DataSlice, fn func(i int, d Data) Data) DataSlice {
-	var ch = make([]Data, 0, c.Len())
+func SliceMap(c DataSlice, fn func(i int, d Primary) Primary) DataSlice {
+	var ch = make([]Primary, 0, c.Len())
 	for i, d := range c.Slice() {
 		ch = append(ch, fn(i, d))
 	}
 	return ch
 }
-func SliceFilter(c DataSlice, fn func(i int, d Data) bool) DataSlice {
-	var ch = []Data{}
+func SliceFilter(c DataSlice, fn func(i int, d Primary) bool) DataSlice {
+	var ch = []Primary{}
 	for i, d := range c.Slice() {
 		if fn(i, d) {
 			ch = append(ch, d)
@@ -139,7 +137,7 @@ func SliceFilter(c DataSlice, fn func(i int, d Data) bool) DataSlice {
 	}
 	return ch
 }
-func SliceAny(c DataSlice, fn func(i int, d Data) bool) bool {
+func SliceAny(c DataSlice, fn func(i int, d Primary) bool) bool {
 	var answ = false
 	for i, d := range c.Slice() {
 		if fn(i, d) {
@@ -148,7 +146,7 @@ func SliceAny(c DataSlice, fn func(i int, d Data) bool) bool {
 	}
 	return answ
 }
-func SliceAll(c DataSlice, fn func(i int, d Data) bool) bool {
+func SliceAll(c DataSlice, fn func(i int, d Primary) bool) bool {
 	var answ = true
 	for i, d := range c.Slice() {
 		if !fn(i, d) {
@@ -158,7 +156,7 @@ func SliceAll(c DataSlice, fn func(i int, d Data) bool) bool {
 	return answ
 }
 func SliceReverse(c DataSlice) DataSlice {
-	var ch = make([]Data, 0, c.Len())
+	var ch = make([]Primary, 0, c.Len())
 	for i := c.Len() - 1; i > 0; i-- {
 		ch = append(ch, SliceGet(c, i))
 	}
@@ -166,10 +164,10 @@ func SliceReverse(c DataSlice) DataSlice {
 }
 
 // ACCESSABLE SLICE
-func SliceGet(s DataSlice, i int) Data { return s[i] }
+func SliceGet(s DataSlice, i int) Primary { return s[i] }
 
 // MUTABLE SLICE
-func SliceSet(s DataSlice, i int, v Data) DataSlice { s[i] = v; return s }
+func SliceSet(s DataSlice, i int, v Primary) DataSlice { s[i] = v; return s }
 
 // reversed index to access stacks and tuples, since their order is reversed
 // for improved performance
@@ -177,40 +175,40 @@ func (c DataSlice) IdxRev(i int) int { return c.Len() - 1 - i }
 
 // reversed Get method to access elements on stacks and tuples, since their
 // order is reversed for improved performance
-func SliceGetRev(s DataSlice, i int) Data { return s[s.IdxRev(i)] }
+func SliceGetRev(s DataSlice, i int) Primary { return s[s.IdxRev(i)] }
 
 // reversed Get method to mutate elements on stacks and tuples, since their
 // order is reversed for improved performance
-func SliceSetRev(s DataSlice, i int, v Data) DataSlice { s[s.IdxRev(i)] = v; return s }
+func SliceSetRev(s DataSlice, i int, v Primary) DataSlice { s[s.IdxRev(i)] = v; return s }
 
 // ITERATOR
-func SliceNext(s DataSlice) (v Data, i DataSlice) {
+func SliceNext(s DataSlice) (v Primary, i DataSlice) {
 	if len(s) > 0 {
 		if len(s) > 1 {
 			return s[0], s[1:]
 		}
-		return s[0], DataSlice([]Data{NilVal{}})
+		return s[0], DataSlice([]Primary{NilVal{}})
 	}
-	return NilVal{}, DataSlice([]Data{NilVal{}})
+	return NilVal{}, DataSlice([]Primary{NilVal{}})
 }
 
-type Iter func() (Data, Iter)
+type Iter func() (Primary, Iter)
 
 func ConIter(c DataSlice) Iter {
 	data, chain := SliceNext(c)
-	return func() (Data, Iter) {
+	return func() (Primary, Iter) {
 		return data, ConIter(chain)
 	}
 }
 
 // BOOTOM & TOP
-func SliceFirst(s DataSlice) Data {
+func SliceFirst(s DataSlice) Primary {
 	if s.Len() > 0 {
 		return s[0]
 	}
 	return nil
 }
-func SliceLast(s DataSlice) Data {
+func SliceLast(s DataSlice) Primary {
 	if s.Len() > 0 {
 		return s[s.Len()-1]
 	}
@@ -218,13 +216,13 @@ func SliceLast(s DataSlice) Data {
 }
 
 // LIFO QUEUE
-func SlicePut(s DataSlice, v Data) DataSlice {
+func SlicePut(s DataSlice, v Primary) DataSlice {
 	return append(s, v)
 }
-func SliceAppend(s DataSlice, v ...Data) DataSlice {
+func SliceAppend(s DataSlice, v ...Primary) DataSlice {
 	return append(s, v...)
 }
-func SlicePull(s DataSlice) (Data, DataSlice) {
+func SlicePull(s DataSlice) (Primary, DataSlice) {
 	if len(s) > 0 {
 		return s[0], s[1:]
 	}
@@ -232,14 +230,14 @@ func SlicePull(s DataSlice) (Data, DataSlice) {
 }
 
 // FIFO STACK
-func SliceAdd(s DataSlice, v ...Data) DataSlice {
+func SliceAdd(s DataSlice, v ...Primary) DataSlice {
 	return append(v, s...)
 }
-func SlicePush(s DataSlice, v Data) DataSlice {
+func SlicePush(s DataSlice, v Primary) DataSlice {
 	//return append([]Data{v}, s...)
 	return SlicePut(s, v)
 }
-func SlicePop(s DataSlice) (Data, DataSlice) {
+func SlicePop(s DataSlice) (Primary, DataSlice) {
 	if SliceLen(s) > 0 {
 		//	return s[0], s[1:]
 		return s[SliceLen(s)-1], s[:SliceLen(s)-1]
@@ -248,10 +246,10 @@ func SlicePop(s DataSlice) (Data, DataSlice) {
 }
 
 // TUPLE
-func SliceHead(s DataSlice) (h Data)         { return s[0] }
-func SliceTail(s DataSlice) (c []Data)       { return s[:1] }
-func SliceCon(s DataSlice, v Data) DataSlice { return SlicePush(s, v) }
-func SliceDeCap(s DataSlice) (h Data, t DataSlice) {
+func SliceHead(s DataSlice) (h Primary)         { return s[0] }
+func SliceTail(s DataSlice) (c []Primary)       { return s[:1] }
+func SliceCon(s DataSlice, v Primary) DataSlice { return SlicePush(s, v) }
+func SliceDeCap(s DataSlice) (h Primary, t DataSlice) {
 	if !SliceEmpty(s) {
 		return SlicePop(s)
 	}
@@ -259,8 +257,8 @@ func SliceDeCap(s DataSlice) (h Data, t DataSlice) {
 }
 
 // SLICE
-func SliceSlice(s DataSlice) []Data { return []Data(s) }
-func SliceLen(s DataSlice) int      { return len(s) }
+func SliceSlice(s DataSlice) []Primary { return []Primary(s) }
+func SliceLen(s DataSlice) int         { return len(s) }
 func SliceSplit(s DataSlice, i int) (DataSlice, DataSlice) {
 	h, t := s[:i], s[i:]
 	return h, t
@@ -278,16 +276,16 @@ func SliceDelete(s DataSlice, i int) DataSlice {
 	s[len(s)-1] = nil
 	return s[:len(s)-1]
 }
-func SliceInsert(s DataSlice, i int, v Data) DataSlice {
+func SliceInsert(s DataSlice, i int, v Primary) DataSlice {
 	s = append(s, NilVal{})
 	copy(s[i+1:], s[i:])
 	s[i] = v
 	return s
 }
-func SliceInsertVector(s DataSlice, i int, v ...Data) DataSlice {
+func SliceInsertVector(s DataSlice, i int, v ...Primary) DataSlice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
-func SliceAttrType(s DataSlice) BitFlag { return Int.Flag() }
+func SliceAttrType(s DataSlice) BitFlag { return Int.TypePrim() }
 
 func (c DataSlice) Swap(i, j int) { c = SliceSwap(c, i, j) }
 func SliceSwap(c DataSlice, i, j int) DataSlice {
@@ -297,9 +295,9 @@ func SliceSwap(c DataSlice, i, j int) DataSlice {
 func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
-	f := compT.Flag()
+	f := compT.TypePrim()
 	switch {
-	case FlagMatch(f, Symbolic.Flag()):
+	case FlagMatch(f, Symbolic.TypePrim()):
 		fn = func(i, j int) bool {
 			if strings.Compare(
 				string(chain[i].String()),
@@ -309,15 +307,15 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Flag.Flag()):
+	case FlagMatch(f, Flag.TypePrim()):
 		fn = func(i, j int) bool {
-			if chain[i].(TyPrimitive).Flag() <
-				chain[j].(TyPrimitive).Flag() {
+			if chain[i].(TyPrimitive).TypePrim() <
+				chain[j].(TyPrimitive).TypePrim() {
 				return true
 			}
 			return false
 		}
-	case FlagMatch(f, Unsigned.Flag()):
+	case FlagMatch(f, Unsigned.TypePrim()):
 		fn = func(i, j int) bool {
 			if uint(chain[i].(UnsignedVal).Uint()) <
 				uint(chain[j].(UnsignedVal).Uint()) {
@@ -325,7 +323,7 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Integer.Flag()):
+	case FlagMatch(f, Integer.TypePrim()):
 		fn = func(i, j int) bool {
 			if int(chain[i].(IntegerVal).Int()) <
 				int(chain[j].(IntegerVal).Int()) {
@@ -344,26 +342,26 @@ func (c DataSlice) Sort(compT TyPrimitive) {
 	c = SliceSort(c, compT)
 }
 
-func newSliceSearchFnc(c DataSlice, comp Data) func(i int) bool {
+func newSliceSearchFnc(c DataSlice, comp Primary) func(i int) bool {
 	var fn func(i int) bool
-	f := comp.Flag()
+	f := comp.TypePrim()
 	switch {
-	case FlagMatch(f, Symbolic.Flag()):
+	case FlagMatch(f, Symbolic.TypePrim()):
 		fn = func(i int) bool {
 			return strings.Compare(c[i].String(),
 				comp.String()) >= 0
 		}
-	case FlagMatch(f, Flag.Flag()):
+	case FlagMatch(f, Flag.TypePrim()):
 		fn = func(i int) bool {
-			return c[i].Flag() >=
-				comp.Flag()
+			return c[i].TypePrim() >=
+				comp.TypePrim()
 		}
-	case FlagMatch(f, Unsigned.Flag()):
+	case FlagMatch(f, Unsigned.TypePrim()):
 		fn = func(i int) bool {
 			return uint(c[i].(UnsignedVal).Uint()) >=
 				uint(comp.(UnsignedVal).Uint())
 		}
-	case FlagMatch(f, Integer.Flag()):
+	case FlagMatch(f, Integer.TypePrim()):
 		fn = func(i int) bool {
 			return int(c[i].(IntegerVal).Int()) >=
 				int(comp.(IntegerVal).Int())
@@ -371,17 +369,17 @@ func newSliceSearchFnc(c DataSlice, comp Data) func(i int) bool {
 	}
 	return fn
 }
-func SliceSearch(c DataSlice, comp Data) Data {
+func SliceSearch(c DataSlice, comp Primary) Primary {
 	idx := sort.Search(c.Len(), newSliceSearchFnc(c, comp))
 	var dat = SliceGet(c, idx)
 	return dat
 }
-func SliceSearchRange(c DataSlice, comp Data) []Data {
+func SliceSearchRange(c DataSlice, comp Primary) []Primary {
 	var idx = sort.Search(c.Len(), newSliceSearchFnc(c, comp))
-	var dat = []Data{}
-	for SliceGet(c, idx).Flag().Match(comp.Flag()) {
+	var dat = []Primary{}
+	for SliceGet(c, idx).TypePrim().Match(comp.TypePrim()) {
 		dat = append(dat, SliceGet(c, idx))
 	}
 	return dat
 }
-func (c DataSlice) Search(comp Data) Data { return SliceSearch(c, comp) }
+func (c DataSlice) Search(comp Primary) Primary { return SliceSearch(c, comp) }

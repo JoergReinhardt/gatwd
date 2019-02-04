@@ -8,80 +8,80 @@ import (
 func New(vals ...interface{}) Nullable {
 	var nul Nullable
 	dat, flag := NewWithTypeInfo(vals...)
-	f := flag.Flag()
+	f := flag.TypePrim()
 	switch {
-	case FlagMatch(f, Nil.Flag()):
+	case FlagMatch(f, Nil.TypePrim()):
 		nul = Nullable(dat.(NilVal))
-	case FlagMatch(f, Bool.Flag()):
+	case FlagMatch(f, Bool.TypePrim()):
 		nul = Nullable(dat.(BoolVal))
-	case FlagMatch(f, Int.Flag()):
+	case FlagMatch(f, Int.TypePrim()):
 		nul = Nullable(dat.(IntVal))
-	case FlagMatch(f, Int8.Flag()):
+	case FlagMatch(f, Int8.TypePrim()):
 		nul = Nullable(dat.(Int8Val))
-	case FlagMatch(f, Int16.Flag()):
+	case FlagMatch(f, Int16.TypePrim()):
 		nul = Nullable(dat.(Int16Val))
-	case FlagMatch(f, Int32.Flag()):
+	case FlagMatch(f, Int32.TypePrim()):
 		nul = Nullable(dat.(Int32Val))
-	case FlagMatch(f, Uint.Flag()):
+	case FlagMatch(f, Uint.TypePrim()):
 		nul = Nullable(dat.(UintVal))
-	case FlagMatch(f, Uint8.Flag()):
+	case FlagMatch(f, Uint8.TypePrim()):
 		nul = Nullable(dat.(Uint8Val))
-	case FlagMatch(f, Uint16.Flag()):
+	case FlagMatch(f, Uint16.TypePrim()):
 		nul = Nullable(dat.(Uint16Val))
-	case FlagMatch(f, Uint32.Flag()):
+	case FlagMatch(f, Uint32.TypePrim()):
 		nul = Nullable(dat.(Uint32Val))
-	case FlagMatch(f, Float.Flag()):
+	case FlagMatch(f, Float.TypePrim()):
 		nul = Nullable(dat.(FltVal))
-	case FlagMatch(f, Flt32.Flag()):
+	case FlagMatch(f, Flt32.TypePrim()):
 		nul = Nullable(dat.(Flt32Val))
-	case FlagMatch(f, Imag.Flag()):
+	case FlagMatch(f, Imag.TypePrim()):
 		nul = Nullable(dat.(ImagVal))
-	case FlagMatch(f, Imag64.Flag()):
+	case FlagMatch(f, Imag64.TypePrim()):
 		nul = Nullable(dat.(Imag64Val))
-	case FlagMatch(f, Byte.Flag()):
+	case FlagMatch(f, Byte.TypePrim()):
 		nul = Nullable(dat.(ByteVal))
-	case FlagMatch(f, Rune.Flag()):
+	case FlagMatch(f, Rune.TypePrim()):
 		nul = Nullable(dat.(RuneVal))
-	case FlagMatch(f, Bytes.Flag()):
+	case FlagMatch(f, Bytes.TypePrim()):
 		nul = Nullable(dat.(BytesVal))
-	case FlagMatch(f, String.Flag()):
+	case FlagMatch(f, String.TypePrim()):
 		nul = Nullable(dat.(StrVal))
-	case FlagMatch(f, BigInt.Flag()):
+	case FlagMatch(f, BigInt.TypePrim()):
 		nul = Nullable(dat.(BigIntVal))
-	case FlagMatch(f, BigFlt.Flag()):
+	case FlagMatch(f, BigFlt.TypePrim()):
 		nul = Nullable(dat.(BigFltVal))
-	case FlagMatch(f, Ratio.Flag()):
+	case FlagMatch(f, Ratio.TypePrim()):
 		nul = Nullable(dat.(RatioVal))
-	case FlagMatch(f, Time.Flag()):
+	case FlagMatch(f, Time.TypePrim()):
 		nul = Nullable(dat.(TimeVal))
-	case FlagMatch(f, Duration.Flag()):
+	case FlagMatch(f, Duration.TypePrim()):
 		nul = Nullable(dat.(DuraVal))
-	case FlagMatch(f, Error.Flag()):
+	case FlagMatch(f, Error.TypePrim()):
 		nul = Nullable(dat.(ErrorVal))
 	}
 	return nul
 }
-func NewData(vals ...Data) Data {
+func NewData(vals ...Primary) Primary {
 	var ifs = []interface{}{}
 	for _, val := range vals {
 		ifs = append(ifs, val.(interface{}))
 	}
 	return NewFromNative(ifs...)
 }
-func NewUnBoxed(f BitFlag, vals ...Data) Data { return conVec(f, vals...) }
-func NewFromNative(vals ...interface{}) Data  { dat, _ := NewWithTypeInfo(vals...); return dat }
-func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
+func NewUnBoxed(f BitFlag, vals ...Primary) Primary { return conVec(f, vals...) }
+func NewFromNative(vals ...interface{}) Primary     { dat, _ := NewWithTypeInfo(vals...); return dat }
+func NewWithTypeInfo(vals ...interface{}) (rval Primary, flag BitFlag) {
 
 	if len(vals) == 0 {
-		return nil, Nil.Flag()
+		return nil, Nil.TypePrim()
 	}
 	var val = vals[0]
 	if len(vals) > 1 {
-		var dat = DataSlice(make([]Data, 0, len(vals)))
+		var dat = DataSlice(make([]Primary, 0, len(vals)))
 		for _, val := range vals {
-			var d Data
+			var d Primary
 			d, flag = NewWithTypeInfo(val)
-			flag = flag | d.Flag()
+			flag = flag | d.TypePrim()
 			dat = append(dat, d)
 		}
 		if FlagLength(flag) == 1 {
@@ -135,109 +135,109 @@ func NewWithTypeInfo(vals ...interface{}) (rval Data, flag BitFlag) {
 	case *big.Rat:
 		v := RatioVal(*val.(*big.Rat))
 		rval = &v
-	case Data:
-		rval = val.(Data)
-	case []Data:
-		rval = DataSlice(val.([]Data))
+	case Primary:
+		rval = val.(Primary)
+	case []Primary:
+		rval = DataSlice(val.([]Primary))
 	}
 	return rval, flag
 }
-func conVec(f BitFlag, d ...Data) (val Data) {
-	var slice DataSlice = []Data{}
+func conVec(f BitFlag, d ...Primary) (val Primary) {
+	var slice DataSlice = []Primary{}
 	switch {
-	case FlagMatch(f, Nil.Flag()):
+	case FlagMatch(f, Nil.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(NilVal))
 		}
-	case FlagMatch(f, Bool.Flag()):
+	case FlagMatch(f, Bool.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(BoolVal))
 		}
-	case FlagMatch(f, Int.Flag()):
+	case FlagMatch(f, Int.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(IntVal))
 		}
-	case FlagMatch(f, Int8.Flag()):
+	case FlagMatch(f, Int8.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Int8Val))
 		}
-	case FlagMatch(f, Int16.Flag()):
+	case FlagMatch(f, Int16.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Int16Val))
 		}
-	case FlagMatch(f, Int32.Flag()):
+	case FlagMatch(f, Int32.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Int32Val))
 		}
-	case FlagMatch(f, Uint.Flag()):
+	case FlagMatch(f, Uint.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(UintVal))
 		}
-	case FlagMatch(f, Uint8.Flag()):
+	case FlagMatch(f, Uint8.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint8Val))
 		}
-	case FlagMatch(f, Uint16.Flag()):
+	case FlagMatch(f, Uint16.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint16Val))
 		}
-	case FlagMatch(f, Uint32.Flag()):
+	case FlagMatch(f, Uint32.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Uint32Val))
 		}
-	case FlagMatch(f, Float.Flag()):
+	case FlagMatch(f, Float.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(FltVal))
 		}
-	case FlagMatch(f, Flt32.Flag()):
+	case FlagMatch(f, Flt32.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Flt32Val))
 		}
-	case FlagMatch(f, Imag.Flag()):
+	case FlagMatch(f, Imag.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case FlagMatch(f, Imag64.Flag()):
+	case FlagMatch(f, Imag64.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case FlagMatch(f, Byte.Flag()):
+	case FlagMatch(f, Byte.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(ByteVal))
 		}
-	case FlagMatch(f, Rune.Flag()):
+	case FlagMatch(f, Rune.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(RuneVal))
 		}
-	case FlagMatch(f, Bytes.Flag()):
+	case FlagMatch(f, Bytes.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(BytesVal))
 		}
-	case FlagMatch(f, String.Flag()):
+	case FlagMatch(f, String.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(StrVal))
 		}
-	case FlagMatch(f, BigInt.Flag()):
+	case FlagMatch(f, BigInt.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(BigIntVal))
 		}
-	case FlagMatch(f, BigFlt.Flag()):
+	case FlagMatch(f, BigFlt.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(BigFltVal))
 		}
-	case FlagMatch(f, Ratio.Flag()):
+	case FlagMatch(f, Ratio.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(RatioVal))
 		}
-	case FlagMatch(f, Time.Flag()):
+	case FlagMatch(f, Time.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(TimeVal))
 		}
-	case FlagMatch(f, Duration.Flag()):
+	case FlagMatch(f, Duration.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(DuraVal))
 		}
-	case FlagMatch(f, Error.Flag()):
+	case FlagMatch(f, Error.TypePrim()):
 		for _, v := range d {
 			slice = append(slice, v.(ErrorVal))
 		}
