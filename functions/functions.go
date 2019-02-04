@@ -8,23 +8,21 @@ BASE FUNCTIONS ARGUMENTS, PARAMETERS & 'APPLICABLES'
 package functions
 
 import (
-	"bytes"
 	"fmt"
 
 	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lex"
 )
 
-// type Kind d.BitFlag
+// type TyHigherOrder d.BitFlag
 // encodes the kind of functional data as bitflag
-type Kind d.BitFlag
+type TyHigherOrder d.BitFlag
 
-func (t Kind) Flag() d.BitFlag { return d.BitFlag(t).Flag() }
-func (t Kind) Uint() uint      { return d.BitFlag(t).Uint() }
+func (t TyHigherOrder) Flag() d.BitFlag { return d.BitFlag(t).Flag() }
+func (t TyHigherOrder) Uint() uint      { return d.BitFlag(t).Uint() }
 
-//go:generate stringer -type=Kind
+//go:generate stringer -type=TyHigherOrder
 const (
-	Value Kind = 1 << iota
+	Value TyHigherOrder = 1 << iota
 	Instance
 	Polymorph
 	Argument
@@ -118,19 +116,6 @@ func (dat DataVal) Empty() bool                { return ElemEmpty(dat) }
 func (dat DataVal) Ident() Functional          { return dat }
 func (dat DataVal) Eval() d.Data               { return dat() }
 func (dat DataVal) Call(...d.Evaluable) d.Data { return dat() }
-func (dat DataVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.Lambda.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(l.RightArrow.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(l.LeftBra.Syntax())
-	buf.WriteString(dat.Flag().String())
-	buf.WriteString(l.RightBra.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.Eval().String())
-	return buf.String()
-}
 
 func ElemEmpty(dat Functional) bool {
 	if dat != nil {
@@ -168,14 +153,6 @@ func (p PairVal) Eval() d.Data                   { return NewPair(p.Left(), p.Ri
 func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
 }
-func (p PairVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(p.Left().String())
-	buf.WriteString(l.Colon.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(p.Right().String())
-	return buf.String()
-}
 
 //
 // ARGUMENT
@@ -208,7 +185,6 @@ func (p ArgVal) ArgType() d.BitFlag     { return p.Arg().Flag() }
 func (p ArgVal) Empty() bool            { return ElemEmpty(p.Arg()) }
 func (p ArgVal) Kind() d.BitFlag        { return d.Argument.Flag() }
 func (p ArgVal) Flag() d.BitFlag        { return p.Arg().Eval().Flag() | d.Argument.Flag() }
-func (p ArgVal) String() string         { return p.Arg().String() }
 
 //
 // ARGUMENT SET
@@ -281,21 +257,6 @@ func (a ArgSet) Apply(dd ...Functional) ([]Functional, Arguments) {
 	}
 	return dats, args
 }
-func (p ArgSet) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.LeftBra.Syntax())
-	var args = p.Data()
-	var length = len(args) - 1
-	for i, arg := range args {
-		buf.WriteString(arg.String())
-		if i < length {
-			buf.WriteString(l.Comma.Syntax())
-			buf.WriteString(l.Blank.Syntax())
-		}
-	}
-	buf.WriteString(l.RightBra.Syntax())
-	return buf.String()
-}
 func ApplyArgs(ao ArgSet, args ...Functional) Arguments {
 	oargs, _ := ao()
 	var l = len(oargs)
@@ -361,7 +322,6 @@ func (p ParamVal) Empty() bool {
 }
 func (p ParamVal) Flag() d.BitFlag { return p.Pair().Flag() | d.Parameter.Flag() }
 func (p ParamVal) Kind() d.BitFlag { return Parameter.Flag() }
-func (p ParamVal) String() string  { return p.Pair().String() }
 
 // PARAMETERS
 //
@@ -444,7 +404,7 @@ func (a ParamSet) Apply(args ...Parametric) ([]Parametric, Parameters) {
 			continue
 		}
 		ps = append(ps, arg.Pair())
-		ps.Sort(d.Type(arg.Acc().Eval().Flag()))
+		ps.Sort(d.TyPrimitive(arg.Acc().Eval().Flag()))
 	}
 	parameters := NewParameters(ps...)
 	return parameters.Parms(), parameters
@@ -476,21 +436,6 @@ func (a ParamSet) Empty() bool {
 	}
 	return true
 }
-func (p ParamSet) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.LeftBra.Syntax())
-	var parms = p.Parms()
-	var length = len(parms) - 1
-	for i, parm := range parms {
-		buf.WriteString(parm.String())
-		if i < length {
-			buf.WriteString(l.Comma.Syntax())
-			buf.WriteString(l.Blank.Syntax())
-		}
-	}
-	buf.WriteString(l.RightBra.Syntax())
-	return buf.String()
-}
 func (a ParamSet) Ident() Functional { return a }
 func (a ParamSet) Eval() d.Data      { return a }
 func (a ParamSet) Append(v ...Paired) Parameters {
@@ -498,7 +443,7 @@ func (a ParamSet) Append(v ...Paired) Parameters {
 }
 func ApplyParams(acc Parameters, praed ...Paired) Parameters {
 	var ps = newPairSorter(acc.Pairs()...)
-	ps.Sort(d.Type(praed[0].Left().Eval().Flag()))
+	ps.Sort(d.TyPrimitive(praed[0].Left().Eval().Flag()))
 	for _, p := range praed {
 		idx := ps.Search(p.Left())
 		if idx >= 0 {

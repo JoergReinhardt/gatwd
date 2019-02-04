@@ -41,6 +41,7 @@ func (t TokType) Flag() d.BitFlag { return d.Flag.Flag() }
 const (
 	Syntax_Token TokType = 1 << iota
 	Kind_Token
+	Property_Token
 	Data_Type_Token
 	Data_Value_Token
 	Pair_Value_Token
@@ -51,8 +52,9 @@ const (
 )
 
 func NewSyntaxToken(f l.SyntaxItemFlag) Token  { return newToken(Syntax_Token, f) }
-func NewDataTypeToken(f d.Type) Token          { return newToken(Data_Type_Token, f) }
-func NewKindToken(flag f.Kind) Token           { return newToken(Kind_Token, flag) }
+func NewDataTypeToken(f d.TyPrimitive) Token   { return newToken(Data_Type_Token, f) }
+func NewKindToken(flag f.TyHigherOrder) Token  { return newToken(Kind_Token, flag) }
+func NewPropertyToken(prop Property) Token     { return newToken(Property_Token, prop) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
 func NewDataValueToken(dat d.Data) Token       { return newToken(Data_Value_Token, dat) }
@@ -86,9 +88,11 @@ func newToken(t TokType, dat d.Data) Token {
 	case Syntax_Token:
 		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
 	case Data_Type_Token:
-		return TokVal{Data_Type_Token, dat.(d.Type)}
+		return TokVal{Data_Type_Token, dat.(d.TyPrimitive)}
 	case Kind_Token:
-		return TokVal{Kind_Token, dat.(f.Kind)}
+		return TokVal{Kind_Token, dat.(f.TyHigherOrder)}
+	case Property_Token:
+		return TokVal{Property_Token, dat.(Property)}
 	case Argument_Token:
 		return dataTok{TokVal{Argument_Token, dat.Flag()}, dat.(f.Argumented)}
 	case Parameter_Token:

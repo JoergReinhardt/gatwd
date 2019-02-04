@@ -294,7 +294,7 @@ func SliceSwap(c DataSlice, i, j int) DataSlice {
 	c[i], c[j] = c[j], c[i]
 	return c
 }
-func newSliceLess(c DataSlice, compT Type) func(i, j int) bool {
+func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
 	f := compT.Flag()
@@ -311,8 +311,8 @@ func newSliceLess(c DataSlice, compT Type) func(i, j int) bool {
 		}
 	case FlagMatch(f, Flag.Flag()):
 		fn = func(i, j int) bool {
-			if chain[i].(Type).Flag() <
-				chain[j].(Type).Flag() {
+			if chain[i].(TyPrimitive).Flag() <
+				chain[j].(TyPrimitive).Flag() {
 				return true
 			}
 			return false
@@ -336,11 +336,11 @@ func newSliceLess(c DataSlice, compT Type) func(i, j int) bool {
 	}
 	return fn
 }
-func SliceSort(c DataSlice, compT Type) DataSlice {
+func SliceSort(c DataSlice, compT TyPrimitive) DataSlice {
 	sort.Slice(c, newSliceLess(c, compT))
 	return c
 }
-func (c DataSlice) Sort(compT Type) {
+func (c DataSlice) Sort(compT TyPrimitive) {
 	c = SliceSort(c, compT)
 }
 

@@ -5,8 +5,8 @@ package parse
 import "strconv"
 
 const (
-	_TokType_name_0 = "Syntax_TokenType_Token"
-	_TokType_name_1 = "Kind_Token"
+	_TokType_name_0 = "Syntax_TokenKind_Token"
+	_TokType_name_1 = "Property_Token"
 	_TokType_name_2 = "Data_Type_Token"
 	_TokType_name_3 = "Data_Value_Token"
 	_TokType_name_4 = "Pair_Value_Token"

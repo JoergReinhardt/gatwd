@@ -14,13 +14,6 @@ import (
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
-// BitFlag interface{}
-//
-// alias for the  bitflag interface from data package.  currently kind of
-// useless, since functions from the data package expect bitfags to be of type
-// data.BitFlag. => TODO: make usefull
-type BitFlag interface{ d.Data }
-
 // nullable 'classes'
 //
 // functions package provides an interface for each group of datas types
@@ -66,27 +59,6 @@ type Function interface {
 	Call(...Functional) Functional
 }
 
-// Identified interface{}
-//
-// common type to address all symbols defined within the internal type system
-// by numeric unique id.
-type Identified interface{ Id() int }
-
-// Named interface{}
-//
-// named interface implementations provide an internal name symbols can be
-// addressed by. names are not unique!
-//
-// names get used in different contexts. the type system holds a name and
-// string representation of it's signature for every type that has been
-// defined. for type definitions that don't provide a distinct name (ad-hoc
-// tuple type literals for instance), the typesignature will be the name those
-// will be defined by. since the typesystem allows polymophism, multiple
-// implementations with different id's may exist for every defined type name.
-// usually at least a type constructor, to generate the types signature and a
-// data constructor, to instanciate a value of the type.
-type Named interface{ Name() string }
-
 // FUNCTIONAL KIND INTERFACES
 //
 // data augmented by the functional interface can be discriminated by it's
@@ -104,33 +76,6 @@ type Paired interface {
 	Left() Functional
 	Right() Functional
 	Both() (Functional, Functional)
-}
-
-// Typed interface{}
-//
-// internal higher order types have a name. due to polymorphism that name
-// almost allways addresses multiple instances of the base data types, defined
-// by the package
-type Typed interface {
-	Name() string
-}
-
-// SliceOfNatives interface{}
-//
-// possible gains in performance is the reason for providing slices in the
-// first place. having slices of native instances, instead of slices of
-// interface instances, makes this even more true. the actual slice types are
-// defined in the data package and share methods with names chosen by
-// convention and return types dependent on the native slice in particular, so
-// names and return types can be inferred during 'writing the code time' by the
-// programmer and hardcoded using assertion syntax (instance.(NatTypeVal)). not
-// being 'generic' here, is not considered a problem, since all possible
-// usecases of native slices, that could bring an actual gain in performance,
-// involve knowing and discriminting by which type it's been dealt with anyway.
-type SliceOfNatives interface {
-	IndexedSlice
-	Native(i int) interface{}
-	Natives(i, j int) []interface{}
 }
 
 // 'APPLYABLE' DATA
@@ -232,30 +177,10 @@ type Collected interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 
-// IndexedSlice interface{}
-//
-// the semantic concept of array indexing (T[i] -> T) doesn't play a huge role
-// in functional programming, since data structures are commonly recursive and
-// don't provide for element-wise access. go on the other hand highly relates
-// on loops and slices that are accessable by index. to not loose a great deal
-// of possible performance and ease of use, the concept of indexing has to be
-// introduced. that's most probably 'inpure' in a mathematical sense, otherwise
-// functional languages wouldn't go such long ways to circumvent it. godeep
-// will provide element-wise accessable slices, while avoiding to use them at
-// any point where it signifficantly could break abstrace concepts relied up on
-// by functional programming‥.  this been said, we'll see how good this will
-// turn out to work.
-type IndexedSlice interface {
-	Quantified
-	Elem(i int) Functional
-	Range(i, j int) []Functional
-}
-
 // Quantified interface{}
 // is a collection type that can provide a flat slice representation of it's
 // data
 type Quantified interface {
-	Collected
 	Slice() []Functional //<-- no more nil pointers & 'out of index'!
 }
 
@@ -273,10 +198,23 @@ type Quantified interface {
 // whenever neccessary instances can be discriminating and treated as either
 // 'Vectorized', or 'Recursive'.
 type Vectorized interface {
+	Collected
 	Quantified
+	// !!! not to be mixe with recursive !!!
 	Head() Functional
 	Tail() []Functional
 	DeCap() (Functional, []Functional)
+}
+
+//// RECURSIVE LISTS ///////
+//
+// recursive functional pendant to an array.
+type Recursive interface {
+	Collected
+	// !!! recursive data structures can't provide slices !!!
+	Head() Functional
+	Tail() Recursive
+	DeCap() (Functional, Recursive)
 }
 
 //// TUPLES /////
@@ -301,18 +239,6 @@ type Recorded interface {
 	Tuple() Tupled
 	Get(Functional) Paired
 	ArgSig() []Paired // key/data-type
-}
-
-//// RECURSIVE LISTS ///////
-//
-// recursive functional pendant to an array.
-type Recursive interface {
-	Functional
-	Countable
-	Empty() bool
-	Head() Functional
-	Tail() Recursive
-	DeCap() (Functional, Recursive)
 }
 
 // LINKED LISTS

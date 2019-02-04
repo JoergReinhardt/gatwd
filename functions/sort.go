@@ -80,7 +80,7 @@ func (d dataSorter) Empty() bool {
 func newDataSorter(dat ...Functional) dataSorter { return dataSorter(dat) }
 func (d dataSorter) Len() int                    { return len(d) }
 func (d dataSorter) Swap(i, j int)               { d[i], d[j] = d[j], d[i] }
-func (ds dataSorter) Sort(argType d.Type) {
+func (ds dataSorter) Sort(argType d.TyPrimitive) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
 func (ds dataSorter) Search(praed Functional) int {
@@ -93,7 +93,7 @@ func (ds dataSorter) Search(praed Functional) int {
 	return -1
 }
 
-func newDataLess(argType d.Type, ds dataSorter) func(i, j int) bool {
+func newDataLess(argType d.TyPrimitive, ds dataSorter) func(i, j int) bool {
 	var f = argType.Flag()
 	switch {
 	case f.Match(d.Symbolic.Flag()):
@@ -170,7 +170,7 @@ func (a pairSorter) Empty() bool {
 }
 func (p pairSorter) Len() int      { return len(p) }
 func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
-func (p pairSorter) Sort(f d.Type) {
+func (p pairSorter) Sort(f d.TyPrimitive) {
 	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
@@ -213,7 +213,7 @@ func (p pairSorter) Range(praed Functional) []Paired {
 	return ran
 }
 
-func newPraedLess(accs pairSorter, t d.Type) func(i, j int) bool {
+func newPraedLess(accs pairSorter, t d.TyPrimitive) func(i, j int) bool {
 	f := t.Flag()
 	switch {
 	case f.Match(d.Symbolic.Flag()):

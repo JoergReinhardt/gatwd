@@ -4,7 +4,7 @@ package parse
 
 import "strconv"
 
-const _Property_name = "PostFixInFixPreFixEagerLazyRight_BoundLeft_BoundMutableImutableEffectedPurePositionalNamedArgsTrueFalseLesserEqualGreater"
+const _Property_name = "PostFixInFixPreFixEagerLazyRight_BoundLeft_BoundMutableImutableEffectedPurePositionalNamedArgsStaticDynamicTrueFalseLesserEqualGreater"
 
 var _Property_map = map[Property]string{
 	1:      _Property_name[0:7],
@@ -20,11 +20,13 @@ var _Property_map = map[Property]string{
 	1024:   _Property_name[71:75],
 	2048:   _Property_name[75:85],
 	4096:   _Property_name[85:94],
-	8192:   _Property_name[94:98],
-	16384:  _Property_name[98:103],
-	32768:  _Property_name[103:109],
-	65536:  _Property_name[109:114],
-	131072: _Property_name[114:121],
+	8192:   _Property_name[94:100],
+	16384:  _Property_name[100:107],
+	32768:  _Property_name[107:111],
+	65536:  _Property_name[111:116],
+	131072: _Property_name[116:122],
+	262144: _Property_name[122:127],
+	524288: _Property_name[127:134],
 }
 
 func (i Property) String() string {

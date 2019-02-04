@@ -1,13 +1,8 @@
 package data
 
-import "bytes"
-
 func NewPair(l, r Data) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) String() string {
-	return p.Left().String() + ": " + p.Right().String()
-}
 func (p PairVal) Left() Data         { return p.l }
 func (p PairVal) Right() Data        { return p.r }
 func (p PairVal) Both() (Data, Data) { return p.l, p.r }
@@ -23,15 +18,6 @@ func NewStringSet(acc ...Paired) Mapped {
 }
 
 func (s SetString) Flag() BitFlag { return Set.Flag() }
-func (s SetString) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
 func (s SetString) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -72,15 +58,6 @@ func NewIntSet(acc ...Paired) Mapped {
 }
 
 func (s SetInt) Flag() BitFlag { return Set.Flag() }
-func (s SetInt) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
 func (s SetInt) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -121,15 +98,6 @@ func NewUintSet(acc ...Paired) Mapped {
 }
 
 func (s SetUint) Flag() BitFlag { return Set.Flag() }
-func (s SetUint) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
 func (s SetUint) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -170,15 +138,6 @@ func NewFloatSet(acc ...Paired) Mapped {
 }
 
 func (s SetFloat) Flag() BitFlag { return Set.Flag() }
-func (s SetFloat) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
 func (s SetFloat) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {
@@ -219,15 +178,6 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 }
 
 func (s SetFlag) Flag() BitFlag { return Set.Flag() }
-func (s SetFlag) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
 func (s SetFlag) Keys() []Data {
 	var keys = []Data{}
 	for k, _ := range s {

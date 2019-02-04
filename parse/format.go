@@ -24,12 +24,25 @@ func (t tokenSlice) String() string {
 func (t TokVal) String() string {
 	var str string
 	switch t.TokType() {
+	case Property_Token:
+		var props = d.FlagDecompose(t.Data.(Property).Flag())
+		var l = len(props)
+		if l > 0 {
+			str = str + "《"
+			for i, prop := range props {
+				str = str + Property(prop).String()
+				if i < l-1 {
+					str = str + " "
+				}
+			}
+			str = str + "》"
+		}
 	case Kind_Token:
-		str = t.Data.(f.Kind).String() + "\n"
+		str = t.Data.(f.TyHigherOrder).String() + "\n"
 	case Syntax_Token:
 		str = t.Data.(l.SyntaxItemFlag).Syntax() + "\n"
 	case Data_Type_Token:
-		str = t.Data.(d.Type).String() + "\n"
+		str = t.Data.(d.TyPrimitive).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}

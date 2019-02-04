@@ -9,27 +9,27 @@ import (
 //////// INTERNAL TYPE SYSTEM ///////////
 //
 // intended to be accessable and extendable
-type Type BitFlag
+type TyPrimitive BitFlag
 
-func (v Type) Flag() BitFlag { return BitFlag(v) }
+func (v TyPrimitive) Flag() BitFlag { return BitFlag(v) }
 
-func ListAllTypes() []Type {
-	var tt = []Type{}
+func ListAllTypes() []TyPrimitive {
+	var tt = []TyPrimitive{}
 	var i uint
-	var t Type = 0
+	var t TyPrimitive = 0
 	for t < Flag {
 		t = 1 << i
 		i = i + 1
-		tt = append(tt, Type(t))
+		tt = append(tt, TyPrimitive(t))
 	}
 	return tt
 }
 
-//go:generate stringer -type=Type
+//go:generate stringer -type=TyPrimitive
 const (
-	Nil  Type = 1
-	Bool Type = 1 << iota
-	Int8      // Int8 -> Int8
+	Nil  TyPrimitive = 1
+	Bool TyPrimitive = 1 << iota
+	Int8             // Int8 -> Int8
 	Int16
 	Int32
 	Int
@@ -106,8 +106,8 @@ const (
 	Functional = Function | Argument | Parameter |
 		Flag
 
-	MAX_INT Type = 0xFFFFFFFFFFFFFFFF
-	Mask         = MAX_INT ^ Flag
+	MAX_INT TyPrimitive = 0xFFFFFFFFFFFFFFFF
+	Mask                = MAX_INT ^ Flag
 )
 
 //////// INTERNAL TYPES /////////////

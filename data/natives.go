@@ -36,7 +36,7 @@ type (
 
 func ConNativeSlice(flag BitFlag, data ...Data) Sliceable {
 	var d Sliceable
-	switch Type(flag) {
+	switch TyPrimitive(flag) {
 	case Nil:
 		d = NilVec{}
 		for _, _ = range data {
@@ -376,31 +376,6 @@ func (v TimeVec) Flag() BitFlag   { return Vector.Flag() | Time.Flag() }
 func (v DuraVec) Flag() BitFlag   { return Vector.Flag() | Duration.Flag() }
 func (v ErrorVec) Flag() BitFlag  { return Vector.Flag() | Error.Flag() }
 func (v FlagSet) Flag() BitFlag   { return Vector.Flag() | Flag.Flag() }
-
-func (v NilVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v BoolVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v IntVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v Int8Vec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Int16Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v Int32Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v UintVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Uint8Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v Uint16Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v Uint32Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v FltVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v Flt32Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v ImagVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Imag64Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v ByteVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v RuneVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v BytesVec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v StrVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v BigIntVec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v BigFltVec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v RatioVec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v TimeVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v DuraVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v FlagSet) String() string   { return StringSlice(", ", "[", "]", v) }
 
 func (v NilVec) Null() Data    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Data   { return BoolVec([]bool{}) }
