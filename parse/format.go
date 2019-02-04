@@ -25,7 +25,7 @@ func (t TokVal) String() string {
 	var str string
 	switch t.TokType() {
 	case Property_Token:
-		var props = d.FlagDecompose(t.Data.(Property).Flag())
+		var props = d.FlagDecompose(t.Data.(Property).TypePrim())
 		var l = len(props)
 		if l > 0 {
 			str = str + "《"
@@ -37,11 +37,11 @@ func (t TokVal) String() string {
 			}
 			str = str + "》"
 		}
-	case Kind_Token:
+	case TypeHO_Token:
 		str = t.Data.(f.TyHigherOrder).String() + "\n"
 	case Syntax_Token:
 		str = t.Data.(l.SyntaxItemFlag).Syntax() + "\n"
-	case Data_Type_Token:
+	case TypePrim_Token:
 		str = t.Data.(d.TyPrimitive).String() + "\n"
 	default:
 		str = "Don't know how to print this token"

@@ -43,10 +43,10 @@ func tokEmbed(left, tok, right []Token) []Token {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.Flag() }
+func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.TypePrim() }
 func (t tokenSlice) Len() int           { return len(t) }
 func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t tokenSlice) Less(i, j int) bool { return t[i][0].Flag() < t[j][0].Flag() }
+func (t tokenSlice) Less(i, j int) bool { return t[i][0].TypePrim() < t[j][0].TypePrim() }
 func sortTokenSlice(t tokenSlice) tokenSlice {
 	sort.Sort(t)
 	return t
@@ -65,10 +65,10 @@ func decapTokSlice(t tokenSlice) ([]Token, tokenSlice) {
 func pickSliceByFirstToken(t tokenSlice, match TokVal) [][]Token {
 	ret := [][]Token{}
 	i := sort.Search(len(t), func(i int) bool {
-		return t[i][0].Flag().Uint() >= match.Flag().Uint()
+		return t[i][0].TypePrim().Uint() >= match.TypePrim().Uint()
 	})
 	var j = i
-	for j < len(t) && d.FlagMatch(t[j][0].Flag(), match.Flag()) {
+	for j < len(t) && d.FlagMatch(t[j][0].TypePrim(), match.TypePrim()) {
 		ret = append(ret, t[j])
 		j++
 	}
@@ -100,7 +100,7 @@ func compareTokenSequence(long, short []Token) bool {
 	}
 	l, s := long[0], short[0]
 	// if either token type or flag value mismatches, return false
-	if (s.TokType() != l.TokType()) || (!d.FlagMatch(l.Flag(), s.Flag())) {
+	if (s.TokType() != l.TokType()) || (!d.FlagMatch(l.TypePrim(), s.TypePrim())) {
 		return false
 	}
 	// recurse over tails of slices

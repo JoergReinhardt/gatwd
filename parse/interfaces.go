@@ -66,7 +66,7 @@ func (p Property) Fix() Property {
 	return PreFix
 }
 
-func (p Property) Flag() d.BitFlag { return d.BitFlag(p) }
+func (p Property) TypePrim() d.BitFlag { return d.BitFlag(p) }
 
 //go:generate stringer -type Property
 const (
@@ -114,14 +114,14 @@ const (
 // data to parse
 type Token interface {
 	TokType() TokType
-	Flag() d.BitFlag
+	TypePrim() d.BitFlag
 	String() string
 }
 
 type TypeSystem interface {
 	f.Functional
-	Lookup(string) (Polymorph, bool)
-	DefinePoly(name string, poly Polymorph)
+	Lookup(string) (Function, bool)
+	DefinePoly(name string, poly Function)
 	Define(
 		name string,
 		fnc f.Function,
@@ -140,5 +140,5 @@ type Ident interface {
 type Instanciated interface {
 	Id() int
 	Props() Property
-	Poly() Polymorph
+	Poly() Function
 }

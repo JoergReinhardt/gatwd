@@ -35,14 +35,14 @@ import (
 
 type TokType uint16
 
-func (t TokType) Flag() d.BitFlag { return d.Flag.Flag() }
+func (t TokType) Flag() d.BitFlag { return d.Flag.TypePrim() }
 
 //go:generate stringer -type TokType
 const (
 	Syntax_Token TokType = 1 << iota
-	Kind_Token
+	TypeHO_Token
+	TypePrim_Token
 	Property_Token
-	Data_Type_Token
 	Data_Value_Token
 	Pair_Value_Token
 	Token_Collection
@@ -52,8 +52,8 @@ const (
 )
 
 func NewSyntaxToken(f l.SyntaxItemFlag) Token  { return newToken(Syntax_Token, f) }
-func NewDataTypeToken(f d.TyPrimitive) Token   { return newToken(Data_Type_Token, f) }
-func NewKindToken(flag f.TyHigherOrder) Token  { return newToken(Kind_Token, flag) }
+func NewDataTypeToken(f d.TyPrimitive) Token   { return newToken(TypePrim_Token, f) }
+func NewKindToken(flag f.TyHigherOrder) Token  { return newToken(TypeHO_Token, flag) }
 func NewPropertyToken(prop Property) Token     { return newToken(Property_Token, prop) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
@@ -72,39 +72,39 @@ type TokVal struct {
 	d.Data
 }
 
-func (t TokVal) TokType() TokType { return t.tok }
-func (t TokVal) Flag() d.BitFlag  { return t.Data.Flag() }
-func (t TokVal) Type() d.BitFlag  { return t.tok.Flag() }
+func (t TokVal) TokType() TokType    { return t.tok }
+func (t TokVal) TypePrim() d.BitFlag { return t.Data.TypePrim() }
+func (t TokVal) Type() d.BitFlag     { return t.tok.Flag() }
 
 type dataTok struct {
 	TokVal
 	d.Data
 }
 
-func (t dataTok) TokType() TokType { return t.TokVal.TokType() }
-func (d dataTok) Flag() d.BitFlag  { return d.Data.Flag() }
+func (t dataTok) TokType() TokType    { return t.TokVal.TokType() }
+func (d dataTok) TypePrim() d.BitFlag { return d.Data.TypePrim() }
 func newToken(t TokType, dat d.Data) Token {
 	switch t {
 	case Syntax_Token:
 		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
-	case Data_Type_Token:
-		return TokVal{Data_Type_Token, dat.(d.TyPrimitive)}
-	case Kind_Token:
-		return TokVal{Kind_Token, dat.(f.TyHigherOrder)}
+	case TypePrim_Token:
+		return TokVal{TypePrim_Token, dat.(d.TyPrimitive)}
+	case TypeHO_Token:
+		return TokVal{TypeHO_Token, dat.(f.TyHigherOrder)}
 	case Property_Token:
 		return TokVal{Property_Token, dat.(Property)}
 	case Argument_Token:
-		return dataTok{TokVal{Argument_Token, dat.Flag()}, dat.(f.Argumented)}
+		return dataTok{TokVal{Argument_Token, dat.TypePrim()}, dat.(f.Argumented)}
 	case Parameter_Token:
-		return dataTok{TokVal{Parameter_Token, dat.Flag()}, dat.(f.Parametric)}
+		return dataTok{TokVal{Parameter_Token, dat.TypePrim()}, dat.(f.Parametric)}
 	case Data_Value_Token:
-		return dataTok{TokVal{Data_Value_Token, dat.Flag()}, dat.(d.Data)}
+		return dataTok{TokVal{Data_Value_Token, dat.TypePrim()}, dat.(d.Data)}
 	case Pair_Value_Token:
-		return dataTok{TokVal{Pair_Value_Token, dat.Flag()}, dat.(f.Paired)}
+		return dataTok{TokVal{Pair_Value_Token, dat.TypePrim()}, dat.(f.Paired)}
 	case Token_Collection:
-		return dataTok{TokVal{Token_Collection, dat.Flag()}, dat.(tokens)}
+		return dataTok{TokVal{Token_Collection, dat.TypePrim()}, dat.(tokens)}
 	case Tree_Node_Token:
-		return dataTok{TokVal{Tree_Node_Token, dat.Flag()}, dat.(f.Parametric)}
+		return dataTok{TokVal{Tree_Node_Token, dat.TypePrim()}, dat.(f.Parametric)}
 	}
 	return nil
 }
@@ -113,10 +113,10 @@ func newToken(t TokType, dat d.Data) Token {
 type tokens []Token
 
 // implementing the sort-/ and search interfaces
-func (t tokens) Len() int           { return len(t) }
-func (t tokens) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
-func (t tokens) Less(i, j int) bool { return t[i].Flag() < t[j].Flag() }
-func (t tokens) Flag() d.BitFlag    { return d.Flag.Flag() }
+func (t tokens) Len() int            { return len(t) }
+func (t tokens) Swap(i, j int)       { t[i], t[j] = t[j], t[i] }
+func (t tokens) Less(i, j int) bool  { return t[i].TypePrim() < t[j].TypePrim() }
+func (t tokens) TypePrim() d.BitFlag { return d.Flag.TypePrim() }
 func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t
@@ -134,9 +134,9 @@ func decapTokens(t tokens) (Token, []Token) {
 }
 
 func sliceContainsToken(ts tokens, t Token) bool {
-	return d.FlagMatch(t.Flag(), ts[sort.Search(
+	return d.FlagMatch(t.TypePrim(), ts[sort.Search(
 		len(ts),
 		func(i int) bool {
-			return ts[i].Flag().Uint() >= t.Flag().Uint()
-		})].Flag())
+			return ts[i].TypePrim().Uint() >= t.TypePrim().Uint()
+		})].TypePrim())
 }
