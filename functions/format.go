@@ -8,6 +8,17 @@ import (
 )
 
 /// VALUE
+func (dat FncVal) String() string {
+	var buf = bytes.NewBuffer([]byte{})
+	buf.WriteString(l.Lambda.Syntax())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(l.RightArrow.Syntax())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(dat.TypePrim().String())
+	buf.WriteString(l.Blank.Syntax())
+	buf.WriteString(dat.Eval().String())
+	return buf.String()
+}
 func (dat PrimeVal) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(l.Lambda.Syntax())

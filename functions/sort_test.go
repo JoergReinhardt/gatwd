@@ -9,7 +9,7 @@ import (
 )
 
 func TestDataSorter(t *testing.T) {
-	var dat = []Functional{
+	var dat = []Value{
 		New("Aaron"),
 		New("Aardvark"),
 		New("Adam"),
@@ -52,7 +52,7 @@ func TestDataSorter(t *testing.T) {
 
 }
 func TestDataSorterFlags(t *testing.T) {
-	var flags = []Functional{
+	var flags = []Value{
 		New(d.Nil),
 		New(d.Bool),
 		New(d.Int),
@@ -67,7 +67,7 @@ func TestDataSorterFlags(t *testing.T) {
 	fs.Sort(d.Flag)
 	fmt.Printf("sorted flags: %s\n", fs)
 
-	var ints = []Functional{
+	var ints = []Value{
 		New(int(11)),
 		New(int(-12)),
 		New(int(12321)),
@@ -84,7 +84,7 @@ func TestDataSorterFlags(t *testing.T) {
 func TestDataSorterMixedType(t *testing.T) {
 
 	// TODO: make this work
-	var flags = []Functional{
+	var flags = []Value{
 		New(int(11)),
 		New(uint(134)),
 		New("Peter"),

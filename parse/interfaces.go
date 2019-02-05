@@ -49,8 +49,8 @@ func (p Property) Effected() Property {
 	return Pure
 }
 func (p Property) AccessorType() Property {
-	if Positional == 1 {
-		return Positional
+	if PosiArgs == 1 {
+		return PosiArgs
 	}
 	return NamedArgs
 }
@@ -86,29 +86,18 @@ const (
 	Effected
 	Pure
 	////
-	Positional
+	PosiArgs
 	NamedArgs
 	////
 	Static
 	Dynamic
 	///////////////
-	//// TRUTH ///
-	True
-	False
-	// ORDER & ///
-	// EQUALITY //
-	Lesser
-	Equal
-	Greater
 
 	Default = PostFix | Lazy | Left_Bound |
-		Imutable | Pure | Positional
+		Imutable | Pure | PosiArgs | Dynamic
 
-	Order = Lesser | Greater
-
-	Equality = Order | Equal
-
-	Truth = True | False
+	DefaultStatic = PostFix | Lazy | Left_Bound |
+		Imutable | Pure | PosiArgs | Static
 )
 
 // data to parse
@@ -118,27 +107,10 @@ type Token interface {
 	String() string
 }
 
-type TypeSystem interface {
-	f.Functional
-	Lookup(string) (Function, bool)
-	DefinePoly(name string, poly Function)
-	Define(
-		name string,
-		fnc f.Function,
-		sig ...Token,
-	)
-}
-
 // Ident interface{}
 //
 // the ident interface is implemented by everything providing unique identification.
 type Ident interface {
-	f.Functional
-	Ident() f.Function // calls enclosed fnc, with enclosed parameters
-}
-
-type Instanciated interface {
-	Id() int
-	Props() Property
-	Poly() Function
+	f.Value
+	Ident() f.Callable // calls enclosed fnc, with enclosed parameters
 }

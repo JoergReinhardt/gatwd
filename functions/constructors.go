@@ -11,15 +11,15 @@ import (
 
 type (
 	// FUNCTION VALUES
-	ConstFnc  func() Functional
-	UnaryFnc  func(Functional) Functional
-	BinaryFnc func(a, b Functional) Functional
-	NaryFnc   func(...Functional) Functional
+	ConstFnc  func() Value
+	UnaryFnc  func(Value) Value
+	BinaryFnc func(a, b Value) Value
+	NaryFnc   func(...Value) Value
 	// DATA CONSTRUCTORS
 	TupleFnc  func() (Vectorized, []d.BitFlag)
 	RecordFnc func() (Tupled, []Paired)
-	ListFnc   func() (Functional, Recursive)
-	VecFnc    func() []Functional
+	ListFnc   func() (Value, Recursive)
+	VecFnc    func() []Value
 	AccVecFnc func() []Paired
 )
 
@@ -27,44 +27,48 @@ type (
 // constant also conains immutable data that may be an instance of a type of
 // the data package, or result of a function call guarantueed to allways return
 // the same value.
-func NewConstant(fnc func(...Functional) Functional) ConstFnc {
-	return ConstFnc(func() Functional { return fnc() })
+func NewConstant(fnc func(...Value) Value) ConstFnc {
+	return ConstFnc(func() Value { return fnc() })
 }
-func (c ConstFnc) TypeHO() d.BitFlag               { return Value.Flag() }
-func (c ConstFnc) TypePrim() d.BitFlag             { return c().TypePrim() }
-func (c ConstFnc) Ident() Functional               { return c }
-func (c ConstFnc) Eval() d.Primary                 { return c() }
-func (c ConstFnc) Call(d ...Functional) Functional { return c() }
+func (c ConstFnc) TypeHO() d.BitFlag   { return Data.Flag() }
+func (c ConstFnc) TypePrim() d.BitFlag { return c().TypePrim() }
+func (c ConstFnc) Ident() Value        { return c }
+func (c ConstFnc) Eval() d.Primary     { return c() }
+func (c ConstFnc) Call(d ...Value) Value {
+	return c().(ConstFnc)()
+}
 
 ///// UNARY FUNCTION
-func NewUnaryFnc(fnc func(f Functional) Functional) UnaryFnc {
-	return UnaryFnc(func(f Functional) Functional { return fnc(f) })
+func NewUnaryFnc(fnc func(f Value) Value) UnaryFnc {
+	return UnaryFnc(func(f Value) Value { return fnc(f) })
 }
-func (u UnaryFnc) TypeHO() d.BitFlag               { return Value.Flag() }
-func (u UnaryFnc) TypePrim() d.BitFlag             { return d.Function.TypePrim() }
-func (u UnaryFnc) Ident() Functional               { return u }
-func (u UnaryFnc) Eval() d.Primary                 { return u }
-func (u UnaryFnc) Call(d ...Functional) Functional { return u(d[0]) }
+func (u UnaryFnc) TypeHO() d.BitFlag   { return Data.Flag() }
+func (u UnaryFnc) TypePrim() d.BitFlag { return d.Function.TypePrim() }
+func (u UnaryFnc) Ident() Value        { return u }
+func (u UnaryFnc) Eval() d.Primary     { return u }
+func (u UnaryFnc) Call(d ...Value) Value {
+	return u(d[0])
+}
 
 ///// BINARY FUNCTION
-func NewBinaryFnc(fnc func(a, b Functional) Functional) BinaryFnc {
-	return BinaryFnc(func(a, b Functional) Functional { return fnc(a, b) })
+func NewBinaryFnc(fnc func(a, b Value) Value) BinaryFnc {
+	return BinaryFnc(func(a, b Value) Value { return fnc(a, b) })
 }
-func (b BinaryFnc) TypeHO() d.BitFlag               { return Value.Flag() }
-func (b BinaryFnc) TypePrim() d.BitFlag             { return d.Function.TypePrim() }
-func (b BinaryFnc) Ident() Functional               { return b }
-func (b BinaryFnc) Eval() d.Primary                 { return b }
-func (b BinaryFnc) Call(d ...Functional) Functional { return b(d[0], d[1]) }
+func (b BinaryFnc) TypeHO() d.BitFlag     { return Data.Flag() }
+func (b BinaryFnc) TypePrim() d.BitFlag   { return d.Function.TypePrim() }
+func (b BinaryFnc) Ident() Value          { return b }
+func (b BinaryFnc) Eval() d.Primary       { return b }
+func (b BinaryFnc) Call(d ...Value) Value { return b(d[0], d[1]) }
 
 ///// NARY FUNCTION
-func NewNaryFnc(fnc func(f ...Functional) Functional) NaryFnc {
-	return NaryFnc(func(f ...Functional) Functional { return fnc(f...) })
+func NewNaryFnc(fnc func(f ...Value) Value) NaryFnc {
+	return NaryFnc(func(f ...Value) Value { return fnc(f...) })
 }
-func (n NaryFnc) TypeHO() d.BitFlag               { return Value.Flag() }
-func (n NaryFnc) TypePrim() d.BitFlag             { return d.Function.TypePrim() }
-func (n NaryFnc) Ident() Functional               { return n }
-func (n NaryFnc) Eval() d.Primary                 { return n }
-func (n NaryFnc) Call(d ...Functional) Functional { return n(d...) }
+func (n NaryFnc) TypeHO() d.BitFlag     { return Data.Flag() }
+func (n NaryFnc) TypePrim() d.BitFlag   { return d.Function.TypePrim() }
+func (n NaryFnc) Ident() Value          { return n }
+func (n NaryFnc) Eval() d.Primary       { return n }
+func (n NaryFnc) Call(d ...Value) Value { return n(d...) }
 
 /////////////////////////////////////////////////////////
 // ASSOCIATIVE VECTOR (VECTOR OF PAIRS)
@@ -82,8 +86,8 @@ func NewAccVector(pp ...Paired) Accessable {
 		return pairs
 	})
 }
-func (v AccVecFnc) Slice() []Functional {
-	var fncs = []Functional{}
+func (v AccVecFnc) Slice() []Value {
+	var fncs = []Value{}
 	for _, pair := range v() {
 		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
 	}
@@ -109,11 +113,11 @@ func (v AccVecFnc) Eval() d.Primary {
 	}
 	return slice
 }
-func (v AccVecFnc) Len() int                        { return len(v()) }
-func (v AccVecFnc) Empty() bool                     { return ElemEmpty(v.Head()) && (len(v.Tail()) == 0) }
-func (v AccVecFnc) Get(praed Functional) Paired     { return newPairSorter(v()...).Get(praed) }
-func (v AccVecFnc) Range(praed Functional) []Paired { return newPairSorter(v()...).Range(praed) }
-func (v AccVecFnc) Search(praed Functional) int     { return newPairSorter(v()...).Search(praed) }
+func (v AccVecFnc) Len() int                   { return len(v()) }
+func (v AccVecFnc) Empty() bool                { return ElemEmpty(v.Head()) && (len(v.Tail()) == 0) }
+func (v AccVecFnc) Get(praed Value) Paired     { return newPairSorter(v()...).Get(praed) }
+func (v AccVecFnc) Range(praed Value) []Paired { return newPairSorter(v()...).Range(praed) }
+func (v AccVecFnc) Search(praed Value) int     { return newPairSorter(v()...).Search(praed) }
 func (v AccVecFnc) Sort(flag d.TyPrimitive) {
 	var ps = newPairSorter(v()...)
 	ps.Sort(flag)
@@ -123,14 +127,14 @@ func (v AccVecFnc) Sort(flag d.TyPrimitive) {
 ///////////////////////////////////////////////////
 // VECTOR
 // vector keeps a slice of data instances
-func conVec(vec Vectorized, dd ...Functional) Vectorized {
+func conVec(vec Vectorized, dd ...Value) Vectorized {
 	return vectorConstructor(append(vec.Slice(), dd...)...)
 }
-func vectorConstructor(dd ...Functional) Vectorized {
-	return VecFnc(func() []Functional { return dd })
+func vectorConstructor(dd ...Value) Vectorized {
+	return VecFnc(func() []Value { return dd })
 }
-func NewVector(dd ...Functional) Vectorized {
-	return VecFnc(func() (vec []Functional) {
+func NewVector(dd ...Value) Vectorized {
+	return VecFnc(func() (vec []Value) {
 		for _, dat := range dd {
 			vec = append(vec, New(dat))
 		}
@@ -150,13 +154,13 @@ func (v AccVecFnc) TypePrim() d.BitFlag {
 func (v AccVecFnc) TypeHO() d.BitFlag { return Vector.Flag() }
 
 // base implementation functions/sliceable interface
-func (v VecFnc) Head() Functional {
+func (v VecFnc) Head() Value {
 	if v.Len() > 0 {
 		return v.Vector()[0]
 	}
 	return nil
 }
-func (v VecFnc) Tail() []Functional {
+func (v VecFnc) Tail() []Value {
 	if v.Len() > 1 {
 		return v.Vector()[1:]
 	}
@@ -180,20 +184,20 @@ func (v VecFnc) TypePrim() d.BitFlag {
 	return d.Vector.TypePrim() | d.Nil.TypePrim()
 }
 func (v VecFnc) TypeHO() d.BitFlag { return Vector.Flag() }
-func (v VecFnc) Ident() Functional { return v }
+func (v VecFnc) Ident() Value      { return v }
 func (v VecFnc) Eval() d.Primary   { return NewVector(v()...) }
-func (v VecFnc) DeCap() (Functional, []Functional) {
+func (v VecFnc) DeCap() (Value, []Value) {
 	return v.Head(), v.Tail()
 }
-func (v VecFnc) Vector() []Functional { return v() }
-func (v VecFnc) Slice() []Functional  { return v() }
-func (v VecFnc) Call(d ...Functional) Functional {
+func (v VecFnc) Vector() []Value { return v() }
+func (v VecFnc) Slice() []Value  { return v() }
+func (v VecFnc) Call(d ...Value) Value {
 	if len(d) > 0 {
 		conVec(v, d...)
 	}
 	return v
 }
-func (v VecFnc) Search(praed Functional) int { return newDataSorter(v()...).Search(praed) }
+func (v VecFnc) Search(praed Value) int { return newDataSorter(v()...).Search(praed) }
 func (v VecFnc) Sort(flag d.TyPrimitive) {
 	var ps = newDataSorter(v()...)
 	ps.Sort(flag)
@@ -202,41 +206,41 @@ func (v VecFnc) Sort(flag d.TyPrimitive) {
 
 // RECURSIVE LIST
 // base implementation of linked lists
-func conRecurse(rec Recursive, dd ...Functional) Recursive {
+func conRecurse(rec Recursive, dd ...Value) Recursive {
 	if len(dd) > 0 {
 		if len(dd) > 1 {
-			return ListFnc(func() (Functional, Recursive) {
+			return ListFnc(func() (Value, Recursive) {
 				return dd[0], conRecurse(rec, dd...)
 			})
 		}
-		return ListFnc(func() (Functional, Recursive) {
+		return ListFnc(func() (Value, Recursive) {
 			return dd[0], rec
 		})
 	}
 	return nil
 }
-func NewRecursiveList(dd ...Functional) Recursive {
+func NewRecursiveList(dd ...Value) Recursive {
 	if len(dd) > 0 {
 		if len(dd) > 1 {
-			return ListFnc(func() (Functional, Recursive) { return dd[0], NewRecursiveList(dd[1:]...) })
+			return ListFnc(func() (Value, Recursive) { return dd[0], NewRecursiveList(dd[1:]...) })
 		}
-		return ListFnc(func() (Functional, Recursive) { return dd[0], nil })
+		return ListFnc(func() (Value, Recursive) { return dd[0], nil })
 	}
 	return nil
 }
-func (l ListFnc) Ident() Functional { return l }
-func (l ListFnc) Eval() d.Primary   { return NewPair(l.Head(), l.Tail()) }
-func (l ListFnc) Head() Functional  { h, _ := l(); return h }
-func (l ListFnc) Tail() Recursive   { _, t := l(); return t }
-func (l ListFnc) Call(d ...Functional) Functional {
+func (l ListFnc) Ident() Value    { return l }
+func (l ListFnc) Eval() d.Primary { return NewPair(l.Head(), l.Tail()) }
+func (l ListFnc) Head() Value     { h, _ := l(); return h }
+func (l ListFnc) Tail() Recursive { _, t := l(); return t }
+func (l ListFnc) Call(d ...Value) Value {
 	if len(d) > 0 {
 		return conRecurse(l, d...)
 	}
 	return l
 }
-func (l ListFnc) DeCap() (Functional, Recursive) { return l() }
-func (l ListFnc) TypeHO() d.BitFlag              { return List.Flag() }
-func (l ListFnc) TypePrim() d.BitFlag            { return d.List.TypePrim() | l.Head().TypePrim() }
+func (l ListFnc) DeCap() (Value, Recursive) { return l() }
+func (l ListFnc) TypeHO() d.BitFlag         { return List.Flag() }
+func (l ListFnc) TypePrim() d.BitFlag       { return d.List.TypePrim() | l.Head().TypePrim() }
 func (l ListFnc) Empty() bool {
 	var h, _ = l()
 	if h != nil {
@@ -253,10 +257,10 @@ func (l ListFnc) Len() int {
 }
 
 // TUPLE
-func conTuple(tup Tupled, dat ...Functional) Tupled {
+func conTuple(tup Tupled, dat ...Value) Tupled {
 	return NewTuple(append(tup.Slice(), dat...)...)
 }
-func NewTuple(dat ...Functional) Tupled {
+func NewTuple(dat ...Value) Tupled {
 	var flags []d.BitFlag
 	for _, data := range dat {
 		flags = append(flags, data.TypePrim())
@@ -266,13 +270,13 @@ func NewTuple(dat ...Functional) Tupled {
 		return vec, flags
 	})
 }
-func (t TupleFnc) Flags() []d.BitFlag                { _, f := t(); return f }
-func (t TupleFnc) DeCap() (Functional, []Functional) { v, _ := t(); return v.DeCap() }
-func (t TupleFnc) Slice() []Functional               { v, _ := t(); return v.Slice() }
-func (t TupleFnc) Head() Functional                  { v, _ := t(); return v.Head() }
-func (t TupleFnc) Tail() []Functional                { v, _ := t(); return v.Tail() }
-func (t TupleFnc) Empty() bool                       { v, _ := t(); return v.Empty() }
-func (t TupleFnc) Len() int                          { v, _ := t(); return v.Len() }
+func (t TupleFnc) Flags() []d.BitFlag      { _, f := t(); return f }
+func (t TupleFnc) DeCap() (Value, []Value) { v, _ := t(); return v.DeCap() }
+func (t TupleFnc) Slice() []Value          { v, _ := t(); return v.Slice() }
+func (t TupleFnc) Head() Value             { v, _ := t(); return v.Head() }
+func (t TupleFnc) Tail() []Value           { v, _ := t(); return v.Tail() }
+func (t TupleFnc) Empty() bool             { v, _ := t(); return v.Empty() }
+func (t TupleFnc) Len() int                { v, _ := t(); return v.Len() }
 func (t TupleFnc) TypePrim() d.BitFlag {
 	var flag d.BitFlag
 	for _, elem := range t.Slice() {
@@ -280,10 +284,10 @@ func (t TupleFnc) TypePrim() d.BitFlag {
 	}
 	return flag | d.Tuple.TypePrim()
 }
-func (t TupleFnc) TypeHO() d.BitFlag { return Tuple.TypePrim() }
+func (t TupleFnc) TypeHO() d.BitFlag { return Tuple.Flag() }
 func (t TupleFnc) Eval() d.Primary   { return NewVector(t.Slice()...) }
-func (t TupleFnc) Ident() Functional { return t }
-func (t TupleFnc) Call(d ...Functional) Functional {
+func (t TupleFnc) Ident() Value      { return t }
+func (t TupleFnc) Call(d ...Value) Value {
 	if len(d) > 0 {
 		return conTuple(t, d...)
 	}
@@ -304,7 +308,7 @@ func conRecord(rec Recorded, pairs ...Paired) Recorded {
 }
 func NewRecord(pairs ...Paired) Recorded {
 	var sig = []Paired{}
-	var dat = []Functional{}
+	var dat = []Value{}
 	for _, pair := range pairs {
 		sig = append(sig, NewPair(pair.Left(), New(pair.Right().TypePrim())))
 		dat = append(dat, pair)
@@ -314,9 +318,9 @@ func NewRecord(pairs ...Paired) Recorded {
 		return tup, sig
 	})
 }
-func (r RecordFnc) Ident() Functional { return r }
-func (r RecordFnc) Eval() d.Primary   { return r.Tuple() }
-func (r RecordFnc) Call(d ...Functional) Functional {
+func (r RecordFnc) Ident() Value    { return r }
+func (r RecordFnc) Eval() d.Primary { return r.Tuple() }
+func (r RecordFnc) Call(d ...Value) Value {
 	if len(d) > 0 {
 		var pairs = []Paired{}
 		for _, pair := range d {
@@ -326,15 +330,15 @@ func (r RecordFnc) Call(d ...Functional) Functional {
 	}
 	return r
 }
-func (r RecordFnc) ArgSig() []Paired                  { _, pairs := r(); return pairs }
-func (r RecordFnc) Tuple() Tupled                     { tup, _ := r(); return tup }
-func (r RecordFnc) DeCap() (Functional, []Functional) { return r.Tuple().DeCap() }
-func (r RecordFnc) Head() Functional                  { return r.Tuple().Head() }
-func (r RecordFnc) Tail() []Functional                { return r.Tuple().Tail() }
-func (r RecordFnc) Slice() []Functional               { return r.Tuple().Slice() }
-func (r RecordFnc) Empty() bool                       { return r.Tuple().Empty() }
-func (r RecordFnc) Len() int                          { return r.Tuple().Len() }
-func (r RecordFnc) Get(p Functional) Paired {
+func (r RecordFnc) ArgSig() []Paired        { _, pairs := r(); return pairs }
+func (r RecordFnc) Tuple() Tupled           { tup, _ := r(); return tup }
+func (r RecordFnc) DeCap() (Value, []Value) { return r.Tuple().DeCap() }
+func (r RecordFnc) Head() Value             { return r.Tuple().Head() }
+func (r RecordFnc) Tail() []Value           { return r.Tuple().Tail() }
+func (r RecordFnc) Slice() []Value          { return r.Tuple().Slice() }
+func (r RecordFnc) Empty() bool             { return r.Tuple().Empty() }
+func (r RecordFnc) Len() int                { return r.Tuple().Len() }
+func (r RecordFnc) Get(p Value) Paired {
 	_, pairs := r()
 	ps := newPairSorter(pairs...)
 	ps.Sort(d.Symbolic)
@@ -344,5 +348,5 @@ func (r RecordFnc) Get(p Functional) Paired {
 	}
 	return nil
 }
-func (r RecordFnc) TypePrim() d.BitFlag { return d.Record.TypePrim() }
-func (r RecordFnc) TypeHO() d.BitFlag   { return Record.TypePrim() }
+func (r RecordFnc) TypePrim() d.BitFlag { return d.Record.Flag() }
+func (r RecordFnc) TypeHO() d.BitFlag   { return Record.Flag() }

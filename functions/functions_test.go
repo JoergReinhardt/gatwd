@@ -56,7 +56,7 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 	fmt.Println(vec.String())
 }
 func TestParameterEnclosure(t *testing.T) {
-	var dat Functional
+	var dat Value
 	var parm Argumented
 	parm = NewArgument(New("test parameter"))
 	dat = parm.Arg()

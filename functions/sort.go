@@ -64,7 +64,7 @@ func compInt2BooIncl(i int) bool { return i >= 0 }
 func compInt2BooExcl(i int) bool { return i > 0 }
 
 // type to sort slices of data
-type dataSorter []Functional
+type dataSorter []Value
 
 func (d dataSorter) Empty() bool {
 	if len(d) > 0 {
@@ -77,13 +77,13 @@ func (d dataSorter) Empty() bool {
 	}
 	return true
 }
-func newDataSorter(dat ...Functional) dataSorter { return dataSorter(dat) }
-func (d dataSorter) Len() int                    { return len(d) }
-func (d dataSorter) Swap(i, j int)               { d[i], d[j] = d[j], d[i] }
+func newDataSorter(dat ...Value) dataSorter { return dataSorter(dat) }
+func (d dataSorter) Len() int               { return len(d) }
+func (d dataSorter) Swap(i, j int)          { d[i], d[j] = d[j], d[i] }
 func (ds dataSorter) Sort(argType d.TyPrimitive) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
-func (ds dataSorter) Search(praed Functional) int {
+func (ds dataSorter) Search(praed Value) int {
 	var idx = sort.Search(len(ds), newDataFind(ds, praed))
 	if idx < len(ds) {
 		if strings.Compare(ds[idx].String(), praed.String()) == 0 {
@@ -122,7 +122,7 @@ func newDataLess(argType d.TyPrimitive, ds dataSorter) func(i, j int) bool {
 	}
 	return nil
 }
-func newDataFind(ds dataSorter, praed Functional) func(int) bool {
+func newDataFind(ds dataSorter, praed Value) func(int) bool {
 	var f = praed.Eval().TypePrim()
 	var fn func(int) bool
 	switch {
@@ -156,8 +156,8 @@ func newDataFind(ds dataSorter, praed Functional) func(int) bool {
 // accessor (key) in an accessor/value pair.
 type pairSorter []Paired
 
-func newPairSorter(p ...Paired) pairSorter                         { return append(pairSorter{}, p...) }
-func (a pairSorter) AppendKeyValue(key Functional, val Functional) { a = append(a, NewPair(key, val)) }
+func newPairSorter(p ...Paired) pairSorter               { return append(pairSorter{}, p...) }
+func (a pairSorter) AppendKeyValue(key Value, val Value) { a = append(a, NewPair(key, val)) }
 func (a pairSorter) Empty() bool {
 	if len(a) > 0 {
 		for _, p := range a {
@@ -174,7 +174,7 @@ func (p pairSorter) Sort(f d.TyPrimitive) {
 	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
-func (p pairSorter) Search(praed Functional) int {
+func (p pairSorter) Search(praed Value) int {
 	var idx = sort.Search(len(p), newPraedFind(p, praed))
 	// when praedicate is a precedence type encoding bit-flag
 	if idx != -1 {
@@ -192,14 +192,14 @@ func (p pairSorter) Search(praed Functional) int {
 	}
 	return -1
 }
-func (p pairSorter) Get(praed Functional) Paired {
+func (p pairSorter) Get(praed Value) Paired {
 	idx := p.Search(praed)
 	if idx != -1 {
 		return p[idx]
 	}
 	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
 }
-func (p pairSorter) Range(praed Functional) []Paired {
+func (p pairSorter) Range(praed Value) []Paired {
 	var ran = []Paired{}
 	idx := p.Search(praed)
 	if idx != -1 {
@@ -263,7 +263,7 @@ func newPraedLess(accs pairSorter, t d.TyPrimitive) func(i, j int) bool {
 	}
 	return nil
 }
-func newPraedFind(accs pairSorter, praed Functional) func(i int) bool {
+func newPraedFind(accs pairSorter, praed Value) func(i int) bool {
 	var f = praed.Eval().TypePrim()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

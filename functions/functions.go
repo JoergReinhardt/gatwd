@@ -18,14 +18,15 @@ import (
 type TyHigherOrder d.BitFlag
 
 func (t TyHigherOrder) Flag() d.BitFlag     { return d.BitFlag(t).TypePrim() }
-func (t TyHigherOrder) TypePrim() d.BitFlag { return d.BitFlag(t).TypePrim() }
+func (t TyHigherOrder) TypeHO() d.BitFlag   { return d.BitFlag(t).TypePrim() }
+func (t TyHigherOrder) TypePrim() d.BitFlag { return d.Flag.Flag() }
 func (t TyHigherOrder) Uint() uint          { return d.BitFlag(t).Uint() }
 
 //go:generate stringer -type=TyHigherOrder
 const (
-	Value TyHigherOrder = 1 << iota
-	Instance
-	Polymorph
+	Data     TyHigherOrder = 1 << iota
+	Function               // functions are polymorph‥.
+	Closure
 	Argument
 	Parameter
 	Attribut // map key, slice index, search parameter...
@@ -62,19 +63,20 @@ const (
 )
 
 type ( // HIGHER ORDER FUNCTION TYPES
-	PrimeVal func() d.Primary         // represents constructors for primary data types
-	PairVal  func() (a, b Functional) // <- base element of all tuples and collections
-	ArgVal   func(d ...Functional) (Functional, Argumented)
-	ArgSet   func(d ...Functional) ([]Functional, Arguments)
+	PrimeVal func() d.Primary // represents constructors for primary data types
+	FncVal   func() Value
+	PairVal  func() (a, b Value) // <- base element of all tuples and collections
+	ArgVal   func(d ...Value) (Value, Argumented)
+	ArgSet   func(d ...Value) ([]Value, Arguments)
 	ParamVal func(d ...Paired) (Paired, Parametric)
 	ParamSet func(d ...Parametric) ([]Parametric, Parameters)
 )
 
 // instanciate functionalized data
-func New(inf ...interface{}) Functional {
+func New(inf ...interface{}) Value {
 	return PrimeVal(func() d.Primary { return (d.NewFromNative(inf...)) })
 }
-func NewFromData(dat d.Primary) Functional {
+func NewFromData(dat d.Primary) Value {
 	return PrimeVal(func() d.Primary { return dat })
 }
 
@@ -82,13 +84,20 @@ func NewFromData(dat d.Primary) Functional {
 //
 // methods of the value type
 func (dat PrimeVal) TypePrim() d.BitFlag           { return dat().TypePrim() | d.Function.TypePrim() }
-func (dat PrimeVal) TypeHO() d.BitFlag             { return Value.Flag() }
+func (dat PrimeVal) TypeHO() d.BitFlag             { return Data.Flag() }
 func (dat PrimeVal) Empty() bool                   { return ElemEmpty(dat) }
-func (dat PrimeVal) Ident() Functional             { return dat }
+func (dat PrimeVal) Ident() Value                  { return dat }
 func (dat PrimeVal) Eval() d.Primary               { return dat() }
 func (dat PrimeVal) Call(...d.Evaluable) d.Primary { return dat() }
 
-func ElemEmpty(dat Functional) bool {
+func (dat FncVal) TypePrim() d.BitFlag           { return dat().TypePrim() | d.Function.TypePrim() }
+func (dat FncVal) TypeHO() d.BitFlag             { return Data.Flag() | Function.Flag() }
+func (dat FncVal) Empty() bool                   { return ElemEmpty(dat) }
+func (dat FncVal) Ident() Value                  { return dat }
+func (dat FncVal) Eval() d.Primary               { return dat() }
+func (dat FncVal) Call(...d.Evaluable) d.Primary { return dat() }
+
+func ElemEmpty(dat Value) bool {
 	if dat != nil {
 		if !dat.Eval().TypePrim().Match(d.Nil.TypePrim()) {
 			return false
@@ -100,28 +109,28 @@ func ElemEmpty(dat Functional) bool {
 // PAIR
 //
 // pair encloses two data instances
-func NewPair(l, r Functional) Paired {
-	return PairVal(func() (Functional, Functional) { return l, r })
+func NewPair(l, r Value) Paired {
+	return PairVal(func() (Value, Value) { return l, r })
 }
 func NewPairFromInterface(l, r interface{}) Paired {
-	return PairVal(func() (Functional, Functional) { return New(l), New(r) })
+	return PairVal(func() (Value, Value) { return New(l), New(r) })
 }
 func NewPairFromData(l, r d.Primary) Paired {
-	return PairVal(func() (Functional, Functional) { return NewFromData(l), NewFromData(r) })
+	return PairVal(func() (Value, Value) { return NewFromData(l), NewFromData(r) })
 }
-func (p PairVal) Both() (Functional, Functional) { return p() }
-func (p PairVal) TypeHO() d.BitFlag              { return Pair.Flag() }
+func (p PairVal) Both() (Value, Value) { return p() }
+func (p PairVal) TypeHO() d.BitFlag    { return Pair.Flag() }
 func (p PairVal) TypePrim() d.BitFlag {
 	return d.Pair.TypePrim() | p.Left().TypePrim() | p.Right().TypePrim()
 }
-func (p PairVal) Pair() Functional   { return p }
-func (p PairVal) Left() Functional   { l, _ := p(); return l }
-func (p PairVal) Right() Functional  { _, r := p(); return r }
-func (p PairVal) Acc() Functional    { return p.Left() }
-func (p PairVal) Arg() Functional    { return p.Right() }
+func (p PairVal) Pair() Value        { return p }
+func (p PairVal) Left() Value        { l, _ := p(); return l }
+func (p PairVal) Right() Value       { _, r := p(); return r }
+func (p PairVal) Acc() Value         { return p.Left() }
+func (p PairVal) Arg() Value         { return p.Right() }
 func (p PairVal) AccType() d.BitFlag { return p.Left().TypePrim() }
 func (p PairVal) ArgType() d.BitFlag { return p.Right().TypePrim() }
-func (p PairVal) Ident() Functional  { return p }
+func (p PairVal) Ident() Value       { return p }
 func (p PairVal) Eval() d.Primary    { return NewPair(p.Left(), p.Right()) }
 func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
@@ -134,8 +143,8 @@ func (p PairVal) Empty() bool {
 // argument instance, when called with empty parameter set. when called with
 // arguments, they yield the passed data and a new argument instance eclosing
 // that new data instead.
-func NewArgument(do ...Functional) Argumented {
-	return ArgVal(func(di ...Functional) (Functional, Argumented) {
+func NewArgument(do ...Value) Argumented {
+	return ArgVal(func(di ...Value) (Value, Argumented) {
 		// if parameters where passed‥.
 		if len(di) > 0 { // return former parameter‥.
 			// ‥.and enclosure over newly passed parameters
@@ -144,20 +153,20 @@ func NewArgument(do ...Functional) Argumented {
 		return do[0], NewArgument(do[0])
 	})
 }
-func (p ArgVal) Apply(d ...Functional) (Functional, Argumented) {
+func (p ArgVal) Apply(d ...Value) (Value, Argumented) {
 	if len(d) > 0 {
 		return d[0], NewArgument(d...)
 	}
 	return p()
 }
-func (p ArgVal) Arg() Functional        { k, _ := p(); return k }
-func (p ArgVal) Argumented() Functional { _, d := p(); return d }
-func (p ArgVal) Ident() Functional      { return p }
-func (p ArgVal) Eval() d.Primary        { return p.Arg() }
-func (p ArgVal) ArgType() d.BitFlag     { return p.Arg().TypePrim() }
-func (p ArgVal) Empty() bool            { return ElemEmpty(p.Arg()) }
-func (p ArgVal) TypeHO() d.BitFlag      { return d.Argument.Flag() }
-func (p ArgVal) TypePrim() d.BitFlag    { return p.Arg().Eval().TypePrim() | d.Argument.TypePrim() }
+func (p ArgVal) Arg() Value          { k, _ := p(); return k }
+func (p ArgVal) Argumented() Value   { _, d := p(); return d }
+func (p ArgVal) Ident() Value        { return p }
+func (p ArgVal) Eval() d.Primary     { return p.Arg() }
+func (p ArgVal) ArgType() d.BitFlag  { return p.Arg().TypePrim() }
+func (p ArgVal) Empty() bool         { return ElemEmpty(p.Arg()) }
+func (p ArgVal) TypeHO() d.BitFlag   { return d.Argument.Flag() }
+func (p ArgVal) TypePrim() d.BitFlag { return p.Arg().Eval().TypePrim() | d.Argument.TypePrim() }
 
 //
 // ARGUMENT SET
@@ -165,19 +174,19 @@ func (p ArgVal) TypePrim() d.BitFlag    { return p.Arg().Eval().TypePrim() | d.A
 // collections of arguments provide methods to apply values contained in other
 // collections based on position to replace the given values and yield the
 // resulting collection of arguments.
-func NewwArguments(dat ...Functional) Arguments {
-	return ArgSet(func(dot ...Functional) ([]Functional, Arguments) {
+func NewwArguments(dat ...Value) Arguments {
+	return ArgSet(func(dot ...Value) ([]Value, Arguments) {
 		if len(dot) > 0 {
 			return dot, NewwArguments(dot...)
 		}
 		return dat, NewwArguments(dat...)
 	})
 }
-func NewArgSet(dat ...Functional) Arguments {
-	return ArgSet(func(dot ...Functional) ([]Functional, Arguments) {
+func NewArgSet(dat ...Value) Arguments {
+	return ArgSet(func(dot ...Value) ([]Value, Arguments) {
 		return dat,
 			ArgSet(
-				func(...Functional) ([]Functional, Arguments) {
+				func(...Value) ([]Value, Arguments) {
 					return dat, NewwArguments(dat...)
 				})
 
@@ -199,8 +208,8 @@ func (a ArgSet) Args() []Argumented {
 	}
 	return args
 }
-func (a ArgSet) Data() []Functional { d, _ := a(); return d }
-func (a ArgSet) Len() int           { d, _ := a(); return len(d) }
+func (a ArgSet) Data() []Value { d, _ := a(); return d }
+func (a ArgSet) Len() int      { d, _ := a(); return len(d) }
 func (a ArgSet) Empty() bool {
 	if len(a.Args()) > 0 {
 		for _, arg := range a.Args() {
@@ -211,18 +220,18 @@ func (a ArgSet) Empty() bool {
 	}
 	return true
 }
-func (a ArgSet) ArgSet() Arguments                  { _, as := a(); return as }
-func (a ArgSet) Ident() Functional                  { return a }
-func (a ArgSet) Eval() d.Primary                    { return a.ArgSet() }
-func (a ArgSet) Get(idx int) Argumented             { return a.Args()[idx] }
-func (a ArgSet) Set(idx int, dat Functional) ArgSet { a.Args()[idx] = NewArgument(dat); return a }
-func (a ArgSet) Replace(idx int, arg Functional) Arguments {
+func (a ArgSet) ArgSet() Arguments             { _, as := a(); return as }
+func (a ArgSet) Ident() Value                  { return a }
+func (a ArgSet) Eval() d.Primary               { return a.ArgSet() }
+func (a ArgSet) Get(idx int) Argumented        { return a.Args()[idx] }
+func (a ArgSet) Set(idx int, dat Value) ArgSet { a.Args()[idx] = NewArgument(dat); return a }
+func (a ArgSet) Replace(idx int, arg Value) Arguments {
 	dats, _ := a()
 	dats[idx] = arg
 	return NewwArguments(dats...)
 }
-func (a ArgSet) Apply(dd ...Functional) ([]Functional, Arguments) {
-	var dats = []Functional{}
+func (a ArgSet) Apply(dd ...Value) ([]Value, Arguments) {
+	var dats = []Value{}
 	var args = a.ArgSet()
 	for i, dat := range dd {
 		dats = append(dats, dat)
@@ -230,13 +239,13 @@ func (a ArgSet) Apply(dd ...Functional) ([]Functional, Arguments) {
 	}
 	return dats, args
 }
-func ApplyArgs(ao ArgSet, args ...Functional) Arguments {
+func ApplyArgs(ao ArgSet, args ...Value) Arguments {
 	oargs, _ := ao()
 	var l = len(oargs)
 	if l < len(args) {
 		l = len(args)
 	}
-	var an = make([]Functional, 0, l)
+	var an = make([]Value, 0, l)
 	var i int
 	for i, _ = range oargs {
 		// copy old arguments to return set, if any are set at this pos.
@@ -259,7 +268,7 @@ func ApplyArgs(ao ArgSet, args ...Functional) Arguments {
 // parameteric values carry an accessor additional to the enclosed argument.
 // that accessor can be used as key, search praedicate, order in a list, among
 // other things.
-func NewKeyValueParm(k, v Functional) Parametric { return NewParameter(NewPair(k, v)) }
+func NewKeyValueParm(k, v Value) Parametric { return NewParameter(NewPair(k, v)) }
 func NewParameter(dd ...Paired) Parametric {
 	return ParamVal(func(di ...Paired) (Paired, Parametric) {
 		// if parameters where passed‥.
@@ -271,24 +280,24 @@ func NewParameter(dd ...Paired) Parametric {
 			NewParameter(NewPair(dd[0].Left(), dd[0].Right()))
 	})
 }
-func (p ParamVal) ApplyKeyVal(k, v Functional) (Functional, Parametric) {
+func (p ParamVal) ApplyKeyVal(k, v Value) (Value, Parametric) {
 	return p.Apply(NewKeyValueParm(k, v))
 }
-func (p ParamVal) Apply(pa ...Parametric) (Functional, Parametric) {
+func (p ParamVal) Apply(pa ...Parametric) (Value, Parametric) {
 	if len(pa) == 0 {
 		return p()
 	}
 	return pa[0].(ParamVal)()
 }
-func (p ParamVal) Ident() Functional              { return p }
-func (p ParamVal) Parm() Parametric               { _, parm := p(); return parm }
-func (p ParamVal) Pair() Paired                   { pa, _ := p(); return pa }
-func (p ParamVal) Arg() Functional                { return p.Pair().Right() }
-func (p ParamVal) Acc() Functional                { return p.Pair().Left() }
-func (p ParamVal) ArgType() d.BitFlag             { return p.Arg().TypePrim() }
-func (p ParamVal) AccType() d.BitFlag             { return p.Acc().TypePrim() }
-func (p ParamVal) Eval() d.Primary                { return NewPair(p.Acc(), p.Arg()) }
-func (p ParamVal) Both() (Functional, Functional) { return p.Pair().Both() }
+func (p ParamVal) Ident() Value         { return p }
+func (p ParamVal) Parm() Parametric     { _, parm := p(); return parm }
+func (p ParamVal) Pair() Paired         { pa, _ := p(); return pa }
+func (p ParamVal) Arg() Value           { return p.Pair().Right() }
+func (p ParamVal) Acc() Value           { return p.Pair().Left() }
+func (p ParamVal) ArgType() d.BitFlag   { return p.Arg().TypePrim() }
+func (p ParamVal) AccType() d.BitFlag   { return p.Acc().TypePrim() }
+func (p ParamVal) Eval() d.Primary      { return NewPair(p.Acc(), p.Arg()) }
+func (p ParamVal) Both() (Value, Value) { return p.Pair().Both() }
 func (p ParamVal) Empty() bool {
 	l, r := p.Pair().Both()
 	return ElemEmpty(l) && ElemEmpty(r)
@@ -322,10 +331,10 @@ func NewParameters(pairs ...Paired) Parameters {
 			return parms, NewParameterSet(parms...)
 		})
 }
-func (a ParamSet) AppendKeyValue(k, v Functional) Parameters {
+func (a ParamSet) AppendKeyValue(k, v Value) Parameters {
 	return NewParameterSet(append(a.Parms(), NewKeyValueParm(k, v))...)
 }
-func (a ParamSet) GetIdx(acc Functional) (int, pairSorter) {
+func (a ParamSet) GetIdx(acc Value) (int, pairSorter) {
 	var ps = newPairSorter(a.Pairs()...)
 	switch {
 	case acc.Eval().TypePrim().Match(d.Symbolic.TypePrim()):
@@ -341,7 +350,7 @@ func (a ParamSet) GetIdx(acc Functional) (int, pairSorter) {
 	}
 	return -1, ps
 }
-func (a ParamSet) Get(acc Functional) Paired {
+func (a ParamSet) Get(acc Value) Paired {
 	var idx, ps = a.GetIdx(acc)
 	fmt.Println(idx)
 	if idx >= 0 {
@@ -349,7 +358,7 @@ func (a ParamSet) Get(acc Functional) Paired {
 	}
 	return NewPairFromInterface(d.NilVal{}, d.NilVal{})
 }
-func (a ParamSet) Set(acc, val Functional) ParamSet {
+func (a ParamSet) Set(acc, val Value) ParamSet {
 	idx, ps := a.GetIdx(acc)
 	ps[idx] = NewPair(acc, val)
 	return NewParameters(ps...).(ParamSet)
@@ -359,10 +368,10 @@ func (a ParamSet) Replace(acc Paired) Parameters {
 	ps[idx] = acc
 	return NewParameters(ps...)
 }
-func (a ParamSet) ReplaceKeyValue(k, v Functional) Parameters {
+func (a ParamSet) ReplaceKeyValue(k, v Value) Parameters {
 	return a.Replace(NewPair(k, v))
 }
-func (a ParamSet) ApplyKeyValue(k, v Functional) ([]Parametric, Parameters) {
+func (a ParamSet) ApplyKeyValue(k, v Value) ([]Parametric, Parameters) {
 	return a.Apply(NewKeyValueParm(k, v))
 }
 func (a ParamSet) Apply(args ...Parametric) ([]Parametric, Parameters) {
@@ -409,8 +418,8 @@ func (a ParamSet) Empty() bool {
 	}
 	return true
 }
-func (a ParamSet) Ident() Functional { return a }
-func (a ParamSet) Eval() d.Primary   { return a }
+func (a ParamSet) Ident() Value    { return a }
+func (a ParamSet) Eval() d.Primary { return a }
 func (a ParamSet) Append(v ...Paired) Parameters {
 	return NewParameters(append(a.Pairs(), v...)...)
 }

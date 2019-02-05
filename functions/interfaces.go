@@ -1,9 +1,12 @@
 /*
-INTERFACES
+FUNCTIONS INTERFACES
 
-  interfaces provide connection between higher order function composition and
-  actual implementation, as well as transition between data and function package
-  types
+  interfaces of higher order functional data types.
+
+  the functions package imports the data package, to provide primary data
+  types, as base to define functional data types up on.
+
+
 */
 package functions
 
@@ -24,7 +27,7 @@ type Primary interface {
 	d.Primary
 	Eval() d.Primary
 }
-type Nullable interface{ Null() Functional }
+type Nullable interface{ Null() Value }
 type Bitwise interface{ Uint() uint }
 type Boolean interface{ Bool() bool }
 type Unsigned interface{ Uint() uint }
@@ -47,19 +50,22 @@ type Synbolic interface {
 	Bytes() []byte
 }
 
-// Functional interface{}
+// DATA & FUNCTION VALUES
 //
-// augments instances of data packages types with a 'kind' method. 'kinds of
-// data' are sets of functional types providing common methods. this maps data
-// packages 'classes' and there associated methods in the functions package, to
-// the concept of type class.
-type Functional interface {
+// functional values can be either callable functions, or instances of primary values from the data package. functions interfaces expect every value to implement the Call(...Value) method.
+//
+// instances of type data.value can be, either alias of a type defined here or
+// upstream, that wraps data.Primary.Eval() with a Call(...Value) method (not
+// expecting and therefore ignoring passed arguments, when called), to comply
+// to the Callable interface, or be closed over by every closure based type,
+// that provides the appropriate method.
+type Value interface {
 	Primary
 	TypeHO() d.BitFlag
 }
-type Function interface {
-	Functional
-	Call(...Functional) Functional
+type Callable interface {
+	Value
+	Call(...Value) Value
 }
 
 // FUNCTIONAL KIND INTERFACES
@@ -75,10 +81,10 @@ type Function interface {
 // instance the data type brings with it. it can be implemented by that type,
 // or anyhing else that returns two values.
 type Paired interface {
-	Functional
-	Left() Functional
-	Right() Functional
-	Both() (Functional, Functional)
+	Value
+	Left() Value
+	Right() Value
+	Both() (Value, Value)
 }
 
 // 'APPLYABLE' DATA
@@ -106,23 +112,23 @@ type Paired interface {
 // applyable function type (it's applyable behaviour, so to speak) in it's
 // 'Apply(...Data) (d.Data, Argumented)' method.
 type Argumented interface {
-	Functional
+	Value
 	ArgType() d.BitFlag
-	Arg() Functional
-	Apply(...Functional) (Functional, Argumented)
+	Arg() Value
+	Apply(...Value) (Value, Argumented)
 }
 
 // Arguments interface{}
 //
 // interface all lists of arguments must implement to gain applyability
 type Arguments interface {
-	Functional
+	Value
 	Len() int
 	Args() []Argumented
-	Data() []Functional
+	Data() []Value
 	Get(int) Argumented
-	Replace(int, Functional) Arguments
-	Apply(...Functional) ([]Functional, Arguments)
+	Replace(int, Value) Arguments
+	Apply(...Value) ([]Value, Arguments)
 }
 
 // Parametric interface{}
@@ -133,28 +139,28 @@ type Arguments interface {
 // search, or sort praedicate that provides additional information for what to
 // search-/, or sort by.
 type Parametric interface {
-	Functional
+	Value
 	Parm() Parametric
-	Arg() Functional
-	Acc() Functional
-	Both() (Functional, Functional)
+	Arg() Value
+	Acc() Value
+	Both() (Value, Value)
 	Pair() Paired
-	Apply(...Parametric) (Functional, Parametric)
+	Apply(...Parametric) (Value, Parametric)
 }
 
 // Parameters interface{}
 //
 // a list of instances of the parametric type.
 type Parameters interface {
-	Functional
+	Value
 	Len() int
 	Pairs() []Paired
 	Parms() []Parametric
-	Get(Functional) Paired
+	Get(Value) Paired
 	Replace(Paired) Parameters
-	ReplaceKeyValue(k, v Functional) Parameters
+	ReplaceKeyValue(k, v Value) Parameters
 	Apply(...Parametric) ([]Parametric, Parameters)
-	AppendKeyValue(k, v Functional) Parameters
+	AppendKeyValue(k, v Value) Parameters
 }
 
 // Countable interface{}
@@ -175,7 +181,7 @@ type Countable interface {
 // that's neccessary, since the way to implement a performant empty check
 // highly depends on the type (recursive vs. flat)
 type Collected interface {
-	Functional
+	Value
 	Countable
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
@@ -184,7 +190,7 @@ type Collected interface {
 // is a collection type that can provide a flat slice representation of it's
 // data
 type Quantified interface {
-	Slice() []Functional //<-- no more nil pointers & 'out of index'!
+	Slice() []Value //<-- no more nil pointers & 'out of index'!
 }
 
 // Vectorized interface{}
@@ -204,9 +210,9 @@ type Vectorized interface {
 	Collected
 	Quantified
 	// !!! not to be mixe with recursive !!!
-	Head() Functional
-	Tail() []Functional
-	DeCap() (Functional, []Functional)
+	Head() Value
+	Tail() []Value
+	DeCap() (Value, []Value)
 }
 type Accessable interface {
 	Collected
@@ -223,9 +229,9 @@ type Accessable interface {
 type Recursive interface {
 	Collected
 	// !!! recursive data structures can't provide slices !!!
-	Head() Functional
+	Head() Value
 	Tail() Recursive
-	DeCap() (Functional, Recursive)
+	DeCap() (Value, Recursive)
 }
 
 //// TUPLES /////
@@ -248,7 +254,7 @@ type Tupled interface {
 type Recorded interface {
 	Vectorized
 	Tuple() Tupled
-	Get(Functional) Paired
+	Get(Value) Paired
 	ArgSig() []Paired // key/data-type
 }
 
@@ -262,7 +268,7 @@ type Recorded interface {
 // allows slice based collections to be used in protty much the same way.
 type Ordered interface {
 	Collected
-	Next() (Functional, Ordered)
+	Next() (Value, Ordered)
 }
 
 // Reverseable interface{}
@@ -271,7 +277,7 @@ type Ordered interface {
 // additional reference to it's predeccessor node
 type Reverseable interface {
 	Ordered
-	Prev() Functional
+	Prev() Value
 }
 
 /// NESTED COLLECTIONS /////
@@ -318,5 +324,5 @@ type Edged interface {
 }
 type Leaved interface {
 	Nodular
-	Value() Functional
+	Value() Value
 }

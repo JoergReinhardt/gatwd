@@ -23,24 +23,24 @@ func (v BitFlag) Match(f BitFlag) bool     { return FlagMatch(v, f) }
 func (v BitFlag) Decompose() []BitFlag     { return FlagDecompose(v) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Primary) BitFlag              { return t.TypePrim() }
-func FlagLength(t Primary) int            { return bits.Len(t.TypePrim().Uint()) }
-func FlagCount(t Primary) int             { return bits.OnesCount(t.TypePrim().Uint()) }
-func FlagLeastSig(t Primary) int          { return bits.TrailingZeros(t.TypePrim().Uint()) + 1 }
-func FlagMostSig(t Primary) int           { return bits.LeadingZeros(t.TypePrim().Uint()) - 1 }
-func FlagReverse(t Primary) BitFlag       { return BitFlag(bits.Reverse(t.TypePrim().Uint())) }
-func FlagRotate(t Primary, n int) BitFlag { return BitFlag(bits.RotateLeft(t.TypePrim().Uint(), n)) }
-func FlagToggle(t Primary, v Primary) BitFlag {
+func flag(t BitFlag) BitFlag              { return t.TypePrim() }
+func FlagLength(t BitFlag) int            { return bits.Len(t.TypePrim().Uint()) }
+func FlagCount(t BitFlag) int             { return bits.OnesCount(t.TypePrim().Uint()) }
+func FlagLeastSig(t BitFlag) int          { return bits.TrailingZeros(t.TypePrim().Uint()) + 1 }
+func FlagMostSig(t BitFlag) int           { return bits.LeadingZeros(t.TypePrim().Uint()) - 1 }
+func FlagReverse(t BitFlag) BitFlag       { return BitFlag(bits.Reverse(t.TypePrim().Uint())) }
+func FlagRotate(t BitFlag, n int) BitFlag { return BitFlag(bits.RotateLeft(t.TypePrim().Uint(), n)) }
+func FlagToggle(t BitFlag, v BitFlag) BitFlag {
 	return BitFlag(t.TypePrim().Uint() ^ v.TypePrim().Uint())
 }
-func FlagConcat(t Primary, v Primary) BitFlag {
+func FlagConcat(t BitFlag, v BitFlag) BitFlag {
 	return BitFlag(t.TypePrim().Uint() | v.TypePrim().Uint())
 }
-func FlagMask(t Primary, v Primary) BitFlag {
+func FlagMask(t BitFlag, v BitFlag) BitFlag {
 	return BitFlag(t.TypePrim().Uint() &^ v.TypePrim().Uint())
 }
-func FlagShow(f Primary) string { return fmt.Sprintf("%64b\n", f) }
-func FlagLow(t Primary) Primary { return FlagMask(t.TypePrim(), Primary(Mask)) }
+func FlagShow(f BitFlag) string { return fmt.Sprintf("%64b\n", f) }
+func FlagLow(t BitFlag) BitFlag { return FlagMask(t.TypePrim(), BitFlag(Mask)) }
 func FlagHigh(t BitFlag) BitFlag {
 	len := FlagLength(BitFlag(Flag))
 	return FlagMask(FlagRotate(t.TypePrim(), len), FlagRotate(BitFlag(HigherOrder), len))

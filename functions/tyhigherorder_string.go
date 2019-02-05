@@ -4,31 +4,31 @@ package functions
 
 import "strconv"
 
-const _TyHigherOrder_name = "ValueInstancePolymorphArgumentParameterAttributAccessorGeneratorPairVectorTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeHigherOrderInternal"
+const _TyHigherOrder_name = "DataFunctionClosureArgumentParameterAttributAccessorGeneratorPairVectorTupleListUniSetMuliSetAssocARecordLinkDLinkNodeTreeHigherOrderInternal"
 
 var _TyHigherOrder_map = map[TyHigherOrder]string{
-	1:       _TyHigherOrder_name[0:5],
-	2:       _TyHigherOrder_name[5:13],
-	4:       _TyHigherOrder_name[13:22],
-	8:       _TyHigherOrder_name[22:30],
-	16:      _TyHigherOrder_name[30:39],
-	32:      _TyHigherOrder_name[39:47],
-	64:      _TyHigherOrder_name[47:55],
-	128:     _TyHigherOrder_name[55:64],
-	256:     _TyHigherOrder_name[64:68],
-	512:     _TyHigherOrder_name[68:74],
-	1024:    _TyHigherOrder_name[74:79],
-	2048:    _TyHigherOrder_name[79:83],
-	4096:    _TyHigherOrder_name[83:89],
-	8192:    _TyHigherOrder_name[89:96],
-	16384:   _TyHigherOrder_name[96:102],
-	32768:   _TyHigherOrder_name[102:108],
-	65536:   _TyHigherOrder_name[108:112],
-	131072:  _TyHigherOrder_name[112:117],
-	262144:  _TyHigherOrder_name[117:121],
-	524288:  _TyHigherOrder_name[121:125],
-	1048576: _TyHigherOrder_name[125:136],
-	2097152: _TyHigherOrder_name[136:144],
+	1:       _TyHigherOrder_name[0:4],
+	2:       _TyHigherOrder_name[4:12],
+	4:       _TyHigherOrder_name[12:19],
+	8:       _TyHigherOrder_name[19:27],
+	16:      _TyHigherOrder_name[27:36],
+	32:      _TyHigherOrder_name[36:44],
+	64:      _TyHigherOrder_name[44:52],
+	128:     _TyHigherOrder_name[52:61],
+	256:     _TyHigherOrder_name[61:65],
+	512:     _TyHigherOrder_name[65:71],
+	1024:    _TyHigherOrder_name[71:76],
+	2048:    _TyHigherOrder_name[76:80],
+	4096:    _TyHigherOrder_name[80:86],
+	8192:    _TyHigherOrder_name[86:93],
+	16384:   _TyHigherOrder_name[93:99],
+	32768:   _TyHigherOrder_name[99:105],
+	65536:   _TyHigherOrder_name[105:109],
+	131072:  _TyHigherOrder_name[109:114],
+	262144:  _TyHigherOrder_name[114:118],
+	524288:  _TyHigherOrder_name[118:122],
+	1048576: _TyHigherOrder_name[122:133],
+	2097152: _TyHigherOrder_name[133:141],
 }
 
 func (i TyHigherOrder) String() string {
