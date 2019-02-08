@@ -11,8 +11,8 @@ import (
 // intended to be accessable and extendable
 type TyPrimitive BitFlag
 
-func (v TyPrimitive) TypePrim() BitFlag { return BitFlag(v) }
-func (v TyPrimitive) Flag() BitFlag     { return BitFlag(v) }
+func (v TyPrimitive) TypePrim() TyPrimitive { return v }
+func (v TyPrimitive) Flag() BitFlag         { return BitFlag(v) }
 
 func ListAllTypes() []TyPrimitive {
 	var tt = []TyPrimitive{}
@@ -59,33 +59,27 @@ const (
 	Vector
 	List
 	Set
-	Argument
-	Parameter
 	Function
-	Object
 	Flag // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
 	// precedence type classes define argument types functions that accept
 	// a set of possible input types
-	Primarys = Nil | Bool | Int8 | Int16 | Int32 |
-		Int | BigInt | Uint8 | Uint16 | Uint32 | Uint |
-		Flt32 | Float | BigFlt | Ratio | Imag64 | Imag |
-		Time | Duration | Byte | Rune | Bytes | String
+	Primarys = Nil | Bool | Int8 | Int16 | Int32 | Int | BigInt | Uint8 |
+		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
+		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise = Unsigned | Byte | Flag
+	Bitwise = Natural | Byte | Flag
 
 	Boolean = Bool | Bitwise
 
-	Unsigned = Uint | Uint8 | Uint16 | Uint32 | Byte
+	Natural = Uint | Uint8 | Uint16 | Uint32
 
-	Signed = Int | Int8 | Int16 | Int32 | BigInt | Byte
+	Integer = Int | Int8 | Int16 | Int32 | BigInt
 
-	Integer = Unsigned | Signed
+	Rational = Natural | Ratio
 
-	Rational = Unsigned | Integer | Ratio
-
-	Irrational = Float | Flt32 | BigFlt
+	Real = Float | Flt32 | BigFlt
 
 	Imaginary = Imag | Imag64
 
@@ -93,19 +87,14 @@ const (
 
 	Textual = String | Rune | Bytes
 
-	Numeric = Integer | Rational | Irrational |
-		Imaginary | Temporal
+	Numeric = Rational | Real | Imaginary | Temporal
 
 	Symbolic = Textual | Boolean | Temporal | Error
 
+	Collection = Pair | Tuple | Record | Vector | List | Set
+
 	/// here will be dragons‥.
-	HigherOrder = Functional | Collection
-
-	Collection = Pair | Tuple | Record | Vector |
-		List | Set
-
-	Functional = Function | Argument | Parameter |
-		Flag
+	HigherOrder = Function | Collection
 
 	MAX_INT TyPrimitive = 0xFFFFFFFFFFFFFFFF
 	Mask                = MAX_INT ^ Flag
@@ -156,33 +145,33 @@ type ( ////// INTERNAL TYPES /////
 //////// ATTRIBUTE TYPE ALIAS /////////////////
 
 /// bind the appropriate TypePrim Method to every type
-func (v BitFlag) TypePrim() BitFlag   { return Flag.TypePrim() }
-func (v FlagSlice) Flag() BitFlag     { return Flag.TypePrim() }
-func (NilVal) TypePrim() BitFlag      { return Nil.TypePrim() }
-func (v BoolVal) TypePrim() BitFlag   { return Bool.TypePrim() }
-func (v IntVal) TypePrim() BitFlag    { return Int.TypePrim() }
-func (v Int8Val) TypePrim() BitFlag   { return Int8.TypePrim() }
-func (v Int16Val) TypePrim() BitFlag  { return Int16.TypePrim() }
-func (v Int32Val) TypePrim() BitFlag  { return Int32.TypePrim() }
-func (v UintVal) TypePrim() BitFlag   { return Uint.TypePrim() }
-func (v Uint8Val) TypePrim() BitFlag  { return Uint8.TypePrim() }
-func (v Uint16Val) TypePrim() BitFlag { return Uint16.TypePrim() }
-func (v Uint32Val) TypePrim() BitFlag { return Uint32.TypePrim() }
-func (v BigIntVal) TypePrim() BitFlag { return BigInt.TypePrim() }
-func (v FltVal) TypePrim() BitFlag    { return Float.TypePrim() }
-func (v Flt32Val) TypePrim() BitFlag  { return Flt32.TypePrim() }
-func (v BigFltVal) TypePrim() BitFlag { return BigFlt.TypePrim() }
-func (v ImagVal) TypePrim() BitFlag   { return Imag.TypePrim() }
-func (v Imag64Val) TypePrim() BitFlag { return Imag64.TypePrim() }
-func (v RatioVal) TypePrim() BitFlag  { return Ratio.TypePrim() }
-func (v RuneVal) TypePrim() BitFlag   { return Rune.TypePrim() }
-func (v ByteVal) TypePrim() BitFlag   { return Byte.TypePrim() }
-func (v BytesVal) TypePrim() BitFlag  { return Bytes.TypePrim() }
-func (v StrVal) TypePrim() BitFlag    { return String.TypePrim() }
-func (v TimeVal) TypePrim() BitFlag   { return Time.TypePrim() }
-func (v DuraVal) TypePrim() BitFlag   { return Duration.TypePrim() }
-func (v ErrorVal) TypePrim() BitFlag  { return Error.TypePrim() }
-func (v PairVal) TypePrim() BitFlag   { return Pair.TypePrim() }
+func (v BitFlag) TypePrim() TyPrimitive   { return Flag.TypePrim() }
+func (v FlagSlice) Flag() TyPrimitive     { return Flag.TypePrim() }
+func (NilVal) TypePrim() TyPrimitive      { return Nil.TypePrim() }
+func (v BoolVal) TypePrim() TyPrimitive   { return Bool.TypePrim() }
+func (v IntVal) TypePrim() TyPrimitive    { return Int.TypePrim() }
+func (v Int8Val) TypePrim() TyPrimitive   { return Int8.TypePrim() }
+func (v Int16Val) TypePrim() TyPrimitive  { return Int16.TypePrim() }
+func (v Int32Val) TypePrim() TyPrimitive  { return Int32.TypePrim() }
+func (v UintVal) TypePrim() TyPrimitive   { return Uint.TypePrim() }
+func (v Uint8Val) TypePrim() TyPrimitive  { return Uint8.TypePrim() }
+func (v Uint16Val) TypePrim() TyPrimitive { return Uint16.TypePrim() }
+func (v Uint32Val) TypePrim() TyPrimitive { return Uint32.TypePrim() }
+func (v BigIntVal) TypePrim() TyPrimitive { return BigInt.TypePrim() }
+func (v FltVal) TypePrim() TyPrimitive    { return Float.TypePrim() }
+func (v Flt32Val) TypePrim() TyPrimitive  { return Flt32.TypePrim() }
+func (v BigFltVal) TypePrim() TyPrimitive { return BigFlt.TypePrim() }
+func (v ImagVal) TypePrim() TyPrimitive   { return Imag.TypePrim() }
+func (v Imag64Val) TypePrim() TyPrimitive { return Imag64.TypePrim() }
+func (v RatioVal) TypePrim() TyPrimitive  { return Ratio.TypePrim() }
+func (v RuneVal) TypePrim() TyPrimitive   { return Rune.TypePrim() }
+func (v ByteVal) TypePrim() TyPrimitive   { return Byte.TypePrim() }
+func (v BytesVal) TypePrim() TyPrimitive  { return Bytes.TypePrim() }
+func (v StrVal) TypePrim() TyPrimitive    { return String.TypePrim() }
+func (v TimeVal) TypePrim() TyPrimitive   { return Time.TypePrim() }
+func (v DuraVal) TypePrim() TyPrimitive   { return Duration.TypePrim() }
+func (v ErrorVal) TypePrim() TyPrimitive  { return Error.TypePrim() }
+func (v PairVal) TypePrim() TyPrimitive   { return Pair.TypePrim() }
 
 ///
 func (NilVal) Copy() Primary      { return NilVal{} }
@@ -224,7 +213,7 @@ func (NilVal) Eval(d ...Primary) Primary { return NilVal{} }
 func (v BitFlag) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -233,7 +222,7 @@ func (v BitFlag) Eval(d ...Primary) Primary {
 func (v BoolVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -242,7 +231,7 @@ func (v BoolVal) Eval(d ...Primary) Primary {
 func (v IntVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -251,7 +240,7 @@ func (v IntVal) Eval(d ...Primary) Primary {
 func (v Int8Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -260,7 +249,7 @@ func (v Int8Val) Eval(d ...Primary) Primary {
 func (v Int16Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -269,7 +258,7 @@ func (v Int16Val) Eval(d ...Primary) Primary {
 func (v Int32Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -278,7 +267,7 @@ func (v Int32Val) Eval(d ...Primary) Primary {
 func (v UintVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -287,7 +276,7 @@ func (v UintVal) Eval(d ...Primary) Primary {
 func (v Uint8Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -296,7 +285,7 @@ func (v Uint8Val) Eval(d ...Primary) Primary {
 func (v Uint16Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -305,7 +294,7 @@ func (v Uint16Val) Eval(d ...Primary) Primary {
 func (v Uint32Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -314,7 +303,7 @@ func (v Uint32Val) Eval(d ...Primary) Primary {
 func (v BigIntVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -323,7 +312,7 @@ func (v BigIntVal) Eval(d ...Primary) Primary {
 func (v FltVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -332,7 +321,7 @@ func (v FltVal) Eval(d ...Primary) Primary {
 func (v Flt32Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -341,7 +330,7 @@ func (v Flt32Val) Eval(d ...Primary) Primary {
 func (v BigFltVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -350,7 +339,7 @@ func (v BigFltVal) Eval(d ...Primary) Primary {
 func (v ImagVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -359,7 +348,7 @@ func (v ImagVal) Eval(d ...Primary) Primary {
 func (v Imag64Val) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -368,7 +357,7 @@ func (v Imag64Val) Eval(d ...Primary) Primary {
 func (v RatioVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -377,7 +366,7 @@ func (v RatioVal) Eval(d ...Primary) Primary {
 func (v RuneVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -386,7 +375,7 @@ func (v RuneVal) Eval(d ...Primary) Primary {
 func (v ByteVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -395,7 +384,7 @@ func (v ByteVal) Eval(d ...Primary) Primary {
 func (v BytesVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -404,7 +393,7 @@ func (v BytesVal) Eval(d ...Primary) Primary {
 func (v StrVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -413,7 +402,7 @@ func (v StrVal) Eval(d ...Primary) Primary {
 func (v TimeVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -422,7 +411,7 @@ func (v TimeVal) Eval(d ...Primary) Primary {
 func (v DuraVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -431,7 +420,7 @@ func (v DuraVal) Eval(d ...Primary) Primary {
 func (v ErrorVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -440,7 +429,7 @@ func (v ErrorVal) Eval(d ...Primary) Primary {
 func (v PairVal) Eval(d ...Primary) Primary {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnBoxed(v.TypePrim(), d...)
+			return NewUnBoxed(v.TypePrim().Flag(), d...)
 		}
 		return d[0]
 	}

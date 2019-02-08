@@ -168,7 +168,7 @@ func TestPairSorterUintStr(t *testing.T) {
 	}
 
 	ps := newPairSorter(pairs...)
-	ps.Sort(d.Unsigned)
+	ps.Sort(d.Natural)
 	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
 }
 func TestPairSorterIrrationalStr(t *testing.T) {
@@ -186,6 +186,6 @@ func TestPairSorterIrrationalStr(t *testing.T) {
 	}
 
 	ps := newPairSorter(pairs...)
-	ps.Sort(d.Irrational)
+	ps.Sort(d.Real)
 	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
 }

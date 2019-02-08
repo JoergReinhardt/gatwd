@@ -17,19 +17,19 @@ import (
 // encodes the kind of functional data as bitflag
 type TyHigherOrder d.BitFlag
 
-func (t TyHigherOrder) Flag() d.BitFlag     { return d.BitFlag(t).TypePrim() }
-func (t TyHigherOrder) TypeHO() d.BitFlag   { return d.BitFlag(t).TypePrim() }
-func (t TyHigherOrder) TypePrim() d.BitFlag { return d.Flag.Flag() }
-func (t TyHigherOrder) Uint() uint          { return d.BitFlag(t).Uint() }
+func (t TyHigherOrder) Flag() d.BitFlag         { return d.BitFlag(t) }
+func (t TyHigherOrder) TypeHO() TyHigherOrder   { return t }
+func (t TyHigherOrder) TypePrim() d.TyPrimitive { return d.Flag }
+func (t TyHigherOrder) Uint() uint              { return d.BitFlag(t).Uint() }
 
 //go:generate stringer -type=TyHigherOrder
 const (
-	Data     TyHigherOrder = 1 << iota
-	Function               // functions are polymorph‥.
+	Data TyHigherOrder = 1 << iota
 	Closure
+	Function // functions are polymorph‥.
 	Argument
 	Parameter
-	Attribut // map key, slice index, search parameter...
+	Unbound  // map key, slice index, search parameter...
 	Accessor // pair of Attr & Value
 	Generator
 	Pair
@@ -74,7 +74,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 
 // instanciate functionalized data
 func New(inf ...interface{}) Value {
-	return PrimeVal(func() d.Primary { return (d.NewFromNative(inf...)) })
+	return PrimeVal(func() d.Primary { return d.NewFromNative(inf...) })
 }
 func NewFromData(dat d.Primary) Value {
 	return PrimeVal(func() d.Primary { return dat })
@@ -83,23 +83,23 @@ func NewFromData(dat d.Primary) Value {
 // VALUE
 //
 // methods of the value type
-func (dat PrimeVal) TypePrim() d.BitFlag           { return dat().TypePrim() | d.Function.TypePrim() }
-func (dat PrimeVal) TypeHO() d.BitFlag             { return Data.Flag() }
+func (dat PrimeVal) TypePrim() d.TyPrimitive       { return dat().TypePrim() }
+func (dat PrimeVal) TypeHO() TyHigherOrder         { return Data }
 func (dat PrimeVal) Empty() bool                   { return ElemEmpty(dat) }
 func (dat PrimeVal) Ident() Value                  { return dat }
-func (dat PrimeVal) Eval() d.Primary               { return dat() }
+func (dat PrimeVal) Eval(...d.Primary) d.Primary   { return dat() }
 func (dat PrimeVal) Call(...d.Evaluable) d.Primary { return dat() }
 
-func (dat FncVal) TypePrim() d.BitFlag           { return dat().TypePrim() | d.Function.TypePrim() }
-func (dat FncVal) TypeHO() d.BitFlag             { return Data.Flag() | Function.Flag() }
+func (dat FncVal) TypePrim() d.TyPrimitive       { return dat().TypePrim() }
+func (dat FncVal) TypeHO() TyHigherOrder         { return Data | Function }
 func (dat FncVal) Empty() bool                   { return ElemEmpty(dat) }
 func (dat FncVal) Ident() Value                  { return dat }
-func (dat FncVal) Eval() d.Primary               { return dat() }
+func (dat FncVal) Eval(...d.Primary) d.Primary   { return dat() }
 func (dat FncVal) Call(...d.Evaluable) d.Primary { return dat() }
 
 func ElemEmpty(dat Value) bool {
 	if dat != nil {
-		if !dat.Eval().TypePrim().Match(d.Nil.TypePrim()) {
+		if !dat.Eval().TypePrim().Flag().Match(d.Nil.Flag()) {
 			return false
 		}
 	}
@@ -118,20 +118,20 @@ func NewPairFromInterface(l, r interface{}) Paired {
 func NewPairFromData(l, r d.Primary) Paired {
 	return PairVal(func() (Value, Value) { return NewFromData(l), NewFromData(r) })
 }
-func (p PairVal) Both() (Value, Value) { return p() }
-func (p PairVal) TypeHO() d.BitFlag    { return Pair.Flag() }
-func (p PairVal) TypePrim() d.BitFlag {
+func (p PairVal) Both() (Value, Value)  { return p() }
+func (p PairVal) TypeHO() TyHigherOrder { return Pair }
+func (p PairVal) TypePrim() d.TyPrimitive {
 	return d.Pair.TypePrim() | p.Left().TypePrim() | p.Right().TypePrim()
 }
-func (p PairVal) Pair() Value        { return p }
-func (p PairVal) Left() Value        { l, _ := p(); return l }
-func (p PairVal) Right() Value       { _, r := p(); return r }
-func (p PairVal) Acc() Value         { return p.Left() }
-func (p PairVal) Arg() Value         { return p.Right() }
-func (p PairVal) AccType() d.BitFlag { return p.Left().TypePrim() }
-func (p PairVal) ArgType() d.BitFlag { return p.Right().TypePrim() }
-func (p PairVal) Ident() Value       { return p }
-func (p PairVal) Eval() d.Primary    { return NewPair(p.Left(), p.Right()) }
+func (p PairVal) Pair() Value                   { return p }
+func (p PairVal) Left() Value                   { l, _ := p(); return l }
+func (p PairVal) Right() Value                  { _, r := p(); return r }
+func (p PairVal) Acc() Value                    { return p.Left() }
+func (p PairVal) Arg() Value                    { return p.Right() }
+func (p PairVal) AccType() d.BitFlag            { return p.Left().TypePrim().Flag() }
+func (p PairVal) ArgType() d.BitFlag            { return p.Right().TypePrim().Flag() }
+func (p PairVal) Ident() Value                  { return p }
+func (p PairVal) Eval(s ...d.Primary) d.Primary { return NewPair(p.Left(), p.Right()) }
 func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
 }
@@ -159,14 +159,14 @@ func (p ArgVal) Apply(d ...Value) (Value, Argumented) {
 	}
 	return p()
 }
-func (p ArgVal) Arg() Value          { k, _ := p(); return k }
-func (p ArgVal) Argumented() Value   { _, d := p(); return d }
-func (p ArgVal) Ident() Value        { return p }
-func (p ArgVal) Eval() d.Primary     { return p.Arg() }
-func (p ArgVal) ArgType() d.BitFlag  { return p.Arg().TypePrim() }
-func (p ArgVal) Empty() bool         { return ElemEmpty(p.Arg()) }
-func (p ArgVal) TypeHO() d.BitFlag   { return d.Argument.Flag() }
-func (p ArgVal) TypePrim() d.BitFlag { return p.Arg().Eval().TypePrim() | d.Argument.TypePrim() }
+func (p ArgVal) Arg() Value                    { k, _ := p(); return k }
+func (p ArgVal) Argumented() Value             { _, d := p(); return d }
+func (p ArgVal) Ident() Value                  { return p }
+func (p ArgVal) Eval(a ...d.Primary) d.Primary { return p.Arg() }
+func (p ArgVal) Empty() bool                   { return ElemEmpty(p.Arg()) }
+func (p ArgVal) ArgType() d.TyPrimitive        { return p.Arg().TypePrim() }
+func (p ArgVal) TypeHO() TyHigherOrder         { return Argument }
+func (p ArgVal) TypePrim() d.TyPrimitive       { return p.ArgType() }
 
 //
 // ARGUMENT SET
@@ -192,14 +192,14 @@ func NewArgSet(dat ...Value) Arguments {
 
 	})
 }
-func (a ArgSet) TypeHO() d.BitFlag { return Argument.Flag() | Vector.Flag() }
-func (a ArgSet) TypePrim() d.BitFlag {
+func (a ArgSet) TypeHO() TyHigherOrder { return Argument | Vector }
+func (a ArgSet) TypePrim() d.TyPrimitive {
 	var f = d.BitFlag(uint(0))
 	for _, arg := range a.Args() {
-		f = f.Concat(arg.TypePrim())
+		f = f.Concat(arg.TypePrim().Flag())
 	}
-	f = f | d.Argument.TypePrim() | d.Vector.TypePrim()
-	return f
+	f = f | d.Vector.TypePrim().Flag()
+	return d.TyPrimitive(f)
 }
 func (a ArgSet) Args() []Argumented {
 	var args = []Argumented{}
@@ -222,7 +222,7 @@ func (a ArgSet) Empty() bool {
 }
 func (a ArgSet) ArgSet() Arguments             { _, as := a(); return as }
 func (a ArgSet) Ident() Value                  { return a }
-func (a ArgSet) Eval() d.Primary               { return a.ArgSet() }
+func (a ArgSet) Eval(p ...d.Primary) d.Primary { return a.ArgSet() }
 func (a ArgSet) Get(idx int) Argumented        { return a.Args()[idx] }
 func (a ArgSet) Set(idx int, dat Value) ArgSet { a.Args()[idx] = NewArgument(dat); return a }
 func (a ArgSet) Replace(idx int, arg Value) Arguments {
@@ -249,13 +249,13 @@ func ApplyArgs(ao ArgSet, args ...Value) Arguments {
 	var i int
 	for i, _ = range oargs {
 		// copy old arguments to return set, if any are set at this pos.
-		if oargs[i] != nil && d.Nil.TypePrim().Match(oargs[i].TypePrim()) {
+		if oargs[i] != nil && d.Nil.TypePrim().Flag().Match(oargs[i].TypePrim().Flag()) {
 			an[i] = oargs[i]
 		}
 		// copy new arguments to return set, if any are set at this
 		// position. overwrite old arguments in case any where set at
 		// this position.
-		if args[i] != nil && d.Nil.TypePrim().Match(args[i].TypePrim()) {
+		if args[i] != nil && d.Nil.TypePrim().Flag().Match(args[i].TypePrim().Flag()) {
 			an[i] = args[i]
 		}
 
@@ -289,21 +289,23 @@ func (p ParamVal) Apply(pa ...Parametric) (Value, Parametric) {
 	}
 	return pa[0].(ParamVal)()
 }
-func (p ParamVal) Ident() Value         { return p }
-func (p ParamVal) Parm() Parametric     { _, parm := p(); return parm }
-func (p ParamVal) Pair() Paired         { pa, _ := p(); return pa }
-func (p ParamVal) Arg() Value           { return p.Pair().Right() }
-func (p ParamVal) Acc() Value           { return p.Pair().Left() }
-func (p ParamVal) ArgType() d.BitFlag   { return p.Arg().TypePrim() }
-func (p ParamVal) AccType() d.BitFlag   { return p.Acc().TypePrim() }
-func (p ParamVal) Eval() d.Primary      { return NewPair(p.Acc(), p.Arg()) }
-func (p ParamVal) Both() (Value, Value) { return p.Pair().Both() }
+func (p ParamVal) Ident() Value                  { return p }
+func (p ParamVal) Parm() Parametric              { _, parm := p(); return parm }
+func (p ParamVal) Pair() Paired                  { pa, _ := p(); return pa }
+func (p ParamVal) Left() Value                   { return p.Pair().Left() }
+func (p ParamVal) Right() Value                  { return p.Pair().Right() }
+func (p ParamVal) Arg() Value                    { return p.Pair().Right() }
+func (p ParamVal) Acc() Value                    { return p.Pair().Left() }
+func (p ParamVal) ArgType() d.BitFlag            { return p.Arg().TypePrim().Flag() }
+func (p ParamVal) AccType() d.BitFlag            { return p.Acc().TypePrim().Flag() }
+func (p ParamVal) Eval(a ...d.Primary) d.Primary { return NewPair(p.Acc(), p.Arg()) }
+func (p ParamVal) Both() (Value, Value)          { return p.Pair().Both() }
 func (p ParamVal) Empty() bool {
 	l, r := p.Pair().Both()
 	return ElemEmpty(l) && ElemEmpty(r)
 }
-func (p ParamVal) TypePrim() d.BitFlag { return p.Pair().TypePrim() | d.Parameter.TypePrim() }
-func (p ParamVal) TypeHO() d.BitFlag   { return Parameter.Flag() }
+func (p ParamVal) TypePrim() d.TyPrimitive { return p.Pair().TypePrim() }
+func (p ParamVal) TypeHO() TyHigherOrder   { return Parameter }
 
 // PARAMETERS
 //
@@ -337,12 +339,12 @@ func (a ParamSet) AppendKeyValue(k, v Value) Parameters {
 func (a ParamSet) GetIdx(acc Value) (int, pairSorter) {
 	var ps = newPairSorter(a.Pairs()...)
 	switch {
-	case acc.Eval().TypePrim().Match(d.Symbolic.TypePrim()):
+	case acc.Eval().TypePrim().Flag().Match(d.Symbolic.TypePrim().Flag()):
 		ps.Sort(d.String)
-	case acc.Eval().TypePrim().Match(d.Unsigned.TypePrim()):
-		ps.Sort(d.Unsigned)
-	case acc.Eval().TypePrim().Match(d.Integer.TypePrim()):
-		ps.Sort(d.Unsigned)
+	case acc.Eval().TypePrim().Flag().Match(d.Natural.TypePrim().Flag()):
+		ps.Sort(d.Natural)
+	case acc.Eval().TypePrim().Flag().Match(d.Integer.TypePrim().Flag()):
+		ps.Sort(d.Natural)
 	}
 	var idx = ps.Search(acc)
 	if idx != -1 {
@@ -391,13 +393,13 @@ func (a ParamSet) Apply(args ...Parametric) ([]Parametric, Parameters) {
 	parameters := NewParameters(ps...)
 	return parameters.Parms(), parameters
 }
-func (a ParamSet) TypeHO() d.BitFlag { return Parameter.Flag() }
-func (a ParamSet) TypePrim() d.BitFlag {
-	var f = d.BitFlag(0)
+func (a ParamSet) TypeHO() TyHigherOrder { return Parameter }
+func (a ParamSet) TypePrim() d.TyPrimitive {
+	var f = d.BitFlag(0).Flag()
 	for _, pair := range a.Pairs() {
-		f = f | pair.TypePrim()
+		f = f | pair.TypePrim().Flag()
 	}
-	return f | d.Vector.TypePrim() | d.Parameter.TypePrim()
+	return d.TyPrimitive(f | d.Vector.TypePrim().Flag())
 }
 func (a ParamSet) Parms() []Parametric { parms, _ := a(); return parms }
 func (a ParamSet) Pairs() []Paired {
@@ -418,8 +420,8 @@ func (a ParamSet) Empty() bool {
 	}
 	return true
 }
-func (a ParamSet) Ident() Value    { return a }
-func (a ParamSet) Eval() d.Primary { return a }
+func (a ParamSet) Ident() Value                  { return a }
+func (a ParamSet) Eval(p ...d.Primary) d.Primary { return a }
 func (a ParamSet) Append(v ...Paired) Parameters {
 	return NewParameters(append(a.Pairs(), v...)...)
 }

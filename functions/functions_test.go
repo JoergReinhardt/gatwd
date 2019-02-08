@@ -333,13 +333,13 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 	}
 }
 func TestRecursive(t *testing.T) {
-	l := NewRecursiveList(
+	l := Recursive(NewRecursiveList(
 		New("this"),
 		New("is"),
 		New("a"),
 		New("test"),
 		New("List"),
-	)
+	))
 	var h d.Primary
 	fmt.Println(l.Len())
 	fmt.Println(l.Empty())

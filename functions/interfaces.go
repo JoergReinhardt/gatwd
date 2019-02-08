@@ -1,13 +1,3 @@
-/*
-FUNCTIONS INTERFACES
-
-  interfaces of higher order functional data types.
-
-  the functions package imports the data package, to provide primary data
-  types, as base to define functional data types up on.
-
-
-*/
 package functions
 
 import (
@@ -17,16 +7,25 @@ import (
 	d "github.com/JoergReinhardt/godeep/data"
 )
 
+type Primary interface {
+	d.Primary
+	d.Evaluable
+}
+type Value interface {
+	Primary
+	TypeHO() TyHigherOrder
+}
+type Callable interface {
+	Value
+	Call(...Value) Value
+}
+
 // nullable 'classes'
 //
 // functions package provides an interface for each group of datas types
 // grouped by common methods they provide. the groups are defined as bitwise
 // concatenations of flags of all the types providing the common method. this
 // builds the base for implementing higher order type classes.
-type Primary interface {
-	d.Primary
-	Eval() d.Primary
-}
 type Nullable interface{ Null() Value }
 type Bitwise interface{ Uint() uint }
 type Boolean interface{ Bool() bool }
@@ -48,24 +47,6 @@ type Numeric interface {
 type Synbolic interface {
 	String() string
 	Bytes() []byte
-}
-
-// DATA & FUNCTION VALUES
-//
-// functional values can be either callable functions, or instances of primary values from the data package. functions interfaces expect every value to implement the Call(...Value) method.
-//
-// instances of type data.value can be, either alias of a type defined here or
-// upstream, that wraps data.Primary.Eval() with a Call(...Value) method (not
-// expecting and therefore ignoring passed arguments, when called), to comply
-// to the Callable interface, or be closed over by every closure based type,
-// that provides the appropriate method.
-type Value interface {
-	Primary
-	TypeHO() d.BitFlag
-}
-type Callable interface {
-	Value
-	Call(...Value) Value
 }
 
 // FUNCTIONAL KIND INTERFACES
@@ -113,7 +94,7 @@ type Paired interface {
 // 'Apply(...Data) (d.Data, Argumented)' method.
 type Argumented interface {
 	Value
-	ArgType() d.BitFlag
+	ArgType() d.TyPrimitive
 	Arg() Value
 	Apply(...Value) (Value, Argumented)
 }
@@ -144,6 +125,8 @@ type Parametric interface {
 	Arg() Value
 	Acc() Value
 	Both() (Value, Value)
+	Left() Value
+	Right() Value
 	Pair() Paired
 	Apply(...Parametric) (Value, Parametric)
 }
@@ -181,7 +164,6 @@ type Countable interface {
 // that's neccessary, since the way to implement a performant empty check
 // highly depends on the type (recursive vs. flat)
 type Collected interface {
-	Value
 	Countable
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
@@ -209,6 +191,7 @@ type Quantified interface {
 type Vectorized interface {
 	Collected
 	Quantified
+	Callable
 	// !!! not to be mixe with recursive !!!
 	Head() Value
 	Tail() []Value
@@ -227,6 +210,7 @@ type Accessable interface {
 //
 // recursive functional pendant to an array.
 type Recursive interface {
+	Value
 	Collected
 	// !!! recursive data structures can't provide slices !!!
 	Head() Value

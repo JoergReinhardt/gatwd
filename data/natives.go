@@ -351,31 +351,31 @@ func (v DuraVec) NativesRange(i, j int) []time.Duration { return DuraVec(v[i:j])
 func (v ErrorVec) NativesRange(i, j int) []error        { return ErrorVec(v[i:j]) }
 func (v FlagSet) NativesRange(i, j int) []BitFlag       { return FlagSet(v[i:j]) }
 
-func (v NilVec) TypePrim() BitFlag    { return Vector.TypePrim() | Nil.TypePrim() }
-func (v BoolVec) TypePrim() BitFlag   { return Vector.TypePrim() | Bool.TypePrim() }
-func (v IntVec) TypePrim() BitFlag    { return Vector.TypePrim() | Int.TypePrim() }
-func (v Int8Vec) TypePrim() BitFlag   { return Vector.TypePrim() | Int8.TypePrim() }
-func (v Int16Vec) TypePrim() BitFlag  { return Vector.TypePrim() | Int16.TypePrim() }
-func (v Int32Vec) TypePrim() BitFlag  { return Vector.TypePrim() | Int32.TypePrim() }
-func (v UintVec) TypePrim() BitFlag   { return Vector.TypePrim() | Uint.TypePrim() }
-func (v Uint8Vec) TypePrim() BitFlag  { return Vector.TypePrim() | Uint8.TypePrim() }
-func (v Uint16Vec) TypePrim() BitFlag { return Vector.TypePrim() | Uint16.TypePrim() }
-func (v Uint32Vec) TypePrim() BitFlag { return Vector.TypePrim() | Uint32.TypePrim() }
-func (v FltVec) TypePrim() BitFlag    { return Vector.TypePrim() | Float.TypePrim() }
-func (v Flt32Vec) TypePrim() BitFlag  { return Vector.TypePrim() | Flt32.TypePrim() }
-func (v ImagVec) TypePrim() BitFlag   { return Vector.TypePrim() | Imag.TypePrim() }
-func (v Imag64Vec) TypePrim() BitFlag { return Vector.TypePrim() | Imag64.TypePrim() }
-func (v ByteVec) TypePrim() BitFlag   { return Vector.TypePrim() | Byte.TypePrim() }
-func (v RuneVec) TypePrim() BitFlag   { return Vector.TypePrim() | Rune.TypePrim() }
-func (v BytesVec) TypePrim() BitFlag  { return Vector.TypePrim() | Bytes.TypePrim() }
-func (v StrVec) TypePrim() BitFlag    { return Vector.TypePrim() | String.TypePrim() }
-func (v BigIntVec) TypePrim() BitFlag { return Vector.TypePrim() | BigInt.TypePrim() }
-func (v BigFltVec) TypePrim() BitFlag { return Vector.TypePrim() | BigFlt.TypePrim() }
-func (v RatioVec) TypePrim() BitFlag  { return Vector.TypePrim() | Ratio.TypePrim() }
-func (v TimeVec) TypePrim() BitFlag   { return Vector.TypePrim() | Time.TypePrim() }
-func (v DuraVec) TypePrim() BitFlag   { return Vector.TypePrim() | Duration.TypePrim() }
-func (v ErrorVec) TypePrim() BitFlag  { return Vector.TypePrim() | Error.TypePrim() }
-func (v FlagSet) TypePrim() BitFlag   { return Vector.TypePrim() | Flag.TypePrim() }
+func (v NilVec) TypePrim() TyPrimitive    { return Vector.TypePrim() | Nil.TypePrim() }
+func (v BoolVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Bool.TypePrim() }
+func (v IntVec) TypePrim() TyPrimitive    { return Vector.TypePrim() | Int.TypePrim() }
+func (v Int8Vec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Int8.TypePrim() }
+func (v Int16Vec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Int16.TypePrim() }
+func (v Int32Vec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Int32.TypePrim() }
+func (v UintVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Uint.TypePrim() }
+func (v Uint8Vec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Uint8.TypePrim() }
+func (v Uint16Vec) TypePrim() TyPrimitive { return Vector.TypePrim() | Uint16.TypePrim() }
+func (v Uint32Vec) TypePrim() TyPrimitive { return Vector.TypePrim() | Uint32.TypePrim() }
+func (v FltVec) TypePrim() TyPrimitive    { return Vector.TypePrim() | Float.TypePrim() }
+func (v Flt32Vec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Flt32.TypePrim() }
+func (v ImagVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Imag.TypePrim() }
+func (v Imag64Vec) TypePrim() TyPrimitive { return Vector.TypePrim() | Imag64.TypePrim() }
+func (v ByteVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Byte.TypePrim() }
+func (v RuneVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Rune.TypePrim() }
+func (v BytesVec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Bytes.TypePrim() }
+func (v StrVec) TypePrim() TyPrimitive    { return Vector.TypePrim() | String.TypePrim() }
+func (v BigIntVec) TypePrim() TyPrimitive { return Vector.TypePrim() | BigInt.TypePrim() }
+func (v BigFltVec) TypePrim() TyPrimitive { return Vector.TypePrim() | BigFlt.TypePrim() }
+func (v RatioVec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Ratio.TypePrim() }
+func (v TimeVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Time.TypePrim() }
+func (v DuraVec) TypePrim() TyPrimitive   { return Vector.TypePrim() | Duration.TypePrim() }
+func (v ErrorVec) TypePrim() TyPrimitive  { return Vector.TypePrim() | Error.TypePrim() }
+func (v FlagSet) TypePrim() TyPrimitive   { return Vector.TypePrim() | Flag.TypePrim() }
 
 func (v NilVec) Null() Primary    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Primary   { return BoolVec([]bool{}) }

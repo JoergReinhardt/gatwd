@@ -43,7 +43,7 @@ func tokEmbed(left, tok, right []Token) []Token {
 type tokenSlice [][]Token
 
 // implementing the sort-/ and search interfaces
-func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.TypePrim() }
+func (t tokenSlice) Flag() d.BitFlag    { return d.Flag.Flag() }
 func (t tokenSlice) Len() int           { return len(t) }
 func (t tokenSlice) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
 func (t tokenSlice) Less(i, j int) bool { return t[i][0].TypePrim() < t[j][0].TypePrim() }
@@ -65,7 +65,7 @@ func decapTokSlice(t tokenSlice) ([]Token, tokenSlice) {
 func pickSliceByFirstToken(t tokenSlice, match TokVal) [][]Token {
 	ret := [][]Token{}
 	i := sort.Search(len(t), func(i int) bool {
-		return t[i][0].TypePrim().Uint() >= match.TypePrim().Uint()
+		return t[i][0].TypePrim().Flag().Uint() >= match.TypePrim().Flag().Uint()
 	})
 	var j = i
 	for j < len(t) && d.FlagMatch(t[j][0].TypePrim(), match.TypePrim()) {

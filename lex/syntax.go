@@ -10,10 +10,10 @@ import (
 ///// SYNTAX DEFINITION /////
 type SyntaxItemFlag d.BitFlag
 
-func (t SyntaxItemFlag) Type() SyntaxItemFlag { return t }
-func (t SyntaxItemFlag) TypePrim() d.BitFlag  { return d.BitFlag(t) }
-func (t SyntaxItemFlag) Syntax() string       { return syntax[t] }
-func (t SyntaxItemFlag) StringAlt() string    { return matchSyntax[syntax[SyntaxItemFlag(t.TypePrim())]] }
+func (t SyntaxItemFlag) Type() SyntaxItemFlag    { return t }
+func (t SyntaxItemFlag) TypePrim() d.TyPrimitive { return d.Flag }
+func (t SyntaxItemFlag) Syntax() string          { return syntax[t] }
+func (t SyntaxItemFlag) StringAlt() string       { return matchSyntax[syntax[SyntaxItemFlag(t.TypePrim())]] }
 
 // all syntax items represented as string
 func AllSyntax() string {
@@ -48,21 +48,27 @@ const (
 	Error SyntaxItemFlag = 1
 	Blank SyntaxItemFlag = 1 << iota
 	Underscore
+	SquareRoot
 	Asterisk
-	Dot
+	Fullstop
 	Comma
 	Colon
 	Semicolon
-	Minus
-	Plus
+	Substraction
+	Addition
+	Dot
+	DotProduct
+	CrossProduct
+	Division
+	Infinite
 	Or
 	Xor
 	And
 	Equal
 	Lesser
 	Greater
-	Lesseq
-	Greaterq
+	LesserEq
+	GreaterEq
 	LeftPar
 	RightPar
 	LeftBra
@@ -73,8 +79,8 @@ const (
 	Pipe
 	Not
 	Unequal
-	Dec
-	Inc
+	Decrement
+	Increment
 	DoubEqual
 	TripEqual
 	RightArrow
@@ -96,14 +102,16 @@ var keywords = []d.StrVal{
 	d.StrVal("in"),
 	d.StrVal("con"),
 	d.StrVal("let"),
-	d.StrVal("mutable"),
-	d.StrVal("where"),
-	d.StrVal("otherwise"),
 	d.StrVal("if"),
 	d.StrVal("then"),
 	d.StrVal("else"),
-	d.StrVal("case"), d.StrVal("of"), d.StrVal("data"),
+	d.StrVal("case"),
+	d.StrVal("of"),
+	d.StrVal("where"),
+	d.StrVal("otherwise"),
+	d.StrVal("data"),
 	d.StrVal("type"),
+	d.StrVal("mutable"),
 }
 
 var matchSyntax = map[string]string{
@@ -153,50 +161,56 @@ var matchSyntax = map[string]string{
 }
 
 var syntax = map[SyntaxItemFlag]string{
-	None:       "",
-	Error:      "⊥",
-	Blank:      " ",
-	Underscore: "_",
-	Asterisk:   "∗",
-	Dot:        ".",
-	Comma:      ",",
-	Colon:      ":",
-	Semicolon:  ";",
-	Minus:      "-",
-	Plus:       "+",
-	Or:         "∨",
-	Xor:        "※",
-	And:        "∧",
-	Equal:      "=",
-	Lesser:     "≪",
-	Greater:    "≫",
-	Lesseq:     "≤",
-	Greaterq:   "≥",
-	LeftPar:    "(",
-	RightPar:   ")",
-	LeftBra:    "[",
-	RightBra:   "]",
-	LeftCur:    "{",
-	RightCur:   "}",
-	Slash:      "/",
-	Pipe:       "|",
-	Not:        "¬",
-	Unequal:    "≠",
-	Dec:        "--",
-	Inc:        "++",
-	DoubEqual:  "‗",
-	TripEqual:  "≡",
-	RightArrow: "→",
-	LeftArrow:  "←",
-	FatLArrow:  "⇐",
-	FatRArrow:  "⇒",
-	DoubCol:    "∷",
-	Sing_quote: `'`,
-	Doub_quote: `"`,
-	BackSlash:  `\`,
-	Lambda:     "λ",
-	Function:   "ϝ",
-	Polymorph:  "Ф",
+	None:         "",
+	Error:        "⊥",
+	Blank:        " ",
+	Underscore:   "_",
+	SquareRoot:   "√",
+	Asterisk:     "∗",
+	Fullstop:     ".",
+	Comma:        ",",
+	Colon:        ":",
+	Semicolon:    ";",
+	Substraction: "-",
+	Addition:     "+",
+	Dot:          "∙",
+	DotProduct:   "∘",
+	CrossProduct: "×",
+	Division:     "÷",
+	Infinite:     "∞",
+	Or:           "∨",
+	Xor:          "※",
+	And:          "∧",
+	Equal:        "=",
+	Lesser:       "≪",
+	Greater:      "≫",
+	LesserEq:     "≤",
+	GreaterEq:    "≥",
+	LeftPar:      "(",
+	RightPar:     ")",
+	LeftBra:      "[",
+	RightBra:     "]",
+	LeftCur:      "{",
+	RightCur:     "}",
+	Slash:        "/",
+	Pipe:         "|",
+	Not:          "¬",
+	Unequal:      "≠",
+	Decrement:    "--",
+	Increment:    "++",
+	DoubEqual:    "‗",
+	TripEqual:    "≡",
+	RightArrow:   "→",
+	LeftArrow:    "←",
+	FatLArrow:    "⇐",
+	FatRArrow:    "⇒",
+	DoubCol:      "∷",
+	Sing_quote:   `'`,
+	Doub_quote:   `"`,
+	BackSlash:    `\`,
+	Lambda:       "λ",
+	Function:     "ϝ",
+	Polymorph:    "Ф",
 }
 
 var match = map[string]SyntaxItemFlag{
@@ -205,20 +219,20 @@ var match = map[string]SyntaxItemFlag{
 	" ":   Blank,
 	"_":   Underscore,
 	"*":   Asterisk,
-	".":   Dot,
+	".":   Fullstop,
 	",":   Comma,
 	":":   Colon,
 	";":   Semicolon,
-	"-":   Minus,
-	"+":   Plus,
+	"-":   Substraction,
+	"+":   Addition,
 	"OR":  Or,
 	"XOR": Xor,
 	"AND": And,
 	"=":   Equal,
 	"<<":  Lesser,
 	">>":  Greater,
-	"=<":  Lesseq,
-	">=":  Greaterq,
+	"=<":  LesserEq,
+	">=":  GreaterEq,
 	"(":   LeftPar,
 	")":   RightPar,
 	"[":   LeftBra,
@@ -229,8 +243,8 @@ var match = map[string]SyntaxItemFlag{
 	"|":   Pipe,
 	"!":   Not,
 	"!=":  Unequal,
-	"--":  Dec,
-	"++":  Inc,
+	"--":  Decrement,
+	"++":  Increment,
 	"==":  DoubEqual,
 	"===": TripEqual,
 	"->":  RightArrow,
@@ -280,7 +294,7 @@ func Utf8ToASCII(tos ...string) string {
 
 // item is a bitflag of course
 type Item interface {
-	TypePrim() d.BitFlag
+	TypePrim() d.TyPrimitive
 	Type() SyntaxItemFlag
 	String() string
 	Syntax() string
@@ -300,4 +314,4 @@ func (t TextItem) Syntax() string { return Text.Syntax() }
 // provides an alternative string representation that can be edited without
 // having to produce utf-8 digraphs
 func (t TextItem) StringAlt() string { return t.String() }
-func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypePrim() }
+func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypePrim().Flag() }

@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _TyPrimitive_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairTupleRecordVectorListSetArgumentParameterFunctionObjectFlagMAX_INT"
+const _TyPrimitive_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairTupleRecordVectorListSetFunctionFlagMAX_INT"
 
 var _TyPrimitive_map = map[TyPrimitive]string{
 	1:                    _TyPrimitive_name[0:3],
@@ -38,11 +38,8 @@ var _TyPrimitive_map = map[TyPrimitive]string{
 	268435456:            _TyPrimitive_name[139:143],
 	536870912:            _TyPrimitive_name[143:146],
 	1073741824:           _TyPrimitive_name[146:154],
-	2147483648:           _TyPrimitive_name[154:163],
-	4294967296:           _TyPrimitive_name[163:171],
-	8589934592:           _TyPrimitive_name[171:177],
-	17179869184:          _TyPrimitive_name[177:181],
-	18446744073709551615: _TyPrimitive_name[181:188],
+	2147483648:           _TyPrimitive_name[154:158],
+	18446744073709551615: _TyPrimitive_name[158:165],
 }
 
 func (i TyPrimitive) String() string {

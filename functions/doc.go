@@ -1,30 +1,29 @@
 /*
-FUNCTION GENERALIZATION
+FUNCTIONS
 
-  ambda calculus states, that all functions can be expressed as functions
-  taking one argument, by currying in additional data and behaviour. all
-  computation can then be expressed in those terms‥. and while that's the base
-  of all that's done here, and generally considered to be a great thing, it
-  also turns out to be a pain in the behind, when applyed to a strongly typed
-  language on real world problems.
+  interfaces of higher order functional types.
 
-  to get things done anyway, data types and function signatures need to be
-  generalized over, in a more reasonable way. data types of arguments and
-  return values already get generalized by the data package using type aliasing
-  and adding the flag method.
+  the functions package imports the data package, to provide primary data
+  types, as base to define the functional data types up on. all function values
+  implement data.Primary. functional types additionally have to implement the
+  Call(...Value) Value method. functional values are implemented as (closure)
+  function types.
 
-  functions can be further discriminated by means of arity (number & type of
-  input arguments) and fixity (syntactical side, on which they expect to bind
-  there parameter(s)). golangs capability of returning multiple values, is of
-  no relevance in terms of functional programming, but very usefull in
-  imlementing a type system on top of it. so is the ability to define methods
-  on function types. functions in the terms of godeep are closures, closing
-  over arbitrary functions together with there arguments and return values,
-  btw. placeholders there of and an id/signature poir for typesystem and
-  runtime, to handle (partial} application and evaluation.
+  all functional types implement data.Primary, as well as data.Evaluable.
+  function types that return instances of data.Primary are of the primary type
+  of the return value concatenated to 'data.Function' constant. the functional
+  types that don't return an instances of a primary, use the additional
+  constants and and sets of constants defined in the data package, not directly
+  associated to the types defined there (HigherOrder, Collection, Set...). that
+  way every instance of every type can be determined as being an instance of
+  one particular primary type, (which is one of the premises needed to
+  implement arithmetric, parametric types) and guarantuees each type to
+  implement the golang interfaces that primary type is expected to implement.
 
-  to deal with golang index operators and conrol structures, a couple of
-  internal function signatures, containing non aliased types (namely bool, int
-  & string) will also be made avaiable for enclosure.
+  instances of type value can either be defined as function type (here, or
+  upstream), or just by remapping a data.Primary instances Eval() method to be
+  the Call(...Value) method of some closure (of a function type implementing
+  Call). the passed Value is not needed, or expected and therefore ignored,
+  when called.
 */
 package functions

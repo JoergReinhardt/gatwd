@@ -17,7 +17,7 @@ func NewStringSet(acc ...Paired) Mapped {
 	return SetString(m)
 }
 
-func (s SetString) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetString) TypePrim() TyPrimitive { return Set.TypePrim() }
 func (s SetString) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {
@@ -57,7 +57,7 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetInt) TypePrim() TyPrimitive { return Set.TypePrim() }
 func (s SetInt) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {
@@ -97,7 +97,7 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetUint) TypePrim() TyPrimitive { return Set.TypePrim() }
 func (s SetUint) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {
@@ -137,7 +137,7 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetFloat) TypePrim() TyPrimitive { return Set.TypePrim() }
 func (s SetFloat) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {
@@ -177,7 +177,7 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) TypePrim() BitFlag { return Set.TypePrim() }
+func (s SetFlag) TypePrim() TyPrimitive { return Set.TypePrim() }
 func (s SetFlag) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {

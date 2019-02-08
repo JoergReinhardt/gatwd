@@ -101,7 +101,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Primary) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.TypePrim(), Vector.TypePrim()) {
+		if FlagMatch(d.TypePrim().Flag(), Vector.TypePrim().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()
