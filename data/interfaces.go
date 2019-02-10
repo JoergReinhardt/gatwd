@@ -9,6 +9,7 @@ type Typed interface{ Flag() BitFlag }
 type Primary interface {
 	TypePrim() TyPrimitive
 	String() string
+	Evaluable
 }
 
 // all data types are evaluable. evaluation yields a primary instance
@@ -28,8 +29,10 @@ type Nullable interface{ Null() Primary }
 
 // unsignedVal and integerVal are a poor man's version of type classes and
 // allow to treat the different sizes of ints and floats alike
-type UnsignedVal interface{ Uint() uint }
+type NaturalVal interface{ Uint() uint }
 type IntegerVal interface{ Int() int }
+type RealVal interface{ Float() float64 }
+type SymbolicVal interface{ String() string }
 
 // paired holds key-value pairs intendet as set accessors
 type Paired interface {

@@ -5,71 +5,15 @@ import (
 	"time"
 )
 
-func New(vals ...interface{}) Primary {
-	var nul Primary
-	dat, flag := NewWithTypeInfo(vals...)
-	f := flag.TypePrim().Flag()
-	switch {
-	case FlagMatch(f, Nil.TypePrim().Flag()):
-		nul = Primary(dat.(NilVal))
-	case FlagMatch(f, Bool.TypePrim().Flag()):
-		nul = Primary(dat.(BoolVal))
-	case FlagMatch(f, Int.TypePrim().Flag()):
-		nul = Primary(dat.(IntVal))
-	case FlagMatch(f, Int8.TypePrim().Flag()):
-		nul = Primary(dat.(Int8Val))
-	case FlagMatch(f, Int16.TypePrim().Flag()):
-		nul = Primary(dat.(Int16Val))
-	case FlagMatch(f, Int32.TypePrim().Flag()):
-		nul = Primary(dat.(Int32Val))
-	case FlagMatch(f, Uint.TypePrim().Flag()):
-		nul = Primary(dat.(UintVal))
-	case FlagMatch(f, Uint8.TypePrim().Flag()):
-		nul = Primary(dat.(Uint8Val))
-	case FlagMatch(f, Uint16.TypePrim().Flag()):
-		nul = Primary(dat.(Uint16Val))
-	case FlagMatch(f, Uint32.TypePrim().Flag()):
-		nul = Primary(dat.(Uint32Val))
-	case FlagMatch(f, Float.TypePrim().Flag()):
-		nul = Primary(dat.(FltVal))
-	case FlagMatch(f, Flt32.TypePrim().Flag()):
-		nul = Primary(dat.(Flt32Val))
-	case FlagMatch(f, Imag.TypePrim().Flag()):
-		nul = Primary(dat.(ImagVal))
-	case FlagMatch(f, Imag64.TypePrim().Flag()):
-		nul = Primary(dat.(Imag64Val))
-	case FlagMatch(f, Byte.TypePrim().Flag()):
-		nul = Primary(dat.(ByteVal))
-	case FlagMatch(f, Rune.TypePrim().Flag()):
-		nul = Primary(dat.(RuneVal))
-	case FlagMatch(f, Bytes.TypePrim().Flag()):
-		nul = Primary(dat.(BytesVal))
-	case FlagMatch(f, String.TypePrim().Flag()):
-		nul = Primary(dat.(StrVal))
-	case FlagMatch(f, BigInt.TypePrim().Flag()):
-		nul = Primary(dat.(BigIntVal))
-	case FlagMatch(f, BigFlt.TypePrim().Flag()):
-		nul = Primary(dat.(BigFltVal))
-	case FlagMatch(f, Ratio.TypePrim().Flag()):
-		nul = Primary(dat.(RatioVal))
-	case FlagMatch(f, Time.TypePrim().Flag()):
-		nul = Primary(dat.(TimeVal))
-	case FlagMatch(f, Duration.TypePrim().Flag()):
-		nul = Primary(dat.(DuraVal))
-	case FlagMatch(f, Error.TypePrim().Flag()):
-		nul = Primary(dat.(ErrorVal))
-	}
-	return nul
-}
-func NewData(vals ...Primary) Primary {
+func NewFromPrimary(vals ...Primary) Primary {
 	var ifs = []interface{}{}
 	for _, val := range vals {
 		ifs = append(ifs, val.(interface{}))
 	}
-	return NewFromNative(ifs...)
+	return New(ifs...)
 }
-func NewUnBoxed(f BitFlag, vals ...Primary) Primary { return conVec(f, vals...) }
-func NewFromNative(vals ...interface{}) Primary     { dat, _ := NewWithTypeInfo(vals...); return dat }
+func NewUnboxedVector(f BitFlag, vals ...Primary) Primary { return conVec(f, vals...) }
+func New(vals ...interface{}) Primary                     { dat, _ := NewWithTypeInfo(vals...); return dat }
 func NewWithTypeInfo(vals ...interface{}) (rval Primary, flag BitFlag) {
 
 	if len(vals) == 0 {

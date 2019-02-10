@@ -23,8 +23,16 @@ func SliceContainedTypes(c []Primary) BitFlag {
 }
 func (c DataSlice) TypePrim() TyPrimitive   { return Vector.TypePrim() }
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
-func (c DataSlice) Eval() Primary           { return c }
-func (c DataSlice) Null() DataSlice         { return []Primary{} }
+func (c DataSlice) Eval(p ...Primary) Primary {
+	if len(p) > 0 {
+		if len(c) > 0 {
+			return SliceAppend(c, p...)
+		}
+		NewSlice(p...)
+	}
+	return c
+}
+func (c DataSlice) Null() DataSlice { return []Primary{} }
 func (c DataSlice) Copy() Primary {
 	var ns = DataSlice{}
 	for _, dat := range c {
@@ -317,8 +325,8 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 		}
 	case FlagMatch(f, Natural.TypePrim().Flag()):
 		fn = func(i, j int) bool {
-			if uint(chain[i].(UnsignedVal).Uint()) <
-				uint(chain[j].(UnsignedVal).Uint()) {
+			if uint(chain[i].(NaturalVal).Uint()) <
+				uint(chain[j].(NaturalVal).Uint()) {
 				return true
 			}
 			return false
@@ -358,8 +366,8 @@ func newSliceSearchFnc(c DataSlice, comp Primary) func(i int) bool {
 		}
 	case FlagMatch(f, Natural.TypePrim().Flag()):
 		fn = func(i int) bool {
-			return uint(c[i].(UnsignedVal).Uint()) >=
-				uint(comp.(UnsignedVal).Uint())
+			return uint(c[i].(NaturalVal).Uint()) >=
+				uint(comp.(NaturalVal).Uint())
 		}
 	case FlagMatch(f, Integer.TypePrim().Flag()):
 		fn = func(i int) bool {

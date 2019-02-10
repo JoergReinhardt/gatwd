@@ -54,7 +54,6 @@ const (
 func NewSyntaxToken(f l.SyntaxItemFlag) Token  { return newToken(Syntax_Token, f) }
 func NewDataTypeToken(f d.TyPrimitive) Token   { return newToken(TypePrim_Token, f) }
 func NewKindToken(flag f.TyHigherOrder) Token  { return newToken(TypeHO_Token, flag) }
-func NewPropertyToken(prop Propertys) Token    { return newToken(Property_Token, prop) }
 func NewArgumentToken(dat f.Argumented) Token  { return newToken(Argument_Token, dat) }
 func NewParameterToken(dat f.Parametric) Token { return newToken(Parameter_Token, dat) }
 func NewDataValueToken(dat d.Primary) Token    { return newToken(Data_Value_Token, dat) }
@@ -91,8 +90,6 @@ func newToken(t TyToken, dat d.Primary) Token {
 		return TokVal{TypePrim_Token, dat.(d.TyPrimitive)}
 	case TypeHO_Token:
 		return TokVal{TypeHO_Token, dat.(f.TyHigherOrder)}
-	case Property_Token:
-		return TokVal{Property_Token, dat.(Propertys)}
 	case Argument_Token:
 		return dataTok{TokVal{Argument_Token, dat.TypePrim()}, dat.(f.Argumented)}
 	case Parameter_Token:

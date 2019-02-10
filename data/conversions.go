@@ -43,6 +43,16 @@ func (v StrVal) Bool() BoolVal {
 	}
 	return BoolVal(s)
 }
+func (v StrVal) Bytes() BytesVal { return []byte(string(v)) }
+func (v StrVal) Runes() RuneVec  { return []rune(string(v)) }
+func (v StrVal) Uints() Uint32Vec {
+	var runes = []rune(string(v))
+	var uints = make([]uint32, 0, len(runes))
+	for _, r := range runes {
+		uints = append(uints, uint32(r))
+	}
+	return uints
+}
 
 // INT -> VALUE
 func (v IntVal) Rat() *big.Rat   { return big.NewRat(1, int64(v)) } // implements Idx Attribut

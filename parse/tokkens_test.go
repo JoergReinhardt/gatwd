@@ -26,8 +26,6 @@ func TestTokenTypes(t *testing.T) {
 		"kind: %s\narg: %s\nparm: %s\ntype: %s\ndata: %s\npair: %s\ncol: %s\n",
 		kind, arg, parm, typ, dat, pair, col)
 
-	prop := NewPropertyToken(Default)
-	fmt.Printf("default propertys: %s\n", prop)
 }
 func TestTokenTree(t *testing.T) {
 	root := NewTokenCollection(

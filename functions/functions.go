@@ -74,7 +74,7 @@ type ( // HIGHER ORDER FUNCTION TYPES
 
 // instanciate functionalized data
 func New(inf ...interface{}) Value {
-	return PrimeVal(func() d.Primary { return d.NewFromNative(inf...) })
+	return PrimeVal(func() d.Primary { return d.New(inf...) })
 }
 func NewFromData(dat d.Primary) Value {
 	return PrimeVal(func() d.Primary { return dat })
@@ -83,18 +83,34 @@ func NewFromData(dat d.Primary) Value {
 // VALUE
 //
 // methods of the value type
-func (dat PrimeVal) TypePrim() d.TyPrimitive       { return dat().TypePrim() }
-func (dat PrimeVal) TypeHO() TyHigherOrder         { return Data }
-func (dat PrimeVal) Empty() bool                   { return ElemEmpty(dat) }
-func (dat PrimeVal) Ident() Value                  { return dat }
-func (dat PrimeVal) Eval(...d.Primary) d.Primary   { return dat() }
+func (dat PrimeVal) TypePrim() d.TyPrimitive { return dat().TypePrim() }
+func (dat PrimeVal) TypeHO() TyHigherOrder   { return Data }
+func (dat PrimeVal) Empty() bool             { return ElemEmpty(dat) }
+func (dat PrimeVal) Ident() Value            { return dat }
+func (dat PrimeVal) Eval(a ...d.Primary) d.Primary {
+	if len(a) > 0 {
+		if !dat.Empty() {
+			return d.NewFromPrimary(append([]d.Primary{dat()}, a...)...)
+		}
+		return d.NewFromPrimary(a...)
+	}
+	return dat()
+}
 func (dat PrimeVal) Call(...d.Evaluable) d.Primary { return dat() }
 
-func (dat FncVal) TypePrim() d.TyPrimitive       { return dat().TypePrim() }
-func (dat FncVal) TypeHO() TyHigherOrder         { return Data | Function }
-func (dat FncVal) Empty() bool                   { return ElemEmpty(dat) }
-func (dat FncVal) Ident() Value                  { return dat }
-func (dat FncVal) Eval(...d.Primary) d.Primary   { return dat() }
+func (dat FncVal) TypePrim() d.TyPrimitive { return dat().TypePrim() }
+func (dat FncVal) TypeHO() TyHigherOrder   { return Data | Function }
+func (dat FncVal) Empty() bool             { return ElemEmpty(dat) }
+func (dat FncVal) Ident() Value            { return dat }
+func (dat FncVal) Eval(a ...d.Primary) d.Primary {
+	if len(a) > 0 {
+		if !dat.Empty() {
+			return d.NewFromPrimary(append([]d.Primary{dat()}, a...)...)
+		}
+		return d.NewFromPrimary(a...)
+	}
+	return dat()
+}
 func (dat FncVal) Call(...d.Evaluable) d.Primary { return dat() }
 
 func ElemEmpty(dat Value) bool {
@@ -131,7 +147,7 @@ func (p PairVal) Arg() Value                    { return p.Right() }
 func (p PairVal) AccType() d.BitFlag            { return p.Left().TypePrim().Flag() }
 func (p PairVal) ArgType() d.BitFlag            { return p.Right().TypePrim().Flag() }
 func (p PairVal) Ident() Value                  { return p }
-func (p PairVal) Eval(s ...d.Primary) d.Primary { return NewPair(p.Left(), p.Right()) }
+func (p PairVal) Eval(a ...d.Primary) d.Primary { return d.NewPair(p.Left().Eval(), p.Right().Eval()) }
 func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
 }

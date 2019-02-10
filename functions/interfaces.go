@@ -9,7 +9,6 @@ import (
 
 type Primary interface {
 	d.Primary
-	d.Evaluable
 }
 type Value interface {
 	Primary

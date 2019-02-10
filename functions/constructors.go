@@ -10,30 +10,32 @@ import (
 )
 
 type (
-	// FUNCTION VALUES
+	// FUNCTION CLOSURES
 	ConstFnc  func() Value
 	UnaryFnc  func(Value) Value
 	BinaryFnc func(a, b Value) Value
 	NaryFnc   func(...Value) Value
-	// DATA CONSTRUCTORS
-	TupleFnc  func() (Vectorized, []d.BitFlag)
-	RecordFnc func() (Tupled, []Paired)
-	ListFnc   func() (Value, Recursive)
-	VecFnc    func() []Value
-	AccVecFnc func() []Paired
+	// DATA CONSTRUCTOR CLOSURES
+	TupleFnc    func() (Vectorized, []d.BitFlag)
+	RecordFnc   func() (Tupled, []Paired)
+	ListFnc     func() (Value, Recursive)
+	VecFnc      func() []Value
+	AssocVecFnc func() []Paired
 )
 
-// ONSTANT
+// CONSTANT
+//
 // constant also conains immutable data that may be an instance of a type of
 // the data package, or result of a function call guarantueed to allways return
 // the same value.
 func NewConstant(fnc func(...Value) Value) ConstFnc {
 	return ConstFnc(func() Value { return fnc() })
 }
-func (c ConstFnc) TypeHO() TyHigherOrder         { return Data }
-func (c ConstFnc) TypePrim() d.TyPrimitive       { return c().TypePrim() }
-func (c ConstFnc) Ident() Value                  { return c }
-func (c ConstFnc) Eval(p ...d.Primary) d.Primary { return c() }
+func NewPrimaryConstatnt(prime d.Primary) ConstFnc { return func() Value { return NewFromData(prime) } }
+func (c ConstFnc) TypeHO() TyHigherOrder           { return Data }
+func (c ConstFnc) TypePrim() d.TyPrimitive         { return c().TypePrim() }
+func (c ConstFnc) Ident() Value                    { return c }
+func (c ConstFnc) Eval(p ...d.Primary) d.Primary   { return c() }
 func (c ConstFnc) Call(d ...Value) Value {
 	return c().(ConstFnc)()
 }
@@ -76,52 +78,52 @@ func conAccVec(vec Accessable, pp ...Paired) Accessable {
 	return accVecConstructor(append(vec.Pairs(), pp...)...)
 }
 func accVecConstructor(pp ...Paired) Accessable {
-	return AccVecFnc(func() []Paired { return pp })
+	return AssocVecFnc(func() []Paired { return pp })
 }
 func NewAccVector(pp ...Paired) Accessable {
-	return AccVecFnc(func() (pairs []Paired) {
+	return AssocVecFnc(func() (pairs []Paired) {
 		for _, pair := range pp {
 			pairs = append(pairs, pair)
 		}
 		return pairs
 	})
 }
-func (v AccVecFnc) Slice() []Value {
+func (v AssocVecFnc) Slice() []Value {
 	var fncs = []Value{}
 	for _, pair := range v() {
 		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
 	}
 	return fncs
 }
-func (v AccVecFnc) Pairs() []Paired { return v() }
-func (v AccVecFnc) Head() Paired {
+func (v AssocVecFnc) Pairs() []Paired { return v() }
+func (v AssocVecFnc) Head() Paired {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
 	}
 	return nil
 }
-func (v AccVecFnc) Tail() []Paired {
+func (v AssocVecFnc) Tail() []Paired {
 	if v.Len() > 1 {
 		return v.Pairs()[1:]
 	}
 	return nil
 }
-func (v AccVecFnc) Eval(p ...d.Primary) d.Primary {
+func (v AssocVecFnc) Eval(p ...d.Primary) d.Primary {
 	var slice = d.DataSlice{}
 	for _, pair := range v() {
 		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
 	}
 	return slice
 }
-func (v AccVecFnc) Len() int                   { return len(v()) }
-func (v AccVecFnc) Empty() bool                { return ElemEmpty(v.Head()) && (len(v.Tail()) == 0) }
-func (v AccVecFnc) Get(praed Value) Paired     { return newPairSorter(v()...).Get(praed) }
-func (v AccVecFnc) Range(praed Value) []Paired { return newPairSorter(v()...).Range(praed) }
-func (v AccVecFnc) Search(praed Value) int     { return newPairSorter(v()...).Search(praed) }
-func (v AccVecFnc) Sort(flag d.TyPrimitive) {
+func (v AssocVecFnc) Len() int                   { return len(v()) }
+func (v AssocVecFnc) Empty() bool                { return ElemEmpty(v.Head()) && (len(v.Tail()) == 0) }
+func (v AssocVecFnc) Get(praed Value) Paired     { return newPairSorter(v()...).Get(praed) }
+func (v AssocVecFnc) Range(praed Value) []Paired { return newPairSorter(v()...).Range(praed) }
+func (v AssocVecFnc) Search(praed Value) int     { return newPairSorter(v()...).Search(praed) }
+func (v AssocVecFnc) Sort(flag d.TyPrimitive) {
 	var ps = newPairSorter(v()...)
 	ps.Sort(flag)
-	v = NewAccVector(ps...).(AccVecFnc)
+	v = NewAccVector(ps...).(AssocVecFnc)
 }
 
 ///////////////////////////////////////////////////
@@ -142,16 +144,16 @@ func NewVector(dd ...Value) Vectorized {
 	})
 }
 
-func (v AccVecFnc) DeCap() (Paired, []Paired) {
+func (v AssocVecFnc) DeCap() (Paired, []Paired) {
 	return v.Head(), v.Tail()
 }
-func (v AccVecFnc) TypePrim() d.TyPrimitive {
+func (v AssocVecFnc) TypePrim() d.TyPrimitive {
 	if len(v()) > 0 {
 		return d.Vector | v.Head().TypePrim()
 	}
 	return d.Vector | d.Nil.TypePrim()
 }
-func (v AccVecFnc) TypeHO() TyHigherOrder { return Vector }
+func (v AssocVecFnc) TypeHO() TyHigherOrder { return Vector }
 
 // base implementation functions/sliceable interface
 func (v VecFnc) Head() Value {
@@ -206,23 +208,12 @@ func (v VecFnc) Sort(flag d.TyPrimitive) {
 
 // RECURSIVE LIST
 // base implementation of linked lists
-func conRecurse(rec Recursive, dd ...Value) Recursive {
+func NewRecursiveList(dd ...Value) Recursive {
 	if len(dd) > 0 {
 		if len(dd) > 1 {
 			return ListFnc(func() (Value, Recursive) {
-				return dd[0], conRecurse(rec, dd...)
+				return dd[0], NewRecursiveList(dd[1:]...)
 			})
-		}
-		return ListFnc(func() (Value, Recursive) {
-			return dd[0], rec
-		})
-	}
-	return nil
-}
-func NewRecursiveList(dd ...Value) ListFnc {
-	if len(dd) > 0 {
-		if len(dd) > 1 {
-			return ListFnc(func() (Value, Recursive) { return dd[0], NewRecursiveList(dd[1:]...) })
 		}
 		return ListFnc(func() (Value, Recursive) { return dd[0], nil })
 	}
@@ -234,7 +225,8 @@ func (l ListFnc) Head() Value                   { h, _ := l(); return h }
 func (l ListFnc) Tail() Recursive               { _, t := l(); return t }
 func (l ListFnc) Call(d ...Value) Value {
 	if len(d) > 0 {
-		return conRecurse(l, d...)
+		var head, tail = l()
+		return NewPair(head, tail)
 	}
 	return l
 }

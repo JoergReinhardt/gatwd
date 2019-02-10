@@ -24,19 +24,6 @@ func (t tokenSlice) String() string {
 func (t TokVal) String() string {
 	var str string
 	switch t.TypeTok() {
-	case Property_Token:
-		var props = d.FlagDecompose(t.Primary.(Propertys).TypePrim())
-		var l = len(props)
-		if l > 0 {
-			str = str + "《"
-			for i, prop := range props {
-				str = str + Propertys(prop).String()
-				if i < l-1 {
-					str = str + " "
-				}
-			}
-			str = str + "》"
-		}
 	case TypeHO_Token:
 		str = t.Primary.(f.TyHigherOrder).String() + "\n"
 	case Syntax_Token:

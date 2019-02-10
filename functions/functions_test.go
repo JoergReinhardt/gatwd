@@ -333,13 +333,13 @@ func BenchmarkMoreAccessorApply(b *testing.B) {
 	}
 }
 func TestRecursive(t *testing.T) {
-	l := Recursive(NewRecursiveList(
+	l := NewRecursiveList(
 		New("this"),
 		New("is"),
 		New("a"),
 		New("test"),
 		New("List"),
-	))
+	)
 	var h d.Primary
 	fmt.Println(l.Len())
 	fmt.Println(l.Empty())
@@ -347,6 +347,28 @@ func TestRecursive(t *testing.T) {
 		h, l = l.DeCap()
 		fmt.Println(h)
 	}
+}
+func TestRecursiveList(t *testing.T) {
+	list := NewRecursiveList(
+		New("test 1"),
+		New("test 2"),
+		New("test 3"),
+		New("test 4"),
+		New("test 5"),
+		New("test 6"),
+		New("test 7"),
+		New("test 8"),
+		New("test 9"),
+		New("test 10"),
+		New("test 11"),
+	)
+	var head Value
+	fmt.Println(list)
+	for list != nil {
+		head, list = list.DeCap()
+		fmt.Println(head)
+	}
+
 }
 func TestTuple(t *testing.T) {
 	tup := NewTuple(

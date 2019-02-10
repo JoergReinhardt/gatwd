@@ -54,7 +54,7 @@ func (v VecFnc) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v AccVecFnc) String() string {
+func (v AssocVecFnc) String() string {
 	var slice []d.Primary
 	for _, dat := range v() {
 		slice = append(slice, dat)
