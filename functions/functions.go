@@ -10,61 +10,70 @@ package functions
 import (
 	"fmt"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 // type TyHigherOrder d.BitFlag
 // encodes the kind of functional data as bitflag
-type TyHigherOrder d.BitFlag
+type TyHigherOrder d.Uint32Val
 
-func (t TyHigherOrder) Flag() d.BitFlag         { return d.BitFlag(t) }
-func (t TyHigherOrder) TypeHO() TyHigherOrder   { return t }
-func (t TyHigherOrder) TypePrim() d.TyPrimitive { return d.Flag }
-func (t TyHigherOrder) Uint() uint              { return d.BitFlag(t).Uint() }
+func (t TyHigherOrder) Flag() d.BitFlag             { return d.BitFlag(t) }
+func (t TyHigherOrder) Eval(...d.Primary) d.Primary { return t }
+func (t TyHigherOrder) TypeHO() TyHigherOrder       { return t }
+func (t TyHigherOrder) TypePrim() d.TyPrimitive     { return d.Flag }
+func (t TyHigherOrder) Uint() uint                  { return d.BitFlag(t).Uint() }
 
 //go:generate stringer -type=TyHigherOrder
 const (
 	Data TyHigherOrder = 1 << iota
 	Closure
 	Function // functions are polymorph‥.
-	Argument
-	Parameter
-	Unbound  // map key, slice index, search parameter...
 	Accessor // pair of Attr & Value
+	Argument
+	Attribute
+	Parameter
+	Predicate
 	Generator
+	Unbound // map key, slice index, search parameter...
+	Option
+	Enum
+	Case
 	Pair
-	Vector
-	Tuple
 	List
+	Tuple
 	UniSet
 	MuliSet
-	AssocA
+	AssocVec
 	Record
-	Link
+	Vector
 	DLink
+	Link
 	Node
 	Tree
 	HigherOrder
-	Internal
 
 	Chain = Vector | Tuple | Record
 
 	AccIndex = Vector | Chain
 
-	AccSymbol = Tuple | AssocA | Record
+	AccSymbol = Tuple | AssocVec | Record
 
 	AccCollect = AccIndex | AccSymbol
 
 	Nests = Tuple | List
 
-	Sets = UniSet | MuliSet | AssocA | Record
+	Sets = UniSet | MuliSet | AssocVec | Record
 
 	Links = Link | DLink | Node | Tree // Consumeables
 )
 
 type ( // HIGHER ORDER FUNCTION TYPES
-	PrimeVal func() d.Primary // represents constructors for primary data types
+	None     func()         // None and Just are a
+	Just     func() Value   // pair of optional types
+	True     func() Boolean // truth value functions that
+	False    func() Boolean // allways return a boolean value
 	FncVal   func() Value
+	PrimeVal func() d.Primary    // represents constructors for primary data types
 	PairVal  func() (a, b Value) // <- base element of all tuples and collections
 	ArgVal   func(d ...Value) (Value, Argumented)
 	ArgSet   func(d ...Value) ([]Value, Arguments)
@@ -80,9 +89,7 @@ func NewFromData(dat d.Primary) Value {
 	return PrimeVal(func() d.Primary { return dat })
 }
 
-// VALUE
-//
-// methods of the value type
+// PRIMARY VALUE
 func (dat PrimeVal) TypePrim() d.TyPrimitive { return dat().TypePrim() }
 func (dat PrimeVal) TypeHO() TyHigherOrder   { return Data }
 func (dat PrimeVal) Empty() bool             { return ElemEmpty(dat) }
@@ -98,8 +105,9 @@ func (dat PrimeVal) Eval(a ...d.Primary) d.Primary {
 }
 func (dat PrimeVal) Call(...d.Evaluable) d.Primary { return dat() }
 
+// FUNCRIONAL VALUE
 func (dat FncVal) TypePrim() d.TyPrimitive { return dat().TypePrim() }
-func (dat FncVal) TypeHO() TyHigherOrder   { return Data | Function }
+func (dat FncVal) TypeHO() TyHigherOrder   { return Function }
 func (dat FncVal) Empty() bool             { return ElemEmpty(dat) }
 func (dat FncVal) Ident() Value            { return dat }
 func (dat FncVal) Eval(a ...d.Primary) d.Primary {
@@ -122,9 +130,53 @@ func ElemEmpty(dat Value) bool {
 	return true
 }
 
-// PAIR
+// RETURN TYPES OF THE OPTIONAL TYPE
 //
-// pair encloses two data instances
+// none wraps the empty return type
+func (n None) Ident() Value                { return n }
+func (n None) Eval(...d.Primary) d.Primary { return n }
+func (n None) Maybe() bool                 { return false }
+func (n None) Nullable() d.Primary         { return d.NilVal{} }
+func (n None) TypeHO() TyHigherOrder       { return Option }
+func (n None) TypePrim() d.TyPrimitive     { return d.Nil }
+func (n None) String() string              { return "⊥" }
+
+// just wraps any given return type other than none
+func (j Just) Ident() Value                { return j }
+func (j Just) Eval(...d.Primary) d.Primary { return j() }
+func (j Just) Maybe() bool                 { return false }
+func (j Just) Nullable() d.Primary         { return j() }
+func (j Just) TypeHO() TyHigherOrder       { return Option }
+func (j Just) TypePrim() d.TyPrimitive     { return j().TypePrim() }
+func (j Just) String() string {
+	return "Just" +
+		j.TypeHO().String() +
+		" " +
+		j.TypePrim().String()
+}
+
+// FUNCTIONAL TRUTH VALUES
+func (t True) Call(...Value) Value {
+	return NewPrimaryConstatnt(d.BoolVal(true))
+}
+func (t True) Ident() Value                { return t }
+func (t True) Eval(...d.Primary) d.Primary { return t }
+func (t True) Bool() bool                  { return true }
+func (t True) TypeHO() TyHigherOrder       { return Function }
+func (t True) TypePrim() d.TyPrimitive     { return d.Bool }
+func (t True) String() string              { return "True" }
+
+func (f False) Call(...Value) Value {
+	return NewPrimaryConstatnt(d.BoolVal(false))
+}
+func (f False) Ident() Value                { return f }
+func (f False) Eval(...d.Primary) d.Primary { return f }
+func (f False) Bool() bool                  { return false }
+func (f False) TypeHO() TyHigherOrder       { return Function }
+func (f False) TypePrim() d.TyPrimitive     { return d.Bool }
+func (f False) String() string              { return "False" }
+
+// PAIR
 func NewPair(l, r Value) Paired {
 	return PairVal(func() (Value, Value) { return l, r })
 }
@@ -135,7 +187,7 @@ func NewPairFromData(l, r d.Primary) Paired {
 	return PairVal(func() (Value, Value) { return NewFromData(l), NewFromData(r) })
 }
 func (p PairVal) Both() (Value, Value)  { return p() }
-func (p PairVal) TypeHO() TyHigherOrder { return Pair }
+func (p PairVal) TypeHO() TyHigherOrder { return Pair | Function }
 func (p PairVal) TypePrim() d.TyPrimitive {
 	return d.Pair.TypePrim() | p.Left().TypePrim() | p.Right().TypePrim()
 }
@@ -152,7 +204,6 @@ func (p PairVal) Empty() bool {
 	return ElemEmpty(p.Left()) && ElemEmpty(p.Right())
 }
 
-//
 // ARGUMENT
 //
 // arguments are data instances that yield enclosed data and copy of the
@@ -184,7 +235,6 @@ func (p ArgVal) ArgType() d.TyPrimitive        { return p.Arg().TypePrim() }
 func (p ArgVal) TypeHO() TyHigherOrder         { return Argument }
 func (p ArgVal) TypePrim() d.TyPrimitive       { return p.ArgType() }
 
-//
 // ARGUMENT SET
 //
 // collections of arguments provide methods to apply values contained in other
@@ -409,7 +459,7 @@ func (a ParamSet) Apply(args ...Parametric) ([]Parametric, Parameters) {
 	parameters := NewParameters(ps...)
 	return parameters.Parms(), parameters
 }
-func (a ParamSet) TypeHO() TyHigherOrder { return Parameter }
+func (a ParamSet) TypeHO() TyHigherOrder { return Parameter | Sets }
 func (a ParamSet) TypePrim() d.TyPrimitive {
 	var f = d.BitFlag(0).Flag()
 	for _, pair := range a.Pairs() {

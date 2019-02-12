@@ -5,7 +5,7 @@ DATA PACKAGE
 
   the data package implements primary data types as aliases on go's native
   types. this designg decission was choosen to provide unboxed values for code
-  based on godeep, while providing dynamic type inference, auto conversion and
+  based on gatwd, while providing dynamic type inference, auto conversion and
   parametric algebraic types (in the functions package).
 
   golang itself provides a feature rich reflexion standard library, as well as
@@ -18,7 +18,7 @@ DATA PACKAGE
     it ;)
 
   - golangs reflection library is rather complex due to the rich set of
-    features provided, most of which aren't needed for godeeps purpose‥.
+    features provided, most of which aren't needed for gatwds purpose‥.
 
   - type switch, type assertion & conversion, deal with type, but don't allow
     to treat the type itself, as if it where just a value (for very good resons

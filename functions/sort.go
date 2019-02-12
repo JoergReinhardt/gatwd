@@ -3,7 +3,7 @@ SORT & SEARCH
 
   implements golang sort and search slices of data and pairs of data. since
   'data' can be of collection type, this implements search and sort for pretty
-  much every type thinkable of. generalizes over contained types by using godeeps
+  much every type thinkable of. generalizes over contained types by using gatwds
   capabilitys.
 */
 package functions
@@ -14,7 +14,7 @@ import (
 	"sort"
 	"strings"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 // type class based comparison functions

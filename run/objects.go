@@ -12,288 +12,324 @@
 package run
 
 import (
-	d "github.com/JoergReinhardt/godeep/data"
-	f "github.com/JoergReinhardt/godeep/functions"
+	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
 )
 
-// object allocation with all parameters to pass
-func allocateData(
-	otype Otype,
-	arity Arity,
-	propertys Propertys,
-	value f.Value,
-	refs ...*object,
-) object {
+//////////////////////////
+////// HEAP OBJECTS /////
+/////
+//// SYMBOL DECLARATION
+///
+// define passed string as symbol
+// & let it point to primary value
+// allocated on heap.
+func declareGlobalSymbol(name string, obj *object) object {
 	return object{
 		newInfo(
-			Length(len(refs)),
-			arity,
-			propertys,
+			obj.info.Length,
+			obj.info.Arity,
+			obj.info.Propertys,
 		),
-		otype,
-		value,
-		refs,
+		Declaration,
+		f.NewNaryFnc(func(...f.Value) f.Value {
+			return f.NewPrimaryConstatnt(d.New(name))
+		}),
+		[]*object{obj},
 	}
 }
 
-// make passed name a heap allocated primary value and pass the object it
-// points to as it's sole reference
-func declareGlobalSymbol(name string, obj object) *object {
-	var decl = allocateData(
-		Declaration,
-		Arity(0),
-		Default,
-		f.NewPrimaryConstatnt(d.New(name)),
-		&obj,
-	)
-	return &decl
-}
-
 // declares a named free variable in local scope
-func declareLocalSymbol(name string, scope *object, obj *object) *object {
-	// allocate a new object based on a functions/parameter with name as
-	// accessor and the passed objects value, as as argument.
-	var local = allocateData(
+func declareLocalSymbol(name string, scope *object, obj *object) object {
+	return object{
+		newInfo(
+			obj.info.Length,
+			obj.info.Arity,
+			obj.info.Propertys,
+		),
 		Declaration,
-		Arity(0),
-		Default,
-		f.NewPrimaryConstatnt(d.New(name)),
-		scope,
-		obj,
-	)
-	// append the named parameter to the reference slice of the object
-	// it has lexicaly been defined in.
-	return &local
+		f.NewNaryFnc(func(...f.Value) f.Value {
+			return f.NewPrimaryConstatnt(d.New(name))
+		}),
+		[]*object{scope, obj},
+	}
 }
 
 // new anonymous localy scoped free variable
-func declareAnonymous(scope *object, obj *object) *object {
-	// allocate a new object based on a functions/parameter with name as
-	// accessor and the passed objects value, as as argument.
-	var local = allocateData(
+func declareAnonymous(scope *object, obj *object) object {
+	return object{
+		newInfo(
+			obj.info.Length,
+			obj.info.Arity,
+			obj.info.Propertys,
+		),
 		Declaration,
-		Arity(0),
-		Default,
-		f.NewPrimaryConstatnt(d.NilVal{}),
-		scope,
-		obj,
-	)
-	// append the named parameter to the reference slice of the object
-	// it has lexicaly been defined in.
-	return &local
+		obj.Expr,
+		[]*object{scope, obj},
+	}
 }
+
+////////////////////////////////////////
+//// DATA CONSTRUCTOR ALLOCATION //////
+///				 /////
+// (see also run/dataObjects.go) ////
+//
+// object constructors allways have
+// all their arguments satisfied &
+// allocate the constructed resut
+// on the heap
+func refer(obj ...*object) []*object { return obj }
 
 // a closure returning a primary data instance
 func allocatePrimary(
 	data ...d.Primary,
-) *object {
+) object {
 	return allocatePrimaryData(data...)
 }
 
 // a primary pair
 func allocatePrimaryPair(
 	a, b d.Primary,
-) *object {
+) object {
 	return allocateAtomicConstant(d.NewPair(a, b))
 }
 
-// default nary
-func declareDefaultFunction(
+//////////////////////////////////////////
+////// FUNCTION VALUE HEAP OBJECTS //////
+/////
+//// function application expects all arguments to be in head normal form,
+/// atomic, free and unbound to be finally evaluated and memoized for further
+//  use‥. this is rarely the case when program execution is demanded. to reach
+//  head normal form, expressions generate heap objects to evaluate
+//  subexpressions. upate frames get pushed on the stack. those evaluations
+//  trigger further evaluations and generate more heap objects and stack frames,
+//  until atomic values, or saturated function applications in head normal form
+//  are encountered. at that point actual evaluation starts, update frames get
+//  updated, overwrite their return addresses with results accordingly, which in
+//  turn triggers further evaluation of thunk evaluations previously suspendet
+//  due to non evaluated argumens, and so on‥. until heat death of universe
+//  spoils all the fun.
+//
+//   ‥.now for real:
+//   - all args are expected to be atomic
+//   - all funcs are in hnf ¬ free variables  ⇒ all refs are args
+//   - if arity < ref →  call under saturated ⇒ partial application
+//   - if arity ≡ ref →  call saturated       ⇒ function application
+//   - if arity > ref →  call over saturated  ⇒ call continuation
+func instanciateFunction(
+	length Length,
 	arity Arity,
-	value f.Value,
+	props Propertys,
+	expr f.Callable,
 	refs ...*object,
-) *object {
-	var obj = allocateData(FunctionClosure, arity, Default, value, refs...)
-	return &obj
+) object {
+	return object{
+		newInfo(
+			length,
+			arity,
+			props,
+		),
+		FunctionClosure,
+		expr,
+		refs,
+	}
 }
 
-// eager nary
-func declareEagerFunction(
-	arity Arity,
-	value f.Value,
-	refs ...*object,
-) *object {
-	var obj = allocateData(FunctionClosure, arity, Eager, value, refs...)
-	return &obj
+///////////////////////////////////
+//// FUNCTIONS OF KNOWN ARITY ////
+///
+// functions of known arity, take only as much parameters as their  allows
+// for. in case more, or less parameters are passed call continuation, or
+// partial application will allocated and pushed.
+//
+// constant nuroriously passes on taking constants
+func instanciateConstant(
+	props Propertys,
+	expr f.ConstFnc,
+) object {
+	return instanciateFunction(
+		Length(0),
+		Arity(0),
+		props,
+		expr,
+	)
 }
 
-// ConstFnc needs to be wrapped in an nary, to comply to call convention
-func declareConstant(
-	propertys Propertys,
-	value f.ConstFnc,
-) *object {
-	var val = f.NewNaryFnc(func(...f.Value) f.Value { return value() })
-	var obj = allocateData(FunctionClosure, Arity(0), Eager, val)
-	return &obj
+// unary takes a reference to it's argument
+func instanciateUnary(
+	props Propertys,
+	expr f.UnaryFnc,
+	argument *object,
+) object {
+	return instanciateFunction(
+		Length(1),
+		Arity(1),
+		props,
+		expr,
+		argument,
+	)
 }
 
-// UnaryFnc needs to be wrapped in an nary, to comply to call convention
-func declareUnary(
-	propertys Propertys,
-	value f.UnaryFnc,
-	ref *object,
-) *object {
-	var val = f.NewNaryFnc(func(...f.Value) f.Value { return value(ref) })
-	var obj = allocateData(FunctionClosure, Arity(1), propertys, val, ref)
-	return &obj
+// binary takes two argument references
+func instanciateBinary(
+	expr f.BinaryFnc,
+	props Propertys,
+	first *object,
+	second *object,
+) object {
+	return instanciateFunction(
+		Length(2),
+		Arity(2),
+		props,
+		expr,
+		first, second,
+	)
 }
 
-// BinaryFnc needs to be wrapped in an nary, to comply to call convention
-func declareBinary(
-	propertys Propertys,
-	value f.BinaryFnc,
-	refa *object,
-	refb *object,
-) *object {
-	var val = f.NewNaryFnc(func(...f.Value) f.Value { return value(refa, refb) })
-	var obj = allocateData(FunctionClosure, Arity(2), propertys, val, refa, refb)
-	return &obj
-}
-
-// operators are binary and infix
-func declareOperator(
-	value f.BinaryFnc,
+// operators are binary functions, usually defined in infix notation
+func instanciateOperator(
+	expr f.BinaryFnc,
 	left *object,
 	right *object,
-) *object {
-	var val = f.NewNaryFnc(func(...f.Value) f.Value { return value(left, right) })
-	var obj = allocateData(FunctionClosure, Arity(2), InFix, val, left, right)
-	return &obj
+) object {
+	return instanciateBinary(expr, InFix, left, right)
 }
 
-// partial application object keeps partially applyed function calls generated
-// by an undersaturated call to a function closure
-func declarePartial(
-	obj *object,
-	refs ...*object,
-) *object {
-	var o object
-	// store and count argument references, reduce function arity by the
-	// number of passed arguments (is expected to be smaller than arity).
-	if obj.info.Arity-Arity(len(refs)) > 0 {
-		o = allocateData(
-			PartialApplication,
-			obj.info.Arity-Arity(len(refs)),
-			obj.info.Propertys,
-			obj.Value,
-			refs...,
-		)
-		return &o
-	}
-	return obj
+// generic nary fnc. length and arity are determined by the number of passed
+// arguments, under- and oversaturated calls generate other heap object types.
+func instanciateNary(
+	expr f.NaryFnc,
+	props Propertys,
+	args ...*object,
+) object {
+	var arglen = len(args)
+	return instanciateFunction(
+		Length(arglen),
+		Arity(arglen),
+		props,
+		expr,
+		args...,
+	)
 }
 
-// call continuation takes a list of arguments, keeps them in a slice for
-// substitution, when called to evaluate the return value of the call that
-// generated the continuation.
+// partial application object keeps the result of an undersaturated call to a
+// function as a closure over the part of the arguments list that got passed in
+// that call.  the partial application object has the arity of the original
+// funcrtion reduced by the number of arguments that got passed.  and expects
+// further arguments to be passed in consequtive calls until a call completes
+// the list of arguments, in which case the function will return the result.
+//
+// the argument list of the object type is empty, since if further references
+// to arguments where known at the time of object allocation, they would have
+// been applyed. consequtive calls passing further arguments will overwrite
+// this object with, either another partiail application, or a result of type
+// value/indirection, or constant.
+func partialApplication(
+	arity Arity,
+	props Propertys,
+	expr f.Callable,
+) object {
+	return instanciateFunction(
+		Length(0),
+		arity,
+		props,
+		expr,
+	)
+}
+
+// call continuation pushes overflow arguments on stack until oversatuated call
+// returns a (function) value, that will then be applyed to these arguments.
+//
+// expression (not yet evaluated to a function) and arguments both get passed
+// as references. the expression is an update frame expected to be overwritten
+// by the result of the preceeding call. and will then be applyed to the
+// arguments stored here. when suspension is evaluated. the call continuation
+// therefore needs to be pushed on stack first.
 func callContinuation(
-	refs ...*object,
-) *object {
-	var closure f.Callable
-	switch len(refs) {
-	case 0:
-		closure = f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(d.NilVal{})
-		})
-	case 1:
-		closure = f.NewNaryFnc(func(...f.Value) f.Value {
-			return refs[0].Value
-		})
-	case 2:
-		closure = f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPair(refs[0].Value, refs[1].Value)
-		})
-	default:
-		var vals = []f.Value{}
-		for _, ref := range refs {
-			vals = append(vals, ref.Value)
-		}
-		closure = f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewVector(vals...)
-		})
-	}
-	var obj = allocateData(
-		CallContinuation,
-		Arity(len(refs)),
-		Data,
-		closure,
+	expr *object,
+	args ...*object,
+) object {
+	return instanciateFunction(
+		Length(len(args)),
+		expr.Arity,
+		expr.Propertys,
+		expr.Expr.(f.Callable),
+		args...,
 	)
-	return &obj
 }
 
-// case is very similar to a call continuation. return value type of the
-// evaluated expressions, if the scrutenee failed to met the praedicate another
-// case expression, until a value is returned. case expressions have to be
-// fully satisfied in the sum of  their cases‥. aka, the last return _has_ to
-// be a value, taken from a default case all passed case  expressions failed to
-// evaluate.
-func evaluateCase(
-	refs ...*object,
-) *object {
-	var length = len(refs)
-	var con = []*object{}
-	var closure f.Callable
-	switch length {
-	case 0:
-		closure = f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(d.BoolVal(true))
-		})
-	case 1:
-		if call, ok := refs[0].Value.(f.Callable); ok {
-			closure = f.NewNaryFnc(func(...f.Value) f.Value {
-				return call.Call()
-			})
-		}
-	case 2:
-		if call, ok := refs[0].Value.(f.Callable); ok {
-			closure = f.NewNaryFnc(func(...f.Value) f.Value {
-				return call.Call(refs[1].Value)
-			})
-		}
-	default:
-		if c, ok := refs[0].Value.(f.Callable); ok {
-			closure = f.NewNaryFnc(func(...f.Value) f.Value { return c.Call(refs[1]) })
-			con = refs[2:]
+// case is very similar to a thunk, in as it contains seceral case expressions,
+// that themseves possibly encloses free variables, and/or other arguments
+// besides the scrutinee. the scrutinee is the mandatory expression, the case
+// tests against, again a full fleged expression possibly including further
+// variables and parameters. the case expression is expexted to either return
+// the evaluation result of the scrutinee, in case it matched the case, or the
+// next case expression to apply the scrutinee to, with the scrutenees result
+// as it's argument allready enclosed. at some point a value instead of another
+// case statement will be returned and taken as the value to update (overwrite,
+// or redirect) the return address. the return value has to match the type of
+// the return address value, which results in one case _having_ to return a
+// value, or the use of an an 'Either T = T | Just' type.
+//
+// the objects of type evaluate-case, coordinate the evaluation of the composed
+// case statement passed during initialization, by folding the list of
+// references to case expressions to test against, over the scrutinee as
+// initial element of the fold expecting the result to contain the evaluated
+// pick that got chosen by the case-compositions evaluation.
+func caseContinuation(
+	scrut f.Value,
+	cases ...*object,
+) object {
+	for _, cref := range cases {
+		// each case expression in the list expects the scrutinee as
+		// it's single argument. the case expression is expected to
+		// know, if the scrutinee is just a value, or an expression, in
+		// which case it substitutes it's arguments and evaluates it.
+		// other free variables need to be enclosed by the unary case
+		// expression, in which case the object would reference a
+		// partioal application.
+		//
+		// ‥.if it's a case continuation
+		if cref.Otype.Match(CaseContinuation) {
+			// ‥.cast as unary function
+			if cxpr, ok := cref.Expr.(f.UnaryFnc); ok {
+				// ‥.apply scrutinee to case
+				var result = cxpr(scrut)
+				// another case to test against
+				if result.TypeHO().Flag().Match(f.Case) {
+				}
+				// every other type of value will be returned
+			}
 		}
 	}
-	var obj = allocateData(
-		CaseContinuation,
-		Arity(length),
-		Default,
-		closure,
-		con...,
-	)
-	return &obj
+	var o object
+	return o
 }
 
-// an object indirection with value pointing to references entry code & painter
-// reference as single reference.
+// an object indirection with value pointing to referenced entry code & pointer
+// and copy of it's info table.  reference as single reference.
 func referTo(
 	ref *object,
-) *object {
-	var ind = allocateData(
+) object {
+	return object{
+		ref.info,
 		Indirection,
-		Arity(0),
-		ref.info.Propertys,
-		ref.Value,
-		ref,
-	)
-	return &ind
+		ref.Otype,
+		[]*object{ref},
+	}
 }
 
 // blackhole is an indirection that keeps a thunk from being evaluated, while
 // it's allready been evaluated. keeps evaluation of recursive thunks lazy.
 func blackHole(
 	ref *object,
-) *object {
-	var ind = allocateData(
+) object {
+	return object{
+		ref.info,
 		BlackHole,
-		Arity(0),
-		ref.info.Propertys,
-		ref.Value,
-		ref,
-	)
-	return &ind
+		ref.Otype,
+		[]*object{ref},
+	}
 }
 
 // thunk object is a list of expressions that dont take values, but enclose
@@ -310,14 +346,7 @@ func evaluateThunk(
 	refs ...*object,
 ) *object {
 	// extract closure and remaining free variables from thunk
-	var val, args = extractThunkExpression(refs...)
-	var obj = allocateData(
-		Thunk,
-		Arity(0),
-		propertys,
-		val,
-		args...,
-	)
+	var obj object
 	return &obj
 }
 
@@ -331,7 +360,7 @@ func extractThunkExpression(refs ...*object) (val f.Value, args []*object) {
 
 	if len(args) > 0 {
 		// check first parameter for callability
-		if c, ok := args[0].Value.(f.Callable); ok {
+		if c, ok := args[0].Expr.(f.Callable); ok {
 			// the first parameter is the closure to call‥. no
 			// further parameters got passed
 			if len(args) == 1 {
@@ -348,7 +377,7 @@ func extractThunkExpression(refs ...*object) (val f.Value, args []*object) {
 				var vals = []f.Value{}
 				for _, obj := range refs[1:] {
 					args = append(args, obj)
-					vals = append(vals, obj.Value)
+					vals = append(vals, obj.Expr)
 				}
 				val = c.Call(vals...)
 			}

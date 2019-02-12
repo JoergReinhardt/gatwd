@@ -2,15 +2,15 @@
 TOKEN GENERATION
 
   the token type provides a way to serialize source code to be interpreted by
-  godeeps runtime, as well as data to be computed on and all the data types the
-  library itself consists of. that makes all godeep compositions serializeable,
+  gatwds runtime, as well as data to be computed on and all the data types the
+  library itself consists of. that makes all gatwd compositions serializeable,
   including runtime state. that way running processes can be frozen for later
   execution and transferred for remote execution, including their current
   runtime state and possibly the dataset that's been worked on.
 
   Tokens come in different types to discriminate between the different bitflags
-  used for different purpose by different parts of godeep, as well as a token
-  type to contain arbitrary instances of the data type. This makes godeep
+  used for different purpose by different parts of gatwd, as well as a token
+  type to contain arbitrary instances of the data type. This makes gatwd
   entirely selfcontained.
 
   since the type system kind of 'needs to be there', at least at it's most
@@ -20,7 +20,7 @@ TOKEN GENERATION
   definitions of precedence types that are neither recursive nor parametrized
   and don't define further types at the right hand side of their definition.
   any pattern matching more complicated will be implemented on top of that base
-  comparision and get's defined in terms of godeep itself.
+  comparision and get's defined in terms of gatwd itself.
 */
 
 package parse
@@ -28,14 +28,17 @@ package parse
 import (
 	"sort"
 
-	d "github.com/JoergReinhardt/godeep/data"
-	f "github.com/JoergReinhardt/godeep/functions"
-	l "github.com/JoergReinhardt/godeep/lex"
+	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
+	l "github.com/JoergReinhardt/gatwd/lex"
 )
 
 type TyToken uint16
 
-func (t TyToken) Flag() d.BitFlag { return d.Flag.Flag() }
+func (t TyToken) Eval(...d.Primary) d.Primary { return t }
+func (t TyToken) Flag() d.BitFlag             { return d.Flag.Flag() }
+func (t TyToken) TypeHO() f.TyHigherOrder     { return f.HigherOrder }
+func (t TyToken) TypePrim() d.TyPrimitive     { return d.Flag }
 
 //go:generate stringer -type TyToken
 const (
@@ -110,10 +113,11 @@ func newToken(t TyToken, dat d.Primary) Token {
 type tokens []Token
 
 // implementing the sort-/ and search interfaces
-func (t tokens) Len() int                { return len(t) }
-func (t tokens) Swap(i, j int)           { t[i], t[j] = t[j], t[i] }
-func (t tokens) Less(i, j int) bool      { return t[i].TypePrim() < t[j].TypePrim() }
-func (t tokens) TypePrim() d.TyPrimitive { return d.Flag }
+func (t tokens) Len() int                    { return len(t) }
+func (t tokens) Swap(i, j int)               { t[i], t[j] = t[j], t[i] }
+func (t tokens) Less(i, j int) bool          { return t[i].TypePrim() < t[j].TypePrim() }
+func (t tokens) Eval(...d.Primary) d.Primary { return t }
+func (t tokens) TypePrim() d.TyPrimitive     { return d.Flag }
 func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t

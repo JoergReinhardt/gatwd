@@ -1,13 +1,12 @@
 package parse
 
-import d "github.com/JoergReinhardt/godeep/data"
-import f "github.com/JoergReinhardt/godeep/functions"
+import d "github.com/JoergReinhardt/gatwd/data"
+import f "github.com/JoergReinhardt/gatwd/functions"
 
 // data to parse
 type Token interface {
+	d.Primary
 	TypeTok() TyToken
-	TypePrim() d.TyPrimitive
-	String() string
 }
 
 // Ident interface{}

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 func TestAtomicObjectAllocation(t *testing.T) {
 	c := allocateAtomicConstant(d.New("testvalue"))
-	fmt.Println(c.Closure.Eval())
+	fmt.Println(c.Expr.Eval())
 }

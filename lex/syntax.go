@@ -3,17 +3,18 @@ package lex
 import (
 	"strings"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 	"github.com/olekukonko/tablewriter"
 )
 
 ///// SYNTAX DEFINITION /////
 type SyntaxItemFlag d.BitFlag
 
-func (t SyntaxItemFlag) Type() SyntaxItemFlag    { return t }
-func (t SyntaxItemFlag) TypePrim() d.TyPrimitive { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string          { return syntax[t] }
-func (t SyntaxItemFlag) StringAlt() string       { return matchSyntax[syntax[SyntaxItemFlag(t.TypePrim())]] }
+func (t SyntaxItemFlag) Type() SyntaxItemFlag        { return t }
+func (t SyntaxItemFlag) Eval(...d.Primary) d.Primary { return t }
+func (t SyntaxItemFlag) TypePrim() d.TyPrimitive     { return d.Flag }
+func (t SyntaxItemFlag) Syntax() string              { return syntax[t] }
+func (t SyntaxItemFlag) StringAlt() string           { return matchSyntax[syntax[SyntaxItemFlag(t.TypePrim())]] }
 
 // all syntax items represented as string
 func AllSyntax() string {

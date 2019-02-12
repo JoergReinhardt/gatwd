@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 func TestDataEnclosures(t *testing.T) {
@@ -349,7 +349,7 @@ func TestRecursive(t *testing.T) {
 	}
 }
 func TestRecursiveList(t *testing.T) {
-	list := NewRecursiveList(
+	tail := NewRecursiveList(
 		New("test 1"),
 		New("test 2"),
 		New("test 3"),
@@ -363,12 +363,168 @@ func TestRecursiveList(t *testing.T) {
 		New("test 11"),
 	)
 	var head Value
-	fmt.Println(list)
-	for list != nil {
-		head, list = list.DeCap()
+	for tail != nil {
+		head, tail = tail.DeCap()
 		fmt.Println(head)
 	}
 
+}
+
+var vec = NewVector(
+	New("test 1"),
+	New("test 2"),
+	New("test 3"),
+	New("test 4"),
+	New("test 5"),
+	New("test 6"),
+	New("test 7"),
+	New("test 8"),
+	New("test 9"),
+	New("test 10"),
+	New("test 11"),
+	New("test 12"),
+	New("test 13"),
+	New("test 14"),
+	New("test 15"),
+	New("test 16"),
+	New("test 17"),
+	New("test 18"),
+	New("test 19"),
+	New("test 20"),
+	New("test 21"),
+	New("test 22"),
+	New("test 23"),
+	New("test 24"),
+	New("test 25"),
+	New("test 26"),
+	New("test 27"),
+	New("test 28"),
+	New("test 29"),
+	New("test 30"),
+	New("test 31"),
+	New("test 32"),
+	New("test 33"),
+	New("test 34"),
+	New("test 35"),
+	New("test 36"),
+	New("test 37"),
+	New("test 38"),
+	New("test 39"),
+	New("test 40"),
+	New("test 29"),
+	New("test 30"),
+	New("test 41"),
+	New("test 42"),
+	New("test 43"),
+	New("test 44"),
+	New("test 45"),
+	New("test 46"),
+	New("test 47"),
+	New("test 48"),
+	New("test 49"),
+	New("test 50"),
+	New("test 1"),
+	New("test 2"),
+	New("test 3"),
+	New("test 4"),
+	New("test 5"),
+	New("test 6"),
+	New("test 7"),
+	New("test 8"),
+	New("test 9"),
+	New("test 10"),
+	New("test 11"),
+	New("test 12"),
+	New("test 13"),
+	New("test 14"),
+	New("test 15"),
+	New("test 16"),
+	New("test 17"),
+	New("test 18"),
+	New("test 19"),
+	New("test 20"),
+	New("test 21"),
+	New("test 22"),
+	New("test 23"),
+	New("test 24"),
+	New("test 25"),
+	New("test 26"),
+	New("test 27"),
+	New("test 28"),
+	New("test 29"),
+	New("test 30"),
+	New("test 31"),
+	New("test 32"),
+	New("test 33"),
+	New("test 34"),
+	New("test 35"),
+	New("test 36"),
+	New("test 37"),
+	New("test 38"),
+	New("test 39"),
+	New("test 40"),
+	New("test 29"),
+	New("test 30"),
+	New("test 41"),
+	New("test 42"),
+	New("test 43"),
+	New("test 44"),
+	New("test 45"),
+	New("test 46"),
+	New("test 47"),
+	New("test 48"),
+	New("test 49"),
+	New("test 50"),
+)
+
+func BenchmarkRecursiveList(b *testing.B) {
+	for i := 0; i < 10; i++ {
+		vec = NewVector(append(vec.Slice(), vec.Slice()...)...)
+	}
+	for i := 0; i < b.N; i++ {
+		tail := NewRecursiveList(vec.Slice()...)
+		for tail != nil {
+			_, tail = tail.DeCap()
+		}
+	}
+}
+
+func fill(tail ListFnc) ListFnc {
+	for i := 0; i < 20; i++ {
+		tail = tail.Con(vec.Get(i))
+	}
+	return tail
+}
+func empty(tail ListFnc) ListFnc {
+	for i := 0; i < 20; i++ {
+		_, rec := tail()
+		tail = rec.(ListFnc)
+	}
+	return tail
+}
+func refiller() {
+	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+	for i := 0; i < vec.Len(); i++ {
+		tail = fill(tail)
+		tail = empty(tail)
+	}
+}
+func BenchmarkConList(b *testing.B) {
+	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+	for i := 0; i < b.N; i++ {
+		refiller()
+	}
+	fmt.Println(tail)
+}
+func TestConList(t *testing.T) {
+	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+	for i := 0; i < vec.Len(); i++ {
+		tail = fill(tail)
+		tail = empty(tail)
+	}
+	if tail.Head().String() == "test 1" {
+		t.Fail()
+	}
 }
 func TestTuple(t *testing.T) {
 	tup := NewTuple(

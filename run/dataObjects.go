@@ -12,13 +12,12 @@
 package run
 
 import (
-	d "github.com/JoergReinhardt/godeep/data"
-	f "github.com/JoergReinhardt/godeep/functions"
+	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
 )
 
-func allocateAtomicConstant(prime d.Primary) *object {
+func allocateAtomicConstant(prime d.Primary) object {
 
-	var obj object
 	var closure f.Value
 
 	switch prime.TypePrim() {
@@ -96,18 +95,20 @@ func allocateAtomicConstant(prime d.Primary) *object {
 		closure = f.NewPrimaryConstatnt(value)
 	}
 
-	obj = allocateData(
+	var refs []*object
+	return object{
+		newInfo(
+			Length(1),
+			Arity(0),
+			Propertys(Data|Atomic)),
 		DataConstructor,
-		Arity(Nullary),
-		Propertys(Data|Atomic),
 		closure,
-	)
+		refs,
+	}
 
-	return &obj
 }
-func allocateVectorConstant(prime d.Primary) *object {
+func allocateVectorConstant(prime d.Primary) object {
 
-	var obj object
 	var closure f.Value
 
 	switch {
@@ -185,16 +186,19 @@ func allocateVectorConstant(prime d.Primary) *object {
 		closure = f.NewPrimaryConstatnt(value)
 	}
 
-	obj = allocateData(
+	var refs []*object
+	return object{
+		newInfo(
+			Length(closure.(d.Sliceable).Len()),
+			Arity(0),
+			Propertys(Data),
+		),
 		DataConstructor,
-		Arity(Nullary),
-		Propertys(Data|Atomic),
 		closure,
-	)
-
-	return &obj
+		refs,
+	}
 }
-func allocatePrimarySet(pairs ...d.PairVal) *object {
+func allocatePrimarySet(pairs ...d.PairVal) object {
 	// allocate flag to safe and compare accessors types
 	var accflag d.BitFlag
 	var set d.Mapped
@@ -231,30 +235,40 @@ func allocatePrimarySet(pairs ...d.PairVal) *object {
 
 		}
 	}
-	var obj = allocateData(
+	var refs []*object
+	return object{
+		newInfo(
+			Length(len(set.(d.Mapped).Keys())),
+			Arity(0),
+			Propertys(Data),
+		),
 		DataConstructor,
-		Arity(Nullary),
-		Propertys(Data|Atomic),
-		f.NewPrimaryConstatnt(set),
-	)
-	return &obj
+		f.NewNaryFnc(func(...f.Value) f.Value {
+			return f.NewPrimaryConstatnt(set)
+		}),
+		refs,
+	}
 }
-func allocatePrimaryDataSlice(data ...d.Primary) *object {
+func allocatePrimaryDataSlice(data ...d.Primary) object {
 	// make it a data slice
 	var slice = d.NewSlice(data...)
 	// generate a constant closure enclosing slice
-	var closure = f.NewPrimaryConstatnt(slice)
 	// allocate heap object
-	var obj = allocateData(
+	var refs []*object
+	return object{
+		newInfo(
+			Length(slice.Len()),
+			Arity(0),
+			Propertys(Data),
+		),
 		DataConstructor,
-		Arity(Nullary),
-		Propertys(Data|Atomic),
-		closure,
-	)
-	// return heap pointer
-	return &obj
+		f.NewNaryFnc(func(...f.Value) f.Value {
+			return f.NewPrimaryConstatnt(slice)
+		}),
+		refs,
+	}
 }
-func allocatePrimaryData(data ...d.Primary) *object {
+func allocatePrimaryData(data ...d.Primary) object {
 	if len(data) == 1 {
 		// when dealing single instance of a primary, return atomic primary instance
 		return allocateAtomicConstant(data[0])
@@ -270,12 +284,9 @@ func allocatePrimaryData(data ...d.Primary) *object {
 		// of natives
 		if flag.Count() == 1 {
 			// if it's an array of instances of the same type
-			var vec *object
-			if vec = allocateVectorConstant(
+			return allocateVectorConstant(
 				d.ConNativeSlice(flag, data...),
-			); vec != nil {
-				return vec
-			}
+			)
 		}
 		// if the set bit is set, try to allocate set
 		if flag.Match(d.Pair) {
@@ -284,10 +295,8 @@ func allocatePrimaryData(data ...d.Primary) *object {
 				if pair, ok := dat.(d.PairVal); ok {
 					pairs = append(pairs, pair)
 				}
-				if set := allocatePrimarySet(pairs...); set != nil {
-					return set
-				}
 			}
+			return allocatePrimarySet(pairs...)
 		}
 		// since nothing else seems to fit this collection, allocate a
 		// slice of mixed primary type values (ein kessel buntes)

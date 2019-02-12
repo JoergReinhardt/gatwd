@@ -11,6 +11,9 @@ type Primary interface {
 	String() string
 	Evaluable
 }
+type BinaryMarshaler interface {
+	MarshalBinary() ([]byte, error)
+}
 
 // all data types are evaluable. evaluation yields a primary instance
 type Evaluable interface{ Eval(...Primary) Primary }

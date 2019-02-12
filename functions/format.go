@@ -3,8 +3,8 @@ package functions
 import (
 	"bytes"
 
-	d "github.com/JoergReinhardt/godeep/data"
-	l "github.com/JoergReinhardt/godeep/lex"
+	d "github.com/JoergReinhardt/gatwd/data"
+	l "github.com/JoergReinhardt/gatwd/lex"
 )
 
 /// VALUE

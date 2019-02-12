@@ -1,9 +1,9 @@
 package parse
 
 import (
-	d "github.com/JoergReinhardt/godeep/data"
-	f "github.com/JoergReinhardt/godeep/functions"
-	l "github.com/JoergReinhardt/godeep/lex"
+	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
+	l "github.com/JoergReinhardt/gatwd/lex"
 )
 
 //// TOKENS

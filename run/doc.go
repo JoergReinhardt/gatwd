@@ -15,7 +15,7 @@
     name of the corresponding layout constant.
 
     aiming for a fast implementation, the design trys to keep data from escaping
-    to the heap, by using pointers as little as possible. Godeeps internal heap
+    to the heap, by using pointers as little as possible. gatwds internal heap
     implements a directed cyclic graph and can't be implemented in a more
     performant way (that i know of), than using pointers. all all data belonging
     to one object, is held thightly in a struct. contained values and arguments
@@ -27,7 +27,7 @@
     using a call to an interface, can't hurt that much either‥. TODO: that needs
     of course to be validated later.
 
-    godeeps internal stack, is a slice of fixed size structs, which should help
+    gatwds internal stack, is a slice of fixed size structs, which should help
     keep things & stuff from ecaping to the heap as much as possible, while
     still allowing for a stack of arbitrary size. since frames have to be of a
     fixed size to make the runtime use arrays of values instead of pointers. to

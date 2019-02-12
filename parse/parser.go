@@ -3,7 +3,7 @@ package parse
 import (
 	"sort"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 //// DATA TOKEN HANDLING

@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	d "github.com/JoergReinhardt/godeep/data"
+	d "github.com/JoergReinhardt/gatwd/data"
 )
 
 type Primary interface {
@@ -25,6 +25,7 @@ type Callable interface {
 // grouped by common methods they provide. the groups are defined as bitwise
 // concatenations of flags of all the types providing the common method. this
 // builds the base for implementing higher order type classes.
+type Optional interface{ Maybe() bool }
 type Nullable interface{ Null() Value }
 type Bitwise interface{ Uint() uint }
 type Boolean interface{ Bool() bool }
@@ -69,11 +70,11 @@ type Paired interface {
 
 // 'APPLYABLE' DATA
 //
-// godeep aims for imutable values since data in functional programming is
+// gatwd aims for imutable values since data in functional programming is
 // conceptionally mandatory to be imutable. go on the other hand is inherently
 // procedual and relys on highly volatile mutable values, especially when
 // dealing with things like inidices and loop counters. there is no way to keep
-// code from mutating values on the syntax layer either. godeep provides a
+// code from mutating values on the syntax layer either. gatwd provides a
 // functional abstraction to implement data that can be applyed as parameter or
 // argument, without assignment. the changed data is returned as closure over
 // the new data instead. this is implemented by providing closure function
@@ -195,6 +196,10 @@ type Vectorized interface {
 	Head() Value
 	Tail() []Value
 	DeCap() (Value, []Value)
+	Search(Value) int
+	Sort(d.TyPrimitive)
+	Get(int) Value
+	Set(int, Value) Vectorized
 }
 type Accessable interface {
 	Collected
@@ -237,7 +242,7 @@ type Tupled interface {
 type Recorded interface {
 	Vectorized
 	Tuple() Tupled
-	Get(Value) Paired
+	GetVal(Value) Paired
 	ArgSig() []Paired // key/data-type
 }
 
