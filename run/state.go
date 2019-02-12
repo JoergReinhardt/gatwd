@@ -121,8 +121,8 @@ const (
 	PartialApplication Otype = 1
 	CallContinuation   Otype = 1 << iota
 	CaseContinuation
-	DataConstructor
 	FunctionClosure
+	DataConstructor
 	Declaration
 	Indirection
 	BlackHole

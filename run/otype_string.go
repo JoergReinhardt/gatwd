@@ -4,47 +4,28 @@ package run
 
 import "strconv"
 
-const (
-	_Otype_name_0 = "DataConstructorFunctionClosure"
-	_Otype_name_1 = "PartialApplication"
-	_Otype_name_2 = "Declaration"
-	_Otype_name_3 = "Indirection"
-	_Otype_name_4 = "BlackHole"
-	_Otype_name_5 = "ByteCode"
-	_Otype_name_6 = "Thunk"
-	_Otype_name_7 = "IOSync"
-	_Otype_name_8 = "IOAsync"
-	_Otype_name_9 = "IOShared"
-)
+const _Otype_name = "PartialApplicationCallContinuationCaseContinuationFunctionClosureDataConstructorDeclarationIndirectionBlackHoleByteCodeThunkIOEventsIOReaderIOWriterIOShared"
 
-var (
-	_Otype_index_0 = [...]uint8{0, 15, 30}
-)
+var _Otype_map = map[Otype]string{
+	1:    _Otype_name[0:18],
+	2:    _Otype_name[18:34],
+	4:    _Otype_name[34:50],
+	8:    _Otype_name[50:65],
+	16:   _Otype_name[65:80],
+	32:   _Otype_name[80:91],
+	64:   _Otype_name[91:102],
+	128:  _Otype_name[102:111],
+	256:  _Otype_name[111:119],
+	512:  _Otype_name[119:124],
+	1024: _Otype_name[124:132],
+	2048: _Otype_name[132:140],
+	4096: _Otype_name[140:148],
+	8192: _Otype_name[148:156],
+}
 
 func (i Otype) String() string {
-	switch {
-	case 1 <= i && i <= 2:
-		i -= 1
-		return _Otype_name_0[_Otype_index_0[i]:_Otype_index_0[i+1]]
-	case i == 4:
-		return _Otype_name_1
-	case i == 8:
-		return _Otype_name_2
-	case i == 16:
-		return _Otype_name_3
-	case i == 32:
-		return _Otype_name_4
-	case i == 64:
-		return _Otype_name_5
-	case i == 128:
-		return _Otype_name_6
-	case i == 256:
-		return _Otype_name_7
-	case i == 512:
-		return _Otype_name_8
-	case i == 1024:
-		return _Otype_name_9
-	default:
-		return "Otype(" + strconv.FormatInt(int64(i), 10) + ")"
+	if str, ok := _Otype_map[i]; ok {
+		return str
 	}
+	return "Otype(" + strconv.FormatInt(int64(i), 10) + ")"
 }
