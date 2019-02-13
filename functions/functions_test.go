@@ -10,7 +10,7 @@ import (
 func TestDataEnclosures(t *testing.T) {
 	data := New("this is the testfunction speaking from within enclosure")
 	fmt.Println(data)
-	fmt.Println(data.TypePrim())
+	fmt.Println(data.TypePrime())
 }
 func TestPairEnclosures(t *testing.T) {
 	pair := NewPair(New("test key:"), New("test data in a pair"))
@@ -31,7 +31,7 @@ func TestStringVectorEnclosures(t *testing.T) {
 		New("nineth data entry in slice"),
 		New("tenth data entry in slice"),
 	)
-	fmt.Println(vec.TypePrim())
+	fmt.Println(vec.TypePrime())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
 }
@@ -42,7 +42,7 @@ func TestMixedVectorEnclosures(t *testing.T) {
 		New("mixed type"),
 		New(5, 7, 234, 4, 546, 324, 4),
 	)
-	fmt.Println(vec.TypePrim())
+	fmt.Println(vec.TypePrime())
 	fmt.Println(vec.Len())
 	fmt.Println(vec.Empty())
 }
@@ -52,7 +52,7 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
 		24, 42, 4, 24)
-	fmt.Println(vec.TypePrim())
+	fmt.Println(vec.TypePrime())
 	fmt.Println(vec.String())
 }
 func TestParameterEnclosure(t *testing.T) {
@@ -69,13 +69,13 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(parm.Arg())
 	_, parm = parm.Apply(New("yup, works just fine ;)"))
 	fmt.Println(parm.Arg())
-	fmt.Println(dat.TypePrim())
+	fmt.Println(dat.TypePrime())
 }
 func TestAccParamEnclosure(t *testing.T) {
 	acc := NewKeyValueParm(New("test-key"), New("test value"))
 	fmt.Println(acc)
 	_, acc = acc.Apply(NewKeyValueParm(New(12), New("one million dollar")))
-	fmt.Printf("Accessor Type: %s\n", acc.Acc().TypePrim())
+	fmt.Printf("Accessor Type: %s\n", acc.Acc().TypePrime())
 	fmt.Printf("Accessor: %s\n", acc.Acc())
 	fmt.Printf("Argument: %s\n", acc.Arg())
 	if acc.Arg().Eval() != New("one million dollar").Eval() {
@@ -159,7 +159,7 @@ func TestAccAttrs(t *testing.T) {
 }
 func TestSearchAccAttrs(t *testing.T) {
 	praed := New("fourth key")
-	fmt.Printf("why nil: %s\n", praed.TypePrim())
+	fmt.Printf("why nil: %s\n", praed.TypePrime())
 	var cha = newPairSorter(acc.Pairs()...)
 	cha.Sort(d.String)
 	fmt.Println(cha)
@@ -203,21 +203,21 @@ func TestMixedTypeAccessor(t *testing.T) {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Int.TypePrim()))
+		idx = macc.Search(New(d.Int.TypePrime()))
 		foundi := macc[idx]
 		fmt.Printf("%d\n", foundi.Right())
 		if foundi.Right().(Integer).Int() != 12 {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Uint.TypePrim()))
+		idx = macc.Search(New(d.Uint.TypePrime()))
 		foundu := macc[idx]
 		fmt.Printf("%d\n", foundu.Right())
 		if foundu.Right().(Unsigned).Uint() != 10 {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Float.TypePrim()))
+		idx = macc.Search(New(d.Float.TypePrime()))
 		foundf := macc[idx]
 		fmt.Printf("%f\n", foundf.Right())
 		if foundf.Right().(Irrational).Float() != 4.2 {
@@ -227,7 +227,7 @@ func TestMixedTypeAccessor(t *testing.T) {
 }
 func TestFlag(t *testing.T) {
 	data := New("test string")
-	fmt.Printf("test strings flag: %s\n", data.TypePrim())
+	fmt.Printf("test strings flag: %s\n", data.TypePrime())
 }
 func TestApplyAccessAttrs(t *testing.T) {
 	acc3 := ApplyParams(acc, acc2.Pairs()...)

@@ -422,7 +422,7 @@ func byteCode(
 func sysCall(
 	expr f.Callable,
 	refs ...*Object,
-) (Object, chan f.Callable) {
+) Object {
 	return Object{
 		newInfo(
 			Length(len(refs)),

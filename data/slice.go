@@ -13,15 +13,15 @@ func NewSlice(val ...Primary) DataSlice {
 func SliceContainedTypes(c []Primary) BitFlag {
 	var flag = BitFlag(0)
 	for _, d := range c {
-		if FlagMatch(d.TypePrim().Flag(), Vector.TypePrim().Flag()) {
+		if FlagMatch(d.TypePrime().Flag(), Vector.TypePrime().Flag()) {
 			SliceContainedTypes(d.(DataSlice))
 			continue
 		}
-		flag = flag | d.TypePrim().Flag()
+		flag = flag | d.TypePrime().Flag()
 	}
 	return flag
 }
-func (c DataSlice) TypePrim() TyPrimitive   { return Vector.TypePrim() }
+func (c DataSlice) TypePrime() TyPrime      { return Vector.TypePrime() }
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
 func (c DataSlice) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
@@ -67,14 +67,14 @@ func SliceClear(s DataSlice) {
 }
 func ElemEmpty(d Primary) bool {
 	// not flagged nil, not a composition either...
-	if !FlagMatch(d.TypePrim().Flag(), (Nil.TypePrim().Flag() | Vector.TypePrim().Flag())) {
+	if !FlagMatch(d.TypePrime().Flag(), (Nil.TypePrime().Flag() | Vector.TypePrime().Flag())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if FlagMatch(d.TypePrim().Flag(), Vector.TypePrim().Flag()) {
+	if FlagMatch(d.TypePrime().Flag(), Vector.TypePrime().Flag()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(DataSlice); ok {
 			return SliceEmpty(sl)
@@ -104,9 +104,9 @@ func SliceEmpty(s DataSlice) bool {
 
 ///// CONVERT TO SLICE OF NATIVES ////////
 func SliceToNatives(c DataSlice) Sliceable {
-	f := SliceGet(c, 0).TypePrim().Flag()
+	f := SliceGet(c, 0).TypePrime().Flag()
 	if SliceAll(c, func(i int, c Primary) bool {
-		return FlagMatch(f, c.TypePrim().Flag())
+		return FlagMatch(f, c.TypePrime().Flag())
 	}) {
 		return ConNativeSlice(f, c.Slice()...)
 	}
@@ -293,19 +293,19 @@ func SliceInsert(s DataSlice, i int, v Primary) DataSlice {
 func SliceInsertVector(s DataSlice, i int, v ...Primary) DataSlice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
-func SliceAttrType(s DataSlice) BitFlag { return Int.TypePrim().Flag() }
+func SliceAttrType(s DataSlice) BitFlag { return Int.TypePrime().Flag() }
 
 func (c DataSlice) Swap(i, j int) { c = SliceSwap(c, i, j) }
 func SliceSwap(c DataSlice, i, j int) DataSlice {
 	c[i], c[j] = c[j], c[i]
 	return c
 }
-func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
+func newSliceLess(c DataSlice, compT TyPrime) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
-	f := compT.TypePrim().Flag()
+	f := compT.TypePrime().Flag()
 	switch {
-	case FlagMatch(f, Symbolic.TypePrim().Flag()):
+	case FlagMatch(f, Symbolic.TypePrime().Flag()):
 		fn = func(i, j int) bool {
 			if strings.Compare(
 				string(chain[i].String()),
@@ -315,15 +315,15 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Flag.TypePrim().Flag()):
+	case FlagMatch(f, Flag.TypePrime().Flag()):
 		fn = func(i, j int) bool {
-			if chain[i].(TyPrimitive).TypePrim() <
-				chain[j].(TyPrimitive).TypePrim() {
+			if chain[i].(TyPrime).TypePrime() <
+				chain[j].(TyPrime).TypePrime() {
 				return true
 			}
 			return false
 		}
-	case FlagMatch(f, Natural.TypePrim().Flag()):
+	case FlagMatch(f, Natural.TypePrime().Flag()):
 		fn = func(i, j int) bool {
 			if uint(chain[i].(NaturalVal).Uint()) <
 				uint(chain[j].(NaturalVal).Uint()) {
@@ -331,7 +331,7 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Integer.TypePrim().Flag()):
+	case FlagMatch(f, Integer.TypePrime().Flag()):
 		fn = func(i, j int) bool {
 			if int(chain[i].(IntegerVal).Int()) <
 				int(chain[j].(IntegerVal).Int()) {
@@ -342,34 +342,34 @@ func newSliceLess(c DataSlice, compT TyPrimitive) func(i, j int) bool {
 	}
 	return fn
 }
-func SliceSort(c DataSlice, compT TyPrimitive) DataSlice {
+func SliceSort(c DataSlice, compT TyPrime) DataSlice {
 	sort.Slice(c, newSliceLess(c, compT))
 	return c
 }
-func (c DataSlice) Sort(compT TyPrimitive) {
+func (c DataSlice) Sort(compT TyPrime) {
 	c = SliceSort(c, compT)
 }
 
 func newSliceSearchFnc(c DataSlice, comp Primary) func(i int) bool {
 	var fn func(i int) bool
-	f := comp.TypePrim().Flag()
+	f := comp.TypePrime().Flag()
 	switch {
-	case FlagMatch(f, Symbolic.TypePrim().Flag()):
+	case FlagMatch(f, Symbolic.TypePrime().Flag()):
 		fn = func(i int) bool {
 			return strings.Compare(c[i].String(),
 				comp.String()) >= 0
 		}
-	case FlagMatch(f, Flag.TypePrim().Flag()):
+	case FlagMatch(f, Flag.TypePrime().Flag()):
 		fn = func(i int) bool {
-			return c[i].TypePrim() >=
-				comp.TypePrim()
+			return c[i].TypePrime() >=
+				comp.TypePrime()
 		}
-	case FlagMatch(f, Natural.TypePrim().Flag()):
+	case FlagMatch(f, Natural.TypePrime().Flag()):
 		fn = func(i int) bool {
 			return uint(c[i].(NaturalVal).Uint()) >=
 				uint(comp.(NaturalVal).Uint())
 		}
-	case FlagMatch(f, Integer.TypePrim().Flag()):
+	case FlagMatch(f, Integer.TypePrime().Flag()):
 		fn = func(i int) bool {
 			return int(c[i].(IntegerVal).Int()) >=
 				int(comp.(IntegerVal).Int())
@@ -385,7 +385,7 @@ func SliceSearch(c DataSlice, comp Primary) Primary {
 func SliceSearchRange(c DataSlice, comp Primary) []Primary {
 	var idx = sort.Search(c.Len(), newSliceSearchFnc(c, comp))
 	var dat = []Primary{}
-	for SliceGet(c, idx).TypePrim().Flag().Match(comp.TypePrim().Flag()) {
+	for SliceGet(c, idx).TypePrime().Flag().Match(comp.TypePrime().Flag()) {
 		dat = append(dat, SliceGet(c, idx))
 	}
 	return dat

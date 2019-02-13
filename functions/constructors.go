@@ -23,16 +23,18 @@ type (
 	ListFnc     func() (Value, Recursive)
 	RecordFnc   func() (Tupled, []Paired)
 	TupleFnc    func() (Vectorized, []d.BitFlag)
-	// TYPE DEFINITIONS & CONSTRUCTORS
+	// TYPE IDENTITY & CONSTRUCTION
 	TypeFnc func() (
 		tid d.IntVal,
 		name d.StrVal,
 		signature d.StrVal,
 		constructors []HigherOrderType,
 	)
-	SumTypeFnc  func() (HigherOrderType, []HigherOrderType)              // sum is a set of types (instance type & set)
-	ProdTypeFnc func(t ...HigherOrderType) (typ, parent HigherOrderType) // product derives new type from existing type
-	// HIGHER ORDER CLOSURES (STATICLY DEFINED)
+	SumTypeFnc  func() (HigherOrderType, []HigherOrderType)                // sum is a set of types (instance type & set)
+	ProdTypeFnc func(t ...HigherOrderType) (ident, parent HigherOrderType) // product derives new type from existing type
+	// TYPE INSTANCIATION (DATA CONSTRUCTORS)
+	DataConstructor func() (Value, HigherOrderType)
+	// HIGHER ORDER CLOSURES (BUILDTIN STATICLY DEFINED)
 	PraedFnc  func(Value) Boolean  // result impl. Bool() bool
 	OptionFnc func(Value) Optional // result impl.Maybe() bool, e.g. 'Just|None'
 )
@@ -55,8 +57,8 @@ func (t TypeFnc) Id() d.IntVal            { id, _, _, _ := t(); return id }
 func (t TypeFnc) Name() d.StrVal          { _, name, _, _ := t(); return name }
 func (t TypeFnc) Sig() d.StrVal           { _, _, sig, _ := t(); return sig }
 func (t TypeFnc) Cons() []HigherOrderType { _, _, _, cons := t(); return cons }
-func (t TypeFnc) TypePrim() d.TyPrimitive { return d.Type }
-func (t TypeFnc) TypeHO() TyHigherOrder   { return Type }
+func (t TypeFnc) TypePrime() d.TyPrime    { return d.Type }
+func (t TypeFnc) TypeFnc() TyFnc          { return Type }
 func (t TypeFnc) Ident() Value            { return t }
 func (t TypeFnc) String() string {
 	return strconv.Itoa(t.Id().Int()) + " " + t.Name().String()
@@ -64,7 +66,34 @@ func (t TypeFnc) String() string {
 func (t TypeFnc) Eval(p ...d.Primary) d.Primary {
 	return d.NewPair(t.Id(), t.Name())
 }
-func (t TypeFnc) Call(d ...Value) Value { return t }
+
+// DATA CONSTRUCTOR
+//
+// data constructors enclose over values together with the higher order type
+// the instance is associated with.
+func NewDataConstructor(
+	value Value,
+	hot HigherOrderType,
+) DataConstructor {
+	return DataConstructor(func() (Value, HigherOrderType) {
+		return value, hot
+	})
+}
+func (d DataConstructor) Ident() Value            { return d }
+func (d DataConstructor) Value() Value            { val, _ := d(); return val }
+func (d DataConstructor) Type() HigherOrderType   { _, ho := d(); return ho }
+func (d DataConstructor) Id() d.IntVal            { return d.Type().Id() }
+func (d DataConstructor) Name() d.StrVal          { return d.Type().Name() }
+func (d DataConstructor) Sig() d.StrVal           { return d.Type().Name() }
+func (d DataConstructor) Cons() []HigherOrderType { return d.Type().Cons() }
+func (d DataConstructor) TypePrime() d.TyPrime    { return d.Value().TypePrime() }
+func (d DataConstructor) TypeFnc() TyFnc          { return d.Value().TypeFnc() }
+func (d DataConstructor) Eval(p ...d.Primary) d.Primary {
+	return d.Value().Eval(p...)
+}
+func (d DataConstructor) String() string {
+	return d.Value().String() + " ∷ " + d.Type().String()
+}
 
 // SUM TYPE
 func NewSumType(sum func() (HigherOrderType, []HigherOrderType)) SumTypeFnc { return SumTypeFnc(sum) }
@@ -74,8 +103,8 @@ func (e SumTypeFnc) Sig() d.StrVal                                          { re
 func (e SumTypeFnc) Cons() []HigherOrderType                                { return e.Type().Cons() }
 func (e SumTypeFnc) Type() TypeFnc                                          { t, _ := e(); return t.(TypeFnc) }
 func (e SumTypeFnc) Sum() []HigherOrderType                                 { _, sum := e(); return sum }
-func (e SumTypeFnc) TypeHO() TyHigherOrder                                  { return Enum }
-func (e SumTypeFnc) TypePrim() d.TyPrimitive                                { return d.Enum }
+func (e SumTypeFnc) TypeFnc() TyFnc                                         { return Enum }
+func (e SumTypeFnc) TypePrime() d.TyPrime                                   { return d.Enum }
 func (e SumTypeFnc) Ident() Value                                           { return e }
 func (e SumTypeFnc) Eval(dat ...d.Primary) d.Primary                        { return d.StrVal(e.String()) }
 func (e SumTypeFnc) Call(v ...Value) Value {
@@ -122,8 +151,8 @@ func (e ProdTypeFnc) Name() d.StrVal                  { return e.Type().Name() }
 func (e ProdTypeFnc) Sig() d.StrVal                   { return e.Type().Sig() }
 func (e ProdTypeFnc) Cons() []HigherOrderType         { return e.Type().Cons() }
 func (e ProdTypeFnc) Ident() Value                    { return e }
-func (e ProdTypeFnc) TypeHO() TyHigherOrder           { return Type }
-func (e ProdTypeFnc) TypePrim() d.TyPrimitive         { return d.Type }
+func (e ProdTypeFnc) TypeFnc() TyFnc                  { return Type }
+func (e ProdTypeFnc) TypePrime() d.TyPrime            { return d.Type }
 func (e ProdTypeFnc) Type() HigherOrderType           { t, _ := e(); return t }
 func (e ProdTypeFnc) Parent() HigherOrderType         { _, p := e(); return p }
 func (e ProdTypeFnc) Eval(dat ...d.Primary) d.Primary { return d.StrVal(e.String()) }
@@ -144,8 +173,8 @@ func NewConstant(fnc func(...Value) Value) ConstFnc {
 func NewPrimaryConstatnt(prime d.Primary) ConstFnc {
 	return func() Value { return NewFromData(prime) }
 }
-func (c ConstFnc) TypePrim() d.TyPrimitive       { return c().TypePrim() }
-func (c ConstFnc) TypeHO() TyHigherOrder         { return Function }
+func (c ConstFnc) TypePrime() d.TyPrime          { return c().TypePrime() }
+func (c ConstFnc) TypeFnc() TyFnc                { return Function }
 func (c ConstFnc) Ident() Value                  { return c }
 func (c ConstFnc) Eval(p ...d.Primary) d.Primary { return c() }
 func (c ConstFnc) Call(d ...Value) Value {
@@ -156,8 +185,8 @@ func (c ConstFnc) Call(d ...Value) Value {
 func NewUnaryFnc(fnc func(f Value) Value) UnaryFnc {
 	return UnaryFnc(func(f Value) Value { return fnc(f) })
 }
-func (u UnaryFnc) TypePrim() d.TyPrimitive       { return d.Function.TypePrim() }
-func (u UnaryFnc) TypeHO() TyHigherOrder         { return Function }
+func (u UnaryFnc) TypePrime() d.TyPrime          { return d.Function.TypePrime() }
+func (u UnaryFnc) TypeFnc() TyFnc                { return Function }
 func (u UnaryFnc) Ident() Value                  { return u }
 func (u UnaryFnc) Eval(p ...d.Primary) d.Primary { return u }
 func (u UnaryFnc) Call(d ...Value) Value {
@@ -168,8 +197,8 @@ func (u UnaryFnc) Call(d ...Value) Value {
 func NewBinaryFnc(fnc func(a, b Value) Value) BinaryFnc {
 	return BinaryFnc(func(a, b Value) Value { return fnc(a, b) })
 }
-func (b BinaryFnc) TypePrim() d.TyPrimitive       { return d.Function.TypePrim() }
-func (b BinaryFnc) TypeHO() TyHigherOrder         { return Function }
+func (b BinaryFnc) TypePrime() d.TyPrime          { return d.Function.TypePrime() }
+func (b BinaryFnc) TypeFnc() TyFnc                { return Function }
 func (b BinaryFnc) Ident() Value                  { return b }
 func (b BinaryFnc) Eval(p ...d.Primary) d.Primary { return b }
 func (b BinaryFnc) Call(d ...Value) Value         { return b(d[0], d[1]) }
@@ -178,8 +207,8 @@ func (b BinaryFnc) Call(d ...Value) Value         { return b(d[0], d[1]) }
 func NewNaryFnc(fnc func(f ...Value) Value) NaryFnc {
 	return NaryFnc(func(f ...Value) Value { return fnc(f...) })
 }
-func (n NaryFnc) TypePrim() d.TyPrimitive       { return d.Function.TypePrim() }
-func (n NaryFnc) TypeHO() TyHigherOrder         { return Function }
+func (n NaryFnc) TypePrime() d.TyPrime          { return d.Function.TypePrime() }
+func (n NaryFnc) TypeFnc() TyFnc                { return Function }
 func (n NaryFnc) Ident() Value                  { return n }
 func (n NaryFnc) Eval(p ...d.Primary) d.Primary { return n }
 func (n NaryFnc) Call(d ...Value) Value         { return n(d...) }
@@ -240,7 +269,7 @@ func (v AssocVecFnc) SetVal(key, value Value) Associative {
 	}
 	return NewAssocVector(append(v.Pairs(), NewPair(key, value))...).(AssocVecFnc)
 }
-func (v AssocVecFnc) Sort(flag d.TyPrimitive) {
+func (v AssocVecFnc) Sort(flag d.TyPrime) {
 	var ps = newPairSorter(v()...)
 	ps.Sort(flag)
 	v = NewAssocVector(ps...).(AssocVecFnc)
@@ -280,12 +309,12 @@ func (v AssocVecFnc) Con(p ...Paired) AssocVecFnc {
 func (v AssocVecFnc) DeCap() (Paired, []Paired) {
 	return v.Head(), v.Tail()
 }
-func (v AssocVecFnc) TypeHO() TyHigherOrder { return AssocVec }
-func (v AssocVecFnc) TypePrim() d.TyPrimitive {
+func (v AssocVecFnc) TypeFnc() TyFnc { return AssocVec }
+func (v AssocVecFnc) TypePrime() d.TyPrime {
 	if len(v()) > 0 {
-		return d.Vector | v.Head().TypePrim()
+		return d.Vector | v.Head().TypePrime()
 	}
-	return d.Vector | d.Nil.TypePrim()
+	return d.Vector | d.Nil.TypePrime()
 }
 
 // base implementation functions/sliceable interface
@@ -305,19 +334,19 @@ func (v VecFnc) Len() int { return len(v()) }
 func (v VecFnc) Empty() bool {
 	if len(v()) > 0 {
 		for _, dat := range v() {
-			if !d.Nil.TypePrim().Flag().Match(dat.TypePrim().Flag()) {
+			if !d.Nil.TypePrime().Flag().Match(dat.TypePrime().Flag()) {
 				return false
 			}
 		}
 	}
 	return true
 }
-func (v VecFnc) TypeHO() TyHigherOrder { return Vector }
-func (v VecFnc) TypePrim() d.TyPrimitive {
+func (v VecFnc) TypeFnc() TyFnc { return Vector }
+func (v VecFnc) TypePrime() d.TyPrime {
 	if len(v()) > 0 {
-		return d.Vector.TypePrim() | v.Head().TypePrim()
+		return d.Vector.TypePrime() | v.Head().TypePrime()
 	}
-	return d.Vector.TypePrim() | d.Nil.TypePrim()
+	return d.Vector.TypePrime() | d.Nil.TypePrime()
 }
 func (v VecFnc) Ident() Value                  { return v }
 func (v VecFnc) Eval(p ...d.Primary) d.Primary { return NewVector(v()...) }
@@ -349,7 +378,7 @@ func (v VecFnc) Get(i int) Value {
 	return nil
 }
 func (v VecFnc) Search(praed Value) int { return newDataSorter(v()...).Search(praed) }
-func (v VecFnc) Sort(flag d.TyPrimitive) {
+func (v VecFnc) Sort(flag d.TyPrime) {
 	var ps = newDataSorter(v()...)
 	ps.Sort(flag)
 	v = NewVector(ps...).(VecFnc)
@@ -372,8 +401,8 @@ func (l ListFnc) Ident() Value                  { return l }
 func (l ListFnc) Eval(p ...d.Primary) d.Primary { return NewPair(l.Head(), l.Tail()) }
 func (l ListFnc) Head() Value                   { h, _ := l(); return h }
 func (l ListFnc) Tail() Recursive               { _, t := l(); return t }
-func (l ListFnc) TypeHO() TyHigherOrder         { return List }
-func (l ListFnc) TypePrim() d.TyPrimitive       { return d.List.TypePrim() | l.Head().TypePrim() }
+func (l ListFnc) TypeFnc() TyFnc                { return List }
+func (l ListFnc) TypePrime() d.TyPrime          { return d.List.TypePrime() | l.Head().TypePrime() }
 func (l ListFnc) Empty() bool {
 	var h, _ = l()
 	if h != nil {
@@ -411,7 +440,7 @@ func conTuple(tup Tupled, dat ...Value) Tupled {
 func NewTuple(dat ...Value) Tupled {
 	var flags []d.BitFlag
 	for _, data := range dat {
-		flags = append(flags, data.TypePrim().Flag())
+		flags = append(flags, data.TypePrime().Flag())
 	}
 	var vec = conVecFromValues(dat...)
 	return TupleFnc(func() (Vectorized, []d.BitFlag) {
@@ -426,14 +455,14 @@ func (t TupleFnc) Head() Value             { v, _ := t(); return v.Head() }
 func (t TupleFnc) Tail() []Value           { v, _ := t(); return v.Tail() }
 func (t TupleFnc) Empty() bool             { v, _ := t(); return v.Empty() }
 func (t TupleFnc) Len() int                { v, _ := t(); return v.Len() }
-func (t TupleFnc) TypePrim() d.TyPrimitive {
+func (t TupleFnc) TypePrime() d.TyPrime {
 	var flag d.BitFlag
 	for _, elem := range t.Slice() {
-		flag = flag | elem.TypePrim().Flag()
+		flag = flag | elem.TypePrime().Flag()
 	}
-	return d.TyPrimitive(flag | d.Tuple.Flag())
+	return d.TyPrime(flag | d.Tuple.Flag())
 }
-func (t TupleFnc) TypeHO() TyHigherOrder         { return Tuple }
+func (t TupleFnc) TypeFnc() TyFnc                { return Tuple }
 func (t TupleFnc) Eval(p ...d.Primary) d.Primary { return NewVector(t.Slice()...) }
 func (t TupleFnc) Ident() Value                  { return t }
 func (t TupleFnc) Call(d ...Value) Value {
@@ -457,7 +486,7 @@ func (t TupleFnc) Set(i int, val Value) Vectorized {
 	return t
 }
 func (t TupleFnc) Search(praed Value) int { return newDataSorter(t.Slice()...).Search(praed) }
-func (t TupleFnc) Sort(flag d.TyPrimitive) {
+func (t TupleFnc) Sort(flag d.TyPrime) {
 	var ps = newDataSorter(t.Slice()...)
 	ps.Sort(flag)
 	t = NewTuple(ps...).(TupleFnc)
@@ -479,7 +508,7 @@ func NewRecord(pairs ...Paired) Recorded {
 	var sig = []Paired{}
 	var dat = []Value{}
 	for _, pair := range pairs {
-		sig = append(sig, NewPair(pair.Left(), New(pair.Right().TypePrim())))
+		sig = append(sig, NewPair(pair.Left(), New(pair.Right().TypePrime())))
 		dat = append(dat, pair)
 	}
 	var tup = NewTuple(dat...)
@@ -498,12 +527,12 @@ func (r RecordFnc) Tail() []Value                 { return r.Tuple().Tail() }
 func (r RecordFnc) Slice() []Value                { return r.Tuple().Slice() }
 func (r RecordFnc) Empty() bool                   { return r.Tuple().Empty() }
 func (r RecordFnc) Len() int                      { return r.Tuple().Len() }
-func (r RecordFnc) TypePrim() d.TyPrimitive       { return d.Record }
-func (r RecordFnc) TypeHO() TyHigherOrder         { return Record }
+func (r RecordFnc) TypePrime() d.TyPrime          { return d.Record }
+func (r RecordFnc) TypeFnc() TyFnc                { return Record }
 func (r RecordFnc) Search(praed Value) int {
 	return newPairSorter(r.Pairs()...).Search(praed)
 }
-func (r RecordFnc) Sort(flag d.TyPrimitive) {
+func (r RecordFnc) Sort(flag d.TyPrime) {
 	var ps = newPairSorter(r.Pairs()...)
 	ps.Sort(flag)
 	r = NewRecord(ps...).(RecordFnc)
@@ -565,8 +594,8 @@ func (r RecordFnc) Set(i int, pair Value) Vectorized {
 
 // PRAEDICATE
 func NewPraedicate(pred func(scrut Value) Boolean) PraedFnc { return PraedFnc(pred) }
-func (p PraedFnc) TypeHO() TyHigherOrder                    { return Predicate }
-func (p PraedFnc) TypePrim() d.TyPrimitive                  { return d.Bool }
+func (p PraedFnc) TypeFnc() TyFnc                           { return Predicate }
+func (p PraedFnc) TypePrime() d.TyPrime                     { return d.Bool }
 func (p PraedFnc) Ident() Value                             { return p }
 func (p PraedFnc) String() string {
 	return "T → λpredicate  → Bool"
@@ -583,8 +612,8 @@ func (p PraedFnc) Call(v ...Value) Value {
 
 // OPTION
 func NewOption(option func(Value) Optional) OptionFnc { return OptionFnc(option) }
-func (p OptionFnc) TypeHO() TyHigherOrder             { return Option }
-func (p OptionFnc) TypePrim() d.TyPrimitive           { return d.Bool }
+func (p OptionFnc) TypeFnc() TyFnc                    { return Option }
+func (p OptionFnc) TypePrime() d.TyPrime              { return d.Bool }
 func (p OptionFnc) Ident() Value                      { return p }
 func (p OptionFnc) String() string {
 	return "T → λoption  → Option"

@@ -26,8 +26,8 @@ const (
 
 func (a Arity) Eval(v ...d.Primary) d.Primary { return a }
 func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
-func (a Arity) TypePrim() d.TyPrimitive       { return d.Flag }
-func (a Arity) TypeHO() f.TyHigherOrder       { return f.HigherOrder }
+func (a Arity) TypePrime() d.TyPrime          { return d.Flag }
+func (a Arity) TypeHO() f.TyFnc               { return f.HigherOrder }
 
 // properys relevant for application
 type Propertys d.Uint8Val
@@ -52,8 +52,8 @@ const (
 	// ⌐: Function
 )
 
-func (p Propertys) TypePrim() d.TyPrimitive       { return d.Flag }
-func (p Propertys) TypeHO() f.TyHigherOrder       { return f.HigherOrder }
+func (p Propertys) TypePrim() d.TyPrime           { return d.Flag }
+func (p Propertys) TypeHO() f.TyFnc               { return f.HigherOrder }
 func (p Propertys) Flag() d.BitFlag               { return p.TypeHO().Flag() }
 func (p Propertys) Eval(a ...d.Primary) d.Primary { return p.Flag() }
 func (p Propertys) Match(a Propertys) bool {
@@ -103,8 +103,8 @@ type Object struct {
 }
 
 func (t Otype) TypeObj() Otype                { return t }
-func (t Otype) TypeHO() f.TyHigherOrder       { return f.HigherOrder }
-func (t Otype) TypePrim() d.TyPrimitive       { return d.Flag }
+func (t Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
+func (t Otype) TypePrim() d.TyPrime           { return d.Flag }
 func (t Otype) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t Otype) Eval(p ...d.Primary) d.Primary { return d.BitFlag(t) }
 func (t Otype) Match(o Otype) bool {

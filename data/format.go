@@ -84,13 +84,13 @@ func StringBitFlag(v BitFlag) string {
 	var str string
 	if bits.OnesCount(v.Uint()) > 1 {
 		for i, f := range FlagDecompose(v) {
-			str = str + TyPrimitive(f).String()
+			str = str + TyPrime(f).String()
 			if i < len(FlagDecompose(v))-1 {
 				str = str + "∙"
 			}
 		}
 	} else {
-		str = TyPrimitive(v).String()
+		str = TyPrime(v).String()
 	}
 	return str
 }
@@ -101,7 +101,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Primary) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.TypePrim().Flag(), Vector.TypePrim().Flag()) {
+		if FlagMatch(d.TypePrime().Flag(), Vector.TypePrime().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()

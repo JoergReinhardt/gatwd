@@ -7,7 +7,7 @@ type Typed interface{ Flag() BitFlag }
 
 // the main interface, all types defined here need to comply to.
 type Primary interface {
-	TypePrim() TyPrimitive
+	TypePrime() TyPrime
 	String() string
 	Evaluable
 }

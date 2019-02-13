@@ -20,7 +20,7 @@ func allocateAtomicConstant(prime d.Primary) Object {
 
 	var closure f.Value
 
-	switch prime.TypePrim() {
+	switch prime.TypePrime() {
 	case d.Flag:
 		var value = prime.(d.BitFlag)
 		closure = f.NewPrimaryConstatnt(value)
@@ -112,76 +112,76 @@ func allocateVectorConstant(prime d.Primary) Object {
 	var closure f.Value
 
 	switch {
-	case prime.TypePrim().Flag().Match(d.Vector | d.Flag):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Flag):
 		var value = prime.(d.BitFlag)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Nil):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Nil):
 		var value = prime.(d.NilVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Bool):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Bool):
 		var value = prime.(d.BoolVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Int):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Int):
 		var value = prime.(d.IntVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Int8):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Int8):
 		var value = prime.(d.Int8Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Int16):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Int16):
 		var value = prime.(d.Int16Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Int32):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Int32):
 		var value = prime.(d.Int32Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Uint):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Uint):
 		var value = prime.(d.UintVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Uint8):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Uint8):
 		var value = prime.(d.Uint8Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Uint16):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Uint16):
 		var value = prime.(d.Uint16Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Uint32):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Uint32):
 		var value = prime.(d.Uint32Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Float):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Float):
 		var value = prime.(d.FltVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Flt32):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Flt32):
 		var value = prime.(d.Flt32Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Imag):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Imag):
 		var value = prime.(d.ImagVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Imag64):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Imag64):
 		var value = prime.(d.Imag64Vec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Byte):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Byte):
 		var value = prime.(d.ByteVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Rune):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Rune):
 		var value = prime.(d.RuneVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Bytes):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Bytes):
 		var value = prime.(d.BytesVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.String):
+	case prime.TypePrime().Flag().Match(d.Vector | d.String):
 		var value = prime.(d.StrVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.BigInt):
+	case prime.TypePrime().Flag().Match(d.Vector | d.BigInt):
 		var value = prime.(d.BigIntVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.BigFlt):
+	case prime.TypePrime().Flag().Match(d.Vector | d.BigFlt):
 		var value = prime.(d.BigFltVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Ratio):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Ratio):
 		var value = prime.(d.RatioVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Time):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Time):
 		var value = prime.(d.TimeVec)
 		closure = f.NewPrimaryConstatnt(value)
-	case prime.TypePrim().Flag().Match(d.Vector | d.Duration):
+	case prime.TypePrime().Flag().Match(d.Vector | d.Duration):
 		var value = prime.(d.DuraVec)
 		closure = f.NewPrimaryConstatnt(value)
 	}
@@ -211,7 +211,7 @@ func allocatePrimarySet(pairs ...d.PairVal) Object {
 			// safe accessor flag
 			// to compare against
 			// succeeding pairs
-			accflag = pair.Left().TypePrim().Flag()
+			accflag = pair.Left().TypePrime().Flag()
 			// allocate appropriate type of set
 			switch accflag {
 			case d.String.Flag():
@@ -229,7 +229,7 @@ func allocatePrimarySet(pairs ...d.PairVal) Object {
 		// if this pairs accessor flag
 		// happens to match the sets
 		// accessor type
-		if accflag.Match(pair.Left().TypePrim()) {
+		if accflag.Match(pair.Left().TypePrime()) {
 			// use interface method to set a new member
 			set.Set(pair.Left(), pair.Right())
 
@@ -278,7 +278,7 @@ func allocatePrimaryData(data ...d.Primary) Object {
 		var flag = d.BitFlag(0)
 		// concatenate flags
 		for _, prim := range data {
-			flag = flag | prim.TypePrim().Flag()
+			flag = flag | prim.TypePrime().Flag()
 		}
 		// if all instances have the same type, try to allocate slice
 		// of natives

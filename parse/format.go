@@ -25,11 +25,11 @@ func (t TokVal) String() string {
 	var str string
 	switch t.TypeTok() {
 	case TypeHO_Token:
-		str = t.Primary.(f.TyHigherOrder).String() + "\n"
+		str = t.Primary.(f.TyFnc).String() + "\n"
 	case Syntax_Token:
 		str = t.Primary.(l.SyntaxItemFlag).Syntax() + "\n"
 	case TypePrim_Token:
-		str = t.Primary.(d.TyPrimitive).String() + "\n"
+		str = t.Primary.(d.TyPrime).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}

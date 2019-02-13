@@ -19,18 +19,18 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestFlag(t *testing.T) {
-	flag := Flag.TypePrim()
-	ok := FlagMatch(flag, Flag.TypePrim())
+	flag := Flag.TypePrime()
+	ok := FlagMatch(flag, Flag.TypePrime())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Flag.TypePrim()|Int.TypePrim())
+	ok = FlagMatch(flag, Flag.TypePrime()|Int.TypePrime())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Int.TypePrim())
+	ok = FlagMatch(flag, Int.TypePrime())
 	fmt.Println(ok)
 	if ok {
 		t.Fail()
@@ -41,7 +41,7 @@ func TestFlag(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Int.TypePrim() | Float.TypePrim()).Decompose())
+	fmt.Println(BitFlag(Int.TypePrime() | Float.TypePrime()).Decompose())
 	fmt.Println(BitFlag(Int | Float).String())
 
 	fmt.Println(BitFlag(Symbolic))
@@ -98,7 +98,7 @@ func TestTypeAllocation(t *testing.T) {
 	fmt.Printf("contained types s1: %s\n", s1.ContainedTypes())
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
-	fmt.Printf("List-1 type: %s\t\n", s1.TypePrim().String())
+	fmt.Printf("List-1 type: %s\t\n", s1.TypePrime().String())
 }
 
 func TestLiFo(t *testing.T) {

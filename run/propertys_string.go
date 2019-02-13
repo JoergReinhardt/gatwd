@@ -6,12 +6,12 @@ import "strconv"
 
 const (
 	_Propertys_name_0 = "DefaultPostFix"
-	_Propertys_name_1 = "InFixAtomicEagerRightMutableEffectedData"
+	_Propertys_name_1 = "InFixAtomicEagerRightMutableSideEffectData"
 )
 
 var (
 	_Propertys_index_0 = [...]uint8{0, 7, 14}
-	_Propertys_index_1 = [...]uint8{0, 5, 11, 16, 21, 28, 36, 40}
+	_Propertys_index_1 = [...]uint8{0, 5, 11, 16, 21, 28, 38, 42}
 )
 
 func (i Propertys) String() string {

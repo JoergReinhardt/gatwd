@@ -26,9 +26,9 @@ func NewStringSet(acc ...Paired) Mapped {
 func (s SetString) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrim().Flag().Match(Pair) {
+			if prime.TypePrime().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypePrim().Flag().Match(String) {
+				if pair.Left().TypePrime().Flag().Match(String) {
 					s.Set(pair.Left(), pair.Right())
 				}
 			}
@@ -36,7 +36,7 @@ func (s SetString) Eval(p ...Primary) Primary {
 	}
 	return s
 }
-func (s SetString) TypePrim() TyPrimitive { return Set.TypePrim() }
+func (s SetString) TypePrime() TyPrime { return Set.TypePrime() }
 func (s SetString) Keys() []Primary {
 	var keys = []Primary{}
 	for k, _ := range s {
@@ -76,14 +76,14 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) TypePrim() TyPrimitive { return Set.TypePrim() }
+func (s SetInt) TypePrime() TyPrime { return Set.TypePrime() }
 
 func (s SetInt) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrim().Flag().Match(Pair) {
+			if prime.TypePrime().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypePrim().Flag().Match(Integer) {
+				if pair.Left().TypePrime().Flag().Match(Integer) {
 					s.Set(IntVal(pair.Left().(IntegerVal).Int()), pair.Right())
 				}
 			}
@@ -130,13 +130,13 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) TypePrim() TyPrimitive { return Set.TypePrim() }
+func (s SetUint) TypePrime() TyPrime { return Set.TypePrime() }
 func (s SetUint) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrim().Flag().Match(Pair) {
+			if prime.TypePrime().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypePrim().Flag().Match(Natural) {
+				if pair.Left().TypePrime().Flag().Match(Natural) {
 					s.Set(UintVal(pair.Left().(NaturalVal).Uint()), pair.Right())
 				}
 			}
@@ -183,13 +183,13 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) TypePrim() TyPrimitive { return Set.TypePrim() }
+func (s SetFloat) TypePrime() TyPrime { return Set.TypePrime() }
 func (s SetFloat) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrim().Flag().Match(Pair) {
+			if prime.TypePrime().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypePrim().Flag().Match(Real) {
+				if pair.Left().TypePrime().Flag().Match(Real) {
 					s.Set(FltVal(pair.Left().(RealVal).Float()), pair.Right())
 				}
 			}
@@ -236,13 +236,13 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) TypePrim() TyPrimitive { return Set.TypePrim() }
+func (s SetFlag) TypePrime() TyPrime { return Set.TypePrime() }
 func (s SetFlag) Eval(p ...Primary) Primary {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrim().Flag().Match(Pair) {
+			if prime.TypePrime().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypePrim().Flag().Match(Flag) {
+				if pair.Left().TypePrime().Flag().Match(Flag) {
 					s.Set(UintVal(pair.Left().(NaturalVal).Uint()), pair.Right())
 				}
 			}

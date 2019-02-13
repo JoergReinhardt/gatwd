@@ -12,7 +12,7 @@ type Primary interface {
 }
 type Value interface {
 	Primary
-	TypeHO() TyHigherOrder
+	TypeFnc() TyFnc
 }
 type Callable interface {
 	Value
@@ -131,7 +131,7 @@ type Paired interface {
 // 'Apply(...Data) (d.Data, Argumented)' method.
 type Argumented interface {
 	Value
-	ArgType() d.TyPrimitive
+	ArgType() d.TyPrime
 	Arg() Value
 	Apply(...Value) (Value, Argumented)
 }
@@ -234,7 +234,7 @@ type Vectorized interface {
 	Tail() []Value
 	DeCap() (Value, []Value)
 	Search(Value) int
-	Sort(d.TyPrimitive)
+	Sort(d.TyPrime)
 	Get(int) Value
 	Set(int, Value) Vectorized
 }
