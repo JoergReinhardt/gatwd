@@ -66,6 +66,8 @@ const (
 	String
 	Error // let's do something sophisticated here...
 	//// HIGHERORDER TYPES
+	Type
+	Enum
 	Pair
 	Tuple
 	Record
@@ -107,7 +109,7 @@ const (
 	Collection = Pair | Tuple | Record | Vector | List | Set
 
 	/// here will be dragons‥.
-	HigherOrder = Function | Collection
+	HigherOrder = Type | Function | Collection
 
 	MAX_INT     TyPrimitive = 0xFFFFFFFFFFFFFFFF
 	MaskPrimary             = MAX_INT ^ Primarys

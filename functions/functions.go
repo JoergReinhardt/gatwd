@@ -15,7 +15,7 @@ import (
 
 // type TyHigherOrder d.BitFlag
 // encodes the kind of functional data as bitflag
-type TyHigherOrder d.Uint32Val
+type TyHigherOrder d.UintVal
 
 func (t TyHigherOrder) Flag() d.BitFlag             { return d.BitFlag(t) }
 func (t TyHigherOrder) Eval(...d.Primary) d.Primary { return t }
@@ -25,17 +25,24 @@ func (t TyHigherOrder) Uint() uint                  { return d.BitFlag(t).Uint()
 
 //go:generate stringer -type=TyHigherOrder
 const (
-	Data TyHigherOrder = 1 << iota
+	Type TyHigherOrder = 1 << iota
+	Data
 	Closure
 	Function // functions are polymorph‥.
 	Accessor // pair of Attr & Value
 	Argument
-	Attribute
+	Attribut
 	Parameter
-	Predicate
+	Predicate // Praedicate(Value) Boolean
 	Generator
 	Unbound // map key, slice index, search parameter...
 	Option
+	Or
+	Just
+	None
+	Truth
+	True
+	False
 	Enum
 	Case
 	Pair
@@ -68,17 +75,23 @@ const (
 )
 
 type ( // HIGHER ORDER FUNCTION TYPES
-	None     func()         // None and Just are a
-	Just     func() Value   // pair of optional types
-	True     func() Boolean // truth value functions that
-	False    func() Boolean // allways return a boolean value
-	FncVal   func() Value
-	PrimeVal func() d.Primary    // represents constructors for primary data types
-	PairVal  func() (a, b Value) // <- base element of all tuples and collections
+	// PRIMARY DATA
+	PrimeVal func() d.Primary // represents constructors for primary data types
+	// FUNCTIONAL VALUES
+	FncVal func() Value
+	// COLLECTIONS
+	PairVal  func() (a, b Value)     // <- base element of all tuples and collections
+	EnumVal  func() (Value, EnumFnc) // implementing 'Optional :: Maybe() bool'
 	ArgVal   func(d ...Value) (Value, Argumented)
 	ArgSet   func(d ...Value) ([]Value, Arguments)
 	ParamVal func(d ...Paired) (Paired, Parametric)
 	ParamSet func(d ...Parametric) ([]Parametric, Parameters)
+	// HIGHER ORDER VALUES (ATOMIC)
+	NoneVal  func()         // None and Just are a pair of optional types
+	JustVal  func() Value   // implementing 'Optional :: Maybe() bool'
+	OrVal    func() Value   // implementing 'Optional :: Maybe() bool'
+	TrueVal  func() Boolean // boolean constants true & false
+	FalseVal func() Boolean // implementing 'Boolen :: Bool() bool'
 )
 
 // instanciate functionalized data
@@ -132,49 +145,73 @@ func ElemEmpty(dat Value) bool {
 
 // RETURN TYPES OF THE OPTIONAL TYPE
 //
-// none wraps the empty return type
-func (n None) Ident() Value                { return n }
-func (n None) Eval(...d.Primary) d.Primary { return n }
-func (n None) Maybe() bool                 { return false }
-func (n None) Nullable() d.Primary         { return d.NilVal{} }
-func (n None) TypeHO() TyHigherOrder       { return Option }
-func (n None) TypePrim() d.TyPrimitive     { return d.Nil }
-func (n None) String() string              { return "⊥" }
+// NONE
+func NewNone() NoneVal                        { return NoneVal(func() {}) }
+func (n NoneVal) Ident() Value                { return n }
+func (n NoneVal) Eval(...d.Primary) d.Primary { return d.NilVal{}.Eval() }
+func (n NoneVal) Maybe() bool                 { return false }
+func (n NoneVal) Nullable() d.Primary         { return d.NilVal{} }
+func (n NoneVal) TypeHO() TyHigherOrder       { return Option | None }
+func (n NoneVal) TypePrim() d.TyPrimitive     { return d.Nil }
+func (n NoneVal) String() string              { return "⊥" }
 
-// just wraps any given return type other than none
-func (j Just) Ident() Value                { return j }
-func (j Just) Eval(...d.Primary) d.Primary { return j() }
-func (j Just) Maybe() bool                 { return false }
-func (j Just) Nullable() d.Primary         { return j() }
-func (j Just) TypeHO() TyHigherOrder       { return Option }
-func (j Just) TypePrim() d.TyPrimitive     { return j().TypePrim() }
-func (j Just) String() string {
-	return "Just" +
-		j.TypeHO().String() +
-		" " +
-		j.TypePrim().String()
+// JUST
+func NewJustVal(v Value) JustVal {
+	return JustVal(func() Value { return v })
 }
+func (j JustVal) Ident() Value                  { return j }
+func (j JustVal) Eval(p ...d.Primary) d.Primary { return j().Eval(p...) }
+func (j JustVal) Maybe() bool                   { return true }
+func (j JustVal) Nullable() d.Primary           { return j.Eval() }
+func (j JustVal) TypeHO() TyHigherOrder         { return Option | Just }
+func (j JustVal) TypePrim() d.TyPrimitive       { return j().TypePrim() }
+func (j JustVal) String() string                { return j().String() }
+
+// OR
+func NewOrVal(v Value) OrVal {
+	return OrVal(func() Value { return v })
+}
+func (o OrVal) Ident() Value                  { return o }
+func (o OrVal) Eval(p ...d.Primary) d.Primary { return o().Eval(p...) }
+func (o OrVal) Maybe() bool                   { return false }
+func (o OrVal) Nullable() d.Primary           { return o.Eval() }
+func (o OrVal) TypeHO() TyHigherOrder         { return Option | Or }
+func (o OrVal) TypePrim() d.TyPrimitive       { return o().TypePrim() }
+func (o OrVal) String() string                { return o().String() }
+
+// ENUM
+func NewEnumVal(val Value, et EnumFnc) EnumVal {
+	return EnumVal(func() (Value, EnumFnc) { return val, et })
+}
+func (e EnumVal) Ident() Value                  { return e }
+func (e EnumVal) Eval(p ...d.Primary) d.Primary { return e.Value().Eval(p...) }
+func (e EnumVal) Nullable() d.Primary           { return e.Eval() }
+func (e EnumVal) Enum() EnumFnc                 { _, et := e(); return et }
+func (e EnumVal) Value() Value                  { value, _ := e(); return value }
+func (e EnumVal) TypeHO() TyHigherOrder         { return Enum }
+func (e EnumVal) TypePrim() d.TyPrimitive       { return e.Value().TypePrim() }
+func (e EnumVal) String() string                { return e.Value().String() }
 
 // FUNCTIONAL TRUTH VALUES
-func (t True) Call(...Value) Value {
+func (t TrueVal) Call(...Value) Value {
 	return NewPrimaryConstatnt(d.BoolVal(true))
 }
-func (t True) Ident() Value                { return t }
-func (t True) Eval(...d.Primary) d.Primary { return t }
-func (t True) Bool() bool                  { return true }
-func (t True) TypeHO() TyHigherOrder       { return Function }
-func (t True) TypePrim() d.TyPrimitive     { return d.Bool }
-func (t True) String() string              { return "True" }
+func (t TrueVal) Ident() Value                { return t }
+func (t TrueVal) Eval(...d.Primary) d.Primary { return t }
+func (t TrueVal) Bool() bool                  { return true }
+func (t TrueVal) TypeHO() TyHigherOrder       { return Truth | True }
+func (t TrueVal) TypePrim() d.TyPrimitive     { return d.Bool }
+func (t TrueVal) String() string              { return "True" }
 
-func (f False) Call(...Value) Value {
+func (f FalseVal) Call(...Value) Value {
 	return NewPrimaryConstatnt(d.BoolVal(false))
 }
-func (f False) Ident() Value                { return f }
-func (f False) Eval(...d.Primary) d.Primary { return f }
-func (f False) Bool() bool                  { return false }
-func (f False) TypeHO() TyHigherOrder       { return Function }
-func (f False) TypePrim() d.TyPrimitive     { return d.Bool }
-func (f False) String() string              { return "False" }
+func (f FalseVal) Ident() Value                { return f }
+func (f FalseVal) Eval(...d.Primary) d.Primary { return f }
+func (f FalseVal) Bool() bool                  { return false }
+func (f FalseVal) TypeHO() TyHigherOrder       { return Truth | False }
+func (f FalseVal) TypePrim() d.TyPrimitive     { return d.Bool }
+func (f FalseVal) String() string              { return "False" }
 
 // PAIR
 func NewPair(l, r Value) Paired {

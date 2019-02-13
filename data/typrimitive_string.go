@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _TyPrimitive_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairTupleRecordVectorListSetFunctionFlagMAX_INT"
+const _TyPrimitive_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorTypeEnumPairTupleRecordVectorListSetFunctionFlagMAX_INT"
 
 var _TyPrimitive_map = map[TyPrimitive]string{
 	1:                    _TyPrimitive_name[0:3],
@@ -32,14 +32,16 @@ var _TyPrimitive_map = map[TyPrimitive]string{
 	4194304:              _TyPrimitive_name[107:113],
 	8388608:              _TyPrimitive_name[113:118],
 	16777216:             _TyPrimitive_name[118:122],
-	33554432:             _TyPrimitive_name[122:127],
-	67108864:             _TyPrimitive_name[127:133],
-	134217728:            _TyPrimitive_name[133:139],
-	268435456:            _TyPrimitive_name[139:143],
-	536870912:            _TyPrimitive_name[143:146],
-	1073741824:           _TyPrimitive_name[146:154],
-	2147483648:           _TyPrimitive_name[154:158],
-	18446744073709551615: _TyPrimitive_name[158:165],
+	33554432:             _TyPrimitive_name[122:126],
+	67108864:             _TyPrimitive_name[126:130],
+	134217728:            _TyPrimitive_name[130:135],
+	268435456:            _TyPrimitive_name[135:141],
+	536870912:            _TyPrimitive_name[141:147],
+	1073741824:           _TyPrimitive_name[147:151],
+	2147483648:           _TyPrimitive_name[151:154],
+	4294967296:           _TyPrimitive_name[154:162],
+	8589934592:           _TyPrimitive_name[162:166],
+	18446744073709551615: _TyPrimitive_name[166:173],
 }
 
 func (i TyPrimitive) String() string {

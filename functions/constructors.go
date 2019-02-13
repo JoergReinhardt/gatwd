@@ -6,6 +6,8 @@ DATA CONSTRUCTORS
 package functions
 
 import (
+	"strconv"
+
 	d "github.com/JoergReinhardt/gatwd/data"
 )
 
@@ -15,16 +17,35 @@ type (
 	UnaryFnc  func(Value) Value
 	BinaryFnc func(a, b Value) Value
 	NaryFnc   func(...Value) Value
-	// DATA CONSTRUCTOR CLOSURES
+	// DATA COLLENCTION CLOSURES
 	AssocVecFnc func() []Paired
 	VecFnc      func() []Value
 	ListFnc     func() (Value, Recursive)
 	RecordFnc   func() (Tupled, []Paired)
 	TupleFnc    func() (Vectorized, []d.BitFlag)
-	PraedFnc    func(val Value) Boolean
-	SelectFnc   func(Boolean, Value) OptionFnc
-	OptionFnc   func(Value) Optional
+	// HIGHER ORDER TYPE DEFINITION
+	TypeFnc func() (tid d.IntVal, name d.StrVal)
+	EnumFnc func() (TypeFnc, []TypeFnc) // type of instance, set of alternatives
+	// HIGHER ORDER CLOSURES (STATICLY DEFINED)
+	PraedFnc  func(Value) Boolean  // result impl. Bool() bool
+	OptionFnc func(Value) Optional // result impl.Maybe() bool, e.g. 'Just|None'
 )
+
+func NewType(tid int, name string) HigherOrderType {
+	return TypeFnc(func() (d.IntVal, d.StrVal) { return d.IntVal(tid), d.StrVal(name) })
+}
+func (t TypeFnc) Name() d.StrVal          { _, name := t(); return name }
+func (t TypeFnc) Id() d.IntVal            { id, _ := t(); return id }
+func (t TypeFnc) TypePrim() d.TyPrimitive { return d.Type }
+func (t TypeFnc) TypeHO() TyHigherOrder   { return Type }
+func (t TypeFnc) Ident() Value            { return t }
+func (t TypeFnc) String() string {
+	return strconv.Itoa(t.Id().Int()) + " " + t.Name().String()
+}
+func (t TypeFnc) Eval(p ...d.Primary) d.Primary {
+	return d.NewPair(t.Id(), t.Name())
+}
+func (t TypeFnc) Call(d ...Value) Value { return t }
 
 // CONSTANT
 //
@@ -423,6 +444,62 @@ func (r RecordFnc) Sort(flag d.TyPrimitive) {
 	r = NewRecord(ps...).(RecordFnc)
 }
 
-//// OPTIONAL TYPE
-///
-// functional type that returns
+// PRAEDICATE
+func NewPraedicate(test func(scrut Value) Boolean) PraedFnc { return PraedFnc(test) }
+func (p PraedFnc) TypeHO() TyHigherOrder                    { return Predicate }
+func (p PraedFnc) TypePrim() d.TyPrimitive                  { return d.Bool }
+func (p PraedFnc) String() string {
+	return "T → λpredicate  → Bool"
+}
+func (p PraedFnc) Ident() Value { return p }
+func (p PraedFnc) Eval(dat ...d.Primary) d.Primary {
+	return d.BoolVal(p(NewPrimaryConstatnt(dat[0])).Bool())
+}
+func (p PraedFnc) Call(v ...Value) Value {
+	if len(v) > 0 {
+		return p(v[0])
+	}
+	return NewNone()
+}
+
+// OPTION
+func NewOption(option func(Value) Optional) OptionFnc { return OptionFnc(option) }
+func (p OptionFnc) TypeHO() TyHigherOrder             { return Option }
+func (p OptionFnc) TypePrim() d.TyPrimitive           { return d.Bool }
+func (p OptionFnc) String() string {
+	return "T → λoption  → Option"
+}
+func (p OptionFnc) Ident() Value { return p }
+func (p OptionFnc) Eval(dat ...d.Primary) d.Primary {
+	if len(dat) > 0 {
+		return p(NewPrimaryConstatnt(dat[0])).Eval(dat...)
+	}
+	return p(NewNone()).Eval(dat...)
+}
+func (p OptionFnc) Call(v ...Value) Value {
+	if len(v) > 0 {
+		return p(v[0])
+	}
+	return NewNone()
+}
+
+// ENUM
+func NewEnumType(enum func() (TypeFnc, []TypeFnc)) EnumFnc { return EnumFnc(enum) }
+func (e EnumFnc) TypeHO() TyHigherOrder                    { return Enum }
+func (e EnumFnc) TypePrim() d.TyPrimitive                  { return d.Enum }
+func (e EnumFnc) String() string {
+	var mem, set = e()
+	var str = mem.Name().String() + " ∈ "
+	for i, enum := range set {
+		str = str + enum.Name().String()
+		if i < len(set)-1 {
+			str = str + "|"
+		}
+	}
+	return str
+}
+func (e EnumFnc) Ident() Value                    { return e }
+func (e EnumFnc) Eval(dat ...d.Primary) d.Primary { return d.StrVal(e.String()) }
+func (e EnumFnc) Call(v ...Value) Value {
+	return NewNone()
+}

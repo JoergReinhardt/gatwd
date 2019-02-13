@@ -25,27 +25,74 @@ type Callable interface {
 // grouped by common methods they provide. the groups are defined as bitwise
 // concatenations of flags of all the types providing the common method. this
 // builds the base for implementing higher order type classes.
-type Optional interface{ Maybe() bool }
-type Nullable interface{ Null() Value }
-type Bitwise interface{ Uint() uint }
-type Boolean interface{ Bool() bool }
-type Unsigned interface{ Uint() uint }
-type Signed interface{ Int() int }
-type Integer interface{ Int() int }
-type Rational interface{ Rat() *big.Rat }
-type Irrational interface{ Float() float64 }
-type Imaginary interface{ Imag() complex128 }
-type Timed interface{ Time() time.Time }
-type Temporal interface{ Dura() time.Duration }
-type Symbolic interface{ String() string }
-type Collection interface{ Len() int }
+type HigherOrderType interface {
+	Id() d.IntVal
+	Name() d.StrVal
+}
+type Optional interface {
+	Value
+	Maybe() bool
+}
+type Enumerable interface {
+	Value
+	Enum() EnumFnc
+}
+type Nullable interface {
+	Value
+	Null() Value
+}
+type Bitwise interface {
+	Value
+	Uint() uint
+}
+type Boolean interface {
+	Value
+	Bool() bool
+}
+type Unsigned interface {
+	Value
+	Uint() uint
+}
+type Signed interface {
+	Value
+	Int() int
+}
+type Integer interface {
+	Value
+	Int() int
+}
+type Rational interface {
+	Value
+	Rat() *big.Rat
+}
+type Irrational interface {
+	Value
+	Float() float64
+}
+type Imaginary interface {
+	Value
+	Imag() complex128
+}
+type Timed interface {
+	Value
+	Time() time.Time
+}
+type Temporal interface {
+	Value
+	Dura() time.Duration
+}
+type Collection interface {
+	Value
+	Len() int
+}
 type Numeric interface {
+	Value
 	Uint() uint
 	Int() int
 	Flt() float64
 }
-type Synbolic interface {
-	String() string
+type Symbolic interface {
+	Value
 	Bytes() []byte
 }
 
