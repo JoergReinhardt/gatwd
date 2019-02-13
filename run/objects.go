@@ -24,7 +24,10 @@ import (
 // define passed string as symbol
 // & let it point to primary value
 // allocated on heap.
-func declareGlobalSymbol(name string, obj *Object) Object {
+func declareGlobalSymbol(
+	name string,
+	obj *Object,
+) Object {
 	return Object{
 		newInfo(
 			obj.Info.Length,
@@ -40,7 +43,11 @@ func declareGlobalSymbol(name string, obj *Object) Object {
 }
 
 // declares a named free variable in local scope
-func declareLocalSymbol(name string, scope *Object, obj *Object) Object {
+func declareLocalSymbol(
+	name string,
+	scope *Object,
+	obj *Object,
+) Object {
 	return Object{
 		newInfo(
 			obj.Info.Length,
@@ -56,7 +63,10 @@ func declareLocalSymbol(name string, scope *Object, obj *Object) Object {
 }
 
 // new anonymous localy scoped free variable
-func declareAnonymous(scope *Object, obj *Object) Object {
+func declareAnonymous(
+	scope *Object,
+	obj *Object,
+) Object {
 	return Object{
 		newInfo(
 			obj.Info.Length,
@@ -224,14 +234,18 @@ func instanciateNary(
 func partialApplication(
 	arity Arity,
 	props Propertys,
-	expr f.Callable,
+	call f.Callable,
 ) Object {
-	return instanciateFunction(
-		Length(0),
-		arity,
-		props,
-		expr,
-	)
+	return Object{
+		newInfo(
+			Length(0),
+			arity,
+			props,
+		),
+		PartialApplication,
+		call,
+		[]*Object{},
+	}
 }
 
 // call continuation pushes arguments passed, but not consumed by the
@@ -246,105 +260,177 @@ func callContinuation(
 	expr *Object,
 	args ...*Object,
 ) Object {
-	return instanciateFunction(
-		Length(len(args)),
-		expr.Arity,
-		expr.Propertys,
+	return Object{
+		newInfo(
+			Length(len(args)),
+			expr.Arity,
+			expr.Propertys,
+		),
+		CallContinuation,
 		expr.Expr.(f.Callable),
-		args...,
-	)
+		args,
+	}
 }
 
 func caseContinuation(
 	scrutenee f.Value,
 	cases ...*Object,
 ) Object {
-	var o Object
-	return o
+	return Object{
+		newInfo(
+			Length(len(cases)),
+			Arity(1),
+			cases[0].Propertys,
+		),
+		CaseContinuation,
+		cases[0].Expr.(f.Callable),
+		cases,
+	}
 }
 
 // an object indirection with value pointing to referenced entry code & pointer
 // and copy of it's info table.  reference as single reference.
-func referTo(
-	ref *Object,
+func referTo(ref *Object) Object {
+	return Object{
+		newInfo(
+			ref.Length,
+			ref.Arity,
+			ref.Propertys,
+		),
+		Indirection,
+		ref.Expr.(f.Callable),
+		[]*Object{ref},
+	}
+}
+
+// thunk is a, possibly composed, expression. a thunk may contain other thunks,
+// local free variables, references to global variables, and might enclose over
+// other parameters. thunk evaluation updates the thunk object, which may
+// result in another thunk object, or a value, constant, primary‥.  that can't
+// be further evaluated.
+//
+// every piece of source code that forms a valid expression is a thunk, since
+// all including definitions of locals and/or global values and types,
+// declarations of function- and primary values as literals, or referenced by
+// name, function- and base operator applications‥. neccessary to evaluate such
+// an expression are included, either referenced by name or as literal value,
+// so that it doesn't take any further arguments to evaluate all contained sub
+// expressions recursively. the return address is the declared receiver of the
+// expressions return value (which allways exists, since in functional
+// languages everything is an expression & has to return a value).
+//
+// another type of thunks are composed data constructors, generators & io
+// related functions, since they enclose over, or access data that
+// co-determines the evaluation result (along with arguments that may, or may
+// not get passed)
+//
+// for thunk evaluation, an update frame get's pushed on to the stack, the
+// thunk expression get's evaluated with it's references as agruments and the
+// return value (which may be another thunk value) overwrites the thunk object
+// on the heap.
+//
+// all thunks are eventually reduced by repeated evaluation, whenever the value
+// they return is needed. each succecutive evaluation generates a new instance
+// to express the altered (usually reduced) state of the expression, until head
+// normal form is reached. for data structures that's achieved on depletion,
+// when all data has been consumed. for recursive expressions, when all
+// subexpressions have been evaluated and reduced to generate a single
+// expression in srong head normal form.
+// a program completes, when all
+//
+// expressions neccessary to generate the demanded output, have successfully
+// been reduced to head normal form, which includes recursive evaluation of all
+// thunks expressing sub expressions that yield values, necessary to do that.
+//
+// expressions may generate infinite lists, in which case some other exit
+// condition has to be defined to eventually reach program completion.
+func thunk(
+	expr f.Callable,
+	props Propertys,
+	refs ...*Object,
 ) Object {
 	return Object{
-		ref.Info,
-		Indirection,
-		ref.Otype,
-		[]*Object{ref},
+		newInfo(
+			Length(len(refs)),
+			Arity(0),
+			props,
+		),
+		Thunk,
+		expr,
+		refs,
 	}
 }
 
 // blackhole is an indirection that keeps a thunk from being evaluated, while
 // it's allready been evaluated. keeps evaluation of recursive thunks lazy.
-func blackHole(
-	ref *Object,
-) Object {
+func blackHole(ref *Object) Object {
 	return Object{
-		ref.Info,
+		newInfo(
+			Length(0),
+			Arity(0),
+			ref.Propertys,
+		),
 		BlackHole,
-		ref.Otype,
+		f.NewNone(),
 		[]*Object{ref},
 	}
 }
 
-// thunk object is a list of expressions that dont take values, but enclose
-// over their free Variables instead. for evaluation, a thunk takes itself as
-// parameter, trys to extract a callable expressions to evaluate from the set
-// arguments & evaluates it. the return value replaces an update frame, that is
-// expected to have been pushed on the stack, before evaluation occurs.
-// depending on the return value type, a thunk may be overwritten by a new
-// object created from the update. thunk evaluation is recursive, until thunk
-// is replaced by some final atomic result of the evaluation. thunk evaluation
-// may also go on infinite, if thunk happens to represent an infinite list.
-func evaluateThunk(
-	propertys Propertys,
-	refs ...*Object,
-) *Object {
-	// extract closure and remaining free variables from thunk
-	var obj Object
-	return &obj
+// byte code contains a piece of source code, the start position at which that
+// piece sourcecode appears, (miss-) uses the info.Length field, to save the
+// length of that piece in byte. and a reference to the heap object, that got
+// created and allocated based on this piece of the source code.
+func byteCode(
+	pos int,
+	text string,
+	ref *Object,
+) Object {
+	return Object{
+		newInfo(
+			Length(len(text)),
+			Arity(0),
+			Default,
+		),
+		ByteCode,
+		f.NewPair(f.NewPrimaryConstatnt(d.IntVal(pos)),
+			f.NewPrimaryConstatnt(d.StrVal(text))),
+		[]*Object{ref},
+	}
 }
 
-// extracts expressions and arguments from thunk object, parametrizizes
-// function call with passed object references as free variables. all passed
-// objects are assumed to be atomic! if recursive thunk evaluation is intendet,
-// it is been dealt with by the extracted value expression, that get's called.
-// the closure is in control over evaluations lazyness, fixity, arity, return
-// value, pushing of frames, blackhole-shadowing & updating the heap object, etc‥.
-func extractThunkExpression(refs ...*Object) (val f.Value, args []*Object) {
-
-	if len(args) > 0 {
-		// check first parameter for callability
-		if c, ok := args[0].Expr.(f.Callable); ok {
-			// the first parameter is the closure to call‥. no
-			// further parameters got passed
-			if len(args) == 1 {
-				val = c.Call()
-			}
-			// an additional free value got passed
-			if len(args) == 2 {
-				args = []*Object{refs[1]}
-				val = c.Call(args[1])
-			}
-			// call with multiple free values
-			if len(args) > 2 {
-				args = []*Object{}
-				var vals = []f.Value{}
-				for _, obj := range refs[1:] {
-					args = append(args, obj)
-					vals = append(vals, obj.Expr)
-				}
-				val = c.Call(vals...)
-			}
-		}
-	} else {
-		// no arguments where passed. TODO: make up your mind regarding error handling!!!
-		val = f.NewNaryFnc(
-			func(...f.Value) f.Value {
-				return f.NewPrimaryConstatnt(d.NilVal{})
-			})
+// sys call keeps references to all io & other sys call related objects, like
+// command line flags, os process control signals, byte code of the running
+// program, buffers, streams, etc‥.  each thread has exactly one sys call
+// reference which may contain further (sub-) threads, that may reference it's
+// parent, or some other instances of a sys call object. the list of references
+// may be mutated at any given time by adding, or removing objects, objects can
+// be mutated, or replaced,under the condition that the objects reference
+// address and object type remain constant over the entire objects lifetime
+// (since it might be referenced by other objects, or enclosed by closures yet
+// to be evaluated).
+//
+// if an io sys call has been allocated, the returned channel is drained once
+// every time the state function is called and the expression it yields is
+// evaluated. the expression is expected to perform all side effects, that are
+// sheduled to be performed by evaluating expressions referenced in the list of
+// io sys calls references & return a new expression to replace the current one
+// to be evaluated the next time state function is been called.
+//
+// layout of the io sys call is entirely left to the program. some sort of
+// sheduling may be implemented to return no-ops, in case none of the system
+// tasks needs imediate evaluation.
+func sysCall(
+	expr f.Callable,
+	refs ...*Object,
+) (Object, chan f.Callable) {
+	return Object{
+		newInfo(
+			Length(len(refs)),
+			Arity(0),
+			Eager|SideEffect|Mutable,
+		),
+		SysCall,
+		expr,
+		refs,
 	}
-	return val, args
 }

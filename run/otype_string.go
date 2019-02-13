@@ -4,23 +4,25 @@ package run
 
 import "strconv"
 
-const _Otype_name = "PartialApplicationCallContinuationCaseContinuationFunctionClosureDataConstructorDeclarationIndirectionBlackHoleByteCodeThunkIOEventsIOReaderIOWriterIOShared"
+const _Otype_name = "PartialApplicationCallContinuationCaseContinuationFunctionClosureDataConstructorDeclarationIndirectionBlackHoleByteCodeThunkIOSystemIOSyncReadIOSyncWriteIOAsyncReadIOAsyncWriteThread"
 
 var _Otype_map = map[Otype]string{
-	1:    _Otype_name[0:18],
-	2:    _Otype_name[18:34],
-	4:    _Otype_name[34:50],
-	8:    _Otype_name[50:65],
-	16:   _Otype_name[65:80],
-	32:   _Otype_name[80:91],
-	64:   _Otype_name[91:102],
-	128:  _Otype_name[102:111],
-	256:  _Otype_name[111:119],
-	512:  _Otype_name[119:124],
-	1024: _Otype_name[124:132],
-	2048: _Otype_name[132:140],
-	4096: _Otype_name[140:148],
-	8192: _Otype_name[148:156],
+	1:     _Otype_name[0:18],
+	2:     _Otype_name[18:34],
+	4:     _Otype_name[34:50],
+	8:     _Otype_name[50:65],
+	16:    _Otype_name[65:80],
+	32:    _Otype_name[80:91],
+	64:    _Otype_name[91:102],
+	128:   _Otype_name[102:111],
+	256:   _Otype_name[111:119],
+	512:   _Otype_name[119:124],
+	1024:  _Otype_name[124:132],
+	2048:  _Otype_name[132:142],
+	4096:  _Otype_name[142:153],
+	8192:  _Otype_name[153:164],
+	16384: _Otype_name[164:176],
+	32768: _Otype_name[176:182],
 }
 
 func (i Otype) String() string {

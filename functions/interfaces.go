@@ -26,8 +26,11 @@ type Callable interface {
 // concatenations of flags of all the types providing the common method. this
 // builds the base for implementing higher order type classes.
 type HigherOrderType interface {
+	Value
 	Id() d.IntVal
 	Name() d.StrVal
+	Sig() d.StrVal
+	Cons() []HigherOrderType
 }
 type Optional interface {
 	Value
@@ -35,54 +38,42 @@ type Optional interface {
 }
 type Enumerable interface {
 	Value
-	Enum() EnumFnc
+	Enum() SumTypeFnc
 }
 type Nullable interface {
-	Value
 	Null() Value
 }
 type Bitwise interface {
-	Value
 	Uint() uint
 }
 type Boolean interface {
-	Value
 	Bool() bool
 }
 type Unsigned interface {
-	Value
 	Uint() uint
 }
 type Signed interface {
-	Value
 	Int() int
 }
 type Integer interface {
-	Value
 	Int() int
 }
 type Rational interface {
-	Value
 	Rat() *big.Rat
 }
 type Irrational interface {
-	Value
 	Float() float64
 }
 type Imaginary interface {
-	Value
 	Imag() complex128
 }
 type Timed interface {
-	Value
 	Time() time.Time
 }
 type Temporal interface {
-	Value
 	Dura() time.Duration
 }
 type Collection interface {
-	Value
 	Len() int
 }
 type Numeric interface {
@@ -93,7 +84,6 @@ type Numeric interface {
 }
 type Symbolic interface {
 	Value
-	Bytes() []byte
 }
 
 // FUNCTIONAL KIND INTERFACES
@@ -248,14 +238,6 @@ type Vectorized interface {
 	Get(int) Value
 	Set(int, Value) Vectorized
 }
-type Accessable interface {
-	Collected
-	Quantified
-	Pairs() []Paired
-	Head() Paired
-	Tail() []Paired
-	DeCap() (Paired, []Paired)
-}
 
 //// RECURSIVE LISTS ///////
 //
@@ -286,11 +268,22 @@ type Tupled interface {
 // Recorded{}
 //
 // a tuple containing pairs of key/value data can be addressed by.
+type Associative interface {
+	GetVal(Value) Paired
+	SetVal(Value, Value) Associative
+}
 type Recorded interface {
 	Vectorized
+	Associative
 	Tuple() Tupled
-	GetVal(Value) Paired
 	ArgSig() []Paired // key/data-type
+}
+type Accessable interface {
+	Associative
+	Pairs() []Paired
+	Head() Paired
+	Tail() []Paired
+	DeCap() (Paired, []Paired)
 }
 
 // LINKED LISTS

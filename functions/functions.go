@@ -27,6 +27,7 @@ func (t TyHigherOrder) Uint() uint                  { return d.BitFlag(t).Uint()
 const (
 	Type TyHigherOrder = 1 << iota
 	Data
+	Constructor
 	Closure
 	Function // functions are polymorph‥.
 	Accessor // pair of Attr & Value
@@ -37,9 +38,11 @@ const (
 	Generator
 	Unbound // map key, slice index, search parameter...
 	Option
-	Or
 	Just
 	None
+	Or
+	If
+	Else
 	Truth
 	True
 	False
@@ -80,8 +83,8 @@ type ( // HIGHER ORDER FUNCTION TYPES
 	// FUNCTIONAL VALUES
 	FncVal func() Value
 	// COLLECTIONS
-	PairVal  func() (a, b Value)     // <- base element of all tuples and collections
-	EnumVal  func() (Value, EnumFnc) // implementing 'Optional :: Maybe() bool'
+	PairVal  func() (a, b Value)        // <- base element of all tuples and collections
+	EnumVal  func() (Value, SumTypeFnc) // implementing 'Optional :: Maybe() bool'
 	ArgVal   func(d ...Value) (Value, Argumented)
 	ArgSet   func(d ...Value) ([]Value, Arguments)
 	ParamVal func(d ...Paired) (Paired, Parametric)
@@ -179,19 +182,6 @@ func (o OrVal) TypeHO() TyHigherOrder         { return Option | Or }
 func (o OrVal) TypePrim() d.TyPrimitive       { return o().TypePrim() }
 func (o OrVal) String() string                { return o().String() }
 
-// ENUM
-func NewEnumVal(val Value, et EnumFnc) EnumVal {
-	return EnumVal(func() (Value, EnumFnc) { return val, et })
-}
-func (e EnumVal) Ident() Value                  { return e }
-func (e EnumVal) Eval(p ...d.Primary) d.Primary { return e.Value().Eval(p...) }
-func (e EnumVal) Nullable() d.Primary           { return e.Eval() }
-func (e EnumVal) Enum() EnumFnc                 { _, et := e(); return et }
-func (e EnumVal) Value() Value                  { value, _ := e(); return value }
-func (e EnumVal) TypeHO() TyHigherOrder         { return Enum }
-func (e EnumVal) TypePrim() d.TyPrimitive       { return e.Value().TypePrim() }
-func (e EnumVal) String() string                { return e.Value().String() }
-
 // FUNCTIONAL TRUTH VALUES
 func (t TrueVal) Call(...Value) Value {
 	return NewPrimaryConstatnt(d.BoolVal(true))
@@ -212,6 +202,19 @@ func (f FalseVal) Bool() bool                  { return false }
 func (f FalseVal) TypeHO() TyHigherOrder       { return Truth | False }
 func (f FalseVal) TypePrim() d.TyPrimitive     { return d.Bool }
 func (f FalseVal) String() string              { return "False" }
+
+// ENUM
+func NewEnumVal(val Value, sumType SumTypeFnc) EnumVal {
+	return EnumVal(func() (Value, SumTypeFnc) { return val, sumType })
+}
+func (e EnumVal) Ident() Value                  { return e }
+func (e EnumVal) Eval(p ...d.Primary) d.Primary { return e.Value().Eval(p...) }
+func (e EnumVal) Nullable() d.Primary           { return e.Eval() }
+func (e EnumVal) Enum() SumTypeFnc              { _, et := e(); return et }
+func (e EnumVal) Value() Value                  { value, _ := e(); return value }
+func (e EnumVal) TypeHO() TyHigherOrder         { return Enum }
+func (e EnumVal) TypePrim() d.TyPrimitive       { return e.Value().TypePrim() }
+func (e EnumVal) String() string                { return e.Value().String() }
 
 // PAIR
 func NewPair(l, r Value) Paired {

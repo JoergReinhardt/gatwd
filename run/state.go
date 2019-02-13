@@ -46,7 +46,7 @@ const (
 	// ⌐: Left_Bound
 	Mutable
 	// ⌐: Imutable
-	Effected
+	SideEffect
 	// ⌐: Pure
 	Data
 	// ⌐: Function
@@ -128,10 +128,17 @@ const (
 	BlackHole
 	ByteCode
 	Thunk
-	IOEvents // event subscritptions
-	IOReader // blocking io reader
-	IOWriter // blocking io writer
-	IOShared // shared value with mutex
+	////// a thread contains another instance of runtime, including heap,
+	// stacks and state loop possibly running asynchronously in a go
+	// routine. sheduling, synchronization and data sharing are dynamicly
+	// defined and allocated as objects on the heap, referenced to from the
+	// io systems list of references.
+	Thread
+	SysCall      // static code, events, signals, flags, messages, indices
+	IOSyncRead   // shared value(s) (buffered reader, or channel)
+	IOSyncWrite  // shared value(s) (buffered writer, or channel)
+	IOAsyncRead  // shared value(s) (Mutex, or unbuffered channel)
+	IOAsyncWrite // shared value(s) (Mutex, or unbuffered channel)
 )
 
 // STACK

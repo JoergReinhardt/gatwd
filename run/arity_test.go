@@ -14,5 +14,5 @@ func TestArity(t *testing.T) {
 	if Arity(5).String() != "Quinary" {
 		t.Fail()
 	}
-	fmt.Println(Effected)
+	fmt.Println(SideEffect)
 }
