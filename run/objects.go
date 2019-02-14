@@ -419,7 +419,7 @@ func byteCode(
 // layout of the io sys call is entirely left to the program. some sort of
 // sheduling may be implemented to return no-ops, in case none of the system
 // tasks needs imediate evaluation.
-func sysCall(
+func system(
 	expr f.Callable,
 	refs ...*Object,
 ) Object {
@@ -429,8 +429,124 @@ func sysCall(
 			Arity(0),
 			Eager|SideEffect|Mutable,
 		),
-		SysCall,
+		System,
 		expr,
+		refs,
+	}
+}
+
+// a thread object contains another state function enclosing a state struct
+// which references a heap. that can be an independent instance of a graph of
+// linked heap objects, that graph can be connected by references through cross
+// references defined in objects referencing thread safe data structures, or a
+// thread safe reference to some shared heap. each thread also has its own
+// instance of a stack. the structure of the thread object, if and how it is
+// connected to other running threads is entirely defined by the program.
+// synchronization between threads is performed by sharing thread safe data
+// structures from the list of syscall objects. threads can be sheduled by an
+// enclosing control thread, but may as well share control on a mutual base, be
+// arranged in form of a ring and evaluated round robin‥.
+//
+// if a sys-call object exists in a thread, the thread may list a reference to
+// itself among it's syscall object references to expose process control and or
+// data to other threads, a cli-/, gui-/, or browser event loop, rpc message bus
+// thigy‥.
+func thread(
+	sf StateFnc,
+	refs ...*Object,
+) Object {
+	return Object{
+		newInfo(
+			Length(len(refs)),
+			Arity(0),
+			Eager|Mutable,
+		),
+		System,
+		sf,
+		refs,
+	}
+}
+
+// synchronous accessable io, other side effect, or shared data blocks call
+// untilil data has been successfully read, or written, or an appropriate
+// option has been returned. the latter implements non-blocking calls to a
+// blocking device.
+//
+// referenced closure may, or may not be readable, writeable, or both, which is
+// indicated with -1 for writable, 0 for readable and 1 if both is the case.
+// shareability (thread safety) and eagernes (eager/lazy) must be indicated by
+// setting the corresponding flags true.
+func sync(
+	rw f.Callable,
+	writeable int,
+	shared bool,
+	eager bool,
+	refs ...*Object,
+) Object {
+	var otype = Sync
+	var props = SideEffect
+	switch {
+	case eager:
+		props = props | Eager
+	case shared:
+	case writeable < 0:
+		props = props | Mutable
+	case writeable == 0:
+		props = props | Data
+	case writeable > 0:
+		props = props | Mutable | Data
+	}
+	return Object{
+		newInfo(
+			Length(len(refs)),
+			Arity(1),
+			props,
+		),
+		otype,
+		rw,
+		refs,
+	}
+}
+
+// asynchronous accessable io, other side effect, or shared data. behaves like
+// a queue to place call continuations in, that take the yielded value as
+// parameter. all continuations in the queue will be updated and pushed on the
+// call stack for evaluation, whenever a new value is yielded. yielded value
+// may be a function demanding parameters,implementing a wtite to an
+// asynchronous resource, a (parameterless) closure that returns values,
+// implementing asynchronous read or a closure expecting mandatory, optional,
+// plain, or variadic parameters and returns a value. the object can be thread
+// safe or not, all, of which must be indicated to the runtime by setting the
+// writeable, shared and eager agruments accordingly.
+func async(
+	queue f.Callable,
+	writeable int,
+	shared bool,
+	eager bool,
+	refs ...*Object,
+) Object {
+	var otype = Sync
+	var props = SideEffect
+	switch {
+	case eager:
+		props = props | Eager
+	case shared:
+		otype = otype | Shared
+	case writeable < 0:
+		props = props | Mutable
+	case writeable == 0:
+		props = props | Data
+	case writeable > 0:
+		props = props | Mutable | Data
+	}
+	return Object{
+		newInfo(
+			Length(len(refs)),
+			Arity(1),
+			props,
+		),
+		otype,
+		queue,
 		refs,
 	}
 }

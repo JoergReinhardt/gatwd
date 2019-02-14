@@ -4,7 +4,7 @@ package run
 
 import "strconv"
 
-const _Otype_name = "PartialApplicationCallContinuationCaseContinuationFunctionClosureDataConstructorDeclarationIndirectionBlackHoleByteCodeThunkThreadSysCallIOSyncReadIOSyncWriteIOAsyncReadIOAsyncWrite"
+const _Otype_name = "PartialApplicationCallContinuationCaseContinuationFunctionClosureDataConstructorDeclarationIndirectionBlackHoleByteCodeThunkSystemThreadSharedAsyncSync"
 
 var _Otype_map = map[Otype]string{
 	1:     _Otype_name[0:18],
@@ -18,11 +18,10 @@ var _Otype_map = map[Otype]string{
 	256:   _Otype_name[111:119],
 	512:   _Otype_name[119:124],
 	1024:  _Otype_name[124:130],
-	2048:  _Otype_name[130:137],
-	4096:  _Otype_name[137:147],
-	8192:  _Otype_name[147:158],
-	16384: _Otype_name[158:169],
-	32768: _Otype_name[169:181],
+	2048:  _Otype_name[130:136],
+	4096:  _Otype_name[136:142],
+	8192:  _Otype_name[142:147],
+	16384: _Otype_name[147:151],
 }
 
 func (i Otype) String() string {

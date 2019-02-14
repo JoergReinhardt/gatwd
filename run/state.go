@@ -52,7 +52,7 @@ const (
 	// ⌐: Function
 )
 
-func (p Propertys) TypePrim() d.TyPrime           { return d.Flag }
+func (p Propertys) TypePrime() d.TyPrime          { return d.Flag }
 func (p Propertys) TypeHO() f.TyFnc               { return f.HigherOrder }
 func (p Propertys) Flag() d.BitFlag               { return p.TypeHO().Flag() }
 func (p Propertys) Eval(a ...d.Primary) d.Primary { return p.Flag() }
@@ -104,7 +104,7 @@ type Object struct {
 
 func (t Otype) TypeObj() Otype                { return t }
 func (t Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
-func (t Otype) TypePrim() d.TyPrime           { return d.Flag }
+func (t Otype) TypePrime() d.TyPrime          { return d.Flag }
 func (t Otype) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t Otype) Eval(p ...d.Primary) d.Primary { return d.BitFlag(t) }
 func (t Otype) Match(o Otype) bool {
@@ -128,17 +128,16 @@ const (
 	BlackHole
 	ByteCode
 	Thunk
-	////// a thread contains another instance of runtime, including heap,
+	///// a thread contains another instance of runtime, including heap,
 	// stacks and state loop possibly running asynchronously in a go
 	// routine. sheduling, synchronization and data sharing are dynamicly
 	// defined and allocated as objects on the heap, referenced to from the
 	// io systems list of references.
-	Thread
-	SysCall      // static code, events, signals, flags, messages, indices
-	IOSyncRead   // shared value(s) (buffered reader, or channel)
-	IOSyncWrite  // shared value(s) (buffered writer, or channel)
-	IOAsyncRead  // shared value(s) (Mutex, or unbuffered channel)
-	IOAsyncWrite // shared value(s) (Mutex, or unbuffered channel)
+	System // static code, events, signals, flags, messages, indices
+	Thread // instance of a, StateFn (possibly under parallel evaluation)
+	Shared // shared flag marks value thread safe, set along Sync/Async.
+	Async  // call substitution queue, applyed whenever value is yielded
+	Sync   // blocks until read/write can be satisfied
 )
 
 // STACK
@@ -161,8 +160,20 @@ type Frame struct {
 	Return int
 }
 
+func (t Frame) Eval(...d.Primary) d.Primary { return t }
+func (t Frame) Flag() d.BitFlag             { return t.Otype.Flag() }
+func (t Frame) TypeFnc() f.TyFnc            { return f.Type }
+func (t Frame) TypePrime() d.TyPrime        { return d.Flag }
+func (t Frame) String() string {
+	return t.Ftype.String()
+}
+
 type Ftype d.Uint8Val
 
+func (t Ftype) Eval(...d.Primary) d.Primary { return t }
+func (t Ftype) TypeFnc() f.TyFnc            { return f.Type }
+func (t Ftype) TypePrime() d.TyPrime        { return d.Flag }
+func (t Ftype) Flag() d.BitFlag             { return d.BitFlag(uint64(d.Uint8Val(t).Uint())) }
 func (t Ftype) Match(f Ftype) bool {
 	if t&f != 0 {
 		return true
@@ -181,6 +192,12 @@ const (
 )
 
 type Stack []Frame
+
+func (t Stack) Eval(...d.Primary) d.Primary { return t }
+func (t Stack) Flag() d.BitFlag             { return t.TypePrime().Flag() }
+func (t Stack) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (t Stack) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (t Stack) String() string              { return "stack" }
 
 func newStack() Stack { return []Frame{} }
 
@@ -231,6 +248,12 @@ func push(s Stack, f Frame) Stack { s = append(s, f); return s }
 // SYMBOL TABLE
 type Symbols map[string]*Object
 
+func (t Symbols) Eval(...d.Primary) d.Primary { return t }
+func (t Symbols) Flag() d.BitFlag             { return t.TypePrime().Flag() }
+func (t Symbols) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (t Symbols) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (t Symbols) String() string              { return "symbols" }
+
 func newSymbols() Symbols { return make(map[string]*Object) }
 
 // SYMBOL DEFINITION
@@ -240,12 +263,24 @@ func lookup(s Symbols, name string) *Object           { return s[name] }
 // STATE FUNCTION
 type StateFnc func() StateFnc
 
+func (t StateFnc) Eval(...d.Primary) d.Primary { return t }
+func (t StateFnc) Flag() d.BitFlag             { return t.TypePrime().Flag() }
+func (t StateFnc) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (t StateFnc) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (t StateFnc) String() string              { return "state function" }
+
 // STATE
 type State struct {
 	Top *Object
 	Stack
 	Symbols
 }
+
+func (t State) Eval(...d.Primary) d.Primary { return t }
+func (t State) Flag() d.BitFlag             { return t.TypePrime().Flag() }
+func (t State) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (t State) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (t State) String() string              { return "state" }
 
 // SYMBOLS
 func (s State) Lookup(name string) *Object { return lookup(s.Symbols, name) }
