@@ -99,7 +99,7 @@ func allocateAtomicConstant(prime d.Primary) *Object {
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Propertys(Data | Atomic)
 	(*object).Otype = DataConstructor
-	(*object).Expr = closure
+	(*object).Value = closure
 	return object
 }
 func allocateVectorConstant(prime d.Primary) *Object {
@@ -185,7 +185,7 @@ func allocateVectorConstant(prime d.Primary) *Object {
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Propertys(Data)
 	(*object).Otype = DataConstructor
-	(*object).Expr = closure
+	(*object).Value = closure
 	return object
 }
 
@@ -231,7 +231,7 @@ func allocatePrimarySet(pairs ...d.PairVal) *Object {
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Propertys(Data)
 	(*object).Otype = DataConstructor
-	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+	(*object).Value = f.NewNaryFnc(func(...f.Value) f.Value {
 		return f.NewPrimaryConstatnt(set)
 	})
 	return object
@@ -246,7 +246,7 @@ func allocatePrimaryDataSlice(data ...d.Primary) *Object {
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Propertys(Data)
 	(*object).Otype = DataConstructor
-	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+	(*object).Value = f.NewNaryFnc(func(...f.Value) f.Value {
 		return f.NewPrimaryConstatnt(slice)
 	})
 	return object

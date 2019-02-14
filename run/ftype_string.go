@@ -7,9 +7,7 @@ import "strconv"
 const (
 	_Ftype_name_0 = "SelectUpdate"
 	_Ftype_name_1 = "Continuation"
-	_Ftype_name_2 = "ReturnByteCode"
-	_Ftype_name_3 = "ReturnFunction"
-	_Ftype_name_4 = "ReturnData"
+	_Ftype_name_2 = "Return"
 )
 
 var (
@@ -25,10 +23,6 @@ func (i Ftype) String() string {
 		return _Ftype_name_1
 	case i == 8:
 		return _Ftype_name_2
-	case i == 16:
-		return _Ftype_name_3
-	case i == 32:
-		return _Ftype_name_4
 	default:
 		return "Ftype(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

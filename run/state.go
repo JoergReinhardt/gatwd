@@ -98,7 +98,7 @@ func newInfo(len Length, a Arity, p Propertys) Info { return Info{len, a, p} }
 type Object struct {
 	Info            // struct64
 	Otype           // uint16
-	Expr  f.Value   // [ptr32,ptr32]
+	Value f.Value   // [ptr32,ptr32]
 	Refs  []*Object // references
 	// particular implementations of object append additional fields, and
 	// embedd an instance of this type.
@@ -110,13 +110,79 @@ func newObject() *Object {
 		newInfo(Length(0), Arity(0), Propertys(0)),
 		Otype(0),
 		nil,
-		[]*Object{},
+		allocateSliceOfObjectRefs(),
 	}
 }
 
+var objectSlicePool = sync.Pool{New: func() interface{} { return make([]*Object, 0) }}
+
+func allocateSliceOfObjectRefs() []*Object { return objectSlicePool.Get().([]*Object) }
+
 var objectPool = sync.Pool{New: func() interface{} { return newObject() }}
 
+// allocate fresh object from sync pool
 func allocateObject() *Object { return objectPool.Get().(*Object) }
+
+// zeros all values of an object all values
+func freeValues(o *Object) *Object {
+	(*o).Info.Length = Length(0)
+	(*o).Info.Arity = Arity(0)
+	(*o).Info.Propertys = Propertys(0)
+	(*o).Otype = Otype(0)
+	(*o).Value = nil
+	return o
+}
+
+// nils all object references and resets slices index to zero
+func resetReferences(o *Object) *Object {
+	if len((*o).Refs) > 0 {
+		for i, _ := range o.Refs {
+			// set all references to nil
+			(*o).Refs[i] = nil
+		}
+		(*o).Refs = o.Refs[:0]
+	}
+	return o
+}
+
+// freeReferencesRecursively(o *Object)
+func freeReferencesRecursively(o *Object) *Object {
+	// range over object references
+	for _, ref := range (*o).Refs {
+		// free the referenced objects recursively
+		freeObjectsRecursively(ref)
+		// set objects reference to nil for carbage collector
+		ref = nil
+	}
+	// reset reference slice to length zero
+	resetReferences(o)
+	// return the freed object
+	return o
+}
+
+// freeObjects(o *Object) deallocates a flat object and clears all it's fields. free
+// object calls a go routine and returns immediately while object is
+// deallocated in the background.
+func freeObject(o *Object) {
+	go func() {
+		freeValues(o)
+		resetReferences(o)
+		objectPool.Put(o)
+	}()
+}
+
+// freeObjects(o *Object) deallocates object recursively and clears all it's fields &
+// references fields. freeObjectRecursively() calls a go routine and returns
+// immediately, while clearing the object in the background
+func freeObjectsRecursively(o *Object) {
+	go func() {
+		freeValues(o)
+		if len(o.Refs) > 0 {
+			freeReferencesRecursively(o)
+		}
+		objectPool.Put(o)
+	}()
+}
 
 func (o Otype) TypeObj() Otype                { return o }
 func (o Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
@@ -137,8 +203,8 @@ const (
 	PartialApplication Otype = 1
 	CallContinuation   Otype = 1 << iota
 	CaseContinuation
-	FunctionClosure
 	DataConstructor
+	FunctionCall
 	Declaration
 	Indirection
 	BlackHole
@@ -162,9 +228,9 @@ const (
 type Frame struct {
 	Ftype // uint16
 	Info  // struct64
-	f.Value
+	Value f.Value
 	*Object
-	Return int
+	framePtr [2]int
 }
 
 func (fra Frame) Eval(...d.Primary) d.Primary { return fra }
@@ -172,16 +238,13 @@ func (fra Frame) Flag() d.BitFlag             { return fra.Otype.Flag() }
 func (fra Frame) TypeFnc() f.TyFnc            { return f.Type }
 func (fra Frame) TypePrime() d.TyPrime        { return d.Flag }
 func (fra Frame) String() string              { return fra.Ftype.String() }
-func (fra Frame) Segment(segment int) *Object {
-	if segment < len(fra.Object.Refs) {
-		return fra.Object.Refs[segment]
-	}
-	return nil
-}
 
-// ALLOCATION POOL
-func allocateFrame(o *Object, ftype Ftype, ret int) Frame {
-	return Frame{ftype, o.Info, o.Expr, o, ret}
+// STACK ALLOCATION
+//
+// takes the referenced object, frame type and stack offset of return address
+// as arguments and returns a freshly allocated frame.
+func allocateFrame(o *Object, ftype Ftype, rframe, rsegment int) Frame {
+	return Frame{ftype, o.Info, o.Value, o, [2]int{rframe, rsegment}}
 }
 
 type Ftype d.Uint8Val
@@ -202,38 +265,64 @@ const (
 	Select Ftype = 1
 	Update Ftype = 1 << iota
 	Continuation
-	ReturnByteCode
-	ReturnFunction
-	ReturnData
+	Return
 )
 
 type Stack []Frame
 
-func (s Stack) Eval(...d.Primary) d.Primary { return s }
+func (s Stack) StackPtr() *Frame {
+	if ptr := s[0].framePtr[0]; len(s) > ptr {
+		return &(s)[ptr]
+	}
+	return nil
+}
+func (s Stack) FramePtr() *Object {
+	if ptr := s[0].framePtr[1]; len(s) > ptr {
+		if refs := s[ptr].Object.Refs; len(refs) < ptr {
+			return refs[ptr]
+		}
+	}
+	return nil
+}
+func (s Stack) Len() int                    { return len(s) }
 func (s Stack) Flag() d.BitFlag             { return s.TypePrime().Flag() }
 func (s Stack) TypeFnc() f.TyFnc            { return f.HigherOrder }
 func (s Stack) TypePrime() d.TyPrime        { return d.HigherOrder }
 func (s Stack) String() string              { return "stack" }
+func (s Stack) Eval(...d.Primary) d.Primary { return s }
 
-func newStack() Stack { return []Frame{} }
+func newStack() Stack { return make([]Frame, 0, 256) }
 
+// create new frame based on passed frame type, object reference and caller
+// address
 func (s Stack) newFrame(
 	ftype Ftype,
 	object *Object,
-	caller int,
+	caller, seg int,
 ) Frame {
-	return Frame{
-		ftype,
+	return Frame{ftype,
 		object.Info,
-		object.Expr,
-		object,
-		caller,
-	}
+		object.Value,
+		object, [2]int{caller, seg}}
 }
 
-func stackPtr(s Stack, frame int) *Frame {
+// overwrite frame in place
+func updateFrame(
+	frame Frame,
+	ftype Ftype,
+	caller, seg int,
+	object *Object) Frame {
+	frame.Ftype = ftype
+	frame.Info = object.Info
+	frame.Value = object.Value
+	frame.framePtr = [2]int{caller, seg}
+	return frame
+}
+
+func frame(s Stack, frame int) *Frame {
 	var l = len(s)
 	if frame < l {
+		// reversed index, since stack grows from top to bottom
 		return &(s[l-1-frame])
 	}
 	return nil
@@ -290,7 +379,7 @@ func (s StateFnc) String() string              { return "state function" }
 // state object composes reference to heap of linked objects, stack and a
 // symbol table, to hold all state information of the running process
 type State struct {
-	Top *Object
+	Heap *Object
 	Stack
 	Symbols
 }
@@ -311,19 +400,108 @@ func (s State) Let(name string, o *Object) { s.Symbols = let(s.Symbols, name, o)
 // and can be chaned with Frames 'Segment()' method, to directly reference the
 // list of objects referenced by the object the frame referes to. the object
 // itself can be accessed directly based on struct field name on
-func (s State) Frame(offset int) *Frame { return stackPtr(s.Stack, offset) }
+func (s State) Frame(offset int) *Frame { return frame(s.Stack, offset) }
 func (s State) Push(f Frame)            { s.Stack = push(s.Stack, f) }
 func (s State) Pop() (f Frame)          { f, s.Stack = pop(s.Stack); return f }
 
-// HEAP
-func (s State) Heap() *Object { return s.Top }
-func (s State) Put(o *Object) { s.Top = o }
+// Top()
+//
+// points to the topmost stack frame and is intendet to keep all involved
+// values from escaping to the (golang) heap. should be compilable to a pointer
+// to a stack allocated slice header and array, since frames have constant
+// size.
+func (s State) Top() Frame { return s.Stack[0] }
 
-// FIND & REDUCE NEXT REDEX (APPLY REDUCTION RULES)
+// HEAP
+func (s State) Put(o *Object) { s.Heap = o }
+
+///////////////////////////////////////////////////////////
+// FIND & REDUCE NEXT REDEX (REDUCEABLE EXPRESSION)
 func (s State) next() StateFnc {
-	// apply reduction rules
+
+	// APPLY REDUCTION RULES
+	// choose reduction based on frame type
+	switch s.Top().Ftype {
+	case Select:
+		s = handleSelect(s)
+	case Update:
+		s = handleUpdate(s)
+	case Continuation:
+		s = handleContinuation(s)
+	case Return:
+		s = handleReturn(s)
+	}
 	// after state has been mutated, rinse and repeat‥.
 	return func() StateFnc { return s.next() }
+}
+
+//// REDUCTION RULES
+///
+// SELECT
+func handleSelect(s State) State {
+	// choose reduction rule based on object type
+	switch s.Top().Otype {
+	case PartialApplication:
+	case CaseContinuation:
+	case CallContinuation:
+	case DataConstructor:
+	case FunctionCall:
+	case Indirection:
+	case Thunk:
+	}
+	return s
+}
+
+// UPDATE
+func handleUpdate(s State) State {
+	// choose reduction rule based on object type
+	switch s.Top().Otype {
+	case Thunk:
+	case BlackHole:
+	case Indirection:
+	case CaseContinuation:
+	case System:
+	case Thread:
+	case Shared:
+	case Async:
+	case Sync:
+	}
+	return s
+}
+
+// CONTINUE
+func handleContinuation(s State) State {
+	// choose reduction rule based on object type
+	switch s.Top().Otype {
+	case PartialApplication:
+	case CallContinuation:
+	case CaseContinuation:
+	case Thunk:
+	case Sync:
+	case Async:
+	case System:
+	case Thread:
+	case Shared:
+	}
+	return s
+}
+
+// RETURN
+func handleReturn(s State) State {
+	// choose reduction rule based on object type
+	switch s.Top().Otype {
+	case DataConstructor:
+	case FunctionCall:
+	case Indirection:
+	case ByteCode:
+	case System:
+	case Thread:
+	case Shared:
+	case Async:
+	case Sync:
+	case Thunk:
+	}
+	return s
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -348,7 +526,7 @@ func loadLinkedObjectCode(program ...*Object) StateFnc {
 	// initial object to start evaluation at.
 	var init = program[len(program)-1]
 	// push initial onbject on to stack
-	var stack = push(newStack(), allocateFrame(init, Continuation, 0))
+	var stack = push(newStack(), allocateFrame(init, Continuation, 0, 0))
 	// instanciate reference to state struct
 	var state = State{init, stack, symbols}
 	// wrap state reference in a stateFnc closure that calls states next

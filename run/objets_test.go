@@ -9,5 +9,5 @@ import (
 
 func TestAtomicObjectAllocation(t *testing.T) {
 	c := allocateAtomicConstant(d.New("testvalue"))
-	fmt.Println(c.Expr.Eval())
+	fmt.Println(c.Value.Eval())
 }

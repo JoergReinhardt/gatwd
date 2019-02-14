@@ -33,7 +33,7 @@ func declareGlobalSymbol(
 	(*object).Info.Arity = obj.Info.Arity
 	(*object).Info.Propertys = obj.Info.Propertys
 	(*object).Otype = Declaration
-	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+	(*object).Value = f.NewNaryFnc(func(...f.Value) f.Value {
 		return f.NewPrimaryConstatnt(d.New(name))
 	})
 	(*object).Refs[0] = obj
@@ -51,7 +51,7 @@ func declareLocalSymbol(
 	(*object).Info.Arity = obj.Info.Arity
 	(*object).Info.Propertys = obj.Info.Propertys
 	(*object).Otype = Declaration
-	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+	(*object).Value = f.NewNaryFnc(func(...f.Value) f.Value {
 		return f.NewPrimaryConstatnt(d.New(name))
 	})
 	(*object).Refs = append(object.Refs, scope, obj)
@@ -68,7 +68,7 @@ func declareAnonymous(
 	(*object).Info.Arity = obj.Info.Arity
 	(*object).Info.Propertys = obj.Info.Propertys
 	(*object).Otype = Declaration
-	(*object).Expr = obj.Expr
+	(*object).Value = obj.Value
 	(*object).Refs = append(object.Refs, scope, obj)
 	return object
 }
@@ -124,8 +124,8 @@ func instanciateFunction(
 	(*object).Info.Length = length
 	(*object).Info.Arity = arity
 	(*object).Info.Propertys = props
-	(*object).Otype = FunctionClosure
-	(*object).Expr = expr
+	(*object).Otype = FunctionCall
+	(*object).Value = expr
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
@@ -233,7 +233,7 @@ func partialApplication(
 	(*object).Info.Arity = arity
 	(*object).Info.Propertys = props
 	(*object).Otype = PartialApplication
-	(*object).Expr = call
+	(*object).Value = call
 	return object
 }
 
@@ -254,7 +254,7 @@ func callContinuation(
 	(*object).Info.Arity = expr.Arity
 	(*object).Info.Propertys = expr.Propertys
 	(*object).Otype = CallContinuation
-	(*object).Expr = expr.Expr.(f.Callable)
+	(*object).Value = expr.Value.(f.Callable)
 	(*object).Refs = args
 	return object
 }
@@ -268,7 +268,7 @@ func caseContinuation(
 	(*object).Info.Arity = Arity(1)
 	(*object).Info.Propertys = cases[0].Propertys
 	(*object).Otype = CaseContinuation
-	(*object).Expr = cases[0].Expr.(f.Callable)
+	(*object).Value = cases[0].Value.(f.Callable)
 	(*object).Refs = cases
 	return object
 }
@@ -281,7 +281,7 @@ func referTo(ref *Object) *Object {
 	(*object).Info.Arity = ref.Arity
 	(*object).Info.Propertys = ref.Propertys
 	(*object).Otype = Indirection
-	(*object).Expr = ref.Expr.(f.Callable)
+	(*object).Value = ref.Value.(f.Callable)
 	(*object).Refs = append(object.Refs, ref)
 	return object
 }
@@ -337,7 +337,7 @@ func thunk(
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = props
 	(*object).Otype = Thunk
-	(*object).Expr = expr
+	(*object).Value = expr
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
@@ -350,7 +350,7 @@ func blackHole(ref *Object) *Object {
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = ref.Propertys
 	(*object).Otype = BlackHole
-	(*object).Expr = f.NewNone()
+	(*object).Value = f.NewNone()
 	(*object).Refs = append(object.Refs, ref)
 	return object
 }
@@ -369,7 +369,7 @@ func byteCode(
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Default
 	(*object).Otype = ByteCode
-	(*object).Expr = f.NewPair(f.NewPrimaryConstatnt(d.IntVal(pos)),
+	(*object).Value = f.NewPair(f.NewPrimaryConstatnt(d.IntVal(pos)),
 		f.NewPrimaryConstatnt(d.StrVal(text)))
 	(*object).Refs = append(object.Refs, ref)
 	return object
@@ -405,7 +405,7 @@ func system(
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Eager | SideEffect | Mutable
 	(*object).Otype = ByteCode
-	(*object).Expr = expr
+	(*object).Value = expr
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
@@ -435,7 +435,7 @@ func thread(
 	(*object).Info.Arity = Arity(0)
 	(*object).Info.Propertys = Eager | Mutable
 	(*object).Otype = System
-	(*object).Expr = sf
+	(*object).Value = sf
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
@@ -474,7 +474,7 @@ func synchronous(
 	(*object).Info.Arity = Arity(1)
 	(*object).Info.Propertys = props
 	(*object).Otype = otype
-	(*object).Expr = rw
+	(*object).Value = rw
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
@@ -515,7 +515,7 @@ func asynchronous(
 	(*object).Info.Arity = Arity(1)
 	(*object).Info.Propertys = props
 	(*object).Otype = otype
-	(*object).Expr = queue
+	(*object).Value = queue
 	(*object).Refs = append(object.Refs, refs...)
 	return object
 }
