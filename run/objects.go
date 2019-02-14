@@ -27,19 +27,17 @@ import (
 func declareGlobalSymbol(
 	name string,
 	obj *Object,
-) Object {
-	return Object{
-		newInfo(
-			obj.Info.Length,
-			obj.Info.Arity,
-			obj.Info.Propertys,
-		),
-		Declaration,
-		f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(d.New(name))
-		}),
-		[]*Object{obj},
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = obj.Info.Length
+	(*object).Info.Arity = obj.Info.Arity
+	(*object).Info.Propertys = obj.Info.Propertys
+	(*object).Otype = Declaration
+	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+		return f.NewPrimaryConstatnt(d.New(name))
+	})
+	(*object).Refs[0] = obj
+	return object
 }
 
 // declares a named free variable in local scope
@@ -47,36 +45,32 @@ func declareLocalSymbol(
 	name string,
 	scope *Object,
 	obj *Object,
-) Object {
-	return Object{
-		newInfo(
-			obj.Info.Length,
-			obj.Info.Arity,
-			obj.Info.Propertys,
-		),
-		Declaration,
-		f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(d.New(name))
-		}),
-		[]*Object{scope, obj},
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = obj.Info.Length
+	(*object).Info.Arity = obj.Info.Arity
+	(*object).Info.Propertys = obj.Info.Propertys
+	(*object).Otype = Declaration
+	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+		return f.NewPrimaryConstatnt(d.New(name))
+	})
+	(*object).Refs = append(object.Refs, scope, obj)
+	return object
 }
 
 // new anonymous localy scoped free variable
 func declareAnonymous(
 	scope *Object,
 	obj *Object,
-) Object {
-	return Object{
-		newInfo(
-			obj.Info.Length,
-			obj.Info.Arity,
-			obj.Info.Propertys,
-		),
-		Declaration,
-		obj.Expr,
-		[]*Object{scope, obj},
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = obj.Info.Length
+	(*object).Info.Arity = obj.Info.Arity
+	(*object).Info.Propertys = obj.Info.Propertys
+	(*object).Otype = Declaration
+	(*object).Expr = obj.Expr
+	(*object).Refs = append(object.Refs, scope, obj)
+	return object
 }
 
 ////////////////////////////
@@ -86,12 +80,12 @@ func declareAnonymous(
 // a closure returning a primary data instance
 //
 // PRIMARYS (COLLECTIONS INCLUDED)
-func allocatePrimary(data ...d.Primary) Object {
+func allocatePrimary(data ...d.Primary) *Object {
 	return allocatePrimaryData(data...)
 }
 
 // PRIMARY PAIR
-func allocatePrimaryPair(a, b d.Primary) Object {
+func allocatePrimaryPair(a, b d.Primary) *Object {
 	return allocateAtomicConstant(d.NewPair(a, b))
 }
 
@@ -125,17 +119,15 @@ func instanciateFunction(
 	props Propertys,
 	expr f.Callable,
 	refs ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			length,
-			arity,
-			props,
-		),
-		FunctionClosure,
-		expr,
-		refs,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = length
+	(*object).Info.Arity = arity
+	(*object).Info.Propertys = props
+	(*object).Otype = FunctionClosure
+	(*object).Expr = expr
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }
 
 ///////////////////////////////////
@@ -150,7 +142,7 @@ func instanciateFunction(
 func instanciateConstant(
 	props Propertys,
 	expr f.ConstFnc,
-) Object {
+) *Object {
 	return instanciateFunction(
 		Length(0),
 		Arity(0),
@@ -164,7 +156,7 @@ func instanciateUnary(
 	props Propertys,
 	expr f.UnaryFnc,
 	argument *Object,
-) Object {
+) *Object {
 	return instanciateFunction(
 		Length(1),
 		Arity(1),
@@ -180,7 +172,7 @@ func instanciateBinary(
 	props Propertys,
 	first *Object,
 	second *Object,
-) Object {
+) *Object {
 	return instanciateFunction(
 		Length(2),
 		Arity(2),
@@ -195,7 +187,7 @@ func instanciateOperator(
 	expr f.BinaryFnc,
 	left *Object,
 	right *Object,
-) Object {
+) *Object {
 	return instanciateBinary(expr, InFix, left, right)
 }
 
@@ -204,7 +196,7 @@ func instanciateNary(
 	expr f.NaryFnc,
 	props Propertys,
 	args ...*Object,
-) Object {
+) *Object {
 	var arglen = len(args)
 	return instanciateFunction(
 		Length(arglen),
@@ -235,17 +227,14 @@ func partialApplication(
 	arity Arity,
 	props Propertys,
 	call f.Callable,
-) Object {
-	return Object{
-		newInfo(
-			Length(0),
-			arity,
-			props,
-		),
-		PartialApplication,
-		call,
-		[]*Object{},
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(0)
+	(*object).Info.Arity = arity
+	(*object).Info.Propertys = props
+	(*object).Otype = PartialApplication
+	(*object).Expr = call
+	return object
 }
 
 // call continuation pushes arguments passed, but not consumed by the
@@ -259,48 +248,42 @@ func partialApplication(
 func callContinuation(
 	expr *Object,
 	args ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(args)),
-			expr.Arity,
-			expr.Propertys,
-		),
-		CallContinuation,
-		expr.Expr.(f.Callable),
-		args,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(args))
+	(*object).Info.Arity = expr.Arity
+	(*object).Info.Propertys = expr.Propertys
+	(*object).Otype = CallContinuation
+	(*object).Expr = expr.Expr.(f.Callable)
+	(*object).Refs = args
+	return object
 }
 
 func caseContinuation(
 	scrutenee f.Value,
 	cases ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(cases)),
-			Arity(1),
-			cases[0].Propertys,
-		),
-		CaseContinuation,
-		cases[0].Expr.(f.Callable),
-		cases,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(cases))
+	(*object).Info.Arity = Arity(1)
+	(*object).Info.Propertys = cases[0].Propertys
+	(*object).Otype = CaseContinuation
+	(*object).Expr = cases[0].Expr.(f.Callable)
+	(*object).Refs = cases
+	return object
 }
 
 // an object indirection with value pointing to referenced entry code & pointer
 // and copy of it's info table.  reference as single reference.
-func referTo(ref *Object) Object {
-	return Object{
-		newInfo(
-			ref.Length,
-			ref.Arity,
-			ref.Propertys,
-		),
-		Indirection,
-		ref.Expr.(f.Callable),
-		[]*Object{ref},
-	}
+func referTo(ref *Object) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = ref.Length
+	(*object).Info.Arity = ref.Arity
+	(*object).Info.Propertys = ref.Propertys
+	(*object).Otype = Indirection
+	(*object).Expr = ref.Expr.(f.Callable)
+	(*object).Refs = append(object.Refs, ref)
+	return object
 }
 
 // thunk is a, possibly composed, expression. a thunk may contain other thunks,
@@ -348,32 +331,28 @@ func thunk(
 	expr f.Callable,
 	props Propertys,
 	refs ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(refs)),
-			Arity(0),
-			props,
-		),
-		Thunk,
-		expr,
-		refs,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(refs))
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = props
+	(*object).Otype = Thunk
+	(*object).Expr = expr
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }
 
 // blackhole is an indirection that keeps a thunk from being evaluated, while
 // it's allready been evaluated. keeps evaluation of recursive thunks lazy.
-func blackHole(ref *Object) Object {
-	return Object{
-		newInfo(
-			Length(0),
-			Arity(0),
-			ref.Propertys,
-		),
-		BlackHole,
-		f.NewNone(),
-		[]*Object{ref},
-	}
+func blackHole(ref *Object) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(0)
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = ref.Propertys
+	(*object).Otype = BlackHole
+	(*object).Expr = f.NewNone()
+	(*object).Refs = append(object.Refs, ref)
+	return object
 }
 
 // byte code contains a piece of source code, the start position at which that
@@ -384,18 +363,16 @@ func byteCode(
 	pos int,
 	text string,
 	ref *Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(text)),
-			Arity(0),
-			Default,
-		),
-		ByteCode,
-		f.NewPair(f.NewPrimaryConstatnt(d.IntVal(pos)),
-			f.NewPrimaryConstatnt(d.StrVal(text))),
-		[]*Object{ref},
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(text))
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Default
+	(*object).Otype = ByteCode
+	(*object).Expr = f.NewPair(f.NewPrimaryConstatnt(d.IntVal(pos)),
+		f.NewPrimaryConstatnt(d.StrVal(text)))
+	(*object).Refs = append(object.Refs, ref)
+	return object
 }
 
 // sys call keeps references to all io & other sys call related objects, like
@@ -422,17 +399,15 @@ func byteCode(
 func system(
 	expr f.Callable,
 	refs ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(refs)),
-			Arity(0),
-			Eager|SideEffect|Mutable,
-		),
-		System,
-		expr,
-		refs,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(refs))
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Eager | SideEffect | Mutable
+	(*object).Otype = ByteCode
+	(*object).Expr = expr
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }
 
 // a thread object contains another state function enclosing a state struct
@@ -454,17 +429,15 @@ func system(
 func thread(
 	sf StateFnc,
 	refs ...*Object,
-) Object {
-	return Object{
-		newInfo(
-			Length(len(refs)),
-			Arity(0),
-			Eager|Mutable,
-		),
-		System,
-		sf,
-		refs,
-	}
+) *Object {
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(refs))
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Eager | Mutable
+	(*object).Otype = System
+	(*object).Expr = sf
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }
 
 // synchronous accessable io, other side effect, or shared data blocks call
@@ -476,13 +449,13 @@ func thread(
 // indicated with -1 for writable, 0 for readable and 1 if both is the case.
 // shareability (thread safety) and eagernes (eager/lazy) must be indicated by
 // setting the corresponding flags true.
-func sync(
+func synchronous(
 	rw f.Callable,
 	writeable int,
 	shared bool,
 	eager bool,
 	refs ...*Object,
-) Object {
+) *Object {
 	var otype = Sync
 	var props = SideEffect
 	switch {
@@ -496,16 +469,14 @@ func sync(
 	case writeable > 0:
 		props = props | Mutable | Data
 	}
-	return Object{
-		newInfo(
-			Length(len(refs)),
-			Arity(1),
-			props,
-		),
-		otype,
-		rw,
-		refs,
-	}
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(refs))
+	(*object).Info.Arity = Arity(1)
+	(*object).Info.Propertys = props
+	(*object).Otype = otype
+	(*object).Expr = rw
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }
 
 // asynchronous accessable io, other side effect, or shared data. behaves like
@@ -518,13 +489,13 @@ func sync(
 // plain, or variadic parameters and returns a value. the object can be thread
 // safe or not, all, of which must be indicated to the runtime by setting the
 // writeable, shared and eager agruments accordingly.
-func async(
+func asynchronous(
 	queue f.Callable,
 	writeable int,
 	shared bool,
 	eager bool,
 	refs ...*Object,
-) Object {
+) *Object {
 	var otype = Sync
 	var props = SideEffect
 	switch {
@@ -539,14 +510,12 @@ func async(
 	case writeable > 0:
 		props = props | Mutable | Data
 	}
-	return Object{
-		newInfo(
-			Length(len(refs)),
-			Arity(1),
-			props,
-		),
-		otype,
-		queue,
-		refs,
-	}
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(refs))
+	(*object).Info.Arity = Arity(1)
+	(*object).Info.Propertys = props
+	(*object).Otype = otype
+	(*object).Expr = queue
+	(*object).Refs = append(object.Refs, refs...)
+	return object
 }

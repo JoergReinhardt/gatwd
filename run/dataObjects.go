@@ -16,7 +16,7 @@ import (
 	f "github.com/JoergReinhardt/gatwd/functions"
 )
 
-func allocateAtomicConstant(prime d.Primary) Object {
+func allocateAtomicConstant(prime d.Primary) *Object {
 
 	var closure f.Value
 
@@ -94,20 +94,15 @@ func allocateAtomicConstant(prime d.Primary) Object {
 		var value = prime.(d.DuraVal)
 		closure = f.NewPrimaryConstatnt(value)
 	}
-
-	var refs []*Object
-	return Object{
-		newInfo(
-			Length(1),
-			Arity(0),
-			Propertys(Data|Atomic)),
-		DataConstructor,
-		closure,
-		refs,
-	}
-
+	var object = allocateObject()
+	(*object).Info.Length = Length(1)
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Propertys(Data | Atomic)
+	(*object).Otype = DataConstructor
+	(*object).Expr = closure
+	return object
 }
-func allocateVectorConstant(prime d.Primary) Object {
+func allocateVectorConstant(prime d.Primary) *Object {
 
 	var closure f.Value
 
@@ -185,20 +180,16 @@ func allocateVectorConstant(prime d.Primary) Object {
 		var value = prime.(d.DuraVec)
 		closure = f.NewPrimaryConstatnt(value)
 	}
-
-	var refs []*Object
-	return Object{
-		newInfo(
-			Length(closure.(d.Sliceable).Len()),
-			Arity(0),
-			Propertys(Data),
-		),
-		DataConstructor,
-		closure,
-		refs,
-	}
+	var object = allocateObject()
+	(*object).Info.Length = Length(closure.(d.Sliceable).Len())
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Propertys(Data)
+	(*object).Otype = DataConstructor
+	(*object).Expr = closure
+	return object
 }
-func allocatePrimarySet(pairs ...d.PairVal) Object {
+
+func allocatePrimarySet(pairs ...d.PairVal) *Object {
 	// allocate flag to safe and compare accessors types
 	var accflag d.BitFlag
 	var set d.Mapped
@@ -235,40 +226,32 @@ func allocatePrimarySet(pairs ...d.PairVal) Object {
 
 		}
 	}
-	var refs []*Object
-	return Object{
-		newInfo(
-			Length(len(set.(d.Mapped).Keys())),
-			Arity(0),
-			Propertys(Data),
-		),
-		DataConstructor,
-		f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(set)
-		}),
-		refs,
-	}
+	var object = allocateObject()
+	(*object).Info.Length = Length(len(set.(d.Mapped).Keys()))
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Propertys(Data)
+	(*object).Otype = DataConstructor
+	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+		return f.NewPrimaryConstatnt(set)
+	})
+	return object
 }
-func allocatePrimaryDataSlice(data ...d.Primary) Object {
+func allocatePrimaryDataSlice(data ...d.Primary) *Object {
 	// make it a data slice
 	var slice = d.NewSlice(data...)
 	// generate a constant closure enclosing slice
 	// allocate heap object
-	var refs []*Object
-	return Object{
-		newInfo(
-			Length(slice.Len()),
-			Arity(0),
-			Propertys(Data),
-		),
-		DataConstructor,
-		f.NewNaryFnc(func(...f.Value) f.Value {
-			return f.NewPrimaryConstatnt(slice)
-		}),
-		refs,
-	}
+	var object = allocateObject()
+	(*object).Info.Length = Length(slice.Len())
+	(*object).Info.Arity = Arity(0)
+	(*object).Info.Propertys = Propertys(Data)
+	(*object).Otype = DataConstructor
+	(*object).Expr = f.NewNaryFnc(func(...f.Value) f.Value {
+		return f.NewPrimaryConstatnt(slice)
+	})
+	return object
 }
-func allocatePrimaryData(data ...d.Primary) Object {
+func allocatePrimaryData(data ...d.Primary) *Object {
 	if len(data) == 1 {
 		// when dealing single instance of a primary, return atomic primary instance
 		return allocateAtomicConstant(data[0])

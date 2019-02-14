@@ -1,6 +1,8 @@
 package run
 
 import (
+	"sync"
+
 	d "github.com/JoergReinhardt/gatwd/data"
 	f "github.com/JoergReinhardt/gatwd/functions"
 )
@@ -103,6 +105,19 @@ type Object struct {
 
 }
 
+func newObject() *Object {
+	return &Object{
+		newInfo(Length(0), Arity(0), Propertys(0)),
+		Otype(0),
+		nil,
+		[]*Object{},
+	}
+}
+
+var objectPool = sync.Pool{New: func() interface{} { return newObject() }}
+
+func allocateObject() *Object { return objectPool.Get().(*Object) }
+
 func (o Otype) TypeObj() Otype                { return o }
 func (o Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
 func (o Otype) TypePrime() d.TyPrime          { return d.Flag }
@@ -152,14 +167,6 @@ type Frame struct {
 	Return int
 }
 
-func allocFrame(o *Object, ftype Ftype, ret int) Frame {
-	return Frame{
-		ftype,
-		o.Info,
-		o.Expr,
-		o, ret,
-	}
-}
 func (fra Frame) Eval(...d.Primary) d.Primary { return fra }
 func (fra Frame) Flag() d.BitFlag             { return fra.Otype.Flag() }
 func (fra Frame) TypeFnc() f.TyFnc            { return f.Type }
@@ -170,6 +177,11 @@ func (fra Frame) Segment(segment int) *Object {
 		return fra.Object.Refs[segment]
 	}
 	return nil
+}
+
+// ALLOCATION POOL
+func allocateFrame(o *Object, ftype Ftype, ret int) Frame {
+	return Frame{ftype, o.Info, o.Expr, o, ret}
 }
 
 type Ftype d.Uint8Val
@@ -309,6 +321,7 @@ func (s State) Put(o *Object) { s.Top = o }
 
 // FIND & REDUCE NEXT REDEX (APPLY REDUCTION RULES)
 func (s State) next() StateFnc {
+	// apply reduction rules
 	// after state has been mutated, rinse and repeat‥.
 	return func() StateFnc { return s.next() }
 }
@@ -335,7 +348,7 @@ func loadLinkedObjectCode(program ...*Object) StateFnc {
 	// initial object to start evaluation at.
 	var init = program[len(program)-1]
 	// push initial onbject on to stack
-	var stack = push(newStack(), allocFrame(init, Continuation, 0))
+	var stack = push(newStack(), allocateFrame(init, Continuation, 0))
 	// instanciate reference to state struct
 	var state = State{init, stack, symbols}
 	// wrap state reference in a stateFnc closure that calls states next
