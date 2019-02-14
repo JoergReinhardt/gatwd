@@ -28,6 +28,7 @@ func (a Arity) Eval(v ...d.Primary) d.Primary { return a }
 func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
 func (a Arity) TypePrime() d.TyPrime          { return d.Flag }
 func (a Arity) TypeHO() f.TyFnc               { return f.HigherOrder }
+func (a Arity) Match(arg Arity) bool          { return a == arg }
 
 // properys relevant for application
 type Propertys d.Uint8Val
@@ -56,8 +57,8 @@ func (p Propertys) TypePrime() d.TyPrime          { return d.Flag }
 func (p Propertys) TypeHO() f.TyFnc               { return f.HigherOrder }
 func (p Propertys) Flag() d.BitFlag               { return p.TypeHO().Flag() }
 func (p Propertys) Eval(a ...d.Primary) d.Primary { return p.Flag() }
-func (p Propertys) Match(a Propertys) bool {
-	if p&a != 0 {
+func (p Propertys) Match(arg Propertys) bool {
+	if p&arg != 0 {
 		return true
 	}
 	return false
@@ -102,13 +103,13 @@ type Object struct {
 
 }
 
-func (t Otype) TypeObj() Otype                { return t }
-func (t Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
-func (t Otype) TypePrime() d.TyPrime          { return d.Flag }
-func (t Otype) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t Otype) Eval(p ...d.Primary) d.Primary { return d.BitFlag(t) }
-func (t Otype) Match(o Otype) bool {
-	if t&o != 0 {
+func (o Otype) TypeObj() Otype                { return o }
+func (o Otype) TypeHO() f.TyFnc               { return f.HigherOrder }
+func (o Otype) TypePrime() d.TyPrime          { return d.Flag }
+func (o Otype) Flag() d.BitFlag               { return d.BitFlag(o) }
+func (o Otype) Eval(p ...d.Primary) d.Primary { return d.BitFlag(o) }
+func (o Otype) Match(arg Otype) bool {
+	if o&arg != 0 {
 		return true
 	}
 	return false
@@ -141,15 +142,6 @@ const (
 )
 
 // STACK
-// Frame info has a Frame type flag, info field containing the closure code to
-// run (we'll see, if the go compiler is able to inline the closure, or have it
-// as stack value, while keeping the Frame length fixed. the numArgs field
-// tells the runtime/compiler how many memcopyed, gob-encoded values associated
-// with this Frame lay on the argument stack. the argument stack is a byte
-// array of gob encoded values that all start with a length field. the runtime
-// provides transparent access to arguments and values to the closure it calls,
-// independent from beeing values or pointers. it also pushes & pop's the
-// argument stack, whenever neccessary.
 //
 // FRAME
 type Frame struct {
@@ -160,12 +152,24 @@ type Frame struct {
 	Return int
 }
 
-func (t Frame) Eval(...d.Primary) d.Primary { return t }
-func (t Frame) Flag() d.BitFlag             { return t.Otype.Flag() }
-func (t Frame) TypeFnc() f.TyFnc            { return f.Type }
-func (t Frame) TypePrime() d.TyPrime        { return d.Flag }
-func (t Frame) String() string {
-	return t.Ftype.String()
+func allocFrame(o *Object, ftype Ftype, ret int) Frame {
+	return Frame{
+		ftype,
+		o.Info,
+		o.Expr,
+		o, ret,
+	}
+}
+func (fra Frame) Eval(...d.Primary) d.Primary { return fra }
+func (fra Frame) Flag() d.BitFlag             { return fra.Otype.Flag() }
+func (fra Frame) TypeFnc() f.TyFnc            { return f.Type }
+func (fra Frame) TypePrime() d.TyPrime        { return d.Flag }
+func (fra Frame) String() string              { return fra.Ftype.String() }
+func (fra Frame) Segment(segment int) *Object {
+	if segment < len(fra.Object.Refs) {
+		return fra.Object.Refs[segment]
+	}
+	return nil
 }
 
 type Ftype d.Uint8Val
@@ -193,11 +197,11 @@ const (
 
 type Stack []Frame
 
-func (t Stack) Eval(...d.Primary) d.Primary { return t }
-func (t Stack) Flag() d.BitFlag             { return t.TypePrime().Flag() }
-func (t Stack) TypeFnc() f.TyFnc            { return f.HigherOrder }
-func (t Stack) TypePrime() d.TyPrime        { return d.HigherOrder }
-func (t Stack) String() string              { return "stack" }
+func (s Stack) Eval(...d.Primary) d.Primary { return s }
+func (s Stack) Flag() d.BitFlag             { return s.TypePrime().Flag() }
+func (s Stack) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (s Stack) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (s Stack) String() string              { return "stack" }
 
 func newStack() Stack { return []Frame{} }
 
@@ -215,10 +219,10 @@ func (s Stack) newFrame(
 	}
 }
 
-func stackPtr(s Stack, off int) *Frame {
+func stackPtr(s Stack, frame int) *Frame {
 	var l = len(s)
-	if off < l {
-		return &(s[len(s)-1-off])
+	if frame < l {
+		return &(s[l-1-frame])
 	}
 	return nil
 }
@@ -248,11 +252,11 @@ func push(s Stack, f Frame) Stack { s = append(s, f); return s }
 // SYMBOL TABLE
 type Symbols map[string]*Object
 
-func (t Symbols) Eval(...d.Primary) d.Primary { return t }
-func (t Symbols) Flag() d.BitFlag             { return t.TypePrime().Flag() }
-func (t Symbols) TypeFnc() f.TyFnc            { return f.HigherOrder }
-func (t Symbols) TypePrime() d.TyPrime        { return d.HigherOrder }
-func (t Symbols) String() string              { return "symbols" }
+func (s Symbols) Eval(...d.Primary) d.Primary { return s }
+func (s Symbols) Flag() d.BitFlag             { return s.TypePrime().Flag() }
+func (s Symbols) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (s Symbols) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (s Symbols) String() string              { return "symbols" }
 
 func newSymbols() Symbols { return make(map[string]*Object) }
 
@@ -263,52 +267,54 @@ func lookup(s Symbols, name string) *Object           { return s[name] }
 // STATE FUNCTION
 type StateFnc func() StateFnc
 
-func (t StateFnc) Eval(...d.Primary) d.Primary { return t }
-func (t StateFnc) Flag() d.BitFlag             { return t.TypePrime().Flag() }
-func (t StateFnc) TypeFnc() f.TyFnc            { return f.HigherOrder }
-func (t StateFnc) TypePrime() d.TyPrime        { return d.HigherOrder }
-func (t StateFnc) String() string              { return "state function" }
+func (s StateFnc) Eval(...d.Primary) d.Primary { return s }
+func (s StateFnc) Flag() d.BitFlag             { return s.TypePrime().Flag() }
+func (s StateFnc) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (s StateFnc) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (s StateFnc) String() string              { return "state function" }
 
-// STATE
+//// STATE
+///
+// state object composes reference to heap of linked objects, stack and a
+// symbol table, to hold all state information of the running process
 type State struct {
 	Top *Object
 	Stack
 	Symbols
 }
 
-func (t State) Eval(...d.Primary) d.Primary { return t }
-func (t State) Flag() d.BitFlag             { return t.TypePrime().Flag() }
-func (t State) TypeFnc() f.TyFnc            { return f.HigherOrder }
-func (t State) TypePrime() d.TyPrime        { return d.HigherOrder }
-func (t State) String() string              { return "state" }
+func (s State) Eval(...d.Primary) d.Primary { return s }
+func (s State) Flag() d.BitFlag             { return s.TypePrime().Flag() }
+func (s State) TypeFnc() f.TyFnc            { return f.HigherOrder }
+func (s State) TypePrime() d.TyPrime        { return d.HigherOrder }
+func (s State) String() string              { return "state" }
 
 // SYMBOLS
 func (s State) Lookup(name string) *Object { return lookup(s.Symbols, name) }
 func (s State) Let(name string, o *Object) { s.Symbols = let(s.Symbols, name, o) }
 
 // STACK
-func (s State) Push(f Frame)   { s.Stack = push(s.Stack, f) }
-func (s State) Pop() (f Frame) { f, s.Stack = pop(s.Stack); return f }
+//
+// the frame pointer returns a reference to another stack frame based on offset
+// and can be chaned with Frames 'Segment()' method, to directly reference the
+// list of objects referenced by the object the frame referes to. the object
+// itself can be accessed directly based on struct field name on
+func (s State) Frame(offset int) *Frame { return stackPtr(s.Stack, offset) }
+func (s State) Push(f Frame)            { s.Stack = push(s.Stack, f) }
+func (s State) Pop() (f Frame)          { f, s.Stack = pop(s.Stack); return f }
 
 // HEAP
 func (s State) Heap() *Object { return s.Top }
 func (s State) Put(o *Object) { s.Top = o }
 
-// LOAD & RUN PROGRAM OBJECT CODE
-func (s State) Run(program ...Object) {
-	var state = initState(program...)
-	for state != nil {
-		state = state()
-	}
-}
-
-// FIND & REDUCE NEXT REDEX
+// FIND & REDUCE NEXT REDEX (APPLY REDUCTION RULES)
 func (s State) next() StateFnc {
-	var nextState StateFnc
-	return nextState
+	// after state has been mutated, rinse and repeat‥.
+	return func() StateFnc { return s.next() }
 }
 
-// INITIALIZATION
+///////////////////////////////////////////////////////////////////////////////
+// LOAD PRE-LINKED OBJETS
 //
 // initialize state with a slice of bytecode objects. slice contains references
 // to preallocated heap objects of the declaration type. declaration objects
@@ -318,11 +324,31 @@ func (s State) next() StateFnc {
 // declared name is supposed to be pointing to. local declarations reference
 // the object that forms the top of the scope this variable is declared in and
 // a reference to the values object as second reference.
-func initState(program ...Object) StateFnc {
-	var tree = new(Object)
-	var stack = newStack()
+//
+// init state expects the slice of heap objects containing the program to run
+// to be organized in a way, that the last object is the one (either main
+// function, or system) supposed to start the execution with
+func loadLinkedObjectCode(program ...*Object) StateFnc {
+	// allocate symbol table
 	var symbols = newSymbols()
-	var state = &State{tree, stack, symbols}
+	// safe reference of last object passed. which is expected to be the
+	// initial object to start evaluation at.
+	var init = program[len(program)-1]
+	// push initial onbject on to stack
+	var stack = push(newStack(), allocFrame(init, Continuation, 0))
+	// instanciate reference to state struct
+	var state = State{init, stack, symbols}
+	// wrap state reference in a stateFnc closure that calls states next
+	// method to generate the next state function to be returned.
+	return StateFnc(func() StateFnc { return (&state).next() })
+}
 
-	return StateFnc(func() StateFnc { return state.next() })
+// LOAD & RUN PROGRAM OBJECT CODE
+// TODO: once lexer, parser, linker‥. are implemented, this should take a file
+// descriptor (program file, os/stdin to run in interpreter mode, websocket‥.).
+func Run(program ...*Object) {
+	var stateFnc = loadLinkedObjectCode(program...)
+	for stateFnc != nil {
+		stateFnc = stateFnc()
+	}
 }
