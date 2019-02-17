@@ -6,8 +6,8 @@ package data
 type Typed interface{ Flag() BitFlag }
 
 // the main interface, all types defined here need to comply to.
-type Primary interface {
-	TypePrime() TyPrime
+type Native interface {
+	TypeNat() TyNative
 	String() string
 	Evaluable
 }
@@ -16,63 +16,92 @@ type BinaryMarshaler interface {
 }
 
 // all data types are evaluable. evaluation yields a primary instance
-type Evaluable interface{ Eval(...Primary) Primary }
+type Evaluable interface{ Eval(...Native) Native }
 
 // the identity function returns the instance unchanged
-type Identity interface{ Ident() Primary }
+type Identity interface{ Ident() Native }
 
 // deep copy
-type Reproduceable interface{ Copy() Primary }
+type Reproduceable interface{ Copy() Native }
 
 // garbage collectability
 type Destructable interface{ Clear() }
 
 // implemented by types an empty instance is defined for
-type Nullable interface{ Null() Primary }
+type Nullable interface{ Null() Native }
 
 // unsignedVal and integerVal are a poor man's version of type classes and
 // allow to treat the different sizes of ints and floats alike
-type NaturalVal interface{ Uint() uint }
-type IntegerVal interface{ Int() int }
-type RealVal interface{ Float() float64 }
-type SymbolicVal interface{ String() string }
+type Binary interface{ Bits() BigIntVal }
+type Boolean interface{ Bool() bool }
+type Natural interface{ Uint() uint }
+type Integer interface{ Int() int }
+type Rational interface{ Rat() (denom, num BigIntVal) }
+type Real interface{ Float() float64 }
+type Imaginary interface{ Imag() (imag, real int64) }
+type Number interface {
+	Binary
+	Boolean
+	Natural
+	Integer
+	Rational
+	Real
+	Imaginary
+}
+type Letter interface {
+	Rune() rune
+	Byte() byte
+}
+type Text interface {
+	String() string
+	Runes() []rune
+	Bytes() []byte
+}
+type Serializeable interface {
+	MarshalBinary() ([]byte, error)
+}
+type Printable interface {
+	String() string
+	Bytes() []byte
+	Runes() []rune
+}
 
 // paired holds key-value pairs intendet as set accessors
 type Paired interface {
-	Primary
-	Left() Primary
-	Right() Primary
-	Both() (Primary, Primary)
+	Native
+	Left() Native
+	Right() Native
+	Both() (Native, Native)
 }
 
-// collections are expected to know, if they are empty
-type Collected interface {
-	Primary
+// collections are expected nothing more, but to know, if they are empty
+type Composed interface {
+	Native
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 
 // a slice know's it's length and can be represented in as indexable.
 type Sliceable interface {
-	Collected
+	Composed
 	Len() int
-	Slice() []Primary
+	Slice() []Native
 }
 
 // slices and set's convieniently 'mimic' the behaviour of linked list's common
 // in functional programming.
-type Consumeable interface {
-	Collected
-	Head() Primary
-	Tail() Consumeable
-	Shift() Consumeable
+type Sequential interface {
+	Composed
+	Head() Native
+	Tail() Sequential
+	Shift() Sequential
 }
 
 // mapped is the interface of all sets, that have accessors (index, or key)
 type Mapped interface {
-	Primary
-	Keys() []Primary
-	Data() []Primary
+	Native
+	Keys() []Native
+	Data() []Native
 	Fields() []Paired
-	Get(acc Primary) (Primary, bool)
-	Set(Primary, Primary) Mapped
+	Get(acc Native) (Native, bool)
+	Set(Native, Native) Mapped
 }

@@ -10,11 +10,11 @@ import (
 ///// SYNTAX DEFINITION /////
 type SyntaxItemFlag d.BitFlag
 
-func (t SyntaxItemFlag) Type() SyntaxItemFlag        { return t }
-func (t SyntaxItemFlag) Eval(...d.Primary) d.Primary { return t }
-func (t SyntaxItemFlag) TypePrime() d.TyPrime        { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string              { return syntax[t] }
-func (t SyntaxItemFlag) StringAlt() string           { return matchSyntax[syntax[SyntaxItemFlag(t.TypePrime())]] }
+func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
+func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
+func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }
+func (t SyntaxItemFlag) Syntax() string            { return syntax[t] }
+func (t SyntaxItemFlag) StringAlt() string         { return matchSyntax[syntax[SyntaxItemFlag(t.TypeNat())]] }
 
 // all syntax items represented as string
 func AllSyntax() string {
@@ -295,7 +295,7 @@ func Utf8ToASCII(tos ...string) string {
 
 // item is a bitflag of course
 type Item interface {
-	TypePrime() d.TyPrime
+	TypeNat() d.TyNative
 	Type() SyntaxItemFlag
 	String() string
 	Syntax() string
@@ -315,4 +315,4 @@ func (t TextItem) Syntax() string { return Text.Syntax() }
 // provides an alternative string representation that can be edited without
 // having to produce utf-8 digraphs
 func (t TextItem) StringAlt() string { return t.String() }
-func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypePrime().Flag() }
+func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypeNat().Flag() }

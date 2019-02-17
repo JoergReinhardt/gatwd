@@ -1,90 +1,49 @@
 package functions
 
 import (
-	"math/big"
-	"time"
-
 	d "github.com/JoergReinhardt/gatwd/data"
 )
 
-type Primary interface {
-	d.Primary
+// import native value interface from data package
+type Native interface {
+	d.Native
 }
+
+// values are at least a native value, accompanyed by a functional type, that
+// can be Evaluated to a native (constant wrapping an atomic native in the
+// simplest case)
 type Value interface {
-	Primary
+	Native
 	TypeFnc() TyFnc
+	Call(...Value) Value
 }
 type Callable interface {
 	Value
-	Call(...Value) Value
+}
+type TypeDef interface {
+	Value
+	Name() d.StrVal
+	Signature() d.StrVal
 }
 
 // nullable 'classes'
-//
-// functions package provides an interface for each group of datas types
-// grouped by common methods they provide. the groups are defined as bitwise
-// concatenations of flags of all the types providing the common method. this
-// builds the base for implementing higher order type classes.
-type HigherOrderType interface {
-	Value
-	Id() d.IntVal
-	Name() d.StrVal
-	Sig() d.StrVal
-	Cons() []HigherOrderType
-}
-type Optional interface {
-	Value
-	Maybe() bool
-}
-type Enumerable interface {
-	Value
-	Enum() SumTypeFnc
-}
-type Nullable interface {
-	Null() Value
-}
-type Bitwise interface {
-	Uint() uint
-}
-type Boolean interface {
-	Bool() bool
-}
-type Unsigned interface {
-	Uint() uint
-}
-type Signed interface {
-	Int() int
-}
-type Integer interface {
-	Int() int
-}
-type Rational interface {
-	Rat() *big.Rat
-}
-type Irrational interface {
-	Float() float64
-}
-type Imaginary interface {
-	Imag() complex128
-}
-type Timed interface {
-	Time() time.Time
-}
-type Temporal interface {
-	Dura() time.Duration
-}
-type Collection interface {
-	Len() int
-}
-type Numeric interface {
-	Value
-	Uint() uint
-	Int() int
-	Flt() float64
-}
-type Symbolic interface {
-	Value
-}
+type Nullable interface{ d.Nullable }
+type Bitwise interface{ d.Binary }
+type Boolean interface{ d.Boolean }
+type Natural interface{ d.Natural }
+type Integer interface{ d.Integer }
+type Rational interface{ d.Rational }
+type Real interface{ d.Real }
+type Imaginary interface{ d.Imaginary }
+type Number interface{ d.Number }
+type Letter interface{ d.Letter }
+type Text interface{ d.Text }
+type Printable interface{ d.Printable }
+type PairedNative interface{ d.Paired }
+type ComposedNative interface{ d.Composed }
+type SliceNative interface{ d.Sliceable }
+type SequentialNative interface{ d.Sequential }
+type MappedNatives interface{ d.Sequential }
 
 // FUNCTIONAL KIND INTERFACES
 //
@@ -103,6 +62,47 @@ type Paired interface {
 	Left() Value
 	Right() Value
 	Both() (Value, Value)
+}
+type ByteCode interface {
+	Value
+	Bytes() []byte
+}
+
+/////////////////////////////////
+/// closure over fnc that may, or may not return a result.
+// returned value contains either value, or none Val
+type Optional interface {
+	Maybe(Value) bool
+	Value(Value) Value
+}
+type Conditional interface {
+	Left() Optional
+	Right() Optional
+}
+type IfCondition interface {
+	If(Value) Conditional // encloses predicate to test, takes scrutinee
+}
+type ElseCondition interface {
+	IfCondition
+	Else() Optional
+}
+type CaseCondition interface {
+	Optional
+	Case(Value) CaseCondition
+}
+
+// applys predicatte and scrutinee and returns boolen
+type Truthfull interface {
+	Truth() Boolean // praedicate & value
+}
+
+// compares two values and returnes negative int when left value is smaller,
+// zero on equal and positive value, when right side is greater.
+type Equality interface {
+	GreLesEqu(a, b Value) int
+	Greater() Optional
+	Lesser() Optional
+	Equal() Optional
 }
 
 // 'APPLYABLE' DATA
@@ -131,7 +131,7 @@ type Paired interface {
 // 'Apply(...Data) (d.Data, Argumented)' method.
 type Argumented interface {
 	Value
-	ArgType() d.TyPrime
+	ArgType() d.TyNative
 	Arg() Value
 	Apply(...Value) (Value, Argumented)
 }
@@ -183,33 +183,33 @@ type Parameters interface {
 	AppendKeyValue(k, v Value) Parameters
 }
 
-// Countable interface{}
+// Composed interface{}
 //
 // everything that has a length is countable. that's usually a collection but
 // not neccessariely. A notable example of an excemption is the BitFlag, which
 // can be concatenated from multiple flags by bitwise OR concatenation and
 // provides a 'Len() int' method to check for, and a 'Deompose() []BitFlag'
 // method to yield the components.
-type Countable interface {
-	Len() int // <- performs mutch better on slices
+type Composed interface {
+	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
 
-// Collected interface{}
+// Sliceable interface{}
 //
 // the collected interface is implemented by all collection types. they need to
 // be countable and also provide a method to check if they're empty or not.
 // that's neccessary, since the way to implement a performant empty check
 // highly depends on the type (recursive vs. flat)
-type Collected interface {
-	Countable
-	Empty() bool //<-- no more nil pointers & 'out of index'!
+type Sliceable interface {
+	Composed
+	Slice() []Value //<-- no more nil pointers & 'out of index'!
 }
 
 // Quantified interface{}
 // is a collection type that can provide a flat slice representation of it's
 // data
 type Quantified interface {
-	Slice() []Value //<-- no more nil pointers & 'out of index'!
+	Len() int // <- performs mutch better on slices
 }
 
 // Vectorized interface{}
@@ -225,16 +225,19 @@ type Quantified interface {
 // general interface type like 'functional', 'Countable', 'Collected'‥.
 // whenever neccessary instances can be discriminating and treated as either
 // 'Vectorized', or 'Recursive'.
-type Vectorized interface {
-	Collected
-	Quantified
-	Callable
-	// !!! not to be mixe with recursive !!!
+type Sequential interface {
 	Head() Value
 	Tail() []Value
 	DeCap() (Value, []Value)
+}
+type Vectorized interface {
+	Value
+	Sliceable
+	Quantified
+	// !!! not to be mixe with recursive !!!
+	Sequential
 	Search(Value) int
-	Sort(d.TyPrime)
+	Sort(d.TyNative)
 	Get(int) Value
 	Set(int, Value) Vectorized
 }
@@ -244,11 +247,11 @@ type Vectorized interface {
 // recursive functional pendant to an array.
 type Recursive interface {
 	Value
-	Collected
+	Quantified
 	// !!! recursive data structures can't provide slices !!!
 	Head() Value
-	Tail() Recursive
-	DeCap() (Value, Recursive)
+	Tail() ListFnc
+	DeCap() (Value, ListFnc)
 }
 
 //// TUPLES /////
@@ -295,7 +298,7 @@ type Accessable interface {
 // makes that explicit, provides a more convienient way to deal with it and/or
 // allows slice based collections to be used in protty much the same way.
 type Ordered interface {
-	Collected
+	Sliceable
 	Next() (Value, Ordered)
 }
 
@@ -326,7 +329,7 @@ type Reverseable interface {
 // including an edge implementation, optionally implemented by a set of
 // different edge types (or colours).
 type Nodular interface {
-	Collected
+	Sliceable
 	Root() Nodular
 }
 type Nested interface {

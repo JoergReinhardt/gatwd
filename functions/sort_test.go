@@ -78,7 +78,7 @@ func TestDataSorterFlags(t *testing.T) {
 	}
 
 	is := dataSorter(ints)
-	is.Sort(d.Integer)
+	is.Sort(d.Integers)
 	fmt.Printf("sorted ints: %s\n", is)
 }
 func TestDataSorterMixedType(t *testing.T) {
@@ -132,7 +132,7 @@ func TestPairSorterStrStr(t *testing.T) {
 
 	ps := newPairSorter(strPairs...)
 	fmt.Printf("unsorted string|string slice:\n %s\n\n", ps)
-	ps.Sort(d.Symbolic)
+	ps.Sort(d.Letters)
 	fmt.Printf("sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
 }
 func TestPairSorterIntStr(t *testing.T) {
@@ -150,7 +150,7 @@ func TestPairSorterIntStr(t *testing.T) {
 	}
 
 	ps := newPairSorter(pairs...)
-	ps.Sort(d.Integer)
+	ps.Sort(d.Integers)
 	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
 }
 func TestPairSorterUintStr(t *testing.T) {
@@ -168,7 +168,7 @@ func TestPairSorterUintStr(t *testing.T) {
 	}
 
 	ps := newPairSorter(pairs...)
-	ps.Sort(d.Natural)
+	ps.Sort(d.Naturals)
 	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
 }
 func TestPairSorterIrrationalStr(t *testing.T) {
@@ -186,6 +186,6 @@ func TestPairSorterIrrationalStr(t *testing.T) {
 	}
 
 	ps := newPairSorter(pairs...)
-	ps.Sort(d.Real)
+	ps.Sort(d.Reals)
 	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
 }

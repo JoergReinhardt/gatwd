@@ -19,18 +19,18 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestFlag(t *testing.T) {
-	flag := Flag.TypePrime()
-	ok := FlagMatch(flag, Flag.TypePrime())
+	flag := Flag.TypeNat()
+	ok := FlagMatch(flag, Flag.TypeNat())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Flag.TypePrime()|Int.TypePrime())
+	ok = FlagMatch(flag, Flag.TypeNat()|Int.TypeNat())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Int.TypePrime())
+	ok = FlagMatch(flag, Int.TypeNat())
 	fmt.Println(ok)
 	if ok {
 		t.Fail()
@@ -41,16 +41,16 @@ func TestFlag(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Int.TypePrime() | Float.TypePrime()).Decompose())
+	fmt.Println(BitFlag(Int.TypeNat() | Float.TypeNat()).Decompose())
 	fmt.Println(BitFlag(Int | Float).String())
 
-	fmt.Println(BitFlag(Symbolic))
+	fmt.Println(BitFlag(Letters))
 
-	if fmt.Sprint(BitFlag(Symbolic)) != "Bool∙Uint8∙Uint16∙Uint32∙Uint∙Time∙Duration∙Byte∙Rune∙Bytes∙String∙Error∙Flag" {
+	if fmt.Sprint(BitFlag(Letters)) != "Rune∙Bytes∙String" {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Symbolic))
+	fmt.Println(BitFlag(Letters))
 }
 
 var s0 = NewSlice(
@@ -98,12 +98,12 @@ func TestTypeAllocation(t *testing.T) {
 	fmt.Printf("contained types s1: %s\n", s1.ContainedTypes())
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
-	fmt.Printf("List-1 type: %s\t\n", s1.TypePrime().String())
+	fmt.Printf("List-1 type: %s\t\n", s1.TypeNat().String())
 }
 
 func TestLiFo(t *testing.T) {
 	//var sr = Chain{}
-	var d Primary
+	var d Native
 	var s = NewSlice()
 	var sr = NewSlice()
 	for i := 0; i < 10; i++ {
@@ -128,7 +128,7 @@ func TestLiFo(t *testing.T) {
 }
 func TestFiFo(t *testing.T) {
 	//var sr = Chain{}
-	var d Primary
+	var d Native
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
@@ -152,7 +152,7 @@ func TestFiFo(t *testing.T) {
 }
 func TestConDecap(t *testing.T) {
 	//var sr = Chain{}
-	var d Primary
+	var d Native
 	var s = DataSlice{}
 	var sr = DataSlice{}
 	for i := 0; i < 10; i++ {
@@ -234,7 +234,7 @@ func TestNativeSlice(t *testing.T) {
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Type Enum Pair Tuple Record Vector List Set Function Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Nat Fnc Sum Prod Pair Tuple Record Vector List Set Function Flag]" {
 		t.Fail()
 	}
 }
@@ -246,7 +246,7 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 	dat := sl.Search(New(2))
 	fmt.Println(dat)
-	if dat.(IntegerVal).Int() != 2 {
+	if dat.(Integer).Int() != 2 {
 		t.Fail()
 	}
 	fmt.Println(sl)

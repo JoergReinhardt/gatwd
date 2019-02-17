@@ -10,7 +10,7 @@ import (
 func TestDataEnclosures(t *testing.T) {
 	data := New("this is the testfunction speaking from within enclosure")
 	fmt.Println(data)
-	fmt.Println(data.TypePrime())
+	fmt.Println(data.TypeNat())
 }
 func TestPairEnclosures(t *testing.T) {
 	pair := NewPair(New("test key:"), New("test data in a pair"))
@@ -31,7 +31,7 @@ func TestStringVectorEnclosures(t *testing.T) {
 		New("nineth data entry in slice"),
 		New("tenth data entry in slice"),
 	)
-	fmt.Println(vec.TypePrime())
+	fmt.Println(vec.TypeNat().String())
 	fmt.Println(vec.Slice())
 	fmt.Println(vec.String())
 }
@@ -42,7 +42,7 @@ func TestMixedVectorEnclosures(t *testing.T) {
 		New("mixed type"),
 		New(5, 7, 234, 4, 546, 324, 4),
 	)
-	fmt.Println(vec.TypePrime())
+	fmt.Println(vec.TypeNat())
 	fmt.Println(vec.Len())
 	fmt.Println(vec.Empty())
 }
@@ -52,7 +52,7 @@ func TestIntegerVectorEnclosures(t *testing.T) {
 		2452, 34, 45, 3535,
 		24, 4, 24, 2245,
 		24, 42, 4, 24)
-	fmt.Println(vec.TypePrime())
+	fmt.Println(vec.TypeNat())
 	fmt.Println(vec.String())
 }
 func TestParameterEnclosure(t *testing.T) {
@@ -69,13 +69,13 @@ func TestParameterEnclosure(t *testing.T) {
 	fmt.Println(parm.Arg())
 	_, parm = parm.Apply(New("yup, works just fine ;)"))
 	fmt.Println(parm.Arg())
-	fmt.Println(dat.TypePrime())
+	fmt.Println(dat.TypeNat())
 }
 func TestAccParamEnclosure(t *testing.T) {
 	acc := NewKeyValueParm(New("test-key"), New("test value"))
 	fmt.Println(acc)
 	_, acc = acc.Apply(NewKeyValueParm(New(12), New("one million dollar")))
-	fmt.Printf("Accessor Type: %s\n", acc.Acc().TypePrime())
+	fmt.Printf("Accessor Type: %s\n", acc.Acc().TypeNat())
 	fmt.Printf("Accessor: %s\n", acc.Acc())
 	fmt.Printf("Argument: %s\n", acc.Arg())
 	if acc.Arg().Eval() != New("one million dollar").Eval() {
@@ -91,7 +91,7 @@ func TestApplyArgs(t *testing.T) {
 	args := NewwArguments(New(0), New(1), New(2), New(3), New(4), New(5))
 
 	fmt.Println(args)
-	var dat []d.Primary
+	var dat []d.Native
 	_, args = args.Apply(args.Data()...)
 
 	fmt.Println(args)
@@ -159,7 +159,7 @@ func TestAccAttrs(t *testing.T) {
 }
 func TestSearchAccAttrs(t *testing.T) {
 	praed := New("fourth key")
-	fmt.Printf("why nil: %s\n", praed.TypePrime())
+	fmt.Printf("why nil: %s\n", praed.TypeNat())
 	var cha = newPairSorter(acc.Pairs()...)
 	cha.Sort(d.String)
 	fmt.Println(cha)
@@ -203,31 +203,31 @@ func TestMixedTypeAccessor(t *testing.T) {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Int.TypePrime()))
+		idx = macc.Search(New(d.Int.TypeNat()))
 		foundi := macc[idx]
 		fmt.Printf("%d\n", foundi.Right())
 		if foundi.Right().(Integer).Int() != 12 {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Uint.TypePrime()))
+		idx = macc.Search(New(d.Uint.TypeNat()))
 		foundu := macc[idx]
 		fmt.Printf("%d\n", foundu.Right())
-		if foundu.Right().(Unsigned).Uint() != 10 {
+		if foundu.Right().(Natural).Uint() != 10 {
 			t.Fail()
 		}
 
-		idx = macc.Search(New(d.Float.TypePrime()))
+		idx = macc.Search(New(d.Float.TypeNat()))
 		foundf := macc[idx]
 		fmt.Printf("%f\n", foundf.Right())
-		if foundf.Right().(Irrational).Float() != 4.2 {
+		if foundf.Right().(Real).Float() != 4.2 {
 			t.Fail()
 		}
 	}
 }
 func TestFlag(t *testing.T) {
 	data := New("test string")
-	fmt.Printf("test strings flag: %s\n", data.TypePrime())
+	fmt.Printf("test strings flag: %s\n", data.TypeNat())
 }
 func TestApplyAccessAttrs(t *testing.T) {
 	acc3 := ApplyParams(acc, acc2.Pairs()...)
@@ -340,9 +340,8 @@ func TestRecursive(t *testing.T) {
 		New("test"),
 		New("List"),
 	)
-	var h d.Primary
+	var h d.Native
 	fmt.Println(l.Len())
-	fmt.Println(l.Empty())
 	for l != nil {
 		h, l = l.DeCap()
 		fmt.Println(h)
@@ -477,47 +476,36 @@ var vec = NewVector(
 	New("test 50"),
 )
 
-func BenchmarkRecursiveList(b *testing.B) {
-	for i := 0; i < 10; i++ {
-		vec = NewVector(append(vec.Slice(), vec.Slice()...)...)
-	}
-	for i := 0; i < b.N; i++ {
-		tail := NewRecursiveList(vec.Slice()...)
-		for tail != nil {
-			_, tail = tail.DeCap()
-		}
-	}
-}
-
 func fill(tail ListFnc) ListFnc {
-	for i := 0; i < 20; i++ {
+	for i := 0; i < vec.Len(); i++ {
 		tail = tail.Con(vec.Get(i))
 	}
 	return tail
 }
 func empty(tail ListFnc) ListFnc {
-	for i := 0; i < 20; i++ {
+	for i := 0; i > vec.Len(); i++ {
 		_, rec := tail()
-		tail = rec.(ListFnc)
+		tail = rec
 	}
 	return tail
 }
-func refiller() {
-	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+func refiller(tail ListFnc) ListFnc {
 	for i := 0; i < vec.Len(); i++ {
 		tail = fill(tail)
 		tail = empty(tail)
 	}
+	return tail
 }
 func BenchmarkConList(b *testing.B) {
-	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+	var count = 0
+	var tail = NewRecursiveList(vec.Get(0))
 	for i := 0; i < b.N; i++ {
-		refiller()
+		tail = refiller(tail)
 	}
-	fmt.Println(tail)
+	fmt.Println("endcount: ", count)
 }
 func TestConList(t *testing.T) {
-	var tail = NewRecursiveList(vec.Get(0)).(ListFnc)
+	var tail = NewRecursiveList(vec.Get(0))
 	for i := 0; i < vec.Len(); i++ {
 		tail = fill(tail)
 		tail = empty(tail)
@@ -525,29 +513,4 @@ func TestConList(t *testing.T) {
 	if tail.Head().String() == "test 1" {
 		t.Fail()
 	}
-}
-func TestTuple(t *testing.T) {
-	tup := NewTuple(
-		New("this"),
-		New("is"),
-		New("a"),
-		New("test"),
-		New("Tuple"),
-		New(19),
-		New(23.42),
-	)
-	fmt.Println(tup)
-}
-func TestRecord(t *testing.T) {
-	rec := NewRecord(
-		NewPair(New("key-0"), New("this")),
-		NewPair(New("key-1"), New("is")),
-		NewPair(New("key-2"), New("a")),
-		NewPair(New("key-3"), New("test")),
-		NewPair(New("key-4"), New("Tuple")),
-		NewPair(New("key-5"), New(19)),
-		NewPair(New("key-6"), New(23.42)),
-	)
-	fmt.Println(rec)
-	fmt.Println(rec.ArgSig())
 }

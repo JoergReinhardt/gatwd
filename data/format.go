@@ -84,24 +84,24 @@ func StringBitFlag(v BitFlag) string {
 	var str string
 	if bits.OnesCount(v.Uint()) > 1 {
 		for i, f := range FlagDecompose(v) {
-			str = str + TyPrime(f).String()
+			str = str + TyNative(f).String()
 			if i < len(FlagDecompose(v))-1 {
 				str = str + "∙"
 			}
 		}
 	} else {
-		str = TyPrime(v).String()
+		str = TyNative(v).String()
 	}
 	return str
 }
 func (v ErrorVec) String() string { return StringSlice("\n", "", "", v) }
 
 // stringer for ordered chains, without any further specification.
-func StringSlice(sep, ldelim, rdelim string, s ...Primary) string {
+func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.TypePrime().Flag(), Vector.TypePrime().Flag()) {
+		if FlagMatch(d.TypeNat().Flag(), Vector.TypeNat().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()
@@ -114,7 +114,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Primary) string {
 	return str
 }
 
-func StringChainTable(v ...[]Primary) string {
+func StringChainTable(v ...[]Native) string {
 	var str = &strings.Builder{}
 	var tab = tablewriter.NewWriter(str)
 	tab.SetBorder(false)
@@ -131,7 +131,7 @@ func StringChainTable(v ...[]Primary) string {
 	return str.String()
 }
 
-func stringChainTable(v ...Primary) string {
+func stringChainTable(v ...Native) string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
 	for i, d := range v {

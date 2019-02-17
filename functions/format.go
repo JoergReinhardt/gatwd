@@ -8,28 +8,6 @@ import (
 )
 
 /// VALUE
-func (dat FncVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.Lambda.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(l.RightArrow.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.TypePrime().String())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.Eval().String())
-	return buf.String()
-}
-func (dat PrimeVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.Lambda.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(l.RightArrow.Syntax())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.TypePrime().String())
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(dat.Eval().String())
-	return buf.String()
-}
 
 func (p PairVal) String() string {
 	var buf = bytes.NewBuffer([]byte{})
@@ -46,7 +24,7 @@ func (n NaryFnc) String() string   { return "[т...] → ϝ → т" }
 
 /// VECTOR
 func (v VecFnc) String() string {
-	var slice []d.Primary
+	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)
 	}
@@ -55,7 +33,7 @@ func (v VecFnc) String() string {
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
 func (v AssocVecFnc) String() string {
-	var slice []d.Primary
+	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)
 	}
@@ -71,29 +49,7 @@ func (l ListFnc) String() string {
 	return h.String()
 }
 
-/// TUPLE
-func (t TupleFnc) String() string {
-	var slice []d.Primary
-	var v, _ = t()
-	for _, dat := range v.(VecFnc)() {
-		slice = append(slice, dat)
-	}
-	return d.StringSlice(", ", "(", ")", slice...)
-}
-
 /// RECORD
-func (r RecordFnc) String() string {
-	var str = "{"
-	var l = r.Len()
-	for i, pair := range r.Slice() {
-		str = str + pair.(Paired).Left().String() + "::" +
-			pair.(Paired).Right().String()
-		if i < l-1 {
-			str = str + ", "
-		}
-	}
-	return str + "}"
-}
 
 /// ARGUMENT
 func (p ArgVal) String() string { return p.Arg().String() }

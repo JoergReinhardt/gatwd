@@ -25,11 +25,11 @@ func (t TokVal) String() string {
 	var str string
 	switch t.TypeTok() {
 	case TypeHO_Token:
-		str = t.Primary.(f.TyFnc).String() + "\n"
+		str = t.Native.(f.TyFnc).String() + "\n"
 	case Syntax_Token:
-		str = t.Primary.(l.SyntaxItemFlag).Syntax() + "\n"
+		str = t.Native.(l.SyntaxItemFlag).Syntax() + "\n"
 	case TypePrim_Token:
-		str = t.Primary.(d.TyPrime).String() + "\n"
+		str = t.Native.(d.TyNative).String() + "\n"
 	default:
 		str = "Don't know how to print this token"
 	}
@@ -39,15 +39,15 @@ func (t dataTok) String() string {
 	var str string
 	switch t.TypeTok() {
 	case Data_Value_Token:
-		str = t.Primary.String()
+		str = t.Native.String()
 	case Argument_Token:
-		str = t.Primary.String()
+		str = t.Native.String()
 	case Parameter_Token:
-		str = t.Primary.String()
+		str = t.Native.String()
 	case Pair_Value_Token:
-		str = t.Primary.String()
+		str = t.Native.String()
 	case Token_Collection:
-		str = t.Primary.String()
+		str = t.Native.String()
 	}
 	return str
 }

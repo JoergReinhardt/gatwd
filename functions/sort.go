@@ -18,13 +18,13 @@ import (
 )
 
 // type class based comparison functions
-func compareSymbolic(a, b Symbolic) int {
+func CompareText(a, b Text) int {
 	return strings.Compare(a.String(), b.String())
 }
-func compareRational(a, b d.RatioVal) int {
+func CompareRational(a, b d.RatioVal) int {
 	return ((*big.Rat)(&a)).Cmp((*big.Rat)(&b))
 }
-func compareUnsigned(a, b Unsigned) int {
+func CompareNatural(a, b Natural) int {
 	if a.Uint() < b.Uint() {
 		return -1
 	}
@@ -33,7 +33,7 @@ func compareUnsigned(a, b Unsigned) int {
 	}
 	return 0
 }
-func compareInteger(a, b Integer) int {
+func CompareInteger(a, b Integer) int {
 	if a.Int() < b.Int() {
 		return -1
 	}
@@ -42,7 +42,7 @@ func compareInteger(a, b Integer) int {
 	}
 	return 0
 }
-func compareIrrational(a, b Irrational) int {
+func CopareReal(a, b Real) int {
 	if a.Float() < b.Float() {
 		return -1
 	}
@@ -51,11 +51,11 @@ func compareIrrational(a, b Irrational) int {
 	}
 	return 0
 }
-func compareFlag(a, b d.BitFlag) int {
-	if a.TypePrime() < b.TypePrime() {
+func CompareFlag(a, b d.BitFlag) int {
+	if a.TypeNat() < b.TypeNat() {
 		return -1
 	}
-	if a.TypePrime() > b.TypePrime() {
+	if a.TypeNat() > b.TypeNat() {
 		return 1
 	}
 	return 0
@@ -80,7 +80,7 @@ func (d dataSorter) Empty() bool {
 func newDataSorter(dat ...Value) dataSorter { return dataSorter(dat) }
 func (d dataSorter) Len() int               { return len(d) }
 func (d dataSorter) Swap(i, j int)          { d[i], d[j] = d[j], d[i] }
-func (ds dataSorter) Sort(argType d.TyPrime) {
+func (ds dataSorter) Sort(argType d.TyNative) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
 func (ds dataSorter) Search(praed Value) int {
@@ -93,59 +93,59 @@ func (ds dataSorter) Search(praed Value) int {
 	return -1
 }
 
-func newDataLess(argType d.TyPrime, ds dataSorter) func(i, j int) bool {
-	var f = argType.TypePrime().Flag()
+func newDataLess(argType d.TyNative, ds dataSorter) func(i, j int) bool {
+	var f = argType.TypeNat().Flag()
 	switch {
-	case f.Match(d.Symbolic.TypePrime()):
+	case f.Match(d.Letters.TypeNat()):
 		return func(i, j int) bool {
-			if strings.Compare(ds[j].(Symbolic).String(), ds[i].(Symbolic).String()) >= 0 {
+			if strings.Compare(ds[j].String(), ds[i].String()) >= 0 {
 				return true
 			}
 			return false
 		}
-	case f.Match(d.Flag.TypePrime()):
+	case f.Match(d.Flag.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().TypePrime() >= ds[i].Eval().TypePrime()
+			return ds[j].Eval().TypeNat() >= ds[i].Eval().TypeNat()
 		}
-	case f.Match(d.Natural.TypePrime()):
+	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Unsigned).Uint() >= ds[i].Eval().(Unsigned).Uint()
+			return ds[j].Eval().(Natural).Uint() >= ds[i].Eval().(Natural).Uint()
 		}
-	case f.Match(d.Integer.TypePrime()):
+	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
 			return ds[j].Eval().(Integer).Int() >= ds[i].Eval().(Integer).Int()
 		}
-	case f.Match(d.Real.TypePrime()):
+	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Irrational).Float() >= ds[i].Eval().(Irrational).Float()
+			return ds[j].Eval().(Real).Float() >= ds[i].Eval().(Real).Float()
 		}
 	}
 	return nil
 }
 func newDataFind(ds dataSorter, praed Value) func(int) bool {
-	var f = praed.Eval().TypePrime().Flag()
+	var f = praed.Eval().TypeNat().Flag()
 	var fn func(int) bool
 	switch {
-	case f.Match(d.Symbolic.TypePrime()):
+	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
 			fmt.Printf("%s %s", ds[i], praed.String())
-			return strings.Compare(ds[i].(d.Primary).String(), praed.(d.Primary).String()) >= 0
+			return strings.Compare(ds[i].(d.Native).String(), praed.(d.Native).String()) >= 0
 		}
-	case f.Match(d.Flag.TypePrime()):
+	case f.Match(d.Flag.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(d.Primary).TypePrime() >= praed.(d.Primary).TypePrime()
+			return ds[i].(d.Native).TypeNat() >= praed.(d.Native).TypeNat()
 		}
-	case f.Match(d.Natural.TypePrime()):
+	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Unsigned).Uint() >= praed.(Unsigned).Uint()
+			return ds[i].(Natural).Uint() >= praed.(Natural).Uint()
 		}
-	case f.Match(d.Integer.TypePrime()):
+	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
 			return ds[i].(Integer).Int() >= praed.(Integer).Int()
 		}
-	case f.Match(d.Real.TypePrime()):
+	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Irrational).Float() >= praed.(Irrational).Float()
+			return ds[i].(Real).Float() >= praed.(Real).Float()
 		}
 	}
 	return fn
@@ -170,7 +170,7 @@ func (a pairSorter) Empty() bool {
 }
 func (p pairSorter) Len() int      { return len(p) }
 func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
-func (p pairSorter) Sort(f d.TyPrime) {
+func (p pairSorter) Sort(f d.TyNative) {
 	less := newPraedLess(p, f)
 	sort.Slice(p, less)
 }
@@ -178,8 +178,8 @@ func (p pairSorter) Search(praed Value) int {
 	var idx = sort.Search(len(p), newPraedFind(p, praed))
 	// when praedicate is a precedence type encoding bit-flag
 	if idx != -1 {
-		if praed.TypePrime().Flag().Match(d.Flag.TypePrime()) {
-			if p[idx].Left().TypePrime() == praed.TypePrime() {
+		if praed.TypeNat().Flag().Match(d.Flag.TypeNat()) {
+			if p[idx].Left().TypeNat() == praed.TypeNat() {
 				return idx
 			}
 		}
@@ -210,10 +210,10 @@ func (p pairSorter) Range(praed Value) []Paired {
 	return ran
 }
 
-func newPraedLess(accs pairSorter, t d.TyPrime) func(i, j int) bool {
-	f := t.TypePrime().Flag()
+func newPraedLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
+	f := t.TypeNat().Flag()
 	switch {
-	case f.Match(d.Symbolic.TypePrime()):
+	case f.Match(d.Letters.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
 			if strings.Compare(
@@ -224,25 +224,25 @@ func newPraedLess(accs pairSorter, t d.TyPrime) func(i, j int) bool {
 			}
 			return false
 		}
-	case f.Match(d.Flag.TypePrime()):
+	case f.Match(d.Flag.TypeNat()):
 		return func(i, j int) bool { // sort by value-, NOT accessor type
 			chain := accs
-			if chain[i].(Paired).Right().Eval().TypePrime() <=
-				chain[j].(Paired).Right().Eval().TypePrime() {
+			if chain[i].(Paired).Right().Eval().TypeNat() <=
+				chain[j].(Paired).Right().Eval().TypeNat() {
 				return true
 			}
 			return false
 		}
-	case f.Match(d.Natural.TypePrime()):
+	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].(Paired).Left().Eval().(Unsigned).Uint() <=
-				chain[j].(Paired).Left().Eval().(Unsigned).Uint() {
+			if chain[i].(Paired).Left().Eval().(Natural).Uint() <=
+				chain[j].(Paired).Left().Eval().(Natural).Uint() {
 				return true
 			}
 			return false
 		}
-	case f.Match(d.Integer.TypePrime()):
+	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
 			if chain[i].(Paired).Left().Eval().(Integer).Int() <=
@@ -251,11 +251,11 @@ func newPraedLess(accs pairSorter, t d.TyPrime) func(i, j int) bool {
 			}
 			return false
 		}
-	case f.Match(d.Real.TypePrime()):
+	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].(Paired).Left().Eval().(Irrational).Float() <=
-				chain[j].(Paired).Left().Eval().(Irrational).Float() {
+			if chain[i].(Paired).Left().Eval().(Real).Float() <=
+				chain[j].(Paired).Left().Eval().(Real).Float() {
 				return true
 			}
 			return false
@@ -264,31 +264,31 @@ func newPraedLess(accs pairSorter, t d.TyPrime) func(i, j int) bool {
 	return nil
 }
 func newPraedFind(accs pairSorter, praed Value) func(i int) bool {
-	var f = praed.Eval().TypePrime().Flag()
+	var f = praed.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
-	case f.Match(d.Natural.TypePrime()):
+	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return uint(accs[i].(Paired).Left().Eval().(Unsigned).Uint()) >=
-				uint(praed.Eval().(Unsigned).Uint())
+			return uint(accs[i].(Paired).Left().Eval().(Natural).Uint()) >=
+				uint(praed.Eval().(Natural).Uint())
 		}
-	case f.Match(d.Integer.TypePrime()):
+	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
 			return int(accs[i].(Paired).Left().Eval().(Integer).Int()) >=
 				int(praed.Eval().(Integer).Int())
 		}
-	case f.Match(d.Real.TypePrime()):
+	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return int(accs[i].(Paired).Left().Eval().(Irrational).Float()) >=
-				int(praed.Eval().(Irrational).Float())
+			return int(accs[i].(Paired).Left().Eval().(Real).Float()) >=
+				int(praed.Eval().(Real).Float())
 		}
-	case f.Match(d.Symbolic.TypePrime()):
+	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
 			return strings.Compare(
 				accs[i].(Paired).Left().Eval().String(),
 				praed.Eval().String()) >= 0
 		}
-	case f.Match(d.Flag.TypePrime()):
+	case f.Match(d.Flag.TypeNat()):
 		fn = func(i int) bool {
 			return accs[i].(Paired).Right().Eval().(d.BitFlag) >=
 				praed.Eval().(d.BitFlag)

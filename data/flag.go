@@ -41,10 +41,10 @@ func FlagMask(t Typed, v Typed) BitFlag {
 	return BitFlag(t.Flag().Uint() &^ v.Flag().Uint())
 }
 func FlagShow(f Typed) string { return fmt.Sprintf("%64b\n", f) }
-func FlagLow(t Typed) Typed   { return FlagMask(t.Flag(), Typed(Mask)) }
+func FlagLow(t Typed) Typed   { return FlagMask(t.Flag(), Typed(Flag)) }
 func FlagHigh(t Typed) BitFlag {
 	len := FlagLength(BitFlag(Flag))
-	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(HigherOrder), len))
+	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Type), len))
 }
 func FlagMatch(t Typed, v Typed) bool {
 	if t.Flag().Uint()&^v.Flag().Uint() != 0 {

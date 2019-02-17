@@ -4,46 +4,48 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/big"
+	"sync"
 	"time"
 )
 
 //////// INTERNAL TYPE SYSTEM ///////////
 //
 // intended to be accessable and extendable
-type TyPrime BitFlag
+type TyNative BitFlag
 
-func (v TyPrime) TypePrime() TyPrime { return v }
-func (v TyPrime) Eval(p ...Primary) Primary {
+func (v TyNative) TypeNat() TyNative { return v }
+func (v TyNative) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {
-			if prime.TypePrime().Flag().Match(Flag) {
+			if prime.TypeNat().Flag().Match(Flag) {
 				var flag = prime.(BitFlag)
-				v = v | flag.TypePrime()
+				v = v | flag.TypeNat()
 			}
 		}
 	}
 	return v
 }
-func (v TyPrime) Flag() BitFlag { return BitFlag(v) }
+func (v TyNative) Flag() BitFlag { return BitFlag(v) }
 
-func ListAllTypes() []TyPrime {
-	var tt = []TyPrime{}
+func ListAllTypes() []TyNative {
+	var tt = []TyNative{}
 	var i uint
-	var t TyPrime = 0
+	var t TyNative = 0
 	for t < Flag {
 		t = 1 << i
 		i = i + 1
-		tt = append(tt, TyPrime(t))
+		tt = append(tt, TyNative(t))
 	}
 	return tt
 }
 
-//go:generate stringer -type=TyPrime
+//go:generate stringer -type=TyNative
 const (
-	Nil  TyPrime = 1
-	Bool TyPrime = 1 << iota
-	Int8         // Int8 -> Int8
+	Nil  TyNative = 1
+	Bool TyNative = 1 << iota
+	Int8          // Int8 -> Int8
 	Int16
 	Int32
 	Int
@@ -66,8 +68,10 @@ const (
 	String
 	Error // let's do something sophisticated here...
 	//// HIGHERORDER TYPES
-	Type
-	Enum
+	Nat
+	Fnc
+	Sum
+	Prod
 	Pair
 	Tuple
 	Record
@@ -80,40 +84,36 @@ const (
 	// TYPE CLASSES
 	// precedence type classes define argument types functions that accept
 	// a set of possible input types
-	Primarys = Nil | Bool | Int8 | Int16 | Int32 | Int | BigInt | Uint8 |
+	Natives = Nil | Bool | Int8 | Int16 | Int32 | Int | BigInt | Uint8 |
 		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
 		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise = Natural | Byte | Flag
+	Bitwise = Naturals | Byte | Flag
 
-	Boolean = Bool | Bitwise
+	Booleans = Bool | Bitwise
 
-	Natural = Uint | Uint8 | Uint16 | Uint32
+	Naturals = Uint | Uint8 | Uint16 | Uint32
 
-	Integer = Int | Int8 | Int16 | Int32 | BigInt
+	Integers = Int | Int8 | Int16 | Int32 | BigInt
 
-	Rational = Natural | Ratio
+	Rationals = Naturals | Ratio
 
-	Real = Float | Flt32 | BigFlt
+	Reals = Float | Flt32 | BigFlt
 
-	Imaginary = Imag | Imag64
+	Imaginarys = Imag | Imag64
 
-	Temporal = Time | Duration
+	Numbers = Rationals | Reals | Imaginarys
 
-	Textual = String | Rune | Bytes
+	Letters = String | Rune | Bytes
 
-	Numeric = Rational | Real | Imaginary | Temporal
-
-	Symbolic = Textual | Boolean | Temporal | Error
-
-	Collection = Pair | Tuple | Record | Vector | List | Set
+	Compositions = Pair | Tuple | Record | Vector | List | Set
 
 	/// here will be dragons‥.
-	HigherOrder = Type | Function | Collection
+	Type = Nat | Fnc | Sum | Prod
 
-	MAX_INT     TyPrime = 0xFFFFFFFFFFFFFFFF
-	MaskPrimary         = MAX_INT ^ Primarys
-	Mask                = MAX_INT ^ Flag
+	MAX_INT     TyNative = 0xFFFFFFFFFFFFFFFF
+	MaskPrimary          = MAX_INT ^ Natives
+	Mask                 = MAX_INT ^ Flag
 )
 
 //////// INTERNAL TYPES /////////////
@@ -148,75 +148,83 @@ type ( ////// INTERNAL TYPES /////
 	TimeVal   time.Time
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
-	PairVal   struct{ l, r Primary }
+	PairVal   struct{ l, r Native }
 	FlagSlice []BitFlag
-	DataSlice []Primary
-	SetString map[StrVal]Primary
-	SetUint   map[UintVal]Primary
-	SetInt    map[IntVal]Primary
-	SetFloat  map[FltVal]Primary
-	SetFlag   map[BitFlag]Primary
+	DataSlice []Native
+	SetString map[StrVal]Native
+	SetUint   map[UintVal]Native
+	SetInt    map[IntVal]Native
+	SetFloat  map[FltVal]Native
+	SetFlag   map[BitFlag]Native
+	MutexVal  struct {
+		sync.Mutex
+		Native
+	}
+	RWMutexVal struct {
+		sync.RWMutex
+		io.ReadWriter
+	}
 )
 
 //////// ATTRIBUTE TYPE ALIAS /////////////////
 
-/// bind the appropriate TypePrime Method to every type
-func (v BitFlag) TypePrime() TyPrime   { return Flag.TypePrime() }
-func (v FlagSlice) Flag() TyPrime      { return Flag.TypePrime() }
-func (NilVal) TypePrime() TyPrime      { return Nil.TypePrime() }
-func (v BoolVal) TypePrime() TyPrime   { return Bool.TypePrime() }
-func (v IntVal) TypePrime() TyPrime    { return Int.TypePrime() }
-func (v Int8Val) TypePrime() TyPrime   { return Int8.TypePrime() }
-func (v Int16Val) TypePrime() TyPrime  { return Int16.TypePrime() }
-func (v Int32Val) TypePrime() TyPrime  { return Int32.TypePrime() }
-func (v UintVal) TypePrime() TyPrime   { return Uint.TypePrime() }
-func (v Uint8Val) TypePrime() TyPrime  { return Uint8.TypePrime() }
-func (v Uint16Val) TypePrime() TyPrime { return Uint16.TypePrime() }
-func (v Uint32Val) TypePrime() TyPrime { return Uint32.TypePrime() }
-func (v BigIntVal) TypePrime() TyPrime { return BigInt.TypePrime() }
-func (v FltVal) TypePrime() TyPrime    { return Float.TypePrime() }
-func (v Flt32Val) TypePrime() TyPrime  { return Flt32.TypePrime() }
-func (v BigFltVal) TypePrime() TyPrime { return BigFlt.TypePrime() }
-func (v ImagVal) TypePrime() TyPrime   { return Imag.TypePrime() }
-func (v Imag64Val) TypePrime() TyPrime { return Imag64.TypePrime() }
-func (v RatioVal) TypePrime() TyPrime  { return Ratio.TypePrime() }
-func (v RuneVal) TypePrime() TyPrime   { return Rune.TypePrime() }
-func (v ByteVal) TypePrime() TyPrime   { return Byte.TypePrime() }
-func (v BytesVal) TypePrime() TyPrime  { return Bytes.TypePrime() }
-func (v StrVal) TypePrime() TyPrime    { return String.TypePrime() }
-func (v TimeVal) TypePrime() TyPrime   { return Time.TypePrime() }
-func (v DuraVal) TypePrime() TyPrime   { return Duration.TypePrime() }
-func (v ErrorVal) TypePrime() TyPrime  { return Error.TypePrime() }
-func (v PairVal) TypePrime() TyPrime   { return Pair.TypePrime() }
+/// bind the appropriate TypeNat Method to every type
+func (v BitFlag) TypeNat() TyNative   { return Flag.TypeNat() }
+func (v FlagSlice) Flag() TyNative    { return Flag.TypeNat() }
+func (NilVal) TypeNat() TyNative      { return Nil.TypeNat() }
+func (v BoolVal) TypeNat() TyNative   { return Bool.TypeNat() }
+func (v IntVal) TypeNat() TyNative    { return Int.TypeNat() }
+func (v Int8Val) TypeNat() TyNative   { return Int8.TypeNat() }
+func (v Int16Val) TypeNat() TyNative  { return Int16.TypeNat() }
+func (v Int32Val) TypeNat() TyNative  { return Int32.TypeNat() }
+func (v UintVal) TypeNat() TyNative   { return Uint.TypeNat() }
+func (v Uint8Val) TypeNat() TyNative  { return Uint8.TypeNat() }
+func (v Uint16Val) TypeNat() TyNative { return Uint16.TypeNat() }
+func (v Uint32Val) TypeNat() TyNative { return Uint32.TypeNat() }
+func (v BigIntVal) TypeNat() TyNative { return BigInt.TypeNat() }
+func (v FltVal) TypeNat() TyNative    { return Float.TypeNat() }
+func (v Flt32Val) TypeNat() TyNative  { return Flt32.TypeNat() }
+func (v BigFltVal) TypeNat() TyNative { return BigFlt.TypeNat() }
+func (v ImagVal) TypeNat() TyNative   { return Imag.TypeNat() }
+func (v Imag64Val) TypeNat() TyNative { return Imag64.TypeNat() }
+func (v RatioVal) TypeNat() TyNative  { return Ratio.TypeNat() }
+func (v RuneVal) TypeNat() TyNative   { return Rune.TypeNat() }
+func (v ByteVal) TypeNat() TyNative   { return Byte.TypeNat() }
+func (v BytesVal) TypeNat() TyNative  { return Bytes.TypeNat() }
+func (v StrVal) TypeNat() TyNative    { return String.TypeNat() }
+func (v TimeVal) TypeNat() TyNative   { return Time.TypeNat() }
+func (v DuraVal) TypeNat() TyNative   { return Duration.TypeNat() }
+func (v ErrorVal) TypeNat() TyNative  { return Error.TypeNat() }
+func (v PairVal) TypeNat() TyNative   { return Pair.TypeNat() }
 
 ///
-func (NilVal) Copy() Primary      { return NilVal{} }
-func (v BitFlag) Copy() Primary   { return BitFlag(v) }
-func (v BoolVal) Copy() Primary   { return BoolVal(v) }
-func (v IntVal) Copy() Primary    { return IntVal(v) }
-func (v Int8Val) Copy() Primary   { return Int8Val(v) }
-func (v Int16Val) Copy() Primary  { return Int16Val(v) }
-func (v Int32Val) Copy() Primary  { return Int32Val(v) }
-func (v UintVal) Copy() Primary   { return UintVal(v) }
-func (v Uint8Val) Copy() Primary  { return Uint8Val(v) }
-func (v Uint16Val) Copy() Primary { return Uint16Val(v) }
-func (v Uint32Val) Copy() Primary { return Uint32Val(v) }
-func (v BigIntVal) Copy() Primary { return BigIntVal(v) }
-func (v FltVal) Copy() Primary    { return FltVal(v) }
-func (v Flt32Val) Copy() Primary  { return Flt32Val(v) }
-func (v BigFltVal) Copy() Primary { return BigFltVal(v) }
-func (v ImagVal) Copy() Primary   { return ImagVal(v) }
-func (v Imag64Val) Copy() Primary { return Imag64Val(v) }
-func (v RatioVal) Copy() Primary  { return RatioVal(v) }
-func (v RuneVal) Copy() Primary   { return RuneVal(v) }
-func (v ByteVal) Copy() Primary   { return ByteVal(v) }
-func (v BytesVal) Copy() Primary  { return BytesVal(v) }
-func (v StrVal) Copy() Primary    { return StrVal(v) }
-func (v TimeVal) Copy() Primary   { return TimeVal(v) }
-func (v DuraVal) Copy() Primary   { return DuraVal(v) }
-func (v ErrorVal) Copy() Primary  { return ErrorVal(v) }
-func (v PairVal) Copy() Primary   { return PairVal{v.l, v.r} }
-func (v FlagSlice) Copy() Primary {
+func (NilVal) Copy() Native      { return NilVal{} }
+func (v BitFlag) Copy() Native   { return BitFlag(v) }
+func (v BoolVal) Copy() Native   { return BoolVal(v) }
+func (v IntVal) Copy() Native    { return IntVal(v) }
+func (v Int8Val) Copy() Native   { return Int8Val(v) }
+func (v Int16Val) Copy() Native  { return Int16Val(v) }
+func (v Int32Val) Copy() Native  { return Int32Val(v) }
+func (v UintVal) Copy() Native   { return UintVal(v) }
+func (v Uint8Val) Copy() Native  { return Uint8Val(v) }
+func (v Uint16Val) Copy() Native { return Uint16Val(v) }
+func (v Uint32Val) Copy() Native { return Uint32Val(v) }
+func (v BigIntVal) Copy() Native { return BigIntVal(v) }
+func (v FltVal) Copy() Native    { return FltVal(v) }
+func (v Flt32Val) Copy() Native  { return Flt32Val(v) }
+func (v BigFltVal) Copy() Native { return BigFltVal(v) }
+func (v ImagVal) Copy() Native   { return ImagVal(v) }
+func (v Imag64Val) Copy() Native { return Imag64Val(v) }
+func (v RatioVal) Copy() Native  { return RatioVal(v) }
+func (v RuneVal) Copy() Native   { return RuneVal(v) }
+func (v ByteVal) Copy() Native   { return ByteVal(v) }
+func (v BytesVal) Copy() Native  { return BytesVal(v) }
+func (v StrVal) Copy() Native    { return StrVal(v) }
+func (v TimeVal) Copy() Native   { return TimeVal(v) }
+func (v DuraVal) Copy() Native   { return DuraVal(v) }
+func (v ErrorVal) Copy() Native  { return ErrorVal(v) }
+func (v PairVal) Copy() Native   { return PairVal{v.l, v.r} }
+func (v FlagSlice) Copy() Native {
 	var nfs = DataSlice{}
 	for _, dat := range v {
 		nfs = append(nfs, dat)
@@ -225,218 +233,218 @@ func (v FlagSlice) Copy() Primary {
 }
 
 ///
-func (NilVal) Eval(d ...Primary) Primary { return NilVal{} }
-func (v BitFlag) Eval(d ...Primary) Primary {
+func (NilVal) Eval(d ...Native) Native { return NilVal{} }
+func (v BitFlag) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v BoolVal) Eval(d ...Primary) Primary {
+func (v BoolVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v IntVal) Eval(d ...Primary) Primary {
+func (v IntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Int8Val) Eval(d ...Primary) Primary {
+func (v Int8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Int16Val) Eval(d ...Primary) Primary {
+func (v Int16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Int32Val) Eval(d ...Primary) Primary {
+func (v Int32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v UintVal) Eval(d ...Primary) Primary {
+func (v UintVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Uint8Val) Eval(d ...Primary) Primary {
+func (v Uint8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Uint16Val) Eval(d ...Primary) Primary {
+func (v Uint16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Uint32Val) Eval(d ...Primary) Primary {
+func (v Uint32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v BigIntVal) Eval(d ...Primary) Primary {
+func (v BigIntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v FltVal) Eval(d ...Primary) Primary {
+func (v FltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Flt32Val) Eval(d ...Primary) Primary {
+func (v Flt32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v BigFltVal) Eval(d ...Primary) Primary {
+func (v BigFltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v ImagVal) Eval(d ...Primary) Primary {
+func (v ImagVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v Imag64Val) Eval(d ...Primary) Primary {
+func (v Imag64Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v RatioVal) Eval(d ...Primary) Primary {
+func (v RatioVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v RuneVal) Eval(d ...Primary) Primary {
+func (v RuneVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v ByteVal) Eval(d ...Primary) Primary {
+func (v ByteVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v BytesVal) Eval(d ...Primary) Primary {
+func (v BytesVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v StrVal) Eval(d ...Primary) Primary {
+func (v StrVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v TimeVal) Eval(d ...Primary) Primary {
+func (v TimeVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v DuraVal) Eval(d ...Primary) Primary {
+func (v DuraVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
 	return v
 }
-func (v ErrorVal) Eval(d ...Primary) Primary {
+func (v ErrorVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypePrime().Flag(), d...)
+			return NewUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -444,61 +452,61 @@ func (v ErrorVal) Eval(d ...Primary) Primary {
 }
 
 ///
-func (NilVal) Ident() Primary      { return NilVal{} }
-func (v BitFlag) Ident() Primary   { return v }
-func (v BoolVal) Ident() Primary   { return v }
-func (v IntVal) Ident() Primary    { return v }
-func (v Int8Val) Ident() Primary   { return v }
-func (v Int16Val) Ident() Primary  { return v }
-func (v Int32Val) Ident() Primary  { return v }
-func (v UintVal) Ident() Primary   { return v }
-func (v Uint8Val) Ident() Primary  { return v }
-func (v Uint16Val) Ident() Primary { return v }
-func (v Uint32Val) Ident() Primary { return v }
-func (v BigIntVal) Ident() Primary { return v }
-func (v FltVal) Ident() Primary    { return v }
-func (v Flt32Val) Ident() Primary  { return v }
-func (v BigFltVal) Ident() Primary { return v }
-func (v ImagVal) Ident() Primary   { return v }
-func (v Imag64Val) Ident() Primary { return v }
-func (v RatioVal) Ident() Primary  { return v }
-func (v RuneVal) Ident() Primary   { return v }
-func (v ByteVal) Ident() Primary   { return v }
-func (v BytesVal) Ident() Primary  { return v }
-func (v StrVal) Ident() Primary    { return v }
-func (v TimeVal) Ident() Primary   { return v }
-func (v DuraVal) Ident() Primary   { return v }
-func (v ErrorVal) Ident() Primary  { return v }
-func (v PairVal) Ident() Primary   { return v }
+func (NilVal) Ident() Native      { return NilVal{} }
+func (v BitFlag) Ident() Native   { return v }
+func (v BoolVal) Ident() Native   { return v }
+func (v IntVal) Ident() Native    { return v }
+func (v Int8Val) Ident() Native   { return v }
+func (v Int16Val) Ident() Native  { return v }
+func (v Int32Val) Ident() Native  { return v }
+func (v UintVal) Ident() Native   { return v }
+func (v Uint8Val) Ident() Native  { return v }
+func (v Uint16Val) Ident() Native { return v }
+func (v Uint32Val) Ident() Native { return v }
+func (v BigIntVal) Ident() Native { return v }
+func (v FltVal) Ident() Native    { return v }
+func (v Flt32Val) Ident() Native  { return v }
+func (v BigFltVal) Ident() Native { return v }
+func (v ImagVal) Ident() Native   { return v }
+func (v Imag64Val) Ident() Native { return v }
+func (v RatioVal) Ident() Native  { return v }
+func (v RuneVal) Ident() Native   { return v }
+func (v ByteVal) Ident() Native   { return v }
+func (v BytesVal) Ident() Native  { return v }
+func (v StrVal) Ident() Native    { return v }
+func (v TimeVal) Ident() Native   { return v }
+func (v DuraVal) Ident() Native   { return v }
+func (v ErrorVal) Ident() Native  { return v }
+func (v PairVal) Ident() Native   { return v }
 
 //// native nullable typed ///////
-func (v BitFlag) Null() Primary   { return Nil.TypePrime() }
-func (v FlagSlice) Null() Primary { return New(FlagSlice{}) }
-func (v PairVal) Null() Primary   { return PairVal{NilVal{}, NilVal{}} }
-func (v NilVal) Null() Primary    { return NilVal{} }
-func (v BoolVal) Null() Primary   { return New(false) }
-func (v IntVal) Null() Primary    { return New(0) }
-func (v Int8Val) Null() Primary   { return New(int8(0)) }
-func (v Int16Val) Null() Primary  { return New(int16(0)) }
-func (v Int32Val) Null() Primary  { return New(int32(0)) }
-func (v UintVal) Null() Primary   { return New(uint(0)) }
-func (v Uint8Val) Null() Primary  { return New(uint8(0)) }
-func (v Uint16Val) Null() Primary { return New(uint16(0)) }
-func (v Uint32Val) Null() Primary { return New(uint32(0)) }
-func (v FltVal) Null() Primary    { return New(0.0) }
-func (v Flt32Val) Null() Primary  { return New(float32(0.0)) }
-func (v ImagVal) Null() Primary   { return New(complex128(0.0)) }
-func (v Imag64Val) Null() Primary { return New(complex64(0.0)) }
-func (v ByteVal) Null() Primary   { return New(byte(0)) }
-func (v BytesVal) Null() Primary  { return New([]byte{}) }
-func (v RuneVal) Null() Primary   { return New(rune(' ')) }
-func (v StrVal) Null() Primary    { return New(string("")) }
-func (v ErrorVal) Null() Primary  { return New(error(fmt.Errorf(""))) }
-func (v BigIntVal) Null() Primary { return New(big.NewInt(0)) }
-func (v BigFltVal) Null() Primary { return New(big.NewFloat(0)) }
-func (v RatioVal) Null() Primary  { return New(big.NewRat(1, 1)) }
-func (v TimeVal) Null() Primary   { return New(time.Now()) }
-func (v DuraVal) Null() Primary   { return New(time.Duration(0)) }
+func (v BitFlag) Null() Native   { return Nil.TypeNat() }
+func (v FlagSlice) Null() Native { return New(FlagSlice{}) }
+func (v PairVal) Null() Native   { return PairVal{NilVal{}, NilVal{}} }
+func (v NilVal) Null() Native    { return NilVal{} }
+func (v BoolVal) Null() Native   { return New(false) }
+func (v IntVal) Null() Native    { return New(0) }
+func (v Int8Val) Null() Native   { return New(int8(0)) }
+func (v Int16Val) Null() Native  { return New(int16(0)) }
+func (v Int32Val) Null() Native  { return New(int32(0)) }
+func (v UintVal) Null() Native   { return New(uint(0)) }
+func (v Uint8Val) Null() Native  { return New(uint8(0)) }
+func (v Uint16Val) Null() Native { return New(uint16(0)) }
+func (v Uint32Val) Null() Native { return New(uint32(0)) }
+func (v FltVal) Null() Native    { return New(0.0) }
+func (v Flt32Val) Null() Native  { return New(float32(0.0)) }
+func (v ImagVal) Null() Native   { return New(complex128(0.0)) }
+func (v Imag64Val) Null() Native { return New(complex64(0.0)) }
+func (v ByteVal) Null() Native   { return New(byte(0)) }
+func (v BytesVal) Null() Native  { return New([]byte{}) }
+func (v RuneVal) Null() Native   { return New(rune(' ')) }
+func (v StrVal) Null() Native    { return New(string("")) }
+func (v ErrorVal) Null() Native  { return New(error(fmt.Errorf(""))) }
+func (v BigIntVal) Null() Native { return New(big.NewInt(0)) }
+func (v BigFltVal) Null() Native { return New(big.NewFloat(0)) }
+func (v RatioVal) Null() Native  { return New(big.NewRat(1, 1)) }
+func (v TimeVal) Null() Native   { return New(time.Now()) }
+func (v DuraVal) Null() Native   { return New(time.Duration(0)) }
 
 //// BINARY MARSHALER //////
 // for bytecode serialization and stack frame encoding
