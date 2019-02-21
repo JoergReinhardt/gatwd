@@ -110,22 +110,16 @@ type Info struct {
 	Length    // Uint8
 	Arity     // uint8	      ‥.
 	Propertys // Uint8	      ‥.
-	Ftype     // uint8
-	Layout    // uint32
 }
 
 func newInfo(
 	length Length,
 	arity Arity,
 	props Propertys,
-	ftype Ftype,
-	layout Layout,
 ) Info {
 	return Info{
 		length,
 		arity,
 		props,
-		ftype,
-		layout,
 	}
 }
