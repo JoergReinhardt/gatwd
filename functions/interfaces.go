@@ -4,6 +4,62 @@ import (
 	d "github.com/JoergReinhardt/gatwd/data"
 )
 
+// unique identifyer of every higher order type, returns unique id, name,
+// signature, native- & functional type of a given type.
+type TypeIdent interface {
+	Value
+	Name() string
+	Pattern() string
+}
+type Typed interface {
+	Value() interface{}
+	Name() string
+}
+
+// a type pattern matcher is associated with a types data-, or type-constructor
+// and has the ability to either match, or don't match a given input type to
+// determine if either a derived type, or a data value instance of the
+// designated type can be created from that input.
+type PatternMatcher interface {
+	Match(...Typed) bool
+}
+
+// data constructor takes instance(s) of input type(s) and generates data
+// instances of the designated type, in case the input type matches the pattern
+// matcher.
+type DataConstructor interface {
+	TypeIdent
+	PatternMatcher
+	Con(...Value) Value
+}
+
+// type constructor takes type argument(s) & derives new types in case the
+// pattern of the input type(s) are matched by the pattern matcher.
+type TypeConstructor interface {
+	TypeIdent
+	PatternMatcher
+	Con(...TypeIdent) TypeIdent
+}
+
+// polymorphic type definition returns collections of all, data and type
+// constructors defined for a given type.
+type TypeDefinition interface {
+	TypeIdent
+	DataCons() []DataConstructor
+	TypeCons() []TypeConstructor
+}
+
+type Equation interface {
+	Name() string
+	Pattern() string
+	PatternMatcher
+	Callable
+}
+type FunctionDefinition interface {
+	Name() string
+	Equations() []Equation
+}
+
 // import native value interface from data package
 type Native interface {
 	d.Native
@@ -19,11 +75,6 @@ type Value interface {
 }
 type Callable interface {
 	Value
-}
-type TypeDef interface {
-	Value
-	Name() d.StrVal
-	Signature() d.StrVal
 }
 
 // nullable 'classes'
@@ -72,37 +123,8 @@ type ByteCode interface {
 /// closure over fnc that may, or may not return a result.
 // returned value contains either value, or none Val
 type Optional interface {
-	Maybe(Value) bool
-	Value(Value) Value
-}
-type Conditional interface {
-	Left() Optional
-	Right() Optional
-}
-type IfCondition interface {
-	If(Value) Conditional // encloses predicate to test, takes scrutinee
-}
-type ElseCondition interface {
-	IfCondition
-	Else() Optional
-}
-type CaseCondition interface {
-	Optional
-	Case(Value) CaseCondition
-}
-
-// applys predicatte and scrutinee and returns boolen
-type Truthfull interface {
-	Truth() Boolean // praedicate & value
-}
-
-// compares two values and returnes negative int when left value is smaller,
-// zero on equal and positive value, when right side is greater.
-type Equality interface {
-	GreLesEqu(a, b Value) int
-	Greater() Optional
-	Lesser() Optional
-	Equal() Optional
+	Maybe() bool
+	Value() Value
 }
 
 // 'APPLYABLE' DATA
@@ -292,7 +314,6 @@ type Accessable interface {
 // LINKED LISTS
 //
 // Ordered interface{}
-//j
 // all recursive collections are inherently linked and may be accessed
 // sequentially until depletion, to gain an ordered list. the ordered interface
 // makes that explicit, provides a more convienient way to deal with it and/or

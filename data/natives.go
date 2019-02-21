@@ -5,35 +5,6 @@ import (
 	"time"
 )
 
-type (
-	InterfaceSlice []interface{}
-	NilVec         []struct{}
-	BoolVec        []bool
-	IntVec         []int
-	Int8Vec        []int8
-	Int16Vec       []int16
-	Int32Vec       []int32
-	UintVec        []uint
-	Uint8Vec       []uint8
-	Uint16Vec      []uint16
-	Uint32Vec      []uint32
-	FltVec         []float64
-	Flt32Vec       []float32
-	ImagVec        []complex128
-	Imag64Vec      []complex64
-	ByteVec        []byte
-	RuneVec        []rune
-	BytesVec       [][]byte
-	StrVec         []string
-	BigIntVec      []*big.Int
-	BigFltVec      []*big.Float
-	RatioVec       []*big.Rat
-	TimeVec        []time.Time
-	DuraVec        []time.Duration
-	ErrorVec       []error
-	FlagSet        []BitFlag
-)
-
 func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 	var d Sliceable
 	switch TyNative(flag) {
@@ -168,6 +139,34 @@ func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 	return d
 }
 
+func (v ByteVec) Bytes() []byte      { return []byte(v) }
+func (v *ByteVec) Set(i int, b byte) { (*v)[i] = b }
+func (v *ByteVec) Insert(i, j int, b byte) {
+	var s = []byte(*v)
+	s = append(s, byte(0))
+	copy(s[i+1:], s[i:])
+	s[i] = b
+	*v = ByteVec(s)
+}
+func (v *ByteVec) InsertSlice(i, j int, b ...byte) {
+	var s = []byte(*v)
+	*v = ByteVec(append(s[:i], append(b, s[i:]...)...))
+}
+func (v *ByteVec) Cut(i, j int) {
+	var s = []byte(*v)
+	copy(s[i:], s[j:])
+	// to prevent a possib. mem leak
+	for k, n := len(s)-j+i, len(s); k < n; k++ {
+		s[k] = byte(0)
+	}
+	*v = ByteVec(s[:len(s)-j+i])
+}
+func (v *ByteVec) Delete(i int) {
+	var s = []byte(*v)
+	copy(s[i:], s[i+1:])
+	s[len(s)-1] = byte(0)
+	*v = ByteVec(s[:len(s)-1])
+}
 func (v InterfaceSlice) GetInt(i int) interface{} { return v[i] }
 func (v NilVec) GetInt(i int) Native              { return NilVal(v[i]) }
 func (v BoolVec) GetInt(i int) Native             { return BoolVal(v[i]) }

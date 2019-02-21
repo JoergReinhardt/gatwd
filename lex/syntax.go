@@ -1,6 +1,7 @@
 package lex
 
 import (
+	"sort"
 	"strings"
 
 	d "github.com/JoergReinhardt/gatwd/data"
@@ -13,8 +14,8 @@ type SyntaxItemFlag d.BitFlag
 func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
 func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
 func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string            { return syntax[t] }
-func (t SyntaxItemFlag) StringAlt() string         { return matchSyntax[syntax[SyntaxItemFlag(t.TypeNat())]] }
+func (t SyntaxItemFlag) Syntax() string            { return utfSyntax[t] }
+func (t SyntaxItemFlag) StringAlt() string         { return asciiSyntax[utfSyntax[SyntaxItemFlag(t.TypeNat())]] }
 
 // all syntax items represented as string
 func AllSyntax() string {
@@ -22,7 +23,7 @@ func AllSyntax() string {
 	tab := tablewriter.NewWriter(str)
 	for _, t := range AllItems() {
 		row := []string{
-			t.String(), syntax[t], matchSyntax[syntax[t]],
+			t.String(), utfSyntax[t], asciiSyntax[utfSyntax[t]],
 		}
 		tab.Append(row)
 	}
@@ -48,6 +49,8 @@ const (
 	None  SyntaxItemFlag = 0
 	Error SyntaxItemFlag = 1
 	Blank SyntaxItemFlag = 1 << iota
+	Tab
+	NewLine
 	Underscore
 	SquareRoot
 	Asterisk
@@ -58,6 +61,7 @@ const (
 	Substraction
 	Addition
 	Dot
+	Times
 	DotProduct
 	CrossProduct
 	Division
@@ -99,72 +103,92 @@ const (
 	Text
 )
 
-var keywords = []d.StrVal{
-	d.StrVal("in"),
-	d.StrVal("con"),
-	d.StrVal("let"),
-	d.StrVal("if"),
-	d.StrVal("then"),
-	d.StrVal("else"),
-	d.StrVal("case"),
-	d.StrVal("of"),
-	d.StrVal("where"),
-	d.StrVal("otherwise"),
-	d.StrVal("data"),
-	d.StrVal("type"),
-	d.StrVal("mutable"),
+var Keywords = []string{
+	"in",
+	"con",
+	"let",
+	"if",
+	"then",
+	"else",
+	"case",
+	"of",
+	"where",
+	"otherwise",
+	"data",
+	"type",
+	"mutable",
+	"dot",
+	"times",
+	"dotProduct",
+	"crossProduct",
+	"div",
+	"infinite",
+	"or",
+	"xor",
+	"and",
+}
+var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+
+var asciiSyntax = map[string]string{
+	"":  "",
+	"⊥": "_|_",
+	" ": " ",
+	"	": `\t`,
+	"": `\n`,
+	"_": "_",
+	"∗": "*",
+	".": ".",
+	",": ",",
+	":": ":",
+	";": ";",
+	"-": "-",
+	"+": "+",
+	"·": "dot",
+	"⨉": "times",
+	"⊙": "dotProduct",
+	"⊗": "crossProduct",
+	"÷": "div",
+	"∞": "infinite",
+	"∨": "or",
+	"⊻": "xor",
+	"∧": "and",
+	"=": "=",
+	"≪": "<<",
+	"≫": ">>",
+	"≤": "=<",
+	"≥": ">=",
+	"(": "(",
+	")": ")",
+	"[": "[",
+	"]": "]",
+	"{": "{",
+	"}": "}",
+	"/": "/",
+	"¬": "!",
+	"≠": "!=",
+	"∇": "--",
+	"∆": "++",
+	"‗": "==",
+	"≡": "===",
+	"→": "->",
+	"←": "<-",
+	"⇐": "<=",
+	"⇒": "=>",
+	"∷": "::",
+	`'`: `'`,
+	`"`: `"`,
+	`\`: `\`,
+	"λ": `\y`,
+	`ϝ`: `\f`,
+	`Ф`: `\F`,
 }
 
-var matchSyntax = map[string]string{
-	"":   "",
-	"⊥":  "_|_",
-	" ":  " ",
-	"_":  "_",
-	"∗":  "*",
-	".":  ".",
-	",":  ",",
-	":":  ":",
-	";":  ";",
-	"-":  "-",
-	"+":  "+",
-	"∨":  "OR",
-	"※":  "XOR",
-	"∧":  "AND",
-	"=":  "=",
-	"≪":  "<<",
-	"≫":  ">>",
-	"≤":  "=<",
-	"≥":  ">=",
-	"(":  "(",
-	")":  ")",
-	"[":  "[",
-	"]":  "]",
-	"{":  "{",
-	"}":  "}",
-	"/":  "/",
-	"¬":  "!",
-	"≠":  "!=",
-	"--": "--",
-	"++": "++",
-	"‗":  "==",
-	"≡":  "===",
-	"→":  "->",
-	"←":  "<-",
-	"⇐":  "<=",
-	"⇒":  "=>",
-	"∷":  "::",
-	`'`:  `'`,
-	`"`:  `"`,
-	`\`:  `\`,
-	"λ":  `\y`,
-	`ϝ`:  `\f`,
-	`Ф`:  `\F`,
-}
-
-var syntax = map[SyntaxItemFlag]string{
-	None:         "",
-	Error:        "⊥",
-	Blank:        " ",
+var utfSyntax = map[SyntaxItemFlag]string{
+	None:  "",
+	Error: "⊥",
+	Blank: " ",
+	Tab: "	",
+	NewLine:      "",
 	Underscore:   "_",
 	SquareRoot:   "√",
 	Asterisk:     "∗",
@@ -174,13 +198,14 @@ var syntax = map[SyntaxItemFlag]string{
 	Semicolon:    ";",
 	Substraction: "-",
 	Addition:     "+",
-	Dot:          "∙",
-	DotProduct:   "∘",
-	CrossProduct: "×",
+	Dot:          "·",
+	Times:        "⨉",
+	DotProduct:   "⊙",
+	CrossProduct: "⊗",
 	Division:     "÷",
 	Infinite:     "∞",
 	Or:           "∨",
-	Xor:          "※",
+	Xor:          "⊻",
 	And:          "∧",
 	Equal:        "=",
 	Lesser:       "≪",
@@ -197,8 +222,8 @@ var syntax = map[SyntaxItemFlag]string{
 	Pipe:         "|",
 	Not:          "¬",
 	Unequal:      "≠",
-	Decrement:    "--",
-	Increment:    "++",
+	Decrement:    "∇",
+	Increment:    "∆",
 	DoubEqual:    "‗",
 	TripEqual:    "≡",
 	RightArrow:   "→",
@@ -214,10 +239,20 @@ var syntax = map[SyntaxItemFlag]string{
 	Polymorph:    "Ф",
 }
 
-var match = map[string]SyntaxItemFlag{
+func UniChars() []string {
+	var str = []string{}
+	for _, s := range utfSyntax {
+		str = append(str, s)
+	}
+	return str
+}
+
+var matchAscii = map[string]SyntaxItemFlag{
 	"":    None,
 	"_|_": Error,
 	" ":   Blank,
+	`\t`:  Tab,
+	`\n`:  NewLine,
 	"_":   Underscore,
 	"*":   Asterisk,
 	".":   Fullstop,
@@ -226,9 +261,6 @@ var match = map[string]SyntaxItemFlag{
 	";":   Semicolon,
 	"-":   Substraction,
 	"+":   Addition,
-	"OR":  Or,
-	"XOR": Xor,
-	"AND": And,
 	"=":   Equal,
 	"<<":  Lesser,
 	">>":  Greater,
@@ -261,43 +293,68 @@ var match = map[string]SyntaxItemFlag{
 	`\F`:  Polymorph,
 }
 
+type SortedDigraphs []string
+
+func (s SortedDigraphs) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s SortedDigraphs) Less(i, j int) bool { return len(s[i]) > len(s[j]) }
+func (s SortedDigraphs) Len() int           { return len(s) }
+func (s SortedDigraphs) Sort()              { sort.Sort(s) }
+
+// returns a slice of strings sorted by length, each am ascii alternative
+// syntax matching a bit of defined syntax
+func Digraphs() []string {
+	var str = SortedDigraphs{}
+	for key, _ := range matchAscii {
+		str = append(str, key)
+	}
+	str.Sort()
+	return str
+}
+
 // matches longest possible string
 func MatchUtf8(str string) (Item, bool) {
-	if item, ok := match[matchSyntax[str]]; ok {
+	if item, ok := matchAscii[asciiSyntax[str]]; ok {
 		return SyntaxItemFlag(item), ok
 	}
 	return nil, false
 }
-func Match(str string) (Item, bool) {
-	if item, ok := match[str]; ok {
+func Match(str string) bool {
+	if _, ok := matchAscii[str]; ok {
+		return ok
+	}
+	return false
+}
+func GetItem(str string) Item {
+	if item, ok := matchAscii[str]; ok {
+		return item
+	}
+	return nil
+}
+func MatchItem(str string) (Item, bool) {
+	if item, ok := matchAscii[str]; ok {
 		return SyntaxItemFlag(item), ok
 	}
 	return nil, false
 }
 
 // convert item string representation from editable to pretty
-func ASCIIToUtf8(tos ...string) []SyntaxItemFlag {
-	var ti = []SyntaxItemFlag{}
-	for _, s := range tos {
-		ti = append(ti, match[s])
-	}
-	return ti
+func AsciiToUnicode(ascii string) string {
+	return matchAscii[ascii].Syntax()
 }
 
 // convert item string representation from pretty to editable
-func Utf8ToASCII(tos ...string) string {
+func UnicodeToASCII(tos ...string) string {
 	var sto string
 	for _, s := range tos {
-		sto = sto + matchSyntax[s]
+		sto = sto + asciiSyntax[s]
 	}
 	return sto
 }
 
 // item is a bitflag of course
 type Item interface {
-	TypeNat() d.TyNative
+	d.Native
 	Type() SyntaxItemFlag
-	String() string
 	Syntax() string
 }
 

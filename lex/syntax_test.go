@@ -6,23 +6,26 @@ import (
 )
 
 func TestMatchString(t *testing.T) {
-	if item, ok := Match("XOR"); ok {
+	if item, ok := MatchItem("XOR"); ok {
 		fmt.Println(item.Syntax())
 	}
-	if item, ok := Match("::"); ok {
+	if item, ok := MatchItem("::"); ok {
 		fmt.Println(item.Syntax())
 	}
-	if item, ok := Match(":"); ok {
+	if item, ok := MatchItem(":"); ok {
 		fmt.Println(item.Syntax())
 	}
-	if item, ok := Match(`\F`); ok {
+	if item, ok := MatchItem(`\F`); ok {
 		fmt.Println(item.Syntax())
 	}
-	if item, ok := Match(`\f`); ok {
+	if item, ok := MatchItem(`\f`); ok {
 		fmt.Println(item.Syntax())
 	}
-	if item, ok := Match(`\x`); ok {
+	if item, ok := MatchItem(`\x`); ok {
 		fmt.Println(item.Syntax())
 	}
-	fmt.Println(Match("a"))
+	fmt.Println(MatchItem("a"))
+}
+func TestSyntaxMatchingAscii(t *testing.T) {
+	fmt.Println(Digraphs())
 }

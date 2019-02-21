@@ -27,7 +27,7 @@ func (v FltVec) String() string    { return StringSlice(", ", "[", "]", v) }
 func (v Flt32Vec) String() string  { return StringSlice(", ", "[", "]", v) }
 func (v ImagVec) String() string   { return StringSlice(", ", "[", "]", v) }
 func (v Imag64Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v ByteVec) String() string   { return StringSlice(", ", "[", "]", v) }
+func (v ByteVec) String() string   { return string([]byte(v)) }
 func (v RuneVec) String() string   { return StringSlice(", ", "[", "]", v) }
 func (v BytesVec) String() string  { return StringSlice(", ", "[", "]", v) }
 func (v StrVec) String() string    { return StringSlice(", ", "[", "]", v) }
@@ -198,3 +198,5 @@ func (s SetString) String() string {
 	}
 	return str.String()
 }
+func (v PipeReaderVal) String() string { return "pipe reader" }
+func (v PipeWriterVal) String() string { return "pipe writer" }

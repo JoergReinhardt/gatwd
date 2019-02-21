@@ -7,6 +7,8 @@ import f "github.com/JoergReinhardt/gatwd/functions"
 type Token interface {
 	d.Native
 	TypeTok() TyToken
+	Data() d.Native
+	Pos() int
 }
 
 // Ident interface{}

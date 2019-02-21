@@ -11,20 +11,21 @@ type (
 	BinaryFnc func(a, b Value) Value
 	NaryFnc   func(...Value) Value
 
-	// OPTIONAL & CONDITIONAL
-	PraedFnc     func(Value) bool // result impl. Bool() bool
-	OptionalFnc  func(Value) (Value, bool)
-	ConditionFnc func() (a, b Optional)
-	EitherFnc    func(Value) Value
-	CaseCond     func(Value) CaseCondition
-	IfCond       func(Value) Conditional
-	ElseCond     func(Conditional, Value) Optional
+	// OPTIONAL TYPES
 	//
+	// JUST/NONE
 	NoneVal func()       // None and Just are a pair of optional types
 	JustVal func() Value // implementing 'Option :: Maybe() bool'
-	//
+	// EITHER/OR
+	EitherVal func() Value // None and Just are a pair of optional types
+	OrVal     func() Value // implementing 'Option :: Maybe() bool'
+	// TRUE/FALSE
 	TrueVal  func() Boolean // boolean constants true & false
 	FalseVal func() Boolean // implementing 'Boolen :: Bool() bool'
+
+	// OPTIONAL & CONDITIONAL
+	PraedFnc    func(Value) bool // result impl. Bool() bool
+	OptionalFnc func() Optional
 )
 
 // CONSTANT
@@ -74,54 +75,95 @@ func (n NaryFnc) Ident() Value                { return n }
 func (n NaryFnc) Eval(p ...d.Native) d.Native { return n }
 func (n NaryFnc) Call(d ...Value) Value       { return n(d...) }
 
-//// RETURN TYPES OF THE OPTIONAL TYPE
-///
-// NONE
-func NewNone() NoneVal                      { return NoneVal(func() {}) }
-func (n NoneVal) Ident() Value              { return n }
-func (n NoneVal) Call(...Value) Value       { return n }
-func (n NoneVal) Eval(...d.Native) d.Native { return d.NilVal{}.Eval() }
-func (n NoneVal) Maybe() bool               { return false }
-func (n NoneVal) Nullable() d.Native        { return d.NilVal{} }
-func (n NoneVal) TypeFnc() TyFnc            { return Option | None }
-func (n NoneVal) TypeNat() d.TyNative       { return d.Nil }
-func (n NoneVal) String() string            { return "⊥" }
+/////////////////////////////////////////////////////////////////////////////
+///// OPTIONAL TYPE
+////
+/// RETURN TYPE PAIRS OF THE OPTIONAL TYPE
+//
+// EITHER
+func NewEitherVal(v Value) EitherVal {
+	return EitherVal(func() Value { return v })
+}
+func (e EitherVal) Ident() Value                { return e }
+func (e EitherVal) Call(v ...Value) Value       { return e.Call(v...) }
+func (e EitherVal) Eval(p ...d.Native) d.Native { return e().Eval(p...) }
+func (e EitherVal) Maybe() bool                 { return true }
+func (e EitherVal) Value() Value                { return e() }
+func (e EitherVal) Nullable() d.Native          { return e.Eval() }
+func (e EitherVal) TypeFnc() TyFnc              { return EitherOr | Either }
+func (e EitherVal) TypeNat() d.TyNative         { return e().TypeNat() }
+func (e EitherVal) String() string              { return e().String() }
+
+// OR
+func NewOrVal(v Value) OrVal {
+	return OrVal(func() Value { return v })
+}
+func (o OrVal) Ident() Value                { return o }
+func (o OrVal) Call(v ...Value) Value       { return o.Call(v...) }
+func (o OrVal) Eval(p ...d.Native) d.Native { return o().Eval(p...) }
+func (o OrVal) Maybe() bool                 { return false }
+func (o OrVal) Value() Value                { return o() }
+func (o OrVal) Nullable() d.Native          { return o.Eval() }
+func (o OrVal) TypeFnc() TyFnc              { return EitherOr | Or }
+func (o OrVal) TypeNat() d.TyNative         { return o().TypeNat() }
+func (o OrVal) String() string              { return o().String() }
 
 // JUST
 func NewJustVal(v Value) JustVal {
 	return JustVal(func() Value { return v })
 }
 func (j JustVal) Ident() Value                { return j }
-func (j JustVal) Call(...Value) Value         { return j }
+func (j JustVal) Call(v ...Value) Value       { return j.Call(v...) }
 func (j JustVal) Eval(p ...d.Native) d.Native { return j().Eval(p...) }
 func (j JustVal) Maybe() bool                 { return true }
+func (j JustVal) Value() Value                { return j() }
 func (j JustVal) Nullable() d.Native          { return j.Eval() }
 func (j JustVal) TypeFnc() TyFnc              { return Option | Just }
 func (j JustVal) TypeNat() d.TyNative         { return j().TypeNat() }
 func (j JustVal) String() string              { return j().String() }
 
-// FUNCTIONAL TRUTH VALUES
+// NONE
+func NewNone() NoneVal                      { return NoneVal(func() {}) }
+func (n NoneVal) Ident() Value              { return n }
+func (n NoneVal) Call(...Value) Value       { return n }
+func (n NoneVal) Eval(...d.Native) d.Native { return d.NilVal{}.Eval() }
+func (n NoneVal) Maybe() bool               { return false }
+func (n NoneVal) Value() Value              { return NewNone() }
+func (n NoneVal) Nullable() d.Native        { return d.NilVal{} }
+func (n NoneVal) TypeFnc() TyFnc            { return Option | None }
+func (n NoneVal) TypeNat() d.TyNative       { return d.Nil }
+func (n NoneVal) String() string            { return "⊥" }
+
+//// FUNCTIONAL TRUTH VALUES
+///
+// TRUE
 func (t TrueVal) Call(...Value) Value {
 	return New(d.BoolVal(true))
 }
 func (t TrueVal) Ident() Value              { return t }
 func (t TrueVal) Eval(...d.Native) d.Native { return t }
 func (t TrueVal) Bool() bool                { return true }
+func (t TrueVal) Value() Value              { return t }
 func (t TrueVal) TypeFnc() TyFnc            { return Truth | True }
 func (t TrueVal) TypeNat() d.TyNative       { return d.Bool }
 func (t TrueVal) String() string            { return "True" }
 
+// FALSE
 func (f FalseVal) Call(...Value) Value {
 	return New(d.BoolVal(false))
 }
 func (f FalseVal) Iwdent() Value             { return f }
 func (f FalseVal) Eval(...d.Native) d.Native { return f }
 func (f FalseVal) Bool() bool                { return false }
+func (f FalseVal) Value() Value              { return f }
 func (f FalseVal) TypeFnc() TyFnc            { return Truth | False }
 func (f FalseVal) TypeNat() d.TyNative       { return d.Bool }
 func (f FalseVal) String() string            { return "False" }
 
-// PRAEDICATE
+/// PRAEDICATE
+//
+// encloses a test that expects some type of input value to test against and
+// returns either true, or false.
 func NewPraedicate(pred func(scrut Value) bool) PraedFnc { return PraedFnc(pred) }
 func (p PraedFnc) TypeFnc() TyFnc                        { return Predicate }
 func (p PraedFnc) TypeNat() d.TyNative                   { return d.Bool }
@@ -140,88 +182,4 @@ func (p PraedFnc) Call(v ...Value) Value {
 		p(v[0])
 	}
 	return NewNone()
-}
-
-// OPTIONAL
-func NewOptionalVal(praed PraedFnc) OptionalFnc {
-	return OptionalFnc(func(scrut Value) (Value, bool) {
-		if praed(scrut) {
-			return scrut, true
-		}
-		return NewNone(), false
-	})
-}
-func (o OptionalFnc) Ident() Value            { return o }
-func (o OptionalFnc) Maybe(scrut Value) bool  { _, ok := o(scrut); return ok }
-func (o OptionalFnc) Value(scrut Value) Value { val, _ := o(scrut); return val }
-func (o OptionalFnc) Nullable() d.Native      { return d.NilVal{} }
-func (o OptionalFnc) TypeFnc() TyFnc          { return Option }
-func (o OptionalFnc) TypeNat() d.TyNative     { return d.Booleans.TypeNat() }
-func (o OptionalFnc) String() string {
-	var str string
-	return str
-}
-func (o OptionalFnc) Call(v ...Value) Value {
-	if len(v) > 0 {
-		val, ok := o(v[0])
-		if ok {
-			return val
-		}
-	}
-	return NewNone()
-}
-func (o OptionalFnc) Eval(p ...d.Native) d.Native {
-	if len(p) > 0 {
-		val, ok := o(NewFromData(p[0]))
-		if ok {
-			return val.Eval()
-		}
-	}
-	return d.NilVal{}
-}
-
-/// Conditional
-func NewCondition(oa, ob Optional) ConditionFnc {
-	return ConditionFnc(func() (a, b Optional) {
-		return oa, ob
-	})
-}
-func (e ConditionFnc) Ident() Value              { return e }
-func (e ConditionFnc) Call(...Value) Value       { return e }
-func (e ConditionFnc) Eval(...d.Native) d.Native { return d.NilVal{}.Eval() }
-func (e ConditionFnc) Maybe(scrut Value) bool {
-	var l, _ = e()
-	var _, ok = l.(OptionalFnc)(scrut)
-	return ok
-}
-func (e ConditionFnc) Nullable() d.Native  { return d.NilVal{} }
-func (e ConditionFnc) TypeFnc() TyFnc      { return Option | Condition }
-func (e ConditionFnc) TypeNat() d.TyNative { return d.Nil }
-func (e ConditionFnc) String() string {
-	var str string
-	return str
-}
-
-// EITHER
-func NewEither(oa, ob OptionalFnc) EitherFnc {
-	return EitherFnc(func(scrut Value) Value {
-		if val, ok := oa(scrut); ok {
-			return val
-		}
-		if val, ok := ob(scrut); ok {
-			return val
-		}
-		return NewNone()
-	})
-}
-func (e EitherFnc) Ident() Value              { return e }
-func (e EitherFnc) Call(...Value) Value       { return e }
-func (e EitherFnc) Eval(...d.Native) d.Native { return d.NilVal{}.Eval() }
-func (e EitherFnc) Maybe() bool               { return false }
-func (e EitherFnc) Nullable() d.Native        { return d.NilVal{} }
-func (e EitherFnc) TypeFnc() TyFnc            { return Option | Either }
-func (e EitherFnc) TypeNat() d.TyNative       { return d.Nil }
-func (e EitherFnc) String() string {
-	var str string
-	return str
 }

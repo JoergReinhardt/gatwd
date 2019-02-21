@@ -11,7 +11,7 @@ import (
 
 type (
 	// CLOSURES OVER NATIVE DATA INSTANCE
-	dataCon func() Native
+	DataCon func() Native
 	// CLOSURES OVER COLLENCTIONS OF NATIVES
 	PairVal     func() (a, b Value)
 	AssocVecFnc func() []Paired
@@ -19,29 +19,29 @@ type (
 	ListFnc     func() (Value, ListFnc)
 )
 
-func New(ifs ...interface{}) dataCon {
-	return dataCon(func() Native { return d.New(ifs...) })
+func New(ifs ...interface{}) DataCon {
+	return DataCon(func() Native { return d.New(ifs...) })
 }
 
 func NewFromData(data ...d.Native) Value {
 	if len(data) > 1 {
 		var values = []Value{}
 		for _, native := range data {
-			values = append(values, dataCon(func() Native { return native }))
+			values = append(values, DataCon(func() Native { return native }))
 		}
 		return NewVector(values...)
 	}
 	if len(data) == 1 {
-		return dataCon(func() Native { return data[0] })
+		return DataCon(func() Native { return data[0] })
 	}
 	return NewNone()
 }
-func (c dataCon) Ident() Value                { return c }
-func (c dataCon) TypeFnc() TyFnc              { return Data }
-func (c dataCon) TypeNat() d.TyNative         { return c().TypeNat() }
-func (c dataCon) String() string              { return c().String() }
-func (c dataCon) Eval(p ...d.Native) d.Native { return c().Eval() }
-func (c dataCon) Call(d ...Value) Value       { return c }
+func (c DataCon) Ident() Value                { return c }
+func (c DataCon) TypeFnc() TyFnc              { return Data }
+func (c DataCon) TypeNat() d.TyNative         { return c().TypeNat() }
+func (c DataCon) String() string              { return c().String() }
+func (c DataCon) Eval(p ...d.Native) d.Native { return c().Eval() }
+func (c DataCon) Call(d ...Value) Value       { return c }
 
 /////////////////////////////////////////////////////////
 // PAIR
