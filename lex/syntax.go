@@ -14,19 +14,19 @@ type SyntaxItemFlag d.BitFlag
 func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
 func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
 func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string            { return itemToString[t] }
-func (t SyntaxItemFlag) StringAlt() string         { return utfToAscii[t.Syntax()] }
+func (t SyntaxItemFlag) Syntax() string            { return MapItemString[t] }
+func (t SyntaxItemFlag) StringAlt() string         { return MapUtfAscii[t.Syntax()] }
 
 // all syntax items represented as string
-func AllSyntax() string {
+var AllSyntax = func() string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
-	for asc, utf := range asciiToUtf {
+	for asc, utf := range MapAsciiUtf {
 		if asc == `\n` {
 			asc = `⏎`
 			utf = asc
 		}
-		var is = stringToItem[utf].String()
+		var is = MapStringItem[utf].String()
 		if asc == `\t` {
 			asc = `␉`
 			utf = asc
@@ -39,10 +39,10 @@ func AllSyntax() string {
 	}
 	tab.Render()
 	return str.String()
-}
+}()
 
 // slice of all syntax items in there int constant form
-func AllItems() []SyntaxItemFlag {
+var AllItems = func() []SyntaxItemFlag {
 	var tt = []SyntaxItemFlag{}
 	var i uint
 	var t SyntaxItemFlag = 0
@@ -52,7 +52,7 @@ func AllItems() []SyntaxItemFlag {
 		tt = append(tt, SyntaxItemFlag(t))
 	}
 	return tt
-}
+}()
 
 //go:generate stringer -type=SyntaxItemFlag
 const (
@@ -121,7 +121,7 @@ const (
 	Epsilon
 )
 
-var itemToString = map[SyntaxItemFlag]string{
+var MapItemString = map[SyntaxItemFlag]string{
 	None:  "⊥",
 	Blank: " ",
 	Tab: "	",
@@ -182,15 +182,15 @@ var itemToString = map[SyntaxItemFlag]string{
 	IsMember:     "∈",
 	EmptySet:     "∅",
 }
-var stringToItem = func() map[string]SyntaxItemFlag {
-	var m = make(map[string]SyntaxItemFlag, len(itemToString))
-	for item, str := range itemToString {
+var MapStringItem = func() map[string]SyntaxItemFlag {
+	var m = make(map[string]SyntaxItemFlag, len(MapItemString))
+	for item, str := range MapItemString {
 		m[str] = item
 	}
 	return m
 }()
 
-var utfToAscii = map[string]string{
+var MapUtfAscii = map[string]string{
 	"⊥": "",
 	" ": " ",
 	"	": `\t`,
@@ -253,17 +253,17 @@ var utfToAscii = map[string]string{
 	"ε": `\ep`,
 }
 
-var asciiToUtf = func() map[string]string {
-	var m = make(map[string]string, len(utfToAscii))
-	for utf, asc := range utfToAscii {
+var MapAsciiUtf = func() map[string]string {
+	var m = make(map[string]string, len(MapUtfAscii))
+	for utf, asc := range MapUtfAscii {
 		m[asc] = utf
 	}
 	return m
 }()
-var asciiToItem = func() map[string]SyntaxItemFlag {
-	var m = make(map[string]SyntaxItemFlag, len(stringToItem))
-	for utf, asc := range utfToAscii {
-		if item, ok := stringToItem[utf]; ok {
+var MapAsciiItem = func() map[string]SyntaxItemFlag {
+	var m = make(map[string]SyntaxItemFlag, len(MapStringItem))
+	for utf, asc := range MapUtfAscii {
+		if item, ok := MapStringItem[utf]; ok {
 			m[asc] = item
 		}
 	}
@@ -294,66 +294,81 @@ var Keywords = []string{
 	"xor",
 	"and",
 }
+var KeyWordString = strings.Join(Keywords, "")
+
 var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+var DigitString = strings.Join(Digits, "")
 
-type SortedDigraphs []string
+var Letters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
+	"l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "ä",
+	"ö", "ü", "ß"}
+var LetterString = strings.Join(Letters, "")
 
-func (s SortedDigraphs) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s SortedDigraphs) Less(i, j int) bool { return len(s[i]) > len(s[j]) }
-func (s SortedDigraphs) Len() int           { return len(s) }
-func (s SortedDigraphs) Sort()              { sort.Sort(s) }
+var Capitals = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
+	"L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Ä",
+	"Ö", "Ü"}
+var CapitalString = strings.Join(Capitals, "")
+
+type asciiSorter []string
+
+func (s asciiSorter) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s asciiSorter) Less(i, j int) bool { return len(s[i]) > len(s[j]) }
+func (s asciiSorter) Len() int           { return len(s) }
+func (s asciiSorter) Sort()              { sort.Sort(s) }
 
 // returns a slice of strings sorted by length, each am ascii alternative
 // syntax matching a bit of defined syntax
-func Digraphs() []string {
-	var str = SortedDigraphs{}
-	for u, key := range utfToAscii {
+var Ascii = func() []string {
+	var str = asciiSorter{}
+	for u, key := range MapUtfAscii {
 		if u != "⊥" {
 			str = append(str, key)
 		}
 	}
 	str.Sort()
 	return str
-}
+}()
+var AsciiString = strings.Join(Ascii, "")
 
-func UniRunes() []rune {
+var UniRunes = func() []rune {
 	var runes = []rune{}
-	for _, str := range UniChars() {
+	for _, str := range UniChars {
 		runes = append(runes, []rune(str)[0])
 	}
 	return runes
-}
-func UniChars() []string {
+}()
+var UniChars = func() []string {
 	var str = []string{}
-	for item, s := range itemToString {
+	for item, s := range MapItemString {
 		if item != None {
 			str = append(str, s)
 		}
 	}
 	return str
-}
+}()
+var UniCharString = strings.Join(UniChars, "")
 
 // matches longest possible string
 func MatchUtf8(str string) (Item, bool) {
-	if item, ok := stringToItem[str]; ok {
+	if item, ok := MapStringItem[str]; ok {
 		return item, ok
 	}
 	return nil, false
 }
 func Match(str string) bool {
-	if _, ok := asciiToItem[str]; ok {
+	if _, ok := MapAsciiItem[str]; ok {
 		return ok
 	}
 	return false
 }
 func GetItem(str string) Item {
-	if item, ok := asciiToItem[str]; ok {
+	if item, ok := MapAsciiItem[str]; ok {
 		return item
 	}
 	return nil
 }
 func MatchItem(str string) (Item, bool) {
-	if item, ok := asciiToItem[str]; ok {
+	if item, ok := MapAsciiItem[str]; ok {
 		return item, true
 	}
 	return nil, false
@@ -361,14 +376,14 @@ func MatchItem(str string) (Item, bool) {
 
 // convert item string representation from editable to pretty
 func AsciiToUnicode(ascii string) string {
-	return asciiToUtf[ascii]
+	return MapAsciiUtf[ascii]
 }
 
 // convert item string representation from pretty to editable
 func UnicodeToASCII(tos ...string) string {
 	var sto string
 	for _, s := range tos {
-		sto = sto + utfToAscii[s]
+		sto = sto + MapUtfAscii[s]
 	}
 	return sto
 }
@@ -403,20 +418,38 @@ func NewUnicodeReplacer() *strings.Replacer {
 
 func UnicodeReplacementList() []string {
 	var ucrl = []string{}
-	for _, unc := range UniChars() {
+	for _, unc := range UniChars {
 		ucrl = append(ucrl, unc)
 		ucrl = append(ucrl, UnicodeToASCII(unc))
 	}
 	return ucrl
 }
 
-func NewAsciiReplacer() *strings.Replacer { return strings.NewReplacer(AsciiReplacementList()...) }
+func NewAsciiReplacer() *strings.Replacer {
+	return strings.NewReplacer(AsciiReplacementList()...)
+}
 
 func AsciiReplacementList() []string {
 	var acrl = []string{}
-	for _, dig := range Digraphs() {
+	for _, dig := range Ascii {
 		acrl = append(acrl, dig)
 		acrl = append(acrl, AsciiToUnicode(dig))
 	}
 	return acrl
+}
+
+func ContainsUtf(str string) bool {
+	return strings.ContainsAny(str, strings.Join(UniChars, ""))
+}
+func ContainsAscii(str string) bool {
+	return strings.ContainsAny(str, strings.Join(Ascii, ""))
+}
+func ContainsDigit(str string) bool {
+	return strings.ContainsAny(str, strings.Join(Digits, ""))
+}
+func ContainsKeyword(str string) bool {
+	for _, keyword := range Keywords {
+		strings.ContainsAny(str, keyword)
+	}
+	return false
 }

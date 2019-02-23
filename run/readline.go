@@ -78,7 +78,7 @@ type listenerFnc func([]rune, int, rune) ([]rune, int, bool)
 func newListener(linebuf *p.LineBuffer) listenerFnc {
 
 	// word boundary characters as string
-	var boundary = strings.Join(l.UniChars(), "")
+	var boundary = strings.Join(l.UniChars, "")
 
 	return func(line []rune, pos int, key rune) ([]rune, int, bool) {
 

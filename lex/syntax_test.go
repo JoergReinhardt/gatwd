@@ -27,6 +27,6 @@ func TestMatchString(t *testing.T) {
 	fmt.Println(MatchItem("a"))
 }
 func TestSyntaxMatchingAscii(t *testing.T) {
-	fmt.Println(Digraphs())
-	fmt.Println(AllSyntax())
+	fmt.Println(Ascii)
+	fmt.Println(AllSyntax)
 }

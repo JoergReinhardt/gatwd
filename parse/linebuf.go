@@ -1,14 +1,11 @@
 package parse
 
 import (
-	"bytes"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
 	d "github.com/JoergReinhardt/gatwd/data"
-	f "github.com/JoergReinhardt/gatwd/functions"
 )
 
 //////////////////////////////////////////////////
@@ -89,31 +86,31 @@ func (s *LineBuffer) read(p *[]byte) (int, error) {
 			"buffer index position: %d\n"+
 			"buffer: %s\n", n, s.string())
 }
-func (s *LineBuffer) peak() byte {
+func (s *LineBuffer) peek() byte {
 	if len(s.bytes()) > 0 {
 		return s.bytes()[0]
 	}
 	return byte(0)
 }
-func (s *LineBuffer) Peak() byte {
+func (s *LineBuffer) Peek() byte {
 	s.Lock()
 	defer s.Unlock()
 	s.setClean()
 
-	return s.peak()
+	return s.peek()
 }
-func (s *LineBuffer) peakN(n int) []byte {
+func (s *LineBuffer) peekN(n int) []byte {
 	if len(s.bytes()) > n {
 		return s.bytes()[:n]
 	}
 	return nil
 }
-func (s *LineBuffer) PeakN(n int) []byte {
+func (s *LineBuffer) PeekN(n int) []byte {
 	s.Lock()
 	defer s.Unlock()
 	s.setClean()
 
-	return s.peakN(n)
+	return s.peekN(n)
 }
 func (s *LineBuffer) Read(p *[]byte) (int, error) {
 	s.Lock()
@@ -241,169 +238,4 @@ func (s *LineBuffer) UpdateTrailing(line []rune) {
 		var start = end - trailen
 		copy(([]byte(*s.Native.(*d.ByteVec)))[start:end], bytes)
 	}
-}
-
-////////////////////////////////////////////////////
-type TokenBuffer d.AsyncVal
-
-func NewTokenBuffer(callbacks ...func()) *TokenBuffer {
-	return (*TokenBuffer)(d.NewAsync(callbacks...))
-}
-func (s TokenBuffer) AsyncVal() *d.AsyncVal { return (*d.AsyncVal)(&s) }
-func (s TokenBuffer) String() string {
-	s.Lock()
-	defer s.Unlock()
-	var str = bytes.NewBuffer([]byte{})
-	var l = len(s.dataSlice())
-	for i, tok := range toks(s.slice()...) {
-		str.WriteString(tok.String())
-		if i < l-1 {
-			str.WriteString("\n")
-		}
-	}
-
-	return str.String()
-}
-func (s *TokenBuffer) dataSlice() d.DataSlice {
-	return s.Native.(d.DataSlice)
-}
-func (s *TokenBuffer) slice() []d.Native {
-	return s.dataSlice().Slice()
-}
-func (s *TokenBuffer) setDirty() {
-	s.Clean = false
-}
-func (s *TokenBuffer) SetClean() {
-	s.Lock()
-	defer s.Unlock()
-	s.Clean = true
-}
-func (s *TokenBuffer) Len() int {
-	s.Lock()
-	defer s.Unlock()
-	return s.dataSlice().Len()
-}
-func (s *TokenBuffer) Tokens() []Token {
-	s.Lock()
-	defer s.Unlock()
-	return toks(s.slice()...)
-}
-func (s *TokenBuffer) Get(i int) Token {
-	s.Lock()
-	defer s.Unlock()
-	return s.dataSlice().GetInt(i).(Token)
-}
-func (s *TokenBuffer) Range(i, j int) []Token {
-	s.Lock()
-	defer s.Unlock()
-	var toks = []Token{}
-	for _, dat := range s.dataSlice()[i:j] {
-		toks = append(toks, dat.(Token))
-	}
-	return toks
-}
-func (s *TokenBuffer) Split(i int) (h, t []Token) {
-	s.Lock()
-	defer s.Unlock()
-	s.setDirty()
-	var head, tail = d.SliceSplit(s.dataSlice(), i)
-	return toks(head...), toks(tail...)
-}
-func (s *TokenBuffer) Set(i int, tok Token) {
-	s.Lock()
-	defer s.Unlock()
-	s.setDirty()
-	s.dataSlice().SetInt(i, tok)
-}
-func (s *TokenBuffer) Append(toks ...Token) {
-	s.Lock()
-	defer s.Unlock()
-	s.setDirty()
-	s.Native = d.SliceAppend(s.dataSlice().Slice(), nats(toks...)...)
-}
-func (s *TokenBuffer) Insert(i int, toks []Token) {
-	s.Lock()
-	defer s.Unlock()
-	s.setDirty()
-	s.Native = d.SliceInsertVector(s.dataSlice(), i, nats(toks...)...)
-}
-func (s *TokenBuffer) Delete(i int) {
-	s.Lock()
-	defer s.Unlock()
-	s.setDirty()
-	s.Native = d.SliceDelete(s.dataSlice(), i)
-}
-func (t *TokenBuffer) Sort() {
-	t.Lock()
-	defer t.Unlock()
-	var ts = tokSort(toks([]d.Native(t.Native.(d.DataSlice))...))
-	sort.Sort(ts)
-	t.Native = d.DataSlice(nats(ts...))
-}
-func (t *TokenBuffer) Search(pos int) int {
-	return sort.Search(t.Len(), func(i int) bool {
-		return pos < t.dataSlice().Slice()[i].(Token).Pos()
-	})
-}
-
-//////
-func nats(toks ...Token) []d.Native {
-	var nats = []d.Native{}
-	for _, nat := range toks {
-		nats = append(nats, nat)
-	}
-	return nats
-}
-func toks(nats ...d.Native) []Token {
-	var toks = []Token{}
-	for _, nat := range nats {
-		toks = append(toks, nat.(Token))
-	}
-	return toks
-}
-
-//////
-type tokSort []Token
-
-func (t tokSort) Len() int { return len(t) }
-func (t tokSort) Less(i, j int) bool {
-	return []Token(t)[i].Pos() <
-		[]Token(t)[j].Pos()
-}
-func (t tokSort) Swap(i, j int) {
-	[]Token(t)[i], []Token(t)[j] = []Token(t)[j], []Token(t)[i]
-}
-
-type doFnc func(Lexer) f.StateFnc
-type Lexer func() (*LineBuffer, *TokenBuffer)
-
-func (lex Lexer) Buffer() (*LineBuffer, *TokenBuffer) { return lex() }
-func (lex Lexer) LineBuffer() *LineBuffer             { l, _ := lex(); return l }
-func (lex Lexer) TokenBuffer() *TokenBuffer           { _, t := lex(); return t }
-func (lex Lexer) nextState(do doFnc) f.StateFnc       { return do(lex) }
-func newLexer(l *LineBuffer, t *TokenBuffer) Lexer {
-	return func() (*LineBuffer, *TokenBuffer) { return l, t }
-}
-
-// lexer gets called, whenever linebuffer changes
-func NewLexer(lbuf *LineBuffer) *TokenBuffer {
-	// allocate new token buffer
-	var tbuf = NewTokenBuffer()
-	// enclose both buffers in a lexer instance
-	var lex = newLexer(lbuf, tbuf)
-	// retrieve state function from lexer closure over buffers
-	var sf = lex.nextState(func(l Lexer) f.StateFnc {
-		return lexer(lex)
-	})
-	// subscribe state functions run method to be called back once per
-	// change in line buffer
-	lbuf.Subscribe(sf.Run)
-	// return token buffer reference
-	return tbuf
-}
-
-func lexer(lex Lexer) f.StateFnc {
-	var do doFnc
-
-	return lex.nextState(do)
 }

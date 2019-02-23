@@ -72,6 +72,9 @@ func NewParameterToken(pos int, acc, arg string) Token {
 }
 func NewDataValueToken(pos int, dat string) Token { return newToken(Data_Value_Token, pos, d.New(dat)) }
 func NewValueToken(pos int, dat string) Token     { return newToken(Name_Token, pos, d.New(dat)) }
+func NewWordToken(pos int, dat string) Token {
+	return newToken(Word_Token, pos, d.New(dat))
+}
 func NewNameToken(pos int, dat string) Token {
 	return newToken(Name_Token, pos, d.New(dat))
 }
