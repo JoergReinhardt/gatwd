@@ -46,7 +46,6 @@ func AllItems() []SyntaxItemFlag {
 	var tt = []SyntaxItemFlag{}
 	var i uint
 	var t SyntaxItemFlag = 0
-	tt[0] = None
 	for i < 63 {
 		t = 1 << i
 		i = i + 1
@@ -204,15 +203,15 @@ var utfToAscii = map[string]string{
 	";": ";",
 	"-": "-",
 	"+": "+",
-	"∘": "dot",
-	"⨉": "times",
-	"⊙": "dotProduct",
-	"⊗": "crossProduct",
-	"÷": "div",
-	"∞": "infinite",
-	"∨": "or",
-	"⊻": "xor",
-	"∧": "and",
+	"∘": `\dot`,
+	"⨉": `\prod`,
+	"⊙": `\dProd`,
+	"⊗": `\cProd`,
+	"÷": `\div`,
+	"∞": `\inf`,
+	"∨": `\or`,
+	"⊻": `\xor`,
+	"∧": `\and`,
 	"=": "=",
 	"≪": "<<",
 	"≫": ">>",
@@ -248,10 +247,10 @@ var utfToAscii = map[string]string{
 	"«": "≪<",
 	`π`: `\p`,
 	"∑": `\E`,
-	"∈": `\member`,
-	"∅": `\empty`,
+	"∈": `\is`,
+	"∅": `\emp`,
 	"η": `\eta`,
-	"ε": `\epsi`,
+	"ε": `\eps`,
 }
 
 var asciiToUtf = func() map[string]string {
@@ -308,8 +307,10 @@ func (s SortedDigraphs) Sort()              { sort.Sort(s) }
 // syntax matching a bit of defined syntax
 func Digraphs() []string {
 	var str = SortedDigraphs{}
-	for _, key := range utfToAscii {
-		str = append(str, key)
+	for u, key := range utfToAscii {
+		if u != "⊥" {
+			str = append(str, key)
+		}
 	}
 	str.Sort()
 	return str
@@ -324,8 +325,10 @@ func UniRunes() []rune {
 }
 func UniChars() []string {
 	var str = []string{}
-	for _, s := range itemToString {
-		str = append(str, s)
+	for item, s := range itemToString {
+		if item != None {
+			str = append(str, s)
+		}
 	}
 	return str
 }
