@@ -9,55 +9,11 @@ import (
 	"sync"
 
 	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
 	l "github.com/JoergReinhardt/gatwd/lex"
 	p "github.com/JoergReinhardt/gatwd/parse"
 	"github.com/gohxs/readline"
 )
-
-// QUEUE
-type QueueVal d.MutexVal
-
-func (q *QueueVal) HasToken() bool {
-	q.Lock()
-	defer q.Unlock()
-	var length = q.Native.(d.DataSlice).Len()
-	if length > 0 {
-		return true
-	}
-	return false
-}
-func (q *QueueVal) Put(tok p.Token) {
-	q.Lock()
-	defer q.Unlock()
-	(*q).Native = d.SlicePut(q.Native.(d.DataSlice), tok)
-}
-func (q *QueueVal) Pull() p.Token {
-	q.Lock()
-	defer q.Unlock()
-	var nat d.Native
-	nat, (*q).Native = d.SlicePull(q.Native.(d.DataSlice))
-	return nat.(p.Token)
-}
-func (q *QueueVal) Peek() p.Token {
-	q.Lock()
-	defer q.Unlock()
-	var nat d.Native
-	nat = q.Native.(d.DataSlice).GetInt(0)
-	return nat.(p.Token)
-}
-func (q *QueueVal) PeekN(n int) p.Token {
-	q.Lock()
-	defer q.Unlock()
-	var nat d.Native
-	nat = q.Native.(d.DataSlice).GetInt(n)
-	return nat.(p.Token)
-}
-func NewQueue() *QueueVal {
-	return &QueueVal{
-		sync.Mutex{},
-		d.DataSlice{},
-	}
-}
 
 //////////////////////////////////////////////////
 type LineBuffer d.AsyncVal
@@ -73,6 +29,16 @@ func (s LineBuffer) String() string {
 	(&s).Lock()
 	defer (&s).Unlock()
 	return s.byteVec().String()
+}
+func (s LineBuffer) Lines() []string {
+	return strings.Split(s.String(), "\n")
+}
+func (s LineBuffer) Fields() [][]string {
+	var fields = [][]string{}
+	for _, line := range s.Lines() {
+		fields = append(fields, strings.Fields(line))
+	}
+	return fields
 }
 func (s *LineBuffer) SetClean() {
 	s.Lock()
@@ -93,6 +59,9 @@ func (s *LineBuffer) Bytes() []byte {
 	s.Lock()
 	defer s.Unlock()
 	return s.bytes()
+}
+func (s *LineBuffer) Runes() []rune {
+	return []rune(s.String())
 }
 func (s *LineBuffer) Len() int {
 	s.Lock()
@@ -181,16 +150,16 @@ func (s *LineBuffer) UpdateTrailing(line []rune) {
 }
 
 ////////////////////////////////////////////////////
-type Tokens d.AsyncVal
+type TokenBuffer d.AsyncVal
 
-func NewTokens() Tokens {
-	return Tokens(d.AsyncVal{
+func NewTokens() TokenBuffer {
+	return TokenBuffer(d.AsyncVal{
 		sync.Mutex{},
 		true,
 		d.DataSlice{},
 	})
 }
-func (s Tokens) String() string {
+func (s TokenBuffer) String() string {
 	s.Lock()
 	defer s.Unlock()
 	var str = bytes.NewBuffer([]byte{})
@@ -204,36 +173,36 @@ func (s Tokens) String() string {
 
 	return str.String()
 }
-func (s *Tokens) dataSlice() d.DataSlice {
+func (s *TokenBuffer) dataSlice() d.DataSlice {
 	return s.Native.(d.DataSlice)
 }
-func (s *Tokens) slice() []d.Native {
+func (s *TokenBuffer) slice() []d.Native {
 	return s.dataSlice().Slice()
 }
-func (s *Tokens) setDirty() {
+func (s *TokenBuffer) setDirty() {
 	s.Clean = false
 }
-func (s *Tokens) SetClean() {
+func (s *TokenBuffer) SetClean() {
 	s.Lock()
 	defer s.Unlock()
 	s.Clean = true
 }
-func (s *Tokens) Len() int {
+func (s *TokenBuffer) Len() int {
 	s.Lock()
 	defer s.Unlock()
 	return s.dataSlice().Len()
 }
-func (s *Tokens) Tokens() []p.Token {
+func (s *TokenBuffer) Tokens() []p.Token {
 	s.Lock()
 	defer s.Unlock()
 	return toks(s.slice()...)
 }
-func (s *Tokens) Get(i int) p.Token {
+func (s *TokenBuffer) Get(i int) p.Token {
 	s.Lock()
 	defer s.Unlock()
 	return s.dataSlice().GetInt(i).(p.Token)
 }
-func (s *Tokens) Range(i, j int) []p.Token {
+func (s *TokenBuffer) Range(i, j int) []p.Token {
 	s.Lock()
 	defer s.Unlock()
 	var toks = []p.Token{}
@@ -242,45 +211,45 @@ func (s *Tokens) Range(i, j int) []p.Token {
 	}
 	return toks
 }
-func (s *Tokens) Split(i int) (h, t []p.Token) {
+func (s *TokenBuffer) Split(i int) (h, t []p.Token) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	var head, tail = d.SliceSplit(s.dataSlice(), i)
 	return toks(head...), toks(tail...)
 }
-func (s *Tokens) Set(i int, tok p.Token) {
+func (s *TokenBuffer) Set(i int, tok p.Token) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	s.dataSlice().SetInt(i, tok)
 }
-func (s *Tokens) Append(toks ...p.Token) {
+func (s *TokenBuffer) Append(toks ...p.Token) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	s.Native = d.SliceAppend(s.dataSlice().Slice(), nats(toks...)...)
 }
-func (s *Tokens) Insert(i int, toks []p.Token) {
+func (s *TokenBuffer) Insert(i int, toks []p.Token) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	s.Native = d.SliceInsertVector(s.dataSlice(), i, nats(toks...)...)
 }
-func (s *Tokens) Delete(i int) {
+func (s *TokenBuffer) Delete(i int) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	s.Native = d.SliceDelete(s.dataSlice(), i)
 }
-func (t *Tokens) Sort() {
+func (t *TokenBuffer) Sort() {
 	t.Lock()
 	defer t.Unlock()
 	var ts = tokSort(toks([]d.Native(t.Native.(d.DataSlice))...))
 	sort.Sort(ts)
 	t.Native = d.DataSlice(nats(ts...))
 }
-func (t *Tokens) Search(pos int) int {
+func (t *TokenBuffer) Search(pos int) int {
 	return sort.Search(t.Len(), func(i int) bool {
 		return pos < t.dataSlice().Slice()[i].(p.Token).Pos()
 	})
@@ -315,7 +284,7 @@ func (t tokSort) Swap(i, j int) {
 }
 
 /////////////////////////////////////////////////////////
-func NewReadLine() (sf StateFnc, linebuf *LineBuffer) {
+func NewReadLine() (sf f.StateFnc, linebuf *LineBuffer) {
 
 	// create readline config
 	var config = &readline.Config{
@@ -342,7 +311,7 @@ func NewReadLine() (sf StateFnc, linebuf *LineBuffer) {
 	log.SetOutput(rl.Stderr())
 
 	// STATE MONAD
-	sf = func() StateFnc {
+	sf = func() f.StateFnc {
 
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
@@ -357,7 +326,7 @@ func NewReadLine() (sf StateFnc, linebuf *LineBuffer) {
 			return nil
 		}
 
-		return func() StateFnc { return sf() }
+		return func() f.StateFnc { return sf() }
 	}
 	// return state function & thread-safe line buffer
 	return sf, linebuf
@@ -411,6 +380,7 @@ func newListener(linebuf *LineBuffer) listenerFnc {
 			line = append(head, tail...)
 		}
 
+		// on word-boundary update trail in buffer to trigger lexer
 		if strings.ContainsAny(string(key), boundary) {
 			linebuf.UpdateTrailing(line)
 		}

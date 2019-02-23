@@ -14,16 +14,26 @@ type SyntaxItemFlag d.BitFlag
 func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
 func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
 func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string            { return utfSyntax[t] }
-func (t SyntaxItemFlag) StringAlt() string         { return asciiSyntax[utfSyntax[SyntaxItemFlag(t.TypeNat())]] }
+func (t SyntaxItemFlag) Syntax() string            { return itemToString[t] }
+func (t SyntaxItemFlag) StringAlt() string         { return utfToAscii[t.Syntax()] }
 
 // all syntax items represented as string
 func AllSyntax() string {
 	str := &strings.Builder{}
 	tab := tablewriter.NewWriter(str)
-	for _, t := range AllItems() {
+	for asc, utf := range asciiToUtf {
+		if asc == `\n` {
+			asc = `⏎`
+			utf = asc
+		}
+		var is = stringToItem[utf].String()
+		if asc == `\t` {
+			asc = `␉`
+			utf = asc
+		}
+		utf = "  " + utf + "  "
 		row := []string{
-			t.String(), utfSyntax[t], asciiSyntax[utfSyntax[t]],
+			is, utf, asc,
 		}
 		tab.Append(row)
 	}
@@ -36,6 +46,7 @@ func AllItems() []SyntaxItemFlag {
 	var tt = []SyntaxItemFlag{}
 	var i uint
 	var t SyntaxItemFlag = 0
+	tt[0] = None
 	for i < 63 {
 		t = 1 << i
 		i = i + 1
@@ -47,9 +58,8 @@ func AllItems() []SyntaxItemFlag {
 //go:generate stringer -type=SyntaxItemFlag
 const (
 	None  SyntaxItemFlag = 0
-	Error SyntaxItemFlag = 1
-	Blank SyntaxItemFlag = 1 << iota
-	Tab
+	Blank SyntaxItemFlag = 1
+	Tab   SyntaxItemFlag = 1 << iota
 	NewLine
 	Underscore
 	SquareRoot
@@ -99,110 +109,24 @@ const (
 	Lambda
 	Function
 	Polymorph
+	Monad
 	Parameter
 	Sequence
 	SequenceRev
-	Pi
 	Integral
 	IsMember
 	EmptySet
 	Number
 	Text
+	Eta
+	Epsilon
 )
 
-var Keywords = []string{
-	"in",
-	"con",
-	"let",
-	"if",
-	"then",
-	"else",
-	"case",
-	"of",
-	"where",
-	"otherwise",
-	"data",
-	"type",
-	"mutable",
-	"dot",
-	"times",
-	"dotProduct",
-	"crossProduct",
-	"div",
-	"infinite",
-	"or",
-	"xor",
-	"and",
-}
-var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
-
-var asciiSyntax = map[string]string{
-	"":  "",
-	"⊥": "_|_",
-	" ": " ",
-	"	": `\t`,
-	"": `\n`,
-	"_": "_",
-	"∗": "*",
-	".": ".",
-	",": ",",
-	":": ":",
-	";": ";",
-	"-": "-",
-	"+": "+",
-	"·": "dot",
-	"⨉": "times",
-	"⊙": "dotProduct",
-	"⊗": "crossProduct",
-	"÷": "div",
-	"∞": "infinite",
-	"∨": "or",
-	"⊻": "xor",
-	"∧": "and",
-	"=": "=",
-	"≪": "<<",
-	"≫": ">>",
-	"≤": "=<",
-	"≥": ">=",
-	"(": "(",
-	")": ")",
-	"[": "[",
-	"]": "]",
-	"{": "{",
-	"}": "}",
-	"/": "/",
-	"¬": "!",
-	"≠": "!=",
-	"∇": "--",
-	"∆": "++",
-	"⇔": "==",
-	"≡": "⇔=",
-	"→": "->",
-	"←": "<-",
-	"⇐": "<=",
-	"⇒": "=>",
-	"∷": "::",
-	`'`: `'`,
-	`"`: `"`,
-	`\`: `\`,
-	"λ": `\y`,
-	`ϝ`: `\f`,
-	`Ф`: `\F`,
-	`Π`: `\P`,
-	"»": "≫>",
-	"«": "≪<",
-	`π`: `\p`,
-	"∑": `\E`,
-	"∈": `\member`,
-	"∅": `\empty`,
-}
-
-var utfSyntax = map[SyntaxItemFlag]string{
-	None:  "",
-	Error: "⊥",
+var itemToString = map[SyntaxItemFlag]string{
+	None:  "⊥",
 	Blank: " ",
 	Tab: "	",
-	NewLine:      "",
+	NewLine:      "\n",
 	Underscore:   "_",
 	SquareRoot:   "√",
 	Asterisk:     "∗",
@@ -212,7 +136,7 @@ var utfSyntax = map[SyntaxItemFlag]string{
 	Semicolon:    ";",
 	Substraction: "-",
 	Addition:     "+",
-	Dot:          "·",
+	Dot:          "∘",
 	Times:        "⨉",
 	DotProduct:   "⊙",
 	CrossProduct: "⊗",
@@ -251,75 +175,127 @@ var utfSyntax = map[SyntaxItemFlag]string{
 	Lambda:       "λ",
 	Function:     "ϝ",
 	Polymorph:    "Ф",
+	Monad:        "Ω",
 	Parameter:    "Π",
 	Sequence:     "»",
 	SequenceRev:  "«",
-	Pi:           "π",
 	Integral:     "∑",
 	IsMember:     "∈",
 	EmptySet:     "∅",
 }
-
-func UniChars() []string {
-	var str = []string{}
-	for _, s := range utfSyntax {
-		str = append(str, s)
+var stringToItem = func() map[string]SyntaxItemFlag {
+	var m = make(map[string]SyntaxItemFlag, len(itemToString))
+	for item, str := range itemToString {
+		m[str] = item
 	}
-	return str
+	return m
+}()
+
+var utfToAscii = map[string]string{
+	"⊥": "",
+	" ": " ",
+	"	": `\t`,
+	"": `\n`,
+	"_": "_",
+	"∗": "*",
+	".": ".",
+	",": ",",
+	":": ":",
+	";": ";",
+	"-": "-",
+	"+": "+",
+	"∘": "dot",
+	"⨉": "times",
+	"⊙": "dotProduct",
+	"⊗": "crossProduct",
+	"÷": "div",
+	"∞": "infinite",
+	"∨": "or",
+	"⊻": "xor",
+	"∧": "and",
+	"=": "=",
+	"≪": "<<",
+	"≫": ">>",
+	"≤": "=<",
+	"≥": ">=",
+	"(": "(",
+	")": ")",
+	"[": "[",
+	"]": "]",
+	"{": "{",
+	"}": "}",
+	"/": "/",
+	"¬": "!",
+	"≠": "!=",
+	"∇": "--",
+	"∆": "++",
+	"⇔": "==",
+	"≡": "⇔=",
+	"→": "->",
+	"←": "<-",
+	"⇐": "<=",
+	"⇒": "=>",
+	"∷": "::",
+	`'`: `'`,
+	`"`: `"`,
+	`\`: `\`,
+	"λ": `\y`,
+	`ϝ`: `\f`,
+	`Ф`: `\F`,
+	`Ω`: `\M`,
+	`Π`: `\P`,
+	"»": "≫>",
+	"«": "≪<",
+	`π`: `\p`,
+	"∑": `\E`,
+	"∈": `\member`,
+	"∅": `\empty`,
+	"η": `\eta`,
+	"ε": `\epsi`,
 }
 
-var matchAscii = map[string]SyntaxItemFlag{
-	"":      None,
-	"_|_":   Error,
-	" ":     Blank,
-	`\t`:    Tab,
-	`\n`:    NewLine,
-	"_":     Underscore,
-	`\sqr`:  SquareRoot,
-	"*":     Asterisk,
-	".":     Fullstop,
-	",":     Comma,
-	":":     Colon,
-	";":     Semicolon,
-	"-":     Substraction,
-	"+":     Addition,
-	"=":     Equal,
-	"<<":    Lesser,
-	">>":    Greater,
-	"=<":    LesserEq,
-	">=":    GreaterEq,
-	"(":     LeftPar,
-	")":     RightPar,
-	"[":     LeftBra,
-	"]":     RightBra,
-	"{":     LeftCur,
-	"}":     RightCur,
-	"/":     Slash,
-	"|":     Pipe,
-	`\!`:    Not,
-	"!=":    Unequal,
-	"--":    Decrement,
-	"++":    Increment,
-	"==":    DoubleEqual,
-	"⇔=":    TripEqual,
-	"->":    RightArrow,
-	"<-":    LeftArrow,
-	"<=":    FatLArrow,
-	"=>":    FatRArrow,
-	"::":    DoubCol,
-	`'`:     Sing_quote,
-	`"`:     Doub_quote,
-	`\`:     BackSlash,
-	`\y`:    Lambda,
-	`\f`:    Function,
-	`\F`:    Polymorph,
-	"≫>":    Sequence,
-	"≪<":    SequenceRev,
-	`\p`:    Pi,
-	`\I`:    Integral,
-	`\isin`: IsMember,
-	`\0`:    EmptySet,
+var asciiToUtf = func() map[string]string {
+	var m = make(map[string]string, len(utfToAscii))
+	for utf, asc := range utfToAscii {
+		m[asc] = utf
+	}
+	return m
+}()
+var asciiToItem = func() map[string]SyntaxItemFlag {
+	var m = make(map[string]SyntaxItemFlag, len(stringToItem))
+	for utf, asc := range utfToAscii {
+		if item, ok := stringToItem[utf]; ok {
+			m[asc] = item
+		}
+	}
+	return m
+}()
+
+var Keywords = []string{
+	"in",
+	"con",
+	"let",
+	"if",
+	"then",
+	"else",
+	"case",
+	"of",
+	"where",
+	"otherwise",
+	"data",
+	"type",
+	"mutable",
+	"dot",
+	"times",
+	"dotProduct",
+	"crossProduct",
+	"div",
+	"infinite",
+	"or",
+	"xor",
+	"and",
 }
+var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 
 type SortedDigraphs []string
 
@@ -332,49 +308,64 @@ func (s SortedDigraphs) Sort()              { sort.Sort(s) }
 // syntax matching a bit of defined syntax
 func Digraphs() []string {
 	var str = SortedDigraphs{}
-	for key, _ := range matchAscii {
+	for _, key := range utfToAscii {
 		str = append(str, key)
 	}
 	str.Sort()
 	return str
 }
 
+func UniRunes() []rune {
+	var runes = []rune{}
+	for _, str := range UniChars() {
+		runes = append(runes, []rune(str)[0])
+	}
+	return runes
+}
+func UniChars() []string {
+	var str = []string{}
+	for _, s := range itemToString {
+		str = append(str, s)
+	}
+	return str
+}
+
 // matches longest possible string
 func MatchUtf8(str string) (Item, bool) {
-	if item, ok := matchAscii[asciiSyntax[str]]; ok {
-		return SyntaxItemFlag(item), ok
+	if item, ok := stringToItem[str]; ok {
+		return item, ok
 	}
 	return nil, false
 }
 func Match(str string) bool {
-	if _, ok := matchAscii[str]; ok {
+	if _, ok := asciiToItem[str]; ok {
 		return ok
 	}
 	return false
 }
 func GetItem(str string) Item {
-	if item, ok := matchAscii[str]; ok {
+	if item, ok := asciiToItem[str]; ok {
 		return item
 	}
 	return nil
 }
 func MatchItem(str string) (Item, bool) {
-	if item, ok := matchAscii[str]; ok {
-		return SyntaxItemFlag(item), ok
+	if item, ok := asciiToItem[str]; ok {
+		return item, true
 	}
 	return nil, false
 }
 
 // convert item string representation from editable to pretty
 func AsciiToUnicode(ascii string) string {
-	return matchAscii[ascii].Syntax()
+	return asciiToUtf[ascii]
 }
 
 // convert item string representation from pretty to editable
 func UnicodeToASCII(tos ...string) string {
 	var sto string
 	for _, s := range tos {
-		sto = sto + asciiSyntax[s]
+		sto = sto + utfToAscii[s]
 	}
 	return sto
 }

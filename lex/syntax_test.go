@@ -28,4 +28,5 @@ func TestMatchString(t *testing.T) {
 }
 func TestSyntaxMatchingAscii(t *testing.T) {
 	fmt.Println(Digraphs())
+	fmt.Println(AllSyntax())
 }

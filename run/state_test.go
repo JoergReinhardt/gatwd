@@ -9,8 +9,8 @@ import (
 
 func TestStateFncProgress(t *testing.T) {
 	var count int
-	var sf StateFnc
-	sf = func() StateFnc {
+	var sf f.StateFnc
+	sf = func() f.StateFnc {
 		count = count + 1
 		if count == 10 {
 			return nil
