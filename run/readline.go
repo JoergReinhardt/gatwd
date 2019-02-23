@@ -2,6 +2,7 @@ package run
 
 import (
 	"bytes"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -60,8 +61,8 @@ func NewQueue() *QueueVal {
 //////////////////////////////////////////////////
 type Source d.AsyncVal
 
-func NewSource() Source {
-	return Source(d.AsyncVal{
+func NewSource() *Source {
+	return (*Source)(&d.AsyncVal{
 		sync.Mutex{},
 		true,
 		&d.ByteVec{},
@@ -288,69 +289,129 @@ func (t tokSort) Swap(i, j int) {
 }
 
 /////////////////////////////////////////////////////////
-func NewReadLine() (sf StateFnc, queue *QueueVal) {
-	// allocate readline config
+func NewReadLine() (sf StateFnc, linebuf *Source) {
+
+	// create readline config
 	var config = &readline.Config{
-		Prompt:                 "> ",
+		Prompt:                 "\033[31m»\033[0m ",
 		HistoryFile:            "/tmp/readline-multiline",
 		InterruptPrompt:        "^D",
 		EOFPrompt:              "quit",
 		DisableAutoSaveHistory: true,
 	}
+
+	var listener = newListener()
 	// set listener function
-	(*config).SetListener(newListener())
+	(*config).SetListener(listener)
+
 	// allocate readline instance
-	//var rl, err = readline.NewEx(config)
-	// panic if readline allocation fails
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	// allocate queue, to return tokens to assynchronously
-	queue = NewQueue()
-	// state function progresses state by a single step, when called and
-	// returns the suspending state function to progress to the next step
-	// after that, when called.
+	var rl, err = readline.NewEx(config)
+	if err != nil {
+		panic(err)
+	}
+	defer rl.Close()
+
+	linebuf = NewSource()
+
+	for {
+		line, err := rl.Readline()
+		if err == readline.ErrInterrupt {
+			if len(line) == 0 {
+				break
+			} else {
+				continue
+			}
+		} else if err == io.EOF {
+			break
+		}
+		rl.SaveHistory(line)
+		linebuf.Append([]byte(line))
+	}
+	// declare state function closure
 	sf = func() StateFnc {
 		return sf
 	}
 	// return state function & thread-safe token queue
-	return sf, queue
+	return sf, linebuf
 }
+
+//// LISTENER FUNCTION
+///
+// the listener replaces di-, & trigraph representations special characters
+// with their true unicode representation at every keystroke. the character
+// currently under the cursor will stay expadet, until cursor position
+// progresses to fully revel it in the part of the line preceeding, or folling
+// the cursor. once revealed, it will be replaced instantly.
 
 type listenerFnc func([]rune, int, rune) ([]rune, int, bool)
 
 func newListener() listenerFnc {
+
 	return func(line []rune, pos int, key rune) ([]rune, int, bool) {
-		line, pos = replaceLine(line, pos)
+
+		var head, tail []rune
+
+		if line == nil {
+			line = []rune(" ")
+			return line, 0, true
+		}
+		if len(line) == 0 {
+			line = []rune(" ")
+		}
+
+		switch {
+		// cursor at start of line
+		case pos == 0:
+			line = uni(line)
+		// cursor at end of line
+		case pos >= len(line)-1:
+			line = uni(line)
+			pos = len(line) - 1
+		// cursor somewhere inbetween
+		default:
+			head = uni(line[:pos])
+			tail = uni(line[pos:])
+			var runes = asc([]rune{key})
+			if len(runes) > 1 {
+				head = append(head, runes[0])
+				tail = append(runes[1:], tail...)
+			}
+			pos = len(head)
+			line = append(head, tail...)
+		}
+
 		return line, pos, true
 	}
 }
-func replaceLine(line []rune, pos int) ([]rune, int) {
-	// if cursor at line beginning
-	if pos == 0 {
-		return []rune(unicode(line...)), pos
+
+//// PRE DEFINED STRING/RUNE REPLACER
+///
+// replaces digtaphs with unicode
+func uni(runes []rune) []rune { return []rune(acr.Replace(string(runes))) }
+func asclen(r []rune) int     { return len(acr.Replace(string(r))) }
+
+var acr = strings.NewReplacer(digraphReplacementList()...)
+
+func digraphReplacementList() []string {
+	var acrl = []string{}
+	for _, dig := range l.Digraphs() {
+		acrl = append(acrl, dig)
+		acrl = append(acrl, l.AsciiToUnicode(dig))
 	}
-	// if cursor at line end
-	if pos >= len(line)-1 {
-		var newline = []rune(unicode(line...))
-		return newline, len(newline) - 1
-	}
-	// if cursor sandwiched
-	var pre = unicode(append(line[0:pos], digraphs(line[pos])...)...)
-	var post = unicode(line[pos:]...)
-	return append(pre, post...), len(pre)
+	return acrl
 }
-func unicode(line ...rune) []rune {
-	var strline = string(line)
-	for _, old := range l.Digraphs() {
-		strline = strings.Replace(strline, old, l.AsciiToUnicode(old), -1)
+
+// replaces unicode with digtaphs
+func asc(runes []rune) []rune { return []rune(ucr.Replace(string(runes))) }
+func unilen(r []rune) int     { return len(ucr.Replace(string(r))) }
+
+var ucr = strings.NewReplacer(unicodeReplacementList()...)
+
+func unicodeReplacementList() []string {
+	var ucrl = []string{}
+	for _, unc := range l.UniChars() {
+		ucrl = append(ucrl, unc)
+		ucrl = append(ucrl, l.UnicodeToASCII(unc))
 	}
-	return []rune(strline)
-}
-func digraphs(line ...rune) []rune {
-	var strline = string(line)
-	for _, old := range l.UniChars() {
-		strline = strings.Replace(strline, old, l.UnicodeToASCII(old), -1)
-	}
-	return []rune(strline)
+	return ucrl
 }

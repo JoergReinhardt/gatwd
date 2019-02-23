@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	l "github.com/JoergReinhardt/gatwd/lex"
 	p "github.com/JoergReinhardt/gatwd/parse"
 )
 
@@ -48,24 +47,24 @@ func TestQueue(t *testing.T) {
 
 var line = []rune(`\y => -> === :: \n ab\tcd 123 12 data`)
 
-func TestReplaceDigraphs(t *testing.T) {
-	l, p := replaceLine(line, 6)
-	fmt.Println(string(l))
-	fmt.Println(p)
-	l, p = replaceLine(line, 0)
-	fmt.Println(string(l))
-	fmt.Println(p)
-	l, p = replaceLine(line, len(line)-1)
-	fmt.Println(string(l))
-	fmt.Println(p)
-	fmt.Println(len(line) - 1)
-	fmt.Println(len(l) - 1)
+func TestUnicodeReplacement(t *testing.T) {
+	fmt.Printf("ascii line: %s\n", string(line))
+	fmt.Printf("ascii byte length %d\n", len([]byte(string(line))))
+	fmt.Printf("projected unicode length in byte of ascii line as calculated %d\n\n",
+		unilen(uni(line)))
 
-	fmt.Println(string(digraphs(l...)))
-}
-func TestReplaceUnicode(t *testing.T) {
-	uc := l.UniChars()
-	fmt.Println(uc)
+	if len([]byte(string(line))) != unilen(uni(line)) {
+		t.Fail()
+	}
+
+	fmt.Printf("unicode line: %s\n", string(uni(line)))
+	fmt.Printf("unicode byte length: %d\n", len([]byte(string(uni(line)))))
+	fmt.Printf("projected ascii length in byte of unicode line as calculated %d\n",
+		asclen(uni(line)))
+
+	if len([]byte(string(uni(line)))) != asclen(uni(line)) {
+		t.Fail()
+	}
 }
 func TestThreadsafeSource(t *testing.T) {
 	source := NewSource()
