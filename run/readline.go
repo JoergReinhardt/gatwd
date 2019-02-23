@@ -3,6 +3,7 @@ package run
 import (
 	"bytes"
 	"io"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -295,43 +296,44 @@ func NewReadLine() (sf StateFnc, linebuf *Source) {
 	var config = &readline.Config{
 		Prompt:                 "\033[31m»\033[0m ",
 		HistoryFile:            "/tmp/readline-multiline",
-		InterruptPrompt:        "^D",
-		EOFPrompt:              "quit",
+		InterruptPrompt:        "^C",
+		EOFPrompt:              "exit",
 		DisableAutoSaveHistory: true,
 	}
 
 	var listener = newListener()
 	// set listener function
-	(*config).SetListener(listener)
+	config.SetListener(listener)
 
 	// allocate readline instance
 	var rl, err = readline.NewEx(config)
 	if err != nil {
 		panic(err)
 	}
-	defer rl.Close()
 
 	linebuf = NewSource()
 
-	for {
+	log.SetOutput(rl.Stderr())
+
+	sf = func() StateFnc {
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
-				break
+				rl.Close()
+				return nil
 			} else {
-				continue
+				return sf
 			}
 		} else if err == io.EOF {
-			break
+			rl.Close()
+			return nil
 		}
 		rl.SaveHistory(line)
 		linebuf.Append([]byte(line))
+		return func() StateFnc { return sf() }
 	}
-	// declare state function closure
-	sf = func() StateFnc {
-		return sf
-	}
-	// return state function & thread-safe token queue
+
+	// return state function & thread-safe line buffer
 	return sf, linebuf
 }
 

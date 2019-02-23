@@ -86,7 +86,7 @@ const (
 	Unequal
 	Decrement
 	Increment
-	DoubEqual
+	DoubleEqual
 	TripEqual
 	RightArrow
 	LeftArrow
@@ -99,6 +99,13 @@ const (
 	Lambda
 	Function
 	Polymorph
+	Parameter
+	Sequence
+	SequenceRev
+	Pi
+	Integral
+	IsMember
+	EmptySet
 	Number
 	Text
 )
@@ -168,8 +175,8 @@ var asciiSyntax = map[string]string{
 	"≠": "!=",
 	"∇": "--",
 	"∆": "++",
-	"‗": "==",
-	"≡": "===",
+	"⇔": "==",
+	"≡": "⇔=",
 	"→": "->",
 	"←": "<-",
 	"⇐": "<=",
@@ -181,6 +188,13 @@ var asciiSyntax = map[string]string{
 	"λ": `\y`,
 	`ϝ`: `\f`,
 	`Ф`: `\F`,
+	`Π`: `\P`,
+	"»": "≫>",
+	"«": "≪<",
+	`π`: `\p`,
+	"∑": `\E`,
+	"∈": `\member`,
+	"∅": `\empty`,
 }
 
 var utfSyntax = map[SyntaxItemFlag]string{
@@ -224,7 +238,7 @@ var utfSyntax = map[SyntaxItemFlag]string{
 	Unequal:      "≠",
 	Decrement:    "∇",
 	Increment:    "∆",
-	DoubEqual:    "‗",
+	DoubleEqual:  "⇔",
 	TripEqual:    "≡",
 	RightArrow:   "→",
 	LeftArrow:    "←",
@@ -237,6 +251,13 @@ var utfSyntax = map[SyntaxItemFlag]string{
 	Lambda:       "λ",
 	Function:     "ϝ",
 	Polymorph:    "Ф",
+	Parameter:    "Π",
+	Sequence:     "»",
+	SequenceRev:  "«",
+	Pi:           "π",
+	Integral:     "∑",
+	IsMember:     "∈",
+	EmptySet:     "∅",
 }
 
 func UniChars() []string {
@@ -248,49 +269,56 @@ func UniChars() []string {
 }
 
 var matchAscii = map[string]SyntaxItemFlag{
-	"":    None,
-	"_|_": Error,
-	" ":   Blank,
-	`\t`:  Tab,
-	`\n`:  NewLine,
-	"_":   Underscore,
-	"*":   Asterisk,
-	".":   Fullstop,
-	",":   Comma,
-	":":   Colon,
-	";":   Semicolon,
-	"-":   Substraction,
-	"+":   Addition,
-	"=":   Equal,
-	"<<":  Lesser,
-	">>":  Greater,
-	"=<":  LesserEq,
-	">=":  GreaterEq,
-	"(":   LeftPar,
-	")":   RightPar,
-	"[":   LeftBra,
-	"]":   RightBra,
-	"{":   LeftCur,
-	"}":   RightCur,
-	"/":   Slash,
-	"|":   Pipe,
-	"!":   Not,
-	"!=":  Unequal,
-	"--":  Decrement,
-	"++":  Increment,
-	"==":  DoubEqual,
-	"===": TripEqual,
-	"->":  RightArrow,
-	"<-":  LeftArrow,
-	"<=":  FatLArrow,
-	"=>":  FatRArrow,
-	"::":  DoubCol,
-	`'`:   Sing_quote,
-	`"`:   Doub_quote,
-	`\`:   BackSlash,
-	`\y`:  Lambda,
-	`\f`:  Function,
-	`\F`:  Polymorph,
+	"":      None,
+	"_|_":   Error,
+	" ":     Blank,
+	`\t`:    Tab,
+	`\n`:    NewLine,
+	"_":     Underscore,
+	`\sqr`:  SquareRoot,
+	"*":     Asterisk,
+	".":     Fullstop,
+	",":     Comma,
+	":":     Colon,
+	";":     Semicolon,
+	"-":     Substraction,
+	"+":     Addition,
+	"=":     Equal,
+	"<<":    Lesser,
+	">>":    Greater,
+	"=<":    LesserEq,
+	">=":    GreaterEq,
+	"(":     LeftPar,
+	")":     RightPar,
+	"[":     LeftBra,
+	"]":     RightBra,
+	"{":     LeftCur,
+	"}":     RightCur,
+	"/":     Slash,
+	"|":     Pipe,
+	"!":     Not,
+	"!=":    Unequal,
+	"--":    Decrement,
+	"++":    Increment,
+	"==":    DoubleEqual,
+	"⇔=":    TripEqual,
+	"->":    RightArrow,
+	"<-":    LeftArrow,
+	"<=":    FatLArrow,
+	"=>":    FatRArrow,
+	"::":    DoubCol,
+	`'`:     Sing_quote,
+	`"`:     Doub_quote,
+	`\`:     BackSlash,
+	`\y`:    Lambda,
+	`\f`:    Function,
+	`\F`:    Polymorph,
+	"≫>":    Sequence,
+	"≪<":    SequenceRev,
+	`\p`:    Pi,
+	`\I`:    Integral,
+	`\isin`: IsMember,
+	`\0`:    EmptySet,
 }
 
 type SortedDigraphs []string
