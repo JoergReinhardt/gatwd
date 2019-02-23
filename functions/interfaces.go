@@ -379,9 +379,6 @@ type Leaved interface {
 	Value() Value
 }
 
-type State interface {
-	Run()
-}
 type StateFnc func() StateFnc
 
 func (s StateFnc) Run() {

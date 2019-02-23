@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	f "github.com/JoergReinhardt/gatwd/functions"
+	p "github.com/JoergReinhardt/gatwd/parse"
 )
 
 func TestStateFncProgress(t *testing.T) {
@@ -55,7 +56,7 @@ func TestUnicodeReplacement(t *testing.T) {
 	}
 }
 func TestThreadsafeSource(t *testing.T) {
-	source := NewSource()
+	source := p.NewLineBuffer()
 
 	source.Write([]byte(string(line)))
 	fmt.Printf("fresh written source:\n %s\n\n", source)
@@ -70,7 +71,7 @@ func TestThreadsafeSource(t *testing.T) {
 	fmt.Printf("source after Cut(5,30):\n %s\n\n", source)
 }
 func TestLineBufferReadLine(t *testing.T) {
-	buf := NewSource()
+	buf := p.NewLineBuffer()
 	buf.WriteRunes(line)
 	fmt.Printf("prepared buffer:\n %s\n\n", buf)
 
@@ -84,7 +85,7 @@ func TestLineBufferReadLine(t *testing.T) {
 }
 func TestLineBufferReadPresized(t *testing.T) {
 
-	buf := NewSource()
+	buf := p.NewLineBuffer()
 	buf.WriteRunes(line)
 	fmt.Printf("prepared buffer:\n %s\n\n", buf)
 
@@ -98,7 +99,7 @@ func TestLineBufferReadPresized(t *testing.T) {
 	fmt.Printf("buffer left:\n %s\n\n", buf)
 }
 func TestLineBufferUpdateTrailing(t *testing.T) {
-	buf := NewSource()
+	buf := p.NewLineBuffer()
 	buf.WriteRunes(line)
 
 	buf.UpdateTrailing([]rune("####"))

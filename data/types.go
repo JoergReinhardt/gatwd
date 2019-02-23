@@ -232,11 +232,25 @@ type ( // NATIVE GOLANG TYPES
 	// ASYNC
 	AsyncVal struct {
 		sync.Mutex
-		Clean bool
 		Native
+		Calls []func()
+		Clean bool
 	}
 )
 
+func NewAsync(callbacks ...func()) *AsyncVal {
+	return &AsyncVal{
+		sync.Mutex{},
+		&ByteVec{},
+		callbacks,
+		true,
+	}
+}
+func (a *AsyncVal) Subscribe(callbacks ...func()) {
+	a.Lock()
+	defer a.Unlock()
+	a.Calls = append(a.Calls, callbacks...)
+}
 func (v ReaderVal) Path() string               { return v.StrVal.String() }
 func (v ReaderVal) Close() error               { return io.Closer(v).Close() }
 func (v ReaderVal) Read(p []byte) (int, error) { return io.Reader(v).Read(p) }
