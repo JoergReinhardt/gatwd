@@ -296,7 +296,7 @@ var matchAscii = map[string]SyntaxItemFlag{
 	"}":     RightCur,
 	"/":     Slash,
 	"|":     Pipe,
-	"!":     Not,
+	`\!`:    Not,
 	"!=":    Unequal,
 	"--":    Decrement,
 	"++":    Increment,

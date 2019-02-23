@@ -60,65 +60,77 @@ func NewQueue() *QueueVal {
 }
 
 //////////////////////////////////////////////////
-type Source d.AsyncVal
+type LineBuffer d.AsyncVal
 
-func NewSource() *Source {
-	return (*Source)(&d.AsyncVal{
+func NewSource() *LineBuffer {
+	return (*LineBuffer)(&d.AsyncVal{
 		sync.Mutex{},
 		true,
 		&d.ByteVec{},
 	})
 }
-func (s Source) String() string {
+func (s LineBuffer) String() string {
 	(&s).Lock()
 	defer (&s).Unlock()
 	return s.byteVec().String()
 }
-func (s *Source) SetClean() {
+func (s *LineBuffer) SetClean() {
 	s.Lock()
 	defer s.Unlock()
 	s.Clean = true
 }
-func (s *Source) setDirty() {
+func (s *LineBuffer) setDirty() {
 	s.Clean = false
 }
-func (s *Source) byteVec() *d.ByteVec {
+func (s *LineBuffer) byteVec() *d.ByteVec {
 	return s.Native.(*d.ByteVec)
 }
-func (s *Source) bytes() []byte {
+func (s *LineBuffer) bytes() []byte {
 	s.setDirty()
 	return []byte(*s.byteVec())
 }
-func (s *Source) Bytes() []byte {
+func (s *LineBuffer) Bytes() []byte {
 	s.Lock()
 	defer s.Unlock()
 	return s.bytes()
 }
-func (s *Source) Len() int {
+func (s *LineBuffer) Len() int {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	return s.byteVec().Len()
 }
-func (s *Source) Append(p []byte) {
+func (s *LineBuffer) Append(p []byte) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	*(s.byteVec()) = append(s.bytes(), p...)
 }
-func (s *Source) Insert(i, j int, b byte) {
+func (s *LineBuffer) WriteRunes(r []rune) {
+	s.WriteString(string(r))
+}
+func (s *LineBuffer) WriteString(str string) {
+	s.Append([]byte(str))
+}
+func (s *LineBuffer) Insert(i, j int, b byte) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	(s.byteVec()).Insert(i, j, b)
 }
-func (s *Source) InsertSlice(i, j int, p []byte) {
+func (s *LineBuffer) InsertSlice(i, j int, p []byte) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	(s.byteVec()).InsertSlice(i, j, p...)
 }
-func (s *Source) Split(i int) (h, t []byte) {
+func (s *LineBuffer) ReplaceSlice(i, j int, trail []byte) {
+	s.Lock()
+	defer s.Unlock()
+	s.setDirty()
+	copy(([]byte(*s.Native.(*d.ByteVec)))[i:j], trail)
+}
+func (s *LineBuffer) Split(i int) (h, t []byte) {
 	s.Lock()
 	defer s.Unlock()
 	var head, tail = d.SliceSplit(s.Native.(d.ByteVec).Slice(), i)
@@ -130,29 +142,42 @@ func (s *Source) Split(i int) (h, t []byte) {
 	}
 	return h, t
 }
-func (s *Source) Cut(i, j int) {
+func (s *LineBuffer) Cut(i, j int) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	(s.byteVec()).Cut(i, j)
 }
-func (s *Source) Delete(i int) {
+func (s *LineBuffer) Delete(i int) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	(s.byteVec()).Delete(i)
 }
-func (s *Source) Get(i int) byte {
+func (s *LineBuffer) Get(i int) byte {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	return byte((s.byteVec()).Get(d.IntVal(i)).(d.ByteVal))
 }
-func (s *Source) Range(i, j int) []byte {
+func (s *LineBuffer) Range(i, j int) []byte {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
 	return []byte((s.byteVec()).Range(i, j))
+}
+func (s *LineBuffer) UpdateTrailing(line []rune) {
+	s.Lock()
+	defer s.Unlock()
+	s.setDirty()
+	var bytes = []byte(string(line))
+	var buflen = len(s.bytes())
+	var trailen = len(bytes)
+	if buflen >= trailen {
+		var end = buflen - 1
+		var start = end - trailen - 1
+		copy(([]byte(*s.Native.(*d.ByteVec)))[start:end], bytes)
+	}
 }
 
 ////////////////////////////////////////////////////
@@ -290,7 +315,7 @@ func (t tokSort) Swap(i, j int) {
 }
 
 /////////////////////////////////////////////////////////
-func NewReadLine() (sf StateFnc, linebuf *Source) {
+func NewReadLine() (sf StateFnc, linebuf *LineBuffer) {
 
 	// create readline config
 	var config = &readline.Config{
@@ -301,7 +326,9 @@ func NewReadLine() (sf StateFnc, linebuf *Source) {
 		DisableAutoSaveHistory: true,
 	}
 
-	var listener = newListener()
+	linebuf = NewSource()
+
+	var listener = newListener(linebuf)
 	// set listener function
 	config.SetListener(listener)
 
@@ -310,12 +337,13 @@ func NewReadLine() (sf StateFnc, linebuf *Source) {
 	if err != nil {
 		panic(err)
 	}
-
-	linebuf = NewSource()
+	rl.Refresh()
 
 	log.SetOutput(rl.Stderr())
 
+	// STATE MONAD
 	sf = func() StateFnc {
+
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
@@ -328,11 +356,9 @@ func NewReadLine() (sf StateFnc, linebuf *Source) {
 			rl.Close()
 			return nil
 		}
-		rl.SaveHistory(line)
-		linebuf.Append([]byte(line))
+
 		return func() StateFnc { return sf() }
 	}
-
 	// return state function & thread-safe line buffer
 	return sf, linebuf
 }
@@ -347,7 +373,10 @@ func NewReadLine() (sf StateFnc, linebuf *Source) {
 
 type listenerFnc func([]rune, int, rune) ([]rune, int, bool)
 
-func newListener() listenerFnc {
+func newListener(linebuf *LineBuffer) listenerFnc {
+
+	// word boundary characters as string
+	var boundary = strings.Join(l.UniChars(), "")
 
 	return func(line []rune, pos int, key rune) ([]rune, int, bool) {
 
@@ -380,6 +409,10 @@ func newListener() listenerFnc {
 			}
 			pos = len(head)
 			line = append(head, tail...)
+		}
+
+		if strings.ContainsAny(string(key), boundary) {
+			linebuf.UpdateTrailing(line)
 		}
 
 		return line, pos, true
