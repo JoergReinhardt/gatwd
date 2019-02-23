@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	p "github.com/JoergReinhardt/gatwd/parse"
+	f "github.com/JoergReinhardt/gatwd/functions"
 )
 
 func TestStateFncProgress(t *testing.T) {
@@ -23,29 +23,9 @@ func TestStateFncProgress(t *testing.T) {
 		t.Fail()
 	}
 }
-func TestQueue(t *testing.T) {
-	var q = NewQueue()
-	q.Put(p.NewDataValueToken(0, "one"))
-	q.Put(p.NewDataValueToken(1, "two"))
-	q.Put(p.NewDataValueToken(2, "three"))
-	q.Put(p.NewDataValueToken(3, "four"))
-	q.Put(p.NewDataValueToken(4, "five"))
-	q.Put(p.NewDataValueToken(5, "six"))
-	q.Put(p.NewDataValueToken(6, "seven"))
 
-	var str string
-	for q.HasToken() {
-		tok := q.Pull()
-		fmt.Println(tok)
-		str = str + " " + tok.String()
-	}
-	fmt.Println(str)
-	if str != ` "one" "two" "three" "four" "five" "six" "seven"` {
-		t.Fail()
-	}
-}
-
-var line = []rune(`\y => -> === :: \n ab\tcd 123 12 data`)
+var line = []rune("\\y => -> === :: \n ab\tcd 123 12 data")
+var otherline = []rune("\\y => -> === :: abcd 123 12 data")
 
 func TestUnicodeReplacement(t *testing.T) {
 	fmt.Printf("ascii line: %s\n", string(line))
@@ -65,45 +45,65 @@ func TestUnicodeReplacement(t *testing.T) {
 	if len([]byte(string(uni(line)))) != asclen(uni(line)) {
 		t.Fail()
 	}
+
+	fmt.Printf("unicode other line: %s\n", string(uni(otherline)))
+	fmt.Printf("unicode byte length other line: %d\n", len([]byte(string(uni(otherline)))))
+	fmt.Printf("projected ascii length in byte of unicode other line as calculated %d\n",
+		asclen(uni(otherline)))
+	if len([]byte(string(uni(otherline)))) != asclen(uni(otherline)) {
+		t.Fail()
+	}
 }
 func TestThreadsafeSource(t *testing.T) {
 	source := NewSource()
-	source.Append([]byte(string(line)))
-	fmt.Println(source)
+
+	source.Write([]byte(string(line)))
+	fmt.Printf("fresh written source:\n %s\n\n", source)
+
 	source.Delete(3)
-	fmt.Println(source)
+	fmt.Printf("source after Delete(3):\n %s\n\n", source)
+
 	source.InsertSlice(8, 10, []byte(string(line)))
-	fmt.Println(source)
+	fmt.Printf("source after InsertSlice(8,10,[]byte(string(line))):\n %s\n\n", source)
+
 	source.Cut(5, 30)
-	fmt.Println(source)
+	fmt.Printf("source after Cut(5,30):\n %s\n\n", source)
 }
-func TestThreadsafeTokens(t *testing.T) {
-	toks := NewTokens()
-	fmt.Println(toks)
-	toks.Append(
-		p.NewDataValueToken(0, "this"),
-		p.NewDataValueToken(4, "is"),
-		p.NewDataValueToken(6, "a"),
-		p.NewDataValueToken(7, "public"),
-		p.NewDataValueToken(13, "service"),
-		p.NewDataValueToken(20, "annauncement"),
-		p.NewDataValueToken(32, "‥."),
-		p.NewDataValueToken(34, "and"),
-		p.NewDataValueToken(37, "this"),
-		p.NewDataValueToken(41, "is"),
-		p.NewDataValueToken(43, "not"),
-		p.NewDataValueToken(46, "a"),
-		p.NewDataValueToken(47, "test!"),
-	)
-	fmt.Println(toks)
-	toks.Delete(5)
-	fmt.Println(toks)
-	fmt.Println(toks.Range(4, 10))
-	toks.Insert(5, toks.Tokens())
-	fmt.Println(toks)
-	toks.Sort()
-	idx := toks.Search(3)
-	fmt.Println(idx)
-	fmt.Println(toks.Get(idx))
-	fmt.Println(toks.Get(23))
+func TestLineBufferReadLine(t *testing.T) {
+	buf := NewSource()
+	buf.WriteRunes(line)
+	fmt.Printf("prepared buffer:\n %s\n\n", buf)
+
+	var p = []byte{}
+	i, err := buf.ReadLine(&p)
+	if err != nil {
+		fmt.Printf("bytes read: %d, error encountered:\n %s\n\n", i, err)
+	}
+	fmt.Printf("bytes read: %d, line read:\n %s\n\n", i, p)
+	fmt.Printf("buffer left:\n %s\n\n", buf)
+}
+func TestLineBufferReadPresized(t *testing.T) {
+
+	buf := NewSource()
+	buf.WriteRunes(line)
+	fmt.Printf("prepared buffer:\n %s\n\n", buf)
+
+	var p = make([]byte, 0, 10)
+
+	i, err := buf.Read(&p)
+	if err != nil {
+		fmt.Printf("bytes read: %d, error encountered:\n %s\n\n", i, err)
+	}
+	fmt.Printf("bytes read: %d, line read:\n %s\n\n", i, p)
+	fmt.Printf("buffer left:\n %s\n\n", buf)
+}
+func TestLineBufferUpdateTrailing(t *testing.T) {
+	buf := NewSource()
+	buf.WriteRunes(line)
+
+	buf.UpdateTrailing([]rune("####"))
+	fmt.Printf("buffer after update:\n %s\n\n", buf)
+
+	buf.UpdateTrailing([]rune("####-----####"))
+	fmt.Printf("buffer after update:\n %s\n\n", buf)
 }
