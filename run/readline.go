@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	d "github.com/JoergReinhardt/gatwd/data"
 	f "github.com/JoergReinhardt/gatwd/functions"
 	l "github.com/JoergReinhardt/gatwd/lex"
 	p "github.com/JoergReinhardt/gatwd/parse"
@@ -28,7 +27,7 @@ func NewReadLine() (sf f.StateFnc, linebuf *p.LineBuffer) {
 		DisableAutoSaveHistory: true,
 	}
 
-	linebuf = p.NewLineBuffer(func(d.Native) { return })
+	linebuf = p.NewLineBuffer()
 
 	var listener = newListener(linebuf)
 	// set listener function
@@ -129,28 +128,10 @@ func newListener(linebuf *p.LineBuffer) listenerFnc {
 func uni(runes []rune) []rune { return []rune(acr.Replace(string(runes))) }
 func asclen(r []rune) int     { return len(acr.Replace(string(r))) + 1 }
 
-var acr = strings.NewReplacer(digraphReplacementList()...)
-
-func digraphReplacementList() []string {
-	var acrl = []string{}
-	for _, dig := range l.Digraphs() {
-		acrl = append(acrl, dig)
-		acrl = append(acrl, l.AsciiToUnicode(dig))
-	}
-	return acrl
-}
+var acr = l.NewAsciiReplacer()
 
 // replaces unicode with digtaphs
 func asc(runes []rune) []rune { return []rune(ucr.Replace(string(runes))) }
 func unilen(r []rune) int     { return len(ucr.Replace(string(r))) }
 
-var ucr = strings.NewReplacer(unicodeReplacementList()...)
-
-func unicodeReplacementList() []string {
-	var ucrl = []string{}
-	for _, unc := range l.UniChars() {
-		ucrl = append(ucrl, unc)
-		ucrl = append(ucrl, l.UnicodeToASCII(unc))
-	}
-	return ucrl
-}
+var ucr = l.NewUnicodeReplacer()

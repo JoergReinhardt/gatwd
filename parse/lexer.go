@@ -95,11 +95,25 @@ func (s *LineBuffer) peak() byte {
 	}
 	return byte(0)
 }
+func (s *LineBuffer) Peak() byte {
+	s.Lock()
+	defer s.Unlock()
+	s.setClean()
+
+	return s.peak()
+}
 func (s *LineBuffer) peakN(n int) []byte {
 	if len(s.bytes()) > n {
 		return s.bytes()[:n]
 	}
 	return nil
+}
+func (s *LineBuffer) PeakN(n int) []byte {
+	s.Lock()
+	defer s.Unlock()
+	s.setClean()
+
+	return s.peakN(n)
 }
 func (s *LineBuffer) Read(p *[]byte) (int, error) {
 	s.Lock()
@@ -363,7 +377,7 @@ func (t tokSort) Swap(i, j int) {
 type doFnc func(Lexer) f.StateFnc
 type Lexer func() (*LineBuffer, *TokenBuffer)
 
-func (lex Lexer) Buffer() (*LineBuffer, *TokenBuffer) { l, t := lex(); return l, t }
+func (lex Lexer) Buffer() (*LineBuffer, *TokenBuffer) { return lex() }
 func (lex Lexer) LineBuffer() *LineBuffer             { l, _ := lex(); return l }
 func (lex Lexer) TokenBuffer() *TokenBuffer           { _, t := lex(); return t }
 func (lex Lexer) nextState(do doFnc) f.StateFnc       { return do(lex) }

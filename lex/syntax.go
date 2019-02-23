@@ -395,3 +395,28 @@ func (t TextItem) Syntax() string { return Text.Syntax() }
 // having to produce utf-8 digraphs
 func (t TextItem) StringAlt() string { return t.String() }
 func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypeNat().Flag() }
+
+// STRING REPLACER & REPLACEMENT LISTS
+func NewUnicodeReplacer() *strings.Replacer {
+	return strings.NewReplacer(UnicodeReplacementList()...)
+}
+
+func UnicodeReplacementList() []string {
+	var ucrl = []string{}
+	for _, unc := range UniChars() {
+		ucrl = append(ucrl, unc)
+		ucrl = append(ucrl, UnicodeToASCII(unc))
+	}
+	return ucrl
+}
+
+func NewAsciiReplacer() *strings.Replacer { return strings.NewReplacer(AsciiReplacementList()...) }
+
+func AsciiReplacementList() []string {
+	var acrl = []string{}
+	for _, dig := range Digraphs() {
+		acrl = append(acrl, dig)
+		acrl = append(acrl, AsciiToUnicode(dig))
+	}
+	return acrl
+}
