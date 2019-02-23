@@ -39,7 +39,7 @@ func NewLexer(lbuf *LineBuffer) *TokenBuffer {
 	return tbuf
 }
 
-// case expression matcher
+// main switch case expression matcher
 func UtfPrefix(line string) bool {
 	return strings.HasPrefix(line, l.UniCharString)
 }
