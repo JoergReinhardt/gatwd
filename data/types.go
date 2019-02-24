@@ -238,7 +238,15 @@ type ( // NATIVE GOLANG TYPES
 	}
 )
 
-func NewAsync(callbacks ...func()) *AsyncVal {
+func NewAsyncDataSlice(callbacks ...func()) *AsyncVal {
+	return &AsyncVal{
+		sync.Mutex{},
+		DataSlice{},
+		callbacks,
+		true,
+	}
+}
+func NewAsyncByteBuffer(callbacks ...func()) *AsyncVal {
 	return &AsyncVal{
 		sync.Mutex{},
 		&ByteVec{},

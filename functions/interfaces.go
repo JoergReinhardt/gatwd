@@ -382,7 +382,8 @@ type Leaved interface {
 type StateFnc func() StateFnc
 
 func (s StateFnc) Run() {
-	for state := s(); state != nil; {
+	var state = s()
+	for state != nil {
 		state = state()
 	}
 }

@@ -2,7 +2,6 @@ package parse
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	d "github.com/JoergReinhardt/gatwd/data"
@@ -12,7 +11,10 @@ import (
 type LineBuffer d.AsyncVal
 
 func NewLineBuffer(callbacks ...func()) *LineBuffer {
-	return (*LineBuffer)(d.NewAsync(callbacks...))
+	if len(callbacks) == 0 {
+		callbacks = []func(){}
+	}
+	return (*LineBuffer)(d.NewAsyncByteBuffer(callbacks...))
 }
 func (s LineBuffer) AsynVal() *d.AsyncVal   { return (*d.AsyncVal)(&s) }
 func (s *LineBuffer) Subscribe(c ...func()) { (*d.AsyncVal)(s).Subscribe(c...) }
@@ -42,9 +44,16 @@ func (s *LineBuffer) SetClean() {
 func (s *LineBuffer) setDirty() {
 	s.Clean = false
 }
+func (s *LineBuffer) CallBack() {
+	s.Lock()
+	defer s.Unlock()
+	s.callBack()
+	s.setClean()
+
+}
 func (s *LineBuffer) callBack() {
-	for _, call := range s.Calls {
-		call()
+	for i, _ := range (*s).Calls {
+		s.Calls[i]()
 	}
 }
 func (s *LineBuffer) byteVec() *d.ByteVec {
@@ -95,7 +104,6 @@ func (s *LineBuffer) peek() byte {
 func (s *LineBuffer) Peek() byte {
 	s.Lock()
 	defer s.Unlock()
-	s.setClean()
 
 	return s.peek()
 }
@@ -108,14 +116,12 @@ func (s *LineBuffer) peekN(n int) []byte {
 func (s *LineBuffer) PeekN(n int) []byte {
 	s.Lock()
 	defer s.Unlock()
-	s.setClean()
 
 	return s.peekN(n)
 }
 func (s *LineBuffer) Read(p *[]byte) (int, error) {
 	s.Lock()
 	defer s.Unlock()
-	s.setClean()
 
 	return s.read(p)
 }
@@ -125,9 +131,7 @@ func (s *LineBuffer) ReadString() (string, error) {
 	if err != nil {
 		return string(buf), fmt.Errorf("error in lexer at position: %d"+
 			" while trying to read string from line buffer\n"+
-			"buffer content: ",
-			strconv.Itoa(n),
-			string(*s.Native.(*d.ByteVec)))
+			"buffer content: %s\n", n, string(*s.Native.(*d.ByteVec)))
 	}
 	return string(buf), nil
 }
@@ -138,7 +142,6 @@ func (s *LineBuffer) ReadString() (string, error) {
 func (s *LineBuffer) ReadLine(p *[]byte) (int, error) {
 	s.Lock()
 	defer s.Unlock()
-	s.setClean()
 
 	var lines = strings.Split(s.string(), "\n")
 	var length = len([]byte(lines[0]))

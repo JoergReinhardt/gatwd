@@ -23,20 +23,19 @@ func newLexer(l *LineBuffer, t *TokenBuffer, curl string) Lexer {
 // lexer gets called, whenever linebuffer changes & runs til buffer is depleted
 func NewLexer(lbuf *LineBuffer) *TokenBuffer {
 	var bytes = []byte{}
+
 	lbuf.ReadLine(&bytes)
 	// allocate new token buffer
-	var tbuf = NewTokenBuffer()
+	var tbuf = *NewTokenBuffer()
 	// enclose both buffers in a lexer instance
-	var lex = newLexer(lbuf, tbuf, string(bytes))
+	var lex = newLexer(lbuf, &tbuf, string(bytes))
 	// retrieve state function from lexer closure over buffers
-	var sf = lex.nextState(func(l Lexer) f.StateFnc {
-		return lexer(lex)
-	})
+	var sf = f.StateFnc(func() f.StateFnc { return lex.nextState(lexer) })
 	// subscribe state functions run method to be called back once per
 	// change in line buffer
 	lbuf.Subscribe(sf.Run)
 	// return token buffer reference
-	return tbuf
+	return &tbuf
 }
 
 // main switch case expression matcher

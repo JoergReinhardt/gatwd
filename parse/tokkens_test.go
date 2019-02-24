@@ -7,7 +7,6 @@ import (
 	d "github.com/JoergReinhardt/gatwd/data"
 	f "github.com/JoergReinhardt/gatwd/functions"
 	l "github.com/JoergReinhardt/gatwd/lex"
-	p "github.com/JoergReinhardt/gatwd/parse"
 )
 
 func TestTokenTypes(t *testing.T) {
@@ -79,19 +78,19 @@ func TestThreadsafeTokens(t *testing.T) {
 	toks := NewTokenBuffer()
 	fmt.Println(toks)
 	toks.Append(
-		p.NewDataValueToken(0, "this"),
-		p.NewDataValueToken(4, "is"),
-		p.NewDataValueToken(6, "a"),
-		p.NewDataValueToken(7, "public"),
-		p.NewDataValueToken(13, "service"),
-		p.NewDataValueToken(20, "annauncement"),
-		p.NewDataValueToken(32, "‥."),
-		p.NewDataValueToken(34, "and"),
-		p.NewDataValueToken(37, "this"),
-		p.NewDataValueToken(41, "is"),
-		p.NewDataValueToken(43, "not"),
-		p.NewDataValueToken(46, "a"),
-		p.NewDataValueToken(47, "test!"),
+		NewDataValueToken(0, "this"),
+		NewDataValueToken(4, "is"),
+		NewDataValueToken(6, "a"),
+		NewDataValueToken(7, "public"),
+		NewDataValueToken(13, "service"),
+		NewDataValueToken(20, "annauncement"),
+		NewDataValueToken(32, "‥."),
+		NewDataValueToken(34, "and"),
+		NewDataValueToken(37, "this"),
+		NewDataValueToken(41, "is"),
+		NewDataValueToken(43, "not"),
+		NewDataValueToken(46, "a"),
+		NewDataValueToken(47, "test!"),
 	)
 	fmt.Println(toks)
 	toks.Delete(5)

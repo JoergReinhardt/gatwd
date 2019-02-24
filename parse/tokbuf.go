@@ -11,7 +11,7 @@ import (
 type TokenBuffer d.AsyncVal
 
 func NewTokenBuffer(callbacks ...func()) *TokenBuffer {
-	return (*TokenBuffer)(d.NewAsync(callbacks...))
+	return (*TokenBuffer)(d.NewAsyncDataSlice(callbacks...))
 }
 func (s TokenBuffer) AsyncVal() *d.AsyncVal { return (*d.AsyncVal)(&s) }
 func (s TokenBuffer) String() string {
@@ -28,11 +28,11 @@ func (s TokenBuffer) String() string {
 
 	return str.String()
 }
-func (s *TokenBuffer) dataSlice() d.DataSlice {
-	return s.Native.(d.DataSlice)
+func (s *TokenBuffer) dataSlice() []d.Native {
+	return s.Native.(d.DataSlice).Slice()
 }
 func (s *TokenBuffer) slice() []d.Native {
-	return s.dataSlice().Slice()
+	return s.dataSlice()
 }
 func (s *TokenBuffer) setDirty() {
 	s.Clean = false
@@ -61,7 +61,7 @@ func (s *TokenBuffer) CurrentPos() int {
 	return 0
 }
 func (s *TokenBuffer) len() int {
-	return s.dataSlice().Len()
+	return len(s.dataSlice())
 }
 func (s *TokenBuffer) tokens() []Token {
 	return toks(s.slice()...)
@@ -75,7 +75,7 @@ func (s *TokenBuffer) Get(i int) Token {
 	s.Lock()
 	defer s.Unlock()
 	if s.len() > 0 {
-		return s.dataSlice().GetInt(i).(Token)
+		return s.dataSlice()[i].(Token)
 	}
 	return TokVal{}
 }
@@ -100,14 +100,14 @@ func (s *TokenBuffer) Set(i int, tok Token) {
 	defer s.Unlock()
 	s.setDirty()
 	if s.len() > i {
-		s.dataSlice().SetInt(i, tok)
+		s.dataSlice()[i] = tok
 	}
 }
 func (s *TokenBuffer) Append(toks ...Token) {
 	s.Lock()
 	defer s.Unlock()
 	s.setDirty()
-	s.Native = d.SliceAppend(s.dataSlice().Slice(), nats(toks...)...)
+	s.Native = d.SliceAppend(s.dataSlice(), nats(toks...)...)
 }
 func (s *TokenBuffer) Insert(i int, toks []Token) {
 	s.Lock()
@@ -128,14 +128,14 @@ func (s *TokenBuffer) Delete(i int) {
 func (t *TokenBuffer) Sort() {
 	t.Lock()
 	defer t.Unlock()
-	var ts = tokSort(toks([]d.Native(t.Native.(d.DataSlice))...))
+	var ts = tokSort(toks(t.dataSlice()...))
 	sort.Sort(ts)
 	t.Native = d.DataSlice(nats(ts...))
 }
 func (t *TokenBuffer) Search(pos int) int {
 	if t.len() > pos {
 		return sort.Search(t.Len(), func(i int) bool {
-			return pos < t.dataSlice().Slice()[i].(Token).Pos()
+			return pos < t.dataSlice()[i].(Token).Pos()
 		})
 	}
 	return -1
