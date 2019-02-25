@@ -40,10 +40,6 @@ func (t dataTok) String() string {
 	switch t.TypeTok() {
 	case Data_Value_Token:
 		str = t.Native.String()
-	case Argument_Token:
-		str = t.Native.String()
-	case Parameter_Token:
-		str = t.Native.String()
 	case Pair_Token:
 		str = t.Native.String()
 	case Token_Collection:

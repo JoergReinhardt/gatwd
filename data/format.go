@@ -37,6 +37,7 @@ func (v RatioVec) String() string  { return StringSlice(", ", "[", "]", v) }
 func (v TimeVec) String() string   { return StringSlice(", ", "[", "]", v) }
 func (v DuraVec) String() string   { return StringSlice(", ", "[", "]", v) }
 func (v FlagSet) String() string   { return StringSlice(", ", "[", "]", v) }
+func (v SetVal) String() string    { return StringSlice(", ", "[", "]", v) }
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }

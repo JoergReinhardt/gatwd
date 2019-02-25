@@ -120,9 +120,8 @@ const (
 
 	Functional = Compositions | Type
 
-	MAX_INT      TyNative = 0xFFFFFFFFFFFFFFFF
-	MaskNatives           = MAX_INT ^ Natives
-	MaskReserved          = MAX_INT ^ Flag
+	MAX_INT     TyNative = 0xFFFFFFFFFFFFFFFF
+	MaskNatives          = MAX_INT ^ Natives
 )
 
 //////// INTERNAL TYPES /////////////
@@ -157,13 +156,14 @@ type ( // NATIVE GOLANG TYPES
 	TimeVal   time.Time
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
-	PairVal   struct{ l, r Native }
+	PairVal   struct{ L, R Native }
 	// SETS OF NATIVES
 	SetString map[StrVal]Native
 	SetUint   map[UintVal]Native
 	SetInt    map[IntVal]Native
 	SetFloat  map[FltVal]Native
 	SetFlag   map[BitFlag]Native
+	SetVal    map[Native]Native
 
 	// GENERIC SLICE
 	DataSlice []Native
@@ -233,8 +233,6 @@ type ( // NATIVE GOLANG TYPES
 	AsyncVal struct {
 		sync.Mutex
 		Native
-		Calls []func()
-		Clean bool
 	}
 )
 
@@ -242,22 +240,13 @@ func NewAsyncDataSlice(callbacks ...func()) *AsyncVal {
 	return &AsyncVal{
 		sync.Mutex{},
 		DataSlice{},
-		callbacks,
-		true,
 	}
 }
 func NewAsyncByteBuffer(callbacks ...func()) *AsyncVal {
 	return &AsyncVal{
 		sync.Mutex{},
 		&ByteVec{},
-		callbacks,
-		true,
 	}
-}
-func (a *AsyncVal) Subscribe(callbacks ...func()) {
-	a.Lock()
-	defer a.Unlock()
-	a.Calls = append(a.Calls, callbacks...)
 }
 func (v ReaderVal) Path() string               { return v.StrVal.String() }
 func (v ReaderVal) Close() error               { return io.Closer(v).Close() }
@@ -288,10 +277,8 @@ func (v PipeWriterVal) TypeNat() TyNative           { return Writer.TypeNat() | 
 func (v *MutexVal) Lock()   { (*v).Mutex.Lock() }
 func (v *MutexVal) Unlock() { (*v).Mutex.Unlock() }
 
-func (v *AsyncVal) Lock()     { (*v).Mutex.Lock() }
-func (v *AsyncVal) Unlock()   { (*v).Mutex.Unlock() }
-func (v *AsyncVal) SetClean() { (*v).Clean = true }
-func (v *AsyncVal) SetDirty() { (*v).Clean = false }
+func (v *AsyncVal) Lock()   { (*v).Mutex.Lock() }
+func (v *AsyncVal) Unlock() { (*v).Mutex.Unlock() }
 
 /// bind the appropriate TypeNat Method to every type
 func (v BitFlag) TypeNat() TyNative   { return Flag.TypeNat() }
@@ -348,7 +335,7 @@ func (v StrVal) Copy() Native    { return StrVal(v) }
 func (v TimeVal) Copy() Native   { return TimeVal(v) }
 func (v DuraVal) Copy() Native   { return DuraVal(v) }
 func (v ErrorVal) Copy() Native  { return ErrorVal(v) }
-func (v PairVal) Copy() Native   { return PairVal{v.l, v.r} }
+func (v PairVal) Copy() Native   { return PairVal{v.L, v.R} }
 func (v FlagSlice) Copy() Native {
 	var nfs = DataSlice{}
 	for _, dat := range v {

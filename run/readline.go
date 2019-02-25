@@ -7,7 +7,6 @@ import (
 
 	f "github.com/JoergReinhardt/gatwd/functions"
 	l "github.com/JoergReinhardt/gatwd/lex"
-	p "github.com/JoergReinhardt/gatwd/parse"
 	"github.com/gohxs/readline"
 )
 
@@ -16,7 +15,7 @@ import (
 ///
 // instanciate readline with a listener that replaces ascii di-, & trigraphs
 // against unicode
-func NewReadLine() (sf f.StateFnc, linebuf *p.LineBuffer) {
+func NewReadLine() (sf f.StateFnc) {
 
 	// create readline config
 	var config = &readline.Config{
@@ -27,9 +26,7 @@ func NewReadLine() (sf f.StateFnc, linebuf *p.LineBuffer) {
 		DisableAutoSaveHistory: true,
 	}
 
-	linebuf = p.NewLineBuffer()
-
-	var listener = newListener(linebuf)
+	var listener = newListener()
 	// set listener function
 	config.SetListener(listener)
 
@@ -61,7 +58,7 @@ func NewReadLine() (sf f.StateFnc, linebuf *p.LineBuffer) {
 		return func() f.StateFnc { return sf() }
 	}
 	// return state function & thread-safe line buffer
-	return sf, linebuf
+	return sf
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -75,7 +72,7 @@ func NewReadLine() (sf f.StateFnc, linebuf *p.LineBuffer) {
 
 type listenerFnc func([]rune, int, rune) ([]rune, int, bool)
 
-func newListener(linebuf *p.LineBuffer) listenerFnc {
+func newListener() listenerFnc {
 
 	// word boundary characters as string
 	var boundary = strings.Join(l.UniChars, "")
@@ -115,7 +112,6 @@ func newListener(linebuf *p.LineBuffer) listenerFnc {
 
 		// on word-boundary update trail in buffer to trigger lexer
 		if strings.ContainsAny(string(key), boundary) {
-			linebuf.UpdateTrailing(line)
 		}
 
 		return line, pos, true

@@ -3,15 +3,69 @@ package data
 func NewPair(l, r Native) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) Left() Native           { return p.l }
-func (p PairVal) Right() Native          { return p.r }
-func (p PairVal) Both() (Native, Native) { return p.l, p.r }
+func (p PairVal) Left() Native           { return p.L }
+func (p PairVal) Right() Native          { return p.R }
+func (p PairVal) Both() (Native, Native) { return p.L, p.R }
 func (p PairVal) Eval(prime ...Native) Native {
 	if len(prime) >= 2 {
 		return PairVal{prime[0], prime[1]}
 	}
 	return p
 }
+
+////////////////////////////////////////////////////////////////
+//// GENERIC ACCESSOR TYPED SET
+///
+//
+func NewValSet(acc ...Paired) Mapped {
+	var m = make(map[Native]Native)
+	for _, pair := range acc {
+		m[pair.Left().(StrVal)] = pair.Right()
+	}
+	return SetVal(m)
+}
+
+func (s SetVal) Eval(p ...Native) Native {
+	if len(p) > 0 {
+		for _, prime := range p {
+			if prime.TypeNat().Flag().Match(Pair) {
+				var pair = prime.(PairVal)
+				s.Set(pair.Left(), pair.Right())
+			}
+		}
+	}
+	return s
+}
+func (s SetVal) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetVal) Len() int          { return len(s) }
+func (s SetVal) Keys() []Native {
+	var keys = []Native{}
+	for k, _ := range s {
+		keys = append(keys, k)
+	}
+	return keys
+}
+func (s SetVal) Data() []Native {
+	var dat = []Native{}
+	for _, d := range s {
+		dat = append(dat, d)
+	}
+	return dat
+}
+func (s SetVal) Fields() []Paired {
+	var pairs = []Paired{}
+	for k, d := range s {
+		pairs = append(pairs, PairVal(PairVal{k, d}))
+	}
+	return pairs
+}
+func (s SetVal) Get(acc Native) (Native, bool) {
+	if dat, ok := s[acc.(StrVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
+func (s SetVal) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
 // implements Mapped flagged Set
 
@@ -37,6 +91,7 @@ func (s SetString) Eval(p ...Native) Native {
 	return s
 }
 func (s SetString) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetString) Len() int          { return len(s) }
 func (s SetString) Keys() []Native {
 	var keys = []Native{}
 	for k, _ := range s {
@@ -77,6 +132,7 @@ func NewIntSet(acc ...Paired) Mapped {
 }
 
 func (s SetInt) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetInt) Len() int          { return len(s) }
 
 func (s SetInt) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -144,6 +200,7 @@ func (s SetUint) Eval(p ...Native) Native {
 	}
 	return s
 }
+func (s SetUint) Len() int { return len(s) }
 func (s SetUint) Keys() []Native {
 	var keys = []Native{}
 	for k, _ := range s {
@@ -184,6 +241,7 @@ func NewFloatSet(acc ...Paired) Mapped {
 }
 
 func (s SetFloat) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetFloat) Len() int          { return len(s) }
 func (s SetFloat) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {
@@ -250,6 +308,7 @@ func (s SetFlag) Eval(p ...Native) Native {
 	}
 	return s
 }
+func (s SetFlag) Len() int { return len(s) }
 func (s SetFlag) Keys() []Native {
 	var keys = []Native{}
 	for k, _ := range s {

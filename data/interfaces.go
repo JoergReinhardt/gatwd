@@ -99,6 +99,7 @@ type Sequential interface {
 // mapped is the interface of all sets, that have accessors (index, or key)
 type Mapped interface {
 	Native
+	Len() int
 	Keys() []Native
 	Data() []Native
 	Fields() []Paired

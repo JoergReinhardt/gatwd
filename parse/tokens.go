@@ -56,20 +56,12 @@ const (
 	Keyword_Token
 	Pair_Token
 	Token_Collection
-	Argument_Token  // like Return
-	Parameter_Token // like Return
 	Tree_Node_Token
 )
 
 func NewSyntaxToken(pos int, f l.Item) Token      { return newToken(Syntax_Token, pos, f) }
 func NewNatTypeToken(pos int, f d.TyNative) Token { return newToken(TypeNat_Token, pos, f) }
 func NewFncTypeToken(pos int, flag f.TyFnc) Token { return newToken(TypeFnc_Token, pos, flag) }
-func NewArgumentToken(pos int, dat string) Token {
-	return newToken(Argument_Token, pos, f.NewArgument(f.New(dat)))
-}
-func NewParameterToken(pos int, acc, arg string) Token {
-	return newToken(Parameter_Token, pos, f.NewParameter(f.NewPairFromData(d.New(acc), d.New(arg))))
-}
 func NewDataValueToken(pos int, dat string) Token { return newToken(Data_Value_Token, pos, d.New(dat)) }
 func NewValueToken(pos int, dat string) Token     { return newToken(Name_Token, pos, d.New(dat)) }
 func NewWordToken(pos int, dat string) Token {
@@ -98,12 +90,6 @@ func NewTokenCollection(pos int, dat ...Token) Token {
 	return newToken(Token_Collection, pos, tokens(dat))
 }
 func NewTreeNodeToken(pos int, dat ...Token) Token { return newToken(Tree_Node_Token, pos, tokens(dat)) }
-func NewKeyValToken(pos int, key, val d.Native) Token {
-	return newToken(
-		Parameter_Token, pos,
-		f.NewKeyValueParm(f.NewFromData(key), f.NewFromData(val)),
-	)
-}
 
 type TokVal struct {
 	tok TyToken
@@ -134,18 +120,12 @@ func newToken(t TyToken, pos int, dat d.Native) Token {
 		return TokVal{TypeNat_Token, pos, dat.(d.TyNative)}
 	case TypeFnc_Token:
 		return TokVal{TypeFnc_Token, pos, dat.(f.TyFnc)}
-	case Argument_Token:
-		return dataTok{TokVal{Argument_Token, pos, dat.TypeNat()}, dat.(f.Argumented)}
-	case Parameter_Token:
-		return dataTok{TokVal{Parameter_Token, pos, dat.TypeNat()}, dat.(f.Parametric)}
 	case Data_Value_Token:
 		return dataTok{TokVal{Data_Value_Token, pos, dat.TypeNat()}, dat.(d.Native)}
 	case Pair_Token:
 		return dataTok{TokVal{Pair_Token, pos, dat.TypeNat()}, dat.(f.Paired)}
 	case Token_Collection:
 		return dataTok{TokVal{Token_Collection, pos, dat.TypeNat()}, dat.(tokens)}
-	case Tree_Node_Token:
-		return dataTok{TokVal{Tree_Node_Token, pos, dat.TypeNat()}, dat.(f.Parametric)}
 	}
 	return nil
 }

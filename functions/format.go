@@ -9,7 +9,7 @@ import (
 
 /// VALUE
 
-func (p PairVal) String() string {
+func (p PairFnc) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(p.Left().String())
 	buf.WriteString(l.Colon.Syntax())
@@ -50,43 +50,3 @@ func (l ListFnc) String() string {
 }
 
 /// RECORD
-
-/// ARGUMENT
-func (p ArgVal) String() string { return p.Arg().String() }
-
-/// ARGUMENTS
-func (p ArgSet) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.LeftBra.Syntax())
-	var args = p.Data()
-	var length = len(args) - 1
-	for i, arg := range args {
-		buf.WriteString(arg.String())
-		if i < length {
-			buf.WriteString(l.Comma.Syntax())
-			buf.WriteString(l.Blank.Syntax())
-		}
-	}
-	buf.WriteString(l.RightBra.Syntax())
-	return buf.String()
-}
-
-//// PARAMETER
-func (p ParamVal) String() string { return p.Pair().String() }
-
-//// PARAMETERS
-func (p ParamSet) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(l.LeftBra.Syntax())
-	var parms = p.Parms()
-	var length = len(parms) - 1
-	for i, parm := range parms {
-		buf.WriteString(parm.String())
-		if i < length {
-			buf.WriteString(l.Comma.Syntax())
-			buf.WriteString(l.Blank.Syntax())
-		}
-	}
-	buf.WriteString(l.RightBra.Syntax())
-	return buf.String()
-}

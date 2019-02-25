@@ -15,6 +15,6 @@ type Token interface {
 //
 // the ident interface is implemented by everything providing unique identification.
 type Ident interface {
-	f.Value
-	Ident() f.Callable // calls enclosed fnc, with enclosed parameters
+	f.Functional
+	Ident() f.Functional // calls enclosed fnc, with enclosed parameters
 }
