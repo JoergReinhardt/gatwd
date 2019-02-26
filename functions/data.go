@@ -13,13 +13,13 @@ import (
 )
 
 type (
-	// FIXED ARITY FUNCTIONS
+	// GENERIC FIXED ARITY FUNCTIONS
 	ConstFnc  func() Functional
 	UnaryFnc  func(Functional) Functional
 	BinaryFnc func(a, b Functional) Functional
 	NaryFnc   func(...Functional) Functional
 
-	// CLOSURES OVER COLLECTIONS
+	// FUNCTIONAL COLLECTIONS
 	ListFnc     func() (Functional, ListFnc)
 	PairFnc     func() (a, b Functional)
 	VecFnc      func() []Functional
@@ -87,14 +87,14 @@ func (n NaryFnc) Call(d ...Functional) Functional { return n(d...) }
 ///// RECURSIVE LIST
 ////
 /// base implementation of recursively linked lists
-func NewRecursiveList(dd ...Functional) ListFnc {
-	if len(dd) > 0 {
-		if len(dd) > 1 {
+func NewRecursiveList(fncs ...Functional) ListFnc {
+	if len(fncs) > 0 {
+		if len(fncs) > 1 {
 			return ListFnc(func() (Functional, ListFnc) {
-				return dd[0], NewRecursiveList(dd[1:]...)
+				return fncs[0], NewRecursiveList(fncs[1:]...)
 			})
 		}
-		return ListFnc(func() (Functional, ListFnc) { return dd[0], nil })
+		return ListFnc(func() (Functional, ListFnc) { return fncs[0], nil })
 	}
 	return nil
 }
@@ -138,15 +138,15 @@ func (l ListFnc) Con(val Functional) ListFnc {
 //// VECTOR
 ///
 // vector is a list backed by a slice.
-func conVec(vec Vectorized, dd ...Functional) VecFnc {
-	return conVecFromFunctionals(append(vec.Slice(), dd...)...)
+func conVec(vec Vectorized, fncs ...Functional) VecFnc {
+	return conVecFromFunctionals(append(vec.Slice(), fncs...)...)
 }
-func conVecFromFunctionals(dd ...Functional) VecFnc {
-	return VecFnc(func() []Functional { return dd })
+func conVecFromFunctionals(fncs ...Functional) VecFnc {
+	return VecFnc(func() []Functional { return fncs })
 }
-func NewVector(dd ...Functional) VecFnc {
+func NewVector(fncs ...Functional) VecFnc {
 	return VecFnc(func() (vec []Functional) {
-		for _, dat := range dd {
+		for _, dat := range fncs {
 			vec = append(vec, New(dat))
 		}
 		return vec

@@ -91,6 +91,7 @@ type Associative interface {
 // behaviour map-/ & fold operations rely up on
 type Consumeable interface {
 	Functional
+	Composed
 	Head() Functional
 	Tail() Consumeable
 	DeCap() (Functional, Consumeable)
@@ -104,7 +105,6 @@ type Consumeable interface {
 type Vectorized interface {
 	Composed
 	Sequential
-	Consumeable
 	Searchable
 	Ordered
 	Indexed
