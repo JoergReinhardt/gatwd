@@ -6,6 +6,7 @@ DATA CONSTRUCTORS
 package functions
 
 import (
+	"bytes"
 	"strings"
 
 	d "github.com/JoergReinhardt/gatwd/data"
@@ -25,6 +26,9 @@ type (
 	VecFnc      func() []Functional
 	AssocVecFnc func() []Paired
 	AssocSetFnc func() d.Mapped
+
+	// IO DATA
+	IOBuffer func()
 )
 
 func ElemEmpty(val Functional) bool {

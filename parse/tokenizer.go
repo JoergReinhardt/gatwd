@@ -1,12 +1,13 @@
 package parse
 
-//import (
-//	"strings"
-//
-//	d "github.com/JoergReinhardt/gatwd/data"
-//	f "github.com/JoergReinhardt/gatwd/functions"
-//	l "github.com/JoergReinhardt/gatwd/lex"
-//)
+import (
+	"strings"
+
+	d "github.com/JoergReinhardt/gatwd/data"
+	f "github.com/JoergReinhardt/gatwd/functions"
+	l "github.com/JoergReinhardt/gatwd/lex"
+)
+
 //
 //// lexer closes over a line buffer containing the input and a queue, to share
 //// with the caller and emit it's tokens to.

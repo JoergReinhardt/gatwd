@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math/big"
-	"sync"
 	"time"
 )
 
@@ -66,6 +64,7 @@ const (
 	Rune
 	Bytes
 	String
+	Buffer
 	Reader
 	Writer
 	Pipe
@@ -93,35 +92,23 @@ const (
 		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
 		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise = Naturals | Byte | Flag
-
-	Booleans = Bool | Bitwise
-
-	Naturals = Uint | Uint8 | Uint16 | Uint32
-
-	Integers = Int | Int8 | Int16 | Int32 | BigInt
-
-	Rationals = Naturals | Ratio
-
-	Reals = Float | Flt32 | BigFlt
-
+	Bitwise    = Naturals | Byte | Flag
+	Booleans   = Bool | Bitwise
+	Naturals   = Uint | Uint8 | Uint16 | Uint32
+	Integers   = Int | Int8 | Int16 | Int32 | BigInt
+	Rationals  = Naturals | Ratio
+	Reals      = Float | Flt32 | BigFlt
 	Imaginarys = Imag | Imag64
+	Numbers    = Rationals | Reals | Imaginarys
+	Letters    = String | Rune | Bytes
+	Streams    = Reader | Writer | Pipe
 
-	Numbers = Rationals | Reals | Imaginarys
-
-	Letters = String | Rune | Bytes
-
-	Streams = Reader | Writer | Pipe
-
-	/// here will be dragons‥.
 	Compositions = Pair | Tuple | Record | Vector | List | Set
+	Type         = Nat | Fnc | Sum | Prod
+	Functional   = Compositions | Type
 
-	Type = Nat | Fnc | Sum | Prod
-
-	Functional = Compositions | Type
-
-	MAX_INT     TyNative = 0xFFFFFFFFFFFFFFFF
-	MaskNatives          = MAX_INT ^ Natives
+	MASK         TyNative = 0xFFFFFFFFFFFFFFFF
+	MASK_NATIVES          = MASK ^ Natives
 )
 
 //////// INTERNAL TYPES /////////////
@@ -149,6 +136,7 @@ type ( // NATIVE GOLANG TYPES
 	RuneVal   rune
 	BytesVal  []byte
 	StrVal    string
+
 	// COMPLEX GOLANG TYPES
 	BigIntVal big.Int
 	BigFltVal big.Float
@@ -157,6 +145,7 @@ type ( // NATIVE GOLANG TYPES
 	DuraVal   time.Duration
 	ErrorVal  struct{ e error }
 	PairVal   struct{ L, R Native }
+
 	// SETS OF NATIVES
 	SetString map[StrVal]Native
 	SetUint   map[UintVal]Native
@@ -167,8 +156,10 @@ type ( // NATIVE GOLANG TYPES
 
 	// GENERIC SLICE
 	DataSlice []Native
+
 	// SLICE OF BIT FLAGS
 	FlagSlice []BitFlag
+
 	// SLICES OF UNALIASED NATIVES
 	InterfaceSlice []interface{}
 	NilVec         []struct{}
@@ -196,89 +187,7 @@ type ( // NATIVE GOLANG TYPES
 	DuraVec        []time.Duration
 	ErrorVec       []error
 	FlagSet        []BitFlag
-
-	// READER/WRITER
-	PipeReaderVal io.PipeReader
-	PipeWriterVal io.PipeWriter
-	ReaderVal     struct {
-		StrVal
-		io.ReadCloser
-	}
-	ReadWriterVal struct {
-		StrVal
-		io.ReadWriteCloser
-	}
-	WriterVal struct {
-		StrVal
-		io.WriteCloser
-	}
-	// THREADSAFE
-	MutexVal struct {
-		sync.Mutex
-		Native
-	}
-	RMutexVal struct {
-		sync.RWMutex
-		ReaderVal
-	}
-	WMutexVal struct {
-		sync.RWMutex
-		WriterVal
-	}
-	RWMutexVal struct {
-		sync.RWMutex
-		ReadWriterVal
-	}
-	// ASYNC
-	AsyncVal struct {
-		sync.Mutex
-		Native
-	}
 )
-
-func NewAsyncDataSlice(callbacks ...func()) *AsyncVal {
-	return &AsyncVal{
-		sync.Mutex{},
-		DataSlice{},
-	}
-}
-func NewAsyncByteBuffer(callbacks ...func()) *AsyncVal {
-	return &AsyncVal{
-		sync.Mutex{},
-		&ByteVec{},
-	}
-}
-func (v ReaderVal) Path() string               { return v.StrVal.String() }
-func (v ReaderVal) Close() error               { return io.Closer(v).Close() }
-func (v ReaderVal) Read(p []byte) (int, error) { return io.Reader(v).Read(p) }
-func (v ReaderVal) TypeNat() TyNative          { return Reader.TypeNat() }
-
-func (v WriterVal) Path() string                { return v.StrVal.String() }
-func (v WriterVal) Close() error                { return io.Closer(v).Close() }
-func (v WriterVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
-func (v WriterVal) TypeNat() TyNative           { return Writer.TypeNat() }
-
-func (v ReadWriterVal) Path() string                { return v.StrVal.String() }
-func (v ReadWriterVal) Close() error                { return io.Closer(v).Close() }
-func (v ReadWriterVal) Read(p []byte) (int, error)  { return io.Reader(v).Read(p) }
-func (v ReadWriterVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
-func (v ReadWriterVal) TypeNat() TyNative           { return Reader.TypeNat() | Writer.TypeNat() }
-
-func (v PipeReaderVal) Eval(n ...Native) Native    { return v }
-func (v PipeReaderVal) Read(p []byte) (int, error) { return io.Reader(v).Read(p) }
-func (v PipeReaderVal) Close() error               { return io.Closer(v).Close() }
-func (v PipeReaderVal) TypeNat() TyNative          { return Reader.TypeNat() | Pipe.TypeNat() }
-
-func (v PipeWriterVal) Eval(n ...Native) Native     { return v }
-func (v PipeWriterVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
-func (v PipeWriterVal) Close() error                { return io.Closer(v).Close() }
-func (v PipeWriterVal) TypeNat() TyNative           { return Writer.TypeNat() | Pipe.TypeNat() }
-
-func (v *MutexVal) Lock()   { (*v).Mutex.Lock() }
-func (v *MutexVal) Unlock() { (*v).Mutex.Unlock() }
-
-func (v *AsyncVal) Lock()   { (*v).Mutex.Lock() }
-func (v *AsyncVal) Unlock() { (*v).Mutex.Unlock() }
 
 /// bind the appropriate TypeNat Method to every type
 func (v BitFlag) TypeNat() TyNative   { return Flag.TypeNat() }
