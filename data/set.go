@@ -240,8 +240,8 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) TypeNat() TyNative { return Set.TypeNat() }
 func (s SetFloat) Len() int          { return len(s) }
+func (s SetFloat) TypeNat() TyNative { return Set.TypeNat() }
 func (s SetFloat) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {

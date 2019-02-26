@@ -199,5 +199,14 @@ func (s SetString) String() string {
 	}
 	return str.String()
 }
-func (v PipeReaderVal) String() string { return "pipe reader" }
-func (v PipeWriterVal) String() string { return "pipe writer" }
+func (v ReadVal) String() string      { return "reader" }
+func (v WriteVal) String() string     { return "writer" }
+func (v ReadWriteVal) String() string { return "reader/writer" }
+func (v PipeReadVal) String() string  { return "pipe-reader" }
+func (v PipeWriteVal) String() string { return "pipe-writer" }
+
+func (v TSNative) String() string    { return v.Get().String() }
+func (v TSBuffer) String() string    { return "thread-safe buffer" }
+func (v TSRead) String() string      { return "thread-safe reader" }
+func (v TSWrite) String() string     { return "thread-safe writer" }
+func (v TSReadWrite) String() string { return "thread-safe reader/writer" }
