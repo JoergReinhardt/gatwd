@@ -6,7 +6,6 @@ DATA CONSTRUCTORS
 package functions
 
 import (
-	"bytes"
 	"strings"
 
 	d "github.com/JoergReinhardt/gatwd/data"
@@ -27,8 +26,9 @@ type (
 	AssocVecFnc func() []Paired
 	AssocSetFnc func() d.Mapped
 
-	// IO DATA
-	IOBuffer func()
+	// THREAD SAFE IO DATA
+	IOBuffer func(...byte) *d.TSBuffer
+	IOVector func(...Functional) d.TSSlice
 )
 
 func ElemEmpty(val Functional) bool {
@@ -450,3 +450,106 @@ func (v AssocSetFnc) String() string {
 }
 func (v AssocSetFnc) TypeFnc() TyFnc      { return MuliSet | Accessor }
 func (v AssocSetFnc) TypeNat() d.TyNative { return d.Set | d.Function }
+
+////////////////////////////////////////////////////////////////////////
+//// IO BUFFER
+///
+// io buffer yields a thread safe bytes buffer
+func NewIOBuffer() IOBuffer {
+	var buf = d.NewTSBuffer()
+	var err error
+	return IOBuffer(func(b ...byte) *d.TSBuffer {
+		if len(b) > 0 {
+			if len(b) > 1 {
+				_, err = buf.WriteBytes(b)
+			}
+			err = buf.WriteByte(d.ByteVal(b[0]))
+		}
+		if err != nil {
+			// try write errors string representation to buffer‥.
+			// if it fails, there's nothing to be done about and
+			// will consequently be ignored → results needs to be
+			// wrapped by an optional
+			buf.WriteString(d.StrVal(err.Error()))
+			return buf
+		}
+		// no parameter passed → reveal buffer
+		return buf
+	})
+}
+func (b IOBuffer) Ident() Functional   { return b }
+func (b IOBuffer) TypeNat() d.TyNative { return d.Function }
+func (b IOBuffer) TypeFnc() TyFnc      { return Function | IO }
+func (b IOBuffer) String() string {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return buf.String()
+}
+func (b IOBuffer) Eval(n ...d.Native) d.Native {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return buf.Eval(n...)
+}
+func (b IOBuffer) Call(d ...Functional) Functional {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return NewFromData(buf.Eval())
+}
+
+/// IO VECTOR
+func NewIOVector() IOVector {
+	var slice = d.NewTSSlice()
+	return IOVector(func(f ...Functional) d.TSSlice {
+		if len(f) > 0 {
+			if len(f) > 1 {
+				for _, fnc := range f {
+					slice.Append(fnc)
+				}
+			}
+			slice.Append(f[0])
+		}
+		return slice
+	})
+}
+func conIOVector(s d.TSSlice) IOVector {
+	return IOVector(func(f ...Functional) d.TSSlice { return s })
+}
+func (b IOVector) Ident() Functional   { return b }
+func (b IOVector) TypeNat() d.TyNative { return d.Function }
+func (b IOVector) TypeFnc() TyFnc      { return Function | IO }
+func (b IOVector) Append(fncs ...Functional) IOVector {
+	var ts = b()
+	ts.Lock()
+	defer ts.Unlock()
+	for _, nat := range fncs {
+		ts.Append(nat)
+	}
+	return conIOVector(ts)
+}
+func (b IOVector) GetIdx(idx int) Functional {
+	var ts = b()
+	ts.Lock()
+	defer ts.Unlock()
+	return ts.GetInt(idx).(Functional)
+}
+func (b IOVector) String() string {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return buf.String()
+}
+func (b IOVector) Eval(n ...d.Native) d.Native {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return buf.Eval(n...)
+}
+func (b IOVector) Call(d ...Functional) Functional {
+	var buf = b()
+	buf.Lock()
+	defer buf.Unlock()
+	return NewFromData(buf.Eval())
+}

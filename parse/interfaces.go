@@ -5,10 +5,9 @@ import f "github.com/JoergReinhardt/gatwd/functions"
 
 // data to parse
 type Token interface {
-	d.Native
+	f.Functional
 	TypeTok() TyToken
 	Data() d.Native
-	Pos() int
 }
 
 // Ident interface{}

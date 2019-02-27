@@ -37,6 +37,12 @@ type (
 		Native
 	}
 
+	// THREADSAFE SLICE
+	TSSlice struct {
+		sync.Mutex
+		DataSlice
+	}
+
 	// THREADSAFE BUFFER
 	TSBuffer struct {
 		sync.Mutex
@@ -127,6 +133,11 @@ func (v ReadWriteVal) Eval(n ...Native) Native {
 	return v
 }
 
+// pipe endpoints come in pairs
+func NewPipe() (*PipeReadVal, *PipeWriteVal) {
+	var pr, pw = io.Pipe()
+	return (*PipeReadVal)(pr), (*PipeWriteVal)(pw)
+}
 func (v PipeReadVal) Close() error                { return io.Closer(v).Close() }
 func (v PipeReadVal) TypeNat() TyNative           { return Reader.TypeNat() | Pipe.TypeNat() }
 func (v *PipeReadVal) Read(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
@@ -149,7 +160,6 @@ func (v *PipeReadVal) Eval(n ...Native) Native {
 	}
 	return v
 }
-
 func (v PipeWriteVal) Close() error                 { return io.Closer(v).Close() }
 func (v PipeWriteVal) TypeNat() TyNative            { return Writer.TypeNat() | Pipe.TypeNat() }
 func (v *PipeWriteVal) Write(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
@@ -241,9 +251,10 @@ func (v *BufferVal) Eval(n ...Native) Native {
 	return v
 }
 
-// THREADSAFE PRIMITIVE VALUE
-func (v TSNative) Lock()   { v.Mutex.Lock() }
-func (v TSNative) Unlock() { v.Mutex.Unlock() }
+// THREADSAFE NATIVE VALUE
+func NewTSNative(n Native) TSNative { return TSNative{sync.Mutex{}, n} }
+func (v TSNative) Lock()            { v.Mutex.Lock() }
+func (v TSNative) Unlock()          { v.Mutex.Unlock() }
 func (v TSNative) TypeNat() TyNative {
 	return Reader.TypeNat() | Writer.TypeNat()
 }
@@ -268,7 +279,35 @@ func (v TSNative) Eval(n ...Native) Native {
 	return v
 }
 
+// THREADSAFE SLICE OF NATIVE VALUES
+func NewTSSlice() TSSlice {
+	return TSSlice{
+		sync.Mutex{},
+		DataSlice{},
+	}
+}
+func (v TSSlice) Lock()   { v.Mutex.Lock() }
+func (v TSSlice) Unlock() { v.Mutex.Unlock() }
+func (v TSSlice) TypeNat() TyNative {
+	return Reader.TypeNat() | Writer.TypeNat()
+}
+func (v TSSlice) Eval(n ...Native) Native {
+	if len(n) > 0 {
+		if len(n) > 1 {
+			return DataSlice(n)
+		}
+		return n[0]
+	}
+	return v
+}
+
 // THREADSAFE BUFFER
+func NewTSBuffer() *TSBuffer {
+	return &TSBuffer{
+		sync.Mutex{},
+		NewBuffer(),
+	}
+}
 func (v TSBuffer) TypeNat() TyNative {
 	return Reader.TypeNat() | Writer.TypeNat()
 }

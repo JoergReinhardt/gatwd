@@ -206,6 +206,7 @@ func (v PipeReadVal) String() string  { return "pipe-reader" }
 func (v PipeWriteVal) String() string { return "pipe-writer" }
 
 func (v TSNative) String() string    { return v.Get().String() }
+func (v TSSlice) String() string     { return v.DataSlice.String() }
 func (v TSBuffer) String() string    { return "thread-safe buffer" }
 func (v TSRead) String() string      { return "thread-safe reader" }
 func (v TSWrite) String() string     { return "thread-safe writer" }

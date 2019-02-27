@@ -32,7 +32,8 @@ func (c DataSlice) Eval(p ...Native) Native {
 	}
 	return c
 }
-func (c DataSlice) Null() DataSlice { return []Native{} }
+func (c DataSlice) Append(n ...Native) { SliceAppend(c, n...) }
+func (c DataSlice) Null() DataSlice    { return []Native{} }
 func (c DataSlice) Copy() Native {
 	var ns = DataSlice{}
 	for _, dat := range c {

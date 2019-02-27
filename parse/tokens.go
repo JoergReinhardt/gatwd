@@ -59,45 +59,43 @@ const (
 	Tree_Node_Token
 )
 
-func NewSyntaxToken(pos int, f l.Item) Token      { return newToken(Syntax_Token, pos, f) }
-func NewNatTypeToken(pos int, f d.TyNative) Token { return newToken(TypeNat_Token, pos, f) }
-func NewFncTypeToken(pos int, flag f.TyFnc) Token { return newToken(TypeFnc_Token, pos, flag) }
-func NewDataValueToken(pos int, dat string) Token { return newToken(Data_Value_Token, pos, d.New(dat)) }
-func NewValueToken(pos int, dat string) Token     { return newToken(Name_Token, pos, d.New(dat)) }
-func NewWordToken(pos int, dat string) Token {
-	return newToken(Word_Token, pos, d.New(dat))
+func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, pos, f) }
+func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, pos, f) }
+func NewFncTypeToken(flag f.TyFnc) Token { return newToken(TypeFnc_Token, pos, flag) }
+func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.New(dat)) }
+func NewValueToken(dat string) Token     { return newToken(Name_Token, d.New(dat)) }
+func NewWordToken(dat string) Token {
+	return newToken(Word_Token, d.New(dat))
 }
-func NewNameToken(pos int, dat string) Token {
-	return newToken(Name_Token, pos, d.New(dat))
+func NewNameToken(dat string) Token {
+	return newToken(Name_Token, d.New(dat))
 }
-func NewKeywordToken(pos int, dat string) Token {
-	return newToken(Keyword_Token, pos, d.New(dat))
+func NewKeywordToken(dat string) Token {
+	return newToken(Keyword_Token, d.New(dat))
 }
-func NewErrorToken(pos int, dat string) Token {
-	return newToken(Error_Token, pos, d.New(fmt.Errorf(dat)))
+func NewErrorToken(dat string) Token {
+	return newToken(Error_Token, d.New(fmt.Errorf(dat)))
 }
-func NewDigitToken(pos int, dat string) Token {
+func NewDigitToken(dat string) Token {
 	i, err := strconv.Atoi(dat)
 	if err != nil {
-		return newToken(Error_Token, pos, d.New(err))
+		return newToken(Error_Token, d.New(err))
 	}
-	return newToken(Digit_Token, pos, d.IntVal(i))
+	return newToken(Digit_Token, d.IntVal(i))
 }
-func NewPairToken(pos int, left, right string) Token {
-	return newToken(Pair_Token, pos, f.NewPairFromData(d.New(left), d.New(right)))
+func NewPairToken(left, right string) Token {
+	return newToken(Pair_Token, f.NewPairFromData(d.New(left), d.New(right)))
 }
-func NewTokenCollection(pos int, dat ...Token) Token {
-	return newToken(Token_Collection, pos, tokens(dat))
+func NewTokenCollection(dat ...Token) Token {
+	return newToken(Token_Collection, tokens(dat))
 }
-func NewTreeNodeToken(pos int, dat ...Token) Token { return newToken(Tree_Node_Token, pos, tokens(dat)) }
+func NewTreeNodeToken(dat ...Token) Token { return newToken(Tree_Node_Token, tokens(dat)) }
 
 type TokVal struct {
 	tok TyToken
-	pos int
 	d.Native
 }
 
-func (t TokVal) Pos() int            { return t.pos }
 func (t TokVal) Data() d.Native      { return t.Native }
 func (t TokVal) TypeTok() TyToken    { return t.tok }
 func (t TokVal) TypeNat() d.TyNative { return d.Flag }
@@ -112,20 +110,20 @@ func (t dataTok) Data() d.Native { return t.Native }
 
 func (t dataTok) TypeTok() TyToken    { return t.TokVal.TypeTok() }
 func (d dataTok) TypeNat() d.TyNative { return d.Native.TypeNat() }
-func newToken(t TyToken, pos int, dat d.Native) Token {
+func newToken(t TyToken, dat d.Native) Token {
 	switch t {
 	case Syntax_Token:
-		return TokVal{Syntax_Token, pos, dat.(l.SyntaxItemFlag)}
+		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
 	case TypeNat_Token:
-		return TokVal{TypeNat_Token, pos, dat.(d.TyNative)}
+		return TokVal{TypeNat_Token, dat.(d.TyNative)}
 	case TypeFnc_Token:
-		return TokVal{TypeFnc_Token, pos, dat.(f.TyFnc)}
+		return TokVal{TypeFnc_Token, dat.(f.TyFnc)}
 	case Data_Value_Token:
-		return dataTok{TokVal{Data_Value_Token, pos, dat.TypeNat()}, dat.(d.Native)}
+		return dataTok{TokVal{Data_Value_Token, dat.TypeNat()}, dat.(d.Native)}
 	case Pair_Token:
-		return dataTok{TokVal{Pair_Token, pos, dat.TypeNat()}, dat.(f.Paired)}
+		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(f.Paired)}
 	case Token_Collection:
-		return dataTok{TokVal{Token_Collection, pos, dat.TypeNat()}, dat.(tokens)}
+		return dataTok{TokVal{Token_Collection, dat.TypeNat()}, dat.(tokens)}
 	}
 	return nil
 }
