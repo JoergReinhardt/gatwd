@@ -49,7 +49,6 @@ func lexer(line string) f.StateFnc {
 }
 
 func consumeUtf(lex Lexer) f.StateFnc {
-	var do StepFnc
 	var curl string
 	var queue f.IOVector
 
@@ -61,9 +60,6 @@ func consumeUtf(lex Lexer) f.StateFnc {
 		}
 	}
 
-	do = lexer
-
-	return lex.nextState(do)
 }
 
 func consumeAscii(lex Lexer) f.StateFnc {
