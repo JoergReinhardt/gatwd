@@ -1,27 +1,61 @@
 package functions
 
 import (
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 //// PRIMITIVE TYPE CLASS INTERFACES
-type Nullable interface{ d.Nullable }
-type Bitwise interface{ d.Binary }
-type Boolean interface{ d.Boolean }
-type Natural interface{ d.Natural }
-type Integer interface{ d.Integer }
-type Rational interface{ d.Rational }
-type Real interface{ d.Real }
-type Imaginary interface{ d.Imaginary }
-type Number interface{ d.Number }
-type Letter interface{ d.Letter }
-type Text interface{ d.Text }
-type Printable interface{ d.Printable }
-type PairedNative interface{ d.Paired }
-type ComposedNative interface{ d.Composed }
-type SliceNative interface{ d.Sliceable }
-type SequentialNative interface{ d.Sequential }
-type MappedNatives interface{ d.Sequential }
+type Nullable interface {
+	d.Nullable
+}
+type Bitwise interface {
+	d.Binary
+}
+type Boolean interface {
+	d.Boolean
+}
+type Natural interface {
+	d.Natural
+}
+type Integer interface {
+	d.Integer
+}
+type Rational interface {
+	d.Rational
+}
+type Real interface {
+	d.Real
+}
+type Imaginary interface {
+	d.Imaginary
+}
+type Number interface {
+	d.Number
+}
+type Letter interface {
+	d.Letter
+}
+type Text interface {
+	d.Text
+}
+type Printable interface {
+	d.Printable
+}
+type PairedNative interface {
+	d.Paired
+}
+type ComposedNative interface {
+	d.Composed
+}
+type SliceNative interface {
+	d.Sliceable
+}
+type SequentialNative interface {
+	d.Sequential
+}
+type MappedNatives interface {
+	d.Sequential
+}
 
 //// FUNCTIONAL CLASS
 type Functional interface {

@@ -1,7 +1,7 @@
 package parse
 
-import d "github.com/JoergReinhardt/gatwd/data"
-import f "github.com/JoergReinhardt/gatwd/functions"
+import d "github.com/joergreinhardt/gatwd/data"
+import f "github.com/joergreinhardt/gatwd/functions"
 
 // data to parse
 type Token interface {

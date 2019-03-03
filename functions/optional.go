@@ -3,7 +3,7 @@ package functions
 import (
 	"fmt"
 
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (

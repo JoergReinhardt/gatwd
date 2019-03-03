@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 	"github.com/olekukonko/tablewriter"
 )
 

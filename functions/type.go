@@ -1,7 +1,7 @@
 package functions
 
 import (
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type Arity d.Uint8Val

@@ -5,9 +5,9 @@ import (
 	"log"
 	"strings"
 
-	f "github.com/JoergReinhardt/gatwd/functions"
-	l "github.com/JoergReinhardt/gatwd/lex"
 	"github.com/gohxs/readline"
+	f "github.com/joergreinhardt/gatwd/functions"
+	l "github.com/joergreinhardt/gatwd/lex"
 )
 
 ////////////////////////////////////////////////////////////////////////////

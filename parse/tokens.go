@@ -30,9 +30,9 @@ import (
 	"sort"
 	"strconv"
 
-	d "github.com/JoergReinhardt/gatwd/data"
-	f "github.com/JoergReinhardt/gatwd/functions"
-	l "github.com/JoergReinhardt/gatwd/lex"
+	d "github.com/joergreinhardt/gatwd/data"
+	f "github.com/joergreinhardt/gatwd/functions"
+	l "github.com/joergreinhardt/gatwd/lex"
 )
 
 type TyToken uint16
