@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 var pred = NewPredicate(func(scrut ...Functional) bool {

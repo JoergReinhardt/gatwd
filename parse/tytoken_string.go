@@ -4,44 +4,27 @@ package parse
 
 import "strconv"
 
-const (
-	_TyToken_name_0 = "Syntax_TokenTypeHO_Token"
-	_TyToken_name_1 = "TypePrim_Token"
-	_TyToken_name_2 = "Property_Token"
-	_TyToken_name_3 = "Data_Value_Token"
-	_TyToken_name_4 = "Pair_Value_Token"
-	_TyToken_name_5 = "Token_Collection"
-	_TyToken_name_6 = "Argument_Token"
-	_TyToken_name_7 = "Parameter_Token"
-	_TyToken_name_8 = "Tree_Node_Token"
-)
+const _TyToken_name = "Syntax_TokenTypeFnc_TokenTypeNat_TokenProperty_TokenData_Value_TokenError_TokenDigit_TokenWord_TokenName_TokenKeyword_TokenPair_TokenToken_CollectionTree_Node_Token"
 
-var (
-	_TyToken_index_0 = [...]uint8{0, 12, 24}
-)
+var _TyToken_map = map[TyToken]string{
+	1:    _TyToken_name[0:12],
+	2:    _TyToken_name[12:25],
+	4:    _TyToken_name[25:38],
+	8:    _TyToken_name[38:52],
+	16:   _TyToken_name[52:68],
+	32:   _TyToken_name[68:79],
+	64:   _TyToken_name[79:90],
+	128:  _TyToken_name[90:100],
+	256:  _TyToken_name[100:110],
+	512:  _TyToken_name[110:123],
+	1024: _TyToken_name[123:133],
+	2048: _TyToken_name[133:149],
+	4096: _TyToken_name[149:164],
+}
 
 func (i TyToken) String() string {
-	switch {
-	case 1 <= i && i <= 2:
-		i -= 1
-		return _TyToken_name_0[_TyToken_index_0[i]:_TyToken_index_0[i+1]]
-	case i == 4:
-		return _TyToken_name_1
-	case i == 8:
-		return _TyToken_name_2
-	case i == 16:
-		return _TyToken_name_3
-	case i == 32:
-		return _TyToken_name_4
-	case i == 64:
-		return _TyToken_name_5
-	case i == 128:
-		return _TyToken_name_6
-	case i == 256:
-		return _TyToken_name_7
-	case i == 512:
-		return _TyToken_name_8
-	default:
-		return "TyToken(" + strconv.FormatInt(int64(i), 10) + ")"
+	if str, ok := _TyToken_map[i]; ok {
+		return str
 	}
+	return "TyToken(" + strconv.FormatInt(int64(i), 10) + ")"
 }

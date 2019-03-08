@@ -49,7 +49,7 @@ type (
 		*BufferVal
 	}
 
-	// THREADSAFE READERS/WRITERS
+	// THREADSdFE READERS/WRITERS
 	TSRead struct {
 		sync.RWMutex
 		ReadVal
@@ -183,58 +183,58 @@ func (v *PipeWriteVal) Eval(n ...Native) Native {
 }
 
 // BYTE BUFFER IMPLEMENTATION
-func NewBuffer(...BytesVal) *BufferVal {
+func NewBuffer(...byte) *BufferVal {
 	return (*BufferVal)(bytes.NewBuffer([]byte{}))
 }
-func (v *BufferVal) Write(p BytesVal) (int, error) {
-	return ((*bytes.Buffer)(v)).Write(BytesVal(p))
+func (v *BufferVal) Write(p []byte) (int, error) {
+	return ((*bytes.Buffer)(v)).Write(p)
 }
-func (v *BufferVal) WriteBytes(b BytesVal) (int, error) {
-	return ((*bytes.Buffer)(v)).Write([]byte(b))
+func (v *BufferVal) WriteBytes(b []byte) (int, error) {
+	return ((*bytes.Buffer)(v)).Write(b)
 }
-func (v *BufferVal) WriteByte(b ByteVal) error {
-	return ((*bytes.Buffer)(v)).WriteByte(byte(b))
+func (v *BufferVal) WriteByte(b byte) error {
+	return ((*bytes.Buffer)(v)).WriteByte(b)
 }
-func (v *BufferVal) WriteString(s StrVal) (int, error) {
-	return ((*bytes.Buffer)(v)).WriteString(string(s))
+func (v *BufferVal) WriteString(s string) (int, error) {
+	return ((*bytes.Buffer)(v)).WriteString(s)
 }
-func (v *BufferVal) WriteRune(r RuneVal) (int, error) {
-	return ((*bytes.Buffer)(v)).WriteRune(rune(r))
+func (v *BufferVal) WriteRune(r rune) (int, error) {
+	return ((*bytes.Buffer)(v)).WriteRune(r)
 }
-func (v *BufferVal) WriteTo(w WriteVal) (int64, error) {
-	return ((*bytes.Buffer)(v)).WriteTo(io.Writer(w))
+func (v *BufferVal) WriteTo(w io.Writer) (int64, error) {
+	return ((*bytes.Buffer)(v)).WriteTo(w)
 }
-func (v *BufferVal) Read(p BytesVal) (int, error) {
-	return ((*bytes.Buffer)(v)).Read([]byte(p))
+func (v *BufferVal) Read(p []byte) (int, error) {
+	return ((*bytes.Buffer)(v)).Read(p)
 }
-func (v *BufferVal) ReadFrom(r ReadVal) (int64, error) {
-	return ((*bytes.Buffer)(v)).ReadFrom(io.Reader(r))
+func (v *BufferVal) ReadFrom(r io.Reader) (int64, error) {
+	return ((*bytes.Buffer)(v)).ReadFrom(r)
 }
-func (v *BufferVal) ReadByte() (ByteVal, error) {
+func (v *BufferVal) ReadByte() (byte, error) {
 	var b, err = ((*bytes.Buffer)(v)).ReadByte()
-	return ByteVal(b), err
+	return b, err
 }
-func (v *BufferVal) ReadBytes(delim ByteVal) (BytesVal, error) {
-	var bs, err = ((*bytes.Buffer)(v)).ReadBytes(byte(delim))
-	return BytesVal(bs), err
+func (v *BufferVal) ReadBytes(delim byte) ([]byte, error) {
+	var bs, err = ((*bytes.Buffer)(v)).ReadBytes(delim)
+	return bs, err
 }
-func (v *BufferVal) ReadString(delim ByteVal) (StrVal, error) {
-	var bs, err = ((*bytes.Buffer)(v)).ReadString(byte(delim))
-	return StrVal(bs), err
+func (v *BufferVal) ReadString(delim byte) (string, error) {
+	var bs, err = ((*bytes.Buffer)(v)).ReadString(delim)
+	return bs, err
 }
-func (v *BufferVal) ReadRune() (RuneVal, int, error) {
+func (v *BufferVal) ReadRune() (rune, int, error) {
 	var r, n, err = ((*bytes.Buffer)(v)).ReadRune()
-	return RuneVal(r), n, err
+	return r, n, err
 }
-func (v *BufferVal) TypeNat() TyNative   { return Buffer.TypeNat() }
-func (v *BufferVal) Len() int            { return ((*bytes.Buffer)(v).Len()) }
-func (v *BufferVal) String() string      { return ((*bytes.Buffer)(v)).String() }
-func (v *BufferVal) Bytes() BytesVal     { return BytesVal(((*bytes.Buffer)(v)).Bytes()) }
-func (v *BufferVal) Next(n int) BytesVal { return ((*bytes.Buffer)(v)).Next(n) }
-func (v *BufferVal) UnreadByte() error   { return ((*bytes.Buffer)(v)).UnreadByte() }
-func (v *BufferVal) UnreadRune() error   { return ((*bytes.Buffer)(v)).UnreadRune() }
-func (v *BufferVal) Truncate(n int)      { ((*bytes.Buffer)(v)).Truncate(n) }
-func (v *BufferVal) Reset()              { ((*bytes.Buffer)(v)).Reset() }
+func (v *BufferVal) TypeNat() TyNative { return Buffer.TypeNat() }
+func (v *BufferVal) Len() int          { return ((*bytes.Buffer)(v).Len()) }
+func (v *BufferVal) String() string    { return ((*bytes.Buffer)(v)).String() }
+func (v *BufferVal) Bytes() []byte     { return ((*bytes.Buffer)(v)).Bytes() }
+func (v *BufferVal) Next(n int) []byte { return ((*bytes.Buffer)(v)).Next(n) }
+func (v *BufferVal) UnreadByte() error { return ((*bytes.Buffer)(v)).UnreadByte() }
+func (v *BufferVal) UnreadRune() error { return ((*bytes.Buffer)(v)).UnreadRune() }
+func (v *BufferVal) Truncate(n int)    { ((*bytes.Buffer)(v)).Truncate(n) }
+func (v *BufferVal) Reset()            { ((*bytes.Buffer)(v)).Reset() }
 func (v *BufferVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -280,8 +280,8 @@ func (v TSNative) Eval(n ...Native) Native {
 }
 
 // THREADSAFE SLICE OF NATIVE VALUES
-func NewTSSlice() TSSlice {
-	return TSSlice{
+func NewTSSlice() *TSSlice {
+	return &TSSlice{
 		sync.Mutex{},
 		DataSlice{},
 	}

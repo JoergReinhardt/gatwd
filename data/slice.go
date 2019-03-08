@@ -51,8 +51,14 @@ func (v DataSlice) Set(i Native, d Native) { v[i.(IntVal)] = d }
 func (v DataSlice) Len() int               { return len([]Native(v)) }
 
 // COLLECTION
-func (s DataSlice) Empty() bool           { return SliceEmpty(s) }
-func (s DataSlice) Head() (h Native)      { return s[0] }
+func (s DataSlice) Empty() bool      { return SliceEmpty(s) }
+func (s DataSlice) Head() (h Native) { return s[0] }
+func (s DataSlice) Bottom() (h Native) {
+	if len(s) > 0 {
+		return s[len(s)-1]
+	}
+	return NilVal{}
+}
 func (s DataSlice) Tail() (c Sequential)  { return s[:1] }
 func (s DataSlice) Shift() (c Sequential) { return s[:1] }
 

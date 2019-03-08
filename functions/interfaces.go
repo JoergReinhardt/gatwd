@@ -183,6 +183,9 @@ type Leaved interface {
 }
 
 //// STATE MONAD
+type State interface {
+	Run()
+}
 type StateFnc func() StateFnc
 
 func (s StateFnc) Run() {
@@ -191,3 +194,8 @@ func (s StateFnc) Run() {
 		state = state()
 	}
 }
+
+//// ERROR
+type ErrorFnc func() error
+
+func (e ErrorFnc) Error() string { return e().Error() }

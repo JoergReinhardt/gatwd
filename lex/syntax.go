@@ -64,6 +64,7 @@ const (
 	SquareRoot
 	Asterisk
 	Fullstop
+	Ellipsis
 	Comma
 	Colon
 	Semicolon
@@ -130,6 +131,7 @@ var MapItemString = map[SyntaxItemFlag]string{
 	SquareRoot:   "√",
 	Asterisk:     "∗",
 	Fullstop:     ".",
+	Ellipsis:     "‥.",
 	Comma:        ",",
 	Colon:        ":",
 	Semicolon:    ";",
@@ -189,69 +191,95 @@ var MapStringItem = func() map[string]SyntaxItemFlag {
 	}
 	return m
 }()
+var Utf8String = func() string {
+	var str string
+	for _, val := range MapItemString {
+		str = str + val
+	}
+	return str
+}()
 
 var MapUtfAscii = map[string]string{
 	"⊥": "",
-	" ": " ",
 	"	": `\t`,
-	"": `\n`,
-	"_": "_",
-	"∗": "*",
-	".": ".",
-	",": ",",
-	":": ":",
-	";": ";",
-	"-": "-",
-	"+": "+",
-	"∘": `\do`,
-	"⨉": `\pr`,
-	"⊙": `\dp`,
-	"⊗": `\cp`,
-	"÷": `\di`,
-	"∞": `\in`,
-	"∨": `\or`,
-	"⊻": `\xo`,
-	"∧": `\an`,
-	"=": "=",
-	"≪": "<<",
-	"≫": ">>",
-	"≤": "=<",
-	"≥": ">=",
-	"(": "(",
-	")": ")",
-	"[": "[",
-	"]": "]",
-	"{": "{",
-	"}": "}",
-	"/": "/",
-	"¬": "!",
-	"≠": "!=",
-	"∇": "--",
-	"∆": "++",
-	"⇔": "==",
-	"≡": "⇔=",
-	"→": "->",
-	"←": "<-",
-	"⇐": "<=",
-	"⇒": "=>",
-	"∷": "::",
-	`'`: `'`,
-	`"`: `"`,
-	`\`: `\`,
-	"λ": `\y`,
-	`ϝ`: `\f`,
-	`Ф`: `\F`,
-	`Ω`: `\M`,
-	`Π`: `\P`,
-	"»": "≫>",
-	"«": "≪<",
-	`π`: `\p`,
-	"∑": `\E`,
-	"∈": `\is`,
-	"∅": `\em`,
-	"η": `\et`,
-	"ε": `\ep`,
+	"\n": "\n",
+	"∗":  "*",
+	"‥.": "...",
+	"+":  "+",
+	"∘":  `\do`,
+	"⨉":  `\pr`,
+	"⊙":  `\dp`,
+	"⊗":  `\cp`,
+	"÷":  `\di`,
+	"∞":  `\in`,
+	"∨":  `\or`,
+	"⊻":  `\xo`,
+	"∧":  `\an`,
+	"≪":  "<<",
+	"≫":  ">>",
+	"≤":  "=<",
+	"≥":  ">=",
+	"¬":  "!",
+	"≠":  "!=",
+	"∇":  "--",
+	"∆":  "++",
+	"⇔":  "==",
+	"≡":  "===",
+	"→":  "->",
+	"←":  "<-",
+	"⇐":  "<=",
+	"⇒":  "=>",
+	"∷":  "::",
+	"λ":  `\y`,
+	`ϝ`:  `\f`,
+	`Ф`:  `\F`,
+	`Ω`:  `\M`,
+	`Π`:  `\P`,
+	"»":  ">>>",
+	"«":  "<<<",
+	`π`:  `\p`,
+	"∑":  `\E`,
+	"∈":  `\is`,
+	"∅":  `\em`,
+	"η":  `\et`,
+	"ε":  `\ep`,
 }
+var AllSyntaxRunes = func() map[rune]struct{} {
+	var m = map[rune]struct{}{}
+	for utf, ascii := range MapUtfAscii {
+		for _, r := range []rune(utf) {
+			m[r] = struct{}{}
+		}
+		for _, r := range []rune(ascii) {
+			m[r] = struct{}{}
+		}
+	}
+	return m
+}()
+var AsciiFirstCharsString = func() string {
+	var str string
+	for _, val := range MapUtfAscii {
+		if len(val) > 0 {
+			str = str + string([]rune(val)[0])
+		}
+	}
+	return str
+}()
+
+var AsciiKeysSortedByLength = func() [][]rune {
+	var runes = [][]rune{}
+	for _, key := range MapUtfAscii {
+		runes = append(runes, []rune(key))
+	}
+	sort.Sort(keyLengthSorter(runes))
+	return runes
+}()
+
+type keyLengthSorter [][]rune
+
+func (k keyLengthSorter) Len() int           { return len(k) }
+func (k keyLengthSorter) Less(i, j int) bool { return len(k[i]) <= len(k[j]) }
+func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
 var MapAsciiUtf = func() map[string]string {
 	var m = make(map[string]string, len(MapUtfAscii))
@@ -361,7 +389,13 @@ func Match(str string) bool {
 	}
 	return false
 }
-func GetItem(str string) Item {
+func GetUtf8Item(str string) Item {
+	if item, ok := MapStringItem[str]; ok {
+		return item
+	}
+	return nil
+}
+func GetAsciiItem(str string) Item {
 	if item, ok := MapAsciiItem[str]; ok {
 		return item
 	}

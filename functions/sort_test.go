@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	d "github.com/JoergReinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 func TestDataSorter(t *testing.T) {

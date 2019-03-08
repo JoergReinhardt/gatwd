@@ -5,7 +5,7 @@ import f "github.com/joergreinhardt/gatwd/functions"
 
 // data to parse
 type Token interface {
-	f.Functional
+	d.Native
 	TypeTok() TyToken
 	Data() d.Native
 }

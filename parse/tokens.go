@@ -26,7 +26,6 @@ TOKEN GENERATION
 package parse
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -59,9 +58,9 @@ const (
 	Tree_Node_Token
 )
 
-func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, pos, f) }
-func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, pos, f) }
-func NewFncTypeToken(flag f.TyFnc) Token { return newToken(TypeFnc_Token, pos, flag) }
+func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, f) }
+func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, f) }
+func NewFncTypeToken(flag f.TyFnc) Token { return newToken(TypeFnc_Token, flag) }
 func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.New(dat)) }
 func NewValueToken(dat string) Token     { return newToken(Name_Token, d.New(dat)) }
 func NewWordToken(dat string) Token {
@@ -73,15 +72,16 @@ func NewNameToken(dat string) Token {
 func NewKeywordToken(dat string) Token {
 	return newToken(Keyword_Token, d.New(dat))
 }
-func NewErrorToken(dat string) Token {
-	return newToken(Error_Token, d.New(fmt.Errorf(dat)))
+func NewErrorToken(dat error) Token {
+	return newToken(Error_Token, d.New(dat))
 }
 func NewDigitToken(dat string) Token {
 	i, err := strconv.Atoi(dat)
 	if err != nil {
 		return newToken(Error_Token, d.New(err))
 	}
-	return newToken(Digit_Token, d.IntVal(i))
+	var tok = newToken(Digit_Token, d.IntVal(i))
+	return tok
 }
 func NewPairToken(left, right string) Token {
 	return newToken(Pair_Token, f.NewPairFromData(d.New(left), d.New(right)))
@@ -120,6 +120,16 @@ func newToken(t TyToken, dat d.Native) Token {
 		return TokVal{TypeFnc_Token, dat.(f.TyFnc)}
 	case Data_Value_Token:
 		return dataTok{TokVal{Data_Value_Token, dat.TypeNat()}, dat.(d.Native)}
+	case Digit_Token:
+		return dataTok{TokVal{Digit_Token, dat.TypeNat()}, dat.(d.IntVal)}
+	case Word_Token:
+		return dataTok{TokVal{Word_Token, dat.TypeNat()}, dat.(d.StrVal)}
+	case Keyword_Token:
+		return dataTok{TokVal{Keyword_Token, dat.TypeNat()}, dat.(d.StrVal)}
+	case Name_Token:
+		return dataTok{TokVal{Name_Token, dat.TypeNat()}, dat.(d.StrVal)}
+	case Error_Token:
+		return dataTok{TokVal{Error_Token, dat.TypeNat()}, dat.(d.ErrorVal)}
 	case Pair_Token:
 		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(f.Paired)}
 	case Token_Collection:
