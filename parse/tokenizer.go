@@ -50,7 +50,7 @@ func NewLexer() (
 // it turns out to be an error token, lexing will be haltet.
 func lexer(buffer *d.TSBuffer, queue *d.TSSlice) f.StateFnc {
 
-	// read a rune, write error to queue, in case something went wrong
+	// rhead a rune, write error to queue, in case something went wrong
 	var r = pop(buffer, queue)
 
 	// jump to parse functions, based on rune popped
@@ -63,6 +63,8 @@ func lexer(buffer *d.TSBuffer, queue *d.TSSlice) f.StateFnc {
 		parseCapital(buffer, queue, r)
 	case syntax(r):
 		parseSyntax(buffer, queue, r)
+	default:
+		parseUnknown(buffer, queue, r)
 	}
 	// return continuation state
 	return returnState(buffer, queue)
@@ -233,6 +235,10 @@ func asciiGreedy(
 
 // unknown runes generate new tokens
 func parseUnknown(b *d.TSBuffer, q *d.TSSlice, r ...rune) {
-	push(NewDataValueToken(string(r)), q)
+	if len(r) > 0 {
+		if !halt(q) {
+			push(NewDataValueToken(string(r)), q)
+		}
+	}
 	return
 }
