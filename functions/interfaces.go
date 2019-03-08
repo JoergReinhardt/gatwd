@@ -161,6 +161,14 @@ type Vectorized interface {
 	Indexed
 }
 
+/// ITEMS & TOKENS
+// data to parse
+type Token interface {
+	d.Native
+	TypeTok() TyToken
+	Data() d.Native
+}
+
 //// TREES & GRAPHS
 ///
 type Nodular interface {

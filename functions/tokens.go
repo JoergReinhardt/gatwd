@@ -23,14 +23,13 @@ TOKEN GENERATION
   comparision and get's defined in terms of gatwd itself.
 */
 
-package parse
+package functions
 
 import (
 	"sort"
 	"strconv"
 
 	d "github.com/joergreinhardt/gatwd/data"
-	f "github.com/joergreinhardt/gatwd/functions"
 	l "github.com/joergreinhardt/gatwd/lex"
 )
 
@@ -38,7 +37,7 @@ type TyToken uint16
 
 func (t TyToken) Eval(...d.Native) d.Native { return t }
 func (t TyToken) Flag() d.BitFlag           { return d.Flag.Flag() }
-func (t TyToken) TypeHO() f.TyFnc           { return f.HigherOrder }
+func (t TyToken) TypeHO() TyFnc             { return HigherOrder }
 func (t TyToken) TypeNat() d.TyNative       { return d.Flag }
 
 //go:generate stringer -type TyToken
@@ -63,7 +62,7 @@ const (
 
 func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, f) }
 func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, f) }
-func NewFncTypeToken(flag f.TyFnc) Token { return newToken(TypeFnc_Token, flag) }
+func NewFncTypeToken(flag TyFnc) Token   { return newToken(TypeFnc_Token, flag) }
 func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.StrVal(dat)) }
 func NewValueToken(dat string) Token     { return newToken(Name_Token, d.New(dat)) }
 func NewWordToken(dat string) Token {
@@ -96,7 +95,7 @@ func NewDigitToken(dat string) Token {
 	return tok
 }
 func NewPairToken(left, right string) Token {
-	return newToken(Pair_Token, f.NewPairFromData(d.New(left), d.New(right)))
+	return newToken(Pair_Token, NewPairFromData(d.New(left), d.New(right)))
 }
 func NewTokenCollection(dat ...Token) Token {
 	return newToken(Token_Collection, tokens(dat))
@@ -129,7 +128,7 @@ func newToken(t TyToken, dat d.Native) Token {
 	case TypeNat_Token:
 		return TokVal{TypeNat_Token, dat.(d.TyNative)}
 	case TypeFnc_Token:
-		return TokVal{TypeFnc_Token, dat.(f.TyFnc)}
+		return TokVal{TypeFnc_Token, dat.(TyFnc)}
 	case Data_Value_Token:
 		return dataTok{TokVal{Data_Value_Token, dat.TypeNat()}, dat.(d.Native)}
 	case Digit_Token:
@@ -147,7 +146,7 @@ func newToken(t TyToken, dat d.Native) Token {
 	case Error_Token:
 		return dataTok{TokVal{Error_Token, dat.TypeNat()}, dat.(d.ErrorVal)}
 	case Pair_Token:
-		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(f.Paired)}
+		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(Paired)}
 	case Token_Collection:
 		return dataTok{TokVal{Token_Collection, dat.TypeNat()}, dat.(tokens)}
 	}

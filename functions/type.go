@@ -178,7 +178,7 @@ type (
 	TypeCon func(...TypeId) TypeId
 	DataCon func(...d.Native) Native
 	ExprCon func(...Functional) Functional
-	TypePat func() (, CaseVal)
+	TypePat func() (string, CaseVal)
 	TypeId  func() (
 		id int,
 		name,

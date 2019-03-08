@@ -50,3 +50,12 @@ func (l ListFnc) String() string {
 }
 
 /// RECORD
+
+/// TOKEN
+func (t tokens) String() string {
+	var str string
+	for _, tok := range t {
+		str = str + " " + tok.String() + "\n"
+	}
+	return str
+}
