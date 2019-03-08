@@ -39,11 +39,11 @@ func (t dataTok) String() string {
 	var str string
 	switch t.TypeTok() {
 	case Data_Value_Token:
-		str = t.Native.String()
+		str = string(t.Native.(d.StrVal))
 	case Pair_Token:
-		str = t.Native.String()
+		str = string(t.Native.(d.StrVal))
 	case Token_Collection:
-		str = t.Native.String()
+		str = string(t.Native.(d.StrVal))
 	}
 	return str
 }

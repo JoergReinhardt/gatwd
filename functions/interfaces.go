@@ -78,7 +78,24 @@ type Optional interface {
 	Maybe() bool
 	Value() Functional
 }
+type Predictable interface {
+	Functional
+	True(Functional) bool
+	Any(...Functional) bool
+	All(...Functional) bool
+}
+type Distinguishable interface {
+	Functional
+	Case(expr ...Functional) Functional
+}
+type Choosable interface {
+	Functional
+	Choices() []TypeId
+}
 
+type Constructing interface {
+	TypeCon() TyCon
+}
 type Composed interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
 }
@@ -183,17 +200,7 @@ type Leaved interface {
 }
 
 //// STATE MONAD
-type State interface {
-	Run()
-}
-type StateFnc func() StateFnc
-
-func (s StateFnc) Run() {
-	var state = s()
-	for state != nil {
-		state = state()
-	}
-}
+type StateFnc func() (StateFnc, Functional)
 
 //// ERROR
 type ErrorFnc func() error

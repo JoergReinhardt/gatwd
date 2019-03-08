@@ -78,7 +78,7 @@ const (
 	Data
 	///////////
 	Definition
-	Application
+	Expression
 	///////////
 	Variable
 	Function
@@ -136,31 +136,24 @@ const (
 	Links      = Link | DLink | Node | Tree
 )
 
-// type system implementation
-type (
-	Native   func() d.Native
-	TypeId   func() (name, signature string)
-	DataCon  func(...Functional) Instance
-	TypeCon  func(...TypeId) TypeId
-	Instance func() (TypeId, Functional)
-	FncDef   func() (
-		id TypeId,
-		props Propertys,
-		expr Functional,
-		equation string,
-		argTypes []TypeId,
-	)
-)
-
 ////////////////////////////////////////////////////////////////////////////////
 //// (RE-) INSTANCIATE PRIMARY DATA TO IMPLEMENT FUNCTIONS VALUE INTERFACE
-///
-// allocate new functional data values from untyped data, or data that has been
-// initialized to implement data packages 'native' interface before.
-func New(inf ...interface{}) Functional       { return conNative(d.New(inf...)) }
-func NewFromData(data ...d.Native) Functional { return conNative(d.NewFromPrimary(data...)) }
+func New(inf ...interface{}) Functional { return NewFromData(d.New(inf...)) }
+func NewFromData(data ...d.Native) Native {
+	var nat d.Native
+	if len(data) > 0 {
+		if len(data) > 1 {
+			var nats = []d.Native{}
+			for _, dat := range data {
+				nats = append(nats, dat)
+			}
+			nat = d.DataSlice(nats)
+		}
+		nat = data[0]
+	}
+	return Native(func() d.Native { return nat })
+}
 
-func conNative(nat d.Native) Native             { return func() d.Native { return nat } }
 func (n Native) String() string                 { return n().String() }
 func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
 func (n Native) TypeNat() d.TyNative            { return n().TypeNat() }
@@ -168,109 +161,142 @@ func (n Native) TypeFnc() TyFnc                 { return Data }
 func (n Native) Call(vals ...Functional) Functional {
 	switch len(vals) {
 	case 0:
-		return conNative(n.Eval())
+		return NewFromData(n.Eval())
 	case 1:
-		return conNative(n.Eval(vals[0].Eval()))
+		return NewFromData(n.Eval(vals[0].Eval()))
 	}
 	var nat = n()
 	for _, val := range vals {
-		vals = append(vals, conNative(nat.Eval(val.Eval())))
+		vals = append(vals, NewFromData(nat.Eval(val.Eval())))
 	}
 	return NewVector(vals...)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//// TYPE IDENT
-///
-// types are identified by name and defined by a signature signature
-func (t TypeId) Name() string                      { n, _ := t(); return n }
-func (t TypeId) Signature() string                 { _, p := t(); return p }
+// type system implementation
+type (
+	Native  func() d.Native
+	TypeCon func(...TypeId) TypeId
+	DataCon func(...d.Native) Native
+	ExprCon func(...Functional) Functional
+	TypePat func() (, CaseVal)
+	TypeId  func() (
+		id int,
+		name,
+		signature string,
+		pattern []TypePat,
+	)
+	Instance func() (TypeId, Functional)
+)
+
+/// TYPE PATTERN
+func NewTypePattern(pattern string, cas CaseVal) TypePat {
+	return TypePat(func() (string, CaseVal) {
+		return pattern, cas
+	})
+}
+func (p TypePat) pattern() string   { pat, _ := p(); return pat }
+func (p TypePat) caseExpr() CaseVal { _, exp := p(); return exp }
+func (p TypePat) String() string    { return p.pattern() }
+func (p TypePat) TypeNat() d.TyNative {
+	return d.Function | p.caseExpr().TypeNat()
+}
+func (p TypePat) TypeFnc() TyFnc {
+	return Case | p.caseExpr().TypeFnc()
+}
+func (p TypePat) Call(val ...Functional) Functional {
+	return p.caseExpr().Call(val...)
+}
+func (p TypePat) Eval(nat ...d.Native) d.Native {
+	return p.caseExpr().Eval(nat...)
+}
+
+/// TYPE IDENT
+func NewTypeId(
+	id int, name, signature string, patterns ...TypePat,
+) TypeId {
+	return func() (int, string, string, []TypePat) {
+		return id, name, signature, patterns
+	}
+
+}
+func (t TypeId) Id() int                           { i, _, _, _ := t(); return i }
+func (t TypeId) Name() string                      { _, n, _, _ := t(); return n }
+func (t TypeId) Signature() string                 { _, _, s, _ := t(); return s }
+func (t TypeId) Patterns() []TypePat               { _, _, _, p := t(); return p }
 func (t TypeId) String() string                    { return t.Name() + " = " + t.Signature() }
 func (t TypeId) TypeNat() d.TyNative               { return d.Function | d.Type }
 func (t TypeId) TypeFnc() TyFnc                    { return Type }
 func (t TypeId) Eval(nat ...d.Native) d.Native     { return t }
 func (t TypeId) Call(val ...Functional) Functional { return t }
 
-func NewTypeId(
-	name, pattern string,
-) TypeId {
-	return func() (string, string) {
-		return name, pattern
-	}
+/// DATA, EXPRESSION & TYPE CONSTRUCTORS
+type TyCon int8
 
+//go:generate stringer -type=TyCon
+const (
+	DataContructor TyCon = -1
+	ExprContructor TyCon = 0
+	TypeContructor TyCon = 1
+)
+
+// type, data & expression contructors wrap the call function of the passed
+// expression as constructing function
+func NewTypeConstructor(
+	expr func(types ...TypeId) TypeId,
+) TypeCon {
+	return TypeCon(expr)
+}
+func (t TypeCon) String() string      { return t().String() }
+func (t TypeCon) TypeCon() TyCon      { return TypeContructor }
+func (t TypeCon) TypeNat() d.TyNative { return d.Function | d.Type }
+func (t TypeCon) TypeFnc() TyFnc      { return Type | Constructor }
+func (t TypeCon) Call(vals ...Functional) Functional {
+	var tids = []TypeId{}
+	for _, val := range vals {
+		tids = append(tids, val.(TypeId))
+	}
+	return t(tids...)
+}
+func (t TypeCon) Eval(nats ...d.Native) d.Native {
+	var tids = []TypeId{}
+	for _, nat := range nats {
+		tids = append(tids, nat.(TypeId))
+	}
+	return t(tids...)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//// FUNCTION DEFINITION
-///
-// function definition returns a list of argument types, call propertys bitwise
-// encoded as 8bit flag & and the expression defining the function body
-func DefineFnc(
-	id TypeId,
-	props Propertys,
-	expr Functional, equation string,
-	args ...TypeId,
-) FncDef {
-	return FncDef(func() (TypeId, Propertys, Functional, string, []TypeId) {
-		return id, props, expr, equation, args
-	})
+func NewDataConstructor(
+	expr func(nats ...d.Native) Native,
+) DataCon {
+	return DataCon(expr)
 }
-func (fd FncDef) Id() TypeId          { tid, _, _, _, _ := fd(); return tid }
-func (fd FncDef) Props() Propertys    { _, prop, _, _, _ := fd(); return prop }
-func (fd FncDef) Expr() Functional    { _, _, expr, _, _ := fd(); return expr }
-func (fd FncDef) Equation() string    { _, _, _, equa, _ := fd(); return equa }
-func (fd FncDef) ArgTypes() []TypeId  { _, _, _, _, args := fd(); return args }
-func (fd FncDef) Arity() Arity        { return Arity(len(fd.ArgTypes())) }
-func (fd FncDef) TypeFnc() TyFnc      { return Type | Function | Definition }
-func (fd FncDef) TypeNat() d.TyNative { return d.Function | d.Type }
+func (t DataCon) String() string      { return t().String() }
+func (t DataCon) TypeCon() TyCon      { return DataContructor }
+func (t DataCon) TypeNat() d.TyNative { return d.Function | d.Data }
+func (t DataCon) TypeFnc() TyFnc      { return Data | Constructor }
+func (t DataCon) Call(vals ...Functional) Functional {
+	var nats = []d.Native{}
+	for _, val := range vals {
+		nats = append(nats, val)
+	}
+	return t(nats...)
+}
+func (t DataCon) Eval(nats ...d.Native) d.Native { return t(nats...) }
 
-///////////////////////////////////////////////////////////////////////////////
-//// DATA CONSTRUCTOR
-///
-// constructs instances of functional data value types from previously
-// untyped-, or data initialized as instance of a native type from the data
-// package, from it's arguments.  when called without arguments, constructor
-// returns ident and signature as defined during declaration.
-func NewDataConstructor(name, pattern string) DataCon {
-	return func(val ...Functional) Instance {
-		switch len(val) {
-		case 0: // reveals the type this constructor constructs & a
-			// 'none' instance
-			return func() (TypeId, Functional) {
-				return NewTypeId(name, pattern), NewNone()
-			}
-		case 1:
-			return func() (TypeId, Functional) {
-				return NewTypeId(name, pattern), val[0]
-			}
-		}
-		return func() (TypeId, Functional) {
-			return NewTypeId(name, pattern), NewVector(val...)
-		}
-	}
+func NewExprConstructor(
+	expr func(expr ...Functional) Functional,
+) ExprCon {
+	return ExprCon(expr)
 }
-func (c DataCon) Ident() Functional   { return c }
-func (c DataCon) TypeFnc() TyFnc      { return Type | Data | Constructor }
-func (c DataCon) TypeNat() d.TyNative { return d.Type | d.Data }
-func (c DataCon) String() string {
-	tid, _ := c()()
-	return tid.String()
-}
-func (c DataCon) Eval(n ...d.Native) d.Native {
-	switch len(n) {
-	case 0:
-		return d.NilVal{}
-	case 1:
-		return n[0]
+func (t ExprCon) String() string                    { return t().String() }
+func (t ExprCon) TypeCon() TyCon                    { return ExprContructor }
+func (t ExprCon) TypeNat() d.TyNative               { return d.Function | d.Expression }
+func (t ExprCon) TypeFnc() TyFnc                    { return Expression | Constructor }
+func (t ExprCon) Call(val ...Functional) Functional { return t(val...) }
+func (t ExprCon) Eval(nats ...d.Native) d.Native {
+	var fncs = []Functional{}
+	for _, nat := range nats {
+		fncs = append(fncs, NewFromData(nat))
 	}
-	return d.DataSlice(n)
-}
-func (c DataCon) Call(d ...Functional) Functional {
-	switch len(d) {
-	case 0:
-		return NewNone()
-	case 1:
-		return d[0]
-	}
-	return NewVector(d...)
+	return t(fncs...)
 }

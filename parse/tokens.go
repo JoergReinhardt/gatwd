@@ -50,8 +50,11 @@ const (
 	Data_Value_Token
 	Error_Token
 	Digit_Token
+	Capital_Token
+	Letter_Token
 	Word_Token
 	Name_Token
+	ScentenceMark_Token
 	Keyword_Token
 	Pair_Token
 	Token_Collection
@@ -61,13 +64,22 @@ const (
 func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, f) }
 func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, f) }
 func NewFncTypeToken(flag f.TyFnc) Token { return newToken(TypeFnc_Token, flag) }
-func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.New(dat)) }
+func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.StrVal(dat)) }
 func NewValueToken(dat string) Token     { return newToken(Name_Token, d.New(dat)) }
 func NewWordToken(dat string) Token {
 	return newToken(Word_Token, d.New(dat))
 }
+func NewCapitalToken(dat string) Token {
+	return newToken(Capital_Token, d.New(dat))
+}
+func NewLetterToken(dat string) Token {
+	return newToken(Letter_Token, d.New(dat))
+}
 func NewNameToken(dat string) Token {
 	return newToken(Name_Token, d.New(dat))
+}
+func NewScentenceMarkToken(dat string) Token {
+	return newToken(ScentenceMark_Token, d.New(dat))
 }
 func NewKeywordToken(dat string) Token {
 	return newToken(Keyword_Token, d.New(dat))
@@ -122,6 +134,10 @@ func newToken(t TyToken, dat d.Native) Token {
 		return dataTok{TokVal{Data_Value_Token, dat.TypeNat()}, dat.(d.Native)}
 	case Digit_Token:
 		return dataTok{TokVal{Digit_Token, dat.TypeNat()}, dat.(d.IntVal)}
+	case Letter_Token:
+		return dataTok{TokVal{Letter_Token, dat.TypeNat()}, dat.(d.StrVal)}
+	case Capital_Token:
+		return dataTok{TokVal{Capital_Token, dat.TypeNat()}, dat.(d.StrVal)}
 	case Word_Token:
 		return dataTok{TokVal{Word_Token, dat.TypeNat()}, dat.(d.StrVal)}
 	case Keyword_Token:

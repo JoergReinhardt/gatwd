@@ -65,9 +65,6 @@ const (
 	Asterisk
 	Fullstop
 	Ellipsis
-	Comma
-	Colon
-	Semicolon
 	Substraction
 	Addition
 	Dot
@@ -103,8 +100,9 @@ const (
 	FatLArrow
 	FatRArrow
 	DoubCol
-	Sing_quote
-	Doub_quote
+	SingQuote
+	DoubQuote
+	BackTick
 	BackSlash
 	Lambda
 	Function
@@ -130,11 +128,7 @@ var MapItemString = map[SyntaxItemFlag]string{
 	Underscore:   "_",
 	SquareRoot:   "√",
 	Asterisk:     "∗",
-	Fullstop:     ".",
 	Ellipsis:     "‥.",
-	Comma:        ",",
-	Colon:        ":",
-	Semicolon:    ";",
 	Substraction: "-",
 	Addition:     "+",
 	Dot:          "∘",
@@ -170,8 +164,9 @@ var MapItemString = map[SyntaxItemFlag]string{
 	FatLArrow:    "⇐",
 	FatRArrow:    "⇒",
 	DoubCol:      "∷",
-	Sing_quote:   `'`,
-	Doub_quote:   `"`,
+	SingQuote:    `'`,
+	DoubQuote:    `"`,
+	BackTick:     "`",
 	BackSlash:    `\`,
 	Lambda:       "λ",
 	Function:     "ϝ",
@@ -201,6 +196,7 @@ var Utf8String = func() string {
 
 var MapUtfAscii = map[string]string{
 	"⊥": "",
+	" ": ` `,
 	"	": `\t`,
 	"\n": "\n",
 	"∗":  "*",
@@ -219,7 +215,7 @@ var MapUtfAscii = map[string]string{
 	"≫":  ">>",
 	"≤":  "=<",
 	"≥":  ">=",
-	"¬":  "!",
+	"¬":  "!-",
 	"≠":  "!=",
 	"∇":  "--",
 	"∆":  "++",
@@ -336,6 +332,9 @@ var Capitals = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 	"L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Ä",
 	"Ö", "Ü"}
 var CapitalString = strings.Join(Capitals, "")
+
+var ScentenceMarks = []string{".", ",", ";", ":", "?", "!"}
+var ScentenceMarkString = strings.Join(ScentenceMarks, "")
 
 type asciiSorter []string
 

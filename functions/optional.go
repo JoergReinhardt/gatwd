@@ -1,8 +1,6 @@
 package functions
 
 import (
-	"fmt"
-
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -10,278 +8,206 @@ type (
 	//// FUNCTOR CONSTRUCTORS
 	///
 	// CONDITIONAL, CASE & OPTIONAL
-	OptionalFnc func(...Functional) Optional
-	CaseFnc     func(...Functional) Optional
-	PredFnc     func(...Functional) bool
-
-	//// OPTIONAL TYPE DATA CONSTRUCTORS
-	CaseExpr func(scrut ...Functional) Optional // Case | Just | None
-	MaybeFnc func() Optional                    // Just | None
-
-	//// DATA CONSTRUCTORS FOR OPTION TYPE PARTIALS
-	///
-	// TRUE/FALSE
-	TrueVal  func() Boolean // boolean constants true & false
-	FalseVal func() Boolean // implementing 'Boolen :: Bool() bool'
-
-	// EITHER/OR
-	OrVal     func() Functional // implementing 'Option :: Maybe() bool'
-	EitherVal func() Functional // None and Just are a pair of optional types
-
-	// NONE/JUST/CASE/ERROR
-	NoneVal  func()                     // None and Just are a pair of optional types
-	JustVal  func() Functional          // implementing 'Option :: Maybe() bool'
-	ErrorVal func(err ...error) []error // stackable errors
-
-	// IO RELATED SIDE EFFECTS
-	IOSyncFnc  func() Optional         // Just | None, blocks until value yielded
-	IOAsyncFnc func(update Functional) // updates a value by calling the update fnc
+	NoOp     func()
+	PredExpr func(...Functional) bool
+	MaybeVal func() Paired
+	CaseVal  func() (PredExpr, Functional)
+	CaseExpr func() []CaseVal
 )
 
-/////////////////////////////////////////////////////////////////////////////
-/// PRAEDICATE
-//
-// encloses a test that expects some type of input value to test against and
-// returns either true, or false.
-func NewPredicate(pred func(scrut ...Functional) bool) PredFnc { return PredFnc(pred) }
-func (p PredFnc) TypeFnc() TyFnc                               { return Predicate }
-func (p PredFnc) TypeNat() d.TyNative                          { return d.Bool }
-func (p PredFnc) Ident() Functional                            { return p }
-func (p PredFnc) String() string {
+// PRAEDICATE
+func NewPredicate(pred func(scrut ...Functional) bool) PredExpr { return PredExpr(pred) }
+func (p PredExpr) TypeFnc() TyFnc                               { return Predicate }
+func (p PredExpr) TypeNat() d.TyNative                          { return d.Bool }
+func (p PredExpr) Ident() Functional                            { return p }
+func (p PredExpr) String() string {
 	return "T → λpredicate  → Bool"
 }
-func (p PredFnc) Eval(dat ...d.Native) d.Native {
-	if len(dat) > 0 {
-		return d.BoolVal(p(New(dat[0])))
+
+func (p PredExpr) True(val Functional) bool { return p(val) }
+
+func (p PredExpr) All(val ...Functional) bool {
+	for _, v := range val {
+		if !p(v) {
+			return false
+		}
 	}
-	return d.NilVal{}
-}
-func (p PredFnc) Call(v ...Functional) Functional {
-	if len(v) > 0 {
-		p(v[0])
-	}
-	return NewNone()
+	return true
 }
 
-/////////////////////////////////////////////////////////////////////////////
-//// OPTIONAL FUNCTIONS
-///
-// generic optional
-func NewOptional(predicate PredFnc, left, right Optional) OptionalFnc {
-	return func(scrutinee ...Functional) Optional {
-		if predicate(scrutinee...) {
-			return left
+func (p PredExpr) Any(val ...Functional) bool {
+	for _, v := range val {
+		if p(v) {
+			return true
 		}
-		return right
 	}
+	return false
 }
-func (o OptionalFnc) TypeFnc() TyFnc      { return Option }
-func (o OptionalFnc) TypeNat() d.TyNative { return d.Function | d.Type }
-func (o OptionalFnc) String() string      { return "Option" }
-func (o OptionalFnc) Value() Functional   { return NewNone() }
-func (o OptionalFnc) Maybe() bool {
-	return false // since no argument has been applyed
+
+func (p PredExpr) Call(v ...Functional) Functional {
+	if len(v) == 1 {
+		return New(p.True(v[0]))
+	}
+	return New(p.All(v...))
 }
-func (o OptionalFnc) Call(vals ...Functional) Functional {
-	return o(vals...)
-}
-func (o OptionalFnc) Eval(nats ...d.Native) d.Native {
-	var fncs []Functional
-	for _, nat := range nats {
-		if nat.TypeNat().Flag().Match(d.Function) {
-			fncs = append(fncs, nat.(Functional))
-			continue
-		}
+
+func (p PredExpr) Eval(dat ...d.Native) d.Native {
+	var fncs = []Functional{}
+	for _, nat := range dat {
 		fncs = append(fncs, NewFromData(nat))
 	}
-	return o(fncs...)
+	return p.Call(fncs...)
 }
-
-// maybe takes a preadicate & an expression that's expected to evaluate to a
-// value, or not. when called, the expressions evaluation result is then
-// applyed to the praedicate and depending on this applications result, either
-// the value is returned wrapped in a 'Just" instance.
-func NewMaybe(pred PredFnc, expr Functional) OptionalFnc {
-	return NewOptional(pred, NewJustVal(expr), NewNone())
-}
-
-// either takes a predicate and two expressions, one of which is expected to
-// evaluate true, when applyed to the predicate.
-func NewEither(pred PredFnc, lexpr, rexpr Functional) OptionalFnc {
-	return NewOptional(pred, NewEitherVal(lexpr), NewOrVal(rexpr))
-}
-
-// truth function takes a predicate and returns either true, or false
-func NewTruth(pred PredFnc) OptionalFnc {
-	return NewOptional(pred, NewTrue(), NewFalse())
-}
-
-/////////////////////////////////////////////////////////////////////////////
-/// CASE
-//
-func NewCaseExpr(pred PredFnc, expr Functional) CaseExpr {
-	return CaseExpr(func(scrut ...Functional) Optional {
-		if pred(scrut...) {
-			return NewJustVal(expr)
-		}
-		return NewNone()
-	})
-}
-func NewCaseFnc(cases ...CaseExpr) CaseFnc {
-	// declare case function constructor expects a list of cases to apply
-	// to the passed scrutinee & the expression to return when a case
-	// statement matches.
-	var conCases func(...CaseExpr) CaseFnc
-	// define case function constructor
-	conCases = func(cases ...CaseExpr) CaseFnc {
-		return CaseFnc(func(scrut ...Functional) Optional {
-			// as long as there are cases to evaluate‥.
-			if len(cases) > 0 {
-				// evaluate first passed case
-				var c = cases[0](scrut...)
-				if c.Maybe() {
-					// maybe a value? → return 'Just' instance
-					return NewJustVal(c.Value())
-				}
-				// if there are additional cases to evaluate‥.
-				if len(cases) > 1 {
-					// pass on remaining cases to the case
-					// function constructor, and apply
-					// scrutinee recursively
-					cases = cases[1:]
-					return conCases(cases...)(scrut...)
-				}
-			}
-			// all cases are depleted without one matching → return
-			// final 'None' instance
-			return NewNone()
-		})
-	}
-	return conCases(cases...)
-}
-func (c CaseFnc) Ident() Functional                  { return c }
-func (c CaseFnc) Maybe() bool                        { return c().Maybe() }
-func (c CaseFnc) Value() Functional                  { return c().Value() }
-func (c CaseFnc) Call(vals ...Functional) Functional { return c(vals...) }
-func (c CaseFnc) TypeFnc() TyFnc                     { return Case | Option }
-func (c CaseFnc) TypeNat() d.TyNative                { return c().TypeNat() }
-func (c CaseFnc) String() string                     { return c().String() }
-func (c CaseFnc) Eval(nats ...d.Native) d.Native {
-	var vals = []Functional{}
-	for _, val := range nats {
-		vals = append(vals, NewFromData(val.Eval()))
-	}
-	return c.Call(vals...).Eval()
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//// RETURN TYPE PAIRS OF THE OPTIONAL TYPE
-///
-// EITHER
-func NewEitherVal(v Functional) EitherVal {
-	return EitherVal(func() Functional { return v })
-}
-func (e EitherVal) Ident() Functional               { return e }
-func (e EitherVal) Call(v ...Functional) Functional { return e.Call(v...) }
-func (e EitherVal) Eval(p ...d.Native) d.Native     { return e().Eval(p...) }
-func (e EitherVal) Maybe() bool                     { return true }
-func (e EitherVal) Value() Functional               { return e() }
-func (e EitherVal) Nullable() d.Native              { return e.Eval() }
-func (e EitherVal) TypeFnc() TyFnc                  { return EitherOr | Either }
-func (e EitherVal) TypeNat() d.TyNative             { return e().TypeNat() }
-func (e EitherVal) String() string                  { return e().String() }
-
-// OR
-func NewOrVal(v Functional) OrVal {
-	return OrVal(func() Functional { return v })
-}
-func (o OrVal) Ident() Functional               { return o }
-func (o OrVal) Call(v ...Functional) Functional { return o.Call(v...) }
-func (o OrVal) Eval(p ...d.Native) d.Native     { return o().Eval(p...) }
-func (o OrVal) Maybe() bool                     { return false }
-func (o OrVal) Value() Functional               { return o() }
-func (o OrVal) Nullable() d.Native              { return o.Eval() }
-func (o OrVal) TypeFnc() TyFnc                  { return EitherOr | Or }
-func (o OrVal) TypeNat() d.TyNative             { return o().TypeNat() }
-func (o OrVal) String() string                  { return o().String() }
-
-// JUST
-func NewJustVal(v Functional) JustVal {
-	return JustVal(func() Functional { return v })
-}
-func (j JustVal) Ident() Functional               { return j }
-func (j JustVal) Call(v ...Functional) Functional { return j.Call(v...) }
-func (j JustVal) Eval(p ...d.Native) d.Native     { return j().Eval(p...) }
-func (j JustVal) Maybe() bool                     { return true }
-func (j JustVal) Value() Functional               { return j() }
-func (j JustVal) Nullable() d.Native              { return j.Eval() }
-func (j JustVal) TypeFnc() TyFnc                  { return Option | Just }
-func (j JustVal) TypeNat() d.TyNative             { return j().TypeNat() }
-func (j JustVal) String() string                  { return j().String() }
 
 // NONE
-func NewNone() NoneVal                          { return NoneVal(func() {}) }
-func (n NoneVal) Ident() Functional             { return n }
-func (n NoneVal) Call(...Functional) Functional { return n }
-func (n NoneVal) Eval(...d.Native) d.Native     { return d.NilVal{}.Eval() }
-func (n NoneVal) Maybe() bool                   { return false }
-func (n NoneVal) Value() Functional             { return NewNone() }
-func (n NoneVal) Nullable() d.Native            { return d.NilVal{} }
-func (n NoneVal) TypeFnc() TyFnc                { return Option | None }
-func (n NoneVal) TypeNat() d.TyNative           { return d.Nil }
-func (n NoneVal) String() string                { return "⊥" }
+func NewNoOp() NoOp                          { return NoOp(func() {}) }
+func (n NoOp) Ident() Functional             { return n }
+func (n NoOp) Call(...Functional) Functional { return n }
+func (n NoOp) Eval(...d.Native) d.Native     { return d.NilVal{}.Eval() }
+func (n NoOp) Maybe() bool                   { return false }
+func (n NoOp) Value() Functional             { return NewNoOp() }
+func (n NoOp) Nullable() d.Native            { return d.NilVal{} }
+func (n NoOp) TypeFnc() TyFnc                { return Option | None }
+func (n NoOp) TypeNat() d.TyNative           { return d.Nil }
+func (n NoOp) String() string                { return "⊥" }
 
-//// FUNCTIONAL TRUTH VALUES
-///
-// TRUE
-func (t TrueVal) Call(...Functional) Functional {
-	return New(d.BoolVal(true))
+// OPTIONAL
+func (o MaybeVal) TypeNat() d.TyNative {
+	return d.Function | o.Value().TypeNat()
 }
-func (t TrueVal) Ident() Functional         { return t }
-func (t TrueVal) Eval(...d.Native) d.Native { return t }
-func (t TrueVal) Bool() bool                { return true }
-func (t TrueVal) Maybe() bool               { return true }
-func (t TrueVal) Value() Functional         { return t }
-func (t TrueVal) TypeFnc() TyFnc            { return Truth | True }
-func (t TrueVal) TypeNat() d.TyNative       { return d.Bool }
-func (t TrueVal) String() string            { return "True" }
-func NewTrue() TrueVal {
-	return TrueVal(func() Boolean { return NewTrue() })
+func (o MaybeVal) TypeFnc() TyFnc {
+	return Option | o.Value().TypeFnc()
+}
+func (o MaybeVal) Eval(dat ...d.Native) d.Native     { return o.Value().Eval(dat...) }
+func (o MaybeVal) Call(val ...Functional) Functional { return o.Value().Call(val...) }
+func (o MaybeVal) String() string                    { return o.Value().String() }
+func (o MaybeVal) Left() Functional                  { return o().Left() }
+func (o MaybeVal) Right() Functional                 { return o().Right() }
+func (o MaybeVal) Maybe() bool {
+	if b, ok := o().Left().Eval().(d.BoolVal); ok && bool(b) {
+		return true
+	}
+	return false
+}
+func (o MaybeVal) Value() Functional {
+	if o.Maybe() {
+		return o().Left()
+	}
+	return NewNoOp()
+}
+func NewMaybe(maybe bool, expr ...Functional) MaybeVal {
+	if maybe && len(expr) > 0 {
+		var exp Functional
+		if len(expr) > 1 {
+			exp = NewVector(expr...)
+		} else {
+			exp = expr[0]
+		}
+		return MaybeVal(func() Paired {
+			return NewPair(
+				NewFromData(d.BoolVal(true)),
+				exp,
+			)
+		})
+	}
+	return MaybeVal(func() Paired {
+		return NewPair(
+			NewFromData(d.BoolVal(false)),
+			NewNoOp(),
+		)
+	})
 }
 
-// FALSE
-func (f FalseVal) Call(...Functional) Functional {
-	return New(d.BoolVal(false))
+/// CASE VALUE
+// returns a predicate function to apply a single argument to & an expression
+// to be returned in case predicate application evaluates true.
+func NewCaseVal(pred PredExpr, expr Functional) CaseVal {
+	return CaseVal(func() (PredExpr, Functional) {
+		return pred, expr
+	})
 }
-func (f FalseVal) Iwdent() Functional        { return f }
-func (f FalseVal) Eval(...d.Native) d.Native { return f }
-func (f FalseVal) Bool() bool                { return false }
-func (f FalseVal) Maybe() bool               { return false }
-func (f FalseVal) Value() Functional         { return f }
-func (f FalseVal) TypeFnc() TyFnc            { return Truth | False }
-func (f FalseVal) TypeNat() d.TyNative       { return d.Bool | d.Function }
-func (f FalseVal) String() string            { return "False" }
-func NewFalse() TrueVal {
-	return func() Boolean { return NewFalse() }
+func (c CaseVal) pred() PredExpr   { p, _ := c(); return p }
+func (c CaseVal) expr() Functional { _, e := c(); return e }
+
+// implements case interface and returns an optional
+func (c CaseVal) Case(expr ...Functional) Functional {
+	var opt = c.CaseMaybe(expr...)
+	if opt.Maybe() {
+		return opt.Value()
+	}
+	return NewNoOp()
 }
 
-// ERROR
-func (f ErrorVal) Call(fncs ...Functional) Functional { return f }
-func (f ErrorVal) Ident() Functional                  { return f }
-func (f ErrorVal) Value() Functional                  { return f }
-func (f ErrorVal) Eval(...d.Native) d.Native          { return f }
-func (f ErrorVal) Bool() bool                         { return false }
-func (f ErrorVal) TypeFnc() TyFnc                     { return Error }
-func (f ErrorVal) TypeNat() d.TyNative                { return d.Function }
-func (f ErrorVal) String() string                     { return f.String() }
-func (f ErrorVal) Error() string {
-	var str string
-	for i, err := range f() {
-		str = fmt.Sprintf("Error %d:\t", i)
-		str = str + fmt.Sprintf("%s\n\n", err.Error())
+// returns optional either containing the enclosed expression, or no-op based
+// on the result of applying the scrutinee to the enclosed case expression.
+func (c CaseVal) CaseMaybe(scruts ...Functional) MaybeVal {
+	// range over all passed arguments
+	for _, scrut := range scruts {
+		// test against enclosed case
+		if pred, ret := c(); pred(scrut) {
+			// return optional containing enclosed epression, on
+			// first matching case
+			return NewMaybe(true, ret)
+		}
+	}
+	// return optional containing no-op, of no case matches.
+	return NewMaybe(false)
+}
+func (c CaseVal) TypeNat() d.TyNative {
+	return d.Function | c.expr().TypeNat()
+}
+func (c CaseVal) TypeFnc() TyFnc {
+	return Case | c.expr().TypeFnc()
+}
+func (c CaseVal) Eval(dat ...d.Native) d.Native     { return c.expr().Eval(dat...) }
+func (c CaseVal) Call(val ...Functional) Functional { return c.expr().Call(val...) }
+func (c CaseVal) String() string                    { return "case true: " + c.expr().String() }
+
+/// CASE FUNCTION
+func NewCaseExpr(cases ...CaseVal) CaseExpr {
+	return CaseExpr(func() []CaseVal { return cases })
+}
+func (c CaseExpr) Case(expr ...Functional) Functional {
+	// range over all cases
+	for _, cas := range c() {
+		// each case ranges over all expressions to scrutinize to
+		// yield an optional
+		var option = cas.CaseMaybe(expr...)
+		// if optional contains value‥.
+		if option.Maybe() {
+			//‥.return first match
+			return option.Value()
+		}
+	}
+	// if nothing matched, return empty
+	return NewNoOp()
+}
+func (c CaseExpr) TypeNat() d.TyNative {
+	return d.Function
+}
+func (c CaseExpr) TypeFnc() TyFnc {
+	return Case
+}
+func (c CaseExpr) Call(val ...Functional) Functional {
+	return c.Case(val...)
+}
+func (c CaseExpr) Eval(dat ...d.Native) d.Native {
+	var fncs = []Functional{}
+	for _, nat := range dat {
+		fncs = append(fncs, NewFromData(nat))
+	}
+	return c.Call(fncs...)
+}
+func (c CaseExpr) String() string {
+	var str = "cases:\n"
+	var cases = c()
+	var l = len(cases)
+	for i, cas := range cases {
+		str = str + cas.String()
+		if i < l-1 {
+			str = str + "\n"
+
+		}
 	}
 	return str
-}
-func NewError(err ...error) ErrorVal {
-	return ErrorVal(func(err ...error) []error { return err })
 }

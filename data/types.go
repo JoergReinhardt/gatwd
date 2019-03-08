@@ -81,6 +81,7 @@ const (
 	List
 	Set
 	Data
+	Expression
 	Function
 	Instance
 	Flag // marks most signifficant native type & data of type bitflag

@@ -12,7 +12,7 @@ import (
 func (p PairFnc) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(p.Left().String())
-	buf.WriteString(l.Colon.Syntax())
+	buf.WriteString(":")
 	buf.WriteString(l.Blank.Syntax())
 	buf.WriteString(p.Right().String())
 	return buf.String()
