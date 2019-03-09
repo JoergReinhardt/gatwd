@@ -8,61 +8,200 @@ type (
 	//// FUNCTOR CONSTRUCTORS
 	///
 	// CONDITIONAL, CASE & OPTIONAL
-	NoOp     func()
-	PredExpr func(...Parametric) bool
-	JustNone func() Paired
-	EitherOr func() Paired
-	CaseVal  func() (PredExpr, Parametric)
-	CaseExpr func() []CaseVal
+	NoOp       func()
+	OptVal     func() PairFnc
+	PredExpr   func(...Parametric) bool
+	JustNone   func(...Parametric) OptVal
+	EitherOr   func(...Parametric) OptVal
+	SwitchCase func(...Parametric) OptVal
+	CaseSwitch func(...Parametric) (SwitchCase, []SwitchCase)
 	// RESORCFUL FUNCTIONS (depend on free vars besides argset
-	GeneratorFnc  func() Parametric
-	AggregatorFnc func(args ...Parametric) (Parametric, NaryFnc)
+	GeneratorFnc  func() (Parametric, GeneratorFnc)
+	AggregatorFnc func(args ...Parametric) (Parametric, AggregatorFnc)
 )
 
-/// GENERATOR
-func NewGenerator(fnc func() Parametric) GeneratorFnc {
-	return GeneratorFnc(func() Parametric { return fnc() })
+/// OPTIONAL VALUES
+// based on a paired with extra bells'n whistles
+func NewOptVal(left, right Parametric) OptVal {
+	return OptVal(func() PairFnc {
+		return NewPair(left, right)
+	})
+}
+func (o OptVal) Ident() Parametric   { return o }
+func (o OptVal) Left() Parametric    { return o().Left() }
+func (o OptVal) Right() Parametric   { return o().Right() }
+func (o OptVal) TypeNat() d.TyNative { return o.Right().TypeNat() }
+func (o OptVal) TypeFnc() TyFnc      { return o.Right().TypeFnc() | Option }
+func (o OptVal) String() string {
+	return "optional: " + o.Left().String() + "|" + o.Right().String()
+}
+func (o OptVal) Call(args ...Parametric) Parametric { return o.Right().Call(args...) }
+func (o OptVal) Eval(vars ...d.Native) d.Native {
+	var args = []Parametric{}
+	for _, arg := range vars {
+		args = append(args, NewFromData(arg))
+	}
+	return o.Call(args...)
 }
 
-func (g GeneratorFnc) Ident() Parametric               { return g() }
-func (g GeneratorFnc) TypeFnc() TyFnc                  { return Generator }
-func (g GeneratorFnc) TypeNat() d.TyNative             { return g().TypeNat() }
-func (g GeneratorFnc) Eval(p ...d.Native) d.Native     { return g().Eval() }
-func (g GeneratorFnc) Call(d ...Parametric) Parametric { return g() }
-func (g GeneratorFnc) Next() JustNone {
-	var elem = g()
-	if !ElemEmpty(elem) {
-		return NewJustNone(true, elem)
-	}
-	return NewJustNone(false)
+//// JUST NONE
+///
+// expression is applyed to arguments passed at runtime. result of calling the
+// expression is applyed to predex. if the predicate matches, result is
+// returned as 'just' value, otherwise NoOp is returned
+func NewJustNone(predex PredExpr, expr Parametric) JustNone {
+	return JustNone(func(args ...Parametric) OptVal {
+		var result = expr.Call(args...)
+		if predex(result) {
+			return NewOptVal(New(true), result)
+		}
+		return NewOptVal(New(false), NewNoOp())
+	})
 }
+func (j JustNone) Ident() Parametric                  { return j }
+func (j JustNone) String() string                     { return "just-none" }
+func (j JustNone) TypeFnc() TyFnc                     { return Option | Just | None }
+func (j JustNone) TypeNat() d.TyNative                { return d.Function }
+func (j JustNone) Return(args ...Parametric) OptVal   { return j(args...) }
+func (j JustNone) Call(args ...Parametric) Parametric { return j(args...) }
+func (j JustNone) Eval(vars ...d.Native) d.Native {
+	var args = []Parametric{}
+	for _, v := range vars {
+		args = append(args, NewFromData(v))
+	}
+	return j(args...)
+}
+
+//// EITHER OR
+///
+// left pair value indicates: 0 = 'either', 1 = 'or', -1 = 'no value yielded'
+func NewEitherOr(predex PredExpr, either, or Parametric) EitherOr {
+	return EitherOr(func(args ...Parametric) OptVal {
+		var val Parametric
+		val = either.Call(args...)
+		if predex(val) {
+			return NewOptVal(New(0), val)
+		}
+		val = or.Call(args...)
+		if predex(val) {
+			return NewOptVal(New(1), val)
+		}
+		return NewOptVal(New(-1), NewNoOp())
+	})
+}
+func (e EitherOr) Ident() Parametric                  { return e }
+func (e EitherOr) String() string                     { return "either-or" }
+func (e EitherOr) TypeFnc() TyFnc                     { return Option | Either | Or }
+func (e EitherOr) TypeNat() d.TyNative                { return d.Function }
+func (e EitherOr) Return(args ...Parametric) OptVal   { return e(args...) }
+func (e EitherOr) Call(args ...Parametric) Parametric { return e(args...) }
+func (e EitherOr) Eval(vars ...d.Native) d.Native {
+	var args = []Parametric{}
+	for _, v := range vars {
+		args = append(args, NewFromData(v))
+	}
+	return e.Call(args...)
+}
+
+//// SWITCH CASE
+///
+// switch case applies predicate to arguments passed at runtime & either
+// returns either the enclosed expression, the next case, or no-op in case an
+// error occured.
+func NewSwitchCase(predex PredExpr, value Parametric, nextcase ...SwitchCase) SwitchCase {
+	// if runtime arguments applyed to predicate expression yields true, value
+	// will be returned, or otherwise the next case will be the return value.
+	return SwitchCase(func(args ...Parametric) OptVal {
+		if predex(args...) { // return value if runtime args match predicate
+			return OptVal(func() PairFnc {
+				return NewPair(New(0), value)
+			})
+		} // return next switch case to test against, if at least one
+		// more case was passed
+		if len(nextcase) > 0 {
+			return OptVal(func() PairFnc {
+				return NewPair(New(1), nextcase[0])
+			})
+		}
+		return OptVal(func() PairFnc {
+			return NewPair(New(-1), NewNoOp())
+		})
+	})
+}
+func (s SwitchCase) Ident() Parametric                  { return s }
+func (s SwitchCase) String() string                     { return "switch-case" }
+func (s SwitchCase) TypeFnc() TyFnc                     { return Option | Case | Switch }
+func (s SwitchCase) TypeNat() d.TyNative                { return d.Function }
+func (s SwitchCase) Return(args ...Parametric) OptVal   { return s(args...) }
+func (s SwitchCase) Call(args ...Parametric) Parametric { return s(args...) }
+func (s SwitchCase) Eval(vars ...d.Native) d.Native {
+	var args = []Parametric{}
+	for _, v := range vars {
+		args = append(args, NewFromData(v))
+	}
+	return s.Call(args...)
+}
+
+/// GENERATOR
+// initialize generator function with any Parametric function. will be called
+// without arguments & is expexted tp return a new value per call
+func NewGenerator(fnc Parametric) GeneratorFnc {
+	var next = fnc.Call()
+	var genfnc GeneratorFnc
+	genfnc = GeneratorFnc(func() (Parametric, GeneratorFnc) {
+		return next, conGenerator(genfnc)
+	})
+	return genfnc
+}
+func conGenerator(genfnc GeneratorFnc) GeneratorFnc {
+	var value Parametric
+	value, genfnc = genfnc()
+	return GeneratorFnc(func() (Parametric, GeneratorFnc) {
+		return value, conGenerator(genfnc)
+	})
+}
+
+func (g GeneratorFnc) Ident() Parametric                  { return g }
+func (g GeneratorFnc) String() string                     { return "generator" }
+func (g GeneratorFnc) Current() Parametric                { p, _ := g(); return p }
+func (g GeneratorFnc) Generator() GeneratorFnc            { _, gen := g(); return gen }
+func (g GeneratorFnc) TypeFnc() TyFnc                     { return Generator }
+func (g GeneratorFnc) TypeNat() d.TyNative                { return g.Current().TypeNat() }
+func (g GeneratorFnc) Eval(vars ...d.Native) d.Native     { return g.Current().Eval(vars...) }
+func (g GeneratorFnc) Call(args ...Parametric) Parametric { return g.Current().Call(args...) }
 
 /// AGGREGATOR
 //  applies old parameter and new args to nary function to yield aggregated
 //  result
-func NewAggregator(aggr NaryFnc) AggregatorFnc { return conAggregator(aggr) }
+func NewAggregator(nary NaryFnc) AggregatorFnc {
+	var aggrFnc AggregatorFnc
+	aggrFnc = AggregatorFnc(func(args ...Parametric) (Parametric, AggregatorFnc) {
+		var aggr = nary(args...)
+		var aggregator = conAggregator(aggrFnc, aggr)
+		return aggr, aggregator
+	})
+	return aggrFnc
+}
 
 // construct aggregator, optionaly pass arguments to aggregate with arguments
 // at call site, to compute aggregated result.
-func conAggregator(aggregator NaryFnc, passed ...Parametric) AggregatorFnc {
-	return AggregatorFnc(func(args ...Parametric) (Parametric, NaryFnc) {
-		if len(passed) > 0 {
-			return aggregator(append(passed, args...)...), aggregator
-		}
-		return aggregator(args...), aggregator
+func conAggregator(aggregator AggregatorFnc, passed ...Parametric) AggregatorFnc {
+
+	return AggregatorFnc(func(args ...Parametric) (Parametric, AggregatorFnc) {
+		var aggr Parametric
+		aggr, aggregator = aggregator(args...)
+		return aggr, conAggregator(aggregator, append(passed, args...)...)
 	})
 }
-func (g AggregatorFnc) Ident() Parametric               { return g }
-func (g AggregatorFnc) TypeFnc() TyFnc                  { return Aggregator }
-func (g AggregatorFnc) TypeNat() d.TyNative             { return g.Result().TypeNat() }
-func (g AggregatorFnc) String() string                  { return g.Result().String() }
-func (g AggregatorFnc) Eval(p ...d.Native) d.Native     { return g.Aggregator().Eval(p...) }
-func (g AggregatorFnc) Call(d ...Parametric) Parametric { return g.Aggregator()(d...) }
-func (g AggregatorFnc) Result() Parametric              { parm, _ := g(); return parm }
-func (g AggregatorFnc) Aggregator() NaryFnc             { _, aggr := g(); return aggr }
-func (g AggregatorFnc) Aggregate(args ...Parametric) Parametric {
-	return g.Aggregator()(append([]Parametric{g.Result()}, args...)...)
-}
+func (g AggregatorFnc) Ident() Parametric                          { return g }
+func (g AggregatorFnc) TypeFnc() TyFnc                             { return Aggregator }
+func (g AggregatorFnc) TypeNat() d.TyNative                        { return d.Function }
+func (g AggregatorFnc) Aggregator() AggregatorFnc                  { _, aggr := g(); return aggr }
+func (g AggregatorFnc) Current() Parametric                        { cur, _ := g(); return cur }
+func (g AggregatorFnc) String() string                             { return "aggregator" }
+func (g AggregatorFnc) Eval(p ...d.Native) d.Native                { return g.Aggregator().Eval(p...) }
+func (g AggregatorFnc) Call(d ...Parametric) Parametric            { return g.Aggregator().Call(d...) }
+func (g AggregatorFnc) Aggregate(args ...Parametric) AggregatorFnc { return conAggregator(g, args...) }
 
 // PRAEDICATE
 func NewPredicate(pred func(scrut ...Parametric) bool) PredExpr { return PredExpr(pred) }
@@ -110,153 +249,13 @@ func (p PredExpr) Eval(dat ...d.Native) d.Native {
 
 // NONE
 func NewNoOp() NoOp                          { return NoOp(func() {}) }
+func (n NoOp) Maybe() bool                   { return false }
+func (n NoOp) Empty() bool                   { return true }
+func (n NoOp) String() string                { return "⊥" }
+func (n NoOp) Len() int                      { return -1 }
+func (n NoOp) Value() Parametric             { return n }
 func (n NoOp) Ident() Parametric             { return n }
 func (n NoOp) Call(...Parametric) Parametric { return n }
-func (n NoOp) Eval(...d.Native) d.Native     { return d.NilVal{}.Eval() }
-func (n NoOp) Maybe() bool                   { return false }
-func (n NoOp) Value() Parametric             { return NewNoOp() }
-func (n NoOp) Nullable() d.Native            { return d.NilVal{} }
-func (n NoOp) TypeFnc() TyFnc                { return Option | None }
+func (n NoOp) Eval(...d.Native) d.Native     { return d.NilVal{} }
 func (n NoOp) TypeNat() d.TyNative           { return d.Nil }
-func (n NoOp) String() string                { return "⊥" }
-
-// OPTIONAL
-func (o JustNone) TypeNat() d.TyNative {
-	return d.Function | o.Value().TypeNat()
-}
-func (o JustNone) TypeFnc() TyFnc {
-	return Option | o.Value().TypeFnc()
-}
-func (o JustNone) Eval(dat ...d.Native) d.Native     { return o.Value().Eval(dat...) }
-func (o JustNone) Call(val ...Parametric) Parametric { return o.Value().Call(val...) }
-func (o JustNone) String() string                    { return o.Value().String() }
-func (o JustNone) Left() Parametric                  { return o().Left() }
-func (o JustNone) Right() Parametric                 { return o().Right() }
-func (o JustNone) Maybe() bool {
-	if b, ok := o().Left().Eval().(d.BoolVal); ok && bool(b) {
-		return true
-	}
-	return false
-}
-func (o JustNone) Value() Parametric {
-	if o.Maybe() {
-		return o().Left()
-	}
-	return NewNoOp()
-}
-func NewJustNone(maybe bool, expr ...Parametric) JustNone {
-	if maybe && len(expr) > 0 {
-		var exp Parametric
-		if len(expr) > 1 {
-			exp = NewVector(expr...)
-		} else {
-			exp = expr[0]
-		}
-		return JustNone(func() Paired {
-			return NewPair(
-				NewFromData(d.BoolVal(true)),
-				exp,
-			)
-		})
-	}
-	return JustNone(func() Paired {
-		return NewPair(
-			NewFromData(d.BoolVal(false)),
-			NewNoOp(),
-		)
-	})
-}
-
-/// CASE VALUE
-// returns a predicate function to apply a single argument to & an expression
-// to be returned in case predicate application evaluates true.
-func NewCaseVal(pred PredExpr, expr Parametric) CaseVal {
-	return CaseVal(func() (PredExpr, Parametric) {
-		return pred, expr
-	})
-}
-func (c CaseVal) Predicate() PredExpr    { p, _ := c(); return p }
-func (c CaseVal) Expression() Parametric { _, e := c(); return e }
-
-// returns optional either containing the enclosed expression, or no-op based
-// on the result of applying the scrutinee to the enclosed case expression.
-func (c CaseVal) CaseMaybe(scruts ...Parametric) JustNone {
-	// range over all passed arguments
-	for _, scrut := range scruts {
-		// test against enclosed case
-		if pred, ret := c(); pred(scrut) {
-			// return optional containing enclosed epression, on
-			// first matching case
-			return NewJustNone(true, ret)
-		}
-	}
-	// return optional containing no-op, of no case matches.
-	return NewJustNone(false)
-}
-
-// implements case interface and returns an optional
-func (c CaseVal) Case(expr ...Parametric) Parametric {
-	var opt = c.CaseMaybe(expr...)
-	if opt.Maybe() {
-		return opt.Value()
-	}
-	return NewNoOp()
-}
-func (c CaseVal) TypeNat() d.TyNative {
-	return d.Function | c.Expression().TypeNat()
-}
-func (c CaseVal) TypeFnc() TyFnc {
-	return Case | c.Expression().TypeFnc()
-}
-func (c CaseVal) Eval(dat ...d.Native) d.Native     { return c.Expression().Eval(dat...) }
-func (c CaseVal) Call(val ...Parametric) Parametric { return c.Expression().Call(val...) }
-func (c CaseVal) String() string                    { return "case true: " + c.Expression().String() }
-
-/// CASE FUNCTION
-func NewCaseExpr(cases ...CaseVal) CaseExpr {
-	return CaseExpr(func() []CaseVal { return cases })
-}
-func (c CaseExpr) Case(expr ...Parametric) Parametric {
-	// range over all cases
-	for _, cas := range c() {
-		// each case ranges over all expressions to scrutinize to
-		// yield an optional
-		var option = cas.CaseMaybe(expr...)
-		// if optional contains value‥.
-		if option.Maybe() {
-			//‥.return first match
-			return option.Value()
-		}
-	}
-	// if nothing matched, return empty
-	return NewNoOp()
-}
-func (c CaseExpr) TypeNat() d.TyNative {
-	return d.Function
-}
-func (c CaseExpr) TypeFnc() TyFnc {
-	return Case
-}
-func (c CaseExpr) Call(val ...Parametric) Parametric {
-	return c.Case(val...)
-}
-func (c CaseExpr) Eval(dat ...d.Native) d.Native {
-	var fncs = []Parametric{}
-	for _, nat := range dat {
-		fncs = append(fncs, NewFromData(nat))
-	}
-	return c.Call(fncs...)
-}
-func (c CaseExpr) String() string {
-	var str = "cases:\n"
-	var cases = c()
-	var l = len(cases)
-	for i, cas := range cases {
-		str = str + cas.String()
-		if i < l-1 {
-			str = str + "\n"
-
-		}
-	}
-	return str
-}
+func (n NoOp) TypeFnc() TyFnc                { return None }

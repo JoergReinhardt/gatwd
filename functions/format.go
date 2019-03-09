@@ -2,9 +2,11 @@ package functions
 
 import (
 	"bytes"
+	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
 	l "github.com/joergreinhardt/gatwd/lex"
+	"github.com/olekukonko/tablewriter"
 )
 
 /// VALUE
@@ -40,11 +42,23 @@ func (v RecordFnc) String() string {
 	return d.StringSlice("∙", "[", "]", slice...)
 }
 
+/// ASSOCIATIVE SET
+func (v AssocSetFnc) String() string {
+	var strb = &strings.Builder{}
+	var tab = tablewriter.NewWriter(strb)
+
+	for _, pair := range v.Pairs() {
+		var row = []string{pair.Left().String(), pair.Right().String()}
+		tab.Append(row)
+	}
+	tab.Render()
+	return strb.String()
+}
+
 /// LIST
 func (l ListFnc) String() string {
 	var h, t = l()
 	if t != nil {
-		return h.String() + ", " + t.String()
 	}
 	return h.String()
 }

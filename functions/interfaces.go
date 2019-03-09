@@ -64,31 +64,6 @@ type Parametric interface {
 	Call(...Parametric) Parametric
 }
 
-type Resourceful interface {
-	Parametric
-	Empty() bool
-}
-
-type Generating interface {
-	Parametric
-	Next() Optional
-}
-
-type Aggregating interface {
-	Parametric
-	Result() Parametric
-	Aggregator() NaryFnc
-	Aggregate(...Parametric) Parametric
-}
-
-type Functoric interface {
-	Parametric
-	Map(Parametric) Functoric
-}
-type Monadic interface {
-	Functoric
-}
-
 //// PAIRS OF FUNCTIONALS
 type Paired interface {
 	Resourceful
@@ -150,6 +125,25 @@ type Indexed interface {
 	Set(int, Parametric) Vectorized
 }
 
+type Resourceful interface {
+	Parametric
+}
+
+type Generating interface {
+	Parametric
+	Next() Optional
+}
+
+type Aggregating interface {
+	Parametric
+	Result() Parametric
+	Aggregator() NaryFnc
+	Aggregate(...Parametric) Parametric
+}
+type Monadic interface {
+	Parametric
+}
+
 type Associative interface {
 	Parametric
 	AccFncType() TyFnc
@@ -168,7 +162,6 @@ type Consumeable interface {
 	Composed
 	Head() Parametric
 	Tail() Consumeable
-	DeCap() (Parametric, Consumeable)
 }
 
 //// SEQUENTIAL LIST //////
@@ -177,6 +170,7 @@ type Consumeable interface {
 // collection type interfaces. map & fold operators rely on the consumeable
 // type interface. vectorized types implement that behaviour
 type Vectorized interface {
+	Parametric
 	Composed
 	Sequential
 	Searchable

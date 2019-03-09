@@ -101,6 +101,7 @@ const (
 	Just
 	None
 	Case
+	Switch
 	Either
 	Or
 	If
@@ -140,6 +141,16 @@ func (n Native) String() string                 { return n().String() }
 func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
 func (n Native) TypeNat() d.TyNative            { return n().TypeNat() }
 func (n Native) TypeFnc() TyFnc                 { return Data }
+func (n Native) Empty() bool {
+	if n != nil {
+		if !d.Nil.Flag().Match(n.TypeNat()) {
+			if !None.Flag().Match(n.TypeFnc()) {
+				return false
+			}
+		}
+	}
+	return true
+}
 func (n Native) Call(vals ...Parametric) Parametric {
 	switch len(vals) {
 	case 0:
@@ -180,7 +191,7 @@ type (
 	BinaryFnc func(a, b Parametric) Parametric
 	NaryFnc   func(...Parametric) Parametric
 	/// TYPE SYSTEM
-	TypePat  func() (Arity, Propertys, CaseVal)
+	TypePat  func() (Arity, Propertys, SwitchCase)
 	FuncDef  func() (TypePat, Parametric)
 	FuncExp  func(args ...Parametric) Parametric
 	ThunkExp func() []Parametric

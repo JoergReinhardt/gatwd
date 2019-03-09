@@ -69,7 +69,7 @@ type dataSorter []Parametric
 func (d dataSorter) Empty() bool {
 	if len(d) > 0 {
 		for _, dat := range d {
-			if !ElemEmpty(dat) {
+			if dat != nil {
 				return false
 
 			}
@@ -161,7 +161,7 @@ func (a pairSorter) AppendKeyValue(key Parametric, val Parametric) { a = append(
 func (a pairSorter) Empty() bool {
 	if len(a) > 0 {
 		for _, p := range a {
-			if !ElemEmpty(p) {
+			if p != nil {
 				return false
 			}
 		}
