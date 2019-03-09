@@ -58,43 +58,64 @@ type MappedNatives interface {
 }
 
 //// FUNCTIONAL CLASS
-type Functional interface {
+type Parametric interface {
 	d.Native
 	TypeFnc() TyFnc
-	Call(...Functional) Functional
+	Call(...Parametric) Parametric
+}
+
+type Resourceful interface {
+	Parametric
+	Empty() bool
+}
+
+type Generating interface {
+	Parametric
+	Next() Optional
+}
+
+type Aggregating interface {
+	Parametric
+	Result() Parametric
+	Aggregator() NaryFnc
+	Aggregate(...Parametric) Parametric
+}
+
+type Functoric interface {
+	Parametric
+	Map(Parametric) Functoric
+}
+type Monadic interface {
+	Functoric
 }
 
 //// PAIRS OF FUNCTIONALS
 type Paired interface {
-	Functional
-	Left() Functional
-	Right() Functional
-	Both() (Functional, Functional)
+	Resourceful
+	Left() Parametric
+	Right() Parametric
+	Both() (Parametric, Parametric)
 }
 
 //// COLLECTION CLASSES
 type Optional interface {
-	Functional
+	Parametric
 	Maybe() bool
-	Value() Functional
+	Value() Parametric
 }
 type Predictable interface {
-	Functional
-	True(Functional) bool
-	Any(...Functional) bool
-	All(...Functional) bool
+	Parametric
+	True(Parametric) bool
+	Any(...Parametric) bool
+	All(...Parametric) bool
 }
 type Distinguishable interface {
-	Functional
-	Case(expr ...Functional) Functional
+	Parametric
+	Case(expr ...Parametric) Parametric
 }
 type Choosable interface {
-	Functional
+	Parametric
 	Choices() []TypeId
-}
-
-type Constructing interface {
-	TypeCon() TyCon
 }
 type Composed interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
@@ -105,15 +126,15 @@ type Countable interface {
 }
 
 type Sequential interface {
-	Slice() []Functional //<-- no more nil pointers & 'out of index'!
+	Slice() []Parametric //<-- no more nil pointers & 'out of index'!
 }
 
 type Linked interface {
-	Next() Functional
+	Next() Parametric
 }
 
 type Reverseable interface {
-	Prev() Functional
+	Prev() Parametric
 }
 
 type Ordered interface {
@@ -121,18 +142,20 @@ type Ordered interface {
 }
 
 type Searchable interface {
-	Search(Functional) int
+	Search(Parametric) int
 }
 
 type Indexed interface {
-	Get(int) Functional
-	Set(int, Functional) Vectorized
+	Get(int) Parametric
+	Set(int, Parametric) Vectorized
 }
 
 type Associative interface {
-	Functional
-	GetVal(Functional) Paired
-	SetVal(Functional, Functional) Associative
+	Parametric
+	AccFncType() TyFnc
+	AccNatType() d.TyNative
+	GetVal(Parametric) Paired
+	SetVal(Parametric, Parametric) Associative
 	Pairs() []Paired
 }
 
@@ -141,11 +164,11 @@ type Associative interface {
 // implemented by types backed by recursive lists. consumeable is the
 // behaviour map-/ & fold operations rely up on
 type Consumeable interface {
-	Functional
+	Parametric
 	Composed
-	Head() Functional
+	Head() Parametric
 	Tail() Consumeable
-	DeCap() (Functional, Consumeable)
+	DeCap() (Parametric, Consumeable)
 }
 
 //// SEQUENTIAL LIST //////
@@ -159,6 +182,11 @@ type Vectorized interface {
 	Searchable
 	Ordered
 	Indexed
+}
+
+/// INSTANCES
+type Instanciated interface {
+	Uid() uint
 }
 
 /// ITEMS & TOKENS
@@ -175,7 +203,6 @@ type Nodular interface {
 	Sequential
 	Root() Nodular
 }
-
 type Nested interface {
 	Nodular
 	Member() []Nodular
@@ -204,11 +231,11 @@ type Edged interface {
 
 type Leaved interface {
 	Nodular
-	Value() Functional
+	Value() Parametric
 }
 
 //// STATE MONAD
-type StateFnc func() (StateFnc, Functional)
+type StateFnc func() (StateFnc, Parametric)
 
 //// ERROR
 type ErrorFnc func() error

@@ -32,7 +32,7 @@ func (v VecFnc) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v AssocVecFnc) String() string {
+func (v RecordFnc) String() string {
 	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)
