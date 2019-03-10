@@ -24,22 +24,22 @@ type (
 //
 // generate empty lists out of thin air
 func NewList(args ...Parametric) ListFnc {
-	return conList(emptyList(), args...)
+	return ConList(EmptyList(), args...)
 }
 
-func emptyList() ListFnc {
+func EmptyList() ListFnc {
 	return func(elems ...Parametric) (Parametric, ListFnc) {
 		if len(elems) == 0 {
-			return nil, emptyList()
+			return nil, EmptyList()
 		}
 		if len(elems) == 1 {
-			return elems[0], emptyList()
+			return elems[0], EmptyList()
 		}
-		return elems[0], conList(emptyList(), elems[1:]...)
+		return elems[0], ConList(EmptyList(), elems[1:]...)
 	}
 }
 
-func conList(list ListFnc, initials ...Parametric) ListFnc {
+func ConList(list ListFnc, initials ...Parametric) ListFnc {
 	if len(initials) == 0 {
 		return list
 	}
@@ -51,19 +51,19 @@ func conList(list ListFnc, initials ...Parametric) ListFnc {
 			if len(elems) == 0 {
 				return head, list
 			}
-			return conList(list, append(elems, head)...)()
+			return ConList(list, append(elems, head)...)()
 		}
 	}
 
 	return func(elems ...Parametric) (Parametric, ListFnc) {
 		// no elements → return head and list
 		if len(elems) == 0 {
-			return head, conList(list, initials[1:]...)
+			return head, ConList(list, initials[1:]...)
 		}
 		// elements got passed, append to list. to get order of passed
 		// elements & head right, concat all and call resutling list,
 		// to yield new head & tail list.
-		return conList(list, append(elems, head)...)()
+		return ConList(list, append(elems, initials...)...)()
 	}
 }
 
@@ -101,7 +101,38 @@ func (l ListFnc) Call(d ...Parametric) Parametric {
 	return head
 }
 
-///////////////////////////////////////////////////
+/// FUNCTIONAL LIST METHODS
+//
+func ReverseList(lfn ListFnc) ListFnc {
+	var result = EmptyList()
+	var head Parametric
+	head, lfn = lfn()
+	for head != nil {
+		result = ConList(result, head)
+		head, lfn = lfn()
+	}
+	return result
+}
+func MapList(lfn ListFnc, una UnaryFnc) ListFnc {
+	var result = EmptyList()
+	var head Parametric
+	head, lfn = lfn()
+	for head != nil {
+		result = ConList(result, Curry(una, head))
+		head, lfn = lfn()
+	}
+	return result
+}
+func FoldList(lfn ListFnc, bin BinaryFnc, init Parametric) Parametric {
+	var head Parametric
+	head, lfn = lfn()
+	for head != nil {
+		init = bin(init, head)
+		head, lfn = lfn()
+	}
+	return init
+}
+
 //// VECTOR
 ///
 // vector is a list backed by a slice.

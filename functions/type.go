@@ -204,6 +204,13 @@ type (
 	Instance func() (TypeId, Parametric)
 )
 
+// curry function argument
+func Curry(fnc Parametric, arg Parametric) Parametric {
+	return NaryFnc(func(args ...Parametric) Parametric {
+		return fnc.Call(append([]Parametric{arg}, args...)...)
+	})
+}
+
 // CONSTANT
 //
 // constant also conains immutable data that may be an instance of a type of
