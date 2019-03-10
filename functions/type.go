@@ -190,17 +190,17 @@ type (
 	UnaryFnc  func(Parametric) Parametric
 	BinaryFnc func(a, b Parametric) Parametric
 	NaryFnc   func(...Parametric) Parametric
-	/// TYPE SYSTEM
-	TypePat  func() (Arity, Propertys, SwitchCase)
-	FuncDef  func() (TypePat, Parametric)
-	FuncExp  func(args ...Parametric) Parametric
-	ThunkExp func() []Parametric
-	TypeCon  func(...Parametric) TypeId
-	TypeId   func() (
+	/// FUNCTION DEFINITION & CALL PROPERTYS
+	CallProps func() (Arity, Propertys, CaseExpr)
+	FncDef    func() (string, CallProps, Parametric)
+	/// TYPE ID & CONSTRUCTOR
+	TypeCon func(...Parametric) TypeId
+	TypeId  func() (
 		name,
 		signature string,
-		pattern []TypePat,
+		props []CallProps,
 	)
+	/// instanciated value
 	Instance func() (TypeId, Parametric)
 )
 
@@ -260,16 +260,16 @@ func (n NaryFnc) Call(d ...Parametric) Parametric { return n(d...) }
 
 /// TYPE IDENT
 func NewTypeId(
-	name, signature string, patterns ...TypePat,
+	name, signature string, props ...CallProps,
 ) TypeId {
-	return func() (string, string, []TypePat) {
-		return name, signature, patterns
+	return func() (string, string, []CallProps) {
+		return name, signature, props
 	}
 
 }
 func (t TypeId) Name() string                      { n, _, _ := t(); return n }
 func (t TypeId) Signature() string                 { _, s, _ := t(); return s }
-func (t TypeId) Patterns() []TypePat               { _, _, p := t(); return p }
+func (t TypeId) Propertys() []CallProps            { _, _, p := t(); return p }
 func (t TypeId) String() string                    { return t.Name() + " = " + t.Signature() }
 func (t TypeId) TypeNat() d.TyNative               { return d.Function | d.Type }
 func (t TypeId) TypeFnc() TyFnc                    { return Type }

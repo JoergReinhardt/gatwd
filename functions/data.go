@@ -113,6 +113,7 @@ func ReverseList(lfn ListFnc) ListFnc {
 	}
 	return result
 }
+
 func MapList(lfn ListFnc, una UnaryFnc) ListFnc {
 	var result = EmptyList()
 	var head Parametric
@@ -123,6 +124,7 @@ func MapList(lfn ListFnc, una UnaryFnc) ListFnc {
 	}
 	return result
 }
+
 func FoldList(lfn ListFnc, bin BinaryFnc, init Parametric) Parametric {
 	var head Parametric
 	head, lfn = lfn()
@@ -131,6 +133,52 @@ func FoldList(lfn ListFnc, bin BinaryFnc, init Parametric) Parametric {
 		head, lfn = lfn()
 	}
 	return init
+}
+
+// join expects argument to be a list of lists & returns all sub-lists elements
+// as one list
+func JoinLists(lists ...ListFnc) ListFnc {
+	var head Parametric
+	var list ListFnc
+	var result = EmptyList()
+	for _, list = range lists {
+		head, list = list()
+		for head != nil {
+			result = ConList(result, head)
+		}
+	}
+	return result
+}
+func JoinListOfLists(lists ListFnc) ListFnc {
+	var list = EmptyList()
+	var head Parametric
+	head, lists = lists()
+	for head != nil {
+		if sub, ok := head.(ListFnc); ok {
+			var shead Parametric
+			shead, head = sub()
+			for shead != nil {
+				list = ConList(list, shead)
+				shead, head = sub()
+			}
+		}
+	}
+	return list
+}
+func FlattenList(list ListFnc) ListFnc {
+	var result = EmptyList()
+	var head Parametric
+	head, list = list()
+	for head != nil {
+		if head.TypeFnc().Flag().Match(List) {
+			if sub, ok := head.(ListFnc); ok {
+				result = JoinLists(result, FlattenList(sub))
+				continue
+			}
+		}
+		result = ConList(result, head)
+	}
+	return result
 }
 
 //// VECTOR

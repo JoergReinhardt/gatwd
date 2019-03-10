@@ -13,8 +13,8 @@ type (
 	PredExpr   func(...Parametric) bool
 	JustNone   func(...Parametric) OptVal
 	EitherOr   func(...Parametric) OptVal
-	SwitchCase func(...Parametric) OptVal
-	CaseSwitch func(...Parametric) (SwitchCase, []SwitchCase)
+	CaseExpr   func(...Parametric) OptVal
+	CaseSwitch func(...Parametric) (CaseExpr, []CaseExpr)
 	// RESORCFUL FUNCTIONS (depend on free vars besides argset
 	GeneratorFnc  func() (Parametric, GeneratorFnc)
 	AggregatorFnc func(args ...Parametric) (Parametric, AggregatorFnc)
@@ -108,10 +108,10 @@ func (e EitherOr) Eval(vars ...d.Native) d.Native {
 // switch case applies predicate to arguments passed at runtime & either
 // returns either the enclosed expression, the next case, or no-op in case an
 // error occured.
-func NewSwitchCase(predex PredExpr, value Parametric, nextcase ...SwitchCase) SwitchCase {
+func NewSwitchCase(predex PredExpr, value Parametric, nextcase ...CaseExpr) CaseExpr {
 	// if runtime arguments applyed to predicate expression yields true, value
 	// will be returned, or otherwise the next case will be the return value.
-	return SwitchCase(func(args ...Parametric) OptVal {
+	return CaseExpr(func(args ...Parametric) OptVal {
 		if predex(args...) { // return value if runtime args match predicate
 			return OptVal(func() PairFnc {
 				return NewPair(New(0), value)
@@ -128,13 +128,13 @@ func NewSwitchCase(predex PredExpr, value Parametric, nextcase ...SwitchCase) Sw
 		})
 	})
 }
-func (s SwitchCase) Ident() Parametric                  { return s }
-func (s SwitchCase) String() string                     { return "switch-case" }
-func (s SwitchCase) TypeFnc() TyFnc                     { return Option | Case | Switch }
-func (s SwitchCase) TypeNat() d.TyNative                { return d.Function }
-func (s SwitchCase) Return(args ...Parametric) OptVal   { return s(args...) }
-func (s SwitchCase) Call(args ...Parametric) Parametric { return s(args...) }
-func (s SwitchCase) Eval(vars ...d.Native) d.Native {
+func (s CaseExpr) Ident() Parametric                  { return s }
+func (s CaseExpr) String() string                     { return "switch-case" }
+func (s CaseExpr) TypeFnc() TyFnc                     { return Option | Case | Switch }
+func (s CaseExpr) TypeNat() d.TyNative                { return d.Function }
+func (s CaseExpr) Return(args ...Parametric) OptVal   { return s(args...) }
+func (s CaseExpr) Call(args ...Parametric) Parametric { return s(args...) }
+func (s CaseExpr) Eval(vars ...d.Native) d.Native {
 	var args = []Parametric{}
 	for _, v := range vars {
 		args = append(args, NewFromData(v))

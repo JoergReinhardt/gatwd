@@ -98,7 +98,7 @@ func TestListFold(t *testing.T) {
 				accum.Eval().(d.IntVal).Int() +
 					arg.Eval().(d.IntVal).Int())
 		}),
-		New(23),
+		New(0),
 	)
 	fmt.Printf("folded element: %s\n", folded)
 }
