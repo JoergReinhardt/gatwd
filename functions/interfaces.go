@@ -6,33 +6,42 @@ import (
 
 //// PRIMITIVE TYPE CLASS INTERFACES
 type Nullable interface {
+	d.Native
 	d.Nullable
 }
-type Bitwise interface {
-	d.Binary
+type Discrete interface {
+	d.Native
+	d.Discrete
 }
 type Boolean interface {
+	d.Native
 	d.Boolean
 }
 type Natural interface {
 	d.Natural
 }
 type Integer interface {
+	d.Native
 	d.Integer
 }
 type Rational interface {
+	d.Native
 	d.Rational
 }
 type Real interface {
+	d.Native
 	d.Real
 }
 type Imaginary interface {
+	d.Native
 	d.Imaginary
 }
 type Number interface {
+	d.Native
 	d.Number
 }
 type Letter interface {
+	d.Native
 	d.Letter
 }
 type Text interface {
@@ -87,10 +96,6 @@ type Predictable interface {
 type Distinguishable interface {
 	Parametric
 	Case(expr ...Parametric) Parametric
-}
-type Choosable interface {
-	Parametric
-	Choices() []TypeId
 }
 type Composed interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
@@ -159,9 +164,9 @@ type Associative interface {
 // behaviour map-/ & fold operations rely up on
 type Consumeable interface {
 	Parametric
-	Composed
 	Head() Parametric
 	Tail() Consumeable
+	DeCap() (Parametric, Consumeable)
 }
 
 //// SEQUENTIAL LIST //////
@@ -171,7 +176,6 @@ type Consumeable interface {
 // type interface. vectorized types implement that behaviour
 type Vectorized interface {
 	Parametric
-	Composed
 	Sequential
 	Searchable
 	Ordered
@@ -227,11 +231,3 @@ type Leaved interface {
 	Nodular
 	Value() Parametric
 }
-
-//// STATE MONAD
-type StateFnc func() (StateFnc, Parametric)
-
-//// ERROR
-type ErrorFnc func() error
-
-func (e ErrorFnc) Error() string { return e().Error() }

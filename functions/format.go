@@ -19,10 +19,13 @@ func (p PairFnc) String() string {
 	buf.WriteString(p.Right().String())
 	return buf.String()
 }
-func (c ConstFnc) String() string  { return "ϝ → т" }
+func (c ConstFnc) String() string    { return "ϝ → т" }
+func (g ResourceFnc) String() string { return "ϝ → тₙ [T]" }
+
+//func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
 func (u UnaryFnc) String() string  { return "т → ϝ → т" }
 func (b BinaryFnc) String() string { return "т → т → ϝ → т" }
-func (n NaryFnc) String() string   { return "[т...] → ϝ → т" }
+func (n NaryFnc) String() string   { return "[т‥.] → ϝ → т" }
 
 /// VECTOR
 func (v VecFnc) String() string {

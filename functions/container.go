@@ -11,7 +11,7 @@ import (
 
 type (
 	// FUNCTIONAL COLLECTIONS (depend on enclosed data
-	PairFnc     func(elems ...Paired) (Parametric, Parametric)
+	PairFnc     func(elems ...Parametric) (Parametric, Parametric)
 	ListFnc     func(elems ...Parametric) (Parametric, ListFnc)
 	VecFnc      func(elems ...Parametric) []Parametric
 	RecordFnc   func(pairs ...Paired) []Paired
@@ -39,22 +39,34 @@ func EmptyList() ListFnc {
 	}
 }
 
+// concat elements to list step wise
 func ConList(list ListFnc, initials ...Parametric) ListFnc {
+	// return empty list if no parameter got passed
 	if len(initials) == 0 {
 		return list
 	}
 
+	// allocate head from first element passed
 	var head = initials[0]
 
+	// if only head element has been passed
 	if len(initials) == 1 {
+		// return a function, that returns‥.
 		return func(elems ...Parametric) (Parametric, ListFnc) {
+			// either head element and the initial list (which
+			// would be a list with the head element as it's only
+			// element)
 			if len(elems) == 0 {
 				return head, list
 			}
+			// or return the initial list followed by the elements
+			// passed to the inner function, followed by the
+			// initial head
 			return ConList(list, append(elems, head)...)()
 		}
 	}
 
+	// if more elements have been passed, lazy concat them with the initial list
 	return func(elems ...Parametric) (Parametric, ListFnc) {
 		// no elements → return head and list
 		if len(elems) == 0 {
@@ -72,6 +84,8 @@ func (l ListFnc) Ident() Parametric { return l }
 func (l ListFnc) Tail() Consumeable { _, t := l(); return t }
 
 func (l ListFnc) Head() Parametric { h, _ := l(); return h }
+
+func (l ListFnc) DeCap() (Parametric, Consumeable) { return l() }
 
 func (l ListFnc) TypeFnc() TyFnc { return List | Functor }
 
@@ -101,8 +115,9 @@ func (l ListFnc) Call(d ...Parametric) Parametric {
 	return head
 }
 
-/// FUNCTIONAL LIST METHODS
+/// LIST FUNCTIONS
 //
+// REVERSE LIST
 func ReverseList(lfn ListFnc) ListFnc {
 	var result = EmptyList()
 	var head Parametric
@@ -110,73 +125,6 @@ func ReverseList(lfn ListFnc) ListFnc {
 	for head != nil {
 		result = ConList(result, head)
 		head, lfn = lfn()
-	}
-	return result
-}
-
-func MapList(lfn ListFnc, una UnaryFnc) ListFnc {
-	var result = EmptyList()
-	var head Parametric
-	head, lfn = lfn()
-	for head != nil {
-		result = ConList(result, Curry(una, head))
-		head, lfn = lfn()
-	}
-	return result
-}
-
-func FoldList(lfn ListFnc, bin BinaryFnc, init Parametric) Parametric {
-	var head Parametric
-	head, lfn = lfn()
-	for head != nil {
-		init = bin(init, head)
-		head, lfn = lfn()
-	}
-	return init
-}
-
-// join expects argument to be a list of lists & returns all sub-lists elements
-// as one list
-func JoinLists(lists ...ListFnc) ListFnc {
-	var head Parametric
-	var list ListFnc
-	var result = EmptyList()
-	for _, list = range lists {
-		head, list = list()
-		for head != nil {
-			result = ConList(result, head)
-		}
-	}
-	return result
-}
-func JoinListOfLists(lists ListFnc) ListFnc {
-	var list = EmptyList()
-	var head Parametric
-	head, lists = lists()
-	for head != nil {
-		if sub, ok := head.(ListFnc); ok {
-			var shead Parametric
-			shead, head = sub()
-			for shead != nil {
-				list = ConList(list, shead)
-				shead, head = sub()
-			}
-		}
-	}
-	return list
-}
-func FlattenList(list ListFnc) ListFnc {
-	var result = EmptyList()
-	var head Parametric
-	head, list = list()
-	for head != nil {
-		if head.TypeFnc().Flag().Match(List) {
-			if sub, ok := head.(ListFnc); ok {
-				result = JoinLists(result, FlattenList(sub))
-				continue
-			}
-		}
-		result = ConList(result, head)
 	}
 	return result
 }
@@ -293,18 +241,18 @@ func (v VecFnc) Sort(flag d.TyNative) {
 ///
 //
 func NewPair(l, r Parametric) PairFnc {
-	return func(pairs ...Paired) (Parametric, Parametric) { return l, r }
+	return func(pairs ...Parametric) (Parametric, Parametric) { return l, r }
 }
 func newEmptyPair() PairFnc {
-	return func(pairs ...Paired) (a, b Parametric) {
+	return func(pairs ...Parametric) (a, b Parametric) {
 		return NewNoOp(), NewNoOp()
 	}
 }
 func NewPairFromInterface(l, r interface{}) PairFnc {
-	return func(Pairs ...Paired) (Parametric, Parametric) { return New(d.New(l)), New(d.New(r)) }
+	return func(Pairs ...Parametric) (Parametric, Parametric) { return New(d.New(l)), New(d.New(r)) }
 }
 func NewPairFromData(l, r d.Native) PairFnc {
-	return func(pairs ...Paired) (Parametric, Parametric) { return New(l), New(r) }
+	return func(pairs ...Parametric) (Parametric, Parametric) { return New(l), New(r) }
 }
 func (p PairFnc) Both() (Parametric, Parametric) { return p() }
 
@@ -407,11 +355,6 @@ func (v RecordFnc) TypeNat() d.TyNative {
 	}
 	return d.Vector | d.Nil.TypeNat()
 }
-
-///////////////////////////////////////////////////////////////////////
-//// ASSOCIATIVE VECTOR (VECTOR OF PAIRS)
-///
-// associative array that uses pairs left field as accessor for sort & search
 func conRecord(vec Associative, pp ...Paired) RecordFnc {
 	return conRecordFromPairs(append(vec.Pairs(), pp...)...)
 }
@@ -466,6 +409,18 @@ func (v RecordFnc) Pairs() []Paired {
 	return v()
 }
 
+func (v RecordFnc) SwitchedPairs() []Paired {
+	var switched = []Paired{}
+	for _, pair := range v() {
+		switched = append(
+			switched,
+			NewPair(
+				pair.Right(),
+				pair.Left()))
+	}
+	return switched
+}
+
 func (v RecordFnc) SetVal(key, value Parametric) Associative {
 	if idx := v.Search(key); idx >= 0 {
 		var pairs = v.Pairs()
@@ -511,12 +466,12 @@ func (v RecordFnc) Sort(flag d.TyNative) {
 	v = NewRecord(ps...)
 }
 
-func (v RecordFnc) MapF(fnc Parametric) Consumeable {
+func (v RecordFnc) MapRecord(fnc Parametric) Consumeable {
 	return v
 }
 
 ///////////////////////////////////////////////////////////////////////
-//// ASSOCIATIVE MAP (HASH MAP OF VALUES)
+//// ASSOCIATIVE SET (HASH MAP OF VALUES)
 ///
 // associative array that uses pairs left field as accessor for sort & search
 func conAssocSet(pairs ...Paired) AssocSetFnc {

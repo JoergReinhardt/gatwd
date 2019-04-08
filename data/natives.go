@@ -133,7 +133,7 @@ func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 	case Error:
 		d = ErrorVec{}
 		for _, dat := range data {
-			d = append(d.(ErrorVec), error(dat.(ErrorVal).e))
+			d = append(d.(ErrorVec), error(dat.(ErrorVal).E))
 		}
 	}
 	return d

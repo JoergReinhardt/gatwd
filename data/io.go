@@ -4,18 +4,16 @@ import (
 	"bytes"
 	"io"
 	"sync"
+	"time"
 )
 
 type (
-
-	//// IO SYNCHRONOUS
-	///
 	// BYTES BUFFER
 	BufferVal bytes.Buffer
 
 	// READER/WRITER
-	PipeReadVal  io.PipeReader
 	PipeWriteVal io.PipeWriter
+	PipeReadVal  io.PipeReader
 	ReadVal      struct {
 		BytesVal
 		io.ReadCloser
@@ -29,40 +27,152 @@ type (
 		io.WriteCloser
 	}
 
+	//// IO SYNCHRONOUS
+	///
+	// CONDITION
+	SyncCondition sync.Cond
+
+	// WAIT GROUP
+	WaitGroup sync.WaitGroup
+
+	// CHANNELS
+	Chan        chan Native
+	ChanRcv     <-chan Native
+	ChanTrx     chan<- Native
+	ChanCtrl    chan struct{}
+	ChanRcvCtrl <-chan struct{}
+	ChanTrxCtrl chan<- struct{}
+	ChanTime    chan time.Time
+	ChanRcvTime <-chan time.Time
+	ChanTrxTime chan<- time.Time
+
 	//// IO ASYNCHRONOUS
 	///
-	// THREADSAFE NATIVES
+	// NATIVES
 	TSNative struct {
 		sync.Mutex
 		Native
 	}
 
-	// THREADSAFE SLICE
+	// SLICE
 	TSSlice struct {
 		sync.Mutex
 		DataSlice
 	}
 
-	// THREADSAFE BUFFER
+	// BUFFER
 	TSBuffer struct {
 		sync.Mutex
 		*BufferVal
 	}
 
-	// THREADSdFE READERS/WRITERS
+	// READERS/WRITERS
 	TSRead struct {
 		sync.RWMutex
 		ReadVal
 	}
+
 	TSWrite struct {
 		sync.RWMutex
 		WriteVal
 	}
+
 	TSReadWrite struct {
 		sync.RWMutex
 		ReadWriteVal
 	}
 )
+
+func NewSyncCondition(locker sync.Locker) *sync.Cond { return sync.NewCond(locker) }
+func NewSyncWaitGroup() *sync.WaitGroup              { return &sync.WaitGroup{} }
+
+func NewChan() Chan               { return make(chan Native) }
+func NewChanRcv() ChanRcv         { return make(<-chan Native) }
+func NewChanTrx() ChanTrx         { return make(chan<- Native) }
+func NewChanCtrl() ChanCtrl       { return make(chan struct{}) }
+func NewChanRcvCtrl() ChanRcvCtrl { return make(<-chan struct{}) }
+func NewChanTrxCtrl() ChanTrxCtrl { return make(chan<- struct{}) }
+func NewChanTime() ChanTime       { return make(chan time.Time) }
+func NewChanRcvTime() ChanRcvTime { return make(<-chan time.Time) }
+func NewChanTrxTime() ChanTrxTime { return make(chan<- time.Time) }
+
+func (c WaitGroup) Eval(...Native) Native { return c }
+func (c *WaitGroup) Done()                { c.Done() }
+
+func (c *SyncCondition) Eval(...Native) Native { return c }
+func (c *SyncCondition) Broadcast()            { c.Broadcast() }
+func (c *SyncCondition) Signal()               { c.Signal() }
+func (c *SyncCondition) Wait()                 { c.Wait() }
+
+func (c Chan) Eval(args ...Native) Native {
+	if len(args) == 0 {
+		return <-c
+	}
+	for _, arg := range args {
+		c <- arg
+	}
+	return BoolVal(true)
+}
+func (c ChanRcv) Eval(...Native) Native { return <-c }
+func (c ChanTrx) Eval(args ...Native) Native {
+	for _, arg := range args {
+		c <- arg
+	}
+	return BoolVal(true)
+}
+func (c ChanCtrl) Eval(args ...Native) Native {
+	if len(args) == 0 {
+		<-c
+		return BoolVal(true)
+	}
+	for _, _ = range args {
+		c <- struct{}{}
+	}
+	return BoolVal(true)
+}
+func (c ChanRcvCtrl) Eval(...Native) Native {
+	<-c
+	return BoolVal(true)
+}
+func (c ChanTrxCtrl) Eval(args ...Native) Native {
+	for _, _ = range args {
+		c <- struct{}{}
+	}
+	return BoolVal(true)
+}
+func (c ChanRcvTime) Eval(...Native) Native { return TimeVal(<-c) }
+func (c ChanTrxTime) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if t, ok := arg.(TimeVal); ok {
+			c <- time.Time(t)
+		}
+	}
+	return BoolVal(true)
+}
+
+func (c WaitGroup) TypeNat() TyNative     { return Bool }
+func (c SyncCondition) TypeNat() TyNative { return Bool }
+
+func (c Chan) TypeNat() TyNative        { return Channel }
+func (c ChanRcv) TypeNat() TyNative     { return Channel }
+func (c ChanTrx) TypeNat() TyNative     { return Channel }
+func (c ChanCtrl) TypeNat() TyNative    { return Channel }
+func (c ChanRcvCtrl) TypeNat() TyNative { return Channel }
+func (c ChanTrxCtrl) TypeNat() TyNative { return Channel }
+func (c ChanRcvTime) TypeNat() TyNative { return Channel }
+func (c ChanTrxTime) TypeNat() TyNative { return Channel }
+
+func (c SyncCondition) String() string { return "sync condition" }
+func (c WaitGroup) String() string     { return "wait group" }
+
+func (c Chan) String() string        { return "channel" }
+func (c ChanRcv) String() string     { return "Channel" }
+func (c ChanTrx) String() string     { return "Channel" }
+func (c ChanCtrl) String() string    { return "Channel" }
+func (c ChanRcvCtrl) String() string { return "Channel" }
+func (c ChanTrxCtrl) String() string { return "Channel" }
+func (c ChanRcvTime) String() string { return "Channel" }
+func (c ChanTrxTime) String() string { return "Channel" }
 
 // READER/WRITER IMPLEMENTATION
 func (v ReadVal) Close() error               { return io.Closer(v).Close() }

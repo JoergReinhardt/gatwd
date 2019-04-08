@@ -63,6 +63,7 @@ func CompareFlag(a, b d.BitFlag) int {
 func compInt2BooIncl(i int) bool { return i >= 0 }
 func compInt2BooExcl(i int) bool { return i > 0 }
 
+////////////////////////////////////////////////////////////////////////////
 // type to sort slices of data
 type dataSorter []Parametric
 
@@ -78,15 +79,17 @@ func (d dataSorter) Empty() bool {
 	return true
 }
 func newDataSorter(dat ...Parametric) dataSorter { return dataSorter(dat) }
-func (d dataSorter) Len() int                    { return len(d) }
-func (d dataSorter) Swap(i, j int)               { d[i], d[j] = d[j], d[i] }
+
+func (d dataSorter) Len() int      { return len(d) }
+func (d dataSorter) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 func (ds dataSorter) Sort(argType d.TyNative) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
-func (ds dataSorter) Search(praed Parametric) int {
-	var idx = sort.Search(len(ds), newDataFind(ds, praed))
+
+func (ds dataSorter) Search(pred Parametric) int {
+	var idx = sort.Search(len(ds), newDataFind(ds, pred))
 	if idx < len(ds) {
-		if strings.Compare(ds[idx].String(), praed.String()) == 0 {
+		if strings.Compare(ds[idx].String(), pred.String()) == 0 {
 			return idx
 		}
 	}
@@ -98,54 +101,67 @@ func newDataLess(argType d.TyNative, ds dataSorter) func(i, j int) bool {
 	switch {
 	case f.Match(d.Letters.TypeNat()):
 		return func(i, j int) bool {
-			if strings.Compare(ds[j].String(), ds[i].String()) >= 0 {
+			if strings.Compare(ds[j].String(), ds[i].String()) >=
+				0 {
 				return true
 			}
 			return false
 		}
 	case f.Match(d.Flag.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().TypeNat() >= ds[i].Eval().TypeNat()
+			return ds[j].Eval().TypeNat() >=
+				ds[i].Eval().TypeNat()
 		}
 	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Natural).Uint() >= ds[i].Eval().(Natural).Uint()
+			return ds[j].Eval().(Natural).Uint() >=
+				ds[i].Eval().(Natural).Uint()
 		}
 	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Integer).Int() >= ds[i].Eval().(Integer).Int()
+			return ds[j].Eval().(Integer).Int() >=
+				ds[i].Eval().(Integer).Int()
 		}
 	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Real).Float() >= ds[i].Eval().(Real).Float()
+			return ds[j].Eval().(Real).Float() >=
+				ds[i].Eval().(Real).Float()
 		}
 	}
 	return nil
 }
-func newDataFind(ds dataSorter, praed Parametric) func(int) bool {
-	var f = praed.Eval().TypeNat().Flag()
+
+func newDataFind(ds dataSorter, pred Parametric) func(int) bool {
+	var f = pred.Eval().TypeNat().Flag()
 	var fn func(int) bool
 	switch {
 	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
-			fmt.Printf("%s %s", ds[i], praed.String())
-			return strings.Compare(ds[i].(d.Native).String(), praed.(d.Native).String()) >= 0
+			fmt.Printf("%s %s", ds[i], pred.String())
+			return strings.Compare(
+				ds[i].(d.Native).String(),
+				pred.(d.Native).String(),
+			) >= 0
 		}
 	case f.Match(d.Flag.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(d.Native).TypeNat() >= praed.(d.Native).TypeNat()
+			return ds[i].(d.Native).TypeNat() >=
+				pred.(d.Native).TypeNat()
 		}
 	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Natural).Uint() >= praed.(Natural).Uint()
+			return ds[i].(Natural).Uint() >=
+				pred.(Natural).Uint()
 		}
 	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Integer).Int() >= praed.(Integer).Int()
+			return ds[i].(Integer).Int() >=
+				pred.(Integer).Int()
 		}
 	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Real).Float() >= praed.(Real).Float()
+			return ds[i].(Real).Float() >=
+				pred.(Real).Float()
 		}
 	}
 	return fn
@@ -156,8 +172,18 @@ func newDataFind(ds dataSorter, praed Parametric) func(int) bool {
 // accessor (key) in an accessor/value pair.
 type pairSorter []Paired
 
-func newPairSorter(p ...Paired) pairSorter                         { return append(pairSorter{}, p...) }
-func (a pairSorter) AppendKeyValue(key Parametric, val Parametric) { a = append(a, NewPair(key, val)) }
+func newPairSorter(p ...Paired) pairSorter {
+	return append(pairSorter{}, p...)
+}
+
+func (a pairSorter) ValueSorter() pairSorter {
+	return NewRecord(a...).SwitchedPairs()
+}
+
+func (a pairSorter) AppendKeyValue(key Parametric, val Parametric) {
+	a = append(a, NewPair(key, val))
+}
+
 func (a pairSorter) Empty() bool {
 	if len(a) > 0 {
 		for _, p := range a {
@@ -170,38 +196,66 @@ func (a pairSorter) Empty() bool {
 }
 func (p pairSorter) Len() int      { return len(p) }
 func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
+
 func (p pairSorter) Sort(f d.TyNative) {
-	less := newPraedLess(p, f)
+	less := newpredLess(p, f)
 	sort.Slice(p, less)
 }
-func (p pairSorter) Search(praed Parametric) int {
-	var idx = sort.Search(len(p), newPraedFind(p, praed))
-	// when praedicate is a precedence type encoding bit-flag
+
+func (p pairSorter) SortByValue(f d.TyNative) {
+	var ps = pairSorter(
+		NewRecord(
+			p...,
+		).SwitchedPairs(),
+	)
+
+	ps.Sort(f)
+
+	p = NewRecord(ps...).SwitchedPairs()
+}
+
+func (p pairSorter) Search(pred Parametric) int {
+	var idx = sort.Search(len(p), newpredFind(p, pred))
+	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
-		if praed.TypeNat().Flag().Match(d.Flag.TypeNat()) {
-			if p[idx].Left().TypeNat() == praed.TypeNat() {
+		if pred.TypeNat().Flag().Match(d.Flag.TypeNat()) {
+			if p[idx].Left().TypeNat() == pred.TypeNat() {
 				return idx
 			}
 		}
-		// otherwise check if key is equal to praedicate
+		// otherwise check if key is equal to predicate
 		if idx < len(p) {
-			if p[idx].Left().Eval() == praed.Eval() {
+			if p[idx].Left().Eval() == pred.Eval() {
 				return idx
 			}
 		}
 	}
 	return -1
 }
-func (p pairSorter) Get(praed Parametric) Paired {
-	idx := p.Search(praed)
+
+func (p pairSorter) SearchByValue(pred Parametric) int {
+	return pairSorter(
+		NewRecord(p...).SwitchedPairs(),
+	).Search(pred)
+}
+
+func (p pairSorter) Get(pred Parametric) Paired {
+	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
 	}
 	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
 }
-func (p pairSorter) Range(praed Parametric) []Paired {
+
+func (p pairSorter) GetByValue(pred Parametric) Paired {
+	return pairSorter(
+		NewRecord(p...).SwitchedPairs(),
+	).Get(pred)
+}
+
+func (p pairSorter) Range(pred Parametric) []Paired {
 	var ran = []Paired{}
-	idx := p.Search(praed)
+	idx := p.Search(pred)
 	if idx != -1 {
 		for pair := p[idx]; pair != nil; {
 			ran = append(ran, pair)
@@ -210,7 +264,13 @@ func (p pairSorter) Range(praed Parametric) []Paired {
 	return ran
 }
 
-func newPraedLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
+func (p pairSorter) RangeByValue(pred Parametric) []Paired {
+	return pairSorter(
+		NewRecord(p...).SwitchedPairs(),
+	).Range(pred)
+}
+
+func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	f := t.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -263,35 +323,36 @@ func newPraedLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	}
 	return nil
 }
-func newPraedFind(accs pairSorter, praed Parametric) func(i int) bool {
-	var f = praed.Eval().TypeNat().Flag()
+
+func newpredFind(accs pairSorter, pred Parametric) func(i int) bool {
+	var f = pred.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.
 	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
 			return uint(accs[i].(Paired).Left().Eval().(Natural).Uint()) >=
-				uint(praed.Eval().(Natural).Uint())
+				uint(pred.Eval().(Natural).Uint())
 		}
 	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
 			return int(accs[i].(Paired).Left().Eval().(Integer).Int()) >=
-				int(praed.Eval().(Integer).Int())
+				int(pred.Eval().(Integer).Int())
 		}
 	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
 			return int(accs[i].(Paired).Left().Eval().(Real).Float()) >=
-				int(praed.Eval().(Real).Float())
+				int(pred.Eval().(Real).Float())
 		}
 	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
 			return strings.Compare(
 				accs[i].(Paired).Left().Eval().String(),
-				praed.Eval().String()) >= 0
+				pred.Eval().String()) >= 0
 		}
 	case f.Match(d.Flag.TypeNat()):
 		fn = func(i int) bool {
 			return accs[i].(Paired).Right().Eval().(d.BitFlag) >=
-				praed.Eval().(d.BitFlag)
+				pred.Eval().(d.BitFlag)
 		}
 	}
 	return fn

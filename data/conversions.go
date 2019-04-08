@@ -129,6 +129,9 @@ func (v StrVal) Uint() uint {
 	}
 	return uint(u)
 }
+
+func (b BoolVal) Bool() bool { return bool(b) }
+
 func (v BoolVal) Uint() uint {
 	if v {
 		return uint(1)

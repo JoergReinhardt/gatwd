@@ -29,18 +29,19 @@ type Destructable interface{ Clear() }
 
 // implemented by types an empty instance is defined for
 type Nullable interface{ Null() Native }
+type Discrete interface{ Unit() Native }
 
 // unsignedVal and integerVal are a poor man's version of type classes and
 // allow to treat the different sizes of ints and floats alike
-type Binary interface{ Bits() BigIntVal }
 type Boolean interface{ Bool() bool }
 type Natural interface{ Uint() uint }
 type Integer interface{ Int() int }
-type Rational interface{ Rat() (denom, num BigIntVal) }
+type Rational interface{ Rat() *RatioVal }
 type Real interface{ Float() float64 }
-type Imaginary interface{ Imag() (imag, real int64) }
+type Imaginary interface{ Imag() complex128 }
 type Number interface {
-	Binary
+	Nullable
+	Discrete
 	Boolean
 	Natural
 	Integer

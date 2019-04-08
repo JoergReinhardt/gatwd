@@ -64,10 +64,11 @@ const (
 	Rune
 	Bytes
 	String
+	Pipe
 	Buffer
 	Reader
 	Writer
-	Pipe
+	Channel
 	Error // let's do something sophisticated here...
 	//// HIGHERORDER TYPES
 	Nat
@@ -102,6 +103,7 @@ const (
 	Imaginarys = Imag | Imag64
 	Numbers    = Rationals | Reals | Imaginarys
 	Letters    = String | Rune | Bytes
+	Equals     = Numbers | Letters
 	Streams    = Reader | Writer | Pipe
 
 	Compositions = Pair | Tuple | Record | Vector | List | Set
@@ -144,7 +146,7 @@ type ( // NATIVE GOLANG TYPES
 	RatioVal  big.Rat
 	TimeVal   time.Time
 	DuraVal   time.Duration
-	ErrorVal  struct{ e error }
+	ErrorVal  struct{ E error }
 	PairVal   struct{ L, R Native }
 
 	// SETS OF NATIVES

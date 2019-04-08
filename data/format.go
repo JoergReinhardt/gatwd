@@ -41,8 +41,8 @@ func (v SetVal) String() string    { return StringSlice(", ", "[", "]", v) }
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }
-func (v ErrorVal) String() string  { return "Error: " + v.e.Error() }
-func (v ErrorVal) Error() ErrorVal { return ErrorVal{v.e} }
+func (v ErrorVal) String() string  { return "Error: " + v.E.Error() }
+func (v ErrorVal) Error() ErrorVal { return ErrorVal{v.E} }
 func (v BoolVal) String() string   { return strconv.FormatBool(bool(v)) }
 func (v IntVal) String() string    { return strconv.Itoa(int(v)) }
 func (v Int8Val) String() string   { return strconv.Itoa(int(v)) }

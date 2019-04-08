@@ -22,11 +22,16 @@ const (
 )
 
 func (a Arity) Eval(v ...d.Native) d.Native { return a }
-func (a Arity) Int() int                    { return int(a) }
-func (a Arity) Flag() d.BitFlag             { return d.BitFlag(a) }
-func (a Arity) TypeNat() d.TyNative         { return d.Flag }
-func (a Arity) TypeFnc() TyFnc              { return HigherOrder }
-func (a Arity) Match(arg Arity) bool        { return a == arg }
+
+func (a Arity) Int() int { return int(a) }
+
+func (a Arity) Flag() d.BitFlag { return d.BitFlag(a) }
+
+func (a Arity) TypeNat() d.TyNative { return d.Flag }
+
+func (a Arity) TypeFnc() TyFnc { return HigherOrder }
+
+func (a Arity) Match(arg Arity) bool { return a == arg }
 
 // properys relevant for application
 type Propertys d.Uint8Val
@@ -51,10 +56,14 @@ const (
 	// ⌐: Parametric
 )
 
-func (p Propertys) TypePrime() d.TyNative       { return d.Flag }
-func (p Propertys) TypeFnc() TyFnc              { return HigherOrder }
-func (p Propertys) Flag() d.BitFlag             { return p.TypeFnc().Flag() }
+func (p Propertys) TypePrime() d.TyNative { return d.Flag }
+
+func (p Propertys) TypeFnc() TyFnc { return HigherOrder }
+
+func (p Propertys) Flag() d.BitFlag { return p.TypeFnc().Flag() }
+
 func (p Propertys) Eval(a ...d.Native) d.Native { return p.Flag() }
+
 func (p Propertys) Match(arg Propertys) bool {
 	if p&arg != 0 {
 		return true
@@ -67,10 +76,14 @@ func (p Propertys) Match(arg Propertys) bool {
 type TyFnc d.UintVal
 
 func (t TyFnc) Eval(...d.Native) d.Native { return t }
-func (t TyFnc) TypeHO() TyFnc             { return t }
-func (t TyFnc) TypeNat() d.TyNative       { return d.Flag }
-func (t TyFnc) Flag() d.BitFlag           { return d.BitFlag(t) }
-func (t TyFnc) Uint() uint                { return d.BitFlag(t).Uint() }
+
+func (t TyFnc) TypeHO() TyFnc { return t }
+
+func (t TyFnc) TypeNat() d.TyNative { return d.Flag }
+
+func (t TyFnc) Flag() d.BitFlag { return d.BitFlag(t) }
+
+func (t TyFnc) Uint() uint { return d.BitFlag(t).Uint() }
 
 //go:generate stringer -type=TyFnc
 const (
@@ -89,6 +102,7 @@ const (
 	Accessor
 	Attribut
 	Predicate
+	Resource
 	Aggregator
 	Generator
 	Constructor
@@ -96,6 +110,7 @@ const (
 	Monad
 	///////////
 	Condition
+	Equality
 	False
 	True
 	Just
@@ -110,6 +125,7 @@ const (
 	///////////
 	Pair
 	List
+	ListR
 	Tuple
 	UniSet
 	MuliSet
@@ -130,17 +146,26 @@ const (
 	AccIndex   = Vector | Chain
 	AccSymbol  = Tuple | AssocVec | Record
 	AccCollect = AccIndex | AccSymbol
-	Nests      = Tuple | List
+	Nests      = Tuple | List | ListR
 	Sets       = UniSet | MuliSet | AssocVec | Record
 	Links      = Link | DLink | Node | Tree
 )
 
-////////////////////////////////////////////////////////////////////////////////
 //// (RE-) INSTANCIATE PRIMARY DATA TO IMPLEMENT FUNCTIONS VALUE INTERFACE
-func (n Native) String() string                 { return n().String() }
+///
+//
+func NewNative(infs ...interface{}) Native {
+	return func() d.Native { return d.New(infs...) }
+}
+
+func (n Native) String() string { return n().String() }
+
 func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
-func (n Native) TypeNat() d.TyNative            { return n().TypeNat() }
-func (n Native) TypeFnc() TyFnc                 { return Data }
+
+func (n Native) TypeNat() d.TyNative { return n().TypeNat() }
+
+func (n Native) TypeFnc() TyFnc { return Data }
+
 func (n Native) Empty() bool {
 	if n != nil {
 		if !d.Nil.Flag().Match(n.TypeNat()) {
@@ -151,37 +176,25 @@ func (n Native) Empty() bool {
 	}
 	return true
 }
-func (n Native) Call(vals ...Parametric) Parametric {
-	switch len(vals) {
-	case 0:
-		return NewFromData(n.Eval())
-	case 1:
-		return NewFromData(n.Eval(vals[0].Eval()))
-	}
-	var nat = n()
-	for _, val := range vals {
-		vals = append(vals, NewFromData(nat.Eval(val.Eval())))
-	}
-	return NewVector(vals...)
-}
+
+func (n Native) Call(vals ...Parametric) Parametric { return n }
+
 func New(inf ...interface{}) Parametric { return NewFromData(d.New(inf...)) }
+
 func NewFromData(data ...d.Native) Native {
-	var nat d.Native
-	if len(data) > 0 {
-		if len(data) > 1 {
-			var nats = []d.Native{}
-			for _, dat := range data {
-				nats = append(nats, dat)
-			}
-			nat = d.DataSlice(nats)
-		}
-		nat = data[0]
+	var result d.Native
+	if len(data) == 1 {
+		result = data[0]
+	} else {
+		result = d.DataSlice(data)
 	}
-	return func() d.Native { return nat }
+	return func() d.Native { return result }
 }
 
 // type system implementation
 type (
+	/// RESOURCEFULL FUNCTIONS
+	ResourceFnc func(args ...Parametric) (Parametric, ResourceFnc)
 	// NATIVE DATA (aliased natives implementing parametric)
 	Native  func() d.Native
 	DataCon func(...d.Native) Native
@@ -190,126 +203,39 @@ type (
 	UnaryFnc  func(Parametric) Parametric
 	BinaryFnc func(a, b Parametric) Parametric
 	NaryFnc   func(...Parametric) Parametric
-	/// FUNCTION DEFINITION & CALL PROPERTYS
-	CallProps func() (Arity, Propertys, CaseExpr)
-	FncDef    func() (string, CallProps, Parametric)
-	/// TYPE ID & CONSTRUCTOR
-	TypeCon func(...Parametric) TypeId
-	TypeId  func() (
-		name,
-		signature string,
-		props []CallProps,
-	)
-	/// instanciated value
-	Instance func() (TypeId, Parametric)
 )
 
-// curry function argument
-func Curry(fnc Parametric, arg Parametric) Parametric {
-	return NaryFnc(func(args ...Parametric) Parametric {
-		return fnc.Call(append([]Parametric{arg}, args...)...)
-	})
-}
-
-// CONSTANT
-//
-// constant also conains immutable data that may be an instance of a type of
-// the data package, or result of a function call guarantueed to allways return
-// the same value.
-func NewConstant(fnc func() Parametric) ConstFnc {
-	return ConstFnc(func() Parametric { return fnc() })
-}
-
-func (c ConstFnc) Ident() Parametric               { return c() }
-func (c ConstFnc) TypeFnc() TyFnc                  { return Function }
-func (c ConstFnc) TypeNat() d.TyNative             { return c().TypeNat() }
-func (c ConstFnc) Eval(p ...d.Native) d.Native     { return c().Eval() }
-func (c ConstFnc) Call(d ...Parametric) Parametric { return c() }
-
-///// UNARY FUNCTION
-func NewUnaryFnc(fnc func(f Parametric) Parametric) UnaryFnc {
-	return UnaryFnc(func(f Parametric) Parametric { return fnc(f) })
-}
-func (u UnaryFnc) TypeNat() d.TyNative         { return d.Function.TypeNat() }
-func (u UnaryFnc) TypeFnc() TyFnc              { return Function }
-func (u UnaryFnc) Ident() Parametric           { return u }
-func (u UnaryFnc) Eval(p ...d.Native) d.Native { return u }
-func (u UnaryFnc) Call(d ...Parametric) Parametric {
-	return u(d[0])
-}
-
-///// BINARY FUNCTION
-func NewBinaryFnc(fnc func(a, b Parametric) Parametric) BinaryFnc {
-	return BinaryFnc(func(a, b Parametric) Parametric { return fnc(a, b) })
-}
-func (b BinaryFnc) TypeNat() d.TyNative             { return d.Function.TypeNat() }
-func (b BinaryFnc) TypeFnc() TyFnc                  { return Function }
-func (b BinaryFnc) Ident() Parametric               { return b }
-func (b BinaryFnc) Eval(p ...d.Native) d.Native     { return b }
-func (b BinaryFnc) Call(d ...Parametric) Parametric { return b(d[0], d[1]) }
-
-///// NARY FUNCTION
-func NewNaryFnc(fnc func(f ...Parametric) Parametric) NaryFnc {
-	return NaryFnc(func(f ...Parametric) Parametric { return fnc(f...) })
-}
-func (n NaryFnc) TypeNat() d.TyNative             { return d.Function.TypeNat() }
-func (n NaryFnc) TypeFnc() TyFnc                  { return Function }
-func (n NaryFnc) Ident() Parametric               { return n }
-func (n NaryFnc) Eval(p ...d.Native) d.Native     { return n }
-func (n NaryFnc) Call(d ...Parametric) Parametric { return n(d...) }
-
-/// TYPE IDENT
-func NewTypeId(
-	name, signature string, props ...CallProps,
-) TypeId {
-	return func() (string, string, []CallProps) {
-		return name, signature, props
+// RESOURCE
+func NewResource(resource Consumeable) ResourceFnc {
+	return func(args ...Parametric) (Parametric, ResourceFnc) {
+		var head, tail = resource.DeCap()
+		if head == nil {
+			return nil, NewResource(tail)
+		}
+		return head.Call(args...), NewResource(tail)
 	}
-
 }
-func (t TypeId) Name() string                      { n, _, _ := t(); return n }
-func (t TypeId) Signature() string                 { _, s, _ := t(); return s }
-func (t TypeId) Propertys() []CallProps            { _, _, p := t(); return p }
-func (t TypeId) String() string                    { return t.Name() + " = " + t.Signature() }
-func (t TypeId) TypeNat() d.TyNative               { return d.Function | d.Type }
-func (t TypeId) TypeFnc() TyFnc                    { return Type }
-func (t TypeId) Eval(nat ...d.Native) d.Native     { return t }
-func (t TypeId) Call(val ...Parametric) Parametric { return t }
 
-/// DATA, EXPRESSION & TYPE CONSTRUCTORS
-type TyExpr uint8
-
-//go:generate stringer -type=TyExpr
-const (
-	// heap
-	TypeDefinition TyExpr = 1
-	TypeContructor TyExpr = 1 << iota
-	DataContructor        // func(inf ...interface{}) native
-	DataInstance          // native
-	FncDefinition         // expression
-	FncApplication
-	ThunkExpression
-	CaseExpression
-)
-
-// TYPE CONSTRUCTOR
-func NewTypeConstructor(
-	expr func(types ...Parametric) TypeId,
-) TypeCon {
-	return TypeCon(expr)
+func (c ResourceFnc) Call(args ...Parametric) Parametric {
+	return ResourceFnc(
+		func(...Parametric) (Parametric, ResourceFnc) {
+			return c(args...)
+		})
 }
-func (t TypeCon) String() string                     { return t().String() }
-func (t TypeCon) TypeCon() TyExpr                    { return TypeContructor }
-func (t TypeCon) TypeNat() d.TyNative                { return d.Function | d.Type }
-func (t TypeCon) TypeFnc() TyFnc                     { return Type | Constructor }
-func (t TypeCon) Call(vals ...Parametric) Parametric { return t(vals...) }
-func (t TypeCon) Eval(nats ...d.Native) d.Native {
-	var parms = []Parametric{}
-	for _, nat := range nats {
-		parms = append(parms, NewFromData(nat))
-	}
-	return t.Call(parms...)
-}
+
+func (c ResourceFnc) DeCap() (Parametric, Consumeable) { return c() }
+
+func (c ResourceFnc) Head() Parametric { h, _ := c(); return h }
+
+func (c ResourceFnc) Tail() Consumeable { _, t := c(); return t }
+
+func (c ResourceFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+
+func (c ResourceFnc) Ident() Parametric { return c }
+
+func (c ResourceFnc) TypeFnc() TyFnc { return Resource }
+
+func (c ResourceFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() | d.Function }
 
 // DATA CONTSTRUCTOR
 func NewDataConstructor(
@@ -317,10 +243,13 @@ func NewDataConstructor(
 ) DataCon {
 	return DataCon(expr)
 }
-func (t DataCon) String() string      { return t().String() }
-func (t DataCon) TypeCon() TyExpr     { return DataContructor }
+
+func (t DataCon) String() string { return t().String() }
+
 func (t DataCon) TypeNat() d.TyNative { return d.Function | d.Data }
-func (t DataCon) TypeFnc() TyFnc      { return Data | Constructor }
+
+func (t DataCon) TypeFnc() TyFnc { return Data | Constructor }
+
 func (t DataCon) Call(vals ...Parametric) Parametric {
 	var nats = []d.Native{}
 	for _, val := range vals {
@@ -329,3 +258,53 @@ func (t DataCon) Call(vals ...Parametric) Parametric {
 	return Native(func() d.Native { return t.Eval(nats...) })
 }
 func (t DataCon) Eval(nats ...d.Native) d.Native { return t(nats...) }
+
+// CONSTANT
+//
+// constant also conains immutable data that may be an instance of a type of
+// the data package, or result of a function call guarantueed to allways return
+// the same value.
+func (c ConstFnc) Ident() Parametric { return c() }
+
+func (c ConstFnc) TypeFnc() TyFnc { return Function }
+
+func (c ConstFnc) TypeNat() d.TyNative { return c().TypeNat() }
+
+func (c ConstFnc) Eval(p ...d.Native) d.Native { return c().Eval() }
+
+func (c ConstFnc) Call(d ...Parametric) Parametric { return c() }
+
+///// UNARY FUNCTION
+func (u UnaryFnc) TypeNat() d.TyNative { return d.Function.TypeNat() }
+
+func (u UnaryFnc) TypeFnc() TyFnc { return Function }
+
+func (u UnaryFnc) Ident() Parametric { return u }
+
+func (u UnaryFnc) Eval(p ...d.Native) d.Native { return u }
+
+func (u UnaryFnc) Call(d ...Parametric) Parametric {
+	return u(d[0])
+}
+
+///// BINARY FUNCTION
+func (b BinaryFnc) TypeNat() d.TyNative { return d.Function.TypeNat() }
+
+func (b BinaryFnc) TypeFnc() TyFnc { return Function }
+
+func (b BinaryFnc) Ident() Parametric { return b }
+
+func (b BinaryFnc) Eval(p ...d.Native) d.Native { return b }
+
+func (b BinaryFnc) Call(d ...Parametric) Parametric { return b(d[0], d[1]) }
+
+///// NARY FUNCTION
+func (n NaryFnc) TypeNat() d.TyNative { return d.Function.TypeNat() }
+
+func (n NaryFnc) TypeFnc() TyFnc { return Function }
+
+func (n NaryFnc) Ident() Parametric { return n }
+
+func (n NaryFnc) Eval(p ...d.Native) d.Native { return n }
+
+func (n NaryFnc) Call(d ...Parametric) Parametric { return n(d...) }
