@@ -68,7 +68,7 @@ func TestListCon(t *testing.T) {
 
 func TestListMapF(t *testing.T) {
 	var list = NewList(parms...)
-	var mapped = LMapE(list, UnaryFnc(func(arg Parametric) Parametric {
+	var mapped = MapF(NewFunctor(list), UnaryFnc(func(arg Parametric) Parametric {
 		return New(arg.Eval().(d.IntVal).Int() + 42)
 	}))
 	var head Parametric
@@ -92,7 +92,7 @@ func TestListReverse(t *testing.T) {
 
 func TestListFold(t *testing.T) {
 	var list = NewList(parms...)
-	var folded = LFoldL(list,
+	var folded = FoldF(NewFunctor(list),
 		BinaryFnc(func(accum, arg Parametric) Parametric {
 			return New(
 				accum.Eval().(d.IntVal).Int() +

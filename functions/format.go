@@ -19,8 +19,10 @@ func (p PairFnc) String() string {
 	buf.WriteString(p.Right().String())
 	return buf.String()
 }
-func (c ConstFnc) String() string    { return "ϝ → т" }
-func (g ResourceFnc) String() string { return "ϝ → тₙ [T]" }
+func (c ConstFnc) String() string      { return "ϝ → т" }
+func (g FunctorFnc) String() string    { return "ϝ → Fₙ [F]" }
+func (g ApplicapleFnc) String() string { return "ϝ → Aₙₘ [A]" }
+func (g MonadicFnc) String() string    { return "ϝ → Mₙₘ [M]" }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
 func (u UnaryFnc) String() string  { return "т → ϝ → т" }

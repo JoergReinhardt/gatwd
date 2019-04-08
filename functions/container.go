@@ -14,8 +14,8 @@ type (
 	PairFnc     func(elems ...Parametric) (Parametric, Parametric)
 	ListFnc     func(elems ...Parametric) (Parametric, ListFnc)
 	VecFnc      func(elems ...Parametric) []Parametric
-	RecordFnc   func(pairs ...Paired) []Paired
-	AssocSetFnc func(pairs ...Paired) d.Mapped
+	RecordFnc   func(pairs ...Applicable) []Applicable
+	AssocSetFnc func(pairs ...Applicable) d.Mapped
 )
 
 ///// RECURSIVE LIST
@@ -241,7 +241,9 @@ func (v VecFnc) Sort(flag d.TyNative) {
 ///
 //
 func NewPair(l, r Parametric) PairFnc {
-	return func(pairs ...Parametric) (Parametric, Parametric) { return l, r }
+	return func(pairs ...Parametric) (Parametric, Parametric) {
+		return l, r
+	}
 }
 func newEmptyPair() PairFnc {
 	return func(pairs ...Parametric) (a, b Parametric) {
@@ -249,14 +251,49 @@ func newEmptyPair() PairFnc {
 	}
 }
 func NewPairFromInterface(l, r interface{}) PairFnc {
-	return func(Pairs ...Parametric) (Parametric, Parametric) { return New(d.New(l)), New(d.New(r)) }
+	return func(Pairs ...Parametric) (Parametric, Parametric) {
+		return New(d.New(l)), New(d.New(r))
+	}
 }
 func NewPairFromData(l, r d.Native) PairFnc {
-	return func(pairs ...Parametric) (Parametric, Parametric) { return New(l), New(r) }
+	return func(pairs ...Parametric) (Parametric, Parametric) {
+		return New(l), New(r)
+	}
 }
-func (p PairFnc) Both() (Parametric, Parametric) { return p() }
+func (p PairFnc) Both() (Parametric, Parametric) {
+	return p()
+}
+
+func (p PairFnc) DeCap() (Parametric, Consumeable) {
+	l, r := p()
+	return l, NewList(r)
+}
+
+func (p PairFnc) Apply(args ...Parametric) (Parametric, ApplicapleFnc) {
+	var head, tail = p.DeCap()
+	var appl = NewApplicaple(tail)
+	if head != nil {
+		if len(args) > 0 {
+			return head.Call(args...), appl
+		}
+		return head.(Applicable), appl
+	}
+	return nil, appl
+}
+
+func (p PairFnc) Fold(fold BinaryFnc, ilem Parametric) Parametric {
+	return fold(ilem, p)
+}
+
+func (p PairFnc) Map(fmap UnaryFnc) FunctorFnc {
+	return NewFunctor(fmap(p).(PairFnc))
+}
 
 func (p PairFnc) Pair() Parametric { return p }
+
+func (p PairFnc) Head() Parametric { l, _ := p(); return l }
+
+func (p PairFnc) Tail() Consumeable { return p.Tail() }
 
 func (p PairFnc) Left() Parametric { l, _ := p(); return l }
 
@@ -292,7 +329,7 @@ func (p PairFnc) TypeNat() d.TyNative {
 func (v RecordFnc) Call(d ...Parametric) Parametric {
 	if len(d) > 0 {
 		for _, val := range d {
-			if pair, ok := val.(Paired); ok {
+			if pair, ok := val.(Applicable); ok {
 				v = v.Con(pair)
 			}
 		}
@@ -300,7 +337,7 @@ func (v RecordFnc) Call(d ...Parametric) Parametric {
 	return v
 }
 
-func (v RecordFnc) Con(p ...Paired) RecordFnc {
+func (v RecordFnc) Con(p ...Applicable) RecordFnc {
 	return v.Con(p...)
 }
 
@@ -355,28 +392,28 @@ func (v RecordFnc) TypeNat() d.TyNative {
 	}
 	return d.Vector | d.Nil.TypeNat()
 }
-func conRecord(vec Associative, pp ...Paired) RecordFnc {
+func conRecord(vec Associative, pp ...Applicable) RecordFnc {
 	return conRecordFromPairs(append(vec.Pairs(), pp...)...)
 }
 
 func newRecord(ps ...PairFnc) RecordFnc {
-	var pairs = []Paired{}
+	var pairs = []Applicable{}
 	for _, pair := range ps {
 		pairs = append(pairs, pair)
 	}
-	return RecordFnc(func(pairs ...Paired) []Paired { return pairs })
+	return RecordFnc(func(pairs ...Applicable) []Applicable { return pairs })
 }
 
-func conRecordFromPairs(pp ...Paired) RecordFnc {
-	return RecordFnc(func(pairs ...Paired) []Paired { return pp })
+func conRecordFromPairs(pp ...Applicable) RecordFnc {
+	return RecordFnc(func(pairs ...Applicable) []Applicable { return pp })
 }
 
 func newEmptyRecord() RecordFnc {
-	return RecordFnc(func(pairs ...Paired) []Paired { return []Paired{} })
+	return RecordFnc(func(pairs ...Applicable) []Applicable { return []Applicable{} })
 }
 
-func NewRecord(pp ...Paired) RecordFnc {
-	return func(pairs ...Paired) []Paired {
+func NewRecord(pp ...Applicable) RecordFnc {
+	return func(pairs ...Applicable) []Applicable {
 		for _, pair := range pp {
 			pairs = append(pairs, pair)
 		}
@@ -386,18 +423,18 @@ func NewRecord(pp ...Paired) RecordFnc {
 
 func (v RecordFnc) Len() int { return len(v()) }
 
-func (v RecordFnc) Get(idx int) Paired {
+func (v RecordFnc) Get(idx int) Applicable {
 	if idx < v.Len()-1 {
 		return v()[idx]
 	}
 	return NewPair(NewNoOp(), NewNoOp())
 }
 
-func (v RecordFnc) GetVal(praed Parametric) Paired {
+func (v RecordFnc) GetVal(praed Parametric) Applicable {
 	return newPairSorter(v()...).Get(praed)
 }
 
-func (v RecordFnc) Range(praed Parametric) []Paired {
+func (v RecordFnc) Range(praed Parametric) []Applicable {
 	return newPairSorter(v()...).Range(praed)
 }
 
@@ -405,12 +442,12 @@ func (v RecordFnc) Search(praed Parametric) int {
 	return newPairSorter(v()...).Search(praed)
 }
 
-func (v RecordFnc) Pairs() []Paired {
+func (v RecordFnc) Pairs() []Applicable {
 	return v()
 }
 
-func (v RecordFnc) SwitchedPairs() []Paired {
-	var switched = []Paired{}
+func (v RecordFnc) SwitchedPairs() []Applicable {
+	var switched = []Applicable{}
 	for _, pair := range v() {
 		switched = append(
 			switched,
@@ -474,7 +511,7 @@ func (v RecordFnc) MapRecord(fnc Parametric) Consumeable {
 //// ASSOCIATIVE SET (HASH MAP OF VALUES)
 ///
 // associative array that uses pairs left field as accessor for sort & search
-func conAssocSet(pairs ...Paired) AssocSetFnc {
+func conAssocSet(pairs ...Applicable) AssocSetFnc {
 	var paired = []PairFnc{}
 	for _, pair := range pairs {
 		paired = append(paired, pair.(PairFnc))
@@ -509,7 +546,7 @@ func NewAssocSet(pairs ...PairFnc) AssocSetFnc {
 			set = d.SetString{}
 		}
 	}
-	return AssocSetFnc(func(pairs ...Paired) d.Mapped { return set })
+	return AssocSetFnc(func(pairs ...Applicable) d.Mapped { return set })
 }
 
 func (v AssocSetFnc) Split() (VecFnc, VecFnc) {
@@ -521,8 +558,8 @@ func (v AssocSetFnc) Split() (VecFnc, VecFnc) {
 	return NewVector(keys...), NewVector(vals...)
 }
 
-func (v AssocSetFnc) Pairs() []Paired {
-	var pairs = []Paired{}
+func (v AssocSetFnc) Pairs() []Applicable {
+	var pairs = []Applicable{}
 	for _, field := range v().Fields() {
 		pairs = append(
 			pairs,
@@ -548,7 +585,7 @@ func (v AssocSetFnc) Empty() bool {
 	return true
 }
 
-func (v AssocSetFnc) GetVal(praed Parametric) Paired {
+func (v AssocSetFnc) GetVal(praed Parametric) Applicable {
 	var val Parametric
 	var nat, ok = v().Get(praed)
 	if val, ok = nat.(Parametric); !ok {
@@ -560,7 +597,7 @@ func (v AssocSetFnc) GetVal(praed Parametric) Paired {
 func (v AssocSetFnc) SetVal(key, value Parametric) Associative {
 	var m = v()
 	m.Set(key, value)
-	return AssocSetFnc(func(pairs ...Paired) d.Mapped { return m })
+	return AssocSetFnc(func(pairs ...Applicable) d.Mapped { return m })
 }
 
 func (v AssocSetFnc) Slice() []Parametric {

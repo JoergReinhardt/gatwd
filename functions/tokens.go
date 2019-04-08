@@ -146,7 +146,7 @@ func newToken(t TyToken, dat d.Native) Token {
 	case Error_Token:
 		return dataTok{TokVal{Error_Token, dat.TypeNat()}, dat.(d.ErrorVal)}
 	case Pair_Token:
-		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(Paired)}
+		return dataTok{TokVal{Pair_Token, dat.TypeNat()}, dat.(Applicable)}
 	case Token_Collection:
 		return dataTok{TokVal{Token_Collection, dat.TypeNat()}, dat.(tokens)}
 	}

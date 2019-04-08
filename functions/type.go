@@ -107,6 +107,7 @@ const (
 	Generator
 	Constructor
 	Functor
+	Application
 	Monad
 	///////////
 	Condition
@@ -193,8 +194,10 @@ func NewFromData(data ...d.Native) Native {
 
 // type system implementation
 type (
-	/// RESOURCEFULL FUNCTIONS
-	ResourceFnc func(args ...Parametric) (Parametric, ResourceFnc)
+	/// FUNCTOR, APPLICAPLE & MONOID
+	FunctorFnc    func(args ...Parametric) (Parametric, FunctorFnc)
+	ApplicapleFnc func(args ...Parametric) (Parametric, ApplicapleFnc)
+	MonadicFnc    func(args ...Parametric) (Parametric, MonadicFnc)
 	// NATIVE DATA (aliased natives implementing parametric)
 	Native  func() d.Native
 	DataCon func(...d.Native) Native
@@ -205,37 +208,101 @@ type (
 	NaryFnc   func(...Parametric) Parametric
 )
 
-// RESOURCE
-func NewResource(resource Consumeable) ResourceFnc {
-	return func(args ...Parametric) (Parametric, ResourceFnc) {
+// FUNCTOR
+func NewFunctor(resource Consumeable) FunctorFnc {
+	return func(args ...Parametric) (Parametric, FunctorFnc) {
 		var head, tail = resource.DeCap()
 		if head == nil {
-			return nil, NewResource(tail)
+			return nil, NewFunctor(tail)
 		}
-		return head.Call(args...), NewResource(tail)
+		return head.Call(args...), NewFunctor(tail)
 	}
 }
 
-func (c ResourceFnc) Call(args ...Parametric) Parametric {
-	return ResourceFnc(
-		func(...Parametric) (Parametric, ResourceFnc) {
+func (c FunctorFnc) Call(args ...Parametric) Parametric {
+	return FunctorFnc(
+		func(...Parametric) (Parametric, FunctorFnc) {
 			return c(args...)
 		})
 }
 
-func (c ResourceFnc) DeCap() (Parametric, Consumeable) { return c() }
+func (c FunctorFnc) DeCap() (Parametric, Consumeable) { return c() }
 
-func (c ResourceFnc) Head() Parametric { h, _ := c(); return h }
+func (c FunctorFnc) Head() Parametric { h, _ := c(); return h }
 
-func (c ResourceFnc) Tail() Consumeable { _, t := c(); return t }
+func (c FunctorFnc) Tail() Consumeable { _, t := c(); return t }
 
-func (c ResourceFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c FunctorFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 
-func (c ResourceFnc) Ident() Parametric { return c }
+func (c FunctorFnc) Ident() Parametric { return c }
 
-func (c ResourceFnc) TypeFnc() TyFnc { return Resource }
+func (c FunctorFnc) TypeFnc() TyFnc { return Resource }
 
-func (c ResourceFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() | d.Function }
+func (c FunctorFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() | d.Function }
+
+// APPLICAPLE
+func NewApplicaple(resource Consumeable) ApplicapleFnc {
+	return func(args ...Parametric) (Parametric, ApplicapleFnc) {
+		var head, tail = resource.DeCap()
+		if head == nil {
+			return nil, NewApplicaple(tail)
+		}
+		return head.Call(args...), NewApplicaple(tail)
+	}
+}
+
+func (c ApplicapleFnc) Call(args ...Parametric) Parametric {
+	return ApplicapleFnc(
+		func(...Parametric) (Parametric, ApplicapleFnc) {
+			return c(args...)
+		})
+}
+
+func (c ApplicapleFnc) DeCap() (Parametric, Consumeable) { return c() }
+
+func (c ApplicapleFnc) Head() Parametric { h, _ := c(); return h }
+
+func (c ApplicapleFnc) Tail() Consumeable { _, t := c(); return t }
+
+func (c ApplicapleFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+
+func (c ApplicapleFnc) Ident() Parametric { return c }
+
+func (c ApplicapleFnc) TypeFnc() TyFnc { return Application }
+
+func (c ApplicapleFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() | d.Function }
+
+// MONADIC
+func NewMonad(resource Consumeable) MonadicFnc {
+	return func(args ...Parametric) (Parametric, MonadicFnc) {
+		var head, tail = resource.DeCap()
+		if head == nil {
+			return nil, NewMonad(tail)
+		}
+		return head.Call(args...), NewMonad(tail)
+	}
+}
+
+func (c MonadicFnc) Call(args ...Parametric) Parametric {
+	return MonadicFnc(
+		func(...Parametric) (Parametric, MonadicFnc) {
+			return c(args...)
+		})
+}
+
+func (c MonadicFnc) DeCap() (Parametric, Consumeable) { return c() }
+
+func (c MonadicFnc) Head() Parametric { h, _ := c(); return h }
+
+func (c MonadicFnc) Tail() Consumeable { _, t := c(); return t }
+
+func (c MonadicFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+
+func (c MonadicFnc) Ident() Parametric { return c }
+
+func (c MonadicFnc) TypeFnc() TyFnc { return Resource }
+
+func (c MonadicFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() | d.Function }
 
 // DATA CONTSTRUCTOR
 func NewDataConstructor(

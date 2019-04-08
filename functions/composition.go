@@ -13,7 +13,7 @@ func Curry(fnc Parametric, arg Parametric) Parametric {
 //// EAGER LIST COMPOSITION
 ///
 // LEFT FOLD LIST
-func FoldE(resource ResourceFnc, fold BinaryFnc, ilem Parametric) Parametric {
+func Fold(resource FunctorFnc, fold BinaryFnc, ilem Parametric) Parametric {
 	var head, tail = resource()
 	for head != nil {
 		ilem = fold(ilem, head)
@@ -23,18 +23,18 @@ func FoldE(resource ResourceFnc, fold BinaryFnc, ilem Parametric) Parametric {
 }
 
 /// EAGER MAP LIST
-func MapE(resource ResourceFnc, fmap UnaryFnc) ResourceFnc {
+func Map(resource FunctorFnc, fmap UnaryFnc) FunctorFnc {
 	var result = NewVector()
 	var head, tail = resource()
 	for head != nil {
 		result = conVec(result, fmap(head))
 		head, tail = tail()
 	}
-	return NewResource(result)
+	return NewFunctor(result)
 }
 
 /// FILTER LIST EAGER
-func FilterE(resource ResourceFnc, filter TruthFnc) ResourceFnc {
+func Filter(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 	var result = NewVector()
 	var head, tail = resource()
 	for head != nil {
@@ -43,17 +43,17 @@ func FilterE(resource ResourceFnc, filter TruthFnc) ResourceFnc {
 			head, tail = tail()
 		}
 	}
-	return NewResource(result)
+	return NewFunctor(result)
 }
 
 //// LATE BINDING LIST COMPOSITION
 ///
 // FOLD LIST LATE BINDING
-func FoldL(resource ResourceFnc, fold BinaryFnc, ilem Parametric) ResourceFnc {
+func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Parametric) FunctorFnc {
 
-	return ResourceFnc(
+	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, ResourceFnc) {
+		func(args ...Parametric) (Parametric, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -65,8 +65,8 @@ func FoldL(resource ResourceFnc, fold BinaryFnc, ilem Parametric) ResourceFnc {
 					ilem,
 					head.Call(args...),
 				),
-				FoldL(
-					NewResource(tail),
+				FoldF(
+					NewFunctor(tail),
 					fold,
 					ilem,
 				)
@@ -74,11 +74,11 @@ func FoldL(resource ResourceFnc, fold BinaryFnc, ilem Parametric) ResourceFnc {
 }
 
 // MAP LIST LATE BINDING
-func MapL(resource ResourceFnc, fmap UnaryFnc) ResourceFnc {
+func MapF(resource FunctorFnc, fmap UnaryFnc) FunctorFnc {
 
-	return ResourceFnc(
+	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, ResourceFnc) {
+		func(args ...Parametric) (Parametric, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -89,19 +89,19 @@ func MapL(resource ResourceFnc, fmap UnaryFnc) ResourceFnc {
 			return fmap(
 					head.Call(args...),
 				),
-				MapL(
-					NewResource(tail),
+				MapF(
+					NewFunctor(tail),
 					fmap,
 				)
 		})
 }
 
 // FILTER LIST LATE BINDING
-func FilterL(resource ResourceFnc, filter TruthFnc) ResourceFnc {
+func FilterF(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 
-	return ResourceFnc(
+	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, ResourceFnc) {
+		func(args ...Parametric) (Parametric, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -109,21 +109,29 @@ func FilterL(resource ResourceFnc, filter TruthFnc) ResourceFnc {
 				return nil, resource
 			}
 
+			// applying args by calling the head element, yields
+			// result to filter
 			var result = head.Call(args...)
 
-			if filter(result)() {
-				return result,
-					FilterL(
-						NewResource(tail),
-						filter,
-					)
+			// if result is filtered out‥.
+			if !filter(result)() {
+				// progress by passing args, filter & tail on
+				// recursively
+				return FilterF(
+					NewFunctor(tail),
+					filter,
+				)(
+					args...,
+				)
 			}
 
-			return FilterL(
-				NewResource(tail),
-				filter,
-			)(
-				args...,
-			)
+			// otherwise return result & continuation on remaining
+			// elements, possibly taking new arguments into
+			// consideration, when called
+			return result,
+				FilterF(
+					NewFunctor(tail),
+					filter,
+				)
 		})
 }

@@ -73,12 +73,22 @@ type Parametric interface {
 	Call(...Parametric) Parametric
 }
 
+type Functorial interface {
+	Consumeable
+	Fold(BinaryFnc, Parametric) Parametric
+	Map(UnaryFnc) FunctorFnc
+}
+
 //// PAIRS OF FUNCTIONALS
-type Paired interface {
-	Resourceful
+type Applicable interface {
+	Functorial
 	Left() Parametric
 	Right() Parametric
 	Both() (Parametric, Parametric)
+	Apply(...Parametric) (Parametric, ApplicapleFnc)
+}
+type Monadic interface {
+	Functorial
 }
 
 //// COLLECTION CLASSES
@@ -130,10 +140,6 @@ type Indexed interface {
 	Set(int, Parametric) Vectorized
 }
 
-type Resourceful interface {
-	Parametric
-}
-
 type Generating interface {
 	Parametric
 	Next() Optional
@@ -145,17 +151,14 @@ type Aggregating interface {
 	Aggregator() NaryFnc
 	Aggregate(...Parametric) Parametric
 }
-type Monadic interface {
-	Parametric
-}
 
 type Associative interface {
 	Parametric
 	AccFncType() TyFnc
 	AccNatType() d.TyNative
-	GetVal(Parametric) Paired
+	GetVal(Parametric) Applicable
 	SetVal(Parametric, Parametric) Associative
-	Pairs() []Paired
+	Pairs() []Applicable
 }
 
 //// CONSUMEABLE COLLECTION ///////
