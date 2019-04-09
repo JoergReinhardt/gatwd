@@ -67,45 +67,46 @@ type MappedNatives interface {
 }
 
 //// FUNCTIONAL CLASS
-type Parametric interface {
+type Callable interface {
 	d.Native
 	TypeFnc() TyFnc
-	Call(...Parametric) Parametric
+	Call(...Callable) Callable
 }
 
 type Functorial interface {
 	Consumeable
-	Fold(BinaryFnc, Parametric) Parametric
-	Map(UnaryFnc) FunctorFnc
+	MapF(UnaryFnc) FunctorFnc
+	Fold(BinaryFnc, Callable) Callable
 }
 
 //// PAIRS OF FUNCTIONALS
 type Applicable interface {
 	Functorial
-	Left() Parametric
-	Right() Parametric
-	Both() (Parametric, Parametric)
-	Apply(...Parametric) (Parametric, ApplicapleFnc)
+	Left() Callable
+	Right() Callable
+	Both() (Callable, Callable)
+	Apply(...Callable) (Callable, ApplicapleFnc)
 }
 type Monadic interface {
 	Functorial
+	Map(Monadic) MonadicFnc
 }
 
 //// COLLECTION CLASSES
 type Optional interface {
-	Parametric
+	Callable
 	Maybe() bool
-	Value() Parametric
+	Value() Callable
 }
 type Predictable interface {
-	Parametric
-	True(Parametric) bool
-	Any(...Parametric) bool
-	All(...Parametric) bool
+	Callable
+	True(Callable) bool
+	Any(...Callable) bool
+	All(...Callable) bool
 }
 type Distinguishable interface {
-	Parametric
-	Case(expr ...Parametric) Parametric
+	Callable
+	Case(expr ...Callable) Callable
 }
 type Composed interface {
 	Empty() bool //<-- no more nil pointers & 'out of index'!
@@ -116,15 +117,15 @@ type Countable interface {
 }
 
 type Sequential interface {
-	Slice() []Parametric //<-- no more nil pointers & 'out of index'!
+	Slice() []Callable //<-- no more nil pointers & 'out of index'!
 }
 
 type Linked interface {
-	Next() Parametric
+	Next() Callable
 }
 
 type Reverseable interface {
-	Prev() Parametric
+	Prev() Callable
 }
 
 type Ordered interface {
@@ -132,32 +133,34 @@ type Ordered interface {
 }
 
 type Searchable interface {
-	Search(Parametric) int
+	Search(Callable) int
 }
 
 type Indexed interface {
-	Get(int) Parametric
-	Set(int, Parametric) Vectorized
+	Get(int) Callable
+	Set(int, Callable) Vectorized
 }
 
 type Generating interface {
-	Parametric
+	Callable
 	Next() Optional
 }
 
 type Aggregating interface {
-	Parametric
-	Result() Parametric
+	Callable
+	Result() Callable
 	Aggregator() NaryFnc
-	Aggregate(...Parametric) Parametric
+	Aggregate(...Callable) Callable
 }
 
 type Associative interface {
-	Parametric
-	AccFncType() TyFnc
-	AccNatType() d.TyNative
-	GetVal(Parametric) Applicable
-	SetVal(Parametric, Parametric) Associative
+	Callable
+	KeyFncType() TyFnc
+	ValFncType() TyFnc
+	KeyNatType() d.TyNative
+	ValNatType() d.TyNative
+	GetVal(Callable) Applicable
+	SetVal(Callable, Callable) Associative
 	Pairs() []Applicable
 }
 
@@ -166,10 +169,10 @@ type Associative interface {
 // implemented by types backed by recursive lists. consumeable is the
 // behaviour map-/ & fold operations rely up on
 type Consumeable interface {
-	Parametric
-	Head() Parametric
+	Callable
+	Head() Callable
 	Tail() Consumeable
-	DeCap() (Parametric, Consumeable)
+	DeCap() (Callable, Consumeable)
 }
 
 //// SEQUENTIAL LIST //////
@@ -178,7 +181,7 @@ type Consumeable interface {
 // collection type interfaces. map & fold operators rely on the consumeable
 // type interface. vectorized types implement that behaviour
 type Vectorized interface {
-	Parametric
+	Callable
 	Sequential
 	Searchable
 	Ordered
@@ -232,5 +235,5 @@ type Edged interface {
 
 type Leaved interface {
 	Nodular
-	Value() Parametric
+	Value() Callable
 }

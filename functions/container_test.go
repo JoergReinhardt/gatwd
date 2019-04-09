@@ -12,8 +12,8 @@ var intslice = []int{
 	4534, 3445, 76575, 2234, 45, 7646, 64, 3, 314,
 }
 
-var parms = func() []Parametric {
-	var res = []Parametric{}
+var parms = func() []Callable {
+	var res = []Callable{}
 	for _, dat := range intslice {
 		res = append(res, NewFromData(d.IntVal(dat)))
 	}
@@ -23,7 +23,7 @@ var parms = func() []Parametric {
 func TestRecursiveList(t *testing.T) {
 	fmt.Printf("parms: %s\n", parms)
 	var list = NewList()
-	var head Parametric
+	var head Callable
 	head, list = list(parms...)
 	for head != nil {
 		fmt.Printf("head: %s\n", head)
@@ -38,8 +38,8 @@ func TestListCon(t *testing.T) {
 		t.Fail()
 	}
 
-	var slice = []Parametric{}
-	var head Parametric
+	var slice = []Callable{}
+	var head Callable
 	head, list = list()
 	slice = append(slice, head)
 
@@ -68,10 +68,10 @@ func TestListCon(t *testing.T) {
 
 func TestListMapF(t *testing.T) {
 	var list = NewList(parms...)
-	var mapped = MapF(NewFunctor(list), UnaryFnc(func(arg Parametric) Parametric {
+	var mapped = MapF(NewFunctor(list), UnaryFnc(func(arg Callable) Callable {
 		return New(arg.Eval().(d.IntVal).Int() + 42)
 	}))
-	var head Parametric
+	var head Callable
 	head, mapped = mapped()
 	for head != nil {
 		fmt.Printf("mapped head: %s\n", head.Call())
@@ -82,7 +82,7 @@ func TestListMapF(t *testing.T) {
 func TestListReverse(t *testing.T) {
 	var list = NewList(parms...)
 	var reverse = ReverseList(list)
-	var head Parametric
+	var head Callable
 	head, reverse = reverse()
 	for head != nil {
 		fmt.Printf("reversed head: %s\n", head.Call())
@@ -93,7 +93,7 @@ func TestListReverse(t *testing.T) {
 func TestListFold(t *testing.T) {
 	var list = NewList(parms...)
 	var folded = FoldF(NewFunctor(list),
-		BinaryFnc(func(accum, arg Parametric) Parametric {
+		BinaryFnc(func(accum, arg Callable) Callable {
 			return New(
 				accum.Eval().(d.IntVal).Int() +
 					arg.Eval().(d.IntVal).Int())

@@ -11,24 +11,110 @@ import (
 
 type (
 	// FUNCTIONAL COLLECTIONS (depend on enclosed data
-	PairFnc     func(elems ...Parametric) (Parametric, Parametric)
-	ListFnc     func(elems ...Parametric) (Parametric, ListFnc)
-	VecFnc      func(elems ...Parametric) []Parametric
-	RecordFnc   func(pairs ...Applicable) []Applicable
-	AssocSetFnc func(pairs ...Applicable) d.Mapped
+	PairFnc   func(elems ...Callable) (Callable, Callable)
+	ListFnc   func(elems ...Callable) (Callable, ListFnc)
+	VecFnc    func(elems ...Callable) []Callable
+	RecordFnc func(pairs ...Applicable) []Applicable
+	SetFnc    func(pairs ...Applicable) d.Mapped
 )
+
+//// PAIR
+///
+//
+func NewPair(l, r Callable) PairFnc {
+	return func(pairs ...Callable) (Callable, Callable) {
+		return l, r
+	}
+}
+func NewEmptyPair() PairFnc {
+	return func(pairs ...Callable) (a, b Callable) {
+		return NewNoOp(), NewNoOp()
+	}
+}
+func NewPairFromInterface(l, r interface{}) PairFnc {
+	return func(Pairs ...Callable) (Callable, Callable) {
+		return New(d.New(l)), New(d.New(r))
+	}
+}
+func NewPairFromData(l, r d.Native) PairFnc {
+	return func(pairs ...Callable) (Callable, Callable) {
+		return New(l), New(r)
+	}
+}
+func (p PairFnc) Both() (Callable, Callable) {
+	return p()
+}
+
+func (p PairFnc) DeCap() (Callable, Consumeable) {
+	l, r := p()
+	return l, NewList(r)
+}
+
+func (p PairFnc) Apply(args ...Callable) (Callable, ApplicapleFnc) {
+	var head, tail = p.DeCap()
+	var appl = NewApplicaple(tail)
+	if head != nil {
+		if len(args) > 0 {
+			return head.Call(args...), appl
+		}
+		return head.(Applicable), appl
+	}
+	return nil, appl
+}
+
+func (p PairFnc) Fold(fold BinaryFnc, ilem Callable) Callable {
+	return fold(ilem, p)
+}
+
+func (p PairFnc) MapF(fmap UnaryFnc) FunctorFnc {
+	return NewFunctor(fmap(p).(PairFnc))
+}
+
+func (p PairFnc) Pair() Callable { return p }
+
+func (p PairFnc) Head() Callable { l, _ := p(); return l }
+
+func (p PairFnc) Tail() Consumeable { return p.Tail() }
+
+func (p PairFnc) Left() Callable { l, _ := p(); return l }
+
+func (p PairFnc) Right() Callable { _, r := p(); return r }
+
+func (p PairFnc) Empty() bool {
+	return p.Left() == nil && p.Right() == nil
+}
+
+func (p PairFnc) Acc() Callable { return p.Left() }
+
+func (p PairFnc) Arg() Callable { return p.Right() }
+
+func (p PairFnc) AccType() d.TyNative { return p.Left().TypeNat() }
+
+func (p PairFnc) ArgType() d.TyNative { return p.Right().TypeNat() }
+
+func (p PairFnc) Ident() Callable { return p }
+
+func (p PairFnc) Call(...Callable) Callable { return p }
+
+func (p PairFnc) Eval(a ...d.Native) d.Native { return d.NewPair(p.Left().Eval(), p.Right().Eval()) }
+
+func (p PairFnc) TypeFnc() TyFnc { return Pair }
+
+func (p PairFnc) TypeNat() d.TyNative {
+	return d.Pair.TypeNat() | p.Left().TypeNat() | p.Right().TypeNat()
+}
 
 ///// RECURSIVE LIST
 ////
 /// base implementation of recursively linked lists
 //
 // generate empty lists out of thin air
-func NewList(args ...Parametric) ListFnc {
+func NewList(args ...Callable) ListFnc {
 	return ConList(EmptyList(), args...)
 }
 
 func EmptyList() ListFnc {
-	return func(elems ...Parametric) (Parametric, ListFnc) {
+	return func(elems ...Callable) (Callable, ListFnc) {
 		if len(elems) == 0 {
 			return nil, EmptyList()
 		}
@@ -40,7 +126,7 @@ func EmptyList() ListFnc {
 }
 
 // concat elements to list step wise
-func ConList(list ListFnc, initials ...Parametric) ListFnc {
+func ConList(list ListFnc, initials ...Callable) ListFnc {
 	// return empty list if no parameter got passed
 	if len(initials) == 0 {
 		return list
@@ -52,7 +138,7 @@ func ConList(list ListFnc, initials ...Parametric) ListFnc {
 	// if only head element has been passed
 	if len(initials) == 1 {
 		// return a function, that returns‥.
-		return func(elems ...Parametric) (Parametric, ListFnc) {
+		return func(elems ...Callable) (Callable, ListFnc) {
 			// either head element and the initial list (which
 			// would be a list with the head element as it's only
 			// element)
@@ -67,7 +153,7 @@ func ConList(list ListFnc, initials ...Parametric) ListFnc {
 	}
 
 	// if more elements have been passed, lazy concat them with the initial list
-	return func(elems ...Parametric) (Parametric, ListFnc) {
+	return func(elems ...Callable) (Callable, ListFnc) {
 		// no elements → return head and list
 		if len(elems) == 0 {
 			return head, ConList(list, initials[1:]...)
@@ -79,13 +165,13 @@ func ConList(list ListFnc, initials ...Parametric) ListFnc {
 	}
 }
 
-func (l ListFnc) Ident() Parametric { return l }
+func (l ListFnc) Ident() Callable { return l }
 
 func (l ListFnc) Tail() Consumeable { _, t := l(); return t }
 
-func (l ListFnc) Head() Parametric { h, _ := l(); return h }
+func (l ListFnc) Head() Callable { h, _ := l(); return h }
 
-func (l ListFnc) DeCap() (Parametric, Consumeable) { return l() }
+func (l ListFnc) DeCap() (Callable, Consumeable) { return l() }
 
 func (l ListFnc) TypeFnc() TyFnc { return List | Functor }
 
@@ -109,8 +195,8 @@ func (l ListFnc) Len() int {
 	return length
 }
 
-func (l ListFnc) Call(d ...Parametric) Parametric {
-	var head Parametric
+func (l ListFnc) Call(d ...Callable) Callable {
+	var head Callable
 	head, l = l(d...)
 	return head
 }
@@ -120,7 +206,7 @@ func (l ListFnc) Call(d ...Parametric) Parametric {
 // REVERSE LIST
 func ReverseList(lfn ListFnc) ListFnc {
 	var result = EmptyList()
-	var head Parametric
+	var head Callable
 	head, lfn = lfn()
 	for head != nil {
 		result = ConList(result, head)
@@ -132,22 +218,22 @@ func ReverseList(lfn ListFnc) ListFnc {
 //// VECTOR
 ///
 // vector is a list backed by a slice.
-func conVec(vec Vectorized, fncs ...Parametric) VecFnc {
-	return conVecFromFunctionals(append(vec.Slice(), fncs...)...)
+func ConVector(vec Vectorized, fncs ...Callable) VecFnc {
+	return ConVecFromCallable(append(vec.Slice(), fncs...)...)
 }
 
-func conVecFromFunctionals(fncs ...Parametric) VecFnc {
-	return VecFnc(func(elems ...Parametric) []Parametric { return fncs })
+func ConVecFromCallable(fncs ...Callable) VecFnc {
+	return VecFnc(func(elems ...Callable) []Callable { return fncs })
 }
 
-func newEmptyVector() VecFnc {
-	return VecFnc(func(elems ...Parametric) []Parametric {
-		return []Parametric{}
+func NewEmptyVector() VecFnc {
+	return VecFnc(func(elems ...Callable) []Callable {
+		return []Callable{}
 	})
 }
 
-func NewVector(fncs ...Parametric) VecFnc {
-	return func(elems ...Parametric) (vec []Parametric) {
+func NewVector(fncs ...Callable) VecFnc {
+	return func(elems ...Callable) (vec []Callable) {
 		for _, dat := range fncs {
 			vec = append(vec, New(dat))
 		}
@@ -157,7 +243,7 @@ func NewVector(fncs ...Parametric) VecFnc {
 
 func (v VecFnc) TypeFnc() TyFnc { return Vector | Functor }
 
-func (v VecFnc) Ident() Parametric { return v }
+func (v VecFnc) Ident() Callable { return v }
 
 func (v VecFnc) Eval(p ...d.Native) d.Native { return NewVector(v()...) }
 
@@ -168,18 +254,18 @@ func (v VecFnc) TypeNat() d.TyNative {
 	return d.Vector.TypeNat() | d.Nil.TypeNat()
 }
 
-func (v VecFnc) Head() Parametric {
+func (v VecFnc) Head() Callable {
 	if v.Len() > 0 {
 		return v.Vector()[0]
 	}
-	return NewNoOp()
+	return nil
 }
 
 func (v VecFnc) Tail() Consumeable {
 	if v.Len() > 1 {
-		return conVecFromFunctionals(v.Vector()[1:]...)
+		return ConVecFromCallable(v.Vector()[1:]...)
 	}
-	return newEmptyVector()
+	return NewEmptyVector()
 }
 
 func (v VecFnc) Empty() bool {
@@ -191,142 +277,49 @@ func (v VecFnc) Empty() bool {
 
 func (v VecFnc) Len() int { return len(v()) }
 
-func (v VecFnc) DeCap() (Parametric, Consumeable) {
-	var head, tail = v.Head(), v.Tail()
-	if head == nil {
-		head = NewNoOp()
-	}
-	if tail == nil {
-		tail = newEmptyVector()
-	}
-	return head, tail
+func (v VecFnc) DeCap() (Callable, Consumeable) {
+	return v.Head(), v.Tail()
 }
-func (v VecFnc) Vector() []Parametric { return v() }
+func (v VecFnc) Vector() []Callable { return v() }
 
-func (v VecFnc) Slice() []Parametric { return v() }
+func (v VecFnc) Slice() []Callable { return v() }
 
-func (v VecFnc) Con(arg ...Parametric) []Parametric { return append(v(), arg...) }
+func (v VecFnc) Con(arg ...Callable) []Callable { return append(v(), arg...) }
 
-func (v VecFnc) Call(d ...Parametric) Parametric {
+func (v VecFnc) Call(d ...Callable) Callable {
 	if len(d) > 0 {
-		conVec(v, d...)
+		ConVector(v, d...)
 	}
 	return v
 }
 
-func (v VecFnc) Set(i int, val Parametric) Vectorized {
+func (v VecFnc) Set(i int, val Callable) Vectorized {
 	if i < v.Len() {
 		var slice = v()
 		slice[i] = val
-		return VecFnc(func(elems ...Parametric) []Parametric { return slice })
+		return VecFnc(func(elems ...Callable) []Callable { return slice })
 
 	}
 	return v
 }
 
-func (v VecFnc) Get(i int) Parametric {
+func (v VecFnc) Get(i int) Callable {
 	if i < v.Len() {
 		return v()[i]
 	}
 	return NewNoOp()
 }
-func (v VecFnc) Search(praed Parametric) int { return newDataSorter(v()...).Search(praed) }
+func (v VecFnc) Search(praed Callable) int { return newDataSorter(v()...).Search(praed) }
 func (v VecFnc) Sort(flag d.TyNative) {
 	var ps = newDataSorter(v()...)
 	ps.Sort(flag)
 	v = NewVector(ps...)
 }
 
-//// PAIR
-///
-//
-func NewPair(l, r Parametric) PairFnc {
-	return func(pairs ...Parametric) (Parametric, Parametric) {
-		return l, r
-	}
-}
-func newEmptyPair() PairFnc {
-	return func(pairs ...Parametric) (a, b Parametric) {
-		return NewNoOp(), NewNoOp()
-	}
-}
-func NewPairFromInterface(l, r interface{}) PairFnc {
-	return func(Pairs ...Parametric) (Parametric, Parametric) {
-		return New(d.New(l)), New(d.New(r))
-	}
-}
-func NewPairFromData(l, r d.Native) PairFnc {
-	return func(pairs ...Parametric) (Parametric, Parametric) {
-		return New(l), New(r)
-	}
-}
-func (p PairFnc) Both() (Parametric, Parametric) {
-	return p()
-}
-
-func (p PairFnc) DeCap() (Parametric, Consumeable) {
-	l, r := p()
-	return l, NewList(r)
-}
-
-func (p PairFnc) Apply(args ...Parametric) (Parametric, ApplicapleFnc) {
-	var head, tail = p.DeCap()
-	var appl = NewApplicaple(tail)
-	if head != nil {
-		if len(args) > 0 {
-			return head.Call(args...), appl
-		}
-		return head.(Applicable), appl
-	}
-	return nil, appl
-}
-
-func (p PairFnc) Fold(fold BinaryFnc, ilem Parametric) Parametric {
-	return fold(ilem, p)
-}
-
-func (p PairFnc) Map(fmap UnaryFnc) FunctorFnc {
-	return NewFunctor(fmap(p).(PairFnc))
-}
-
-func (p PairFnc) Pair() Parametric { return p }
-
-func (p PairFnc) Head() Parametric { l, _ := p(); return l }
-
-func (p PairFnc) Tail() Consumeable { return p.Tail() }
-
-func (p PairFnc) Left() Parametric { l, _ := p(); return l }
-
-func (p PairFnc) Right() Parametric { _, r := p(); return r }
-
-func (p PairFnc) Empty() bool {
-	return p.Left() == nil && p.Right() == nil
-}
-
-func (p PairFnc) Acc() Parametric { return p.Left() }
-
-func (p PairFnc) Arg() Parametric { return p.Right() }
-
-func (p PairFnc) AccType() d.TyNative { return p.Left().TypeNat() }
-
-func (p PairFnc) ArgType() d.TyNative { return p.Right().TypeNat() }
-
-func (p PairFnc) Ident() Parametric { return p }
-
-func (p PairFnc) Call(...Parametric) Parametric { return p }
-
-func (p PairFnc) Eval(a ...d.Native) d.Native { return d.NewPair(p.Left().Eval(), p.Right().Eval()) }
-
-func (p PairFnc) TypeFnc() TyFnc { return Pair | Function }
-
-func (p PairFnc) TypeNat() d.TyNative {
-	return d.Pair.TypeNat() | p.Left().TypeNat() | p.Right().TypeNat()
-}
-
 //// RECORD
 ///
 //
-func (v RecordFnc) Call(d ...Parametric) Parametric {
+func (v RecordFnc) Call(d ...Callable) Callable {
 	if len(d) > 0 {
 		for _, val := range d {
 			if pair, ok := val.(Applicable); ok {
@@ -341,15 +334,8 @@ func (v RecordFnc) Con(p ...Applicable) RecordFnc {
 	return v.Con(p...)
 }
 
-func (v RecordFnc) DeCap() (Parametric, Consumeable) {
+func (v RecordFnc) DeCap() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
-}
-
-func (v RecordFnc) AccFncType() TyFnc {
-	if v.Len() > 0 {
-		return v.Pairs()[0].Left().TypeFnc()
-	}
-	return None
 }
 
 func (v RecordFnc) Empty() bool {
@@ -363,28 +349,68 @@ func (v RecordFnc) Empty() bool {
 	return true
 }
 
-func (v RecordFnc) AccNatType() d.TyNative {
+// extract signature of record type, including index position, native &
+// functional type of each element.
+type RecType func() (
+	pos int,
+	tnat d.TyNative,
+	tfnc TyFnc,
+)
+
+func NewRecType(
+	pos int,
+	tnat d.TyNative,
+	tfnc TyFnc,
+) RecType {
+	return func() (int, d.TyNative, TyFnc) {
+		return pos, tnat, tfnc
+	}
+}
+
+func (v RecordFnc) RecordType() []RecType {
+	var rtype = []RecType{}
+	for pos, rec := range v() {
+		rtype = append(
+			rtype,
+			NewRecType(
+				pos,
+				rec.TypeNat(),
+				rec.TypeFnc(),
+			),
+		)
+	}
+	return rtype
+}
+
+func (v RecordFnc) KeyFncType() TyFnc {
+	if v.Len() > 0 {
+		return v.Pairs()[0].Left().TypeFnc()
+	}
+	return None
+}
+
+func (v RecordFnc) KeyNatType() d.TyNative {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v RecordFnc) ArgFncType() TyFnc {
+func (v RecordFnc) ValFncType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeFnc()
 	}
 	return None
 }
 
-func (v RecordFnc) ArgNatType() d.TyNative {
+func (v RecordFnc) ValNatType() d.TyNative {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v RecordFnc) TypeFnc() TyFnc { return Record | Accessor | Functor }
+func (v RecordFnc) TypeFnc() TyFnc { return Record | Functor }
 
 func (v RecordFnc) TypeNat() d.TyNative {
 	if len(v()) > 0 {
@@ -392,11 +418,11 @@ func (v RecordFnc) TypeNat() d.TyNative {
 	}
 	return d.Vector | d.Nil.TypeNat()
 }
-func conRecord(vec Associative, pp ...Applicable) RecordFnc {
-	return conRecordFromPairs(append(vec.Pairs(), pp...)...)
+func ConRecord(vec Associative, pp ...Applicable) RecordFnc {
+	return ConRecordFromPairs(append(vec.Pairs(), pp...)...)
 }
 
-func newRecord(ps ...PairFnc) RecordFnc {
+func NewRecordFromPairFunction(ps ...PairFnc) RecordFnc {
 	var pairs = []Applicable{}
 	for _, pair := range ps {
 		pairs = append(pairs, pair)
@@ -404,11 +430,11 @@ func newRecord(ps ...PairFnc) RecordFnc {
 	return RecordFnc(func(pairs ...Applicable) []Applicable { return pairs })
 }
 
-func conRecordFromPairs(pp ...Applicable) RecordFnc {
+func ConRecordFromPairs(pp ...Applicable) RecordFnc {
 	return RecordFnc(func(pairs ...Applicable) []Applicable { return pp })
 }
 
-func newEmptyRecord() RecordFnc {
+func NewEmptyRecord() RecordFnc {
 	return RecordFnc(func(pairs ...Applicable) []Applicable { return []Applicable{} })
 }
 
@@ -430,15 +456,15 @@ func (v RecordFnc) Get(idx int) Applicable {
 	return NewPair(NewNoOp(), NewNoOp())
 }
 
-func (v RecordFnc) GetVal(praed Parametric) Applicable {
+func (v RecordFnc) GetVal(praed Callable) Applicable {
 	return newPairSorter(v()...).Get(praed)
 }
 
-func (v RecordFnc) Range(praed Parametric) []Applicable {
+func (v RecordFnc) Range(praed Callable) []Applicable {
 	return newPairSorter(v()...).Range(praed)
 }
 
-func (v RecordFnc) Search(praed Parametric) int {
+func (v RecordFnc) Search(praed Callable) int {
 	return newPairSorter(v()...).Search(praed)
 }
 
@@ -458,7 +484,7 @@ func (v RecordFnc) SwitchedPairs() []Applicable {
 	return switched
 }
 
-func (v RecordFnc) SetVal(key, value Parametric) Associative {
+func (v RecordFnc) SetVal(key, value Callable) Associative {
 	if idx := v.Search(key); idx >= 0 {
 		var pairs = v.Pairs()
 		pairs[idx] = NewPair(key, value)
@@ -467,26 +493,26 @@ func (v RecordFnc) SetVal(key, value Parametric) Associative {
 	return NewRecord(append(v.Pairs(), NewPair(key, value))...)
 }
 
-func (v RecordFnc) Slice() []Parametric {
-	var fncs = []Parametric{}
+func (v RecordFnc) Slice() []Callable {
+	var fncs = []Callable{}
 	for _, pair := range v() {
 		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
 	}
 	return fncs
 }
 
-func (v RecordFnc) Head() Parametric {
+func (v RecordFnc) Head() Callable {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
 	}
-	return NewNoOp()
+	return nil
 }
 
 func (v RecordFnc) Tail() Consumeable {
 	if v.Len() > 1 {
-		return conRecordFromPairs(v.Pairs()[1:]...)
+		return ConRecordFromPairs(v.Pairs()[1:]...)
 	}
-	return newEmptyRecord()
+	return NewEmptyRecord()
 }
 
 func (v RecordFnc) Eval(p ...d.Native) d.Native {
@@ -503,7 +529,7 @@ func (v RecordFnc) Sort(flag d.TyNative) {
 	v = NewRecord(ps...)
 }
 
-func (v RecordFnc) MapRecord(fnc Parametric) Consumeable {
+func (v RecordFnc) MapRecord(fnc Callable) Consumeable {
 	return v
 }
 
@@ -511,7 +537,7 @@ func (v RecordFnc) MapRecord(fnc Parametric) Consumeable {
 //// ASSOCIATIVE SET (HASH MAP OF VALUES)
 ///
 // associative array that uses pairs left field as accessor for sort & search
-func conAssocSet(pairs ...Applicable) AssocSetFnc {
+func ConAssocSet(pairs ...Applicable) SetFnc {
 	var paired = []PairFnc{}
 	for _, pair := range pairs {
 		paired = append(paired, pair.(PairFnc))
@@ -519,7 +545,7 @@ func conAssocSet(pairs ...Applicable) AssocSetFnc {
 	return NewAssocSet(paired...)
 }
 
-func NewAssocSet(pairs ...PairFnc) AssocSetFnc {
+func NewAssocSet(pairs ...PairFnc) SetFnc {
 
 	var kt d.TyNative
 	var set d.Mapped
@@ -546,11 +572,11 @@ func NewAssocSet(pairs ...PairFnc) AssocSetFnc {
 			set = d.SetString{}
 		}
 	}
-	return AssocSetFnc(func(pairs ...Applicable) d.Mapped { return set })
+	return SetFnc(func(pairs ...Applicable) d.Mapped { return set })
 }
 
-func (v AssocSetFnc) Split() (VecFnc, VecFnc) {
-	var keys, vals = []Parametric{}, []Parametric{}
+func (v SetFnc) Split() (VecFnc, VecFnc) {
+	var keys, vals = []Callable{}, []Callable{}
 	for _, pair := range v.Pairs() {
 		keys = append(keys, pair.Left())
 		vals = append(vals, pair.Right())
@@ -558,7 +584,7 @@ func (v AssocSetFnc) Split() (VecFnc, VecFnc) {
 	return NewVector(keys...), NewVector(vals...)
 }
 
-func (v AssocSetFnc) Pairs() []Applicable {
+func (v SetFnc) Pairs() []Applicable {
 	var pairs = []Applicable{}
 	for _, field := range v().Fields() {
 		pairs = append(
@@ -570,13 +596,13 @@ func (v AssocSetFnc) Pairs() []Applicable {
 	return pairs
 }
 
-func (v AssocSetFnc) Keys() VecFnc { k, _ := v.Split(); return k }
+func (v SetFnc) Keys() VecFnc { k, _ := v.Split(); return k }
 
-func (v AssocSetFnc) Data() VecFnc { _, d := v.Split(); return d }
+func (v SetFnc) Data() VecFnc { _, d := v.Split(); return d }
 
-func (v AssocSetFnc) Len() int { return v().Len() }
+func (v SetFnc) Len() int { return v().Len() }
 
-func (v AssocSetFnc) Empty() bool {
+func (v SetFnc) Empty() bool {
 	for _, pair := range v.Pairs() {
 		if !pair.(PairFnc).Empty() {
 			return false
@@ -585,32 +611,32 @@ func (v AssocSetFnc) Empty() bool {
 	return true
 }
 
-func (v AssocSetFnc) GetVal(praed Parametric) Applicable {
-	var val Parametric
+func (v SetFnc) GetVal(praed Callable) Applicable {
+	var val Callable
 	var nat, ok = v().Get(praed)
-	if val, ok = nat.(Parametric); !ok {
+	if val, ok = nat.(Callable); !ok {
 		val = NewFromData(val)
 	}
 	return NewPair(praed, val)
 }
 
-func (v AssocSetFnc) SetVal(key, value Parametric) Associative {
+func (v SetFnc) SetVal(key, value Callable) Associative {
 	var m = v()
 	m.Set(key, value)
-	return AssocSetFnc(func(pairs ...Applicable) d.Mapped { return m })
+	return SetFnc(func(pairs ...Applicable) d.Mapped { return m })
 }
 
-func (v AssocSetFnc) Slice() []Parametric {
-	var pairs = []Parametric{}
+func (v SetFnc) Slice() []Callable {
+	var pairs = []Callable{}
 	for _, pair := range v.Pairs() {
 		pairs = append(pairs, pair)
 	}
 	return pairs
 }
 
-func (v AssocSetFnc) Call(f ...Parametric) Parametric { return v }
+func (v SetFnc) Call(f ...Callable) Callable { return v }
 
-func (v AssocSetFnc) Eval(p ...d.Native) d.Native {
+func (v SetFnc) Eval(p ...d.Native) d.Native {
 	var slice = d.DataSlice{}
 	for _, pair := range v().Fields() {
 		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
@@ -618,52 +644,52 @@ func (v AssocSetFnc) Eval(p ...d.Native) d.Native {
 	return slice
 }
 
-func (v AssocSetFnc) TypeFnc() TyFnc { return MuliSet | Accessor | Functor }
+func (v SetFnc) TypeFnc() TyFnc { return Set | Functor }
 
-func (v AssocSetFnc) TypeNat() d.TyNative { return d.Set | d.Function }
+func (v SetFnc) TypeNat() d.TyNative { return d.Set | d.Function }
 
-func (v AssocSetFnc) AccFncType() TyFnc {
+func (v SetFnc) KeyFncType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeFnc()
 	}
 	return None
 }
 
-func (v AssocSetFnc) AccNatType() d.TyNative {
+func (v SetFnc) KeyNatType() d.TyNative {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v AssocSetFnc) ArgFncType() TyFnc {
+func (v SetFnc) ValFncType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeFnc()
 	}
 	return None
 }
 
-func (v AssocSetFnc) ArgNatType() d.TyNative {
+func (v SetFnc) ValNatType() d.TyNative {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v AssocSetFnc) DeCap() (Parametric, Consumeable) {
+func (v SetFnc) DeCap() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
-func (v AssocSetFnc) Head() Parametric {
+func (v SetFnc) Head() Callable {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
 	}
-	return NewNoOp()
+	return nil
 }
 
-func (v AssocSetFnc) Tail() Consumeable {
+func (v SetFnc) Tail() Consumeable {
 	if v.Len() > 1 {
-		return conRecordFromPairs(v.Pairs()[1:]...)
+		return ConRecordFromPairs(v.Pairs()[1:]...)
 	}
-	return newEmptyRecord()
+	return NewEmptyRecord()
 }

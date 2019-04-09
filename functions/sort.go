@@ -65,7 +65,7 @@ func compInt2BooExcl(i int) bool { return i > 0 }
 
 ////////////////////////////////////////////////////////////////////////////
 // type to sort slices of data
-type dataSorter []Parametric
+type dataSorter []Callable
 
 func (d dataSorter) Empty() bool {
 	if len(d) > 0 {
@@ -79,7 +79,7 @@ func (d dataSorter) Empty() bool {
 	return true
 }
 
-func newDataSorter(dat ...Parametric) dataSorter { return dataSorter(dat) }
+func newDataSorter(dat ...Callable) dataSorter { return dataSorter(dat) }
 
 func (d dataSorter) Len() int { return len(d) }
 
@@ -89,7 +89,7 @@ func (ds dataSorter) Sort(argType d.TyNative) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
 
-func (ds dataSorter) Search(pred Parametric) int {
+func (ds dataSorter) Search(pred Callable) int {
 	var idx = sort.Search(len(ds), newDataFind(ds, pred))
 	if idx < len(ds) {
 		if strings.Compare(ds[idx].String(), pred.String()) == 0 {
@@ -138,7 +138,7 @@ func newDataLess(argType d.TyNative, ds dataSorter) func(i, j int) bool {
 	return nil
 }
 
-func newDataFind(ds dataSorter, pred Parametric) func(int) bool {
+func newDataFind(ds dataSorter, pred Callable) func(int) bool {
 	var f = pred.Eval().TypeNat().Flag()
 	var fn func(int) bool
 	switch {
@@ -192,7 +192,7 @@ func (a pairSorter) ValueSorter() pairSorter {
 	return NewRecord(a...).SwitchedPairs()
 }
 
-func (a pairSorter) AppendKeyValue(key Parametric, val Parametric) {
+func (a pairSorter) AppendKeyValue(key Callable, val Callable) {
 	a = append(a, NewPair(key, val))
 }
 
@@ -226,7 +226,7 @@ func (p pairSorter) SortByValue(f d.TyNative) {
 	p = NewRecord(ps...).SwitchedPairs()
 }
 
-func (p pairSorter) Search(pred Parametric) int {
+func (p pairSorter) Search(pred Callable) int {
 	var idx = sort.Search(len(p), newpredFind(p, pred))
 	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
@@ -245,13 +245,13 @@ func (p pairSorter) Search(pred Parametric) int {
 	return -1
 }
 
-func (p pairSorter) SearchByValue(pred Parametric) int {
+func (p pairSorter) SearchByValue(pred Callable) int {
 	return pairSorter(
 		NewRecord(p...).SwitchedPairs(),
 	).Search(pred)
 }
 
-func (p pairSorter) Get(pred Parametric) Applicable {
+func (p pairSorter) Get(pred Callable) Applicable {
 	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
@@ -259,13 +259,13 @@ func (p pairSorter) Get(pred Parametric) Applicable {
 	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
 }
 
-func (p pairSorter) GetByValue(pred Parametric) Applicable {
+func (p pairSorter) GetByValue(pred Callable) Applicable {
 	return pairSorter(
 		NewRecord(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
-func (p pairSorter) Range(pred Parametric) []Applicable {
+func (p pairSorter) Range(pred Callable) []Applicable {
 	var ran = []Applicable{}
 	idx := p.Search(pred)
 	if idx != -1 {
@@ -276,7 +276,7 @@ func (p pairSorter) Range(pred Parametric) []Applicable {
 	return ran
 }
 
-func (p pairSorter) RangeByValue(pred Parametric) []Applicable {
+func (p pairSorter) RangeByValue(pred Callable) []Applicable {
 	return pairSorter(
 		NewRecord(p...).SwitchedPairs(),
 	).Range(pred)
@@ -340,7 +340,7 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	return nil
 }
 
-func newpredFind(accs pairSorter, pred Parametric) func(i int) bool {
+func newpredFind(accs pairSorter, pred Callable) func(i int) bool {
 	var f = pred.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

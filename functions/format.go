@@ -48,7 +48,7 @@ func (v RecordFnc) String() string {
 }
 
 /// ASSOCIATIVE SET
-func (v AssocSetFnc) String() string {
+func (v SetFnc) String() string {
 	var strb = &strings.Builder{}
 	var tab = tablewriter.NewWriter(strb)
 

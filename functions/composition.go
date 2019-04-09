@@ -3,8 +3,8 @@ package functions
 //// CURRY
 ///
 //
-func Curry(fnc Parametric, arg Parametric) Parametric {
-	return NaryFnc(func(args ...Parametric) Parametric {
+func Curry(fnc Callable, arg Callable) Callable {
+	return NaryFnc(func(args ...Callable) Callable {
 		return fnc.Call(arg).Call(args...)
 	})
 }
@@ -13,7 +13,7 @@ func Curry(fnc Parametric, arg Parametric) Parametric {
 //// EAGER LIST COMPOSITION
 ///
 // LEFT FOLD LIST
-func Fold(resource FunctorFnc, fold BinaryFnc, ilem Parametric) Parametric {
+func Fold(resource FunctorFnc, fold BinaryFnc, ilem Callable) Callable {
 	var head, tail = resource()
 	for head != nil {
 		ilem = fold(ilem, head)
@@ -27,7 +27,7 @@ func Map(resource FunctorFnc, fmap UnaryFnc) FunctorFnc {
 	var result = NewVector()
 	var head, tail = resource()
 	for head != nil {
-		result = conVec(result, fmap(head))
+		result = ConVector(result, fmap(head))
 		head, tail = tail()
 	}
 	return NewFunctor(result)
@@ -38,8 +38,8 @@ func Filter(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 	var result = NewVector()
 	var head, tail = resource()
 	for head != nil {
-		if filter(head)() {
-			result = conVec(result, head)
+		if filter(head) {
+			result = ConVector(result, head)
 			head, tail = tail()
 		}
 	}
@@ -49,11 +49,11 @@ func Filter(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 //// LATE BINDING LIST COMPOSITION
 ///
 // FOLD LIST LATE BINDING
-func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Parametric) FunctorFnc {
+func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Callable) FunctorFnc {
 
 	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, FunctorFnc) {
+		func(args ...Callable) (Callable, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -61,10 +61,12 @@ func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Parametric) FunctorFnc {
 				return nil, resource
 			}
 
-			return fold(
-					ilem,
-					head.Call(args...),
-				),
+			ilem = fold(
+				ilem,
+				head.Call(args...),
+			)
+
+			return ilem,
 				FoldF(
 					NewFunctor(tail),
 					fold,
@@ -78,7 +80,7 @@ func MapF(resource FunctorFnc, fmap UnaryFnc) FunctorFnc {
 
 	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, FunctorFnc) {
+		func(args ...Callable) (Callable, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -101,7 +103,7 @@ func FilterF(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 
 	return FunctorFnc(
 
-		func(args ...Parametric) (Parametric, FunctorFnc) {
+		func(args ...Callable) (Callable, FunctorFnc) {
 
 			var head, tail = resource()
 
@@ -114,7 +116,7 @@ func FilterF(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 			var result = head.Call(args...)
 
 			// if result is filtered out‥.
-			if !filter(result)() {
+			if !filter(result) {
 				// progress by passing args, filter & tail on
 				// recursively
 				return FilterF(
