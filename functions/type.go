@@ -12,6 +12,7 @@ const (
 	///////////
 	Application
 	Constructor
+	Operator
 	Resource
 	Functor
 	Monad
@@ -175,8 +176,8 @@ func (c MonadicFnc) TypeNat() d.TyNative { res, _ := c(); return res.TypeNat() |
 //// (RE-) INSTANCIATE PRIMARY DATA TO IMPLEMENT FUNCTIONS VALUE INTERFACE
 ///
 //
-func NewNative(infs ...interface{}) Native {
-	return func() d.Native { return d.New(infs...) }
+func NewNative(nat d.Native) Native {
+	return func() d.Native { return nat }
 }
 
 func (n Native) String() string { return n().String() }
@@ -361,8 +362,6 @@ func (p Propertys) Match(arg Propertys) bool {
 type TyFnc d.UintVal
 
 func (t TyFnc) Eval(...d.Native) d.Native { return t }
-
-func (t TyFnc) TypeHO() TyFnc { return t }
 
 func (t TyFnc) TypeNat() d.TyNative { return d.Flag }
 

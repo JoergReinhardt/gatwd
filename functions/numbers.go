@@ -6,10 +6,125 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-type (
-	NumberCons func() Numeral
+type TyArriOp int8
+
+func (t TyArriOp) Eval(...d.Native) d.Native { return t }
+func (t TyArriOp) TypeNat() d.TyNative       { return d.Flag }
+func (t TyArriOp) Flag() d.BitFlag           { return d.BitFlag(t) }
+func (t TyArriOp) Uint() uint                { return d.BitFlag(t).Uint() }
+
+//go:generate stringer -type=TyArriOp
+const (
+	Add       TyArriOp = 1
+	Substract TyArriOp = 1 << iota
+	Multiply
+	Divide
+	Modulo
 )
 
+type (
+	CounterFnc  func() d.IntVal
+	NumberCons  func() Numeral
+	OperatorFnc func(a, b d.Native) Numeral
+)
+
+func (o OperatorFnc) Eval(args ...d.Native) d.Native {
+
+	var a, b d.Native
+	var ok bool
+
+	if len(args) > 0 {
+		if a, ok = args[0].(d.Native); ok {
+			if len(args) > 1 {
+				if b, ok = args[1].(d.Native); ok {
+					return o(a, b)
+				}
+			}
+			return o(a, b)
+		}
+		return o(a, d.IntVal(0))
+	}
+	return o(d.IntVal(0), d.IntVal(0))
+}
+
+func (o OperatorFnc) Call(args ...Callable) Callable {
+
+	var a, b d.Native
+	var ok bool
+
+	if len(args) > 0 {
+		if a, ok = args[0].Eval().(d.Native); ok {
+			if len(args) > 1 {
+				if b, ok = args[1].Eval().(d.Native); ok {
+					return NewNative(o(a, b))
+				}
+			}
+		}
+	}
+
+	return NewNative(o(a, d.IntVal(0)))
+}
+
+func (o OperatorFnc) TypeNat() d.TyNative { return d.Numbers }
+func (o OperatorFnc) TypeFnc() TyFnc      { return Operator }
+func (o OperatorFnc) String() string      { return "arrithmetic operator" }
+
+// create counter, starting with the 'count' parameter, applying current count
+// and step to the operator
+func NewSeries(opty TyArriOp, args ...d.IntVal) CounterFnc {
+
+	// allocate operator function
+	var operator func(a d.IntVal) d.IntVal
+	// initialize running count, step size & max value
+	var count, step, max d.IntVal = 0, 0, 0
+
+	// extract & assign arguments
+	if len(args) > 0 {
+		count = args[0]
+		if len(args) > 1 {
+			step = args[1]
+			if len(args) > 2 {
+				max = args[2]
+			}
+		}
+	}
+
+	// assign operator function, based on the passed operator type
+	switch opty {
+	case Add:
+		operator = func(n d.IntVal) d.IntVal {
+			return n + step
+		}
+	case Substract:
+		operator = func(n d.IntVal) d.IntVal {
+			return n - step
+		}
+	case Multiply:
+		operator = func(n d.IntVal) d.IntVal {
+			return n * step
+		}
+	case Modulo:
+		operator = func(n d.IntVal) d.IntVal {
+			return n % step
+		}
+	case Divide:
+		operator = func(n d.IntVal) d.IntVal {
+			return n / step
+		}
+	}
+
+	// return the counter
+	return CounterFnc(func() d.IntVal {
+		var result d.IntVal
+		if count < max {
+			result = count
+			count = operator(count)
+		}
+		return result
+	})
+}
+
+// create generalized number from callable
 func NewNumber(num Callable) NumberCons {
 	var cons NumberCons
 	switch num.TypeNat() {
@@ -40,7 +155,10 @@ func (n NumberCons) Nullable() d.Native {
 		return d.IntVal(0)
 	case d.Ratio:
 		return (*d.RatioVal)(
-			big.NewRat(int64(0), int64(1)),
+			big.NewRat(
+				int64(0),
+				int64(1),
+			),
 		)
 	case d.Float:
 		return d.FltVal(0)

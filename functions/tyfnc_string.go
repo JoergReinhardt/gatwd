@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataFunctionApplicationConstructorResourceFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseBooleanNumberErrorPairEnumSetListVectorRecordHigherOrder"
+const _TyFnc_name = "TypeDataFunctionApplicationConstructorOperatorResourceFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseTruthNumberErrorPairEnumSetListVectorRecordHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:         _TyFnc_name[0:4],
@@ -13,28 +13,29 @@ var _TyFnc_map = map[TyFnc]string{
 	8:         _TyFnc_name[16:27],
 	16:        _TyFnc_name[27:38],
 	32:        _TyFnc_name[38:46],
-	64:        _TyFnc_name[46:53],
-	128:       _TyFnc_name[53:58],
-	256:       _TyFnc_name[58:63],
-	512:       _TyFnc_name[63:67],
-	1024:      _TyFnc_name[67:71],
-	2048:      _TyFnc_name[71:75],
-	4096:      _TyFnc_name[75:79],
-	8192:      _TyFnc_name[79:85],
-	16384:     _TyFnc_name[85:91],
-	32768:     _TyFnc_name[91:93],
-	65536:     _TyFnc_name[93:95],
-	131072:    _TyFnc_name[95:99],
-	262144:    _TyFnc_name[99:106],
-	524288:    _TyFnc_name[106:112],
-	1048576:   _TyFnc_name[112:117],
-	2097152:   _TyFnc_name[117:121],
-	4194304:   _TyFnc_name[121:125],
-	8388608:   _TyFnc_name[125:128],
-	16777216:  _TyFnc_name[128:132],
-	33554432:  _TyFnc_name[132:138],
+	64:        _TyFnc_name[46:54],
+	128:       _TyFnc_name[54:61],
+	256:       _TyFnc_name[61:66],
+	512:       _TyFnc_name[66:71],
+	1024:      _TyFnc_name[71:75],
+	2048:      _TyFnc_name[75:79],
+	4096:      _TyFnc_name[79:83],
+	8192:      _TyFnc_name[83:87],
+	16384:     _TyFnc_name[87:93],
+	32768:     _TyFnc_name[93:99],
+	65536:     _TyFnc_name[99:101],
+	131072:    _TyFnc_name[101:103],
+	262144:    _TyFnc_name[103:107],
+	524288:    _TyFnc_name[107:112],
+	1048576:   _TyFnc_name[112:118],
+	2097152:   _TyFnc_name[118:123],
+	4194304:   _TyFnc_name[123:127],
+	8388608:   _TyFnc_name[127:131],
+	16777216:  _TyFnc_name[131:134],
+	33554432:  _TyFnc_name[134:138],
 	67108864:  _TyFnc_name[138:144],
-	134217728: _TyFnc_name[144:155],
+	134217728: _TyFnc_name[144:150],
+	268435456: _TyFnc_name[150:161],
 }
 
 func (i TyFnc) String() string {
