@@ -40,8 +40,8 @@ func Filter(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 	for head != nil {
 		if filter(head) {
 			result = ConVector(result, head)
-			head, tail = tail()
 		}
+		head, tail = tail()
 	}
 	return NewFunctor(result)
 }
@@ -49,6 +49,9 @@ func Filter(resource FunctorFnc, filter TruthFnc) FunctorFnc {
 //// LATE BINDING LIST COMPOSITION
 ///
 // FOLD LIST LATE BINDING
+//
+// returns a list of continuations, yielding accumulated result & list of
+// follow-up continuations. when the list is depleted, return result only.
 func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Callable) FunctorFnc {
 
 	return FunctorFnc(
@@ -58,14 +61,16 @@ func FoldF(resource FunctorFnc, fold BinaryFnc, ilem Callable) FunctorFnc {
 			var head, tail = resource()
 
 			if head == nil {
-				return nil, resource
+				return resource, nil
 			}
 
+			// update the accumulated result
 			ilem = fold(
 				ilem,
 				head.Call(args...),
 			)
 
+			// return result & continuation
 			return ilem,
 				FoldF(
 					NewFunctor(tail),

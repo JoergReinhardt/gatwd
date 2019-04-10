@@ -27,6 +27,8 @@ const (
 	If
 	Else
 	//////////
+	Truth
+	Number
 	Error
 	Pair
 	Enum
@@ -41,8 +43,6 @@ const (
 
 	Morphisms = Application | Constructor |
 		Resource | Functor | Monad
-
-	Truth = True | False
 
 	Option = Just | None | Case | Switch |
 		Either | Or | If | Else | Truth
@@ -213,7 +213,7 @@ func NewFromData(data ...d.Native) Native {
 }
 
 // DATA CONTSTRUCTOR
-func NewDataConstructor(
+func NewData(
 	expr func(nats ...d.Native) Native,
 ) DataCon {
 	return DataCon(expr)

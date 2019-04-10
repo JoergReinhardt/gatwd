@@ -36,9 +36,9 @@ type Imaginary interface {
 	d.Native
 	d.Imaginary
 }
-type Number interface {
+type Numeral interface {
 	d.Native
-	d.Number
+	d.Numeral
 }
 type Letter interface {
 	d.Native

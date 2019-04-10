@@ -1,9 +1,13 @@
 package data
 
+import "math/big"
+
 //// USER DEFINED DATA & FUNCTION TYPES ///////
 ///
 // all BitFlag's implement the typed interface (as well as primary)
-type Typed interface{ Flag() BitFlag }
+type Typed interface {
+	Flag() BitFlag
+}
 
 // the main interface, all types defined here need to comply to.
 type Native interface {
@@ -16,30 +20,54 @@ type BinaryMarshaler interface {
 }
 
 // all data types are evaluable. evaluation yields a primary instance
-type Evaluable interface{ Eval(...Native) Native }
+type Evaluable interface {
+	Eval(...Native) Native
+}
 
 // the identity function returns the instance unchanged
-type Identity interface{ Ident() Native }
+type Identity interface {
+	Ident() Native
+}
 
 // deep copy
-type Reproduceable interface{ Copy() Native }
+type Reproduceable interface {
+	Copy() Native
+}
 
 // garbage collectability
-type Destructable interface{ Clear() }
+type Destructable interface {
+	Clear()
+}
 
 // implemented by types an empty instance is defined for
-type Nullable interface{ Null() Native }
-type Discrete interface{ Unit() Native }
+type Nullable interface {
+	Null() Native
+}
+type Discrete interface {
+	Unit() Native
+}
 
 // unsignedVal and integerVal are a poor man's version of type classes and
 // allow to treat the different sizes of ints and floats alike
-type Boolean interface{ Bool() bool }
-type Natural interface{ Uint() uint }
-type Integer interface{ Int() int }
-type Rational interface{ Rat() *RatioVal }
-type Real interface{ Float() float64 }
-type Imaginary interface{ Imag() complex128 }
-type Number interface {
+type Boolean interface {
+	Bool() bool
+}
+type Natural interface {
+	Uint() uint
+}
+type Integer interface {
+	Int() int
+}
+type Rational interface {
+	Rat() *big.Rat
+}
+type Real interface {
+	Float() float64
+}
+type Imaginary interface {
+	Imag() complex128
+}
+type Numeral interface {
 	Nullable
 	Discrete
 	Boolean
