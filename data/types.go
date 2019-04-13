@@ -73,8 +73,9 @@ const (
 	//// HIGHERORDER TYPES
 	Nat
 	Fnc
-	Sum
-	Prod
+	FlatType
+	SumType
+	ProdType
 	Pair
 	Tuple
 	Record
@@ -94,9 +95,10 @@ const (
 		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
 		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise    = Naturals | Byte | Flag
-	Booleans   = Bool | Bitwise
-	Naturals   = Uint | Uint8 | Uint16 | Uint32
+	Bitwise  = Naturals | Byte | Flag
+	Booleans = Bool | Bitwise
+	Naturals = Uint | Uint8 | Uint16 | Uint32
+
 	Integers   = Int | Int8 | Int16 | Int32 | BigInt
 	Rationals  = Naturals | Ratio
 	Reals      = Float | Flt32 | BigFlt
@@ -107,7 +109,7 @@ const (
 	Streams    = Reader | Writer | Pipe
 
 	Compositions = Pair | Tuple | Record | Vector | List | Set
-	Type         = Nat | Fnc | Sum | Prod
+	Type         = FlatType | SumType | ProdType
 	Functional   = Compositions | Type
 
 	MASK         TyNative = 0xFFFFFFFFFFFFFFFF

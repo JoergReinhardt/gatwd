@@ -9,6 +9,7 @@ const (
 	_TyArriOp_name_1 = "Multiply"
 	_TyArriOp_name_2 = "Divide"
 	_TyArriOp_name_3 = "Modulo"
+	_TyArriOp_name_4 = "SquareRoot"
 )
 
 var (
@@ -26,6 +27,8 @@ func (i TyArriOp) String() string {
 		return _TyArriOp_name_2
 	case i == 16:
 		return _TyArriOp_name_3
+	case i == 32:
+		return _TyArriOp_name_4
 	default:
 		return "TyArriOp(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

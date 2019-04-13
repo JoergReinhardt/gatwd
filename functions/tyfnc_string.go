@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataFunctionApplicationConstructorOperatorResourceFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseTruthNumberErrorPairEnumSetListVectorRecordHigherOrder"
+const _TyFnc_name = "TypeDataFunctionApplicationConstructorOperatorResourceFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseTruthNumberErrorPairTupleEnumSetListVectorRecordHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:         _TyFnc_name[0:4],
@@ -30,12 +30,13 @@ var _TyFnc_map = map[TyFnc]string{
 	1048576:   _TyFnc_name[112:118],
 	2097152:   _TyFnc_name[118:123],
 	4194304:   _TyFnc_name[123:127],
-	8388608:   _TyFnc_name[127:131],
-	16777216:  _TyFnc_name[131:134],
-	33554432:  _TyFnc_name[134:138],
-	67108864:  _TyFnc_name[138:144],
-	134217728: _TyFnc_name[144:150],
-	268435456: _TyFnc_name[150:161],
+	8388608:   _TyFnc_name[127:132],
+	16777216:  _TyFnc_name[132:136],
+	33554432:  _TyFnc_name[136:139],
+	67108864:  _TyFnc_name[139:143],
+	134217728: _TyFnc_name[143:149],
+	268435456: _TyFnc_name[149:155],
+	536870912: _TyFnc_name[155:166],
 }
 
 func (i TyFnc) String() string {

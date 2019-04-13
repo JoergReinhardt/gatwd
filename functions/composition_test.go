@@ -21,12 +21,11 @@ func TestFold(t *testing.T) {
 	var result = Fold(
 		NewFunctor(resource),
 		BinaryFnc(func(ilem, arg Callable) Callable {
-			return Native(func() d.Native {
-				return ilem.Eval().(d.IntVal) +
-					arg.Eval().(d.IntVal)
-			})
+			return NewNative(
+				ilem.Eval().(d.IntVal) + arg.Eval().(d.IntVal),
+			)
 		}),
-		Native(func() d.Native { return d.IntVal(0) }),
+		NewNative(d.IntVal(0)),
 	)
 	fmt.Println(result)
 	if result.Eval().(d.IntVal) != d.IntVal(45) {
@@ -38,12 +37,11 @@ func TestFoldF(t *testing.T) {
 	var result = FoldF(
 		NewFunctor(resource),
 		BinaryFnc(func(ilem, arg Callable) Callable {
-			return Native(func() d.Native {
-				return ilem.Eval().(d.IntVal) +
-					arg.Eval().(d.IntVal)
-			})
+			return NewNative(
+				ilem.Eval().(d.IntVal) + arg.Eval().(d.IntVal),
+			)
 		}),
-		Native(func() d.Native { return d.IntVal(0) }),
+		NewNative(d.IntVal(0)),
 	)
 
 	var val Callable
