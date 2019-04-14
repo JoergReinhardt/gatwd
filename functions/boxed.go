@@ -8,58 +8,48 @@ type (
 	//// FUNCTOR CONSTRUCTORS
 	///
 	// CONDITIONAL, CASE & OPTIONAL
+
+	///// STATIC
 	NoOp      func()
 	OptVal    func() PairFnc
 	EnumVal   func() PairFnc
 	RecordVal func() PairFnc
-	TrueFalse func() d.BoolVal
-	JustNone  func(...Callable) OptVal
-	EitherOr  func(...Callable) OptVal
-	CaseExpr  func(...Callable) OptVal
-	TruthFnc  func(...Callable) d.BoolVal
-	ErrorFnc  func(err ...error) []d.ErrorVal
+	TrueFalse func() bool
+
+	///// DYNAMIC
+	TruthFnc func(...Callable) bool
+	JustNone func(...Callable) OptVal
+	EitherOr func(...Callable) OptVal
+	CaseExpr func(...Callable) OptVal
+
+	/// ERROR
 )
 
-func (e ErrorFnc) Error() string {
-	var str string
-	var l = len(e())
-	for n, err := range e() {
-		str = str + err.String()
-		if n < l-1 {
-			str = str + "\n"
-		}
+// NULL NADA NONE NIENTE ZERO NAN
+func NewNoOp() NoOp                      { return NoOp(func() {}) }
+func (n NoOp) Maybe() bool               { return false }
+func (n NoOp) Empty() bool               { return true }
+func (n NoOp) String() string            { return "⊥" }
+func (n NoOp) Len() int                  { return -2 }
+func (n NoOp) Value() Callable           { return n }
+func (n NoOp) Ident() Callable           { return n }
+func (n NoOp) Call(...Callable) Callable { return n }
+func (n NoOp) Eval(...d.Native) d.Native { return d.NilVal{} }
+func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
+func (n NoOp) TypeFnc() TyFnc            { return None }
+
+/// BASE TRUTH
+func NewBaseTruth(truth bool) TrueFalse {
+	if truth {
+		return func() bool { return true }
 	}
-	return str
+	return func() bool { return false }
 }
 
-func NewError(init d.ErrorVal) ErrorFnc {
-	var errors = []d.ErrorVal{}
-	return func(errs ...error) []d.ErrorVal {
-		if len(errs) == 0 {
-			return errors
-		}
-		for _, err := range errs {
-			errors = append(errors, d.ErrorVal{err})
-		}
-		return errors
-	}
-}
-
-func NewTruthConstant(truth bool) TrueFalse {
-	return func() d.BoolVal { return d.BoolVal(truth) }
-}
-func NewTruthConstantFromNative(truth d.BoolVal) TrueFalse {
-	return func() d.BoolVal { return truth }
-}
-
-func (t TrueFalse) Eval(...d.Native) d.Native { return t() }
-
+func (t TrueFalse) Eval(...d.Native) d.Native { return d.BoolVal(t()) }
 func (t TrueFalse) Call(...Callable) Callable { return t }
-
-func (t TrueFalse) Ident() Callable { return t }
-
-func (t TrueFalse) TypeNat() d.TyNative { return d.Bool }
-
+func (t TrueFalse) Ident() Callable           { return t }
+func (t TrueFalse) TypeNat() d.TyNative       { return d.Bool }
 func (t TrueFalse) TypeFnc() TyFnc {
 	if t() {
 		return True
@@ -68,54 +58,43 @@ func (t TrueFalse) TypeFnc() TyFnc {
 }
 
 func (t TrueFalse) String() string {
-	var str = "Truth|"
-	var instval string
-	if True.Flag().Match(t.TypeFnc()) {
-		instval = "True"
-	} else {
-		instval = "False"
+	if t() {
+		return "True"
 	}
-	return str + instval
+	return "False"
 }
 
+//// TRUTH PREDICATE FUNCTION
 func NewTruthFunction(predicate Callable) TruthFnc {
-	return func(args ...Callable) d.BoolVal {
-		return predicate.Call(args...).Eval().(d.BoolVal)
+	return func(args ...Callable) bool {
+		if truth, ok := predicate.Call(args...).Eval().(d.BoolVal); ok {
+			return bool(truth)
+		}
+		return false
 	}
 }
 
-func (t TruthFnc) Ident() Callable { return t }
-
-func (t TruthFnc) String() string { return "Predicate Function" }
-
-func (t TruthFnc) TypeFnc() TyFnc { return Truth }
-
-func (t TruthFnc) TypeNat() d.TyNative { return d.Bool }
-
+func (t TruthFnc) Ident() Callable                { return t }
+func (t TruthFnc) String() string                 { return "Truth Function" }
+func (t TruthFnc) TypeFnc() TyFnc                 { return Truth }
+func (t TruthFnc) TypeNat() d.TyNative            { return d.Bool }
 func (t TruthFnc) Call(args ...Callable) Callable { return New(t(args...)) }
-
 func (t TruthFnc) Eval(args ...d.Native) d.Native { return t.Eval(args...) }
 
 /// OPTIONAL VALUES
-// based on a paired with extra bells'n whistles
 func NewOptVal(left, right Callable) OptVal {
 	return OptVal(func() PairFnc {
 		return NewPair(left, right)
 	})
 }
 
-func (o OptVal) Ident() Callable { return o }
-
-func (o OptVal) Left() Callable { return o().Left() }
-
-func (o OptVal) Right() Callable { return o().Right() }
-
+func (o OptVal) Ident() Callable     { return o }
+func (o OptVal) Left() Callable      { return o().Left() }
+func (o OptVal) Right() Callable     { return o().Right() }
 func (o OptVal) TypeNat() d.TyNative { return o.Right().TypeNat() }
-
-func (o OptVal) TypeFnc() TyFnc { return o.Right().TypeFnc() | Option }
-
+func (o OptVal) TypeFnc() TyFnc      { return o.Right().TypeFnc() | Option }
 func (o OptVal) String() string {
-	return "optional: " + o.Left().String() + "|" + o.Right().String()
+	return "Optional " + o.Left().String() + " " + o.Right().String()
 }
 
 func (o OptVal) Call(args ...Callable) Callable { return o.Right().Call(args...) }
@@ -136,22 +115,15 @@ func NewEnumVal(key, val Callable) EnumVal {
 		})
 }
 
-func (o EnumVal) Ident() Callable { return o }
-
-func (o EnumVal) Left() Callable { return o().Left() }
-
-func (o EnumVal) Key() Callable { return o.Left() }
-
-func (o EnumVal) Right() Callable { return o().Right() }
-
-func (o EnumVal) Value() Callable { return o.Right() }
-
+func (o EnumVal) Ident() Callable     { return o }
+func (o EnumVal) Left() Callable      { return o().Left() }
+func (o EnumVal) Key() Callable       { return o.Left() }
+func (o EnumVal) Right() Callable     { return o().Right() }
+func (o EnumVal) Value() Callable     { return o.Right() }
 func (o EnumVal) TypeNat() d.TyNative { return o.Right().TypeNat() }
-
-func (o EnumVal) TypeFnc() TyFnc { return o.Right().TypeFnc() | Enum }
-
+func (o EnumVal) TypeFnc() TyFnc      { return o.Right().TypeFnc() | Enum }
 func (o EnumVal) String() string {
-	return o.Left().String() + "∷" + o.Right().String()
+	return o.Left().String() + "·" + o.Right().String()
 }
 
 func (o EnumVal) Call(args ...Callable) Callable { return o.Right().Call(args...) }
@@ -171,22 +143,15 @@ func NewRecordVal(key, val Callable) RecordVal {
 	})
 }
 
-func (o RecordVal) Ident() Callable { return o }
-
-func (o RecordVal) Left() Callable { return o().Left() }
-
-func (o RecordVal) Key() Callable { return o.Left() }
-
-func (o RecordVal) Right() Callable { return o().Right() }
-
-func (o RecordVal) Value() Callable { return o.Right() }
-
+func (o RecordVal) Ident() Callable     { return o }
+func (o RecordVal) Left() Callable      { return o().Left() }
+func (o RecordVal) Key() Callable       { return o.Left() }
+func (o RecordVal) Right() Callable     { return o().Right() }
+func (o RecordVal) Value() Callable     { return o.Right() }
 func (o RecordVal) TypeNat() d.TyNative { return o.Right().TypeNat() }
-
-func (o RecordVal) TypeFnc() TyFnc { return o.Right().TypeFnc() | Record }
-
+func (o RecordVal) TypeFnc() TyFnc      { return o.Right().TypeFnc() | Record }
 func (o RecordVal) String() string {
-	return o.Left().String() + "∷" + o.Right().String()
+	return o.Left().String() + "∷ " + o.Right().String()
 }
 
 func (o RecordVal) Call(args ...Callable) Callable { return o.Right().Call(args...) }
@@ -214,18 +179,12 @@ func NewJustNone(test TruthFnc, expr Callable) JustNone {
 	})
 }
 
-func (j JustNone) Ident() Callable { return j }
-
-func (j JustNone) String() string { return "just-none" }
-
-func (j JustNone) TypeFnc() TyFnc { return Option | Just | None }
-
-func (j JustNone) TypeNat() d.TyNative { return d.Function }
-
+func (j JustNone) Ident() Callable                { return j }
+func (j JustNone) String() string                 { return "Just None" }
+func (j JustNone) TypeFnc() TyFnc                 { return Option | Just | None }
+func (j JustNone) TypeNat() d.TyNative            { return d.Function }
 func (j JustNone) Return(args ...Callable) OptVal { return j(args...) }
-
 func (j JustNone) Call(args ...Callable) Callable { return j(args...) }
-
 func (j JustNone) Eval(vars ...d.Native) d.Native {
 	var args = []Callable{}
 	for _, v := range vars {
@@ -257,18 +216,12 @@ func NewEitherOr(predex TruthFnc, either, or Callable) EitherOr {
 	})
 }
 
-func (e EitherOr) Ident() Callable { return e }
-
-func (e EitherOr) String() string { return "either-or" }
-
-func (e EitherOr) TypeFnc() TyFnc { return Option | Either | Or }
-
-func (e EitherOr) TypeNat() d.TyNative { return d.Function }
-
+func (e EitherOr) Ident() Callable                { return e }
+func (e EitherOr) String() string                 { return "either-or" }
+func (e EitherOr) TypeFnc() TyFnc                 { return Option | Either | Or }
+func (e EitherOr) TypeNat() d.TyNative            { return d.Function }
 func (e EitherOr) Return(args ...Callable) OptVal { return e(args...) }
-
 func (e EitherOr) Call(args ...Callable) Callable { return e(args...) }
-
 func (e EitherOr) Eval(vars ...d.Native) d.Native {
 	var args = []Callable{}
 	for _, v := range vars {
@@ -304,18 +257,12 @@ func NewSwitchCase(predex TruthFnc, value Callable, nextcase ...CaseExpr) CaseEx
 	})
 }
 
-func (s CaseExpr) Ident() Callable { return s }
-
-func (s CaseExpr) String() string { return "switch-case" }
-
-func (s CaseExpr) TypeFnc() TyFnc { return Option | Case | Switch }
-
-func (s CaseExpr) TypeNat() d.TyNative { return d.Function }
-
+func (s CaseExpr) Ident() Callable                { return s }
+func (s CaseExpr) String() string                 { return "switch-case" }
+func (s CaseExpr) TypeFnc() TyFnc                 { return Option | Case | Switch }
+func (s CaseExpr) TypeNat() d.TyNative            { return d.Function }
 func (s CaseExpr) Return(args ...Callable) OptVal { return s(args...) }
-
 func (s CaseExpr) Call(args ...Callable) Callable { return s(args...) }
-
 func (s CaseExpr) Eval(vars ...d.Native) d.Native {
 	var args = []Callable{}
 	for _, v := range vars {
@@ -323,26 +270,3 @@ func (s CaseExpr) Eval(vars ...d.Native) d.Native {
 	}
 	return s.Call(args...)
 }
-
-// NONE
-func NewNoOp() NoOp { return NoOp(func() {}) }
-
-func (n NoOp) Maybe() bool { return false }
-
-func (n NoOp) Empty() bool { return true }
-
-func (n NoOp) String() string { return "⊥" }
-
-func (n NoOp) Len() int { return -1 }
-
-func (n NoOp) Value() Callable { return n }
-
-func (n NoOp) Ident() Callable { return n }
-
-func (n NoOp) Call(...Callable) Callable { return n }
-
-func (n NoOp) Eval(...d.Native) d.Native { return d.NilVal{} }
-
-func (n NoOp) TypeNat() d.TyNative { return d.Nil }
-
-func (n NoOp) TypeFnc() TyFnc { return None }

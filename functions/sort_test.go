@@ -112,7 +112,7 @@ func TestDataSorterMixedType(t *testing.T) {
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
 }
 func TestPairSorterStrStr(t *testing.T) {
-	var strPairs = []Applicable{
+	var strPairs = []PairFnc{
 		NewPair(New("Aaron"), New("val 0")),
 		NewPair(New("Aardvark"), New("val 1")),
 		NewPair(New("Adam"), New("val 2")),
@@ -136,7 +136,7 @@ func TestPairSorterStrStr(t *testing.T) {
 	fmt.Printf("sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
 }
 func TestPairSorterIntStr(t *testing.T) {
-	var pairs = []Applicable{
+	var pairs = []PairFnc{
 		NewPair(New(10), New("valeu ten")),
 		NewPair(New(13), New("valeu thirteen")),
 		NewPair(New(7), New("valeu seven")),
@@ -154,7 +154,7 @@ func TestPairSorterIntStr(t *testing.T) {
 	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
 }
 func TestPairSorterUintStr(t *testing.T) {
-	var pairs = []Applicable{
+	var pairs = []PairFnc{
 		NewPair(New(uint(10)), New("valeu ten")),
 		NewPair(New(uint(13)), New("valeu thirteen")),
 		NewPair(New(uint(7)), New("valeu seven")),
@@ -172,7 +172,7 @@ func TestPairSorterUintStr(t *testing.T) {
 	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
 }
 func TestPairSorterIrrationalStr(t *testing.T) {
-	var pairs = []Applicable{
+	var pairs = []PairFnc{
 		NewPair(New(float64(10.21)), New("valeu ten")),
 		NewPair(New(float64(13.23)), New("valeu thirteen")),
 		NewPair(New(float64(7.72323)), New("valeu seven")),

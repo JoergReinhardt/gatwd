@@ -68,7 +68,7 @@ func TestListCon(t *testing.T) {
 
 func TestListMapF(t *testing.T) {
 	var list = NewList(parms...)
-	var mapped = MapF(NewFunctor(list), UnaryFnc(func(arg Callable) Callable {
+	var mapped = MapF(list, UnaryFnc(func(arg Callable) Callable {
 		return New(arg.Eval().(d.IntVal).Int() + 42)
 	}))
 	var head Callable

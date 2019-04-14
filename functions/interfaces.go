@@ -75,7 +75,7 @@ type Callable interface {
 
 type Functorial interface {
 	Consumeable
-	MapF(UnaryFnc) FunctorFnc
+	MapF(UnaryFnc) FunctFnc
 	Fold(BinaryFnc, Callable) Callable
 }
 
@@ -85,11 +85,11 @@ type Applicable interface {
 	Left() Callable
 	Right() Callable
 	Both() (Callable, Callable)
-	Apply(...Callable) (Callable, ApplicapleFnc)
+	Apply(...Callable) (Callable, PairFnc)
 }
 type Monadic interface {
 	Functorial
-	Map(Monadic) MonadicFnc
+	Map(Monadic) MonaFnc
 }
 
 //// COLLECTION CLASSES
@@ -159,9 +159,9 @@ type Associative interface {
 	ValFncType() TyFnc
 	KeyNatType() d.TyNative
 	ValNatType() d.TyNative
-	GetVal(Callable) Applicable
+	GetVal(Callable) PairFnc
 	SetVal(Callable, Callable) Associative
-	Pairs() []Applicable
+	Pairs() []PairFnc
 }
 
 //// CONSUMEABLE COLLECTION ///////

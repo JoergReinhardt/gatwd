@@ -139,10 +139,13 @@ func newDataLess(argType d.TyNative, ds dataSorter) func(i, j int) bool {
 }
 
 func newDataFind(ds dataSorter, pred Callable) func(int) bool {
-	var f = pred.Eval().TypeNat().Flag()
-	var fn func(int) bool
-	switch {
 
+	// preallocate function
+	var fn func(int) bool
+	// predicate native type flag
+	var f = pred.Eval().TypeNat().Flag()
+
+	switch {
 	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
 			fmt.Printf("%s %s", ds[i], pred.String())
@@ -182,9 +185,9 @@ func newDataFind(ds dataSorter, pred Callable) func(int) bool {
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the
 // accessor (key) in an accessor/value pair.
-type pairSorter []Applicable
+type pairSorter []PairFnc
 
-func newPairSorter(p ...Applicable) pairSorter {
+func newPairSorter(p ...PairFnc) pairSorter {
 	return append(pairSorter{}, p...)
 }
 
@@ -251,7 +254,7 @@ func (p pairSorter) SearchByValue(pred Callable) int {
 	).Search(pred)
 }
 
-func (p pairSorter) Get(pred Callable) Applicable {
+func (p pairSorter) Get(pred Callable) PairFnc {
 	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
@@ -259,14 +262,14 @@ func (p pairSorter) Get(pred Callable) Applicable {
 	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
 }
 
-func (p pairSorter) GetByValue(pred Callable) Applicable {
+func (p pairSorter) GetByValue(pred Callable) PairFnc {
 	return pairSorter(
 		NewRecord(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
-func (p pairSorter) Range(pred Callable) []Applicable {
-	var ran = []Applicable{}
+func (p pairSorter) Range(pred Callable) []PairFnc {
+	var ran = []PairFnc{}
 	idx := p.Search(pred)
 	if idx != -1 {
 		for pair := p[idx]; pair != nil; {
@@ -276,7 +279,7 @@ func (p pairSorter) Range(pred Callable) []Applicable {
 	return ran
 }
 
-func (p pairSorter) RangeByValue(pred Callable) []Applicable {
+func (p pairSorter) RangeByValue(pred Callable) []PairFnc {
 	return pairSorter(
 		NewRecord(p...).SwitchedPairs(),
 	).Range(pred)
@@ -289,8 +292,8 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 		return func(i, j int) bool {
 			chain := accs
 			if strings.Compare(
-				chain[i].(Applicable).Left().Eval().String(),
-				chain[j].(Applicable).Left().Eval().String(),
+				chain[i].Left().Eval().String(),
+				chain[j].Left().Eval().String(),
 			) <= 0 {
 				return true
 			}
@@ -300,8 +303,8 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	case f.Match(d.Flag.TypeNat()):
 		return func(i, j int) bool { // sort by value-, NOT accessor type
 			chain := accs
-			if chain[i].(Applicable).Right().Eval().TypeNat() <=
-				chain[j].(Applicable).Right().Eval().TypeNat() {
+			if chain[i].Right().Eval().TypeNat() <=
+				chain[j].Right().Eval().TypeNat() {
 				return true
 			}
 			return false
@@ -310,8 +313,8 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].(Applicable).Left().Eval().(Natural).Uint() <=
-				chain[j].(Applicable).Left().Eval().(Natural).Uint() {
+			if chain[i].Left().Eval().(Natural).Uint() <=
+				chain[j].Left().Eval().(Natural).Uint() {
 				return true
 			}
 			return false
@@ -320,8 +323,8 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].(Applicable).Left().Eval().(Integer).Int() <=
-				chain[j].(Applicable).Left().Eval().(Integer).Int() {
+			if chain[i].Left().Eval().(Integer).Int() <=
+				chain[j].Left().Eval().(Integer).Int() {
 				return true
 			}
 			return false
@@ -330,8 +333,8 @@ func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
 	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].(Applicable).Left().Eval().(Real).Float() <=
-				chain[j].(Applicable).Left().Eval().(Real).Float() {
+			if chain[i].Left().Eval().(Real).Float() <=
+				chain[j].Left().Eval().(Real).Float() {
 				return true
 			}
 			return false
@@ -347,32 +350,32 @@ func newpredFind(accs pairSorter, pred Callable) func(i int) bool {
 
 	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return uint(accs[i].(Applicable).Left().Eval().(Natural).Uint()) >=
+			return uint(accs[i].Left().Eval().(Natural).Uint()) >=
 				uint(pred.Eval().(Natural).Uint())
 		}
 
 	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
-			return int(accs[i].(Applicable).Left().Eval().(Integer).Int()) >=
+			return int(accs[i].Left().Eval().(Integer).Int()) >=
 				int(pred.Eval().(Integer).Int())
 		}
 
 	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return int(accs[i].(Applicable).Left().Eval().(Real).Float()) >=
+			return int(accs[i].Left().Eval().(Real).Float()) >=
 				int(pred.Eval().(Real).Float())
 		}
 
 	case f.Match(d.Letters.TypeNat()):
 		fn = func(i int) bool {
 			return strings.Compare(
-				accs[i].(Applicable).Left().Eval().String(),
+				accs[i].Left().Eval().String(),
 				pred.Eval().String()) >= 0
 		}
 
 	case f.Match(d.Flag.TypeNat()):
 		fn = func(i int) bool {
-			return accs[i].(Applicable).Right().Eval().(d.BitFlag) >=
+			return accs[i].Right().Eval().(d.BitFlag) >=
 				pred.Eval().(d.BitFlag)
 		}
 	}

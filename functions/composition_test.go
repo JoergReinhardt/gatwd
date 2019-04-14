@@ -67,7 +67,8 @@ func TestMap(t *testing.T) {
 			return New(arg.Eval().(d.IntVal) * 10)
 		}))
 
-	var head, tail = result()
+	var head = result()[0]
+	var tail = result()[1:]
 
 	if head.Eval().(d.IntVal) != d.IntVal(0) {
 		t.Fail()
@@ -78,14 +79,14 @@ func TestMap(t *testing.T) {
 
 	for head != nil {
 		fmt.Println(head)
-		head, tail = tail()
+		head, tail = tail[0], tail[1:]
 	}
 
 }
 
 func TestMapF(t *testing.T) {
 	var result = MapF(
-		NewFunctor(resource),
+		NewList(resource),
 		UnaryFnc(func(arg Callable) Callable {
 			return New(arg.Eval().(d.IntVal) * 10)
 		}))
@@ -108,32 +109,32 @@ func TestMapF(t *testing.T) {
 func TestFilter(t *testing.T) {
 	var result = Filter(
 		NewFunctor(resource),
-		TruthFnc(func(args ...Callable) d.BoolVal {
+		TruthFnc(func(args ...Callable) bool {
 			var remain = args[0].Eval().(d.IntVal).Int() % 2
 			if remain != 0 {
-				return d.BoolVal(true)
+				return true
 			}
-			return d.BoolVal(false)
+			return false
 		}),
 	)
 
-	var head, tail = result()
+	var head, tail = result()[0], result()[1:]
 
 	for head != nil {
 		fmt.Println(head)
-		head, tail = tail()
+		head, tail = tail[0], tail[1:]
 	}
 }
 
 func TestFilterF(t *testing.T) {
 	var result = FilterF(
-		NewFunctor(resource),
-		TruthFnc(func(args ...Callable) d.BoolVal {
+		NewList(resource),
+		TruthFnc(func(args ...Callable) bool {
 			var remain = args[0].Eval().(d.IntVal).Int() % 2
 			if remain != 0 {
-				return d.BoolVal(true)
+				return true
 			}
-			return d.BoolVal(false)
+			return false
 		}),
 	)
 
