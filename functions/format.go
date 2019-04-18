@@ -11,7 +11,7 @@ import (
 
 /// VALUE
 
-func (p PairFnc) String() string {
+func (p PairVal) String() string {
 	var buf = bytes.NewBuffer([]byte{})
 	buf.WriteString(p.Left().String())
 	buf.WriteString(":")
@@ -27,7 +27,7 @@ func (b BinaryFnc) String() string { return "т → т → ϝ → т" }
 func (n NaryFnc) String() string   { return "[т‥.] → ϝ → т" }
 
 /// VECTOR
-func (v VecFnc) String() string {
+func (v VecVal) String() string {
 	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)
@@ -36,7 +36,7 @@ func (v VecFnc) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v RecordFnc) String() string {
+func (v AccociativeVal) String() string {
 	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)
@@ -45,7 +45,7 @@ func (v RecordFnc) String() string {
 }
 
 /// ASSOCIATIVE SET
-func (v SetFnc) String() string {
+func (v SetVal) String() string {
 	var strb = &strings.Builder{}
 	var tab = tablewriter.NewWriter(strb)
 
@@ -58,7 +58,7 @@ func (v SetFnc) String() string {
 }
 
 /// LIST
-func (l ListFnc) String() string {
+func (l ListVal) String() string {
 	var h, t = l()
 	if t != nil {
 	}

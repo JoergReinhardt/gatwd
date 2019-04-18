@@ -10,6 +10,7 @@ func NewSlice(val ...Native) DataSlice {
 	l = append(l, val...)
 	return l
 }
+
 func SliceContainedTypes(c []Native) BitFlag {
 	var flag = BitFlag(0)
 	for _, d := range c {
@@ -21,8 +22,11 @@ func SliceContainedTypes(c []Native) BitFlag {
 	}
 	return flag
 }
-func (c DataSlice) TypeNat() TyNative       { return Vector.TypeNat() }
+
+func (c DataSlice) TypeNat() TyNative { return Vector.TypeNat() }
+
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
+
 func (c DataSlice) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		if len(c) > 0 {
@@ -32,8 +36,11 @@ func (c DataSlice) Eval(p ...Native) Native {
 	}
 	return c
 }
+
 func (c DataSlice) Append(n ...Native) { SliceAppend(c, n...) }
-func (c DataSlice) Null() DataSlice    { return []Native{} }
+
+func (c DataSlice) Null() DataSlice { return []Native{} }
+
 func (c DataSlice) Copy() Native {
 	var ns = DataSlice{}
 	for _, dat := range c {
@@ -43,23 +50,32 @@ func (c DataSlice) Copy() Native {
 }
 
 // SLICE ->
-func (v DataSlice) Slice() []Native        { return v }
-func (v DataSlice) GetInt(i int) Native    { return v[i] }
-func (v DataSlice) Get(i Native) Native    { return v[i.(IntVal).Int()] }
+func (v DataSlice) Slice() []Native { return v }
+
+func (v DataSlice) GetInt(i int) Native { return v[i] }
+
+func (v DataSlice) Get(i Native) Native { return v[i.(IntVal).Int()] }
+
 func (v DataSlice) SetInt(i int, d Native) { v[i] = d }
+
 func (v DataSlice) Set(i Native, d Native) { v[i.(IntVal)] = d }
-func (v DataSlice) Len() int               { return len([]Native(v)) }
+
+func (v DataSlice) Len() int { return len([]Native(v)) }
 
 // COLLECTION
-func (s DataSlice) Empty() bool      { return SliceEmpty(s) }
+func (s DataSlice) Empty() bool { return SliceEmpty(s) }
+
 func (s DataSlice) Head() (h Native) { return s[0] }
+
 func (s DataSlice) Bottom() (h Native) {
 	if len(s) > 0 {
 		return s[len(s)-1]
 	}
 	return NilVal{}
 }
-func (s DataSlice) Tail() (c Sequential)  { return s[:1] }
+
+func (s DataSlice) Tail() (c Sequential) { return s[:1] }
+
 func (s DataSlice) Shift() (c Sequential) { return s[:1] }
 
 func SliceClear(s DataSlice) {
@@ -72,6 +88,7 @@ func SliceClear(s DataSlice) {
 	}
 	s = nil
 }
+
 func ElemEmpty(d Native) bool {
 	// not flagged nil, not a composition either...
 	if !FlagMatch(d.TypeNat().Flag(), (Nil.TypeNat().Flag() | Vector.TypeNat().Flag())) {
@@ -95,6 +112,7 @@ func ElemEmpty(d Native) bool {
 	// no idea, what this is, so better call it empty
 	return true
 }
+
 func SliceEmpty(s DataSlice) bool {
 	if len(s) == 0 { // empty, as in no element...
 		return true
@@ -119,6 +137,7 @@ func SliceToNatives(c DataSlice) Sliceable {
 	}
 	return c
 }
+
 func (c DataSlice) NativeSlice() []interface{} {
 	var s = make([]interface{}, 0, c.Len())
 	for _, d := range c.Slice() {
@@ -136,6 +155,7 @@ func SliceFoldL(
 	}
 	return accu
 }
+
 func SliceMap(c DataSlice, fn func(i int, d Native) Native) DataSlice {
 	var ch = make([]Native, 0, c.Len())
 	for i, d := range c.Slice() {
@@ -143,6 +163,7 @@ func SliceMap(c DataSlice, fn func(i int, d Native) Native) DataSlice {
 	}
 	return ch
 }
+
 func SliceFilter(c DataSlice, fn func(i int, d Native) bool) DataSlice {
 	var ch = []Native{}
 	for i, d := range c.Slice() {
@@ -152,6 +173,7 @@ func SliceFilter(c DataSlice, fn func(i int, d Native) bool) DataSlice {
 	}
 	return ch
 }
+
 func SliceAny(c DataSlice, fn func(i int, d Native) bool) bool {
 	var answ = false
 	for i, d := range c.Slice() {
@@ -161,6 +183,7 @@ func SliceAny(c DataSlice, fn func(i int, d Native) bool) bool {
 	}
 	return answ
 }
+
 func SliceAll(c DataSlice, fn func(i int, d Native) bool) bool {
 	var answ = true
 	for i, d := range c.Slice() {
@@ -170,6 +193,7 @@ func SliceAll(c DataSlice, fn func(i int, d Native) bool) bool {
 	}
 	return answ
 }
+
 func SliceReverse(c DataSlice) DataSlice {
 	var ch = make([]Native, 0, c.Len())
 	for i := c.Len() - 1; i > 0; i-- {
@@ -234,9 +258,11 @@ func SliceLast(s DataSlice) Native {
 func SlicePut(s DataSlice, v Native) DataSlice {
 	return append(s, v)
 }
+
 func SliceAppend(s DataSlice, v ...Native) DataSlice {
 	return append(s, v...)
 }
+
 func SlicePull(s DataSlice) (Native, DataSlice) {
 	if len(s) > 0 {
 		return s[0], s[1:]
@@ -248,10 +274,12 @@ func SlicePull(s DataSlice) (Native, DataSlice) {
 func SliceAdd(s DataSlice, v ...Native) DataSlice {
 	return append(v, s...)
 }
+
 func SlicePush(s DataSlice, v Native) DataSlice {
 	//return append([]Data{v}, s...)
 	return SlicePut(s, v)
 }
+
 func SlicePop(s DataSlice) (Native, DataSlice) {
 	if SliceLen(s) > 0 {
 		//	return s[0], s[1:]
@@ -261,9 +289,12 @@ func SlicePop(s DataSlice) (Native, DataSlice) {
 }
 
 // TUPLE
-func SliceHead(s DataSlice) (h Native)         { return s[0] }
-func SliceTail(s DataSlice) (c []Native)       { return s[:1] }
+func SliceHead(s DataSlice) (h Native) { return s[0] }
+
+func SliceTail(s DataSlice) (c []Native) { return s[:1] }
+
 func SliceCon(s DataSlice, v Native) DataSlice { return SlicePush(s, v) }
+
 func SliceDeCap(s DataSlice) (h Native, t DataSlice) {
 	if !SliceEmpty(s) {
 		return SlicePop(s)
@@ -273,11 +304,14 @@ func SliceDeCap(s DataSlice) (h Native, t DataSlice) {
 
 // SLICE
 func SliceSlice(s DataSlice) []Native { return []Native(s) }
-func SliceLen(s DataSlice) int        { return len(s) }
+
+func SliceLen(s DataSlice) int { return len(s) }
+
 func SliceSplit(s DataSlice, i int) (DataSlice, DataSlice) {
 	h, t := s[:i], s[i:]
 	return h, t
 }
+
 func SliceCut(s DataSlice, i, j int) DataSlice {
 	copy(s[i:], s[j:])
 	// to prevent a possib. mem leak
@@ -286,27 +320,33 @@ func SliceCut(s DataSlice, i, j int) DataSlice {
 	}
 	return s[:len(s)-j+i]
 }
+
 func SliceDelete(s DataSlice, i int) DataSlice {
 	copy(s[i:], s[i+1:])
 	s[len(s)-1] = nil
 	return s[:len(s)-1]
 }
+
 func SliceInsert(s DataSlice, i int, v Native) DataSlice {
 	s = append(s, NilVal{})
 	copy(s[i+1:], s[i:])
 	s[i] = v
 	return s
 }
+
 func SliceInsertVector(s DataSlice, i int, v ...Native) DataSlice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
+
 func SliceAttrType(s DataSlice) BitFlag { return Int.TypeNat().Flag() }
 
 func (c DataSlice) Swap(i, j int) { c = SliceSwap(c, i, j) }
+
 func SliceSwap(c DataSlice, i, j int) DataSlice {
 	c[i], c[j] = c[j], c[i]
 	return c
 }
+
 func newSliceLess(c DataSlice, compT TyNative) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
@@ -349,10 +389,12 @@ func newSliceLess(c DataSlice, compT TyNative) func(i, j int) bool {
 	}
 	return fn
 }
+
 func SliceSort(c DataSlice, compT TyNative) DataSlice {
 	sort.Slice(c, newSliceLess(c, compT))
 	return c
 }
+
 func (c DataSlice) Sort(compT TyNative) {
 	c = SliceSort(c, compT)
 }
@@ -384,11 +426,13 @@ func newSliceSearchFnc(c DataSlice, comp Native) func(i int) bool {
 	}
 	return fn
 }
+
 func SliceSearch(c DataSlice, comp Native) Native {
 	idx := sort.Search(c.Len(), newSliceSearchFnc(c, comp))
 	var dat = SliceGet(c, idx)
 	return dat
 }
+
 func SliceSearchRange(c DataSlice, comp Native) []Native {
 	var idx = sort.Search(c.Len(), newSliceSearchFnc(c, comp))
 	var dat = []Native{}
@@ -397,4 +441,5 @@ func SliceSearchRange(c DataSlice, comp Native) []Native {
 	}
 	return dat
 }
+
 func (c DataSlice) Search(comp Native) Native { return SliceSearch(c, comp) }

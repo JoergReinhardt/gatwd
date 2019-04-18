@@ -15,6 +15,7 @@ type Native interface {
 	String() string
 	Evaluable
 }
+
 type BinaryMarshaler interface {
 	MarshalBinary() ([]byte, error)
 }
@@ -83,8 +84,6 @@ type Letter interface {
 }
 type Text interface {
 	String() string
-	Runes() []rune
-	Bytes() []byte
 }
 type Serializeable interface {
 	MarshalBinary() ([]byte, error)

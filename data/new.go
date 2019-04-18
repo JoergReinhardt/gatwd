@@ -12,14 +12,19 @@ func NewFromPrimary(vals ...Native) Native {
 	}
 	return New(ifs...)
 }
+
 func NewUnboxedVector(f BitFlag, vals ...Native) Native { return conVec(f, vals...) }
-func New(vals ...interface{}) Native                    { dat, _ := NewWithTypeInfo(vals...); return dat }
+
+func New(vals ...interface{}) Native { dat, _ := NewWithTypeInfo(vals...); return dat }
+
 func NewWithTypeInfo(vals ...interface{}) (rval Native, flag BitFlag) {
 
 	if len(vals) == 0 {
 		return nil, Nil.TypeNat().Flag()
 	}
+
 	var val = vals[0]
+
 	if len(vals) > 1 {
 		var dat = DataSlice(make([]Native, 0, len(vals)))
 		for _, val := range vals {
@@ -33,6 +38,7 @@ func NewWithTypeInfo(vals ...interface{}) (rval Native, flag BitFlag) {
 		}
 		return dat, flag
 	}
+
 	switch val.(type) {
 	case bool:
 		rval = BoolVal(val.(bool))
@@ -86,8 +92,11 @@ func NewWithTypeInfo(vals ...interface{}) (rval Native, flag BitFlag) {
 	}
 	return rval, flag
 }
+
 func conVec(f BitFlag, d ...Native) (val Native) {
+
 	var slice DataSlice = []Native{}
+
 	switch {
 	case FlagMatch(f, Nil.TypeNat().Flag()):
 		for _, v := range d {
@@ -187,4 +196,87 @@ func conVec(f BitFlag, d ...Native) (val Native) {
 		}
 	}
 	return slice
+}
+
+func conNullFromFlag(f BitFlag) (val Native) {
+
+	var value Native
+
+	switch {
+
+	case FlagMatch(f, Nil.TypeNat().Flag()):
+		value = NilVal{}.Null()
+
+	case FlagMatch(f, Bool.TypeNat().Flag()):
+		value = BoolVal(false).Null()
+
+	case FlagMatch(f, Int.TypeNat().Flag()):
+		value = IntVal(0).Null()
+
+	case FlagMatch(f, Int8.TypeNat().Flag()):
+		value = Int8Val(0).Null()
+
+	case FlagMatch(f, Int16.TypeNat().Flag()):
+		value = Int16Val(0).Null()
+
+	case FlagMatch(f, Int32.TypeNat().Flag()):
+		value = Int32Val(0).Null()
+
+	case FlagMatch(f, Uint.TypeNat().Flag()):
+		value = UintVal(0).Null()
+
+	case FlagMatch(f, Uint8.TypeNat().Flag()):
+		value = Uint8Val(0).Null()
+
+	case FlagMatch(f, Uint16.TypeNat().Flag()):
+		value = Uint16Val(0).Null()
+
+	case FlagMatch(f, Uint32.TypeNat().Flag()):
+		value = Uint32Val(0).Null()
+
+	case FlagMatch(f, Float.TypeNat().Flag()):
+		value = FltVal(0).Null()
+
+	case FlagMatch(f, Flt32.TypeNat().Flag()):
+		value = Flt32Val(0).Null()
+
+	case FlagMatch(f, Imag.TypeNat().Flag()):
+		value = ImagVal(0).Null()
+
+	case FlagMatch(f, Imag64.TypeNat().Flag()):
+		value = Imag64Val(0).Null()
+
+	case FlagMatch(f, Byte.TypeNat().Flag()):
+		value = ByteVal(0).Null()
+
+	case FlagMatch(f, Rune.TypeNat().Flag()):
+		value = RuneVal(0).Null()
+
+	case FlagMatch(f, Bytes.TypeNat().Flag()):
+		value = BytesVal{}.Null()
+
+	case FlagMatch(f, String.TypeNat().Flag()):
+		value = StrVal(0).Null()
+
+	case FlagMatch(f, BigInt.TypeNat().Flag()):
+		value = BigIntVal{}.Null()
+
+	case FlagMatch(f, BigFlt.TypeNat().Flag()):
+		value = BigFltVal{}.Null()
+
+	case FlagMatch(f, Ratio.TypeNat().Flag()):
+		value = RatioVal{}.Null()
+
+	case FlagMatch(f, Time.TypeNat().Flag()):
+		value = TimeVal{}.Null()
+
+	case FlagMatch(f, Duration.TypeNat().Flag()):
+		value = DuraVal(0).Null()
+
+	case FlagMatch(f, Error.TypeNat().Flag()):
+		value = ErrorVal{nil}.Null()
+
+	}
+
+	return value
 }

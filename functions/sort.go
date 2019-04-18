@@ -185,14 +185,14 @@ func newDataFind(ds dataSorter, pred Callable) func(int) bool {
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the
 // accessor (key) in an accessor/value pair.
-type pairSorter []PairFnc
+type pairSorter []PairVal
 
-func newPairSorter(p ...PairFnc) pairSorter {
+func newPairSorter(p ...PairVal) pairSorter {
 	return append(pairSorter{}, p...)
 }
 
 func (a pairSorter) ValueSorter() pairSorter {
-	return NewRecord(a...).SwitchedPairs()
+	return NewAssociative(a...).SwitchedPairs()
 }
 
 func (a pairSorter) AppendKeyValue(key Callable, val Callable) {
@@ -219,14 +219,14 @@ func (p pairSorter) Sort(f d.TyNative) {
 
 func (p pairSorter) SortByValue(f d.TyNative) {
 	var ps = pairSorter(
-		NewRecord(
+		NewAssociative(
 			p...,
 		).SwitchedPairs(),
 	)
 
 	ps.Sort(f)
 
-	p = NewRecord(ps...).SwitchedPairs()
+	p = NewAssociative(ps...).SwitchedPairs()
 }
 
 func (p pairSorter) Search(pred Callable) int {
@@ -250,11 +250,11 @@ func (p pairSorter) Search(pred Callable) int {
 
 func (p pairSorter) SearchByValue(pred Callable) int {
 	return pairSorter(
-		NewRecord(p...).SwitchedPairs(),
+		NewAssociative(p...).SwitchedPairs(),
 	).Search(pred)
 }
 
-func (p pairSorter) Get(pred Callable) PairFnc {
+func (p pairSorter) Get(pred Callable) PairVal {
 	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
@@ -262,14 +262,14 @@ func (p pairSorter) Get(pred Callable) PairFnc {
 	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
 }
 
-func (p pairSorter) GetByValue(pred Callable) PairFnc {
+func (p pairSorter) GetByValue(pred Callable) PairVal {
 	return pairSorter(
-		NewRecord(p...).SwitchedPairs(),
+		NewAssociative(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
-func (p pairSorter) Range(pred Callable) []PairFnc {
-	var ran = []PairFnc{}
+func (p pairSorter) Range(pred Callable) []PairVal {
+	var ran = []PairVal{}
 	idx := p.Search(pred)
 	if idx != -1 {
 		for pair := p[idx]; pair != nil; {
@@ -279,9 +279,9 @@ func (p pairSorter) Range(pred Callable) []PairFnc {
 	return ran
 }
 
-func (p pairSorter) RangeByValue(pred Callable) []PairFnc {
+func (p pairSorter) RangeByValue(pred Callable) []PairVal {
 	return pairSorter(
-		NewRecord(p...).SwitchedPairs(),
+		NewAssociative(p...).SwitchedPairs(),
 	).Range(pred)
 }
 

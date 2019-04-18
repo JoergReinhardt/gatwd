@@ -50,35 +50,35 @@ type (
 	///
 	// NATIVES
 	TSNative struct {
-		sync.Mutex
+		*sync.Mutex
 		Native
 	}
 
 	// SLICE
 	TSSlice struct {
-		sync.Mutex
+		*sync.Mutex
 		DataSlice
 	}
 
 	// BUFFER
 	TSBuffer struct {
-		sync.Mutex
+		*sync.Mutex
 		*BufferVal
 	}
 
 	// READERS/WRITERS
 	TSRead struct {
-		sync.RWMutex
+		*sync.Mutex
 		ReadVal
 	}
 
 	TSWrite struct {
-		sync.RWMutex
+		*sync.RWMutex
 		WriteVal
 	}
 
 	TSReadWrite struct {
-		sync.RWMutex
+		*sync.RWMutex
 		ReadWriteVal
 	}
 )
@@ -113,13 +113,16 @@ func (c Chan) Eval(args ...Native) Native {
 	}
 	return BoolVal(true)
 }
+
 func (c ChanRcv) Eval(...Native) Native { return <-c }
+
 func (c ChanTrx) Eval(args ...Native) Native {
 	for _, arg := range args {
 		c <- arg
 	}
 	return BoolVal(true)
 }
+
 func (c ChanCtrl) Eval(args ...Native) Native {
 	if len(args) == 0 {
 		<-c
@@ -130,17 +133,21 @@ func (c ChanCtrl) Eval(args ...Native) Native {
 	}
 	return BoolVal(true)
 }
+
 func (c ChanRcvCtrl) Eval(...Native) Native {
 	<-c
 	return BoolVal(true)
 }
+
 func (c ChanTrxCtrl) Eval(args ...Native) Native {
 	for _, _ = range args {
 		c <- struct{}{}
 	}
 	return BoolVal(true)
 }
+
 func (c ChanRcvTime) Eval(...Native) Native { return TimeVal(<-c) }
+
 func (c ChanTrxTime) Eval(args ...Native) Native {
 	for _, arg := range args {
 		if t, ok := arg.(TimeVal); ok {
@@ -178,6 +185,7 @@ func (c ChanTrxTime) String() string { return "Channel" }
 func (v ReadVal) Close() error               { return io.Closer(v).Close() }
 func (v ReadVal) TypeNat() TyNative          { return Reader.TypeNat() }
 func (v ReadVal) Read(p []byte) (int, error) { return io.Reader(v).Read(p) }
+
 func (v ReadVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -201,6 +209,7 @@ func (v ReadVal) Eval(n ...Native) Native {
 func (v WriteVal) Close() error                { return io.Closer(v).Close() }
 func (v WriteVal) TypeNat() TyNative           { return Writer.TypeNat() }
 func (v WriteVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
+
 func (v WriteVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -224,6 +233,7 @@ func (v ReadWriteVal) Close() error                { return io.Closer(v).Close()
 func (v ReadWriteVal) TypeNat() TyNative           { return Reader.TypeNat() | Writer.TypeNat() }
 func (v ReadWriteVal) Read(p []byte) (int, error)  { return io.Reader(v).Read(p) }
 func (v ReadWriteVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
+
 func (v ReadWriteVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -248,9 +258,11 @@ func NewPipe() (*PipeReadVal, *PipeWriteVal) {
 	var pr, pw = io.Pipe()
 	return (*PipeReadVal)(pr), (*PipeWriteVal)(pw)
 }
+
 func (v PipeReadVal) Close() error                { return io.Closer(v).Close() }
 func (v PipeReadVal) TypeNat() TyNative           { return Reader.TypeNat() | Pipe.TypeNat() }
 func (v *PipeReadVal) Read(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
+
 func (v *PipeReadVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -270,9 +282,11 @@ func (v *PipeReadVal) Eval(n ...Native) Native {
 	}
 	return v
 }
+
 func (v PipeWriteVal) Close() error                 { return io.Closer(v).Close() }
 func (v PipeWriteVal) TypeNat() TyNative            { return Writer.TypeNat() | Pipe.TypeNat() }
 func (v *PipeWriteVal) Write(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
+
 func (v *PipeWriteVal) Eval(n ...Native) Native {
 	if len(n) > 0 {
 		for _, val := range n {
@@ -296,38 +310,49 @@ func (v *PipeWriteVal) Eval(n ...Native) Native {
 func NewBuffer(...byte) *BufferVal {
 	return (*BufferVal)(bytes.NewBuffer([]byte{}))
 }
+
 func (v *BufferVal) Write(p []byte) (int, error) {
 	return ((*bytes.Buffer)(v)).Write(p)
 }
+
 func (v *BufferVal) WriteBytes(b []byte) (int, error) {
 	return ((*bytes.Buffer)(v)).Write(b)
 }
+
 func (v *BufferVal) WriteByte(b byte) error {
 	return ((*bytes.Buffer)(v)).WriteByte(b)
 }
+
 func (v *BufferVal) WriteString(s string) (int, error) {
 	return ((*bytes.Buffer)(v)).WriteString(s)
 }
+
 func (v *BufferVal) WriteRune(r rune) (int, error) {
 	return ((*bytes.Buffer)(v)).WriteRune(r)
 }
+
 func (v *BufferVal) WriteTo(w io.Writer) (int64, error) {
 	return ((*bytes.Buffer)(v)).WriteTo(w)
 }
+
 func (v *BufferVal) Read(p []byte) (int, error) {
 	return ((*bytes.Buffer)(v)).Read(p)
 }
+
 func (v *BufferVal) ReadFrom(r io.Reader) (int64, error) {
 	return ((*bytes.Buffer)(v)).ReadFrom(r)
 }
+
 func (v *BufferVal) ReadByte() (byte, error) {
 	var b, err = ((*bytes.Buffer)(v)).ReadByte()
 	return b, err
 }
+
 func (v *BufferVal) ReadBytes(delim byte) ([]byte, error) {
 	var bs, err = ((*bytes.Buffer)(v)).ReadBytes(delim)
 	return bs, err
 }
+
 func (v *BufferVal) ReadString(delim byte) (string, error) {
 	var bs, err = ((*bytes.Buffer)(v)).ReadString(delim)
 	return bs, err
@@ -362,7 +387,7 @@ func (v *BufferVal) Eval(n ...Native) Native {
 }
 
 // THREADSAFE NATIVE VALUE
-func NewTSNative(n Native) TSNative { return TSNative{sync.Mutex{}, n} }
+func NewTSNative(n Native) TSNative { return TSNative{&sync.Mutex{}, n} }
 func (v TSNative) Lock()            { v.Mutex.Lock() }
 func (v TSNative) Unlock()          { v.Mutex.Unlock() }
 func (v TSNative) TypeNat() TyNative {
@@ -392,7 +417,7 @@ func (v TSNative) Eval(n ...Native) Native {
 // THREADSAFE SLICE OF NATIVE VALUES
 func NewTSSlice() *TSSlice {
 	return &TSSlice{
-		sync.Mutex{},
+		&sync.Mutex{},
 		DataSlice{},
 	}
 }
@@ -414,7 +439,7 @@ func (v TSSlice) Eval(n ...Native) Native {
 // THREADSAFE BUFFER
 func NewTSBuffer() *TSBuffer {
 	return &TSBuffer{
-		sync.Mutex{},
+		&sync.Mutex{},
 		NewBuffer(),
 	}
 }
@@ -425,18 +450,18 @@ func (v TSBuffer) Lock()   { v.Mutex.Lock() }
 func (v TSBuffer) Unlock() { v.Mutex.Unlock() }
 
 // THREADSAFE READER
-func (v TSRead) Lock()             { v.RWMutex.Lock() }
-func (v TSRead) Unlock()           { v.RWMutex.Unlock() }
+func (v TSRead) Lock()             { v.Mutex.Lock() }
+func (v TSRead) Unlock()           { v.Mutex.Unlock() }
 func (v TSRead) Close() error      { return io.Closer(v).Close() }
 func (v TSRead) TypeNat() TyNative { return Reader.TypeNat() }
 func (v TSRead) Read(p []byte) (int, error) {
-	v.RWMutex.Lock()
-	defer v.RWMutex.Unlock()
+	v.Mutex.Lock()
+	defer v.Mutex.Unlock()
 	return io.Reader(v).Read(p)
 }
 func (v TSRead) Eval(n ...Native) Native {
-	v.RWMutex.Lock()
-	defer v.RWMutex.Unlock()
+	v.Mutex.Lock()
+	defer v.Mutex.Unlock()
 	if len(n) > 0 {
 		for _, val := range n {
 			switch val.TypeNat() {

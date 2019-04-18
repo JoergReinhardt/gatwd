@@ -6,104 +6,125 @@ import (
 )
 
 func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
+
 	var d Sliceable
+
 	switch TyNative(flag) {
 	case Nil:
 		d = NilVec{}
 		for _, _ = range data {
 			d = append(d.(NilVec), struct{}{})
 		}
+
 	case Bool:
 		d = BoolVec{}
 		for _, dat := range data {
 			d = append(d.(BoolVec), bool(dat.(BoolVal)))
 		}
+
 	case Int:
 		d = IntVec{}
 		for _, dat := range data {
 			d = append(d.(IntVec), int(dat.(IntVal)))
 		}
+
 	case Int8:
 		d = Int8Vec{}
 		for _, dat := range data {
 			d = append(d.(Int8Vec), int8(dat.(Int8Val)))
 		}
+
 	case Int16:
 		d = Int16Vec{}
 		for _, dat := range data {
 			d = append(d.(Int16Vec), int16(dat.(Int16Val)))
 		}
+
 	case Int32:
 		d = Int32Vec{}
 		for _, dat := range data {
 			d = append(d.(Int32Vec), int32(dat.(Int32Val)))
 		}
+
 	case Uint:
 		d = UintVec{}
 		for _, dat := range data {
 			d = append(d.(UintVec), uint(dat.(UintVal)))
 		}
+
 	case Uint8:
 		d = Uint8Vec{}
 		for _, dat := range data {
 			d = append(d.(Uint8Vec), uint8(dat.(Uint8Val)))
 		}
+
 	case Uint16:
 		d = Uint16Vec{}
 		for _, dat := range data {
 			d = append(d.(Uint16Vec), uint16(dat.(Uint16Val)))
 		}
+
 	case Uint32:
 		d = Uint32Vec{}
 		for _, dat := range data {
 			d = append(d.(Uint32Vec), uint32(dat.(Uint32Val)))
 		}
+
 	case Float:
 		d = FltVec{}
 		for _, dat := range data {
 			d = append(d.(FltVec), float64(dat.(FltVal)))
 		}
+
 	case Flt32:
 		d = Flt32Vec{}
 		for _, dat := range data {
 			d = append(d.(Flt32Vec), float32(dat.(Flt32Val)))
 		}
+
 	case Imag:
 		d = ImagVec{}
 		for _, dat := range data {
 			d = append(d.(ImagVec), complex128(dat.(ImagVal)))
 		}
+
 	case Imag64:
 		d = Imag64Vec{}
 		for _, dat := range data {
 			d = append(d.(Imag64Vec), complex64(dat.(Imag64Val)))
 		}
+
 	case Byte:
 		d = ByteVec{}
 		for _, dat := range data {
 			d = append(d.(ByteVec), byte(dat.(ByteVal)))
 		}
+
 	case Rune:
 		d = RuneVec{}
 		for _, dat := range data {
 			d = append(d.(RuneVec), rune(dat.(RuneVal)))
 		}
+
 	case Bytes:
 		d = BytesVec{}
 		for _, dat := range data {
 			d = append(d.(BytesVec), []byte(dat.(BytesVal)))
 		}
+
 	case String:
 		d = StrVec{}
 		for _, dat := range data {
 			d = append(d.(StrVec), string(dat.(StrVal)))
 		}
+
 	case BigInt:
 		d = BigIntVec{}
 		for _, dat := range data {
 			bi := dat.(BigIntVal)
 			d = append(d.(BigIntVec), big.NewInt(((*big.Int)(&bi)).Int64()))
 		}
+
 	case BigFlt:
 		d = BigFltVec{}
 		for _, dat := range data {
@@ -111,6 +132,7 @@ func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 			f, _ := ((*big.Float)(&bf)).Float64()
 			d = append(d.(BigFltVec), big.NewFloat(f))
 		}
+
 	case Ratio:
 		d = RatioVec{}
 		for _, dat := range data {
@@ -120,16 +142,19 @@ func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 				((*big.Rat)(&rat)).Denom().Int64(),
 			))
 		}
+
 	case Time:
 		d = TimeVec{}
 		for _, dat := range data {
 			d = append(d.(TimeVec), time.Time(dat.(TimeVal)))
 		}
+
 	case Duration:
 		d = DuraVec{}
 		for _, dat := range data {
 			d = append(d.(DuraVec), time.Duration(dat.(DuraVal)))
 		}
+
 	case Error:
 		d = ErrorVec{}
 		for _, dat := range data {
@@ -139,8 +164,10 @@ func ConNativeSlice(flag BitFlag, data ...Native) Sliceable {
 	return d
 }
 
-func (v ByteVec) Bytes() []byte      { return []byte(v) }
+func (v ByteVec) Bytes() []byte { return []byte(v) }
+
 func (v *ByteVec) Set(i int, b byte) { (*v)[i] = b }
+
 func (v *ByteVec) Insert(i, j int, b byte) {
 	var s = []byte(*v)
 	s = append(s, byte(0))
@@ -148,10 +175,12 @@ func (v *ByteVec) Insert(i, j int, b byte) {
 	s[i] = b
 	*v = ByteVec(s)
 }
+
 func (v *ByteVec) InsertSlice(i, j int, b ...byte) {
 	var s = []byte(*v)
 	*v = ByteVec(append(s[:i], append(b, s[i:]...)...))
 }
+
 func (v *ByteVec) Cut(i, j int) {
 	var s = []byte(*v)
 	copy(s[i:], s[j:])
@@ -161,12 +190,14 @@ func (v *ByteVec) Cut(i, j int) {
 	}
 	*v = ByteVec(s[:len(s)-j+i])
 }
+
 func (v *ByteVec) Delete(i int) {
 	var s = []byte(*v)
 	copy(s[i:], s[i+1:])
 	s[len(s)-1] = byte(0)
 	*v = ByteVec(s[:len(s)-1])
 }
+
 func (v InterfaceSlice) GetInt(i int) interface{} { return v[i] }
 func (v NilVec) GetInt(i int) Native              { return NilVal(v[i]) }
 func (v BoolVec) GetInt(i int) Native             { return BoolVal(v[i]) }
@@ -461,6 +492,7 @@ func (v NilVec) Copy() Native {
 	}
 	return d
 }
+
 func (v BoolVec) Copy() Native {
 	var d = BoolVec{}
 	for _, val := range v {
@@ -468,6 +500,7 @@ func (v BoolVec) Copy() Native {
 	}
 	return d
 }
+
 func (v IntVec) Copy() Native {
 	var d = IntVec{}
 	for _, val := range v {
@@ -475,6 +508,7 @@ func (v IntVec) Copy() Native {
 	}
 	return d
 }
+
 func (v Int8Vec) Copy() Native {
 	var d = Int8Vec{}
 	for _, val := range v {
@@ -482,6 +516,7 @@ func (v Int8Vec) Copy() Native {
 	}
 	return d
 }
+
 func (v Int16Vec) Copy() Native {
 	var d = Int16Vec{}
 	for _, val := range v {
@@ -489,6 +524,7 @@ func (v Int16Vec) Copy() Native {
 	}
 	return d
 }
+
 func (v Int32Vec) Copy() Native {
 	var d = Int32Vec{}
 	for _, val := range v {
@@ -559,6 +595,7 @@ func (v ByteVec) Copy() Native {
 	}
 	return d
 }
+
 func (v RuneVec) Copy() Native {
 	var d = RuneVec{}
 	for _, val := range v {
@@ -566,6 +603,7 @@ func (v RuneVec) Copy() Native {
 	}
 	return d
 }
+
 func (v BytesVec) Copy() Native {
 	var d = BytesVec{}
 	for _, val := range v {
@@ -573,6 +611,7 @@ func (v BytesVec) Copy() Native {
 	}
 	return d
 }
+
 func (v StrVec) Copy() Native {
 	var d = StrVec{}
 	for _, val := range v {
@@ -580,6 +619,7 @@ func (v StrVec) Copy() Native {
 	}
 	return d
 }
+
 func (v BigIntVec) Copy() Native {
 	var d = BigIntVec{}
 	for _, val := range v {
@@ -587,6 +627,7 @@ func (v BigIntVec) Copy() Native {
 	}
 	return d
 }
+
 func (v BigFltVec) Copy() Native {
 	var d = BigFltVec{}
 	for _, val := range v {
@@ -594,6 +635,7 @@ func (v BigFltVec) Copy() Native {
 	}
 	return d
 }
+
 func (v RatioVec) Copy() Native {
 	var d = RatioVec{}
 	for _, val := range v {
@@ -601,6 +643,7 @@ func (v RatioVec) Copy() Native {
 	}
 	return d
 }
+
 func (v TimeVec) Copy() Native {
 	var d = TimeVec{}
 	for _, val := range v {
@@ -608,6 +651,7 @@ func (v TimeVec) Copy() Native {
 	}
 	return d
 }
+
 func (v DuraVec) Copy() Native {
 	var d = DuraVec{}
 	for _, val := range v {
@@ -615,6 +659,7 @@ func (v DuraVec) Copy() Native {
 	}
 	return d
 }
+
 func (v ErrorVec) Copy() Native {
 	var d = ErrorVec{}
 	for _, val := range v {
@@ -622,6 +667,7 @@ func (v ErrorVec) Copy() Native {
 	}
 	return d
 }
+
 func (v FlagSet) Copy() Native {
 	var d = FlagSet{}
 	for _, val := range v {
@@ -812,144 +858,168 @@ func (v NilVec) Empty() bool {
 	}
 	return false
 }
+
 func (v BoolVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v IntVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Int8Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Int16Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Int32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v UintVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Uint8Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Uint16Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Uint32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v FltVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Flt32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v ImagVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v Imag64Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v ByteVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v RuneVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v BytesVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v StrVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v BigIntVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v BigFltVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v RatioVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v TimeVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v DuraVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v ErrorVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
+
 func (v FlagSet) Empty() bool {
 	if len(v) == 0 {
 		return true

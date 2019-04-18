@@ -5,6 +5,27 @@ import (
 )
 
 //// PRIMITIVE TYPE CLASS INTERFACES
+type Typed interface {
+	//Flag() d.BitFlag
+	d.Typed
+}
+
+type Reproduceable interface {
+	//Copy() Native
+	d.Reproduceable
+}
+
+// garbage collectability
+type Destructable interface {
+	//Clear()
+	d.Destructable
+}
+
+type BinaryMarshaler interface {
+	//MarshalBinary() ([]byte, error)
+	d.BinaryMarshaler
+}
+
 type Nullable interface {
 	d.Native
 	d.Nullable
@@ -50,19 +71,19 @@ type Text interface {
 type Printable interface {
 	d.Printable
 }
-type PairedNative interface {
+type Paired interface {
 	d.Paired
 }
-type ComposedNative interface {
+type Composed interface {
 	d.Composed
 }
-type SliceNative interface {
+type Slice interface {
 	d.Sliceable
 }
-type SequentialNative interface {
+type Sequential interface {
 	d.Sequential
 }
-type MappedNatives interface {
+type Mapped interface {
 	d.Sequential
 }
 
@@ -73,23 +94,25 @@ type Callable interface {
 	Call(...Callable) Callable
 }
 
-type Functorial interface {
+// ENDOFUNCTORS
+// all functors are mappable
+type Functoric interface {
 	Consumeable
-	MapF(UnaryFnc) FunctFnc
-	Fold(BinaryFnc, Callable) Callable
+	Map(UnaryFnc, ...Callable) Functoric
+	Fold(BinaryFnc, ...Callable) Callable
 }
 
-//// PAIRS OF FUNCTIONALS
-type Applicable interface {
-	Functorial
-	Left() Callable
-	Right() Callable
-	Both() (Callable, Callable)
-	Apply(...Callable) (Callable, PairFnc)
+// applicatives compose functoric operations (mappings) sequentialy
+type Applicative interface {
+	Functoric
+	Apply(...Callable) Callable
 }
+
+// applicatives compose functoric operations (mappings) sequentialy, deciding
+// which computations to perform based on the result of previous computations.
 type Monadic interface {
-	Functorial
-	Map(Monadic) MonaFnc
+	Applicative
+	Join(f, g Consumeable) Callable
 }
 
 //// COLLECTION CLASSES
@@ -108,15 +131,12 @@ type Distinguishable interface {
 	Callable
 	Case(expr ...Callable) Callable
 }
-type Composed interface {
-	Empty() bool //<-- no more nil pointers & 'out of index'!
-}
 
 type Countable interface {
 	Len() int // <- performs mutch better on slices
 }
 
-type Sequential interface {
+type Sequenced interface {
 	Slice() []Callable //<-- no more nil pointers & 'out of index'!
 }
 
@@ -159,9 +179,9 @@ type Associative interface {
 	ValFncType() TyFnc
 	KeyNatType() d.TyNative
 	ValNatType() d.TyNative
-	GetVal(Callable) PairFnc
+	GetVal(Callable) PairVal
 	SetVal(Callable, Callable) Associative
-	Pairs() []PairFnc
+	Pairs() []PairVal
 }
 
 //// CONSUMEABLE COLLECTION ///////
@@ -182,7 +202,7 @@ type Consumeable interface {
 // type interface. vectorized types implement that behaviour
 type Vectorized interface {
 	Callable
-	Sequential
+	Sequenced
 	Searchable
 	Ordered
 	Indexed
@@ -204,7 +224,7 @@ type Token interface {
 //// TREES & GRAPHS
 ///
 type Nodular interface {
-	Sequential
+	Sequenced
 	Root() Nodular
 }
 type Nested interface {

@@ -14,6 +14,7 @@ import (
 type TyNative BitFlag
 
 func (v TyNative) TypeNat() TyNative { return v }
+
 func (v TyNative) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {
@@ -95,12 +96,11 @@ const (
 		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
 		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise  = Naturals | Byte | Flag
-	Booleans = Bool | Bitwise
-	Naturals = Uint | Uint8 | Uint16 | Uint32
-
+	Bitwise    = Naturals | Byte | Flag
+	Booleans   = Bool | Bitwise
+	Naturals   = Uint | Uint8 | Uint16 | Uint32
 	Integers   = Int | Int8 | Int16 | Int32 | BigInt
-	Rationals  = Naturals | Ratio
+	Rationals  = Naturals | Integers | Ratio
 	Reals      = Float | Flt32 | BigFlt
 	Imaginarys = Imag | Imag64
 	Numbers    = Rationals | Reals | Imaginarys
@@ -258,8 +258,11 @@ func (v FlagSlice) Copy() Native {
 	return nfs
 }
 
-///
+/// EVAL
+// converts arguments to unboxed vector of the provided type, or just returns
+// itself
 func (NilVal) Eval(d ...Native) Native { return NilVal{} }
+
 func (v BitFlag) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -269,6 +272,7 @@ func (v BitFlag) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v BoolVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -278,6 +282,7 @@ func (v BoolVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v IntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -287,6 +292,7 @@ func (v IntVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Int8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -296,6 +302,7 @@ func (v Int8Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Int16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -305,6 +312,7 @@ func (v Int16Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Int32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -314,6 +322,7 @@ func (v Int32Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v UintVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -323,6 +332,7 @@ func (v UintVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Uint8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -332,6 +342,7 @@ func (v Uint8Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Uint16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -341,6 +352,7 @@ func (v Uint16Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Uint32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -350,6 +362,7 @@ func (v Uint32Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v BigIntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -359,6 +372,7 @@ func (v BigIntVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v FltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -368,6 +382,7 @@ func (v FltVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Flt32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -377,6 +392,7 @@ func (v Flt32Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v BigFltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -386,6 +402,7 @@ func (v BigFltVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v ImagVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -395,6 +412,7 @@ func (v ImagVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v Imag64Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -404,6 +422,7 @@ func (v Imag64Val) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v RatioVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -413,6 +432,7 @@ func (v RatioVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v RuneVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -422,6 +442,7 @@ func (v RuneVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v ByteVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -431,6 +452,7 @@ func (v ByteVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v BytesVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -440,6 +462,7 @@ func (v BytesVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v StrVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -449,6 +472,7 @@ func (v StrVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v TimeVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -458,6 +482,7 @@ func (v TimeVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v DuraVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -467,6 +492,7 @@ func (v DuraVal) Eval(d ...Native) Native {
 	}
 	return v
 }
+
 func (v ErrorVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
@@ -478,6 +504,7 @@ func (v ErrorVal) Eval(d ...Native) Native {
 }
 
 ///
+// returns itself
 func (NilVal) Ident() Native      { return NilVal{} }
 func (v BitFlag) Ident() Native   { return v }
 func (v BoolVal) Ident() Native   { return v }
@@ -506,6 +533,7 @@ func (v ErrorVal) Ident() Native  { return v }
 func (v PairVal) Ident() Native   { return v }
 
 //// native nullable typed ///////
+// provides null instance of each type
 func (v BitFlag) Null() Native   { return Nil.TypeNat() }
 func (v FlagSlice) Null() Native { return New(FlagSlice{}) }
 func (v PairVal) Null() Native   { return PairVal{NilVal{}, NilVal{}} }
@@ -542,6 +570,7 @@ func (v BitFlag) MarshalBinary() ([]byte, error) {
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v FlagSlice) MarshalBinary() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
 	err := binary.Write(buf, binary.LittleEndian, v)
@@ -550,6 +579,7 @@ func (v FlagSlice) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v PairVal) MarshalBinary() ([]byte, error) {
 	buf0, err0 := v.Left().(BinaryMarshaler).MarshalBinary()
 	if err0 != nil {
@@ -561,78 +591,91 @@ func (v PairVal) MarshalBinary() ([]byte, error) {
 	}
 	return append(buf0, buf1...), nil
 }
+
 func (v NilVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(0)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v BoolVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v.Uint())
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v IntVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Int8Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Int16Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Int32Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v UintVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Uint8Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Uint16Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Uint32Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v FltVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v Flt32Val) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v ImagVal) MarshalBinary() ([]byte, error) {
 	var n, i = uint64(real(v)), uint64(imag(v))
 	var buf0 = make([]byte, 0, binary.Size(n))
@@ -641,6 +684,7 @@ func (v ImagVal) MarshalBinary() ([]byte, error) {
 	binary.PutUvarint(buf1, i)
 	return append(buf0, buf1...), nil
 }
+
 func (v Imag64Val) MarshalBinary() ([]byte, error) {
 	var n, i = uint64(real(v)), uint64(imag(v))
 	var buf0 = make([]byte, 0, binary.Size(n))
@@ -649,11 +693,13 @@ func (v Imag64Val) MarshalBinary() ([]byte, error) {
 	binary.PutUvarint(buf1, i)
 	return append(buf0, buf1...), nil
 }
+
 func (v ByteVal) MarshalBinary() ([]byte, error) {
 	var buf = make([]byte, 0, binary.Size(v))
 	binary.PutUvarint(buf, uint64(v))
 	return buf, nil
 }
+
 func (v BytesVal) MarshalBinary() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
 	err := binary.Write(buf, binary.LittleEndian, v)
@@ -662,12 +708,14 @@ func (v BytesVal) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v RuneVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil
 }
+
 func (v StrVal) MarshalBinary() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
 	err := binary.Write(buf, binary.LittleEndian, []byte(v))
@@ -676,6 +724,7 @@ func (v StrVal) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v ErrorVal) MarshalBinary() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v.String())))
 	err := binary.Write(buf, binary.LittleEndian, []byte(v.String()))
@@ -684,6 +733,7 @@ func (v ErrorVal) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v BigIntVal) MarshalBinary() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size((*big.Int)(&v).Bytes())))
 	err := binary.Write(buf, binary.LittleEndian, (*big.Int)(&v).Bytes())
@@ -692,6 +742,7 @@ func (v BigIntVal) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v BigFltVal) MarshalBinary() ([]byte, error) {
 	var u, _ = (*big.Float)(&v).Uint64()
 	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(u)))
@@ -701,6 +752,7 @@ func (v BigFltVal) MarshalBinary() ([]byte, error) {
 	}
 	return buf.Bytes(), err
 }
+
 func (v RatioVal) MarshalBinary() ([]byte, error) {
 	var d, n = uint64((*big.Rat)(&v).Denom().Uint64()), uint64((*big.Rat)(&v).Num().Uint64())
 	var buf0 = make([]byte, 0, binary.Size(d))
@@ -709,11 +761,13 @@ func (v RatioVal) MarshalBinary() ([]byte, error) {
 	binary.PutUvarint(buf1, n)
 	return append(buf0, buf1...), nil
 }
+
 func (v TimeVal) MarshalBinary() ([]byte, error) {
 	var buf = make([]byte, 0, binary.Size(v))
 	(*time.Time)(&v).UnmarshalBinary(buf)
 	return buf, nil
 }
+
 func (v DuraVal) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))

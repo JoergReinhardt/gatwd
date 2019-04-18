@@ -6,257 +6,262 @@ import (
 
 // type system implementation
 type (
+	/// CONSUMER
+	// consumer function consumes consumeables typeagnosticly to provide a
+	// common return type function of all endofunctor operators. that way
+	// endofunctors don't need to be type converted
+	ConsumerFnc func(...Callable) (Callable, Consumeable)
+	/// MAP FUNCTION
+	MapFnc func(...Callable) Callable
+	/// FOLD FUNCTION
+	FoldFnc func(Callable, Callable, ...Callable) Callable
+	/// FILTER FUNCTION
+	FilterFnc func(Callable, ...Callable) bool
+	/// JOIN FUNCTION
+	JoinFnc func(f, g NaryFnc, args ...Callable) Callable
+	/// APPLY FUNCTION
+	ApplyFnc func(NaryFnc, ...Callable) Callable
 	/// FUNCTOR
-	FunctFnc func(args ...Callable) (Callable, FunctFnc)
-
-	/// APPLY & APPLICAPLE
-	AppliFnc func(...Callable) (Callable, AppliFnc)
-
-	/// MONOID
-	MonaFnc func(args ...Callable) (Callable, MonaFnc)
-
-	/// RESSOURCE
-	GenericFnc func(args ...Callable) (Callable, GenericFnc)
+	// all functors apply to map-, foldl
+	FunctorFnc func(...Callable) (Callable, Consumeable)
+	// APPLICAPLE
+	// applicables are functors to be applyd on a list of boxed values
+	ApplicativeFnc func(...Callable) (Callable, Consumeable)
+	/// MONADIC
+	// monadic functions provide transformations between two functor types
+	MonadicFnc func(...Callable) (Callable, Consumeable)
 )
 
-func (c GenericFnc) String() string                 { return "ϝ → Fₙ [F]" }
-func (c GenericFnc) Ident() Callable                { return c }
-func (c GenericFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c GenericFnc) Head() Callable                 { h, _ := c(); return h }
-func (c GenericFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c GenericFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c GenericFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c GenericFnc) TypeNat() d.TyNative {
-	res, _ := c()
-	return res.TypeNat() | d.Function
-}
-func (c GenericFnc) Call(args ...Callable) Callable { return c.Head().Call(args...) }
-
 //// CURRY
-func Curry(fnc Callable, arg Callable) Callable {
-	return NaryFnc(func(args ...Callable) Callable {
-		return fnc.Call(arg).Call(args...)
+func Curry(fnc Callable, outer ...Callable) Callable {
+
+	return NaryFnc(func(inner ...Callable) Callable {
+
+		return fnc.Call(outer...).Call(inner...)
 	})
 }
 
+//// CONSUME
+///
+// consumes an epifunctor and passes its arguments through, when called
+func Consume(fnc func(...Callable) (Callable, Consumeable)) ConsumerFnc {
+
+	return func(args ...Callable) (Callable, Consumeable) {
+
+		return fnc(args...)
+	}
+}
+
+func (c ConsumerFnc) Ident() Callable                { return c }
+func (c ConsumerFnc) DeCap() (Callable, Consumeable) { return c() }
+func (c ConsumerFnc) String() string                 { return "ϝ → Fₙ [F]" }
+func (c ConsumerFnc) Head() Callable                 { h, _ := c(); return h }
+func (c ConsumerFnc) Tail() Consumeable              { _, t := c(); return t }
+func (c ConsumerFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c ConsumerFnc) TypeFnc() TyFnc                 { return Endofunctor | c.Head().TypeFnc() }
+func (c ConsumerFnc) TypeNat() d.TyNative {
+	res, _ := c()
+	return res.TypeNat() | d.Function
+}
+
+func (c ConsumerFnc) Call(args ...Callable) Callable { result, _ := c(args...); return result }
+
 // FUNCTOR
-func NewFunctor(list Consumeable) FunctFnc {
-	return func(args ...Callable) (Callable, FunctFnc) {
+// evaluats list elements by applying passed parameters lazy, to generate the
+// new list on demand
+func NewFunctor(list Consumeable) FunctorFnc {
+
+	return func(args ...Callable) (Callable, Consumeable) {
+
 		var head, tail = list.DeCap()
+
 		if head == nil {
 			return nil, NewFunctor(tail)
 		}
-		return head.Call(args...), NewFunctor(tail)
-	}
-}
 
-func (c FunctFnc) Call(args ...Callable) Callable {
-	return FunctFnc(
-		func(...Callable) (Callable, FunctFnc) {
-			return c(args...)
-		})
-}
-
-func (g FunctFnc) String() string                 { return "ϝ → Fₙ [F]" }
-func (c FunctFnc) Ident() Callable                { return c }
-func (c FunctFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c FunctFnc) Head() Callable                 { h, _ := c(); return h }
-func (c FunctFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c FunctFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c FunctFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c FunctFnc) TypeNat() d.TyNative {
-	res, _ := c()
-	return res.TypeNat() | d.Function
-}
-
-// APPLY FUNCTION
-// appliccable lists 'know' how to 'treat' the contained values, given the
-// parameters that have been passed. the apply function, promotes applys the
-// args to the current head element of the list and progresses to yield a new
-// applicable, reducing the tail.
-func NewAppliFnc(
-	applf NaryFnc,
-	list ListFnc,
-) AppliFnc {
-
-	var apply = applf
-
-	return func(args ...Callable) (Callable, AppliFnc) {
-
-		var head, tail = list()
-		var call Callable
-
-		if head != nil {
-
-			if len(args) > 0 {
-
-				call = apply(
-
-					append(
-						[]Callable{head},
-						args...,
-					)...,
-				)
-			} else {
-
-				call = apply(head)
+		if len(args) > 0 {
+			if len(args) > 1 {
+				return head.Call(args...), NewFunctor(tail)
 			}
+			return head.Call(args[0]), NewFunctor(tail)
 		}
 
-		return call, NewAppliFnc(apply, tail)
+		return head.Call(), NewFunctor(tail)
 	}
 }
 
-func (c AppliFnc) String() string                 { return "Apply " + c.Head().TypeFnc().String() }
-func (c AppliFnc) Ident() Callable                { return c }
-func (c AppliFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c AppliFnc) Head() Callable                 { h, _ := c(); return h }
-func (c AppliFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c AppliFnc) Call(args ...Callable) Callable { return c.Head().Call(args...) }
-func (c AppliFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c AppliFnc) TypeFnc() TyFnc                 { return Applicaple | c.Head().TypeFnc() }
-func (c AppliFnc) TypeNat() d.TyNative {
-	res, _ := c()
-	return res.TypeNat() | d.Function
+func (c FunctorFnc) Call(args ...Callable) Callable { h, _ := c(args...); return h }
+
+func (c FunctorFnc) Ident() Callable                { return c }
+func (c FunctorFnc) DeCap() (Callable, Consumeable) { return c() }
+func (c FunctorFnc) Head() Callable                 { h, _ := c(); return h }
+func (c FunctorFnc) Tail() Consumeable              { _, t := c(); return t }
+func (c FunctorFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c FunctorFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
+func (c FunctorFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c FunctorFnc) String() string                 { return c.Head().String() }
+
+/// APPLICATIVE
+// applicative encloses over a function to be applyd the head element and any
+// arguments given at each call
+func NewApplicative(list Consumeable, applyFnc ApplyFnc) ApplicativeFnc {
+
+	var apply = applyFnc
+
+	return func(args ...Callable) (Callable, Consumeable) {
+
+		var head, tail = list.DeCap()
+
+		if head == nil {
+			return nil, NewApplicative(NewList(args...), apply)
+		}
+
+		if len(args) > 0 {
+
+			return apply(head.Call, args...),
+				NewApplicative(tail, apply)
+		}
+
+		return apply(head.Call), NewApplicative(NewList(), apply)
+	}
 }
 
+func (c ApplicativeFnc) Ident() Callable                { return c }
+func (c ApplicativeFnc) DeCap() (Callable, Consumeable) { return c() }
+func (c ApplicativeFnc) Head() Callable                 { h, _ := c(); return h }
+func (c ApplicativeFnc) Tail() Consumeable              { _, t := c(); return t }
+func (c ApplicativeFnc) Call(args ...Callable) Callable { return c.Head().Call(args...) }
+func (c ApplicativeFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c ApplicativeFnc) TypeFnc() TyFnc                 { return Applicaple | c.Head().TypeFnc() }
+func (c ApplicativeFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c ApplicativeFnc) String() string                 { return c.Head().String() }
+
 // MONADIC
-func (c MonaFnc) Call(args ...Callable) Callable {
+func (c MonadicFnc) Call(args ...Callable) Callable {
 	var result Callable
 	return result
 }
-func (g MonaFnc) String() string                 { return "ϝ → Mₙₘ [M]" }
-func (c MonaFnc) Ident() Callable                { return c }
-func (c MonaFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c MonaFnc) Head() Callable                 { h, _ := c(); return h }
-func (c MonaFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c MonaFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c MonaFnc) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
-func (c MonaFnc) TypeNat() d.TyNative            { res, _ := c(); return res.TypeNat() | d.Function }
+func (c MonadicFnc) String() string                 { return c.Head().String() }
+func (c MonadicFnc) Ident() Callable                { return c }
+func (c MonadicFnc) DeCap() (Callable, Consumeable) { return c() }
+func (c MonadicFnc) Head() Callable                 { h, _ := c(); return h }
+func (c MonadicFnc) Tail() Consumeable              { _, t := c(); return t }
+func (c MonadicFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c MonadicFnc) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
+func (c MonadicFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////
-// LEFT FOLD FUNCTOR
-func Fold(list GenericFnc, fold BinaryFnc, ilem Callable) Callable {
-	var head, tail = list()
+/// EAGER MAP FUNCTOR
+// applys each element of list to passed function and returns resulting vector
+func Map(list Consumeable, fmap MapFnc) VecVal {
+	var result = NewVector()
+	var head, tail = list.DeCap()
+	for head != nil {
+		result = NewVector(result, fmap(head))
+		head, tail = tail.DeCap()
+	}
+	return result
+}
+
+/// EAGER FOLD FUNCTOR
+// fold takes a list, an initial element to pass on and a fold function that
+// gets called for each list element expecting the initialy passed element to
+// be passed on from call to call to accumulate results
+func Fold(list Consumeable, fold FoldFnc, ilem Callable) Callable {
+	var head, tail = list.DeCap()
 	for head != nil {
 		ilem = fold(ilem, head)
-		head, tail = tail()
+		head, tail = tail.DeCap()
 	}
 	return ilem
 }
 
-/// EAGER MAP FUNCTOR
-func Map(list GenericFnc, fmap UnaryFnc) VecFnc {
+/// EAGER FILTER FUNCTOR
+// applys each element to filter function and returns the list of elements that
+// yielded true.
+func Filter(list Consumeable, filter FilterFnc) VecVal {
 	var result = NewVector()
-	var head, tail = list()
-	for head != nil {
-		result = ConVector(result, fmap(head))
-		head, tail = tail()
-	}
-	return result
-}
-
-/// FILTER FUNCTOR EAGER
-func Filter(list GenericFnc, filter TruthFnc) VecFnc {
-	var result = NewVector()
-	var head, tail = list()
+	var head, tail = list.DeCap()
 	for head != nil {
 		if filter(head) {
-			result = ConVector(result, head)
+			result = NewVector(result, head)
 		}
-		head, tail = tail()
+		head, tail = tail.DeCap()
 	}
 	return result
 }
 
 //// LATE BINDING functor COMPOSITION
 ///
+// MAP FUNCTOR LATE BINDING
+// expects a consumeable list and a mapping function to apply on each element.
+// list elements are late bound per call to the resulting consumeable, passed
+// arguments get concatenated to the yielded list element, when fmap is called.
+func MapF(list Consumeable, fmap MapFnc) Consumeable {
+
+	return ConsumerFnc(
+		func(args ...Callable) (Callable, Consumeable) {
+			// decapitate list to get head and list continuation
+			var head, tail = list.DeCap()
+
+			if head == nil { // return empty head
+				return nil, list
+			}
+
+			// return result of call to fmap and list continuation
+			return fmap(append([]Callable{head}, args...)...), MapF(tail, fmap)
+		})
+}
+
 // FOLD FUNCTOR LATE BINDING
 //
 // returns a list of continuations, yielding accumulated result & list of
 // follow-up continuations. when the list is depleted, return result only.
-func FoldF(list GenericFnc, fold BinaryFnc, ilem Callable) GenericFnc {
+func FoldF(list Consumeable, fold FoldFnc, ilem Callable) Consumeable {
 
-	return GenericFnc(
+	return ConsumerFnc(
+		func(args ...Callable) (Callable, Consumeable) {
 
-		func(args ...Callable) (Callable, GenericFnc) {
+			var head, tail = list.DeCap()
 
-			var head, tail = list()
-
+			// return when list depleted
 			if head == nil {
 				return list, nil
 			}
 
-			// update the accumulated result
-			ilem = fold(
-				ilem,
-				head.Call(args...),
-			)
+			// update the accumulated result by passing it to fold
+			// followed by head and all elements passed to yield
+			// the call
+			ilem = fold(ilem, head, args...)
 
 			// return result & continuation
-			return ilem,
-				FoldF(
-					tail,
-					fold,
-					ilem,
-				)
-		})
-}
-
-// MAP FUNCTOR LATE BINDING
-func MapF(list GenericFnc, fmap UnaryFnc) GenericFnc {
-
-	return GenericFnc(
-
-		func(args ...Callable) (Callable, GenericFnc) {
-
-			var head, tail = list()
-
-			if head == nil {
-				return nil, list
-			}
-
-			return fmap(
-					head.Call(args...),
-				),
-				MapF(
-					tail,
-					fmap,
-				)
+			return ilem, FoldF(tail, fold, ilem)
 		})
 }
 
 // FILTER FUNCTOR LATE BINDING
-func FilterF(list GenericFnc, filter TruthFnc) GenericFnc {
+func FilterF(list ListVal, filter FilterFnc) Consumeable {
 
-	return GenericFnc(
-
-		func(args ...Callable) (Callable, GenericFnc) {
+	return ConsumerFnc(
+		func(args ...Callable) (Callable, Consumeable) {
 
 			var head, tail = list()
 
+			// return when list depleted
 			if head == nil {
 				return nil, list
 			}
 
-			// applying args by calling the head element, yields
-			// result to filter
-			var result = head.Call(args...)
-
 			// if result is filtered out‥.
-			if !filter(result) {
-				// progress by passing args, filter & tail on
-				// recursively
+			if !filter(head, args...) {
+				// progress by recursively passing on arguments, filter
+				// & remaining tail
 				return head, FilterF(tail, filter)
 			}
 
 			// otherwise return result & continuation on remaining
 			// elements, possibly taking new arguments into
 			// consideration, when called
-			return result,
-				FilterF(
-					tail,
-					filter,
-				)
+			return head, FilterF(tail, filter)
 		})
 }

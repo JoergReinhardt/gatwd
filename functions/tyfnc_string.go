@@ -4,14 +4,14 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataFunctionApplicapleConstructorOperatorFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseTruthNumberSymbolErrorPairTupleEnumSetListVectorRecordHigherOrder"
+const _TyFnc_name = "TypeDataFunctionConstructorApplicapleOperatorFunctorMonadFalseTrueJustNoneCaseSwitchEitherOrIfElseTruthNumberSymbolErrorPairTupleEnumSetListVectorRecordHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:         _TyFnc_name[0:4],
 	2:         _TyFnc_name[4:8],
 	4:         _TyFnc_name[8:16],
-	8:         _TyFnc_name[16:26],
-	16:        _TyFnc_name[26:37],
+	8:         _TyFnc_name[16:27],
+	16:        _TyFnc_name[27:37],
 	32:        _TyFnc_name[37:45],
 	64:        _TyFnc_name[45:52],
 	128:       _TyFnc_name[52:57],
