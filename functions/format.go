@@ -19,12 +19,12 @@ func (p PairVal) String() string {
 	buf.WriteString(p.Right().String())
 	return buf.String()
 }
-func (c ConstFnc) String() string { return "ϝ → т" }
+func (c ConstantExpr) String() string { return "ϝ → т" }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
-func (u UnaryFnc) String() string  { return "т → ϝ → т" }
-func (b BinaryFnc) String() string { return "т → т → ϝ → т" }
-func (n NaryFnc) String() string   { return "[т‥.] → ϝ → т" }
+func (u UnaryExpr) String() string  { return "т → ϝ → т" }
+func (b BinaryExpr) String() string { return "т → т → ϝ → т" }
+func (n NaryExpr) String() string   { return "[т‥.] → ϝ → т" }
 
 /// VECTOR
 func (v VecVal) String() string {

@@ -95,7 +95,7 @@ func NewDigitToken(dat string) Token {
 	return tok
 }
 func NewPairToken(left, right string) Token {
-	return newToken(Pair_Token, NewPairFromData(d.New(left), d.New(right)))
+	return newToken(Pair_Token, NewPairFromLiteral(d.New(left), d.New(right)))
 }
 func NewTokenCollection(dat ...Token) Token {
 	return newToken(Token_Collection, tokens(dat))

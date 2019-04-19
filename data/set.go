@@ -77,6 +77,14 @@ func (s SetVal) Get(acc Native) (Native, bool) {
 
 func (s SetVal) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
+func (s SetVal) Delete(acc Native) bool {
+	if _, ok := s[acc.(StrVal)]; ok {
+		delete(s, s[acc.(StrVal)])
+		return ok
+	}
+	return false
+}
+
 // implements Mapped flagged Set
 
 func NewStringSet(acc ...Paired) Mapped {
@@ -134,6 +142,14 @@ func (s SetString) Get(acc Native) (Native, bool) {
 		return dat, ok
 	}
 	return nil, false
+}
+
+func (s SetString) Delete(acc Native) bool {
+	if _, ok := s[acc.(StrVal)]; ok {
+		delete(s, acc.(StrVal))
+		return ok
+	}
+	return false
 }
 
 func (s SetString) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
@@ -197,6 +213,14 @@ func (s SetInt) Get(acc Native) (Native, bool) {
 	return nil, false
 }
 
+func (s SetInt) Delete(acc Native) bool {
+	if _, ok := s[acc.(IntVal)]; ok {
+		delete(s, acc.(IntVal))
+		return ok
+	}
+	return false
+}
+
 func (s SetInt) Set(acc Native, dat Native) Mapped { s[acc.(IntVal)] = acc.(IntVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -256,6 +280,14 @@ func (s SetUint) Get(acc Native) (Native, bool) {
 		return dat, ok
 	}
 	return nil, false
+}
+
+func (s SetUint) Delete(acc Native) bool {
+	if _, ok := s[acc.(UintVal)]; ok {
+		delete(s, acc.(UintVal))
+		return ok
+	}
+	return false
 }
 
 func (s SetUint) Set(acc Native, dat Native) Mapped { s[acc.(UintVal)] = acc.(UintVal); return s }
@@ -319,6 +351,14 @@ func (s SetFloat) Get(acc Native) (Native, bool) {
 	return nil, false
 }
 
+func (s SetFloat) Delete(acc Native) bool {
+	if _, ok := s[acc.(FltVal)]; ok {
+		delete(s, acc.(FltVal))
+		return ok
+	}
+	return false
+}
+
 func (s SetFloat) Set(acc Native, dat Native) Mapped { s[acc.(FltVal)] = acc.(FltVal); return s }
 
 //////////////////////////////////////////////////////////////
@@ -378,6 +418,14 @@ func (s SetFlag) Get(acc Native) (Native, bool) {
 		return dat, ok
 	}
 	return nil, false
+}
+
+func (s SetFlag) Delete(acc Native) bool {
+	if _, ok := s[acc.(BitFlag)]; ok {
+		delete(s, acc.(BitFlag))
+		return ok
+	}
+	return false
 }
 
 func (s SetFlag) Set(acc Native, dat Native) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }

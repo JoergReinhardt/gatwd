@@ -50,24 +50,31 @@ type Discrete interface {
 
 // unsignedVal and integerVal are a poor man's version of type classes and
 // allow to treat the different sizes of ints and floats alike
+
 type Boolean interface {
 	Bool() bool
 }
+
 type Natural interface {
 	Uint() uint
 }
+
 type Integer interface {
 	Int() int
 }
+
 type Rational interface {
 	Rat() *big.Rat
 }
+
 type Real interface {
 	Float() float64
 }
+
 type Imaginary interface {
 	Imag() complex128
 }
+
 type Numeral interface {
 	Nullable
 	Discrete
@@ -78,16 +85,20 @@ type Numeral interface {
 	Real
 	Imaginary
 }
+
+type Text interface {
+	String() string
+}
+
 type Letter interface {
 	Rune() rune
 	Byte() byte
 }
-type Text interface {
-	String() string
-}
+
 type Serializeable interface {
 	MarshalBinary() ([]byte, error)
 }
+
 type Printable interface {
 	String() string
 	Bytes() []byte
@@ -132,5 +143,6 @@ type Mapped interface {
 	Data() []Native
 	Fields() []Paired
 	Get(acc Native) (Native, bool)
+	Delete(acc Native) bool
 	Set(Native, Native) Mapped
 }

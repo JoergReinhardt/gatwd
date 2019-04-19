@@ -24,6 +24,11 @@ type (
 	// HIGHER ORDER TYPES
 	HOTypeCon func(...Callable) (string, Consumeable)
 
+	// TYPE ALIAS CONSTRUCTOR
+	//
+	// type aliases bind given higher order types to dedicated names.
+	AliasTypeCon func(original HOTypeCon, name string) (HOTypeCon, bool)
+
 	///// MONOIDAL TYPE CONSTRUCTORS
 	//
 	// ATOMIC TYPE CONSTRUCTOR
@@ -48,11 +53,6 @@ type (
 	// value of a 'Callable', they are most likely meant to get treated as
 	// single unboxed value for reasons of performance, in the first place.
 	PrimeTypeCon func(constructor d.Native, name ...string) (HOTypeCon, bool)
-
-	// TYPE ALIAS CONSTRUCTOR
-	//
-	// type aliases bind given higher order types to dedicated names.
-	AliasTypeCon func(original HOTypeCon, name string) (HOTypeCon, bool)
 
 	// SUM TYPE CONSTRUCTOR
 	//
@@ -89,15 +89,14 @@ type (
 	// adjoined by another value indicating the outcom of a computation of
 	// a monadic type.
 
+	// SUM TYPE VALUES
+	ExprTypeVal func(...Callable) Callable
+
 	// TRUTH TYPE VALUES
-	//
 	TruthTypeVal func(...Callable) bool
 
 	// NATIVE TYPE VALUES
 	NatTypeVal func(...d.Native) d.Native
-
-	// SUM TYPE VALUES
-	FncTypeVal func(...Callable) Callable
 
 	// PAIRS OF VALUES
 	PairTypeVal func(...Callable) (Callable, Callable)
@@ -115,46 +114,121 @@ type (
 	RecursiveTypeVal func(...Callable) (Callable, Consumeable)
 )
 
-// NewHOType(name string, constructors Consumeable) HOType returns a
+//// GENERIC HIGHER ORDER TYPE
+///
 //
-// constructor for a new higher order type as defined by the passed arguments.
-func NewHOType(name string, constructors Consumeable) HOTypeCon {
+func NewHOType(name string, constructors Callable) HOTypeCon {
+
 	return HOTypeCon(func(args ...Callable) (string, Consumeable) {
-		return name, constructors
+
+		return name, NewList(constructors)
 	})
 }
 
 func (c HOTypeCon) Ident() Callable                { return c }
-func (c HOTypeCon) TypeNat() d.TyNative            { return d.Flag }
-func (c HOTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type }
-func (c HOTypeCon) String() string                 { return "higher order type" }
+func (c HOTypeCon) Name() string                   { name, _ := c(); return name }
+func (c HOTypeCon) Constructors() Consumeable      { _, cons := c(); return cons }
+func (c HOTypeCon) TypeNat() d.TyNative            { return d.Flag | d.Function }
+func (c HOTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type | Constructor }
+func (c HOTypeCon) String() string                 { return "higher order type constructor" }
 func (c HOTypeCon) Call(args ...Callable) Callable { return c }
 func (c HOTypeCon) Eval(args ...d.Native) d.Native { return c.Eval() }
+func (c HOTypeCon) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(Type),
+		NewFromFlag(Constructor),
+	}
+}
 
+//// HIGHER ORDER TYPE ALIAS
+///
+//
+func NewAliasType(name string, hot HOTypeCon) HOTypeCon {
+
+	return HOTypeCon(func(args ...Callable) (string, Consumeable) {
+
+		return name, NewList(hot.Constructors())
+	})
+}
+func (c AliasTypeCon) Ident() Callable                { return c }
+func (c AliasTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type }
+func (c AliasTypeCon) TypeNat() d.TyNative            { return d.Flag | d.Function }
+func (c AliasTypeCon) Call(args ...Callable) Callable { return c }
+func (c AliasTypeCon) Eval(args ...d.Native) d.Native { return c.Eval() }
+func (c AliasTypeCon) String() string                 { return "alias type constructor" }
+func (c AliasTypeCon) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(Type),
+		NewFromFlag(Constructor),
+	}
+}
+
+//// HIGHER ORDER SUM TYPE
+///
+//
 func (c SumTypeCon) Ident() Callable                { return c }
-func (c SumTypeCon) TypeFnc() TyFnc                 { return Type }
-func (c SumTypeCon) TypeNat() d.TyNative            { return d.Flag }
+func (c SumTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type | TypeSum }
+func (c SumTypeCon) TypeNat() d.TyNative            { return d.Flag | d.Function }
 func (c SumTypeCon) Call(args ...Callable) Callable { return c }
 func (c SumTypeCon) Eval(args ...d.Native) d.Native { return c.Eval() }
-func (c SumTypeCon) String() string                 { return "sum type" }
+func (c SumTypeCon) String() string                 { return "sum type constructor" }
+func (c SumTypeCon) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(TypeSum),
+		NewFromFlag(Constructor),
+	}
+}
 
+//// HIGHER ORDER PRODUCT TYPE
+///
+//
 func (c ProductTypeCon) Ident() Callable                { return c }
-func (c ProductTypeCon) TypeFnc() TyFnc                 { return Type }
-func (c ProductTypeCon) TypeNat() d.TyNative            { return d.Flag }
+func (c ProductTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type | TypeProduct }
+func (c ProductTypeCon) TypeNat() d.TyNative            { return d.Function | d.Flag }
 func (c ProductTypeCon) Call(args ...Callable) Callable { return c }
 func (c ProductTypeCon) Eval(args ...d.Native) d.Native { return c.Eval() }
-func (c ProductTypeCon) String() string                 { return "product type" }
+func (c ProductTypeCon) String() string                 { return "product type constructor" }
+func (c ProductTypeCon) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(TypeProduct),
+		NewFromFlag(Constructor),
+	}
+}
 
+//// HIGHER ORDER PRIMARY VALUE TYPE
+///
+//
 func (c PrimeTypeCon) Ident() Callable                { return c }
-func (c PrimeTypeCon) TypeFnc() TyFnc                 { return Type }
-func (c PrimeTypeCon) TypeNat() d.TyNative            { return d.Flag }
+func (c PrimeTypeCon) TypeFnc() TyFnc                 { return HigherOrder | Type | Data }
+func (c PrimeTypeCon) TypeNat() d.TyNative            { return d.Function | d.Flag }
 func (c PrimeTypeCon) Call(args ...Callable) Callable { return c }
 func (c PrimeTypeCon) Eval(args ...d.Native) d.Native { return c.Eval() }
-func (c PrimeTypeCon) String() string                 { return "primary type" }
+func (c PrimeTypeCon) String() string                 { return "primary type constructor" }
+func (c PrimeTypeCon) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(Data),
+		NewFromFlag(Constructor),
+	}
+}
 
-func (c FncTypeVal) Ident() Callable                { return c }
-func (c FncTypeVal) TypeFnc() TyFnc                 { return Type }
-func (c FncTypeVal) TypeNat() d.TyNative            { return d.Flag }
-func (c FncTypeVal) Call(args ...Callable) Callable { return c }
-func (c FncTypeVal) Eval(args ...d.Native) d.Native { return c.Eval() }
-func (c FncTypeVal) String() string                 { return "sum type constructor" }
+//// HIGHER ORDER functional VALUE TYPE
+///
+//
+func (c ExprTypeVal) Ident() Callable                { return c }
+func (c ExprTypeVal) TypeFnc() TyFnc                 { return HigherOrder | Expression | Data }
+func (c ExprTypeVal) TypeNat() d.TyNative            { return d.Function | d.Flag }
+func (c ExprTypeVal) Call(args ...Callable) Callable { return c }
+func (c ExprTypeVal) Eval(args ...d.Native) d.Native { return c.Eval() }
+func (c ExprTypeVal) String() string                 { return "expression type value" }
+func (c ExprTypeVal) Signature() []Callable {
+	return []Callable{
+		NewFromFlag(HigherOrder),
+		NewFromFlag(Expression),
+		NewFromFlag(Constructor),
+	}
+}
