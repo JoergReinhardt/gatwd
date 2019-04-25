@@ -19,6 +19,11 @@ type HOTyped interface {
 	TypeParent() HOTyped
 }
 
+type Instanciated interface {
+	HOTyped
+	DataConstructor() DataConstructor
+}
+
 type Evaluable interface {
 	// Eval(...Native) Native
 	d.Evaluable

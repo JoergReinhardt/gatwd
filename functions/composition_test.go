@@ -36,15 +36,8 @@ func TestConList(t *testing.T) {
 		head, tail = tail()
 	}
 
-	printCons(tail)
-	fmt.Println("")
-
-	head, tail = tail(listB()...)
-
-	head, tail = tail()
-
-	fmt.Println(head)
-	fmt.Println("")
+	tail = tail.Con(listB()...)
+	tail = tail.Con(head)
 
 	printCons(tail)
 }

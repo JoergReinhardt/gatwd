@@ -10,10 +10,6 @@ import (
 )
 
 type (
-	//// NOTHING
-	NoOp     func()
-	BranchOp func(...Callable) (Callable, bool)
-
 	//// DATA
 	DataVal func(args ...d.Native) d.Native
 
@@ -70,22 +66,6 @@ func evaluateFunctionals(args ...Callable) []d.Native {
 
 	return result
 }
-
-/// NOOP
-func NewNoOp() NoOp                      { return func() {} }
-func (n NoOp) Ident() Callable           { return n }
-func (n NoOp) Maybe() bool               { return false }
-func (n NoOp) Empty() bool               { return true }
-func (n NoOp) Eval(...d.Native) d.Native { return nil }
-func (n NoOp) Value() Callable           { return nil }
-func (n NoOp) Call(...Callable) Callable { return nil }
-func (n NoOp) String() string            { return "⊥" }
-func (n NoOp) Len() int                  { return 0 }
-func (n NoOp) TypeFnc() TyFnc            { return None }
-func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
-
-/// BRANCHING OPERATION
-func NewBranchOp(expr func(...Callable) (Callable, bool)) BranchOp { return expr }
 
 //// DATA
 func New(inf ...interface{}) Callable { return NewFromData(d.New(inf...)) }

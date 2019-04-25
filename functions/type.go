@@ -79,9 +79,10 @@ const (
 // first order type yields a types higher order type name and both, native and
 // functional type flags.
 type (
+	//		      name, nat type  , fnc t, parent , members/data Constructor, TypeConstructor
 	TypeFOFnc   func() (string, d.TyNative, TyFnc)
-	ProdTypeFnc func() (string, d.TyNative, TyFnc, HOTyped)
 	SumTypeFnc  func() (string, d.TyNative, TyFnc, HOTyped, []HOTyped)
+	ProdTypeFnc func() (string, d.TyNative, TyFnc, HOTyped, DataConstructor, TypeConstructor)
 
 	// a type constructor composes first- and/or higher order types to
 	// derive further higher order types.
@@ -93,17 +94,17 @@ type (
 
 	// satisfyed data constructors (aka constant data) & constant
 	// expressions return their type constructor as second argument.
-	TypedDataValue          func() (DataVal, TypeConstructor)
-	TypedConstantExpression func() (ConstantExpr, TypeConstructor)
+	TypedDataExpression     func() (Callable, DataConstructor, TypeConstructor)
+	TypedConstantExpression func() (Callable, DataConstructor, TypeConstructor)
 
 	// expression constructors return their type constructor and additional
 	// parameters, when called without arguments. called with arguments, a
 	// new typed variadic-, nary-, or proper-expression is composed from
 	// resulting expression & typeconstructor, when arguments are applyed
 	// to initial expression & type constructor and returned.
-	TypedVariadicExpression func(...Callable) Callable // TypeConstructFnc
-	TypedNaryExpression     func(...Callable) Callable // TypeConstructFnc,Arity
-	TypedProperExpression   func(...Callable) Callable // TypeConstructFnc,Arity,Propertys
+	TypedVariadicExpression  func(...Callable) Callable // TypeConstructFnc
+	TypedNaryExpression      func(...Callable) Callable // TypeConstructFnc,Arity
+	TypedPropertysExpression func(...Callable) Callable // TypeConstructFnc,Arity,Propertys
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -521,20 +522,34 @@ func (t SumTypeFnc) Eval(args ...d.Native) d.Native {
 // product type binds a derived type to it's parent type (that may be a product
 // type itself).
 func NewProductTypeFromNameBaseAndParent(
-	name string, tnat d.TyNative, tfnc TyFnc, parent HOTyped,
+	name string,
+	tnat d.TyNative,
+	tfnc TyFnc,
+	parent HOTyped,
+	dataCon DataConstructor,
+	typeCon TypeConstructor,
 ) ProdTypeFnc {
 
-	return func() (string, d.TyNative, TyFnc, HOTyped) {
+	return func() (string, d.TyNative, TyFnc, HOTyped, DataConstructor, TypeConstructor) {
 
-		return name, tnat, tfnc, parent
+		return name, tnat, tfnc, parent, dataCon, typeCon
 	}
 }
 
 func NewProductTypeFromTypeAndParent(
 	hot, parent HOTyped,
+	dataCon DataConstructor,
+	typeCon TypeConstructor,
 ) ProdTypeFnc {
 
-	return func() (string, d.TyNative, TyFnc, HOTyped) {
+	return func() (
+		string,
+		d.TyNative,
+		TyFnc,
+		HOTyped,
+		DataConstructor,
+		TypeConstructor,
+	) {
 
 		var tnat, tfnc = hot.TypeBase()
 
@@ -543,31 +558,56 @@ func NewProductTypeFromTypeAndParent(
 				hot.TypeName(),
 			tnat,
 			tfnc,
-			parent
+			parent,
+			dataCon,
+			typeCon
 	}
 }
 
 func NewProductTypeFromNameAndExpr(
-	name string, expr Callable, parent HOTyped,
+	name string,
+	expr Callable,
+	parent HOTyped,
+	dataCon DataConstructor,
+	typeCon TypeConstructor,
 ) ProdTypeFnc {
 
-	return func() (string, d.TyNative, TyFnc, HOTyped) {
+	return func() (
+		string,
+		d.TyNative,
+		TyFnc,
+		HOTyped,
+		DataConstructor,
+		TypeConstructor,
+	) {
 
 		return parent.TypeName() +
 				" " +
 				name,
 			expr.TypeNat(),
 			expr.TypeFnc(),
-			parent
+			parent,
+			dataCon,
+			typeCon
 	}
 
 }
 
 func NewProductTypeAlias(
-	name string, thot HOTyped,
+	name string,
+	thot HOTyped,
+	dataCon DataConstructor,
+	typeCon TypeConstructor,
 ) ProdTypeFnc {
 
-	return func() (string, d.TyNative, TyFnc, HOTyped) {
+	return func() (
+		string,
+		d.TyNative,
+		TyFnc,
+		HOTyped,
+		DataConstructor,
+		TypeConstructor,
+	) {
 
 		var parent = thot.TypeParent()
 		var tnat, tfnc = parent.TypeBase()
@@ -577,15 +617,45 @@ func NewProductTypeAlias(
 				name,
 			tnat,
 			tfnc,
-			parent
+			parent,
+			dataCon,
+			typeCon
 	}
 }
 
 func (t ProdTypeFnc) TypeName() string {
 
-	var name, _, _, _ = t()
+	var name, _, _, _, _, _ = t()
 
 	return name
+}
+
+func (t ProdTypeFnc) TypeBase() (d.TyNative, TyFnc) {
+
+	var _, tnat, tfnc, _, _, _ = t()
+
+	return tnat, tfnc
+}
+
+func (t ProdTypeFnc) TypeParent() HOTyped {
+
+	var _, _, _, hot, _, _ = t()
+
+	return hot
+}
+
+func (t ProdTypeFnc) DataConstructor() DataConstructor {
+
+	var _, _, _, _, dataCon, _ = t()
+
+	return dataCon
+}
+
+func (t ProdTypeFnc) TypeConstructor() TypeConstructor {
+
+	var _, _, _, _, _, typeCon = t()
+
+	return typeCon
 }
 
 // string representation concatenates all parents names recursively, till first
@@ -595,24 +665,8 @@ func (t ProdTypeFnc) String() string {
 	return t.TypeName() + " " + t.TypeParent().String()
 }
 
-// returns the parent type as instance of HOTyped interface
-func (t ProdTypeFnc) TypeParent() HOTyped {
-
-	var _, _, _, hot = t()
-
-	return hot
-}
-
 // states that this is not a type root
 func (t ProdTypeFnc) TypeRoot() bool { return false }
-
-// returns the types native-/ & functional type flags
-func (t ProdTypeFnc) TypeBase() (d.TyNative, TyFnc) {
-
-	var _, tnat, tfnc, _ = t()
-
-	return tnat, tfnc
-}
 
 // yields the 'Type' Flag
 func (t ProdTypeFnc) TypeFnc() TyFnc { return Type | TypeProduct }
@@ -1038,16 +1092,40 @@ func (e TypedVariadicExpression) TypeFnc() TyFnc {
 //// TYPED DATA EXPRESSION
 ///
 // typed constant expression has to allways return it's type constructor
-func NewTypedData(data DataVal, typecon TypeConstructor) TypedDataValue {
+func NewTypedData(dataCon DataConstructor, typecon TypeConstructor) TypedVariadicExpression {
 
-	return func() (DataVal, TypeConstructor) { return data, typecon }
+	return func(args ...Callable) Callable {
+
+		if len(args) == 0 {
+
+			return NewPair(dataCon, typecon)
+		}
+
+		if data, ok := dataCon(args...); ok {
+
+			return data
+		}
+
+		return NewTypedVariadicExpression(
+			NewDataConstructor(
+				func(...Callable) (Callable, bool) {
+					return NewTypeError(),
+						false
+				}),
+			typecon,
+		)
+	}
 }
 
 // calls expression empty and returns the type constructor
-func (e TypedDataValue) TypeConstructor() TypeConstructor { _, con := e(); return con }
+func (e TypedDataExpression) DataConstructor() DataConstructor { _, dataCon, _ := e(); return dataCon }
+
+func (e TypedDataExpression) TypeConstructor() TypeConstructor { _, _, typeCon := e(); return typeCon }
+
+func (e TypedDataExpression) TypeExpression() Callable { typeExpr, _, _ := e(); return typeExpr }
 
 // calls the type contructor empty to yield it's higher order type
-func (e TypedDataValue) TypeHigherOrder() HOTyped {
+func (e TypedDataExpression) TypeHigherOrder() HOTyped {
 
 	if hot, ok := e.TypeConstructor()(); ok {
 		return hot
@@ -1058,29 +1136,51 @@ func (e TypedDataValue) TypeHigherOrder() HOTyped {
 }
 
 // call returns the yielded constant
-func (e TypedDataValue) Call(...Callable) Callable { val, _ := e(); return val }
+func (e TypedDataExpression) Call(args ...Callable) Callable {
+	expr, _, _ := e()
+	return expr.Call(args...)
+}
 
 // eval returns yielded constant as native type
-func (e TypedDataValue) Eval(...d.Native) d.Native { return e.Call().Eval() }
+func (e TypedDataExpression) Eval(...d.Native) d.Native { return e.Call().Eval() }
 
 // string function to implement callable
-func (e TypedDataValue) String() string { return e.Call().String() }
+func (e TypedDataExpression) String() string { return e.Call().String() }
 
-func (e TypedDataValue) TypeNat() d.TyNative { tnat, _ := e.TypeHigherOrder().TypeBase(); return tnat }
+func (e TypedDataExpression) TypeNat() d.TyNative {
+	tnat, _ := e.TypeHigherOrder().TypeBase()
+	return tnat
+}
 
-func (e TypedDataValue) TypeFnc() TyFnc { _, tfnc := e.TypeHigherOrder().TypeBase(); return tfnc }
+func (e TypedDataExpression) TypeFnc() TyFnc { _, tfnc := e.TypeHigherOrder().TypeBase(); return tfnc }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //// TYPED CONSTANT EXPRESSION
 ///
 // typed constant expression has to allways return it's type constructor
-func NewTypedConstantExpr(constant ConstantExpr, typecon TypeConstructor) TypedConstantExpression {
+func NewTypedConstantExpr(
+	constant ConstantExpr,
+	dataCon DataConstructor,
+	typeCon TypeConstructor,
+) TypedConstantExpression {
 
-	return func() (ConstantExpr, TypeConstructor) { return constant, typecon }
+	return func() (Callable, DataConstructor, TypeConstructor) {
+
+		return constant, dataCon, typeCon
+	}
 }
 
-// calls expression empty and returns the type constructor
-func (e TypedConstantExpression) TypeConstructor() TypeConstructor { _, con := e(); return con }
+func (e TypedConstantExpression) TypeExpression() Callable { data, _, _ := e(); return data }
+
+func (e TypedConstantExpression) DataConstructor() DataConstructor {
+	_, dataCon, _ := e()
+	return dataCon
+}
+
+func (e TypedConstantExpression) TypeConstructor() TypeConstructor {
+	_, _, typeCon := e()
+	return typeCon
+}
 
 // calls the type contructor empty to yield it's higher order type
 func (e TypedConstantExpression) TypeHigherOrder() HOTyped {
@@ -1094,7 +1194,7 @@ func (e TypedConstantExpression) TypeHigherOrder() HOTyped {
 }
 
 // call returns the yielded constant
-func (e TypedConstantExpression) Call(...Callable) Callable { val, _ := e(); return val }
+func (e TypedConstantExpression) Call(...Callable) Callable { val, _, _ := e(); return val }
 
 // eval returns yielded constant as native type
 func (e TypedConstantExpression) Eval(...d.Native) d.Native { return e.Call().Eval() }
@@ -1117,158 +1217,66 @@ func (e TypedConstantExpression) TypeFnc() TyFnc {
 ///
 // typed nary expression has a known arity and can be exactly-, under-, or
 // oversatisfyed in number of passed arguments. typed nary expression returns either an nary
-func NewTypedNaryExpression(expr NaryExpr, typecon TypeConstructor, ari int) TypedNaryExpression {
-
-	var arity = Arity(int8(ari))
+func NewTypedNaryExpression(
+	expr Callable,
+	typeCon TypeConstructor,
+	ari int,
+) TypedNaryExpression {
 
 	return func(args ...Callable) Callable {
 
-		var anum = len(args)
+		// when called empty return unevaluated expression,
+		// data-, type constructor, & arity.
+		if len(args) == 0 {
 
-		// no arguments passed, return typeconstructor & arity
-		if anum == 0 {
-
-			return NewPair(typecon, arity)
-		}
-
-		// allocate result value
-		var constructor = typecon
-		var result Callable
-
-		// arity exactly satisfyed by number of passed arguments
-		//
-		// if number of arguments equals arity. return a typed constant
-		// as typed expression and ab arity of zero
-		if anum == int(arity) {
-
-			// return a constant expression, since all arguments have
-			// been passed.
-			var value = ConstantExpr(func() Callable {
-
-				return expr(args...)
-			})
-
-			// if type constructor yields value‥.
-			if con, ok := typecon(castArgsHO(args...)...); ok {
-
-				// and value is a type constructor...
-				if tcon, ok := con.(TypeConstructor); ok {
-
-					// use it as resulting constructor
-					constructor = tcon
-				}
-			}
-
-			// compose resulting type expression from resulting
-			// value & constructed type
-			result = NewTypedConstantExpr(
-				value,
-				constructor,
-			)
-
-			// set arity to zero, there are no more arguments to
-			// expect
-			arity = Arity(0)
-		}
-
-		// arity is over-satisfyed by number of passed arguments
-		//
-		// return result as head, followed by abundant arguments as
-		// tail of consumeable list
-		if anum > int(arity) {
-
-			var value = NewList(ConstantExpr(func() Callable {
-
-				return expr(args...)
-
-			})).Con(args...)
-
-			if con, ok := typecon(castArgsHO(args[:ari]...)...); ok {
-
-				if tcon, ok := con.(TypeConstructor); ok {
-
-					constructor = tcon
-				}
-			}
-
-			result = NewTypedNaryExpression(
-				value.Call,
-				constructor,
-				anum-int(arity),
+			return NewVector(
+				typeCon, Arity(ari),
 			)
 		}
 
-		// arity is under-satisfyed by arguments passed in call
-		//
-		// return a partialy applyed function with reduced arity
-		if anum < int(arity) {
-
-			// reduce arity by number of arguments
-			arity = arity - Arity(anum)
-
-			// create partial constructor passing all available arguments to type constructor
-			if con, ok := typecon(castArgsHO(args...)...); ok {
-
-				if tcon, ok := con.(TypeConstructor); ok {
-
-					constructor = tcon
-				}
-			}
-
-			// create partialy applyed expression  by creating a
-			// call continuation, that expects the missing
-			// arguments and has it's arity reduced by number of
-			// arguments that got passed allready and a constructor
-			// yielded from applying the arguments to the initially
-			// passed type constructor.
-			var value = DataConstructor(
-
-				func(missing ...Callable) Callable {
-
-					return NewTypedNaryExpression(
-
-						NaryExpr(func(missing ...Callable) Callable {
-
-							return expr(args...).Call(missing...)
-						}),
-
-						constructor,
-
-						int(arity),
-					)
-				})
-
-			result = NewTypedVariadicExpression(
-				value,
-				constructor,
-			)
-		}
-
-		// return paired value containing expression resulting from
-		// applying expression to arguments, and its remaining arity.
-		return NewPair(result, arity)
+		// when called with arguments, apply args to expresssion
+		return expr.Call(args...)
 	}
-}
-
-func (e TypedNaryExpression) Arity() Arity {
-	return e().(PairVal).Right().(Arity)
 }
 
 // calls expression empty and returns the type constructor
 func (e TypedNaryExpression) TypeConstructor() TypeConstructor {
-	return e().(PairVal).Left().(TypeConstructor)
 
+	var vec = e().(VecVal)
+
+	if vec.Len() > 0 {
+
+		return vec.Get(0).(TypeConstructor)
+	}
+
+	return NewTypeConstructor(
+		NewTypeError(),
+		func(...HOTyped) (HOTyped, bool) {
+			return NewTypeError(), false
+		})
+}
+
+func (e TypedNaryExpression) Arity() Arity {
+
+	var vec = e().(VecVal)
+
+	if vec.Len() > 1 {
+
+		return vec.Get(1).(Arity)
+	}
+
+	return Arity(0)
 }
 
 // calls the type contructor empty to yield it's higher order type
 func (e TypedNaryExpression) TypeHigherOrder() HOTyped {
 
 	if hot, ok := e.TypeConstructor()(); ok {
+
 		return hot
 	}
 
 	return NewTypeError()
-
 }
 
 // call returns the yielded constant
@@ -1281,12 +1289,17 @@ func (e TypedNaryExpression) Eval(args ...d.Native) d.Native { return e.Call().E
 func (e TypedNaryExpression) String() string { return e.Call().String() }
 
 func (e TypedNaryExpression) TypeNat() d.TyNative {
+
 	tnat, _ := e.TypeHigherOrder().TypeBase()
+
 	return tnat
+
 }
 
 func (e TypedNaryExpression) TypeFnc() TyFnc {
+
 	_, tfnc := e.TypeHigherOrder().TypeBase()
+
 	return tfnc
 }
 
@@ -1299,11 +1312,11 @@ func NewProperTypeExpression(
 	con TypeConstructor,
 	arity int,
 	props Propertys,
-) TypedProperExpression {
+) TypedPropertysExpression {
 
 	return func(args ...Callable) Callable {
 
-		var nexpr = NewTypedNaryExpression(expr.Call, con, arity)
+		var nexpr = NewTypedNaryExpression(expr, con, arity)
 
 		if len(args) == 0 {
 
@@ -1320,13 +1333,13 @@ func NewProperTypeExpression(
 
 }
 
-func (e TypedProperExpression) TypeConstructor() TypeConstructor {
+func (e TypedPropertysExpression) TypeConstructor() TypeConstructor {
 
 	if vec, ok := e().(VecVal); ok {
 
 		if vec.Len() > 0 {
 
-			if con, ok := vec.Slice()[0].(TypeConstructor); ok {
+			if con, ok := vec.Get(0).(TypeConstructor); ok {
 
 				return con
 			}
@@ -1341,13 +1354,13 @@ func (e TypedProperExpression) TypeConstructor() TypeConstructor {
 		})
 }
 
-func (e TypedProperExpression) Arity() Arity {
+func (e TypedPropertysExpression) Arity() Arity {
 
 	if vec, ok := e().(VecVal); ok {
 
 		if vec.Len() > 1 {
 
-			if arity, ok := vec.Slice()[1].(Arity); ok {
+			if arity, ok := vec.Get(1).(Arity); ok {
 
 				return arity
 			}
@@ -1357,13 +1370,13 @@ func (e TypedProperExpression) Arity() Arity {
 	return Arity(0)
 }
 
-func (e TypedProperExpression) Propertys() Propertys {
+func (e TypedPropertysExpression) Propertys() Propertys {
 
 	if vec, ok := e().(VecVal); ok {
 
 		if vec.Len() > 2 {
 
-			if props, ok := vec.Slice()[2].(Propertys); ok {
+			if props, ok := vec.Get(2).(Propertys); ok {
 
 				return props
 			}
@@ -1374,7 +1387,7 @@ func (e TypedProperExpression) Propertys() Propertys {
 }
 
 // calls the type contructor empty to yield it's higher order type
-func (e TypedProperExpression) TypeHigherOrder() HOTyped {
+func (e TypedPropertysExpression) TypeHigherOrder() HOTyped {
 
 	if hot, ok := e.TypeConstructor()(); ok {
 		return hot
@@ -1385,20 +1398,20 @@ func (e TypedProperExpression) TypeHigherOrder() HOTyped {
 }
 
 // call returns the yielded constant
-func (e TypedProperExpression) Call(args ...Callable) Callable { return e(args...) }
+func (e TypedPropertysExpression) Call(args ...Callable) Callable { return e(args...) }
 
 // eval returns yielded constant as native type
-func (e TypedProperExpression) Eval(...d.Native) d.Native { return e.Call().Eval() }
+func (e TypedPropertysExpression) Eval(...d.Native) d.Native { return e.Call().Eval() }
 
 // string function to implement callable
-func (e TypedProperExpression) String() string { return e.Call().String() }
+func (e TypedPropertysExpression) String() string { return e.Call().String() }
 
-func (e TypedProperExpression) TypeNat() d.TyNative {
+func (e TypedPropertysExpression) TypeNat() d.TyNative {
 	tnat, _ := e.TypeHigherOrder().TypeBase()
 	return tnat
 }
 
-func (e TypedProperExpression) TypeFnc() TyFnc {
+func (e TypedPropertysExpression) TypeFnc() TyFnc {
 	_, tfnc := e.TypeHigherOrder().TypeBase()
 	return tfnc
 }
