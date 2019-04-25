@@ -33,12 +33,24 @@ type (
 )
 
 //// CURRY
-func Curry(fnc Callable, outer ...Callable) Callable {
+func Curry(exprs ...Callable) Callable {
 
-	return NaryExpr(func(inner ...Callable) Callable {
+	if len(exprs) == 0 {
 
-		return fnc.Call(outer...).Call(inner...)
-	})
+		return NewNaryExpr(Curry)
+	}
+
+	if len(exprs) == 1 {
+
+		return NewNaryExpr(exprs[0].Call)
+	}
+
+	return NewNaryExpr(
+
+		func(args ...Callable) Callable {
+
+			return exprs[0].Call(Curry(exprs[1:]...).Call(args...))
+		})
 }
 
 //// CONSUME
@@ -58,13 +70,7 @@ func (c ConsumerFnc) String() string                 { return "ϝ → Fₙ [F]" 
 func (c ConsumerFnc) Head() Callable                 { h, _ := c(); return h }
 func (c ConsumerFnc) Tail() Consumeable              { _, t := c(); return t }
 func (c ConsumerFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c ConsumerFnc) Signature() []Callable {
-	return append(
-		[]Callable{NewFromData(Endofunctor)},
-		c.Head().Signature()...,
-	)
-}
-func (c ConsumerFnc) TypeFnc() TyFnc { return Endofunctor | c.Head().TypeFnc() }
+func (c ConsumerFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
 func (c ConsumerFnc) TypeNat() d.TyNative {
 	res, _ := c()
 	return res.TypeNat() | d.Function
@@ -105,13 +111,7 @@ func (c FunctorFnc) Tail() Consumeable              { _, t := c(); return t }
 func (c FunctorFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c FunctorFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
 func (c FunctorFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
-func (c FunctorFnc) Signature() []Callable {
-	return append(
-		[]Callable{NewFromData(Functor)},
-		c.Head().Signature()...,
-	)
-}
-func (c FunctorFnc) String() string { return c.Head().String() }
+func (c FunctorFnc) String() string                 { return c.Head().String() }
 
 /// APPLICATIVE
 // applicative encloses over a function to be applyd the head element and any
@@ -146,13 +146,7 @@ func (c ApplicativeFnc) Call(args ...Callable) Callable { return c.Head().Call(a
 func (c ApplicativeFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c ApplicativeFnc) TypeFnc() TyFnc                 { return Applicable | c.Head().TypeFnc() }
 func (c ApplicativeFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
-func (c ApplicativeFnc) Signature() []Callable {
-	return append(
-		[]Callable{NewFromData(Applicable)},
-		c.Head().Signature()...,
-	)
-}
-func (c ApplicativeFnc) String() string { return c.Head().String() }
+func (c ApplicativeFnc) String() string                 { return c.Head().String() }
 
 // MONADIC
 func (c MonadicFnc) Call(args ...Callable) Callable {
@@ -167,12 +161,6 @@ func (c MonadicFnc) Tail() Consumeable              { _, t := c(); return t }
 func (c MonadicFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c MonadicFnc) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
 func (c MonadicFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
-func (c MonadicFnc) Signature() []Callable {
-	return append(
-		[]Callable{NewFromData(Monad)},
-		c.Head().Signature()...,
-	)
-}
 
 //////////////////////////////////////////////////////////////////////////////////////
 /// EAGER MAP FUNCTOR

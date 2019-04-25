@@ -13,6 +13,7 @@ import (
 // intended to be accessable and extendable
 type TyNative BitFlag
 
+func (t TyNative) FlagType() int8    { return 1 }
 func (v TyNative) TypeNat() TyNative { return v }
 
 func (v TyNative) Eval(p ...Native) Native {

@@ -6,6 +6,7 @@ import (
 )
 
 //// BOUND TYPE FLAG METHODS ////
+func (v BitFlag) FlagType() int8         { return 0 }
 func (v BitFlag) Flag() BitFlag          { return v }
 func (v BitFlag) Uint() uint             { return uint(v) }
 func (v BitFlag) Int() int               { return int(v) }

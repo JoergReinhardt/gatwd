@@ -10,6 +10,15 @@ type Typed interface {
 	d.Typed
 }
 
+type HOTyped interface {
+	Callable
+	TypeRoot() bool
+	TypeName() string
+	TypeBase() (d.TyNative, TyFnc)
+	TypeMatch(...HOTyped) bool
+	TypeParent() HOTyped
+}
+
 type Evaluable interface {
 	// Eval(...Native) Native
 	d.Evaluable
@@ -157,8 +166,10 @@ type Mapped interface {
 // functional behaviour.
 type Callable interface {
 	d.Native
+	// TypeNat() d.TyNative
+	// String() string
+	// Eval(...d.Native) d.Native
 	TypeFnc() TyFnc
-	Signature() []Callable
 	Call(...Callable) Callable
 }
 
@@ -184,6 +195,20 @@ type Swappable interface {
 type Accociated interface {
 	Key() Callable
 	Value() Callable
+}
+
+type Keyed interface {
+	KeyStr() string
+}
+
+type Indexed interface {
+	Index() string
+}
+
+// access elements directly by index position
+type IndexAssoc interface {
+	Get(int) Callable
+	Set(int, Callable) Vectorized
 }
 
 //// CONSUMEABLE
@@ -279,19 +304,13 @@ type Searchable interface {
 	Search(Callable) int
 }
 
-// access elements directly by index position
-type Indexed interface {
-	Get(int) Callable
-	Set(int, Callable) Vectorized
-}
-
 // combines common functions provided by all vector shaped data
 type Vectorized interface {
 	Callable
 	Sequenced
 	Searchable
 	Ordered
-	Indexed
+	IndexAssoc
 }
 
 // behaviour of generators, that yield different values each call from a

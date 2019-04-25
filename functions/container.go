@@ -10,30 +10,32 @@ import (
 )
 
 type (
+	//// NOTHING
+	NoOp     func()
+	BranchOp func(...Callable) (Callable, bool)
+
 	//// DATA
 	DataVal func(args ...d.Native) d.Native
-
-	//// COLLECTIONS
-	PairVal        func(...Callable) (Callable, Callable)
-	ListVal        func(...Callable) (Callable, ListVal)
-	VecVal         func(...Callable) []Callable
-	TupleVal       func(...Callable) ([]Callable, []Callable)
-	AccociativeVal func(...PairVal) []PairVal
-	SetVal         func(...PairVal) d.Mapped
-
-	// MONADIC VALUES
-	NoOp     func()
-	TruthVal func() bool
 
 	//// EXPRESSIONS
 	ConstantExpr func() Callable
 	UnaryExpr    func(Callable) Callable
 	BinaryExpr   func(a, b Callable) Callable
 	NaryExpr     func(...Callable) Callable
+
+	//// COLLECTIONS
+	PairVal        func(...Callable) (Callable, Callable)
+	AssocPair      func(...Callable) (string, Callable)
+	IndexPair      func(...Callable) (int, Callable)
+	ListVal        func(...Callable) (Callable, ListVal)
+	VecVal         func(...Callable) []Callable
+	TupleVal       func(...Callable) []Callable
+	AccociativeVal func(...PairVal) []PairVal
+	SetVal         func(...PairVal) d.Mapped
 )
 
 // reverse arguments
-func revArgs(args ...Callable) []Callable {
+func reverseArguments(args ...Callable) []Callable {
 
 	var rev = []Callable{}
 
@@ -45,55 +47,62 @@ func revArgs(args ...Callable) []Callable {
 	return rev
 }
 
-//// DATA INSTANCIATION
-///
-// 'new' instanciates all kinds of value instances as well as literals
-// automagicaly figuring out what type seems to be appropriate.
+func functionalizeNatives(args ...d.Native) []Callable {
+
+	var result = []Callable{}
+
+	for _, arg := range args {
+
+		result = append(result, NewFromData(arg))
+	}
+
+	return result
+}
+
+func evaluateFunctionals(args ...Callable) []d.Native {
+
+	var result = []d.Native{}
+
+	for _, arg := range args {
+
+		result = append(result, arg.Eval())
+	}
+
+	return result
+}
+
+/// NOOP
+func NewNoOp() NoOp                      { return func() {} }
+func (n NoOp) Ident() Callable           { return n }
+func (n NoOp) Maybe() bool               { return false }
+func (n NoOp) Empty() bool               { return true }
+func (n NoOp) Eval(...d.Native) d.Native { return nil }
+func (n NoOp) Value() Callable           { return nil }
+func (n NoOp) Call(...Callable) Callable { return nil }
+func (n NoOp) String() string            { return "⊥" }
+func (n NoOp) Len() int                  { return 0 }
+func (n NoOp) TypeFnc() TyFnc            { return None }
+func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
+
+/// BRANCHING OPERATION
+func NewBranchOp(expr func(...Callable) (Callable, bool)) BranchOp { return expr }
+
+//// DATA
 func New(inf ...interface{}) Callable { return NewFromData(d.New(inf...)) }
 
-// 'new from data' expects an instanciate implementing the 'data/Native'
-// interface and wraps it in a function to implement the Callable interface and
-// return the enclosedndata as instance implementing the data/Native interface
 func NewFromData(data ...d.Native) DataVal {
 
-	// take the function pointer to instances Eval(...d.Native) as
-	// continuation to be computed, when called.
 	var eval func(...d.Native) d.Native
+
 	for _, val := range data {
 		eval = val.Eval
 	}
 
-	// lazy computation of the return value
 	return func(args ...d.Native) d.Native { return eval(args...) }
 }
 
-func NewFromFlag(data ...d.Native) Callable {
-
-	var pairs = []PairVal{}
-
-	for _, dat := range data {
-
-		var fnctype = false
-
-		if _, ok := dat.(TyFnc); ok {
-
-			fnctype = true
-		}
-		pairs = append(pairs, NewPair(NewFromData(dat), NewFromData(d.BoolVal(fnctype))))
-	}
-
-	if len(pairs) > 1 {
-		return NewAssociativeFromPairFunction(pairs...)
-	}
-
-	return pairs[0]
-}
-
-// eval passes on it's arguments to call the eval function of it's enclosed instance
 func (n DataVal) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
 
-// call builds a list of data values, by wrapping references to its arguments
-// eval methods
 func (n DataVal) Call(vals ...Callable) Callable {
 
 	var results = NewVector()
@@ -110,91 +119,45 @@ func (n DataVal) Call(vals ...Callable) Callable {
 	return results
 }
 
-// see if the value is nil, or one of the empty types
-func (n DataVal) Empty() bool {
-
-	if n.Eval() == nil ||
-		n.TypeNat().Flag().Match(d.Nil) {
-
-		return true
-	}
-
-	return false
-}
-
-func (n DataVal) Signature() []Callable {
-	return []Callable{NewFromFlag(NewFromFlag(n.TypeNat())), NewFromFlag(n.TypeFnc())}
-}
 func (n DataVal) TypeFnc() TyFnc      { return Data }
 func (n DataVal) TypeNat() d.TyNative { return n().TypeNat() }
 func (n DataVal) String() string      { return n().String() }
 
 //// STATIC EXPRESSIONS
 ///
-// static function expressions allways yield identical results when called with
-// identical arguments.  the most common forms of expression either don't take
-// any arguments, take one, two, or more arguments and have dedicated
-// signatures for convienience.
-
 // CONSTANT EXPRESSION
-func NewConstant(fnc Callable) Callable {
-	return ConstantExpr(
-		func() Callable {
-			return fnc.(NaryExpr)()
-		})
-}
-func (c ConstantExpr) Ident() Callable     { return c() }
-func (c ConstantExpr) TypeFnc() TyFnc      { return Expression }
-func (c ConstantExpr) TypeNat() d.TyNative { return c().TypeNat() }
-func (c ConstantExpr) Signature() []Callable {
-	return []Callable{NewFromFlag(c.TypeNat()), NewFromFlag(c.TypeFnc())}
-}
+func NewConstant(fnc Callable) Callable          { return fnc }
+func (c ConstantExpr) Ident() Callable           { return c() }
+func (c ConstantExpr) TypeFnc() TyFnc            { return Expression }
+func (c ConstantExpr) TypeNat() d.TyNative       { return c().TypeNat() }
 func (c ConstantExpr) Call(...Callable) Callable { return c() }
 func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
 
-///// UNARY EXPRESSION
-func NewUnaryExpr(fnc Callable) UnaryExpr {
-	return UnaryExpr(
-		func(arg Callable) Callable {
-			return fnc.(NaryExpr)(arg)
-		})
-}
-func (u UnaryExpr) Ident() Callable     { return u }
-func (u UnaryExpr) TypeFnc() TyFnc      { return Expression }
-func (u UnaryExpr) TypeNat() d.TyNative { return d.Function.TypeNat() }
-func (u UnaryExpr) Signature() []Callable {
-	return []Callable{NewFromFlag(u.TypeNat()), NewFromFlag(u.TypeFnc())}
-}
-func (u UnaryExpr) Call(arg ...Callable) Callable { return u(arg[0]) }
-func (u UnaryExpr) Eval(arg ...d.Native) d.Native { return u(NewFromData(arg...)) }
+/// UNARY EXPRESSION
+func NewUnaryExpr(fnc func(Callable) Callable) UnaryExpr { return fnc }
+func (u UnaryExpr) Ident() Callable                      { return u }
+func (u UnaryExpr) TypeFnc() TyFnc                       { return Expression }
+func (u UnaryExpr) TypeNat() d.TyNative                  { return d.Function.TypeNat() }
+func (u UnaryExpr) Call(arg ...Callable) Callable        { return u(arg[0]) }
+func (u UnaryExpr) Eval(arg ...d.Native) d.Native        { return u(NewFromData(arg...)) }
 
-///// BINARY EXPRESSION
-func NewBinaryExpr(fnc Callable) BinaryExpr {
-	return BinaryExpr(
-		func(left, right Callable) Callable {
-			return fnc.(NaryExpr)(left, right)
-		})
-}
-func (b BinaryExpr) Ident() Callable     { return b }
-func (b BinaryExpr) TypeFnc() TyFnc      { return Expression }
-func (b BinaryExpr) TypeNat() d.TyNative { return d.Function.TypeNat() }
-func (b BinaryExpr) Signature() []Callable {
-	return []Callable{NewFromFlag(b.TypeNat()), NewFromFlag(b.TypeFnc())}
-}
+/// BINARY EXPRESSION
+func NewBinaryExpr(fnc func(l, r Callable) Callable) BinaryExpr { return fnc }
+
+func (b BinaryExpr) Ident() Callable                { return b }
+func (b BinaryExpr) TypeFnc() TyFnc                 { return Expression }
+func (b BinaryExpr) TypeNat() d.TyNative            { return d.Function.TypeNat() }
 func (b BinaryExpr) Call(args ...Callable) Callable { return b(args[0], args[1]) }
 func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 	return b(NewFromData(args[0]), NewFromData(args[1]))
 }
 
-///// NARY EXPRESSION
-/// every callable is an nary and can be asserted as such
-func (n NaryExpr) Ident() Callable     { return n }
-func (n NaryExpr) TypeFnc() TyFnc      { return Expression }
-func (n NaryExpr) TypeNat() d.TyNative { return d.Function.TypeNat() }
-func (n NaryExpr) Signature() []Callable {
-	return []Callable{NewFromFlag(n.TypeNat()), NewFromFlag(n.TypeFnc())}
-}
-func (n NaryExpr) Call(d ...Callable) Callable { return n(d...) }
+/// NARY EXPRESSION
+func NewNaryExpr(fnc func(...Callable) Callable) NaryExpr { return fnc }
+func (n NaryExpr) Ident() Callable                        { return n }
+func (n NaryExpr) TypeFnc() TyFnc                         { return Expression }
+func (n NaryExpr) TypeNat() d.TyNative                    { return d.Function.TypeNat() }
+func (n NaryExpr) Call(d ...Callable) Callable            { return n(d...) }
 func (n NaryExpr) Eval(args ...d.Native) d.Native {
 	var params = []Callable{}
 	for _, arg := range args {
@@ -203,10 +166,7 @@ func (n NaryExpr) Eval(args ...d.Native) d.Native {
 	return n(params...)
 }
 
-//// PAIRS OF VALUES
-///
-// pair returns it's contained two values and also provides all methods, to
-// implement monadic types
+/// PAIRS OF VALUES
 func NewEmptyPair() PairVal {
 	return func(args ...Callable) (a, b Callable) {
 		return NewNoOp(), NewNoOp()
@@ -322,23 +282,14 @@ func (p PairVal) Key() Callable   { return p.Left() }
 func (p PairVal) Value() Callable { return p.Right() }
 
 // key and values native and functional types
-func (p PairVal) KeyType() d.TyNative   { return p.Left().TypeNat() }
-func (p PairVal) ValueType() d.TyNative { return p.Right().TypeNat() }
+func (p PairVal) KeyType() TyFnc           { return p.Left().TypeFnc() }
+func (p PairVal) KeyNatType() d.TyNative   { return p.Left().TypeNat() }
+func (p PairVal) ValueType() TyFnc         { return p.Right().TypeFnc() }
+func (p PairVal) ValueNatType() d.TyNative { return p.Right().TypeNat() }
 
 // slightly different element types, since right value is a list now
 func (p PairVal) HeadType() TyFnc { return p.Left().TypeFnc() }
 func (p PairVal) TailType() TyFnc { return p.Right().TypeFnc() }
-
-func (p PairVal) Signature() []Callable {
-
-	return []Callable{
-		NewFromFlag(Pair),
-		NewPair(
-			NewVector(p.Left().Signature()...),
-			NewVector(p.Right().Signature()...),
-		),
-	}
-}
 
 // composed functional type of a value pair
 func (p PairVal) TypeFnc() TyFnc {
@@ -375,6 +326,93 @@ func (p PairVal) Call(args ...Callable) Callable {
 func (p PairVal) Eval(args ...d.Native) d.Native {
 	return d.NewPair(p.Left().Eval(args...), p.Right().Eval(args...))
 }
+
+//// ASSOCIATIVE VALUE
+func NewAssocPair(key string, val Callable) AssocPair {
+	return func(...Callable) (string, Callable) { return key, val }
+}
+
+func (a AssocPair) KeyStr() string {
+	var key, _ = a()
+	return key
+}
+
+func (a AssocPair) Ident() Callable { return a }
+
+func (a AssocPair) Pair() PairVal { return NewPair(a.Both()) }
+
+func (a AssocPair) Both() (Callable, Callable) {
+	var key, val = a()
+	return NewFromData(d.StrVal(key)), val
+}
+
+func (a AssocPair) Left() Callable {
+	key, _ := a()
+	return NewFromData(d.StrVal(key))
+}
+
+func (a AssocPair) Right() Callable {
+	_, val := a()
+	return val
+}
+func (a AssocPair) Key() Callable   { return a.Left() }
+func (a AssocPair) Value() Callable { return a.Right() }
+
+func (a AssocPair) String() string                 { return a.Right().String() }
+func (a AssocPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
+func (a AssocPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
+
+func (a AssocPair) KeyType() TyFnc           { return Pair | Symbol }
+func (a AssocPair) KeyNatType() d.TyNative   { return d.String }
+func (a AssocPair) ValueType() TyFnc         { return a.Right().TypeFnc() }
+func (a AssocPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
+
+func (a AssocPair) TypeFnc() TyFnc      { return Pair | Symbol | a.ValueType() }
+func (a AssocPair) TypeNat() d.TyNative { return d.Pair | d.String | a.ValueNatType() }
+
+//// ASSOCIATIVE VALUE
+func NewIndexPair(idx int, val Callable) IndexPair {
+	return func(...Callable) (int, Callable) { return idx, val }
+}
+
+func (a IndexPair) Index() int {
+	idx, _ := a()
+	return idx
+}
+
+func (a IndexPair) Ident() Callable { return a }
+
+func (a IndexPair) Both() (Callable, Callable) {
+	var idx, val = a()
+	return NewFromData(d.IntVal(idx)), val
+}
+
+func (a IndexPair) Pair() PairVal { return NewPair(a.Both()) }
+
+func (a IndexPair) Left() Callable {
+	idx, _ := a()
+	return NewFromData(d.IntVal(idx))
+}
+
+func (a IndexPair) Right() Callable {
+	_, val := a()
+	return val
+}
+
+func (a IndexPair) Key() Callable   { return a.Left() }
+func (a IndexPair) Value() Callable { return a.Right() }
+
+func (a IndexPair) String() string                 { return a.Right().String() }
+func (a IndexPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
+func (a IndexPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
+
+func (a IndexPair) KeyType() TyFnc           { return Pair | Index }
+func (a IndexPair) KeyNatType() d.TyNative   { return d.Int }
+func (a IndexPair) ValueType() TyFnc         { return a.Right().TypeFnc() }
+func (a IndexPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
+
+func (a IndexPair) TypeFnc() TyFnc      { return Pair | Index | a.ValueType() }
+func (a IndexPair) TypeNat() d.TyNative { return d.Pair | d.Int | a.ValueNatType() }
 
 //////////////////////////////////////////////////////////////////////////////////////
 ///// RECURSIVE LIST OF VALUES
@@ -557,14 +595,6 @@ func (l ListVal) TypeFnc() TyFnc { return List | Functor }
 
 func (l ListVal) TypeNat() d.TyNative { return d.List.TypeNat() | l.Head().TypeNat() }
 
-func (l ListVal) Signature() []Callable {
-	return []Callable{
-		NewFromFlag(List),
-		NewVector(
-			l.Head().Signature()...),
-	}
-}
-
 // call replicates main function call of list value instances, and either
 // returns the head, when called without arguments, or concatenates the
 // arguments to the list, when such are passed.
@@ -628,7 +658,7 @@ func NewVector(init ...Callable) VecVal {
 
 func ConVector(vec Vectorized, args ...Callable) VecVal {
 
-	return ConVecFromCallable(append(revArgs(args...), vec.Slice()...)...)
+	return ConVecFromCallable(append(reverseArguments(args...), vec.Slice()...)...)
 }
 
 func AppendVector(vec Vectorized, args ...Callable) VecVal {
@@ -641,7 +671,7 @@ func ConVecFromCallable(init ...Callable) VecVal {
 
 	return func(args ...Callable) []Callable {
 
-		return revArgs(append(args, init...)...)
+		return reverseArguments(append(args, init...)...)
 	}
 }
 
@@ -682,28 +712,16 @@ func (v VecVal) TypeNat() d.TyNative {
 	return d.Vector.TypeNat() | d.Nil
 }
 
-func (v VecVal) Signature() []Callable {
-
-	// nest member signature in list signature
-	return append(
-		[]Callable{
-			NewFromFlag(Vector),
-			NewVector(
-				v.Head().Signature()...),
-		},
-	)
-}
-
 func (v VecVal) Head() Callable {
 	if v.Len() > 0 {
-		return v.Vector()[0]
+		return v.Slice()[0]
 	}
 	return nil
 }
 
 func (v VecVal) Tail() Consumeable {
 	if v.Len() > 1 {
-		return NewVector(v.Vector()[1:]...)
+		return NewVector(v.Slice()[1:]...)
 	}
 	return NewEmptyVector()
 }
@@ -730,16 +748,16 @@ func (v VecVal) Empty() bool {
 
 func (v VecVal) Len() int { return len(v()) }
 
-func (v VecVal) Vector() []Callable { return v() }
+func (v VecVal) Vector() VecVal { return v }
 
 func (v VecVal) Slice() []Callable { return v() }
 
-func (v VecVal) Append(args ...Callable) []Callable {
-	return append(v(), args...)
+func (v VecVal) Append(args ...Callable) VecVal {
+	return NewVector(append(v(), args...)...)
 }
 
-func (v VecVal) Con(args ...Callable) []Callable {
-	return append(revArgs(args...), revArgs(v()...)...)
+func (v VecVal) Con(args ...Callable) VecVal {
+	return NewVector(append(reverseArguments(args...), reverseArguments(v()...)...)...)
 }
 
 func (v VecVal) Set(i int, val Callable) Vectorized {
@@ -772,44 +790,20 @@ func (v VecVal) Sort(flag d.TyNative) {
 // tuples are sequences of values grouped in a distinct sequence of distinct types,
 func NewTuple(data ...Callable) TupleVal {
 
-	var signature = []Callable{}
+	return TupleVal(func(args ...Callable) []Callable {
 
-	for i, arg := range data {
-
-		signature = []Callable{
-			New(i),
-			NewVector(arg.Signature()...),
-		}
-	}
-
-	// nest member types signatures in tuple types signature
-	signature = []Callable{NewFromFlag(Tuple), NewVector(signature...)}
-
-	return TupleVal(func(args ...Callable) ([]Callable, []Callable) {
-
-		return data, signature
+		return data
 	})
 }
 
-func (t TupleVal) Ident() Callable       { return t }
-func (t TupleVal) Len() int              { return len(t.Data()) }
-func (t TupleVal) Data() []Callable      { data, _ := t(); return data }
-func (t TupleVal) Signature() []Callable { _, signature := t(); return signature }
+func (t TupleVal) Ident() Callable { return t }
+func (t TupleVal) Len() int        { return len(t()) }
 
 // pairs prepends annotates member values as pair values carrying this
 // instances sub-type signature and tuple position in in the second field
 func (t TupleVal) Pairs() []PairVal {
 
 	var pairs = []PairVal{}
-	var data, signature = t()
-
-	for idx, val := range data {
-
-		pairs = append(pairs,
-			NewPair(
-				val,
-				signature[idx]))
-	}
 
 	return pairs
 }
@@ -833,7 +827,7 @@ func (t TupleVal) Tail() Consumeable { _, tail := t.DeCap(); return tail }
 // functional type concatenates the functional types of all the subtypes
 func (t TupleVal) TypeFnc() TyFnc {
 	var ftype = TyFnc(0)
-	for _, typ := range t.Data() {
+	for _, typ := range t() {
 		ftype = ftype | typ.TypeFnc()
 	}
 	return ftype
@@ -842,7 +836,7 @@ func (t TupleVal) TypeFnc() TyFnc {
 // native type concatenates the native types of all the subtypes
 func (t TupleVal) TypeNat() d.TyNative {
 	var ntype = d.Tuple
-	for _, typ := range t.Data() {
+	for _, typ := range t() {
 		ntype = ntype | typ.TypeNat()
 	}
 	return ntype
@@ -854,7 +848,7 @@ func (t TupleVal) String() string { return t.Head().String() }
 
 func (t TupleVal) Eval(args ...d.Native) d.Native {
 	var result = []d.Native{}
-	for _, val := range t.Data() {
+	for _, val := range t() {
 		result = append(result, val.Eval(val))
 	}
 	return d.DataSlice(result)
@@ -862,19 +856,19 @@ func (t TupleVal) Eval(args ...d.Native) d.Native {
 
 func (t TupleVal) Call(args ...Callable) Callable {
 	var result []Callable
-	for _, val := range t.Data() {
+	for _, val := range t() {
 		result = append(result, val.Call(args...))
 	}
 	return NewVector(result...)
 }
 
 func (t TupleVal) ApplyPartial(args ...Callable) TupleVal {
-	return NewTuple(partialApplyTuple(t, args...).Data()...)
+	return NewTuple(partialApplyTuple(t, args...)()...)
 }
 
 func partialApplyTuple(tuple TupleVal, args ...Callable) TupleVal {
 	// fetch current tupple
-	var result = tuple.Data()
+	var result = tuple()
 	var l = len(result)
 
 	// range through arguments
@@ -921,8 +915,8 @@ func partialApplyTuple(tuple TupleVal, args ...Callable) TupleVal {
 	}
 	// return altered result
 	return TupleVal(
-		func(...Callable) ([]Callable, []Callable) {
-			return result, tuple.Signature()
+		func(...Callable) []Callable {
+			return result
 		})
 }
 
@@ -1031,10 +1025,6 @@ func (v AccociativeVal) TypeNat() d.TyNative {
 		return d.Vector | v.Head().TypeNat()
 	}
 	return d.Vector | d.Nil.TypeNat()
-}
-
-func (v AccociativeVal) Signature() []Callable {
-	return append([]Callable{NewFromFlag(Record)}, v.Head().Signature()...)
 }
 
 func (v AccociativeVal) Len() int { return len(v()) }
@@ -1149,7 +1139,7 @@ func NewAssocSet(pairs ...PairVal) SetVal {
 
 	// OR concat all accessor types
 	for _, pair := range pairs {
-		kt = kt | pair.KeyType()
+		kt = kt | pair.KeyNatType()
 	}
 	// if accessors are of mixed type‥.
 	if kt.Flag().Count() > 1 {
@@ -1277,10 +1267,6 @@ func (v SetVal) ValNatType() d.TyNative {
 	return d.Nil
 }
 
-func (v SetVal) Signature() []Callable {
-	return append([]Callable{NewFromFlag(Record)}, v.Head().Signature()...)
-}
-
 func (v SetVal) DeCap() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
@@ -1297,57 +1283,4 @@ func (v SetVal) Tail() Consumeable {
 		return ConAssociativeFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyAssociative()
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//// MONADIC VALUES
-///
-
-///// NOOP
-//
-// aka void, null, nada, none, niente, zero, nan, rien de vas plus, or whatever
-// else you like to call the abscence of a value
-func NewNoOp() NoOp                      { return func() {} }
-func (n NoOp) Ident() Callable           { return n }
-func (n NoOp) Maybe() bool               { return false }
-func (n NoOp) Empty() bool               { return true }
-func (n NoOp) Eval(...d.Native) d.Native { return nil }
-func (n NoOp) Value() Callable           { return nil }
-func (n NoOp) Call(...Callable) Callable { return nil }
-func (n NoOp) String() string            { return "⊥" }
-func (n NoOp) Len() int                  { return 0 }
-func (n NoOp) TypeFnc() TyFnc            { return None }
-func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
-func (n NoOp) Signature() []Callable     { return []Callable{NewFromFlag(None)} }
-
-//// TRUTH
-//
-// there is exactly one truth & the abscence there of, resulting in two
-// possible variants of truth values
-func NewTruth(truth bool) TruthVal {
-	if truth {
-		return func() bool { return true }
-	}
-	return func() bool { return false }
-}
-
-func (t TruthVal) Eval(...d.Native) d.Native { return d.BoolVal(t()) }
-func (t TruthVal) Call(...Callable) Callable { return t }
-func (t TruthVal) Ident() Callable           { return t }
-func (t TruthVal) Signature() []Callable {
-	return []Callable{NewFromFlag(Truth), NewFromFlag(t.TypeFnc())}
-}
-func (t TruthVal) TypeNat() d.TyNative { return d.Bool }
-func (t TruthVal) TypeFnc() TyFnc {
-	if t() {
-		return True
-	}
-	return False
-}
-
-func (t TruthVal) String() string {
-	if t() {
-		return "True"
-	}
-	return "False"
 }
