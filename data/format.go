@@ -85,7 +85,7 @@ func StringBitFlag(v BitFlag) string {
 	var str string
 	if bits.OnesCount(v.Uint()) > 1 {
 		for i, f := range FlagDecompose(v) {
-			str = str + TyNative(f).String()
+			str = str + f.(TyNative).String()
 			if i < len(FlagDecompose(v))-1 {
 				str = str + "∙"
 			}
@@ -102,7 +102,7 @@ func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.TypeNat().Flag(), Vector.TypeNat().Flag()) {
+		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
 		} else {
 			str = str + d.String()

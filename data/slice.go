@@ -14,7 +14,7 @@ func NewSlice(val ...Native) DataSlice {
 func SliceContainedTypes(c []Native) BitFlag {
 	var flag = BitFlag(0)
 	for _, d := range c {
-		if FlagMatch(d.TypeNat().Flag(), Vector.TypeNat().Flag()) {
+		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
 			SliceContainedTypes(d.(DataSlice))
 			continue
 		}
@@ -23,7 +23,19 @@ func SliceContainedTypes(c []Native) BitFlag {
 	return flag
 }
 
-func (c DataSlice) TypeNat() TyNative { return Vector.TypeNat() }
+func (c DataSlice) TypeNat() TyNative {
+
+	var slice = c.Slice()
+
+	if len(slice) > 0 {
+
+		var val = slice[0]
+
+		return Slice.TypeNat() | val.TypeNat()
+	}
+
+	return Slice.TypeNat() | Nil.TypeNat()
+}
 
 func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
 
@@ -91,14 +103,14 @@ func SliceClear(s DataSlice) {
 
 func ElemEmpty(d Native) bool {
 	// not flagged nil, not a composition either...
-	if !FlagMatch(d.TypeNat().Flag(), (Nil.TypeNat().Flag() | Vector.TypeNat().Flag())) {
+	if !FlagMatch(d.TypeNat().Flag(), (Nil.TypeNat().Flag() | Slice.TypeNat().Flag())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if FlagMatch(d.TypeNat().Flag(), Vector.TypeNat().Flag()) {
+	if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(DataSlice); ok {
 			return SliceEmpty(sl)

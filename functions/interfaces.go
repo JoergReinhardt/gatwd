@@ -10,20 +10,6 @@ type Typed interface {
 	d.Typed
 }
 
-type HOTyped interface {
-	Callable
-	TypeRoot() bool
-	TypeName() string
-	TypeBase() (d.TyNative, TyFnc)
-	TypeMatch(...HOTyped) bool
-	TypeParent() HOTyped
-}
-
-type Instanciated interface {
-	HOTyped
-	DataConstructor() DataConstructor
-}
-
 type Evaluable interface {
 	// Eval(...Native) Native
 	d.Evaluable
@@ -178,6 +164,12 @@ type Callable interface {
 	Call(...Callable) Callable
 }
 
+type Parametric interface {
+	Callable
+	Type() Typed
+	TypeName() string
+}
+
 // branched yields two callable return values
 type Branched interface {
 	Left() Callable
@@ -300,7 +292,7 @@ type Sequenced interface {
 }
 
 // ordered collections can be sorted by‥.
-type Ordered interface {
+type Sortable interface {
 	Sort(d.TyNative)
 }
 
@@ -314,7 +306,7 @@ type Vectorized interface {
 	Callable
 	Sequenced
 	Searchable
-	Ordered
+	Sortable
 	IndexAssoc
 }
 

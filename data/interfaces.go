@@ -6,8 +6,10 @@ import "math/big"
 ///
 // all BitFlag's implement the typed interface (as well as primary)
 type Typed interface {
+	Native
 	Flag() BitFlag
 	FlagType() int8
+	TypeName() string
 }
 
 // the main interface, all types defined here need to comply to.

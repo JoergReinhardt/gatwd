@@ -157,8 +157,8 @@ func (c ChanTrxTime) Eval(args ...Native) Native {
 	return BoolVal(true)
 }
 
-func (c WaitGroup) TypeNat() TyNative     { return Bool }
-func (c SyncCondition) TypeNat() TyNative { return Bool }
+func (c WaitGroup) TypeNat() TyNative     { return SyncWait }
+func (c SyncCondition) TypeNat() TyNative { return SyncCon }
 
 func (c Chan) TypeNat() TyNative        { return Channel }
 func (c ChanRcv) TypeNat() TyNative     { return Channel }

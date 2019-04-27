@@ -15,6 +15,7 @@ type TyNative BitFlag
 
 func (t TyNative) FlagType() int8    { return 1 }
 func (v TyNative) TypeNat() TyNative { return v }
+func (v TyNative) TypeName() string  { return v.String() }
 
 func (v TyNative) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -71,23 +72,17 @@ const (
 	Reader
 	Writer
 	Channel
+	SyncCon
+	SyncWait
 	Error // let's do something sophisticated here...
-	//// HIGHERORDER TYPES
-	Nat
-	Fnc
-	FlatType
-	SumType
-	ProdType
+	////
 	Pair
-	Tuple
-	Record
-	Vector
-	List
-	Set
+	Slice
+	Map
+	////
+	Literal
 	Data
 	Expression
-	Function
-	Instance
 	Flag // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
@@ -109,9 +104,8 @@ const (
 	Equals     = Numbers | Letters
 	Streams    = Reader | Writer | Pipe
 
-	Compositions = Pair | Tuple | Record | Vector | List | Set
-	Type         = FlatType | SumType | ProdType
-	Functional   = Compositions | Type
+	Compositions = Pair | Slice | Map
+	Functional   = Data | Expression | Literal | Flag
 
 	MASK         TyNative = 0xFFFFFFFFFFFFFFFF
 	MASK_NATIVES          = MASK ^ Natives

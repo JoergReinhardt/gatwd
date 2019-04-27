@@ -40,7 +40,21 @@ func (s SetVal) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetVal) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetVal) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			first.Left().TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetVal) Len() int { return len(s) }
 
@@ -109,7 +123,21 @@ func (s SetString) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetString) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetString) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			String.TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | String.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetString) Len() int { return len(s) }
 
@@ -164,7 +192,21 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetInt) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			Int.TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | Int.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetInt) Len() int { return len(s) }
 
@@ -233,7 +275,21 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetUint) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			Uint.TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | Uint.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetUint) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -304,7 +360,21 @@ func NewFloatSet(acc ...Paired) Mapped {
 
 func (s SetFloat) Len() int { return len(s) }
 
-func (s SetFloat) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetFloat) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			Float.TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | Float.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetFloat) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -371,7 +441,21 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) TypeNat() TyNative { return Set.TypeNat() }
+func (s SetFlag) TypeNat() TyNative {
+
+	var fields = s.Fields()
+
+	if len(fields) > 0 {
+
+		var first = fields[0]
+
+		return Map.TypeNat() |
+			Flag.TypeNat() |
+			first.Right().TypeNat()
+	}
+
+	return Map.TypeNat() | Flag.TypeNat() | Nil.TypeNat()
+}
 
 func (s SetFlag) Eval(p ...Native) Native {
 	if len(p) > 0 {

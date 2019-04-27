@@ -13,7 +13,7 @@ func NewFromPrimary(vals ...Native) Native {
 	return New(ifs...)
 }
 
-func NewUnboxedVector(f BitFlag, vals ...Native) Native { return conVec(f, vals...) }
+func NewUnboxedVector(f BitFlag, vals ...Native) Native { return ConNativeVector(f, vals...) }
 
 func New(vals ...interface{}) Native { dat, _ := NewWithTypeInfo(vals...); return dat }
 
@@ -34,7 +34,7 @@ func NewWithTypeInfo(vals ...interface{}) (rval Native, flag BitFlag) {
 			dat = append(dat, d)
 		}
 		if FlagLength(flag) == 1 {
-			return conVec(flag, dat...), flag
+			return ConNativeVector(flag, dat...), flag
 		}
 		return dat, flag
 	}
@@ -93,7 +93,7 @@ func NewWithTypeInfo(vals ...interface{}) (rval Native, flag BitFlag) {
 	return rval, flag
 }
 
-func conVec(f BitFlag, d ...Native) (val Native) {
+func ConNativeVector(f BitFlag, d ...Native) (val Native) {
 
 	var slice DataSlice = []Native{}
 
@@ -198,7 +198,7 @@ func conVec(f BitFlag, d ...Native) (val Native) {
 	return slice
 }
 
-func conNullFromFlag(f BitFlag) (val Native) {
+func ConEmptyFromFlag(f BitFlag) (val Native) {
 
 	var value Native
 

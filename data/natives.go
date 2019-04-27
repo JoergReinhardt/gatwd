@@ -381,31 +381,31 @@ func (v DuraVec) NativesRange(i, j int) []time.Duration { return DuraVec(v[i:j])
 func (v ErrorVec) NativesRange(i, j int) []error        { return ErrorVec(v[i:j]) }
 func (v FlagSet) NativesRange(i, j int) []BitFlag       { return FlagSet(v[i:j]) }
 
-func (v NilVec) TypeNat() TyNative    { return Vector.TypeNat() | Nil.TypeNat() }
-func (v BoolVec) TypeNat() TyNative   { return Vector.TypeNat() | Bool.TypeNat() }
-func (v IntVec) TypeNat() TyNative    { return Vector.TypeNat() | Int.TypeNat() }
-func (v Int8Vec) TypeNat() TyNative   { return Vector.TypeNat() | Int8.TypeNat() }
-func (v Int16Vec) TypeNat() TyNative  { return Vector.TypeNat() | Int16.TypeNat() }
-func (v Int32Vec) TypeNat() TyNative  { return Vector.TypeNat() | Int32.TypeNat() }
-func (v UintVec) TypeNat() TyNative   { return Vector.TypeNat() | Uint.TypeNat() }
-func (v Uint8Vec) TypeNat() TyNative  { return Vector.TypeNat() | Uint8.TypeNat() }
-func (v Uint16Vec) TypeNat() TyNative { return Vector.TypeNat() | Uint16.TypeNat() }
-func (v Uint32Vec) TypeNat() TyNative { return Vector.TypeNat() | Uint32.TypeNat() }
-func (v FltVec) TypeNat() TyNative    { return Vector.TypeNat() | Float.TypeNat() }
-func (v Flt32Vec) TypeNat() TyNative  { return Vector.TypeNat() | Flt32.TypeNat() }
-func (v ImagVec) TypeNat() TyNative   { return Vector.TypeNat() | Imag.TypeNat() }
-func (v Imag64Vec) TypeNat() TyNative { return Vector.TypeNat() | Imag64.TypeNat() }
-func (v ByteVec) TypeNat() TyNative   { return Vector.TypeNat() | Byte.TypeNat() }
-func (v RuneVec) TypeNat() TyNative   { return Vector.TypeNat() | Rune.TypeNat() }
-func (v BytesVec) TypeNat() TyNative  { return Vector.TypeNat() | Bytes.TypeNat() }
-func (v StrVec) TypeNat() TyNative    { return Vector.TypeNat() | String.TypeNat() }
-func (v BigIntVec) TypeNat() TyNative { return Vector.TypeNat() | BigInt.TypeNat() }
-func (v BigFltVec) TypeNat() TyNative { return Vector.TypeNat() | BigFlt.TypeNat() }
-func (v RatioVec) TypeNat() TyNative  { return Vector.TypeNat() | Ratio.TypeNat() }
-func (v TimeVec) TypeNat() TyNative   { return Vector.TypeNat() | Time.TypeNat() }
-func (v DuraVec) TypeNat() TyNative   { return Vector.TypeNat() | Duration.TypeNat() }
-func (v ErrorVec) TypeNat() TyNative  { return Vector.TypeNat() | Error.TypeNat() }
-func (v FlagSet) TypeNat() TyNative   { return Vector.TypeNat() | Flag.TypeNat() }
+func (v NilVec) TypeNat() TyNative    { return Slice.TypeNat() | Nil.TypeNat() }
+func (v BoolVec) TypeNat() TyNative   { return Slice.TypeNat() | Bool.TypeNat() }
+func (v IntVec) TypeNat() TyNative    { return Slice.TypeNat() | Int.TypeNat() }
+func (v Int8Vec) TypeNat() TyNative   { return Slice.TypeNat() | Int8.TypeNat() }
+func (v Int16Vec) TypeNat() TyNative  { return Slice.TypeNat() | Int16.TypeNat() }
+func (v Int32Vec) TypeNat() TyNative  { return Slice.TypeNat() | Int32.TypeNat() }
+func (v UintVec) TypeNat() TyNative   { return Slice.TypeNat() | Uint.TypeNat() }
+func (v Uint8Vec) TypeNat() TyNative  { return Slice.TypeNat() | Uint8.TypeNat() }
+func (v Uint16Vec) TypeNat() TyNative { return Slice.TypeNat() | Uint16.TypeNat() }
+func (v Uint32Vec) TypeNat() TyNative { return Slice.TypeNat() | Uint32.TypeNat() }
+func (v FltVec) TypeNat() TyNative    { return Slice.TypeNat() | Float.TypeNat() }
+func (v Flt32Vec) TypeNat() TyNative  { return Slice.TypeNat() | Flt32.TypeNat() }
+func (v ImagVec) TypeNat() TyNative   { return Slice.TypeNat() | Imag.TypeNat() }
+func (v Imag64Vec) TypeNat() TyNative { return Slice.TypeNat() | Imag64.TypeNat() }
+func (v ByteVec) TypeNat() TyNative   { return Slice.TypeNat() | Byte.TypeNat() }
+func (v RuneVec) TypeNat() TyNative   { return Slice.TypeNat() | Rune.TypeNat() }
+func (v BytesVec) TypeNat() TyNative  { return Slice.TypeNat() | Bytes.TypeNat() }
+func (v StrVec) TypeNat() TyNative    { return Slice.TypeNat() | String.TypeNat() }
+func (v BigIntVec) TypeNat() TyNative { return Slice.TypeNat() | BigInt.TypeNat() }
+func (v BigFltVec) TypeNat() TyNative { return Slice.TypeNat() | BigFlt.TypeNat() }
+func (v RatioVec) TypeNat() TyNative  { return Slice.TypeNat() | Ratio.TypeNat() }
+func (v TimeVec) TypeNat() TyNative   { return Slice.TypeNat() | Time.TypeNat() }
+func (v DuraVec) TypeNat() TyNative   { return Slice.TypeNat() | Duration.TypeNat() }
+func (v ErrorVec) TypeNat() TyNative  { return Slice.TypeNat() | Error.TypeNat() }
+func (v FlagSet) TypeNat() TyNative   { return Slice.TypeNat() | Flag.TypeNat() }
 
 func (v NilVec) Null() Native    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Native   { return BoolVec([]bool{}) }

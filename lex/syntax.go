@@ -11,7 +11,9 @@ import (
 ///// SYNTAX DEFINITION /////
 type SyntaxItemFlag d.BitFlag
 
+func (t SyntaxItemFlag) Flag() d.BitFlag           { return d.BitFlag(t) }
 func (t SyntaxItemFlag) FlagType() int8            { return 2 }
+func (t SyntaxItemFlag) TypeName() string          { return t.String() }
 func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
 func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
 func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }

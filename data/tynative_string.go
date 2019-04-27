@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _TyNative_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringPipeBufferReaderWriterChannelErrorNatFncFlatTypeSumTypeProdTypePairTupleRecordVectorListSetDataExpressionFunctionInstanceFlagMASK"
+const _TyNative_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringPipeBufferReaderWriterChannelSyncConSyncWaitErrorPairSliceMapLiteralDataExpressionFlagMASK"
 
 var _TyNative_map = map[TyNative]string{
 	1:                    _TyNative_name[0:3],
@@ -35,24 +35,17 @@ var _TyNative_map = map[TyNative]string{
 	33554432:             _TyNative_name[123:129],
 	67108864:             _TyNative_name[129:135],
 	134217728:            _TyNative_name[135:142],
-	268435456:            _TyNative_name[142:147],
-	536870912:            _TyNative_name[147:150],
-	1073741824:           _TyNative_name[150:153],
-	2147483648:           _TyNative_name[153:161],
-	4294967296:           _TyNative_name[161:168],
-	8589934592:           _TyNative_name[168:176],
-	17179869184:          _TyNative_name[176:180],
-	34359738368:          _TyNative_name[180:185],
-	68719476736:          _TyNative_name[185:191],
-	137438953472:         _TyNative_name[191:197],
-	274877906944:         _TyNative_name[197:201],
-	549755813888:         _TyNative_name[201:204],
-	1099511627776:        _TyNative_name[204:208],
-	2199023255552:        _TyNative_name[208:218],
-	4398046511104:        _TyNative_name[218:226],
-	8796093022208:        _TyNative_name[226:234],
-	17592186044416:       _TyNative_name[234:238],
-	18446744073709551615: _TyNative_name[238:242],
+	268435456:            _TyNative_name[142:149],
+	536870912:            _TyNative_name[149:157],
+	1073741824:           _TyNative_name[157:162],
+	2147483648:           _TyNative_name[162:166],
+	4294967296:           _TyNative_name[166:171],
+	8589934592:           _TyNative_name[171:174],
+	17179869184:          _TyNative_name[174:181],
+	34359738368:          _TyNative_name[181:185],
+	68719476736:          _TyNative_name[185:195],
+	137438953472:         _TyNative_name[195:199],
+	18446744073709551615: _TyNative_name[199:203],
 }
 
 func (i TyNative) String() string {

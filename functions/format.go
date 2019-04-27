@@ -36,7 +36,7 @@ func (v VecVal) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v AccociativeVal) String() string {
+func (v AssocVec) String() string {
 	var slice []d.Native
 	for _, dat := range v() {
 		slice = append(slice, dat)

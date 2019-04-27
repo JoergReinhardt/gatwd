@@ -23,13 +23,13 @@ type (
 	ApplyFnc func(NaryExpr, ...Callable) Callable
 	/// FUNCTOR
 	// all functors apply to map-, foldl
-	FunctorFnc func(...Callable) (Callable, Consumeable)
+	FunctorCol func(...Callable) (Callable, Consumeable)
 	// APPLICAPLE
 	// applicables are functors to be applyd on a list of boxed values
-	ApplicativeFnc func(...Callable) (Callable, Consumeable)
+	ApplicativeCol func(...Callable) (Callable, Consumeable)
 	/// MONADIC
 	// monadic functions provide transformations between two functor types
-	MonadicFnc func(...Callable) (Callable, Consumeable)
+	MonadicCol func(...Callable) (Callable, Consumeable)
 )
 
 //// CURRY
@@ -73,7 +73,7 @@ func (c ConsumerFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args
 func (c ConsumerFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
 func (c ConsumerFnc) TypeNat() d.TyNative {
 	res, _ := c()
-	return res.TypeNat() | d.Function
+	return res.TypeNat()
 }
 
 func (c ConsumerFnc) Call(args ...Callable) Callable { result, _ := c(args...); return result }
@@ -81,7 +81,7 @@ func (c ConsumerFnc) Call(args ...Callable) Callable { result, _ := c(args...); 
 // FUNCTOR
 // evaluats list elements by applying passed parameters lazy, to generate the
 // new list on demand
-func NewFunctor(list Consumeable) FunctorFnc {
+func NewFunctor(list Consumeable) FunctorCol {
 
 	return func(args ...Callable) (Callable, Consumeable) {
 
@@ -102,21 +102,21 @@ func NewFunctor(list Consumeable) FunctorFnc {
 	}
 }
 
-func (c FunctorFnc) Call(args ...Callable) Callable { h, _ := c(args...); return h }
+func (c FunctorCol) Call(args ...Callable) Callable { h, _ := c(args...); return h }
 
-func (c FunctorFnc) Ident() Callable                { return c }
-func (c FunctorFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c FunctorFnc) Head() Callable                 { h, _ := c(); return h }
-func (c FunctorFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c FunctorFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c FunctorFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c FunctorFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
-func (c FunctorFnc) String() string                 { return c.Head().String() }
+func (c FunctorCol) Ident() Callable                { return c }
+func (c FunctorCol) DeCap() (Callable, Consumeable) { return c() }
+func (c FunctorCol) Head() Callable                 { h, _ := c(); return h }
+func (c FunctorCol) Tail() Consumeable              { _, t := c(); return t }
+func (c FunctorCol) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c FunctorCol) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
+func (c FunctorCol) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c FunctorCol) String() string                 { return c.Head().String() }
 
 /// APPLICATIVE
 // applicative encloses over a function to be applyd the head element and any
 // arguments given at each call
-func NewApplicative(list Consumeable, applyFnc ApplyFnc) ApplicativeFnc {
+func NewApplicative(list Consumeable, applyFnc ApplyFnc) ApplicativeCol {
 
 	var apply = applyFnc
 
@@ -138,29 +138,29 @@ func NewApplicative(list Consumeable, applyFnc ApplyFnc) ApplicativeFnc {
 	}
 }
 
-func (c ApplicativeFnc) Ident() Callable                { return c }
-func (c ApplicativeFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c ApplicativeFnc) Head() Callable                 { h, _ := c(); return h }
-func (c ApplicativeFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c ApplicativeFnc) Call(args ...Callable) Callable { return c.Head().Call(args...) }
-func (c ApplicativeFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c ApplicativeFnc) TypeFnc() TyFnc                 { return Applicable | c.Head().TypeFnc() }
-func (c ApplicativeFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
-func (c ApplicativeFnc) String() string                 { return c.Head().String() }
+func (c ApplicativeCol) Ident() Callable                { return c }
+func (c ApplicativeCol) DeCap() (Callable, Consumeable) { return c() }
+func (c ApplicativeCol) Head() Callable                 { h, _ := c(); return h }
+func (c ApplicativeCol) Tail() Consumeable              { _, t := c(); return t }
+func (c ApplicativeCol) Call(args ...Callable) Callable { return c.Head().Call(args...) }
+func (c ApplicativeCol) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c ApplicativeCol) TypeFnc() TyFnc                 { return Applicable | c.Head().TypeFnc() }
+func (c ApplicativeCol) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c ApplicativeCol) String() string                 { return c.Head().String() }
 
 // MONADIC
-func (c MonadicFnc) Call(args ...Callable) Callable {
+func (c MonadicCol) Call(args ...Callable) Callable {
 	var result Callable
 	return result
 }
-func (c MonadicFnc) String() string                 { return c.Head().String() }
-func (c MonadicFnc) Ident() Callable                { return c }
-func (c MonadicFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c MonadicFnc) Head() Callable                 { h, _ := c(); return h }
-func (c MonadicFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c MonadicFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c MonadicFnc) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
-func (c MonadicFnc) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c MonadicCol) String() string                 { return c.Head().String() }
+func (c MonadicCol) Ident() Callable                { return c }
+func (c MonadicCol) DeCap() (Callable, Consumeable) { return c() }
+func (c MonadicCol) Head() Callable                 { h, _ := c(); return h }
+func (c MonadicCol) Tail() Consumeable              { _, t := c(); return t }
+func (c MonadicCol) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
+func (c MonadicCol) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
+func (c MonadicCol) TypeNat() d.TyNative            { return c.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////
 /// EAGER MAP FUNCTOR
