@@ -3,6 +3,8 @@ package functions
 import (
 	"fmt"
 	"testing"
+
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 var listA = NewVector(New(0), New(1), New(2), New(3),
@@ -30,14 +32,90 @@ func TestList(t *testing.T) {
 func TestConList(t *testing.T) {
 
 	var alist = NewList(listA()...)
-	var head, tail = alist()
+	var head Callable
 
 	for i := 0; i < 5; i++ {
-		head, tail = tail()
+		head, alist = alist()
+		fmt.Println("for loop: " + head.String())
 	}
 
-	tail = tail.Con(listB()...)
-	tail = tail.Con(head)
+	alist = alist.Con(listB()...)
 
-	printCons(tail)
+	printCons(alist)
+}
+
+func TestPushList(t *testing.T) {
+
+	var alist = NewList(listA()...)
+	var head Callable
+
+	for i := 0; i < 5; i++ {
+		head, alist = alist()
+		fmt.Println("for loop: " + head.String())
+	}
+
+	alist = alist.Push(listB()...)
+
+	printCons(alist)
+}
+
+func TestListMapF(t *testing.T) {
+
+	var list = NewList(listA()...)
+	var fmap = func(args ...Callable) Callable {
+		return New(args[0].Eval().(d.IntVal).Int() * 3)
+	}
+
+	var mapped = MapF(list, fmap)
+
+	printCons(mapped)
+}
+
+func TestListFoldF(t *testing.T) {
+
+	var list = NewList(listA()...)
+	var fold = func(ilem, head Callable, args ...Callable) Callable {
+		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+	}
+	var ilem = New(0)
+
+	var folded = FoldF(list, fold, ilem)
+
+	printCons(folded)
+}
+
+func TestListFoldAndMap(t *testing.T) {
+
+	var list = NewList(listA()...)
+	var ilem = New(0)
+	var fold = func(ilem, head Callable, args ...Callable) Callable {
+		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+	}
+	var fmap = func(args ...Callable) Callable {
+		return New(args[0].Eval().(d.IntVal).Int() * 3)
+	}
+
+	var mapped = MapF(list, fmap)
+	var folded = FoldF(mapped, fold, ilem)
+
+	printCons(folded)
+
+	folded = FoldF(list, fold, ilem)
+	mapped = MapF(folded, fmap)
+
+	var head, result Callable
+	head, mapped = mapped.DeCap()
+
+	for {
+		fmt.Println(head)
+		head, mapped = mapped.DeCap()
+		if head == nil {
+			break
+		}
+		result = head
+	}
+
+	if result.Eval().(d.IntVal) != 135 {
+		t.Fail()
+	}
 }

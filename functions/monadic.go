@@ -1,5 +1,3 @@
-/*
- */
 package functions
 
 import (
@@ -18,18 +16,18 @@ type (
 	CaseExpr   func(...Callable) (Callable, bool)
 	CaseSwitch func(...Callable) (Callable, Consumeable, bool)
 
-	//// PARAMETRIC VALUE
-	///
-	// returns enclosed expression applyed to the arguments, and a flag
-	// implementing the typed interface.
-	ParamVal func(...Callable) (Callable, Typed)
-
 	//// PARAMETRIC FUNCTION
 	///
 	// parametric function returns the parametric types flag, when called
 	// without arguments, or the result of applying the arguments to the
 	// expression instead.
 	ParamFnc func(...Callable) Callable
+
+	//// PARAMETRIC VALUE
+	///
+	// returns enclosed expression applyed to the arguments, and a flag
+	// implementing the typed interface.
+	ParamVal func(...Callable) (Callable, Typed)
 
 	//// PARAMETRIC CONSTRUCTOR
 	///
@@ -52,7 +50,7 @@ func (n NoOp) String() string            { return "⊥" }
 func (n NoOp) Len() int                  { return 0 }
 func (n NoOp) TypeFnc() TyFnc            { return None }
 func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
-func (n NoOp) Type() TyFnc               { return None }
+func (n NoOp) Type() Typed               { return None }
 func (n NoOp) TypeName() string          { return n.String() }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -69,6 +67,8 @@ func (t TruthFnc) Eval(args ...d.Native) d.Native {
 }
 func (t TruthFnc) Ident() Callable     { return t }
 func (t TruthFnc) String() string      { return "Truth" }
+func (t TruthFnc) TypeName() string    { return t.String() }
+func (t TruthFnc) Type() Typed         { return Truth }
 func (t TruthFnc) TypeFnc() TyFnc      { return Truth }
 func (t TruthFnc) TypeNat() d.TyNative { return d.Expression | d.Bool }
 
@@ -105,8 +105,10 @@ func (c CaseExpr) Eval(args ...d.Native) d.Native {
 	return c.Expr().Eval(args...)
 }
 func (c CaseExpr) Ident() Callable     { return c }
-func (c CaseExpr) TypeFnc() TyFnc      { return Case }
 func (c CaseExpr) TypeNat() d.TyNative { return d.Expression }
+func (c CaseExpr) TypeFnc() TyFnc      { return Case }
+func (c CaseExpr) Type() Typed         { return Case }
+func (c CaseExpr) TypeName() string    { return Case.String() }
 
 ///////////////////////////////////////////////////////////////////////////////
 func NewCaseSwitch(cases ...CaseExpr) CaseSwitch {
@@ -149,6 +151,8 @@ func (c CaseSwitch) Eval(args ...d.Native) d.Native {
 func (c CaseSwitch) String() string {
 	return "Switch " + c.Expr().String()
 }
+func (c CaseSwitch) Type() Typed         { return Switch }
+func (c CaseSwitch) TypeName() string    { return c.Type().String() }
 func (c CaseSwitch) Ident() Callable     { return c }
 func (c CaseSwitch) TypeFnc() TyFnc      { return Switch }
 func (c CaseSwitch) TypeNat() d.TyNative { return d.Expression }
@@ -262,7 +266,6 @@ func NewParamCon(
 		})
 }
 
-// initial construction of parametric type constructor
 func DefineParametricConstructor(
 	base Typed,
 	cons ...CaseExpr,
@@ -273,6 +276,15 @@ func DefineParametricConstructor(
 	}
 	var cases = NewList(initials...)
 	return NewParamCon(base, cases)
+}
+
+func (p ParamCon) Call(args ...Callable) Callable {
+	var result, _ = p(args...)
+	return result
+}
+func (p ParamCon) Eval(args ...d.Native) d.Native {
+	var result, _ = p(NatToFnc(args...)...)
+	return result
 }
 func (p ParamCon) TypeFnc() TyFnc {
 	var param, _ = p()
@@ -286,13 +298,7 @@ func (p ParamCon) Type() Typed {
 	var param, _ = p()
 	return param.(Typed)
 }
-func (p ParamCon) Call(args ...Callable) Callable {
-	var result, _ = p(args...)
-	return result
-}
-func (p ParamCon) Eval(args ...d.Native) d.Native {
-	var result, _ = p(NatToFnc(args...)...)
-	return result
-}
-func (p ParamCon) String() string      { return p.TypeName() }
 func (p ParamCon) TypeNat() d.TyNative { return d.Expression }
+func (p ParamCon) String() string      { return p.TypeName() }
+
+///////////////////////////////////////////////////////////////////////////////

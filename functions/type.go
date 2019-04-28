@@ -82,34 +82,12 @@ const (
 		Ordered | Number
 )
 
-//// FIRST ORDER TYPE FUNCTION
-///
-// higher order types form a type tree by association, featuring leave
-// nodes independent off all other types and types composed of other
-// composed-/, or leave node types.  composed types are either defined
-// as fixed sum of their sub types (enum-/, tuple-/, record types, or
-// sets like the function argument set of a static function, as defined
-// at sum-types definition; or as paramrtric product types, able to
-// generate derived types, according to the arguments types passed at
-// time of call evaluation.
-//
-// parent-/, subtype relationships are created, whenever a native types
-// flag has more than a single bit set.  all functional types are
-// parametric composed types per default by providing the 'TypeNat'
-// method to return it's own native type.
-//
-// all container types are type agnostic regarding their contained
-// elements, beginning with pairs, native and functional alike, and
-// need consideration as product types.
+// expression type, call propertys & arity
 type (
 	TyFnc     d.BitFlag
-	Arity     d.Uint8Val
 	Propertys d.Uint8Val
+	Arity     d.Uint8Val
 )
-
-//////////////////////////////////////////////////////////////////////
-//// SEMANTIC CALL PROPERTYS
-///
 
 //go:generate stringer -type Propertys
 const (

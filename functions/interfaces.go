@@ -261,14 +261,6 @@ type Monadic interface {
 	Join(f, g Consumeable) Callable
 }
 
-// optional monad is a build in monad, to implement optionals like maybe,
-// either, or, true, false, branching‥.
-type Optional interface {
-	Callable
-	Maybe() bool
-	Value() Callable
-}
-
 // a predicate makes things predictable. for enumerated types it can also
 // distinguish between cases where all elements of a list are considered true
 // and those where some element in the list turns out to be true. this
@@ -313,13 +305,6 @@ type Vectorized interface {
 	Searchable
 	Sortable
 	IndexAssoc
-}
-
-// behaviour of generators, that yield different values each call from a
-// collection of data, side effect, or computation.
-type Generating interface {
-	Callable
-	Next() Optional
 }
 
 // bahaviour of aggregators, that take one, or many arguments per call and

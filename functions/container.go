@@ -13,13 +13,13 @@ type (
 	//// DATA
 	DataVal func(args ...d.Native) d.Native
 
-	//// EXPRESSIONS
+	//// EXPRESSION
 	ConstantExpr func() Callable
 	UnaryExpr    func(Callable) Callable
 	BinaryExpr   func(a, b Callable) Callable
 	NaryExpr     func(...Callable) Callable
 
-	//// COLLECTIONS
+	//// COLLECTION
 	PairVal   func(...Callable) (Callable, Callable)
 	AssocPair func(...Callable) (string, Callable)
 	IndexPair func(...Callable) (int, Callable)
@@ -32,38 +32,28 @@ type (
 
 // reverse arguments
 func RevArgs(args ...Callable) []Callable {
-
 	var rev = []Callable{}
-
 	for i := len(args) - 1; i > 0; i-- {
-
 		rev = append(rev, args[i])
 	}
-
 	return rev
 }
 
+// convert native to functional values
 func NatToFnc(args ...d.Native) []Callable {
-
 	var result = []Callable{}
-
 	for _, arg := range args {
-
 		result = append(result, NewFromData(arg))
 	}
-
 	return result
 }
 
+// convert functional to native values
 func FncToNat(args ...Callable) []d.Native {
-
 	var result = []d.Native{}
-
 	for _, arg := range args {
-
 		result = append(result, arg.Eval())
 	}
-
 	return result
 }
 
@@ -71,22 +61,17 @@ func FncToNat(args ...Callable) []d.Native {
 func New(inf ...interface{}) Callable { return NewFromData(d.New(inf...)) }
 
 func NewFromData(data ...d.Native) DataVal {
-
 	var eval func(...d.Native) d.Native
-
 	for _, val := range data {
 		eval = val.Eval
 	}
-
 	return func(args ...d.Native) d.Native { return eval(args...) }
 }
 
 func (n DataVal) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
 
 func (n DataVal) Call(vals ...Callable) Callable {
-
 	var results = NewVector()
-
 	for _, val := range vals {
 		// evaluate arguments to yield contained natives
 		results = ConVector(
@@ -283,17 +268,14 @@ func (p PairVal) TypeNat() d.TyNative {
 
 // implements compose
 func (p PairVal) Empty() bool {
-
 	if (p.Left() == nil ||
 		!p.Left().TypeFnc().Flag().Match(None) &&
 			!p.Left().TypeNat().Flag().Match(d.Nil)) &&
 		(p.Right() == nil ||
 			!p.Right().TypeFnc().Flag().Match(None) &&
 				!p.Right().TypeNat().Flag().Match(d.Nil)) {
-
 		return true
 	}
-
 	return false
 }
 
@@ -307,7 +289,9 @@ func (p PairVal) Eval(args ...d.Native) d.Native {
 	return d.NewPair(p.Left().Eval(args...), p.Right().Eval(args...))
 }
 
-//// ASSOCIATIVE VALUE
+//// ASSOCIATIVE PAIRS
+///
+// pair composed of a string key and a functional value
 func NewAssocPair(key string, val Callable) AssocPair {
 	return func(...Callable) (string, Callable) { return key, val }
 }
@@ -350,7 +334,7 @@ func (a AssocPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
 func (a AssocPair) TypeFnc() TyFnc      { return Pair | Symbol | a.ValueType() }
 func (a AssocPair) TypeNat() d.TyNative { return d.Pair | d.String | a.ValueNatType() }
 
-//// ASSOCIATIVE VALUE
+/// pair composed of an integer and a functional value
 func NewIndexPair(idx int, val Callable) IndexPair {
 	return func(...Callable) (int, Callable) { return idx, val }
 }
@@ -394,190 +378,48 @@ func (a IndexPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
 func (a IndexPair) TypeFnc() TyFnc      { return Pair | Index | a.ValueType() }
 func (a IndexPair) TypeNat() d.TyNative { return d.Pair | d.Int | a.ValueNatType() }
 
-//////////////////////////////////////////////////////////////////////////////////////
-///// RECURSIVE LIST OF VALUES
-////
-/// base implementation of recursively linked lists
-//
-// recursive list function holds a list of values on a late binding call by
-// name base. when called without arguments, list function returns the current
-// head element and a continuation, that fetches the preceeding one and returns
-// it followed by another recursion. this implements the 'unit' operation of
-// the list monad
-//
-// when arguments are passed, list function appends them on to the existing
-// list lazyly. arguments stay unevaluated until they are returned. that
-// constitutes the 'convert', wrap, or box operation of the  list monad.  list
-// monad is the base type of many other monads
+///////////////////////////////////////////////////////////////////////////////
+//// RECURSIVE LIST OF VALUES
+///
+// base implementation of recursively linked lists
+func ConcatLists(a, b ListVal) ListVal {
+	return ListVal(func(args ...Callable) (Callable, ListVal) {
+		if len(args) > 0 {
+			b = b.Con(args...)
+		}
+		var head Callable
+		if head, a = a(); head != nil {
+			return head, ConcatLists(a, b)
+		}
+		return b()
+	})
+}
 func NewList(elems ...Callable) ListVal {
-
-	// function litereal closes over initial list and deals with arguments
 	return func(args ...Callable) (Callable, ListVal) {
-
-		var head Callable
-
-		//  arguments are to be returned as head in preceeding calls
-		//  until depleted.
 		if len(args) > 0 {
-
-			// take first argument as head to return
-			head = args[0]
-
-			// remaining arguments are parameters to generate the
-			// continuation by calling new list recursively.
-			if len(args) > 1 {
-
-				// append preceeding elements from prior list
-				// to set of args for list generation.
-				return head, NewList(append(args[1:], elems...)...)
-			}
-
-			// last argument has been returned as head, return list
-			// preceeding the call passing the arguments as tail to
-			// smoothly hand over (Krueger industial smoothing‥. we
-			// don't care and it shows)
-			return head, NewList(elems...)
+			elems = append(elems, args...)
 		}
-
-		// as long as there are elements‥.
 		if len(elems) > 0 {
-
-			// ‥.assign first element to head‥.
-			head = elems[0]
-
-			// ‥.if there are further elements, return a continuation
-			// to contain them‥.
+			var head = elems[0]
 			if len(elems) > 1 {
-				return head, NewList(elems[1:]...)
+				return head, NewList(
+					elems[1:]...,
+				)
 			}
-
-			// ‥.otherwise return last element and replace depleted
-			// list, with an empty one for convienience
 			return head, NewList()
 		}
-
-		// things vanished sulk about it by neither returning head nor
-		// tail
-		return nil, nil
-	}
-}
-
-// replicates main call as method to provide type construction by appending
-// elements to the list
-func (l ListVal) Con(elems ...Callable) ListVal {
-
-	return func(args ...Callable) (Callable, ListVal) {
-
-		if len(args) > 0 {
-
-			return l(append(elems, args...)...)
-		}
-
-		return l(elems...)
-	}
-}
-
-// pushes elements at the front of the list returning the passed arguments as
-// list heads until depleted, before it progresses on to return elements of the
-// initial list.
-func (l ListVal) Push(elems ...Callable) ListVal {
-
-	return func(args ...Callable) (Callable, ListVal) {
-
-		var head Callable
-		var tail ListVal
-		// concatenate arguments
-		args = append(elems, args...)
-		var la = len(args)
-		var last = la - 1
-
-		// as long as heads and tails are yielded, return them and keep
-		// pushing arguments on to another call to push.
-		head, tail = l()
-
-		// if tail was yielded‥.
-		if tail != nil {
-
-			// ‥.and head was yielded as well‥.
-			if head != nil {
-
-				// return both, keep pushing on the arguments
-				return head, tail.Push(args...)
-			}
-
-			// tail yielded, but no head
-			if la > 0 { // one, or more arguments got passed
-
-				if la > 1 { // two, or more arguments got passed
-
-					// assign last argument to head,
-					// re-assign remaining arguments to
-					// args
-					head, args = args[last], args[:last]
-
-					// return new head and keep pushing on
-					// new args using the list yielded by
-					// prior call
-					return head, tail.Push(args...)
-
-				}
-
-				// return last argument as head and return
-				// yielded tail as consumable, no more pushing,
-				// since arguments are depleted
-				return args[last], tail
-			}
-		}
-
-		// head without tail got yielded‥.
-		if head != nil {
-
-			if la > 0 {
-
-				// use yielded head, push args on to new list
-				return head, NewList().Push(args...)
-
-			}
-		}
-
-		// neither head nor tail got yielded
-		if la > 0 {
-
-			head = args[last]
-
-			if la > 1 {
-
-				// use last argument as head and push remaining
-				// arguments to a new list
-				return head, NewList().Push(args[:last]...)
-			}
-
-			// use last argument as head
-			return head, NewList()
-		}
-
-		// return nil head and a new empty list
 		return nil, NewList()
 	}
 }
+func (l ListVal) Con(elems ...Callable) ListVal {
+	return ListVal(func(args ...Callable) (Callable, ListVal) {
+		return l(append(elems, args...)...)
+	})
+}
+func (l ListVal) Push(elems ...Callable) ListVal {
+	return ConcatLists(NewList(elems...), l)
+}
 
-func (l ListVal) Ident() Callable { return l }
-
-func (l ListVal) Null() ListVal { return NewList() }
-
-func (l ListVal) Tail() Consumeable { _, t := l(); return t }
-
-func (l ListVal) Head() Callable { h, _ := l(); return h }
-
-func (l ListVal) DeCap() (Callable, Consumeable) { return l() }
-
-func (l ListVal) TypeFnc() TyFnc { return List | Functor }
-
-func (l ListVal) TypeNat() d.TyNative { return l.Head().TypeNat() }
-
-// call replicates main function call of list value instances, and either
-// returns the head, when called without arguments, or concatenates the
-// arguments to the list, when such are passed.
 func (l ListVal) Call(d ...Callable) Callable {
 	var head Callable
 	head, l = l(d...)
@@ -602,7 +444,8 @@ func (l ListVal) Empty() bool {
 }
 
 // to determine the length of a recursive function, it has to be fully unwound,
-// so use with care!
+// so use with care! (and ask yourself, what went wrong to make the length of a
+// list be of importance)
 func (l ListVal) Len() int {
 	var length int
 	var head, tail = l()
@@ -611,6 +454,14 @@ func (l ListVal) Len() int {
 	}
 	return length
 }
+
+func (l ListVal) Ident() Callable                { return l }
+func (l ListVal) Null() ListVal                  { return NewList() }
+func (l ListVal) Tail() Consumeable              { _, t := l(); return t }
+func (l ListVal) Head() Callable                 { h, _ := l(); return h }
+func (l ListVal) DeCap() (Callable, Consumeable) { return l() }
+func (l ListVal) TypeFnc() TyFnc                 { return List | Functor }
+func (l ListVal) TypeNat() d.TyNative            { return l.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
@@ -726,10 +577,8 @@ func (v VecVal) Empty() bool {
 	return true
 }
 
-func (v VecVal) Len() int { return len(v()) }
-
-func (v VecVal) Vector() VecVal { return v }
-
+func (v VecVal) Len() int          { return len(v()) }
+func (v VecVal) Vector() VecVal    { return v }
 func (v VecVal) Slice() []Callable { return v() }
 
 func (v VecVal) Append(args ...Callable) VecVal {
@@ -738,6 +587,13 @@ func (v VecVal) Append(args ...Callable) VecVal {
 
 func (v VecVal) Con(args ...Callable) VecVal {
 	return NewVector(append(RevArgs(args...), RevArgs(v()...)...)...)
+}
+
+func (v VecVal) Get(i int) Callable {
+	if i < v.Len() {
+		return v()[i]
+	}
+	return NewNoOp()
 }
 
 func (v VecVal) Set(i int, val Callable) Vectorized {
@@ -750,159 +606,18 @@ func (v VecVal) Set(i int, val Callable) Vectorized {
 	return v
 }
 
-func (v VecVal) Get(i int) Callable {
-	if i < v.Len() {
-		return v()[i]
-	}
-	return NewNoOp()
-}
-func (v VecVal) Search(praed Callable) int { return newDataSorter(v()...).Search(praed) }
-
 func (v VecVal) Sort(flag d.TyNative) {
 	var ps = newDataSorter(v()...)
 	ps.Sort(flag)
 	v = NewVector(ps...)
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-//// TUPLE TYPE VALUES
-///
-// tuples are sequences of values grouped in a distinct sequence of distinct types,
-func NewTuple(data ...Callable) TupleVal {
-
-	return TupleVal(func(args ...Callable) []Callable {
-
-		return data
-	})
-}
-
-func (t TupleVal) Ident() Callable { return t }
-func (t TupleVal) Len() int        { return len(t()) }
-
-// pairs prepends annotates member values as pair values carrying this
-// instances sub-type signature and tuple position in in the second field
-func (t TupleVal) Pairs() []PairVal {
-
-	var pairs = []PairVal{}
-
-	return pairs
-}
-
-// implement consumeable
-func (t TupleVal) DeCap() (Callable, Consumeable) {
-
-	var head Callable
-	var list = NewList()
-
-	for _, pair := range t.Pairs() {
-		head, list = list(pair)
-	}
-
-	return head, list
-}
-
-func (t TupleVal) Head() Callable    { head, _ := t.DeCap(); return head }
-func (t TupleVal) Tail() Consumeable { _, tail := t.DeCap(); return tail }
-
-// functional type concatenates the functional types of all the subtypes
-func (t TupleVal) TypeFnc() TyFnc {
-	var ftype = TyFnc(0)
-	for _, typ := range t() {
-		ftype = ftype | typ.TypeFnc()
-	}
-	return ftype
-}
-
-// native type concatenates the native types of all the subtypes
-func (t TupleVal) TypeNat() d.TyNative {
-	var ntype = d.Slice
-	for _, typ := range t() {
-		ntype = ntype | typ.TypeNat()
-	}
-	return ntype
-}
-
-// string representation of a tuple generates one row per sub type by
-// concatenating each sub types native type, functional type and value.
-func (t TupleVal) String() string { return t.Head().String() }
-
-func (t TupleVal) Eval(args ...d.Native) d.Native {
-	var result = []d.Native{}
-	for _, val := range t() {
-		result = append(result, val.Eval(val))
-	}
-	return d.DataSlice(result)
-}
-
-func (t TupleVal) Call(args ...Callable) Callable {
-	var result []Callable
-	for _, val := range t() {
-		result = append(result, val.Call(args...))
-	}
-	return NewVector(result...)
-}
-
-func (t TupleVal) ApplyPartial(args ...Callable) TupleVal {
-	return NewTuple(partialApplyTuple(t, args...)()...)
-}
-
-func partialApplyTuple(tuple TupleVal, args ...Callable) TupleVal {
-	// fetch current tupple
-	var result = tuple()
-	var l = len(result)
-
-	// range through arguments
-	for i := 0; i < l; i++ {
-
-		// pick argument by index
-		var arg = args[i]
-
-		// partial arguments can either be given by position, or in
-		// pairs that contains the intendet position as integer value
-		// in its left and the value itself in its right cell, so‥.
-		if pair, ok := arg.(PairVal); ok {
-			// ‥.and the left element is an integer‥.
-			if pos, ok := pair.Left().(Integer); ok {
-				// ‥.and that integer is within the range of indices‥.
-				if l < pos.Int() {
-					// ‥.and both types of the right element
-					// match the corresponding result types
-					// of the given index‥.
-					if result[i].TypeFnc() == pair.Right().TypeFnc() &&
-						result[i].TypeNat() == args[i].TypeNat() {
-						// ‥.replace the value in
-						// results, with right
-						// element of pair.
-						result[i] = pair.Right()
-					}
-				}
-			}
-		}
-		// ‥.otherwise assume arguments are passed one element at a
-		// time, altering between position & value and the current
-		// index is expected to be the position, so if it's an uneven
-		// index (positions)‥.
-		if i%2 == 0 {
-			var idx = i  // safe current index
-			if i+1 < l { // check if next index is out of bounds
-				i = i + 1 // advance loop counter by one
-				// replace value in results at previous index
-				// with value at index of the advanced loop
-				// counter
-				result[idx] = args[i]
-			}
-		}
-	}
-	// return altered result
-	return TupleVal(
-		func(...Callable) []Callable {
-			return result
-		})
-}
+func (v VecVal) Search(praed Callable) int { return newDataSorter(v()...).Search(praed) }
 
 //// ASSOCIATIVE SLICE OF VALUE PAIRS
 ///
-// list of associative values in predefined order.
+// list of associative pairs in sequential order associated, sorted and
+// searched by left value of the pairs
 func ConAssociative(vec Associative, pfnc ...PairVal) AssocVec {
 	return NewAssociativeFromPairFunction(append(vec.Pairs(), pfnc...)...)
 }
@@ -1009,6 +724,16 @@ func (v AssocVec) TypeNat() d.TyNative {
 
 func (v AssocVec) Len() int { return len(v()) }
 
+func (v AssocVec) Sort(flag d.TyNative) {
+	var ps = newPairSorter(v()...)
+	ps.Sort(flag)
+	v = NewAssociative(ps...)
+}
+
+func (v AssocVec) Search(praed Callable) int {
+	return newPairSorter(v()...).Search(praed)
+}
+
 func (v AssocVec) Get(idx int) PairVal {
 	if idx < v.Len()-1 {
 		return v()[idx]
@@ -1024,16 +749,10 @@ func (v AssocVec) Range(praed Callable) []PairVal {
 	return newPairSorter(v()...).Range(praed)
 }
 
-func (v AssocVec) Search(praed Callable) int {
-	return newPairSorter(v()...).Search(praed)
-}
-
 func (v AssocVec) Pairs() []PairVal { return v() }
 
 func (v AssocVec) DeCapPairWise() (PairVal, []PairVal) {
-
 	var pairs = v()
-
 	if len(pairs) > 0 {
 		if len(pairs) > 1 {
 			return pairs[0], pairs[1:]
@@ -1094,16 +813,11 @@ func (v AssocVec) Eval(p ...d.Native) d.Native {
 	return slice
 }
 
-func (v AssocVec) Sort(flag d.TyNative) {
-	var ps = newPairSorter(v()...)
-	ps.Sort(flag)
-	v = NewAssociative(ps...)
-}
-
-//////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //// ASSOCIATIVE SET (HASH MAP OF VALUES)
 ///
-// unordered associative set of values
+// unordered associative set of key/value pairs that can be sorted, accessed
+// and searched by the left (key) value of the pair
 func ConAssocSet(pairs ...PairVal) SetVal {
 	var paired = []PairVal{}
 	for _, pair := range pairs {
@@ -1263,4 +977,140 @@ func (v SetVal) Tail() Consumeable {
 		return ConAssociativeFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyAssociative()
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+//// TUPLE TYPE VALUES
+///
+// tuples are sequences of values grouped in a distinct sequence of distinct types,
+func NewTuple(data ...Callable) TupleVal {
+
+	return TupleVal(func(args ...Callable) []Callable {
+
+		return data
+	})
+}
+
+func (t TupleVal) Ident() Callable { return t }
+func (t TupleVal) Len() int        { return len(t()) }
+
+// pairs prepends annotates member values as pair values carrying this
+// instances sub-type signature and tuple position in in the second field
+func (t TupleVal) Pairs() []PairVal {
+
+	var pairs = []PairVal{}
+
+	return pairs
+}
+
+// implement consumeable
+func (t TupleVal) DeCap() (Callable, Consumeable) {
+
+	var head Callable
+	var list = NewList()
+
+	for _, pair := range t.Pairs() {
+		head, list = list(pair)
+	}
+
+	return head, list
+}
+
+func (t TupleVal) Head() Callable    { head, _ := t.DeCap(); return head }
+func (t TupleVal) Tail() Consumeable { _, tail := t.DeCap(); return tail }
+
+// functional type concatenates the functional types of all the subtypes
+func (t TupleVal) TypeFnc() TyFnc {
+	var ftype = TyFnc(0)
+	for _, typ := range t() {
+		ftype = ftype | typ.TypeFnc()
+	}
+	return ftype
+}
+
+// native type concatenates the native types of all the subtypes
+func (t TupleVal) TypeNat() d.TyNative {
+	var ntype = d.Slice
+	for _, typ := range t() {
+		ntype = ntype | typ.TypeNat()
+	}
+	return ntype
+}
+
+// string representation of a tuple generates one row per sub type by
+// concatenating each sub types native type, functional type and value.
+func (t TupleVal) String() string { return t.Head().String() }
+
+func (t TupleVal) Eval(args ...d.Native) d.Native {
+	var result = []d.Native{}
+	for _, val := range t() {
+		result = append(result, val.Eval(val))
+	}
+	return d.DataSlice(result)
+}
+
+func (t TupleVal) Call(args ...Callable) Callable {
+	var result []Callable
+	for _, val := range t() {
+		result = append(result, val.Call(args...))
+	}
+	return NewVector(result...)
+}
+
+func (t TupleVal) ApplyPartial(args ...Callable) TupleVal {
+	return NewTuple(partialApplyTuple(t, args...)()...)
+}
+
+func partialApplyTuple(tuple TupleVal, args ...Callable) TupleVal {
+	// fetch current tupple
+	var result = tuple()
+	var l = len(result)
+
+	// range through arguments
+	for i := 0; i < l; i++ {
+
+		// pick argument by index
+		var arg = args[i]
+
+		// partial arguments can either be given by position, or in
+		// pairs that contains the intendet position as integer value
+		// in its left and the value itself in its right cell, so‥.
+		if pair, ok := arg.(PairVal); ok {
+			// ‥.and the left element is an integer‥.
+			if pos, ok := pair.Left().(Integer); ok {
+				// ‥.and that integer is within the range of indices‥.
+				if l < pos.Int() {
+					// ‥.and both types of the right element
+					// match the corresponding result types
+					// of the given index‥.
+					if result[i].TypeFnc() == pair.Right().TypeFnc() &&
+						result[i].TypeNat() == args[i].TypeNat() {
+						// ‥.replace the value in
+						// results, with right
+						// element of pair.
+						result[i] = pair.Right()
+					}
+				}
+			}
+		}
+		// ‥.otherwise assume arguments are passed one element at a
+		// time, altering between position & value and the current
+		// index is expected to be the position, so if it's an uneven
+		// index (positions)‥.
+		if i%2 == 0 {
+			var idx = i  // safe current index
+			if i+1 < l { // check if next index is out of bounds
+				i = i + 1 // advance loop counter by one
+				// replace value in results at previous index
+				// with value at index of the advanced loop
+				// counter
+				result[idx] = args[i]
+			}
+		}
+	}
+	// return altered result
+	return TupleVal(
+		func(...Callable) []Callable {
+			return result
+		})
 }

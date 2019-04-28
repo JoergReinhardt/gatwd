@@ -137,7 +137,7 @@ type ( // NATIVE GOLANG TYPES
 	BytesVal  []byte
 	StrVal    string
 
-	// COMPLEX GOLANG TYPES
+	// COMPOSED GOLANG TYPES
 	BigIntVal big.Int
 	BigFltVal big.Float
 	RatioVal  big.Rat
@@ -154,13 +154,13 @@ type ( // NATIVE GOLANG TYPES
 	SetFlag   map[BitFlag]Native
 	SetVal    map[Native]Native
 
-	// GENERIC SLICE
+	// SLICE OF GENERIC VALUES
 	DataSlice []Native
 
 	// SLICE OF BIT FLAGS
 	FlagSlice []BitFlag
 
-	// SLICES OF UNALIASED NATIVES
+	// SLICES OF UNALIASED NATIVE GOLANG VALUES
 	InterfaceSlice []interface{}
 	NilVec         []struct{}
 	BoolVec        []bool
@@ -189,10 +189,10 @@ type ( // NATIVE GOLANG TYPES
 	FlagSet        []BitFlag
 )
 
-/// bind the appropriate TypeNat Method to every type
+/// bind the corresponding TypeNat Method to every type
+func (NilVal) TypeNat() TyNative      { return Nil.TypeNat() }
 func (v BitFlag) TypeNat() TyNative   { return Flag.TypeNat() }
 func (v FlagSlice) Flag() TyNative    { return Flag.TypeNat() }
-func (NilVal) TypeNat() TyNative      { return Nil.TypeNat() }
 func (v BoolVal) TypeNat() TyNative   { return Bool.TypeNat() }
 func (v IntVal) TypeNat() TyNative    { return Int.TypeNat() }
 func (v Int8Val) TypeNat() TyNative   { return Int8.TypeNat() }
@@ -218,7 +218,7 @@ func (v DuraVal) TypeNat() TyNative   { return Duration.TypeNat() }
 func (v ErrorVal) TypeNat() TyNative  { return Error.TypeNat() }
 func (v PairVal) TypeNat() TyNative   { return Pair.TypeNat() }
 
-///
+// provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }
 func (v BitFlag) Copy() Native   { return BitFlag(v) }
 func (v BoolVal) Copy() Native   { return BoolVal(v) }
@@ -253,9 +253,68 @@ func (v FlagSlice) Copy() Native {
 	return nfs
 }
 
+// ident returns the instance as it's given type
+func (NilVal) Ident() Native      { return NilVal{} }
+func (v BitFlag) Ident() Native   { return v }
+func (v BoolVal) Ident() Native   { return v }
+func (v IntVal) Ident() Native    { return v }
+func (v Int8Val) Ident() Native   { return v }
+func (v Int16Val) Ident() Native  { return v }
+func (v Int32Val) Ident() Native  { return v }
+func (v UintVal) Ident() Native   { return v }
+func (v Uint8Val) Ident() Native  { return v }
+func (v Uint16Val) Ident() Native { return v }
+func (v Uint32Val) Ident() Native { return v }
+func (v BigIntVal) Ident() Native { return v }
+func (v FltVal) Ident() Native    { return v }
+func (v Flt32Val) Ident() Native  { return v }
+func (v BigFltVal) Ident() Native { return v }
+func (v ImagVal) Ident() Native   { return v }
+func (v Imag64Val) Ident() Native { return v }
+func (v RatioVal) Ident() Native  { return v }
+func (v RuneVal) Ident() Native   { return v }
+func (v ByteVal) Ident() Native   { return v }
+func (v BytesVal) Ident() Native  { return v }
+func (v StrVal) Ident() Native    { return v }
+func (v TimeVal) Ident() Native   { return v }
+func (v DuraVal) Ident() Native   { return v }
+func (v ErrorVal) Ident() Native  { return v }
+func (v PairVal) Ident() Native   { return v }
+
+// yields a null value of the methods type
+func (v BitFlag) Null() Native   { return Nil.TypeNat() }
+func (v FlagSlice) Null() Native { return New(FlagSlice{}) }
+func (v PairVal) Null() Native   { return PairVal{NilVal{}, NilVal{}} }
+func (v NilVal) Null() Native    { return NilVal{} }
+func (v BoolVal) Null() Native   { return New(false) }
+func (v IntVal) Null() Native    { return New(0) }
+func (v Int8Val) Null() Native   { return New(int8(0)) }
+func (v Int16Val) Null() Native  { return New(int16(0)) }
+func (v Int32Val) Null() Native  { return New(int32(0)) }
+func (v UintVal) Null() Native   { return New(uint(0)) }
+func (v Uint8Val) Null() Native  { return New(uint8(0)) }
+func (v Uint16Val) Null() Native { return New(uint16(0)) }
+func (v Uint32Val) Null() Native { return New(uint32(0)) }
+func (v FltVal) Null() Native    { return New(0.0) }
+func (v Flt32Val) Null() Native  { return New(float32(0.0)) }
+func (v ImagVal) Null() Native   { return New(complex128(0.0)) }
+func (v Imag64Val) Null() Native { return New(complex64(0.0)) }
+func (v ByteVal) Null() Native   { return New(byte(0)) }
+func (v BytesVal) Null() Native  { return New([]byte{}) }
+func (v RuneVal) Null() Native   { return New(rune(' ')) }
+func (v StrVal) Null() Native    { return New(string("")) }
+func (v ErrorVal) Null() Native  { return New(error(fmt.Errorf(""))) }
+func (v BigIntVal) Null() Native { return New(big.NewInt(0)) }
+func (v BigFltVal) Null() Native { return New(big.NewFloat(0)) }
+func (v RatioVal) Null() Native  { return New(big.NewRat(1, 1)) }
+func (v TimeVal) Null() Native   { return New(time.Now()) }
+func (v DuraVal) Null() Native   { return New(time.Duration(0)) }
+
 /// EVAL
-// converts arguments to unboxed vector of the provided type, or just returns
-// itself
+// when more than a single argument is passed on evaluating a native instance,
+// they are converted to an unboxed vector of the methods type. single
+// arguments will be returned as simple instance of the type. called without
+// arguments, the enclosed value will just be returned.
 func (NilVal) Eval(d ...Native) Native { return NilVal{} }
 
 func (v BitFlag) Eval(d ...Native) Native {
@@ -498,67 +557,7 @@ func (v ErrorVal) Eval(d ...Native) Native {
 	return v
 }
 
-///
-// returns itself
-func (NilVal) Ident() Native      { return NilVal{} }
-func (v BitFlag) Ident() Native   { return v }
-func (v BoolVal) Ident() Native   { return v }
-func (v IntVal) Ident() Native    { return v }
-func (v Int8Val) Ident() Native   { return v }
-func (v Int16Val) Ident() Native  { return v }
-func (v Int32Val) Ident() Native  { return v }
-func (v UintVal) Ident() Native   { return v }
-func (v Uint8Val) Ident() Native  { return v }
-func (v Uint16Val) Ident() Native { return v }
-func (v Uint32Val) Ident() Native { return v }
-func (v BigIntVal) Ident() Native { return v }
-func (v FltVal) Ident() Native    { return v }
-func (v Flt32Val) Ident() Native  { return v }
-func (v BigFltVal) Ident() Native { return v }
-func (v ImagVal) Ident() Native   { return v }
-func (v Imag64Val) Ident() Native { return v }
-func (v RatioVal) Ident() Native  { return v }
-func (v RuneVal) Ident() Native   { return v }
-func (v ByteVal) Ident() Native   { return v }
-func (v BytesVal) Ident() Native  { return v }
-func (v StrVal) Ident() Native    { return v }
-func (v TimeVal) Ident() Native   { return v }
-func (v DuraVal) Ident() Native   { return v }
-func (v ErrorVal) Ident() Native  { return v }
-func (v PairVal) Ident() Native   { return v }
-
-//// native nullable typed ///////
-// provides null instance of each type
-func (v BitFlag) Null() Native   { return Nil.TypeNat() }
-func (v FlagSlice) Null() Native { return New(FlagSlice{}) }
-func (v PairVal) Null() Native   { return PairVal{NilVal{}, NilVal{}} }
-func (v NilVal) Null() Native    { return NilVal{} }
-func (v BoolVal) Null() Native   { return New(false) }
-func (v IntVal) Null() Native    { return New(0) }
-func (v Int8Val) Null() Native   { return New(int8(0)) }
-func (v Int16Val) Null() Native  { return New(int16(0)) }
-func (v Int32Val) Null() Native  { return New(int32(0)) }
-func (v UintVal) Null() Native   { return New(uint(0)) }
-func (v Uint8Val) Null() Native  { return New(uint8(0)) }
-func (v Uint16Val) Null() Native { return New(uint16(0)) }
-func (v Uint32Val) Null() Native { return New(uint32(0)) }
-func (v FltVal) Null() Native    { return New(0.0) }
-func (v Flt32Val) Null() Native  { return New(float32(0.0)) }
-func (v ImagVal) Null() Native   { return New(complex128(0.0)) }
-func (v Imag64Val) Null() Native { return New(complex64(0.0)) }
-func (v ByteVal) Null() Native   { return New(byte(0)) }
-func (v BytesVal) Null() Native  { return New([]byte{}) }
-func (v RuneVal) Null() Native   { return New(rune(' ')) }
-func (v StrVal) Null() Native    { return New(string("")) }
-func (v ErrorVal) Null() Native  { return New(error(fmt.Errorf(""))) }
-func (v BigIntVal) Null() Native { return New(big.NewInt(0)) }
-func (v BigFltVal) Null() Native { return New(big.NewFloat(0)) }
-func (v RatioVal) Null() Native  { return New(big.NewRat(1, 1)) }
-func (v TimeVal) Null() Native   { return New(time.Now()) }
-func (v DuraVal) Null() Native   { return New(time.Duration(0)) }
-
-//// BINARY MARSHALER //////
-// for bytecode serialization and stack frame encoding
+// provide serialization for all native types.
 func (v BitFlag) MarshalBinary() ([]byte, error) {
 	var u = uint64(v)
 	var buf = make([]byte, 0, binary.Size(u))
