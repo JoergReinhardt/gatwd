@@ -9,16 +9,16 @@ import (
 )
 
 ///// SYNTAX DEFINITION /////
-type SyntaxItemFlag d.BitFlag
+type TySyntax d.BitFlag
 
-func (t SyntaxItemFlag) Flag() d.BitFlag           { return d.BitFlag(t) }
-func (t SyntaxItemFlag) FlagType() int8            { return 2 }
-func (t SyntaxItemFlag) TypeName() string          { return t.String() }
-func (t SyntaxItemFlag) Type() SyntaxItemFlag      { return t }
-func (t SyntaxItemFlag) Eval(...d.Native) d.Native { return t }
-func (t SyntaxItemFlag) TypeNat() d.TyNative       { return d.Flag }
-func (t SyntaxItemFlag) Syntax() string            { return MapItemString[t] }
-func (t SyntaxItemFlag) StringAlt() string         { return MapUtfAscii[t.Syntax()] }
+func (t TySyntax) Flag() d.BitFlag           { return d.BitFlag(t) }
+func (t TySyntax) TypeName() string          { return t.String() }
+func (t TySyntax) FlagType() int8            { return 2 }
+func (t TySyntax) Type() TySyntax            { return t }
+func (t TySyntax) Eval(...d.Native) d.Native { return t }
+func (t TySyntax) TypeNat() d.TyNative       { return d.Flag }
+func (t TySyntax) Syntax() string            { return MapItemString[t] }
+func (t TySyntax) StringAlt() string         { return MapUtfAscii[t.Syntax()] }
 
 // all syntax items represented as string
 var AllSyntax = func() string {
@@ -45,23 +45,23 @@ var AllSyntax = func() string {
 }()
 
 // slice of all syntax items in there int constant form
-var AllItems = func() []SyntaxItemFlag {
-	var tt = []SyntaxItemFlag{}
+var AllItems = func() []TySyntax {
+	var tt = []TySyntax{}
 	var i uint
-	var t SyntaxItemFlag = 0
+	var t TySyntax = 0
 	for i < 63 {
 		t = 1 << i
 		i = i + 1
-		tt = append(tt, SyntaxItemFlag(t))
+		tt = append(tt, TySyntax(t))
 	}
 	return tt
 }()
 
-//go:generate stringer -type=SyntaxItemFlag
+//go:generate stringer -type=TySyntax
 const (
-	None  SyntaxItemFlag = 0
-	Blank SyntaxItemFlag = 1
-	Tab   SyntaxItemFlag = 1 << iota
+	None  TySyntax = 0
+	Blank TySyntax = 1
+	Tab   TySyntax = 1 << iota
 	NewLine
 	Underscore
 	SquareRoot
@@ -123,7 +123,7 @@ const (
 	Epsilon
 )
 
-var MapItemString = map[SyntaxItemFlag]string{
+var MapItemString = map[TySyntax]string{
 	None:  "⊥",
 	Blank: " ",
 	Tab: "	",
@@ -182,8 +182,8 @@ var MapItemString = map[SyntaxItemFlag]string{
 	IsMember:     "∈",
 	EmptySet:     "∅",
 }
-var MapStringItem = func() map[string]SyntaxItemFlag {
-	var m = make(map[string]SyntaxItemFlag, len(MapItemString))
+var MapStringItem = func() map[string]TySyntax {
+	var m = make(map[string]TySyntax, len(MapItemString))
 	for item, str := range MapItemString {
 		m[str] = item
 	}
@@ -287,8 +287,8 @@ var MapAsciiUtf = func() map[string]string {
 	}
 	return m
 }()
-var MapAsciiItem = func() map[string]SyntaxItemFlag {
-	var m = make(map[string]SyntaxItemFlag, len(MapStringItem))
+var MapAsciiItem = func() map[string]TySyntax {
+	var m = make(map[string]TySyntax, len(MapStringItem))
 	for utf, asc := range MapUtfAscii {
 		if item, ok := MapStringItem[utf]; ok {
 			m[asc] = item
@@ -427,16 +427,16 @@ func UnicodeToASCII(tos ...string) string {
 // item is a bitflag of course
 type Item interface {
 	d.Native
-	Type() SyntaxItemFlag
+	Type() TySyntax
 	Syntax() string
 }
 
 type TextItem struct {
-	SyntaxItemFlag
+	TySyntax
 	Text string
 }
 
-func (t TextItem) Type() SyntaxItemFlag { return Text }
+func (t TextItem) Type() TySyntax { return Text }
 
 // pretty utf-8 version of syntax item
 func (t TextItem) String() string { return t.Text }

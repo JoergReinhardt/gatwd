@@ -172,6 +172,7 @@ type Parametric interface {
 
 // branched yields two callable return values
 type Branched interface {
+	Callable
 	Left() Callable
 	Right() Callable
 	Both() (Callable, Callable)
@@ -180,6 +181,7 @@ type Branched interface {
 // swaps position of branched return values either per call, or yielding a
 // new instance containing the values in swapped position
 type Swappable interface {
+	Callable
 	Swap() (Callable, Callable)
 	SwappedPair() PairVal
 }
@@ -190,20 +192,24 @@ type Swappable interface {
 // field indicates the optional type of the result yielded, in maybes it
 // indicates succssess, etc‥.
 type Accociated interface {
+	Callable
 	Key() Callable
 	Value() Callable
 }
 
 type Keyed interface {
+	Callable
 	KeyStr() string
 }
 
 type Indexed interface {
+	Callable
 	Index() string
 }
 
 // access elements directly by index position
 type IndexAssoc interface {
+	Callable
 	Get(int) Callable
 	Set(int, Callable) Vectorized
 }
@@ -303,7 +309,6 @@ type Searchable interface {
 
 // combines common functions provided by all vector shaped data
 type Vectorized interface {
-	Callable
 	Sequenced
 	Searchable
 	Sortable

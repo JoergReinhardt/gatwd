@@ -124,7 +124,7 @@ func (d dataTok) TypeNat() d.TyNative { return d.Native.TypeNat() }
 func newToken(t TyToken, dat d.Native) Token {
 	switch t {
 	case Syntax_Token:
-		return TokVal{Syntax_Token, dat.(l.SyntaxItemFlag)}
+		return TokVal{Syntax_Token, dat.(l.TySyntax)}
 	case TypeNat_Token:
 		return TokVal{TypeNat_Token, dat.(d.TyNative)}
 	case TypeFnc_Token:

@@ -14,12 +14,15 @@ const (
 	CallPropertys
 	CallArity
 	Data
-	/// FUNCTORS AND MONADS ///
+	/// FUNCTIONAL VALUE
+	Constant
+	Value
+	/// FUNCTORS AND MONADS
 	Applicable
 	Operator
 	Functor
 	Monad
-	/// MONADIC SUB TYPES ///
+	/// MONADIC SUB TYPES
 	Undecided
 	False
 	True
@@ -36,13 +39,12 @@ const (
 	Else
 	Do
 	While
-	/// TYPE CLASSES ///
+	/// TYPE CLASSES
 	Number
 	Index
 	Symbol
 	Error
-	/// COLLECTION TYPES ///
-	Constant
+	/// COLLECTION TYPES
 	Pair
 	Tuple
 	Enum
@@ -50,7 +52,7 @@ const (
 	List
 	Record
 	Vector
-	/// HIGHER ORDER TYPE IS THE HIGHEST FLAG ///
+	/// HIGHER ORDER TYPE
 	HigherOrder
 
 	Truth = False | True
@@ -184,7 +186,7 @@ func (p Propertys) Print() string {
 
 			if typed.FlagType() == 2 {
 
-				str = str + typed.(lex.SyntaxItemFlag).String()
+				str = str + typed.(lex.TySyntax).String()
 			}
 
 			if i < l-1 {
