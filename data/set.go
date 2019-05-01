@@ -40,7 +40,7 @@ func (s SetVal) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetVal) TypeNat() TyNative {
+func (s SetVal) TypeNat() TyNat {
 
 	var fields = s.Fields()
 
@@ -123,7 +123,7 @@ func (s SetString) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetString) TypeNat() TyNative {
+func (s SetString) TypeNat() TyNat {
 
 	var fields = s.Fields()
 
@@ -192,7 +192,7 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) TypeNat() TyNative {
+func (s SetInt) TypeNat() TyNat {
 
 	var fields = s.Fields()
 
@@ -275,7 +275,7 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) TypeNat() TyNative {
+func (s SetUint) TypeNat() TyNat {
 
 	var fields = s.Fields()
 
@@ -360,7 +360,7 @@ func NewFloatSet(acc ...Paired) Mapped {
 
 func (s SetFloat) Len() int { return len(s) }
 
-func (s SetFloat) TypeNat() TyNative {
+func (s SetFloat) TypeNat() TyNat {
 
 	var fields = s.Fields()
 
@@ -441,7 +441,7 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) TypeNat() TyNative {
+func (s SetFlag) TypeNat() TyNat {
 
 	var fields = s.Fields()
 

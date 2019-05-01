@@ -124,8 +124,8 @@ func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag())
 func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
 func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
 
-func (p Propertys) TypeNat() d.TyNative { return d.Flag }
-func (p Propertys) TypeFnc() TyFnc      { return HigherOrder }
+func (p Propertys) TypeNat() d.TyNat { return d.Flag }
+func (p Propertys) TypeFnc() TyFnc   { return HigherOrder }
 
 func (p Propertys) Flag() d.BitFlag { return d.BitFlag(uint64(p)) }
 
@@ -154,7 +154,7 @@ func (p Propertys) Print() string {
 
 			if typed.FlagType() == 0 {
 
-				str = str + typed.(d.TyNative).String()
+				str = str + typed.(d.TyNat).String()
 			}
 
 			if typed.FlagType() == 1 {
@@ -195,10 +195,10 @@ func (a Arity) Eval(...d.Native) d.Native { return d.Int8Val(a) }
 
 func (a Arity) Call(...Callable) Callable { return NewFromData(a.Eval()) }
 
-func (a Arity) Int() int            { return int(a) }
-func (a Arity) Flag() d.BitFlag     { return d.BitFlag(a) }
-func (a Arity) TypeNat() d.TyNative { return d.Flag }
-func (a Arity) TypeFnc() TyFnc      { return HigherOrder }
+func (a Arity) Int() int         { return int(a) }
+func (a Arity) Flag() d.BitFlag  { return d.BitFlag(a) }
+func (a Arity) TypeNat() d.TyNat { return d.Flag }
+func (a Arity) TypeFnc() TyFnc   { return HigherOrder }
 
 func (a Arity) Match(arg Arity) bool { return a == arg }
 
@@ -207,7 +207,7 @@ func (a Arity) Match(arg Arity) bool { return a == arg }
 func (t TyFnc) FlagType() int8                 { return 2 }
 func (t TyFnc) TypeName() string               { return t.String() }
 func (t TyFnc) TypeFnc() TyFnc                 { return Type }
-func (t TyFnc) TypeNat() d.TyNative            { return d.Flag }
+func (t TyFnc) TypeNat() d.TyNat               { return d.Flag }
 func (t TyFnc) Call(args ...Callable) Callable { return t.TypeFnc() }
 func (t TyFnc) Eval(args ...d.Native) d.Native { return t.TypeNat() }
 func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }

@@ -88,7 +88,7 @@ func (c ConsumerFnc) Head() Callable                 { h, _ := c(); return h }
 func (c ConsumerFnc) Tail() Consumeable              { _, t := c(); return t }
 func (c ConsumerFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c ConsumerFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c ConsumerFnc) TypeNat() d.TyNative {
+func (c ConsumerFnc) TypeNat() d.TyNat {
 	res, _ := c()
 	return res.TypeNat()
 }
@@ -127,7 +127,7 @@ func (c FunctorCon) Head() Callable                 { h, _ := c(); return h }
 func (c FunctorCon) Tail() Consumeable              { _, t := c(); return t }
 func (c FunctorCon) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c FunctorCon) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c FunctorCon) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c FunctorCon) TypeNat() d.TyNat               { return c.Head().TypeNat() }
 func (c FunctorCon) String() string                 { return c.Head().String() }
 
 /// APPLICATIVE
@@ -162,7 +162,7 @@ func (c ApplicativeCon) Tail() Consumeable              { _, t := c(); return t 
 func (c ApplicativeCon) Call(args ...Callable) Callable { return c.Head().Call(args...) }
 func (c ApplicativeCon) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
 func (c ApplicativeCon) TypeFnc() TyFnc                 { return Applicable | c.Head().TypeFnc() }
-func (c ApplicativeCon) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c ApplicativeCon) TypeNat() d.TyNat               { return c.Head().TypeNat() }
 func (c ApplicativeCon) String() string                 { return c.Head().String() }
 
 // MONADIC
@@ -176,7 +176,7 @@ func (c MonadicCon) DeCap() (Callable, Consumeable) { return c() }
 func (c MonadicCon) Head() Callable                 { h, _ := c(); return h }
 func (c MonadicCon) Tail() Consumeable              { _, t := c(); return t }
 func (c MonadicCon) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c MonadicCon) TypeNat() d.TyNative            { return c.Head().TypeNat() }
+func (c MonadicCon) TypeNat() d.TyNat               { return c.Head().TypeNat() }
 func (c MonadicCon) TypeFnc() TyFnc                 { return Monad | c.Head().TypeFnc() }
 
 //// MAP FUNCTOR LATE BINDING

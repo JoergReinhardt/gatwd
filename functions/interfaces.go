@@ -291,7 +291,7 @@ type Sequenced interface {
 
 // ordered collections can be sorted by‥.
 type Sortable interface {
-	Sort(d.TyNative)
+	Sort(d.TyNat)
 }
 
 // ‥.and searched after based on a predicate
@@ -323,8 +323,8 @@ type Associative interface {
 	Callable
 	KeyFncType() TyFnc
 	ValFncType() TyFnc
-	KeyNatType() d.TyNative
-	ValNatType() d.TyNative
+	KeyNatType() d.TyNat
+	ValNatType() d.TyNat
 	GetVal(Callable) PairVal
 	SetVal(Callable, Callable) Associative
 	Pairs() []PairVal

@@ -7,7 +7,7 @@ import (
 type TyArriOp int8
 
 func (t TyArriOp) Eval(...d.Native) d.Native { return t }
-func (t TyArriOp) TypeNat() d.TyNative       { return d.Flag }
+func (t TyArriOp) TypeNat() d.TyNat          { return d.Flag }
 func (t TyArriOp) Flag() d.BitFlag           { return d.BitFlag(t) }
 func (t TyArriOp) Uint() uint                { return d.BitFlag(t).Uint() }
 

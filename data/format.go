@@ -85,13 +85,13 @@ func StringBitFlag(v BitFlag) string {
 	var str string
 	if bits.OnesCount(v.Uint()) > 1 {
 		for i, f := range FlagDecompose(v) {
-			str = str + f.(TyNative).String()
+			str = str + f.(TyNat).String()
 			if i < len(FlagDecompose(v))-1 {
 				str = str + "∙"
 			}
 		}
 	} else {
-		str = TyNative(v).String()
+		str = TyNat(v).String()
 	}
 	return str
 }

@@ -85,7 +85,7 @@ func (d dataSorter) Len() int { return len(d) }
 
 func (d dataSorter) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 
-func (ds dataSorter) Sort(argType d.TyNative) {
+func (ds dataSorter) Sort(argType d.TyNat) {
 	sort.Slice(ds, newDataLess(argType, ds))
 }
 
@@ -99,7 +99,7 @@ func (ds dataSorter) Search(pred Callable) int {
 	return -1
 }
 
-func newDataLess(argType d.TyNative, ds dataSorter) func(i, j int) bool {
+func newDataLess(argType d.TyNat, ds dataSorter) func(i, j int) bool {
 	var f = argType.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -212,12 +212,12 @@ func (a pairSorter) Empty() bool {
 func (p pairSorter) Len() int      { return len(p) }
 func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
 
-func (p pairSorter) Sort(f d.TyNative) {
+func (p pairSorter) Sort(f d.TyNat) {
 	less := newpredLess(p, f)
 	sort.Slice(p, less)
 }
 
-func (p pairSorter) SortByValue(f d.TyNative) {
+func (p pairSorter) SortByValue(f d.TyNat) {
 	var ps = pairSorter(
 		NewAssociative(
 			p...,
@@ -285,7 +285,7 @@ func (p pairSorter) RangeByValue(pred Callable) []PairVal {
 	).Range(pred)
 }
 
-func newpredLess(accs pairSorter, t d.TyNative) func(i, j int) bool {
+func newpredLess(accs pairSorter, t d.TyNat) func(i, j int) bool {
 	f := t.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):

@@ -23,7 +23,7 @@ func SliceContainedTypes(c []Native) BitFlag {
 	return flag
 }
 
-func (c DataSlice) TypeNat() TyNative {
+func (c DataSlice) TypeNat() TyNat {
 
 	var slice = c.Slice()
 
@@ -359,7 +359,7 @@ func SliceSwap(c DataSlice, i, j int) DataSlice {
 	return c
 }
 
-func newSliceLess(c DataSlice, compT TyNative) func(i, j int) bool {
+func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
 	f := compT.TypeNat().Flag()
@@ -376,8 +376,8 @@ func newSliceLess(c DataSlice, compT TyNative) func(i, j int) bool {
 		}
 	case FlagMatch(f, Flag.TypeNat().Flag()):
 		fn = func(i, j int) bool {
-			if chain[i].(TyNative).TypeNat() <
-				chain[j].(TyNative).TypeNat() {
+			if chain[i].(TyNat).TypeNat() <
+				chain[j].(TyNat).TypeNat() {
 				return true
 			}
 			return false
@@ -402,12 +402,12 @@ func newSliceLess(c DataSlice, compT TyNative) func(i, j int) bool {
 	return fn
 }
 
-func SliceSort(c DataSlice, compT TyNative) DataSlice {
+func SliceSort(c DataSlice, compT TyNat) DataSlice {
 	sort.Slice(c, newSliceLess(c, compT))
 	return c
 }
 
-func (c DataSlice) Sort(compT TyNative) {
+func (c DataSlice) Sort(compT TyNat) {
 	c = SliceSort(c, compT)
 }
 

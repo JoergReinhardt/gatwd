@@ -16,7 +16,7 @@ func (t TySyntax) TypeName() string          { return t.String() }
 func (t TySyntax) FlagType() int8            { return 2 }
 func (t TySyntax) Type() TySyntax            { return t }
 func (t TySyntax) Eval(...d.Native) d.Native { return t }
-func (t TySyntax) TypeNat() d.TyNative       { return d.Flag }
+func (t TySyntax) TypeNat() d.TyNat          { return d.Flag }
 func (t TySyntax) Syntax() string            { return MapItemString[t] }
 func (t TySyntax) StringAlt() string         { return MapUtfAscii[t.Syntax()] }
 

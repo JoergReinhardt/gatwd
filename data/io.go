@@ -157,17 +157,17 @@ func (c ChanTrxTime) Eval(args ...Native) Native {
 	return BoolVal(true)
 }
 
-func (c WaitGroup) TypeNat() TyNative     { return SyncWait }
-func (c SyncCondition) TypeNat() TyNative { return SyncCon }
+func (c WaitGroup) TypeNat() TyNat     { return SyncWait }
+func (c SyncCondition) TypeNat() TyNat { return SyncCon }
 
-func (c Chan) TypeNat() TyNative        { return Channel }
-func (c ChanRcv) TypeNat() TyNative     { return Channel }
-func (c ChanTrx) TypeNat() TyNative     { return Channel }
-func (c ChanCtrl) TypeNat() TyNative    { return Channel }
-func (c ChanRcvCtrl) TypeNat() TyNative { return Channel }
-func (c ChanTrxCtrl) TypeNat() TyNative { return Channel }
-func (c ChanRcvTime) TypeNat() TyNative { return Channel }
-func (c ChanTrxTime) TypeNat() TyNative { return Channel }
+func (c Chan) TypeNat() TyNat        { return Channel }
+func (c ChanRcv) TypeNat() TyNat     { return Channel }
+func (c ChanTrx) TypeNat() TyNat     { return Channel }
+func (c ChanCtrl) TypeNat() TyNat    { return Channel }
+func (c ChanRcvCtrl) TypeNat() TyNat { return Channel }
+func (c ChanTrxCtrl) TypeNat() TyNat { return Channel }
+func (c ChanRcvTime) TypeNat() TyNat { return Channel }
+func (c ChanTrxTime) TypeNat() TyNat { return Channel }
 
 func (c SyncCondition) String() string { return "sync condition" }
 func (c WaitGroup) String() string     { return "wait group" }
@@ -183,7 +183,7 @@ func (c ChanTrxTime) String() string { return "Channel" }
 
 // READER/WRITER IMPLEMENTATION
 func (v ReadVal) Close() error               { return io.Closer(v).Close() }
-func (v ReadVal) TypeNat() TyNative          { return Reader.TypeNat() }
+func (v ReadVal) TypeNat() TyNat             { return Reader.TypeNat() }
 func (v ReadVal) Read(p []byte) (int, error) { return io.Reader(v).Read(p) }
 
 func (v ReadVal) Eval(n ...Native) Native {
@@ -207,7 +207,7 @@ func (v ReadVal) Eval(n ...Native) Native {
 }
 
 func (v WriteVal) Close() error                { return io.Closer(v).Close() }
-func (v WriteVal) TypeNat() TyNative           { return Writer.TypeNat() }
+func (v WriteVal) TypeNat() TyNat              { return Writer.TypeNat() }
 func (v WriteVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
 
 func (v WriteVal) Eval(n ...Native) Native {
@@ -230,7 +230,7 @@ func (v WriteVal) Eval(n ...Native) Native {
 }
 
 func (v ReadWriteVal) Close() error                { return io.Closer(v).Close() }
-func (v ReadWriteVal) TypeNat() TyNative           { return Reader.TypeNat() | Writer.TypeNat() }
+func (v ReadWriteVal) TypeNat() TyNat              { return Reader.TypeNat() | Writer.TypeNat() }
 func (v ReadWriteVal) Read(p []byte) (int, error)  { return io.Reader(v).Read(p) }
 func (v ReadWriteVal) Write(p []byte) (int, error) { return io.Writer(v).Write(p) }
 
@@ -260,7 +260,7 @@ func NewPipe() (*PipeReadVal, *PipeWriteVal) {
 }
 
 func (v PipeReadVal) Close() error                { return io.Closer(v).Close() }
-func (v PipeReadVal) TypeNat() TyNative           { return Reader.TypeNat() | Pipe.TypeNat() }
+func (v PipeReadVal) TypeNat() TyNat              { return Reader.TypeNat() | Pipe.TypeNat() }
 func (v *PipeReadVal) Read(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
 
 func (v *PipeReadVal) Eval(n ...Native) Native {
@@ -284,7 +284,7 @@ func (v *PipeReadVal) Eval(n ...Native) Native {
 }
 
 func (v PipeWriteVal) Close() error                 { return io.Closer(v).Close() }
-func (v PipeWriteVal) TypeNat() TyNative            { return Writer.TypeNat() | Pipe.TypeNat() }
+func (v PipeWriteVal) TypeNat() TyNat               { return Writer.TypeNat() | Pipe.TypeNat() }
 func (v *PipeWriteVal) Write(p []byte) (int, error) { return (*io.PipeWriter)(v).Write(p) }
 
 func (v *PipeWriteVal) Eval(n ...Native) Native {
@@ -361,7 +361,7 @@ func (v *BufferVal) ReadRune() (rune, int, error) {
 	var r, n, err = ((*bytes.Buffer)(v)).ReadRune()
 	return r, n, err
 }
-func (v *BufferVal) TypeNat() TyNative { return Buffer.TypeNat() }
+func (v *BufferVal) TypeNat() TyNat    { return Buffer.TypeNat() }
 func (v *BufferVal) Len() int          { return ((*bytes.Buffer)(v).Len()) }
 func (v *BufferVal) String() string    { return ((*bytes.Buffer)(v)).String() }
 func (v *BufferVal) Bytes() []byte     { return ((*bytes.Buffer)(v)).Bytes() }
@@ -390,7 +390,7 @@ func (v *BufferVal) Eval(n ...Native) Native {
 func NewTSNative(n Native) TSNative { return TSNative{&sync.Mutex{}, n} }
 func (v TSNative) Lock()            { v.Mutex.Lock() }
 func (v TSNative) Unlock()          { v.Mutex.Unlock() }
-func (v TSNative) TypeNat() TyNative {
+func (v TSNative) TypeNat() TyNat {
 	return Reader.TypeNat() | Writer.TypeNat()
 }
 func (v TSNative) Get() Native {
@@ -423,7 +423,7 @@ func NewTSSlice() *TSSlice {
 }
 func (v TSSlice) Lock()   { v.Mutex.Lock() }
 func (v TSSlice) Unlock() { v.Mutex.Unlock() }
-func (v TSSlice) TypeNat() TyNative {
+func (v TSSlice) TypeNat() TyNat {
 	return Reader.TypeNat() | Writer.TypeNat()
 }
 func (v TSSlice) Eval(n ...Native) Native {
@@ -443,17 +443,17 @@ func NewTSBuffer() *TSBuffer {
 		NewBuffer(),
 	}
 }
-func (v TSBuffer) TypeNat() TyNative {
+func (v TSBuffer) TypeNat() TyNat {
 	return Reader.TypeNat() | Writer.TypeNat()
 }
 func (v TSBuffer) Lock()   { v.Mutex.Lock() }
 func (v TSBuffer) Unlock() { v.Mutex.Unlock() }
 
 // THREADSAFE READER
-func (v TSRead) Lock()             { v.Mutex.Lock() }
-func (v TSRead) Unlock()           { v.Mutex.Unlock() }
-func (v TSRead) Close() error      { return io.Closer(v).Close() }
-func (v TSRead) TypeNat() TyNative { return Reader.TypeNat() }
+func (v TSRead) Lock()          { v.Mutex.Lock() }
+func (v TSRead) Unlock()        { v.Mutex.Unlock() }
+func (v TSRead) Close() error   { return io.Closer(v).Close() }
+func (v TSRead) TypeNat() TyNat { return Reader.TypeNat() }
 func (v TSRead) Read(p []byte) (int, error) {
 	v.Mutex.Lock()
 	defer v.Mutex.Unlock()
@@ -482,10 +482,10 @@ func (v TSRead) Eval(n ...Native) Native {
 }
 
 // THREAD SAFE WRITER
-func (v TSWrite) TypeNat() TyNative { return Writer.TypeNat() }
-func (v TSWrite) Lock()             { v.RWMutex.Lock() }
-func (v TSWrite) Unlock()           { v.RWMutex.Unlock() }
-func (v TSWrite) Close() error      { return io.Closer(v).Close() }
+func (v TSWrite) TypeNat() TyNat { return Writer.TypeNat() }
+func (v TSWrite) Lock()          { v.RWMutex.Lock() }
+func (v TSWrite) Unlock()        { v.RWMutex.Unlock() }
+func (v TSWrite) Close() error   { return io.Closer(v).Close() }
 func (v TSWrite) Write(p []byte) (int, error) {
 	v.RWMutex.Lock()
 	defer v.RWMutex.Unlock()
@@ -513,10 +513,10 @@ func (v TSWrite) Eval(n ...Native) Native {
 }
 
 // THREAD SAFE READER/WRITER
-func (v TSReadWrite) TypeNat() TyNative { return Reader.TypeNat() | Writer.TypeNat() }
-func (v TSReadWrite) Lock()             { v.RWMutex.Lock() }
-func (v TSReadWrite) Unlock()           { v.RWMutex.Unlock() }
-func (v TSReadWrite) Close() error      { return io.Closer(v).Close() }
+func (v TSReadWrite) TypeNat() TyNat { return Reader.TypeNat() | Writer.TypeNat() }
+func (v TSReadWrite) Lock()          { v.RWMutex.Lock() }
+func (v TSReadWrite) Unlock()        { v.RWMutex.Unlock() }
+func (v TSReadWrite) Close() error   { return io.Closer(v).Close() }
 func (v TSReadWrite) Read(p []byte) (int, error) {
 	return io.Reader(v).Read(p)
 }

@@ -14,7 +14,7 @@ type Typed interface {
 
 // the main interface, all types defined here need to comply to.
 type Native interface {
-	TypeNat() TyNative
+	TypeNat() TyNat
 	String() string
 	Evaluable
 }

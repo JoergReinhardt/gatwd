@@ -5,53 +5,28 @@ import (
 )
 
 type (
-	//// PARAMETRIC TYPES
-	///
-	// parametric types are defineable recursively during runtime and
-	// indicated by any bit flag that implements the typed interface. type
-	// agnosticy is implemented by truth-/, case-/ and case-switch
-	// expressions to decide which parametric type applys to the arguments.
-	NoOp       func()
+	NoneVal    func()
 	TruthFnc   func(...Callable) bool
-	CaseExpr   func(...Callable) (Callable, bool)
+	CaseFnc    func(...Callable) (Callable, bool)
 	CaseSwitch func(...Callable) (Callable, Consumeable, bool)
-
-	//// PARAMETRIC FUNCTION
-	///
-	// parametric function returns the parametric types flag, when called
-	// without arguments, or the result of applying the arguments to the
-	// expression instead.
-	ParamFnc func(...Callable) Callable
-
-	//// PARAMETRIC VALUE
-	///
-	// returns enclosed expression applyed to the arguments, and a flag
-	// implementing the typed interface.
-	ParamVal func(...Callable) (Callable, Typed)
-
-	//// PARAMETRIC CONSTRUCTOR
-	///
-	// parametric constructor generates values of a parametric type defined
-	// at creation of the constructor
-	ParamCon func(...Callable) (Parametric, bool)
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewNoOp() NoOp {
+func NewNone() NoneVal {
 	return func() {}
 }
-func (n NoOp) Ident() Callable           { return n }
-func (n NoOp) Maybe() bool               { return false }
-func (n NoOp) Empty() bool               { return true }
-func (n NoOp) Eval(...d.Native) d.Native { return nil }
-func (n NoOp) Value() Callable           { return nil }
-func (n NoOp) Call(...Callable) Callable { return nil }
-func (n NoOp) String() string            { return "⊥" }
-func (n NoOp) Len() int                  { return 0 }
-func (n NoOp) TypeFnc() TyFnc            { return None }
-func (n NoOp) TypeNat() d.TyNative       { return d.Nil }
-func (n NoOp) Type() Typed               { return None }
-func (n NoOp) TypeName() string          { return n.String() }
+func (n NoneVal) Ident() Callable           { return n }
+func (n NoneVal) Maybe() bool               { return false }
+func (n NoneVal) Empty() bool               { return true }
+func (n NoneVal) Eval(...d.Native) d.Native { return nil }
+func (n NoneVal) Value() Callable           { return nil }
+func (n NoneVal) Call(...Callable) Callable { return nil }
+func (n NoneVal) String() string            { return "⊥" }
+func (n NoneVal) Len() int                  { return 0 }
+func (n NoneVal) TypeFnc() TyFnc            { return None }
+func (n NoneVal) TypeNat() d.TyNat          { return d.Nil }
+func (n NoneVal) Type() Typed               { return None }
+func (n NoneVal) TypeName() string          { return n.String() }
 
 ///////////////////////////////////////////////////////////////////////////////
 func NewTruth(
@@ -65,240 +40,199 @@ func (t TruthFnc) Call(args ...Callable) Callable {
 func (t TruthFnc) Eval(args ...d.Native) d.Native {
 	return d.BoolVal(t(NatToFnc(args...)...))
 }
-func (t TruthFnc) Ident() Callable     { return t }
-func (t TruthFnc) String() string      { return "Truth" }
-func (t TruthFnc) TypeName() string    { return t.String() }
-func (t TruthFnc) Type() Typed         { return Truth }
-func (t TruthFnc) TypeFnc() TyFnc      { return Truth }
-func (t TruthFnc) TypeNat() d.TyNative { return d.Expression | d.Bool }
+func (t TruthFnc) Ident() Callable  { return t }
+func (t TruthFnc) String() string   { return "Truth" }
+func (t TruthFnc) TypeName() string { return t.String() }
+func (t TruthFnc) Type() Typed      { return Truth }
+func (t TruthFnc) TypeFnc() TyFnc   { return Truth }
+func (t TruthFnc) TypeNat() d.TyNat { return d.Expression | d.Bool }
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewCaseExpr(truth TruthFnc) CaseExpr {
-
-	return func(exprs ...Callable) (Callable, bool) {
-
-		var expr = exprs[0]
-
-		if len(exprs) > 0 {
-			expr = NewVector(exprs...)
+//// CASE SWITCH
+///
+func NewCaseFnc(expr Callable, truth TruthFnc) CaseFnc {
+	return func(args ...Callable) (Callable, bool) {
+		if truth(args...) {
+			return expr, true
 		}
-
-		return expr, truth(exprs...)
+		return NewNone(), false
 	}
 }
-func (c CaseExpr) Truth() Callable {
-	var _, truth = c()
-	return NewFromData(d.BoolVal(truth))
+func (c CaseFnc) Truth() Callable {
+	var _, ok = c()
+	return NewFromData(d.BoolVal(ok))
 }
-func (c CaseExpr) Expr() Callable {
+func (c CaseFnc) Expr() Callable {
 	var expr, _ = c()
 	return expr
 }
-func (c CaseExpr) String() string {
-	return "Case " + c.Expr().String()
-}
-func (c CaseExpr) Call(args ...Callable) Callable {
+func (c CaseFnc) Call(args ...Callable) Callable {
 	var result, _ = c(args...)
 	return result
 }
-func (c CaseExpr) Eval(args ...d.Native) d.Native {
+func (c CaseFnc) Eval(args ...d.Native) d.Native {
 	return c.Expr().Eval(args...)
 }
-func (c CaseExpr) Ident() Callable     { return c }
-func (c CaseExpr) TypeNat() d.TyNative { return d.Expression }
-func (c CaseExpr) TypeFnc() TyFnc      { return Case }
-func (c CaseExpr) Type() Typed         { return Case }
-func (c CaseExpr) TypeName() string    { return Case.String() }
+func (c CaseFnc) String() string {
+	return "Case " + c.Expr().String()
+}
+func (c CaseFnc) Ident() Callable  { return c }
+func (c CaseFnc) Type() Typed      { return Switch }
+func (c CaseFnc) TypeName() string { return c.Type().String() }
+func (c CaseFnc) TypeFnc() TyFnc   { return Case }
+func (c CaseFnc) TypeNat() d.TyNat { return d.Expression }
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewCaseSwitch(cases ...CaseExpr) CaseSwitch {
-
-	var elems = []Callable{}
-
-	for _, cas := range cases {
-		elems = append(elems, cas)
+func NewCaseSwitch(caseExprs ...CaseFnc) CaseSwitch {
+	var cs []Callable
+	for _, c := range caseExprs {
+		cs = append(cs, c)
 	}
-
-	var caselist = NewList(elems...)
-
+	return ConsCaseSwitch(NewList(cs...))
+}
+func ConsCaseSwitch(cases Consumeable) CaseSwitch {
 	return func(args ...Callable) (Callable, Consumeable, bool) {
-
-		var head, caselist = caselist()
-		var result, ok = head.(CaseExpr)(args...)
-
-		return result, caselist, ok
+		if cas, cases := cases.(ListVal)(args...); cas != nil {
+			if val, ok := cas.(CaseSwitch); ok {
+				return val, cases, ok
+			}
+		}
+		return NewNone(), cases, false
 	}
-}
-func (c CaseSwitch) Truth() Callable {
-	var _, _, ok = c()
-	return NewFromData(d.BoolVal(ok))
-}
-func (c CaseSwitch) Cases() Consumeable {
-	var _, cases, _ = c()
-	return cases
 }
 func (c CaseSwitch) Expr() Callable {
 	var expr, _, _ = c()
 	return expr
 }
+func (c CaseSwitch) Cases() Consumeable {
+	var _, cases, _ = c()
+	return cases
+}
+func (c CaseSwitch) Truth() Callable {
+	var _, _, ok = c()
+	return NewFromData(d.BoolVal(ok))
+}
 func (c CaseSwitch) Call(args ...Callable) Callable {
-	var result, _, _ = c(args...)
-	return result
+	var expr Callable
+	var cases Consumeable
+	if expr, cases = c.Cases().(ListVal)(); expr != nil {
+		return expr.Call(args...)
+	}
+	return ConsCaseSwitch(cases)
 }
 func (c CaseSwitch) Eval(args ...d.Native) d.Native {
-	return c.Expr().Eval(args...)
+	return c.Call(NatToFnc(args...)...)
 }
 func (c CaseSwitch) String() string {
 	return "Switch " + c.Expr().String()
 }
-func (c CaseSwitch) Type() Typed         { return Switch }
-func (c CaseSwitch) TypeName() string    { return c.Type().String() }
-func (c CaseSwitch) Ident() Callable     { return c }
-func (c CaseSwitch) TypeFnc() TyFnc      { return Switch }
-func (c CaseSwitch) TypeNat() d.TyNative { return d.Expression }
+func (c CaseSwitch) Ident() Callable  { return c }
+func (c CaseSwitch) Type() Typed      { return Switch }
+func (c CaseSwitch) TypeName() string { return c.Type().String() }
+func (c CaseSwitch) TypeFnc() TyFnc   { return Switch }
+func (c CaseSwitch) TypeNat() d.TyNat { return d.Expression }
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewParametricValue(
-	expr func(...Callable) Callable,
-	typ Typed,
-) ParamVal {
-	return func(args ...Callable) (Callable, Typed) {
-		return expr(args...), typ
+type (
+	ParamFlag  func() (string, d.TyNat, TyFnc)
+	ParamValue func(...Callable) (Callable, ParamFlag)
+	ParamType  func(...Callable) (Callable, ParamFlag)
+)
+
+///////////////////////////////////////////////////////////////////////////////
+func NewParamType(
+	cases CaseSwitch,
+	nat d.TyNat,
+	fnc TyFnc,
+	name ...string,
+) ParamType {
+
+	var flag = NewParamFlag(nat, fnc, name...)
+	var expr Callable
+
+	return func(args ...Callable) (Callable, ParamFlag) {
+		return expr, flag
 	}
 }
-func (t ParamVal) String() string {
-	return t.TypeName() + " " + t.String()
-}
-func (t ParamVal) Type() Typed {
-	var _, typ = t()
-	return typ
-}
-func (t ParamVal) Expr() Callable {
-	var result, _ = t()
-	return result
-}
-func (t ParamVal) Call(args ...Callable) Callable {
-	var result, _ = t(args...)
-	return result
-}
-func (t ParamVal) Eval(args ...d.Native) d.Native {
-	return t.Call(NatToFnc(args...)...)
-}
-func (t ParamVal) Ident() Callable     { return t }
-func (t ParamVal) TypeFnc() TyFnc      { return Options }
-func (t ParamVal) TypeNat() d.TyNative { return d.Expression }
-func (t ParamVal) TypeName() string    { return t.Type().String() }
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewParametricFunction(
-	expr func(...Callable) Callable,
-	typ Typed,
-) ParamFnc {
-	return func(args ...Callable) Callable {
-		if len(args) == 0 {
-			return NewFromData(typ)
+func NewParamFlag(nat d.TyNat, fnc TyFnc, name ...string) ParamFlag {
+	var str string
+
+	if len(name) > 0 {
+		for _, n := range name {
+			str = str + n + "·"
 		}
-		return expr(args...)
+	}
+
+	str = nat.String() + "·" + fnc.String()
+
+	return func() (string, d.TyNat, TyFnc) {
+		return str, nat, fnc
 	}
 }
-func (t ParamFnc) Eval(args ...d.Native) d.Native {
-	return t(NatToFnc(args...)...)
+
+func (f ParamFlag) Ident() Callable { return f }
+func (f ParamFlag) Type() (d.TyNat, TyFnc) {
+	return f.TypeNat(), HigherOrder | f.TypeFnc()
 }
-func (t ParamFnc) String() string {
-	return t.TypeName() + " " + t.Expr().String()
+func (f ParamFlag) TypeName() string { return f.String() }
+func (f ParamFlag) String() string {
+	var name, _, _ = f()
+	return name
 }
-func (t ParamFnc) Ident() Callable                { return t }
-func (t ParamFnc) Expr() Callable                 { return t() }
-func (t ParamFnc) Call(args ...Callable) Callable { return t(args...) }
-func (t ParamFnc) Type() Typed                    { return t().(Typed) }
-func (t ParamFnc) TypeName() string               { return t.Type().String() }
-func (t ParamFnc) TypeNat() d.TyNative            { return d.Expression }
-func (t ParamFnc) TypeFnc() TyFnc                 { return Options }
+func (f ParamFlag) TypeNat() d.TyNat {
+	var _, nat, _ = f()
+	return nat
+}
+func (f ParamFlag) TypeFnc() TyFnc {
+	var _, _, fnc = f()
+	return fnc
+}
+func (f ParamFlag) Eval(args ...d.Native) d.Native {
+	return d.StrVal(f.String())
+}
+func (f ParamFlag) Call(args ...Callable) Callable {
+	return NewFromData(f.Eval())
+}
 
 ///////////////////////////////////////////////////////////////////////////////
-func NewParamCon(
-	base Typed,
-	cases ListVal,
-	args ...Callable,
-) ParamCon {
-
-	return ParamCon(
-
-		func(args ...Callable) (Parametric, bool) {
-
-			// return parametric type, when called without
-			// parameters
-			if len(args) > 0 {
-
-				// decapitate cases list
-				var head, cases = cases()
-
-				// if decapitation yielded another case to
-				// scrutinize‥.
-				if head != nil {
-
-					// apply arguments to yielded case‥.
-					if param, ok := head.(Parametric); ok {
-
-						// return parametric and true
-						// if case evaluation succeded
-						// in yielding value
-						return param, ok
-					}
-
-					// construct case continuation if case
-					// evaluation failed to yield a value,
-					// pass on base type and arguments
-					// passed with initial call.
-					return NewParamCon(base,
-						cases,
-						args...,
-					), false
-				}
-			}
-
-			// no case matched the provided arguments, or no
-			// arguments got passed by call in the first place‥.
-			// return base type & 'false' as final result.
-			return ParamVal(func(...Callable) (Callable, Typed) {
-				return NewFromData(base), Type
-			}), false
-		})
-}
-
-func DefineParametricConstructor(
-	base Typed,
-	cons ...CaseExpr,
-) ParamCon {
-	var initials = []Callable{}
-	for _, con := range cons {
-		initials = append(initials, con)
+func NewParamValue(
+	expr func(...Callable) Callable,
+	nat d.TyNat,
+	fnc TyFnc,
+	name ...string,
+) ParamValue {
+	return func(args ...Callable) (Callable, ParamFlag) {
+		return expr(args...), NewParamFlag(nat, fnc, name...)
 	}
-	var cases = NewList(initials...)
-	return NewParamCon(base, cases)
 }
-
-func (p ParamCon) Call(args ...Callable) Callable {
-	var result, _ = p(args...)
-	return result
+func (v ParamValue) Ident() Callable { return v }
+func (v ParamValue) Expr() Callable {
+	var expr, _ = v()
+	return expr
 }
-func (p ParamCon) Eval(args ...d.Native) d.Native {
-	var result, _ = p(NatToFnc(args...)...)
-	return result
+func (v ParamValue) TypeNat() d.TyNat {
+	var _, typ = v()
+	return typ.TypeNat()
 }
-func (p ParamCon) TypeFnc() TyFnc {
-	var param, _ = p()
-	return param.Call().(TyFnc)
+func (v ParamValue) TypeFnc() TyFnc {
+	var _, typ = v()
+	return typ.TypeFnc()
 }
-func (p ParamCon) TypeName() string {
-	var typ, _ = p()
-	return typ.String()
+func (v ParamValue) TypeName() string {
+	var _, typ = v()
+	return typ.TypeName()
 }
-func (p ParamCon) Type() Typed {
-	var param, _ = p()
-	return param.(Typed)
+func (v ParamValue) Type() (d.TyNat, TyFnc) {
+	return v.TypeNat(), v.TypeFnc()
 }
-func (p ParamCon) TypeNat() d.TyNative { return d.Expression }
-func (p ParamCon) String() string      { return p.TypeName() }
-
-///////////////////////////////////////////////////////////////////////////////
+func (v ParamValue) String() string {
+	return v.Expr().String()
+}
+func (v ParamValue) Eval(args ...d.Native) d.Native {
+	return v.Expr().Eval(args...)
+}
+func (v ParamValue) Call(args ...Callable) Callable {
+	return v.Expr().Call(args...)
+}

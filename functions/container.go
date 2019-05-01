@@ -74,7 +74,7 @@ func (n DataVal) Call(vals ...Callable) Callable {
 	var results = NewVector()
 	for _, val := range vals {
 		// evaluate arguments to yield contained natives
-		results = ConVector(
+		results = ConsVector(
 			results,
 			DataVal(func(arguments ...d.Native) d.Native {
 				return val.Eval(arguments...)
@@ -84,9 +84,9 @@ func (n DataVal) Call(vals ...Callable) Callable {
 	return results
 }
 
-func (n DataVal) TypeFnc() TyFnc      { return Data }
-func (n DataVal) TypeNat() d.TyNative { return n().TypeNat() }
-func (n DataVal) String() string      { return n().String() }
+func (n DataVal) TypeFnc() TyFnc   { return Data }
+func (n DataVal) TypeNat() d.TyNat { return n().TypeNat() }
+func (n DataVal) String() string   { return n().String() }
 
 //// STATIC EXPRESSIONS
 ///
@@ -94,7 +94,7 @@ func (n DataVal) String() string      { return n().String() }
 func NewConstant(fnc Callable) Callable          { return fnc }
 func (c ConstantExpr) Ident() Callable           { return c() }
 func (c ConstantExpr) TypeFnc() TyFnc            { return Expression }
-func (c ConstantExpr) TypeNat() d.TyNative       { return c().TypeNat() }
+func (c ConstantExpr) TypeNat() d.TyNat          { return c().TypeNat() }
 func (c ConstantExpr) Call(...Callable) Callable { return c() }
 func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
 
@@ -102,7 +102,7 @@ func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
 func NewUnaryExpr(fnc func(Callable) Callable) UnaryExpr { return fnc }
 func (u UnaryExpr) Ident() Callable                      { return u }
 func (u UnaryExpr) TypeFnc() TyFnc                       { return Expression }
-func (u UnaryExpr) TypeNat() d.TyNative                  { return d.Expression.TypeNat() }
+func (u UnaryExpr) TypeNat() d.TyNat                     { return d.Expression.TypeNat() }
 func (u UnaryExpr) Call(arg ...Callable) Callable        { return u(arg[0]) }
 func (u UnaryExpr) Eval(arg ...d.Native) d.Native        { return u(NewFromData(arg...)) }
 
@@ -111,7 +111,7 @@ func NewBinaryExpr(fnc func(l, r Callable) Callable) BinaryExpr { return fnc }
 
 func (b BinaryExpr) Ident() Callable                { return b }
 func (b BinaryExpr) TypeFnc() TyFnc                 { return Expression }
-func (b BinaryExpr) TypeNat() d.TyNative            { return d.Expression.TypeNat() }
+func (b BinaryExpr) TypeNat() d.TyNat               { return d.Expression.TypeNat() }
 func (b BinaryExpr) Call(args ...Callable) Callable { return b(args[0], args[1]) }
 func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 	return b(NewFromData(args[0]), NewFromData(args[1]))
@@ -121,7 +121,7 @@ func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 func NewNaryExpr(fnc func(...Callable) Callable) NaryExpr { return fnc }
 func (n NaryExpr) Ident() Callable                        { return n }
 func (n NaryExpr) TypeFnc() TyFnc                         { return Expression }
-func (n NaryExpr) TypeNat() d.TyNative                    { return d.Expression.TypeNat() }
+func (n NaryExpr) TypeNat() d.TyNat                       { return d.Expression.TypeNat() }
 func (n NaryExpr) Call(d ...Callable) Callable            { return n(d...) }
 func (n NaryExpr) Eval(args ...d.Native) d.Native {
 	var params = []Callable{}
@@ -134,7 +134,7 @@ func (n NaryExpr) Eval(args ...d.Native) d.Native {
 /// PAIRS OF VALUES
 func NewEmptyPair() PairVal {
 	return func(args ...Callable) (a, b Callable) {
-		return NewNoOp(), NewNoOp()
+		return NewNone(), NewNone()
 	}
 }
 
@@ -203,7 +203,7 @@ func (p PairVal) Ident() Callable { return p }
 func (p PairVal) Pair() Callable  { return p }
 
 // construct value pairs from any consumeable assuming keys and values alter
-func ConPair(list Consumeable) (PairVal, Consumeable) {
+func ConsPair(list Consumeable) (PairVal, Consumeable) {
 
 	var first, tail = list.DeCap()
 
@@ -228,7 +228,7 @@ func ConPair(list Consumeable) (PairVal, Consumeable) {
 // implement consumeable
 func (p PairVal) DeCap() (Callable, Consumeable) { l, r := p(); return l, NewList(r) }
 func (p PairVal) Head() Callable                 { l, _ := p(); return l }
-func (p PairVal) Tail() Consumeable              { _, r := p(); return NewPair(r, NewNoOp()) }
+func (p PairVal) Tail() Consumeable              { _, r := p(); return NewPair(r, NewNone()) }
 
 // implement swappable
 func (p PairVal) Swap() (Callable, Callable) { l, r := p(); return r, l }
@@ -247,10 +247,10 @@ func (p PairVal) Key() Callable   { return p.Left() }
 func (p PairVal) Value() Callable { return p.Right() }
 
 // key and values native and functional types
-func (p PairVal) KeyType() TyFnc           { return p.Left().TypeFnc() }
-func (p PairVal) KeyNatType() d.TyNative   { return p.Left().TypeNat() }
-func (p PairVal) ValueType() TyFnc         { return p.Right().TypeFnc() }
-func (p PairVal) ValueNatType() d.TyNative { return p.Right().TypeNat() }
+func (p PairVal) KeyType() TyFnc        { return p.Left().TypeFnc() }
+func (p PairVal) KeyNatType() d.TyNat   { return p.Left().TypeNat() }
+func (p PairVal) ValueType() TyFnc      { return p.Right().TypeFnc() }
+func (p PairVal) ValueNatType() d.TyNat { return p.Right().TypeNat() }
 
 // slightly different element types, since right value is a list now
 func (p PairVal) HeadType() TyFnc { return p.Left().TypeFnc() }
@@ -262,7 +262,7 @@ func (p PairVal) TypeFnc() TyFnc {
 }
 
 // composed native type of a value pair
-func (p PairVal) TypeNat() d.TyNative {
+func (p PairVal) TypeNat() d.TyNat {
 	return p.Left().TypeNat() | p.Right().TypeNat()
 }
 
@@ -326,13 +326,13 @@ func (a AssocPair) String() string                 { return a.Right().String() }
 func (a AssocPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
 func (a AssocPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
 
-func (a AssocPair) KeyType() TyFnc           { return Pair | Symbol }
-func (a AssocPair) KeyNatType() d.TyNative   { return d.String }
-func (a AssocPair) ValueType() TyFnc         { return a.Right().TypeFnc() }
-func (a AssocPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
+func (a AssocPair) KeyType() TyFnc        { return Pair | Symbol }
+func (a AssocPair) KeyNatType() d.TyNat   { return d.String }
+func (a AssocPair) ValueType() TyFnc      { return a.Right().TypeFnc() }
+func (a AssocPair) ValueNatType() d.TyNat { return a.Right().TypeNat() }
 
-func (a AssocPair) TypeFnc() TyFnc      { return Pair | Symbol | a.ValueType() }
-func (a AssocPair) TypeNat() d.TyNative { return d.Pair | d.String | a.ValueNatType() }
+func (a AssocPair) TypeFnc() TyFnc   { return Pair | Symbol | a.ValueType() }
+func (a AssocPair) TypeNat() d.TyNat { return d.Pair | d.String | a.ValueNatType() }
 
 /// pair composed of an integer and a functional value
 func NewIndexPair(idx int, val Callable) IndexPair {
@@ -370,13 +370,13 @@ func (a IndexPair) String() string                 { return a.Right().String() }
 func (a IndexPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
 func (a IndexPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
 
-func (a IndexPair) KeyType() TyFnc           { return Pair | Index }
-func (a IndexPair) KeyNatType() d.TyNative   { return d.Int }
-func (a IndexPair) ValueType() TyFnc         { return a.Right().TypeFnc() }
-func (a IndexPair) ValueNatType() d.TyNative { return a.Right().TypeNat() }
+func (a IndexPair) KeyType() TyFnc        { return Pair | Index }
+func (a IndexPair) KeyNatType() d.TyNat   { return d.Int }
+func (a IndexPair) ValueType() TyFnc      { return a.Right().TypeFnc() }
+func (a IndexPair) ValueNatType() d.TyNat { return a.Right().TypeNat() }
 
-func (a IndexPair) TypeFnc() TyFnc      { return Pair | Index | a.ValueType() }
-func (a IndexPair) TypeNat() d.TyNative { return d.Pair | d.Int | a.ValueNatType() }
+func (a IndexPair) TypeFnc() TyFnc   { return Pair | Index | a.ValueType() }
+func (a IndexPair) TypeNat() d.TyNat { return d.Pair | d.Int | a.ValueNatType() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// RECURSIVE LIST OF VALUES
@@ -385,7 +385,7 @@ func (a IndexPair) TypeNat() d.TyNative { return d.Pair | d.Int | a.ValueNatType
 func ConcatLists(a, b ListVal) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		if len(args) > 0 {
-			b = b.Con(args...)
+			b = b.Cons(args...)
 		}
 		var head Callable
 		if head, a = a(); head != nil {
@@ -411,7 +411,7 @@ func NewList(elems ...Callable) ListVal {
 		return nil, NewList()
 	}
 }
-func (l ListVal) Con(elems ...Callable) ListVal {
+func (l ListVal) Cons(elems ...Callable) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		return l(append(elems, args...)...)
 	})
@@ -461,7 +461,7 @@ func (l ListVal) Tail() Consumeable              { _, t := l(); return t }
 func (l ListVal) Head() Callable                 { h, _ := l(); return h }
 func (l ListVal) DeCap() (Callable, Consumeable) { return l() }
 func (l ListVal) TypeFnc() TyFnc                 { return List | Functor }
-func (l ListVal) TypeNat() d.TyNative            { return l.Head().TypeNat() }
+func (l ListVal) TypeNat() d.TyNat               { return l.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
@@ -487,18 +487,18 @@ func NewVector(init ...Callable) VecVal {
 	}
 }
 
-func ConVector(vec Vectorized, args ...Callable) VecVal {
+func ConsVector(vec Vectorized, args ...Callable) VecVal {
 
-	return ConVecFromCallable(append(RevArgs(args...), vec.Slice()...)...)
+	return ConsVectorFromCallable(append(RevArgs(args...), vec.Slice()...)...)
 }
 
 func AppendVector(vec Vectorized, args ...Callable) VecVal {
 
-	return ConVecFromCallable(append(vec.Slice(), args...)...)
+	return ConsVectorFromCallable(append(vec.Slice(), args...)...)
 
 }
 
-func ConVecFromCallable(init ...Callable) VecVal {
+func ConsVectorFromCallable(init ...Callable) VecVal {
 
 	return func(args ...Callable) []Callable {
 
@@ -536,7 +536,7 @@ func (v VecVal) TypeFnc() TyFnc {
 	return Vector | None
 }
 
-func (v VecVal) TypeNat() d.TyNative {
+func (v VecVal) TypeNat() d.TyNat {
 	if len(v()) > 0 {
 		return d.Slice.TypeNat() | v.Head().TypeNat()
 	}
@@ -585,7 +585,7 @@ func (v VecVal) Append(args ...Callable) VecVal {
 	return NewVector(append(v(), args...)...)
 }
 
-func (v VecVal) Con(args ...Callable) VecVal {
+func (v VecVal) Cons(args ...Callable) VecVal {
 	return NewVector(append(RevArgs(args...), RevArgs(v()...)...)...)
 }
 
@@ -593,7 +593,7 @@ func (v VecVal) Get(i int) Callable {
 	if i < v.Len() {
 		return v()[i]
 	}
-	return NewNoOp()
+	return NewNone()
 }
 
 func (v VecVal) Set(i int, val Callable) Vectorized {
@@ -606,7 +606,7 @@ func (v VecVal) Set(i int, val Callable) Vectorized {
 	return v
 }
 
-func (v VecVal) Sort(flag d.TyNative) {
+func (v VecVal) Sort(flag d.TyNat) {
 	var ps = newDataSorter(v()...)
 	ps.Sort(flag)
 	v = NewVector(ps...)
@@ -618,7 +618,7 @@ func (v VecVal) Search(praed Callable) int { return newDataSorter(v()...).Search
 ///
 // list of associative pairs in sequential order associated, sorted and
 // searched by left value of the pairs
-func ConAssociative(vec Associative, pfnc ...PairVal) AssocVec {
+func ConsAssociative(vec Associative, pfnc ...PairVal) AssocVec {
 	return NewAssociativeFromPairFunction(append(vec.Pairs(), pfnc...)...)
 }
 
@@ -630,7 +630,7 @@ func NewAssociativeFromPairFunction(ps ...PairVal) AssocVec {
 	return AssocVec(func(pairs ...PairVal) []PairVal { return pairs })
 }
 
-func ConAssociativeFromPairs(pp ...PairVal) AssocVec {
+func ConsAssociativeFromPairs(pp ...PairVal) AssocVec {
 	return AssocVec(func(pairs ...PairVal) []PairVal { return pp })
 }
 
@@ -652,18 +652,18 @@ func (v AssocVec) Call(d ...Callable) Callable {
 	if len(d) > 0 {
 		for _, val := range d {
 			if pair, ok := val.(PairVal); ok {
-				v = v.Con(pair)
+				v = v.Cons(pair)
 			}
 		}
 	}
 	return v
 }
 
-func (v AssocVec) Con(p ...Callable) AssocVec {
+func (v AssocVec) Cons(p ...Callable) AssocVec {
 
 	var pairs = v.Pairs()
 
-	return ConAssociativeFromPairs(pairs...)
+	return ConsAssociativeFromPairs(pairs...)
 }
 
 func (v AssocVec) DeCap() (Callable, Consumeable) {
@@ -692,7 +692,7 @@ func (v AssocVec) KeyFncType() TyFnc {
 	return None
 }
 
-func (v AssocVec) KeyNatType() d.TyNative {
+func (v AssocVec) KeyNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeNat()
 	}
@@ -706,7 +706,7 @@ func (v AssocVec) ValFncType() TyFnc {
 	return None
 }
 
-func (v AssocVec) ValNatType() d.TyNative {
+func (v AssocVec) ValNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeNat()
 	}
@@ -715,7 +715,7 @@ func (v AssocVec) ValNatType() d.TyNative {
 
 func (v AssocVec) TypeFnc() TyFnc { return Record | Functor }
 
-func (v AssocVec) TypeNat() d.TyNative {
+func (v AssocVec) TypeNat() d.TyNat {
 	if len(v()) > 0 {
 		return d.Slice | v.Head().TypeNat()
 	}
@@ -724,7 +724,7 @@ func (v AssocVec) TypeNat() d.TyNative {
 
 func (v AssocVec) Len() int { return len(v()) }
 
-func (v AssocVec) Sort(flag d.TyNative) {
+func (v AssocVec) Sort(flag d.TyNat) {
 	var ps = newPairSorter(v()...)
 	ps.Sort(flag)
 	v = NewAssociative(ps...)
@@ -738,7 +738,7 @@ func (v AssocVec) Get(idx int) PairVal {
 	if idx < v.Len()-1 {
 		return v()[idx]
 	}
-	return NewPair(NewNoOp(), NewNoOp())
+	return NewPair(NewNone(), NewNone())
 }
 
 func (v AssocVec) GetVal(praed Callable) PairVal {
@@ -800,7 +800,7 @@ func (v AssocVec) Head() Callable {
 
 func (v AssocVec) Tail() Consumeable {
 	if v.Len() > 1 {
-		return ConAssociativeFromPairs(v.Pairs()[1:]...)
+		return ConsAssociativeFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyAssociative()
 }
@@ -818,7 +818,7 @@ func (v AssocVec) Eval(p ...d.Native) d.Native {
 ///
 // unordered associative set of key/value pairs that can be sorted, accessed
 // and searched by the left (key) value of the pair
-func ConAssocSet(pairs ...PairVal) SetVal {
+func ConsAssocSet(pairs ...PairVal) SetVal {
 	var paired = []PairVal{}
 	for _, pair := range pairs {
 		paired = append(paired, pair)
@@ -828,7 +828,7 @@ func ConAssocSet(pairs ...PairVal) SetVal {
 
 func NewAssocSet(pairs ...PairVal) SetVal {
 
-	var kt d.TyNative
+	var kt d.TyNat
 	var set d.Mapped
 
 	// OR concat all accessor types
@@ -931,7 +931,7 @@ func (v SetVal) Eval(p ...d.Native) d.Native {
 
 func (v SetVal) TypeFnc() TyFnc { return Set | Functor }
 
-func (v SetVal) TypeNat() d.TyNative { return d.Map | d.Expression }
+func (v SetVal) TypeNat() d.TyNat { return d.Map | d.Expression }
 
 func (v SetVal) KeyFncType() TyFnc {
 	if v.Len() > 0 {
@@ -940,7 +940,7 @@ func (v SetVal) KeyFncType() TyFnc {
 	return None
 }
 
-func (v SetVal) KeyNatType() d.TyNative {
+func (v SetVal) KeyNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeNat()
 	}
@@ -954,7 +954,7 @@ func (v SetVal) ValFncType() TyFnc {
 	return None
 }
 
-func (v SetVal) ValNatType() d.TyNative {
+func (v SetVal) ValNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeNat()
 	}
@@ -974,7 +974,7 @@ func (v SetVal) Head() Callable {
 
 func (v SetVal) Tail() Consumeable {
 	if v.Len() > 1 {
-		return ConAssociativeFromPairs(v.Pairs()[1:]...)
+		return ConsAssociativeFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyAssociative()
 }
@@ -1029,7 +1029,7 @@ func (t TupleVal) TypeFnc() TyFnc {
 }
 
 // native type concatenates the native types of all the subtypes
-func (t TupleVal) TypeNat() d.TyNative {
+func (t TupleVal) TypeNat() d.TyNat {
 	var ntype = d.Slice
 	for _, typ := range t() {
 		ntype = ntype | typ.TypeNat()

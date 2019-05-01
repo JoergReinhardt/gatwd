@@ -11,13 +11,13 @@ import (
 //////// INTERNAL TYPE SYSTEM ///////////
 //
 // intended to be accessable and extendable
-type TyNative BitFlag
+type TyNat BitFlag
 
-func (t TyNative) FlagType() int8    { return 1 }
-func (v TyNative) TypeNat() TyNative { return v }
-func (v TyNative) TypeName() string  { return v.String() }
+func (t TyNat) FlagType() int8   { return 1 }
+func (v TyNat) TypeNat() TyNat   { return v }
+func (v TyNat) TypeName() string { return v.String() }
 
-func (v TyNative) Eval(p ...Native) Native {
+func (v TyNat) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {
 			if prime.TypeNat().Flag().Match(Flag) {
@@ -28,25 +28,25 @@ func (v TyNative) Eval(p ...Native) Native {
 	}
 	return v
 }
-func (v TyNative) Flag() BitFlag { return BitFlag(v) }
+func (v TyNat) Flag() BitFlag { return BitFlag(v) }
 
-func ListAllTypes() []TyNative {
-	var tt = []TyNative{}
+func ListAllTypes() []TyNat {
+	var tt = []TyNat{}
 	var i uint
-	var t TyNative = 0
+	var t TyNat = 0
 	for t < Flag {
 		t = 1 << i
 		i = i + 1
-		tt = append(tt, TyNative(t))
+		tt = append(tt, TyNat(t))
 	}
 	return tt
 }
 
-//go:generate stringer -type=TyNative
+//go:generate stringer -type=TyNat
 const (
-	Nil  TyNative = 1
-	Bool TyNative = 1 << iota
-	Int8          // Int8 -> Int8
+	Nil  TyNat = 1
+	Bool TyNat = 1 << iota
+	Int8       // Int8 -> Int8
 	Int16
 	Int32
 	Int
@@ -107,8 +107,8 @@ const (
 	Compositions = Pair | Slice | Map
 	Functional   = Data | Expression | Literal | Flag
 
-	MASK         TyNative = 0xFFFFFFFFFFFFFFFF
-	MASK_NATIVES          = MASK ^ Natives
+	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
+	MASK_NATIVES       = MASK ^ Natives
 )
 
 //////// INTERNAL TYPES /////////////
@@ -190,33 +190,33 @@ type ( // NATIVE GOLANG TYPES
 )
 
 /// bind the corresponding TypeNat Method to every type
-func (NilVal) TypeNat() TyNative      { return Nil.TypeNat() }
-func (v BitFlag) TypeNat() TyNative   { return Flag.TypeNat() }
-func (v FlagSlice) Flag() TyNative    { return Flag.TypeNat() }
-func (v BoolVal) TypeNat() TyNative   { return Bool.TypeNat() }
-func (v IntVal) TypeNat() TyNative    { return Int.TypeNat() }
-func (v Int8Val) TypeNat() TyNative   { return Int8.TypeNat() }
-func (v Int16Val) TypeNat() TyNative  { return Int16.TypeNat() }
-func (v Int32Val) TypeNat() TyNative  { return Int32.TypeNat() }
-func (v UintVal) TypeNat() TyNative   { return Uint.TypeNat() }
-func (v Uint8Val) TypeNat() TyNative  { return Uint8.TypeNat() }
-func (v Uint16Val) TypeNat() TyNative { return Uint16.TypeNat() }
-func (v Uint32Val) TypeNat() TyNative { return Uint32.TypeNat() }
-func (v BigIntVal) TypeNat() TyNative { return BigInt.TypeNat() }
-func (v FltVal) TypeNat() TyNative    { return Float.TypeNat() }
-func (v Flt32Val) TypeNat() TyNative  { return Flt32.TypeNat() }
-func (v BigFltVal) TypeNat() TyNative { return BigFlt.TypeNat() }
-func (v ImagVal) TypeNat() TyNative   { return Imag.TypeNat() }
-func (v Imag64Val) TypeNat() TyNative { return Imag64.TypeNat() }
-func (v RatioVal) TypeNat() TyNative  { return Ratio.TypeNat() }
-func (v RuneVal) TypeNat() TyNative   { return Rune.TypeNat() }
-func (v ByteVal) TypeNat() TyNative   { return Byte.TypeNat() }
-func (v BytesVal) TypeNat() TyNative  { return Bytes.TypeNat() }
-func (v StrVal) TypeNat() TyNative    { return String.TypeNat() }
-func (v TimeVal) TypeNat() TyNative   { return Time.TypeNat() }
-func (v DuraVal) TypeNat() TyNative   { return Duration.TypeNat() }
-func (v ErrorVal) TypeNat() TyNative  { return Error.TypeNat() }
-func (v PairVal) TypeNat() TyNative   { return Pair.TypeNat() }
+func (NilVal) TypeNat() TyNat      { return Nil.TypeNat() }
+func (v BitFlag) TypeNat() TyNat   { return Flag.TypeNat() }
+func (v FlagSlice) Flag() TyNat    { return Flag.TypeNat() }
+func (v BoolVal) TypeNat() TyNat   { return Bool.TypeNat() }
+func (v IntVal) TypeNat() TyNat    { return Int.TypeNat() }
+func (v Int8Val) TypeNat() TyNat   { return Int8.TypeNat() }
+func (v Int16Val) TypeNat() TyNat  { return Int16.TypeNat() }
+func (v Int32Val) TypeNat() TyNat  { return Int32.TypeNat() }
+func (v UintVal) TypeNat() TyNat   { return Uint.TypeNat() }
+func (v Uint8Val) TypeNat() TyNat  { return Uint8.TypeNat() }
+func (v Uint16Val) TypeNat() TyNat { return Uint16.TypeNat() }
+func (v Uint32Val) TypeNat() TyNat { return Uint32.TypeNat() }
+func (v BigIntVal) TypeNat() TyNat { return BigInt.TypeNat() }
+func (v FltVal) TypeNat() TyNat    { return Float.TypeNat() }
+func (v Flt32Val) TypeNat() TyNat  { return Flt32.TypeNat() }
+func (v BigFltVal) TypeNat() TyNat { return BigFlt.TypeNat() }
+func (v ImagVal) TypeNat() TyNat   { return Imag.TypeNat() }
+func (v Imag64Val) TypeNat() TyNat { return Imag64.TypeNat() }
+func (v RatioVal) TypeNat() TyNat  { return Ratio.TypeNat() }
+func (v RuneVal) TypeNat() TyNat   { return Rune.TypeNat() }
+func (v ByteVal) TypeNat() TyNat   { return Byte.TypeNat() }
+func (v BytesVal) TypeNat() TyNat  { return Bytes.TypeNat() }
+func (v StrVal) TypeNat() TyNat    { return String.TypeNat() }
+func (v TimeVal) TypeNat() TyNat   { return Time.TypeNat() }
+func (v DuraVal) TypeNat() TyNat   { return Duration.TypeNat() }
+func (v ErrorVal) TypeNat() TyNat  { return Error.TypeNat() }
+func (v PairVal) TypeNat() TyNat   { return Pair.TypeNat() }
 
 // provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }

@@ -38,7 +38,7 @@ type TyToken uint16
 func (t TyToken) Eval(...d.Native) d.Native { return t }
 func (t TyToken) Flag() d.BitFlag           { return d.Flag.Flag() }
 func (t TyToken) TypeHO() TyFnc             { return HigherOrder }
-func (t TyToken) TypeNat() d.TyNative       { return d.Flag }
+func (t TyToken) TypeNat() d.TyNat          { return d.Flag }
 
 //go:generate stringer -type TyToken
 const (
@@ -61,7 +61,7 @@ const (
 )
 
 func NewSyntaxToken(f l.Item) Token      { return newToken(Syntax_Token, f) }
-func NewNatTypeToken(f d.TyNative) Token { return newToken(TypeNat_Token, f) }
+func NewNatTypeToken(f d.TyNat) Token    { return newToken(TypeNat_Token, f) }
 func NewFncTypeToken(flag TyFnc) Token   { return newToken(TypeFnc_Token, flag) }
 func NewDataValueToken(dat string) Token { return newToken(Data_Value_Token, d.StrVal(dat)) }
 func NewValueToken(dat string) Token     { return newToken(Name_Token, d.New(dat)) }
@@ -107,10 +107,10 @@ type TokVal struct {
 	d.Native
 }
 
-func (t TokVal) Data() d.Native      { return t.Native }
-func (t TokVal) TypeTok() TyToken    { return t.tok }
-func (t TokVal) TypeNat() d.TyNative { return d.Flag }
-func (t TokVal) Type() d.BitFlag     { return t.tok.Flag() }
+func (t TokVal) Data() d.Native   { return t.Native }
+func (t TokVal) TypeTok() TyToken { return t.tok }
+func (t TokVal) TypeNat() d.TyNat { return d.Flag }
+func (t TokVal) Type() d.BitFlag  { return t.tok.Flag() }
 
 type dataTok struct {
 	TokVal
@@ -119,14 +119,14 @@ type dataTok struct {
 
 func (t dataTok) Data() d.Native { return t.Native }
 
-func (t dataTok) TypeTok() TyToken    { return t.TokVal.TypeTok() }
-func (d dataTok) TypeNat() d.TyNative { return d.Native.TypeNat() }
+func (t dataTok) TypeTok() TyToken { return t.TokVal.TypeTok() }
+func (d dataTok) TypeNat() d.TyNat { return d.Native.TypeNat() }
 func newToken(t TyToken, dat d.Native) Token {
 	switch t {
 	case Syntax_Token:
 		return TokVal{Syntax_Token, dat.(l.TySyntax)}
 	case TypeNat_Token:
-		return TokVal{TypeNat_Token, dat.(d.TyNative)}
+		return TokVal{TypeNat_Token, dat.(d.TyNat)}
 	case TypeFnc_Token:
 		return TokVal{TypeFnc_Token, dat.(TyFnc)}
 	case Data_Value_Token:
@@ -161,7 +161,7 @@ func (t tokens) Len() int                  { return len(t) }
 func (t tokens) Swap(i, j int)             { t[i], t[j] = t[j], t[i] }
 func (t tokens) Less(i, j int) bool        { return t[i].TypeNat() < t[j].TypeNat() }
 func (t tokens) Eval(...d.Native) d.Native { return t }
-func (t tokens) TypeNat() d.TyNative       { return d.Flag }
+func (t tokens) TypeNat() d.TyNat          { return d.Flag }
 func sortTokens(t tokens) tokens {
 	sort.Sort(t)
 	return t
