@@ -146,6 +146,13 @@ func (c ChanTrxCtrl) Eval(args ...Native) Native {
 	return BoolVal(true)
 }
 
+func (c ChanTime) Eval(args ...Native) Native {
+	if len(args) > 0 {
+		c <- time.Time(args[0].(TimeVal))
+		return BoolVal(true)
+	}
+	return TimeVal(<-c)
+}
 func (c ChanRcvTime) Eval(...Native) Native { return TimeVal(<-c) }
 
 func (c ChanTrxTime) Eval(args ...Native) Native {

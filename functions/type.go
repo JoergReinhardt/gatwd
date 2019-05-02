@@ -13,6 +13,7 @@ const (
 	Expression
 	CallPropertys
 	CallArity
+	Native
 	Data
 	/// FUNCTIONAL VALUE
 	Constant
@@ -47,11 +48,11 @@ const (
 	/// COLLECTION TYPES
 	Pair
 	Tuple
-	Enum
-	Set
-	List
 	Record
+	Enum
+	List
 	Vector
+	Set
 	/// HIGHER ORDER TYPE
 	HigherOrder
 

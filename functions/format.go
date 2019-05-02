@@ -2,9 +2,6 @@ package functions
 
 import (
 	"strings"
-
-	d "github.com/joergreinhardt/gatwd/data"
-	"github.com/olekukonko/tablewriter"
 )
 
 /// VALUE
@@ -26,9 +23,9 @@ func (a IndexPair) Print() string {
 func (c ConstantExpr) String() string { return c().String() }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
-func (u UnaryExpr) String() string  { return "Unary" }
-func (b BinaryExpr) String() string { return "Binary" }
-func (n NaryExpr) String() string   { return "Nary" }
+func (u UnaryExpr) String() string  { return "T → ϝ → T" }
+func (b BinaryExpr) String() string { return "(T,T) → ϝ → T" }
+func (n NaryExpr) String() string   { return "[т‥.] → ϝ → T" }
 
 /// VECTOR
 func (v VecVal) String() string {
@@ -41,41 +38,42 @@ func (v VecVal) String() string {
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
 func (v AssocVec) String() string {
-	var slice []d.Native
-	for _, dat := range v() {
-		slice = append(slice, dat)
+	var args = []string{}
+	for _, arg := range v() {
+		args = append(args, arg.String())
 	}
-	return d.StringSlice("∙", "[", "]", slice...)
+	return "[" + strings.Join(args, ", ") + "]"
 }
 
 /// ASSOCIATIVE SET
 func (v SetVal) String() string {
-	var strb = &strings.Builder{}
-	var tab = tablewriter.NewWriter(strb)
-
-	for _, pair := range v.Pairs() {
-		var row = []string{pair.Left().String(), pair.Right().String()}
-		tab.Append(row)
+	var args = []string{}
+	for _, arg := range v.Pairs() {
+		args = append(args, arg.String())
 	}
-	tab.Render()
-	return strb.String()
+	return "[" + strings.Join(args, ", ") + "]"
 }
 
 /// LIST
 func (l ListVal) String() string {
-	var h, t = l()
-	if t != nil {
+	var args = []string{}
+	var head, list = l()
+	for head != nil {
+		args = append(args, head.String())
+		head, list = list()
 	}
-	return h.String()
+	return "(" + strings.Join(args, ", ") + ")"
 }
-
-/// RECORD
 
 /// TOKEN
 func (t tokens) String() string {
 	var str string
-	for _, tok := range t {
-		str = str + " " + tok.String() + "\n"
+	var l = len(t)
+	for i, tok := range t {
+		str = str + " " + tok.TypeTok().String()
+		if i < l-2 {
+			str = str + ", "
+		}
 	}
 	return str
 }

@@ -67,6 +67,7 @@ const (
 	Rune
 	Bytes
 	String
+	//////
 	Pipe
 	Buffer
 	Reader
@@ -102,7 +103,11 @@ const (
 	Numbers    = Rationals | Reals | Imaginarys
 	Letters    = String | Rune | Bytes
 	Equals     = Numbers | Letters
-	Streams    = Reader | Writer | Pipe
+
+	SideEffects = Pipe | Buffer | Reader | Writer |
+		Channel | SyncCon | SyncWait
+
+	Streams = Reader | Writer | Pipe
 
 	Compositions = Pair | Slice | Map
 	Functional   = Data | Expression | Literal | Flag

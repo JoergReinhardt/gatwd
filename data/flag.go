@@ -6,24 +6,24 @@ import (
 )
 
 //// BOUND TYPE FLAG METHODS ////
-func (v BitFlag) FlagType() int8         { return 0 }
-func (v BitFlag) Flag() BitFlag          { return v }
-func (v BitFlag) Uint() uint             { return uint(v) }
-func (v BitFlag) Int() int               { return int(v) }
-func (v BitFlag) Len() int               { return FlagLength(v) }
-func (v BitFlag) Count() int             { return FlagCount(v) }
-func (v BitFlag) Least() int             { return FlagLeastSig(v) }
-func (v BitFlag) Most() int              { return FlagMostSig(v) }
-func (v BitFlag) TypeName() string       { return v.String() }
-func (v BitFlag) Low(f Typed) BitFlag    { return FlagLow(f).Flag() }
-func (v BitFlag) High(f Typed) BitFlag   { return FlagHigh(f).Flag() }
-func (v BitFlag) Reverse() BitFlag       { return FlagReverse(v).Flag() }
-func (v BitFlag) Rotate(n int) BitFlag   { return FlagRotate(v, n).Flag() }
-func (v BitFlag) Toggle(f Typed) BitFlag { return FlagToggle(v, f).Flag() }
-func (v BitFlag) Concat(f Typed) BitFlag { return FlagConcat(v, f).Flag() }
-func (v BitFlag) Mask(f Typed) BitFlag   { return FlagMask(v, f).Flag() }
-func (v BitFlag) Match(f Typed) bool     { return FlagMatch(v, f) }
-func (v BitFlag) Decompose() []Typed     { return FlagDecompose(v) }
+func (v BitFlag) FlagType() int8       { return 0 }
+func (v BitFlag) Flag() BitFlag        { return v }
+func (v BitFlag) Uint() uint           { return uint(v) }
+func (v BitFlag) Int() int             { return int(v) }
+func (v BitFlag) Len() int             { return FlagLength(v) }
+func (v BitFlag) Count() int           { return FlagCount(v) }
+func (v BitFlag) Least() int           { return FlagLeastSig(v) }
+func (v BitFlag) Most() int            { return FlagMostSig(v) }
+func (v BitFlag) TypeName() string     { return v.String() }
+func (v BitFlag) Low(f Typed) Typed    { return FlagLow(f).Flag() }
+func (v BitFlag) High(f Typed) Typed   { return FlagHigh(f).Flag() }
+func (v BitFlag) Reverse() Typed       { return FlagReverse(v).Flag() }
+func (v BitFlag) Rotate(n int) Typed   { return FlagRotate(v, n).Flag() }
+func (v BitFlag) Toggle(f Typed) Typed { return FlagToggle(v, f).Flag() }
+func (v BitFlag) Concat(f Typed) Typed { return FlagConcat(v, f).Flag() }
+func (v BitFlag) Mask(f Typed) Typed   { return FlagMask(v, f).Flag() }
+func (v BitFlag) Match(f Typed) bool   { return FlagMatch(v, f) }
+func (v BitFlag) Decompose() []Typed   { return FlagDecompose(v) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
 func flag(t Typed) BitFlag              { return t.Flag() }

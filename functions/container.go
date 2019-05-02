@@ -443,12 +443,11 @@ func (l ListVal) Eval(args ...d.Native) d.Native {
 }
 
 func (l ListVal) Empty() bool {
-
-	if l.Head() != nil ||
-		!l.Head().TypeFnc().Flag().Match(None) &&
-			!l.Head().TypeNat().Flag().Match(d.Nil) {
-
-		return false
+	if l.Head() != nil {
+		if !None.Flag().Match(l.Head().TypeFnc()) ||
+			!d.Nil.Flag().Match(l.Head().TypeNat()) {
+			return false
+		}
 	}
 
 	return true
@@ -630,10 +629,10 @@ func (v VecVal) Search(praed Callable) int { return newDataSorter(v()...).Search
 // list of associative pairs in sequential order associated, sorted and
 // searched by left value of the pairs
 func ConsAssociative(vec Associative, pfnc ...Paired) AssocVec {
-	return NewAssociativeFromPairFunction(append(vec.Pairs(), pfnc...)...)
+	return NewAssociativeFromPair(append(vec.Pairs(), pfnc...)...)
 }
 
-func NewAssociativeFromPairFunction(ps ...Paired) AssocVec {
+func NewAssociativeFromPair(ps ...Paired) AssocVec {
 	var pairs = []AssocPair{}
 	for _, arg := range ps {
 		if pair, ok := arg.(AssocPair); ok {
@@ -739,7 +738,7 @@ func (v AssocVec) Len() int { return len(v()) }
 func (v AssocVec) Sort(flag d.TyNat) {
 	var ps = newPairSorter(v.Pairs()...)
 	ps.Sort(flag)
-	v = NewAssociativeFromPairFunction(ps...)
+	v = NewAssociativeFromPair(ps...)
 }
 
 func (v AssocVec) Search(praed Callable) int {
@@ -754,7 +753,7 @@ func (v AssocVec) Get(idx int) AssocPair {
 }
 
 func (v AssocVec) GetVal(praed Callable) Callable {
-	return NewAssociativeFromPairFunction(newPairSorter(v.Pairs()...).Get(praed))
+	return NewAssociativeFromPair(newPairSorter(v.Pairs()...).Get(praed))
 }
 
 func (v AssocVec) Range(praed Callable) []Paired {
@@ -999,7 +998,6 @@ func (v SetVal) Tail() Consumeable {
 func NewTuple(data ...Callable) TupleVal {
 
 	return TupleVal(func(args ...Callable) []Callable {
-
 		return data
 	})
 }

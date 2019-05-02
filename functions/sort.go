@@ -192,7 +192,7 @@ func newPairSorter(p ...Paired) pairSorter {
 }
 
 func (a pairSorter) ValueSorter() pairSorter {
-	return NewAssociativeFromPairFunction(a...).SwitchedPairs()
+	return NewAssociativeFromPair(a...).SwitchedPairs()
 }
 
 func (a pairSorter) AppendKeyValue(key Callable, val Callable) {
@@ -219,14 +219,14 @@ func (p pairSorter) Sort(f d.TyNat) {
 
 func (p pairSorter) SortByValue(f d.TyNat) {
 	var ps = pairSorter(
-		NewAssociativeFromPairFunction(
+		NewAssociativeFromPair(
 			p...,
 		).SwitchedPairs(),
 	)
 
 	ps.Sort(f)
 
-	p = NewAssociativeFromPairFunction(ps...).SwitchedPairs()
+	p = NewAssociativeFromPair(ps...).SwitchedPairs()
 }
 
 func (p pairSorter) Search(pred Callable) int {
@@ -250,7 +250,7 @@ func (p pairSorter) Search(pred Callable) int {
 
 func (p pairSorter) SearchByValue(pred Callable) int {
 	return pairSorter(
-		NewAssociativeFromPairFunction(p...).SwitchedPairs(),
+		NewAssociativeFromPair(p...).SwitchedPairs(),
 	).Search(pred)
 }
 
@@ -264,7 +264,7 @@ func (p pairSorter) Get(pred Callable) Paired {
 
 func (p pairSorter) GetByValue(pred Callable) Paired {
 	return pairSorter(
-		NewAssociativeFromPairFunction(p...).SwitchedPairs(),
+		NewAssociativeFromPair(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
@@ -281,7 +281,7 @@ func (p pairSorter) Range(pred Callable) []Paired {
 
 func (p pairSorter) RangeByValue(pred Callable) []Paired {
 	return pairSorter(
-		NewAssociativeFromPairFunction(p...).SwitchedPairs(),
+		NewAssociativeFromPair(p...).SwitchedPairs(),
 	).Range(pred)
 }
 
