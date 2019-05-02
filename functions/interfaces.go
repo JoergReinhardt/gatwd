@@ -100,10 +100,11 @@ type Printable interface {
 }
 
 type Paired interface {
-	// Left() Native
-	// Right() Native
-	// Both() (Native, Native)
-	d.Paired
+	Callable
+	Pair() Paired
+	Left() Callable
+	Right() Callable
+	Both() (Callable, Callable)
 }
 
 type Composed interface {
@@ -325,9 +326,9 @@ type Associative interface {
 	ValFncType() TyFnc
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	GetVal(Callable) PairVal
+	GetVal(Callable) Callable
 	SetVal(Callable, Callable) Associative
-	Pairs() []PairVal
+	Pairs() []Paired
 }
 
 /// ITEMS & TOKENS

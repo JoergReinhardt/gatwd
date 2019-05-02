@@ -1,38 +1,42 @@
 package functions
 
 import (
-	"bytes"
 	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
-	l "github.com/joergreinhardt/gatwd/lex"
 	"github.com/olekukonko/tablewriter"
 )
 
 /// VALUE
 
-func (p PairVal) String() string {
-	var buf = bytes.NewBuffer([]byte{})
-	buf.WriteString(p.Left().String())
-	buf.WriteString(":")
-	buf.WriteString(l.Blank.Syntax())
-	buf.WriteString(p.Right().String())
-	return buf.String()
+func (p PairVal) String() string   { return p.Print() }
+func (a AssocPair) String() string { return a.Print() }
+func (a IndexPair) String() string { return a.Print() }
+
+func (p PairVal) Print() string {
+	return "(" + p.Left().String() + " " + p.Right().String() + ")"
 }
-func (c ConstantExpr) String() string { return "ϝ → т" }
+func (a AssocPair) Print() string {
+	return a.Left().String() + ":: " + a.Right().String()
+}
+func (a IndexPair) Print() string {
+	return a.Left().String() + ": " + a.Right().String()
+}
+
+func (c ConstantExpr) String() string { return c().String() }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
-func (u UnaryExpr) String() string  { return "т → ϝ → т" }
-func (b BinaryExpr) String() string { return "т → т → ϝ → т" }
-func (n NaryExpr) String() string   { return "[т‥.] → ϝ → т" }
+func (u UnaryExpr) String() string  { return "Unary" }
+func (b BinaryExpr) String() string { return "Binary" }
+func (n NaryExpr) String() string   { return "Nary" }
 
 /// VECTOR
 func (v VecVal) String() string {
-	var slice []d.Native
-	for _, dat := range v() {
-		slice = append(slice, dat)
+	var args = []string{}
+	for _, arg := range v() {
+		args = append(args, arg.String())
 	}
-	return d.StringSlice("∙", "[", "]", slice...)
+	return "[" + strings.Join(args, ", ") + "]"
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
