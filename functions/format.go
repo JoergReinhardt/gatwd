@@ -37,7 +37,7 @@ func (v VecVal) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v AssocVec) String() string {
+func (v RecordVal) String() string {
 	var args = []string{}
 	for _, arg := range v() {
 		args = append(args, arg.String())

@@ -104,11 +104,11 @@ func TestListFoldAndMap(t *testing.T) {
 	mapped = MapF(folded, fmap)
 
 	var head, result Callable
-	head, mapped = mapped.DeCap()
+	head, mapped = mapped()
 
 	for {
 		fmt.Println(head)
-		head, mapped = mapped.DeCap()
+		head, mapped = mapped()
 		if head == nil {
 			break
 		}

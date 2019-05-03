@@ -27,7 +27,7 @@ type (
 	ListVal   func(...Callable) (Callable, ListVal)
 	VecVal    func(...Callable) []Callable
 	TupleVal  func(...Callable) []Callable
-	AssocVec  func(...AssocPair) []AssocPair
+	RecordVal func(...AssocPair) []AssocPair
 	SetVal    func(...AssocPair) d.Mapped
 )
 
@@ -320,7 +320,7 @@ func (p PairVal) Eval(args ...d.Native) d.Native {
 //// ASSOCIATIVE PAIRS
 ///
 // pair composed of a string key and a functional value
-func NewAssocPair(key string, val Callable) AssocPair {
+func NewRecordPair(key string, val Callable) AssocPair {
 	return func(...Callable) (string, Callable) { return key, val }
 }
 
@@ -347,7 +347,7 @@ func (a AssocPair) Both() (Callable, Callable) {
 
 func (a AssocPair) GetVal(Callable) Callable { return a.Right() }
 func (a AssocPair) SetVal(key, val Callable) Associative {
-	return NewAssocPair(a.Left().String(), a.Right())
+	return NewRecordPair(a.Left().String(), a.Right())
 }
 func (a AssocPair) Left() Callable {
 	key, _ := a()
@@ -421,6 +421,9 @@ func (a IndexPair) TypeNat() d.TyNat { return d.Pair | d.Int | a.ValueNatType() 
 //// RECURSIVE LIST OF VALUES
 ///
 // base implementation of recursively linked lists
+func ConsList(list ListVal, elems ...Callable) ListVal {
+	return list.Cons(elems...)
+}
 func ConcatLists(a, b ListVal) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		if len(args) > 0 {
@@ -498,7 +501,7 @@ func (l ListVal) Null() ListVal                  { return NewList() }
 func (l ListVal) Tail() Consumeable              { _, t := l(); return t }
 func (l ListVal) Head() Callable                 { h, _ := l(); return h }
 func (l ListVal) DeCap() (Callable, Consumeable) { return l() }
-func (l ListVal) TypeFnc() TyFnc                 { return List | Functor }
+func (l ListVal) TypeFnc() TyFnc                 { return List }
 func (l ListVal) TypeNat() d.TyNat               { return l.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -656,35 +659,35 @@ func (v VecVal) Search(praed Callable) int { return newDataSorter(v()...).Search
 ///
 // list of associative pairs in sequential order associated, sorted and
 // searched by left value of the pairs
-func ConsAssociative(vec Associative, pfnc ...Paired) AssocVec {
-	return NewAssociativeFromPair(append(vec.Pairs(), pfnc...)...)
+func ConsRecordFormPairs(vec Associative, pfnc ...Paired) RecordVal {
+	return NewRecordFromPair(append(vec.Pairs(), pfnc...)...)
 }
 
-func NewAssociativeFromPair(ps ...Paired) AssocVec {
+func NewRecordFromPair(ps ...Paired) RecordVal {
 	var pairs = []AssocPair{}
 	for _, arg := range ps {
 		if pair, ok := arg.(AssocPair); ok {
 			pairs = append(pairs, pair)
 		}
 	}
-	return AssocVec(func(pairs ...AssocPair) []AssocPair { return pairs })
+	return RecordVal(func(pairs ...AssocPair) []AssocPair { return pairs })
 }
 
-func ConsAssociativeFromPairs(pp ...Paired) AssocVec {
+func ConRecordFromPairs(pp ...Paired) RecordVal {
 	var pairs = []AssocPair{}
 	for _, pair := range pp {
 		if assoc, ok := pair.(AssocPair); ok {
 			pairs = append(pairs, assoc)
 		}
 	}
-	return AssocVec(func(pairs ...AssocPair) []AssocPair { return pairs })
+	return RecordVal(func(pairs ...AssocPair) []AssocPair { return pairs })
 }
 
-func NewEmptyAssociative() AssocVec {
-	return AssocVec(func(pairs ...AssocPair) []AssocPair { return []AssocPair{} })
+func NewEmptyRecord() RecordVal {
+	return RecordVal(func(pairs ...AssocPair) []AssocPair { return []AssocPair{} })
 }
 
-func NewAssociative(pp ...AssocPair) AssocVec {
+func NewRecord(pp ...AssocPair) RecordVal {
 
 	return func(pairs ...AssocPair) []AssocPair {
 		for _, pair := range pp {
@@ -694,22 +697,22 @@ func NewAssociative(pp ...AssocPair) AssocVec {
 	}
 }
 
-func (v AssocVec) Call(args ...Callable) Callable {
+func (v RecordVal) Call(args ...Callable) Callable {
 	return v.Cons(args...)
 }
 
-func (v AssocVec) Cons(p ...Callable) AssocVec {
+func (v RecordVal) Cons(p ...Callable) RecordVal {
 
 	var pairs = v.Pairs()
 
-	return ConsAssociativeFromPairs(pairs...)
+	return ConRecordFromPairs(pairs...)
 }
 
-func (v AssocVec) DeCap() (Callable, Consumeable) {
+func (v RecordVal) DeCap() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
-func (v AssocVec) Empty() bool {
+func (v RecordVal) Empty() bool {
 
 	if len(v()) > 0 {
 
@@ -724,71 +727,71 @@ func (v AssocVec) Empty() bool {
 	return true
 }
 
-func (v AssocVec) KeyFncType() TyFnc {
+func (v RecordVal) KeyFncType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeFnc()
 	}
 	return None
 }
 
-func (v AssocVec) KeyNatType() d.TyNat {
+func (v RecordVal) KeyNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v AssocVec) ValFncType() TyFnc {
+func (v RecordVal) ValFncType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeFnc()
 	}
 	return None
 }
 
-func (v AssocVec) ValNatType() d.TyNat {
+func (v RecordVal) ValNatType() d.TyNat {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().TypeNat()
 	}
 	return d.Nil
 }
 
-func (v AssocVec) TypeFnc() TyFnc { return Record | Functor }
+func (v RecordVal) TypeFnc() TyFnc { return Record }
 
-func (v AssocVec) TypeNat() d.TyNat {
+func (v RecordVal) TypeNat() d.TyNat {
 	if len(v()) > 0 {
 		return d.Slice | v.Head().TypeNat()
 	}
 	return d.Slice | d.Nil.TypeNat()
 }
 
-func (v AssocVec) Len() int { return len(v()) }
+func (v RecordVal) Len() int { return len(v()) }
 
-func (v AssocVec) Sort(flag d.TyNat) {
+func (v RecordVal) Sort(flag d.TyNat) {
 	var ps = newPairSorter(v.Pairs()...)
 	ps.Sort(flag)
-	v = NewAssociativeFromPair(ps...)
+	v = NewRecordFromPair(ps...)
 }
 
-func (v AssocVec) Search(praed Callable) int {
+func (v RecordVal) Search(praed Callable) int {
 	return newPairSorter(v.Pairs()...).Search(praed)
 }
 
-func (v AssocVec) Get(idx int) AssocPair {
+func (v RecordVal) Get(idx int) AssocPair {
 	if idx < v.Len()-1 {
 		return v()[idx]
 	}
-	return NewAssocPair("None", NewNone())
+	return NewRecordPair("None", NewNone())
 }
 
-func (v AssocVec) GetVal(praed Callable) Callable {
-	return NewAssociativeFromPair(newPairSorter(v.Pairs()...).Get(praed))
+func (v RecordVal) GetVal(praed Callable) Callable {
+	return NewRecordFromPair(newPairSorter(v.Pairs()...).Get(praed))
 }
 
-func (v AssocVec) Range(praed Callable) []Paired {
+func (v RecordVal) Range(praed Callable) []Paired {
 	return newPairSorter(v.Pairs()...).Range(praed)
 }
 
-func (v AssocVec) Pairs() []Paired {
+func (v RecordVal) Pairs() []Paired {
 	var pairs = []Paired{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair)
@@ -796,7 +799,7 @@ func (v AssocVec) Pairs() []Paired {
 	return pairs
 }
 
-func (v AssocVec) DeCapPairWise() (AssocPair, []AssocPair) {
+func (v RecordVal) DeCapPairWise() (AssocPair, []AssocPair) {
 	var pairs = v()
 	if len(pairs) > 0 {
 		if len(pairs) > 1 {
@@ -807,7 +810,7 @@ func (v AssocVec) DeCapPairWise() (AssocPair, []AssocPair) {
 	return nil, []AssocPair{}
 }
 
-func (v AssocVec) SwitchedPairs() []Paired {
+func (v RecordVal) SwitchedPairs() []Paired {
 	var switched = []Paired{}
 	for _, pair := range v() {
 		switched = append(
@@ -818,16 +821,16 @@ func (v AssocVec) SwitchedPairs() []Paired {
 	return switched
 }
 
-func (v AssocVec) SetVal(key, value Callable) Associative {
+func (v RecordVal) SetVal(key, value Callable) Associative {
 	if idx := v.Search(key); idx >= 0 {
 		var pairs = v()
-		pairs[idx] = NewAssocPair(key.String(), value)
-		return NewAssociative(pairs...)
+		pairs[idx] = NewRecordPair(key.String(), value)
+		return NewRecord(pairs...)
 	}
-	return NewAssociative(append(v(), NewAssocPair(key.String(), value))...)
+	return NewRecord(append(v(), NewRecordPair(key.String(), value))...)
 }
 
-func (v AssocVec) Slice() []Callable {
+func (v RecordVal) Slice() []Callable {
 	var fncs = []Callable{}
 	for _, pair := range v() {
 		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
@@ -835,21 +838,21 @@ func (v AssocVec) Slice() []Callable {
 	return fncs
 }
 
-func (v AssocVec) Head() Callable {
+func (v RecordVal) Head() Callable {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
 	}
 	return nil
 }
 
-func (v AssocVec) Tail() Consumeable {
+func (v RecordVal) Tail() Consumeable {
 	if v.Len() > 1 {
-		return ConsAssociativeFromPairs(v.Pairs()[1:]...)
+		return ConRecordFromPairs(v.Pairs()[1:]...)
 	}
-	return NewEmptyAssociative()
+	return NewEmptyRecord()
 }
 
-func (v AssocVec) Eval(p ...d.Native) d.Native {
+func (v RecordVal) Eval(p ...d.Native) d.Native {
 	var slice = d.DataSlice{}
 	for _, pair := range v() {
 		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
@@ -862,15 +865,15 @@ func (v AssocVec) Eval(p ...d.Native) d.Native {
 ///
 // unordered associative set of key/value pairs that can be sorted, accessed
 // and searched by the left (key) value of the pair
-func ConsAssocSet(pairs ...Paired) SetVal {
+func ConsRecord(pairs ...Paired) SetVal {
 	var paired = []Paired{}
 	for _, pair := range pairs {
 		paired = append(paired, pair)
 	}
-	return NewAssocSet(paired...)
+	return NewSet(paired...)
 }
 
-func NewAssocSet(pairs ...Paired) SetVal {
+func NewSet(pairs ...Paired) SetVal {
 
 	var kt d.TyNat
 	var set d.Mapped
@@ -942,7 +945,7 @@ func (v SetVal) GetVal(praed Callable) Callable {
 	if val, ok = nat.(Callable); !ok {
 		val = NewFromData(val)
 	}
-	return NewAssocPair(praed.String(), val)
+	return NewRecordPair(praed.String(), val)
 }
 
 func (v SetVal) SetVal(key, value Callable) Associative {
@@ -1014,9 +1017,9 @@ func (v SetVal) Head() Callable {
 
 func (v SetVal) Tail() Consumeable {
 	if v.Len() > 1 {
-		return ConsAssociativeFromPairs(v.Pairs()[1:]...)
+		return ConRecordFromPairs(v.Pairs()[1:]...)
 	}
-	return NewEmptyAssociative()
+	return NewEmptyRecord()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

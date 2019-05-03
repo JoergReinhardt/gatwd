@@ -6,13 +6,9 @@ import (
 
 // type system implementation
 type (
-	//// CONSUMER
+	//// CURRY FUNCTION
 	///
-	// consumer function consumes consumeables typeagnosticly to provide a
-	// common return type function of all endofunctor operators. that way
-	// endofunctors don't need to be type converted
-	ConsumerFnc func(...Callable) (Callable, Consumeable)
-
+	Curry func(...Callable) Callable
 	//// MAP FUNCTION
 	///
 	MapFnc func(...Callable) Callable
@@ -25,13 +21,23 @@ type (
 	///
 	FilterFnc func(Callable, ...Callable) bool
 
-	//// JOIN FUNCTION
+	//// ZIP FUNCTION
 	///
-	JoinFnc func(f, g NaryExpr, args ...Callable) Callable
+	ZipFnc func(l, r Callable) PairVal
+
+	//// SPLIT FUNCTION
+	///
+	SplitFnc func(ListVal) (PairVal, ListVal)
 
 	//// APPLY FUNCTION
 	///
 	ApplyFnc func(NaryExpr, ...Callable) Callable
+
+	//// BIND
+	///
+	// bind operator (>>=) binds the return value of one monad to be the
+	// argument of another
+	BindFnc func(fm, gm Callable) MonadicCon
 
 	//// FUNCTOR
 	///
@@ -41,7 +47,7 @@ type (
 	//// APPLICAPLE
 	///
 	// applicables are functors to be applyd on a list of boxed values
-	ApplicativeCon func(...Callable) (Callable, Consumeable)
+	ApplicativeCon func(...Callable) (Callable, ListVal)
 
 	//// MONADIC
 	///
@@ -50,50 +56,24 @@ type (
 )
 
 //// CURRY
-func Curry(exprs ...Callable) Callable {
+func ConsCurry(exprs ...Callable) Callable {
 
 	if len(exprs) == 0 {
 
-		return NewNaryExpr(Curry)
+		return NaryExpr(ConsCurry)
 	}
 
 	if len(exprs) == 1 {
 
-		return NewNaryExpr(exprs[0].Call)
+		return exprs[0]
 	}
 
-	return NewNaryExpr(
-
-		func(args ...Callable) Callable {
-
-			return exprs[0].Call(Curry(exprs[1:]...).Call(args...))
-		})
+	return exprs[0].Call(ConsCurry(exprs[1:]...))
 }
 
 //// CONSUME
 ///
 // consumes an epifunctor and passes its arguments through, when called
-func Consume(fnc func(...Callable) (Callable, Consumeable)) ConsumerFnc {
-
-	return func(args ...Callable) (Callable, Consumeable) {
-
-		return fnc(args...)
-	}
-}
-
-func (c ConsumerFnc) Ident() Callable                { return c }
-func (c ConsumerFnc) DeCap() (Callable, Consumeable) { return c() }
-func (c ConsumerFnc) String() string                 { return "ϝ → Fₙ [F]" }
-func (c ConsumerFnc) Head() Callable                 { h, _ := c(); return h }
-func (c ConsumerFnc) Tail() Consumeable              { _, t := c(); return t }
-func (c ConsumerFnc) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-func (c ConsumerFnc) TypeFnc() TyFnc                 { return Functor | c.Head().TypeFnc() }
-func (c ConsumerFnc) TypeNat() d.TyNat {
-	res, _ := c()
-	return res.TypeNat()
-}
-
-func (c ConsumerFnc) Call(args ...Callable) Callable { result, _ := c(args...); return result }
 
 // FUNCTOR
 // evaluats list elements by applying passed parameters lazy, to generate the
@@ -133,25 +113,32 @@ func (c FunctorCon) String() string                 { return c.Head().String() }
 /// APPLICATIVE
 // applicative encloses over a function to be applyd the head element and any
 // arguments given at each call
-func NewApplicative(list Consumeable, applyFnc ApplyFnc) ApplicativeCon {
 
-	var apply = applyFnc
-
-	return func(args ...Callable) (Callable, Consumeable) {
-
-		var head, tail = list.DeCap()
-
+func NewApplicative(list ListVal, apply ApplyFnc) ApplicativeCon {
+	return func(args ...Callable) (Callable, ListVal) {
+		var head, tail = list()
 		if head == nil {
-			return nil, NewApplicative(NewList(args...), apply)
+			return nil, NewList(args...)
 		}
-
 		if len(args) > 0 {
-
-			return apply(head.Call, args...),
-				NewApplicative(tail, apply)
+			return apply(head.Call, args...), tail
 		}
-
-		return apply(head.Call), NewApplicative(NewList(), apply)
+		return apply(head.Call), tail
+	}
+}
+func ApplyArity(arity Arity, list ListVal, apply ApplyFnc) ApplicativeCon {
+	return func(args ...Callable) (Callable, ListVal) {
+		var l = int(arity)
+		var params []Callable
+		if len(args) > 0 {
+			params = args[:l]
+			args = args[l:]
+		}
+		var head, tail = list()
+		if head == nil {
+			return nil, NewList(args...)
+		}
+		return apply(head.Call, params...), tail.Cons(args...)
 	}
 }
 
@@ -184,21 +171,31 @@ func (c MonadicCon) TypeFnc() TyFnc                 { return Monad | c.Head().Ty
 // expects a consumeable list and a mapping function to apply on each element.
 // list elements are late bound per call to the resulting consumeable, passed
 // arguments get concatenated to the yielded list element, when fmap is called.
-func MapF(list Consumeable, fmap MapFnc) Consumeable {
-	return ConsumerFnc(
+func MapF(list ListVal, fmap MapFnc) ListVal {
+	return ListVal(func(args ...Callable) (Callable, ListVal) {
+		// decapitate list to get head and list continuation
+		var head, tail = list()
+		if head == nil { // return empty head
+			return nil, list
+		}
+		// return result of applying arguments to fmap and the
+		// list continuation
+		return fmap(append(args, head)...),
+			MapF(tail, fmap)
+	})
+}
+
+func BindF(mf, mg Consumeable, bind BindFnc) MonadicCon {
+	return MonadicCon(
 		func(args ...Callable) (Callable, Consumeable) {
-			// decapitate list to get head and list continuation
-			var head, tail = list.DeCap()
-			if head == nil { // return empty head
-				return nil, list
+			var fhead, ftail = mf.DeCap()
+			var ghead, gtail = mg.DeCap()
+			if fhead == nil || ghead == nil {
+				return nil, BindF(ftail.(MonadicCon), gtail.(MonadicCon), bind)
 			}
-			// return result of applying arguments to fmap and the
-			// list continuation
-			return fmap(append(
-					[]Callable{head},
-					args...,
-				)...),
-				MapF(tail, fmap)
+			if len(args) > 0 {
+			}
+			return bind(fhead, ghead), BindF(ftail, gtail, bind)
 		})
 }
 
@@ -206,27 +203,26 @@ func MapF(list Consumeable, fmap MapFnc) Consumeable {
 //
 // returns a list of continuations, yielding accumulated result & list of
 // follow-up continuations. when the list is depleted, return result only.
-func FoldF(list Consumeable, fold FoldFnc, ilem Callable) Consumeable {
-	return ConsumerFnc(
-		func(args ...Callable) (Callable, Consumeable) {
-			var head, tail = list.DeCap()
-			// return when list depleted
-			if head == nil {
-				return nil, list
-			}
-			// update the accumulated result by passing it to fold
-			// followed by head and all elements passed to yield
-			// the call
-			ilem = fold(ilem, head, args...)
-			// return result & continuation
-			return ilem, FoldF(tail, fold, ilem)
-		})
+func FoldF(list ListVal, fold FoldFnc, elem Callable) ListVal {
+	return ListVal(func(args ...Callable) (Callable, ListVal) {
+		var head, tail = list()
+		// return when list depleted
+		if head == nil {
+			return nil, list
+		}
+		// update the accumulated result by passing it to fold
+		// followed by head and all elements passed to yield
+		// the call
+		elem = fold(elem, head, args...)
+		// return result & continuation
+		return elem, FoldF(tail, fold, elem)
+	})
 }
 
 // FILTER FUNCTOR LATE BINDING
-func FilterF(list ListVal, filter FilterFnc) Consumeable {
-	return ConsumerFnc(
-		func(args ...Callable) (Callable, Consumeable) {
+func FilterF(list ListVal, filter FilterFnc) ListVal {
+	return ListVal(
+		func(args ...Callable) (Callable, ListVal) {
 			var head, tail = list()
 			// return when list depleted
 			if head == nil {
@@ -243,6 +239,61 @@ func FilterF(list ListVal, filter FilterFnc) Consumeable {
 			// elements, possibly taking new arguments into
 			// consideration, when called
 			return head, FilterF(tail, filter)
+		})
+}
+
+func StrideF(arity Arity, list ListVal, stride ApplyFnc) ListVal {
+
+	var ari = int(arity)
+	var parms = []Callable{}
+	var head, tail = list()
+
+	return ListVal(func(args ...Callable) (Callable, ListVal) {
+
+		if head == nil {
+			return nil, StrideF(arity, tail, stride)
+		}
+		if len(args) > 0 {
+			if len(args) > ari {
+				parms = append(parms, args[:ari]...)
+				args = args[ari:]
+				return stride(head.Call, parms...), StrideF(arity, tail.Cons(args...), stride)
+			}
+			return stride(head.Call, args...), StrideF(arity, tail.Cons(args...), stride)
+		}
+		return stride(head.Call), StrideF(arity, tail, stride)
+	})
+}
+
+func ZipF(llist, rlist ListVal, zip ZipFnc) ListVal {
+	return ListVal(
+		func(args ...Callable) (Callable, ListVal) {
+			var lhead, ltail = llist()
+			var rhead, rtail = rlist()
+			if lhead == nil || rhead == nil {
+				return nil, ZipF(llist, rlist, zip)
+			}
+			if len(args) > 0 {
+				return zip(lhead, rhead).Call(args...), ZipF(ltail, rtail, zip)
+			}
+			return zip(lhead, rhead), ZipF(ltail, rtail, zip)
+		})
+}
+
+// split takes the whole list and might remove multiple elements to satisfy
+// split fnc
+func SplitF(list ListVal, split SplitFnc) ListVal {
+	return ListVal(
+		func(args ...Callable) (Callable, ListVal) {
+			var p PairVal
+			p, list = split(list)
+			if p == nil {
+				return nil, SplitF(NewList(args...), split)
+			}
+			if len(args) > 0 {
+				return p.Call(args...), SplitF(list, split)
+			}
+			return p, SplitF(list, split)
 		})
 }
 
