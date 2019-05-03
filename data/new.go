@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func NewFromPrimary(vals ...Native) Native {
+func NewFromData(vals ...Native) Native {
 	var ifs = []interface{}{}
 	for _, val := range vals {
 		ifs = append(ifs, val.(interface{}))

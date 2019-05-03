@@ -110,6 +110,7 @@ const (
 	Streams = Reader | Writer | Pipe
 
 	Compositions = Pair | Slice | Map
+	Multiples    = Slice | Map
 	Functional   = Data | Expression | Literal | Flag
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF

@@ -12,34 +12,38 @@ var isInteger = NewTruth(func(arg Callable) bool { return d.Integers.Flag().Matc
 var isFloat = NewTruth(func(arg Callable) bool { return d.Rationals.Flag().Match(arg.TypeNat()) })
 
 func TestParseNativeType(t *testing.T) {
-	var sig = parseNat(d.Map | d.String | d.Int)
-	fmt.Printf("flag: %s\n", sig.Flag())
-	fmt.Printf("sum: %s\n", sig.Sum())
-	fmt.Printf("product: %s\n", sig.Product())
-	var head, list = sig.Product()()
-	fmt.Printf("product 0: %s\n", head)
-	fmt.Printf("product 0 flag: %s\n", head.(TypeSig).Flag())
-	fmt.Printf("product 0 sum: %s\n", head.(TypeSig).Sum())
-	fmt.Printf("product 0 prod: %s\n", head.(TypeSig).Product())
-	head, list = list()
-	fmt.Printf("product 1: %s\n", head)
-	fmt.Printf("product 1 flag: %s\n", head.(TypeSig).Flag())
-	fmt.Printf("product 1 sum: %s\n", head.(TypeSig).Sum())
-	fmt.Printf("product 1 prod: %s\n", head.(TypeSig).Product())
+	var sig = parseNat((d.Map | d.Pair | d.String | d.Int).Flag())
+	fmt.Printf("native sig: %s\n", sig)
 }
 func TestParseFunctionalType(t *testing.T) {
-	var sig = parseFnc(List | Data | Monad | Maybe | Number)
-	fmt.Printf("flag: %s\n", sig.Flag())
-	fmt.Printf("sum: %s\n", sig.Sum())
-	fmt.Printf("product: %s\n", sig.Product())
-	var head, list = sig.Product()()
-	fmt.Printf("product 0: %s\n", head)
-	fmt.Printf("product 0 flag: %s\n", head.(TypeSig).Flag())
-	fmt.Printf("product 0 sum: %s\n", head.(TypeSig).Sum())
-	fmt.Printf("product 0 prod: %s\n", head.(TypeSig).Product())
-	head, list = list()
-	fmt.Printf("product 1: %s\n", head)
-	fmt.Printf("product 1 flag: %s\n", head.(TypeSig).Flag())
-	fmt.Printf("product 1 sum: %s\n", head.(TypeSig).Sum())
-	fmt.Printf("product 1 prod: %s\n", head.(TypeSig).Product())
+	var pair = NewPair(New("test"), New(0.999))
+	var cons = NewTypeCons(pair, NewTypeSignatureFromExpr(pair))
+	fmt.Printf("cons: %s\n", cons)
+	fmt.Printf("expr: %s\n", cons.Expression())
+	fmt.Printf("signature: %s\n", cons.Signature())
+	fmt.Printf("sum: %s\n", cons.Signature().Sum())
+	fmt.Printf("prod: %s\n", cons.Signature().Product())
+
+	var list = NewList(
+		New(0.1),
+		New(0.2),
+		New(0.2),
+		New(0.3),
+		New(0.4),
+		New(0.5),
+		New(0.5),
+		New(0.6),
+		New(0.7),
+		New(0.8),
+		New(0.9),
+		New(0.10),
+	)
+
+	var lcon = NewTypeCons(list, NewTypeSignatureFromExpr(list))
+	fmt.Printf("lcon: %s\n", lcon)
+	fmt.Printf("expr: %s\n", lcon.Expression())
+	fmt.Printf("signature: %s\n", lcon.Signature())
+	fmt.Printf("sum: %s\n", lcon.Signature().Sum())
+	fmt.Printf("prod: %s\n", lcon.Signature().Product())
+
 }

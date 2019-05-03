@@ -7,17 +7,22 @@ import (
 
 //go:generate stringer -type=TyFnc
 const (
-	/// TYPE RELATED FLAGS ///
+	/// KIND FLAGS ///
 	Type TyFnc = 1 << iota
-	Constructor
-	Expression
-	CallPropertys
-	CallArity
 	Native
 	Data
-	/// FUNCTIONAL VALUE
-	Constant
-	Value
+	Expression
+	/// EXPRESSION CALL PROPERTYS
+	CallArity
+	CallPropertys
+	/// COLLECTION TYPES
+	List
+	Vector
+	Tuple
+	Record
+	Enum
+	Set
+	Pair
 	/// FUNCTORS AND MONADS
 	Applicable
 	Operator
@@ -40,47 +45,35 @@ const (
 	Else
 	Do
 	While
-	/// TYPE CLASSES
-	Number
-	Index
-	Symbol
-	Error
-	/// COLLECTION TYPES
-	Pair
-	Tuple
-	Record
-	Enum
-	List
-	Vector
-	Set
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
-	Truth = False | True
+	Collections = List | Vector | Tuple | Record | Enum |
+		Set | Pair
+
+	Options = Undecided | False | True | Equal | Lesser |
+		Greater | Just | None | Case | Switch | Either |
+		Or | If | Else | Do | While
+
+	Parameters = CallPropertys | CallArity
+
+	Kinds = Type | Native | Data | Expression
+
+	Truth = Undecided | False | True
+
+	Ordered = Equal | Lesser | Greater
 
 	Maybe = Just | None
 
-	Ordered = Greater | Lesser
+	CaseSwitch = Case | Switch
 
-	Kind = Data | Expression
+	Alternatives = Either | Or
 
-	TrinaryTruth = False | Truth | Undecided
+	Branch = If | Else
 
-	Equality = Greater | Lesser | Equal
+	Continue = Do | While
 
-	Morphisms = Constructor | Operator | Functor |
-		Applicable | Monad
-
-	Options = False | True | Just | None | Case |
-		Switch | Either | Or | If | Else |
-		While | Do | Truth | Maybe | Ordered |
-		Kind | Equality | TrinaryTruth
-
-	Collections = Pair | Tuple | Enum | Set |
-		List | Vector | Record
-
-	Classes = Truth | TrinaryTruth | Equality |
-		Ordered | Number
+	Functors = Applicable | Operator | Functor | Monad
 )
 
 // expression type, call propertys & arity
