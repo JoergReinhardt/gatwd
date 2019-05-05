@@ -11,8 +11,7 @@ import (
 
 type (
 	//// DATA
-	Signature func() [][2]Typed
-	NativeVal func(args ...interface{}) Callable
+	NativeVal func(args ...interface{}) d.Native
 	DataVal   func(args ...d.Native) d.Native
 
 	//// EXPRESSION
@@ -58,146 +57,20 @@ func FncToNat(args ...Callable) []d.Native {
 	return result
 }
 
-// value types
-func fullType(args ...Callable) Signature {
-	var typed = [][2]Typed{}
-	if len(args) > 0 {
-		for _, arg := range args {
-			typed = append(
-				typed,
-				[2]Typed{
-					arg.TypeNat(),
-					arg.TypeFnc(),
-				})
-		}
-	}
-	return func() [][2]Typed { return typed }
-}
-
-func fullPairType(pairs ...Paired) Signature {
-	var types = [][2]Typed{}
-	for _, pair := range pairs {
-		types = append(
-			types,
-			[2]Typed{
-				pair.Left().TypeNat(),
-				pair.Left().TypeFnc(),
-			},
-			[2]Typed{
-				pair.Right().TypeNat(),
-				pair.Right().TypeFnc(),
-			})
-	}
-	return func() [][2]Typed { return types }
-}
-
-func NewSignature(args ...Callable) Signature {
-	var signature = [][2]Typed{}
-	for _, arg := range args {
-		signature = append(signature, ConsSignature(signature, arg)...)
-	}
-	return func() [][2]Typed { return signature }
-}
-
-func ConsSignature(signature [][2]Typed, arg Callable) [][2]Typed {
-	switch {
-	case arg.TypeFnc().Flag().Match(Pair):
-		signature = append(signature, fullPairType(arg.(Paired))()...)
-	case arg.TypeFnc().Flag().Match(Vector | Pair):
-		for _, pair := range arg.(PairVec)() {
-			signature = append(signature, fullPairType(pair.(Paired))()...)
-		}
-	case arg.TypeFnc().Flag().Match(Vector):
-		for _, val := range arg.(VecVal)() {
-			signature = append(signature, fullType(val.(Paired))()...)
-		}
-	case arg.TypeFnc().Flag().Match(Set):
-		for _, val := range arg.(SetVal).Pairs() {
-			signature = append(signature, fullPairType(val.(Paired))()...)
-		}
-	default:
-		signature = append(signature, fullType(arg)()...)
-	}
-	return signature
-}
-
-func (s Signature) String() string {
-	var l = len(s())
-	var str string
-	for i, sig := range s() {
-		str = "[" +
-			sig[0].String() +
-			" " +
-			sig[1].String() +
-			"]"
-		if i < l-2 {
-			str = str + " "
-		}
-	}
-	return str
-}
-
-func (s Signature) TypeFnc() TyFnc { return Type }
-
-func (s Signature) TypeNat() d.TyNat { return d.Flag }
-
-func (s Signature) Head() Callable {
-	if len(s()) > 0 {
-		return Signature(
-			func() [][2]Typed {
-				return [][2]Typed{
-					s()[0]}
-			})
-	}
-	return Signature(func() [][2]Typed {
-		return [][2]Typed{[2]Typed{d.Nil, None}}
-	})
-}
-
-func (s Signature) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		for _, arg := range args {
-			return Signature(func() [][2]Typed {
-				return ConsSignature(s(), arg)
-			})
-		}
-	}
-	return s
-}
-
-func (s Signature) Tail() Consumeable {
-	if len(s()) > 1 {
-		return Signature(
-			func() [][2]Typed {
-				return s()[1:]
-			})
-	}
-	return Signature(func() [][2]Typed {
-		return [][2]Typed{[2]Typed{d.Nil, None}}
-	})
-}
-
-func (s Signature) DeCap() (Callable, Consumeable) {
-	return s.Head(), s.Tail()
-}
-
-func (s Signature) Eval(args ...d.Native) d.Native {
-	if len(args) > 0 {
-		return d.NewSlice(FncToNat(s.Call(NatToFnc(args...)...))...)
-	}
-	return s
-}
-
 //// DATA
 ///
 // native val encloses golang literal values to implement the callable
 // interface
-func NewCallableLiteral() NativeVal {
-	return func(args ...interface{}) Callable {
+func NewLiteral(args ...interface{}) NativeVal {
+	return func(args ...interface{}) d.Native {
+		var natives = []d.Native{}
 		if len(args) > 0 {
-			return New(args...)
+			for _, arg := range args {
+				natives = append(natives, d.New(arg))
+			}
+			return NewFromData(natives...)
 		}
-		return NewNone()
+		return d.NilVal{}
 	}
 }
 func (n NativeVal) String() string   { return n().String() }
@@ -753,7 +626,7 @@ func NewVector(init ...Callable) VecVal {
 }
 
 func ConsVector(vec Vectorized, args ...Callable) VecVal {
-	return NewVector(append(RevArgs(args...), vec.Slice()...)...)
+	return NewVector(append(vec.Slice(), args...)...)
 }
 
 func AppendVectors(vec Vectorized, args ...Callable) VecVal {
@@ -771,7 +644,7 @@ func (v VecVal) Append(args ...Callable) VecVal {
 }
 
 func (v VecVal) Cons(args ...Callable) VecVal {
-	return NewVector(append(RevArgs(args...), RevArgs(v()...)...)...)
+	return ConsVector(v, args...)
 }
 
 func (v VecVal) Ident() Callable { return v }

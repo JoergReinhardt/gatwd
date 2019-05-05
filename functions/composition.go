@@ -6,58 +6,42 @@ import (
 
 // type system implementation
 type (
-	//// CURRY FUNCTION
-	///
+	/// CURRY FUNCTION
 	Curry func(...Callable) Callable
 
-	//// APPLY FUNCTION
-	///
+	/// APPLY FUNCTION
 	ApplyF func(NaryExpr, ...Callable) Callable
 	ApplyP func(NaryExpr, ...Paired) Paired
 
-	//// MAP FUNCTION
-	///
+	/// MAP FUNCTION
 	MapFExpr func(...Callable) Callable
 	MapPExpr func(...Paired) Paired
 
-	//// FOLD FUNCTION
-	///
+	/// FOLD FUNCTION
 	FoldFExpr func(Callable, Callable, ...Callable) Callable
 
-	//// FILTER FUNCTION
-	///
+	/// FILTER FUNCTION
 	FilterFExpr func(Callable, ...Callable) bool
 	FilterPExpr func(Paired, ...Paired) bool
 
-	//// ZIP FUNCTION
-	///
+	/// ZIP FUNCTION
 	ZipExpr func(l, r Callable) Paired
 
-	//// SPLIT FUNCTION
-	///
+	/// SPLIT FUNCTION
 	SplitFExpr func(Consumeable) (Paired, Consumeable)
 	SplitLExpr func(ListVal) (Paired, ListVal)
 
-	//// BIND
-	///
-	// bind operator (>>=) binds the return value of one monad to be the
-	// argument of another
+	/// BIND
 	BindMExpr func(fm, gm MonadicCons) MonadicCons
 	BindFExpr func(f, g Callable) Consumeable
 
-	//// FUNCTOR
-	///
-	// all functors apply to map-, foldl
+	/// FUNCTOR
 	FunctorCons func(...Callable) (Callable, Consumeable)
 
-	//// APPLICAPLE
-	///
-	// applicables are functors to be applyd on a list of boxed values
-	PairFunctorCons func(args ...Paired) (Callable, PairFunctorCons)
+	/// APPLICAPLE
+	PairFunctorCons func(...Paired) (Callable, PairFunctorCons)
 
-	//// MONADIC
-	///
-	// monadic functions provide transformations between two functor types
+	/// MONADIC
 	MonadicCons func(...Callable) (Callable, Consumeable)
 )
 
@@ -93,7 +77,6 @@ func NewFunctor(cons Consumeable) FunctorCons {
 
 func (c FunctorCons) Call(args ...Callable) Callable { h, _ := c(args...); return h }
 func (c FunctorCons) Eval(args ...d.Native) d.Native { return c.Head().Eval(args...) }
-
 func (c FunctorCons) Ident() Callable                { return c }
 func (c FunctorCons) DeCap() (Callable, Consumeable) { return c() }
 func (c FunctorCons) Head() Callable                 { h, _ := c(); return h }
@@ -360,15 +343,16 @@ func FilterL(list ListVal, filter FilterFExpr) ListVal {
 			if head == nil {
 				return nil, list
 			}
+			// filter either returns true & head is returned, or
+			// FilterL will be called recursively
 			if !filter(head, args...) {
-				return head.Call(args...), FilterL(tail, filter)
+				return FilterL(tail, filter)(args...)
 			}
-
 			return head, FilterL(tail, filter)
 		})
 }
 
-func FilterF(cons Consumeable, filter FilterFExpr) Consumeable {
+func FilterF(cons Consumeable, filter FilterFExpr) FunctorCons {
 	return FunctorCons(
 		func(args ...Callable) (Callable, Consumeable) {
 			var head, tail = cons.DeCap()
@@ -376,9 +360,8 @@ func FilterF(cons Consumeable, filter FilterFExpr) Consumeable {
 				return nil, cons
 			}
 			if !filter(head, args...) {
-				return head.Call(args...), FilterF(tail, filter)
+				return FilterF(tail, filter)(args...)
 			}
-
 			return head, FilterF(tail, filter)
 		})
 }

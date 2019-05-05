@@ -123,11 +123,26 @@ func TestListFoldAndMap(t *testing.T) {
 var keys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("four"), New("five"), New("six"), New("seven"), New("eight"), New("nine"),
 	New("ten")}
+
 var vals = []Callable{New(0), New(1), New(2), New(3), New(4), New(5), New(6),
 	New(7), New(8), New(9), New(10)}
 
 func TestZipLists(t *testing.T) {
-	fmt.Printf("keys: %s\nvalues: %s\n", NewList(keys...), NewList(vals...))
 	var zipped = ZipL(NewList(keys...), NewList(vals...), func(l, r Callable) Paired { return NewPair(l, r) })
 	fmt.Printf("zipped list: %s\n", zipped)
+}
+
+func TestFilterList(t *testing.T) {
+	var filtered = FilterF(NewList(vals...), FilterFExpr(func(head Callable, args ...Callable) bool {
+		if (head.Eval().(d.IntVal) % 2) == 0 {
+			return true
+		}
+		return false
+	}))
+
+	var head, tail = filtered.DeCap()
+	for head != nil {
+		fmt.Printf("filtered element: %s\n", head)
+		head, tail = tail.DeCap()
+	}
 }
