@@ -66,7 +66,7 @@ func TestListMapF(t *testing.T) {
 		return New(args[0].Eval().(d.IntVal).Int() * 3)
 	}
 
-	var mapped = MapF(list, fmap)
+	var mapped = MapL(list, fmap)
 
 	printCons(mapped)
 }
@@ -74,12 +74,12 @@ func TestListMapF(t *testing.T) {
 func TestListFoldF(t *testing.T) {
 
 	var list = NewList(listA()...)
-	var fold = func(ilem, head Callable, args ...Callable) Callable {
+	var fold = FoldFExpr(func(ilem, head Callable, args ...Callable) Callable {
 		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
-	}
+	})
 	var ilem = New(0)
 
-	var folded = FoldF(list, fold, ilem)
+	var folded = FoldL(list, ilem, fold)
 
 	printCons(folded)
 }
@@ -95,13 +95,13 @@ func TestListFoldAndMap(t *testing.T) {
 		return New(args[0].Eval().(d.IntVal).Int() * 3)
 	}
 
-	var mapped = MapF(list, fmap)
-	var folded = FoldF(mapped, fold, ilem)
+	var mapped = MapL(list, fmap)
+	var folded = FoldL(mapped, ilem, fold)
 
 	printCons(folded)
 
-	folded = FoldF(list, fold, ilem)
-	mapped = MapF(folded, fmap)
+	folded = FoldL(list, ilem, fold)
+	mapped = MapL(folded, fmap)
 
 	var head, result Callable
 	head, mapped = mapped()
@@ -118,4 +118,16 @@ func TestListFoldAndMap(t *testing.T) {
 	if result.Eval().(d.IntVal) != 135 {
 		t.Fail()
 	}
+}
+
+var keys = []Callable{New("zero"), New("one"), New("two"), New("three"),
+	New("four"), New("five"), New("six"), New("seven"), New("eight"), New("nine"),
+	New("ten")}
+var vals = []Callable{New(0), New(1), New(2), New(3), New(4), New(5), New(6),
+	New(7), New(8), New(9), New(10)}
+
+func TestZipLists(t *testing.T) {
+	fmt.Printf("keys: %s\nvalues: %s\n", NewList(keys...), NewList(vals...))
+	var zipped = ZipL(NewList(keys...), NewList(vals...), func(l, r Callable) Paired { return NewPair(l, r) })
+	fmt.Printf("zipped list: %s\n", zipped)
 }

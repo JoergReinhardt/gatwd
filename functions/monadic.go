@@ -457,7 +457,7 @@ func parseCollections(flag d.BitFlag) TypeCons {
 			)
 		case head.Match(Tuple):
 			expr = NewNaryExpr(func(args ...Callable) Callable {
-				return NewTuple(args...)
+				return NewVector(args...)
 			})
 			return NewTypeCons(
 				expr,
@@ -596,16 +596,14 @@ func parseFnc(flag d.BitFlag) TypeCons {
 	head, flag = flagDecap(flag)
 	if flag.Count() > 1 {
 		switch {
-		case head.Match(Collections):
-			return parseCollections(flag)
-		case head.Match(Functors):
-			return parseFunctors(flag)
-		case head.Match(Options):
-			return parseOptions(flag)
 		case head.Match(Parameters):
 			return parseParameters(flag)
-		case head.Match(Kinds):
-			return parseKinds(flag)
+		case head.Match(Collections):
+			return parseCollections(flag)
+		case head.Match(Options):
+			return parseOptions(flag)
+		case head.Match(Functors):
+			return parseFunctors(flag)
 
 		}
 	}

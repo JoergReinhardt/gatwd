@@ -7,13 +7,13 @@ import (
 /// VALUE
 
 func (p PairVal) String() string   { return p.Print() }
-func (a AssocPair) String() string { return a.Print() }
+func (a KeyPair) String() string   { return a.Print() }
 func (a IndexPair) String() string { return a.Print() }
 
 func (p PairVal) Print() string {
 	return "(" + p.Left().String() + " " + p.Right().String() + ")"
 }
-func (a AssocPair) Print() string {
+func (a KeyPair) Print() string {
 	return a.Left().String() + ":: " + a.Right().String()
 }
 func (a IndexPair) Print() string {
@@ -37,7 +37,7 @@ func (v VecVal) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v RecordVal) String() string {
+func (v PairVec) String() string {
 	var args = []string{}
 	for _, arg := range v() {
 		args = append(args, arg.String())

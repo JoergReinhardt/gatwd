@@ -101,6 +101,7 @@ type Printable interface {
 
 type Paired interface {
 	Callable
+	Empty() bool
 	Pair() Paired
 	Left() Callable
 	Right() Callable
@@ -184,7 +185,7 @@ type Branched interface {
 type Swappable interface {
 	Callable
 	Swap() (Callable, Callable)
-	SwappedPair() PairVal
+	SwappedPair() Paired
 }
 
 // associated values are pairs of values, associated to one another and to any
@@ -211,8 +212,8 @@ type Indexed interface {
 // access elements directly by index position
 type IndexAssoc interface {
 	Callable
-	Get(int) Callable
-	Set(int, Callable) Vectorized
+	Get(int) (Callable, bool)
+	Set(int, Callable) (Vectorized, bool)
 }
 
 //// CONSUMEABLE
@@ -326,8 +327,8 @@ type Associative interface {
 	ValFncType() TyFnc
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	GetVal(Callable) Callable
-	SetVal(Callable, Callable) Associative
+	GetVal(Callable) (Callable, bool)
+	SetVal(Callable, Callable) (Associative, bool)
 	Pairs() []Paired
 }
 

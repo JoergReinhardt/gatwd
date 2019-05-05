@@ -12,6 +12,8 @@ const (
 	Native
 	Data
 	Expression
+	Key
+	Index
 	/// EXPRESSION CALL PROPERTYS
 	CallArity
 	CallPropertys
