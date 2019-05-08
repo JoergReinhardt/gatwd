@@ -12,6 +12,7 @@ import (
 type TySyntax d.BitFlag
 
 func (t TySyntax) Flag() d.BitFlag           { return d.BitFlag(t) }
+func (t TySyntax) Match(arg d.Typed) bool    { return t.Flag().Match(arg) }
 func (t TySyntax) TypeName() string          { return t.String() }
 func (t TySyntax) FlagType() int8            { return 2 }
 func (t TySyntax) Type() TySyntax            { return t }

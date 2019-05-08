@@ -17,7 +17,7 @@ func conList(args ...Callable) Consumeable {
 	return NewList(args...)
 }
 func printCons(cons Consumeable) {
-	var head, tail = cons.DeCap()
+	var head, tail = cons.Consume()
 	if head != nil {
 		fmt.Println(head)
 		printCons(tail)
@@ -87,20 +87,20 @@ func TestListFoldF(t *testing.T) {
 func TestListFoldAndMap(t *testing.T) {
 
 	var list = NewList(listA()...)
-	var ilem = New(0)
-	var fold = func(ilem, head Callable, args ...Callable) Callable {
-		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+	var elem = New(0)
+	var fold = func(elem, head Callable, args ...Callable) Callable {
+		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
 	}
 	var fmap = func(args ...Callable) Callable {
 		return New(args[0].Eval().(d.IntVal).Int() * 3)
 	}
 
 	var mapped = MapL(list, fmap)
-	var folded = FoldL(mapped, ilem, fold)
+	var folded = FoldL(mapped, elem, fold)
 
 	printCons(folded)
 
-	folded = FoldL(list, ilem, fold)
+	folded = FoldL(list, elem, fold)
 	mapped = MapL(folded, fmap)
 
 	var head, result Callable
@@ -109,6 +109,42 @@ func TestListFoldAndMap(t *testing.T) {
 	for {
 		fmt.Println(head)
 		head, mapped = mapped()
+		if head == nil {
+			break
+		}
+		result = head
+	}
+
+	if result.Eval().(d.IntVal) != 135 {
+		t.Fail()
+	}
+}
+
+func TestConsumeableFoldAndMap(t *testing.T) {
+
+	var vec = listA
+	var elem = New(0)
+	var fold = func(elem, head Callable, args ...Callable) Callable {
+		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+	}
+	var fmap = func(args ...Callable) Callable {
+		return New(args[0].Eval().(d.IntVal).Int() * 3)
+	}
+
+	var mapped = MapF(vec, fmap)
+	var folded = FoldF(mapped, elem, fold)
+
+	printCons(folded)
+
+	folded = FoldF(vec, elem, fold)
+	mapped = MapF(folded, fmap)
+
+	var head, result Callable
+	head, mapped = mapped.Consume()
+
+	for {
+		fmt.Println(head)
+		head, mapped = mapped.Consume()
 		if head == nil {
 			break
 		}
@@ -132,7 +168,32 @@ func TestZipLists(t *testing.T) {
 	fmt.Printf("zipped list: %s\n", zipped)
 }
 
+func TestZipConsumeable(t *testing.T) {
+	var zipped = ZipF(NewList(keys...), NewList(vals...), func(l, r Callable) Paired { return NewPair(l, r) })
+
+	var head, tail = zipped.Consume()
+	for head != nil {
+		fmt.Printf("%s, ", head)
+		head, tail = tail.Consume()
+	}
+}
+
 func TestFilterList(t *testing.T) {
+	var filtered = FilterL(NewList(vals...), FilterFExpr(func(head Callable, args ...Callable) bool {
+		if (head.Eval().(d.IntVal) % 2) == 0 {
+			return true
+		}
+		return false
+	}))
+
+	var head, tail = filtered()
+	for head != nil {
+		fmt.Printf("filtered element: %s\n", head)
+		head, tail = tail()
+	}
+}
+
+func TestFilterConsumeable(t *testing.T) {
 	var filtered = FilterF(NewList(vals...), FilterFExpr(func(head Callable, args ...Callable) bool {
 		if (head.Eval().(d.IntVal) % 2) == 0 {
 			return true
@@ -140,9 +201,9 @@ func TestFilterList(t *testing.T) {
 		return false
 	}))
 
-	var head, tail = filtered.DeCap()
+	var head, tail = filtered.Consume()
 	for head != nil {
 		fmt.Printf("filtered element: %s\n", head)
-		head, tail = tail.DeCap()
+		head, tail = tail.Consume()
 	}
 }

@@ -300,8 +300,8 @@ func (v BigFltVec) Native(i int) *big.Float       { return v[i] }
 func (v RatioVec) Native(i int) *big.Rat          { return v[i] }
 func (v TimeVec) Native(i int) time.Time          { return v[i] }
 func (v DuraVec) Native(i int) time.Duration      { return v[i] }
-func (v ErrorVec) Native(i int) struct{ e error } { return struct{ e error }{v[i]} }
 func (v FlagSet) Native(i int) BitFlag            { return v[i] }
+func (v ErrorVec) Native(i int) struct{ e error } { return struct{ e error }{v[i]} }
 
 func (v NilVec) intf(i int) interface{}    { return v[i] }
 func (v BoolVec) intf(i int) interface{}   { return v[i] }

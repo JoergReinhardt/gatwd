@@ -9,6 +9,7 @@ type Typed interface {
 	Native
 	Flag() BitFlag
 	FlagType() int8
+	Match(Typed) bool
 	TypeName() string
 }
 

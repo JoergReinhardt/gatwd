@@ -13,9 +13,10 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() int8   { return 1 }
-func (v TyNat) TypeNat() TyNat   { return v }
-func (v TyNat) TypeName() string { return v.String() }
+func (t TyNat) FlagType() int8       { return 1 }
+func (v TyNat) TypeNat() TyNat       { return v }
+func (v TyNat) TypeName() string     { return v.String() }
+func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
 
 func (v TyNat) Eval(p ...Native) Native {
 	if len(p) > 0 {

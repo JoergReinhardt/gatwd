@@ -64,6 +64,15 @@ func (l ListVal) String() string {
 	}
 	return "(" + strings.Join(args, ", ") + ")"
 }
+func (l PairList) String() string {
+	var args = []string{}
+	var head, list = l()
+	for head != nil {
+		args = append(args, head.String())
+		head, list = list()
+	}
+	return "(" + strings.Join(args, ", ") + ")"
+}
 
 /// TOKEN
 func (t tokens) String() string {

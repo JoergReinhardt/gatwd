@@ -100,7 +100,7 @@ type Printable interface {
 }
 
 type Paired interface {
-	Callable
+	Consumeable
 	Empty() bool
 	Pair() Paired
 	Left() Callable
@@ -227,7 +227,15 @@ type Consumeable interface {
 	Callable
 	Head() Callable
 	Tail() Consumeable
-	DeCap() (Callable, Consumeable)
+	Consume() (Callable, Consumeable)
+}
+
+//// CONSUMEABLE PAIRS
+type ConsumeablePairs interface {
+	Consumeable
+	HeadPair() Paired
+	TailPairs() ConsumeablePairs
+	ConsumePair() (Paired, ConsumeablePairs)
 }
 
 //// FUNCTOR

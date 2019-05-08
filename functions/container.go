@@ -10,6 +10,9 @@ import (
 )
 
 type (
+	//// NONE
+	NoneVal func()
+
 	//// DATA
 	NativeVal func(args ...interface{}) d.Native
 	DataVal   func(args ...d.Native) d.Native
@@ -25,6 +28,7 @@ type (
 	KeyPair   func(...Callable) (string, Callable)
 	IndexPair func(...Callable) (int, Callable)
 	ListVal   func(...Callable) (Callable, ListVal)
+	PairList  func(...Paired) (Paired, PairList)
 	VecVal    func(...Callable) []Callable
 	PairVec   func(...Paired) []Paired
 	SetVal    func(...Paired) d.Mapped
@@ -55,6 +59,102 @@ func FncToNat(args ...Callable) []d.Native {
 		result = append(result, arg.Eval())
 	}
 	return result
+}
+
+// assumes the arguments to either implement paired, or be alternating pairs of
+// keys & values. in case the number of passed arguments that are not pairs is
+// uneven, last field will be filled with a value of type none
+func ArgsToPaired(args ...Callable) []Paired {
+	var pairs = []Paired{}
+	var alen = len(args)
+	for i, arg := range args {
+		if arg.TypeFnc().Match(Pair) {
+			pairs = append(pairs, arg.(Paired))
+		}
+		if i < alen-2 {
+			i = i + 1
+			pairs = append(pairs, NewPair(arg, args[i]))
+		}
+		pairs = append(pairs, NewPair(arg, NewNone()))
+	}
+	return pairs
+}
+
+//// NONE VALUE
+func NewNone() NoneVal                             { return func() {} }
+func (n NoneVal) Ident() Callable                  { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) String() string                   { return "⊥" }
+func (n NoneVal) Eval(...d.Native) d.Native        { return nil }
+func (n NoneVal) Value() Callable                  { return nil }
+func (n NoneVal) Call(...Callable) Callable        { return nil }
+func (n NoneVal) Empty() bool                      { return true }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) TypeName() string                 { return n.String() }
+func (n NoneVal) Head() Callable                   { return NewNone() }
+func (n NoneVal) Tail() Consumeable                { return NewNone() }
+func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
+
+//// STATIC EXPRESSIONS
+///
+// generic functional enclosures to functionalize every function that happens
+// to implement the correct signature
+// CONSTANT EXPRESSION
+func NewConstant(
+	fnc func() Callable,
+) ConstantExpr {
+	return fnc
+}
+func (c ConstantExpr) Ident() Callable           { return c() }
+func (c ConstantExpr) TypeFnc() TyFnc            { return Expression }
+func (c ConstantExpr) TypeNat() d.TyNat          { return c().TypeNat() }
+func (c ConstantExpr) Call(...Callable) Callable { return c() }
+func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
+
+/// UNARY EXPRESSION
+func NewUnaryExpr(
+	fnc func(Callable) Callable,
+) UnaryExpr {
+	return fnc
+}
+func (u UnaryExpr) Ident() Callable               { return u }
+func (u UnaryExpr) TypeFnc() TyFnc                { return Expression }
+func (u UnaryExpr) TypeNat() d.TyNat              { return d.Expression.TypeNat() }
+func (u UnaryExpr) Call(arg ...Callable) Callable { return u(arg[0]) }
+func (u UnaryExpr) Eval(arg ...d.Native) d.Native { return u(NewFromData(arg...)) }
+
+/// BINARY EXPRESSION
+func NewBinaryExpr(
+	fnc func(l, r Callable) Callable,
+) BinaryExpr {
+	return fnc
+}
+
+func (b BinaryExpr) Ident() Callable                { return b }
+func (b BinaryExpr) TypeFnc() TyFnc                 { return Expression }
+func (b BinaryExpr) TypeNat() d.TyNat               { return d.Expression.TypeNat() }
+func (b BinaryExpr) Call(args ...Callable) Callable { return b(args[0], args[1]) }
+func (b BinaryExpr) Eval(args ...d.Native) d.Native {
+	return b(NewFromData(args[0]), NewFromData(args[1]))
+}
+
+/// NARY EXPRESSION
+func NewNaryExpr(
+	fnc func(...Callable) Callable,
+) NaryExpr {
+	return fnc
+}
+func (n NaryExpr) Ident() Callable             { return n }
+func (n NaryExpr) TypeFnc() TyFnc              { return Expression }
+func (n NaryExpr) TypeNat() d.TyNat            { return d.Expression.TypeNat() }
+func (n NaryExpr) Call(d ...Callable) Callable { return n(d...) }
+func (n NaryExpr) Eval(args ...d.Native) d.Native {
+	var params = []Callable{}
+	for _, arg := range args {
+		params = append(params, NewFromData(arg))
+	}
+	return n(params...)
 }
 
 //// DATA
@@ -127,67 +227,6 @@ func (n DataVal) Call(vals ...Callable) Callable {
 func (n DataVal) TypeFnc() TyFnc   { return Data }
 func (n DataVal) TypeNat() d.TyNat { return n().TypeNat() }
 func (n DataVal) String() string   { return n().String() }
-
-//// STATIC EXPRESSIONS
-///
-// generic functional enclosures to functionalize every function that happens
-// to implement the correct signature
-// CONSTANT EXPRESSION
-func NewConstant(
-	fnc func() Callable,
-) ConstantExpr {
-	return fnc
-}
-func (c ConstantExpr) Ident() Callable           { return c() }
-func (c ConstantExpr) TypeFnc() TyFnc            { return Expression }
-func (c ConstantExpr) TypeNat() d.TyNat          { return c().TypeNat() }
-func (c ConstantExpr) Call(...Callable) Callable { return c() }
-func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
-
-/// UNARY EXPRESSION
-func NewUnaryExpr(
-	fnc func(Callable) Callable,
-) UnaryExpr {
-	return fnc
-}
-func (u UnaryExpr) Ident() Callable               { return u }
-func (u UnaryExpr) TypeFnc() TyFnc                { return Expression }
-func (u UnaryExpr) TypeNat() d.TyNat              { return d.Expression.TypeNat() }
-func (u UnaryExpr) Call(arg ...Callable) Callable { return u(arg[0]) }
-func (u UnaryExpr) Eval(arg ...d.Native) d.Native { return u(NewFromData(arg...)) }
-
-/// BINARY EXPRESSION
-func NewBinaryExpr(
-	fnc func(l, r Callable) Callable,
-) BinaryExpr {
-	return fnc
-}
-
-func (b BinaryExpr) Ident() Callable                { return b }
-func (b BinaryExpr) TypeFnc() TyFnc                 { return Expression }
-func (b BinaryExpr) TypeNat() d.TyNat               { return d.Expression.TypeNat() }
-func (b BinaryExpr) Call(args ...Callable) Callable { return b(args[0], args[1]) }
-func (b BinaryExpr) Eval(args ...d.Native) d.Native {
-	return b(NewFromData(args[0]), NewFromData(args[1]))
-}
-
-/// NARY EXPRESSION
-func NewNaryExpr(
-	fnc func(...Callable) Callable,
-) NaryExpr {
-	return fnc
-}
-func (n NaryExpr) Ident() Callable             { return n }
-func (n NaryExpr) TypeFnc() TyFnc              { return Expression }
-func (n NaryExpr) TypeNat() d.TyNat            { return d.Expression.TypeNat() }
-func (n NaryExpr) Call(d ...Callable) Callable { return n(d...) }
-func (n NaryExpr) Eval(args ...d.Native) d.Native {
-	var params = []Callable{}
-	for _, arg := range args {
-		params = append(params, NewFromData(arg))
-	}
-	return n(params...)
-}
 
 //// PAIRS OF VALUES
 ///
@@ -262,25 +301,25 @@ func (p PairVal) Pair() Paired { return p }
 // pairs implement the consumeable interface‥. construct value pairs from any
 // consumeable assuming a slice where keys and values alternate
 func ConsPair(list Consumeable) (PairVal, Consumeable) {
-	var first, tail = list.DeCap()
+	var first, tail = list.Consume()
 	if first != nil {
 		var second Callable
-		second, tail = tail.DeCap()
+		second, tail = tail.Consume()
 		if second != nil {
 			if tail != nil {
 				return NewPair(first, second), tail
 			}
-			return NewPair(first, second), nil
+			return NewPair(first, second), NewNone()
 		}
-		return NewPair(first, NewNone()), nil
+		return NewPair(first, NewNone()), NewNone()
 	}
-	return NewEmptyPair(), NewList()
+	return NewEmptyPair(), NewNone()
 }
 
 // implement consumeable
-func (p PairVal) DeCap() (Callable, Consumeable) { l, r := p(); return l, NewList(r) }
-func (p PairVal) Head() Callable                 { l, _ := p(); return l }
-func (p PairVal) Tail() Consumeable              { _, r := p(); return NewPair(r, NewNone()) }
+func (p PairVal) Consume() (Callable, Consumeable) { l, r := p(); return l, NewList(r) }
+func (p PairVal) Head() Callable                   { l, _ := p(); return l }
+func (p PairVal) Tail() Consumeable                { _, r := p(); return NewPair(r, NewNone()) }
 
 // implement swappable
 func (p PairVal) Swap() (Callable, Callable) { l, r := p(); return r, l }
@@ -406,26 +445,26 @@ func (a KeyPair) TypeFnc() TyFnc   { return Pair | Key }
 func (a KeyPair) TypeNat() d.TyNat { return d.Pair | d.String }
 
 func ConsKeyPair(list Consumeable) (KeyPair, Consumeable) {
-	var first, tail = list.DeCap()
+	var first, tail = list.Consume()
 	if first != nil {
 		if keyval, ok := first.Eval().(d.StrVal); ok {
 			var key = string(keyval)
 			var second Callable
-			second, tail = tail.DeCap()
+			second, tail = tail.Consume()
 			if second != nil {
 				if tail != nil {
 					return NewKeyPair(key, second), tail
 				}
-				return NewKeyPair(key, second), nil
+				return NewKeyPair(key, second), NewNone()
 			}
-			return NewKeyPair(key, NewNone()), nil
+			return NewKeyPair(key, NewNone()), NewNone()
 		}
 	}
 	return NewKeyPair("", NewNone()), NewList()
 }
 
 // implement consumeable
-func (p KeyPair) DeCap() (Callable, Consumeable) {
+func (p KeyPair) Consume() (Callable, Consumeable) {
 	l, r := p()
 	return NewFromData(d.StrVal(l)), NewList(r)
 }
@@ -491,26 +530,26 @@ func (a IndexPair) TypeFnc() TyFnc   { return Pair | Index }
 func (a IndexPair) TypeNat() d.TyNat { return d.Pair | d.Int }
 
 func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
-	var first, tail = list.DeCap()
+	var first, tail = list.Consume()
 	if first != nil {
 		if idxval, ok := first.Eval().(d.IntVal); ok {
 			var index = int(idxval)
 			var second Callable
-			second, tail = tail.DeCap()
+			second, tail = tail.Consume()
 			if second != nil {
 				if tail != nil {
 					return NewIndexPair(index, second), tail
 				}
-				return NewIndexPair(index, second), nil
+				return NewIndexPair(index, second), NewNone()
 			}
-			return NewIndexPair(index, NewNone()), nil
+			return NewIndexPair(index, NewNone()), NewNone()
 		}
 	}
 	return NewIndexPair(0, NewNone()), NewList()
 }
 
 // implement consumeable
-func (p IndexPair) DeCap() (Callable, Consumeable) {
+func (p IndexPair) Consume() (Callable, Consumeable) {
 	l, r := p()
 	return NewFromData(d.StrVal(l)), NewList(r)
 }
@@ -566,15 +605,22 @@ func (l ListVal) Push(elems ...Callable) ListVal {
 	return ConcatLists(NewList(elems...), l)
 }
 
-func (l ListVal) Call(d ...Callable) Callable {
-	var head Callable
-	head, l = l(d...)
-	return head
+func (l ListVal) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return l.Cons(args...)
+	}
+	return l.Head()
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
 func (l ListVal) Eval(args ...d.Native) d.Native {
-	return l.Head().Eval(args...)
+	if len(args) > 0 {
+		return l.Cons(NatToFnc(args...)...)
+	}
+	if head := l.Head(); head != nil {
+		return head.Eval()
+	}
+	return d.NilVal{}
 }
 
 func (l ListVal) Empty() bool {
@@ -600,13 +646,102 @@ func (l ListVal) Len() int {
 	return length
 }
 
-func (l ListVal) Ident() Callable                { return l }
-func (l ListVal) Null() ListVal                  { return NewList() }
-func (l ListVal) Tail() Consumeable              { _, t := l(); return t }
-func (l ListVal) Head() Callable                 { h, _ := l(); return h }
-func (l ListVal) DeCap() (Callable, Consumeable) { return l() }
-func (l ListVal) TypeFnc() TyFnc                 { return List }
-func (l ListVal) TypeNat() d.TyNat               { return l.Head().TypeNat() }
+func (l ListVal) Ident() Callable                  { return l }
+func (l ListVal) Null() ListVal                    { return NewList() }
+func (l ListVal) Tail() Consumeable                { _, t := l(); return t }
+func (l ListVal) Head() Callable                   { h, _ := l(); return h }
+func (l ListVal) Consume() (Callable, Consumeable) { return l() }
+func (l ListVal) TypeFnc() TyFnc                   { return List }
+func (l ListVal) TypeNat() d.TyNat                 { return l.Head().TypeNat() }
+
+//// LIST OF PAIRS
+func ConsPairList(list PairList, pairs ...Paired) PairList {
+	return list.Cons(pairs...)
+}
+func ConcatPairLists(a, b PairList) PairList {
+	return PairList(func(args ...Paired) (Paired, PairList) {
+		if len(args) > 0 {
+			b = b.Cons(args...)
+		}
+		var pair Paired
+		if pair, a = a(); pair != nil {
+			return pair, ConcatPairLists(a, b)
+		}
+		return b()
+	})
+}
+func NewPairList(elems ...Paired) PairList {
+	return func(pairs ...Paired) (Paired, PairList) {
+		if len(pairs) > 0 {
+			elems = append(elems, pairs...)
+		}
+		if len(elems) > 0 {
+			var pair = elems[0]
+			if len(elems) > 1 {
+				return pair, NewPairList(
+					elems[1:]...,
+				)
+			}
+			return pair, NewPairList()
+		}
+		return nil, NewPairList()
+	}
+}
+func (l PairList) Cons(elems ...Paired) PairList {
+	return PairList(func(args ...Paired) (Paired, PairList) {
+		return l(append(elems, args...)...)
+	})
+}
+func (l PairList) Push(elems ...Paired) PairList {
+	return ConcatPairLists(NewPairList(elems...), l)
+}
+func (l PairList) Call(args ...Callable) Callable {
+	var pairs = []Paired{}
+	if len(args) > 0 {
+		pairs = append(pairs, ArgsToPaired(args...)...)
+	}
+	var head Callable
+	head, l = l(pairs...)
+	return head
+}
+
+// eval applys current heads eval method to passed arguments, or calle it empty
+func (l PairList) Eval(args ...d.Native) d.Native {
+	if head := l.Head(); head != nil {
+		return head.Eval(args...)
+	}
+	return d.NilVal{}
+}
+
+func (l PairList) Empty() bool {
+	if pair := l.HeadPair(); pair != nil {
+		return pair.Empty()
+	}
+	return true
+}
+
+// to determine the length of a recursive function, it has to be fully unwound,
+// so use with care! (and ask yourself, what went wrong to make the length of a
+// list be of importance)
+func (l PairList) Len() int {
+	var length int
+	var head, tail = l()
+	if head != nil {
+		length += 1 + tail.Len()
+	}
+	return length
+}
+
+func (l PairList) Ident() Callable                         { return l }
+func (l PairList) Null() PairList                          { return NewPairList() }
+func (l PairList) Tail() Consumeable                       { _, t := l(); return t }
+func (l PairList) TailPairs() ConsumeablePairs             { _, t := l(); return t }
+func (l PairList) Head() Callable                          { h, _ := l(); return h }
+func (l PairList) HeadPair() Paired                        { p, _ := l(); return p }
+func (l PairList) Consume() (Callable, Consumeable)        { return l() }
+func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
+func (l PairList) TypeFnc() TyFnc                          { return List }
+func (l PairList) TypeNat() d.TyNat                        { return l.Head().TypeNat() }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
@@ -690,19 +825,15 @@ func (v VecVal) Tail() Consumeable {
 	return NewEmptyVector()
 }
 
-func (v VecVal) DeCap() (Callable, Consumeable) {
+func (v VecVal) Consume() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
 func (v VecVal) Empty() bool {
-
 	if len(v()) > 0 {
-
 		for _, val := range v() {
-
 			if !val.TypeNat().Flag().Match(d.Nil) &&
 				!val.TypeFnc().Flag().Match(None) {
-
 				return false
 			}
 		}
@@ -799,7 +930,7 @@ func (v PairVec) Cons(args ...Callable) PairVec {
 		return append(v(), pairs...)
 	})
 }
-func (v PairVec) DeCap() (Callable, Consumeable) {
+func (v PairVec) Consume() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
@@ -886,15 +1017,15 @@ func (v PairVec) Pairs() []Paired {
 	return pairs
 }
 
-func (v PairVec) DeCapPairWise() (Paired, []Paired) {
+func (v PairVec) ConsumePair() (Paired, ConsumeablePairs) {
 	var pairs = v()
 	if len(pairs) > 0 {
 		if len(pairs) > 1 {
-			return pairs[0], pairs[1:]
+			return pairs[0], NewPairVec(pairs[1:]...)
 		}
-		return pairs[0], []Paired{}
+		return pairs[0], NewPairVec()
 	}
-	return nil, []Paired{}
+	return nil, NewPairVec()
 }
 
 func (v PairVec) SwitchedPairs() []Paired {
@@ -925,6 +1056,12 @@ func (v PairVec) Slice() []Callable {
 	return fncs
 }
 
+func (v PairVec) HeadPair() Paired {
+	if v.Len() > 0 {
+		return v()[0].(Paired)
+	}
+	return NewPair(NewNone(), NewNone())
+}
 func (v PairVec) Head() Callable {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
@@ -932,6 +1069,12 @@ func (v PairVec) Head() Callable {
 	return nil
 }
 
+func (v PairVec) TailPairs() ConsumeablePairs {
+	if v.Len() > 1 {
+		return NewPairVectorFromPairs(v.Pairs()[1:]...)
+	}
+	return NewEmptyPairVec()
+}
 func (v PairVec) Tail() Consumeable {
 	if v.Len() > 1 {
 		return NewPairVectorFromPairs(v.Pairs()[1:]...)
@@ -1136,7 +1279,7 @@ func (v SetVal) ValNatType() d.TyNat {
 	return d.Nil
 }
 
-func (v SetVal) DeCap() (Callable, Consumeable) {
+func (v SetVal) Consume() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
 }
 

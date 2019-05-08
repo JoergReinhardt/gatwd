@@ -20,11 +20,11 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 func TestSignature(t *testing.T) {
 	var zipped = ZipF(NewVector(intkeys...), NewVector(intslice...), func(l, r Callable) Paired { return NewPair(l, r) })
 	var vec = NewVector()
-	var head, tail = zipped.DeCap()
+	var head, tail = zipped.Consume()
 	for head != nil {
 		vec = vec.Cons(head)
 		fmt.Printf("head: %s\n", head)
-		head, tail = tail.DeCap()
+		head, tail = tail.Consume()
 	}
 	fmt.Printf("vector: %s\n", vec())
 	//	var sig = NewSignature(vec()...)

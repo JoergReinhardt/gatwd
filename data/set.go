@@ -41,18 +41,13 @@ func (s SetVal) Eval(p ...Native) Native {
 }
 
 func (s SetVal) TypeNat() TyNat {
-
 	var fields = s.Fields()
-
 	if len(fields) > 0 {
-
 		var first = fields[0]
-
 		return Map.TypeNat() |
 			first.Left().TypeNat() |
 			first.Right().TypeNat()
 	}
-
 	return Map.TypeNat() | Nil.TypeNat()
 }
 
