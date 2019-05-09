@@ -74,7 +74,7 @@ func TestListMapF(t *testing.T) {
 func TestListFoldF(t *testing.T) {
 
 	var list = NewList(listA()...)
-	var fold = FoldFExpr(func(ilem, head Callable, args ...Callable) Callable {
+	var fold = Fold(func(ilem, head Callable, args ...Callable) Callable {
 		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
 	})
 	var ilem = New(0)
@@ -131,20 +131,18 @@ func TestConsumeableFoldAndMap(t *testing.T) {
 		return New(args[0].Eval().(d.IntVal).Int() * 3)
 	}
 
-	var mapped = MapF(vec, fmap)
+	var mapped = MapC(vec, fmap)
 	var folded = FoldF(mapped, elem, fold)
-
-	printCons(folded)
 
 	folded = FoldF(vec, elem, fold)
 	mapped = MapF(folded, fmap)
 
 	var head, result Callable
-	head, mapped = mapped.Consume()
+	head, mapped = mapped()
 
 	for {
 		fmt.Println(head)
-		head, mapped = mapped.Consume()
+		head, mapped = mapped()
 		if head == nil {
 			break
 		}
@@ -179,7 +177,7 @@ func TestZipConsumeable(t *testing.T) {
 }
 
 func TestFilterList(t *testing.T) {
-	var filtered = FilterL(NewList(vals...), FilterFExpr(func(head Callable, args ...Callable) bool {
+	var filtered = FilterL(NewList(vals...), Filter(func(head Callable, args ...Callable) bool {
 		if (head.Eval().(d.IntVal) % 2) == 0 {
 			return true
 		}
@@ -194,7 +192,7 @@ func TestFilterList(t *testing.T) {
 }
 
 func TestFilterConsumeable(t *testing.T) {
-	var filtered = FilterF(NewList(vals...), FilterFExpr(func(head Callable, args ...Callable) bool {
+	var filtered = FilterF(NewList(vals...), Filter(func(head Callable, args ...Callable) bool {
 		if (head.Eval().(d.IntVal) % 2) == 0 {
 			return true
 		}
@@ -215,7 +213,7 @@ var numApp = NewApplicable(numFunc, func(expr NaryExpr, args ...Callable) Callab
 			var numbers = []Callable{}
 			for _, arg := range args {
 				if arg.TypeNat().Match(d.Numbers) {
-					if arg.TypeFnc().Match(Functors) {
+					if arg.TypeFnc().Match(Consumeables) {
 						numbers = append(numbers, arg.Call())
 					}
 					numbers = append(numbers, arg)

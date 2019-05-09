@@ -75,6 +75,11 @@ type Text interface {
 	d.Text
 }
 
+type Raw interface {
+	// Bytes() []byte
+	d.Raw
+}
+
 type Letter interface {
 	// Rune() rune
 	// Byte() byte

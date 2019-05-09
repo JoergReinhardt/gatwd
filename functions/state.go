@@ -28,31 +28,4 @@
 */
 package functions
 
-import (
-	d "github.com/joergreinhardt/gatwd/data"
-)
-
-type state struct {
-	Signals []d.ChanRcvCtrl
-	Stack   d.DataSlice
-	Symbols d.Mapped
-	Methods d.Mapped
-	Heap    *d.TSSlice
-	Queue   *d.TSSlice
-	Buffer  *d.TSBuffer
-}
-
-//// RUNTIME STATE MONAD
-///
-func NewRuntime(methods d.Mapped) d.Mapped {
-	var s = &state{
-		Methods: methods,
-		Signals: []d.ChanRcvCtrl{},
-		Stack:   d.DataSlice{},
-		Symbols: d.NewStringSet(),
-		Heap:    d.NewTSSlice(),
-		Queue:   d.NewTSSlice(),
-		Buffer:  d.NewTSBuffer(),
-	}
-	return s.Methods
-}
+import ()

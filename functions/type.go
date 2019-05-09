@@ -23,6 +23,10 @@ const (
 	/// EXPRESSION CALL PROPERTYS
 	CallArity
 	CallPropertys
+	/// TYPE CLASSES
+	Numbers
+	Strings
+	Bytes
 	/// COLLECTION TYPES
 	List
 	Vector
@@ -33,7 +37,6 @@ const (
 	Pair
 	/// FUNCTORS AND MONADS
 	Applicable
-	Operator
 	Functor
 	Monad
 	/// MONADIC SUB TYPES
@@ -53,6 +56,19 @@ const (
 	Else
 	Do
 	While
+	/// IO
+	IO
+	Shared
+	Receive
+	Transmit
+	Control
+	Channel
+	Buffer
+	Reader
+	Writer
+	ReadWriter
+	Condition
+	WaitGroup
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
@@ -81,7 +97,7 @@ const (
 
 	Continue = Do | While
 
-	Functors = Applicable | Operator | Functor | Monad | Collections
+	Consumeables = Collections | Functor | Applicable | Monad | IO
 )
 
 ///////////////////////////////////////////////////////////////////////////////

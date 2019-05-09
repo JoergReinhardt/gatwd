@@ -91,13 +91,17 @@ type Numeral interface {
 	Imaginary
 }
 
-type Text interface {
-	String() string
+type Raw interface {
+	Bytes() []byte
 }
 
 type Letter interface {
 	Rune() rune
 	Byte() byte
+}
+
+type Text interface {
+	String() string
 }
 
 type Serializeable interface {

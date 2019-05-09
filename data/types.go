@@ -214,20 +214,16 @@ type ( // NATIVE GOLANG TYPES
 	BufferVal bytes.Buffer
 
 	// READER/WRITER
-	PipeReadVal  io.PipeReader
+
+	PipeReadVal io.PipeReader
+
 	PipeWriteVal io.PipeWriter
-	ReadVal      struct {
-		BytesVal
-		io.ReadCloser
-	}
-	ReadWriteVal struct {
-		BytesVal
-		io.ReadWriteCloser
-	}
-	WriteVal struct {
-		BytesVal
-		io.WriteCloser
-	}
+
+	ReadVal struct{ io.ReadCloser }
+
+	WriteVal struct{ io.WriteCloser }
+
+	ReadWriteVal struct{ io.ReadWriteCloser }
 
 	//// IO SYNCHRONOUS
 	///

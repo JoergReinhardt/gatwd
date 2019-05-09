@@ -175,7 +175,7 @@ func (v ByteVal) Rune() rune       { return rune(v.Byte()) }
 func (v ByteVal) String() string   { return string(v.Bytes()) }
 func (v ByteVal) Len() int         { return bits.Len8(uint8(v.Uint())) }
 
-func (v BytesVal) Unit() []byte     { return []byte{} }
+func (v BytesVal) Unit() []byte     { return []byte{byte(0)} }
 func (v BytesVal) Bytes() []byte    { return []byte(v) }
 func (v BytesVal) ByteVec() ByteVec { return ByteVec(v) }
 func (v BytesVal) String() string   { return string(v) }
@@ -185,6 +185,7 @@ func (v BytesVal) Buffer() RuneVec  { return RuneVec(v.Runes()) }
 func (v BytesVal) Len() int         { return len(v.Bytes()) }
 
 /// STRING VALUE
+func (v StrVal) Unit() Native { return StrVal(" ") }
 func (v StrVal) Bool() (bool, error) {
 	var truth, err = strconv.ParseBool(string(v))
 	if err != nil {
