@@ -271,17 +271,17 @@ type ( // NATIVE GOLANG TYPES
 	// READERS/WRITERS
 	TSRead struct {
 		*sync.Mutex
-		ReadVal
+		*ReadVal
 	}
 
 	TSWrite struct {
 		*sync.Mutex
-		WriteVal
+		*WriteVal
 	}
 
 	TSReadWrite struct {
 		*sync.RWMutex
-		ReadWriteVal
+		*ReadWriteVal
 	}
 )
 
