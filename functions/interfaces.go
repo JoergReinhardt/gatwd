@@ -28,7 +28,6 @@ type Destructable interface {
 
 type Nullable interface {
 	// Null()
-	d.Native
 	d.Nullable
 }
 type Discrete interface {
@@ -60,15 +59,15 @@ type Imaginary interface {
 	d.Imaginary
 }
 type Numeral interface {
-	// Nullable
-	// Discrete
-	// Boolean
-	// Natural
-	// Integer
-	// Rational
-	// Real
-	// Imaginary
-	d.Numeral
+	Callable
+	Nullable
+	Discrete
+	Boolean
+	Natural
+	Integer
+	Rational
+	Real
+	Imaginary
 }
 
 type Text interface {

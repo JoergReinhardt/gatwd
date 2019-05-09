@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/big"
+	"sync"
 	"time"
 )
 
@@ -13,9 +15,22 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() int8       { return 1 }
-func (v TyNat) TypeNat() TyNat       { return v }
-func (v TyNat) TypeName() string     { return v.String() }
+func (t TyNat) FlagType() int8 { return 1 }
+func (v TyNat) TypeNat() TyNat { return v }
+func (t TyNat) TypeName() string {
+	var count = t.Flag().Count()
+	if count > 1 {
+		var str = "["
+		for i, flag := range t.Flag().Decompose() {
+			str = str + TyNat(flag.Flag()).String()
+			if i < count-1 {
+				str = str + "·"
+			}
+		}
+		return str + "]"
+	}
+	return t.String()
+}
 func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
 
 func (v TyNat) Eval(p ...Native) Native {
@@ -194,6 +209,80 @@ type ( // NATIVE GOLANG TYPES
 	DuraVec        []time.Duration
 	ErrorVec       []error
 	FlagSet        []BitFlag
+
+	// BYTES BUFFER
+	BufferVal bytes.Buffer
+
+	// READER/WRITER
+	PipeReadVal  io.PipeReader
+	PipeWriteVal io.PipeWriter
+	ReadVal      struct {
+		BytesVal
+		io.ReadCloser
+	}
+	ReadWriteVal struct {
+		BytesVal
+		io.ReadWriteCloser
+	}
+	WriteVal struct {
+		BytesVal
+		io.WriteCloser
+	}
+
+	//// IO SYNCHRONOUS
+	///
+	// CONDITION
+	SyncCondition sync.Cond
+
+	// WAIT GROUP
+	WaitGroup sync.WaitGroup
+
+	// CHANNELS
+	Chan        chan Native
+	ChanRcv     <-chan Native
+	ChanTrx     chan<- Native
+	ChanCtrl    chan struct{}
+	ChanRcvCtrl <-chan struct{}
+	ChanTrxCtrl chan<- struct{}
+	ChanTime    chan time.Time
+	ChanRcvTime <-chan time.Time
+	ChanTrxTime chan<- time.Time
+
+	//// IO ASYNCHRONOUS
+	///
+	// NATIVES
+	TSNative struct {
+		*sync.Mutex
+		Native
+	}
+
+	// SLICE
+	TSSlice struct {
+		*sync.Mutex
+		DataSlice
+	}
+
+	// BUFFER
+	TSBuffer struct {
+		*sync.Mutex
+		*BufferVal
+	}
+
+	// READERS/WRITERS
+	TSRead struct {
+		*sync.Mutex
+		ReadVal
+	}
+
+	TSWrite struct {
+		*sync.Mutex
+		WriteVal
+	}
+
+	TSReadWrite struct {
+		*sync.RWMutex
+		ReadWriteVal
+	}
 )
 
 /// bind the corresponding TypeNat Method to every type

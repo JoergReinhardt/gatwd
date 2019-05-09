@@ -52,10 +52,7 @@ func (v UintVal) String() string   { return strconv.Itoa(int(v)) }
 func (v Uint8Val) String() string  { return strconv.Itoa(int(v)) }
 func (v Uint16Val) String() string { return strconv.Itoa(int(v)) }
 func (v Uint32Val) String() string { return strconv.Itoa(int(v)) }
-func (v ByteVal) String() string   { return strconv.Itoa(int(v)) }
 func (v RuneVal) String() string   { return string(v) }
-func (v BytesVal) String() string  { return string(v) }
-func (v StrVal) String() string    { return `"` + string(v) + `"` }
 func (v StrVal) Key() string       { return string(v) }
 func (v TimeVal) String() string   { return "" + time.Time(v).String() }
 func (v DuraVal) String() string   { return time.Duration(v).String() }
@@ -211,3 +208,15 @@ func (v TSBuffer) String() string    { return "thread-safe buffer" }
 func (v TSRead) String() string      { return "thread-safe reader" }
 func (v TSWrite) String() string     { return "thread-safe writer" }
 func (v TSReadWrite) String() string { return "thread-safe reader/writer" }
+
+func (c SyncCondition) String() string { return "sync condition" }
+func (c WaitGroup) String() string     { return "wait group" }
+
+func (c Chan) String() string        { return "channel" }
+func (c ChanRcv) String() string     { return "Channel" }
+func (c ChanTrx) String() string     { return "Channel" }
+func (c ChanCtrl) String() string    { return "Channel" }
+func (c ChanRcvCtrl) String() string { return "Channel" }
+func (c ChanTrxCtrl) String() string { return "Channel" }
+func (c ChanRcvTime) String() string { return "Channel" }
+func (c ChanTrxTime) String() string { return "Channel" }

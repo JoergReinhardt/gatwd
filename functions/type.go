@@ -81,7 +81,7 @@ const (
 
 	Continue = Do | While
 
-	Functors = Applicable | Operator | Functor | Monad
+	Functors = Applicable | Operator | Functor | Monad | Collections
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,8 +190,21 @@ func (a Arity) Match(arg Arity) bool      { return a == arg }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() int8                 { return 1 }
-func (t TyFnc) TypeName() string               { return t.String() }
+func (t TyFnc) FlagType() int8 { return 1 }
+func (t TyFnc) TypeName() string {
+	var count = t.Flag().Count()
+	if count > 1 {
+		var str = "["
+		for i, flag := range t.Flag().Decompose() {
+			str = str + TyFnc(flag.Flag()).String()
+			if i < count-1 {
+				str = str + " "
+			}
+		}
+		return str + "]"
+	}
+	return t.String()
+}
 func (t TyFnc) TypeFnc() TyFnc                 { return Type }
 func (t TyFnc) TypeNat() d.TyNat               { return d.Flag }
 func (t TyFnc) Call(args ...Callable) Callable { return t.TypeFnc() }

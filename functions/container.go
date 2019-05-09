@@ -161,14 +161,20 @@ func (n NaryExpr) Eval(args ...d.Native) d.Native {
 ///
 // native val encloses golang literal values to implement the callable
 // interface
-func NewLiteral(args ...interface{}) NativeVal {
+func NewLiteral(init ...interface{}) NativeVal {
 	return func(args ...interface{}) d.Native {
 		var natives = []d.Native{}
 		if len(args) > 0 {
 			for _, arg := range args {
 				natives = append(natives, d.New(arg))
 			}
-			return NewFromData(natives...)
+			return NewLiteral(init...).Eval(natives...)
+		}
+		if len(init) > 0 {
+			if len(init) > 1 {
+				return d.New(init...)
+			}
+			return d.New(init[0])
 		}
 		return d.NilVal{}
 	}
@@ -208,20 +214,24 @@ func NewFromData(data ...d.Native) DataVal {
 	return func(args ...d.Native) d.Native { return eval(args...) }
 }
 
-func (n DataVal) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n DataVal) Eval(args ...d.Native) d.Native {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			return n().Eval(args...)
+		}
+		return n().Eval(args[0])
+	}
+	return n().Eval()
+}
 
 func (n DataVal) Call(vals ...Callable) Callable {
-	var results = NewVector()
-	for _, val := range vals {
-		// evaluate arguments to yield contained natives
-		results = ConsVector(
-			results,
-			DataVal(func(arguments ...d.Native) d.Native {
-				return val.Eval(arguments...)
-			}),
-		)
+	if len(vals) > 0 {
+		if len(vals) > 1 {
+			return NewFromData(n(FncToNat(vals...)...))
+		}
+		return NewFromData(n.Eval(vals[0].Eval()))
 	}
-	return results
+	return NewFromData(n.Eval())
 }
 
 func (n DataVal) TypeFnc() TyFnc   { return Data }
@@ -318,8 +328,12 @@ func ConsPair(list Consumeable) (PairVal, Consumeable) {
 
 // implement consumeable
 func (p PairVal) Consume() (Callable, Consumeable) { l, r := p(); return l, NewList(r) }
-func (p PairVal) Head() Callable                   { l, _ := p(); return l }
-func (p PairVal) Tail() Consumeable                { _, r := p(); return NewPair(r, NewNone()) }
+func (p PairVal) ConsumePair() (Paired, Consumeable) {
+	_, r := p()
+	return NewPair(r, NewNone()), NewList()
+}
+func (p PairVal) Head() Callable    { l, _ := p(); return l }
+func (p PairVal) Tail() Consumeable { _, r := p(); return NewPair(r, NewNone()) }
 
 // implement swappable
 func (p PairVal) Swap() (Callable, Callable) { l, r := p(); return r, l }

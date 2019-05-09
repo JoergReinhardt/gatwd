@@ -207,3 +207,83 @@ func TestFilterConsumeable(t *testing.T) {
 		head, tail = tail.Consume()
 	}
 }
+
+var numFunc = NewFunctor(NewFromData(d.IntVal(42)))
+var numApp = NewApplicable(numFunc, func(expr NaryExpr, args ...Callable) Callable {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var numbers = []Callable{}
+			for _, arg := range args {
+				if arg.TypeNat().Match(d.Numbers) {
+					if arg.TypeFnc().Match(Functors) {
+						numbers = append(numbers, arg.Call())
+					}
+					numbers = append(numbers, arg)
+				}
+			}
+			return expr(numbers...)
+		}
+		if args[0].TypeNat().Match(d.Numbers) {
+			return expr(args[0])
+		}
+	}
+
+	return expr()
+})
+
+func TestFunctor(t *testing.T) {
+	fmt.Printf("functor: %s, function type: %s, native type: %s, call without args: %s, call with '1' arg: %s call with multiple args: %s\n",
+		numFunc,
+		numFunc.TypeFnc().TypeName(),
+		numFunc.TypeNat().TypeName(),
+		numFunc.Call(),
+		numFunc.Call(NewFromData(d.IntVal(1))),
+		numFunc.Call(NewFromData(d.IntVal(1)),
+			NewFromData(d.IntVal(1)),
+			NewFromData(d.IntVal(2)),
+			NewFromData(d.IntVal(3)),
+			NewFromData(d.IntVal(4)),
+			NewFromData(d.IntVal(5))))
+}
+
+func TestApplicable(t *testing.T) {
+	fmt.Printf("applicable: %s, function type: %s, native type: %s, call without args: %s\n",
+		numApp,
+		numApp.TypeFnc().TypeName(),
+		numApp.TypeNat().TypeName(),
+		numApp.Call())
+
+	fmt.Printf("function type: %s, native type: %s, call with flat expression argument: %s\n",
+		numApp.Call(numFunc).TypeFnc().TypeName(),
+		numApp.Call(numFunc).TypeNat().TypeName(),
+		numApp.Call(NewFromData(d.IntVal(23))))
+
+	fmt.Printf("function type: %s, native type: %s, call with numeric functor argument: %s\n",
+		numApp.Call(numFunc).TypeFnc().TypeName(),
+		numApp.Call(numFunc).TypeNat().TypeName(),
+		numApp.Call(numFunc))
+
+	fmt.Printf("function type: %s, native type: %s, call with multiple flat arguments: %s\n",
+		numApp.Call(numFunc).TypeFnc().TypeName(),
+		numApp.Call(numFunc).TypeNat().TypeName(),
+		numApp.Call(NewFromData(d.IntVal(1)),
+			NewFromData(d.IntVal(1)),
+			NewFromData(d.IntVal(2)),
+			NewFromData(d.IntVal(3)),
+			NewFromData(d.StrVal("str arg")),
+			NewFromData(d.IntVal(4)),
+			NewFromData(d.IntVal(5))))
+
+	// apply function should deal with non numeric arguments
+	fmt.Printf("function type: %s, native type: %s, call with multiple functor arguments: %s\n",
+		numApp.Call(numFunc).TypeFnc().TypeName(),
+		numApp.Call(numFunc).TypeNat().TypeName(),
+		numApp.Call(NewFunctor(NewFromData(d.IntVal(1))),
+			NewFunctor(NewFromData(d.IntVal(1))),
+			NewFunctor(NewFromData(d.IntVal(2))),
+			NewFunctor(NewFromData(d.IntVal(3))),
+			NewFunctor(NewFromData(d.StrVal("str arg"))),
+			NewFunctor(NewFromData(d.IntVal(4))),
+			NewFunctor(NewFromData(d.IntVal(5)))))
+
+}

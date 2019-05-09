@@ -42,15 +42,15 @@ func TestFlag(t *testing.T) {
 	}
 
 	fmt.Println(BitFlag(Int.TypeNat() | Float.TypeNat()).Decompose())
-	fmt.Println(BitFlag(Int | Float).String())
+	fmt.Println(TyNat(Int | Float).TypeName())
 
-	fmt.Println(BitFlag(Letters))
+	fmt.Println(Letters.TypeName())
 
-	if fmt.Sprint(BitFlag(Letters)) != "Rune∙Bytes∙String" {
+	if fmt.Sprint(Letters.TypeName()) != "[Rune·Bytes·String]" {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Letters))
+	fmt.Println(Letters.TypeName())
 }
 
 var s0 = NewSlice(
@@ -75,8 +75,8 @@ var s0 = NewSlice(
 
 func TestTypeAllocation(t *testing.T) {
 
-	fmt.Println(s0.ContainedTypes())
-	if fmt.Sprint(s0.ContainedTypes()) != "Bool∙Int8∙Int16∙Int32∙Int∙BigInt∙Flt32∙Float∙BigFlt∙Ratio∙Imag∙Time∙Byte∙Bytes∙String" {
+	fmt.Println(TyNat(s0.ContainedTypes()).TypeName())
+	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "[Bool·Int8·Int16·Int32·Int·BigInt·Flt32·Float·BigFlt·Ratio·Imag·Time·Byte·Bytes·String·Slice]" {
 		t.Fail()
 	}
 	s1 := NewSlice()
@@ -92,13 +92,14 @@ func TestTypeAllocation(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		s1 = SliceAdd(s1, s0...)
 	}
+	fmt.Printf("List-1 Length: %d\n", s1.Len())
 	if len(s1) != 18000 {
 		t.Fail()
 	}
-	fmt.Printf("contained types s1: %s\n", s1.ContainedTypes())
+	fmt.Printf("contained types s1: %s\n", TyNat(s1.ContainedTypes()).TypeName())
 
 	fmt.Printf("List-1 len: %d\t\n", len(s1))
-	fmt.Printf("List-1 type: %s\t\n", s1.TypeNat().String())
+	fmt.Printf("List-1 type: %s\t\n", TyNat(s1.ContainedTypes()).TypeName())
 }
 
 func TestLiFo(t *testing.T) {
@@ -234,7 +235,7 @@ func TestNativeSlice(t *testing.T) {
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Pipe Buffer Reader Writer Channel Error Nat Fnc Sum Prod Pair Tuple Record Vector List Set Data Expression Function Instance Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Pipe Buffer Reader Writer Channel SyncCon SyncWait Error Pair Slice Map Literal Data Expression Flag]" {
 		t.Fail()
 	}
 }
