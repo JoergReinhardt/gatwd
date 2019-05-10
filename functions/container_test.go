@@ -23,10 +23,21 @@ var maybeInt = NewMaybeConstructor(
 	NewCaseExpr(
 		func(arg Callable) (Callable, bool) {
 			if arg.TypeNat().Match(d.Numbers) {
-				return DataVal(arg.Eval().(d.Numeral).Eval), true
+				return NewFromData(arg.Eval().(d.Numeral)), true
 			}
 			return NewNone(), false
 		}))
+
+var add = func(l, r d.Native) JustVal {
+	var left, right d.Numeral
+	if l.TypeNat() != d.Nil {
+		left = l.Eval().(d.Numeral)
+	}
+	if r.TypeNat() != d.Nil {
+		right = r.Eval().(d.Numeral)
+	}
+	return maybeInt(DataVal(d.IntVal(left.Int() + right.Int()).Eval))().(JustVal)
+}
 
 func TestMaybe(t *testing.T) {
 	fmt.Printf("maybeInt: %s\n", maybeInt)
@@ -47,4 +58,43 @@ func TestMaybe(t *testing.T) {
 		t.Fail()
 	}
 	fmt.Printf("maybe number imaginary: %s\n", imagVal())
+}
+
+func TestMapMaybe(t *testing.T) {
+	var mappedL = MapL(
+		NewList(intslice...),
+		Map(func(args ...Callable) Callable {
+			if len(args) > 0 {
+				return maybeInt(args[0])()
+			}
+			return maybeInt(NewNone())()
+		}))
+
+	var mappedR = MapL(
+		NewList(intslice...),
+		Map(func(args ...Callable) Callable {
+			if len(args) > 0 {
+				return maybeInt(args[0])()
+			}
+			return maybeInt(NewNone())()
+		}))
+
+	fmt.Printf("mapped maybe integers: %s\n", mappedL)
+
+	var added = MapL(
+		mappedL,
+		Map(func(args ...Callable) Callable {
+			var left, right Callable
+			right, mappedR = mappedR()
+			if len(args) > 0 {
+				left = args[0]
+			}
+			if right != nil {
+				return add(left.(JustVal), right.(JustVal))
+			}
+			return NewNone()
+		}))
+
+	_, _ = mappedR()
+	fmt.Printf("operator added maybe integers: %s\n", added)
 }

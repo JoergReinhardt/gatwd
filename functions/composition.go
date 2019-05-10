@@ -17,8 +17,8 @@ type (
 	Zip          func(l, r Callable) Paired
 	Split        func(Callable, ...Callable) Paired
 
-	CollectionFnc func(...Callable) (Callable, CollectionFnc)
-	PairedCollFnc func(...Callable) (Callable, PairedCollFnc)
+	Collection     func(...Callable) (Callable, Collection)
+	PairCollection func(...Callable) (Callable, PairCollection)
 )
 
 //// CURRY
@@ -53,13 +53,13 @@ func RecCurry(args ...Callable) Callable {
 // passed arguments for each consequtive call. the wrapping is ommited, should
 // the passed expression implement the consumeable interface already and the
 // expression will be type asserted and returned instead.
-func NewFunctor(expr Callable) CollectionFnc {
+func NewFunctor(expr Callable) Collection {
 	if expr.TypeFnc().Match(Consumeables) {
-		return func(args ...Callable) (Callable, CollectionFnc) {
+		return func(args ...Callable) (Callable, Collection) {
 			return expr.Call(args...), NewFunctor(expr)
 		}
 	}
-	return func(args ...Callable) (Callable, CollectionFnc) {
+	return func(args ...Callable) (Callable, Collection) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				return expr.Call(args...), NewFunctor(expr)
@@ -70,7 +70,7 @@ func NewFunctor(expr Callable) CollectionFnc {
 	}
 }
 
-func (c CollectionFnc) Call(args ...Callable) Callable {
+func (c Collection) Call(args ...Callable) Callable {
 	var head, _ = c()
 	if len(args) > 0 {
 		if len(args) > 1 {
@@ -80,7 +80,7 @@ func (c CollectionFnc) Call(args ...Callable) Callable {
 	}
 	return head
 }
-func (c CollectionFnc) Eval(args ...d.Native) d.Native {
+func (c Collection) Eval(args ...d.Native) d.Native {
 	var head, _ = c()
 	if len(args) > 0 {
 		if len(args) > 1 {
@@ -90,40 +90,37 @@ func (c CollectionFnc) Eval(args ...d.Native) d.Native {
 	}
 	return head.Eval()
 }
-func (c CollectionFnc) Ident() Callable {
+func (c Collection) Ident() Callable {
 	return c
 }
-func (c CollectionFnc) Consume() (Callable, Consumeable) {
+func (c Collection) Consume() (Callable, Consumeable) {
 	return c.Head(), c.Tail()
 }
-func (c CollectionFnc) Head() Callable {
+func (c Collection) Head() Callable {
 	h, _ := c()
 	return h
 }
-func (c CollectionFnc) Tail() Consumeable {
+func (c Collection) Tail() Consumeable {
 	_, t := c()
 	return t
 }
-func (c CollectionFnc) TypeFnc() TyFnc {
+func (c Collection) TypeFnc() TyFnc {
 	return Functor | c.Head().TypeFnc()
 }
-func (c CollectionFnc) TypeNat() d.TyNat {
+func (c Collection) TypeNat() d.TyNat {
 	return c.Head().TypeNat()
 }
-func (c CollectionFnc) String() string {
+func (c Collection) String() string {
 	return c.Head().String()
 }
 
-func MapC(cons Consumeable, fmap Map) CollectionFnc {
-	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
-		// decapitate list to get head and list continuation
+func MapC(cons Consumeable, fmap Map) Collection {
+	return Collection(func(args ...Callable) (Callable, Collection) {
 		var head Callable
 		head, cons = cons.Consume()
-		if head == nil { // return empty head
+		if head == nil {
 			return nil, NewFunctor(cons)
 		}
-		// return result of applying arguments to fmap and the
-		// list continuation
 		if len(args) > 0 {
 			return fmap(head.Call(args...)),
 				MapC(cons, fmap)
@@ -135,14 +132,11 @@ func MapC(cons Consumeable, fmap Map) CollectionFnc {
 
 func MapL(list ListVal, mapf Map) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
-		// decapitate list to get head and list continuation
 		var head Callable
 		head, list = list()
-		if head == nil { // return empty head
+		if head == nil {
 			return nil, list
 		}
-		// return result of applying arguments to fmap and the
-		// list continuation
 		if len(args) > 0 {
 			return mapf(head.Call(args...)), MapL(list, mapf)
 		}
@@ -150,15 +144,12 @@ func MapL(list ListVal, mapf Map) ListVal {
 	})
 }
 
-func MapF(fnc CollectionFnc, fmap Map) CollectionFnc {
-	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
-		// decapitate list to get head and list continuation
+func MapF(fnc Collection, fmap Map) Collection {
+	return Collection(func(args ...Callable) (Callable, Collection) {
 		var head, tail = fnc()
-		if head == nil { // return empty head
+		if head == nil {
 			return nil, tail
 		}
-		// return result of applying arguments to fmap and the
-		// list continuation
 		if len(args) > 0 {
 			return fmap(head.Call(args...)),
 				MapF(tail, fmap)
@@ -168,8 +159,8 @@ func MapF(fnc CollectionFnc, fmap Map) CollectionFnc {
 	})
 }
 
-func MapP(pairs ConsumeablePairs, pmap MapPaired) PairedCollFnc {
-	return PairedCollFnc(func(args ...Callable) (Callable, PairedCollFnc) {
+func MapP(pairs ConsumeablePairs, pmap MapPaired) PairCollection {
+	return PairCollection(func(args ...Callable) (Callable, PairCollection) {
 		// decapitate list to get head and list continuation
 		var pair Paired
 		pair, pairs = pairs.ConsumePair()
@@ -202,8 +193,8 @@ func FoldL(list ListVal, elem Callable, fold Fold) ListVal {
 	})
 }
 
-func FoldF(cons Consumeable, elem Callable, fold Fold) CollectionFnc {
-	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
+func FoldF(cons Consumeable, elem Callable, fold Fold) Collection {
+	return Collection(func(args ...Callable) (Callable, Collection) {
 		var head Callable
 		head, cons = cons.Consume()
 		if head == nil {
@@ -218,8 +209,8 @@ func FoldF(cons Consumeable, elem Callable, fold Fold) CollectionFnc {
 	})
 }
 
-func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairedCollFnc {
-	return PairedCollFnc(func(args ...Callable) (Callable, PairedCollFnc) {
+func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairCollection {
+	return PairCollection(func(args ...Callable) (Callable, PairCollection) {
 		var pair Paired
 		pair, pairs = pairs.ConsumePair()
 		if pair == nil {
@@ -251,9 +242,9 @@ func FilterL(list ListVal, filter Filter) ListVal {
 		})
 }
 
-func FilterF(cons Consumeable, filter Filter) CollectionFnc {
-	return CollectionFnc(
-		func(args ...Callable) (Callable, CollectionFnc) {
+func FilterF(cons Consumeable, filter Filter) Collection {
+	return Collection(
+		func(args ...Callable) (Callable, Collection) {
 			var head, tail = cons.Consume()
 			if head == nil {
 				return nil, FilterF(cons, filter)
@@ -265,9 +256,9 @@ func FilterF(cons Consumeable, filter Filter) CollectionFnc {
 		})
 }
 
-func FilterP(pairs ConsumeablePairs, filter Filter) PairedCollFnc {
-	return PairedCollFnc(
-		func(args ...Callable) (Callable, PairedCollFnc) {
+func FilterP(pairs ConsumeablePairs, filter Filter) PairCollection {
+	return PairCollection(
+		func(args ...Callable) (Callable, PairCollection) {
 			var pair Paired
 			pair, pairs = pairs.ConsumePair()
 			if pair == nil {
@@ -295,9 +286,9 @@ func ZipL(llist, rlist ListVal, zip Zip) ListVal {
 		})
 }
 
-func ZipF(lcons, rcons Consumeable, zip Zip) CollectionFnc {
-	return CollectionFnc(
-		func(args ...Callable) (Callable, CollectionFnc) {
+func ZipF(lcons, rcons Consumeable, zip Zip) Collection {
+	return Collection(
+		func(args ...Callable) (Callable, Collection) {
 			var lhead, ltail = lcons.Consume()
 			var rhead, rtail = rcons.Consume()
 			if lhead == nil || rhead == nil {
