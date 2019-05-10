@@ -6,16 +6,17 @@ import (
 
 // type system implementation
 type (
-	Curry        func(Callable, ...Callable) Callable
-	Apply        func(NaryExpr, ...Callable) Callable
-	Map          func(...Callable) Callable
+	Curry  func(Callable, ...Callable) Callable
+	Apply  func(NaryExpr, ...Callable) Callable
+	Map    func(...Callable) Callable
+	Fold   func(Callable, Callable, ...Callable) Callable
+	Filter func(Callable, ...Callable) bool
+	Zip    func(l, r Callable) Paired
+	Split  func(Callable, ...Callable) Paired
+
 	MapPaired    func(...Callable) Paired
-	Fold         func(Callable, Callable, ...Callable) Callable
 	FoldPaired   func(Paired, Paired, ...Callable) Paired
-	Filter       func(Callable, ...Callable) bool
 	FilterPaired func(Paired, ...Callable) bool
-	Zip          func(l, r Callable) Paired
-	Split        func(Callable, ...Callable) Paired
 
 	Collection     func(...Callable) (Callable, Collection)
 	PairCollection func(...Callable) (Callable, PairCollection)

@@ -10,25 +10,36 @@ import (
 )
 
 type (
-	//// NONE
-	NoneVal   func()
-	JustVal   func() Callable
-	MaybeVal  func() Callable
-	MaybeCons func(Callable) MaybeVal
-	CaseExpr  func(Callable) (Callable, bool)
+	//// MAYBE | JUST | NONE
+	NoneVal       func()
+	JustVal       func() Callable
+	MaybeVal      func() Callable
+	MaybeTypeCons func(Callable) MaybeVal
 
-	//// DATA
-	NativeVal func(args ...interface{}) d.Native
-	DataVal   func(args ...d.Native) d.Native
+	//// PREDICATE | CASE | CASE-SWITCH
+	PrediExpr      func(Callable) bool
+	CaseExpr       func(Callable) (Callable, bool)
+	CaseSwitchExpr func(...Callable) (Callable, bool, Consumeable)
 
-	//// EXPRESSION
+	//// DATA VALUE
+	DataVal func(args ...d.Native) d.Native
+
+	//// STATIC EXPRESSIONS
 	ConstantExpr func() Callable
 	UnaryExpr    func(Callable) Callable
 	BinaryExpr   func(a, b Callable) Callable
 	NaryExpr     func(...Callable) Callable
 )
 
-// reverse arguments
+//// HELPER FUNCTIONS TO HANDLE ARGUMENTS
+///
+// since every callable also needs to implement the eval interface and data as
+// such allways boils down to native values, conversion between callable-/ &
+// native arguments is frequently needed. arguments may also need to be
+// reversed when intendet to be passed to certain recursive expressions, or
+// returned by those
+//
+/// REVERSE ARGUMENTS
 func RevArgs(args ...Callable) []Callable {
 	var rev = []Callable{}
 	for i := len(args) - 1; i > 0; i-- {
@@ -37,7 +48,7 @@ func RevArgs(args ...Callable) []Callable {
 	return rev
 }
 
-// convert native to functional values
+/// CONVERT NATIVE TO FUNCTIONAL
 func NatToFnc(args ...d.Native) []Callable {
 	var result = []Callable{}
 	for _, arg := range args {
@@ -46,7 +57,7 @@ func NatToFnc(args ...d.Native) []Callable {
 	return result
 }
 
-// convert functional to native values
+/// CONVERT FUNCTIONAL TO NATIVE
 func FncToNat(args ...Callable) []d.Native {
 	var result = []d.Native{}
 	for _, arg := range args {
@@ -55,9 +66,11 @@ func FncToNat(args ...Callable) []d.Native {
 	return result
 }
 
+/// GROUP ARGUMENTS PAIRWISE
+//
 // assumes the arguments to either implement paired, or be alternating pairs of
-// keys & values. in case the number of passed arguments that are not pairs is
-// uneven, last field will be filled with a value of type none
+// key & value. in case the number of passed arguments that are not pairs is
+// uneven, last field will be filled up with a value of type none
 func ArgsToPaired(args ...Callable) []Paired {
 	var pairs = []Paired{}
 	var alen = len(args)
@@ -89,6 +102,24 @@ func (n NoneVal) TypeName() string                 { return n.String() }
 func (n NoneVal) Head() Callable                   { return NewNone() }
 func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
+
+//// PREDICATE
+func NewPredicate(pred PrediExpr) PrediExpr { return pred }
+func (p PrediExpr) String() string          { return "Predicate" }
+func (p PrediExpr) TypeNat() d.TyNat        { return d.Expression }
+func (p PrediExpr) TypeFnc() TyFnc          { return Predicate }
+func (p PrediExpr) Eval(args ...d.Native) d.Native {
+	if len(args) > 0 {
+		return p.Call(NewFromData(args[0]))
+	}
+	return d.NilVal{}
+}
+func (p PrediExpr) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return p.Call(args[0])
+	}
+	return NewNone()
+}
 
 //// JUST VALUE
 func NewJust(arg Callable) JustVal {
@@ -130,7 +161,7 @@ func (n JustVal) TypeName() string {
 }
 
 //// MAYBE VALUE
-func NewMaybeVal(expr func() Callable) MaybeVal     { return expr }
+func NewMaybeVal(con ConstantExpr) MaybeVal         { return MaybeVal(con) }
 func (m MaybeVal) String() string                   { return "Maybe " + m().String() }
 func (m MaybeVal) TypeFnc() TyFnc                   { return Maybe }
 func (m MaybeVal) TypeNat() d.TyNat                 { return d.Expression }
@@ -148,18 +179,19 @@ func (m MaybeVal) Eval(args ...d.Native) d.Native {
 }
 
 //// MAYBE CONSTRUCTOR
-func NewMaybeConstructor(test CaseExpr) MaybeCons {
-	return MaybeCons(func(value Callable) MaybeVal {
-		if val, ok := test(value); ok {
-			return MaybeVal(func() Callable { return NewJust(val) })
-		}
-		return MaybeVal(func() Callable { return NewNone() })
-	})
+func NewMaybeConstructor(pred PrediExpr) MaybeTypeCons {
+	return MaybeTypeCons(
+		func(arg Callable) MaybeVal {
+			if pred(arg) {
+				return MaybeVal(NewConstant(NewJust(arg)))
+			}
+			return MaybeVal(func() Callable { return NewNone() })
+		})
 }
-func (c MaybeCons) String() string   { return "Maybe" }
-func (c MaybeCons) TypeFnc() TyFnc   { return Maybe }
-func (c MaybeCons) TypeNat() d.TyNat { return d.Expression }
-func (c MaybeCons) Call(args ...Callable) Callable {
+func (c MaybeTypeCons) String() string   { return "Maybe" }
+func (c MaybeTypeCons) TypeFnc() TyFnc   { return Maybe }
+func (c MaybeTypeCons) TypeNat() d.TyNat { return d.Expression }
+func (c MaybeTypeCons) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return c(args[0])
 	}
@@ -167,8 +199,13 @@ func (c MaybeCons) Call(args ...Callable) Callable {
 }
 
 //// CASE EXPRESSION
-func NewCaseExpr(expr func(arg Callable) (Callable, bool)) CaseExpr {
-	return CaseExpr(expr)
+func NewCaseExpr(expr Callable, pred PrediExpr) CaseExpr {
+	return func(arg Callable) (Callable, bool) {
+		if pred(arg) {
+			return arg, true
+		}
+		return NewNone(), false
+	}
 }
 func (c CaseExpr) Ident() Callable  { return c }
 func (c CaseExpr) String() string   { return "Case" }
@@ -204,15 +241,71 @@ func (c CaseExpr) Eval(args ...d.Native) d.Native {
 	return d.NilVal{}
 }
 
-//// STATIC EXPRESSIONS
+//// CASE SWITCH
+// takes first argument to apply to case. if first argument is the only
+// passed argument, it will be reused and applyed to all cases until
+// one matches, or cases are depleted. if multiple arguments are
+// passed, each argument applyed once, getd dropped when failing to
+// yield a value when applyed to case & the next case will be evaluated
+// against the next of the passed arguments.
+func NewCaseSwitch(cases ...CaseExpr) CaseSwitchExpr {
+	// vectorive cases to be consumeable
+	var cas CaseExpr
+	var vec VecVal
+	if len(cases) > 0 {
+		cas = cases[0]
+		if len(cases) > 1 {
+			cases = cases[1:]
+		}
+		var args []Callable
+		for _, arg := range cases {
+			args = append(args, arg)
+		}
+		vec = NewVector(args...)
+	}
+
+	// case switch encloses and consumes passed cases & applys them
+	// recursively to the passed argument(s) to return the resulting value,
+	// boolean indicator and a consumeable containing the remaining cases.
+	return func(args ...Callable) (Callable, bool, Consumeable) {
+		if len(args) > 0 {
+			var val, ok = cas(args[0])
+			if len(args) > 1 {
+				args = args[1:]
+			}
+			return val, ok, vec
+		}
+		return NewNone(), false, NewList()
+	}
+}
+func (s CaseSwitchExpr) String() string   { return "CaseSwitch" }
+func (s CaseSwitchExpr) TypeFnc() TyFnc   { return CaseSwitch }
+func (s CaseSwitchExpr) TypeNat() d.TyNat { return d.Expression }
+func (s CaseSwitchExpr) Call(args ...Callable) Callable {
+	var val, ok, _ = s(args...)
+	if ok {
+		return val
+	}
+	return NewNone()
+}
+func (s CaseSwitchExpr) Eval(args ...d.Native) d.Native {
+	var val, ok, _ = s(NatToFnc(args...)...)
+	if ok {
+		return val.Eval()
+	}
+	return d.NilVal{}
+}
+
+//// STATIC FUNCTION EXPRESSIONS OF PREDETERMINED ARITY
 ///
-// generic functional enclosures to functionalize every function that happens
-// to implement the correct signature
-// CONSTANT EXPRESSION
+// used to guard expression arity, or whenever a type is needed to have a non
+// variadic argument signature.
+//
+/// CONSTANT EXPRESSION
 func NewConstant(
-	fnc func() Callable,
+	expr Callable,
 ) ConstantExpr {
-	return fnc
+	return func() Callable { return expr }
 }
 func (c ConstantExpr) Ident() Callable           { return c() }
 func (c ConstantExpr) TypeFnc() TyFnc            { return Expression }
@@ -222,9 +315,9 @@ func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
 
 /// UNARY EXPRESSION
 func NewUnaryExpr(
-	fnc func(Callable) Callable,
+	expr Callable,
 ) UnaryExpr {
-	return fnc
+	return func(arg Callable) Callable { return expr.Call(arg) }
 }
 func (u UnaryExpr) Ident() Callable               { return u }
 func (u UnaryExpr) TypeFnc() TyFnc                { return Expression }
@@ -234,9 +327,9 @@ func (u UnaryExpr) Eval(arg ...d.Native) d.Native { return u(NewFromData(arg...)
 
 /// BINARY EXPRESSION
 func NewBinaryExpr(
-	fnc func(l, r Callable) Callable,
+	expr Callable,
 ) BinaryExpr {
-	return fnc
+	return func(a, b Callable) Callable { return expr.Call(a, b) }
 }
 
 func (b BinaryExpr) Ident() Callable                { return b }
@@ -249,9 +342,11 @@ func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 
 /// NARY EXPRESSION
 func NewNaryExpr(
-	fnc func(...Callable) Callable,
+	expr Callable,
 ) NaryExpr {
-	return fnc
+	return func(args ...Callable) Callable {
+		return expr.Call(args...)
+	}
 }
 func (n NaryExpr) Ident() Callable             { return n }
 func (n NaryExpr) TypeFnc() TyFnc              { return Expression }
@@ -265,40 +360,13 @@ func (n NaryExpr) Eval(args ...d.Native) d.Native {
 	return n(params...)
 }
 
-//// DATA
+//// DATA VALUE
 ///
-// native val encloses golang literal values to implement the callable
-// interface
-func NewLiteral(init ...interface{}) NativeVal {
-	return func(args ...interface{}) d.Native {
-		var natives = []d.Native{}
-		if len(args) > 0 {
-			for _, arg := range args {
-				natives = append(natives, d.New(arg))
-			}
-			return NewLiteral(init...).Eval(natives...)
-		}
-		if len(init) > 0 {
-			if len(init) > 1 {
-				return d.New(init...)
-			}
-			return d.New(init[0])
-		}
-		return d.NilVal{}
-	}
-}
-func (n NativeVal) String() string   { return n().String() }
-func (n NativeVal) TypeNat() d.TyNat { return n().TypeNat() }
-func (n NativeVal) TypeFnc() TyFnc   { return Native }
-func (n NativeVal) Call(args ...Callable) Callable {
-	return NewFromData(n()).Call(args...)
-}
-func (n NativeVal) Eval(args ...d.Native) d.Native {
-	return n().Eval(args...)
-}
-
-// data value is a callable implementation of an enclosure for values
-// implementing data/Native
+// data value implements the callable interface but returns an instance of
+// data/Value. the eval method of every native can be passed as argument
+// instead of the value itself, as in 'DataVal(native.Eval)', to delay, or even
+// possibly ommit evaluation of the underlying data value for cases where
+// lazynes is paramount.
 func New(inf ...interface{}) Callable { return NewFromData(d.New(inf...)) }
 
 func NewDataVal() DataVal {

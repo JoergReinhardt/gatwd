@@ -41,6 +41,7 @@ const (
 	Monad
 	/// MONADIC SUB TYPES
 	Undecided
+	Predicate
 	False
 	True
 	Equal

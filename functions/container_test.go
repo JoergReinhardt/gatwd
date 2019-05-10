@@ -19,14 +19,12 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var maybeInt = NewMaybeConstructor(
-	NewCaseExpr(
-		func(arg Callable) (Callable, bool) {
-			if arg.TypeNat().Match(d.Numbers) {
-				return NewFromData(arg.Eval().(d.Numeral)), true
-			}
-			return NewNone(), false
-		}))
+var maybeInt = NewMaybeConstructor(NewPredicate(func(arg Callable) bool {
+	if arg != nil {
+		return arg.TypeNat().Match(d.Numbers)
+	}
+	return false
+}))
 
 var add = func(l, r d.Native) JustVal {
 	var left, right d.Numeral
@@ -96,5 +94,6 @@ func TestMapMaybe(t *testing.T) {
 		}))
 
 	_, _ = mappedR()
+
 	fmt.Printf("operator added maybe integers: %s\n", added)
 }
