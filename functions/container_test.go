@@ -19,12 +19,12 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var maybeInt = NewMaybeConstructor(NewPredicate(func(arg Callable) bool {
-	if arg != nil {
-		return arg.TypeNat().Match(d.Numbers)
+var maybeInt = NewMaybeTypeConstructor(NewPredicate(func(args ...Callable) bool {
+	if args[0] != nil {
+		return args[0].TypeNat().Match(d.Numbers)
 	}
 	return false
-}))
+}), DataVal(d.Numbers.Eval), Numbers, NewFromData(d.StrVal("Test Type")))
 
 var add = func(l, r d.Native) JustVal {
 	var left, right d.Numeral

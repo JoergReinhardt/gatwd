@@ -14,11 +14,11 @@ type (
 	NoneVal       func()
 	JustVal       func() Callable
 	MaybeVal      func() Callable
-	MaybeTypeCons func(Callable) MaybeVal
+	MaybeTypeCons func(...Callable) MaybeVal
 
 	//// PREDICATE | CASE | CASE-SWITCH
-	PrediExpr      func(Callable) bool
-	CaseExpr       func(Callable) (Callable, bool)
+	PrediExpr      func(...Callable) bool
+	CaseExpr       func(...Callable) (Callable, bool)
 	CaseSwitchExpr func(...Callable) (Callable, bool, Consumeable)
 
 	//// DATA VALUE
@@ -104,10 +104,10 @@ func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
 
 //// PREDICATE
-func NewPredicate(pred PrediExpr) PrediExpr { return pred }
-func (p PrediExpr) String() string          { return "Predicate" }
-func (p PrediExpr) TypeNat() d.TyNat        { return d.Expression }
-func (p PrediExpr) TypeFnc() TyFnc          { return Predicate }
+func NewPredicate(pred func(...Callable) bool) PrediExpr { return pred }
+func (p PrediExpr) String() string                       { return "Predicate" }
+func (p PrediExpr) TypeNat() d.TyNat                     { return d.Expression }
+func (p PrediExpr) TypeFnc() TyFnc                       { return Predicate }
 func (p PrediExpr) Eval(args ...d.Native) d.Native {
 	if len(args) > 0 {
 		return p.Call(NewFromData(args[0]))
@@ -178,17 +178,37 @@ func (m MaybeVal) Eval(args ...d.Native) d.Native {
 	return m().Eval(args...)
 }
 
-//// MAYBE CONSTRUCTOR
-func NewMaybeConstructor(pred PrediExpr) MaybeTypeCons {
-	return MaybeTypeCons(
-		func(arg Callable) MaybeVal {
-			if pred(arg) {
-				return MaybeVal(NewConstant(NewJust(arg)))
+//// MAYBE TYPE CONSTRUCTOR
+///
+// new maybe-type constructor returns a constructor of values of a distinct
+// maybe type, as defined by the predicate passed to it and thereby effectively
+// declares a new higher order type at runtime.
+//
+// apart from the predicate, a type signature can be passed, to be returned by
+// the defined maybe data constructor, when called without arguments, to be
+// returned by typeFnc, typeNat, string‥.
+func NewMaybeTypeConstructor(pred PrediExpr, signature ...Callable) MaybeTypeCons {
+	var cons MaybeTypeCons
+	cons = MaybeTypeCons(
+		func(args ...Callable) MaybeVal {
+			if len(args) > 0 {
+				var arg = args[0]
+				if pred(arg) {
+					return MaybeVal(NewConstant(NewJust(arg)))
+				}
+				if len(args) > 1 {
+					return cons(args[1:]...)
+				}
+				return MaybeVal(func() Callable { return NewNone() })
 			}
-			return MaybeVal(func() Callable { return NewNone() })
+			return MaybeVal(func() Callable { return NewVector(signature...) })
 		})
+	return cons
 }
-func (c MaybeTypeCons) String() string   { return "Maybe" }
+func (c MaybeTypeCons) String() string {
+	var sig = c()
+	return "Maybe" + sig.Head().String()
+}
 func (c MaybeTypeCons) TypeFnc() TyFnc   { return Maybe }
 func (c MaybeTypeCons) TypeNat() d.TyNat { return d.Expression }
 func (c MaybeTypeCons) Call(args ...Callable) Callable {
@@ -199,10 +219,23 @@ func (c MaybeTypeCons) Call(args ...Callable) Callable {
 }
 
 //// CASE EXPRESSION
+///
+// case evaluates first argument by applying it to the predicate and either
+// returns the argument, if predicate yields true, a none instance and false if
+// it's not. if more than one argument is given, additional arguments will be
+// evaluated recursively.
 func NewCaseExpr(expr Callable, pred PrediExpr) CaseExpr {
-	return func(arg Callable) (Callable, bool) {
-		if pred(arg) {
-			return arg, true
+	return func(args ...Callable) (Callable, bool) {
+		var arg Callable
+		if len(args) > 0 {
+			arg = args[0]
+			if pred(arg) {
+				return arg, true
+			}
+			if len(args) > 1 {
+				args = args[1:]
+				return NewCaseExpr(expr, pred)(args...)
+			}
 		}
 		return NewNone(), false
 	}
@@ -242,13 +275,11 @@ func (c CaseExpr) Eval(args ...d.Native) d.Native {
 }
 
 //// CASE SWITCH
-// takes first argument to apply to case. if first argument is the only
-// passed argument, it will be reused and applyed to all cases until
-// one matches, or cases are depleted. if multiple arguments are
-// passed, each argument applyed once, getd dropped when failing to
-// yield a value when applyed to case & the next case will be evaluated
-// against the next of the passed arguments.
+// takes first argument to apply to case. if first argument is the only passed
+// argument, it will be reused and applyed to all cases until one matches, or
+// cases are depleted.
 func NewCaseSwitch(cases ...CaseExpr) CaseSwitchExpr {
+
 	// vectorive cases to be consumeable
 	var cas CaseExpr
 	var vec VecVal
@@ -266,14 +297,14 @@ func NewCaseSwitch(cases ...CaseExpr) CaseSwitchExpr {
 
 	// case switch encloses and consumes passed cases & applys them
 	// recursively to the passed argument(s) to return the resulting value,
-	// boolean indicator and a consumeable containing the remaining cases.
+	// or argument, depending on the boolean indicator and a consumeable
+	// containing the remaining cases.
 	return func(args ...Callable) (Callable, bool, Consumeable) {
 		if len(args) > 0 {
-			var val, ok = cas(args[0])
-			if len(args) > 1 {
-				args = args[1:]
+			var val, ok = cas(args...)
+			if ok {
+				return val, ok, vec
 			}
-			return val, ok, vec
 		}
 		return NewNone(), false, NewList()
 	}
