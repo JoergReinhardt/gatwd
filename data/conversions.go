@@ -136,6 +136,12 @@ func (v RatioVal) Left() Native           { return IntVal(v.Numerator()) }
 func (v RatioVal) Right() Native          { return IntVal(v.Denominator()) }
 
 // IMAGINARY VALUE
+func (v ImagVal) Bool() bool {
+	if real(v) > 0 {
+		return true
+	}
+	return false
+}
 func (v ImagVal) Unit() Native                  { return ImagVal(complex(0, 0)) }
 func (v ImagVal) Uint() uint                    { return uint(real(v)) }
 func (v ImagVal) Int() int                      { return int(real(v)) }

@@ -6,51 +6,19 @@ import (
 
 // type system implementation
 type (
-	/// CURRY FUNCTION
-	Curry func(Callable, ...Callable) Callable
-
-	/// APPLY FUNCTION
-	Apply func(NaryExpr, ...Callable) Callable
-
-	/// MAP FUNCTION
-	Map       func(...Callable) Callable
-	MapPaired func(...Paired) Paired
-
-	/// FOLD FUNCTION
-	Fold func(Callable, Callable, ...Callable) Callable
-
-	/// FILTER FUNCTION
+	Curry        func(Callable, ...Callable) Callable
+	Apply        func(NaryExpr, ...Callable) Callable
+	Map          func(...Callable) Callable
+	MapPaired    func(...Callable) Paired
+	Fold         func(Callable, Callable, ...Callable) Callable
+	FoldPaired   func(Paired, Paired, ...Callable) Paired
 	Filter       func(Callable, ...Callable) bool
-	FilterPaired func(Paired, ...Paired) bool
+	FilterPaired func(Paired, ...Callable) bool
+	Zip          func(l, r Callable) Paired
+	Split        func(Callable, ...Callable) Paired
 
-	/// ZIP FUNCTION
-	Zip func(l, r Callable) Paired
-
-	/// SPLIT FUNCTION
-	Split func(Callable, ...Callable) Paired
-
-	/// BIND
-	// bind operator (>>=) binds the return value of one monad to be the
-	// argument of another
-	Bind func(f, g Callable) MonadicVal
-
-	/// FUNCTORS
-	// all functors can be applyed to map & fold by implementing the
-	// consumeable interface. that renders all consumeables to be functors
-	FunctorVal func(...Callable) (Callable, FunctorVal)
-
-	/// APPLICAPLE
-	// applicables enclose a functor value and an apply function that is
-	// called and passed the functor and optional arguments to, whenever
-	// the applicable value is evalueated, or called
-	ApplicableVal func(...Callable) (Callable, ApplicableVal)
-
-	/// MONADIC
-	// monadic values provide mappings between two or more functor types by
-	// taking functors as arguments and returning a functor value as result
-	// and a new instance of the monadic value type to compute the next
-	// result from.
-	MonadicVal func(...Callable) (Callable, MonadicVal)
+	CollectionFnc func(...Callable) (Callable, CollectionFnc)
+	PairedCollFnc func(...Callable) (Callable, PairedCollFnc)
 )
 
 //// CURRY
@@ -85,13 +53,13 @@ func RecCurry(args ...Callable) Callable {
 // passed arguments for each consequtive call. the wrapping is ommited, should
 // the passed expression implement the consumeable interface already and the
 // expression will be type asserted and returned instead.
-func NewFunctor(expr Callable) FunctorVal {
+func NewFunctor(expr Callable) CollectionFnc {
 	if expr.TypeFnc().Match(Consumeables) {
-		return func(args ...Callable) (Callable, FunctorVal) {
-			return expr.Call(args...), expr.(FunctorVal)
+		return func(args ...Callable) (Callable, CollectionFnc) {
+			return expr.Call(args...), NewFunctor(expr)
 		}
 	}
-	return func(args ...Callable) (Callable, FunctorVal) {
+	return func(args ...Callable) (Callable, CollectionFnc) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				return expr.Call(args...), NewFunctor(expr)
@@ -102,7 +70,7 @@ func NewFunctor(expr Callable) FunctorVal {
 	}
 }
 
-func (c FunctorVal) Call(args ...Callable) Callable {
+func (c CollectionFnc) Call(args ...Callable) Callable {
 	var head, _ = c()
 	if len(args) > 0 {
 		if len(args) > 1 {
@@ -112,7 +80,7 @@ func (c FunctorVal) Call(args ...Callable) Callable {
 	}
 	return head
 }
-func (c FunctorVal) Eval(args ...d.Native) d.Native {
+func (c CollectionFnc) Eval(args ...d.Native) d.Native {
 	var head, _ = c()
 	if len(args) > 0 {
 		if len(args) > 1 {
@@ -122,63 +90,100 @@ func (c FunctorVal) Eval(args ...d.Native) d.Native {
 	}
 	return head.Eval()
 }
-func (c FunctorVal) Ident() Callable                  { return c }
-func (c FunctorVal) Consume() (Callable, Consumeable) { return c.Head(), c.Tail() }
-func (c FunctorVal) Head() Callable                   { h, _ := c(); return h }
-func (c FunctorVal) Tail() Consumeable                { _, t := c(); return t }
-func (c FunctorVal) TypeFnc() TyFnc                   { return Functor | c.Head().TypeFnc() }
-func (c FunctorVal) TypeNat() d.TyNat                 { return c.Head().TypeNat() }
-func (c FunctorVal) String() string                   { return c.Head().String() }
+func (c CollectionFnc) Ident() Callable {
+	return c
+}
+func (c CollectionFnc) Consume() (Callable, Consumeable) {
+	return c.Head(), c.Tail()
+}
+func (c CollectionFnc) Head() Callable {
+	h, _ := c()
+	return h
+}
+func (c CollectionFnc) Tail() Consumeable {
+	_, t := c()
+	return t
+}
+func (c CollectionFnc) TypeFnc() TyFnc {
+	return Functor | c.Head().TypeFnc()
+}
+func (c CollectionFnc) TypeNat() d.TyNat {
+	return c.Head().TypeNat()
+}
+func (c CollectionFnc) String() string {
+	return c.Head().String()
+}
 
-func MapC(cons Consumeable, fmap Map) FunctorVal {
-	return FunctorVal(func(args ...Callable) (Callable, FunctorVal) {
+func MapC(cons Consumeable, fmap Map) CollectionFnc {
+	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
 		// decapitate list to get head and list continuation
-		var head, tail = cons.Consume()
+		var head Callable
+		head, cons = cons.Consume()
 		if head == nil { // return empty head
 			return nil, NewFunctor(cons)
 		}
 		// return result of applying arguments to fmap and the
 		// list continuation
 		if len(args) > 0 {
-			return fmap(head).Call(args...),
-				MapC(tail, fmap)
+			return fmap(head.Call(args...)),
+				MapC(cons, fmap)
 		}
 		return fmap(head),
-			MapC(tail, fmap)
+			MapC(cons, fmap)
 	})
 }
 
 func MapL(list ListVal, mapf Map) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		// decapitate list to get head and list continuation
-		var head, tail = list()
+		var head Callable
+		head, list = list()
 		if head == nil { // return empty head
 			return nil, list
 		}
 		// return result of applying arguments to fmap and the
 		// list continuation
 		if len(args) > 0 {
-			return mapf(head).Call(args...), MapL(tail, mapf)
+			return mapf(head.Call(args...)), MapL(list, mapf)
 		}
-		return mapf(head), MapL(tail, mapf)
+		return mapf(head), MapL(list, mapf)
 	})
 }
 
-func MapF(fnc FunctorVal, fmap Map) FunctorVal {
-	return FunctorVal(func(args ...Callable) (Callable, FunctorVal) {
+func MapF(fnc CollectionFnc, fmap Map) CollectionFnc {
+	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
 		// decapitate list to get head and list continuation
-		var head, fnc = fnc()
+		var head, tail = fnc()
 		if head == nil { // return empty head
-			return nil, fnc
+			return nil, tail
 		}
 		// return result of applying arguments to fmap and the
 		// list continuation
 		if len(args) > 0 {
-			return fmap(head).Call(args...),
-				MapF(fnc, fmap)
+			return fmap(head.Call(args...)),
+				MapF(tail, fmap)
 		}
 		return fmap(head),
-			MapF(fnc, fmap)
+			MapF(tail, fmap)
+	})
+}
+
+func MapP(pairs ConsumeablePairs, pmap MapPaired) PairedCollFnc {
+	return PairedCollFnc(func(args ...Callable) (Callable, PairedCollFnc) {
+		// decapitate list to get head and list continuation
+		var pair Paired
+		pair, pairs = pairs.ConsumePair()
+		if pair == nil { // return empty head
+			return nil, MapP(pairs, pmap)
+		}
+		// return result of applying arguments to fmap and the
+		// list continuation
+		if len(args) > 0 {
+			return pmap(pair.Call(args...)),
+				MapP(pairs, pmap)
+		}
+		return pmap(pair),
+			MapP(pairs, pmap)
 	})
 }
 
@@ -197,12 +202,12 @@ func FoldL(list ListVal, elem Callable, fold Fold) ListVal {
 	})
 }
 
-func FoldF(cons Consumeable, elem Callable, fold Fold) FunctorVal {
-	return FunctorVal(func(args ...Callable) (Callable, FunctorVal) {
+func FoldF(cons Consumeable, elem Callable, fold Fold) CollectionFnc {
+	return CollectionFnc(func(args ...Callable) (Callable, CollectionFnc) {
 		var head Callable
 		head, cons = cons.Consume()
 		if head == nil {
-			return nil, NewFunctor(cons)
+			return nil, FoldF(cons, elem, fold)
 		}
 		if len(args) > 0 {
 			elem = fold(elem, head, args...)
@@ -210,6 +215,22 @@ func FoldF(cons Consumeable, elem Callable, fold Fold) FunctorVal {
 		}
 		elem = fold(elem, head)
 		return elem, FoldF(cons, elem, fold)
+	})
+}
+
+func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairedCollFnc {
+	return PairedCollFnc(func(args ...Callable) (Callable, PairedCollFnc) {
+		var pair Paired
+		pair, pairs = pairs.ConsumePair()
+		if pair == nil {
+			return nil, FoldP(pairs, elem, fold)
+		}
+		if len(args) > 0 {
+			elem = fold(elem, pair, args...)
+			return elem, FoldP(pairs, elem, fold)
+		}
+		elem = fold(elem, pair)
+		return elem, FoldP(pairs, elem, fold)
 	})
 }
 
@@ -230,17 +251,32 @@ func FilterL(list ListVal, filter Filter) ListVal {
 		})
 }
 
-func FilterF(cons Consumeable, filter Filter) FunctorVal {
-	return FunctorVal(
-		func(args ...Callable) (Callable, FunctorVal) {
+func FilterF(cons Consumeable, filter Filter) CollectionFnc {
+	return CollectionFnc(
+		func(args ...Callable) (Callable, CollectionFnc) {
 			var head, tail = cons.Consume()
 			if head == nil {
-				return nil, NewFunctor(cons)
+				return nil, FilterF(cons, filter)
 			}
 			if !filter(head, args...) {
 				return FilterF(tail, filter)(args...)
 			}
 			return head, FilterF(tail, filter)
+		})
+}
+
+func FilterP(pairs ConsumeablePairs, filter Filter) PairedCollFnc {
+	return PairedCollFnc(
+		func(args ...Callable) (Callable, PairedCollFnc) {
+			var pair Paired
+			pair, pairs = pairs.ConsumePair()
+			if pair == nil {
+				return nil, FilterP(pairs, filter)
+			}
+			if !filter(pair, args...) {
+				return FilterP(pairs, filter)(args...)
+			}
+			return pair, FilterP(pairs, filter)
 		})
 }
 
@@ -259,9 +295,9 @@ func ZipL(llist, rlist ListVal, zip Zip) ListVal {
 		})
 }
 
-func ZipF(lcons, rcons Consumeable, zip Zip) FunctorVal {
-	return FunctorVal(
-		func(args ...Callable) (Callable, FunctorVal) {
+func ZipF(lcons, rcons Consumeable, zip Zip) CollectionFnc {
+	return CollectionFnc(
+		func(args ...Callable) (Callable, CollectionFnc) {
 			var lhead, ltail = lcons.Consume()
 			var rhead, rtail = rcons.Consume()
 			if lhead == nil || rhead == nil {
@@ -276,206 +312,3 @@ func ZipF(lcons, rcons Consumeable, zip Zip) FunctorVal {
 				ZipF(ltail, rtail, zip)
 		})
 }
-
-// APPLY FUNCTION
-
-// APPLICATIVE
-// appliccable encloses over a consumeable-/ and an apply expression. whenn
-// called, expression and optional arguments are passed to the apply function
-// and the yielded result will be returned
-func NewApply(arg Callable) Apply {
-	return Apply(func(expr NaryExpr, args ...Callable) Callable {
-		if len(args) > 0 {
-			return arg.Call(args...)
-		}
-		return arg
-	})
-}
-
-func NewApplicable(cons Consumeable, apply Apply) ApplicableVal {
-	return func(args ...Callable) (Callable, ApplicableVal) {
-		var head, tail = cons.Consume()
-		if head == nil {
-			return nil, NewApplicable(tail, apply)
-		}
-		if len(args) > 0 {
-			if len(args) > 1 {
-				return apply(head.Call, args...),
-					NewApplicable(tail, apply)
-			}
-			return apply(head.Call, args[0]),
-				NewApplicable(tail, apply)
-		}
-		return apply(head.Call),
-			NewApplicable(tail, apply)
-
-	}
-}
-
-func (c ApplicableVal) Call(args ...Callable) Callable {
-	var head Callable
-	if len(args) > 0 {
-		if len(args) > 1 {
-			head, _ = c(args...)
-			return head
-		}
-		head, _ = c(args[0])
-		return head
-	}
-	head, _ = c()
-	return head
-}
-func (c ApplicableVal) Eval(args ...d.Native) d.Native {
-	var head, _ = c()
-	if len(args) > 0 {
-		if len(args) > 1 {
-			return head.Eval(args...)
-		}
-		return head.Eval(args[0])
-	}
-	return head.Eval()
-}
-func (c ApplicableVal) Ident() Callable                  { return c }
-func (c ApplicableVal) Consume() (Callable, Consumeable) { return c() }
-func (c ApplicableVal) Head() Callable                   { h, _ := c(); return h }
-func (c ApplicableVal) Tail() Consumeable                { _, t := c(); return t }
-func (c ApplicableVal) TypeFnc() TyFnc                   { return Applicable | c.Head().TypeFnc() }
-func (c ApplicableVal) TypeNat() d.TyNat                 { return c.Head().TypeNat() }
-func (c ApplicableVal) String() string                   { return c.Head().String() }
-
-// MONADIC
-func BindC(col Consumeable, bind Bind) MonadicVal {
-	var head Callable
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			head, col = col.Consume()
-			if head == nil {
-				return nil, NewMonad(col, bind)
-			}
-			if len(args) > 0 {
-				return bind(head, col)(args...)
-			}
-			return bind(head, col)()
-		})
-}
-
-func BindL(list ListVal, bind Bind) MonadicVal {
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			var head Callable
-			head, list = list()
-			if head == nil {
-				return nil, NewMonad(list, bind)
-			}
-			if len(args) > 0 {
-				return bind(head, list)(args...)
-			}
-			return bind(head, list)()
-		})
-}
-
-func BindF(fnc FunctorVal, bind Bind) MonadicVal {
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			var head Callable
-			head, fnc = fnc()
-			if head == nil {
-				return nil, NewMonad(fnc, bind)
-			}
-			if len(args) > 0 {
-				return bind(head, fnc)(args...)
-			}
-			return bind(head, fnc)()
-		})
-}
-
-func BindA(fna ApplicableVal, bind Bind) MonadicVal {
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			var head Callable
-			head, fna = fna()
-			if head == nil {
-				return nil, NewMonad(fna, bind)
-			}
-			if len(args) > 0 {
-				return bind(head, fna)(args...)
-			}
-			return bind(head, fna)()
-		})
-}
-
-func BindM(fnm MonadicVal, bind Bind) MonadicVal {
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			var head Callable
-			head, fnm = fnm()
-			if head == nil {
-				return nil, NewMonad(fnm, bind)
-			}
-			if len(args) > 0 {
-				return BindM(fnm, bind)(args...)
-			}
-			return BindM(fnm, bind)()
-		})
-}
-
-func NewMonad(cons Consumeable, bind Bind) MonadicVal {
-	var head Callable
-	return MonadicVal(
-		func(args ...Callable) (Callable, MonadicVal) {
-			if len(args) > 0 {
-				for _, arg := range args {
-					var match = arg.TypeFnc().Match
-					// bind argument if bindable
-					if match(Consumeables) {
-						switch {
-						case match(Collections):
-							if col, ok := arg.(Consumeable); ok {
-								return BindC(col, bind)()
-							}
-						case match(List):
-							if list, ok := arg.(ListVal); ok {
-								return BindL(list, bind)()
-							}
-						case match(Functor):
-							if fnc, ok := arg.(FunctorVal); ok {
-								return BindF(fnc, bind)()
-							}
-						case match(Applicable):
-							if fna, ok := arg.(ApplicableVal); ok {
-								return BindA(fna, bind)()
-							}
-						case match(Monad) || match(IO):
-							if fnm, ok := arg.(MonadicVal); ok {
-								return BindM(fnm, bind)()
-							}
-						}
-					}
-				}
-				// consume head, to yield expression‥.
-				head, cons = cons.Consume()
-				if head == nil {
-					return nil, NewMonad(cons, bind)
-				}
-				// apply non bindable arguments to head
-				return head.Call(args...), NewMonad(cons, bind)
-			}
-			// call head without arguments
-			return head.Call(), NewMonad(cons, bind)
-		})
-}
-
-func (c MonadicVal) Call(args ...Callable) Callable {
-	var head, _ = c(args...)
-	return head
-}
-func (c MonadicVal) Eval(args ...d.Native) d.Native {
-	return c.Call(NatToFnc(args...)...)
-}
-func (c MonadicVal) Ident() Callable                  { return c }
-func (c MonadicVal) Consume() (Callable, Consumeable) { return c() }
-func (c MonadicVal) Head() Callable                   { h, _ := c(); return h }
-func (c MonadicVal) Tail() Consumeable                { _, t := c(); return t }
-func (c MonadicVal) String() string                   { return c.Head().String() }
-func (c MonadicVal) TypeNat() d.TyNat                 { return c.Head().TypeNat() }
-func (c MonadicVal) TypeFnc() TyFnc                   { return Monad | c.Head().TypeFnc() }

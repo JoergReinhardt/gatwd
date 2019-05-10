@@ -11,7 +11,11 @@ import (
 
 type (
 	//// NONE
-	NoneVal func()
+	NoneVal   func()
+	JustVal   func() Callable
+	MaybeVal  func() Callable
+	MaybeCons func(Callable) MaybeVal
+	CaseExpr  func(Callable) (Callable, bool)
 
 	//// DATA
 	NativeVal func(args ...interface{}) d.Native
@@ -28,8 +32,8 @@ type (
 	KeyPair   func(...Callable) (string, Callable)
 	IndexPair func(...Callable) (int, Callable)
 	ListVal   func(...Callable) (Callable, ListVal)
-	PairList  func(...Paired) (Paired, PairList)
 	VecVal    func(...Callable) []Callable
+	PairList  func(...Paired) (Paired, PairList)
 	PairVec   func(...Paired) []Paired
 	SetVal    func(...Paired) d.Mapped
 )
@@ -95,6 +99,120 @@ func (n NoneVal) TypeName() string                 { return n.String() }
 func (n NoneVal) Head() Callable                   { return NewNone() }
 func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
+
+//// JUST VALUE
+func NewJust(arg Callable) JustVal {
+	return JustVal(func() Callable { return arg })
+}
+func (n JustVal) Ident() Callable   { return n }
+func (n JustVal) Value() Callable   { return n() }
+func (n JustVal) Head() Callable    { return n() }
+func (n JustVal) Tail() Consumeable { return n }
+func (n JustVal) Consume() (Callable, Consumeable) {
+	return n(), NewNone()
+}
+func (n JustVal) String() string {
+	return "Just·" + n().TypeNat().String() + " " + n().String()
+}
+func (n JustVal) Call(args ...Callable) Callable {
+	return n().Call(args...)
+}
+func (n JustVal) Eval(args ...d.Native) d.Native {
+	return n().Eval(args...)
+}
+func (n JustVal) Empty() bool {
+	if n() != nil {
+		if n().TypeFnc().Match(None) ||
+			n().TypeNat().Match(d.Nil) {
+			return false
+		}
+	}
+	return true
+}
+func (n JustVal) TypeFnc() TyFnc {
+	return Just | n().TypeFnc()
+}
+func (n JustVal) TypeNat() d.TyNat {
+	return n().TypeNat()
+}
+func (n JustVal) TypeName() string {
+	return "JustVal·" + n().TypeFnc().String()
+}
+
+//// MAYBE VALUE
+func NewMaybeVal(expr func() Callable) MaybeVal     { return expr }
+func (m MaybeVal) String() string                   { return "Maybe " + m().String() }
+func (m MaybeVal) TypeFnc() TyFnc                   { return Maybe }
+func (m MaybeVal) TypeNat() d.TyNat                 { return d.Expression }
+func (m MaybeVal) Consume() (Callable, Consumeable) { return m(), m }
+func (m MaybeVal) Head() Callable                   { return m() }
+func (m MaybeVal) Tail() Consumeable                { return m }
+func (m MaybeVal) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return m().Call(args...)
+	}
+	return m()
+}
+func (m MaybeVal) Eval(args ...d.Native) d.Native {
+	return m().Eval(args...)
+}
+
+//// MAYBE CONSTRUCTOR
+func NewMaybeConstructor(test CaseExpr) MaybeCons {
+	return MaybeCons(func(value Callable) MaybeVal {
+		if val, ok := test(value); ok {
+			return MaybeVal(func() Callable { return NewJust(val) })
+		}
+		return MaybeVal(func() Callable { return NewNone() })
+	})
+}
+func (c MaybeCons) String() string   { return "Maybe" }
+func (c MaybeCons) TypeFnc() TyFnc   { return Maybe }
+func (c MaybeCons) TypeNat() d.TyNat { return d.Expression }
+func (c MaybeCons) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return c(args[0])
+	}
+	return NewNone()
+}
+
+//// CASE EXPRESSION
+func NewCaseExpr(expr func(arg Callable) (Callable, bool)) CaseExpr {
+	return CaseExpr(expr)
+}
+func (c CaseExpr) Ident() Callable  { return c }
+func (c CaseExpr) String() string   { return "Case" }
+func (c CaseExpr) TypeFnc() TyFnc   { return Case }
+func (c CaseExpr) TypeNat() d.TyNat { return d.Expression }
+func (c CaseExpr) Call(args ...Callable) Callable {
+	var val Callable
+	var ok bool
+	if len(args) > 0 {
+		val, ok = c(args[0])
+		if len(args) > 1 {
+			val = val.Call(args[1:]...)
+		}
+	}
+	if ok {
+		return val
+	}
+	return NewNone()
+}
+
+func (c CaseExpr) Eval(args ...d.Native) d.Native {
+	var val d.Native
+	var ok bool
+	if len(args) > 0 {
+		val, ok = c(NewFromData(args[0]))
+		if len(args) > 1 {
+			val = val.Eval(args[1:]...)
+		}
+	}
+	if ok {
+		return val.Eval()
+	}
+	return d.NilVal{}
+}
 
 //// STATIC EXPRESSIONS
 ///

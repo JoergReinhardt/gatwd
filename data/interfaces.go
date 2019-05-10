@@ -89,6 +89,7 @@ type Numeral interface {
 	Rational
 	Real
 	Imaginary
+	Integer() IntVal
 }
 
 type Raw interface {
