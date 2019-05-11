@@ -10,26 +10,53 @@ import (
 )
 
 type (
-	//// MAYBE | JUST | NONE
-	NoneVal       func()
-	JustVal       func() Callable
-	MaybeVal      func() Callable
-	MaybeTypeCons func(...Callable) MaybeVal
-
 	//// PREDICATE | CASE | CASE-SWITCH
-	PrediExpr      func(...Callable) bool
+	PredictExpr    func(...Callable) bool
 	CaseExpr       func(...Callable) (Callable, bool)
 	CaseSwitchExpr func(...Callable) (Callable, bool, Consumeable)
 
-	//// DATA VALUE
-	DataVal func(args ...d.Native) d.Native
+	//// MAYBE | JUST | NONE
+	NoneVal       func()
+	JustVal       func(...Callable) Callable
+	MaybeVal      func(...Callable) Callable
+	MaybeType     func(Callable) MaybeVal
+	MaybeTypeCons func(...Callable) MaybeType
+
+	//// TUPLE
+	TupleElem     func(...Callable) (Callable, int)
+	TupleValue    func(...Callable) TupleElem
+	TupleType     func(...Callable) []TupleValue
+	TupleTypeCons func(...Callable) TupleType
 
 	//// STATIC EXPRESSIONS
 	ConstantExpr func() Callable
 	UnaryExpr    func(Callable) Callable
 	BinaryExpr   func(a, b Callable) Callable
 	NaryExpr     func(...Callable) Callable
+
+	//// DATA VALUE
+	DataVal func(args ...d.Native) d.Native
 )
+
+//// TUPLE
+///
+//
+func TupleTypeConstructor(elems ...Callable) TupleType {
+	return func(iniargs ...Callable) []TupleValue {
+		var tuple = []TupleValue{}
+		for i, ini := range iniargs {
+			tuple = append(
+				tuple,
+				TupleValue(
+					func(args ...Callable) TupleElem {
+						return func(args ...Callable) (Callable, int) {
+							return ini, i
+						}
+					}))
+		}
+		return tuple
+	}
+}
 
 //// HELPER FUNCTIONS TO HANDLE ARGUMENTS
 ///
@@ -87,144 +114,13 @@ func ArgsToPaired(args ...Callable) []Paired {
 	return pairs
 }
 
-//// NONE VALUE
-func NewNone() NoneVal                             { return func() {} }
-func (n NoneVal) Ident() Callable                  { return n }
-func (n NoneVal) Len() int                         { return 0 }
-func (n NoneVal) String() string                   { return "⊥" }
-func (n NoneVal) Eval(...d.Native) d.Native        { return nil }
-func (n NoneVal) Value() Callable                  { return nil }
-func (n NoneVal) Call(...Callable) Callable        { return nil }
-func (n NoneVal) Empty() bool                      { return true }
-func (n NoneVal) TypeFnc() TyFnc                   { return None }
-func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
-func (n NoneVal) TypeName() string                 { return n.String() }
-func (n NoneVal) Head() Callable                   { return NewNone() }
-func (n NoneVal) Tail() Consumeable                { return NewNone() }
-func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
-
-//// PREDICATE
-func NewPredicate(pred func(...Callable) bool) PrediExpr { return pred }
-func (p PrediExpr) String() string                       { return "Predicate" }
-func (p PrediExpr) TypeNat() d.TyNat                     { return d.Expression }
-func (p PrediExpr) TypeFnc() TyFnc                       { return Predicate }
-func (p PrediExpr) Eval(args ...d.Native) d.Native {
-	if len(args) > 0 {
-		return p.Call(NewFromData(args[0]))
-	}
-	return d.NilVal{}
-}
-func (p PrediExpr) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return p.Call(args[0])
-	}
-	return NewNone()
-}
-
-//// JUST VALUE
-func NewJust(arg Callable) JustVal {
-	return JustVal(func() Callable { return arg })
-}
-func (n JustVal) Ident() Callable   { return n }
-func (n JustVal) Value() Callable   { return n() }
-func (n JustVal) Head() Callable    { return n() }
-func (n JustVal) Tail() Consumeable { return n }
-func (n JustVal) Consume() (Callable, Consumeable) {
-	return n(), NewNone()
-}
-func (n JustVal) String() string {
-	return "Just·" + n().TypeNat().String() + " " + n().String()
-}
-func (n JustVal) Call(args ...Callable) Callable {
-	return n().Call(args...)
-}
-func (n JustVal) Eval(args ...d.Native) d.Native {
-	return n().Eval(args...)
-}
-func (n JustVal) Empty() bool {
-	if n() != nil {
-		if n().TypeFnc().Match(None) ||
-			n().TypeNat().Match(d.Nil) {
-			return false
-		}
-	}
-	return true
-}
-func (n JustVal) TypeFnc() TyFnc {
-	return Just | n().TypeFnc()
-}
-func (n JustVal) TypeNat() d.TyNat {
-	return n().TypeNat()
-}
-func (n JustVal) TypeName() string {
-	return "JustVal·" + n().TypeFnc().String()
-}
-
-//// MAYBE VALUE
-func NewMaybeVal(con ConstantExpr) MaybeVal         { return MaybeVal(con) }
-func (m MaybeVal) String() string                   { return "Maybe " + m().String() }
-func (m MaybeVal) TypeFnc() TyFnc                   { return Maybe }
-func (m MaybeVal) TypeNat() d.TyNat                 { return d.Expression }
-func (m MaybeVal) Consume() (Callable, Consumeable) { return m(), m }
-func (m MaybeVal) Head() Callable                   { return m() }
-func (m MaybeVal) Tail() Consumeable                { return m }
-func (m MaybeVal) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return m().Call(args...)
-	}
-	return m()
-}
-func (m MaybeVal) Eval(args ...d.Native) d.Native {
-	return m().Eval(args...)
-}
-
-//// MAYBE TYPE CONSTRUCTOR
-///
-// new maybe-type constructor returns a constructor of values of a distinct
-// maybe type, as defined by the predicate passed to it and thereby effectively
-// declares a new higher order type at runtime.
-//
-// apart from the predicate, a type signature can be passed, to be returned by
-// the defined maybe data constructor, when called without arguments, to be
-// returned by typeFnc, typeNat, string‥.
-func NewMaybeTypeConstructor(pred PrediExpr, signature ...Callable) MaybeTypeCons {
-	var cons MaybeTypeCons
-	cons = MaybeTypeCons(
-		func(args ...Callable) MaybeVal {
-			if len(args) > 0 {
-				var arg = args[0]
-				if pred(arg) {
-					return MaybeVal(NewConstant(NewJust(arg)))
-				}
-				if len(args) > 1 {
-					return cons(args[1:]...)
-				}
-				return MaybeVal(func() Callable { return NewNone() })
-			}
-			return MaybeVal(func() Callable { return NewVector(signature...) })
-		})
-	return cons
-}
-func (c MaybeTypeCons) String() string {
-	var sig = c()
-	return "Maybe" + sig.Head().String()
-}
-func (c MaybeTypeCons) TypeFnc() TyFnc   { return Maybe }
-func (c MaybeTypeCons) TypeNat() d.TyNat { return d.Expression }
-func (c MaybeTypeCons) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return c(args[0])
-	}
-	return NewNone()
-}
-
 //// CASE EXPRESSION
 ///
 // case evaluates first argument by applying it to the predicate and either
 // returns the argument, if predicate yields true, a none instance and false if
 // it's not. if more than one argument is given, additional arguments will be
 // evaluated recursively.
-func NewCaseExpr(expr Callable, pred PrediExpr) CaseExpr {
+func NewCaseExpr(expr Callable, pred PredictExpr) CaseExpr {
 	return func(args ...Callable) (Callable, bool) {
 		var arg Callable
 		if len(args) > 0 {
@@ -325,6 +221,177 @@ func (s CaseSwitchExpr) Eval(args ...d.Native) d.Native {
 		return val.Eval()
 	}
 	return d.NilVal{}
+}
+
+//// NONE VALUE
+func NewNone() NoneVal                             { return func() {} }
+func (n NoneVal) Ident() Callable                  { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) String() string                   { return "⊥" }
+func (n NoneVal) Eval(...d.Native) d.Native        { return nil }
+func (n NoneVal) Value() Callable                  { return nil }
+func (n NoneVal) Call(...Callable) Callable        { return nil }
+func (n NoneVal) Empty() bool                      { return true }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) TypeName() string                 { return n.String() }
+func (n NoneVal) Head() Callable                   { return NewNone() }
+func (n NoneVal) Tail() Consumeable                { return NewNone() }
+func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
+
+//// PREDICATE
+func NewPredicate(pred func(...Callable) bool) PredictExpr { return pred }
+func (p PredictExpr) String() string                       { return "Predicate" }
+func (p PredictExpr) TypeNat() d.TyNat                     { return d.Expression }
+func (p PredictExpr) TypeFnc() TyFnc                       { return Predicate }
+func (p PredictExpr) Eval(args ...d.Native) d.Native {
+	if len(args) > 0 {
+		return p.Call(NewFromData(args[0]))
+	}
+	return d.NilVal{}
+}
+func (p PredictExpr) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return p.Call(args[0])
+	}
+	return NewNone()
+}
+
+//// JUST VALUE
+///
+// new maybe-type constructor returns a constructor of values of a distinct
+// maybe type, as defined by the predicate passed to it and thereby effectively
+// declares a new higher order type at runtime.
+//
+// apart from the predicate, a type signature can be passed, to be returned by
+// the defined maybe data constructor, when called without arguments, to be
+// returned by typeFnc, typeNat, string‥.
+func NewJust(val Callable) JustVal {
+	var just JustVal
+	just = JustVal(
+		func(args ...Callable) Callable {
+			if len(args) > 0 {
+				return val.Call(args...)
+			}
+			return val
+		})
+	return just
+}
+func (n JustVal) Ident() Callable   { return n }
+func (n JustVal) Value() Callable   { return n() }
+func (n JustVal) Head() Callable    { return n() }
+func (n JustVal) Tail() Consumeable { return n }
+func (n JustVal) Consume() (Callable, Consumeable) {
+	return n(), NewNone()
+}
+func (n JustVal) String() string {
+	return "Just·" + n().TypeNat().String() + " " + n().String()
+}
+func (n JustVal) Call(args ...Callable) Callable {
+	return n().Call(args...)
+}
+func (n JustVal) Eval(args ...d.Native) d.Native {
+	return n().Eval(args...)
+}
+func (n JustVal) Empty() bool {
+	if n() != nil {
+		if n().TypeFnc().Match(None) ||
+			n().TypeNat().Match(d.Nil) {
+			return false
+		}
+	}
+	return true
+}
+func (n JustVal) TypeFnc() TyFnc {
+	return Just | n().TypeFnc()
+}
+func (n JustVal) TypeNat() d.TyNat {
+	return n().TypeNat()
+}
+func (n JustVal) TypeName() string {
+	return "JustVal·" + n().TypeFnc().String()
+}
+
+//// MAYBE VALUE
+func (m MaybeVal) String() string                 { return m().String() }
+func (m MaybeVal) TypeFnc() TyFnc                 { return m().TypeFnc() }
+func (m MaybeVal) TypeNat() d.TyNat               { return m().TypeNat() }
+func (m MaybeVal) Call(args ...Callable) Callable { return m().Call(args...) }
+func (m MaybeVal) Eval(args ...d.Native) d.Native { return m().Eval(args...) }
+func NewMaybeValue(iniargs ...Callable) MaybeVal {
+	return func(args ...Callable) Callable {
+		if len(iniargs) > 0 {
+			if len(iniargs) > 1 {
+				return NewJust(CurryN(iniargs...))
+			}
+			return NewJust(iniargs[0])
+		}
+		return NewNone()
+	}
+}
+
+//// MAYBE TYPE CONSTRUCTOR
+func NewMaybeTypeConstructor(pred PredictExpr) MaybeType {
+	return func(arg Callable) MaybeVal {
+		if pred(arg) {
+			return NewMaybeValue(MaybeVal(
+				func(args ...Callable) Callable {
+					if len(args) > 0 {
+						return arg.Call(args...)
+					}
+					return arg
+				}))
+		}
+		return NewMaybeValue(NewNone())
+	}
+}
+
+func (c MaybeTypeCons) String() string   { return "Maybe Type Constructor" }
+func (c MaybeTypeCons) TypeFnc() TyFnc   { return Constructor | Maybe }
+func (c MaybeTypeCons) TypeNat() d.TyNat { return d.Expression }
+func (c MaybeTypeCons) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		if args[0].TypeFnc().Match(Predicate) {
+			return c(args[0])
+		}
+	}
+	return NewNone()
+}
+
+func (m MaybeType) String() string   { return "Maybe Type" }
+func (m MaybeType) TypeFnc() TyFnc   { return Maybe }
+func (m MaybeType) TypeNat() d.TyNat { return d.Expression }
+func (m MaybeType) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vals = []Callable{}
+			for _, arg := range args {
+				vals = append(
+					vals,
+					m(arg),
+				)
+			}
+		}
+		var arg = args[0]
+		return m(arg)
+	}
+	return NewNone()
+}
+func (m MaybeType) Eval(args ...d.Native) d.Native {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vals = []Callable{}
+			for _, arg := range args {
+				vals = append(
+					vals,
+					m(DataVal(arg.Eval)),
+				)
+			}
+		}
+		var arg = args[0]
+		return m(DataVal(arg.Eval))
+	}
+	return NewNone()
 }
 
 //// STATIC FUNCTION EXPRESSIONS OF PREDETERMINED ARITY

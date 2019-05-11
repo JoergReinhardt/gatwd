@@ -6,8 +6,8 @@ import (
 
 // type system implementation
 type (
-	Curry  func(Callable, ...Callable) Callable
 	Apply  func(NaryExpr, ...Callable) Callable
+	Bind   func(f, g Callable) Callable
 	Map    func(...Callable) Callable
 	Fold   func(Callable, Callable, ...Callable) Callable
 	Filter func(Callable, ...Callable) bool
@@ -20,23 +20,26 @@ type (
 
 	Collection     func(...Callable) (Callable, Collection)
 	PairCollection func(...Callable) (Callable, PairCollection)
+	MonadicExpr    func(...Callable) (Callable, MonadicExpr)
 )
 
 //// CURRY
-func ConsCurry(f, g NaryExpr, args ...Callable) Callable {
+func Curry(f, g NaryExpr, args ...Callable) Callable {
 	if len(args) > 0 {
 		return f(g(args...))
 	}
 	return f(g())
 }
-func RecCurry(args ...Callable) Callable {
+
+//// CURRY-N
+func CurryN(args ...Callable) Callable {
 	if len(args) > 0 {
 		var f = args[0].Call
 		if len(args) > 1 {
 			var g = args[1].Call
 			if len(args) > 2 {
 				return f(g(
-					RecCurry(
+					CurryN(
 						args[2:]...,
 					),
 				))
@@ -48,26 +51,21 @@ func RecCurry(args ...Callable) Callable {
 	return NewNone()
 }
 
-// FUNCTOR
-// new functor encloses a flat callable expression to implement consumeable so
-// that it can be mapped over to return new results depending solely on the
-// passed arguments for each consequtive call. the wrapping is ommited, should
-// the passed expression implement the consumeable interface already and the
-// expression will be type asserted and returned instead.
-func NewFunctor(expr Callable) Collection {
+//// COLLECTION
+func NewCollection(expr Callable) Collection {
 	if expr.TypeFnc().Match(Consumeables) {
 		return func(args ...Callable) (Callable, Collection) {
-			return expr.Call(args...), NewFunctor(expr)
+			return expr.Call(args...), NewCollection(expr)
 		}
 	}
 	return func(args ...Callable) (Callable, Collection) {
 		if len(args) > 0 {
 			if len(args) > 1 {
-				return expr.Call(args...), NewFunctor(expr)
+				return expr.Call(args...), NewCollection(expr)
 			}
-			return expr.Call(args[0]), NewFunctor(expr)
+			return expr.Call(args[0]), NewCollection(expr)
 		}
-		return expr, NewFunctor(expr)
+		return expr, NewCollection(expr)
 	}
 }
 
@@ -115,12 +113,126 @@ func (c Collection) String() string {
 	return c.Head().String()
 }
 
+//// COLLECTION OF PAIRS
+func NewPairCollection(expr Paired) PairCollection {
+	return func(args ...Callable) (Callable, PairCollection) {
+		var pair Callable
+		var arg = expr.Call(args...)
+		switch {
+		case arg.TypeFnc().Match(Pair):
+			if val, ok := arg.(Paired); ok {
+				pair = val
+			}
+
+		case arg.TypeFnc().Match(Collections):
+			if col, ok := arg.(Collection); ok {
+				var left, right Callable
+				left, arg = col.Consume()
+				right, arg = col.Consume()
+				pair = NewPair(left, right)
+			}
+
+		default:
+			pair = NewPair(arg.TypeFnc(), arg)
+		}
+		return pair,
+			NewPairCollection(expr)
+	}
+}
+
+func (c PairCollection) Call(args ...Callable) Callable {
+	var head, _ = c()
+	if len(args) > 0 {
+		if len(args) > 1 {
+			return head.Call(args...)
+		}
+		return head.Call(args[0])
+	}
+	return head
+}
+func (c PairCollection) Eval(args ...d.Native) d.Native {
+	var head, _ = c()
+	if len(args) > 0 {
+		if len(args) > 1 {
+			return head.Eval(args...)
+		}
+		return head.Eval(args[0])
+	}
+	return head.Eval()
+}
+func (c PairCollection) Ident() Callable {
+	return c
+}
+func (c PairCollection) Consume() (Callable, Consumeable) {
+	return c.Head(), c.Tail()
+}
+func (c PairCollection) Head() Callable {
+	h, _ := c()
+	return h
+}
+func (c PairCollection) Tail() Consumeable {
+	_, t := c()
+	return t
+}
+func (c PairCollection) TypeFnc() TyFnc {
+	return Functor | Pair | c.Head().TypeFnc()
+}
+func (c PairCollection) TypeNat() d.TyNat {
+	return c.Head().TypeNat()
+}
+func (c PairCollection) String() string {
+	return c.Head().String()
+}
+
+//// MONAD
+func NewMonad(mon Consumeable, bind Bind) MonadicExpr {
+	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
+		var head Callable
+		head, mon = mon.Consume()
+		if head != nil {
+			return head, NewMonad(mon, bind)
+		}
+		return nil, NewMonad(mon, bind)
+	})
+}
+func (m MonadicExpr) Consume() (Callable, Consumeable) {
+	var head Callable
+	head, m = m()
+	if head == nil {
+		return nil, m
+	}
+	return head, m
+}
+func (m MonadicExpr) Head() Callable {
+	var head, _ = m()
+	return head
+}
+func (m MonadicExpr) Tail() Consumeable {
+	return m
+}
+func (m MonadicExpr) TypeFnc() TyFnc {
+	return Monad
+}
+func (m MonadicExpr) TypeNat() d.TyNat {
+	return m.Head().TypeNat()
+}
+func (m MonadicExpr) Call(args ...Callable) Callable {
+	return m.Head().Call(args...)
+}
+func (m MonadicExpr) Eval(args ...d.Native) d.Native {
+	return m.Head().Eval(args...)
+}
+func (m MonadicExpr) String() string {
+	return m.Head().String()
+}
+
+//// MAP
 func MapC(cons Consumeable, fmap Map) Collection {
 	return Collection(func(args ...Callable) (Callable, Collection) {
 		var head Callable
 		head, cons = cons.Consume()
 		if head == nil {
-			return nil, NewFunctor(cons)
+			return nil, NewCollection(cons)
 		}
 		if len(args) > 0 {
 			return fmap(head.Call(args...)),
@@ -179,6 +291,36 @@ func MapP(pairs ConsumeablePairs, pmap MapPaired) PairCollection {
 	})
 }
 
+//// BIND
+func BindL(fl, gl ListVal, bind Bind) MonadicExpr {
+	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
+		var f, g Callable
+		f, fl = fl()
+		g, gl = gl()
+		if f != nil {
+			if g != nil {
+				return bind(f, g), BindF(fl, gl, bind)
+			}
+		}
+		return nil, BindL(fl, gl, bind)
+	})
+}
+
+func BindF(fa, ga Consumeable, bind Bind) MonadicExpr {
+	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
+		var f, g Callable
+		f, fa = fa.Consume()
+		g, ga = ga.Consume()
+		if f != nil {
+			if g != nil {
+				return bind(f, g), BindF(fa, ga, bind)
+			}
+		}
+		return nil, BindF(fa, ga, bind)
+	})
+}
+
+//// FOLD
 func FoldL(list ListVal, elem Callable, fold Fold) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		var head, tail = list()
@@ -226,7 +368,7 @@ func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairCollection {
 	})
 }
 
-// FILTER FUNCTOR LATE BINDING
+//// FILTER FUNCTOR
 func FilterL(list ListVal, filter Filter) ListVal {
 	return ListVal(
 		func(args ...Callable) (Callable, ListVal) {
@@ -272,6 +414,7 @@ func FilterP(pairs ConsumeablePairs, filter Filter) PairCollection {
 		})
 }
 
+//// ZIP
 func ZipL(llist, rlist ListVal, zip Zip) ListVal {
 	return ListVal(
 		func(args ...Callable) (Callable, ListVal) {

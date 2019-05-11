@@ -206,7 +206,7 @@ func TestFilterConsumeable(t *testing.T) {
 	}
 }
 
-var numFunc = NewFunctor(NewFromData(d.IntVal(42)))
+var numFunc = NewCollection(NewFromData(d.IntVal(42)))
 
 func TestFunctor(t *testing.T) {
 	fmt.Printf("functor: %s, function type: %s, native type: %s, call without args: %s, call with '1' arg: %s call with multiple args: %s\n",
@@ -221,4 +221,25 @@ func TestFunctor(t *testing.T) {
 			NewFromData(d.IntVal(3)),
 			NewFromData(d.IntVal(4)),
 			NewFromData(d.IntVal(5))))
+}
+
+func TestBindF(t *testing.T) {
+	var bind = func(f, g Callable) Callable {
+		if nf, ok := f.Eval().(d.Numeral); ok {
+			if ng, ok := g.Eval().(d.Numeral); ok {
+				return NewFromData(d.IntVal(nf.Int() * ng.Int()))
+			}
+		}
+		return nil
+	}
+	var bound = BindF(listA, listB, bind)
+	var head Callable
+	head, bound = bound()
+	if head.Eval().(d.IntVal) != 0 {
+		t.Fail()
+	}
+	for head != nil {
+		fmt.Printf("%s\n", head)
+		head, bound = bound()
+	}
 }

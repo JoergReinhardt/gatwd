@@ -24,9 +24,9 @@ var maybeInt = NewMaybeTypeConstructor(NewPredicate(func(args ...Callable) bool 
 		return args[0].TypeNat().Match(d.Numbers)
 	}
 	return false
-}), DataVal(d.Numbers.Eval), Numbers, NewFromData(d.StrVal("Test Type")))
+}))
 
-var add = func(l, r d.Native) JustVal {
+var add = func(l, r d.Native) MaybeVal {
 	var left, right d.Numeral
 	if l.TypeNat() != d.Nil {
 		left = l.Eval().(d.Numeral)
@@ -34,7 +34,7 @@ var add = func(l, r d.Native) JustVal {
 	if r.TypeNat() != d.Nil {
 		right = r.Eval().(d.Numeral)
 	}
-	return maybeInt(DataVal(d.IntVal(left.Int() + right.Int()).Eval))().(JustVal)
+	return NewMaybeValue(DataVal(d.IntVal(left.Int() + right.Int()).Eval))
 }
 
 func TestMaybe(t *testing.T) {

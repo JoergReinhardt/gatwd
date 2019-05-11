@@ -36,6 +36,7 @@ const (
 	Set
 	Pair
 	/// FUNCTORS AND MONADS
+	Constructor
 	Applicable
 	Functor
 	Monad
