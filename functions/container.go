@@ -49,13 +49,17 @@ type (
 //
 func NewRecordType(iniargs ...Callable) RecordType {
 	var signature = createSignature(iniargs...)
-	var inifields = applyRecord(
+	var inirecs = make([]RecordField, 0, len(signature))
+	for i := 0; i < len(signature); i++ {
+		inirecs = append(inirecs, NewRecordField("", NewNone()))
+	}
+	inirecs = applyRecord(
 		signature,
-		inifields,
+		inirecs,
 		iniargs...,
 	)
 	return func(args ...Callable) RecordVal {
-		var fields = inifields
+		var fields = inirecs
 		return func(args ...Callable) []RecordField {
 			if len(args) > 0 {
 				fields = applyRecord(
@@ -145,9 +149,9 @@ func applyRecord(
 			// apply record field
 			if arg.TypeFnc().Match(Record | Element) {
 				if recfield, ok := arg.(RecordField); ok {
-					if sig.Value().TypeNat().Match(
+					if sig.Value().(Paired).Left().TypeNat().Match(
 						recfield.Value().TypeNat(),
-					) && sig.Value().TypeFnc().Match(
+					) && sig.Value().(Paired).Left().TypeFnc().Match(
 						recfield.Value().TypeNat(),
 					) && sig.KeyStr() == recfield.KeyStr() {
 						records[sigpos] = recfield
@@ -160,10 +164,10 @@ func applyRecord(
 				if pair, ok := arg.(Paired); ok {
 					if pair.Left().TypeNat().Match(d.String) {
 						if key, ok := pair.Left().Eval().(d.StrVal); ok {
-							if sig.Value().TypeNat().Match(
+							if sig.Value().(Paired).Left().TypeNat().Match(
 								pair.Right().TypeNat(),
-							) && sig.Value().TypeFnc().Match(
-								pair.Right().TypeNat(),
+							) && sig.Value().(Paired).Left().TypeFnc().Match(
+								pair.Right().TypeFnc(),
 							) && sig.KeyStr() == key.String() {
 								records[sigpos] = NewRecordField(
 									key.String(),
@@ -180,9 +184,9 @@ func applyRecord(
 				if key, ok := arg.Eval().(d.StrVal); ok {
 					if len(records) > argpos+1 {
 						argpos += 1
-						if sig.Value().TypeNat().Match(
+						if sig.Value().(Paired).Left().TypeNat().Match(
 							args[argpos].TypeNat(),
-						) && sig.Value().TypeFnc().Match(
+						) && sig.Value().(Paired).Left().TypeFnc().Match(
 							args[argpos].TypeNat(),
 						) && sig.KeyStr() == key.String() {
 							records[sigpos] = NewRecordField(
