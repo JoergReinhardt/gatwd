@@ -17,7 +17,6 @@ const (
 	Type TyFnc = 1 << iota
 	Native
 	Data
-	Expression
 	Key
 	Index
 	/// EXPRESSION CALL PROPERTYS
@@ -28,6 +27,7 @@ const (
 	Strings
 	Bytes
 	/// COLLECTION TYPES
+	Element
 	List
 	Vector
 	Tuple
@@ -37,8 +37,8 @@ const (
 	Pair
 	/// FUNCTORS AND MONADS
 	Constructor
-	Applicable
 	Functor
+	Applicable
 	Monad
 	/// MONADIC SUB TYPES
 	Undecided
@@ -83,7 +83,7 @@ const (
 
 	Parameters = CallPropertys | CallArity
 
-	Kinds = Type | Native | Data | Expression
+	Kinds = Type | Native | Data | Functor
 
 	Truth = Undecided | False | True
 
@@ -99,7 +99,7 @@ const (
 
 	Continue = Do | While
 
-	Consumeables = Collections | Functor | Applicable | Monad | IO
+	Consumeables = Collections | Applicable | Monad | IO
 )
 
 ///////////////////////////////////////////////////////////////////////////////

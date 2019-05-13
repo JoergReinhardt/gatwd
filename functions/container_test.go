@@ -97,3 +97,33 @@ func TestMapMaybe(t *testing.T) {
 
 	fmt.Printf("operator added maybe integers: %s\n", added)
 }
+
+func TestTupleConstruction(t *testing.T) {
+	var tupleCons = TupleTypeConstructor(
+		DataVal(d.StrVal("field one").Eval),
+		DataVal(d.StrVal("field two").Eval),
+		DataVal(d.IntVal(42).Eval),
+		DataVal(d.FltVal(23.42).Eval),
+	)
+	fmt.Printf("tuple type constructor: %s\n", tupleCons)
+	var tupleVal = tupleCons(
+		DataVal(d.StrVal("field one altered").Eval),
+		DataVal(d.StrVal("field two altered").Eval),
+		DataVal(d.IntVal(23).Eval),
+		DataVal(d.FltVal(42.23).Eval),
+	)
+	fmt.Printf("altered tuple type fields: %s\n", tupleVal())
+}
+
+func TestRecordTypeConstruction(t *testing.T) {
+	var recordType = NewRecordType(
+		NewPair(DataVal(d.StrVal("arschloch").Eval), DataVal(d.StrVal("wichskrepel").Eval)),
+		NewPair(DataVal(d.StrVal("kackscheisse").Eval), DataVal(d.StrVal("dreckskacke").Eval)),
+	)
+	fmt.Printf("record type: %s\n", recordType())
+	var recordVal = recordType(
+		NewPair(DataVal(d.StrVal("arschloch").Eval), DataVal(d.StrVal("fuckscheisse").Eval)),
+		NewPair(DataVal(d.StrVal("kackscheisse").Eval), DataVal(d.StrVal("dreckskacke").Eval)),
+	)
+	fmt.Printf("record type: %s\n", recordVal())
+}

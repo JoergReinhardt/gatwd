@@ -708,8 +708,8 @@ func ConPairVecFromPairs(rec PairVec, pairs ...Paired) PairVec {
 	return NewPairVectorFromPairs(append(rec(), pairs...)...)
 }
 
-func (v PairVec) Cons(args ...Callable) PairVec {
-	var pairs = []Paired{}
+func ConsPairVec(pvec PairVec, args ...Callable) PairVec {
+	var pairs = pvec.Pairs()
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
 			pairs = append(pairs, pair)
@@ -717,10 +717,13 @@ func (v PairVec) Cons(args ...Callable) PairVec {
 	}
 	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
-			return ConPairVecFromPairs(v, args...)()
+			return ConPairVecFromPairs(pvec, args...)()
 		}
-		return append(v(), pairs...)
+		return append(pvec(), pairs...)
 	})
+}
+func (v PairVec) Cons(args ...Callable) PairVec {
+	return ConsPairVec(v, args...)
 }
 func (v PairVec) Consume() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
@@ -1041,7 +1044,7 @@ func (v SetVal) Eval(args ...d.Native) d.Native {
 
 func (v SetVal) TypeFnc() TyFnc { return Set }
 
-func (v SetVal) TypeNat() d.TyNat { return d.Map | d.Expression }
+func (v SetVal) TypeNat() d.TyNat { return d.Map | d.Functor }
 
 func (v SetVal) KeyFncType() TyFnc {
 	if v.Len() > 0 {

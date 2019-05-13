@@ -55,7 +55,10 @@ func CurryN(args ...Callable) Callable {
 func NewCollection(expr Callable) Collection {
 	if expr.TypeFnc().Match(Consumeables) {
 		return func(args ...Callable) (Callable, Collection) {
-			return expr.Call(args...), NewCollection(expr)
+			if len(args) > 0 {
+				return expr.Call(args...), NewCollection(expr)
+			}
+			return expr, NewCollection(expr)
 		}
 	}
 	return func(args ...Callable) (Callable, Collection) {
@@ -104,7 +107,7 @@ func (c Collection) Tail() Consumeable {
 	return t
 }
 func (c Collection) TypeFnc() TyFnc {
-	return Functor | c.Head().TypeFnc()
+	return c.Head().TypeFnc()
 }
 func (c Collection) TypeNat() d.TyNat {
 	return c.Head().TypeNat()
@@ -175,7 +178,7 @@ func (c PairCollection) Tail() Consumeable {
 	return t
 }
 func (c PairCollection) TypeFnc() TyFnc {
-	return Functor | Pair | c.Head().TypeFnc()
+	return Pair | c.Head().TypeFnc()
 }
 func (c PairCollection) TypeNat() d.TyNat {
 	return c.Head().TypeNat()

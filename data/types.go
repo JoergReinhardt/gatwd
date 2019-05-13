@@ -15,7 +15,7 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() int8 { return 1 }
+func (t TyNat) FlagType() int8 { return 0 }
 func (v TyNat) TypeNat() TyNat { return v }
 func (t TyNat) TypeName() string {
 	var count = t.Flag().Count()
@@ -97,9 +97,9 @@ const (
 	Slice
 	Map
 	////
-	Literal
 	Data
-	Expression
+	Literal
+	Functor
 	Flag // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
@@ -127,7 +127,7 @@ const (
 
 	Compositions = Pair | Slice | Map
 	Multiples    = Slice | Map
-	Functional   = Data | Expression | Literal | Flag
+	Functional   = Data | Functor | Literal | Flag
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
 	MASK_NATIVES       = MASK ^ Natives
@@ -407,7 +407,15 @@ func (v DuraVal) Null() Native   { return New(time.Duration(0)) }
 // they are converted to an unboxed vector of the methods type. single
 // arguments will be returned as simple instance of the type. called without
 // arguments, the enclosed value will just be returned.
-func (NilVal) Eval(d ...Native) Native { return NilVal{} }
+func (NilVal) Eval(d ...Native) Native {
+	if len(d) > 0 {
+		if len(d) > 1 {
+			return DataSlice(d)
+		}
+		return d[0]
+	}
+	return NilVal{}
+}
 
 func (v BitFlag) Eval(d ...Native) Native {
 	if len(d) > 0 {
