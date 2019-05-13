@@ -49,8 +49,9 @@ type (
 //
 func NewRecordType(iniargs ...Callable) RecordType {
 	var signature = createSignature(iniargs...)
-	var inirecs = make([]RecordField, 0, len(signature))
-	for i := 0; i < len(signature); i++ {
+	var l = len(signature)
+	var inirecs = make([]RecordField, 0, l)
+	for i := 0; i < l; i++ {
 		inirecs = append(inirecs, NewRecordField("", NewNone()))
 	}
 	inirecs = applyRecord(
@@ -144,8 +145,8 @@ func applyRecord(
 	records []RecordField,
 	args ...Callable,
 ) []RecordField {
-	for sigpos, sig := range signature {
-		for argpos, arg := range args {
+	for argpos, arg := range args {
+		for sigpos, sig := range signature {
 			// apply record field
 			if arg.TypeFnc().Match(Record | Element) {
 				if recfield, ok := arg.(RecordField); ok {
