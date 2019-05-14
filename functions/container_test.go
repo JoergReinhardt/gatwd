@@ -99,7 +99,7 @@ func TestMapMaybe(t *testing.T) {
 }
 
 func TestTupleConstruction(t *testing.T) {
-	var tupleCons = TupleTypeConstructor(
+	var tupleCons = NewTupleType(
 		DataVal(d.StrVal("field one").Eval),
 		DataVal(d.StrVal("field two").Eval),
 		DataVal(d.IntVal(42).Eval),
@@ -117,13 +117,17 @@ func TestTupleConstruction(t *testing.T) {
 
 func TestRecordTypeConstruction(t *testing.T) {
 	var recordType = NewRecordType(
-		NewPair(DataVal(d.StrVal("arschloch").Eval), DataVal(d.StrVal("wichskrepel").Eval)),
-		NewPair(DataVal(d.StrVal("kackscheisse").Eval), DataVal(d.StrVal("dreckskacke").Eval)),
+		NewPair(DataVal(d.StrVal("key one").Eval),
+			DataVal(d.StrVal("data one").Eval)),
+		NewPair(DataVal(d.StrVal("key two").Eval),
+			DataVal(d.IntVal(42).Eval)),
 	)
 	fmt.Printf("record type: %s\n", recordType())
 	var recordVal = recordType(
-		NewPair(DataVal(d.StrVal("arschloch").Eval), DataVal(d.StrVal("fuckscheisse").Eval)),
-		NewPair(DataVal(d.StrVal("kackscheisse").Eval), DataVal(d.StrVal("dreckskacke").Eval)),
+		NewPair(DataVal(d.StrVal("key one").Eval),
+			DataVal(d.StrVal("altered data one").Eval)),
+		NewPair(DataVal(d.StrVal("key two").Eval),
+			DataVal(d.IntVal(23).Eval)),
 	)
-	fmt.Printf("record type: %s\n", recordVal())
+	fmt.Printf("altered record type: %s\n", recordVal())
 }

@@ -47,27 +47,21 @@ type (
 //// RECORD
 ///
 //
-func NewRecordType(iniargs ...Callable) RecordType {
-	var signature = createSignature(iniargs...)
+func NewRecordType(elems ...Callable) RecordType {
+	var signature = createSignature(elems...)
 	var l = len(signature)
-	var inirecs = make([]RecordField, 0, l)
-	for i := 0; i < l; i++ {
-		inirecs = append(inirecs, NewRecordField("", NewNone()))
-	}
-	inirecs = applyRecord(
-		signature,
-		inirecs,
-		iniargs...,
-	)
 	return func(args ...Callable) RecordVal {
-		var fields = inirecs
-		return func(args ...Callable) []RecordField {
-			if len(args) > 0 {
-				fields = applyRecord(
-					signature,
-					fields,
-					args...,
-				)
+		var fields []RecordField
+		for i := 0; i < l; i++ {
+			fields = append(fields, NewRecordField("", NewNone()))
+		}
+		fields = applyRecord(signature, fields, elems...)
+		if len(args) > 0 {
+			fields = applyRecord(signature, fields, args...)
+		}
+		return func(vals ...Callable) []RecordField {
+			if len(vals) > 0 {
+				fields = applyRecord(signature, fields, args...)
 			}
 			return fields
 		}
@@ -366,7 +360,7 @@ func (a RecordField) Ident() Callable { return a }
 ///
 //
 
-func TupleTypeConstructor(elems ...Callable) TupleType {
+func NewTupleType(elems ...Callable) TupleType {
 	var signature = []d.Paired{}
 	for _, ini := range elems {
 		signature = append(
