@@ -359,10 +359,9 @@ func (a RecordField) Ident() Callable { return a }
 //// TUPLE TYPE
 ///
 //
-
-func NewTupleType(elems ...Callable) TupleType {
+func NewTupleType(defaults ...Callable) TupleType {
 	var signature = []d.Paired{}
-	for _, ini := range elems {
+	for _, ini := range defaults {
 		signature = append(
 			signature,
 			d.NewPair(
@@ -373,22 +372,15 @@ func NewTupleType(elems ...Callable) TupleType {
 	}
 	return func(args ...Callable) TupleVal {
 		var tuples = []TupleElem{}
-		for pos, elem := range elems {
+		for pos, elem := range defaults {
 			tuples = append(
 				tuples,
 				NewTupleElem(elem, pos))
 		}
-		for pos, arg := range args {
-			if pos < len(signature) && pos < len(signature) {
-				if arg.TypeFnc().Match(signature[pos].Right().(TyFnc)) &&
-					arg.TypeNat().Match(signature[pos].Left().(d.TyNat)) {
-					tuples[pos] = NewTupleElem(arg, pos)
-				}
-			}
-		}
+		tuples = ApplyTuple(tuples, args...)
 		return func(vals ...Callable) []TupleElem {
 			if len(vals) > 0 {
-				return ApplyTuple(tuples, vals...)()
+				return ApplyTuple(tuples, vals...)
 			}
 			return tuples
 		}
@@ -396,7 +388,7 @@ func NewTupleType(elems ...Callable) TupleType {
 }
 
 //// APPLY TUPLE
-func ApplyTuple(elems []TupleElem, args ...Callable) TupleVal {
+func ApplyTuple(elems []TupleElem, args ...Callable) []TupleElem {
 	if len(args) > 0 {
 		for pos, arg := range args {
 			if arg.TypeFnc().Match(Pair | Index) {
@@ -438,7 +430,7 @@ func ApplyTuple(elems []TupleElem, args ...Callable) TupleVal {
 			}
 		}
 	}
-	return func(args ...Callable) []TupleElem { return elems }
+	return elems
 }
 func (t TupleType) String() string                 { return "Type " + t().String() }
 func (t TupleType) Call(args ...Callable) Callable { return t().Call(args...) }
@@ -492,14 +484,23 @@ func (t TupleVal) Call(args ...Callable) Callable {
 			elems = append(elems, elem)
 		}
 	}
-	return ApplyTuple(t(), elems...)
+	var vec = NewVector()
+	for _, elem := range ApplyTuple(t(), elems...) {
+		vec = ConsVector(vec, elem)
+	}
+	return vec
 }
 func (t TupleVal) Eval(args ...d.Native) d.Native {
 	var vals = []Callable{}
 	for _, val := range args {
 		vals = append(vals, DataVal(val.Eval))
 	}
-	return ApplyTuple(t(), vals...)
+	var tups = ApplyTuple(t(), vals...)
+	var slice = d.NewSlice()
+	for _, tup := range tups {
+		slice.Append(tup)
+	}
+	return slice
 }
 
 //// TUPLE ELEMENT

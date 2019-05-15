@@ -99,20 +99,30 @@ func TestMapMaybe(t *testing.T) {
 }
 
 func TestTupleConstruction(t *testing.T) {
-	var tupleCons = NewTupleType(
+	var tupleType = NewTupleType(
 		DataVal(d.StrVal("field one").Eval),
 		DataVal(d.StrVal("field two").Eval),
 		DataVal(d.IntVal(42).Eval),
 		DataVal(d.FltVal(23.42).Eval),
 	)
-	fmt.Printf("tuple type constructor: %s\n", tupleCons)
-	var tupleVal = tupleCons(
+	fmt.Printf("tuple type constructor: %s\n", tupleType)
+	var tupleVal = tupleType(
 		DataVal(d.StrVal("field one altered").Eval),
 		DataVal(d.StrVal("field two altered").Eval),
 		DataVal(d.IntVal(23).Eval),
 		DataVal(d.FltVal(42.23).Eval),
 	)
 	fmt.Printf("altered tuple type fields: %s\n", tupleVal())
+	fmt.Printf("fields still altered?: %s\n", tupleVal())
+	tupleVal = tupleType(
+		DataVal(d.StrVal("field one altered").Eval),
+		DataVal(d.StrVal("field two altered").Eval),
+		DataVal(d.FltVal(23.42).Eval),
+		DataVal(d.FltVal(42.23).Eval),
+	)
+	fmt.Printf("try to set the last field to a value of the wrong type (should be reset to default): %s\n", tupleVal())
+	var elems = tupleVal(NewIndexPair(2, NewFromData(d.IntVal(23))))
+	fmt.Printf("change field value by index pair: %s\n", elems)
 }
 
 func TestRecordTypeConstruction(t *testing.T) {
