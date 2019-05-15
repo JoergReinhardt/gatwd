@@ -71,7 +71,7 @@ func (l ListVal) Call(args ...Callable) Callable {
 // eval applys current heads eval method to passed arguments, or calle it empty
 func (l ListVal) Eval(args ...d.Native) d.Native {
 	if len(args) > 0 {
-		return l.Cons(NatToFnc(args...)...)
+		return l.Cons(natToFnc(args...)...)
 	}
 	if head := l.Head(); head != nil {
 		return head.Eval()
@@ -490,7 +490,7 @@ func (l PairList) Push(elems ...Paired) PairList {
 func (l PairList) Call(args ...Callable) Callable {
 	var pairs = []Paired{}
 	if len(args) > 0 {
-		pairs = append(pairs, ArgsToPaired(args...)...)
+		pairs = append(pairs, argsToPaired(args...)...)
 	}
 	var head Callable
 	head, l = l(pairs...)

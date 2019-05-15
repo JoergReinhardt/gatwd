@@ -19,7 +19,7 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var maybeInt = NewMaybeTypeConstructor(NewPredicate(func(args ...Callable) bool {
+var maybeInt = NewMaybeType(NewPredicate(func(args ...Callable) bool {
 	if args[0] != nil {
 		return args[0].TypeNat().Match(d.Numbers)
 	}
