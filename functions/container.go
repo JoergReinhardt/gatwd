@@ -68,12 +68,142 @@ func NewRecordType(elems ...Callable) RecordType {
 	}
 }
 
-func ApplyRecord(
+func applyRecord(
 	signature []KeyPair,
-	fields []RecordField,
-	args ...KeyPair,
+	records []RecordField,
+	args ...Callable,
 ) []RecordField {
-	return fields
+	for argpos, arg := range args {
+		for sigpos, sig := range signature {
+			// apply record field
+			if arg.TypeFnc().Match(Record | Element) {
+				if recfield, ok := arg.(RecordField); ok {
+					var key, val = recfield()
+					var result = val.Call(records[sigpos].Value())
+					if sig.Value().(Paired).Left().TypeNat().Match(
+						result.TypeNat(),
+					) && sig.Value().(Paired).Left().TypeFnc().Match(
+						result.TypeNat(),
+					) && sig.KeyStr() == recfield.KeyStr() {
+						records[sigpos] = NewRecordField(
+							key,
+							result,
+						)
+						break
+					}
+				}
+			}
+			// apply pair
+			if arg.TypeFnc().Match(Pair) {
+				if pair, ok := arg.(Paired); ok {
+					if pair.Left().TypeNat().Match(d.String) {
+						if key, ok := pair.Left().Eval().(d.StrVal); ok {
+							var val = pair.Right()
+							var result = val.Call(records[sigpos].Value())
+							if sig.Value().(Paired).Left().TypeNat().Match(
+								result.TypeNat(),
+							) && sig.Value().(Paired).Left().TypeFnc().Match(
+								result.TypeFnc(),
+							) && sig.KeyStr() == key.String() {
+								records[sigpos] = NewRecordField(
+									key.String(),
+									result,
+								)
+								break
+							}
+						}
+					}
+				}
+			}
+			// apply alternating key/value arguments
+			if arg.TypeNat().Match(d.String) {
+				if key, ok := arg.Eval().(d.StrVal); ok {
+					if len(records) > argpos+1 {
+						argpos += 1
+						var result = args[argpos].Call(records[sigpos].Value())
+						if sig.Value().(Paired).Left().TypeNat().Match(
+							result.TypeNat(),
+						) && sig.Value().(Paired).Left().TypeFnc().Match(
+							result.TypeNat(),
+						) && sig.KeyStr() == key.String() {
+							records[sigpos] = NewRecordField(
+								key.String(),
+								result,
+							)
+							break
+						}
+					}
+				}
+				argpos -= 1
+			}
+		}
+	}
+	return records
+}
+
+func createRecord(
+	signature []KeyPair,
+	records []RecordField,
+	args ...Callable,
+) []RecordField {
+	for argpos, arg := range args {
+		for sigpos, sig := range signature {
+			// apply record field
+			if arg.TypeFnc().Match(Record | Element) {
+				if recfield, ok := arg.(RecordField); ok {
+					if sig.Value().(Paired).Left().TypeNat().Match(
+						recfield.Value().TypeNat(),
+					) && sig.Value().(Paired).Left().TypeFnc().Match(
+						recfield.Value().TypeNat(),
+					) && sig.KeyStr() == recfield.KeyStr() {
+						records[sigpos] = recfield
+						break
+					}
+				}
+			}
+			// apply pair
+			if arg.TypeFnc().Match(Pair) {
+				if pair, ok := arg.(Paired); ok {
+					if pair.Left().TypeNat().Match(d.String) {
+						if key, ok := pair.Left().Eval().(d.StrVal); ok {
+							if sig.Value().(Paired).Left().TypeNat().Match(
+								pair.Right().TypeNat(),
+							) && sig.Value().(Paired).Left().TypeFnc().Match(
+								pair.Right().TypeFnc(),
+							) && sig.KeyStr() == key.String() {
+								records[sigpos] = NewRecordField(
+									key.String(),
+									pair.Right(),
+								)
+								break
+							}
+						}
+					}
+				}
+			}
+			// apply alternating key/value arguments
+			if arg.TypeNat().Match(d.String) {
+				if key, ok := arg.Eval().(d.StrVal); ok {
+					if len(records) > argpos+1 {
+						argpos += 1
+						if sig.Value().(Paired).Left().TypeNat().Match(
+							args[argpos].TypeNat(),
+						) && sig.Value().(Paired).Left().TypeFnc().Match(
+							args[argpos].TypeNat(),
+						) && sig.KeyStr() == key.String() {
+							records[sigpos] = NewRecordField(
+								key.String(),
+								args[argpos],
+							)
+							break
+						}
+					}
+				}
+				argpos -= 1
+			}
+		}
+	}
+	return records
 }
 
 func createSignature(
@@ -140,71 +270,6 @@ func createSignature(
 		}
 	}
 	return signature
-}
-
-func createRecord(
-	signature []KeyPair,
-	records []RecordField,
-	args ...Callable,
-) []RecordField {
-	for argpos, arg := range args {
-		for sigpos, sig := range signature {
-			// apply record field
-			if arg.TypeFnc().Match(Record | Element) {
-				if recfield, ok := arg.(RecordField); ok {
-					if sig.Value().(Paired).Left().TypeNat().Match(
-						recfield.Value().TypeNat(),
-					) && sig.Value().(Paired).Left().TypeFnc().Match(
-						recfield.Value().TypeNat(),
-					) && sig.KeyStr() == recfield.KeyStr() {
-						records[sigpos] = recfield
-						break
-					}
-				}
-			}
-			// apply pair
-			if arg.TypeFnc().Match(Pair) {
-				if pair, ok := arg.(Paired); ok {
-					if pair.Left().TypeNat().Match(d.String) {
-						if key, ok := pair.Left().Eval().(d.StrVal); ok {
-							if sig.Value().(Paired).Left().TypeNat().Match(
-								pair.Right().TypeNat(),
-							) && sig.Value().(Paired).Left().TypeFnc().Match(
-								pair.Right().TypeFnc(),
-							) && sig.KeyStr() == key.String() {
-								records[sigpos] = NewRecordField(
-									key.String(),
-									pair.Right(),
-								)
-								break
-							}
-						}
-					}
-				}
-			}
-			// apply alternating key/value arguments
-			if arg.TypeNat().Match(d.String) {
-				if key, ok := arg.Eval().(d.StrVal); ok {
-					if len(records) > argpos+1 {
-						argpos += 1
-						if sig.Value().(Paired).Left().TypeNat().Match(
-							args[argpos].TypeNat(),
-						) && sig.Value().(Paired).Left().TypeFnc().Match(
-							args[argpos].TypeNat(),
-						) && sig.KeyStr() == key.String() {
-							records[sigpos] = NewRecordField(
-								key.String(),
-								args[argpos],
-							)
-							break
-						}
-					}
-				}
-				argpos -= 1
-			}
-		}
-	}
-	return records
 }
 
 //// RECORD TYPE
@@ -395,16 +460,7 @@ func NewTupleType(defaults ...Callable) TupleType {
 	}
 }
 
-func ApplyTuple(
-	signature []d.Paired,
-	tuples []TupleElem,
-	args ...Callable,
-) []TupleElem {
-	return tuples
-}
-
-//// APPLY TUPLE
-func createTuple(
+func applyTuple(
 	signature []d.Paired,
 	tuples []TupleElem,
 	args ...Callable,
@@ -414,6 +470,59 @@ func createTuple(
 			if arg.TypeFnc().Match(Pair | Index) {
 				if pair, ok := arg.(IndexPair); ok {
 					var idx, val = pair()
+					var result = val.Call(tuples[idx].Value())
+					if len(signature) > idx {
+						if result.TypeFnc().Match(
+							signature[idx].Right().(TyFnc),
+						) && result.TypeNat().Match(
+							signature[idx].Left().(d.TyNat),
+						) {
+							tuples[idx] = NewTupleElem(result, idx)
+							continue
+						}
+					}
+				}
+			}
+			if arg.TypeFnc().Match(Tuple | Element) {
+				if tup, ok := arg.(TupleElem); ok {
+					var val, idx = tup()
+					var result = val.Call(tuples[idx].Value())
+					if len(signature) > idx {
+						if val.TypeFnc().Match(
+							signature[idx].Right().(TyFnc),
+						) && val.TypeNat().Match(
+							signature[idx].Left().(d.TyNat),
+						) {
+							tuples[idx] = NewTupleElem(result, idx)
+							continue
+						}
+					}
+				}
+			}
+			var result = arg.Call(tuples[pos].Value())
+			if result.TypeFnc().Match(
+				signature[pos].Right().(TyFnc),
+			) && result.TypeNat().Match(
+				signature[pos].Left().(d.TyNat),
+			) {
+				tuples[pos] = NewTupleElem(result, pos)
+			}
+		}
+	}
+	return tuples
+}
+
+//// CREATE TUPLE
+func createTuple(
+	signature []d.Paired,
+	tuples []TupleElem,
+	args ...Callable,
+) []TupleElem {
+	if len(args) > 0 {
+		for pos, arg := range args {
+			if arg.TypeFnc().Match(Pair | Index) {
+				if pair, ok := arg.(IndexPair); ok {
+					var val, idx = pair.Value(), pair.Index()
 					if len(signature) > idx {
 						if val.TypeFnc().Match(
 							signature[idx].Right().(TyFnc),
@@ -441,12 +550,12 @@ func createTuple(
 					}
 				}
 			}
-			if arg.TypeFnc().Match(
+			if args[pos].TypeFnc().Match(
 				signature[pos].Right().(TyFnc),
-			) && arg.TypeNat().Match(
+			) && args[pos].TypeNat().Match(
 				signature[pos].Left().(d.TyNat),
 			) {
-				tuples[pos] = NewTupleElem(arg, pos)
+				tuples[pos] = NewTupleElem(args[pos], pos)
 			}
 		}
 	}
