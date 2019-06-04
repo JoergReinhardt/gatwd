@@ -34,11 +34,11 @@ func (v BoolVal) Imaginary() complex128 { return v.Integer().Imag() }
 
 // NATURAL VALUE
 func (v UintVal) Unit() Native { return UintVal(1) }
-func (v UintVal) Bool() bool {
+func (v UintVal) Truth() Native {
 	if v > 0 {
-		return true
+		return BoolVal(true)
 	}
-	return false
+	return BoolVal(false)
 }
 func (v UintVal) Uint() uint       { return uint(v) }
 func (v UintVal) Int() int         { return int(v) }
@@ -70,7 +70,6 @@ func (v IntVal) Natural() UintVal {
 	}
 	return UintVal(v)
 }
-
 func (v IntVal) Uint() uint       { return uint(v.Natural()) }
 func (v IntVal) Int() int         { return int(v) } // implements Idx Attribut
 func (v IntVal) Integer() IntVal  { return v }      // implements Idx Attribut
@@ -170,6 +169,12 @@ func (v DuraVal) Natural() UintVal        { return UintVal(v.Uint()) }
 func (v DuraVal) Int() int                { return int(v) }
 func (v DuraVal) Integer() IntVal         { return IntVal(v.Int()) }
 
+func (v ByteVal) Bool() bool {
+	if v > ByteVal(0) {
+		return true
+	}
+	return false
+}
 func (v ByteVal) Unit() byte       { return byte(0) }
 func (v ByteVal) Uint() uint       { return uint(v) }
 func (v ByteVal) Natural() UintVal { return UintVal(uint(v)) }
@@ -189,6 +194,14 @@ func (v BytesVal) Runes() []rune    { return []rune(v.String()) }
 func (v BytesVal) RuneVec() RuneVec { return RuneVec(v.Runes()) }
 func (v BytesVal) Buffer() RuneVec  { return RuneVec(v.Runes()) }
 func (v BytesVal) Len() int         { return len(v.Bytes()) }
+func (v BytesVal) Bool() bool {
+	for _, b := range v {
+		if b > byte(0) {
+			return true
+		}
+	}
+	return false
+}
 
 /// STRING VALUE
 func (v StrVal) Unit() Native { return StrVal(" ") }

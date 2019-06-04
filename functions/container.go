@@ -23,7 +23,7 @@ type (
 	MaybeTypeCons func(...Callable) MaybeType
 
 	//// TUPLE
-	TupleElem     func(...Callable) (Callable, int)
+	TupleElem     func(...Callable) (int, Callable)
 	TupleVal      func(...Callable) []TupleElem
 	TupleType     func(...Callable) TupleVal
 	TupleTypeCons func(...Callable) TupleType
@@ -47,23 +47,21 @@ type (
 //// RECORD
 ///
 //
-func NewRecordType(elems ...Callable) RecordType {
-	var signature = createSignature(elems...)
+func NewRecordType(defaults ...Callable) RecordType {
+	var signature = createSignature(defaults...)
 	var l = len(signature)
+	var records []RecordField
+	for i := 0; i < l; i++ {
+		records = append(records, NewRecordField("", NewNone()))
+	}
+	records = createRecord(signature, records, defaults...)
 	return func(args ...Callable) RecordVal {
-		var fields []RecordField
-		for i := 0; i < l; i++ {
-			fields = append(fields, NewRecordField("", NewNone()))
-		}
-		fields = createRecord(signature, fields, elems...)
-		if len(args) > 0 {
-			fields = createRecord(signature, fields, args...)
-		}
+		records = createRecord(signature, records, args...)
 		return func(vals ...Callable) []RecordField {
 			if len(vals) > 0 {
-				fields = createRecord(signature, fields, args...)
+				records = applyRecord(signature, records, vals...)
 			}
-			return fields
+			return records
 		}
 	}
 }
@@ -73,68 +71,43 @@ func applyRecord(
 	records []RecordField,
 	args ...Callable,
 ) []RecordField {
-	for argpos, arg := range args {
+	for _, arg := range args {
 		for sigpos, sig := range signature {
 			// apply record field
 			if arg.TypeFnc().Match(Record | Element) {
 				if recfield, ok := arg.(RecordField); ok {
 					var key, val = recfield()
-					var result = val.Call(records[sigpos].Value())
+					var value = val.Call(records[sigpos])
 					if sig.Value().(Paired).Left().TypeNat().Match(
-						result.TypeNat(),
+						value.TypeNat(),
 					) && sig.Value().(Paired).Left().TypeFnc().Match(
-						result.TypeNat(),
+						value.TypeFnc(),
 					) && sig.KeyStr() == recfield.KeyStr() {
-						records[sigpos] = NewRecordField(
-							key,
-							result,
-						)
+						records[sigpos] = NewRecordField(key, value)
 						break
 					}
 				}
 			}
 			// apply pair
-			if arg.TypeFnc().Match(Pair) {
+			if arg.TypeFnc().Match(Key | Pair) {
 				if pair, ok := arg.(Paired); ok {
 					if pair.Left().TypeNat().Match(d.String) {
 						if key, ok := pair.Left().Eval().(d.StrVal); ok {
-							var val = pair.Right()
-							var result = val.Call(records[sigpos].Value())
+							var value = pair.Right().Call(records[sigpos])
 							if sig.Value().(Paired).Left().TypeNat().Match(
-								result.TypeNat(),
+								value.TypeNat(),
 							) && sig.Value().(Paired).Left().TypeFnc().Match(
-								result.TypeFnc(),
+								value.TypeFnc(),
 							) && sig.KeyStr() == key.String() {
 								records[sigpos] = NewRecordField(
 									key.String(),
-									result,
+									value,
 								)
 								break
 							}
 						}
 					}
 				}
-			}
-			// apply alternating key/value arguments
-			if arg.TypeNat().Match(d.String) {
-				if key, ok := arg.Eval().(d.StrVal); ok {
-					if len(records) > argpos+1 {
-						argpos += 1
-						var result = args[argpos].Call(records[sigpos].Value())
-						if sig.Value().(Paired).Left().TypeNat().Match(
-							result.TypeNat(),
-						) && sig.Value().(Paired).Left().TypeFnc().Match(
-							result.TypeNat(),
-						) && sig.KeyStr() == key.String() {
-							records[sigpos] = NewRecordField(
-								key.String(),
-								result,
-							)
-							break
-						}
-					}
-				}
-				argpos -= 1
 			}
 		}
 	}
@@ -146,7 +119,7 @@ func createRecord(
 	records []RecordField,
 	args ...Callable,
 ) []RecordField {
-	for argpos, arg := range args {
+	for _, arg := range args {
 		for sigpos, sig := range signature {
 			// apply record field
 			if arg.TypeFnc().Match(Record | Element) {
@@ -154,7 +127,7 @@ func createRecord(
 					if sig.Value().(Paired).Left().TypeNat().Match(
 						recfield.Value().TypeNat(),
 					) && sig.Value().(Paired).Left().TypeFnc().Match(
-						recfield.Value().TypeNat(),
+						recfield.Value().TypeFnc(),
 					) && sig.KeyStr() == recfield.KeyStr() {
 						records[sigpos] = recfield
 						break
@@ -162,13 +135,13 @@ func createRecord(
 				}
 			}
 			// apply pair
-			if arg.TypeFnc().Match(Pair) {
+			if arg.TypeFnc().Match(Key | Pair) {
 				if pair, ok := arg.(Paired); ok {
 					if pair.Left().TypeNat().Match(d.String) {
 						if key, ok := pair.Left().Eval().(d.StrVal); ok {
 							if sig.Value().(Paired).Left().TypeNat().Match(
 								pair.Right().TypeNat(),
-							) && sig.Value().(Paired).Left().TypeFnc().Match(
+							) && sig.Value().(Paired).Right().TypeFnc().Match(
 								pair.Right().TypeFnc(),
 							) && sig.KeyStr() == key.String() {
 								records[sigpos] = NewRecordField(
@@ -180,26 +153,6 @@ func createRecord(
 						}
 					}
 				}
-			}
-			// apply alternating key/value arguments
-			if arg.TypeNat().Match(d.String) {
-				if key, ok := arg.Eval().(d.StrVal); ok {
-					if len(records) > argpos+1 {
-						argpos += 1
-						if sig.Value().(Paired).Left().TypeNat().Match(
-							args[argpos].TypeNat(),
-						) && sig.Value().(Paired).Left().TypeFnc().Match(
-							args[argpos].TypeNat(),
-						) && sig.KeyStr() == key.String() {
-							records[sigpos] = NewRecordField(
-								key.String(),
-								args[argpos],
-							)
-							break
-						}
-					}
-				}
-				argpos -= 1
 			}
 		}
 	}
@@ -393,7 +346,7 @@ func (a RecordField) Call(args ...Callable) Callable {
 	return a.Right().Call(args...)
 }
 func (a RecordField) Eval(args ...d.Native) d.Native {
-	return a.Right().Eval(args...)
+	return a.Value().Eval(args...)
 }
 func (a RecordField) Both() (Callable, Callable) {
 	var key, val = a()
@@ -421,7 +374,7 @@ func (a RecordField) TypeNat() d.TyNat {
 		d.String |
 		a.Value().TypeNat()
 }
-func (a RecordField) TypeFnc() TyFnc  { return Record | Element | a.Value().TypeFnc() }
+func (a RecordField) TypeFnc() TyFnc  { return Record | Element }
 func (a RecordField) Key() Callable   { return a.Left() }
 func (a RecordField) Value() Callable { return a.Right() }
 func (a RecordField) Pair() Paired    { return NewPair(a.Both()) }
@@ -453,7 +406,7 @@ func NewTupleType(defaults ...Callable) TupleType {
 		tuples = createTuple(signature, tuples, args...)
 		return func(vals ...Callable) []TupleElem {
 			if len(vals) > 0 {
-				return createTuple(signature, tuples, vals...)
+				return applyTuple(signature, tuples, vals...)
 			}
 			return tuples
 		}
@@ -469,7 +422,7 @@ func applyTuple(
 		for pos, arg := range args {
 			if arg.TypeFnc().Match(Pair | Index) {
 				if pair, ok := arg.(IndexPair); ok {
-					var idx, val = pair()
+					var idx, val = pair.Index(), pair.Value()
 					var result = val.Call(tuples[idx].Value())
 					if len(signature) > idx {
 						if result.TypeFnc().Match(
@@ -485,7 +438,7 @@ func applyTuple(
 			}
 			if arg.TypeFnc().Match(Tuple | Element) {
 				if tup, ok := arg.(TupleElem); ok {
-					var val, idx = tup()
+					var idx, val = tup()
 					var result = val.Call(tuples[idx].Value())
 					if len(signature) > idx {
 						if val.TypeFnc().Match(
@@ -537,7 +490,7 @@ func createTuple(
 			}
 			if arg.TypeFnc().Match(Tuple | Element) {
 				if tup, ok := arg.(TupleElem); ok {
-					var val, idx = tup()
+					var idx, val = tup.Index(), tup.Value()
 					if len(signature) > idx {
 						if val.TypeFnc().Match(
 							signature[idx].Right().(TyFnc),
@@ -636,15 +589,15 @@ func (t TupleVal) Eval(args ...d.Native) d.Native {
 
 //// TUPLE ELEMENT
 func NewTupleElem(val Callable, idx int) TupleElem {
-	return func(args ...Callable) (Callable, int) {
+	return func(args ...Callable) (int, Callable) {
 		if len(args) > 0 {
-			return val.Call(args...), idx
+			return idx, val.Call(args...)
 		}
-		return val, idx
+		return idx, val
 	}
 }
-func (e TupleElem) Value() Callable                { var val, _ = e(); return val }
-func (e TupleElem) Index() int                     { var _, pos = e(); return pos }
+func (e TupleElem) Value() Callable                { var _, val = e(); return val }
+func (e TupleElem) Index() int                     { var idx, _ = e(); return idx }
 func (e TupleElem) String() string                 { return e.Value().String() }
 func (e TupleElem) TypeFnc() TyFnc                 { return Tuple | Element | e.Value().TypeFnc() }
 func (e TupleElem) TypeNat() d.TyNat               { return d.Functor | e.Value().TypeNat() }
@@ -890,18 +843,6 @@ func NewMaybeType(pred PredictExpr) MaybeType {
 	return constructor
 }
 
-func (c MaybeTypeCons) String() string   { return "Maybe·Type·Constructor" }
-func (c MaybeTypeCons) TypeFnc() TyFnc   { return Constructor | Maybe }
-func (c MaybeTypeCons) TypeNat() d.TyNat { return d.Functor }
-func (c MaybeTypeCons) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		if args[0].TypeFnc().Match(Predicate) {
-			return c(args[0])
-		}
-	}
-	return NewNone()
-}
-
 //// MAYBE TYPE
 func (m MaybeType) String() string   { return "Maybe·Type" }
 func (m MaybeType) TypeFnc() TyFnc   { return Maybe }
@@ -929,8 +870,7 @@ func (m MaybeType) Eval(args ...d.Native) d.Native {
 			for _, arg := range args {
 				vals = append(
 					vals,
-					m(DataVal(arg.Eval)),
-				)
+					m(DataVal(arg.Eval)))
 			}
 		}
 		var arg = args[0]
@@ -948,10 +888,10 @@ func (m MaybeVal) Eval(args ...d.Native) d.Native { return m().Eval(args...) }
 func NewMaybeValue(iniargs ...Callable) MaybeVal {
 	return func(args ...Callable) Callable {
 		if len(iniargs) > 0 {
-			if len(iniargs) > 1 {
-				return NewJust(CurryN(iniargs...))
+			if len(args) > 0 {
+				return NewJust(Curry(append(iniargs, args...)...))
 			}
-			return NewJust(iniargs[0])
+			return NewJust(Curry(iniargs...))
 		}
 		return NewNone()
 	}
@@ -965,14 +905,14 @@ func NewJust(val Callable) JustVal {
 			if len(args) > 0 {
 				return val.Call(args...)
 			}
-			return val
+			return val.Call()
 		})
 	return just
 }
 func (n JustVal) Ident() Callable   { return n }
-func (n JustVal) Value() Callable   { return n() }
-func (n JustVal) Head() Callable    { return n() }
 func (n JustVal) Tail() Consumeable { return n }
+func (n JustVal) Head() Callable    { return n() }
+func (n JustVal) Value() Callable   { return n() }
 func (n JustVal) Consume() (Callable, Consumeable) {
 	return n(), NewNone()
 }
@@ -1022,9 +962,9 @@ func (n JustVal) TypeName() string {
 func NewConstant(
 	expr Callable,
 ) ConstantExpr {
-	return func() Callable { return expr }
+	return func() Callable { return expr.Call() }
 }
-func (c ConstantExpr) TypeFnc() TyFnc            { return Functor }
+func (c ConstantExpr) TypeFnc() TyFnc            { return c().TypeFnc() }
 func (c ConstantExpr) TypeNat() d.TyNat          { return c().TypeNat() }
 func (c ConstantExpr) Eval(...d.Native) d.Native { return c().Eval() }
 func (c ConstantExpr) Call(...Callable) Callable { return c() }
@@ -1036,11 +976,21 @@ func NewUnaryExpr(
 ) UnaryExpr {
 	return func(arg Callable) Callable { return expr.Call(arg) }
 }
-func (u UnaryExpr) Ident() Callable               { return u }
-func (u UnaryExpr) TypeFnc() TyFnc                { return Functor }
-func (u UnaryExpr) TypeNat() d.TyNat              { return d.Functor.TypeNat() }
-func (u UnaryExpr) Call(arg ...Callable) Callable { return u(arg[0]) }
-func (u UnaryExpr) Eval(arg ...d.Native) d.Native { return u(NewFromData(arg...)) }
+func (u UnaryExpr) Ident() Callable  { return u }
+func (u UnaryExpr) TypeFnc() TyFnc   { return u(NewNone()).TypeFnc() }
+func (u UnaryExpr) TypeNat() d.TyNat { return d.Functor.TypeNat() }
+func (u UnaryExpr) Call(arg ...Callable) Callable {
+	if len(arg) > 0 {
+		return u(arg[0])
+	}
+	return NewNone()
+}
+func (u UnaryExpr) Eval(arg ...d.Native) d.Native {
+	if len(arg) > 0 {
+		return u(NewFromData(arg[0]))
+	}
+	return d.NilVal{}
+}
 
 /// BINARY EXPRESSION
 func NewBinaryExpr(
@@ -1049,12 +999,20 @@ func NewBinaryExpr(
 	return func(a, b Callable) Callable { return expr.Call(a, b) }
 }
 
-func (b BinaryExpr) Ident() Callable                { return b }
-func (b BinaryExpr) TypeFnc() TyFnc                 { return Functor }
-func (b BinaryExpr) TypeNat() d.TyNat               { return d.Functor.TypeNat() }
-func (b BinaryExpr) Call(args ...Callable) Callable { return b(args[0], args[1]) }
+func (b BinaryExpr) Ident() Callable  { return b }
+func (b BinaryExpr) TypeFnc() TyFnc   { return b(NewNone(), NewNone()).TypeFnc() }
+func (b BinaryExpr) TypeNat() d.TyNat { return d.Functor.TypeNat() }
+func (b BinaryExpr) Call(args ...Callable) Callable {
+	if len(args) > 1 {
+		return b(args[0], args[1])
+	}
+	return NewNone()
+}
 func (b BinaryExpr) Eval(args ...d.Native) d.Native {
-	return b(NewFromData(args[0]), NewFromData(args[1]))
+	if len(args) > 1 {
+		return b(NewFromData(args[0]), NewFromData(args[1]))
+	}
+	return d.NilVal{}
 }
 
 /// NARY EXPRESSION
@@ -1066,15 +1024,18 @@ func NewNaryExpr(
 	}
 }
 func (n NaryExpr) Ident() Callable             { return n }
-func (n NaryExpr) TypeFnc() TyFnc              { return Functor }
+func (n NaryExpr) TypeFnc() TyFnc              { return n().TypeFnc() }
 func (n NaryExpr) TypeNat() d.TyNat            { return d.Functor.TypeNat() }
 func (n NaryExpr) Call(d ...Callable) Callable { return n(d...) }
 func (n NaryExpr) Eval(args ...d.Native) d.Native {
 	var params = []Callable{}
-	for _, arg := range args {
-		params = append(params, NewFromData(arg))
+	if len(args) > 0 {
+		for _, arg := range args {
+			params = append(params, NewFromData(arg))
+		}
+		return n(params...)
 	}
-	return n(params...)
+	return n()
 }
 
 //// DATA VALUE

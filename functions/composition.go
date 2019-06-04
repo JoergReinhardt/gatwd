@@ -24,29 +24,34 @@ type (
 )
 
 //// CURRY
-func Curry(f, g NaryExpr, args ...Callable) Callable {
-	if len(args) > 0 {
-		return f(g(args...))
-	}
-	return f(g())
-}
-
-//// CURRY-N
-func CurryN(args ...Callable) Callable {
-	if len(args) > 0 {
-		var f = args[0].Call
-		if len(args) > 1 {
-			var g = args[1].Call
-			if len(args) > 2 {
-				return f(g(
-					CurryN(
-						args[2:]...,
-					),
-				))
+func Curry(inis ...Callable) Callable {
+	var f, g NaryExpr
+	if len(inis) > 0 {
+		f = inis[0].Call
+		if len(inis) > 1 {
+			g = inis[1].Call
+			if len(inis) > 2 {
+				return NaryExpr(func(args ...Callable) Callable {
+					if len(args) > 0 {
+						return f(g(append(inis[2:], args...)...))
+					} else {
+						return f(g(inis[2:]...))
+					}
+				})
 			}
-			return f(g())
+			return NaryExpr(func(args ...Callable) Callable {
+				if len(args) > 0 {
+					return f(g(args...))
+				}
+				return f(g())
+			})
 		}
-		return f()
+		return NaryExpr(func(args ...Callable) Callable {
+			if len(args) > 0 {
+				return f(args...)
+			}
+			return f()
+		})
 	}
 	return NewNone()
 }
@@ -82,6 +87,7 @@ func (c Collection) Call(args ...Callable) Callable {
 	}
 	return head
 }
+
 func (c Collection) Eval(args ...d.Native) d.Native {
 	var head, _ = c()
 	if len(args) > 0 {
@@ -92,26 +98,33 @@ func (c Collection) Eval(args ...d.Native) d.Native {
 	}
 	return head.Eval()
 }
+
 func (c Collection) Ident() Callable {
 	return c
 }
+
 func (c Collection) Consume() (Callable, Consumeable) {
 	return c.Head(), c.Tail()
 }
+
 func (c Collection) Head() Callable {
 	h, _ := c()
 	return h
 }
+
 func (c Collection) Tail() Consumeable {
 	_, t := c()
 	return t
 }
+
 func (c Collection) TypeFnc() TyFnc {
 	return c.Head().TypeFnc()
 }
+
 func (c Collection) TypeNat() d.TyNat {
 	return c.Head().TypeNat()
 }
+
 func (c Collection) String() string {
 	return c.Head().String()
 }
@@ -153,6 +166,7 @@ func (c PairCollection) Call(args ...Callable) Callable {
 	}
 	return head
 }
+
 func (c PairCollection) Eval(args ...d.Native) d.Native {
 	var head, _ = c()
 	if len(args) > 0 {
@@ -163,26 +177,33 @@ func (c PairCollection) Eval(args ...d.Native) d.Native {
 	}
 	return head.Eval()
 }
+
 func (c PairCollection) Ident() Callable {
 	return c
 }
+
 func (c PairCollection) Consume() (Callable, Consumeable) {
 	return c.Head(), c.Tail()
 }
+
 func (c PairCollection) Head() Callable {
 	h, _ := c()
 	return h
 }
+
 func (c PairCollection) Tail() Consumeable {
 	_, t := c()
 	return t
 }
+
 func (c PairCollection) TypeFnc() TyFnc {
 	return Pair | c.Head().TypeFnc()
 }
+
 func (c PairCollection) TypeNat() d.TyNat {
 	return c.Head().TypeNat()
 }
+
 func (c PairCollection) String() string {
 	return c.Head().String()
 }
@@ -198,6 +219,7 @@ func NewMonad(mon Consumeable, bind Bind) MonadicExpr {
 		return nil, NewMonad(mon, bind)
 	})
 }
+
 func (m MonadicExpr) Consume() (Callable, Consumeable) {
 	var head Callable
 	head, m = m()
@@ -206,25 +228,32 @@ func (m MonadicExpr) Consume() (Callable, Consumeable) {
 	}
 	return head, m
 }
+
 func (m MonadicExpr) Head() Callable {
 	var head, _ = m()
 	return head
 }
+
 func (m MonadicExpr) Tail() Consumeable {
 	return m
 }
+
 func (m MonadicExpr) TypeFnc() TyFnc {
 	return Monad
 }
+
 func (m MonadicExpr) TypeNat() d.TyNat {
 	return m.Head().TypeNat()
 }
+
 func (m MonadicExpr) Call(args ...Callable) Callable {
 	return m.Head().Call(args...)
 }
+
 func (m MonadicExpr) Eval(args ...d.Native) d.Native {
 	return m.Head().Eval(args...)
 }
+
 func (m MonadicExpr) String() string {
 	return m.Head().String()
 }

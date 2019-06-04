@@ -19,93 +19,16 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var maybeInt = NewMaybeType(NewPredicate(func(args ...Callable) bool {
-	if args[0] != nil {
-		return args[0].TypeNat().Match(d.Numbers)
-	}
-	return false
-}))
-
-var add = func(l, r d.Native) MaybeVal {
-	var left, right d.Numeral
-	if l.TypeNat() != d.Nil {
-		left = l.Eval().(d.Numeral)
-	}
-	if r.TypeNat() != d.Nil {
-		right = r.Eval().(d.Numeral)
-	}
-	return NewMaybeValue(DataVal(d.IntVal(left.Int() + right.Int()).Eval))
-}
-
-func TestMaybe(t *testing.T) {
-	fmt.Printf("maybeInt: %s\n", maybeInt)
-	var intVal = maybeInt(DataVal(d.IntVal(42).Eval))
-	var strVal = maybeInt(DataVal(d.StrVal("test string").Eval))
-	var fltVal = maybeInt(DataVal(d.FltVal(42.23).Eval))
-	var imagVal = maybeInt(DataVal(d.ImagVal(complex(7.121, 12.34)).Eval))
-	fmt.Printf("maybe number int: %s\n", intVal())
-	if intVal().Eval().(d.IntVal) != 42 {
-		t.Fail()
-	}
-	fmt.Printf("maybe number string: %s\n", strVal())
-	if !strVal().TypeFnc().Match(None) {
-		t.Fail()
-	}
-	fmt.Printf("maybe number float: %s\n", fltVal())
-	if fltVal().Eval().(d.FltVal) != 42.23 {
-		t.Fail()
-	}
-	fmt.Printf("maybe number imaginary: %s\n", imagVal())
-}
-
-func TestMapMaybe(t *testing.T) {
-	var mappedL = MapL(
-		NewList(intslice...),
-		Map(func(args ...Callable) Callable {
-			if len(args) > 0 {
-				return maybeInt(args[0])()
-			}
-			return maybeInt(NewNone())()
-		}))
-
-	var mappedR = MapL(
-		NewList(intslice...),
-		Map(func(args ...Callable) Callable {
-			if len(args) > 0 {
-				return maybeInt(args[0])()
-			}
-			return maybeInt(NewNone())()
-		}))
-
-	fmt.Printf("mapped maybe integers: %s\n", mappedL)
-
-	var added = MapL(
-		mappedL,
-		Map(func(args ...Callable) Callable {
-			var left, right Callable
-			right, mappedR = mappedR()
-			if len(args) > 0 {
-				left = args[0]
-			}
-			if right != nil {
-				return add(left.(JustVal), right.(JustVal))
-			}
-			return NewNone()
-		}))
-
-	_, _ = mappedR()
-
-	fmt.Printf("operator added maybe integers: %s\n", added)
-}
-
 func TestTupleConstruction(t *testing.T) {
+
 	var tupleType = NewTupleType(
-		DataVal(d.StrVal("field one").Eval),
-		DataVal(d.StrVal("field two").Eval),
-		DataVal(d.IntVal(42).Eval),
-		DataVal(d.FltVal(23.42).Eval),
+		DataVal(d.StrVal("").Eval),
+		DataVal(d.StrVal("").Eval),
+		DataVal(d.IntVal(0).Eval),
+		DataVal(d.FltVal(0.0).Eval),
 	)
 	fmt.Printf("tuple type constructor: %s\n", tupleType)
+
 	var tupleVal = tupleType(
 		DataVal(d.StrVal("field one altered").Eval),
 		DataVal(d.StrVal("field two altered").Eval),
@@ -114,25 +37,42 @@ func TestTupleConstruction(t *testing.T) {
 	)
 	fmt.Printf("altered tuple type fields: %s\n", tupleVal())
 	fmt.Printf("fields still altered?: %s\n", tupleVal())
+
 	tupleVal = tupleType(
 		DataVal(d.StrVal("field one altered").Eval),
 		DataVal(d.StrVal("field two altered").Eval),
 		DataVal(d.FltVal(23.42).Eval),
 		DataVal(d.FltVal(42.23).Eval),
 	)
-	fmt.Printf("try to set the last field to a value of the wrong type (should be reset to default): %s\n", tupleVal())
-	var elems = tupleVal(NewIndexPair(2, NewFromData(d.IntVal(23))))
-	fmt.Printf("change field value by index pair: %s\n", elems)
+
+	fmt.Printf("try to set the last field to a value of the wrong type"+
+		"(should be reset to default): %s\n", tupleVal())
+
+	tupleVal = tupleType(
+		DataVal(d.StrVal("field one").Eval),
+		DataVal(d.StrVal("field two").Eval),
+		DataVal(d.IntVal(23).Eval),
+		DataVal(d.FltVal(42.23).Eval),
+	)
+	var elems = tupleVal(NewIndexPair(
+		2,
+		UnaryExpr(func(arg Callable) Callable {
+			return NewFromData(arg.Eval().(d.IntVal) + d.IntVal(23))
+		}),
+	))
+	fmt.Printf("apply addition to value of field 2: %s\n", elems)
 }
 
 func TestRecordTypeConstruction(t *testing.T) {
+
 	var recordType = NewRecordType(
 		NewPair(DataVal(d.StrVal("key one").Eval),
-			DataVal(d.StrVal("data one").Eval)),
+			DataVal(d.StrVal("").Eval)),
 		NewPair(DataVal(d.StrVal("key two").Eval),
-			DataVal(d.IntVal(42).Eval)),
+			DataVal(d.IntVal(0).Eval)),
 	)
 	fmt.Printf("record type: %s\n", recordType())
+
 	var recordVal = recordType(
 		NewPair(DataVal(d.StrVal("key one").Eval),
 			DataVal(d.StrVal("altered data one").Eval)),
@@ -140,4 +80,43 @@ func TestRecordTypeConstruction(t *testing.T) {
 			DataVal(d.IntVal(23).Eval)),
 	)
 	fmt.Printf("altered record type: %s\n", recordVal())
+
+	var elems = recordVal(NewKeyPair(
+		"key two",
+		UnaryExpr(func(arg Callable) Callable {
+			if number, ok := arg.Eval().(d.IntVal); ok {
+				return NewFromData(number + d.IntVal(23))
+			}
+			return arg
+		}),
+	))
+	fmt.Printf("applyed addition to field two %s\n", elems)
+
+	elems = recordVal(NewPair(
+		New("key two"),
+		UnaryExpr(func(arg Callable) Callable {
+			if number, ok := arg.Eval().(d.IntVal); ok {
+				return NewFromData(number + d.IntVal(23))
+			}
+			return arg
+		}),
+	))
+	fmt.Printf("applyed addition again, using ordinary pair: %s\n", elems)
+
+	var args = []Callable{}
+	for _, elem := range elems {
+		args = append(args, elem)
+	}
+	recordVal = recordType(args...)
+	fmt.Printf("new record value: %s\n", recordVal)
+	elems = recordVal(NewRecordField(
+		"key two",
+		UnaryExpr(func(arg Callable) Callable {
+			if number, ok := arg.Eval().(d.IntVal); ok {
+				return NewFromData(number + d.IntVal(23))
+			}
+			return arg
+		}),
+	))
+	fmt.Printf("applyed addition yet again, using record field: %s\n", elems)
 }

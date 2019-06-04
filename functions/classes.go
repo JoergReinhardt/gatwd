@@ -1,9 +1,9 @@
 package functions
 
-import ()
-
-type (
-	NumberVal func(...Callable) Numeral
-	StringVal func(...Callable) Text
-	RawBytes  func(...Callable) Raw
+import (
+	d "github.com/joergreinhardt/gatwd/data"
 )
+
+func Add(num ...d.Numeral) d.Numeral {
+	return num[0]
+}

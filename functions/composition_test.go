@@ -243,3 +243,9 @@ func TestBindF(t *testing.T) {
 		head, bound = bound()
 	}
 }
+
+var f = ConstantExpr(func() Callable { return NewDataVal(d.StrVal("return value f")) })
+var g = UnaryExpr(func(a Callable) Callable { return NewDataVal(a.Eval().(d.StrVal) + d.StrVal("return value g")) })
+
+func TestCurry(t *testing.T) {
+}

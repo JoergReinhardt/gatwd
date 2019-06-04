@@ -23,6 +23,7 @@ type (
 func ConsList(list ListVal, elems ...Callable) ListVal {
 	return list.Cons(elems...)
 }
+
 func ConcatLists(a, b ListVal) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		if len(args) > 0 {
@@ -35,6 +36,7 @@ func ConcatLists(a, b ListVal) ListVal {
 		return b()
 	})
 }
+
 func NewList(elems ...Callable) ListVal {
 	return func(args ...Callable) (Callable, ListVal) {
 		if len(args) > 0 {
@@ -52,11 +54,13 @@ func NewList(elems ...Callable) ListVal {
 		return nil, NewList()
 	}
 }
+
 func (l ListVal) Cons(elems ...Callable) ListVal {
 	return ListVal(func(args ...Callable) (Callable, ListVal) {
 		return l(append(elems, args...)...)
 	})
 }
+
 func (l ListVal) Push(elems ...Callable) ListVal {
 	return ConcatLists(NewList(elems...), l)
 }
