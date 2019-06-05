@@ -13,19 +13,19 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() int8 { return 0 }
+func (t TyNat) FlagType() int8 { return 1 }
 func (v TyNat) TypeNat() TyNat { return v }
 func (t TyNat) TypeName() string {
 	var count = t.Flag().Count()
 	if count > 1 {
-		var str = "["
+		var str string
 		for i, flag := range t.Flag().Decompose() {
 			str = str + TyNat(flag.Flag()).String()
 			if i < count-1 {
 				str = str + "·"
 			}
 		}
-		return str + "]"
+		return str
 	}
 	return t.String()
 }

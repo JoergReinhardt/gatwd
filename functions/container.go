@@ -17,9 +17,8 @@ type (
 	PredictNarg func(...Callable) bool
 
 	//// CASE-EXPRESSION | CASE-SWITCH
-	CaseArg    func(Callable) (Callable, bool)
-	CaseNarg   func(...Callable) (Callable, bool)
-	CaseSwitch func(...Callable) (Callable, bool, []CaseNarg)
+	CaseExpr   func(...Callable) (Callable, bool)
+	CaseSwitch func(...Callable) (Callable, bool, []CaseExpr)
 
 	////  NONE | JUST | MAYBE
 	NoneVal   func()
@@ -72,7 +71,7 @@ func (p PredictArg) ToPredictNarg() PredictNarg {
 ///////////////////////////////////////////////////////////////////////////////
 // predict many returns true, or false depending on all arguments that have
 // been passed calling it
-func NewPredictNarg(pred PredictNarg) PredictNarg {
+func NewPredictNarg(pred func(...Callable) bool) PredictNarg {
 	return func(args ...Callable) bool {
 		return pred(args...)
 	}
@@ -100,7 +99,7 @@ func (p PredictNarg) Call(args ...Callable) Callable {
 ///////////////////////////////////////////////////////////////////////////////
 // all-predicate returns true, if all arguments passed yield true, when applyed
 // to predicate one after another
-func NewPredictAll(pred PredictArg) PredictNarg {
+func NewPredictAll(pred func(Callable) bool) PredictNarg {
 	return func(args ...Callable) bool {
 		var result = true
 		for _, arg := range args {
@@ -142,7 +141,7 @@ func (p PredictAll) TypeNat() d.TyNat { return d.Functor }
 ///////////////////////////////////////////////////////////////////////////////
 // will return true, if any of the passed arguments yield true, when applyed to
 // predicate one after another
-func NewPredictAny(pred PredictArg) PredictNarg {
+func NewPredictAny(pred func(Callable) bool) PredictNarg {
 	return func(args ...Callable) bool {
 		var result = false
 		for _, arg := range args {
@@ -176,75 +175,37 @@ func (p PredictAny) Call(args ...Callable) Callable {
 ///////////////////////////////////////////////////////////////////////////////
 //// CASE EXPRESSION
 ///
-// a case expression evaluates its first argument by applying the result of
-// applying the argument to its unary expression to its predicate. if the
-// predicate yields true, result of applying the argument to the unary and a
-// boolean true are returned, otherwise the argument will be returned untouched
-// without applying it to the unary and false will be returned as bool value
-func NewCaseArg(unary UnaryExpr, pred PredictArg) CaseArg {
-	return func(arg Callable) (Callable, bool) {
-		var result = unary(arg)
-		if pred(result) {
-			return result, true
-		}
-		return arg, false
-	}
-}
-func (c CaseArg) Ident() Callable  { return c }
-func (c CaseArg) String() string   { return "Case" }
-func (c CaseArg) TypeFnc() TyFnc   { return Case }
-func (c CaseArg) TypeNat() d.TyNat { return d.Functor }
-func (c CaseArg) Eval(args ...d.Native) d.Native {
-	if len(args) > 0 {
-		if expr, ok := c(NewAtom(args...)); ok {
-			return expr
-		}
-	}
-	return d.NilVal{}
-}
-func (c CaseArg) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		if result, ok := c(args[0]); ok {
-			return result
-		}
-	}
-	return NewNone()
-}
-func (c CaseArg) ToCaseNarg() CaseNarg {
+func NewCase(pred PredictNarg) CaseExpr {
 	return func(args ...Callable) (Callable, bool) {
 		if len(args) > 0 {
-			return c(args[0])
-		}
-		return NewNone(), false
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-func NewCaseNarg(vari VariadicExpr, pred PredictNarg) CaseNarg {
-	return func(args ...Callable) (Callable, bool) {
-		if len(args) > 0 {
-			if pred(args...) {
-				return vari(args...), true
+			if len(args) > 1 {
+				if pred(args...) {
+					return NewVector(args...), true
+				}
+				return NewVector(args...), false
+			}
+			if pred(args[0]) {
+				return args[0], true
 			}
 			return NewVector(args...), false
 		}
 		return NewNone(), false
 	}
 }
-func (c CaseNarg) Ident() Callable  { return c }
-func (c CaseNarg) String() string   { return "Case" }
-func (c CaseNarg) TypeFnc() TyFnc   { return Case }
-func (c CaseNarg) TypeNat() d.TyNat { return d.Functor }
-func (c CaseNarg) Call(args ...Callable) Callable {
+func (c CaseExpr) Ident() Callable  { return c }
+func (c CaseExpr) String() string   { return "Case" }
+func (c CaseExpr) TypeFnc() TyFnc   { return Case }
+func (c CaseExpr) TypeNat() d.TyNat { return d.Functor }
+func (c CaseExpr) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		if result, ok := c(args[0]); ok {
+		if result, ok := c(args...); ok {
 			return result
 		}
 	}
 	return NewNone()
 }
 
-func (c CaseNarg) Eval(args ...d.Native) d.Native {
+func (c CaseExpr) Eval(args ...d.Native) d.Native {
 	if len(args) > 0 {
 		if expr, ok := c(NewAtom(args...)); ok {
 			return expr
@@ -257,8 +218,8 @@ func (c CaseNarg) Eval(args ...d.Native) d.Native {
 ///
 // applys passed arguments to all enclosed cases in the order passed to the
 // switch constructor
-func NewSwitch(cases ...CaseNarg) CaseSwitch {
-	return func(args ...Callable) (Callable, bool, []CaseNarg) {
+func NewSwitch(cases ...CaseExpr) CaseSwitch {
+	return func(args ...Callable) (Callable, bool, []CaseExpr) {
 		if len(cases) > 0 {
 			var expr, ok = cases[0](args...)
 			if len(cases) > 1 {
@@ -272,25 +233,36 @@ func NewSwitch(cases ...CaseNarg) CaseSwitch {
 func (s CaseSwitch) String() string   { return "Switch" }
 func (s CaseSwitch) TypeFnc() TyFnc   { return Switch }
 func (s CaseSwitch) TypeNat() d.TyNat { return d.Functor }
+
+// switches call method iterates over cases until either boolean true is
+// yielded and returns result, or all cases are depleted
 func (s CaseSwitch) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		var result, ok, _ = s(args...)
-		if ok {
-			return result
+		var result, ok, cases = s(args...)
+		for len(cases) > 0 {
+			result, ok = cases[0](args...)
+			if ok {
+				return result
+			}
+			if len(cases) > 1 {
+				cases = cases[1:]
+			} else {
+				return NewNone()
+			}
 		}
 	}
 	return NewNone()
 }
+
+// eval converts its arguments to callable and evaluates the result to yield a
+// return value of native type
 func (s CaseSwitch) Eval(args ...d.Native) d.Native {
 	if len(args) > 0 {
 		var exprs = []Callable{}
 		for _, arg := range args {
 			exprs = append(exprs, NewAtom(arg))
 		}
-		var result, ok, _ = s(exprs...)
-		if ok {
-			return result.Eval()
-		}
+		return s.Call(exprs...).Eval()
 	}
 	return d.NilVal{}
 }
@@ -319,83 +291,20 @@ func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone()
 // by it's predicate expression when called. the data constructor in turn,
 // either returns an instance of the just-, or none type depending on the
 // enclosed predicate.
-func DefineMaybeType(pred PredictNarg) MaybeType {
-
-	// allocate a maybe value constructor as return value of this maybe
-	// type & for recursive self reference
-	var maybeDataCon func(...Callable) MaybeVal
-
-	// assign new maybe value constructor enclosing the predicate that has
-	// been passed to the maybe type constructor
-	maybeDataCon = func(exprs ...Callable) MaybeVal {
-		// if maybe constructor has been called and at least one
-		// expressions has been passed‥.
+func DefineMaybeType(predi PredictNarg) MaybeType {
+	return func(exprs ...Callable) MaybeVal {
 		if len(exprs) > 0 {
-			// if more than a single expression has been passed‥.
 			if len(exprs) > 1 {
-				// allocate slice to hold a maybe value
-				// instance for every passed expression
 				var maybes = []Callable{}
-				// range over expressions‥.
 				for _, expr := range exprs {
-					// construct maybe value constructor
-					// for every passed expression by
-					// calling the maybe type constructor
-					// recursively and append resulting
-					// maybes to the slice of maybe
-					// instances
-					maybes = append(maybes, maybeDataCon(expr))
+					maybes = append(maybes, consMaybe(predi, expr.Call))
 				}
-				// convert slice of maybe instances to vector
-				// and return it's call method returning a
-				// slice of maybe values as final result
 				return NewVector(maybes...).Call
 			}
-
-			/// MAYBE VALUE INSTANCE
-			//
-			// return a maybe value instance using the the passed
-			// expression to either construct an instance of just,
-			// or none, depending on the predicate defining this
-			// maybe type
-			return func(args ...Callable) Callable {
-				// if arguments have been passed to maybe value
-				// constructor
-				if len(args) > 0 {
-					// check if arguments yield true, when
-					// applyed to predicate provided by
-					// this maybe type‥.
-					if pred(args...) {
-						// return result of applying
-						// the arguments to the
-						// expression as instance of
-						// the just type
-						return consJust(exprs[0].Call(args...))
-					}
-				}
-				// if passed arguments yield false when applyed
-				// to maybe types predicate, or no arguments
-				// are passed to the data constructor return an
-				// instance of none type instead
-				return NewNone()
-			}
+			return consMaybe(predi, exprs[0].Call)
 		}
-
-		// when called not passing an expression, maybe type
-		// constructor returns a maybe data constructor that returns
-		// values of type none when no arguments are passed, or a new
-		// maybe data constructor of the maybe type defined by this
-		// type constructor, when there are.
-		return func(args ...Callable) Callable {
-			if len(args) > 0 {
-				return maybeDataCon(args...)
-			}
-			return NewNone()
-		}
+		return consMaybe(predi, NewNone().Call)
 	}
-
-	// return the maybe data constructor defed by this maybe type
-	return maybeDataCon
 }
 
 //// maybe type constructors callable interface implementation
@@ -429,6 +338,18 @@ func (m MaybeType) Eval(args ...d.Native) d.Native {
 // maybe values are created by a data constructor which is defined and created
 // by the maybe-type constructor & uses its enclosed predicate to choose
 // between and create either just or none instances from passed arguments.
+func consMaybe(predi PredictNarg, expr VariadicExpr) MaybeVal {
+	return func(args ...Callable) Callable {
+		var result = expr(args...)
+		if predi(result) {
+			return consJust(result)
+		}
+		return NewNone()
+	}
+}
+func (m MaybeVal) TypeName() string {
+	return TyFnc(m().TypeFnc().Flag().Mask(Atom|Vector).Flag()).TypeName() + "·" + m().TypeNat().TypeName()
+}
 func (m MaybeVal) String() string                 { return m().String() }
 func (m MaybeVal) TypeFnc() TyFnc                 { return m().TypeFnc() }
 func (m MaybeVal) TypeNat() d.TyNat               { return m().TypeNat() }
@@ -531,32 +452,6 @@ func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 		return b(NewAtom(args[0]), NewAtom(args[1]))
 	}
 	return d.NilVal{}
-}
-
-/// VARIADIC EXPRESSION
-//
-// variadic expression has an unknown arity and can take a varying number of
-// arguments passed calling it
-func NewVariadic(
-	expr Callable,
-) VariadicExpr {
-	return func(args ...Callable) Callable {
-		return expr.Call(args...)
-	}
-}
-func (n VariadicExpr) Ident() Callable             { return n }
-func (n VariadicExpr) TypeFnc() TyFnc              { return n().TypeFnc() }
-func (n VariadicExpr) TypeNat() d.TyNat            { return d.Functor.TypeNat() }
-func (n VariadicExpr) Call(d ...Callable) Callable { return n(d...) }
-func (n VariadicExpr) Eval(args ...d.Native) d.Native {
-	var params = []Callable{}
-	if len(args) > 0 {
-		for _, arg := range args {
-			params = append(params, NewAtom(arg))
-		}
-		return n(params...)
-	}
-	return n()
 }
 
 /// NARY EXPRESSION
@@ -670,6 +565,32 @@ func (n NaryExpr) TypeFnc() TyFnc   { return n.TypeFnc() }
 func (n NaryExpr) TypeNat() d.TyNat { return n.TypeNat() }
 func (n NaryExpr) Ident() Callable  { return n }
 
+/// VARIADIC EXPRESSION
+//
+// variadic expression has an unknown arity and can take a varying number of
+// arguments passed calling it
+func NewVariadic(
+	expr Callable,
+) VariadicExpr {
+	return func(args ...Callable) Callable {
+		return expr.Call(args...)
+	}
+}
+func (n VariadicExpr) Ident() Callable             { return n }
+func (n VariadicExpr) TypeFnc() TyFnc              { return n().TypeFnc() }
+func (n VariadicExpr) TypeNat() d.TyNat            { return d.Functor.TypeNat() }
+func (n VariadicExpr) Call(d ...Callable) Callable { return n(d...) }
+func (n VariadicExpr) Eval(args ...d.Native) d.Native {
+	var params = []Callable{}
+	if len(args) > 0 {
+		for _, arg := range args {
+			params = append(params, NewAtom(arg))
+		}
+		return n(params...)
+	}
+	return n()
+}
+
 //// DATA VALUE
 ///
 // data value implements the callable interface but returns an instance of
@@ -782,7 +703,8 @@ func (n AtomVal) TypeFnc() TyFnc { return Atom }
 func (n AtomVal) TypeNat() d.TyNat { return n().TypeNat() }
 
 // return the string returned by stringger of enclosed type
-func (n AtomVal) String() string { return n().String() }
+func (n AtomVal) String() string   { return n().String() }
+func (n AtomVal) TypeName() string { return n().TypeNat().TypeName() }
 
 //// HELPER FUNCTIONS TO HANDLE ARGUMENTS
 ///

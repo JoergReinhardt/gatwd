@@ -4,7 +4,7 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// TUPLE
-	TupleElem     func(...Callable) (int, Callable)
+	TupleElem     func(...Callable) (Callable, int)
 	TupleVal      func(...Callable) []TupleElem
 	TupleType     func(...Callable) TupleVal
 	TupleTypeCons func(...Callable) TupleType
@@ -50,7 +50,7 @@ func applyTuple(
 		for pos, arg := range args {
 			if arg.TypeFnc().Match(Pair | Index) {
 				if pair, ok := arg.(IndexPair); ok {
-					var idx, val = pair.Index(), pair.Value()
+					var val, idx = pair.Value(), pair.Index()
 					var result = val.Call(tuples[idx].Value())
 					if len(signature) > idx {
 						if result.TypeFnc().Match(
@@ -66,7 +66,7 @@ func applyTuple(
 			}
 			if arg.TypeFnc().Match(Tuple | Element) {
 				if tup, ok := arg.(TupleElem); ok {
-					var idx, val = tup()
+					var val, idx = tup()
 					var result = val.Call(tuples[idx].Value())
 					if len(signature) > idx {
 						if val.TypeFnc().Match(
@@ -217,15 +217,15 @@ func (t TupleVal) Eval(args ...d.Native) d.Native {
 
 //// TUPLE ELEMENT
 func NewTupleElem(val Callable, idx int) TupleElem {
-	return func(args ...Callable) (int, Callable) {
+	return func(args ...Callable) (Callable, int) {
 		if len(args) > 0 {
-			return idx, val.Call(args...)
+			return val.Call(args...), idx
 		}
-		return idx, val
+		return val, idx
 	}
 }
-func (e TupleElem) Value() Callable                { var _, val = e(); return val }
-func (e TupleElem) Index() int                     { var idx, _ = e(); return idx }
+func (e TupleElem) Value() Callable                { var val, _ = e(); return val }
+func (e TupleElem) Index() int                     { var _, idx = e(); return idx }
 func (e TupleElem) String() string                 { return e.Value().String() }
 func (e TupleElem) TypeFnc() TyFnc                 { return Tuple | Element | e.Value().TypeFnc() }
 func (e TupleElem) TypeNat() d.TyNat               { return d.Functor | e.Value().TypeNat() }

@@ -4,7 +4,7 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// RECORD
-	RecordField    func(...Callable) (string, Callable)
+	RecordField    func(...Callable) (Callable, string)
 	RecordVal      func(...Callable) []RecordField
 	RecordType     func(...Callable) RecordVal
 	RecordTypeCons func(...Callable) RecordType
@@ -42,7 +42,7 @@ func applyRecord(
 			// apply record field
 			if arg.TypeFnc().Match(Record | Element) {
 				if recfield, ok := arg.(RecordField); ok {
-					var key, val = recfield()
+					var val, key = recfield()
 					var value = val.Call(records[sigpos])
 					if sig.Value().(Paired).Left().TypeNat().Match(
 						value.TypeNat(),
@@ -300,10 +300,10 @@ func (v RecordVal) String() string {
 
 //// RECORD FIELD
 func emptyRecordField() RecordField {
-	return func(...Callable) (string, Callable) { return "None", NewNone() }
+	return func(...Callable) (Callable, string) { return NewNone(), "None" }
 }
 func NewRecordField(key string, val Callable) RecordField {
-	return func(args ...Callable) (string, Callable) { return key, val }
+	return func(args ...Callable) (Callable, string) { return val, key }
 }
 func (a RecordField) String() string {
 	return a.Key().String() + " :: " + a.Value().String()
@@ -315,15 +315,15 @@ func (a RecordField) Eval(args ...d.Native) d.Native {
 	return a.Value().Eval(args...)
 }
 func (a RecordField) Both() (Callable, Callable) {
-	var key, val = a()
+	var val, key = a()
 	return NewAtom(d.StrVal(key)), val
 }
 func (a RecordField) Left() Callable {
-	key, _ := a()
+	_, key := a()
 	return NewAtom(d.StrVal(key))
 }
 func (a RecordField) Right() Callable {
-	_, val := a()
+	val, _ := a()
 	return val
 }
 func (a RecordField) Empty() bool {

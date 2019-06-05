@@ -4,6 +4,18 @@ import "math/big"
 
 //// USER DEFINED DATA & FUNCTION TYPES ///////
 ///
+// all data types are evaluable. evaluation yields a primary instance
+type Evaluable interface {
+	Eval(...Native) Native
+}
+
+// the main interface, all types defined here need to comply to.
+type Native interface {
+	Evaluable
+	TypeNat() TyNat
+	String() string
+}
+
 // all BitFlag's implement the typed interface (as well as primary)
 type Typed interface {
 	Native
@@ -13,20 +25,8 @@ type Typed interface {
 	TypeName() string
 }
 
-// the main interface, all types defined here need to comply to.
-type Native interface {
-	TypeNat() TyNat
-	String() string
-	Evaluable
-}
-
 type BinaryMarshaler interface {
 	MarshalBinary() ([]byte, error)
-}
-
-// all data types are evaluable. evaluation yields a primary instance
-type Evaluable interface {
-	Eval(...Native) Native
 }
 
 // the identity function returns the instance unchanged

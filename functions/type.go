@@ -114,6 +114,7 @@ const (
 	// ⌐: Parametric
 )
 
+func FlagToProp(flag d.BitFlag) Propertys          { return Propertys(uint8(flag.Uint())) }
 func (p Propertys) PostFix() bool                  { return p.Flag().Match(PostFix.Flag()) }
 func (p Propertys) InFix() bool                    { return !p.Flag().Match(PostFix.Flag()) }
 func (p Propertys) Atomic() bool                   { return p.Flag().Match(Atomic.Flag()) }
@@ -131,7 +132,6 @@ func (p Propertys) Parametric() bool               { return !p.Flag().Match(Prim
 func (p Propertys) TypeNat() d.TyNat               { return d.Flag }
 func (p Propertys) TypeFnc() TyFnc                 { return HigherOrder }
 func (p Propertys) Flag() d.BitFlag                { return d.BitFlag(uint64(p)) }
-func FlagToProp(flag d.BitFlag) Propertys          { return Propertys(uint8(flag.Uint())) }
 func (p Propertys) Eval(a ...d.Native) d.Native    { return p }
 func (p Propertys) Call(args ...Callable) Callable { return p }
 func (p Propertys) Match(flag d.BitFlag) bool      { return p.Flag().Match(flag) }
@@ -150,17 +150,17 @@ func (p Propertys) Print() string {
 	if l > 1 {
 		for i, typed := range flags {
 
-			if typed.FlagType() == 0 {
+			if typed.FlagType() == 1 {
 
 				str = str + typed.(d.TyNat).String()
 			}
 
-			if typed.FlagType() == 1 {
+			if typed.FlagType() == 2 {
 
 				str = str + typed.(TyFnc).String()
 			}
 
-			if typed.FlagType() == 2 {
+			if typed.FlagType() == 3 {
 
 				str = str + typed.(lex.TySyntax).String()
 			}
@@ -199,18 +199,18 @@ func (a Arity) Match(arg Arity) bool      { return a == arg }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() int8 { return 1 }
+func (t TyFnc) FlagType() int8 { return 2 }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	if count > 1 {
-		var str = "["
+		var str string
 		for i, flag := range t.Flag().Decompose() {
 			str = str + TyFnc(flag.Flag()).String()
 			if i < count-1 {
-				str = str + " "
+				str = str + "·"
 			}
 		}
-		return str + "]"
+		return str
 	}
 	return t.String()
 }

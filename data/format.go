@@ -101,6 +101,8 @@ func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
 	for i, d := range s {
 		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
+		} else {
+			str = str + d.Eval().String()
 		}
 		if i < len(s)-1 {
 			str = str + sep

@@ -320,3 +320,48 @@ func TestNary(t *testing.T) {
 	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(NewAtom(d.StrVal("7")), NewAtom(d.StrVal("8")))
 	fmt.Println(partial.Call())
 }
+
+func TestMaybeType(t *testing.T) {
+
+	var allNumbers = NewPredictAll(func(arg Callable) bool {
+		return arg.TypeNat().Match(d.Numbers)
+	})
+
+	fmt.Printf("all number predicate: %t\n", allNumbers(New(23), New(42)))
+
+	var maybeNumber = DefineMaybeType(allNumbers)
+
+	var number = maybeNumber(New(42.23))
+
+	fmt.Printf("number: %s type name: %s\n",
+		number, number.TypeName())
+
+	var numberSlice = maybeNumber(New(23), New("string"), New(42))
+
+	fmt.Printf("number slice: %s type name: %s\n",
+		numberSlice, numberSlice.TypeName())
+
+	var add = maybeNumber(NewBinary(VariadicExpr(func(args ...Callable) Callable {
+		return NewAtom(args[0].Eval().(d.IntVal) + args[1].Eval().(d.IntVal))
+	})))
+
+	fmt.Printf("add expression: %s\n", add(New(23), New(42)))
+}
+
+func TestSwitch(t *testing.T) {
+	var swi = NewSwitch(
+		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
+			return arg.TypeNat().Match(d.String)
+		}))),
+		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
+			return arg.TypeNat().Match(d.Integers)
+		}))),
+		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
+			return arg.TypeNat().Match(d.Float)
+		}))),
+	)
+	fmt.Printf("switch: %s\n", swi)
+	fmt.Printf("successfull call to Switch passing int: %s\n", swi.Call(New(42)))
+	fmt.Printf("successfull call to Switch passing float: %s\n", swi.Call(New(23.42)))
+	fmt.Printf("unsuccessfull call to Switch: %s\n", swi.Call(New(true)))
+}
