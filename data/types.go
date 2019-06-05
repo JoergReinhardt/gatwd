@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math/big"
-	"sync"
 	"time"
 )
 
@@ -83,18 +81,11 @@ const (
 	Rune
 	Bytes
 	String
-	//////
-	Pipe
-	Buffer
-	Reader
-	Writer
-	Channel
-	SyncCon
-	SyncWait
 	Error // let's do something sophisticated here...
 	////
 	Pair
 	Slice
+	Unboxed
 	Map
 	////
 	Data
@@ -120,13 +111,7 @@ const (
 	Letters    = String | Rune | Bytes
 	Equals     = Numbers | Letters
 
-	SideEffects = Pipe | Buffer | Reader | Writer |
-		Channel | SyncCon | SyncWait
-
-	Streams = Reader | Writer | Pipe
-
-	Compositions = Pair | Slice | Map
-	Multiples    = Slice | Map
+	Compositions = Pair | Unboxed | Slice | Map
 	Functional   = Data | Functor | Literal | Flag
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
@@ -209,76 +194,6 @@ type ( // NATIVE GOLANG TYPES
 	DuraVec        []time.Duration
 	ErrorVec       []error
 	FlagSet        []BitFlag
-
-	// BYTES BUFFER
-	BufferVal bytes.Buffer
-
-	// READER/WRITER
-
-	PipeReadVal io.PipeReader
-
-	PipeWriteVal io.PipeWriter
-
-	ReadVal struct{ io.ReadCloser }
-
-	WriteVal struct{ io.WriteCloser }
-
-	ReadWriteVal struct{ io.ReadWriteCloser }
-
-	//// IO SYNCHRONOUS
-	///
-	// CONDITION
-	SyncCondition sync.Cond
-
-	// WAIT GROUP
-	WaitGroup sync.WaitGroup
-
-	// CHANNELS
-	Chan        chan Native
-	ChanRcv     <-chan Native
-	ChanTrx     chan<- Native
-	ChanCtrl    chan struct{}
-	ChanRcvCtrl <-chan struct{}
-	ChanTrxCtrl chan<- struct{}
-	ChanTime    chan time.Time
-	ChanRcvTime <-chan time.Time
-	ChanTrxTime chan<- time.Time
-
-	//// IO ASYNCHRONOUS
-	///
-	// NATIVES
-	TSNative struct {
-		*sync.Mutex
-		Native
-	}
-
-	// SLICE
-	TSSlice struct {
-		*sync.Mutex
-		DataSlice
-	}
-
-	// BUFFER
-	TSBuffer struct {
-		*sync.Mutex
-		*BufferVal
-	}
-
-	// READERS/WRITERS
-	TSRead struct {
-		*sync.Mutex
-		*ReadVal
-	}
-
-	TSWrite struct {
-		*sync.Mutex
-		*WriteVal
-	}
-
-	TSReadWrite struct {
-		*sync.RWMutex
-		*ReadWriteVal
-	}
 )
 
 /// bind the corresponding TypeNat Method to every type
@@ -420,7 +335,7 @@ func (NilVal) Eval(d ...Native) Native {
 func (v BitFlag) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -430,7 +345,7 @@ func (v BitFlag) Eval(d ...Native) Native {
 func (v BoolVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -440,7 +355,7 @@ func (v BoolVal) Eval(d ...Native) Native {
 func (v IntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -450,7 +365,7 @@ func (v IntVal) Eval(d ...Native) Native {
 func (v Int8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -460,7 +375,7 @@ func (v Int8Val) Eval(d ...Native) Native {
 func (v Int16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -470,7 +385,7 @@ func (v Int16Val) Eval(d ...Native) Native {
 func (v Int32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -480,7 +395,7 @@ func (v Int32Val) Eval(d ...Native) Native {
 func (v UintVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -490,7 +405,7 @@ func (v UintVal) Eval(d ...Native) Native {
 func (v Uint8Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -500,7 +415,7 @@ func (v Uint8Val) Eval(d ...Native) Native {
 func (v Uint16Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -510,7 +425,7 @@ func (v Uint16Val) Eval(d ...Native) Native {
 func (v Uint32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -520,7 +435,7 @@ func (v Uint32Val) Eval(d ...Native) Native {
 func (v BigIntVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -530,7 +445,7 @@ func (v BigIntVal) Eval(d ...Native) Native {
 func (v FltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -540,7 +455,7 @@ func (v FltVal) Eval(d ...Native) Native {
 func (v Flt32Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -550,7 +465,7 @@ func (v Flt32Val) Eval(d ...Native) Native {
 func (v BigFltVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -560,7 +475,7 @@ func (v BigFltVal) Eval(d ...Native) Native {
 func (v ImagVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -570,7 +485,7 @@ func (v ImagVal) Eval(d ...Native) Native {
 func (v Imag64Val) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -580,7 +495,7 @@ func (v Imag64Val) Eval(d ...Native) Native {
 func (v RatioVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -590,7 +505,7 @@ func (v RatioVal) Eval(d ...Native) Native {
 func (v RuneVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -600,7 +515,7 @@ func (v RuneVal) Eval(d ...Native) Native {
 func (v ByteVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -610,7 +525,7 @@ func (v ByteVal) Eval(d ...Native) Native {
 func (v BytesVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -620,7 +535,7 @@ func (v BytesVal) Eval(d ...Native) Native {
 func (v StrVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -630,7 +545,7 @@ func (v StrVal) Eval(d ...Native) Native {
 func (v TimeVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -640,7 +555,7 @@ func (v TimeVal) Eval(d ...Native) Native {
 func (v DuraVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}
@@ -650,7 +565,7 @@ func (v DuraVal) Eval(d ...Native) Native {
 func (v ErrorVal) Eval(d ...Native) Native {
 	if len(d) > 0 {
 		if len(d) > 1 {
-			return NewUnboxedVector(v.TypeNat().Flag(), d...)
+			return newUnboxedVector(v.TypeNat().Flag(), d...)
 		}
 		return d[0]
 	}

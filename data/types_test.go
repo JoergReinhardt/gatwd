@@ -76,12 +76,10 @@ var s0 = NewSlice(
 func TestTypeAllocation(t *testing.T) {
 
 	fmt.Println(TyNat(s0.ContainedTypes()).TypeName())
-	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "[Bool·Int8·Int16·Int32·Int·BigInt·Flt32·Float·BigFlt·Ratio·Imag·Time·Byte·Bytes·String·Slice]" {
+	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "[Bool·Int8·Int16·Int32·Int·BigInt·Flt32·Float·BigFlt·Ratio·Imag·Time·Byte·Bytes·String·Reader]" {
 		t.Fail()
 	}
 	s1 := NewSlice()
-	//s1 := []Evaluable{}
-	//s1 := []int{}
 
 	fmt.Printf("List-0: %s\n", s0.String())
 	fmt.Printf("List-0 Length: %d\n", s0.Len())
@@ -235,7 +233,7 @@ func TestNativeSlice(t *testing.T) {
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Pipe Buffer Reader Writer Channel SyncCon SyncWait Error Pair Slice Map Literal Data Expression Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Pipe Buffer Reader Writer Channel SyncCon SyncWait Error Pair]" {
 		t.Fail()
 	}
 }
@@ -252,6 +250,7 @@ func TestSearchChainInt(t *testing.T) {
 	}
 	fmt.Println(sl)
 }
+
 func TestSearchChainString(t *testing.T) {
 	sl := New("Nil", "Bool", "Int", "Int8",
 		"Int16", "Int32", "BigInt", "Uint",

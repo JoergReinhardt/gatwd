@@ -327,7 +327,7 @@ type Vectorized interface {
 type Aggregating interface {
 	Callable
 	Result() Callable
-	Aggregator() NaryExpr
+	Aggregator() VariadicExpr
 	Aggregate(...Callable) Callable
 }
 

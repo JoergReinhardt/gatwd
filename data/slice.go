@@ -5,17 +5,17 @@ import (
 	"strings"
 )
 
-func NewSlice(val ...Native) DataSlice {
-	l := make([]Native, 0, len(val))
-	l = append(l, val...)
-	return l
+// create slice from typed native instances
+func NewSlice(args ...Native) DataSlice {
+	return DataSlice(args)
 }
 
-func SliceContainedTypes(c []Native) BitFlag {
-	var flag = BitFlag(0)
+// returns the OR concatenated type flags of a given slice of native instances as bit-flag
+func sliceContainsTypes(c []Native) BitFlag {
+	var flag BitFlag
 	for _, d := range c {
 		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
-			SliceContainedTypes(d.(DataSlice))
+			sliceContainsTypes(d.(DataSlice))
 			continue
 		}
 		flag = flag | d.TypeNat().Flag()
@@ -23,22 +23,31 @@ func SliceContainedTypes(c []Native) BitFlag {
 	return flag
 }
 
+// returns type flag by OR concatenating the Slice type to the concatenated
+// type flags of it's members
 func (c DataSlice) TypeNat() TyNat {
-
-	var slice = c.Slice()
-
-	if len(slice) > 0 {
-
-		var val = slice[0]
-
-		return Slice.TypeNat() | val.TypeNat()
-	}
-
-	return Slice.TypeNat() | Nil.TypeNat()
+	return Slice.TypeNat() | TyNat(sliceContainsTypes(c.Slice()))
 }
 
-func (c DataSlice) ContainedTypes() BitFlag { return SliceContainedTypes(c.Slice()) }
+func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }
 
+func (c DataSlice) Append(n ...Native) { SliceAppend(c, n...) }
+
+func (c DataSlice) Null() Native { return NewSlice([]Native{}...) }
+
+func (c DataSlice) Copy() Native {
+	// allocate new instance of slice of natives
+	var ds = DataSlice{}
+	// range over slice elements
+	for _, dat := range c {
+		// append deep-copy of every element to the freshly allocated slice
+		ds = append(ds, dat.(Reproduceable).Copy())
+	}
+	// return copyed slice
+	return ds
+}
+
+// eval appends passed arguments to the slice and returns it
 func (c DataSlice) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		if len(c) > 0 {
@@ -49,24 +58,14 @@ func (c DataSlice) Eval(p ...Native) Native {
 	return c
 }
 
-func (c DataSlice) Append(n ...Native) { SliceAppend(c, n...) }
-
-func (c DataSlice) Null() DataSlice { return []Native{} }
-
-func (c DataSlice) Copy() Native {
-	var ns = DataSlice{}
-	for _, dat := range c {
-		ns = append(ns, dat.(Reproduceable).Copy())
-	}
-	return ns
-}
-
 // SLICE ->
 func (v DataSlice) Slice() []Native { return v }
 
 func (v DataSlice) GetInt(i int) Native { return v[i] }
 
 func (v DataSlice) Get(i Native) Native { return v[i.(IntVal).Int()] }
+
+func (v DataSlice) Range(s, e int) Sliceable { return NewSlice(v[s:e]) }
 
 func (v DataSlice) SetInt(i int, d Native) { v[i] = d }
 
@@ -77,8 +76,15 @@ func (v DataSlice) Len() int { return len([]Native(v)) }
 // COLLECTION
 func (s DataSlice) Empty() bool { return SliceEmpty(s) }
 
-func (s DataSlice) Head() (h Native) { return s[0] }
+// yields first element
+func (s DataSlice) Head() (h Native) {
+	if len(s) > 0 {
+		return s[0]
+	}
+	return NilVal{}
+}
 
+// yields last element
 func (s DataSlice) Bottom() (h Native) {
 	if len(s) > 0 {
 		return s[len(s)-1]
@@ -86,7 +92,14 @@ func (s DataSlice) Bottom() (h Native) {
 	return NilVal{}
 }
 
-func (s DataSlice) Tail() (c Sequential) { return s[:1] }
+// yields all elements except the first
+func (s DataSlice) Tail() (c Sequential) {
+	if len(s) > 1 {
+		return s[:1]
+	}
+	// return empty slice, if there is only a single element or less
+	return NewSlice(NilVal{})
+}
 
 func (s DataSlice) Shift() (c Sequential) { return s[:1] }
 
@@ -141,12 +154,21 @@ func SliceEmpty(s DataSlice) bool {
 
 ///// CONVERT TO SLICE OF NATIVES ////////
 func SliceToNatives(c DataSlice) Sliceable {
-	f := SliceGet(c, 0).TypeNat().Flag()
-	if SliceAll(c, func(i int, c Native) bool {
-		return FlagMatch(f, c.TypeNat().Flag())
-	}) {
-		return ConNativeSlice(f, c.Slice()...)
+	// allocate nil flag
+	var flag = BitFlag(0)
+	// replace flag with type flag of first elment, if there are elements
+	if len(c) > 0 {
+		flag = c[0].TypeNat().Flag()
 	}
+	// check if all elements flags match the first elements flag
+	if SliceAll(c, func(i int, c Native) bool {
+		return FlagMatch(flag, c.TypeNat().Flag())
+	}) {
+		// if all elements yield the same type, convert to unboxed
+		// slice of natives
+		return conUnboxedVector(flag, c.Slice()...)
+	}
+	// return unconverted slice, since elment types are impure
 	return c
 }
 

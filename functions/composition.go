@@ -6,7 +6,7 @@ import (
 
 // type system implementation
 type (
-	Apply  func(NaryExpr, ...Callable) Callable
+	Apply  func(VariadicExpr, ...Callable) Callable
 	Bind   func(f, g Callable) Callable
 	Map    func(...Callable) Callable
 	Fold   func(Callable, Callable, ...Callable) Callable
@@ -24,56 +24,23 @@ type (
 )
 
 //// CURRY
-func Curry(inis ...Callable) Callable {
-	var f, g NaryExpr
-	if len(inis) > 0 {
-		f = inis[0].Call
-		if len(inis) > 1 {
-			g = inis[1].Call
-			if len(inis) > 2 {
-				return NaryExpr(func(args ...Callable) Callable {
-					if len(args) > 0 {
-						return f(g(append(inis[2:], args...)...))
-					} else {
-						return f(g(inis[2:]...))
-					}
-				})
-			}
-			return NaryExpr(func(args ...Callable) Callable {
-				if len(args) > 0 {
-					return f(g(args...))
-				}
-				return f(g())
-			})
+func Curry(args ...Callable) Callable {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			return args[0].Call(Curry(args[1:]...))
 		}
-		return NaryExpr(func(args ...Callable) Callable {
-			if len(args) > 0 {
-				return f(args...)
-			}
-			return f()
-		})
+		return args[0].Call()
 	}
 	return NewNone()
 }
 
 //// COLLECTION
 func NewCollection(expr Callable) Collection {
-	if expr.TypeFnc().Match(Consumeables) {
-		return func(args ...Callable) (Callable, Collection) {
-			if len(args) > 0 {
-				return expr.Call(args...), NewCollection(expr)
-			}
-			return expr, NewCollection(expr)
-		}
-	}
 	return func(args ...Callable) (Callable, Collection) {
 		if len(args) > 0 {
-			if len(args) > 1 {
-				return expr.Call(args...), NewCollection(expr)
-			}
-			return expr.Call(args[0]), NewCollection(expr)
+			return expr.Call(args...), NewCollection(expr)
 		}
-		return expr, NewCollection(expr)
+		return expr.Call(), NewCollection(expr)
 	}
 }
 

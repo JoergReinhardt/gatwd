@@ -7,7 +7,7 @@ import (
 
 type (
 	TyFnc     d.BitFlag
-	Arity     d.Uint8Val
+	Arity     d.Int8Val
 	Propertys d.Uint8Val
 )
 
@@ -16,7 +16,7 @@ const (
 	/// KIND FLAGS ///
 	Type TyFnc = 1 << iota
 	Native
-	Data
+	Atom
 	Key
 	Index
 	/// EXPRESSION CALL PROPERTYS
@@ -59,18 +59,9 @@ const (
 	Do
 	While
 	/// IO
-	IO
-	Shared
-	Receive
-	Transmit
-	Control
-	Channel
 	Buffer
 	Reader
 	Writer
-	ReadWriter
-	Condition
-	WaitGroup
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
@@ -83,7 +74,7 @@ const (
 
 	Parameters = CallPropertys | CallArity
 
-	Kinds = Type | Native | Data | Functor
+	Kinds = Type | Native | Atom | Functor
 
 	Truth = Undecided | False | True
 
@@ -91,13 +82,13 @@ const (
 
 	Maybe = Just | None
 
-	CaseSwitch = Case | Switch
-
 	Alternatives = Either | Or
 
 	Branch = If | Else
 
 	Continue = Do | While
+
+	IO = Buffer | Reader | Writer
 
 	Consumeables = Collections | Applicable | Monad | IO
 )
@@ -199,7 +190,7 @@ const (
 )
 
 func (a Arity) Eval(...d.Native) d.Native { return d.Int8Val(a) }
-func (a Arity) Call(...Callable) Callable { return NewFromData(a.Eval()) }
+func (a Arity) Call(...Callable) Callable { return NewAtom(a.Eval()) }
 func (a Arity) Int() int                  { return int(a) }
 func (a Arity) Flag() d.BitFlag           { return d.BitFlag(a) }
 func (a Arity) TypeNat() d.TyNat          { return d.Flag }

@@ -23,9 +23,10 @@ func (a IndexPair) Print() string {
 func (c ConstantExpr) String() string { return c().String() }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
-func (u UnaryExpr) String() string  { return "T → ϝ → T" }
-func (b BinaryExpr) String() string { return "(T,T) → ϝ → T" }
-func (n NaryExpr) String() string   { return "[т‥.] → ϝ → T" }
+func (u UnaryExpr) String() string    { return "T → ϝ → T" }
+func (b BinaryExpr) String() string   { return "(T,T) → ϝ → T" }
+func (n NaryExpr) String() string     { return "[т‥.] → ϝ → T" }
+func (n VariadicExpr) String() string { return "[т‥.] → ϝ → T" }
 
 /// VECTOR
 func (v VecVal) String() string {

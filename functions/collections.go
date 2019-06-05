@@ -148,13 +148,13 @@ func NewPairFromData(l, r d.Native) PairVal {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				// return pointers to natives eval functions
-				return DataVal(args[0].Eval), DataVal(args[1].Eval)
+				return AtomVal(args[0].Eval), AtomVal(args[1].Eval)
 			}
 
-			return DataVal(args[0].Eval), NewNone()
+			return AtomVal(args[0].Eval), NewNone()
 		}
 
-		return DataVal(l.Eval), DataVal(r.Eval)
+		return AtomVal(l.Eval), AtomVal(r.Eval)
 	}
 }
 
@@ -165,16 +165,16 @@ func NewPairFromLiteral(l, r interface{}) PairVal {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				// return values eval methods as continuations
-				return DataVal(
+				return AtomVal(
 						d.New(args[0]).Eval,
 					),
-					DataVal(
+					AtomVal(
 						d.New(args[1]).Eval,
 					)
 			}
-			return DataVal(d.New(args[0]).Eval), NewNone()
+			return AtomVal(d.New(args[0]).Eval), NewNone()
 		}
-		return DataVal(d.New(l).Eval), DataVal(d.New(r).Eval)
+		return AtomVal(d.New(l).Eval), AtomVal(d.New(r).Eval)
 	}
 }
 
@@ -202,14 +202,50 @@ func ConsPair(list Consumeable) (PairVal, Consumeable) {
 	return NewEmptyPair(), NewNone()
 }
 
-// implement consumeable
-func (p PairVal) Consume() (Callable, Consumeable) { l, r := p(); return l, NewList(r) }
-func (p PairVal) ConsumePair() (Paired, Consumeable) {
-	_, r := p()
-	return NewPair(r, NewNone()), NewList()
+// head returns left value to implement consumeable
+func (p PairVal) Head() Callable { return p.Left() }
+
+// tail returns right value, which either implements consumeable allready, or
+// gets wrapped as a new pair, with a none instance as it's right value.
+func (p PairVal) Tail() Consumeable {
+	var r = p.Right()
+	if r.TypeFnc().Match(Consumeables) {
+		if cons, ok := r.(Consumeable); ok {
+			return cons
+		}
+	}
+	return NewPair(r, NewNone())
 }
-func (p PairVal) Head() Callable    { l, _ := p(); return l }
-func (p PairVal) Tail() Consumeable { _, r := p(); return NewPair(r, NewNone()) }
+
+// consume returns callable head & consumeable tail values
+func (p PairVal) Consume() (Callable, Consumeable) {
+	l, r := p.Head(), p.Tail()
+	return l, r
+}
+
+// consume pair returns either left value, case its implementing paired, and
+// tail, or a new pair instance created from the first two callables and the
+// tail left once those are consumed.
+func (p PairVal) ConsumePair() (Paired, Consumeable) {
+	// allocate left and right value
+	var l, r Callable
+	// assign left value to head
+	l = p.Left()
+	// call tail function to assign initial tail from right value
+	var tail = p.Tail()
+	// if left values function type matches pair flag‥.
+	if l.TypeFnc().Match(Pair) {
+		//‥.and left value casts paired successfully‥.
+		if pair, ok := l.(Paired); ok {
+			//‥.return casted pair and tail
+			return pair, tail
+		}
+	}
+	//‥.otherwise consume right value and reassign returned tail
+	r, tail = tail.Consume()
+	//‥.return new pair from left & right value as well as tail
+	return NewPair(l, r), tail
+}
 
 // implement swappable
 func (p PairVal) Swap() (Callable, Callable) { l, r := p(); return r, l }
@@ -295,7 +331,7 @@ func (a KeyPair) Empty() bool {
 
 func (a KeyPair) Both() (Callable, Callable) {
 	var key, val = a()
-	return NewFromData(d.StrVal(key)), val
+	return NewAtom(d.StrVal(key)), val
 }
 
 // key pair implements associative interface
@@ -311,7 +347,7 @@ func (a KeyPair) SetVal(key, val Callable) (Associative, bool) {
 }
 func (a KeyPair) Left() Callable {
 	key, _ := a()
-	return NewFromData(d.StrVal(key))
+	return NewAtom(d.StrVal(key))
 }
 
 func (a KeyPair) Right() Callable {
@@ -356,13 +392,13 @@ func ConsKeyPair(list Consumeable) (KeyPair, Consumeable) {
 // implement consumeable
 func (p KeyPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewFromData(d.StrVal(l)), NewList(r)
+	return NewAtom(d.StrVal(l)), NewList(r)
 }
-func (p KeyPair) Head() Callable    { l, _ := p(); return NewFromData(d.StrVal(l)) }
+func (p KeyPair) Head() Callable    { l, _ := p(); return NewAtom(d.StrVal(l)) }
 func (p KeyPair) Tail() Consumeable { _, r := p(); return NewPair(r, NewNone()) }
 
 // implement swappable
-func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return r, NewFromData(d.StrVal(l)) }
+func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return r, NewAtom(d.StrVal(l)) }
 func (p KeyPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 /// pair composed of an integer and a functional value
@@ -390,14 +426,14 @@ func (a IndexPair) Empty() bool {
 }
 func (a IndexPair) Both() (Callable, Callable) {
 	var idx, val = a()
-	return NewFromData(d.IntVal(idx)), val
+	return NewAtom(d.IntVal(idx)), val
 }
 
 func (a IndexPair) Pair() Paired { return a }
 
 func (a IndexPair) Left() Callable {
 	idx, _ := a()
-	return NewFromData(d.IntVal(idx))
+	return NewAtom(d.IntVal(idx))
 }
 
 func (a IndexPair) Right() Callable {
@@ -441,13 +477,13 @@ func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
 // implement consumeable
 func (p IndexPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewFromData(d.StrVal(l)), NewList(r)
+	return NewAtom(d.StrVal(l)), NewList(r)
 }
-func (p IndexPair) Head() Callable    { l, _ := p(); return NewFromData(d.StrVal(l)) }
+func (p IndexPair) Head() Callable    { l, _ := p(); return NewAtom(d.StrVal(l)) }
 func (p IndexPair) Tail() Consumeable { _, r := p(); return NewPair(r, NewNone()) }
 
 // implement swappable
-func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return r, NewFromData(d.StrVal(l)) }
+func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return r, NewAtom(d.StrVal(l)) }
 func (p IndexPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 //// LIST OF PAIRS
@@ -992,7 +1028,7 @@ func (v SetVal) Empty() bool {
 func (v SetVal) GetVal(key Callable) (Callable, bool) {
 	var m = v()
 	if value, ok := m.Get(key); ok {
-		return NewFromData(value), ok
+		return NewAtom(value), ok
 	}
 	return NewNone(), false
 }

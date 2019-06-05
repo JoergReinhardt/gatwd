@@ -134,6 +134,16 @@ type Sliceable interface {
 	Composed
 	Len() int
 	Slice() []Native
+	Get(Native) Native
+	GetInt(int) Native
+	Range(s, e int) Sliceable
+	Copy() Native
+	Null() Native
+}
+type Mutable interface {
+	Sliceable
+	Set(s, arg Native)
+	SetInt(int, Native)
 }
 
 // slices and set's convieniently 'mimic' the behaviour of linked list's common

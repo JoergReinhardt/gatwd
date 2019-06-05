@@ -206,28 +206,11 @@ func TestFilterConsumeable(t *testing.T) {
 	}
 }
 
-var numFunc = NewCollection(NewFromData(d.IntVal(42)))
-
-func TestFunctor(t *testing.T) {
-	fmt.Printf("functor: %s, function type: %s, native type: %s, call without args: %s, call with '1' arg: %s call with multiple args: %s\n",
-		numFunc,
-		numFunc.TypeFnc().TypeName(),
-		numFunc.TypeNat().TypeName(),
-		numFunc.Call(),
-		numFunc.Call(NewFromData(d.IntVal(1))),
-		numFunc.Call(NewFromData(d.IntVal(1)),
-			NewFromData(d.IntVal(1)),
-			NewFromData(d.IntVal(2)),
-			NewFromData(d.IntVal(3)),
-			NewFromData(d.IntVal(4)),
-			NewFromData(d.IntVal(5))))
-}
-
 func TestBindF(t *testing.T) {
 	var bind = func(f, g Callable) Callable {
 		if nf, ok := f.Eval().(d.Numeral); ok {
 			if ng, ok := g.Eval().(d.Numeral); ok {
-				return NewFromData(d.IntVal(nf.Int() * ng.Int()))
+				return NewAtom(d.IntVal(nf.Int() * ng.Int()))
 			}
 		}
 		return nil
@@ -244,8 +227,96 @@ func TestBindF(t *testing.T) {
 	}
 }
 
-var f = ConstantExpr(func() Callable { return NewDataVal(d.StrVal("return value f")) })
-var g = UnaryExpr(func(a Callable) Callable { return NewDataVal(a.Eval().(d.StrVal) + d.StrVal("return value g")) })
+var f = VariadicExpr(func(args ...Callable) Callable {
+	var str = "f and "
+	str = str + args[0].String()
+	return NewAtom(d.StrVal(str))
+})
+var g = VariadicExpr(func(args ...Callable) Callable {
+	var str = "g and "
+	str = str + args[0].String()
+	return NewAtom(d.StrVal(str))
+})
+var h = VariadicExpr(func(args ...Callable) Callable {
+	var str = "h and "
+	str = str + args[0].String()
+	return NewAtom(d.StrVal(str))
+})
+var i = VariadicExpr(func(args ...Callable) Callable {
+	var str = "i and "
+	str = str + args[0].String()
+	return NewAtom(d.StrVal(str))
+})
+var j = VariadicExpr(func(args ...Callable) Callable {
+	var str = "j and "
+	str = str + args[0].String()
+	return NewAtom(d.StrVal(str))
+})
+var k = ConstantExpr(func() Callable {
+	return NewAtom(d.StrVal("k"))
+})
 
 func TestCurry(t *testing.T) {
+	var result = Curry(f, g, h, i, j, k)
+	fmt.Println(result)
+	if result.String() != "f and g and h and i and j and k" {
+		t.Fail()
+	}
+}
+
+func TestNary(t *testing.T) {
+	var nary = NewNary(
+		VariadicExpr(
+			func(args ...Callable) Callable {
+				return NewVector(args...)
+			}),
+		Arity(3),
+	)
+	var r0 = nary(NewAtom(d.StrVal("0")))
+
+	var r1 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")))
+
+	var r2 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")))
+
+	var r3 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")))
+
+	var r4 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
+		NewAtom(d.StrVal("4")))
+
+	var r5 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
+		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")))
+
+	var r6 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
+		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
+		NewAtom(d.StrVal("6")))
+
+	var r7 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
+		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
+		NewAtom(d.StrVal("6")), NewAtom(d.StrVal("7")))
+
+	var r8 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
+		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
+		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
+		NewAtom(d.StrVal("6")), NewAtom(d.StrVal("7")),
+		NewAtom(d.StrVal("8")))
+
+	fmt.Println(r0.Call())
+	fmt.Println(r1.Call())
+	fmt.Println(r2.Call())
+	fmt.Println(r3.Call())
+	fmt.Println(r4.Call())
+	fmt.Println(r5.Call())
+	fmt.Println(r6.Call())
+	fmt.Println(r7.Call())
+	fmt.Println(r8.Call())
+
+	// apply additional arguments to partialy applyed expression
+	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(NewAtom(d.StrVal("7")), NewAtom(d.StrVal("8")))
+	fmt.Println(partial.Call())
 }

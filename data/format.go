@@ -101,8 +101,6 @@ func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
 	for i, d := range s {
 		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
 			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
-		} else {
-			str = str + d.String()
 		}
 		if i < len(s)-1 {
 			str = str + sep
@@ -196,27 +194,3 @@ func (s SetString) String() string {
 	}
 	return str.String()
 }
-func (v ReadVal) String() string      { return "reader" }
-func (v WriteVal) String() string     { return "writer" }
-func (v ReadWriteVal) String() string { return "reader/writer" }
-func (v PipeReadVal) String() string  { return "pipe-reader" }
-func (v PipeWriteVal) String() string { return "pipe-writer" }
-
-func (v TSNative) String() string    { return v.Get().String() }
-func (v TSSlice) String() string     { return v.DataSlice.String() }
-func (v TSBuffer) String() string    { return "thread-safe buffer" }
-func (v TSRead) String() string      { return "thread-safe reader" }
-func (v TSWrite) String() string     { return "thread-safe writer" }
-func (v TSReadWrite) String() string { return "thread-safe reader/writer" }
-
-func (c SyncCondition) String() string { return "sync condition" }
-func (c WaitGroup) String() string     { return "wait group" }
-
-func (c Chan) String() string        { return "channel" }
-func (c ChanRcv) String() string     { return "Channel" }
-func (c ChanTrx) String() string     { return "Channel" }
-func (c ChanCtrl) String() string    { return "Channel" }
-func (c ChanRcvCtrl) String() string { return "Channel" }
-func (c ChanTrxCtrl) String() string { return "Channel" }
-func (c ChanRcvTime) String() string { return "Channel" }
-func (c ChanTrxTime) String() string { return "Channel" }

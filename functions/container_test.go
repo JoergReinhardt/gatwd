@@ -22,42 +22,42 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 func TestTupleConstruction(t *testing.T) {
 
 	var tupleType = NewTupleType(
-		DataVal(d.StrVal("").Eval),
-		DataVal(d.StrVal("").Eval),
-		DataVal(d.IntVal(0).Eval),
-		DataVal(d.FltVal(0.0).Eval),
+		AtomVal(d.StrVal("").Eval),
+		AtomVal(d.StrVal("").Eval),
+		AtomVal(d.IntVal(0).Eval),
+		AtomVal(d.FltVal(0.0).Eval),
 	)
 	fmt.Printf("tuple type constructor: %s\n", tupleType)
 
 	var tupleVal = tupleType(
-		DataVal(d.StrVal("field one altered").Eval),
-		DataVal(d.StrVal("field two altered").Eval),
-		DataVal(d.IntVal(23).Eval),
-		DataVal(d.FltVal(42.23).Eval),
+		AtomVal(d.StrVal("field one altered").Eval),
+		AtomVal(d.StrVal("field two altered").Eval),
+		AtomVal(d.IntVal(23).Eval),
+		AtomVal(d.FltVal(42.23).Eval),
 	)
 	fmt.Printf("altered tuple type fields: %s\n", tupleVal())
 	fmt.Printf("fields still altered?: %s\n", tupleVal())
 
 	tupleVal = tupleType(
-		DataVal(d.StrVal("field one altered").Eval),
-		DataVal(d.StrVal("field two altered").Eval),
-		DataVal(d.FltVal(23.42).Eval),
-		DataVal(d.FltVal(42.23).Eval),
+		AtomVal(d.StrVal("field one altered").Eval),
+		AtomVal(d.StrVal("field two altered").Eval),
+		AtomVal(d.FltVal(23.42).Eval),
+		AtomVal(d.FltVal(42.23).Eval),
 	)
 
 	fmt.Printf("try to set the last field to a value of the wrong type"+
 		"(should be reset to default): %s\n", tupleVal())
 
 	tupleVal = tupleType(
-		DataVal(d.StrVal("field one").Eval),
-		DataVal(d.StrVal("field two").Eval),
-		DataVal(d.IntVal(23).Eval),
-		DataVal(d.FltVal(42.23).Eval),
+		AtomVal(d.StrVal("field one").Eval),
+		AtomVal(d.StrVal("field two").Eval),
+		AtomVal(d.IntVal(23).Eval),
+		AtomVal(d.FltVal(42.23).Eval),
 	)
 	var elems = tupleVal(NewIndexPair(
 		2,
 		UnaryExpr(func(arg Callable) Callable {
-			return NewFromData(arg.Eval().(d.IntVal) + d.IntVal(23))
+			return NewAtom(arg.Eval().(d.IntVal) + d.IntVal(23))
 		}),
 	))
 	fmt.Printf("apply addition to value of field 2: %s\n", elems)
@@ -66,18 +66,18 @@ func TestTupleConstruction(t *testing.T) {
 func TestRecordTypeConstruction(t *testing.T) {
 
 	var recordType = NewRecordType(
-		NewPair(DataVal(d.StrVal("key one").Eval),
-			DataVal(d.StrVal("").Eval)),
-		NewPair(DataVal(d.StrVal("key two").Eval),
-			DataVal(d.IntVal(0).Eval)),
+		NewPair(AtomVal(d.StrVal("key one").Eval),
+			AtomVal(d.StrVal("").Eval)),
+		NewPair(AtomVal(d.StrVal("key two").Eval),
+			AtomVal(d.IntVal(0).Eval)),
 	)
 	fmt.Printf("record type: %s\n", recordType())
 
 	var recordVal = recordType(
-		NewPair(DataVal(d.StrVal("key one").Eval),
-			DataVal(d.StrVal("altered data one").Eval)),
-		NewPair(DataVal(d.StrVal("key two").Eval),
-			DataVal(d.IntVal(23).Eval)),
+		NewPair(AtomVal(d.StrVal("key one").Eval),
+			AtomVal(d.StrVal("altered data one").Eval)),
+		NewPair(AtomVal(d.StrVal("key two").Eval),
+			AtomVal(d.IntVal(23).Eval)),
 	)
 	fmt.Printf("altered record type: %s\n", recordVal())
 
@@ -85,7 +85,7 @@ func TestRecordTypeConstruction(t *testing.T) {
 		"key two",
 		UnaryExpr(func(arg Callable) Callable {
 			if number, ok := arg.Eval().(d.IntVal); ok {
-				return NewFromData(number + d.IntVal(23))
+				return NewAtom(number + d.IntVal(23))
 			}
 			return arg
 		}),
@@ -96,7 +96,7 @@ func TestRecordTypeConstruction(t *testing.T) {
 		New("key two"),
 		UnaryExpr(func(arg Callable) Callable {
 			if number, ok := arg.Eval().(d.IntVal); ok {
-				return NewFromData(number + d.IntVal(23))
+				return NewAtom(number + d.IntVal(23))
 			}
 			return arg
 		}),
@@ -113,7 +113,7 @@ func TestRecordTypeConstruction(t *testing.T) {
 		"key two",
 		UnaryExpr(func(arg Callable) Callable {
 			if number, ok := arg.Eval().(d.IntVal); ok {
-				return NewFromData(number + d.IntVal(23))
+				return NewAtom(number + d.IntVal(23))
 			}
 			return arg
 		}),
