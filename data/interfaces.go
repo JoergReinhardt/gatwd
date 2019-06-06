@@ -20,7 +20,7 @@ type Native interface {
 type Typed interface {
 	Native
 	Flag() BitFlag
-	FlagType() int8
+	FlagType() uint8
 	Match(Typed) bool
 	TypeName() string
 }

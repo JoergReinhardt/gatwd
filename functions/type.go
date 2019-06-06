@@ -6,6 +6,7 @@ import (
 )
 
 type (
+	TyComp    func() (string, []Typed)
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
 	Propertys d.Uint8Val
@@ -199,7 +200,7 @@ func (a Arity) Match(arg Arity) bool      { return a == arg }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() int8 { return 2 }
+func (t TyFnc) FlagType() uint8 { return 2 }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	if count > 1 {
@@ -221,3 +222,73 @@ func (t TyFnc) Eval(args ...d.Native) d.Native { return t.TypeNat() }
 func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
 func (t TyFnc) Match(arg d.Typed) bool         { return t.Flag().Match(arg) }
 func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
+
+//// COMPOSED TYPE
+///
+// composition type to mark higher order types. it returns a type name and a
+// slice of typed interface implementing instances.  so recursively nested
+// composed types of arbitrary depth can be defined
+func DefineComposedType(name string, types ...Typed) TyComp {
+	return func() (string, []Typed) {
+		return name, types
+	}
+}
+
+// higher order type has the highest flag type assigned
+func (t TyComp) FlagType() uint8  { return 254 }
+func (t TyComp) TypeName() string { name, _ := t(); return name }
+func (t TyComp) Types() []Typed   { _, flags := t(); return flags }
+func (t TyComp) NatFlags() []d.TyNat {
+	var flags = []d.TyNat{}
+	for _, flag := range t.Types() {
+		if flag.FlagType() == 1 {
+			flags = append(flags, flag.(d.TyNat))
+		}
+	}
+	return flags
+}
+func (t TyComp) FncFlags() []TyFnc {
+	var flags = []TyFnc{}
+	for _, flag := range t.Types() {
+		if flag.FlagType() == 2 {
+			flags = append(flags, flag.(TyFnc))
+		}
+	}
+	return flags
+}
+func (t TyComp) Flag() d.BitFlag {
+	var flags d.BitFlag
+	for _, flag := range t.Types() {
+		flags = flags | flag.Flag()
+	}
+	return flags
+}
+func (t TyComp) TypeFnc() TyFnc {
+	var flags TyFnc
+	for _, flag := range t.FncFlags() {
+		flags = flags | flag
+	}
+	return flags
+}
+func (t TyComp) TypeNat() d.TyNat {
+	var flags d.TyNat
+	for _, flag := range t.NatFlags() {
+		flags = flags | flag
+	}
+	return flags
+}
+func (t TyComp) Call(...Callable) Callable {
+	var args = []Callable{}
+	for _, arg := range t.FncFlags() {
+		args = append(args, arg)
+	}
+	return NewVector(args...)
+}
+func (t TyComp) Eval(...d.Native) d.Native {
+	var args = []d.Native{}
+	for _, arg := range t.NatFlags() {
+		args = append(args, arg)
+	}
+	return d.NewSlice(args...)
+}
+func (t TyComp) Match(arg d.Typed) bool { return t.Flag().Match(arg) }

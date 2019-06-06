@@ -13,8 +13,8 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() int8 { return 1 }
-func (v TyNat) TypeNat() TyNat { return v }
+func (t TyNat) FlagType() uint8 { return 1 }
+func (v TyNat) TypeNat() TyNat  { return v }
 func (t TyNat) TypeName() string {
 	var count = t.Flag().Count()
 	if count > 1 {
