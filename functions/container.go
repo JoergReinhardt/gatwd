@@ -456,25 +456,21 @@ func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 
 /// NARY EXPRESSION
 //
-// nary expression knows it's arity and returns an expression by applying
-// arguments to the enclosed expression, handling partial-, exact-, and
-// oversatisfied calls, by returning either
+// nary expression knows it's composed type & arity and returns an expression
+// by applying arguments to the enclosed expression, handling partial-, exact-,
+// and oversatisfied calls, by returning either:
 //
-// - a partialy applied function and an altered arity reduced by the number of
-//   arguments passed allready,
+// - a partialy applied function and arity reduced by the number of arguments
+//   passed allready,
 //
-// - the result of applying the exact number of arguments to the expression and
-//   a zero arity,
+// - the result of applying the exact number of arguments to the expression
 //
-// - or a pair instance returning the result of applying the exact number of
-//   arguments matching the arity as it's left field and a continuation
-//   returning the result of creating a new nary instance from the initial
-//   expression & arity and calling it with the remaining arguments as it's
-//   right field and whatever arity was returned when creating that instance.
+// - a slice of results of applying abundant arguments repeatedly according to
+//   arity until argument depletion. last result may be a partialy applyed nary
 func NewNary(
 	expr Callable,
 	arity int,
-	typ TyComp,
+	comp TyComp,
 ) NaryExpr {
 	return func(args ...Callable) Callable {
 
@@ -492,19 +488,20 @@ func NewNary(
 
 			// argument number undersatisfies expression arity
 			if len(args) < arity {
-				// return a parially applyed expression with reduced
-				// arity wrapping a variadic expression that can take
-				// succeeding arguments to concatenate to arguments
-				// passed in  prior calls.
+				// return a parially applyed expression with
+				// reduced arity wrapping a variadic expression
+				// that can take succeeding arguments to
+				// concatenate to arguments passed in  prior
+				// calls.
 				return NewNary(VariadicExpr(
 					func(succs ...Callable) Callable {
 						// return result of calling the
 						// nary, passing arguments
 						// concatenated to those passed
 						// in preceeding calls
-						return NewNary(expr, arity, typ).Call(
+						return NewNary(expr, arity, comp).Call(
 							append(args, succs...)...)
-					}), arity-len(args), typ)
+					}), arity-len(args), comp)
 			}
 
 			// argument number oversatisfies expressions arity
@@ -520,7 +517,7 @@ func NewNary(
 					// expression to results slice
 					results = append(
 						results,
-						NewNary(expr, arity, typ)(
+						NewNary(expr, arity, comp)(
 							args[:arity]...),
 					)
 					// reassign remaining arguments
@@ -532,22 +529,24 @@ func NewNary(
 				if len(args) <= arity && arity > 0 {
 					results = append(
 						results,
-						NewNary(expr, arity, typ)(
+						NewNary(expr, arity, comp)(
 							args...))
 				}
 				// return results slice
 				return NewVector(results...)
 			}
 		}
-		return NewPair(Arity(arity), typ)
+		// no arguments passed with the call, return arity and composed
+		// type instead
+		return NewPair(Arity(arity), comp)
 	}
 }
-func (n NaryExpr) Ident() Callable  { return n }
 func (n NaryExpr) Arity() Arity     { val := n(); return val.(Paired).Left().(Arity) }
 func (n NaryExpr) CompType() TyComp { val := n(); return val.(Paired).Right().(TyComp) }
+func (n NaryExpr) TypeName() string { return n.CompType().TypeName() }
 func (n NaryExpr) TypeFnc() TyFnc   { return n.CompType().TypeFnc() }
 func (n NaryExpr) TypeNat() d.TyNat { return n.CompType().TypeNat() }
-func (n NaryExpr) TypeName() string { return n.CompType().TypeName() }
+func (n NaryExpr) Ident() Callable  { return n }
 
 // returns the value returned when calling itself directly, passing along any
 // given argument.

@@ -62,9 +62,16 @@ func TestNary(t *testing.T) {
 		VariadicExpr(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
-			}), 3, DefineComposedType("ConsVector"))
-
-	fmt.Println(nary.TypeName())
+			}), 3, DefineComposedType(
+			"StringTriple",
+			Atom,
+			d.String,
+			Functor, // ← divides arguments from return values
+			Vector,
+			Atom,
+			d.String,
+		),
+	)
 
 	var r0 = nary(NewAtom(d.StrVal("0")))
 
@@ -114,10 +121,12 @@ func TestNary(t *testing.T) {
 	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(
 		NewAtom(d.StrVal("7")))
 
+	fmt.Printf("partialy applyed narys remaining arity: %d\n",
+
+		partial.(NaryExpr).Arity())
 	partial = partial.Call(NewAtom(d.StrVal("8")))
 
 	fmt.Println(partial.Call())
-
 }
 
 func TestMaybeType(t *testing.T) {
