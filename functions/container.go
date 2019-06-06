@@ -473,80 +473,84 @@ func (b BinaryExpr) Eval(args ...d.Native) d.Native {
 //   right field and whatever arity was returned when creating that instance.
 func NewNary(
 	expr Callable,
-	arity Arity,
+	arity int,
+	typ TyComp,
 ) NaryExpr {
 	return func(args ...Callable) Callable {
 
-		var length = Arity(len(args))
+		if len(args) > 0 {
 
-		// argument number satify expression arity exactly
-		if length == arity {
-			// expression expects one or more arguments
-			if arity > 0 {
-				// return fully applyed expression with
-				// remaining arity set to be zero
-				return expr.Call(args...)
-			}
-			// arity of constant expressions may be zero in the
-			// first place. return result of call to expression
-			// with empty set of arguments, expression arity stays
-			// to be zero
-			return expr.Call()
-		}
-
-		// argument number undersatisfies expression arity
-		if length < arity {
-			// return a parially applyed variadic expression to
-			// pass missing arguments in succeeding call(s)
-			return VariadicExpr(func(succs ...Callable) Callable {
-				// return new nary, append succeding
-				// arguments to any passed in prior
-				// call(s)
-				return NewNary(expr, arity).Call(append(args, succs...)...)
-			})
-		}
-
-		// argument number oversatisfies expressions arity
-		if length > arity {
-
-			// allocate slice of resulting expressions
-			var results = []Callable{}
-
-			// iterate aver arguments & create fully satisfied
-			// expressions, wile argument number is higher than
-			// expression arity
-			for Arity(len(args)) > arity {
-				// apped fully satisfied expression to results slice
-				results = append(
-					results,
-					NewNary(expr, arity)(args[:arity]...),
-				)
-				// reassign remaining arguments
-				args = args[arity:]
+			// argument number satify expression arity exactly
+			if len(args) == arity {
+				// expression expects one or more arguments
+				if arity > 0 {
+					// return fully applyed expression with
+					// remaining arity set to be zero
+					return expr.Call(args...)
+				}
 			}
 
-			// if arguments are not entirely depleted, counting
-			// lower or equal to expression arity, last result is
-			// created and remaining arity is reassign to
-			// be the returned arity
-			if Arity(len(args)) <= arity && arity > Arity(0) {
-				results = append(results, NewNary(expr, arity)(args...))
+			// argument number undersatisfies expression arity
+			if len(args) < arity {
+				// return a parially applyed expression with reduced
+				// arity wrapping a variadic expression that can take
+				// succeeding arguments to concatenate to arguments
+				// passed in  prior calls.
+				return NewNary(VariadicExpr(
+					func(succs ...Callable) Callable {
+						// return result of calling the
+						// nary, passing arguments
+						// concatenated to those passed
+						// in preceeding calls
+						return NewNary(expr, arity, typ).Call(
+							append(args, succs...)...)
+					}), arity-len(args), typ)
 			}
 
-			// results slice is converted to vector and returned as
-			// final resulting expression, followed by any
-			// remaining arity
-			return NewVector(results...)
-		}
+			// argument number oversatisfies expressions arity
+			if len(args) > arity {
+				// allocate slice of results
+				var results = []Callable{}
 
-		// something went wrong, this should be inaccessable
-		return expr.Call()
+				// iterate aver arguments & create fully satisfied
+				// expressions, wile argument number is higher than
+				// expression arity
+				for len(args) > arity {
+					// apped result of fully satisfiedying
+					// expression to results slice
+					results = append(
+						results,
+						NewNary(expr, arity, typ)(
+							args[:arity]...),
+					)
+					// reassign remaining arguments
+					args = args[arity:]
+				}
+
+				// if any arguments remain, append result of
+				// partial application
+				if len(args) <= arity && arity > 0 {
+					results = append(
+						results,
+						NewNary(expr, arity, typ)(
+							args...))
+				}
+				// return results slice
+				return NewVector(results...)
+			}
+		}
+		return NewPair(Arity(arity), typ)
 	}
 }
+func (n NaryExpr) Ident() Callable  { return n }
+func (n NaryExpr) Arity() Arity     { val := n(); return val.(Paired).Left().(Arity) }
+func (n NaryExpr) CompType() TyComp { val := n(); return val.(Paired).Right().(TyComp) }
+func (n NaryExpr) TypeFnc() TyFnc   { return n.CompType().TypeFnc() }
+func (n NaryExpr) TypeNat() d.TyNat { return n.CompType().TypeNat() }
+func (n NaryExpr) TypeName() string { return n.CompType().TypeName() }
 
-// returns the value returned when calling itself directly passing along any
-// given arguments. its important to call directly (instead of vlue method dot
-// call), to get partial-, exact-, or oversatisfied return value
+// returns the value returned when calling itself directly, passing along any
+// given argument.
 func (n NaryExpr) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return n(args...)
@@ -554,16 +558,17 @@ func (n NaryExpr) Call(args ...Callable) Callable {
 	return n()
 }
 
-// returns the result of evaluating the value passing on native arguments, when given
+// eval method converts it's arguments to implement callable to pass on to the
+// call method and returns the result as native by evaluating it
 func (n NaryExpr) Eval(args ...d.Native) d.Native {
+	var exprs = []Callable{}
 	if len(args) > 0 {
-		return n().Eval(args...)
+		for _, arg := range args {
+			exprs = append(exprs, NewAtom(arg))
+		}
 	}
-	return n().Eval()
+	return n(exprs...).Eval()
 }
-func (n NaryExpr) TypeFnc() TyFnc   { return n.TypeFnc() }
-func (n NaryExpr) TypeNat() d.TyNat { return n.TypeNat() }
-func (n NaryExpr) Ident() Callable  { return n }
 
 /// VARIADIC EXPRESSION
 //

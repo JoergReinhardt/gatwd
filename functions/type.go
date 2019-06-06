@@ -223,21 +223,28 @@ func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
 func (t TyFnc) Match(arg d.Typed) bool         { return t.Flag().Match(arg) }
 func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
 
+///////////////////////////////////////////////////////////////////////////////
 //// COMPOSED TYPE
 ///
-// composition type to mark higher order types. it returns a type name and a
-// slice of typed interface implementing instances.  so recursively nested
-// composed types of arbitrary depth can be defined
+// composition type to define higher order types. it returns a type name and a
+// slice of instances implementing the typed interface to implement recursively
+// nested higher order types of arbitrary depth and complexity
 func DefineComposedType(name string, types ...Typed) TyComp {
 	return func() (string, []Typed) {
 		return name, types
 	}
 }
 
-// higher order type has the highest flag type assigned
-func (t TyComp) FlagType() uint8  { return 254 }
+// higher order type has the highest possible value assigned as its flag type
+func (t TyComp) FlagType() uint8 { return 254 }
+
+// return isolated type name
 func (t TyComp) TypeName() string { name, _ := t(); return name }
-func (t TyComp) Types() []Typed   { _, flags := t(); return flags }
+
+// return isolated slice of typed instances
+func (t TyComp) Types() []Typed { _, flags := t(); return flags }
+
+// returns all native type flags as slice of typed instances
 func (t TyComp) NatFlags() []d.TyNat {
 	var flags = []d.TyNat{}
 	for _, flag := range t.Types() {
@@ -247,6 +254,8 @@ func (t TyComp) NatFlags() []d.TyNat {
 	}
 	return flags
 }
+
+// returns all functional type flags as slice of typed instances
 func (t TyComp) FncFlags() []TyFnc {
 	var flags = []TyFnc{}
 	for _, flag := range t.Types() {
@@ -256,6 +265,8 @@ func (t TyComp) FncFlags() []TyFnc {
 	}
 	return flags
 }
+
+// OR concatenate all flags
 func (t TyComp) Flag() d.BitFlag {
 	var flags d.BitFlag
 	for _, flag := range t.Types() {
@@ -263,6 +274,8 @@ func (t TyComp) Flag() d.BitFlag {
 	}
 	return flags
 }
+
+// OR concatenate all function types
 func (t TyComp) TypeFnc() TyFnc {
 	var flags TyFnc
 	for _, flag := range t.FncFlags() {
@@ -270,6 +283,8 @@ func (t TyComp) TypeFnc() TyFnc {
 	}
 	return flags
 }
+
+// OR concatenate all native types
 func (t TyComp) TypeNat() d.TyNat {
 	var flags d.TyNat
 	for _, flag := range t.NatFlags() {
@@ -277,6 +292,8 @@ func (t TyComp) TypeNat() d.TyNat {
 	}
 	return flags
 }
+
+// call method returns a vector instance containing all functional type flags
 func (t TyComp) Call(...Callable) Callable {
 	var args = []Callable{}
 	for _, arg := range t.FncFlags() {
@@ -284,6 +301,8 @@ func (t TyComp) Call(...Callable) Callable {
 	}
 	return NewVector(args...)
 }
+
+// eval method renders data slice of all native type flags
 func (t TyComp) Eval(...d.Native) d.Native {
 	var args = []d.Native{}
 	for _, arg := range t.NatFlags() {
@@ -291,4 +310,11 @@ func (t TyComp) Eval(...d.Native) d.Native {
 	}
 	return d.NewSlice(args...)
 }
+
+// matching function for composed higher order types will get a wee bit more
+// complicated, since it will have to implement of vital parts of the higher
+// order type system
 func (t TyComp) Match(arg d.Typed) bool { return t.Flag().Match(arg) }
+
+// returns string representation of recursively nested type, also non trivial
+func (t TyComp) String() string { return t.TypeName() }
