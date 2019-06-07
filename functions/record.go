@@ -136,10 +136,10 @@ func createSignature(
 				signature = append(signature, NewKeyPair(
 					field.KeyStr(),
 					NewPair(
-						NewData(
+						NewNative(
 							field.Value().TypeNat(),
 						),
-						NewData(
+						NewNative(
 							field.Value().TypeFnc(),
 						),
 					)))
@@ -154,10 +154,10 @@ func createSignature(
 						signature = append(signature, NewKeyPair(
 							key.String(),
 							NewPair(
-								NewData(
+								NewNative(
 									pair.Right().TypeNat(),
 								),
-								NewData(
+								NewNative(
 									pair.Right().TypeFnc(),
 								),
 							)))
@@ -175,10 +175,10 @@ func createSignature(
 					signature = append(signature, NewKeyPair(
 						key.String(),
 						NewPair(
-							NewData(
+							NewNative(
 								arg.TypeNat(),
 							),
-							NewData(
+							NewNative(
 								arg.TypeFnc(),
 							),
 						)))
@@ -196,8 +196,8 @@ func (t RecordType) Ident() Callable                { return t }
 func (t RecordType) String() string                 { return t().String() }
 func (t RecordType) TypeFnc() TyFnc                 { return Constructor | Record | t().TypeFnc() }
 func (t RecordType) TypeNat() d.TyNat               { return d.Functor | t().TypeNat() }
+func (v RecordType) Eval() d.Native                 { return v().Eval() }
 func (v RecordType) Call(args ...Callable) Callable { return v(args...) }
-func (v RecordType) Eval() d.Native                 { return v(natToFnc()...) }
 
 //// RECORD VALUE
 func (v RecordVal) Ident() Callable { return v }
@@ -309,11 +309,11 @@ func (a RecordField) Eval() d.Native {
 }
 func (a RecordField) Both() (Callable, Callable) {
 	var val, key = a()
-	return NewData(d.StrVal(key)), val
+	return NewNative(d.StrVal(key)), val
 }
 func (a RecordField) Left() Callable {
 	_, key := a()
-	return NewData(d.StrVal(key))
+	return NewNative(d.StrVal(key))
 }
 func (a RecordField) Right() Callable {
 	val, _ := a()

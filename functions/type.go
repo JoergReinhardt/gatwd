@@ -16,7 +16,7 @@ type (
 const (
 	/// KIND FLAGS ///
 	Type TyFnc = 1 << iota
-	Native
+	Data
 	Key
 	Index
 	/// EXPRESSION CALL PROPERTYS
@@ -74,7 +74,7 @@ const (
 
 	Parameters = CallPropertys | CallArity
 
-	Kinds = Type | Native | Functor
+	Kinds = Type | Data | Functor
 
 	Truth = Undecided | False | True
 
@@ -190,7 +190,7 @@ const (
 )
 
 func (a Arity) Eval() d.Native            { return d.Int8Val(a) }
-func (a Arity) Call(...Callable) Callable { return NewData(a.Eval()) }
+func (a Arity) Call(...Callable) Callable { return NewNative(a.Eval()) }
 func (a Arity) Int() int                  { return int(a) }
 func (a Arity) Flag() d.BitFlag           { return d.BitFlag(a) }
 func (a Arity) TypeNat() d.TyNat          { return d.Flag }

@@ -210,7 +210,7 @@ func TestBindF(t *testing.T) {
 	var bind = func(f, g Callable) Callable {
 		if nf, ok := f.Eval().(d.Numeral); ok {
 			if ng, ok := g.Eval().(d.Numeral); ok {
-				return NewData(d.IntVal(nf.Int() * ng.Int()))
+				return NewNative(d.IntVal(nf.Int() * ng.Int()))
 			}
 		}
 		return nil

@@ -6,6 +6,7 @@ type (
 	//// COLLECTION
 	ListVal func(...Callable) (Callable, ListVal)
 	VecVal  func(...Callable) []Callable
+	SetVal  func(...Paired) d.Mapped
 
 	PairVal   func(...Callable) (Callable, Callable)
 	KeyPair   func(...Callable) (Callable, string)
@@ -13,7 +14,6 @@ type (
 
 	PairList func(...Paired) (Paired, PairList)
 	PairVec  func(...Paired) []Paired
-	SetVal   func(...Paired) d.Mapped
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,7 +292,7 @@ func (a KeyPair) Empty() bool {
 
 func (a KeyPair) Both() (Callable, Callable) {
 	var val, key = a()
-	return NewData(d.StrVal(key)), val
+	return NewNative(d.StrVal(key)), val
 }
 
 // key pair implements associative interface
@@ -308,7 +308,7 @@ func (a KeyPair) SetVal(key, val Callable) (Associative, bool) {
 }
 func (a KeyPair) Left() Callable {
 	_, key := a()
-	return NewData(d.StrVal(key))
+	return NewNative(d.StrVal(key))
 }
 
 func (a KeyPair) Right() Callable {
@@ -353,13 +353,13 @@ func ConsKeyPair(list Consumeable) (KeyPair, Consumeable) {
 // implement consumeable
 func (p KeyPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewData(d.StrVal(r)), NewList(l)
+	return NewNative(d.StrVal(r)), NewList(l)
 }
 func (p KeyPair) Head() Callable    { l, _ := p(); return l }
-func (p KeyPair) Tail() Consumeable { _, r := p(); return NewPair(NewData(d.StrVal(r)), NewNone()) }
+func (p KeyPair) Tail() Consumeable { _, r := p(); return NewPair(NewNative(d.StrVal(r)), NewNone()) }
 
 // implement swappable
-func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return NewData(d.StrVal(r)), l }
+func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return NewNative(d.StrVal(r)), l }
 func (p KeyPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 /// pair composed of an integer and a functional value
@@ -387,14 +387,14 @@ func (a IndexPair) Empty() bool {
 }
 func (a IndexPair) Both() (Callable, Callable) {
 	var val, idx = a()
-	return NewData(d.IntVal(idx)), val
+	return NewNative(d.IntVal(idx)), val
 }
 
 func (a IndexPair) Pair() Paired { return a }
 
 func (a IndexPair) Left() Callable {
 	_, idx := a()
-	return NewData(d.IntVal(idx))
+	return NewNative(d.IntVal(idx))
 }
 
 func (a IndexPair) Right() Callable {
@@ -438,13 +438,13 @@ func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
 // implement consumeable
 func (p IndexPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewData(d.StrVal(r)), NewList(l)
+	return NewNative(d.StrVal(r)), NewList(l)
 }
-func (p IndexPair) Head() Callable    { _, r := p(); return NewData(d.StrVal(r)) }
+func (p IndexPair) Head() Callable    { _, r := p(); return NewNative(d.StrVal(r)) }
 func (p IndexPair) Tail() Consumeable { l, _ := p(); return NewPair(l, NewNone()) }
 
 // implement swappable
-func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return NewData(d.StrVal(r)), l }
+func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return NewNative(d.StrVal(r)), l }
 func (p IndexPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 //// LIST OF PAIRS
@@ -963,8 +963,8 @@ func (v SetVal) Pairs() []Paired {
 		pairs = append(
 			pairs,
 			NewPair(
-				NewData(field.Left()),
-				NewData(field.Right())))
+				NewNative(field.Left()),
+				NewNative(field.Right())))
 	}
 	return pairs
 }
@@ -989,7 +989,7 @@ func (v SetVal) Empty() bool {
 func (v SetVal) GetVal(key Callable) (Callable, bool) {
 	var m = v()
 	if value, ok := m.Get(key); ok {
-		return NewData(value), ok
+		return NewNative(value), ok
 	}
 	return NewNone(), false
 }

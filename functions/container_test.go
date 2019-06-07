@@ -23,30 +23,30 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 var f = VariadicExpr(func(args ...Callable) Callable {
 	var str = "f and "
 	str = str + args[0].String()
-	return NewData(d.StrVal(str))
+	return NewNative(d.StrVal(str))
 })
 var g = VariadicExpr(func(args ...Callable) Callable {
 	var str = "g and "
 	str = str + args[0].String()
-	return NewData(d.StrVal(str))
+	return NewNative(d.StrVal(str))
 })
 var h = VariadicExpr(func(args ...Callable) Callable {
 	var str = "h and "
 	str = str + args[0].String()
-	return NewData(d.StrVal(str))
+	return NewNative(d.StrVal(str))
 })
 var i = VariadicExpr(func(args ...Callable) Callable {
 	var str = "i and "
 	str = str + args[0].String()
-	return NewData(d.StrVal(str))
+	return NewNative(d.StrVal(str))
 })
 var j = VariadicExpr(func(args ...Callable) Callable {
 	var str = "j and "
 	str = str + args[0].String()
-	return NewData(d.StrVal(str))
+	return NewNative(d.StrVal(str))
 })
 var k = ConstantExpr(func() Callable {
-	return NewData(d.StrVal("k"))
+	return NewNative(d.StrVal("k"))
 })
 
 func TestCurry(t *testing.T) {
@@ -65,47 +65,47 @@ func TestNary(t *testing.T) {
 			}),
 		DefineComposedType(
 			"StringTriple",
-			Native,
+			Data,
 			d.String,
 			Functor, // ← divides arguments from return values
 			Vector,
-			Native,
+			Data,
 			d.String,
 		), 3)
 
-	var r0 = nary(NewData(d.StrVal("0")))
+	var r0 = nary(NewNative(d.StrVal("0")))
 
-	var r1 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")))
+	var r1 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")))
 
-	var r2 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")))
+	var r2 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")))
 
-	var r3 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")))
+	var r3 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")))
 
-	var r4 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
-		NewData(d.StrVal("4")))
+	var r4 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
+		NewNative(d.StrVal("4")))
 
-	var r5 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
-		NewData(d.StrVal("4")), NewData(d.StrVal("5")))
+	var r5 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
+		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")))
 
-	var r6 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
-		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
-		NewData(d.StrVal("6")))
+	var r6 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
+		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
+		NewNative(d.StrVal("6")))
 
-	var r7 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
-		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
-		NewData(d.StrVal("6")), NewData(d.StrVal("7")))
+	var r7 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
+		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
+		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")))
 
-	var r8 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
-		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
-		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
-		NewData(d.StrVal("6")), NewData(d.StrVal("7")),
-		NewData(d.StrVal("8")))
+	var r8 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
+		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
+		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")),
+		NewNative(d.StrVal("8")))
 
 	fmt.Println(r0.Call())
 	fmt.Println(r1.Call())
@@ -119,12 +119,12 @@ func TestNary(t *testing.T) {
 
 	// apply additional arguments to partialy applyed expression
 	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(
-		NewData(d.StrVal("7")))
+		NewNative(d.StrVal("7")))
 
 	fmt.Printf("partialy applyed narys remaining arity: %d\n",
 
 		partial.(NaryExpr).Arity())
-	partial = partial.Call(NewData(d.StrVal("8")))
+	partial = partial.Call(NewNative(d.StrVal("8")))
 
 	fmt.Println(partial.Call())
 }
@@ -172,6 +172,41 @@ func TestSwitch(t *testing.T) {
 }
 
 func TestMaybeType(t *testing.T) {
+
+	var swi = NewSwitch(NewPredictAll(func(arg Callable) bool {
+		return arg.TypeNat().Match(d.Numbers)
+	}))
+
+	fmt.Printf("test switch passing an int: %s\n", swi.Call(New(17)))
+	fmt.Printf("test switch passing a string: %s\n", swi.Call(New("string")))
+	fmt.Printf("test switch passing multiple ints: %s\n", swi.Call(New(7), New(17)))
+
+	var maybeNumber = DefineMaybeType(swi)
+
+	fmt.Printf("composed Type: %s TypeName: %s FncType: %s NativeType: %s\n",
+		maybeNumber, maybeNumber.TypeName(),
+		maybeNumber.TypeFnc().TypeName(),
+		maybeNumber.TypeNat().TypeName())
+
+	var number = maybeNumber(New(13))
+	var nan = maybeNumber(New("string"))
+
+	fmt.Printf("data instances number: %s, nan: %s\n", number, nan)
+
+	var add = NewNary(func(args ...Callable) Callable {
+		var numbers = NewVector()
+		for _, arg := range args {
+			var maybe = maybeNumber(arg)
+			if maybe.TypeFnc().Match(Just) {
+				numbers = numbers.Append(maybe.Call())
+			}
+		}
+		return NewNative(args[0].Eval().(d.IntVal) + args[1].Eval().(d.IntVal))
+	}, DefineComposedType("Add", d.Numbers), 2)
+
+	var result = add(New(3), New(5), New(7), New(11), New(13), New(17))
+
+	fmt.Printf("addition results: %s\n", result)
 }
 
 func TestTupleConstruction(t *testing.T) {

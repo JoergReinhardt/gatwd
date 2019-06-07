@@ -12,26 +12,27 @@ import (
 type (
 	//// PREDICATE
 	PredictArg  func(Callable) bool
+	PredictExpr func(...Callable) bool
 	PredictAll  func(...Callable) bool
 	PredictAny  func(...Callable) bool
-	PredictExpr func(...Callable) bool
 
 	//// CASE-EXPRESSION | CASE-SWITCH
 	CaseSwitch func(...Callable) (Callable, bool)
 
 	////  NONE | JUST | MAYBE
-	JustVal func(...Callable) Callable
-	NoneVal func()
+	MaybeCons func(...Callable) Callable
+	JustVal   func(...Callable) Callable
+	NoneVal   func()
 
 	//// STATIC EXPRESSIONS
 	ConstantExpr func() Callable
-	UnaryExpr    func(Callable) Callable
-	BinaryExpr   func(a, b Callable) Callable
+	UnaryExpr    func(...Callable) Callable
+	BinaryExpr   func(...Callable) Callable
 	NaryExpr     func(...Callable) Callable
 	VariadicExpr func(...Callable) Callable
 
 	//// DATA VALUE
-	Data func() d.Native
+	Native func() d.Native
 )
 
 //// PREDICATE
@@ -44,9 +45,9 @@ func NewPredictArg(pred func(Callable) bool) PredictArg {
 func (p PredictArg) Eval() d.Native { return d.BoolVal(false) }
 func (p PredictArg) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		return NewData(d.BoolVal(p(args[0])))
+		return NewNative(d.BoolVal(p(args[0])))
 	}
-	return NewData(d.BoolVal(false))
+	return NewNative(d.BoolVal(false))
 }
 
 // return single argument predicate as multi argument predicate
@@ -72,9 +73,9 @@ func NewPredictNarg(pred func(...Callable) bool) PredictExpr {
 }
 func (p PredictExpr) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		return NewData(d.BoolVal(p(args...)))
+		return NewNative(d.BoolVal(p(args...)))
 	}
-	return NewData(d.BoolVal(false))
+	return NewNative(d.BoolVal(false))
 }
 func (p PredictExpr) Eval() d.Native   { return d.BoolVal(false) }
 func (p PredictExpr) String() string   { return "Nary Predicate" }
@@ -99,9 +100,9 @@ func NewPredictAll(pred func(Callable) bool) PredictExpr {
 // call passes arguments on to the enclosed all-predicate
 func (p PredictAll) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		return NewData(d.BoolVal(p(args...)))
+		return NewNative(d.BoolVal(p(args...)))
 	}
-	return NewData(d.BoolVal(false))
+	return NewNative(d.BoolVal(false))
 }
 
 func (p PredictAll) Eval() d.Native { return d.BoolVal(false) }
@@ -126,9 +127,9 @@ func NewPredictAny(pred func(Callable) bool) PredictExpr {
 }
 func (p PredictAny) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		return NewData(d.BoolVal(p(args...)))
+		return NewNative(d.BoolVal(p(args...)))
 	}
-	return NewData(d.BoolVal(false))
+	return NewNative(d.BoolVal(false))
 }
 func (p PredictAny) Eval() d.Native   { return d.BoolVal(false) }
 func (p PredictAny) String() string   { return "Any Predicate" }
@@ -142,50 +143,51 @@ func (p PredictAny) TypeFnc() TyFnc   { return Predicate }
 func NewSwitch(predicates ...PredictExpr) CaseSwitch {
 
 	// cast predicates as slice of callables
-	var exprs = []Callable{}
+	var cases = []Callable{}
+	// range over predicates
 	for _, predicate := range predicates {
-		exprs = append(exprs, predicate)
+		// append predicate to slice of predicates
+		cases = append(cases, predicate)
 	}
-	// create consumeable list of cases
-	var cases = NewList(exprs...)
-	// allocate current case
+	// create list from predicate slice
+	var list = NewList(cases...)
+	// allocate value to assign current case to
 	var current Callable
 
+	// create and return case switch enclosing list of predicates
 	return func(args ...Callable) (Callable, bool) {
-		// call consumeable to yield current case
-		current, cases = cases()
-		// if call yielded a case
+		// call consumeable to yield current case and reassign list of
+		// remaining cases
+		current, list = list()
+		// if call yielded any case
 		if current != nil {
-			// scrutinize arguments by applying the case
+			// scrutinize argument(s) by applying the case
 			if current.(PredictExpr)(args...) {
 				// replenish cases before returning
 				// successfully scrutinized arguments
-				cases = NewList(exprs...)
+				list = NewList(cases...)
 				// if a single argument has been passed, it is
-				// returned without wrapping vector
+				// returned without wrapping it in a vector
 				if len(args) == 1 {
 					return args[0], true
 				}
 				// return set of arguments and true
 				return NewVector(args...), true
 			}
-			// don't replenish cases, since switch has only been
-			// parially applyed yet, return set of arguments and
-			// false
-			if len(args) == 1 {
-				return args[0], false
-			}
+			// return set of arguments and false indicator. don't
+			// replenish cases of the parially applyed.
 			return NewVector(args...), false
 		}
-		// replenish cases before final return due to case depletion
-		cases = NewList(exprs...)
-		// final call returns instance of none and indicates false
+		// all case are depleted not scrutinizeing the arguments →
+		// replenish list of cases befor returning the final result
+		list = NewList(cases...)
+		// return final none and false indicator
 		return NewNone(), false
 	}
 }
 
-// switches call method iterates over all cases until either boolean indicates
-// true and resulting arguments are returned, or all cases are depleted
+// call method iterates over all cases until either boolean indicates
+// scrutinized arguments to return, or cases depletion
 func (s CaseSwitch) Call(args ...Callable) Callable {
 	// if arguments have been passed
 	if len(args) > 0 {
@@ -209,8 +211,7 @@ func (s CaseSwitch) Call(args ...Callable) Callable {
 
 // eval converts its arguments to callable and evaluates the result to yield a
 // return value of native type
-func (s CaseSwitch) Eval() d.Native { return d.NilVal{} }
-
+func (s CaseSwitch) Eval() d.Native   { return d.NilVal{} }
 func (s CaseSwitch) String() string   { return "Switch" }
 func (s CaseSwitch) TypeFnc() TyFnc   { return Switch }
 func (s CaseSwitch) TypeNat() d.TyNat { return d.Functor }
@@ -226,22 +227,29 @@ func (s CaseSwitch) TypeNat() d.TyNat { return d.Functor }
 // scrutinizing the result by applying it to the switch case, to either return
 // the resulting value wrapped in a just instance, or an instance of none, if
 // the result could not be scrutinize
-func DefineMaybeType(swi CaseSwitch, expr Callable) MaybeCons {
-
+func DefineMaybeType(swi CaseSwitch, flags ...Typed) MaybeCons {
+	var comp = DefineComposedType("Maybe", flags...)
 	return func(args ...Callable) Callable {
-		var result = swi.Call(expr.Call(args...))
-		if result.TypeFnc().Match(None) {
-			return result
+		if len(args) > 0 {
+			return swi.Call(args...)
 		}
-		return consJust(result)
+		return comp
 	}
 }
+func (n MaybeCons) Ident() Callable  { return n }
+func (n MaybeCons) TypeComp() TyComp { return n().(TyComp) }
+func (n MaybeCons) TypeNat() d.TyNat { return n().TypeNat() }
+func (n MaybeCons) TypeFnc() TyFnc   { return Maybe | n().TypeFnc() }
+func (n MaybeCons) TypeName() string { return n.TypeComp().TypeName() }
+func (n MaybeCons) String() string   { return n.TypeName() }
 
-type MaybeCons func(...Callable) Callable
+func (n MaybeCons) Eval() d.Native                 { return n().Eval() }
+func (n MaybeCons) Call(args ...Callable) Callable { return n(args...) }
 
 //// JUST VALUE
 ///
-// just constructor is not exported and called by maybe data constructor
+// just constructor is not exported and called exclusively by maybe data
+// constructor
 func consJust(expr Callable) JustVal {
 	return func(args ...Callable) Callable {
 		if len(args) > 0 {
@@ -251,27 +259,27 @@ func consJust(expr Callable) JustVal {
 	}
 }
 
-// prepend just and concatenate type names of functional, and native type
-// divided by dots
+// prepend 'just' string and concatenate type names of functional, and native
+// type divided by dots
 func (n JustVal) TypeName() string {
 	return "Just·" +
 		n().TypeFnc().TypeName() +
 		"·" +
 		n().TypeNat().TypeName()
 }
-func (n JustVal) Ident() Callable                { return n }
-func (n JustVal) Value() Callable                { return n() }
-func (n JustVal) Call(args ...Callable) Callable { return n().Call(args...) }
-func (n JustVal) Eval() d.Native                 { return n().Eval() }
-func (n JustVal) String() string                 { return n().String() }
-func (n JustVal) TypeNat() d.TyNat               { return n().TypeNat() }
-func (n JustVal) TypeFnc() TyFnc                 { return Just | n().TypeFnc() }
 func (n JustVal) TypeComp() TyComp {
 	return DefineComposedType(
 		"Just·"+n().TypeFnc().TypeName()+"·"+n().TypeNat().TypeName(),
 		n().TypeFnc(), n.TypeNat(),
 	)
 }
+func (n JustVal) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n JustVal) TypeFnc() TyFnc                 { return Just | n().TypeFnc() }
+func (n JustVal) Call(args ...Callable) Callable { return n().Call(args...) }
+func (n JustVal) String() string                 { return n().String() }
+func (n JustVal) Eval() d.Native                 { return n().Eval() }
+func (n JustVal) Value() Callable                { return n() }
+func (n JustVal) Ident() Callable                { return n }
 
 //// NONE VALUE
 func NewNone() NoneVal { return func() {} }
@@ -300,82 +308,57 @@ func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone()
 //
 /// CONSTANT EXPRESSION
 //
-// does not take any arguments and ignores all arguments passed
-func NewConstant(
-	expr Callable,
-) ConstantExpr {
+// does not expect any arguments and ignores all passed arguments
+func NewConstant(expr Callable) ConstantExpr {
 	return func() Callable { return expr }
 }
-func (c ConstantExpr) Ident() Callable  { return c() }
-func (c ConstantExpr) Arity() Arity     { return Arity(0) }
-func (c ConstantExpr) TypeFnc() TyFnc   { return c().TypeFnc() }
-func (c ConstantExpr) TypeNat() d.TyNat { return c().TypeNat() }
-func (c ConstantExpr) Eval() d.Native {
-	return c().Eval()
-}
-func (c ConstantExpr) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNone()
-	}
-	return c()
-}
+func (c ConstantExpr) Ident() Callable                { return c() }
+func (c ConstantExpr) Arity() Arity                   { return Arity(0) }
+func (c ConstantExpr) TypeFnc() TyFnc                 { return c().TypeFnc() }
+func (c ConstantExpr) TypeNat() d.TyNat               { return c().TypeNat() }
+func (c ConstantExpr) Eval() d.Native                 { return c().Eval() }
+func (c ConstantExpr) Call(args ...Callable) Callable { return c() }
 
 /// UNARY EXPRESSION
 //
-// expects one argument, ignores abundant arguments and returns nil/none, when
-// no arguments are passed.
-func NewUnary(
-	expr Callable,
-) UnaryExpr {
-	return func(arg Callable) Callable { return expr.Call(arg) }
+func NewUnary(expr Callable) UnaryExpr {
+	return UnaryExpr(NewNary(
+		expr.Call, DefineComposedType(
+			"Unary",
+			expr.TypeFnc(),
+			expr.TypeNat(),
+		), 1))
 }
-func (u UnaryExpr) Ident() Callable  { return u }
-func (u UnaryExpr) Arity() Arity     { return Arity(1) }
-func (u UnaryExpr) TypeFnc() TyFnc   { return u(NewNone()).TypeFnc() }
-func (u UnaryExpr) TypeNat() d.TyNat { return d.Functor.TypeNat() }
-func (u UnaryExpr) Call(args ...Callable) Callable {
-	if len(args) == 1 {
-		return u(args[0]).Call()
-	}
-	return NewNone()
-}
-func (u UnaryExpr) Eval() d.Native {
-	return d.NilVal{}
-}
+func (u UnaryExpr) Ident() Callable                { return u }
+func (u UnaryExpr) Call(args ...Callable) Callable { return u(args...) }
+func (u UnaryExpr) Eval() d.Native                 { return u().Eval() }
+func (u UnaryExpr) TypeFnc() TyFnc                 { return u().TypeFnc() }
+func (u UnaryExpr) TypeNat() d.TyNat               { return u().TypeNat() }
+func (u UnaryExpr) TypeName() string               { return u().(NaryExpr).TypeName() }
+func (u UnaryExpr) Arity() Arity                   { return u().(NaryExpr).Arity() }
 
 /// BINARY EXPRESSION
 //
-// expects two arguments, ignores abundant arguments returns nil/none, when
-// less than two arguments are passed.
-func NewBinary(
-	expr Callable,
-) BinaryExpr {
-	return func(a, b Callable) Callable {
-		return expr.Call(a, b)
-	}
+func NewBinary(expr Callable) BinaryExpr {
+	return BinaryExpr(NewNary(
+		expr.Call, DefineComposedType(
+			"Binary",
+			expr.TypeFnc(),
+			expr.TypeNat(),
+		), 2))
 }
 
-func (b BinaryExpr) Ident() Callable  { return b }
-func (b BinaryExpr) Arity() Arity     { return Arity(2) }
-func (b BinaryExpr) TypeFnc() TyFnc   { return b(NewNone(), NewNone()).TypeFnc() }
-func (b BinaryExpr) TypeNat() d.TyNat { return d.Functor.TypeNat() }
-func (b BinaryExpr) Call(args ...Callable) Callable {
-	if len(args) == 2 {
-		return b(args[0], args[1])
-	}
-	return NewNone()
-}
-func (b BinaryExpr) Eval() d.Native {
-	return d.NilVal{}
-}
+func (b BinaryExpr) Ident() Callable                { return b }
+func (b BinaryExpr) Call(args ...Callable) Callable { return b(args...) }
+func (b BinaryExpr) Eval() d.Native                 { return b().Eval() }
+func (b BinaryExpr) TypeFnc() TyFnc                 { return b().TypeFnc() }
+func (b BinaryExpr) TypeNat() d.TyNat               { return b().TypeNat() }
+func (b BinaryExpr) TypeName() string               { return b().(NaryExpr).TypeName() }
+func (b BinaryExpr) Arity() Arity                   { return b().(NaryExpr).Arity() }
 
 /// VARIADIC EXPRESSION
 //
-// variadic expression has an unknown arity and can take an arbitrary number of
-// arguments passed when calling it
-func NewVariadic(
-	expr Callable,
-) VariadicExpr {
+func NewVariadic(expr Callable) VariadicExpr {
 	return func(args ...Callable) Callable {
 		return expr.Call(args...)
 	}
@@ -383,8 +366,8 @@ func NewVariadic(
 func (n VariadicExpr) Ident() Callable             { return n }
 func (n VariadicExpr) TypeFnc() TyFnc              { return n().TypeFnc() }
 func (n VariadicExpr) TypeNat() d.TyNat            { return d.Functor.TypeNat() }
-func (n VariadicExpr) Call(d ...Callable) Callable { return n(d...) }
 func (n VariadicExpr) Eval() d.Native              { return n().Eval() }
+func (n VariadicExpr) Call(d ...Callable) Callable { return n(d...) }
 
 /// NARY EXPRESSION
 //
@@ -400,7 +383,7 @@ func (n VariadicExpr) Eval() d.Native              { return n().Eval() }
 // - a slice of results of applying abundant arguments repeatedly according to
 //   arity until argument depletion. last result may be a partialy applyed nary
 func NewNary(
-	expr Callable,
+	expr func(...Callable) Callable,
 	comp TyComp,
 	arity int,
 ) NaryExpr {
@@ -412,7 +395,7 @@ func NewNary(
 				if arity > 0 {
 					// return fully applyed expression with
 					// remaining arity set to be zero
-					return expr.Call(args...)
+					return expr(args...)
 				}
 			}
 
@@ -498,9 +481,9 @@ func (n NaryExpr) Ident() Callable  { return n }
 // instead of the value itself, as in 'DataVal(native.Eval)', to delay, or even
 // possibly ommit evaluation of the underlying data value for cases where
 // lazynes is paramount.
-func New(inf ...interface{}) Callable { return NewData(d.New(inf...)) }
+func New(inf ...interface{}) Callable { return NewNative(d.New(inf...)) }
 
-func NewData(args ...d.Native) Data {
+func NewNative(args ...d.Native) Native {
 	// if any initial arguments have been passed
 	if len(args) > 0 {
 		return func() d.Native { return d.NewFromData(args...) }
@@ -508,47 +491,13 @@ func NewData(args ...d.Native) Data {
 	return func() d.Native { return d.NewNil() }
 }
 
-func (n Data) Call(args ...Callable) Callable { return n }
-func (n Data) Eval() d.Native                 { return n() }
-func (n Data) TypeFnc() TyFnc                 { return Native }
-func (n Data) TypeNat() d.TyNat               { return n().TypeNat() }
-func (n Data) String() string                 { return n().String() }
-func (n Data) TypeName() string               { return n().TypeNat().TypeName() }
-
-//// HELPER FUNCTIONS TO HANDLE ARGUMENTS
-///
-// since every callable also needs to implement the eval interface and data as
-// such allways boils down to native values, conversion between callable-/ &
-// native arguments is frequently needed. arguments may also need to be
-// reversed when intendet to be passed to certain recursive expressions, or
-// returned by those
-//
-/// REVERSE ARGUMENTS
-func revArgs(args ...Callable) []Callable {
-	var rev = []Callable{}
-	for i := len(args) - 1; i > 0; i-- {
-		rev = append(rev, args[i])
-	}
-	return rev
-}
-
-/// CONVERT NATIVE TO FUNCTIONAL
-func natToFnc(args ...d.Native) []Callable {
-	var result = []Callable{}
-	for _, arg := range args {
-		result = append(result, NewData(arg))
-	}
-	return result
-}
-
-/// CONVERT FUNCTIONAL TO NATIVE
-func fncToNat(args ...Callable) []d.Native {
-	var result = []d.Native{}
-	for _, arg := range args {
-		result = append(result, arg.Eval())
-	}
-	return result
-}
+// call method ignores arguments, natives are immutable
+func (n Native) Call(...Callable) Callable { return n }
+func (n Native) Eval() d.Native            { return n() }
+func (n Native) TypeFnc() TyFnc            { return Data }
+func (n Native) TypeNat() d.TyNat          { return n().TypeNat() }
+func (n Native) String() string            { return n().String() }
+func (n Native) TypeName() string          { return n().TypeNat().TypeName() }
 
 /// GROUP ARGUMENTS PAIRWISE
 //
