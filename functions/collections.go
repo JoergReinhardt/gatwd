@@ -73,10 +73,7 @@ func (l ListVal) Call(args ...Callable) Callable {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l ListVal) Eval(args ...d.Native) d.Native {
-	if len(args) > 0 {
-		return l.Cons(natToFnc(args...)...)
-	}
+func (l ListVal) Eval() d.Native {
 	if head := l.Head(); head != nil {
 		return head.Eval()
 	}
@@ -139,42 +136,6 @@ func NewPair(l, r Callable) PairVal {
 			return args[0], r
 		}
 		return l, r
-	}
-}
-
-// new pair from two native instances
-func NewPairFromData(l, r d.Native) PairVal {
-	return func(args ...Callable) (Callable, Callable) {
-		if len(args) > 0 {
-			if len(args) > 1 {
-				// return pointers to natives eval functions
-				return AtomVal(args[0].Eval), AtomVal(args[1].Eval)
-			}
-
-			return AtomVal(args[0].Eval), NewNone()
-		}
-
-		return AtomVal(l.Eval), AtomVal(r.Eval)
-	}
-}
-
-// create a pair from literals to create instances of type DataVal, when
-// key & value are later returned
-func NewPairFromLiteral(l, r interface{}) PairVal {
-	return func(args ...Callable) (Callable, Callable) {
-		if len(args) > 0 {
-			if len(args) > 1 {
-				// return values eval methods as continuations
-				return AtomVal(
-						d.New(args[0]).Eval,
-					),
-					AtomVal(
-						d.New(args[1]).Eval,
-					)
-			}
-			return AtomVal(d.New(args[0]).Eval), NewNone()
-		}
-		return AtomVal(d.New(l).Eval), AtomVal(d.New(r).Eval)
 	}
 }
 
@@ -296,8 +257,8 @@ func (p PairVal) Call(args ...Callable) Callable {
 }
 
 // eval evaluates the value, arguments are forwarded when evaluating right element
-func (p PairVal) Eval(args ...d.Native) d.Native {
-	return d.NewPair(p.Left().Eval(args...), p.Right().Eval(args...))
+func (p PairVal) Eval() d.Native {
+	return d.NewPair(p.Left().Eval(), p.Right().Eval())
 }
 
 //// ASSOCIATIVE PAIRS
@@ -331,7 +292,7 @@ func (a KeyPair) Empty() bool {
 
 func (a KeyPair) Both() (Callable, Callable) {
 	var val, key = a()
-	return NewAtom(d.StrVal(key)), val
+	return NewData(d.StrVal(key)), val
 }
 
 // key pair implements associative interface
@@ -347,7 +308,7 @@ func (a KeyPair) SetVal(key, val Callable) (Associative, bool) {
 }
 func (a KeyPair) Left() Callable {
 	_, key := a()
-	return NewAtom(d.StrVal(key))
+	return NewData(d.StrVal(key))
 }
 
 func (a KeyPair) Right() Callable {
@@ -357,7 +318,7 @@ func (a KeyPair) Right() Callable {
 func (a KeyPair) Key() Callable                  { return a.Left() }
 func (a KeyPair) Value() Callable                { return a.Right() }
 func (a KeyPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
-func (a KeyPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
+func (a KeyPair) Eval() d.Native                 { return a.Right().Eval() }
 
 func (a KeyPair) KeyType() TyFnc        { return Pair }
 func (a KeyPair) KeyNatType() d.TyNat   { return d.String }
@@ -392,13 +353,13 @@ func ConsKeyPair(list Consumeable) (KeyPair, Consumeable) {
 // implement consumeable
 func (p KeyPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewAtom(d.StrVal(r)), NewList(l)
+	return NewData(d.StrVal(r)), NewList(l)
 }
 func (p KeyPair) Head() Callable    { l, _ := p(); return l }
-func (p KeyPair) Tail() Consumeable { _, r := p(); return NewPair(NewAtom(d.StrVal(r)), NewNone()) }
+func (p KeyPair) Tail() Consumeable { _, r := p(); return NewPair(NewData(d.StrVal(r)), NewNone()) }
 
 // implement swappable
-func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return NewAtom(d.StrVal(r)), l }
+func (p KeyPair) Swap() (Callable, Callable) { l, r := p(); return NewData(d.StrVal(r)), l }
 func (p KeyPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 /// pair composed of an integer and a functional value
@@ -426,14 +387,14 @@ func (a IndexPair) Empty() bool {
 }
 func (a IndexPair) Both() (Callable, Callable) {
 	var val, idx = a()
-	return NewAtom(d.IntVal(idx)), val
+	return NewData(d.IntVal(idx)), val
 }
 
 func (a IndexPair) Pair() Paired { return a }
 
 func (a IndexPair) Left() Callable {
 	_, idx := a()
-	return NewAtom(d.IntVal(idx))
+	return NewData(d.IntVal(idx))
 }
 
 func (a IndexPair) Right() Callable {
@@ -445,7 +406,7 @@ func (a IndexPair) Key() Callable   { return a.Left() }
 func (a IndexPair) Value() Callable { return a.Right() }
 
 func (a IndexPair) Call(args ...Callable) Callable { return a.Right().Call(args...) }
-func (a IndexPair) Eval(args ...d.Native) d.Native { return a.Right().Eval(args...) }
+func (a IndexPair) Eval() d.Native                 { return a.Right().Eval() }
 
 func (a IndexPair) KeyType() TyFnc        { return Pair }
 func (a IndexPair) KeyNatType() d.TyNat   { return d.Int }
@@ -477,13 +438,13 @@ func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
 // implement consumeable
 func (p IndexPair) Consume() (Callable, Consumeable) {
 	l, r := p()
-	return NewAtom(d.StrVal(r)), NewList(l)
+	return NewData(d.StrVal(r)), NewList(l)
 }
-func (p IndexPair) Head() Callable    { _, r := p(); return NewAtom(d.StrVal(r)) }
+func (p IndexPair) Head() Callable    { _, r := p(); return NewData(d.StrVal(r)) }
 func (p IndexPair) Tail() Consumeable { l, _ := p(); return NewPair(l, NewNone()) }
 
 // implement swappable
-func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return NewAtom(d.StrVal(r)), l }
+func (p IndexPair) Swap() (Callable, Callable) { l, r := p(); return NewData(d.StrVal(r)), l }
 func (p IndexPair) SwappedPair() Paired        { return NewPair(p.Right(), p.Left()) }
 
 //// LIST OF PAIRS
@@ -538,9 +499,9 @@ func (l PairList) Call(args ...Callable) Callable {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l PairList) Eval(args ...d.Native) d.Native {
+func (l PairList) Eval() d.Native {
 	if head := l.Head(); head != nil {
-		return head.Eval(args...)
+		return head.Eval()
 	}
 	return d.NilVal{}
 }
@@ -618,15 +579,15 @@ func (v VecVal) Ident() Callable { return v }
 
 func (v VecVal) Call(d ...Callable) Callable { return NewVector(v(d...)...) }
 
-func (v VecVal) Eval(args ...d.Native) d.Native {
+func (v VecVal) Eval() d.Native {
 
-	var result = []d.Native{}
+	var results = []d.Native{}
 
-	for _, arg := range args {
-		result = append(result, arg)
+	for _, arg := range v() {
+		results = append(results, arg.Eval())
 	}
 
-	return d.DataSlice(result)
+	return d.NewSlice(results...)
 }
 
 func (v VecVal) TypeFnc() TyFnc {
@@ -921,7 +882,7 @@ func (v PairVec) Call(args ...Callable) Callable {
 	return v.Cons(args...)
 }
 
-func (v PairVec) Eval(p ...d.Native) d.Native {
+func (v PairVec) Eval() d.Native {
 	var slice = d.DataSlice{}
 	for _, pair := range v() {
 		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
@@ -1001,9 +962,9 @@ func (v SetVal) Pairs() []Paired {
 	for _, field := range v().Fields() {
 		pairs = append(
 			pairs,
-			NewPairFromData(
-				field.Left(),
-				field.Right()))
+			NewPair(
+				NewData(field.Left()),
+				NewData(field.Right())))
 	}
 	return pairs
 }
@@ -1028,7 +989,7 @@ func (v SetVal) Empty() bool {
 func (v SetVal) GetVal(key Callable) (Callable, bool) {
 	var m = v()
 	if value, ok := m.Get(key); ok {
-		return NewAtom(value), ok
+		return NewData(value), ok
 	}
 	return NewNone(), false
 }
@@ -1065,21 +1026,8 @@ func (v SetVal) Call(args ...Callable) Callable {
 
 // eval method performs a value lookup and returns contained value as native
 // without any conversion
-func (v SetVal) Eval(args ...d.Native) d.Native {
-	var results = []d.Native{}
-	var m = v()
-	for _, arg := range args {
-		if val, ok := m.Get(arg); ok {
-			results = append(results, val)
-		}
-	}
-	if len(results) > 0 {
-		if len(results) > 1 {
-			return d.NewSlice(results...)
-		}
-		return results[0]
-	}
-	return d.NilVal{}
+func (v SetVal) Eval() d.Native {
+	return d.NewNil()
 }
 
 func (v SetVal) TypeFnc() TyFnc { return Set }

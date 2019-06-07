@@ -17,7 +17,6 @@ const (
 	/// KIND FLAGS ///
 	Type TyFnc = 1 << iota
 	Native
-	Atom
 	Key
 	Index
 	/// EXPRESSION CALL PROPERTYS
@@ -75,7 +74,7 @@ const (
 
 	Parameters = CallPropertys | CallArity
 
-	Kinds = Type | Native | Atom | Functor
+	Kinds = Type | Native | Functor
 
 	Truth = Undecided | False | True
 
@@ -133,7 +132,7 @@ func (p Propertys) Parametric() bool               { return !p.Flag().Match(Prim
 func (p Propertys) TypeNat() d.TyNat               { return d.Flag }
 func (p Propertys) TypeFnc() TyFnc                 { return HigherOrder }
 func (p Propertys) Flag() d.BitFlag                { return d.BitFlag(uint64(p)) }
-func (p Propertys) Eval(a ...d.Native) d.Native    { return p }
+func (p Propertys) Eval() d.Native                 { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Callable) Callable { return p }
 func (p Propertys) Match(flag d.BitFlag) bool      { return p.Flag().Match(flag) }
 func (p Propertys) MatchProperty(arg Propertys) bool {
@@ -190,8 +189,8 @@ const (
 	Denary
 )
 
-func (a Arity) Eval(...d.Native) d.Native { return d.Int8Val(a) }
-func (a Arity) Call(...Callable) Callable { return NewAtom(a.Eval()) }
+func (a Arity) Eval() d.Native            { return d.Int8Val(a) }
+func (a Arity) Call(...Callable) Callable { return NewData(a.Eval()) }
 func (a Arity) Int() int                  { return int(a) }
 func (a Arity) Flag() d.BitFlag           { return d.BitFlag(a) }
 func (a Arity) TypeNat() d.TyNat          { return d.Flag }
@@ -218,7 +217,7 @@ func (t TyFnc) TypeName() string {
 func (t TyFnc) TypeFnc() TyFnc                 { return Type }
 func (t TyFnc) TypeNat() d.TyNat               { return d.Flag }
 func (t TyFnc) Call(args ...Callable) Callable { return t.TypeFnc() }
-func (t TyFnc) Eval(args ...d.Native) d.Native { return t.TypeNat() }
+func (t TyFnc) Eval() d.Native                 { return t.TypeNat() }
 func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
 func (t TyFnc) Match(arg d.Typed) bool         { return t.Flag().Match(arg) }
 func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
@@ -303,13 +302,7 @@ func (t TyComp) Call(...Callable) Callable {
 }
 
 // eval method renders data slice of all native type flags
-func (t TyComp) Eval(...d.Native) d.Native {
-	var args = []d.Native{}
-	for _, arg := range t.NatFlags() {
-		args = append(args, arg)
-	}
-	return d.NewSlice(args...)
-}
+func (t TyComp) Eval() d.Native { return d.NewSlice() }
 
 // matching function for composed higher order types will get a wee bit more
 // complicated, since it will have to implement of vital parts of the higher

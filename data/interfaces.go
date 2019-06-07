@@ -2,16 +2,8 @@ package data
 
 import "math/big"
 
-//// USER DEFINED DATA & FUNCTION TYPES ///////
-///
-// all data types are evaluable. evaluation yields a primary instance
-type Evaluable interface {
-	Eval(...Native) Native
-}
-
-// the main interface, all types defined here need to comply to.
+// the main interface, all native types need to implement.
 type Native interface {
-	Evaluable
 	TypeNat() TyNat
 	String() string
 }

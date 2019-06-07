@@ -136,10 +136,10 @@ func createSignature(
 				signature = append(signature, NewKeyPair(
 					field.KeyStr(),
 					NewPair(
-						NewAtom(
+						NewData(
 							field.Value().TypeNat(),
 						),
-						NewAtom(
+						NewData(
 							field.Value().TypeFnc(),
 						),
 					)))
@@ -154,10 +154,10 @@ func createSignature(
 						signature = append(signature, NewKeyPair(
 							key.String(),
 							NewPair(
-								NewAtom(
+								NewData(
 									pair.Right().TypeNat(),
 								),
-								NewAtom(
+								NewData(
 									pair.Right().TypeFnc(),
 								),
 							)))
@@ -175,10 +175,10 @@ func createSignature(
 					signature = append(signature, NewKeyPair(
 						key.String(),
 						NewPair(
-							NewAtom(
+							NewData(
 								arg.TypeNat(),
 							),
-							NewAtom(
+							NewData(
 								arg.TypeFnc(),
 							),
 						)))
@@ -197,7 +197,7 @@ func (t RecordType) String() string                 { return t().String() }
 func (t RecordType) TypeFnc() TyFnc                 { return Constructor | Record | t().TypeFnc() }
 func (t RecordType) TypeNat() d.TyNat               { return d.Functor | t().TypeNat() }
 func (v RecordType) Call(args ...Callable) Callable { return v(args...) }
-func (v RecordType) Eval(args ...d.Native) d.Native { return v(natToFnc(args...)...) }
+func (v RecordType) Eval() d.Native                 { return v(natToFnc()...) }
 
 //// RECORD VALUE
 func (v RecordVal) Ident() Callable { return v }
@@ -264,14 +264,7 @@ func (v RecordVal) Call(args ...Callable) Callable {
 	_ = v(args...)
 	return v
 }
-func (v RecordVal) Eval(args ...d.Native) d.Native {
-	var vals = []Callable{}
-	for _, arg := range args {
-		vals = append(vals, AtomVal(arg.Eval))
-	}
-	_ = v(vals...)
-	return v
-}
+func (v RecordVal) Eval() d.Native { return d.NewNil() }
 func (v RecordVal) TypeNat() d.TyNat {
 	var typ = d.Functor
 	for _, field := range v() {
@@ -311,16 +304,16 @@ func (a RecordField) String() string {
 func (a RecordField) Call(args ...Callable) Callable {
 	return a.Right().Call(args...)
 }
-func (a RecordField) Eval(args ...d.Native) d.Native {
-	return a.Value().Eval(args...)
+func (a RecordField) Eval() d.Native {
+	return a.Value().Eval()
 }
 func (a RecordField) Both() (Callable, Callable) {
 	var val, key = a()
-	return NewAtom(d.StrVal(key)), val
+	return NewData(d.StrVal(key)), val
 }
 func (a RecordField) Left() Callable {
 	_, key := a()
-	return NewAtom(d.StrVal(key))
+	return NewData(d.StrVal(key))
 }
 func (a RecordField) Right() Callable {
 	val, _ := a()

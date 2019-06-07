@@ -47,17 +47,6 @@ func (c DataSlice) Copy() Native {
 	return ds
 }
 
-// eval appends passed arguments to the slice and returns it
-func (c DataSlice) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		if len(c) > 0 {
-			return SliceAppend(c, p...)
-		}
-		NewSlice(p...)
-	}
-	return c
-}
-
 // SLICE ->
 func (v DataSlice) Slice() []Native { return v }
 

@@ -5,14 +5,15 @@ import (
 	"time"
 )
 
+func NewNil() NilVal { return NilVal{} }
+
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }
 
 func NewFromData(args ...Native) Native {
 	if len(args) > 0 {
 		if len(args) > 1 {
 			// try to return unboxed natives if possible, falls
-			// back to return slice instance containing elements of
-			// multiple type automaticly if that's the case
+			// back to return slice of native instances if not.
 			return SliceToNatives(DataSlice(args))
 		}
 		// a single native argument has been passed, return unchanged

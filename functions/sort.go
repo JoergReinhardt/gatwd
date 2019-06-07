@@ -259,7 +259,7 @@ func (p pairSorter) Get(pred Callable) Paired {
 	if idx != -1 {
 		return p[idx]
 	}
-	return NewPair(New(d.NilVal{}), New(d.NilVal{}))
+	return NewPair(New(d.NewNil()), New(d.NewNil()))
 }
 
 func (p pairSorter) GetByValue(pred Callable) Paired {

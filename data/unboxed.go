@@ -381,32 +381,6 @@ func (v DuraVec) Null() Native   { return DuraVec([]time.Duration{}) }
 func (v ErrorVec) Null() Native  { return ErrorVec([]error{}) }
 func (v FlagSet) Null() Native   { return FlagSet([]BitFlag{}) }
 
-func (v NilVec) Eval(...Native) Native    { return v }
-func (v BoolVec) Eval(...Native) Native   { return v }
-func (v IntVec) Eval(...Native) Native    { return v }
-func (v Int8Vec) Eval(...Native) Native   { return v }
-func (v Int16Vec) Eval(...Native) Native  { return v }
-func (v Int32Vec) Eval(...Native) Native  { return v }
-func (v UintVec) Eval(...Native) Native   { return v }
-func (v Uint8Vec) Eval(...Native) Native  { return v }
-func (v Uint16Vec) Eval(...Native) Native { return v }
-func (v Uint32Vec) Eval(...Native) Native { return v }
-func (v FltVec) Eval(...Native) Native    { return v }
-func (v Flt32Vec) Eval(...Native) Native  { return v }
-func (v ImagVec) Eval(...Native) Native   { return v }
-func (v Imag64Vec) Eval(...Native) Native { return v }
-func (v ByteVec) Eval(...Native) Native   { return v }
-func (v RuneVec) Eval(...Native) Native   { return v }
-func (v BytesVec) Eval(...Native) Native  { return v }
-func (v StrVec) Eval(...Native) Native    { return v }
-func (v BigIntVec) Eval(...Native) Native { return v }
-func (v BigFltVec) Eval(...Native) Native { return v }
-func (v RatioVec) Eval(...Native) Native  { return v }
-func (v TimeVec) Eval(...Native) Native   { return v }
-func (v DuraVec) Eval(...Native) Native   { return v }
-func (v ErrorVec) Eval(...Native) Native  { return v }
-func (v FlagSet) Eval(...Native) Native   { return v }
-
 func (v NilVec) Len() int    { return len(v) }
 func (v BoolVec) Len() int   { return len(v) }
 func (v IntVec) Len() int    { return len(v) }

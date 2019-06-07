@@ -9,13 +9,6 @@ func (p PairVal) Right() Native { return p.R }
 
 func (p PairVal) Both() (Native, Native) { return p.L, p.R }
 
-func (p PairVal) Eval(prime ...Native) Native {
-	if len(prime) >= 2 {
-		return PairVal{prime[0], prime[1]}
-	}
-	return p
-}
-
 ////////////////////////////////////////////////////////////////
 //// GENERIC ACCESSOR TYPED SET
 ///

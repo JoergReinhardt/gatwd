@@ -55,14 +55,8 @@ func (c Collection) Call(args ...Callable) Callable {
 	return head
 }
 
-func (c Collection) Eval(args ...d.Native) d.Native {
+func (c Collection) Eval() d.Native {
 	var head, _ = c()
-	if len(args) > 0 {
-		if len(args) > 1 {
-			return head.Eval(args...)
-		}
-		return head.Eval(args[0])
-	}
 	return head.Eval()
 }
 
@@ -134,14 +128,8 @@ func (c PairCollection) Call(args ...Callable) Callable {
 	return head
 }
 
-func (c PairCollection) Eval(args ...d.Native) d.Native {
+func (c PairCollection) Eval() d.Native {
 	var head, _ = c()
-	if len(args) > 0 {
-		if len(args) > 1 {
-			return head.Eval(args...)
-		}
-		return head.Eval(args[0])
-	}
 	return head.Eval()
 }
 
@@ -217,8 +205,8 @@ func (m MonadicExpr) Call(args ...Callable) Callable {
 	return m.Head().Call(args...)
 }
 
-func (m MonadicExpr) Eval(args ...d.Native) d.Native {
-	return m.Head().Eval(args...)
+func (m MonadicExpr) Eval() d.Native {
+	return m.Head().Eval()
 }
 
 func (m MonadicExpr) String() string {

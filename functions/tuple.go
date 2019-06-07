@@ -145,7 +145,7 @@ func createTuple(
 
 func (t TupleType) String() string                 { return "Type " + t().String() }
 func (t TupleType) Call(args ...Callable) Callable { return t().Call(args...) }
-func (t TupleType) Eval(args ...d.Native) d.Native { return t().Eval(args...) }
+func (t TupleType) Eval() d.Native                 { return t().Eval() }
 func (t TupleType) TypeFnc() TyFnc {
 	return Constructor |
 		Tuple |
@@ -202,17 +202,8 @@ func (t TupleVal) Call(args ...Callable) Callable {
 	}
 	return vec
 }
-func (t TupleVal) Eval(args ...d.Native) d.Native {
-	var vals = []Callable{}
-	for _, val := range args {
-		vals = append(vals, AtomVal(val.Eval))
-	}
-	var tups = t(vals...)
-	var slice = d.NewSlice()
-	for _, tup := range tups {
-		slice.Append(tup)
-	}
-	return slice
+func (t TupleVal) Eval() d.Native {
+	return d.NewNil()
 }
 
 //// TUPLE ELEMENT
@@ -230,4 +221,4 @@ func (e TupleElem) String() string                 { return e.Value().String() }
 func (e TupleElem) TypeFnc() TyFnc                 { return Tuple | Element | e.Value().TypeFnc() }
 func (e TupleElem) TypeNat() d.TyNat               { return d.Functor | e.Value().TypeNat() }
 func (e TupleElem) Call(args ...Callable) Callable { return e.Value().Call(args...) }
-func (e TupleElem) Eval(args ...d.Native) d.Native { return e.Value().Eval(args...) }
+func (e TupleElem) Eval() d.Native                 { return e.Value().Eval() }

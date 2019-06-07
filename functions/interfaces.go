@@ -11,8 +11,7 @@ type Typed interface {
 }
 
 type Evaluable interface {
-	// Eval(...Native) Native
-	d.Evaluable
+	Eval() d.Native
 }
 
 type Reproduceable interface {
@@ -166,6 +165,7 @@ type Callable interface {
 	// TypeNat() d.TyNative
 	// String() string
 	// Eval(...d.Native) d.Native
+	Evaluable
 	TypeFnc() TyFnc
 	Call(...Callable) Callable
 }

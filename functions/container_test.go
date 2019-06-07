@@ -23,30 +23,30 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 var f = VariadicExpr(func(args ...Callable) Callable {
 	var str = "f and "
 	str = str + args[0].String()
-	return NewAtom(d.StrVal(str))
+	return NewData(d.StrVal(str))
 })
 var g = VariadicExpr(func(args ...Callable) Callable {
 	var str = "g and "
 	str = str + args[0].String()
-	return NewAtom(d.StrVal(str))
+	return NewData(d.StrVal(str))
 })
 var h = VariadicExpr(func(args ...Callable) Callable {
 	var str = "h and "
 	str = str + args[0].String()
-	return NewAtom(d.StrVal(str))
+	return NewData(d.StrVal(str))
 })
 var i = VariadicExpr(func(args ...Callable) Callable {
 	var str = "i and "
 	str = str + args[0].String()
-	return NewAtom(d.StrVal(str))
+	return NewData(d.StrVal(str))
 })
 var j = VariadicExpr(func(args ...Callable) Callable {
 	var str = "j and "
 	str = str + args[0].String()
-	return NewAtom(d.StrVal(str))
+	return NewData(d.StrVal(str))
 })
 var k = ConstantExpr(func() Callable {
-	return NewAtom(d.StrVal("k"))
+	return NewData(d.StrVal("k"))
 })
 
 func TestCurry(t *testing.T) {
@@ -62,50 +62,50 @@ func TestNary(t *testing.T) {
 		VariadicExpr(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
-			}), 3, DefineComposedType(
+			}),
+		DefineComposedType(
 			"StringTriple",
-			Atom,
+			Native,
 			d.String,
 			Functor, // ← divides arguments from return values
 			Vector,
-			Atom,
+			Native,
 			d.String,
-		),
-	)
+		), 3)
 
-	var r0 = nary(NewAtom(d.StrVal("0")))
+	var r0 = nary(NewData(d.StrVal("0")))
 
-	var r1 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")))
+	var r1 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")))
 
-	var r2 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")))
+	var r2 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")))
 
-	var r3 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")))
+	var r3 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")))
 
-	var r4 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
-		NewAtom(d.StrVal("4")))
+	var r4 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")))
 
-	var r5 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
-		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")))
+	var r5 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")))
 
-	var r6 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
-		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
-		NewAtom(d.StrVal("6")))
+	var r6 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")))
 
-	var r7 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
-		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
-		NewAtom(d.StrVal("6")), NewAtom(d.StrVal("7")))
+	var r7 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")), NewData(d.StrVal("7")))
 
-	var r8 = nary(NewAtom(d.StrVal("0")), NewAtom(d.StrVal("1")),
-		NewAtom(d.StrVal("2")), NewAtom(d.StrVal("3")),
-		NewAtom(d.StrVal("4")), NewAtom(d.StrVal("5")),
-		NewAtom(d.StrVal("6")), NewAtom(d.StrVal("7")),
-		NewAtom(d.StrVal("8")))
+	var r8 = nary(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")), NewData(d.StrVal("7")),
+		NewData(d.StrVal("8")))
 
 	fmt.Println(r0.Call())
 	fmt.Println(r1.Call())
@@ -119,59 +119,59 @@ func TestNary(t *testing.T) {
 
 	// apply additional arguments to partialy applyed expression
 	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(
-		NewAtom(d.StrVal("7")))
+		NewData(d.StrVal("7")))
 
 	fmt.Printf("partialy applyed narys remaining arity: %d\n",
 
 		partial.(NaryExpr).Arity())
-	partial = partial.Call(NewAtom(d.StrVal("8")))
+	partial = partial.Call(NewData(d.StrVal("8")))
 
 	fmt.Println(partial.Call())
 }
 
-func TestMaybeType(t *testing.T) {
-
-	var allNumbers = NewPredictAll(func(arg Callable) bool {
-		return arg.TypeNat().Match(d.Numbers)
-	})
-
-	fmt.Printf("all number predicate: %t\n", allNumbers(New(23), New(42)))
-
-	var maybeNumber = DefineMaybeType(allNumbers)
-
-	var number = maybeNumber(New(42.23))
-
-	fmt.Printf("number: %s type name: %s\n",
-		number, number.TypeName())
-
-	var numberSlice = maybeNumber(New(23), New("string"), New(42))
-
-	fmt.Printf("number slice: %s type name: %s\n",
-		numberSlice, numberSlice.TypeName())
-
-	var add = maybeNumber(NewBinary(VariadicExpr(func(args ...Callable) Callable {
-		return NewAtom(args[0].Eval().(d.IntVal) + args[1].Eval().(d.IntVal))
-	})))
-
-	fmt.Printf("add expression: %s\n", add(New(23), New(42)))
-}
-
 func TestSwitch(t *testing.T) {
 	var swi = NewSwitch(
-		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
-			return arg.TypeNat().Match(d.String)
-		}))),
-		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
-			return arg.TypeNat().Match(d.Integers)
-		}))),
-		NewCase(NewPredictAll(NewPredictArg(func(arg Callable) bool {
-			return arg.TypeNat().Match(d.Float)
-		}))),
+		// matches return values native types string,integer, and float
+		NewPredictAll(func(arg Callable) bool {
+			return arg.TypeNat().Match(d.String | d.Integers | d.Float)
+		}),
 	)
-	fmt.Printf("switch: %s\n", swi)
+	fmt.Printf("switch: %s\n", swi.Call(New(23), New(42, 23)))
+
 	fmt.Printf("successfull call to Switch passing int: %s\n", swi.Call(New(42)))
+	if val := swi.Call(New(42)); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
 	fmt.Printf("successfull call to Switch passing float: %s\n", swi.Call(New(23.42)))
-	fmt.Printf("unsuccessfull call to Switch: %s\n", swi.Call(New(true)))
+	if val := swi.Call(New(23.42)); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("successfull call to Switch passing string: %s\n", swi.Call(New("string")))
+	if val := swi.Call(New(23.42)); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("successfull call to Switch passing multiple integers: %s\n",
+		swi.Call(New(23), New(42), New(65)))
+	if val := swi.Call(New(23), New(42), New(65)); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("successfull call to Switch passing mixed args: %s\n",
+		swi.Call(New(23), New(42.23), New("string")))
+	if val := swi.Call(New(23), New(42.23), New("string")); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("unsuccessfull call to Switch passing boolean: %s\n", swi.Call(New(true)))
+	if val := swi.Call(New(true)); !val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+}
+
+func TestMaybeType(t *testing.T) {
 }
 
 func TestTupleConstruction(t *testing.T) {
