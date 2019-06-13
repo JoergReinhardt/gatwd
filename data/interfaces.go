@@ -68,7 +68,6 @@ type Imaginary interface {
 
 type Numeral interface {
 	Native
-	Nullable
 	Discrete
 	Boolean
 	Natural
