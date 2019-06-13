@@ -170,7 +170,6 @@ func (p Propertys) Print() string {
 			}
 		}
 	}
-
 	return p.String()
 }
 

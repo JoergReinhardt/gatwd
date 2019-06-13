@@ -286,7 +286,7 @@ func BindL(fl, gl ListVal, bind Bind) MonadicExpr {
 		g, gl = gl()
 		if f != nil {
 			if g != nil {
-				return bind(f, g), BindF(fl, gl, bind)
+				return bind(f, g), BindL(fl, gl, bind)
 			}
 		}
 		return nil, BindL(fl, gl, bind)

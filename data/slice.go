@@ -161,17 +161,14 @@ func SliceToNatives(c DataSlice) Sliceable {
 	return c
 }
 
-func (c DataSlice) NativeSlice() []interface{} {
-	var s = make([]interface{}, 0, c.Len())
-	for _, d := range c.Slice() {
-		s = append(s, d.(Identity).Ident())
-	}
-	return s
-}
-
 //// LIST OPERATIONS ///////
 func SliceFoldL(
-	c DataSlice, fn func(i int, data Native, accu Native) Native, init Native) Native {
+	c DataSlice, fn func(
+		i int,
+		data Native,
+		accu Native,
+	) Native,
+	init Native) Native {
 	var accu = init
 	for i, d := range c.Slice() {
 		accu = fn(i, d, accu)

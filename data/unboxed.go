@@ -517,7 +517,6 @@ func (v ByteVec) Copy() Native {
 	}
 	return d
 }
-
 func (v RuneVec) Copy() Native {
 	var d = RuneVec{}
 	for _, val := range v {
@@ -525,7 +524,6 @@ func (v RuneVec) Copy() Native {
 	}
 	return d
 }
-
 func (v BytesVec) Copy() Native {
 	var d = BytesVec{}
 	for _, val := range v {
@@ -533,7 +531,6 @@ func (v BytesVec) Copy() Native {
 	}
 	return d
 }
-
 func (v StrVec) Copy() Native {
 	var d = StrVec{}
 	for _, val := range v {
@@ -541,7 +538,6 @@ func (v StrVec) Copy() Native {
 	}
 	return d
 }
-
 func (v BigIntVec) Copy() Native {
 	var d = BigIntVec{}
 	for _, val := range v {
@@ -549,7 +545,6 @@ func (v BigIntVec) Copy() Native {
 	}
 	return d
 }
-
 func (v BigFltVec) Copy() Native {
 	var d = BigFltVec{}
 	for _, val := range v {
@@ -557,7 +552,6 @@ func (v BigFltVec) Copy() Native {
 	}
 	return d
 }
-
 func (v RatioVec) Copy() Native {
 	var d = RatioVec{}
 	for _, val := range v {
@@ -565,7 +559,6 @@ func (v RatioVec) Copy() Native {
 	}
 	return d
 }
-
 func (v TimeVec) Copy() Native {
 	var d = TimeVec{}
 	for _, val := range v {
@@ -573,7 +566,6 @@ func (v TimeVec) Copy() Native {
 	}
 	return d
 }
-
 func (v DuraVec) Copy() Native {
 	var d = DuraVec{}
 	for _, val := range v {
@@ -581,7 +573,6 @@ func (v DuraVec) Copy() Native {
 	}
 	return d
 }
-
 func (v ErrorVec) Copy() Native {
 	var d = ErrorVec{}
 	for _, val := range v {
@@ -589,7 +580,6 @@ func (v ErrorVec) Copy() Native {
 	}
 	return d
 }
-
 func (v FlagSet) Copy() Native {
 	var d = FlagSet{}
 	for _, val := range v {
@@ -773,175 +763,150 @@ func (v FlagSet) Slice() []Native {
 	}
 	return d
 }
-
 func (v NilVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v BoolVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v IntVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Int8Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Int16Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Int32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v UintVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Uint8Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Uint16Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Uint32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v FltVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Flt32Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v ImagVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v Imag64Vec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v ByteVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v RuneVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v BytesVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v StrVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v BigIntVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v BigFltVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v RatioVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v TimeVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v DuraVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v ErrorVec) Empty() bool {
 	if len(v) == 0 {
 		return true
 	}
 	return false
 }
-
 func (v FlagSet) Empty() bool {
 	if len(v) == 0 {
 		return true

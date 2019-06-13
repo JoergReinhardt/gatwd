@@ -208,8 +208,8 @@ func TestFilterConsumeable(t *testing.T) {
 
 func TestBindF(t *testing.T) {
 	var bind = func(f, g Callable) Callable {
-		if nf, ok := f.Eval().(d.Numeral); ok {
-			if ng, ok := g.Eval().(d.Numeral); ok {
+		if nf, ok := f.Eval().(d.Integer); ok {
+			if ng, ok := g.Eval().(d.Integer); ok {
 				return NewNative(d.IntVal(nf.Int() * ng.Int()))
 			}
 		}

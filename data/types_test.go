@@ -217,19 +217,6 @@ func TestTimeType(t *testing.T) {
 	v := TimeVal(ts)
 	fmt.Printf("time stamp: %s\n", v.String())
 }
-func TestNativeSlice(t *testing.T) {
-	var ds = New(0, 7, 45,
-		134, 4, 465, 3, 645,
-		2452, 34, 45, 3535,
-		24, 4, 24, 2245,
-		24, 42, 4, 24)
-
-	var ns = ds.(DataSlice).NativeSlice()
-
-	fmt.Println(ds)
-	fmt.Println(ns)
-
-}
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 

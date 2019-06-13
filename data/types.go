@@ -249,61 +249,61 @@ func (v FlagSlice) Copy() Native {
 }
 
 // ident returns the instance as it's given type
-func (NilVal) Ident() Native      { return NilVal{} }
-func (v BitFlag) Ident() Native   { return v }
-func (v BoolVal) Ident() Native   { return v }
-func (v IntVal) Ident() Native    { return v }
-func (v Int8Val) Ident() Native   { return v }
-func (v Int16Val) Ident() Native  { return v }
-func (v Int32Val) Ident() Native  { return v }
-func (v UintVal) Ident() Native   { return v }
-func (v Uint8Val) Ident() Native  { return v }
-func (v Uint16Val) Ident() Native { return v }
-func (v Uint32Val) Ident() Native { return v }
-func (v BigIntVal) Ident() Native { return v }
-func (v FltVal) Ident() Native    { return v }
-func (v Flt32Val) Ident() Native  { return v }
-func (v BigFltVal) Ident() Native { return v }
-func (v ImagVal) Ident() Native   { return v }
-func (v Imag64Val) Ident() Native { return v }
-func (v RatioVal) Ident() Native  { return v }
-func (v RuneVal) Ident() Native   { return v }
-func (v ByteVal) Ident() Native   { return v }
-func (v BytesVal) Ident() Native  { return v }
-func (v StrVal) Ident() Native    { return v }
-func (v TimeVal) Ident() Native   { return v }
-func (v DuraVal) Ident() Native   { return v }
-func (v ErrorVal) Ident() Native  { return v }
-func (v PairVal) Ident() Native   { return v }
+func (NilVal) Ident() NilVal         { return NilVal{} }
+func (v BitFlag) Ident() BitFlag     { return v }
+func (v BoolVal) Ident() BoolVal     { return v }
+func (v IntVal) Ident() IntVal       { return v }
+func (v Int8Val) Ident() Int8Val     { return v }
+func (v Int16Val) Ident() Int16Val   { return v }
+func (v Int32Val) Ident() Int32Val   { return v }
+func (v UintVal) Ident() UintVal     { return v }
+func (v Uint8Val) Ident() Uint8Val   { return v }
+func (v Uint16Val) Ident() Uint16Val { return v }
+func (v Uint32Val) Ident() Uint32Val { return v }
+func (v BigIntVal) Ident() BigIntVal { return v }
+func (v FltVal) Ident() FltVal       { return v }
+func (v Flt32Val) Ident() Flt32Val   { return v }
+func (v BigFltVal) Ident() BigFltVal { return v }
+func (v ImagVal) Ident() ImagVal     { return v }
+func (v Imag64Val) Ident() Imag64Val { return v }
+func (v RatioVal) Ident() RatioVal   { return v }
+func (v RuneVal) Ident() RuneVal     { return v }
+func (v ByteVal) Ident() ByteVal     { return v }
+func (v BytesVal) Ident() BytesVal   { return v }
+func (v StrVal) Ident() StrVal       { return v }
+func (v TimeVal) Ident() TimeVal     { return v }
+func (v DuraVal) Ident() DuraVal     { return v }
+func (v ErrorVal) Ident() ErrorVal   { return v }
+func (v PairVal) Ident() PairVal     { return v }
 
 // yields a null value of the methods type
-func (v BitFlag) Null() Native   { return Nil.TypeNat() }
-func (v FlagSlice) Null() Native { return New(FlagSlice{}) }
-func (v PairVal) Null() Native   { return PairVal{NilVal{}, NilVal{}} }
-func (v NilVal) Null() Native    { return NilVal{} }
-func (v BoolVal) Null() Native   { return New(false) }
-func (v IntVal) Null() Native    { return New(0) }
-func (v Int8Val) Null() Native   { return New(int8(0)) }
-func (v Int16Val) Null() Native  { return New(int16(0)) }
-func (v Int32Val) Null() Native  { return New(int32(0)) }
-func (v UintVal) Null() Native   { return New(uint(0)) }
-func (v Uint8Val) Null() Native  { return New(uint8(0)) }
-func (v Uint16Val) Null() Native { return New(uint16(0)) }
-func (v Uint32Val) Null() Native { return New(uint32(0)) }
-func (v FltVal) Null() Native    { return New(0.0) }
-func (v Flt32Val) Null() Native  { return New(float32(0.0)) }
-func (v ImagVal) Null() Native   { return New(complex128(0.0)) }
-func (v Imag64Val) Null() Native { return New(complex64(0.0)) }
-func (v ByteVal) Null() Native   { return New(byte(0)) }
-func (v BytesVal) Null() Native  { return New([]byte{}) }
-func (v RuneVal) Null() Native   { return New(rune(' ')) }
-func (v StrVal) Null() Native    { return New(string("")) }
-func (v ErrorVal) Null() Native  { return New(error(fmt.Errorf(""))) }
-func (v BigIntVal) Null() Native { return New(big.NewInt(0)) }
-func (v BigFltVal) Null() Native { return New(big.NewFloat(0)) }
-func (v RatioVal) Null() Native  { return New(big.NewRat(1, 1)) }
-func (v TimeVal) Null() Native   { return New(time.Now()) }
-func (v DuraVal) Null() Native   { return New(time.Duration(0)) }
+func (v BitFlag) Null() BitFlag     { return BitFlag(BitFlag(0)) }
+func (v FlagSlice) Null() FlagSlice { return FlagSlice(FlagSlice{}) }
+func (v PairVal) Null() PairVal     { return PairVal(PairVal{NilVal{}, NilVal{}}) }
+func (v NilVal) Null() NilVal       { return NilVal(NilVal{}) }
+func (v BoolVal) Null() BoolVal     { return BoolVal(false) }
+func (v IntVal) Null() IntVal       { return IntVal(0) }
+func (v Int8Val) Null() Int8Val     { return Int8Val(int8(0)) }
+func (v Int16Val) Null() Int16Val   { return Int16Val(int16(0)) }
+func (v Int32Val) Null() Int32Val   { return Int32Val(int32(0)) }
+func (v UintVal) Null() UintVal     { return UintVal(uint(0)) }
+func (v Uint8Val) Null() Uint8Val   { return Uint8Val(uint8(0)) }
+func (v Uint16Val) Null() Uint16Val { return Uint16Val(uint16(0)) }
+func (v Uint32Val) Null() Uint32Val { return Uint32Val(uint32(0)) }
+func (v FltVal) Null() FltVal       { return FltVal(0.0) }
+func (v Flt32Val) Null() Flt32Val   { return Flt32Val(float32(0.0)) }
+func (v ImagVal) Null() ImagVal     { return ImagVal(complex128(0.0)) }
+func (v Imag64Val) Null() Imag64Val { return Imag64Val(complex64(0.0)) }
+func (v ByteVal) Null() ByteVal     { return ByteVal(byte(0)) }
+func (v BytesVal) Null() BytesVal   { return BytesVal([]byte{}) }
+func (v RuneVal) Null() RuneVal     { return RuneVal(rune(' ')) }
+func (v StrVal) Null() StrVal       { return StrVal(string("")) }
+func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
+func (v BigIntVal) Null() BigIntVal { return BigIntVal(*big.NewInt(0)) }
+func (v BigFltVal) Null() BigFltVal { return BigFltVal(*big.NewFloat(0)) }
+func (v RatioVal) Null() RatioVal   { return RatioVal(*big.NewRat(1, 1)) }
+func (v TimeVal) Null() TimeVal     { return TimeVal(time.Now()) }
+func (v DuraVal) Null() DuraVal     { return DuraVal(time.Duration(0)) }
 
 // provide serialization for all native types.
 func (v BitFlag) MarshalBinary() ([]byte, error) {

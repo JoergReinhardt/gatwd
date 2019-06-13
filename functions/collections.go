@@ -561,7 +561,7 @@ func AppendVectors(vec Vectorized, args ...Callable) VecVal {
 	return NewVector(append(vec.Slice(), args...)...)
 }
 
-func AppendToVector(init ...Callable) VecVal {
+func AppendArgToVector(init ...Callable) VecVal {
 	return func(args ...Callable) []Callable {
 		return append(init, args...)
 	}
@@ -691,7 +691,7 @@ func NewPairVectorFromPairs(pairs ...Paired) PairVec {
 	})
 }
 
-func ConPairVecFromArgs(rec PairVec, args ...Callable) PairVec {
+func ConsPairVecFromArgs(rec PairVec, args ...Callable) PairVec {
 	var pairs = []Paired{}
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
@@ -705,7 +705,7 @@ func NewPairVec(args ...Paired) PairVec {
 	return NewPairVectorFromPairs(args...)
 }
 
-func ConPairVecFromPairs(rec PairVec, pairs ...Paired) PairVec {
+func ConsPairVecFromPairs(rec PairVec, pairs ...Paired) PairVec {
 	return NewPairVectorFromPairs(append(rec(), pairs...)...)
 }
 
@@ -718,7 +718,7 @@ func ConsPairVec(pvec PairVec, args ...Callable) PairVec {
 	}
 	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
-			return ConPairVecFromPairs(pvec, args...)()
+			return ConsPairVecFromPairs(pvec, args...)()
 		}
 		return append(pvec(), pairs...)
 	})

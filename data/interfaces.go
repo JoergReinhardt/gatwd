@@ -21,11 +21,6 @@ type BinaryMarshaler interface {
 	MarshalBinary() ([]byte, error)
 }
 
-// the identity function returns the instance unchanged
-type Identity interface {
-	Ident() Native
-}
-
 // deep copy
 type Reproduceable interface {
 	Copy() Native
@@ -81,7 +76,6 @@ type Numeral interface {
 	Rational
 	Real
 	Imaginary
-	Integer() IntVal
 }
 
 type Raw interface {

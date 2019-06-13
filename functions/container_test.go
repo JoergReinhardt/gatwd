@@ -132,13 +132,12 @@ func TestNary(t *testing.T) {
 func TestSwitch(t *testing.T) {
 	var swi = NewSwitch(
 		// matches return values native types string,integer, and float
-		NewPredictAll(func(arg Callable) bool {
+		NewCase(NewPredictAll(func(arg Callable) bool {
 			return arg.TypeNat().Match(d.String | d.Integers | d.Float)
-		}),
-	)
+		})))
 	fmt.Printf("switch: %s\n", swi.Call(New(23), New(42, 23)))
-
 	fmt.Printf("successfull call to Switch passing int: %s\n", swi.Call(New(42)))
+
 	if val := swi.Call(New(42)); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
@@ -173,9 +172,9 @@ func TestSwitch(t *testing.T) {
 
 func TestMaybeType(t *testing.T) {
 
-	var swi = NewSwitch(NewPredictAll(func(arg Callable) bool {
+	var swi = NewSwitch(NewCase(NewPredictAll(func(arg Callable) bool {
 		return arg.TypeNat().Match(d.Numbers)
-	}))
+	})))
 
 	fmt.Printf("test switch passing an int: %s\n", swi.Call(New(17)))
 	fmt.Printf("test switch passing a string: %s\n", swi.Call(New("string")))
@@ -207,6 +206,10 @@ func TestMaybeType(t *testing.T) {
 	var result = add(New(3), New(5), New(7), New(11), New(13), New(17))
 
 	fmt.Printf("addition results: %s\n", result)
+
+	if result.(VecVal)()[0].Eval().(d.IntVal) != 8 {
+		t.Fail()
+	}
 }
 
 func TestTupleConstruction(t *testing.T) {
