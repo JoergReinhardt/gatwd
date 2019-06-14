@@ -207,6 +207,7 @@ func TestFilterConsumeable(t *testing.T) {
 }
 
 func TestBindF(t *testing.T) {
+	// bind function will multiply numerals
 	var bind = func(f, g Callable) Callable {
 		if nf, ok := f.Eval().(d.Numeral); ok {
 			if ng, ok := g.Eval().(d.Numeral); ok {

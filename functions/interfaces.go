@@ -25,17 +25,14 @@ type Destructable interface {
 	d.Destructable
 }
 
-type Nullable interface {
-	// Null()
-	d.Nullable
+// numberal interfaces
+type Boolean interface {
+	// Bool() bool
+	d.Boolean
 }
 type Discrete interface {
 	// Unit()
 	d.Discrete
-}
-type Boolean interface {
-	// Bool() bool
-	d.Boolean
 }
 type Natural interface {
 	// Uint() uint
@@ -59,7 +56,6 @@ type Imaginary interface {
 }
 type Numeral interface {
 	Callable
-	Nullable
 	Discrete
 	Boolean
 	Natural

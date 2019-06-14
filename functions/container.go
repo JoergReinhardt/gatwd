@@ -253,7 +253,7 @@ func (s CaseSwitch) TypeFnc() TyFnc   { return Switch }
 // the resulting value wrapped in a just instance, or an instance of none, if
 // the result could not be scrutinize
 func DefineMaybeType(swi CaseSwitch, flags ...Typed) MaybeCons {
-	var comp = DefineComposedType("Maybe", flags...)
+	var comp = NewComposedType("Maybe", flags...)
 	return func(args ...Callable) Callable {
 		if len(args) > 0 {
 			return swi.Call(args...)
@@ -293,7 +293,7 @@ func (n JustVal) TypeName() string {
 		n().TypeNat().TypeName()
 }
 func (n JustVal) TypeComp() TyComp {
-	return DefineComposedType(
+	return NewComposedType(
 		"Just·"+n().TypeFnc().TypeName()+"·"+n().TypeNat().TypeName(),
 		n().TypeFnc(), n.TypeNat(),
 	)

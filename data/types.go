@@ -1,8 +1,6 @@
 package data
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
@@ -48,7 +46,7 @@ func ListAllTypes() []TyNat {
 const (
 	Nil  TyNat = 1
 	Bool TyNat = 1 << iota
-	Int8       // Int8 -> Int8
+	Int8
 	Int16
 	Int32
 	Int
@@ -184,6 +182,93 @@ type ( // NATIVE GOLANG TYPES
 	FlagSet        []BitFlag
 )
 
+func newAtom(nat TyNat) Native {
+	var val Native
+	switch nat {
+	case Nil:
+		val = NilVal{}
+	case Bool:
+		val = BoolVal(false)
+	case Int8:
+		val = Int8Val(int8(0))
+	case Int16:
+		val = Int16Val(int16(0))
+	case Int32:
+		val = Int32Val(int32(0))
+	case Int:
+		val = IntVal(0)
+	case BigInt:
+		val = BigIntVal(*big.NewInt(0))
+	case Uint8:
+		val = Uint8Val(uint8(0))
+	case Uint16:
+		val = Uint16Val(uint16(0))
+	case Uint32:
+		val = Uint32Val(uint32(0))
+	case Uint:
+		val = UintVal(uint(0))
+	case Flt32:
+		val = Flt32Val(float32(0.0))
+	case Float:
+		val = FltVal(float64(0.0))
+	case BigFlt:
+		val = BigFltVal(*big.NewFloat(0.0))
+	case Ratio:
+		val = RatioVal(*big.NewRat(1, 1))
+	case Imag64:
+		val = Imag64Val(complex64(0.0))
+	case Imag:
+		val = Imag64Val(complex128(0.0))
+	case Time:
+		val = TimeVal(time.Now())
+	case Duration:
+		val = DuraVal(time.Duration(0))
+	case Byte:
+		val = ByteVal(byte(0))
+	case Rune:
+		val = RuneVal(rune(' '))
+	case Bytes:
+		val = BytesVal([]byte{})
+	case String:
+		val = StrVal("")
+	case Error:
+		val = ErrorVal{error(fmt.Errorf(""))}
+	default:
+		val = NilVal{}
+	}
+	return val
+}
+
+// yields a null value of the methods type
+func (v FlagSlice) Null() FlagSlice { return FlagSlice(FlagSlice{}) }
+func (v BitFlag) Null() BitFlag     { return BitFlag(BitFlag(0)) }
+func (v PairVal) Null() PairVal     { return PairVal(PairVal{NilVal{}, NilVal{}}) }
+
+func (v NilVal) Null() NilVal       { return NilVal(NilVal{}) }
+func (v BoolVal) Null() BoolVal     { return BoolVal(false) }
+func (v Int8Val) Null() Int8Val     { return Int8Val(int8(0)) }
+func (v Int16Val) Null() Int16Val   { return Int16Val(int16(0)) }
+func (v Int32Val) Null() Int32Val   { return Int32Val(int32(0)) }
+func (v IntVal) Null() IntVal       { return IntVal(0) }
+func (v BigIntVal) Null() BigIntVal { return BigIntVal(*big.NewInt(0)) }
+func (v Uint8Val) Null() Uint8Val   { return Uint8Val(uint8(0)) }
+func (v Uint16Val) Null() Uint16Val { return Uint16Val(uint16(0)) }
+func (v Uint32Val) Null() Uint32Val { return Uint32Val(uint32(0)) }
+func (v UintVal) Null() UintVal     { return UintVal(uint(0)) }
+func (v Flt32Val) Null() Flt32Val   { return Flt32Val(float32(0.0)) }
+func (v FltVal) Null() FltVal       { return FltVal(0.0) }
+func (v BigFltVal) Null() BigFltVal { return BigFltVal(*big.NewFloat(0)) }
+func (v RatioVal) Null() RatioVal   { return RatioVal(*big.NewRat(1, 1)) }
+func (v Imag64Val) Null() Imag64Val { return Imag64Val(complex64(0.0)) }
+func (v ImagVal) Null() ImagVal     { return ImagVal(complex128(0.0)) }
+func (v TimeVal) Null() TimeVal     { return TimeVal(time.Now()) }
+func (v DuraVal) Null() DuraVal     { return DuraVal(time.Duration(0)) }
+func (v ByteVal) Null() ByteVal     { return ByteVal(byte(0)) }
+func (v RuneVal) Null() RuneVal     { return RuneVal(rune(' ')) }
+func (v BytesVal) Null() BytesVal   { return BytesVal([]byte{}) }
+func (v StrVal) Null() StrVal       { return StrVal(string("")) }
+func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
+
 /// bind the corresponding TypeNat Method to every type
 func (NilVal) TypeNat() TyNat      { return Nil.TypeNat() }
 func (v BitFlag) TypeNat() TyNat   { return Flag.TypeNat() }
@@ -275,244 +360,3 @@ func (v TimeVal) Ident() TimeVal     { return v }
 func (v DuraVal) Ident() DuraVal     { return v }
 func (v ErrorVal) Ident() ErrorVal   { return v }
 func (v PairVal) Ident() PairVal     { return v }
-
-// yields a null value of the methods type
-func (v BitFlag) Null() BitFlag     { return BitFlag(BitFlag(0)) }
-func (v FlagSlice) Null() FlagSlice { return FlagSlice(FlagSlice{}) }
-func (v PairVal) Null() PairVal     { return PairVal(PairVal{NilVal{}, NilVal{}}) }
-func (v NilVal) Null() NilVal       { return NilVal(NilVal{}) }
-func (v BoolVal) Null() BoolVal     { return BoolVal(false) }
-func (v IntVal) Null() IntVal       { return IntVal(0) }
-func (v Int8Val) Null() Int8Val     { return Int8Val(int8(0)) }
-func (v Int16Val) Null() Int16Val   { return Int16Val(int16(0)) }
-func (v Int32Val) Null() Int32Val   { return Int32Val(int32(0)) }
-func (v UintVal) Null() UintVal     { return UintVal(uint(0)) }
-func (v Uint8Val) Null() Uint8Val   { return Uint8Val(uint8(0)) }
-func (v Uint16Val) Null() Uint16Val { return Uint16Val(uint16(0)) }
-func (v Uint32Val) Null() Uint32Val { return Uint32Val(uint32(0)) }
-func (v FltVal) Null() FltVal       { return FltVal(0.0) }
-func (v Flt32Val) Null() Flt32Val   { return Flt32Val(float32(0.0)) }
-func (v ImagVal) Null() ImagVal     { return ImagVal(complex128(0.0)) }
-func (v Imag64Val) Null() Imag64Val { return Imag64Val(complex64(0.0)) }
-func (v ByteVal) Null() ByteVal     { return ByteVal(byte(0)) }
-func (v BytesVal) Null() BytesVal   { return BytesVal([]byte{}) }
-func (v RuneVal) Null() RuneVal     { return RuneVal(rune(' ')) }
-func (v StrVal) Null() StrVal       { return StrVal(string("")) }
-func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
-func (v BigIntVal) Null() BigIntVal { return BigIntVal(*big.NewInt(0)) }
-func (v BigFltVal) Null() BigFltVal { return BigFltVal(*big.NewFloat(0)) }
-func (v RatioVal) Null() RatioVal   { return RatioVal(*big.NewRat(1, 1)) }
-func (v TimeVal) Null() TimeVal     { return TimeVal(time.Now()) }
-func (v DuraVal) Null() DuraVal     { return DuraVal(time.Duration(0)) }
-
-// provide serialization for all native types.
-func (v BitFlag) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v FlagSlice) MarshalBinary() ([]byte, error) {
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
-	err := binary.Write(buf, binary.LittleEndian, v)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v PairVal) MarshalBinary() ([]byte, error) {
-	buf0, err0 := v.Left().(BinaryMarshaler).MarshalBinary()
-	if err0 != nil {
-		return nil, err0
-	}
-	buf1, err1 := v.Right().(BinaryMarshaler).MarshalBinary()
-	if err1 != nil {
-		return nil, err1
-	}
-	return append(buf0, buf1...), nil
-}
-
-func (v NilVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(0)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v BoolVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v.Uint())
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v IntVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Int8Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Int16Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Int32Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v UintVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Uint8Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Uint16Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Uint32Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v FltVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v Flt32Val) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v ImagVal) MarshalBinary() ([]byte, error) {
-	var n, i = uint64(real(v)), uint64(imag(v))
-	var buf0 = make([]byte, 0, binary.Size(n))
-	var buf1 = make([]byte, 0, binary.Size(i))
-	binary.PutUvarint(buf0, n)
-	binary.PutUvarint(buf1, i)
-	return append(buf0, buf1...), nil
-}
-
-func (v Imag64Val) MarshalBinary() ([]byte, error) {
-	var n, i = uint64(real(v)), uint64(imag(v))
-	var buf0 = make([]byte, 0, binary.Size(n))
-	var buf1 = make([]byte, 0, binary.Size(i))
-	binary.PutUvarint(buf0, n)
-	binary.PutUvarint(buf1, i)
-	return append(buf0, buf1...), nil
-}
-
-func (v ByteVal) MarshalBinary() ([]byte, error) {
-	var buf = make([]byte, 0, binary.Size(v))
-	binary.PutUvarint(buf, uint64(v))
-	return buf, nil
-}
-
-func (v BytesVal) MarshalBinary() ([]byte, error) {
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
-	err := binary.Write(buf, binary.LittleEndian, v)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v RuneVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}
-
-func (v StrVal) MarshalBinary() ([]byte, error) {
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v)))
-	err := binary.Write(buf, binary.LittleEndian, []byte(v))
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v ErrorVal) MarshalBinary() ([]byte, error) {
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(v.String())))
-	err := binary.Write(buf, binary.LittleEndian, []byte(v.String()))
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v BigIntVal) MarshalBinary() ([]byte, error) {
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size((*big.Int)(&v).Bytes())))
-	err := binary.Write(buf, binary.LittleEndian, (*big.Int)(&v).Bytes())
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v BigFltVal) MarshalBinary() ([]byte, error) {
-	var u, _ = (*big.Float)(&v).Uint64()
-	var buf = bytes.NewBuffer(make([]byte, 0, binary.Size(u)))
-	err := binary.Write(buf, binary.LittleEndian, u)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), err
-}
-
-func (v RatioVal) MarshalBinary() ([]byte, error) {
-	var d, n = uint64((*big.Rat)(&v).Denom().Uint64()), uint64((*big.Rat)(&v).Num().Uint64())
-	var buf0 = make([]byte, 0, binary.Size(d))
-	var buf1 = make([]byte, 0, binary.Size(n))
-	binary.PutUvarint(buf0, d)
-	binary.PutUvarint(buf1, n)
-	return append(buf0, buf1...), nil
-}
-
-func (v TimeVal) MarshalBinary() ([]byte, error) {
-	var buf = make([]byte, 0, binary.Size(v))
-	(*time.Time)(&v).UnmarshalBinary(buf)
-	return buf, nil
-}
-
-func (v DuraVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v)
-	var buf = make([]byte, 0, binary.Size(u))
-	binary.PutUvarint(buf, u)
-	return buf, nil
-}

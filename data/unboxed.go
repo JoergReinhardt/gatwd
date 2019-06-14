@@ -6,7 +6,7 @@ import (
 )
 
 // expects all arguments to match the type passed in as flag
-func conUnboxedVector(flag BitFlag, args ...Native) Sliceable {
+func newUnboxed(flag BitFlag, args ...Native) Sliceable {
 
 	var d Sliceable
 

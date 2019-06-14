@@ -5,7 +5,66 @@ import (
 	"time"
 )
 
+// returns a nil value instance
 func NewNil() NilVal { return NilVal{} }
+
+// returns a null value according to the native type passed in. if the flag
+// turns out to be composed from multiple types, null value will be an instance
+// of slice, pair, or map. otherwise an atomic native instance will be
+// returned.
+func NewNull(nat TyNat) Native {
+	// should the type flag turn out to be composed
+	if nat.Flag().Count() > 0 {
+		var nats []Typed
+		switch {
+		case nat.Match(Slice):
+			// mask slice flag
+			nats = nat.Flag().Mask(Slice).Flag().Decompose()
+			// a single native type should be left
+			if len(nats) == 1 {
+				// return a slice of the particular type
+				return newUnboxed(nats[0].Flag())
+			}
+		case nat.Match(Pair):
+			// mask pair flag and decompose remaining flags
+			nats = nat.Flag().Mask(Pair).Flag().Decompose()
+			// two native types should be left
+			if len(nats) == 2 {
+				// return an empty pair composed of both type
+				// elements
+				return NewPair(
+					newAtom(nats[0].(TyNat)),
+					newAtom(nats[1].(TyNat)))
+			}
+		case nat.Match(Map):
+			// mask the map flag and reassign native type
+			nat = TyNat(nat.Flag().Mask(Map).Flag())
+			// should leave the native type of the maps key
+			if len(nats) > 0 {
+				switch {
+				case nat.Match(String):
+					return NewStringSet()
+				case nat.Match(Uint):
+					return NewUintSet()
+				case nat.Match(Flag):
+					return NewBitFlagSet()
+				default:
+					// if remaining type doesn't match any
+					// of the existing set types, return a
+					// generic set
+					return NewValSet()
+				}
+			}
+		default:
+			// return the nil value, if the composed type flag
+			// turns out to not be parseable
+			return NewNil()
+		}
+	}
+	// for non composed types, return an atomic null instance (returns a
+	// nil type, if not parseable)
+	return newAtom(nat)
+}
 
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }
 
@@ -237,7 +296,7 @@ func conNativeVector(flag BitFlag, args ...Native) (nat Sliceable) {
 			slice = append(slice, v.(ErrorVal))
 		}
 	}
-	return conUnboxedVector(flag, slice...)
+	return newUnboxed(flag, slice...)
 }
 
 func NewEmpty(flag BitFlag) (val Native) {

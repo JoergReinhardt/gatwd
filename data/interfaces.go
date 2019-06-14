@@ -32,9 +32,6 @@ type Destructable interface {
 }
 
 // implemented by types an empty instance is defined for
-type Nullable interface {
-	Null() Native
-}
 type Discrete interface {
 	Unit() Native
 }
@@ -68,8 +65,6 @@ type Imaginary interface {
 
 type Numeral interface {
 	Native
-	Discrete
-	Boolean
 	Natural
 	Integer
 	Rational
@@ -123,7 +118,6 @@ type Sliceable interface {
 	GetInt(int) Native
 	Range(s, e int) Sliceable
 	Copy() Native
-	Null() Native
 }
 type Mutable interface {
 	Sliceable

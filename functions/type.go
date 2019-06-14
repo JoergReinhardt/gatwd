@@ -224,13 +224,30 @@ func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSED TYPE
 ///
-// composition type to define higher order types. it returns a type name and a
-// slice of instances implementing the typed interface to implement recursively
-// nested higher order types of arbitrary depth and complexity
-func DefineComposedType(name string, types ...Typed) TyComp {
+// composition type to define higher order types. it returns a type name that
+// has either been passed during creation, or derived from the type names of
+// it's elements and a slice of instances implementing the typed interface to
+// implement recursively nested higher order types of arbitrary depth and
+// complexity.
+func NewComposedType(name string, types ...Typed) TyComp {
+	if name == "" {
+		name = concatTypeNames(types...)
+	}
 	return func() (string, []Typed) {
 		return name, types
 	}
+}
+
+func concatTypeNames(types ...Typed) string {
+	var str string
+	var length = len(types)
+	for n, t := range types {
+		str = str + t.TypeName()
+		if n < length-1 {
+			str = str + " "
+		}
+	}
+	return str
 }
 
 // higher order type has the highest possible value assigned as its flag type
@@ -240,12 +257,12 @@ func (t TyComp) FlagType() uint8 { return 254 }
 func (t TyComp) TypeName() string { name, _ := t(); return name }
 
 // return isolated slice of typed instances
-func (t TyComp) Types() []Typed { _, flags := t(); return flags }
+func (t TyComp) AllFlags() []Typed { _, flags := t(); return flags }
 
 // returns all native type flags as slice of typed instances
 func (t TyComp) NatFlags() []d.TyNat {
 	var flags = []d.TyNat{}
-	for _, flag := range t.Types() {
+	for _, flag := range t.AllFlags() {
 		if flag.FlagType() == 1 {
 			flags = append(flags, flag.(d.TyNat))
 		}
@@ -256,7 +273,7 @@ func (t TyComp) NatFlags() []d.TyNat {
 // returns all functional type flags as slice of typed instances
 func (t TyComp) FncFlags() []TyFnc {
 	var flags = []TyFnc{}
-	for _, flag := range t.Types() {
+	for _, flag := range t.AllFlags() {
 		if flag.FlagType() == 2 {
 			flags = append(flags, flag.(TyFnc))
 		}
@@ -267,7 +284,7 @@ func (t TyComp) FncFlags() []TyFnc {
 // OR concatenate all flags
 func (t TyComp) Flag() d.BitFlag {
 	var flags d.BitFlag
-	for _, flag := range t.Types() {
+	for _, flag := range t.AllFlags() {
 		flags = flags | flag.Flag()
 	}
 	return flags

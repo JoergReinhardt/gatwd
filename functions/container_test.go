@@ -63,7 +63,7 @@ func TestNary(t *testing.T) {
 			func(args ...Callable) Callable {
 				return NewVector(args...)
 			}),
-		DefineComposedType(
+		NewComposedType(
 			"StringTriple",
 			Data,
 			d.String,
@@ -201,7 +201,7 @@ func TestMaybeType(t *testing.T) {
 			}
 		}
 		return NewNative(args[0].Eval().(d.IntVal) + args[1].Eval().(d.IntVal))
-	}, DefineComposedType("Add", d.Numbers), 2)
+	}, NewComposedType("Add", d.Numbers), 2)
 
 	var result = add(New(3), New(5), New(7), New(11), New(13), New(17))
 

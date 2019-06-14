@@ -3,9 +3,108 @@ package data
 import (
 	"math/big"
 	"math/bits"
+	"math/cmplx"
 	"strconv"
 	"time"
 )
+
+// converts a numeral to an instance of another numeral type
+func castNumberAs(num Numeral, typ TyNat) Native {
+	if typ.Match(Numbers) {
+		switch typ {
+		case BigInt:
+			var bi = BigIntVal(*big.NewInt(int64(num.Int())))
+			return &bi
+		case BigFlt:
+			var bf = BigFltVal(*big.NewFloat(num.Float()))
+			return &bf
+		case Ratio:
+			var rt = RatioVal(*num.Rat())
+			return &rt
+		case Imag:
+			return ImagVal(num.Imag())
+		case Imag64:
+			var im = num.Imag()
+			if cmplx.Abs(im) <= -3.4028234663852886e+38 &&
+				cmplx.Abs(im) >= 3.4028234663852886e+38 {
+				return Imag64Val(complex64(im))
+			}
+		case Int:
+			if num.Int() >= -9223372036854775808 &&
+				num.Int() <= 9223372036854775807 {
+				return IntVal(num.Int())
+			}
+		case Int8:
+			if num.Int() >= -128 &&
+				num.Int() <= 127 {
+				return Int8Val(num.Int())
+			}
+		case Int16:
+			if num.Int() >= -32768 &&
+				num.Int() <= -32767 {
+				return Int16Val(num.Int())
+			}
+		case Int32:
+			if num.Int() >= -2147483648 &&
+				num.Int() <= -2147483647 {
+				return Int16Val(num.Int())
+			}
+		case Uint:
+			if num.Uint() >= 0 &&
+				num.Uint() <= 18446744073709551615 {
+				return UintVal(num.Uint())
+			}
+		case Uint8:
+			if num.Uint() >= 0 &&
+				num.Int() <= 255 {
+				return Uint8Val(num.Uint())
+			}
+		case Uint16:
+			if num.Uint() >= 0 &&
+				num.Int() <= 65535 {
+				return Uint16Val(num.Uint())
+			}
+		case Uint32:
+			if num.Uint() >= 0 &&
+				num.Int() <= 4294967295 {
+				return Uint32Val(num.Uint())
+			}
+		case Float:
+			if num.Float() >= -1.7976931348623157e+308 &&
+				num.Float() <= 1.7976931348623157e+308 {
+				return FltVal(num.Float())
+			}
+		case Flt32:
+			if num.Float() >= -3.4028234663852886e+38 &&
+				num.Float() <= 3.4028234663852886e+38 {
+				return Flt32Val(num.Float())
+			}
+		case String:
+			return StrVal(num.String())
+		}
+	}
+	return NilVal{}
+}
+
+// either parse number, or duration from string, or return length of string
+func (v StrVal) Number() Native {
+	if u, err := v.Bool(); err != nil {
+		return BoolVal(u)
+	}
+	if u, err := v.Uint(); err != nil {
+		return UintVal(u)
+	}
+	if i, err := v.Int(); err != nil {
+		return IntVal(i)
+	}
+	if f, err := v.Float(); err != nil {
+		return FltVal(f)
+	}
+	if d, err := v.Duration(); err != nil {
+		return DuraVal(d)
+	}
+	return IntVal(v.Len())
+}
 
 // BOOL VALUE
 func (v BoolVal) Unit() Native { return BoolVal(true) }
@@ -28,9 +127,9 @@ func (v BoolVal) Integer() IntVal {
 	}
 	return IntVal(-1)
 }
-func (v BoolVal) Float() float64        { return v.Integer().Float() }
-func (v BoolVal) Rat() *big.Rat         { return v.Integer().Rat() }
-func (v BoolVal) Imaginary() complex128 { return v.Integer().Imag() }
+func (v BoolVal) Float() float64   { return v.Integer().Float() }
+func (v BoolVal) Rat() *big.Rat    { return v.Integer().Rat() }
+func (v BoolVal) Imag() complex128 { return v.Integer().Imag() }
 
 // NATURAL VALUE
 func (v UintVal) Unit() Native { return UintVal(1) }
@@ -43,6 +142,7 @@ func (v UintVal) Truth() Native {
 func (v UintVal) Uint() uint       { return uint(v) }
 func (v UintVal) Int() int         { return int(v) }
 func (v UintVal) Integer() IntVal  { return IntVal(int(v)) }
+func (v UintVal) Bool() bool       { return bool(v.Truth().(BoolVal)) }
 func (v UintVal) Float() float64   { return float64(v) }
 func (v UintVal) Rat() *big.Rat    { return big.NewRat(int64(v), 1) }
 func (v UintVal) Imag() complex128 { return v.Integer().Imag() }
@@ -161,6 +261,10 @@ func (v TimeVal) Uint() uint       { return uint(time.Time(v).Unix()) }
 func (v TimeVal) Natural() UintVal { return UintVal(uint(time.Time(v).Unix())) }
 func (v TimeVal) Int() int         { return int(time.Time(v).Unix()) }
 func (v TimeVal) Integer() IntVal  { return IntVal(time.Time(v).Unix()) }
+func (v TimeVal) Bool() bool       { return IntVal(v.Int()).Bool() }
+func (v TimeVal) Rat() *big.Rat    { return IntVal(v.Int()).Rat() }
+func (v TimeVal) Float() float64   { return IntVal(v.Int()).Float() }
+func (v TimeVal) Imag() complex128 { return IntVal(v.Int()).Imag() }
 
 /// DURATION VALUE
 func (v DuraVal) Duration() time.Duration { return time.Duration(v) }
@@ -168,6 +272,10 @@ func (v DuraVal) Uint() uint              { return uint(v) }
 func (v DuraVal) Natural() UintVal        { return UintVal(v.Uint()) }
 func (v DuraVal) Int() int                { return int(v) }
 func (v DuraVal) Integer() IntVal         { return IntVal(v.Int()) }
+func (v DuraVal) Bool() bool              { return IntVal(v.Int()).Bool() }
+func (v DuraVal) Rat() *big.Rat           { return IntVal(v.Int()).Rat() }
+func (v DuraVal) Float() float64          { return IntVal(v.Int()).Float() }
+func (v DuraVal) Imag() complex128        { return IntVal(v.Int()).Imag() }
 
 func (v ByteVal) Bool() bool {
 	if v > ByteVal(0) {
@@ -180,6 +288,9 @@ func (v ByteVal) Uint() uint       { return uint(v) }
 func (v ByteVal) Natural() UintVal { return UintVal(uint(v)) }
 func (v ByteVal) Int() int         { return int(v) }
 func (v ByteVal) Integer() IntVal  { return IntVal(int(v)) }
+func (v ByteVal) Rat() *big.Rat    { return IntVal(int(v)).Rat() }
+func (v ByteVal) Float() float64   { return IntVal(int(v)).Float() }
+func (v ByteVal) Imag() complex128 { return IntVal(int(v)).Imag() }
 func (v ByteVal) Byte() byte       { return byte(v) }
 func (v ByteVal) Bytes() []byte    { return []byte{v.Byte()} }
 func (v ByteVal) Rune() rune       { return rune(v.Byte()) }
@@ -294,24 +405,4 @@ func (v StrVal) TimeVal(layout string) Native {
 		return NilVal{}
 	}
 	return TimeVal(tim)
-}
-
-// either parse number, or duration from string, or return length of string
-func (v StrVal) Number() Native {
-	if u, err := v.Bool(); err != nil {
-		return BoolVal(u)
-	}
-	if u, err := v.Uint(); err != nil {
-		return UintVal(u)
-	}
-	if i, err := v.Int(); err != nil {
-		return IntVal(i)
-	}
-	if f, err := v.Float(); err != nil {
-		return FltVal(f)
-	}
-	if d, err := v.Duration(); err != nil {
-		return DuraVal(d)
-	}
-	return IntVal(v.Len())
 }
