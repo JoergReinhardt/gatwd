@@ -173,14 +173,14 @@ func (s CaseExpr) TypeNat() d.TyNat { return d.Functor }
 func NewSwitch(exprs ...CaseExpr) CaseSwitch {
 
 	// cast predicates as slice of callables
-	var cases = []Callable{}
+	var caseslice = []Callable{}
 	// range over predicates
 	for _, exprs := range exprs {
 		// append predicate to slice of predicates
-		cases = append(cases, exprs)
+		caseslice = append(caseslice, exprs)
 	}
-	// create list from predicate slice
-	var list = NewList(cases...)
+	// create cases from predicate slice
+	var cases = NewList(caseslice...)
 	// allocate value to assign current case to
 	var current Callable
 
@@ -188,14 +188,14 @@ func NewSwitch(exprs ...CaseExpr) CaseSwitch {
 	return func(args ...Callable) (Callable, bool) {
 		// call consumeable to yield current case and reassign list of
 		// remaining cases
-		current, list = list()
+		current, cases = cases()
 		// if call yielded any case
 		if current != nil {
 			// scrutinize argument(s) by applying the case
 			if expr, ok := current.(CaseExpr)(args...); ok {
 				// replenish cases before returning
 				// successfully scrutinized arguments
-				list = NewList(cases...)
+				cases = NewList(caseslice...)
 				// return set of arguments and true
 				return expr, true
 			}
@@ -205,7 +205,7 @@ func NewSwitch(exprs ...CaseExpr) CaseSwitch {
 		}
 		// all case are depleted not scrutinizeing the arguments →
 		// replenish list of cases befor returning the final result
-		list = NewList(cases...)
+		cases = NewList(caseslice...)
 		// return final none and false indicator
 		return NewNone(), false
 	}
@@ -253,7 +253,7 @@ func (s CaseSwitch) TypeFnc() TyFnc   { return Switch }
 // the resulting value wrapped in a just instance, or an instance of none, if
 // the result could not be scrutinize
 func DefineMaybeType(swi CaseSwitch, flags ...Typed) MaybeCons {
-	var comp = NewComposedType("Maybe", flags...)
+	var comp = NewNestedType("Maybe", flags...)
 	return func(args ...Callable) Callable {
 		if len(args) > 0 {
 			return swi.Call(args...)
@@ -261,20 +261,20 @@ func DefineMaybeType(swi CaseSwitch, flags ...Typed) MaybeCons {
 		return comp
 	}
 }
+func (n MaybeCons) Call(args ...Callable) Callable { return n(args...) }
+
 func (n MaybeCons) Ident() Callable  { return n }
-func (n MaybeCons) TypeComp() TyComp { return n().(TyComp) }
+func (n MaybeCons) TypeComp() TyNest { return n().(TyNest) }
 func (n MaybeCons) TypeNat() d.TyNat { return n().TypeNat() }
 func (n MaybeCons) TypeFnc() TyFnc   { return Maybe | n().TypeFnc() }
 func (n MaybeCons) TypeName() string { return n.TypeComp().TypeName() }
 func (n MaybeCons) String() string   { return n.TypeName() }
-
-func (n MaybeCons) Eval() d.Native                 { return n().Eval() }
-func (n MaybeCons) Call(args ...Callable) Callable { return n(args...) }
+func (n MaybeCons) Eval() d.Native   { return n().Eval() }
 
 //// JUST VALUE
 ///
-// just constructor is not exported and called exclusively by maybe data
-// constructor
+// just constructor is not expected to be called by maybe data constructor
+// exclusively and consequently not exported
 func consJust(expr Callable) JustVal {
 	return func(args ...Callable) Callable {
 		if len(args) > 0 {
@@ -292,8 +292,8 @@ func (n JustVal) TypeName() string {
 		"·" +
 		n().TypeNat().TypeName()
 }
-func (n JustVal) TypeComp() TyComp {
-	return NewComposedType(
+func (n JustVal) TypeComp() TyNest {
+	return NewNestedType(
 		"Just·"+n().TypeFnc().TypeName()+"·"+n().TypeNat().TypeName(),
 		n().TypeFnc(), n.TypeNat(),
 	)
@@ -307,20 +307,26 @@ func (n JustVal) Value() Callable                { return n() }
 func (n JustVal) Ident() Callable                { return n }
 
 //// NONE VALUE
+///
+// none representing the abscence of a value of any type.  implements
+// consumeable, key-, index & generic pair interface to be returneable as such.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Ident() Callable           { return n }
-func (n NoneVal) Len() int                  { return 0 }
-func (n NoneVal) String() string            { return "⊥" }
-func (n NoneVal) Eval() d.Native            { return nil }
-func (n NoneVal) Value() Callable           { return nil }
-func (n NoneVal) Call(...Callable) Callable { return nil }
-func (n NoneVal) Empty() bool               { return true }
-func (n NoneVal) TypeFnc() TyFnc            { return None }
-func (n NoneVal) TypeNat() d.TyNat          { return d.Nil }
-func (n NoneVal) TypeName() string          { return n.String() }
-
-// none implements consumeable interface
+func (n NoneVal) Ident() Callable                  { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) String() string                   { return "⊥" }
+func (n NoneVal) Eval() d.Native                   { return nil }
+func (n NoneVal) Call(...Callable) Callable        { return nil }
+func (n NoneVal) Key() Callable                    { return nil }
+func (n NoneVal) Index() Callable                  { return nil }
+func (n NoneVal) Left() Callable                   { return nil }
+func (n NoneVal) Right() Callable                  { return nil }
+func (n NoneVal) Both() Callable                   { return nil }
+func (n NoneVal) Value() Callable                  { return nil }
+func (n NoneVal) Empty() bool                      { return true }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) TypeName() string                 { return n.String() }
 func (n NoneVal) Head() Callable                   { return NewNone() }
 func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
@@ -394,20 +400,14 @@ func (n VariadicExpr) Call(d ...Callable) Callable { return n(d...) }
 
 /// NARY EXPRESSION
 //
-// nary expression knows it's composed type & arity and returns an expression
-// by applying arguments to the enclosed expression, handling partial-, exact-,
-// and oversatisfied calls, by returning either:
-//
-// - a partialy applied function and arity reduced by the number of arguments
-//   passed allready,
-//
-// - the result of applying the exact number of arguments to the expression
-//
-// - a slice of results of applying abundant arguments repeatedly according to
-//   arity until argument depletion. last result may be a partialy applyed nary
+// nary expression knows it's nested type & arity and returns an expression
+// by applying passed arguments to the enclosed expression. returns partialy
+// applied expression on undersatisfied calls, result of computation on exact
+// application of arguments & result followed by abundant arguments on
+// oversatisfied calls.
 func NewNary(
 	expr func(...Callable) Callable,
-	comp TyComp,
+	comp TyNest,
 	arity int,
 ) NaryExpr {
 	return func(args ...Callable) Callable {
@@ -472,8 +472,8 @@ func NewNary(
 				return NewVector(results...)
 			}
 		}
-		// no arguments passed with the call, return arity and composed
-		// type instead
+		// no arguments passed by call, return arity and nested type
+		// instead
 		return NewPair(Arity(arity), comp)
 	}
 }
@@ -491,7 +491,7 @@ func (n NaryExpr) Call(args ...Callable) Callable {
 	return n()
 }
 func (n NaryExpr) Arity() Arity     { val := n(); return val.(Paired).Left().(Arity) }
-func (n NaryExpr) CompType() TyComp { val := n(); return val.(Paired).Right().(TyComp) }
+func (n NaryExpr) CompType() TyNest { val := n(); return val.(Paired).Right().(TyNest) }
 func (n NaryExpr) TypeName() string { return n.CompType().TypeName() }
 func (n NaryExpr) TypeFnc() TyFnc   { return n.CompType().TypeFnc() }
 func (n NaryExpr) TypeNat() d.TyNat { return n.CompType().TypeNat() }

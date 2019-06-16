@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataKeyIndexCallArityCallPropertysNumbersStringsBytesElementListVectorTupleRecordEnumSetPairConstructorFunctorApplicableMonadUndecidedPredicateFalseTrueEqualLesserGreaterJustNoneCaseSwitchEitherOrIfElseDoWhileBufferReaderWriterHigherOrder"
+const _TyFnc_name = "TypeDataKeyIndexCallArityCallPropertysNumbersStringsBytesElementListVectorTupleRecordEnumSetPairConstructorFunctorApplicableMonadPredicateUndecidedFalseTrueEqualLesserGreaterJustNoneCaseSwitchEitherOrIfElseDoWhileBufferReaderWriterHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:             _TyFnc_name[0:4],

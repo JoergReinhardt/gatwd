@@ -8,6 +8,9 @@ type (
 	VecVal  func(...Callable) []Callable
 	SetVal  func(...Paired) d.Mapped
 
+	TupleCons func(...Callable) TupleVal
+	TupleVal  func(...Callable) VecVal
+
 	PairVal   func(...Callable) (Callable, Callable)
 	KeyPair   func(...Callable) (Callable, string)
 	IndexPair func(...Callable) (Callable, int)
@@ -577,7 +580,9 @@ func (v VecVal) Cons(args ...Callable) VecVal {
 
 func (v VecVal) Ident() Callable { return v }
 
-func (v VecVal) Call(d ...Callable) Callable { return NewVector(v(d...)...) }
+func (v VecVal) Call(d ...Callable) Callable {
+	return NewVector(v(d...)...)
+}
 
 func (v VecVal) Eval() d.Native {
 
@@ -668,6 +673,30 @@ func (v VecVal) Search(praed Callable) int {
 	return newDataSorter(v()...).Search(praed)
 }
 
+func (v VecVal) DeriveTupleCons() TupleCons {
+	var types = []TyNest{}
+	for n, elem := range v() {
+		var flags = []Typed{elem.TypeNat(), elem.TypeFnc()}
+		types = append(types, NewNestedType(string(n), flags...))
+	}
+	return NewTupleCons(types...)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+func NewTupleCons(tc ...TyNest) TupleCons {
+	return func(iniargs ...Callable) TupleVal {
+		return func(args ...Callable) VecVal {
+			if len(args) > 0 {
+				return NewVector(
+					append(iniargs, args...)...)
+			}
+			return NewVector(iniargs...)
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //// ASSOCIATIVE SLICE OF VALUE PAIRS
 ///
 // list of associative pairs in sequential order associated, sorted and

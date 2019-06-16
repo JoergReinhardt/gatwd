@@ -1,6 +1,9 @@
 package data
 
-import "math/big"
+import (
+	"math/big"
+	"math/cmplx"
+)
 
 type TyOps uint8
 
@@ -12,18 +15,22 @@ const (
 	Concat
 )
 
-// arithmetic operations for native numerals take two numeral operands and an
-// operation type. it switches on the operands type and sub-switches on
-// operation type to perform the propper operation.
-func arithmeticOps(a, b Numeral, ops TyOps) Native {
+// arithmetic operations for numerals take two numeral operands and an
+// operation type. casts operands to match in type, switches on the operands
+// type and sub-switches on operation type passed, to perform the propper
+// operation and return resulting value as instance of native.
+func arithmetics(a, b Numeral, ops TyOps) Native {
 
 	var typ TyNat // allocate common operand type
 	// cast operands to be of common type
 	a, b, typ = castNumeralsGreaterType(a, b)
 
 	switch { // switch on operands type
+
 	case typ.Match(Naturals): // natural arithmetics
+
 		switch ops {
+
 		case Add:
 			return UintVal(a.Uint() + b.Uint())
 		case Substract:
@@ -39,14 +46,20 @@ func arithmeticOps(a, b Numeral, ops TyOps) Native {
 		case Multiply:
 			return UintVal(a.Uint() * b.Uint())
 		case Divide:
-			var rat = RatioVal(
-				*big.NewRat(
-					int64(a.Int()),
-					int64(b.Int())))
-			return &rat
+			if a.Uint() > 0 &&
+				b.Uint() > 0 {
+				var rat = RatioVal(*big.NewRat(
+					int64(a.Uint()),
+					int64(b.Uint()),
+				))
+				return &rat
+			}
 		}
+
 	case typ.Match(Integers): // integer arithmetics
+
 		switch ops {
+
 		case Add:
 			return IntVal(a.Int() + b.Int())
 		case Substract:
@@ -54,14 +67,20 @@ func arithmeticOps(a, b Numeral, ops TyOps) Native {
 		case Multiply:
 			return IntVal(a.Int() * b.Int())
 		case Divide:
-			var rat = RatioVal(
-				*big.NewRat(
+			if a.Int() > 0 &&
+				b.Int() > 0 {
+				var rat = RatioVal(*big.NewRat(
 					int64(a.Int()),
-					int64(b.Int())))
-			return &rat
+					int64(b.Int()),
+				))
+				return &rat
+			}
 		}
+
 	case typ.Match(Reals): // real arithmetics
+
 		switch ops {
+
 		case Add:
 			return FltVal(a.Float() + b.Float())
 		case Substract:
@@ -69,13 +88,20 @@ func arithmeticOps(a, b Numeral, ops TyOps) Native {
 		case Multiply:
 			return FltVal(a.Float() * b.Float())
 		case Divide:
-			return FltVal(a.Float() / b.Float())
+			if a.Float() > 0 &&
+				b.Float() > 0 {
+				return FltVal(a.Float() / b.Float())
+			}
 
 		}
+
 	case typ.Match(Rationals): // rational arithmetics
+
 		var rat RatioVal
 		var ratA, ratB = a.Rat(), b.Rat()
+
 		switch ops {
+
 		case Add:
 			rat = RatioVal(*ratA.Add(ratA, ratB))
 			return &rat
@@ -89,8 +115,11 @@ func arithmeticOps(a, b Numeral, ops TyOps) Native {
 			rat = RatioVal(*ratA.Quo(ratA, ratB))
 			return &rat
 		}
+
 	case typ.Match(Imaginarys): // imaginary arithmetics
+
 		switch ops {
+
 		case Add:
 			return ImagVal(a.Imag() + b.Imag())
 		case Substract:
@@ -98,7 +127,10 @@ func arithmeticOps(a, b Numeral, ops TyOps) Native {
 		case Multiply:
 			return ImagVal(a.Imag() * b.Imag())
 		case Divide:
-			return ImagVal(a.Imag() / b.Imag())
+			if cmplx.Abs(a.Imag()) > 0 &&
+				cmplx.Abs(b.Imag()) > 0 {
+				return ImagVal(a.Imag() / b.Imag())
+			}
 		}
 	}
 	// if no value has been computed, return nil instance
