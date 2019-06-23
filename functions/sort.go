@@ -60,14 +60,14 @@ func CompareFlag(a, b d.BitFlag) int {
 	}
 	return 0
 }
-func compInt2BooIncl(i int) bool { return i >= 0 }
-func compInt2BooExcl(i int) bool { return i > 0 }
+func IntGrEqZero(i int) bool { return i >= 0 }
+func IntGrZero(i int) bool   { return i > 0 }
 
 ////////////////////////////////////////////////////////////////////////////
 // type to sort slices of data
-type dataSorter []Callable
+type SortedData []Callable
 
-func (d dataSorter) Empty() bool {
+func (d SortedData) Empty() bool {
 	if len(d) > 0 {
 		for _, dat := range d {
 			if dat != nil {
@@ -79,18 +79,18 @@ func (d dataSorter) Empty() bool {
 	return true
 }
 
-func newDataSorter(dat ...Callable) dataSorter { return dataSorter(dat) }
+func SortData(dat ...Callable) SortedData { return SortedData(dat) }
 
-func (d dataSorter) Len() int { return len(d) }
+func (d SortedData) Len() int { return len(d) }
 
-func (d dataSorter) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
+func (d SortedData) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 
-func (ds dataSorter) Sort(argType d.TyNat) {
-	sort.Slice(ds, newDataLess(argType, ds))
+func (ds SortedData) Sort(argType d.TyNat) {
+	sort.Slice(ds, consDataLess(argType, ds))
 }
 
-func (ds dataSorter) Search(pred Callable) int {
-	var idx = sort.Search(len(ds), newDataFind(ds, pred))
+func (ds SortedData) Search(pred Callable) int {
+	var idx = sort.Search(len(ds), consDataFind(ds, pred))
 	if idx < len(ds) {
 		if strings.Compare(ds[idx].String(), pred.String()) == 0 {
 			return idx
@@ -99,7 +99,7 @@ func (ds dataSorter) Search(pred Callable) int {
 	return -1
 }
 
-func newDataLess(argType d.TyNat, ds dataSorter) func(i, j int) bool {
+func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 	var f = argType.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -139,7 +139,7 @@ func newDataLess(argType d.TyNat, ds dataSorter) func(i, j int) bool {
 	return nil
 }
 
-func newDataFind(ds dataSorter, pred Callable) func(int) bool {
+func consDataFind(ds SortedData, pred Callable) func(int) bool {
 
 	// preallocate function
 	var fn func(int) bool
@@ -186,21 +186,21 @@ func newDataFind(ds dataSorter, pred Callable) func(int) bool {
 // pair sorter has the methods to search for a pair in-/, and sort slices of
 // pairs. pairs will be sorted by the left parameter, since it references the
 // accessor (key) in an accessor/value pair.
-type pairSorter []Paired
+type SortedPairs []Paired
 
-func newPairSorter(p ...Paired) pairSorter {
-	return append(pairSorter{}, p...)
+func SortPairs(p ...Paired) SortedPairs {
+	return append(SortedPairs{}, p...)
 }
 
-func (a pairSorter) ValueSorter() pairSorter {
+func (a SortedPairs) ValueSorter() SortedPairs {
 	return NewPairVectorFromPairs(a...).SwitchedPairs()
 }
 
-func (a pairSorter) AppendKeyValue(key Callable, val Callable) {
+func (a SortedPairs) AppendKeyValue(key Callable, val Callable) {
 	a = append(a, NewPair(key, val))
 }
 
-func (a pairSorter) Empty() bool {
+func (a SortedPairs) Empty() bool {
 	if len(a) > 0 {
 		for _, p := range a {
 			if p != nil {
@@ -210,16 +210,16 @@ func (a pairSorter) Empty() bool {
 	}
 	return true
 }
-func (p pairSorter) Len() int      { return len(p) }
-func (p pairSorter) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
+func (p SortedPairs) Len() int      { return len(p) }
+func (p SortedPairs) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
 
-func (p pairSorter) Sort(f d.TyNat) {
-	less := newpredLess(p, f)
+func (p SortedPairs) Sort(f d.TyNat) {
+	less := consPairLess(p, f)
 	sort.Slice(p, less)
 }
 
-func (p pairSorter) SortByValue(f d.TyNat) {
-	var ps = pairSorter(
+func (p SortedPairs) SortByValue(f d.TyNat) {
+	var ps = SortedPairs(
 		NewPairVectorFromPairs(
 			p...,
 		).SwitchedPairs(),
@@ -230,8 +230,8 @@ func (p pairSorter) SortByValue(f d.TyNat) {
 	p = NewPairVectorFromPairs(ps...).SwitchedPairs()
 }
 
-func (p pairSorter) Search(pred Callable) int {
-	var idx = sort.Search(len(p), newpredFind(p, pred))
+func (p SortedPairs) Search(pred Callable) int {
+	var idx = sort.Search(len(p), consPairFind(p, pred))
 	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
 		if pred.TypeNat().Flag().Match(d.Flag.TypeNat()) {
@@ -249,13 +249,13 @@ func (p pairSorter) Search(pred Callable) int {
 	return -1
 }
 
-func (p pairSorter) SearchByValue(pred Callable) int {
-	return pairSorter(
+func (p SortedPairs) SearchByValue(pred Callable) int {
+	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Search(pred)
 }
 
-func (p pairSorter) Get(pred Callable) Paired {
+func (p SortedPairs) Get(pred Callable) Paired {
 	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
@@ -263,13 +263,13 @@ func (p pairSorter) Get(pred Callable) Paired {
 	return NewPair(New(d.NewNil()), New(d.NewNil()))
 }
 
-func (p pairSorter) GetByValue(pred Callable) Paired {
-	return pairSorter(
+func (p SortedPairs) GetByValue(pred Callable) Paired {
+	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
-func (p pairSorter) Range(pred Callable) []Paired {
+func (p SortedPairs) Range(pred Callable) []Paired {
 	var ran = []Paired{}
 	idx := p.Search(pred)
 	if idx != -1 {
@@ -280,13 +280,13 @@ func (p pairSorter) Range(pred Callable) []Paired {
 	return ran
 }
 
-func (p pairSorter) RangeByValue(pred Callable) []Paired {
-	return pairSorter(
+func (p SortedPairs) RangeByValue(pred Callable) []Paired {
+	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Range(pred)
 }
 
-func newpredLess(accs pairSorter, t d.TyNat) func(i, j int) bool {
+func consPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	f := t.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -344,7 +344,7 @@ func newpredLess(accs pairSorter, t d.TyNat) func(i, j int) bool {
 	return nil
 }
 
-func newpredFind(accs pairSorter, pred Callable) func(i int) bool {
+func consPairFind(accs SortedPairs, pred Callable) func(i int) bool {
 	var f = pred.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

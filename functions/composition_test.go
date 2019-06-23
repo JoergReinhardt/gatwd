@@ -59,7 +59,19 @@ func TestPushList(t *testing.T) {
 	printCons(alist)
 }
 
-func TestListMapF(t *testing.T) {
+func TestMapF(t *testing.T) {
+
+	var vector = NewVector(listA()...)
+	var fmap = func(args ...Callable) Callable {
+		return New(args[0].Eval().(d.IntVal).Int() * 3)
+	}
+
+	var mapped = MapF(vector, fmap)
+
+	printCons(mapped)
+}
+
+func TestMapL(t *testing.T) {
 
 	var list = NewList(listA()...)
 	var fmap = func(args ...Callable) Callable {
@@ -71,7 +83,7 @@ func TestListMapF(t *testing.T) {
 	printCons(mapped)
 }
 
-func TestListFoldF(t *testing.T) {
+func TestFoldL(t *testing.T) {
 
 	var list = NewList(listA()...)
 	var fold = Fold(func(ilem, head Callable, args ...Callable) Callable {
@@ -80,6 +92,19 @@ func TestListFoldF(t *testing.T) {
 	var ilem = New(0)
 
 	var folded = FoldL(list, ilem, fold)
+
+	printCons(folded)
+}
+
+func TestFoldF(t *testing.T) {
+
+	var vector = NewVector(listA()...)
+	var fold = Fold(func(ilem, head Callable, args ...Callable) Callable {
+		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+	})
+	var ilem = New(0)
+
+	var folded = FoldF(vector, ilem, fold)
 
 	printCons(folded)
 }
@@ -131,7 +156,7 @@ func TestConsumeableFoldAndMap(t *testing.T) {
 		return New(args[0].Eval().(d.IntVal).Int() * 3)
 	}
 
-	var mapped = MapC(vec, fmap)
+	var mapped = MapF(vec, fmap)
 	var folded = FoldF(mapped, elem, fold)
 
 	folded = FoldF(vec, elem, fold)

@@ -6,93 +6,80 @@ import (
 
 // type system implementation
 type (
-	Apply  func(VariadicExpr, ...Callable) Callable
-	Bind   func(f, g Callable) Callable
 	Map    func(...Callable) Callable
+	Bind   func(f, g Callable) Callable
 	Fold   func(Callable, Callable, ...Callable) Callable
 	Filter func(Callable, ...Callable) bool
 	Zip    func(l, r Callable) Paired
-	Split  func(Callable, ...Callable) Paired
 
 	MapPaired    func(...Callable) Paired
+	BindPaired   func(f, g Paired) Callable
 	FoldPaired   func(Paired, Paired, ...Callable) Paired
 	FilterPaired func(Paired, ...Callable) bool
+	Split        func(Paired) (Callable, Callable)
 
-	Collection     func(...Callable) (Callable, Collection)
-	PairCollection func(...Callable) (Callable, PairCollection)
-	MonadicExpr    func(...Callable) (Callable, MonadicExpr)
+	// GENERALIZED CONUMEABLE & CONSUMEABLE PAIRS
+	ConsumeVal  func(...Callable) (Callable, ConsumeVal)
+	ConsPairVal func(...Callable) (Callable, ConsPairVal)
 )
 
 //// CURRY
-func Curry(args ...Callable) Callable {
-	if len(args) > 0 {
-		if len(args) > 1 {
-			return args[0].Call(Curry(args[1:]...))
+func Curry(exprs ...Callable) Callable {
+	if len(exprs) > 0 {
+		if len(exprs) > 1 {
+			return exprs[0].Call(Curry(exprs[1:]...))
 		}
-		return args[0].Call()
+		return exprs[0].Call()
 	}
 	return NewNone()
 }
 
-//// COLLECTION
-func NewCollection(expr Callable) Collection {
-	return func(args ...Callable) (Callable, Collection) {
-		if len(args) > 0 {
-			return expr.Call(args...), NewCollection(expr)
+//// CONSUMEABLE FUNCTOR
+func NewConsumeable(cons Consumeable) ConsumeVal {
+	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
+		var head Callable
+		head, cons = cons.Consume()
+		if head != nil {
+			return head, NewConsumeable(cons)
 		}
-		return expr.Call(), NewCollection(expr)
-	}
+		return nil, NewConsumeable(cons)
+	})
 }
 
-func (c Collection) Call(args ...Callable) Callable {
-	var head, _ = c()
-	if len(args) > 0 {
-		if len(args) > 1 {
-			return head.Call(args...)
-		}
-		return head.Call(args[0])
+func (m ConsumeVal) TypeName() string { return "(" + m.Head().TypeName() + ")" }
+func (m ConsumeVal) TypeFnc() TyFnc   { return Collection }
+func (m ConsumeVal) SubType() TyFnc   { return m.Head().TypeFnc() }
+func (m ConsumeVal) TypeNat() d.TyNat {
+	return m.Head().TypeNat()
+}
+func (m ConsumeVal) Consume() (Callable, Consumeable) {
+	var head Callable
+	head, m = m()
+	if head == nil {
+		return nil, m
 	}
+	return head, m
+}
+func (m ConsumeVal) Head() Callable {
+	var head, _ = m()
 	return head
 }
-
-func (c Collection) Eval() d.Native {
-	var head, _ = c()
-	return head.Eval()
+func (m ConsumeVal) Tail() Consumeable {
+	return m
+}
+func (m ConsumeVal) Call(args ...Callable) Callable {
+	return m.Head().Call(args...)
+}
+func (m ConsumeVal) Eval() d.Native {
+	return m.Head().Eval()
+}
+func (m ConsumeVal) String() string {
+	return m.Head().String()
 }
 
-func (c Collection) Ident() Callable {
-	return c
-}
-
-func (c Collection) Consume() (Callable, Consumeable) {
-	return c.Head(), c.Tail()
-}
-
-func (c Collection) Head() Callable {
-	h, _ := c()
-	return h
-}
-
-func (c Collection) Tail() Consumeable {
-	_, t := c()
-	return t
-}
-
-func (c Collection) TypeFnc() TyFnc {
-	return c.Head().TypeFnc()
-}
-
-func (c Collection) TypeNat() d.TyNat {
-	return c.Head().TypeNat()
-}
-
-func (c Collection) String() string {
-	return c.Head().String()
-}
-
-//// COLLECTION OF PAIRS
-func NewPairCollection(expr Paired) PairCollection {
-	return func(args ...Callable) (Callable, PairCollection) {
+//// CONSUMEABLE PAIRS FUNCTOR
+func NewConsumeablePairs(expr Paired) ConsPairVal {
+	return func(args ...Callable) (Callable, ConsPairVal) {
 		var pair Callable
 		var arg = expr.Call(args...)
 		switch {
@@ -101,8 +88,8 @@ func NewPairCollection(expr Paired) PairCollection {
 				pair = val
 			}
 
-		case arg.TypeFnc().Match(Collections):
-			if col, ok := arg.(Collection); ok {
+		case arg.TypeFnc().Match(Collection):
+			if col, ok := arg.(ConsumeVal); ok {
 				var left, right Callable
 				left, arg = col.Consume()
 				right, arg = col.Consume()
@@ -113,11 +100,11 @@ func NewPairCollection(expr Paired) PairCollection {
 			pair = NewPair(arg.TypeFnc(), arg)
 		}
 		return pair,
-			NewPairCollection(expr)
+			NewConsumeablePairs(expr)
 	}
 }
 
-func (c PairCollection) Call(args ...Callable) Callable {
+func (c ConsPairVal) Call(args ...Callable) Callable {
 	var head, _ = c()
 	if len(args) > 0 {
 		if len(args) > 1 {
@@ -127,111 +114,37 @@ func (c PairCollection) Call(args ...Callable) Callable {
 	}
 	return head
 }
-
-func (c PairCollection) Eval() d.Native {
+func (c ConsPairVal) Eval() d.Native {
 	var head, _ = c()
 	return head.Eval()
 }
-
-func (c PairCollection) Ident() Callable {
+func (c ConsPairVal) Ident() Callable {
 	return c
 }
-
-func (c PairCollection) Consume() (Callable, Consumeable) {
+func (c ConsPairVal) Consume() (Callable, Consumeable) {
 	return c.Head(), c.Tail()
 }
-
-func (c PairCollection) Head() Callable {
+func (c ConsPairVal) Head() Callable {
 	h, _ := c()
 	return h
 }
-
-func (c PairCollection) Tail() Consumeable {
+func (c ConsPairVal) Tail() Consumeable {
 	_, t := c()
 	return t
 }
-
-func (c PairCollection) TypeFnc() TyFnc {
-	return Pair | c.Head().TypeFnc()
-}
-
-func (c PairCollection) TypeNat() d.TyNat {
+func (c ConsPairVal) TypeName() string { return "(" + c.Head().TypeName() + ")" }
+func (c ConsPairVal) TypeFnc() TyFnc   { return Collection }
+func (c ConsPairVal) SubType() TyFnc   { return c.Head().TypeFnc() }
+func (c ConsPairVal) TypeNat() d.TyNat {
 	return c.Head().TypeNat()
 }
-
-func (c PairCollection) String() string {
+func (c ConsPairVal) String() string {
 	return c.Head().String()
 }
 
-//// MONAD
-func NewMonad(mon Consumeable, bind Bind) MonadicExpr {
-	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
-		var head Callable
-		head, mon = mon.Consume()
-		if head != nil {
-			return head, NewMonad(mon, bind)
-		}
-		return nil, NewMonad(mon, bind)
-	})
-}
-
-func (m MonadicExpr) Consume() (Callable, Consumeable) {
-	var head Callable
-	head, m = m()
-	if head == nil {
-		return nil, m
-	}
-	return head, m
-}
-
-func (m MonadicExpr) Head() Callable {
-	var head, _ = m()
-	return head
-}
-
-func (m MonadicExpr) Tail() Consumeable {
-	return m
-}
-
-func (m MonadicExpr) TypeFnc() TyFnc {
-	return Monad
-}
-
-func (m MonadicExpr) TypeNat() d.TyNat {
-	return m.Head().TypeNat()
-}
-
-func (m MonadicExpr) Call(args ...Callable) Callable {
-	return m.Head().Call(args...)
-}
-
-func (m MonadicExpr) Eval() d.Native {
-	return m.Head().Eval()
-}
-
-func (m MonadicExpr) String() string {
-	return m.Head().String()
-}
-
 //// MAP
-func MapC(cons Consumeable, fmap Map) Collection {
-	return Collection(func(args ...Callable) (Callable, Collection) {
-		var head Callable
-		head, cons = cons.Consume()
-		if head == nil {
-			return nil, NewCollection(cons)
-		}
-		if len(args) > 0 {
-			return fmap(head.Call(args...)),
-				MapC(cons, fmap)
-		}
-		return fmap(head),
-			MapC(cons, fmap)
-	})
-}
-
-func MapL(list ListVal, mapf Map) ListVal {
-	return ListVal(func(args ...Callable) (Callable, ListVal) {
+func MapL(list ListCol, mapf Map) ListCol {
+	return ListCol(func(args ...Callable) (Callable, ListCol) {
 		var head Callable
 		head, list = list()
 		if head == nil {
@@ -244,11 +157,11 @@ func MapL(list ListVal, mapf Map) ListVal {
 	})
 }
 
-func MapF(fnc Collection, fmap Map) Collection {
-	return Collection(func(args ...Callable) (Callable, Collection) {
-		var head, tail = fnc()
+func MapF(fnc Consumeable, fmap Map) ConsumeVal {
+	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
+		var head, tail = fnc.Consume()
 		if head == nil {
-			return nil, tail
+			return nil, MapF(tail, fmap)
 		}
 		if len(args) > 0 {
 			return fmap(head.Call(args...)),
@@ -259,8 +172,8 @@ func MapF(fnc Collection, fmap Map) Collection {
 	})
 }
 
-func MapP(pairs ConsumeablePairs, pmap MapPaired) PairCollection {
-	return PairCollection(func(args ...Callable) (Callable, PairCollection) {
+func MapP(pairs ConsumeablePairs, pmap MapPaired) ConsPairVal {
+	return ConsPairVal(func(args ...Callable) (Callable, ConsPairVal) {
 		// decapitate list to get head and list continuation
 		var pair Paired
 		pair, pairs = pairs.ConsumePair()
@@ -279,8 +192,8 @@ func MapP(pairs ConsumeablePairs, pmap MapPaired) PairCollection {
 }
 
 //// BIND
-func BindL(fl, gl ListVal, bind Bind) MonadicExpr {
-	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
+func BindL(fl, gl ListCol, bind Bind) ConsumeVal {
+	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
 		var f, g Callable
 		f, fl = fl()
 		g, gl = gl()
@@ -293,8 +206,8 @@ func BindL(fl, gl ListVal, bind Bind) MonadicExpr {
 	})
 }
 
-func BindF(fa, ga Consumeable, bind Bind) MonadicExpr {
-	return MonadicExpr(func(args ...Callable) (Callable, MonadicExpr) {
+func BindF(fa, ga Consumeable, bind Bind) ConsumeVal {
+	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
 		var f, g Callable
 		f, fa = fa.Consume()
 		g, ga = ga.Consume()
@@ -307,9 +220,23 @@ func BindF(fa, ga Consumeable, bind Bind) MonadicExpr {
 	})
 }
 
+func BindP(fp, gp ConsumeablePairs, bind Bind) ConsPairVal {
+	return ConsPairVal(func(args ...Callable) (Callable, ConsPairVal) {
+		var f, g Paired
+		f, fp = fp.ConsumePair()
+		g, gp = gp.ConsumePair()
+		if f != nil {
+			if g != nil {
+				return bind(f, g), BindP(fp, gp, bind)
+			}
+		}
+		return nil, BindP(fp, gp, bind)
+	})
+}
+
 //// FOLD
-func FoldL(list ListVal, elem Callable, fold Fold) ListVal {
-	return ListVal(func(args ...Callable) (Callable, ListVal) {
+func FoldL(list ListCol, elem Callable, fold Fold) ListCol {
+	return ListCol(func(args ...Callable) (Callable, ListCol) {
 		var head, tail = list()
 		if head == nil {
 			return nil, list
@@ -323,8 +250,8 @@ func FoldL(list ListVal, elem Callable, fold Fold) ListVal {
 	})
 }
 
-func FoldF(cons Consumeable, elem Callable, fold Fold) Collection {
-	return Collection(func(args ...Callable) (Callable, Collection) {
+func FoldF(cons Consumeable, elem Callable, fold Fold) ConsumeVal {
+	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
 		var head Callable
 		head, cons = cons.Consume()
 		if head == nil {
@@ -339,8 +266,8 @@ func FoldF(cons Consumeable, elem Callable, fold Fold) Collection {
 	})
 }
 
-func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairCollection {
-	return PairCollection(func(args ...Callable) (Callable, PairCollection) {
+func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) ConsPairVal {
+	return ConsPairVal(func(args ...Callable) (Callable, ConsPairVal) {
 		var pair Paired
 		pair, pairs = pairs.ConsumePair()
 		if pair == nil {
@@ -356,9 +283,9 @@ func FoldP(pairs ConsumeablePairs, elem Callable, fold Fold) PairCollection {
 }
 
 //// FILTER FUNCTOR
-func FilterL(list ListVal, filter Filter) ListVal {
-	return ListVal(
-		func(args ...Callable) (Callable, ListVal) {
+func FilterL(list ListCol, filter Filter) ListCol {
+	return ListCol(
+		func(args ...Callable) (Callable, ListCol) {
 			var head, tail = list()
 			if head == nil {
 				return nil, list
@@ -372,9 +299,9 @@ func FilterL(list ListVal, filter Filter) ListVal {
 		})
 }
 
-func FilterF(cons Consumeable, filter Filter) Collection {
-	return Collection(
-		func(args ...Callable) (Callable, Collection) {
+func FilterF(cons Consumeable, filter Filter) ConsumeVal {
+	return ConsumeVal(
+		func(args ...Callable) (Callable, ConsumeVal) {
 			var head, tail = cons.Consume()
 			if head == nil {
 				return nil, FilterF(cons, filter)
@@ -386,9 +313,9 @@ func FilterF(cons Consumeable, filter Filter) Collection {
 		})
 }
 
-func FilterP(pairs ConsumeablePairs, filter Filter) PairCollection {
-	return PairCollection(
-		func(args ...Callable) (Callable, PairCollection) {
+func FilterP(pairs ConsumeablePairs, filter Filter) ConsPairVal {
+	return ConsPairVal(
+		func(args ...Callable) (Callable, ConsPairVal) {
 			var pair Paired
 			pair, pairs = pairs.ConsumePair()
 			if pair == nil {
@@ -402,9 +329,9 @@ func FilterP(pairs ConsumeablePairs, filter Filter) PairCollection {
 }
 
 //// ZIP
-func ZipL(llist, rlist ListVal, zip Zip) ListVal {
-	return ListVal(
-		func(args ...Callable) (Callable, ListVal) {
+func ZipL(llist, rlist ListCol, zip Zip) ListCol {
+	return ListCol(
+		func(args ...Callable) (Callable, ListCol) {
 			var lhead, ltail = llist()
 			var rhead, rtail = rlist()
 			if lhead == nil || rhead == nil {
@@ -417,9 +344,9 @@ func ZipL(llist, rlist ListVal, zip Zip) ListVal {
 		})
 }
 
-func ZipF(lcons, rcons Consumeable, zip Zip) Collection {
-	return Collection(
-		func(args ...Callable) (Callable, Collection) {
+func ZipF(lcons, rcons Consumeable, zip Zip) ConsumeVal {
+	return ConsumeVal(
+		func(args ...Callable) (Callable, ConsumeVal) {
 			var lhead, ltail = lcons.Consume()
 			var rhead, rtail = rcons.Consume()
 			if lhead == nil || rhead == nil {
@@ -433,4 +360,27 @@ func ZipF(lcons, rcons Consumeable, zip Zip) Collection {
 			return zip(lhead, rhead),
 				ZipF(ltail, rtail, zip)
 		})
+}
+
+//// SPLIT
+func SplitP(pairs ConsumeablePairs, split Split) func() (
+	Callable,
+	Callable,
+	Consumeable,
+	Consumeable,
+) {
+	var l, r Callable
+	var lv, rv = NewVector(), NewVector()
+	return func() (Callable, Callable, Consumeable, Consumeable) {
+		var pair Paired
+		pair, pairs = pairs.ConsumePair()
+		if l != nil {
+			lv = lv.Append(l)
+		}
+		if r != nil {
+			rv = rv.Append(r)
+		}
+		l, r = split(pair)
+		return l, r, lv, rv
+	}
 }

@@ -9,10 +9,23 @@ func (p PairVal) Right() Native { return p.R }
 
 func (p PairVal) Both() (Native, Native) { return p.L, p.R }
 
+func (p PairVal) TypeName() string {
+	return "(" + p.LeftType().TypeName() +
+		"," + p.RightType().TypeName() + ")"
+}
+func (p PairVal) TypeNat() TyNat   { return Pair.TypeNat() }
+func (p PairVal) LeftType() TyNat  { return p.L.TypeNat() }
+func (p PairVal) RightType() TyNat { return p.R.TypeNat() }
+func (p PairVal) SubType() TyNat   { return p.LeftType() | p.RightType() }
+
 ////////////////////////////////////////////////////////////////
 //// GENERIC ACCESSOR TYPED SET
 ///
 //
+func typeNameSet(m Mapped) string {
+	return "{" + m.KeyType().TypeName() + ":: " +
+		m.ValType().TypeName() + "}"
+}
 func NewValSet(acc ...Paired) Mapped {
 	var m = make(map[Native]Native)
 	for _, pair := range acc {
@@ -33,16 +46,17 @@ func (s SetVal) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetVal) TypeNat() TyNat {
-	var fields = s.Fields()
-	if len(fields) > 0 {
-		var first = fields[0]
-		return Map.TypeNat() |
-			first.Left().TypeNat() |
-			first.Right().TypeNat()
+func (s SetVal) TypeNat() TyNat { return Map.TypeNat() }
+func (s SetVal) first() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-	return Map.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetVal) TypeName() string { return typeNameSet(s) }
+func (s SetVal) KeyType() TyNat   { return s.first().Left().TypeNat() }
+func (s SetVal) ValType() TyNat   { return s.first().Right().TypeNat() }
+func (s SetVal) SubType() TyNat   { return s.KeyType() | s.ValType() }
 
 func (s SetVal) Len() int { return len(s) }
 
@@ -111,21 +125,17 @@ func (s SetString) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetString) TypeNat() TyNat {
-
-	var fields = s.Fields()
-
-	if len(fields) > 0 {
-
-		var first = fields[0]
-
-		return Map.TypeNat() |
-			String.TypeNat() |
-			first.Right().TypeNat()
+func (s SetString) First() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-
-	return Map.TypeNat() | String.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetString) TypeName() string { return typeNameSet(s) }
+func (s SetString) TypeNat() TyNat   { return Map.TypeNat() }
+func (s SetString) KeyType() TyNat   { return String.TypeNat() }
+func (s SetString) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetString) SubType() TyNat   { return s.KeyType() | s.ValType() }
 
 func (s SetString) Len() int { return len(s) }
 
@@ -180,21 +190,17 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) TypeNat() TyNat {
-
-	var fields = s.Fields()
-
-	if len(fields) > 0 {
-
-		var first = fields[0]
-
-		return Map.TypeNat() |
-			Int.TypeNat() |
-			first.Right().TypeNat()
+func (s SetInt) First() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-
-	return Map.TypeNat() | Int.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetInt) TypeName() string { return typeNameSet(s) }
+func (s SetInt) TypeNat() TyNat   { return Map.TypeNat() }
+func (s SetInt) KeyType() TyNat   { return Int.TypeNat() }
+func (s SetInt) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetInt) SubType() TyNat   { return s.KeyType() | s.ValType() }
 
 func (s SetInt) Len() int { return len(s) }
 
@@ -263,21 +269,17 @@ func NewUintSet(acc ...Paired) Mapped {
 	return SetUint(m)
 }
 
-func (s SetUint) TypeNat() TyNat {
-
-	var fields = s.Fields()
-
-	if len(fields) > 0 {
-
-		var first = fields[0]
-
-		return Map.TypeNat() |
-			Uint.TypeNat() |
-			first.Right().TypeNat()
+func (s SetUint) First() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-
-	return Map.TypeNat() | Uint.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetUint) TypeName() string { return typeNameSet(s) }
+func (s SetUint) TypeNat() TyNat   { return Map.TypeNat() }
+func (s SetUint) KeyType() TyNat   { return Uint.TypeNat() }
+func (s SetUint) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetUint) SubType() TyNat   { return s.KeyType() | s.ValType() }
 
 func (s SetUint) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -348,21 +350,16 @@ func NewFloatSet(acc ...Paired) Mapped {
 
 func (s SetFloat) Len() int { return len(s) }
 
-func (s SetFloat) TypeNat() TyNat {
-
-	var fields = s.Fields()
-
-	if len(fields) > 0 {
-
-		var first = fields[0]
-
-		return Map.TypeNat() |
-			Float.TypeNat() |
-			first.Right().TypeNat()
+func (s SetFloat) First() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-
-	return Map.TypeNat() | Float.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetFloat) TypeName() string { return typeNameSet(s) }
+func (s SetFloat) TypeNat() TyNat   { return Map.TypeNat() }
+func (s SetFloat) KeyType() TyNat   { return Float.TypeNat() }
+func (s SetFloat) ValType() TyNat   { return s.First().Right().TypeNat() }
 
 func (s SetFloat) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -429,21 +426,17 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) TypeNat() TyNat {
-
-	var fields = s.Fields()
-
-	if len(fields) > 0 {
-
-		var first = fields[0]
-
-		return Map.TypeNat() |
-			Flag.TypeNat() |
-			first.Right().TypeNat()
+func (s SetFlag) First() Paired {
+	if s.Len() > 0 {
+		return s.Fields()[0]
 	}
-
-	return Map.TypeNat() | Flag.TypeNat() | Nil.TypeNat()
+	return NewPair(NewNil(), NewNil())
 }
+func (s SetFlag) TypeName() string { return typeNameSet(s) }
+func (s SetFlag) TypeNat() TyNat   { return Map.TypeNat() }
+func (s SetFlag) KeyType() TyNat   { return Flag.TypeNat() }
+func (s SetFlag) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetFlag) SubType() TyNat   { return s.KeyType() | s.ValType() }
 
 func (s SetFlag) Eval(p ...Native) Native {
 	if len(p) > 0 {

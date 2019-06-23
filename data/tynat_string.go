@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairSliceUnboxedMapDataLiteralFunctorFlagMASK"
+const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairSliceUnboxedMapDataLiteralFunctionFlagMASK"
 
 var _TyNat_map = map[TyNat]string{
 	1:                    _TyNat_name[0:3],
@@ -37,9 +37,9 @@ var _TyNat_map = map[TyNat]string{
 	134217728:            _TyNat_name[134:137],
 	268435456:            _TyNat_name[137:141],
 	536870912:            _TyNat_name[141:148],
-	1073741824:           _TyNat_name[148:155],
-	2147483648:           _TyNat_name[155:159],
-	18446744073709551615: _TyNat_name[159:163],
+	1073741824:           _TyNat_name[148:156],
+	2147483648:           _TyNat_name[156:160],
+	18446744073709551615: _TyNat_name[160:164],
 }
 
 func (i TyNat) String() string {

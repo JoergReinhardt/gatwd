@@ -14,7 +14,7 @@ type TySyntax d.BitFlag
 func (t TySyntax) Flag() d.BitFlag           { return d.BitFlag(t) }
 func (t TySyntax) Match(arg d.Typed) bool    { return t.Flag().Match(arg) }
 func (t TySyntax) TypeName() string          { return t.String() }
-func (t TySyntax) FlagType() uint8           { return 3 }
+func (t TySyntax) FlagType() uint8           { return 4 }
 func (t TySyntax) Type() TySyntax            { return t }
 func (t TySyntax) Eval(...d.Native) d.Native { return t }
 func (t TySyntax) TypeNat() d.TyNat          { return d.Flag }

@@ -14,13 +14,15 @@ type TyNat BitFlag
 func (t TyNat) FlagType() uint8 { return 1 }
 func (v TyNat) TypeNat() TyNat  { return v }
 func (t TyNat) TypeName() string {
+	var delim = " "
 	var count = t.Flag().Count()
+	// loop to print concatenated type classes correcty
 	if count > 1 {
 		var str string
 		for i, flag := range t.Flag().Decompose() {
 			str = str + TyNat(flag.Flag()).String()
 			if i < count-1 {
-				str = str + "·"
+				str = str + delim
 			}
 		}
 		return str
@@ -76,7 +78,7 @@ const (
 	////
 	Data
 	Literal
-	Functor
+	Function
 	Flag // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
@@ -98,7 +100,10 @@ const (
 	Equals     = Numbers | Letters
 
 	Compositions = Pair | Unboxed | Slice | Map
-	Functional   = Data | Functor | Literal | Flag
+	Functional   = Data | Function | Literal | Flag
+
+	Sets = Natives | Bitwise | Booleans | Naturals | Integers |
+		Rationals | Reals | Imaginarys | Numbers | Letters | Equals
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
 	MASK_NATIVES       = MASK ^ Natives
@@ -182,7 +187,7 @@ type ( // NATIVE GOLANG TYPES
 	FlagSet        []BitFlag
 )
 
-func newAtom(nat TyNat) Native {
+func newTypedNull(nat TyNat) Native {
 	var val Native
 	switch nat {
 	case Nil:
@@ -296,7 +301,32 @@ func (v StrVal) TypeNat() TyNat    { return String.TypeNat() }
 func (v TimeVal) TypeNat() TyNat   { return Time.TypeNat() }
 func (v DuraVal) TypeNat() TyNat   { return Duration.TypeNat() }
 func (v ErrorVal) TypeNat() TyNat  { return Error.TypeNat() }
-func (v PairVal) TypeNat() TyNat   { return Pair.TypeNat() }
+
+/// bind the corresponding TypeName Method to every type
+func (NilVal) TypeName() string      { return Nil.TypeNat().String() }
+func (v BoolVal) TypeName() string   { return Bool.TypeNat().String() }
+func (v IntVal) TypeName() string    { return Int.TypeNat().String() }
+func (v Int8Val) TypeName() string   { return Int8.TypeNat().String() }
+func (v Int16Val) TypeName() string  { return Int16.TypeNat().String() }
+func (v Int32Val) TypeName() string  { return Int32.TypeNat().String() }
+func (v UintVal) TypeName() string   { return Uint.TypeNat().String() }
+func (v Uint8Val) TypeName() string  { return Uint8.TypeNat().String() }
+func (v Uint16Val) TypeName() string { return Uint16.TypeNat().String() }
+func (v Uint32Val) TypeName() string { return Uint32.TypeNat().String() }
+func (v BigIntVal) TypeName() string { return BigInt.TypeNat().String() }
+func (v FltVal) TypeName() string    { return Float.TypeNat().String() }
+func (v Flt32Val) TypeName() string  { return Flt32.TypeNat().String() }
+func (v BigFltVal) TypeName() string { return BigFlt.TypeNat().String() }
+func (v ImagVal) TypeName() string   { return Imag.TypeNat().String() }
+func (v Imag64Val) TypeName() string { return Imag64.TypeNat().String() }
+func (v RatioVal) TypeName() string  { return Ratio.TypeNat().String() }
+func (v RuneVal) TypeName() string   { return Rune.TypeNat().String() }
+func (v ByteVal) TypeName() string   { return Byte.TypeNat().String() }
+func (v BytesVal) TypeName() string  { return Bytes.TypeNat().String() }
+func (v StrVal) TypeName() string    { return String.TypeNat().String() }
+func (v TimeVal) TypeName() string   { return Time.TypeNat().String() }
+func (v DuraVal) TypeName() string   { return Duration.TypeNat().String() }
+func (v ErrorVal) TypeName() string  { return Error.TypeNat().String() }
 
 // provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }

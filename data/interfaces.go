@@ -1,11 +1,14 @@
 package data
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // the main interface, all native types need to implement.
 type Native interface {
 	TypeNat() TyNat
 	String() string
+	TypeName() string
 }
 
 // all BitFlag's implement the typed interface (as well as primary)
@@ -14,7 +17,6 @@ type Typed interface {
 	Flag() BitFlag
 	FlagType() uint8
 	Match(Typed) bool
-	TypeName() string
 }
 
 type BinaryMarshaler interface {
@@ -101,6 +103,8 @@ type Paired interface {
 	Left() Native
 	Right() Native
 	Both() (Native, Native)
+	LeftType() TyNat
+	RightType() TyNat
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -113,11 +117,11 @@ type Composed interface {
 type Sliceable interface {
 	Composed
 	Len() int
+	Copy() Native
 	Slice() []Native
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
-	Copy() Native
 }
 type Mutable interface {
 	Sliceable
@@ -144,4 +148,6 @@ type Mapped interface {
 	Get(acc Native) (Native, bool)
 	Delete(acc Native) bool
 	Set(Native, Native) Mapped
+	KeyType() TyNat
+	ValType() TyNat
 }

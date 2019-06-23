@@ -20,32 +20,32 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var f = VariadicExpr(func(args ...Callable) Callable {
+var f = VariadicEq(func(args ...Callable) Callable {
 	var str = "f and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var g = VariadicExpr(func(args ...Callable) Callable {
+var g = VariadicEq(func(args ...Callable) Callable {
 	var str = "g and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var h = VariadicExpr(func(args ...Callable) Callable {
+var h = VariadicEq(func(args ...Callable) Callable {
 	var str = "h and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var i = VariadicExpr(func(args ...Callable) Callable {
+var i = VariadicEq(func(args ...Callable) Callable {
 	var str = "i and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var j = VariadicExpr(func(args ...Callable) Callable {
+var j = VariadicEq(func(args ...Callable) Callable {
 	var str = "j and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var k = ConstantExpr(func() Callable {
+var k = ConstEq(func() Callable {
 	return NewNative(d.StrVal("k"))
 })
 
@@ -59,19 +59,10 @@ func TestCurry(t *testing.T) {
 
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VariadicExpr(
+		VariadicEq(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
-			}),
-		NewNestedType(
-			"StringTriple",
-			Data,
-			d.String,
-			Functor, // ← divides arguments from return values
-			Vector,
-			Data,
-			d.String,
-		), 3)
+			}), 3)
 
 	var r0 = nary(NewNative(d.StrVal("0")))
 
@@ -118,12 +109,12 @@ func TestNary(t *testing.T) {
 	fmt.Println(r8.Call())
 
 	// apply additional arguments to partialy applyed expression
-	var partial = r6.(VecVal)()[r6.(VecVal).Len()-1].Call(
+	var partial = r6.(VecCol)()[r6.(VecCol).Len()-1].Call(
 		NewNative(d.StrVal("7")))
 
 	fmt.Printf("partialy applyed narys remaining arity: %d\n",
 
-		partial.(NaryExpr).Arity())
+		partial.(NaryEq).Arity())
 	partial = partial.Call(NewNative(d.StrVal("8")))
 
 	fmt.Println(partial.Call())
@@ -171,45 +162,6 @@ func TestSwitch(t *testing.T) {
 }
 
 func TestMaybeType(t *testing.T) {
-
-	var swi = NewSwitch(NewCase(NewPredictAll(func(arg Callable) bool {
-		return arg.TypeNat().Match(d.Numbers)
-	})))
-
-	fmt.Printf("test switch passing an int: %s\n", swi.Call(New(17)))
-	fmt.Printf("test switch passing a string: %s\n", swi.Call(New("string")))
-	fmt.Printf("test switch passing multiple ints: %s\n", swi.Call(New(7), New(17)))
-
-	var maybeNumber = DefineMaybeType(swi)
-
-	fmt.Printf("composed Type: %s TypeName: %s FncType: %s NativeType: %s\n",
-		maybeNumber, maybeNumber.TypeName(),
-		maybeNumber.TypeFnc().TypeName(),
-		maybeNumber.TypeNat().TypeName())
-
-	var number = maybeNumber(New(13))
-	var nan = maybeNumber(New("string"))
-
-	fmt.Printf("data instances number: %s, nan: %s\n", number, nan)
-
-	var add = NewNary(func(args ...Callable) Callable {
-		var numbers = NewVector()
-		for _, arg := range args {
-			var maybe = maybeNumber(arg)
-			if maybe.TypeFnc().Match(Just) {
-				numbers = numbers.Append(maybe.Call())
-			}
-		}
-		return NewNative(args[0].Eval().(d.IntVal) + args[1].Eval().(d.IntVal))
-	}, NewNestedType("Add", d.Numbers), 2)
-
-	var result = add(New(3), New(5), New(7), New(11), New(13), New(17))
-
-	fmt.Printf("addition results: %s\n", result)
-
-	if result.(VecVal)()[0].Eval().(d.IntVal) != 8 {
-		t.Fail()
-	}
 }
 
 func TestTupleConstruction(t *testing.T) {

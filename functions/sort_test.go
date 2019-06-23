@@ -27,7 +27,7 @@ func TestDataSorter(t *testing.T) {
 		New("Jill"),
 	}
 
-	ds := newDataSorter(dat...)
+	ds := SortData(dat...)
 	ds.Sort(d.String)
 	fmt.Printf("list after sorterd by string: %s\n", ds)
 
@@ -62,7 +62,7 @@ func TestDataSorterFlags(t *testing.T) {
 		New(d.BigInt),
 	}
 
-	fs := dataSorter(flags)
+	fs := SortedData(flags)
 	fmt.Printf("unsorted flags: %s\n", fs)
 	fs.Sort(d.Flag)
 	fmt.Printf("sorted flags: %s\n", fs)
@@ -77,7 +77,7 @@ func TestDataSorterFlags(t *testing.T) {
 		New(int(381)),
 	}
 
-	is := dataSorter(ints)
+	is := SortedData(ints)
 	is.Sort(d.Integers)
 	fmt.Printf("sorted ints: %s\n", is)
 }
@@ -107,7 +107,7 @@ func TestDataSorterMixedType(t *testing.T) {
 		New("Mary"),
 	}
 
-	ts := dataSorter(flags)
+	ts := SortedData(flags)
 	ts.Sort(d.Flag)
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
 }
@@ -130,7 +130,7 @@ func TestPairSorterStrStr(t *testing.T) {
 		NewPair(New("Jill"), New("val 14")),
 	}
 
-	ps := newPairSorter(strPairs...)
+	ps := SortPairs(strPairs...)
 	fmt.Printf("unsorted string|string slice:\n %s\n\n", ps)
 	ps.Sort(d.Letters)
 	fmt.Printf("sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
@@ -149,7 +149,7 @@ func TestPairSorterIntStr(t *testing.T) {
 		NewPair(New(6), New("valeu six")),
 	}
 
-	ps := newPairSorter(pairs...)
+	ps := SortPairs(pairs...)
 	ps.Sort(d.Integers)
 	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
 }
@@ -167,7 +167,7 @@ func TestPairSorterUintStr(t *testing.T) {
 		NewPair(New(uint(6)), New("valeu six")),
 	}
 
-	ps := newPairSorter(pairs...)
+	ps := SortPairs(pairs...)
 	ps.Sort(d.Naturals)
 	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
 }
@@ -185,7 +185,7 @@ func TestPairSorterIrrationalStr(t *testing.T) {
 		NewPair(New(float64(6)), New("valeu six")),
 	}
 
-	ps := newPairSorter(pairs...)
+	ps := SortPairs(pairs...)
 	ps.Sort(d.Reals)
 	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
 }

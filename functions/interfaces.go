@@ -158,9 +158,6 @@ type Mapped interface {
 // functional behaviour.
 type Callable interface {
 	d.Native
-	// TypeNat() d.TyNative
-	// String() string
-	// Eval(...d.Native) d.Native
 	Evaluable
 	TypeFnc() TyFnc
 	Call(...Callable) Callable
@@ -169,7 +166,6 @@ type Callable interface {
 type Parametric interface {
 	Callable
 	Type() Typed
-	TypeName() string
 }
 
 // branched yields two callable return values
@@ -242,8 +238,8 @@ type ConsumeablePairs interface {
 // callables that are consumeables providing a 'map' method, are functors.
 type Functoric interface {
 	Consumeable
-	Map(UnaryExpr, ...Callable) Functoric
-	Fold(BinaryExpr, ...Callable) Callable
+	Map(UnaryEq, ...Callable) Functoric
+	Fold(BinaryEq, ...Callable) Callable
 }
 
 // applicatives are infix operators that compose functor operations
@@ -323,7 +319,7 @@ type Vectorized interface {
 type Aggregating interface {
 	Callable
 	Result() Callable
-	Aggregator() VariadicExpr
+	Aggregator() VariadicEq
 	Aggregate(...Callable) Callable
 }
 
@@ -331,8 +327,8 @@ type Aggregating interface {
 // associate them with their position in a collection
 type Associative interface {
 	Callable
-	KeyFncType() TyFnc
-	ValFncType() TyFnc
+	KeyType() TyFnc
+	ValType() TyFnc
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
 	GetVal(Callable) (Callable, bool)
@@ -340,23 +336,11 @@ type Associative interface {
 	Pairs() []Paired
 }
 
-/// ITEMS & TOKENS
-// data to parse
-type Token interface {
-	d.Native
-	TypeTok() TyToken
-	Data() d.Native
-}
-
 //// TREES & GRAPHS
 ///
 type Nodular interface {
 	Sequenced
 	Root() Nodular
-}
-type Nested interface {
-	Nodular
-	Member() []Nodular
 }
 
 type Chained interface {

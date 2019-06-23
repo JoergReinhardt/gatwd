@@ -25,16 +25,12 @@ func sliceContainsTypes(c []Native) BitFlag {
 
 // returns type flag by OR concatenating the Slice type to the concatenated
 // type flags of it's members
-func (c DataSlice) TypeNat() TyNat {
-	return Slice.TypeNat() | TyNat(sliceContainsTypes(c.Slice()))
-}
-
+func (c DataSlice) TypeName() string        { return "[" + c.SubType().TypeName() + "]" }
+func (c DataSlice) TypeNat() TyNat          { return Slice.TypeNat() }
+func (c DataSlice) SubType() TyNat          { return TyNat(sliceContainsTypes(c.Slice())) }
 func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }
-
-func (c DataSlice) Append(n ...Native) { SliceAppend(c, n...) }
-
-func (c DataSlice) Null() Native { return NewSlice([]Native{}...) }
-
+func (c DataSlice) Append(n ...Native)      { SliceAppend(c, n...) }
+func (c DataSlice) Null() Native            { return NewSlice([]Native{}...) }
 func (c DataSlice) Copy() Native {
 	// allocate new instance of slice of natives
 	var ds = DataSlice{}
@@ -48,19 +44,13 @@ func (c DataSlice) Copy() Native {
 }
 
 // SLICE ->
-func (v DataSlice) Slice() []Native { return v }
-
-func (v DataSlice) GetInt(i int) Native { return v[i] }
-
-func (v DataSlice) Get(i Native) Native { return v[i.(IntVal).Int()] }
-
+func (v DataSlice) Slice() []Native          { return v }
+func (v DataSlice) GetInt(i int) Native      { return v[i] }
+func (v DataSlice) Get(i Native) Native      { return v[i.(IntVal).Int()] }
 func (v DataSlice) Range(s, e int) Sliceable { return NewSlice(v[s:e]) }
-
-func (v DataSlice) SetInt(i int, d Native) { v[i] = d }
-
-func (v DataSlice) Set(i Native, d Native) { v[i.(IntVal)] = d }
-
-func (v DataSlice) Len() int { return len([]Native(v)) }
+func (v DataSlice) SetInt(i int, d Native)   { v[i] = d }
+func (v DataSlice) Set(i Native, d Native)   { v[i.(IntVal)] = d }
+func (v DataSlice) Len() int                 { return len([]Native(v)) }
 
 // COLLECTION
 func (s DataSlice) Empty() bool { return SliceEmpty(s) }

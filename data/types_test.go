@@ -46,7 +46,7 @@ func TestFlag(t *testing.T) {
 
 	fmt.Println(Letters.TypeName())
 
-	if fmt.Sprint(Letters.TypeName()) != "Rune·Bytes·String" {
+	if fmt.Sprint(Letters.TypeName()) != "Rune Bytes String" {
 		t.Fail()
 	}
 
@@ -76,7 +76,7 @@ var s0 = NewSlice(
 func TestTypeAllocation(t *testing.T) {
 
 	fmt.Println(TyNat(s0.ContainedTypes()).TypeName())
-	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "Bool·Int8·Int16·Int32·Int·BigInt·Flt32·Float·BigFlt·Ratio·Imag·Time·Byte·Bytes·String·Slice" {
+	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "Bool Int8 Int16 Int32 Int BigInt Flt32 Float BigFlt Ratio Imag Time Byte Bytes String" {
 		t.Fail()
 	}
 	s1 := NewSlice()
@@ -220,7 +220,7 @@ func TestTimeType(t *testing.T) {
 func TestAllTypes(t *testing.T) {
 	fmt.Println(ListAllTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Pair Slice Unboxed Map Data Literal Functor Flag]" {
+	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Error Pair Slice Unboxed Map Data Literal Function Flag]" {
 		t.Fail()
 	}
 }
