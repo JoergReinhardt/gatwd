@@ -20,32 +20,32 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var f = VariadicEq(func(args ...Callable) Callable {
+var f = VariLambda(func(args ...Callable) Callable {
 	var str = "f and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var g = VariadicEq(func(args ...Callable) Callable {
+var g = VariLambda(func(args ...Callable) Callable {
 	var str = "g and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var h = VariadicEq(func(args ...Callable) Callable {
+var h = VariLambda(func(args ...Callable) Callable {
 	var str = "h and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var i = VariadicEq(func(args ...Callable) Callable {
+var i = VariLambda(func(args ...Callable) Callable {
 	var str = "i and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var j = VariadicEq(func(args ...Callable) Callable {
+var j = VariLambda(func(args ...Callable) Callable {
 	var str = "j and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var k = ConstEq(func() Callable {
+var k = ConstLambda(func() Callable {
 	return NewNative(d.StrVal("k"))
 })
 
@@ -59,7 +59,7 @@ func TestCurry(t *testing.T) {
 
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VariadicEq(
+		VariLambda(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
 			}), 3)
@@ -144,7 +144,7 @@ func TestCase(t *testing.T) {
 			}
 			return expr.Call(NewNative(nats...))
 		}, 2),
-		NewVariadic(UnaryEq(func(arg Callable) Callable {
+		NewVariadic(UnaryLambda(func(arg Callable) Callable {
 			return NewNone()
 		})),
 	)
@@ -161,7 +161,7 @@ func TestCase(t *testing.T) {
 	fmt.Printf("case pred all two expressions expected true: %s\n",
 		c.Call(New("string"), New(10)))
 
-	if c.Call(New("string"), New(10)).Call().(Native)().(d.BoolVal) {
+	if !c.Call(New("string"), New(10)).Call().(Native)().(d.BoolVal) {
 		t.Fail()
 	}
 }

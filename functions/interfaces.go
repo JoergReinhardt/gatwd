@@ -237,8 +237,8 @@ type ConsumeablePairs interface {
 // callables that are consumeables providing a 'map' method, are functors.
 type Functoric interface {
 	Consumeable
-	Map(UnaryEq, ...Callable) Functoric
-	Fold(BinaryEq, ...Callable) Callable
+	Map(UnaryLambda, ...Callable) Functoric
+	Fold(BinaryLambda, ...Callable) Callable
 }
 
 // applicatives are infix operators that compose functor operations
@@ -318,7 +318,7 @@ type Vectorized interface {
 type Aggregating interface {
 	Callable
 	Result() Callable
-	Aggregator() VariadicEq
+	Aggregator() VariLambda
 	Aggregate(...Callable) Callable
 }
 
