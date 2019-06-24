@@ -33,8 +33,8 @@ func NewNull(nat TyNat) Native {
 				// return an empty pair composed of both type
 				// elements
 				return NewPair(
-					newTypedNull(nats[0].(TyNat)),
-					newTypedNull(nats[1].(TyNat)))
+					NewTypedNull(nats[0].(TyNat)),
+					NewTypedNull(nats[1].(TyNat)))
 			}
 		case nat.Match(Map):
 			// mask the map flag and reassign native type
@@ -63,7 +63,7 @@ func NewNull(nat TyNat) Native {
 	}
 	// for non composed types, return an atomic null instance (returns a
 	// nil type, if not parseable)
-	return newTypedNull(nat)
+	return NewTypedNull(nat)
 }
 
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }

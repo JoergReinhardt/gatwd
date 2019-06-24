@@ -50,14 +50,14 @@ const (
 	Denary
 )
 
-func (a Arity) Eval() d.Native            { return d.Int8Val(a) }
-func (a Arity) Call(...Callable) Callable { return NewNative(a.Eval()) }
-func (a Arity) Int() int                  { return int(a) }
-func (a Arity) Flag() d.BitFlag           { return d.BitFlag(a) }
-func (a Arity) TypeNat() d.TyNat          { return d.Flag }
-func (a Arity) TypeFnc() TyFnc            { return HigherOrder }
-func (a Arity) Match(arg Arity) bool      { return a == arg }
-func (a Arity) TypeName() string          { return a.String() }
+func (a Arity) Eval(args ...d.Native) d.Native { return d.Int8Val(a) }
+func (a Arity) Call(...Callable) Callable      { return NewNative(a.Eval()) }
+func (a Arity) Int() int                       { return int(a) }
+func (a Arity) Flag() d.BitFlag                { return d.BitFlag(a) }
+func (a Arity) TypeNat() d.TyNat               { return d.Flag }
+func (a Arity) TypeFnc() TyFnc                 { return HigherOrder }
+func (a Arity) Match(arg Arity) bool           { return a == arg }
+func (a Arity) TypeName() string               { return a.String() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //go:generate stringer -type=TyFnc
@@ -122,7 +122,7 @@ func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
 func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
 func (t TyFnc) Match(arg d.Typed) bool         { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Callable) Callable { return t.TypeFnc() }
-func (t TyFnc) Eval() d.Native                 { return t.TypeNat() }
+func (t TyFnc) Eval(args ...d.Native) d.Native { return t.TypeNat() }
 func (t TyFnc) TypeName() string {
 	var delim = " "
 	var count = t.Flag().Count()
@@ -171,7 +171,7 @@ func (p Propertys) TypeNat() d.TyNat               { return d.Flag }
 func (p Propertys) TypeFnc() TyFnc                 { return HigherOrder }
 func (p Propertys) TypeName() string               { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool        { return p.Flag().Match(flag) }
-func (p Propertys) Eval() d.Native                 { return d.Int8Val(p) }
+func (p Propertys) Eval(args ...d.Native) d.Native { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Callable) Callable { return p }
 func (p Propertys) MatchProperty(arg Propertys) bool {
 	if p&arg != 0 {

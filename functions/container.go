@@ -41,7 +41,7 @@ func NewNone() NoneVal { return func() {} }
 func (n NoneVal) Ident() Callable                  { return n }
 func (n NoneVal) Len() int                         { return 0 }
 func (n NoneVal) String() string                   { return "⊥" }
-func (n NoneVal) Eval() d.Native                   { return nil }
+func (n NoneVal) Eval(args ...d.Native) d.Native   { return nil }
 func (n NoneVal) Call(...Callable) Callable        { return nil }
 func (n NoneVal) Key() Callable                    { return nil }
 func (n NoneVal) Index() Callable                  { return nil }
@@ -66,14 +66,14 @@ func NewTruth(truth ...bool) TruthVal {
 		return False
 	}
 }
-func (t TruthVal) Call(...Callable) Callable { return t }
-func (t TruthVal) TypeFnc() TyFnc            { return t() }
-func (t TruthVal) TypeNat() d.TyNat          { return d.Function }
-func (t TruthVal) TypeName() string          { return t().TypeName() }
-func (t TruthVal) String() string            { return t().TypeName() }
-func (t TruthVal) Trinary() TrinaTruth       { return NewTrinaryTruth(t.Int()) }
-func (t TruthVal) Eval() d.Native            { return d.BoolVal(t.Bool()) }
-func (t TruthVal) True() d.Native            { return t.Eval() }
+func (t TruthVal) Call(...Callable) Callable      { return t }
+func (t TruthVal) TypeFnc() TyFnc                 { return t() }
+func (t TruthVal) TypeNat() d.TyNat               { return d.Function }
+func (t TruthVal) TypeName() string               { return t().TypeName() }
+func (t TruthVal) String() string                 { return t().TypeName() }
+func (t TruthVal) Trinary() TrinaTruth            { return NewTrinaryTruth(t.Int()) }
+func (t TruthVal) Eval(args ...d.Native) d.Native { return d.BoolVal(t.Bool()) }
+func (t TruthVal) True() d.Native                 { return t.Eval() }
 func (t TruthVal) Int() int {
 	if t().Match(True) {
 		return 1
@@ -105,7 +105,7 @@ func (t TrinaTruth) TypeNat() d.TyNat          { return d.Function }
 func (t TrinaTruth) TypeName() string          { return t().TypeName() }
 func (t TrinaTruth) String() string            { return t().TypeName() }
 func (t TrinaTruth) Truth() TruthVal           { return NewTruth(t.Bool()) }
-func (t TrinaTruth) Eval() d.Native {
+func (t TrinaTruth) Eval(args ...d.Native) d.Native {
 	if t().Match(Truth) {
 		return d.IntVal(1)
 	}
@@ -187,27 +187,30 @@ func NewNative(args ...d.Native) Callable {
 	return Native(func() d.Native { return d.NewNil() })
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//// NATIVE TYPES
+///
 // call method ignores arguments, natives are immutable
-func (n Native) Call(...Callable) Callable { return n }
-func (n Native) Eval() d.Native            { return n() }
-func (n Native) String() string            { return n().String() }
-func (n Native) TypeName() string          { return n().TypeName() }
-func (n Native) TypeNat() d.TyNat          { return n().TypeNat() }
-func (n Native) TypeFnc() TyFnc            { return Data }
+func (n Native) Call(...Callable) Callable      { return n }
+func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n Native) TypeFnc() TyFnc                 { return Data }
+func (n Native) String() string                 { return n().String() }
+func (n Native) TypeName() string               { return n().TypeName() }
 
-func (n NativeCol) Call(...Callable) Callable { return n }
-func (n NativeCol) Eval() d.Native            { return n() }
-func (n NativeCol) Len() int                  { return n().Len() }
-func (n NativeCol) SliceNat() []d.Native      { return n().Slice() }
-func (n NativeCol) Get(key d.Native) d.Native { return n().Get(key) }
-func (n NativeCol) GetInt(idx int) d.Native   { return n().GetInt(idx) }
-func (n NativeCol) Range(s, e int) d.Native   { return n().Range(s, e) }
-func (n NativeCol) Copy() d.Native            { return n().Copy() }
-func (n NativeCol) TypeNat() d.TyNat          { return n().TypeNat() }
-func (n NativeCol) String() string            { return n().String() }
-func (n NativeCol) TypeName() string          { return n().TypeName() }
-func (n NativeCol) TypeFnc() TyFnc            { return Data }
-func (n NativeCol) Vector() VecCol            { return NewVector(n.Slice()...) }
+func (n NativeCol) Call(...Callable) Callable      { return n }
+func (n NativeCol) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n NativeCol) Len() int                       { return n().Len() }
+func (n NativeCol) SliceNat() []d.Native           { return n().Slice() }
+func (n NativeCol) Get(key d.Native) d.Native      { return n().Get(key) }
+func (n NativeCol) GetInt(idx int) d.Native        { return n().GetInt(idx) }
+func (n NativeCol) Range(s, e int) d.Native        { return n().Range(s, e) }
+func (n NativeCol) Copy() d.Native                 { return n().Copy() }
+func (n NativeCol) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativeCol) TypeName() string               { return n().TypeName() }
+func (n NativeCol) String() string                 { return n().String() }
+func (n NativeCol) TypeFnc() TyFnc                 { return Data }
+func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
 func (n NativeCol) Slice() []Callable {
 	var slice = []Callable{}
 	for _, val := range n.SliceNat() {
@@ -216,19 +219,19 @@ func (n NativeCol) Slice() []Callable {
 	return slice
 }
 
-func (n NativePair) Call(...Callable) Callable { return n }
-func (n NativePair) Eval() d.Native            { return n() }
-func (n NativePair) LeftNat() d.Native         { return n().Left() }
-func (n NativePair) RightNat() d.Native        { return n().Right() }
-func (n NativePair) BothNat() (l, r d.Native)  { return n().Both() }
-func (n NativePair) Left() Callable            { return NewNative(n().Left()) }
-func (n NativePair) Right() Callable           { return NewNative(n().Right()) }
-func (n NativePair) LeftTypeNat() d.TyNat      { return n().LeftType() }
-func (n NativePair) RightTypeNat() d.TyNat     { return n().RightType() }
-func (n NativePair) TypeNat() d.TyNat          { return n().TypeNat() }
-func (n NativePair) String() string            { return n().String() }
-func (n NativePair) TypeName() string          { return n().TypeName() }
-func (n NativePair) TypeFnc() TyFnc            { return Data }
+func (n NativePair) Call(...Callable) Callable      { return n }
+func (n NativePair) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n NativePair) LeftNat() d.Native              { return n().Left() }
+func (n NativePair) RightNat() d.Native             { return n().Right() }
+func (n NativePair) BothNat() (l, r d.Native)       { return n().Both() }
+func (n NativePair) Left() Callable                 { return NewNative(n().Left()) }
+func (n NativePair) Right() Callable                { return NewNative(n().Right()) }
+func (n NativePair) LeftTypeNat() d.TyNat           { return n().LeftType() }
+func (n NativePair) RightTypeNat() d.TyNat          { return n().RightType() }
+func (n NativePair) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativePair) TypeName() string               { return n().TypeName() }
+func (n NativePair) String() string                 { return n().String() }
+func (n NativePair) TypeFnc() TyFnc                 { return Data }
 func (n NativePair) Pair() Paired {
 	return NewPair(
 		NewNative(n().Left()),
@@ -239,9 +242,14 @@ func (n NativePair) Both() (l, r Callable) {
 		NewNative(n().Right())
 }
 
-func (n NativeSet) Call(...Callable) Callable            { return n }
+func (n NativeSet) Call(args ...Callable) Callable {
+	for _, arg := range args {
+		n().Eval(arg.Eval())
+	}
+	return n
+}
 func (n NativeSet) TypeFnc() TyFnc                       { return Data }
-func (n NativeSet) Eval() d.Native                       { return n() }
+func (n NativeSet) Eval(args ...d.Native) d.Native       { return n().Eval(args...) }
 func (n NativeSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
 func (n NativeSet) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
 func (n NativeSet) Delete(acc d.Native) bool             { return n().Delete(acc) }
@@ -251,8 +259,8 @@ func (n NativeSet) Fields() []d.Paired                   { return n().Fields() }
 func (n NativeSet) KeyTypeNat() d.TyNat                  { return n().KeyType() }
 func (n NativeSet) ValTypeNat() d.TyNat                  { return n().ValType() }
 func (n NativeSet) TypeNat() d.TyNat                     { return n().TypeNat() }
-func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) TypeName() string                     { return n().TypeName() }
+func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Set() SetCol                          { return NewSet(n.Pairs()...) }
 func (n NativeSet) Pairs() []Paired {
 	var pairs = []Paired{}
@@ -277,47 +285,53 @@ func NewConstant(constant func() Callable) ConstEq { return constant }
 
 func (c ConstEq) Ident() Callable                { return c() }
 func (c ConstEq) Arity() Arity                   { return Arity(0) }
-func (c ConstEq) TypeFnc() TyFnc                 { return Function }
-func (c ConstEq) TypeNat() d.TyNat               { return d.Function }
+func (c ConstEq) TypeFnc() TyFnc                 { return c().TypeFnc() }
+func (c ConstEq) TypeNat() d.TyNat               { return c().TypeNat() }
 func (c ConstEq) String() string                 { return c().String() }
 func (c ConstEq) TypeName() string               { return c().TypeName() }
-func (c ConstEq) Eval() d.Native                 { return d.NewNil() }
+func (c ConstEq) Eval(args ...d.Native) d.Native { return c().Eval(args...) }
 func (c ConstEq) Call(args ...Callable) Callable { return c() }
 
 /// UNARY EXPRESSION
 //
 func NewUnary(unary func(arg Callable) Callable) UnaryEq { return unary }
 
-func (u UnaryEq) Ident() Callable  { return u }
-func (u UnaryEq) Arity() Arity     { return Arity(1) }
-func (u UnaryEq) TypeFnc() TyFnc   { return Function }
-func (u UnaryEq) TypeNat() d.TyNat { return d.Function }
-func (u UnaryEq) String() string   { return "T → ϝ → T" }
-func (u UnaryEq) TypeName() string { return "Unary Function" }
-func (u UnaryEq) Eval() d.Native   { return d.NewNil() }
+func (u UnaryEq) Ident() Callable                { return u }
+func (u UnaryEq) Arity() Arity                   { return Arity(1) }
+func (u UnaryEq) TypeFnc() TyFnc                 { return Function }
+func (u UnaryEq) TypeNat() d.TyNat               { return d.Function }
+func (u UnaryEq) String() string                 { return "T → T" }
+func (u UnaryEq) TypeName() string               { return u.String() }
+func (u UnaryEq) Eval(args ...d.Native) d.Native { return d.NewNil() }
 func (u UnaryEq) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return u(args[0])
 	}
-	return NewNone()
+	return u
 }
 
 /// BINARY EXPRESSION
 //
 func NewBinary(binary func(l, r Callable) Callable) BinaryEq { return binary }
 
-func (b BinaryEq) Ident() Callable  { return b }
-func (b BinaryEq) Arity() Arity     { return Arity(2) }
-func (b BinaryEq) TypeFnc() TyFnc   { return Function }
-func (b BinaryEq) TypeNat() d.TyNat { return d.Function }
-func (b BinaryEq) String() string   { return "(T,T) → ϝ → T" }
-func (b BinaryEq) TypeName() string { return "Binary Function" }
-func (b BinaryEq) Eval() d.Native   { return d.NewNil() }
+func (b BinaryEq) Ident() Callable                { return b }
+func (b BinaryEq) Arity() Arity                   { return Arity(2) }
+func (b BinaryEq) TypeFnc() TyFnc                 { return Function }
+func (b BinaryEq) TypeNat() d.TyNat               { return d.Function }
+func (b BinaryEq) String() string                 { return "T → T → T" }
+func (b BinaryEq) TypeName() string               { return b.String() }
+func (b BinaryEq) Eval(args ...d.Native) d.Native { return d.NewNil() }
 func (b BinaryEq) Call(args ...Callable) Callable {
-	if len(args) > 1 {
-		return b(args[0], args[1])
+	if len(args) > 0 {
+		if len(args) > 1 {
+			return b(args[0], args[1])
+		}
+		// return partialy applyed unary
+		return NewUnary(func(arg Callable) Callable {
+			return b(arg, args[0])
+		})
 	}
-	return NewNone()
+	return b
 }
 
 /// VARIADIC EXPRESSION
@@ -327,13 +341,13 @@ func NewVariadic(expr Callable) VariadicEq {
 		return expr.Call(args...)
 	}
 }
-func (n VariadicEq) Ident() Callable             { return n }
-func (n VariadicEq) Call(d ...Callable) Callable { return n(d...) }
-func (n VariadicEq) Eval() d.Native              { return d.NewNil() }
-func (n VariadicEq) TypeFnc() TyFnc              { return Function }
-func (n VariadicEq) TypeNat() d.TyNat            { return d.Function }
-func (n VariadicEq) String() string              { return "[т‥.] → ϝ → T" }
-func (n VariadicEq) TypeName() string            { return "Variadic Function" }
+func (n VariadicEq) Ident() Callable                { return n }
+func (n VariadicEq) Call(d ...Callable) Callable    { return n(d...) }
+func (n VariadicEq) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n VariadicEq) TypeFnc() TyFnc                 { return Function }
+func (n VariadicEq) TypeNat() d.TyNat               { return d.Function }
+func (n VariadicEq) String() string                 { return n().String() }
+func (n VariadicEq) TypeName() string               { return n().TypeName() }
 
 /// NARY EXPRESSION
 //
@@ -410,7 +424,7 @@ func NewNary(
 		}
 		// no arguments passed by call, return arity and nested type
 		// instead
-		return Arity(arity)
+		return NewPair(NewNary(expr, arity-len(args)), Arity(arity))
 	}
 }
 
@@ -420,12 +434,23 @@ func (n NaryEq) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return n(args...)
 	}
-	return n()
+	return n().(Paired).Left()
 }
-func (n NaryEq) String() string   { return n().String() }
-func (n NaryEq) Arity() Arity     { return n().(Arity) }
-func (n NaryEq) TypeName() string { return n.Arity().String() }
-func (n NaryEq) TypeFnc() TyFnc   { return Function }
-func (n NaryEq) TypeNat() d.TyNat { return d.Function }
-func (n NaryEq) Eval() d.Native   { return d.StrVal(n.TypeName()) }
-func (n NaryEq) Ident() Callable  { return n }
+func (n NaryEq) Ident() Callable                { return n }
+func (n NaryEq) Eval(args ...d.Native) d.Native { return n.Partial().Eval(args...) }
+func (n NaryEq) Arity() Arity                   { return n().(Paired).Right().(Arity) }
+func (n NaryEq) Partial() NaryEq                { return n().(Paired).Left().(NaryEq) }
+func (n NaryEq) TypeFnc() TyFnc                 { return Function }
+func (n NaryEq) TypeNat() d.TyNat               { return d.Function }
+func (n NaryEq) String() string                 { return n.Partial().TypeName() }
+func (n NaryEq) TypeName() string {
+	var num = int(n().(Paired).Right().(Arity))
+	var str string
+	for i := 0; i < num; i++ {
+		str = str + "T"
+		if i < num-1 {
+			str = str + " → "
+		}
+	}
+	return str + " → T"
+}

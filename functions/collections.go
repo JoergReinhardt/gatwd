@@ -72,8 +72,20 @@ func (l ListCol) Call(args ...Callable) Callable {
 	return l.Head()
 }
 
+// get n'st element in list
+func (l ListCol) Get(n int) Callable {
+	var head, list = l()
+	for i := 0; i < n; i++ {
+		head, list = list()
+		if head == nil {
+			return NewNone()
+		}
+	}
+	return head
+}
+
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l ListCol) Eval() d.Native {
+func (l ListCol) Eval(args ...d.Native) d.Native {
 	if head := l.Head(); head != nil {
 		return head.Eval()
 	}
@@ -111,7 +123,12 @@ func (l ListCol) Consume() (Callable, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                   { return List }
 func (l ListCol) SubType() TyFnc                   { return l.Head().TypeFnc() }
 func (l ListCol) TypeNat() d.TyNat                 { return l.Head().TypeNat() }
-func (l ListCol) TypeName() string                 { return "[" + l.Head().TypeName() + "]" }
+func (l ListCol) TypeName() string {
+	if l.Len() > 0 {
+		return "[" + l.Head().TypeName() + "]"
+	}
+	return "[]"
+}
 
 //// PAIRS OF VALUES
 ///
@@ -261,7 +278,7 @@ func (p PairVal) Call(args ...Callable) Callable {
 }
 
 // eval evaluates the value, arguments are forwarded when evaluating right element
-func (p PairVal) Eval() d.Native {
+func (p PairVal) Eval(args ...d.Native) d.Native {
 	return d.NewPair(p.Left().Eval(), p.Right().Eval())
 }
 
@@ -285,7 +302,7 @@ func (a KeyPair) Pair() Paired                   { return NewPair(a.Both()) }
 func (a KeyPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
 func (a KeyPair) Key() Callable                  { return a.Right() }
 func (a KeyPair) Call(args ...Callable) Callable { return a.Value().Call(args...) }
-func (a KeyPair) Eval() d.Native                 { return a.Value().Eval() }
+func (a KeyPair) Eval(args ...d.Native) d.Native { return a.Value().Eval() }
 func (a KeyPair) KeyNatType() d.TyNat            { return d.String }
 func (a KeyPair) KeyFncType() TyFnc              { return Data }
 func (a KeyPair) KeyType() TyFnc                 { return Data }
@@ -358,7 +375,7 @@ func (a IndexPair) Pair() Paired                   { return a }
 func (a IndexPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
 func (a IndexPair) Key() Callable                  { return a.Right() }
 func (a IndexPair) Call(args ...Callable) Callable { return a.Value().Call(args...) }
-func (a IndexPair) Eval() d.Native                 { return a.Value().Eval() }
+func (a IndexPair) Eval(args ...d.Native) d.Native { return a.Value().Eval() }
 func (a IndexPair) ValType() TyFnc                 { return a.Value().TypeFnc() }
 func (a IndexPair) ValNatType() d.TyNat            { return a.Value().TypeNat() }
 func (a IndexPair) ValFncType() TyFnc              { return a.Value().TypeFnc() }
@@ -369,7 +386,7 @@ func (a IndexPair) TypeFnc() TyFnc                 { return Pair }
 func (a IndexPair) SubType() TyFnc                 { return Index }
 func (a IndexPair) TypeNat() d.TyNat               { return d.Pair | d.Int | a.ValNatType() }
 func (p IndexPair) TypeName() string {
-	return "(" + string(p.Index()) + ", " + p.Value().TypeName() + ")"
+	return "(" + p.Left().TypeName() + ", " + p.Value().TypeName() + ")"
 }
 
 // implement consumeable
@@ -469,7 +486,7 @@ func (l PairList) Call(args ...Callable) Callable {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l PairList) Eval() d.Native {
+func (l PairList) Eval(args ...d.Native) d.Native {
 	if head := l.Head(); head != nil {
 		return head.Eval()
 	}
@@ -584,7 +601,7 @@ func (v VecCol) Call(d ...Callable) Callable {
 	return NewVector(v(d...)...)
 }
 
-func (v VecCol) Eval() d.Native {
+func (v VecCol) Eval(args ...d.Native) d.Native {
 
 	var results = []d.Native{}
 
@@ -891,7 +908,7 @@ func (v PairVec) Call(args ...Callable) Callable {
 	return v.Cons(args...)
 }
 
-func (v PairVec) Eval() d.Native {
+func (v PairVec) Eval(args ...d.Native) d.Native {
 	var slice = d.DataSlice{}
 	for _, pair := range v() {
 		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
@@ -1041,7 +1058,7 @@ func (v SetCol) Call(args ...Callable) Callable {
 
 // eval method performs a value lookup and returns contained value as native
 // without any conversion
-func (v SetCol) Eval() d.Native {
+func (v SetCol) Eval(args ...d.Native) d.Native {
 	return d.NewNil()
 }
 

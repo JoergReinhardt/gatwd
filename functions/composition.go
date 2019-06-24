@@ -70,7 +70,7 @@ func (m ConsumeVal) Tail() Consumeable {
 func (m ConsumeVal) Call(args ...Callable) Callable {
 	return m.Head().Call(args...)
 }
-func (m ConsumeVal) Eval() d.Native {
+func (m ConsumeVal) Eval(args ...d.Native) d.Native {
 	return m.Head().Eval()
 }
 func (m ConsumeVal) String() string {
@@ -114,7 +114,7 @@ func (c ConsPairVal) Call(args ...Callable) Callable {
 	}
 	return head
 }
-func (c ConsPairVal) Eval() d.Native {
+func (c ConsPairVal) Eval(args ...d.Native) d.Native {
 	var head, _ = c()
 	return head.Eval()
 }

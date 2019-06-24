@@ -25,7 +25,15 @@ func sliceContainsTypes(c []Native) BitFlag {
 
 // returns type flag by OR concatenating the Slice type to the concatenated
 // type flags of it's members
-func (c DataSlice) TypeName() string        { return "[" + c.SubType().TypeName() + "]" }
+func (c DataSlice) Eval(args ...Native) Native {
+	return append(c, args...)
+}
+func (c DataSlice) TypeName() string {
+	if c.Len() > 0 {
+		return "[" + c.SubType().TypeName() + "]"
+	}
+	return "[]"
+}
 func (c DataSlice) TypeNat() TyNat          { return Slice.TypeNat() }
 func (c DataSlice) SubType() TyNat          { return TyNat(sliceContainsTypes(c.Slice())) }
 func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }

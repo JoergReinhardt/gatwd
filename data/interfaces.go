@@ -6,6 +6,7 @@ import (
 
 // the main interface, all native types need to implement.
 type Native interface {
+	Eval(...Native) Native
 	TypeNat() TyNat
 	String() string
 	TypeName() string

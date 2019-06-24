@@ -158,7 +158,6 @@ type Mapped interface {
 // functional behaviour.
 type Callable interface {
 	d.Native
-	Evaluable
 	TypeFnc() TyFnc
 	Call(...Callable) Callable
 }

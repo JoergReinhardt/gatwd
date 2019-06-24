@@ -31,6 +31,14 @@ func (t TyNat) TypeName() string {
 }
 func (v TyNat) Flag() BitFlag        { return BitFlag(v) }
 func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
+func (v TyNat) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if !v.Match(arg.TypeNat()) {
+			return BoolVal(false)
+		}
+	}
+	return BoolVal(true)
+}
 
 func ListAllTypes() []TyNat {
 	var tt = []TyNat{}
@@ -187,7 +195,7 @@ type ( // NATIVE GOLANG TYPES
 	FlagSet        []BitFlag
 )
 
-func newTypedNull(nat TyNat) Native {
+func NewTypedNull(nat TyNat) Native {
 	var val Native
 	switch nat {
 	case Nil:
@@ -388,5 +396,32 @@ func (v BytesVal) Ident() BytesVal   { return v }
 func (v StrVal) Ident() StrVal       { return v }
 func (v TimeVal) Ident() TimeVal     { return v }
 func (v DuraVal) Ident() DuraVal     { return v }
-func (v ErrorVal) Ident() ErrorVal   { return v }
 func (v PairVal) Ident() PairVal     { return v }
+func (v ErrorVal) Ident() ErrorVal   { return v }
+
+func (NilVal) Eval(...Native) Native      { return NilVal{} }
+func (v BitFlag) Eval(...Native) Native   { return v }
+func (v BoolVal) Eval(...Native) Native   { return v }
+func (v IntVal) Eval(...Native) Native    { return v }
+func (v Int8Val) Eval(...Native) Native   { return v }
+func (v Int16Val) Eval(...Native) Native  { return v }
+func (v Int32Val) Eval(...Native) Native  { return v }
+func (v UintVal) Eval(...Native) Native   { return v }
+func (v Uint8Val) Eval(...Native) Native  { return v }
+func (v Uint16Val) Eval(...Native) Native { return v }
+func (v Uint32Val) Eval(...Native) Native { return v }
+func (v BigIntVal) Eval(...Native) Native { return v }
+func (v FltVal) Eval(...Native) Native    { return v }
+func (v Flt32Val) Eval(...Native) Native  { return v }
+func (v BigFltVal) Eval(...Native) Native { return v }
+func (v ImagVal) Eval(...Native) Native   { return v }
+func (v Imag64Val) Eval(...Native) Native { return v }
+func (v RatioVal) Eval(...Native) Native  { return v }
+func (v RuneVal) Eval(...Native) Native   { return v }
+func (v ByteVal) Eval(...Native) Native   { return v }
+func (v BytesVal) Eval(...Native) Native  { return v }
+func (v StrVal) Eval(...Native) Native    { return v }
+func (v TimeVal) Eval(...Native) Native   { return v }
+func (v DuraVal) Eval(...Native) Native   { return v }
+func (v PairVal) Eval(...Native) Native   { return v }
+func (v ErrorVal) Eval(...Native) Native  { return v }

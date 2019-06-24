@@ -164,6 +164,202 @@ func newUnboxed(flag BitFlag, args ...Native) Sliceable {
 	}
 	return d
 }
+func (v NilVec) Eval(args ...Native) Native { return v }
+func (v ErrorVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if er, ok := arg.(ErrorVal); ok {
+			v = append(v, error(er.E))
+		}
+	}
+	return v
+}
+func (v BoolVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Bool) {
+			v = append(v, bool(arg.(BoolVal)))
+		}
+	}
+	return v
+}
+func (v IntVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Int) {
+			v = append(v, int(arg.(IntVal)))
+		}
+	}
+	return v
+}
+func (v Int8Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Int8) {
+			v = append(v, int8(arg.(Int8Val)))
+		}
+	}
+	return v
+}
+func (v Int16Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Int16) {
+			v = append(v, int16(arg.(Int16Val)))
+		}
+	}
+	return v
+}
+func (v Int32Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Int32) {
+			v = append(v, int32(arg.(Int32Val)))
+		}
+	}
+	return v
+}
+func (v UintVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Uint) {
+			v = append(v, uint(arg.(UintVal)))
+		}
+	}
+	return v
+}
+func (v Uint8Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Uint8) {
+			v = append(v, uint8(arg.(Uint8Val)))
+		}
+	}
+	return v
+}
+func (v Uint16Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Uint16) {
+			v = append(v, uint16(arg.(Uint16Val)))
+		}
+	}
+	return v
+}
+func (v Uint32Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Uint32) {
+			v = append(v, uint32(arg.(Uint32Val)))
+		}
+	}
+	return v
+}
+func (v FltVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Float) {
+			v = append(v, float64(arg.(FltVal)))
+		}
+	}
+	return v
+}
+func (v Flt32Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Flt32) {
+			v = append(v, float32(arg.(Flt32Val)))
+		}
+	}
+	return v
+}
+func (v ImagVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Imag) {
+			v = append(v, complex128(arg.(ImagVal)))
+		}
+	}
+	return v
+}
+func (v Imag64Vec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Imag64) {
+			v = append(v, complex64(arg.(Imag64Val)))
+		}
+	}
+	return v
+}
+func (v ByteVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Byte) {
+			v = append(v, byte(arg.(ByteVal)))
+		}
+	}
+	return v
+}
+func (v RuneVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Rune) {
+			v = append(v, rune(arg.(RuneVal)))
+		}
+	}
+	return v
+}
+func (v BytesVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Bytes) {
+			v = append(v, []byte(arg.(BytesVal)))
+		}
+	}
+	return v
+}
+func (v StrVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(String) {
+			v = append(v, string(arg.(StrVal)))
+		}
+	}
+	return v
+}
+func (v BigIntVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(BigInt) {
+			var i = big.Int(*arg.(*BigIntVal))
+			v = append(v, &i)
+		}
+	}
+	return v
+}
+func (v BigFltVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(BigFlt) {
+			var flt = big.Float(*arg.(*BigFltVal))
+			v = append(v, &flt)
+		}
+	}
+	return v
+}
+func (v RatioVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Ratio) {
+			var rat = big.Rat(*arg.(*RatioVal))
+			v = append(v, &rat)
+		}
+	}
+	return v
+}
+func (v TimeVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Time) {
+			v = append(v, time.Time(arg.(TimeVal)))
+		}
+	}
+	return v
+}
+func (v DuraVec) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Duration) {
+			v = append(v, time.Duration(arg.(DuraVal)))
+		}
+	}
+	return v
+}
+func (v FlagSet) Eval(args ...Native) Native {
+	for _, arg := range args {
+		if arg.TypeNat().Match(Flag) {
+			v = append(v, BitFlag(arg.(BitFlag)))
+		}
+	}
+	return v
+}
 
 func (v ByteVec) Bytes() []byte { return []byte(v) }
 
