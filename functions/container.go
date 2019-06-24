@@ -424,7 +424,9 @@ func NewNary(
 		}
 		// no arguments passed by call, return arity and nested type
 		// instead
-		return NewPair(NewNary(expr, arity-len(args)), Arity(arity))
+		// return NewPair(NewNary(expr, arity-len(args)), Arity(arity))
+		var remain = arity - len(args)
+		return NewVector(NewNary(expr, remain), Arity(remain), Arity(arity))
 	}
 }
 
@@ -434,17 +436,21 @@ func (n NaryEq) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return n(args...)
 	}
-	return n().(Paired).Left()
+	return n().(VecCol)()[0]
 }
 func (n NaryEq) Ident() Callable                { return n }
 func (n NaryEq) Eval(args ...d.Native) d.Native { return n.Partial().Eval(args...) }
-func (n NaryEq) Arity() Arity                   { return n().(Paired).Right().(Arity) }
-func (n NaryEq) Partial() NaryEq                { return n().(Paired).Left().(NaryEq) }
-func (n NaryEq) TypeFnc() TyFnc                 { return Function }
-func (n NaryEq) TypeNat() d.TyNat               { return d.Function }
-func (n NaryEq) String() string                 { return n.Partial().TypeName() }
+func (n NaryEq) Expression() Callable           { return n().(VecCol)()[0] }
+func (n NaryEq) Remain() Arity                  { return n().(VecCol)()[1].(Arity) }
+func (n NaryEq) Arity() Arity                   { return n().(VecCol)()[2].(Arity) }
+func (n NaryEq) Partial() NaryEq {
+	return NewNary(n.Expression().Call, int(n.Remain()))
+}
+func (n NaryEq) TypeFnc() TyFnc   { return Function }
+func (n NaryEq) TypeNat() d.TyNat { return d.Function }
+func (n NaryEq) String() string   { return n.Partial().TypeName() }
 func (n NaryEq) TypeName() string {
-	var num = int(n().(Paired).Right().(Arity))
+	var num = int(n.Remain())
 	var str string
 	for i := 0; i < num; i++ {
 		str = str + "T"
