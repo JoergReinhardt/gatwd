@@ -4,7 +4,13 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-type TyFlag uint8
+type (
+	TyFlag    uint8
+	TyFnc     d.BitFlag
+	Arity     d.Int8Val
+	Propertys d.Uint8Val
+	TyComp    func() (string, []d.Typed)
+)
 
 func (t TyFlag) Match(match TyFlag) bool {
 	if t&^match != 0 {
@@ -23,12 +29,6 @@ const (
 	Flag_Tuple
 	Flag_Record
 	Flag_Signature
-)
-
-type (
-	TyFnc     d.BitFlag
-	Arity     d.Int8Val
-	Propertys d.Uint8Val
 )
 
 //// CALL ARITY
@@ -67,6 +67,7 @@ const (
 	Data
 	Nullable
 	Function
+	Nested
 	/// COLLECTIONS
 	Enum
 	List
@@ -138,6 +139,108 @@ func (t TyFnc) TypeName() string {
 		return str
 	}
 	return t.String()
+}
+
+// commposed type constructor takes name, seperator, left & right delimiters as
+// string arguments that may all be left empty by passing '""', followed by an
+// arbitrary number of types implementing the native typed interface.
+func NewComposedType(name, ldel, sep, rdel string, types ...d.Typed) TyComp {
+	// type name is derived by passing name, delimiters, seperator and the
+	// slice of types to deriveName.
+	var str = deriveName(name, ldel, sep, rdel, types)
+	return func() (string, []d.Typed) {
+		return str, types
+	}
+}
+
+func (t TyComp) FlagType() uint8  { return 255 }
+func (t TyComp) TypeFnc() TyFnc   { return Nested }
+func (t TyComp) TypeNat() d.TyNat { return d.Function }
+func (t TyComp) Flag() d.BitFlag  { return t.TypeFnc().Flag() }
+func (t TyComp) TypeName() string { var name, _ = t(); return name }
+func (t TyComp) Types() []d.Typed { var _, types = t(); return types }
+func (t TyComp) String() string   { return t.TypeName() }
+
+// return composed type elements
+func (t TyComp) CompTypes() []TyComp {
+	var types = []TyComp{}
+	for _, typ := range t.Types() {
+		if typ.FlagType() == 255 {
+			types = append(types, typ.(TyComp))
+		}
+	}
+	return types
+}
+
+// return functional type elements
+func (t TyComp) FncTypes() []TyFnc {
+	var types = []TyFnc{}
+	for _, typ := range t.Types() {
+		if typ.FlagType() == 2 {
+			types = append(types, typ.(TyFnc))
+		}
+	}
+	return types
+}
+
+// return native type elements
+func (t TyComp) NatTypes() []d.TyNat {
+	var types = []d.TyNat{}
+	for _, typ := range t.Types() {
+		if typ.FlagType() == 1 {
+			types = append(types, typ.(d.TyNat))
+		}
+	}
+	return types
+}
+
+// evaluation yields a native bool value, by matching the native type flags of
+// all it's arguments against it's elements
+func (t TyComp) Eval(nats ...d.Native) d.Native {
+	var nat = d.BoolVal(true)
+	return nat
+}
+
+// call yields a functional bool value, by matching all type flags of all
+// arguments against its elements.
+func (t TyComp) Call(args ...Callable) Callable {
+	var val Callable
+	return val
+}
+
+// match takes an instance of the native typed interface, casts it according to
+// flag type and uses call & evaluation to yield a bool value, indicating if
+// the type matches.
+func (t TyComp) Match(typ d.Typed) bool {
+	return true
+}
+
+// name is derived by recursive concatenation of functional & composed type
+// names, seperated by blank, and by optional a seperator and delimited by
+// optional delimiters.
+func deriveName(name, ldel, sep, rdel string, types []d.Typed) string {
+
+	var num = len(types)
+
+	// range over all element types
+	for n, typ := range types {
+		// call types name method to get its type name
+		name = name + typ.TypeName()
+		// element separation
+		if n < num-1 {
+			// elements are seperated by optional seperator and
+			// followed by a mandatory blank.
+			name = name + sep + " "
+		}
+	}
+	// embed resulting name in left-/ and right delimiter
+	return ldel + name + rdel
+}
+
+// util to derive type arguments from callable instances
+func deriveTypes(args ...Callable) []d.Typed {
+	var types = []d.Typed{}
+	return types
 }
 
 //// CALL PROPERTYS
