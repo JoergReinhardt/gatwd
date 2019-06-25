@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 )
@@ -28,6 +29,9 @@ func NewErrorVal(errs ...error) ErrorVal {
 		return ErrorVal{errs[0]}
 	}
 	return ErrorVal{NewCompoundError(errs...)}
+}
+func NewErrorFromString(str string) ErrorVal {
+	return ErrorVal{fmt.Errorf(str)}
 }
 
 // returns a null value according to the native type passed in. if the flag
