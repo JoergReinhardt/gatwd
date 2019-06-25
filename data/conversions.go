@@ -88,22 +88,25 @@ func castNumberAs(num Numeral, typ TyNat) Native {
 
 // either parse number, or duration from string, or return length of string
 func (v StrVal) Number() Native {
-	if u, err := v.Bool(); err != nil {
-		return BoolVal(u)
+	if _, err := v.ReadBool(); err == nil {
+		return v.ReadBoolVal()
 	}
-	if u, err := v.Uint(); err != nil {
-		return UintVal(u)
+	if _, err := v.ReadUint(); err == nil {
+		return v.ReadUintVal()
 	}
-	if i, err := v.Int(); err != nil {
-		return IntVal(i)
+	if _, err := v.ReadInt(); err == nil {
+		return v.ReadIntVal()
 	}
-	if f, err := v.Float(); err != nil {
-		return FltVal(f)
+	if _, err := v.ReadFloat(); err == nil {
+		return v.ReadFloatVal()
 	}
-	if d, err := v.Duration(); err != nil {
-		return DuraVal(d)
+	return NewNil()
+}
+func (v StrVal) Duration() Native {
+	if _, err := v.ReadDuration(); err == nil {
+		return v.ReadDuraVal()
 	}
-	return IntVal(v.Len())
+	return NewNil()
 }
 
 // BOOL VALUE
@@ -121,19 +124,19 @@ func (v BoolVal) Int() int {
 	}
 	return -1
 }
-func (v BoolVal) Integer() IntVal {
+func (v BoolVal) IntVal() IntVal {
 	if v {
 		return IntVal(1)
 	}
 	return IntVal(-1)
 }
-func (v BoolVal) Float() float64   { return v.Integer().Float() }
-func (v BoolVal) Rat() *big.Rat    { return v.Integer().Rat() }
-func (v BoolVal) Imag() complex128 { return v.Integer().Imag() }
+func (v BoolVal) Float() float64   { return v.IntVal().Float() }
+func (v BoolVal) Imag() complex128 { return v.IntVal().Imag() }
+func (v BoolVal) Rat() *big.Rat    { return v.IntVal().Rat() }
 
 // NATURAL VALUE
 func (v UintVal) Unit() Native { return UintVal(1) }
-func (v UintVal) Truth() Native {
+func (v UintVal) BoolVal() Native {
 	if v > 0 {
 		return BoolVal(true)
 	}
@@ -141,11 +144,11 @@ func (v UintVal) Truth() Native {
 }
 func (v UintVal) Uint() uint       { return uint(v) }
 func (v UintVal) Int() int         { return int(v) }
-func (v UintVal) Integer() IntVal  { return IntVal(int(v)) }
-func (v UintVal) Bool() bool       { return bool(v.Truth().(BoolVal)) }
+func (v UintVal) IntVal() IntVal   { return IntVal(int(v)) }
+func (v UintVal) Bool() bool       { return bool(v.BoolVal().(BoolVal)) }
 func (v UintVal) Float() float64   { return float64(v) }
 func (v UintVal) Rat() *big.Rat    { return big.NewRat(int64(v), 1) }
-func (v UintVal) Imag() complex128 { return v.Integer().Imag() }
+func (v UintVal) Imag() complex128 { return v.IntVal().Imag() }
 
 // INTEGER VALUE
 func (v IntVal) Unit() Native { return IntVal(1) }
@@ -164,15 +167,15 @@ func (v IntVal) Truth() Native {
 	}
 	return NilVal{}
 }
-func (v IntVal) Natural() UintVal {
+func (v IntVal) UintVal() UintVal {
 	if v < 0 {
 		return UintVal(v * -1)
 	}
 	return UintVal(v)
 }
-func (v IntVal) Uint() uint       { return uint(v.Natural()) }
+func (v IntVal) Uint() uint       { return uint(v.UintVal()) }
 func (v IntVal) Int() int         { return int(v) } // implements Idx Attribut
-func (v IntVal) Integer() IntVal  { return v }      // implements Idx Attribut
+func (v IntVal) IntVal() IntVal   { return v }      // implements Idx Attribut
 func (v IntVal) Float() float64   { return float64(v.Int()) }
 func (v IntVal) Rat() *big.Rat    { return big.NewRat(1, int64(v)) } // implements Idx Attribut
 func (v IntVal) Imag() complex128 { return complex(v.Float(), 1.0) } // implements Idx Attribut
@@ -197,7 +200,7 @@ func (v FltVal) Truth() Native {
 }
 func (v FltVal) Uint() uint       { return uint(v) }
 func (v FltVal) Int() int         { return int(v) }
-func (v FltVal) Integer() IntVal  { return IntVal(int(v)) }
+func (v FltVal) IntVal() IntVal   { return IntVal(int(v)) }
 func (v FltVal) Float() float64   { return float64(v) }
 func (v FltVal) Rat() *big.Rat    { return big.NewRat(int64(1), int64(1)).SetFloat64(v.Float()) }
 func (v FltVal) Imag() complex128 { return complex(v, 1.0) }
@@ -221,7 +224,7 @@ func (v RatioVal) Truth() Native {
 }
 func (v RatioVal) Uint() uint       { return uint(v.Int()) }
 func (v RatioVal) Int() int         { var num, _ = v.Rat().Float64(); return int(num) }
-func (v RatioVal) Integer() IntVal  { return IntVal(v.Int()) }
+func (v RatioVal) IntVal() IntVal   { return IntVal(v.Int()) }
 func (v RatioVal) Float() float64   { var flt, _ = v.Rat().Float64(); return flt }
 func (v RatioVal) Rat() *big.Rat    { return (*big.Rat)(&v) }
 func (v RatioVal) Imag() complex128 { return complex(v.Float(), 1.0) }
@@ -244,7 +247,7 @@ func (v ImagVal) Bool() bool {
 func (v ImagVal) Unit() Native                  { return ImagVal(complex(0, 0)) }
 func (v ImagVal) Uint() uint                    { return uint(real(v)) }
 func (v ImagVal) Int() int                      { return int(real(v)) }
-func (v ImagVal) Integer() IntVal               { return IntVal(real(v)) }
+func (v ImagVal) IntVal() IntVal                { return IntVal(real(v)) }
 func (v ImagVal) Float() float64                { return float64(real(v)) }
 func (v ImagVal) Rat() *big.Rat                 { return big.NewRat(int64(real(v)), int64(imag(v))) }
 func (v ImagVal) Imag() complex128              { return complex128(v) }
@@ -258,9 +261,9 @@ func (v ImagVal) Right() Native                 { return FltVal(v.Imaginary()) }
 /// TIME VALUE
 func (v TimeVal) Time() time.Time  { return time.Time(v) }
 func (v TimeVal) Uint() uint       { return uint(time.Time(v).Unix()) }
-func (v TimeVal) Natural() UintVal { return UintVal(uint(time.Time(v).Unix())) }
+func (v TimeVal) UintVal() UintVal { return UintVal(uint(time.Time(v).Unix())) }
 func (v TimeVal) Int() int         { return int(time.Time(v).Unix()) }
-func (v TimeVal) Integer() IntVal  { return IntVal(time.Time(v).Unix()) }
+func (v TimeVal) IntVal() IntVal   { return IntVal(time.Time(v).Unix()) }
 func (v TimeVal) Bool() bool       { return IntVal(v.Int()).Bool() }
 func (v TimeVal) Rat() *big.Rat    { return IntVal(v.Int()).Rat() }
 func (v TimeVal) Float() float64   { return IntVal(v.Int()).Float() }
@@ -269,9 +272,9 @@ func (v TimeVal) Imag() complex128 { return IntVal(v.Int()).Imag() }
 /// DURATION VALUE
 func (v DuraVal) Duration() time.Duration { return time.Duration(v) }
 func (v DuraVal) Uint() uint              { return uint(v) }
-func (v DuraVal) Natural() UintVal        { return UintVal(v.Uint()) }
+func (v DuraVal) UintVal() UintVal        { return UintVal(v.Uint()) }
 func (v DuraVal) Int() int                { return int(v) }
-func (v DuraVal) Integer() IntVal         { return IntVal(v.Int()) }
+func (v DuraVal) IntVal() IntVal          { return IntVal(v.Int()) }
 func (v DuraVal) Bool() bool              { return IntVal(v.Int()).Bool() }
 func (v DuraVal) Rat() *big.Rat           { return IntVal(v.Int()).Rat() }
 func (v DuraVal) Float() float64          { return IntVal(v.Int()).Float() }
@@ -285,9 +288,9 @@ func (v ByteVal) Bool() bool {
 }
 func (v ByteVal) Unit() byte       { return byte(0) }
 func (v ByteVal) Uint() uint       { return uint(v) }
-func (v ByteVal) Natural() UintVal { return UintVal(uint(v)) }
+func (v ByteVal) UintVal() UintVal { return UintVal(uint(v)) }
 func (v ByteVal) Int() int         { return int(v) }
-func (v ByteVal) Integer() IntVal  { return IntVal(int(v)) }
+func (v ByteVal) IntVal() IntVal   { return IntVal(int(v)) }
 func (v ByteVal) Rat() *big.Rat    { return IntVal(int(v)).Rat() }
 func (v ByteVal) Float() float64   { return IntVal(int(v)).Float() }
 func (v ByteVal) Imag() complex128 { return IntVal(int(v)).Imag() }
@@ -348,61 +351,3 @@ func (v StrVal) UintVal() Native {
 	return UintVal(u)
 }
 func (v StrVal) Len() int { return int(len(string(v))) }
-
-// parse string to integer, float, duration, or time
-func (v StrVal) Int() (int, error) {
-	var s, err = strconv.Atoi(string(v))
-	if err != nil {
-		return 0, err
-	}
-	return int(s), nil
-}
-func (v StrVal) IntVal() Native {
-	var val, err = v.Int()
-	if err != nil {
-		return NilVal{}
-	}
-	return IntVal(val)
-}
-func (v StrVal) Float() (float64, error) {
-	var s, err = strconv.ParseFloat(string(v), 64)
-	if err != nil {
-		return 0.0, err
-	}
-	return float64(FltVal(s)), nil
-}
-func (v StrVal) FltVal() Native {
-	var flt, err = v.Float()
-	if err != nil {
-		return NilVal{}
-	}
-	return FltVal(flt)
-}
-func (v StrVal) Duration() (time.Duration, error) {
-	var d, err = time.ParseDuration(v.String())
-	if err != nil {
-		return time.Duration(0), err
-	}
-	return d, nil
-}
-func (v StrVal) DuraVal() Native {
-	var dura, err = v.Duration()
-	if err != nil {
-		return NilVal{}
-	}
-	return DuraVal(dura)
-}
-func (v StrVal) Time(layout string) (time.Time, error) {
-	t, err := time.Parse(layout, v.String())
-	if err != nil {
-		return time.Now(), err
-	}
-	return t, nil
-}
-func (v StrVal) TimeVal(layout string) Native {
-	var tim, err = v.Time(layout)
-	if err != nil {
-		return NilVal{}
-	}
-	return TimeVal(tim)
-}

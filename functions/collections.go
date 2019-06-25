@@ -20,14 +20,14 @@ type (
 //// RECURSIVE LIST OF VALUES
 ///
 // base implementation of recursively linked lists
-func ConsList(list ListCol, elems ...Callable) ListCol {
-	return list.Cons(elems...)
+func ConList(list ListCol, elems ...Callable) ListCol {
+	return list.Con(elems...)
 }
 
 func ConcatLists(a, b ListCol) ListCol {
 	return ListCol(func(args ...Callable) (Callable, ListCol) {
 		if len(args) > 0 {
-			b = b.Cons(args...)
+			b = b.Con(args...)
 		}
 		var head Callable
 		if head, a = a(); head != nil {
@@ -55,7 +55,7 @@ func NewList(elems ...Callable) ListCol {
 	}
 }
 
-func (l ListCol) Cons(elems ...Callable) ListCol {
+func (l ListCol) Con(elems ...Callable) ListCol {
 	return ListCol(func(args ...Callable) (Callable, ListCol) {
 		return l(append(elems, args...)...)
 	})
@@ -67,7 +67,7 @@ func (l ListCol) Push(elems ...Callable) ListCol {
 
 func (l ListCol) Call(args ...Callable) Callable {
 	if len(args) > 0 {
-		return l.Cons(args...)
+		return l.Con(args...)
 	}
 	return l.Head()
 }
@@ -166,7 +166,7 @@ func (p PairVal) Pair() Paired { return p }
 
 // pairs implement the consumeable interface‥. construct value pairs from any
 // consumeable assuming a slice where keys and values alternate
-func ConsPair(list Consumeable) (PairVal, Consumeable) {
+func ConPair(list Consumeable) (PairVal, Consumeable) {
 	var first, tail = list.Consume()
 	if first != nil {
 		var second Callable
@@ -341,7 +341,7 @@ func (a KeyPair) SetVal(key, val Callable) (Associative, bool) {
 	return NewKeyPair(a.KeyStr(), a.Value()), true
 }
 
-func ConsKeyPair(list Consumeable) (KeyPair, Consumeable) {
+func ConKeyPair(list Consumeable) (KeyPair, Consumeable) {
 	var first, tail = list.Consume()
 	if first != nil {
 		if keyval, ok := first.Eval().(d.StrVal); ok {
@@ -415,7 +415,7 @@ func (a IndexPair) GetVal(Callable) (Callable, bool) {
 func (a IndexPair) SetVal(index, val Callable) (Associative, bool) {
 	return NewIndexPair(a.Index(), a.Value()), true
 }
-func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
+func ConIndexPair(list Consumeable) (IndexPair, Consumeable) {
 	var first, tail = list.Consume()
 	if first != nil {
 		if idxval, ok := first.Eval().(d.IntVal); ok {
@@ -435,13 +435,13 @@ func ConsIndexPair(list Consumeable) (IndexPair, Consumeable) {
 }
 
 //// LIST OF PAIRS
-func ConsPairList(list PairList, pairs ...Paired) PairList {
-	return list.Cons(pairs...)
+func ConPairList(list PairList, pairs ...Paired) PairList {
+	return list.Con(pairs...)
 }
 func ConcatPairLists(a, b PairList) PairList {
 	return PairList(func(args ...Paired) (Paired, PairList) {
 		if len(args) > 0 {
-			b = b.Cons(args...)
+			b = b.Con(args...)
 		}
 		var pair Paired
 		if pair, a = a(); pair != nil {
@@ -467,7 +467,7 @@ func NewPairList(elems ...Paired) PairList {
 		return nil, NewPairList()
 	}
 }
-func (l PairList) Cons(elems ...Paired) PairList {
+func (l PairList) Con(elems ...Paired) PairList {
 	return PairList(func(args ...Paired) (Paired, PairList) {
 		return l(append(elems, args...)...)
 	})
@@ -573,7 +573,7 @@ func NewVector(init ...Callable) VecCol {
 	}
 }
 
-func ConsVector(vec Vectorized, args ...Callable) VecCol {
+func ConVector(vec Vectorized, args ...Callable) VecCol {
 	return NewVector(append(vec.Slice(), args...)...)
 }
 
@@ -591,8 +591,8 @@ func (v VecCol) Append(args ...Callable) VecCol {
 	return NewVector(append(v(), args...)...)
 }
 
-func (v VecCol) Cons(args ...Callable) VecCol {
-	return ConsVector(v, args...)
+func (v VecCol) Con(args ...Callable) VecCol {
+	return ConVector(v, args...)
 }
 
 func (v VecCol) Ident() Callable { return v }
@@ -716,7 +716,7 @@ func NewPairVectorFromPairs(pairs ...Paired) PairVec {
 	})
 }
 
-func ConsPairVecFromArgs(rec PairVec, args ...Callable) PairVec {
+func ConPairListFromArgs(rec PairVec, args ...Callable) PairVec {
 	var pairs = []Paired{}
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
@@ -730,11 +730,11 @@ func NewPairVec(args ...Paired) PairVec {
 	return NewPairVectorFromPairs(args...)
 }
 
-func ConsPairVecFromPairs(rec PairVec, pairs ...Paired) PairVec {
+func ConPairVec(rec PairVec, pairs ...Paired) PairVec {
 	return NewPairVectorFromPairs(append(rec(), pairs...)...)
 }
 
-func ConsPairVec(pvec PairVec, args ...Callable) PairVec {
+func ConPairVecFromArgs(pvec PairVec, args ...Callable) PairVec {
 	var pairs = pvec.Pairs()
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
@@ -743,13 +743,13 @@ func ConsPairVec(pvec PairVec, args ...Callable) PairVec {
 	}
 	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
-			return ConsPairVecFromPairs(pvec, args...)()
+			return ConPairVec(pvec, args...)()
 		}
 		return append(pvec(), pairs...)
 	})
 }
-func (v PairVec) Cons(args ...Callable) PairVec {
-	return ConsPairVec(v, args...)
+func (v PairVec) Con(args ...Callable) PairVec {
+	return ConPairVecFromArgs(v, args...)
 }
 func (v PairVec) Consume() (Callable, Consumeable) {
 	return v.Head(), v.Tail()
@@ -905,7 +905,7 @@ func (v PairVec) Tail() Consumeable {
 }
 
 func (v PairVec) Call(args ...Callable) Callable {
-	return v.Cons(args...)
+	return v.Con(args...)
 }
 
 func (v PairVec) Eval(args ...d.Native) d.Native {
@@ -927,7 +927,7 @@ func (v PairVec) TypeName() string {
 ///
 // unordered associative set of key/value pairs that can be sorted, accessed
 // and searched by the left (key) value of the pair
-func ConsSet(set SetCol, pairs ...Paired) SetCol {
+func ConSet(set SetCol, pairs ...Paired) SetCol {
 	var knat = set.KeyNatType()
 	var vnat = set.ValNatType()
 	var m = set()

@@ -1,7 +1,8 @@
 /*
   FUNCTIONAL CONTAINERS
 
-  containers implement enumeration of functional types, aka lists, vectors sets, pairs, tuples‥.
+  containers implement enumeration of functional types, aka lists, vectors
+  sets, pairs, tuples‥.
 */
 package functions
 
@@ -27,7 +28,7 @@ type (
 	ConstLambda  func() Callable
 	UnaryLambda  func(Callable) Callable
 	BinaryLambda func(l, r Callable) Callable
-	VariLambda   func(...Callable) Callable
+	VariadLambda func(...Callable) Callable
 	NaryLambda   func(...Callable) Callable
 )
 
@@ -340,18 +341,18 @@ func (b BinaryLambda) Call(args ...Callable) Callable {
 ///
 // variadic expression constructor creates expression to evaluate arbitrary
 // number of arguments
-func NewVariadic(expr Callable) VariLambda {
+func NewVariadic(expr Callable) VariadLambda {
 	return func(args ...Callable) Callable {
 		return expr.Call(args...)
 	}
 }
-func (n VariLambda) Ident() Callable                { return n }
-func (n VariLambda) Call(d ...Callable) Callable    { return n(d...) }
-func (n VariLambda) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
-func (n VariLambda) TypeFnc() TyFnc                 { return Function }
-func (n VariLambda) TypeNat() d.TyNat               { return d.Function }
-func (n VariLambda) String() string                 { return n().String() }
-func (n VariLambda) TypeName() string               { return n().TypeName() }
+func (n VariadLambda) Ident() Callable                { return n }
+func (n VariadLambda) Call(d ...Callable) Callable    { return n(d...) }
+func (n VariadLambda) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n VariadLambda) TypeFnc() TyFnc                 { return Function }
+func (n VariadLambda) TypeNat() d.TyNat               { return d.Function }
+func (n VariadLambda) String() string                 { return n().String() }
+func (n VariadLambda) TypeName() string               { return n().TypeName() }
 
 //// NARY EXPRESSION
 ///
@@ -390,7 +391,7 @@ func NewNary(
 				// that can take succeeding arguments to
 				// concatenate to arguments passed in  prior
 				// calls.
-				return NewNary(VariLambda(
+				return NewNary(VariadLambda(
 					func(succs ...Callable) Callable {
 						// return result of calling the
 						// nary, passing arguments

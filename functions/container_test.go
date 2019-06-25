@@ -20,27 +20,27 @@ var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var f = VariLambda(func(args ...Callable) Callable {
+var f = VariadLambda(func(args ...Callable) Callable {
 	var str = "f and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var g = VariLambda(func(args ...Callable) Callable {
+var g = VariadLambda(func(args ...Callable) Callable {
 	var str = "g and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var h = VariLambda(func(args ...Callable) Callable {
+var h = VariadLambda(func(args ...Callable) Callable {
 	var str = "h and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var i = VariLambda(func(args ...Callable) Callable {
+var i = VariadLambda(func(args ...Callable) Callable {
 	var str = "i and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
 })
-var j = VariLambda(func(args ...Callable) Callable {
+var j = VariadLambda(func(args ...Callable) Callable {
 	var str = "j and "
 	str = str + args[0].String()
 	return NewNative(d.StrVal(str))
@@ -59,7 +59,7 @@ func TestCurry(t *testing.T) {
 
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VariLambda(
+		VariadLambda(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
 			}), 3)
@@ -219,14 +219,14 @@ func TestMaybe(t *testing.T) {
 
 	var str = maybe(New("string"))
 	fmt.Printf("str: %s str type name: %s\n", str, str.TypeName())
-	if !(str.String() == "string") {
+	if str.String() != "string" {
 		t.Fail()
 	}
 
 	var none = maybe(New(1))
 	fmt.Printf("none: %s none type name: %s\n", none, none.TypeName())
 
-	if !(none.TypeFnc() == None) {
+	if none.TypeFnc() != None {
 		t.Fail()
 	}
 }
@@ -238,22 +238,22 @@ func TestEither(t *testing.T) {
 				return arg.TypeNat().Match(d.String)
 			}).Nargs()),
 		NewUnary(func(arg Callable) Callable { return arg }),
-		NewUnary(func(arg Callable) Callable { return NewNative(d.ErrorVal{fmt.Errorf(arg.String())}) }),
+		NewUnary(func(arg Callable) Callable {
+			return NewNative(d.ErrorVal{fmt.Errorf("error: " + arg.String())})
+		}),
 	)
 	fmt.Printf("either: %s either type name: %s\n", either, either.TypeName())
 
 	var str = either(New("string"))
 	fmt.Printf("str: %s str type name: %s fnc type: %s nat type: %s\n",
 		str, str.TypeName(), str.TypeFnc(), str.TypeNat().TypeName())
-
 	if str.String() != "string" {
 		t.Fail()
 	}
 
 	var err = either(New(1))
 	fmt.Printf("err: %s err type name: %s type nat: %s\n", err, err.TypeName(), err.TypeNat())
-
-	if err.Eval().(d.ErrorVal).E.Error() != "1" {
+	if err.Eval().(d.ErrorVal).E.Error() != "error: 1" {
 		t.Fail()
 	}
 }

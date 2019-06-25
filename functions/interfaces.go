@@ -318,7 +318,7 @@ type Vectorized interface {
 type Aggregating interface {
 	Callable
 	Result() Callable
-	Aggregator() VariLambda
+	Aggregator() VariadLambda
 	Aggregate(...Callable) Callable
 }
 

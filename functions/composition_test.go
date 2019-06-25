@@ -39,7 +39,7 @@ func TestConList(t *testing.T) {
 		fmt.Println("for loop: " + head.String())
 	}
 
-	alist = alist.Cons(listB()...)
+	alist = alist.Con(listB()...)
 
 	printCons(alist)
 }
