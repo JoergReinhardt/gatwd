@@ -73,7 +73,7 @@ func (l ListCol) Call(args ...Callable) Callable {
 }
 
 // get n'st element in list
-func (l ListCol) Get(n int) Callable {
+func (l ListCol) GetIdx(n int) Callable {
 	var head, list = l()
 	for i := 0; i < n; i++ {
 		head, list = list()

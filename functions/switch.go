@@ -349,7 +349,14 @@ func (j JustVal) TypeFnc() TyFnc                 { return Just | j().TypeFnc() }
 func (j JustVal) String() string                 { return j().String() }
 func (j JustVal) TypeName() string               { return "Just " + j().TypeName() }
 
-/// EITHER
+//// EITHER
+///
+// either takes a case expression passes its arguments & applys the result to
+// either the left, or right constructor to yield the final value. the value
+// wrapping might be handled by the case expression allready, in which case nil
+// can be passed to NewEither for left, right, or both constructor and the
+// return from the case switch will be passed directly the left, or right
+// value constructor directly.
 func NewEither(cas CaseExpr, left, right Callable) EitherVal {
 
 	return func(args ...Callable) Callable {
@@ -359,11 +366,49 @@ func NewEither(cas CaseExpr, left, right Callable) EitherVal {
 
 		if len(args) > 0 {
 			if val, ok = cas(args...); ok {
+				if left == nil {
+					return NewLeft(val)
+				}
 				return NewLeft(left.Call(val))
+			}
+			if right == nil {
+				return NewRight(val)
 			}
 			return NewRight(right.Call(args...))
 		}
 		// no arguments, wrap both types in a pair of pairs
+		if left == nil {
+
+			var exprs = cas.Expressions()
+
+			switch {
+			case len(exprs) > 1:
+				left = Curry(exprs...)
+			case len(exprs) == 1:
+				left = exprs[0]
+			default:
+				left = NewUnary(
+					func(arg Callable) Callable {
+						return arg
+					})
+			}
+		}
+		if right == nil {
+
+			var exprs = cas.Expressions()
+
+			switch {
+			case len(exprs) > 1:
+				right = Curry(exprs...)
+			case len(exprs) == 1:
+				right = exprs[0]
+			default:
+				right = NewUnary(
+					func(arg Callable) Callable {
+						return arg
+					})
+			}
+		}
 		return NewPair(left, right)
 	}
 }

@@ -237,7 +237,7 @@ func TestEither(t *testing.T) {
 			func(arg Callable) bool {
 				return arg.TypeNat().Match(d.String)
 			}).Nargs()),
-		NewUnary(func(arg Callable) Callable { return arg }),
+		nil,
 		NewUnary(func(arg Callable) Callable {
 			return NewNative(d.ErrorVal{fmt.Errorf("error: " + arg.String())})
 		}),
