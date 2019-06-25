@@ -206,7 +206,7 @@ func NewNative(args ...d.Native) Callable {
 ///
 // expression with flat native return type
 func (n Native) Call(...Callable) Callable      { return n }
-func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n Native) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n Native) String() string                 { return n().String() }
 func (n Native) TypeName() string               { return n().TypeName() }
 func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
@@ -215,7 +215,7 @@ func (n Native) TypeFnc() TyFnc                 { return Data }
 // expression which returns a native slice and implements consumeable
 func (n NativeCol) Call(...Callable) Callable      { return n }
 func (n NativeCol) TypeFnc() TyFnc                 { return Data }
-func (n NativeCol) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n NativeCol) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativeCol) Len() int                       { return n().Len() }
 func (n NativeCol) SliceNat() []d.Native           { return n().Slice() }
 func (n NativeCol) Get(key d.Native) d.Native      { return n().Get(key) }
@@ -237,7 +237,7 @@ func (n NativeCol) Slice() []Callable {
 // expression which returns a native pair and implements paired
 func (n NativePair) Call(...Callable) Callable      { return n }
 func (n NativePair) TypeFnc() TyFnc                 { return Data }
-func (n NativePair) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n NativePair) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativePair) LeftNat() d.Native              { return n().Left() }
 func (n NativePair) RightNat() d.Native             { return n().Right() }
 func (n NativePair) BothNat() (l, r d.Native)       { return n().Both() }
@@ -268,7 +268,7 @@ func (n NativeSet) Call(args ...Callable) Callable {
 // expression which returns a native set and implements mapped
 func (n NativeSet) Ident() Callable                      { return n }
 func (n NativeSet) TypeFnc() TyFnc                       { return Data }
-func (n NativeSet) Eval(args ...d.Native) d.Native       { return n().Eval(args...) }
+func (n NativeSet) Eval(args ...d.Native) d.Native       { return n(args...) }
 func (n NativeSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
 func (n NativeSet) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
 func (n NativeSet) Delete(acc d.Native) bool             { return n().Delete(acc) }
