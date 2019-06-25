@@ -5,8 +5,30 @@ import (
 	"time"
 )
 
+type CompoundError func() []error
+
+func NewCompoundError(errs ...error) CompoundError {
+	return func() []error { return errs }
+}
+func (e CompoundError) Error() string {
+	var str string
+	for n, e := range e() {
+		str = str + string(n) + ": " + e.Error() + "\n"
+	}
+	return str
+}
+
 // returns a nil value instance
 func NewNil() NilVal { return NilVal{} }
+func NewErrorVal(errs ...error) ErrorVal {
+	if len(errs) == 0 {
+		return ErrorVal{}
+	}
+	if len(errs) == 1 {
+		return ErrorVal{errs[0]}
+	}
+	return ErrorVal{NewCompoundError(errs...)}
+}
 
 // returns a null value according to the native type passed in. if the flag
 // turns out to be composed from multiple types, null value will be an instance

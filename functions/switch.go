@@ -376,7 +376,11 @@ func NewEither(cas CaseExpr, left, right Callable) EitherVal {
 			}
 			return NewRight(right.Call(args...))
 		}
-		// no arguments, wrap both types in a pair of pairs
+		// no arguments, wrap both types in a pair of pairs if
+		// expression to apply on result before either left, or right
+		// values are created is omitted, it needs to be set by the
+		// expression(s) provided in case, or replaced by a Unary that
+		// just returns it's argument
 		if left == nil {
 
 			var exprs = cas.Expressions()
