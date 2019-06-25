@@ -19,10 +19,10 @@ type (
 	TrinaTruth func() TyFnc
 
 	//// DATA VALUES
-	Native     func() d.Native
-	NativePair func() d.Paired
-	NativeSet  func() d.Mapped
-	NativeCol  func() d.Sliceable
+	Native     func(...d.Native) d.Native
+	NativePair func(...d.Native) d.Paired
+	NativeSet  func(...d.Native) d.Mapped
+	NativeCol  func(...d.Native) d.Sliceable
 
 	//// STATIC EXPRESSIONS
 	ConstLambda  func() Callable
@@ -156,33 +156,50 @@ func NewNative(args ...d.Native) Callable {
 	switch {
 	case tnat.Match(d.Slice):
 		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeCol(func() d.Sliceable {
+			return NativeCol(func(nats ...d.Native) d.Sliceable {
+				if len(nats) > 0 {
+					return slice.Eval(nats...).(d.Sliceable)
+				}
 				return slice
 			})
 		}
 	case tnat.Match(d.Unboxed):
 		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeCol(func() d.Sliceable {
+			return NativeCol(func(nats ...d.Native) d.Sliceable {
+				if len(nats) > 0 {
+					return slice.Eval(nats...).(d.Sliceable)
+				}
 				return slice
 			})
 		}
 	case tnat.Match(d.Pair):
 		if pair, ok := nat.(d.Paired); ok {
-			return NativePair(func() d.Paired {
+			return NativePair(func(nats ...d.Native) d.Paired {
+				if len(nats) > 0 {
+					return pair.Eval(nats...).(d.Paired)
+				}
 				return pair
 			})
 		}
 	case tnat.Match(d.Map):
 		if set, ok := nat.(d.Mapped); ok {
-			return NativeSet(func() d.Mapped {
+			return NativeSet(func(nats ...d.Native) d.Mapped {
+				if len(nats) > 0 {
+					return set.Eval(nats...).(d.Mapped)
+				}
 				return set
 			})
 		}
 	default:
-		return Native(func() d.Native { return nat })
+		return Native(func(nats ...d.Native) d.Native {
+			if len(nats) > 0 {
+				return nat.Eval(nats...)
+			}
+			return nat
+		})
 	}
 
-	return Native(func() d.Native { return d.NewNil() })
+	return Native(func(...d.Native) d.Native { return d.NewNil() })
 }
 
 //// NATIVE EXPRESSIONS
