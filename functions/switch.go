@@ -41,7 +41,7 @@ func (p PredictArg) Call(args ...Callable) Callable {
 }
 
 // return single argument predicate as multi argument predicate
-func (p PredictArg) ToPredictNarg() PredictNar {
+func (p PredictArg) Nargs() PredictNar {
 	return func(args ...Callable) bool {
 		if len(args) > 0 {
 			return p(args[0])
@@ -143,14 +143,18 @@ func NewCase(predicate PredictNar, exprs ...Callable) CaseExpr {
 					}
 					return exprs[0].Call(args...), true
 				}
-				if len(args) > 0 {
+				if len(args) > 1 {
 					return NewVector(args...), true
 				}
 				return args[0], true
 			}
-			return NewVector(args...), false
+			if len(args) > 1 {
+				return NewVector(args...), false
+			}
+			return args[0], false
 		}
-		// return predicate and case expressions
+		// return predicate and case expressions, when called without
+		// arguments
 		return NewPair(predicate, NewVector(exprs...)), false
 	}
 }
@@ -309,7 +313,7 @@ func (s CaseSwitch) TypeFnc() TyFnc                 { return Switch | Case }
 func (s CaseSwitch) TypeNat() d.TyNat               { return d.Function }
 
 /// MAYBE
-func NewMaybe(cas CaseExpr, equ Callable) MaybeVal {
+func NewMaybe(cas CaseExpr) MaybeVal {
 	return func(args ...Callable) Callable {
 		if len(args) > 0 {
 			if val, ok := cas(args...); ok {
@@ -317,8 +321,11 @@ func NewMaybe(cas CaseExpr, equ Callable) MaybeVal {
 			}
 			return NewNone()
 		}
-		// no args, wrap justs types in pair
-		return equ
+		var exprs = cas.Expressions()
+		if len(exprs) > 1 {
+			return NewVector(exprs...)
+		}
+		return exprs[0]
 	}
 }
 
@@ -344,14 +351,17 @@ func (j JustVal) TypeName() string               { return "Just " + j().TypeName
 
 /// EITHER
 func NewEither(cas CaseExpr, left, right Callable) EitherVal {
+
 	return func(args ...Callable) Callable {
+
 		var val Callable
 		var ok bool
+
 		if len(args) > 0 {
 			if val, ok = cas(args...); ok {
-				return NewLeft(val)
+				return NewLeft(left.Call(val))
 			}
-			return NewRight(val)
+			return NewRight(right.Call(args...))
 		}
 		// no arguments, wrap both types in a pair of pairs
 		return NewPair(left, right)
@@ -359,12 +369,12 @@ func NewEither(cas CaseExpr, left, right Callable) EitherVal {
 }
 func (e EitherVal) Call(args ...Callable) Callable { return e(args...) }
 func (e EitherVal) String() string                 { return e().String() }
-func (e EitherVal) Eval(args ...d.Native) d.Native { return e().TypeNat() }
-func (e EitherVal) TypeNat() d.TyNat               { return d.Function }
+func (e EitherVal) Eval(args ...d.Native) d.Native { return e().Eval(args...) }
+func (e EitherVal) TypeNat() d.TyNat               { return e().TypeNat() }
 func (e EitherVal) TypeFnc() TyFnc                 { return Either }
 func (e EitherVal) TypeName() string {
 	return "Either " + e().(Paired).Left().TypeName() +
-		"Or " + e().(Paired).Right().TypeName()
+		" Or " + e().(Paired).Right().TypeName()
 }
 func (e EitherVal) LeftTypeNat() d.TyNat {
 	return e().(PairVal).Left().TypeNat()
@@ -388,8 +398,8 @@ func NewLeft(expr Callable) LeftVal {
 func (j LeftVal) String() string                 { return j().String() }
 func (j LeftVal) TypeName() string               { return "Left " + j().TypeName() }
 func (j LeftVal) Call(args ...Callable) Callable { return j(args...) }
-func (j LeftVal) Eval(args ...d.Native) d.Native { return j().Eval() }
-func (j LeftVal) TypeNat() d.TyNat               { return d.Function }
+func (j LeftVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
+func (j LeftVal) TypeNat() d.TyNat               { return j().TypeNat() }
 func (j LeftVal) TypeFnc() TyFnc                 { return Left }
 
 /// RIGHT
@@ -401,6 +411,6 @@ func NewRight(expr Callable) RightVal {
 func (j RightVal) String() string                 { return j().String() }
 func (j RightVal) TypeName() string               { return "Right " + j().TypeName() }
 func (j RightVal) Call(args ...Callable) Callable { return j(args...) }
-func (j RightVal) Eval(args ...d.Native) d.Native { return j().Eval() }
-func (j RightVal) TypeNat() d.TyNat               { return d.Function }
+func (j RightVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
+func (j RightVal) TypeNat() d.TyNat               { return j().TypeNat() }
 func (j RightVal) TypeFnc() TyFnc                 { return Right }

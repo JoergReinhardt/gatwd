@@ -142,44 +142,45 @@ func (t TrinaTruth) Bool() bool {
 ///
 // returns an expression with native return type implementing the callable
 // interface
-func New(inf ...interface{}) Callable { return NewNative(d.New(inf...)) }
+func New(inf ...interface{}) Callable {
+	return NewNative(d.New(inf...))
+}
 
 func NewNative(args ...d.Native) Callable {
 	// if any initial arguments have been passed
-	if len(args) > 0 {
 
-		var nat = d.NewFromData(args...)
-		var tnat = nat.TypeNat()
+	var nat = d.NewFromData(args...)
+	var tnat = nat.TypeNat()
 
-		switch {
-		case d.Slice.Match(tnat):
-			if slice, ok := nat.(d.Sliceable); ok {
-				return NativeCol(func() d.Sliceable {
-					return slice
-				})
-			}
-		case d.Unboxed.Match(tnat):
-			if slice, ok := nat.(d.Sliceable); ok {
-				return NativeCol(func() d.Sliceable {
-					return slice
-				})
-			}
-		case d.Pair.Match(tnat):
-			if pair, ok := nat.(d.Paired); ok {
-				return NativePair(func() d.Paired {
-					return pair
-				})
-			}
-		case d.Map.Match(tnat):
-			if set, ok := nat.(d.Mapped); ok {
-				return NativeSet(func() d.Mapped {
-					return set
-				})
-			}
-		default:
-			return Native(func() d.Native { return nat })
+	switch {
+	case tnat.Match(d.Slice):
+		if slice, ok := nat.(d.Sliceable); ok {
+			return NativeCol(func() d.Sliceable {
+				return slice
+			})
 		}
+	case tnat.Match(d.Unboxed):
+		if slice, ok := nat.(d.Sliceable); ok {
+			return NativeCol(func() d.Sliceable {
+				return slice
+			})
+		}
+	case tnat.Match(d.Pair):
+		if pair, ok := nat.(d.Paired); ok {
+			return NativePair(func() d.Paired {
+				return pair
+			})
+		}
+	case tnat.Match(d.Map):
+		if set, ok := nat.(d.Mapped); ok {
+			return NativeSet(func() d.Mapped {
+				return set
+			})
+		}
+	default:
+		return Native(func() d.Native { return nat })
 	}
+
 	return Native(func() d.Native { return d.NewNil() })
 }
 
@@ -188,10 +189,10 @@ func NewNative(args ...d.Native) Callable {
 // expression with flat native return type
 func (n Native) Call(...Callable) Callable      { return n }
 func (n Native) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
-func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
-func (n Native) TypeFnc() TyFnc                 { return Data }
 func (n Native) String() string                 { return n().String() }
 func (n Native) TypeName() string               { return n().TypeName() }
+func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n Native) TypeFnc() TyFnc                 { return Data }
 
 // expression which returns a native slice and implements consumeable
 func (n NativeCol) Call(...Callable) Callable      { return n }
