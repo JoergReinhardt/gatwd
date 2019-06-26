@@ -72,7 +72,7 @@ func NewNull(nat TyNat) Native {
 					return NewStringSet()
 				case nat.Match(Uint):
 					return NewUintSet()
-				case nat.Match(Flag):
+				case nat.Match(Type):
 					return NewBitFlagSet()
 				default:
 					// if remaining type doesn't match any

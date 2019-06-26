@@ -380,7 +380,7 @@ func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Flag.TypeNat().Flag()):
+	case FlagMatch(f, Type.TypeNat().Flag()):
 		fn = func(i, j int) bool {
 			if chain[i].(TyNat).TypeNat() <
 				chain[j].(TyNat).TypeNat() {
@@ -426,7 +426,7 @@ func newSliceSearchFnc(c DataSlice, comp Native) func(i int) bool {
 			return strings.Compare(c[i].String(),
 				comp.String()) >= 0
 		}
-	case FlagMatch(f, Flag.TypeNat().Flag()):
+	case FlagMatch(f, Type.TypeNat().Flag()):
 		fn = func(i int) bool {
 			return c[i].TypeNat() >=
 				comp.TypeNat()

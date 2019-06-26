@@ -4,13 +4,14 @@ package functions
 
 import "strconv"
 
-const _Arity_name = "NullaryUnaryBinaryTernaryQuaternaryQuinarySenarySeptenaryOctonaryNovenaryDenary"
+const _Arity_name = "NaryNullaryUnaryBinaryTernaryQuaternaryQuinarySenarySeptenaryOctonaryNovenaryDenary"
 
-var _Arity_index = [...]uint8{0, 7, 12, 18, 25, 35, 42, 48, 57, 65, 73, 79}
+var _Arity_index = [...]uint8{0, 4, 11, 16, 22, 29, 39, 46, 52, 61, 69, 77, 83}
 
 func (i Arity) String() string {
+	i -= -1
 	if i < 0 || i >= Arity(len(_Arity_index)-1) {
-		return "Arity(" + strconv.FormatInt(int64(i), 10) + ")"
+		return "Arity(" + strconv.FormatInt(int64(i+-1), 10) + ")"
 	}
 	return _Arity_name[_Arity_index[i]:_Arity_index[i+1]]
 }

@@ -16,7 +16,7 @@ type Native interface {
 type Typed interface {
 	Native
 	Flag() BitFlag
-	FlagType() uint8
+	FlagType() Uint8Val
 	Match(Typed) bool
 }
 
@@ -123,6 +123,7 @@ type Sliceable interface {
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
+	SubType() TyNat
 }
 type Mutable interface {
 	Sliceable

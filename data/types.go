@@ -11,13 +11,13 @@ import (
 // intended to be accessable and extendable
 type TyNat BitFlag
 
-func (t TyNat) FlagType() uint8 { return 1 }
-func (v TyNat) TypeNat() TyNat  { return v }
+func (t TyNat) FlagType() Uint8Val { return 1 }
+func (v TyNat) TypeNat() TyNat     { return v }
 func (t TyNat) TypeName() string {
-	var delim = " "
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
 	if count > 1 {
+		var delim = "|"
 		var str string
 		for i, flag := range t.Flag().Decompose() {
 			str = str + TyNat(flag.Flag()).String()
@@ -25,7 +25,7 @@ func (t TyNat) TypeName() string {
 				str = str + delim
 			}
 		}
-		return str
+		return "[" + str + "]"
 	}
 	return t.String()
 }
@@ -44,7 +44,7 @@ func ListAllTypes() []TyNat {
 	var tt = []TyNat{}
 	var i uint
 	var t TyNat = 0
-	for t < Flag {
+	for t < Type {
 		t = 1 << i
 		i = i + 1
 		tt = append(tt, TyNat(t))
@@ -77,6 +77,7 @@ const (
 	Rune
 	Bytes
 	String
+	Flag
 	Error // let's do something sophisticated here...
 	////
 	Pair
@@ -84,10 +85,9 @@ const (
 	Unboxed
 	Map
 	////
-	Data
 	Literal
 	Function
-	Flag // marks most signifficant native type & data of type bitflag
+	Type // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
 	// precedence type classes define argument types functions that accept
@@ -96,7 +96,7 @@ const (
 		Uint16 | Uint32 | Uint | Flt32 | Float | BigFlt | Ratio | Imag64 |
 		Imag | Time | Duration | Byte | Rune | Bytes | String | Error
 
-	Bitwise    = Naturals | Byte | Flag
+	Bitwise    = Naturals | Byte | Type
 	Booleans   = Bool | Bitwise
 	Naturals   = Uint | Uint8 | Uint16 | Uint32
 	Integers   = Int | Int8 | Int16 | Int32 | BigInt
@@ -108,10 +108,12 @@ const (
 	Equals     = Numbers | Letters
 
 	Compositions = Pair | Unboxed | Slice | Map
-	Functional   = Data | Function | Literal | Flag
 
-	Sets = Natives | Bitwise | Booleans | Naturals | Integers |
-		Rationals | Reals | Imaginarys | Numbers | Letters | Equals
+	Parametric = Natives | Compositions
+
+	Functional = Literal | Function | Type
+
+	Sets = Natives | Compositions | Parametric | Functional
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
 	MASK_NATIVES       = MASK ^ Natives
@@ -285,7 +287,7 @@ func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
 /// bind the corresponding TypeNat Method to every type
 func (NilVal) TypeNat() TyNat      { return Nil.TypeNat() }
 func (v BitFlag) TypeNat() TyNat   { return Flag.TypeNat() }
-func (v FlagSlice) Flag() TyNat    { return Flag.TypeNat() }
+func (v FlagSlice) Flag() TyNat    { return Type.TypeNat() }
 func (v BoolVal) TypeNat() TyNat   { return Bool.TypeNat() }
 func (v IntVal) TypeNat() TyNat    { return Int.TypeNat() }
 func (v Int8Val) TypeNat() TyNat   { return Int8.TypeNat() }

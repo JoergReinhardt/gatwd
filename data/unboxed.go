@@ -354,7 +354,7 @@ func (v DuraVec) Eval(args ...Native) Native {
 }
 func (v FlagSet) Eval(args ...Native) Native {
 	for _, arg := range args {
-		if arg.TypeNat().Match(Flag) {
+		if arg.TypeNat().Match(Type) {
 			v = append(v, BitFlag(arg.(BitFlag)))
 		}
 	}
@@ -575,7 +575,7 @@ func (v RatioVec) TypeName() string  { return "[" + Ratio.TypeName() + "]" }
 func (v TimeVec) TypeName() string   { return "[" + Time.TypeName() + "]" }
 func (v DuraVec) TypeName() string   { return "[" + Duration.TypeName() + "]" }
 func (v ErrorVec) TypeName() string  { return "[" + Error.TypeName() + "]" }
-func (v FlagSet) TypeName() string   { return "[" + Flag.TypeName() + "]" }
+func (v FlagSet) TypeName() string   { return "[" + Type.TypeName() + "]" }
 
 func (v NilVec) SubType() TyNat    { return Nil.TypeNat() }
 func (v BoolVec) SubType() TyNat   { return Bool.TypeNat() }
@@ -601,7 +601,7 @@ func (v RatioVec) SubType() TyNat  { return Ratio.TypeNat() }
 func (v TimeVec) SubType() TyNat   { return Time.TypeNat() }
 func (v DuraVec) SubType() TyNat   { return Duration.TypeNat() }
 func (v ErrorVec) SubType() TyNat  { return Error.TypeNat() }
-func (v FlagSet) SubType() TyNat   { return Flag.TypeNat() }
+func (v FlagSet) SubType() TyNat   { return Type.TypeNat() }
 
 func (v NilVec) Null() Native    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Native   { return BoolVec([]bool{}) }

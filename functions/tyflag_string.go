@@ -4,13 +4,22 @@ package functions
 
 import "strconv"
 
-const _TyFlag_name = "Flag_BitFlag"
+const (
+	_TyFlag_name_0 = "Flag_BitFlagFlag_NativeFlag_FunctionalFlag_ArityFlag_Prop"
+	_TyFlag_name_1 = "Flag_Comp"
+)
 
-var _TyFlag_index = [...]uint8{0, 12}
+var (
+	_TyFlag_index_0 = [...]uint8{0, 12, 23, 38, 48, 57}
+)
 
 func (i TyFlag) String() string {
-	if i >= TyFlag(len(_TyFlag_index)-1) {
+	switch {
+	case 0 <= i && i <= 4:
+		return _TyFlag_name_0[_TyFlag_index_0[i]:_TyFlag_index_0[i+1]]
+	case i == 255:
+		return _TyFlag_name_1
+	default:
 		return "TyFlag(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _TyFlag_name[_TyFlag_index[i]:_TyFlag_index[i+1]]
 }

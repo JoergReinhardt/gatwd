@@ -123,7 +123,7 @@ func (l ListCol) Consume() (Callable, Consumeable) { return l() }
 func (l ListCol) FlagType() uint8                  { return 255 }
 func (l ListCol) TypeFnc() TyFnc                   { return List }
 func (l ListCol) TypeNat() d.TyNat                 { return d.Function }
-func (l ListCol) SubType() TyFnc {
+func (l ListCol) SubType() d.Typed {
 	if l.Len() > 0 {
 		return l.Head().TypeFnc()
 	}
@@ -338,7 +338,7 @@ func (a KeyPair) ValNatType() d.TyNat            { return a.Value().TypeNat() }
 func (a KeyPair) ValType() TyFnc                 { return a.Value().TypeFnc() }
 func (a KeyPair) TypeNat() d.TyNat               { return d.Function }
 func (a KeyPair) TypeFnc() TyFnc                 { return Pair }
-func (a KeyPair) SubType() TyFnc                 { return Key }
+func (a KeyPair) SubType() d.Typed               { return Key }
 func (a KeyPair) FlagType() uint8                { return 255 }
 func (p KeyPair) TypeName() string {
 	return "(String, " + p.Value().TypeName() + ")"
@@ -430,7 +430,7 @@ func (a IndexPair) ValNatType() d.TyNat            { return a.Value().TypeNat() 
 func (a IndexPair) KeyType() TyFnc                 { return Key }
 func (a IndexPair) KeyNatType() d.TyNat            { return d.Int }
 func (a IndexPair) TypeFnc() TyFnc                 { return Pair }
-func (a IndexPair) SubType() TyFnc                 { return Index }
+func (a IndexPair) SubType() d.Typed               { return Index }
 func (a IndexPair) TypeNat() d.TyNat               { return d.Function }
 func (a IndexPair) FlagType() uint8                { return 255 }
 func (p IndexPair) TypeName() string               { return "(Int, " + p.Value().TypeName() + ")" }
@@ -585,7 +585,7 @@ func (l PairList) HeadPair() Paired                        { p, _ := l(); return
 func (l PairList) Consume() (Callable, Consumeable)        { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
 func (l PairList) TypeFnc() TyFnc                          { return List }
-func (l PairList) SubType() TyFnc                          { return Pair }
+func (l PairList) SubType() d.Typed                        { return Pair }
 func (l PairList) TypeNat() d.TyNat                        { return d.Function }
 func (l PairList) KeyType() TyFnc {
 	return l.Head().(PairVal).KeyType()
@@ -774,7 +774,7 @@ func (v VecCol) Search(praed Callable) int {
 
 func (v VecCol) TypeFnc() TyFnc   { return Vector }
 func (v VecCol) TypeNat() d.TyNat { return d.Function }
-func (v VecCol) SubType() TyFnc   { return v.Head().TypeFnc() }
+func (v VecCol) SubType() d.Typed { return v.Head().TypeFnc() }
 func (v VecCol) TypeName() string {
 	if v.Len() > 0 {
 		return "[" + v.SubType().TypeName() + "]"
@@ -865,7 +865,7 @@ func (v PairVec) Empty() bool {
 
 func (v PairVec) TypeFnc() TyFnc   { return Vector }
 func (v PairVec) TypeNat() d.TyNat { return d.Function }
-func (v PairVec) SubType() TyFnc   { return Pair }
+func (v PairVec) SubType() d.Typed { return Pair }
 func (v PairVec) KeyType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeFnc()
@@ -1158,7 +1158,7 @@ func (v SetCol) Eval(args ...d.Native) d.Native {
 
 func (v SetCol) TypeNat() d.TyNat { return d.Function }
 func (v SetCol) TypeFnc() TyFnc   { return Set }
-func (v SetCol) SubType() TyFnc   { return Pair }
+func (v SetCol) SubType() d.Typed { return Pair }
 func (v SetCol) TypeName() string {
 	if v.Len() > 0 {
 		return "{" + v.Pairs()[0].Left().TypeName() +

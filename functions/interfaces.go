@@ -11,7 +11,7 @@ type Typed interface {
 }
 
 type SubTyped interface {
-	SubType() d.TyNat
+	SubType() d.Typed
 }
 
 type CompTyped interface {
@@ -118,6 +118,12 @@ type Paired interface {
 	ValNatType() d.TyNat
 	KeyType() TyFnc
 	ValType() TyFnc
+}
+
+type Verifieable interface {
+	Callable
+	SubTyped
+	Verify(...Callable) bool
 }
 
 type Composed interface {
@@ -272,17 +278,6 @@ type Applicative interface {
 type Monadic interface {
 	Applicative
 	Join(f, g Consumeable) Callable
-}
-
-// a predicate makes things predictable. for enumerated types it can also
-// distinguish between cases where all elements of a list are considered true
-// and those where some element in the list turns out to be true. this
-// implements early return and works on infinite lists to.
-type Predictable interface {
-	Callable
-	True(Callable) bool
-	Any(...Callable) bool
-	All(...Callable) bool
 }
 
 // provides branching by any distinguishable property. aka 'case switch'

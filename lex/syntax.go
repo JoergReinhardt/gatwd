@@ -17,7 +17,7 @@ func (t TySyntax) TypeName() string          { return t.String() }
 func (t TySyntax) FlagType() uint8           { return 4 }
 func (t TySyntax) Type() TySyntax            { return t }
 func (t TySyntax) Eval(...d.Native) d.Native { return t }
-func (t TySyntax) TypeNat() d.TyNat          { return d.Flag }
+func (t TySyntax) TypeNat() d.TyNat          { return d.Type }
 func (t TySyntax) Syntax() string            { return MapItemString[t] }
 func (t TySyntax) StringAlt() string         { return MapUtfAscii[t.Syntax()] }
 
@@ -446,7 +446,7 @@ func (t TextItem) Syntax() string { return Text.Syntax() }
 // provides an alternative string representation that can be edited without
 // having to produce utf-8 digraphs
 func (t TextItem) StringAlt() string { return t.String() }
-func (t TextItem) Flag() d.BitFlag   { return d.Flag.TypeNat().Flag() }
+func (t TextItem) Flag() d.BitFlag   { return d.Type.TypeNat().Flag() }
 
 // STRING REPLACER & REPLACEMENT LISTS
 func NewUnicodeReplacer() *strings.Replacer {

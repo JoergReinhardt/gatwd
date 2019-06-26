@@ -429,7 +429,7 @@ func (s SetFlag) First() Paired {
 }
 func (s SetFlag) TypeName() string { return typeNameSet(s) }
 func (s SetFlag) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetFlag) KeyType() TyNat   { return Flag.TypeNat() }
+func (s SetFlag) KeyType() TyNat   { return Type.TypeNat() }
 func (s SetFlag) ValType() TyNat   { return s.First().Right().TypeNat() }
 
 func (s SetFlag) Eval(p ...Native) Native {
@@ -437,7 +437,7 @@ func (s SetFlag) Eval(p ...Native) Native {
 		for _, prime := range p {
 			if prime.TypeNat().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Flag) {
+				if pair.Left().TypeNat().Flag().Match(Type) {
 					s.Set(UintVal(pair.Left().(Natural).Uint()), pair.Right())
 				}
 			}

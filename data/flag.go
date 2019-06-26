@@ -6,7 +6,7 @@ import (
 )
 
 //// BOUND TYPE FLAG METHODS ////
-func (v BitFlag) FlagType() uint8      { return 0 }
+func (v BitFlag) FlagType() Uint8Val   { return 0 }
 func (v BitFlag) Flag() BitFlag        { return v }
 func (v BitFlag) Uint() uint           { return uint(v) }
 func (v BitFlag) Int() int             { return int(v) }
@@ -47,10 +47,10 @@ func FlagMask(t Typed, v Typed) BitFlag {
 }
 
 func FlagShow(f Typed) string { return fmt.Sprintf("%64b\n", f) }
-func FlagLow(t Typed) Typed   { return FlagMask(t.Flag(), Typed(Flag)) }
+func FlagLow(t Typed) Typed   { return FlagMask(t.Flag(), Typed(Type)) }
 func FlagHigh(t Typed) BitFlag {
-	len := FlagLength(BitFlag(Flag))
-	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Flag), len))
+	len := FlagLength(BitFlag(Type))
+	return FlagMask(FlagRotate(t.Flag(), len), FlagRotate(BitFlag(Type), len))
 }
 
 func FlagMatch(t Typed, v Typed) bool {

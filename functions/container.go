@@ -14,10 +14,6 @@ type (
 	//// NONE
 	NoneVal func()
 
-	//// TRUTH VALUES
-	TruthVal   func() TyFnc
-	TrinaTruth func() TyFnc
-
 	//// NATIVE VALUES
 	Native     func(...d.Native) d.Native
 	NativePair func(...d.Native) d.Paired
@@ -61,88 +57,6 @@ func (n NoneVal) TypeName() string                 { return n.String() }
 func (n NoneVal) Head() Callable                   { return NewNone() }
 func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
-
-//// TRUTH VALUE CONSTRUCTOR
-func NewTruth(arg bool) TruthVal {
-	var truth TyFnc
-	if arg {
-		truth = True
-	}
-	truth = False
-	return func() TyFnc { return truth }
-}
-func (t TruthVal) Call(...Callable) Callable      { return t }
-func (t TruthVal) TypeFnc() TyFnc                 { return Truth }
-func (t TruthVal) TypeNat() d.TyNat               { return d.Function }
-func (t TruthVal) TypeName() string               { return t().TypeName() }
-func (t TruthVal) String() string                 { return t().TypeName() }
-func (t TruthVal) Trinary() TrinaTruth            { return NewTrinaryTruth(t.Int()) }
-func (t TruthVal) Eval(args ...d.Native) d.Native { return d.BoolVal(t.Bool()) }
-func (t TruthVal) True() d.Native                 { return t.Eval() }
-func (t TruthVal) Int() int {
-	if t().Match(True) {
-		return 1
-	}
-	return -1
-}
-func (t TruthVal) Bool() bool {
-	if t().Match(Truth) {
-		return true
-	}
-	return false
-}
-
-//// TRINARY TRUTH VALUE CONSTRUCTOR
-func NewTrinaryTruth(arg int) TrinaTruth {
-	var truth TyFnc
-	if arg > 0 {
-		truth = True
-	}
-	if arg < 0 {
-		truth = False
-	}
-	truth = Undecided
-	return func() TyFnc { return truth }
-}
-func (t TrinaTruth) Call(...Callable) Callable { return t }
-func (t TrinaTruth) TypeFnc() TyFnc            { return Truth }
-func (t TrinaTruth) TypeNat() d.TyNat          { return d.Function }
-func (t TrinaTruth) TypeName() string          { return t().TypeName() }
-func (t TrinaTruth) String() string            { return t().TypeName() }
-func (t TrinaTruth) Truth() TruthVal           { return NewTruth(t.Bool()) }
-func (t TrinaTruth) Eval(args ...d.Native) d.Native {
-	if t().Match(Truth) {
-		return d.IntVal(1)
-	}
-	if t().Match(False) {
-		return d.IntVal(-1)
-	}
-	return d.IntVal(0)
-}
-func (t TrinaTruth) True() d.Native {
-	if t().Match(True) {
-		return d.BoolVal(true)
-	}
-	if t().Match(False) {
-		return d.BoolVal(true)
-	}
-	return d.NewNil()
-}
-func (t TrinaTruth) Int() int {
-	if t().Match(True) {
-		return 1
-	}
-	if t().Match(False) {
-		return 1
-	}
-	return 0
-}
-func (t TrinaTruth) Bool() bool {
-	if t().Match(False) {
-		return false
-	}
-	return true
-}
 
 //// NATIVE EXPRESSION CONSTRUCTOR
 ///
@@ -213,7 +127,7 @@ func (n Native) Call(...Callable) Callable      { return n }
 func (n Native) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n Native) String() string                 { return n().String() }
 func (n Native) TypeName() string               { return n().TypeName() }
-func (n Native) SubType() d.TyNat               { return n().TypeNat() }
+func (n Native) SubType() d.Typed               { return n().TypeNat() }
 func (n Native) TypeNat() d.TyNat               { return d.Function }
 func (n Native) TypeFnc() TyFnc                 { return Static }
 
@@ -228,7 +142,7 @@ func (n NativeCol) Get(key d.Native) d.Native      { return n().Get(key) }
 func (n NativeCol) GetInt(idx int) d.Native        { return n().GetInt(idx) }
 func (n NativeCol) Range(s, e int) d.Native        { return n().Range(s, e) }
 func (n NativeCol) Copy() d.Native                 { return n().Copy() }
-func (n NativeCol) SubType() d.TyNat               { return n().TypeNat() }
+func (n NativeCol) SubType() d.Typed               { return n().TypeNat() }
 func (n NativeCol) TypeName() string               { return n().TypeName() }
 func (n NativeCol) String() string                 { return n().String() }
 func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
@@ -252,7 +166,7 @@ func (n NativePair) Left() Callable                 { return NewNative(n().Left(
 func (n NativePair) Right() Callable                { return NewNative(n().Right()) }
 func (n NativePair) KeyType() d.TyNat               { return n().LeftType() }
 func (n NativePair) ValType() d.TyNat               { return n().RightType() }
-func (n NativePair) SubType() d.TyNat               { return n().TypeNat() }
+func (n NativePair) SubType() d.Typed               { return n().TypeNat() }
 func (n NativePair) TypeName() string               { return n().TypeName() }
 func (n NativePair) String() string                 { return n().String() }
 func (n NativePair) Pair() Paired {
@@ -285,7 +199,7 @@ func (n NativeSet) DataNat() []d.Native                  { return n().Data() }
 func (n NativeSet) Fields() []d.Paired                   { return n().Fields() }
 func (n NativeSet) KeyTypeNat() d.TyNat                  { return n().KeyType() }
 func (n NativeSet) ValTypeNat() d.TyNat                  { return n().ValType() }
-func (n NativeSet) SubType() d.TyNat                     { return n().TypeNat() }
+func (n NativeSet) SubType() d.Typed                     { return n().TypeNat() }
 func (n NativeSet) TypeName() string                     { return n().TypeName() }
 func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Set() SetCol                          { return NewSet(n.Pairs()...) }
@@ -494,7 +408,7 @@ func (n NaryExpr) TypeName() string {
 	var str string
 	var num = int(n.Remain())
 	// if expression is composed, return argument and return types
-	if expr.TypeFnc().FlagType() == 255 {
+	if expr.TypeFnc().FlagType() == Flag_Comp.U() {
 		if comp, ok := expr.(CompTyped); ok {
 			var types = comp.Types()
 			if len(types) == int(n.Arity())+1 {

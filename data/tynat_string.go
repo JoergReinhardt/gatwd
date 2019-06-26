@@ -4,7 +4,7 @@ package data
 
 import "strconv"
 
-const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringErrorPairSliceUnboxedMapDataLiteralFunctionFlagMASK"
+const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringFlagErrorPairSliceUnboxedMapLiteralFunctionTypeMASK"
 
 var _TyNat_map = map[TyNat]string{
 	1:                    _TyNat_name[0:3],
@@ -30,12 +30,12 @@ var _TyNat_map = map[TyNat]string{
 	1048576:              _TyNat_name[98:102],
 	2097152:              _TyNat_name[102:107],
 	4194304:              _TyNat_name[107:113],
-	8388608:              _TyNat_name[113:118],
-	16777216:             _TyNat_name[118:122],
-	33554432:             _TyNat_name[122:127],
-	67108864:             _TyNat_name[127:134],
-	134217728:            _TyNat_name[134:137],
-	268435456:            _TyNat_name[137:141],
+	8388608:              _TyNat_name[113:117],
+	16777216:             _TyNat_name[117:122],
+	33554432:             _TyNat_name[122:126],
+	67108864:             _TyNat_name[126:131],
+	134217728:            _TyNat_name[131:138],
+	268435456:            _TyNat_name[138:141],
 	536870912:            _TyNat_name[141:148],
 	1073741824:           _TyNat_name[148:156],
 	2147483648:           _TyNat_name[156:160],

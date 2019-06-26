@@ -5,11 +5,16 @@ import (
 )
 
 type (
+	//// TRUTH VALUES
+	TruthVal   func() bool
+	TrinaTruth func() int
+
 	//// PREDICATE
-	PredictArg func(Callable) bool
-	PredictNar func(...Callable) bool
-	PredictAll func(...Callable) bool
-	PredictAny func(...Callable) bool
+	PredictArg  func(Callable) bool
+	PredictNar  func(...Callable) bool
+	PredictAll  func(...Callable) bool
+	PredictAny  func(...Callable) bool
+	PredictComp func(...Callable) (bool, TyComp)
 
 	//// CASE EXPRESSION & SWITCH
 	CaseExpr   func(...Callable) (Callable, bool)
@@ -25,6 +30,79 @@ type (
 	RightVal  func(...Callable) Callable
 )
 
+//// TRUTH VALUE CONSTRUCTOR
+func NewTruth(arg bool) TruthVal {
+	return func() bool { return arg }
+}
+func (t TruthVal) Call(...Callable) Callable      { return t }
+func (t TruthVal) TypeFnc() TyFnc                 { return Truth }
+func (t TruthVal) TypeNat() d.TyNat               { return d.Function }
+func (t TruthVal) String() string                 { return t.TypeName() }
+func (t TruthVal) Trinary() TrinaTruth            { return NewTrinaryTruth(t.Int()) }
+func (t TruthVal) Eval(args ...d.Native) d.Native { return d.BoolVal(t.Bool()) }
+func (t TruthVal) True() d.Native                 { return t.Eval() }
+func (t TruthVal) TypeName() string {
+	return "(" + t.SubType().TypeName() + " Truth)"
+}
+func (t TruthVal) SubType() d.Typed {
+	if t() {
+		return True
+	}
+	return False
+}
+func (t TruthVal) Int() int {
+	if t() {
+		return 1
+	}
+	return -1
+}
+func (t TruthVal) Bool() bool {
+	if t() {
+		return true
+	}
+	return false
+}
+
+//// TRINARY TRUTH VALUE CONSTRUCTOR
+func NewTrinaryTruth(arg int) TrinaTruth {
+	return func() int { return arg }
+}
+func (t TrinaTruth) Call(...Callable) Callable      { return t }
+func (t TrinaTruth) Int() int                       { return t() }
+func (t TrinaTruth) Eval(args ...d.Native) d.Native { return d.IntVal(t()) }
+func (t TrinaTruth) TypeFnc() TyFnc                 { return Truth }
+func (t TrinaTruth) TypeNat() d.TyNat               { return d.Function }
+func (t TrinaTruth) String() string                 { return t.TypeName() }
+func (t TrinaTruth) Truth() TruthVal                { return NewTruth(t.Bool()) }
+func (t TrinaTruth) TypeName() string {
+	return "(" + t.SubType().TypeName() + "Trinary Truth)"
+}
+func (t TrinaTruth) SubType() d.Typed {
+	var arg = t()
+	if arg > 0 {
+		return True
+	}
+	if arg < 0 {
+		return False
+	}
+	return Undecided
+}
+func (t TrinaTruth) True() d.Native {
+	if t() < 0 {
+		return d.BoolVal(false)
+	}
+	if t() > 0 {
+		return d.BoolVal(true)
+	}
+	return d.NewNil()
+}
+func (t TrinaTruth) Bool() bool {
+	if t() < 0 {
+		return false
+	}
+	return true
+}
+
 //// PREDICATES
 ///
 // predict one is an expression that returns either true, or false depending on
@@ -32,8 +110,11 @@ type (
 func NewPredictArg(pred func(Callable) bool) PredictArg {
 	return func(arg Callable) bool { return pred(arg) }
 }
-func (p PredictArg) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p(NewNative(args...)))
+func (p PredictArg) Verify(args ...Callable) bool {
+	if len(args) > 0 {
+		return p(args[0])
+	}
+	return false
 }
 func (p PredictArg) Call(args ...Callable) Callable {
 	if len(args) > 0 {
@@ -41,8 +122,9 @@ func (p PredictArg) Call(args ...Callable) Callable {
 	}
 	return NewNative(d.BoolVal(false))
 }
-
-// return single argument predicate as multi argument predicate
+func (p PredictArg) Eval(args ...d.Native) d.Native {
+	return d.BoolVal(p(NewNative(args...)))
+}
 func (p PredictArg) Nargs() PredictNar {
 	return func(args ...Callable) bool {
 		if len(args) > 0 {
@@ -51,10 +133,11 @@ func (p PredictArg) Nargs() PredictNar {
 		return false
 	}
 }
-func (p PredictArg) String() string   { return "T → Predicate → Truth" }
-func (p PredictArg) TypeName() string { return p.String() }
+func (p PredictArg) String() string   { return p.TypeName() }
+func (p PredictArg) TypeName() string { return "T → Predicate → Truth" }
 func (p PredictArg) TypeFnc() TyFnc   { return Predicate }
 func (p PredictArg) TypeNat() d.TyNat { return d.Function }
+func (p PredictArg) SubType() d.Typed { return Unary }
 
 ///////////////////////////////////////////////////////////////////////////////
 // predict many returns true, or false depending on all arguments that have
@@ -73,10 +156,12 @@ func (p PredictNar) Call(args ...Callable) Callable {
 func (p PredictNar) Eval(args ...d.Native) d.Native {
 	return d.BoolVal(p(NewNative(args...)))
 }
-func (p PredictNar) String() string   { return "[T] →  Predicate → Truth" }
-func (p PredictNar) TypeName() string { return p.String() }
-func (p PredictNar) TypeFnc() TyFnc   { return Predicate }
-func (p PredictNar) TypeNat() d.TyNat { return d.Function }
+func (p PredictNar) Verify(args ...Callable) bool { return p(args...) }
+func (p PredictNar) String() string               { return "[T] →  Predicate → Truth" }
+func (p PredictNar) TypeName() string             { return p.String() }
+func (p PredictNar) TypeFnc() TyFnc               { return Predicate }
+func (p PredictNar) TypeNat() d.TyNat             { return d.Function }
+func (p PredictNar) SubType() d.Typed             { return Nary }
 
 ///////////////////////////////////////////////////////////////////////////////
 // all-predicate returns true, if all arguments passed yield true, when applyed
@@ -100,14 +185,15 @@ func (p PredictAll) Call(args ...Callable) Callable {
 	}
 	return NewNative(d.BoolVal(false))
 }
-
 func (p PredictAll) Eval(args ...d.Native) d.Native {
 	return d.BoolVal(p(NewNative(args...)))
 }
-func (p PredictAll) TypeName() string { return "[T] → (All Predicate) → Truth" }
-func (p PredictAll) String() string   { return p.TypeName() }
-func (p PredictAll) TypeFnc() TyFnc   { return Predicate }
-func (p PredictAll) TypeNat() d.TyNat { return d.Function }
+func (p PredictAll) Verify(args ...Callable) bool { return p(args...) }
+func (p PredictAll) TypeName() string             { return "[T] → All → Truth" }
+func (p PredictAll) String() string               { return p.TypeName() }
+func (p PredictAll) TypeNat() d.TyNat             { return d.Function }
+func (p PredictAll) TypeFnc() TyFnc               { return Predicate }
+func (p PredictAll) SubType() d.Typed             { return All }
 
 ///////////////////////////////////////////////////////////////////////////////
 // will return true, if any of the passed arguments yield true, when applyed to
@@ -129,13 +215,47 @@ func (p PredictAny) Call(args ...Callable) Callable {
 	}
 	return NewNative(d.BoolVal(false))
 }
+func (p PredictAny) Verify(args ...Callable) bool { return p(args...) }
 func (p PredictAny) Eval(args ...d.Native) d.Native {
 	return d.BoolVal(p(NewNative(args...)))
 }
-func (p PredictAny) TypeName() string { return "[T] → (Any Predicate) → Truth" }
+func (p PredictAny) TypeName() string { return "[T] → Any → Truth" }
 func (p PredictAny) String() string   { return p.TypeName() }
-func (p PredictAny) TypeFnc() TyFnc   { return Predicate }
 func (p PredictAny) TypeNat() d.TyNat { return d.Function }
+func (p PredictAny) TypeFnc() TyFnc   { return Predicate }
+func (p PredictAny) SubType() d.Typed { return Any }
+
+func NewComposedPredict(pred Verifieable) PredictComp {
+
+	var comp = NewComposedType(pred.TypeName(), pred.TypeFnc(), pred.SubType())
+
+	return func(args ...Callable) (bool, TyComp) {
+		return pred.Verify(args...), comp
+	}
+}
+func (p PredictComp) Call(args ...Callable) Callable {
+	if len(args) > 0 {
+		return NewNative(d.BoolVal(p.Verify(args...)))
+	}
+	return NewNative(d.BoolVal(false))
+}
+func (p PredictComp) Eval(args ...d.Native) d.Native {
+	return d.BoolVal(p.Verify(NewNative(args...)))
+}
+func (p PredictComp) TypeComp() TyComp             { _, comp := p(); return comp }
+func (p PredictComp) Verify(args ...Callable) bool { b, _ := p(args...); return b }
+func (p PredictComp) TypeNat() d.TyNat             { return d.Bool }
+func (p PredictComp) String() string               { return p.TypeName() }
+func (p PredictComp) TypeName() string             { return p.TypeComp().TypeName() }
+func (p PredictComp) Types() []d.Typed             { return p.TypeComp().Types() }
+func (p PredictComp) TypeFnc() TyFnc               { return p.Types()[0].(TyFnc) }
+func (p PredictComp) SubType() d.Typed {
+	var types = p.Types()
+	if len(types) > 1 {
+		return types[1]
+	}
+	return None
+}
 
 //// CASE EXPRESSION & SWITCH
 ///
