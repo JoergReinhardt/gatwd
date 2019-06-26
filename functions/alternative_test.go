@@ -26,7 +26,7 @@ func TestCase(t *testing.T) {
 		})
 
 	var c = NewCase(p1,
-		NewNary(func(args ...Callable) Callable {
+		NewNary(VariadLambda(func(args ...Callable) Callable {
 			var nats = []d.Native{}
 			var expr Callable
 			if len(args) > 0 {
@@ -39,10 +39,10 @@ func TestCase(t *testing.T) {
 				nats = append(nats, arg.Eval())
 			}
 			return expr.Call(NewNative(nats...))
-		}, 2),
-		NewVariadic(UnaryLambda(func(arg Callable) Callable {
+		}), 2),
+		NewConstant(func() Callable {
 			return NewNone()
-		})),
+		}),
 	)
 
 	fmt.Printf("case type name: %s\n", c.TypeName())

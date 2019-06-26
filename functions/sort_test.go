@@ -64,7 +64,7 @@ func TestDataSorterFlags(t *testing.T) {
 
 	fs := SortedData(flags)
 	fmt.Printf("unsorted flags: %s\n", fs)
-	fs.Sort(d.Flag)
+	fs.Sort(d.Type)
 	fmt.Printf("sorted flags: %s\n", fs)
 
 	var ints = []Callable{
@@ -108,7 +108,7 @@ func TestDataSorterMixedType(t *testing.T) {
 	}
 
 	ts := SortedData(flags)
-	ts.Sort(d.Flag)
+	ts.Sort(d.Type)
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
 }
 func TestPairSorterStrStr(t *testing.T) {

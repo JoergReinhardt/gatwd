@@ -340,7 +340,7 @@ func (m MaybeVal) TypeNat() d.TyNat               { return m().TypeNat() }
 func (m MaybeVal) ElemType() TyFnc                { return m().TypeFnc() }
 func (m MaybeVal) TypeFnc() TyFnc                 { return Maybe }
 func (m MaybeVal) String() string                 { return m().String() }
-func (m MaybeVal) TypeName() string               { return "Maybe " + m().TypeName() }
+func (m MaybeVal) TypeName() string               { return "Maybe " + m().TypeName() + " | None" }
 
 /// JUST
 func NewJust(expr Callable) JustVal {
@@ -430,7 +430,7 @@ func (e EitherVal) TypeNat() d.TyNat               { return e().TypeNat() }
 func (e EitherVal) TypeFnc() TyFnc                 { return Either }
 func (e EitherVal) TypeName() string {
 	return "Either " + e.LeftType().TypeName() +
-		" Or " + e.RightType().TypeName()
+		" | " + e.RightType().TypeName()
 }
 func (e EitherVal) LeftType() TyFnc  { return e().(Paired).Left().TypeFnc() }
 func (e EitherVal) RightType() TyFnc { return e().(Paired).Right().TypeFnc() }

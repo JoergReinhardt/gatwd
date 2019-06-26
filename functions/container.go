@@ -18,18 +18,23 @@ type (
 	TruthVal   func() TyFnc
 	TrinaTruth func() TyFnc
 
-	//// DATA VALUES
+	//// NATIVE VALUES
 	Native     func(...d.Native) d.Native
 	NativePair func(...d.Native) d.Paired
 	NativeSet  func(...d.Native) d.Mapped
 	NativeCol  func(...d.Native) d.Sliceable
 
-	//// STATIC EXPRESSIONS
+	//// LAMBDA EXPRESSIONS
 	ConstLambda  func() Callable
 	UnaryLambda  func(Callable) Callable
 	BinaryLambda func(l, r Callable) Callable
 	VariadLambda func(...Callable) Callable
-	NaryLambda   func(...Callable) Callable
+
+	//// NARY EXPRESSION
+	NaryExpr func(...Callable) Callable
+
+	//// COMPOSED EXPRESSION
+	CompExpr func(...Callable) Callable
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -58,16 +63,16 @@ func (n NoneVal) Tail() Consumeable                { return NewNone() }
 func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTruth(truth ...bool) TruthVal {
-	return func() TyFnc {
-		if truth[0] {
-			return True
-		}
-		return False
+func NewTruth(arg bool) TruthVal {
+	var truth TyFnc
+	if arg {
+		truth = True
 	}
+	truth = False
+	return func() TyFnc { return truth }
 }
 func (t TruthVal) Call(...Callable) Callable      { return t }
-func (t TruthVal) TypeFnc() TyFnc                 { return t() }
+func (t TruthVal) TypeFnc() TyFnc                 { return Truth }
 func (t TruthVal) TypeNat() d.TyNat               { return d.Function }
 func (t TruthVal) TypeName() string               { return t().TypeName() }
 func (t TruthVal) String() string                 { return t().TypeName() }
@@ -88,19 +93,19 @@ func (t TruthVal) Bool() bool {
 }
 
 //// TRINARY TRUTH VALUE CONSTRUCTOR
-func NewTrinaryTruth(truth int) TrinaTruth {
-	return func() TyFnc {
-		if truth > 0 {
-			return True
-		}
-		if truth < 0 {
-			return False
-		}
-		return Undecided
+func NewTrinaryTruth(arg int) TrinaTruth {
+	var truth TyFnc
+	if arg > 0 {
+		truth = True
 	}
+	if arg < 0 {
+		truth = False
+	}
+	truth = Undecided
+	return func() TyFnc { return truth }
 }
 func (t TrinaTruth) Call(...Callable) Callable { return t }
-func (t TrinaTruth) TypeFnc() TyFnc            { return t() }
+func (t TrinaTruth) TypeFnc() TyFnc            { return Truth }
 func (t TrinaTruth) TypeNat() d.TyNat          { return d.Function }
 func (t TrinaTruth) TypeName() string          { return t().TypeName() }
 func (t TrinaTruth) String() string            { return t().TypeName() }
@@ -198,7 +203,6 @@ func NewNative(args ...d.Native) Callable {
 			return nat
 		})
 	}
-
 	return Native(func(...d.Native) d.Native { return d.NewNil() })
 }
 
@@ -211,11 +215,11 @@ func (n Native) String() string                 { return n().String() }
 func (n Native) TypeName() string               { return n().TypeName() }
 func (n Native) SubType() d.TyNat               { return n().TypeNat() }
 func (n Native) TypeNat() d.TyNat               { return d.Function }
-func (n Native) TypeFnc() TyFnc                 { return Data }
+func (n Native) TypeFnc() TyFnc                 { return Static }
 
 // expression which returns a native slice and implements consumeable
 func (n NativeCol) Call(...Callable) Callable      { return n }
-func (n NativeCol) TypeFnc() TyFnc                 { return Data }
+func (n NativeCol) TypeFnc() TyFnc                 { return Static }
 func (n NativeCol) TypeNat() d.TyNat               { return d.Function }
 func (n NativeCol) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativeCol) Len() int                       { return n().Len() }
@@ -238,7 +242,7 @@ func (n NativeCol) Slice() []Callable {
 
 // expression which returns a native pair and implements paired
 func (n NativePair) Call(...Callable) Callable      { return n }
-func (n NativePair) TypeFnc() TyFnc                 { return Data }
+func (n NativePair) TypeFnc() TyFnc                 { return Static }
 func (n NativePair) TypeNat() d.TyNat               { return d.Function }
 func (n NativePair) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativePair) LeftNat() d.Native              { return n().Left() }
@@ -270,7 +274,7 @@ func (n NativeSet) Call(args ...Callable) Callable {
 
 // expression which returns a native set and implements mapped
 func (n NativeSet) Ident() Callable                      { return n }
-func (n NativeSet) TypeFnc() TyFnc                       { return Data }
+func (n NativeSet) TypeFnc() TyFnc                       { return Static }
 func (n NativeSet) TypeNat() d.TyNat                     { return d.Function }
 func (n NativeSet) Eval(args ...d.Native) d.Native       { return n(args...) }
 func (n NativeSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
@@ -314,35 +318,40 @@ func (c ConstLambda) TypeName() string               { return c().TypeName() }
 func (c ConstLambda) Eval(args ...d.Native) d.Native { return c().Eval(args...) }
 func (c ConstLambda) Call(args ...Callable) Callable { return c() }
 
-//// UNARY EXPRESSION
+//// UNARY LAMBDA
 ///
 // unary expression constructor
 func NewUnary(unary func(arg Callable) Callable) UnaryLambda { return unary }
 
 func (u UnaryLambda) Ident() Callable                { return u }
 func (u UnaryLambda) Arity() Arity                   { return Arity(1) }
-func (u UnaryLambda) TypeFnc() TyFnc                 { return Function }
+func (u UnaryLambda) TypeFnc() TyFnc                 { return Lambda }
 func (u UnaryLambda) TypeNat() d.TyNat               { return d.Function }
-func (u UnaryLambda) String() string                 { return "T → T" }
+func (u UnaryLambda) String() string                 { return "λ∙T → T" }
 func (u UnaryLambda) TypeName() string               { return u.String() }
 func (u UnaryLambda) Eval(args ...d.Native) d.Native { return d.NewNil() }
 func (u UnaryLambda) Call(args ...Callable) Callable {
+	var arg Callable
 	if len(args) > 0 {
-		return u(args[0])
+		arg = args[0]
+		return u(arg)
 	}
-	return u
+	if arg != nil {
+		return arg
+	}
+	return NewNone()
 }
 
-//// BINARY EXPRESSION
+//// BINARY LAMBDA
 ///
 // binary expression constructor
 func NewBinary(binary func(l, r Callable) Callable) BinaryLambda { return binary }
 
 func (b BinaryLambda) Ident() Callable                { return b }
 func (b BinaryLambda) Arity() Arity                   { return Arity(2) }
-func (b BinaryLambda) TypeFnc() TyFnc                 { return Function }
+func (b BinaryLambda) TypeFnc() TyFnc                 { return Lambda }
 func (b BinaryLambda) TypeNat() d.TyNat               { return d.Function }
-func (b BinaryLambda) String() string                 { return "T → T → T" }
+func (b BinaryLambda) String() string                 { return "λ∙T∙T → T" }
 func (b BinaryLambda) TypeName() string               { return b.String() }
 func (b BinaryLambda) Eval(args ...d.Native) d.Native { return d.NewNil() }
 func (b BinaryLambda) Call(args ...Callable) Callable {
@@ -358,22 +367,18 @@ func (b BinaryLambda) Call(args ...Callable) Callable {
 	return b
 }
 
-//// VARIADIC EXPRESSION
+//// VARIADIC Lambda
 ///
 // variadic expression constructor creates expression to evaluate arbitrary
 // number of arguments
-func NewVariadic(expr Callable) VariadLambda {
-	return func(args ...Callable) Callable {
-		return expr.Call(args...)
-	}
-}
-func (n VariadLambda) Ident() Callable                { return n }
-func (n VariadLambda) Call(d ...Callable) Callable    { return n(d...) }
-func (n VariadLambda) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
-func (n VariadLambda) TypeFnc() TyFnc                 { return Function }
-func (n VariadLambda) TypeNat() d.TyNat               { return d.Function }
-func (n VariadLambda) String() string                 { return n().String() }
-func (n VariadLambda) TypeName() string               { return n().TypeName() }
+func NewVariadic(expr func(args ...Callable) Callable) VariadLambda { return expr }
+func (n VariadLambda) Ident() Callable                              { return n }
+func (n VariadLambda) Call(d ...Callable) Callable                  { return n(d...) }
+func (n VariadLambda) Eval(args ...d.Native) d.Native               { return n().Eval(args...) }
+func (n VariadLambda) TypeFnc() TyFnc                               { return Lambda }
+func (n VariadLambda) TypeNat() d.TyNat                             { return d.Function }
+func (n VariadLambda) String() string                               { return n().String() }
+func (n VariadLambda) TypeName() string                             { return "λ∙[T] → T" }
 
 //// NARY EXPRESSION
 ///
@@ -384,9 +389,9 @@ func (n VariadLambda) TypeName() string               { return n().TypeName() }
 // applying abundant recursively on oversatisfied calls. last result may be
 // partialy applied
 func NewNary(
-	expr func(...Callable) Callable,
+	expr Callable,
 	arity int,
-) NaryLambda {
+) NaryExpr {
 	return func(args ...Callable) Callable {
 
 		if len(args) > 0 {
@@ -397,12 +402,12 @@ func NewNary(
 				if arity > 0 {
 					// return fully applied expression with
 					// remaining arity set to be zero
-					return expr(args...)
+					return expr.Call(args...)
 				}
 				// expression is a constant (don't do that,
 				// it's what buildtin const expressions are
 				// for)
-				return expr()
+				return expr.Call()
 			}
 
 			// argument number undersatisfies expression arity
@@ -460,6 +465,7 @@ func NewNary(
 		// initial arity instead
 		var remain = arity - len(args)
 		return NewVector(
+			expr,
 			NewNary(expr, remain),
 			Arity(remain),
 			Arity(arity),
@@ -467,28 +473,41 @@ func NewNary(
 	}
 }
 
-// returns the value returned when calling itself directly, passing along any
-// given argument.
-func (n NaryLambda) Ident() Callable                { return n }
-func (n NaryLambda) Expression() Callable           { return n().(VecCol)()[0] }
-func (n NaryLambda) Remain() Arity                  { return n().(VecCol)()[1].(Arity) }
-func (n NaryLambda) Arity() Arity                   { return n().(VecCol)()[2].(Arity) }
-func (n NaryLambda) TypeFnc() TyFnc                 { return n.Expression().TypeFnc() }
-func (n NaryLambda) TypeNat() d.TyNat               { return n.Expression().TypeNat() }
-func (n NaryLambda) String() string                 { return n.Partial().TypeName() }
-func (n NaryLambda) Eval(args ...d.Native) d.Native { return n.Partial().Eval(args...) }
-func (n NaryLambda) Partial() NaryLambda {
-	return NewNary(n.Expression().Call, int(n.Remain()))
-}
-func (n NaryLambda) Call(args ...Callable) Callable {
+// returns the value returned when calling itself directly, passing arguments
+func (n NaryExpr) Ident() Callable                { return n }
+func (n NaryExpr) Expression() Callable           { return n().(VecCol)()[0] }
+func (n NaryExpr) Partial() Callable              { return n().(VecCol)()[1] }
+func (n NaryExpr) Remain() Arity                  { return n().(VecCol)()[2].(Arity) }
+func (n NaryExpr) Arity() Arity                   { return n().(VecCol)()[3].(Arity) }
+func (n NaryExpr) TypeFnc() TyFnc                 { return n.Expression().TypeFnc() }
+func (n NaryExpr) TypeNat() d.TyNat               { return n.Expression().TypeNat() }
+func (n NaryExpr) String() string                 { return n.Partial().TypeName() }
+func (n NaryExpr) Eval(args ...d.Native) d.Native { return n.Partial().Eval(args...) }
+func (n NaryExpr) Call(args ...Callable) Callable {
 	if len(args) > 0 {
 		return n(args...)
 	}
-	return n().(VecCol)()[0]
+	return n()
 }
-func (n NaryLambda) TypeName() string {
-	var num = int(n.Remain())
+func (n NaryExpr) TypeName() string {
+	var expr = n.Expression()
 	var str string
+	var num = int(n.Remain())
+	// if expression is composed, return argument and return types
+	if expr.TypeFnc().FlagType() == 255 {
+		if comp, ok := expr.(CompTyped); ok {
+			var types = comp.Types()
+			if len(types) == int(n.Arity())+1 {
+				var args, ret = types[:n.Arity()-1], types[n.Arity()]
+				for _, arg := range args {
+					str = str + arg.TypeName() + " → "
+
+				}
+				return str + " → " + ret.TypeName()
+			}
+		}
+	}
+	// if expression arguments are unknown, return generic types
 	for i := 0; i < num; i++ {
 		str = str + "T"
 		if i < num-1 {
@@ -497,3 +516,8 @@ func (n NaryLambda) TypeName() string {
 	}
 	return str + " → T"
 }
+
+//// COMPOSED EXPRESSION
+///
+// composed expression constructor returns expression with defined argument and
+// return types.

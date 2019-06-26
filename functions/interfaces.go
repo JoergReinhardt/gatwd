@@ -14,6 +14,11 @@ type SubTyped interface {
 	SubType() d.TyNat
 }
 
+type CompTyped interface {
+	Callable
+	Types() []d.TyNat
+}
+
 type Evaluable interface {
 	Eval() d.Native
 }
@@ -109,6 +114,10 @@ type Paired interface {
 	Left() Callable
 	Right() Callable
 	Both() (Callable, Callable)
+	KeyNatType() d.TyNat
+	ValNatType() d.TyNat
+	KeyType() TyFnc
+	ValType() TyFnc
 }
 
 type Composed interface {
@@ -164,11 +173,6 @@ type Callable interface {
 	d.Native
 	TypeFnc() TyFnc
 	Call(...Callable) Callable
-}
-
-type Parametric interface {
-	Callable
-	Type() Typed
 }
 
 // branched yields two callable return values

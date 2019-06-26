@@ -111,8 +111,8 @@ func TestNary(t *testing.T) {
 	// apply additional arguments to partialy applyed expression
 }
 
-func TestTupleConstruction(t *testing.T) {
+func TestTuple(t *testing.T) {
 }
 
-func TestRecordTypeConstruction(t *testing.T) {
+func TestRecordType(t *testing.T) {
 }

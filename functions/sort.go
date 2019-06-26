@@ -112,7 +112,7 @@ func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 			return false
 		}
 
-	case f.Match(d.Flag.TypeNat()):
+	case f.Match(d.Type.TypeNat()):
 		return func(i, j int) bool {
 			return ds[j].Eval().TypeNat() >=
 				ds[i].Eval().TypeNat()
@@ -156,7 +156,7 @@ func consDataFind(ds SortedData, pred Callable) func(int) bool {
 			) >= 0
 		}
 
-	case f.Match(d.Flag.TypeNat()):
+	case f.Match(d.Type.TypeNat()):
 		fn = func(i int) bool {
 			return ds[i].(d.Native).TypeNat() >=
 				pred.(d.Native).TypeNat()
@@ -234,7 +234,7 @@ func (p SortedPairs) Search(pred Callable) int {
 	var idx = sort.Search(len(p), consPairFind(p, pred))
 	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
-		if pred.TypeNat().Flag().Match(d.Flag.TypeNat()) {
+		if pred.TypeNat().Flag().Match(d.Type.TypeNat()) {
 			if p[idx].Left().TypeNat() == pred.TypeNat() {
 				return idx
 			}
@@ -301,7 +301,7 @@ func consPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 			return false
 		}
 
-	case f.Match(d.Flag.TypeNat()):
+	case f.Match(d.Type.TypeNat()):
 		return func(i, j int) bool { // sort by value-, NOT accessor type
 			chain := accs
 			if chain[i].Right().Eval().TypeNat() <=
@@ -374,7 +374,7 @@ func consPairFind(accs SortedPairs, pred Callable) func(i int) bool {
 				pred.Eval().String()) >= 0
 		}
 
-	case f.Match(d.Flag.TypeNat()):
+	case f.Match(d.Type.TypeNat()):
 		fn = func(i int) bool {
 			return accs[i].Right().Eval().(d.BitFlag) >=
 				pred.Eval().(d.BitFlag)
