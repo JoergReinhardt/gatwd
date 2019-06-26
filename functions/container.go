@@ -209,12 +209,14 @@ func (n Native) Call(...Callable) Callable      { return n }
 func (n Native) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n Native) String() string                 { return n().String() }
 func (n Native) TypeName() string               { return n().TypeName() }
-func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n Native) SubType() d.TyNat               { return n().TypeNat() }
+func (n Native) TypeNat() d.TyNat               { return d.Function }
 func (n Native) TypeFnc() TyFnc                 { return Data }
 
 // expression which returns a native slice and implements consumeable
 func (n NativeCol) Call(...Callable) Callable      { return n }
 func (n NativeCol) TypeFnc() TyFnc                 { return Data }
+func (n NativeCol) TypeNat() d.TyNat               { return d.Function }
 func (n NativeCol) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativeCol) Len() int                       { return n().Len() }
 func (n NativeCol) SliceNat() []d.Native           { return n().Slice() }
@@ -222,7 +224,7 @@ func (n NativeCol) Get(key d.Native) d.Native      { return n().Get(key) }
 func (n NativeCol) GetInt(idx int) d.Native        { return n().GetInt(idx) }
 func (n NativeCol) Range(s, e int) d.Native        { return n().Range(s, e) }
 func (n NativeCol) Copy() d.Native                 { return n().Copy() }
-func (n NativeCol) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativeCol) SubType() d.TyNat               { return n().TypeNat() }
 func (n NativeCol) TypeName() string               { return n().TypeName() }
 func (n NativeCol) String() string                 { return n().String() }
 func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
@@ -237,6 +239,7 @@ func (n NativeCol) Slice() []Callable {
 // expression which returns a native pair and implements paired
 func (n NativePair) Call(...Callable) Callable      { return n }
 func (n NativePair) TypeFnc() TyFnc                 { return Data }
+func (n NativePair) TypeNat() d.TyNat               { return d.Function }
 func (n NativePair) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativePair) LeftNat() d.Native              { return n().Left() }
 func (n NativePair) RightNat() d.Native             { return n().Right() }
@@ -245,7 +248,7 @@ func (n NativePair) Left() Callable                 { return NewNative(n().Left(
 func (n NativePair) Right() Callable                { return NewNative(n().Right()) }
 func (n NativePair) KeyType() d.TyNat               { return n().LeftType() }
 func (n NativePair) ValType() d.TyNat               { return n().RightType() }
-func (n NativePair) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativePair) SubType() d.TyNat               { return n().TypeNat() }
 func (n NativePair) TypeName() string               { return n().TypeName() }
 func (n NativePair) String() string                 { return n().String() }
 func (n NativePair) Pair() Paired {
@@ -268,6 +271,7 @@ func (n NativeSet) Call(args ...Callable) Callable {
 // expression which returns a native set and implements mapped
 func (n NativeSet) Ident() Callable                      { return n }
 func (n NativeSet) TypeFnc() TyFnc                       { return Data }
+func (n NativeSet) TypeNat() d.TyNat                     { return d.Function }
 func (n NativeSet) Eval(args ...d.Native) d.Native       { return n(args...) }
 func (n NativeSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
 func (n NativeSet) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
@@ -277,7 +281,7 @@ func (n NativeSet) DataNat() []d.Native                  { return n().Data() }
 func (n NativeSet) Fields() []d.Paired                   { return n().Fields() }
 func (n NativeSet) KeyTypeNat() d.TyNat                  { return n().KeyType() }
 func (n NativeSet) ValTypeNat() d.TyNat                  { return n().ValType() }
-func (n NativeSet) TypeNat() d.TyNat                     { return n().TypeNat() }
+func (n NativeSet) SubType() d.TyNat                     { return n().TypeNat() }
 func (n NativeSet) TypeName() string                     { return n().TypeName() }
 func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Set() SetCol                          { return NewSet(n.Pairs()...) }

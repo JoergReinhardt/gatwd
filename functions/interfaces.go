@@ -10,6 +10,10 @@ type Typed interface {
 	d.Typed
 }
 
+type SubTyped interface {
+	SubType() d.TyNat
+}
+
 type Evaluable interface {
 	Eval() d.Native
 }

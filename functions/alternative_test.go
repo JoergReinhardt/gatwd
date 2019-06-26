@@ -10,7 +10,7 @@ import (
 func TestCase(t *testing.T) {
 	var p1, _ = NewPredictNarg(func(args ...Callable) bool {
 		for _, arg := range args {
-			if !arg.TypeNat().Match(d.String | d.Integers | d.Float) {
+			if !arg.(Native).SubType().Match(d.String | d.Integers | d.Float) {
 				return false
 			}
 		}
@@ -18,7 +18,7 @@ func TestCase(t *testing.T) {
 	}),
 		NewPredictNarg(func(args ...Callable) bool {
 			for _, arg := range args {
-				if !arg.TypeNat().Match(d.String | d.Integers | d.Float) {
+				if !arg.(Native).SubType().Match(d.String | d.Integers | d.Float) {
 					return false
 				}
 			}
@@ -66,7 +66,7 @@ func TestSwitch(t *testing.T) {
 	var swi = NewSwitch(
 		// matches return values native types string,integer, and float
 		NewCase(NewPredictAll(func(arg Callable) bool {
-			return arg.TypeNat().Match(d.String | d.Integers | d.Float)
+			return arg.(SubTyped).SubType().Match(d.String | d.Integers | d.Float)
 		})))
 
 	fmt.Printf("switch int & float argument: %s\n", swi.Call(New(23), New(42, 23)))
@@ -108,7 +108,7 @@ func TestSwitch(t *testing.T) {
 func TestMaybe(t *testing.T) {
 
 	var maybe = NewMaybe(NewCase(NewPredictArg(func(arg Callable) bool {
-		return arg.TypeNat().Match(d.String)
+		return arg.(Native).SubType().Match(d.String)
 	}).Nargs(), NewUnary(func(arg Callable) Callable { return arg })))
 
 	fmt.Printf("maybe: %s\n", maybe)
@@ -131,7 +131,7 @@ func TestEither(t *testing.T) {
 	var either = NewEither(NewCase(
 		NewPredictArg(
 			func(arg Callable) bool {
-				return arg.TypeNat().Match(d.String)
+				return arg.(Native).SubType().Match(d.String)
 			}).Nargs()),
 		nil,
 		NewUnary(func(arg Callable) Callable {
