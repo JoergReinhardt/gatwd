@@ -156,10 +156,10 @@ func NewComposedType(name, ldel, sep, rdel string, types ...d.Typed) TyComp {
 func (t TyComp) FlagType() uint8  { return 255 }
 func (t TyComp) TypeFnc() TyFnc   { return Nested }
 func (t TyComp) TypeNat() d.TyNat { return d.Function }
+func (t TyComp) String() string   { return t.TypeName() }
 func (t TyComp) Flag() d.BitFlag  { return t.TypeFnc().Flag() }
 func (t TyComp) TypeName() string { var name, _ = t(); return name }
 func (t TyComp) Types() []d.Typed { var _, types = t(); return types }
-func (t TyComp) String() string   { return t.TypeName() }
 
 // return composed type elements
 func (t TyComp) CompTypes() []TyComp {
@@ -237,8 +237,8 @@ func deriveName(name, ldel, sep, rdel string, types []d.Typed) string {
 	return ldel + name + rdel
 }
 
-// util to derive type arguments from callable instances
-func deriveTypes(args ...Callable) []d.Typed {
+// util to derive slice of types from argument instances
+func deriveTypes(args ...d.Native) []d.Typed {
 	var types = []d.Typed{}
 	return types
 }
