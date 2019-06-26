@@ -122,7 +122,7 @@ func (l ListCol) Head() Callable                   { h, _ := l(); return h }
 func (l ListCol) Consume() (Callable, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                   { return List }
 func (l ListCol) SubType() TyFnc                   { return l.Head().TypeFnc() }
-func (l ListCol) TypeNat() d.TyNat                 { return l.Head().TypeNat() }
+func (l ListCol) TypeNat() d.TyNat                 { return d.Function }
 func (l ListCol) TypeName() string {
 	if l.Len() > 0 {
 		return "[" + l.Head().TypeName() + "]"
@@ -247,17 +247,16 @@ func (p PairVal) Value() Callable { return p.Right() }
 func (p PairVal) TypeName() string {
 	return "(" + p.Key().TypeName() + ", " + p.Value().TypeName() + ")"
 }
-func (p PairVal) KeyType() TyFnc        { return p.Left().TypeFnc() }
-func (p PairVal) KeyNatType() d.TyNat   { return p.Left().TypeNat() }
-func (p PairVal) ValType() TyFnc        { return p.Right().TypeFnc() }
-func (p PairVal) ValueNatType() d.TyNat { return p.Right().TypeNat() }
+func (p PairVal) KeyType() TyFnc      { return p.Left().TypeFnc() }
+func (p PairVal) KeyNatType() d.TyNat { return p.Left().TypeNat() }
+func (p PairVal) ValType() TyFnc      { return p.Right().TypeFnc() }
+func (p PairVal) ValNatType() d.TyNat { return p.Right().TypeNat() }
 
 // composed functional type of a value pair
 func (p PairVal) TypeFnc() TyFnc { return Pair }
-func (p PairVal) SubType() TyFnc { return p.KeyType() | p.ValType() }
 
 // composed native type of a value pair
-func (p PairVal) TypeNat() d.TyNat { return d.Pair }
+func (p PairVal) TypeNat() d.TyNat { return d.Function }
 
 // implements compose
 func (p PairVal) Empty() bool {
@@ -290,7 +289,7 @@ func NewKeyPair(key string, val Callable) KeyPair {
 }
 
 func (p KeyPair) TypeName() string {
-	return "(" + p.Key().TypeName() + ", " + p.Value().TypeName() + ")"
+	return "(string, " + p.Value().TypeName() + ")"
 }
 func (a KeyPair) KeyStr() string                 { _, key := a(); return key }
 func (a KeyPair) Ident() Callable                { return a }
@@ -304,12 +303,10 @@ func (a KeyPair) Key() Callable                  { return a.Right() }
 func (a KeyPair) Call(args ...Callable) Callable { return a.Value().Call(args...) }
 func (a KeyPair) Eval(args ...d.Native) d.Native { return a.Value().Eval() }
 func (a KeyPair) KeyNatType() d.TyNat            { return d.String }
-func (a KeyPair) KeyFncType() TyFnc              { return Data }
 func (a KeyPair) KeyType() TyFnc                 { return Data }
 func (a KeyPair) ValNatType() d.TyNat            { return a.Value().TypeNat() }
-func (a KeyPair) ValFncType() TyFnc              { return a.Value().TypeFnc() }
 func (a KeyPair) ValType() TyFnc                 { return a.Value().TypeFnc() }
-func (a KeyPair) TypeNat() d.TyNat               { return d.Pair | d.String }
+func (a KeyPair) TypeNat() d.TyNat               { return d.Function }
 func (a KeyPair) TypeFnc() TyFnc                 { return Pair }
 func (a KeyPair) SubType() TyFnc                 { return Key }
 
@@ -378,15 +375,13 @@ func (a IndexPair) Call(args ...Callable) Callable { return a.Value().Call(args.
 func (a IndexPair) Eval(args ...d.Native) d.Native { return a.Value().Eval() }
 func (a IndexPair) ValType() TyFnc                 { return a.Value().TypeFnc() }
 func (a IndexPair) ValNatType() d.TyNat            { return a.Value().TypeNat() }
-func (a IndexPair) ValFncType() TyFnc              { return a.Value().TypeFnc() }
 func (a IndexPair) KeyType() TyFnc                 { return Key }
-func (a IndexPair) KeyFncType() TyFnc              { return Key }
 func (a IndexPair) KeyNatType() d.TyNat            { return d.Int }
 func (a IndexPair) TypeFnc() TyFnc                 { return Pair }
 func (a IndexPair) SubType() TyFnc                 { return Index }
-func (a IndexPair) TypeNat() d.TyNat               { return d.Pair | d.Int | a.ValNatType() }
+func (a IndexPair) TypeNat() d.TyNat               { return d.Function }
 func (p IndexPair) TypeName() string {
-	return "(" + p.Left().TypeName() + ", " + p.Value().TypeName() + ")"
+	return "(int, " + p.Value().TypeName() + ")"
 }
 
 // implement consumeable
@@ -522,7 +517,7 @@ func (l PairList) Consume() (Callable, Consumeable)        { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
 func (l PairList) TypeFnc() TyFnc                          { return List }
 func (l PairList) SubType() TyFnc                          { return Pair }
-func (l PairList) TypeNat() d.TyNat                        { return l.Head().TypeNat() }
+func (l PairList) TypeNat() d.TyNat                        { return d.Function }
 func (l PairList) KeyType() TyFnc {
 	return l.Head().(PairVal).KeyType()
 }
@@ -615,12 +610,7 @@ func (v VecCol) Eval(args ...d.Native) d.Native {
 func (v VecCol) TypeFnc() TyFnc { return Vector }
 func (v VecCol) SubType() TyFnc { return v.Head().TypeFnc() }
 
-func (v VecCol) TypeNat() d.TyNat {
-	if len(v()) > 0 {
-		return d.Slice.TypeNat() | v.Head().TypeNat()
-	}
-	return d.Slice.TypeNat() | d.Nil
-}
+func (v VecCol) TypeNat() d.TyNat { return d.Function }
 
 func (v VecCol) Head() Callable {
 	if v.Len() > 0 {
@@ -797,12 +787,7 @@ func (v PairVec) ValNatType() d.TyNat {
 func (v PairVec) TypeFnc() TyFnc { return Vector }
 func (v PairVec) SubType() TyFnc { return Pair }
 
-func (v PairVec) TypeNat() d.TyNat {
-	if len(v()) > 0 {
-		return d.Slice | v.Head().TypeNat()
-	}
-	return d.Slice | d.Nil.TypeNat()
-}
+func (v PairVec) TypeNat() d.TyNat { return d.Function }
 
 func (v PairVec) Len() int { return len(v()) }
 
@@ -1066,12 +1051,13 @@ func (v SetCol) TypeFnc() TyFnc { return Set }
 func (v SetCol) SubType() TyFnc { return Pair }
 func (v SetCol) TypeName() string {
 	if v.Len() > 0 {
-		return "{" + v.Pairs()[0].TypeName() + ":: " + v.Pairs()[0].TypeName() + "}"
+		return "{" + v.Pairs()[0].Left().TypeName() +
+			":: " + v.Pairs()[0].Right().TypeName() + "}"
 	}
 	return "{}"
 }
 
-func (v SetCol) TypeNat() d.TyNat { return d.Map | d.Function }
+func (v SetCol) TypeNat() d.TyNat { return d.Function }
 
 func (v SetCol) KeyType() TyFnc {
 	if v.Len() > 0 {
