@@ -39,6 +39,9 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 	return ConsumeVal(func(args ...Callable) (Callable, ConsumeVal) {
 		var head Callable
 		head, cons = cons.Consume()
+		if len(args) > 0 {
+			cons = cons.Call(args...).(Consumeable)
+		}
 		if head != nil {
 			return head, NewConsumeable(cons)
 		}
@@ -47,6 +50,7 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 }
 
 func (m ConsumeVal) TypeName() string { return "(" + m.Head().TypeName() + ")" }
+func (m ConsumeVal) Type() Typed      { return Collection }
 func (m ConsumeVal) TypeFnc() TyFnc   { return Collection }
 func (m ConsumeVal) SubType() d.Typed { return m.Head().TypeFnc() }
 func (m ConsumeVal) TypeNat() d.TyNat {
@@ -132,6 +136,7 @@ func (c ConsPairVal) Tail() Consumeable {
 	_, t := c()
 	return t
 }
+func (c ConsPairVal) Type() Typed      { return c.Head().Type() }
 func (c ConsPairVal) TypeName() string { return "(" + c.Head().TypeName() + ")" }
 func (c ConsPairVal) TypeFnc() TyFnc   { return Collection }
 func (c ConsPairVal) SubType() d.Typed { return c.Head().TypeFnc() }

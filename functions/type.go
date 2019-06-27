@@ -5,20 +5,12 @@ import (
 )
 
 type (
+	TyDef     func() (string, Callable)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
 	Propertys d.Int8Val
-	TyComp    func() (string, string, []d.Typed)
 )
-
-func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
-func (t TyFlag) Match(match TyFlag) bool {
-	if match == t {
-		return false
-	}
-	return true
-}
 
 //go:generate stringer -type TyFlag
 const (
@@ -31,118 +23,120 @@ const (
 	Flag_Comp TyFlag = 255
 )
 
-//// CALL ARITY
-///
-// arity of well defined callables
-//
-//go:generate stringer -type Arity
-const (
-	Nary Arity = -1 + iota
-	Nullary
-	Unary
-	Binary
-	Ternary
-	Quaternary
-	Quinary
-	Senary
-	Septenary
-	Octonary
-	Novenary
-	Denary
-)
+func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
+func (t TyFlag) Match(match TyFlag) bool {
+	if match == t {
+		return false
+	}
+	return true
+}
 
-func (a Arity) Eval(args ...d.Native) d.Native { return a }
-func (a Arity) FlagType() d.Uint8Val           { return 3 }
-func (a Arity) Int() int                       { return int(a) }
-func (a Arity) TypeFnc() TyFnc                 { return Type }
-func (a Arity) TypeNat() d.TyNat               { return d.Type }
-func (a Arity) Match(arg d.Typed) bool         { return a == arg }
-func (a Arity) TypeName() string               { return a.String() }
-func (a Arity) Call(...Callable) Callable      { return NewNative(a) }
-func (a Arity) Flag() d.BitFlag                { return d.BitFlag(a) }
-
-///////////////////////////////////////////////////////////////////////////////
 //go:generate stringer -type=TyFnc
 const (
 	/// KIND
 	Type TyFnc = 1 << iota
-	Composit
-	/// FUNCTION
+	/// GENERIC FUNCTION TYPES
 	Static
 	Lambda
 	Defined
-	/// COLLECTIONS
-	List
-	Vector
-	Set
-	/// PRODUCT TYPES
-	Pair
-	Enum
-	Tuple
-	Record
-	/// PARAMETERS
+	/// PARAMETER OPTIONS
 	Key
 	Index
-	//// DATA CONSTRUCTORS
-	/// TRUTH
-	Any
-	All
+	Return
+	Argument
+	Property
+	/// TRUTH VALUE types
 	True
 	False
-	Trinary
 	Undecided
 	Predicate
-	/// ORDER
-	Lesser
-	Greater
-	Equal
-	/// ALTERNATIVE
-	Just
-	None
-	Left
-	Right
-	/// BRANCH
+	/// BRANCH TYPES
+	If
 	Case
+	Switch
+	/// VALUE OPTIONS
 	Then
 	Else
+	Just
+	None
+	Either
+	Or
 	/// IMPURE
 	State
 	IO
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
-	Kind = Type | Composit
+	//// FUNCTIONS
+	Function = Static | Lambda | Defined
 
-	Function = Lambda | Static | Defined
+	//// PARAMETERS
+	Paramer = Key | Index | Argument |
+		Return | Property
 
-	Collection = List | Vector | Set
+	//// COLLECTIONS
+	Sum     = List | Vector
+	Product = Set | Pair |
+		Enum | Tuple | Record
 
-	Product = Pair | Enum | Tuple | Record
+	// TRUTH VALUES & PREDICATES
+	Truth   = True | False
+	Trinary = Truth | Undecided
 
-	Truth = Any | All | True | False |
-		Trinary | Undecided | Predicate
+	//// OPTIONALS
+	Maybe  = Just | None
+	Option = Either | Or
 
-	Order = Lesser | Greater | Equal
+	Optional = Maybe | Either
 
-	Switch = Case
+	//// branch value types
+	Branch = If | Case | Switch
 
-	If = Then | Else
-
-	Maybe = Just | None
-
-	Either = Left | Right
-
-	Branch = If | Switch
-
-	Impure = State | IO
-
-	Parametric = Kind | Function | Collection | Product |
-		Truth | Order | Branch | Impure
+	/// ORDER CLASS PARAMETER
+	Lesser
+	Greater
+	Equal
+	/// BOUND CLASS PARAMETER
+	Min
+	Max
+	/// SUM COLLECTION TYPE & VALUE CONSTRUCTORS
+	List
+	Vector
+	/// PRODUCT COLLECTION TYPE & VALUE CONSTRUCTORS
+	Pair
+	Set
+	Enum
+	Tuple
+	Record
+	// COLLECTION CLASS
+	Collection = List | Vector | Pair |
+		Set | Enum | Tuple | Record
 )
+
+//// type definition
+func Define(name string, cons Callable) TyDef {
+	return func() (string, Callable) { return name, cons }
+}
+
+func (t TyDef) Ident() TyDef                   { return t }
+func (t TyDef) TypeComp() TyDef                { return t }
+func (t TyDef) Type() Typed                    { return Type }
+func (t TyDef) TypeFnc() TyFnc                 { return Type }
+func (t TyDef) TypeNat() d.TyNat               { return d.Type }
+func (t TyDef) Eval(nats ...d.Native) d.Native { return d.Function }
+func (t TyDef) Flag() d.BitFlag                { return Type.Flag() }
+func (t TyDef) FlagType() d.Uint8Val           { return Flag_Comp.U() }
+func (t TyDef) String() string                 { return t.TypeName() }
+func (t TyDef) TypeName() string               { var name, _ = t(); return name }
+func (t TyDef) Constructor() Callable          { var _, cons = t(); return cons }
+func (t TyDef) Call(args ...Callable) Callable { return t.Constructor().Call(args...) }
+func (t TyDef) ConsType() TyFnc                { return t.Constructor().TypeFnc() }
+func (t TyDef) Match(typ d.Typed) bool         { return true }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
 func (t TyFnc) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (t TyFnc) Type() Typed                    { return Type }
 func (t TyFnc) TypeFnc() TyFnc                 { return Type }
 func (t TyFnc) TypeNat() d.TyNat               { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
@@ -167,246 +161,8 @@ func (t TyFnc) TypeName() string {
 	return t.String()
 }
 
-func NewComposedType(name string, args ...d.Native) TyComp {
-	// type name is derived by passing name, delimiters, seperator and the
-	// slice of types to deriveName.
-	var full string
-	var types []d.Typed
-	name, full, types = nest(name, args)
-	return func() (string, string, []d.Typed) {
-		return name, full, types
-	}
-}
-
-func (t TyComp) FlagType() d.Uint8Val { return Flag_Comp.U() }
-func (t TyComp) TypeComp() TyComp     { return t }
-func (t TyComp) TypeFnc() TyFnc       { return Composit }
-func (t TyComp) TypeNat() d.TyNat     { return d.Function }
-func (t TyComp) String() string       { return t.TypeName() }
-func (t TyComp) Flag() d.BitFlag      { return t.TypeFnc().Flag() }
-func (t TyComp) Types() []d.Typed     { var _, _, types = t(); return types }
-func (t TyComp) FullName() string     { var _, full, _ = t(); return full }
-func (t TyComp) TypeName() string {
-	var name, _, _ = t()
-	if name == "" {
-		name = t.FullName()
-	}
-	return name
-}
-
-// return composed type elements
-func (t TyComp) CompTypes() []TyComp {
-	var types = []TyComp{}
-	for _, typ := range t.Types() {
-		if typ.FlagType() == Flag_Comp.U() {
-			types = append(types, typ.(TyComp))
-		}
-	}
-	return types
-}
-
-// return functional type elements
-func (t TyComp) FncTypes() []TyFnc {
-	var types = []TyFnc{}
-	for _, typ := range t.Types() {
-		if typ.FlagType() == Flag_Functional.U() {
-			types = append(types, typ.(TyFnc))
-		}
-	}
-	return types
-}
-
-// return native type elements
-func (t TyComp) NatTypes() []d.TyNat {
-	var types = []d.TyNat{}
-	for _, typ := range t.Types() {
-		if typ.FlagType() == Flag_Native.U() {
-			types = append(types, typ.(d.TyNat))
-		}
-	}
-	return types
-}
-
-// evaluation yields a native bool value, by matching the native type flags of
-// all it's arguments against it's elements
-func (t TyComp) Eval(nats ...d.Native) d.Native {
-	var nat = d.BoolVal(true)
-	return nat
-}
-
-// call yields a functional bool value, by matching all type flags of all
-// arguments against its elements.
-func (t TyComp) Call(args ...Callable) Callable {
-	var val Callable
-	return val
-}
-
-// match takes an instance of the native typed interface, casts it according to
-// flag type and uses call & evaluation to yield a bool value, indicating if
-// the type matches.
-func (t TyComp) Match(typ d.Typed) bool {
-	return true
-}
-
-// name is derived by recursive concatenation of functional & composed type
-// names, seperated by blank, and by optional a seperator and delimited by
-// optional delimiters.
-func nest(name string, args []d.Native) (string, string, []d.Typed) {
-
-	var types = []d.Typed{}
-	var typ d.Typed
-	var num = len(args)
-	var full, sep = "", " → "
-
-	for n, arg := range args {
-
-		if fnc, ok := arg.(Callable); ok {
-			typ = nestFunctional(fnc)
-		} else {
-			if nat, ok := arg.(d.Native); ok {
-				typ = nestNative(nat)
-			}
-		}
-
-		types = append(types, typ)
-		// call types full method to get its type full
-		full = full + typ.TypeName()
-		// element separation
-		if n < num-1 {
-			// elements are seperated by optional seperator and
-			// followed by a mandatory blank.
-			full = full + sep
-		}
-	}
-	// embed resulting name in left-/ and right delimiter
-	return name, full, types
-}
-
-func nestFunctional(fnc Callable) d.Typed {
-
-	var typ d.Typed
-
-	// if this is a type, property, or arity flag, assume or concatenated
-	// type parameters
-	if fnc.TypeFnc().Match(Type) {
-		if typ, ok := fnc.(d.Typed); ok {
-			if typ.FlagType() == Flag_Functional.U() {
-				if flag, ok := typ.(TyFnc); ok {
-					return nestFncParametric(flag)
-				}
-			}
-			if typ.FlagType() == Flag_Arity.U() {
-				if arity, ok := typ.(Arity); ok {
-					return arity
-				}
-			}
-			if typ.FlagType() == Flag_Prop.U() {
-				if property, ok := typ.(Propertys); ok {
-					return property
-				}
-			}
-		}
-	}
-
-	// if function type matches nested, return composed type
-	if fnc.TypeFnc().Match(Composit) {
-		if nest, ok := fnc.(CompTyped); ok {
-			return nest.TypeFnc()
-		}
-	}
-
-	// or concatenate instances sub types
-	switch {
-	}
-
-	return typ
-}
-
-func nestNative(nat d.Native) d.Typed {
-
-	var typ d.Typed
-
-	// if this is a type flag, assume or concatenated type parameters
-	if nat.TypeNat().Match(d.Type) {
-		if flag, ok := nat.(d.TyNat); ok {
-			return nestNativeParametric(flag)
-		}
-	}
-
-	// compose collection types
-	if nat.TypeNat().Match(d.Compositions) {
-		switch {
-		case nat.TypeNat().Match(Pair):
-			if pair, ok := nat.(d.PairVal); ok {
-				typ = NewComposedType(
-					pair.TypeName(),
-					pair.LeftType(),
-					pair.RightType(),
-				)
-			}
-		case nat.TypeNat().Match(d.Unboxed):
-			if ubox, ok := nat.(d.Sliceable); ok {
-				typ = NewComposedType(
-					ubox.TypeName(),
-					ubox.SubType(),
-				)
-			}
-		case nat.TypeNat().Match(d.Slice):
-			if slice, ok := nat.(d.Sliceable); ok {
-				typ = NewComposedType(
-					slice.TypeName(),
-					slice.SubType(),
-				)
-			}
-		case nat.TypeNat().Match(d.Map):
-			if set, ok := nat.(d.Mapped); ok {
-				typ = NewComposedType(
-					set.TypeName(),
-					set.KeyType(),
-					set.ValType(),
-				)
-			}
-		default: // atomic native instance
-			typ = nat.TypeNat()
-		}
-	}
-	return typ
-}
-
-func nestNativeParametric(typ d.TyNat) d.Typed {
-
-	if typ.Match(d.Flag) || typ.Flag().Count() == 1 {
-		return typ
-	}
-
-	var nats = []d.Native{}
-
-	for _, flag := range typ.Flag().Decompose() {
-		nats = append(nats, flag)
-	}
-
-	return NewComposedType(typ.TypeName(), nats...)
-}
-
-func nestFncParametric(typ TyFnc) d.Typed {
-
-	if typ.Match(Type) || typ.Flag().Count() == 1 {
-		return typ
-	}
-
-	var nats = []d.Native{}
-
-	for _, flag := range typ.Flag().Decompose() {
-		nats = append(nats, flag)
-	}
-
-	return NewComposedType(typ.TypeName(), nats...)
-}
-
 //// CALL PROPERTYS
 ///
-// propertys of well defined callables
-//
 //go:generate stringer -type Propertys
 const (
 	Default Propertys = 0
@@ -427,22 +183,15 @@ const (
 	// ⌐: Parametric
 )
 
+// CALL PROPERTY FLAG
 func (p Propertys) MatchProperty(arg Propertys) bool {
 	if p&arg != 0 {
 		return true
 	}
 	return false
 }
-func FlagToProp(flag d.BitFlag) Propertys          { return Propertys(uint8(flag.Uint())) }
-func (p Propertys) Flag() d.BitFlag                { return d.BitFlag(uint64(p)) }
-func (p Propertys) FlagType() d.Uint8Val           { return Flag_Prop.U() }
-func (p Propertys) TypeNat() d.TyNat               { return d.Type }
-func (p Propertys) TypeFnc() TyFnc                 { return Type }
-func (p Propertys) TypeName() string               { return "Propertys" }
-func (p Propertys) Match(flag d.Typed) bool        { return p.Flag().Match(flag) }
-func (p Propertys) Eval(args ...d.Native) d.Native { return d.Int8Val(p) }
-func (p Propertys) Call(args ...Callable) Callable { return p }
 
+// PROPERTY CONVIENIENCE METHODS
 func (p Propertys) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
 func (p Propertys) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
 func (p Propertys) Atomic() bool     { return p.Flag().Match(Atomic.Flag()) }
@@ -457,3 +206,45 @@ func (p Propertys) SideEffect() bool { return p.Flag().Match(SideEffect.Flag()) 
 func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag()) }
 func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
 func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
+
+func FlagToProp(flag d.BitFlag) Propertys { return Propertys(uint8(flag.Uint())) }
+
+func (p Propertys) Flag() d.BitFlag                { return d.BitFlag(uint64(p)) }
+func (p Propertys) FlagType() d.Uint8Val           { return Flag_Prop.U() }
+func (p Propertys) TypeNat() d.TyNat               { return d.Type }
+func (p Propertys) TypeFnc() TyFnc                 { return Type }
+func (p Propertys) Type() Typed                    { return Property }
+func (p Propertys) TypeName() string               { return "Propertys" }
+func (p Propertys) Match(flag d.Typed) bool        { return p.Flag().Match(flag) }
+func (p Propertys) Eval(args ...d.Native) d.Native { return d.Int8Val(p) }
+func (p Propertys) Call(args ...Callable) Callable { return p }
+
+//// CALL ARITY
+///
+// arity of well defined callables
+//
+//go:generate stringer -type Arity
+const (
+	Nary Arity = -1 + iota
+	Nullary
+	Unary
+	Binary
+	Ternary
+	Quaternary
+	Quinary
+	Senary
+	Septenary
+	Octonary
+	Novenary
+	Denary
+)
+
+func (a Arity) Eval(args ...d.Native) d.Native { return a }
+func (a Arity) FlagType() d.Uint8Val           { return Flag_Arity.U() }
+func (a Arity) Int() int                       { return int(a) }
+func (a Arity) TypeFnc() TyFnc                 { return Type }
+func (a Arity) TypeNat() d.TyNat               { return d.Type }
+func (a Arity) Match(arg d.Typed) bool         { return a == arg }
+func (a Arity) TypeName() string               { return a.String() }
+func (a Arity) Call(...Callable) Callable      { return NewNative(a) }
+func (a Arity) Flag() d.BitFlag                { return d.BitFlag(a) }

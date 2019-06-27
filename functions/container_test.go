@@ -62,7 +62,7 @@ func TestNary(t *testing.T) {
 		VariadLambda(
 			func(args ...Callable) Callable {
 				return NewVector(args...)
-			}), 3)
+			}), NewVector(Type, Type, Type))
 
 	var r0 = nary(NewNative(d.StrVal("0")))
 

@@ -5,266 +5,131 @@ import (
 )
 
 type (
-	//// TRUTH VALUES
-	TruthVal   func() bool
-	TrinaTruth func() int
+	// JUST VALUE CONSTRUCTOR
+	OptionVal func(...Callable) Callable
+	//// TRUTH VALUE CONSTRUCTOR
+	TruthVal func(...Callable) TyFnc
+	//// NONE VALUE CONSTRUCTOR
+	NoneVal func()
 
-	//// PREDICATE
-	PredictArg  func(Callable) bool
-	PredictNar  func(...Callable) bool
-	PredictAll  func(...Callable) bool
-	PredictAny  func(...Callable) bool
-	PredictComp func(...Callable) (bool, TyComp)
-
-	//// CASE EXPRESSION & SWITCH
+	//// CASE & SWITCH TYPE CONSTRUCTORS
 	CaseExpr   func(...Callable) (Callable, bool)
 	CaseSwitch func(...Callable) (Callable, Callable, bool)
 
-	//// MAYBE | JUST | NONE
-	MaybeVal func(...Callable) Callable
-	JustVal  func(...Callable) Callable
+	//// MAYBE TYPE CONSTRUCTOR
+	MaybeType func(...Callable) Callable
 
-	//// EITHER | LEFT | RIGHT
-	EitherVal func(...Callable) Callable
-	LeftVal   func(...Callable) Callable
-	RightVal  func(...Callable) Callable
+	//// EITHER TYPE CONSTRUCTOR
+	OptionType func(...Callable) Callable
+
+	//// ALTERNATIVE DECLARATION
 )
 
-//// TRUTH VALUE CONSTRUCTOR
-func NewTruth(arg bool) TruthVal {
-	return func() bool { return arg }
-}
-func (t TruthVal) Call(...Callable) Callable      { return t }
-func (t TruthVal) TypeFnc() TyFnc                 { return Truth }
-func (t TruthVal) TypeNat() d.TyNat               { return d.Function }
-func (t TruthVal) String() string                 { return t.TypeName() }
-func (t TruthVal) Trinary() TrinaTruth            { return NewTrinaryTruth(t.Int()) }
-func (t TruthVal) Eval(args ...d.Native) d.Native { return d.BoolVal(t.Bool()) }
-func (t TruthVal) True() d.Native                 { return t.Eval() }
-func (t TruthVal) TypeName() string {
-	return "(" + t.SubType().TypeName() + " Truth)"
-}
-func (t TruthVal) SubType() d.Typed {
-	if t() {
-		return True
-	}
-	return False
-}
-func (t TruthVal) Int() int {
-	if t() {
-		return 1
-	}
-	return -1
-}
-func (t TruthVal) Bool() bool {
-	if t() {
-		return true
-	}
-	return false
+//// NONE VALUE CONSTRUCTOR
+///
+// none represens the abscence of a value of any type. implements consumeable,
+// key-, index & generic pair interface to be returneable as such.
+func NewNone() NoneVal { return func() {} }
+
+func (n NoneVal) Ident() Callable                  { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) TypeName() string                 { return "⊥" }
+func (n NoneVal) Eval(args ...d.Native) d.Native   { return nil }
+func (n NoneVal) Call(...Callable) Callable        { return nil }
+func (n NoneVal) Key() Callable                    { return nil }
+func (n NoneVal) Index() Callable                  { return nil }
+func (n NoneVal) Left() Callable                   { return nil }
+func (n NoneVal) Right() Callable                  { return nil }
+func (n NoneVal) Both() Callable                   { return nil }
+func (n NoneVal) Value() Callable                  { return nil }
+func (n NoneVal) Empty() bool                      { return true }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) String() string                   { return n.String() }
+func (n NoneVal) Head() Callable                   { return NewNone() }
+func (n NoneVal) Tail() Consumeable                { return NewNone() }
+func (n NoneVal) Consume() (Callable, Consumeable) { return NewNone(), NewNone() }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) Type() Typed {
+	return Define(n.TypeName(), None)
 }
 
-//// TRINARY TRUTH VALUE CONSTRUCTOR
-func NewTrinaryTruth(arg int) TrinaTruth {
-	return func() int { return arg }
-}
-func (t TrinaTruth) Call(...Callable) Callable      { return t }
-func (t TrinaTruth) Int() int                       { return t() }
-func (t TrinaTruth) Eval(args ...d.Native) d.Native { return d.IntVal(t()) }
-func (t TrinaTruth) TypeFnc() TyFnc                 { return Truth }
-func (t TrinaTruth) TypeNat() d.TyNat               { return d.Function }
-func (t TrinaTruth) String() string                 { return t.TypeName() }
-func (t TrinaTruth) Truth() TruthVal                { return NewTruth(t.Bool()) }
-func (t TrinaTruth) TypeName() string {
-	return "(" + t.SubType().TypeName() + "Trinary Truth)"
-}
-func (t TrinaTruth) SubType() d.Typed {
-	var arg = t()
-	if arg > 0 {
-		return True
+//// TRUTH VALUE CONSTRUCTOR
+func NewTruth(test func(...Callable) bool) TruthVal {
+	return func(args ...Callable) TyFnc {
+		if len(args) > 0 {
+			if test(args...) {
+				return True
+			}
+			return False
+		}
+		return Truth
 	}
-	if arg < 0 {
-		return False
-	}
-	return Undecided
 }
-func (t TrinaTruth) True() d.Native {
-	if t() < 0 {
-		return d.BoolVal(false)
+
+func NewTrinaryTruth(test func(...Callable) int) TruthVal {
+	return func(args ...Callable) TyFnc {
+		if len(args) > 0 {
+			if test(args...) < 0 {
+				return False
+			}
+			if test(args...) > 0 {
+				return True
+			}
+			return Undecided
+		}
+		return Trinary
 	}
-	if t() > 0 {
+}
+
+func (t TruthVal) TypeNat() d.TyNat { return d.Function }
+func (t TruthVal) String() string   { return t().TypeName() }
+func (t TruthVal) TypeFnc() TyFnc {
+	if t().Match(Trinary) {
+		return Trinary
+	}
+	return Truth
+}
+func (t TruthVal) Call(args ...Callable) Callable { return t(args...) }
+func (t TruthVal) Eval(args ...d.Native) d.Native {
+	if t(NewNative(args...)).TypeFnc() == True {
 		return d.BoolVal(true)
+	}
+	if t(NewNative(args...)).TypeFnc() == False {
+		return d.BoolVal(false)
 	}
 	return d.NewNil()
 }
-func (t TrinaTruth) Bool() bool {
-	if t() < 0 {
-		return false
+func (t TruthVal) TypeName() string {
+	if t() == Trinary {
+		return "T → Truth → True | False | Undecided"
 	}
-	return true
+	return "T → Truth → True | False"
 }
-
-//// PREDICATES
-///
-// predict one is an expression that returns either true, or false depending on
-// first passed arguement passed. succeeding arguements are ignored
-func NewPredictArg(pred func(Callable) bool) PredictArg {
-	return func(arg Callable) bool { return pred(arg) }
+func (t TruthVal) Type() Typed {
+	if t() == Trinary {
+		return TyDef(func() (string, Callable) {
+			return t.TypeName(), NewVector(True, False, Undecided)
+		})
+	}
+	return TyDef(func() (string, Callable) {
+		return t.TypeName(), NewPair(True, False)
+	})
 }
-func (p PredictArg) Verify(args ...Callable) bool {
-	if len(args) > 0 {
-		return p(args[0])
+func (t TruthVal) Bool(args ...Callable) bool {
+	if t(args...) == True {
+		return true
 	}
 	return false
-}
-func (p PredictArg) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNative(d.BoolVal(p(args[0])))
-	}
-	return NewNative(d.BoolVal(false))
-}
-func (p PredictArg) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p(NewNative(args...)))
-}
-func (p PredictArg) Nargs() PredictNar {
-	return func(args ...Callable) bool {
-		if len(args) > 0 {
-			return p(args[0])
-		}
-		return false
-	}
-}
-func (p PredictArg) String() string   { return p.TypeName() }
-func (p PredictArg) TypeName() string { return "T → Predicate → Truth" }
-func (p PredictArg) TypeFnc() TyFnc   { return Predicate }
-func (p PredictArg) TypeNat() d.TyNat { return d.Function }
-func (p PredictArg) SubType() d.Typed { return Unary }
-
-///////////////////////////////////////////////////////////////////////////////
-// predict many returns true, or false depending on all arguments that have
-// been passed calling it
-func NewPredictNarg(pred func(...Callable) bool) PredictNar {
-	return func(args ...Callable) bool {
-		return pred(args...)
-	}
-}
-func (p PredictNar) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNative(d.BoolVal(p(args...)))
-	}
-	return NewNative(d.BoolVal(false))
-}
-func (p PredictNar) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p(NewNative(args...)))
-}
-func (p PredictNar) Verify(args ...Callable) bool { return p(args...) }
-func (p PredictNar) String() string               { return "[T] →  Predicate → Truth" }
-func (p PredictNar) TypeName() string             { return p.String() }
-func (p PredictNar) TypeFnc() TyFnc               { return Predicate }
-func (p PredictNar) TypeNat() d.TyNat             { return d.Function }
-func (p PredictNar) SubType() d.Typed             { return Nary }
-
-///////////////////////////////////////////////////////////////////////////////
-// all-predicate returns true, if all arguments passed yield true, when applyed
-// to predicate one after another
-func NewPredictAll(pred func(Callable) bool) PredictNar {
-	return func(args ...Callable) bool {
-		var result = true
-		for _, arg := range args {
-			if !pred(arg) {
-				return false
-			}
-		}
-		return result
-	}
-}
-
-// call passes arguments on to the enclosed all-predicate
-func (p PredictAll) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNative(d.BoolVal(p(args...)))
-	}
-	return NewNative(d.BoolVal(false))
-}
-func (p PredictAll) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p(NewNative(args...)))
-}
-func (p PredictAll) Verify(args ...Callable) bool { return p(args...) }
-func (p PredictAll) TypeName() string             { return "[T] → All → Truth" }
-func (p PredictAll) String() string               { return p.TypeName() }
-func (p PredictAll) TypeNat() d.TyNat             { return d.Function }
-func (p PredictAll) TypeFnc() TyFnc               { return Predicate }
-func (p PredictAll) SubType() d.Typed             { return All }
-
-///////////////////////////////////////////////////////////////////////////////
-// will return true, if any of the passed arguments yield true, when applyed to
-// predicate one after another
-func NewPredictAny(pred func(Callable) bool) PredictNar {
-	return func(args ...Callable) bool {
-		var result = false
-		for _, arg := range args {
-			if pred(arg) {
-				return true
-			}
-		}
-		return result
-	}
-}
-func (p PredictAny) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNative(d.BoolVal(p(args...)))
-	}
-	return NewNative(d.BoolVal(false))
-}
-func (p PredictAny) Verify(args ...Callable) bool { return p(args...) }
-func (p PredictAny) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p(NewNative(args...)))
-}
-func (p PredictAny) TypeName() string { return "[T] → Any → Truth" }
-func (p PredictAny) String() string   { return p.TypeName() }
-func (p PredictAny) TypeNat() d.TyNat { return d.Function }
-func (p PredictAny) TypeFnc() TyFnc   { return Predicate }
-func (p PredictAny) SubType() d.Typed { return Any }
-
-func NewComposedPredict(pred Verifieable) PredictComp {
-
-	var comp = NewComposedType(pred.TypeName(), pred.TypeFnc(), pred.SubType())
-
-	return func(args ...Callable) (bool, TyComp) {
-		return pred.Verify(args...), comp
-	}
-}
-func (p PredictComp) Call(args ...Callable) Callable {
-	if len(args) > 0 {
-		return NewNative(d.BoolVal(p.Verify(args...)))
-	}
-	return NewNative(d.BoolVal(false))
-}
-func (p PredictComp) Eval(args ...d.Native) d.Native {
-	return d.BoolVal(p.Verify(NewNative(args...)))
-}
-func (p PredictComp) TypeComp() TyComp             { _, comp := p(); return comp }
-func (p PredictComp) Verify(args ...Callable) bool { b, _ := p(args...); return b }
-func (p PredictComp) TypeNat() d.TyNat             { return d.Bool }
-func (p PredictComp) String() string               { return p.TypeName() }
-func (p PredictComp) TypeName() string             { return p.TypeComp().TypeName() }
-func (p PredictComp) Types() []d.Typed             { return p.TypeComp().Types() }
-func (p PredictComp) TypeFnc() TyFnc               { return p.Types()[0].(TyFnc) }
-func (p PredictComp) SubType() d.Typed {
-	var types = p.Types()
-	if len(types) > 1 {
-		return types[1]
-	}
-	return None
 }
 
 //// CASE EXPRESSION & SWITCH
 ///
 // eval converts its arguments to callable and evaluates the result to yield a
 // return value of native type
-func NewCase(predicate PredictNar, exprs ...Callable) CaseExpr {
+func NewCase(test TruthVal, exprs ...Callable) CaseExpr {
 	return func(args ...Callable) (Callable, bool) {
 		if len(args) > 0 {
-			if predicate(args...) {
+			if test.Bool(args...) {
 				if len(exprs) > 0 {
 					if len(exprs) > 1 {
 						return Curry(exprs...).Call(args...), true
@@ -283,10 +148,14 @@ func NewCase(predicate PredictNar, exprs ...Callable) CaseExpr {
 		}
 		// return predicate and case expressions, when called without
 		// arguments
-		return NewPair(predicate, NewVector(exprs...)), false
+		return NewPair(test, NewVector(exprs...)), false
 	}
 }
 
+func (s CaseExpr) Test() Callable    { pred, _ := s.Decompose(); return pred }
+func (s CaseExpr) Exprs() []Callable { _, exps := s.Decompose(); return exps }
+func (s CaseExpr) TypeFnc() TyFnc    { return Case }
+func (s CaseExpr) TypeNat() d.TyNat  { return d.Function }
 func (s CaseExpr) Decompose() (Callable, []Callable) {
 	pair, _ := s()
 	return pair.(PairVal).Left().(Callable),
@@ -294,7 +163,7 @@ func (s CaseExpr) Decompose() (Callable, []Callable) {
 }
 func (s CaseExpr) Eval(args ...d.Native) d.Native {
 	var pair, _ = s()
-	return pair.(Paired).Left().(Callable).Eval(args...)
+	return pair.(Paired).Left().(Evaluable).Eval(args...)
 }
 func (s CaseExpr) Call(args ...Callable) Callable {
 	if len(args) > 0 {
@@ -304,127 +173,132 @@ func (s CaseExpr) Call(args ...Callable) Callable {
 	var pair, _ = s()
 	return pair
 }
+func (s CaseExpr) String() string { return s.TypeName() }
 func (s CaseExpr) TypeName() string {
 	var name string
-	var pred = s.Predicate().TypeName()
-	var exprs = s.Expressions()
+	var test = s.Test().TypeName()
+	var exprs = s.Exprs()
 	for n, expr := range exprs {
-		name = "(" + expr.TypeName() + ")" + name
+		name = name + " | " + expr.TypeName()
 		if n < len(exprs)-1 {
-			name = " → " + name
+			name = "\n" + name
 		}
 	}
-	return "Case " + pred + " ⇒ [T] → " + name
+	return "Case " + test + " ⇒ " + name
 }
-func (s CaseExpr) String() string          { return s.TypeName() }
-func (s CaseExpr) Predicate() Callable     { pred, _ := s.Decompose(); return pred }
-func (s CaseExpr) Expressions() []Callable { _, exps := s.Decompose(); return exps }
-func (s CaseExpr) TypeNat() d.TyNat        { return d.Function }
-func (s CaseExpr) TypeFnc() TyFnc          { return Case }
+func (s CaseExpr) Type() Typed {
+
+	var types = []Callable{}
+
+	for _, expr := range s.Exprs() {
+		types = append(types, expr.Type().(TyDef))
+	}
+
+	return TyDef(func() (string, Callable) {
+		return s.TypeName(), NewVector(types...)
+	})
+}
 
 // applys passed arguments to all enclosed cases in the order passed to the
 // switch constructor
-func NewSwitch(exprs ...CaseExpr) CaseSwitch {
+func NewSwitch(inis ...CaseExpr) CaseSwitch {
 
-	// cast predicates as slice of callables
-	var caseslice = []Callable{}
-	// range over predicates
-	for _, exprs := range exprs {
-		// append predicate to slice of predicates
-		caseslice = append(caseslice, exprs)
+	var num = len(inis)
+
+	var tempt, tempc = make([]Callable, 0, num),
+		make([]Callable, 0, num)
+	num = 0
+
+	for _, arg := range inis {
+		tempt = append(tempt, arg.Type().(TyDef))
+		tempc = append(tempc, arg)
 	}
-	// create cases from predicate slice
-	var cases = NewList(caseslice...)
-	// allocate value to assign current case to
-	var current Callable
+
+	var cases = NewVector(tempc...)
+	var types = NewVector(tempt...)
 
 	// create and return case switch enclosing list of predicates
 	return func(args ...Callable) (Callable, Callable, bool) {
-		// call consumeable to yield current case and reassign list of
-		// remaining cases
-		current, cases = cases()
 
-		var argvec = NewVector(args...)
-		var idx = 0
+		var reargs = NewVector(args...)
 
 		// if call yielded any case
-		if current != nil {
+		if len(args) > 0 {
 			// scrutinize argument(s) by applying the case
-			if len(args) > 0 {
+			if cases.Len() > 0 {
+				num += num
+				var current, cases = cases.Consume()
 				if result, ok := current.(CaseExpr)(args...); ok {
-					// replenish cases before returning
-					// successfully scrutinized arguments
-					idx = 0
-					cases = NewList(caseslice...)
-					// return result of case application,
-					// index position of matching case and
-					// the case that matched
-					return result, NewPair(New(idx), current), true
+					return result, NewIndexPair(num, current), true
 				}
-				// update case index
-				idx += 1
 				// return set of arguments and false indicator. don't
 				// replenish cases of the parially applyed.
-				return argvec, cases, false
+				return reargs, cases, false
 			}
-			// when no arguments where passed, return list of
-			// remaining cases cases & false
-			return cases, current, false
 		}
-		// all case are depleted not scrutinizeing the arguments →
-		// replenish list of cases befor returning the final result
-		idx = 0
-		cases = NewList(caseslice...)
-		// return final none and false indicator
-		return NewNone(), cases, false
+		// when no arguments where passed, return list of
+		// remaining cases cases & false
+		return types, cases, false
 	}
 }
 
 // call method iterates over all cases until either boolean indicates
 // scrutinized arguments to return, or cases depletion
-func (s CaseSwitch) MatchNext(args ...Callable) (Callable, Callable) {
-	// call switch instance passing the arguments
-	var result, matcher, ok = s(args...)
-	// while call not yields none
-	for !result.TypeFnc().Match(None) {
-		// if boolean indicates success
-		if ok {
-			// return set of arguments
-			return result, matcher
-		}
-		// otherwise call switch again to scrutinize next case
-		result, matcher, ok = s(args...)
-	}
-	return NewNone(), matcher
-}
-
-func (s CaseSwitch) MatchAll(args ...Callable) (Callable, Callable) {
-
-	var result, matcher Callable
-	var ok bool
-
-	// if arguments have been passed
+func (s CaseSwitch) MatchNext(args ...Callable) (
+	result Callable,
+	tests Callable,
+	ok bool,
+) {
 	if len(args) > 0 {
 		// call switch instance passing the arguments
-		result, matcher, ok = s(args...)
+		result, tests, ok = s(args...)
 		// while call not yields none
 		for !result.TypeFnc().Match(None) {
 			// if boolean indicates success
 			if ok {
 				// return set of arguments
-				return result, matcher
+				return result, tests, ok
 			}
 			// otherwise call switch again to scrutinize next case
-			result, matcher, ok = s(args...)
+			result, tests, ok = s(args...)
+		}
+	}
+	return s()
+}
+
+func (s CaseSwitch) MatchAll(args ...Callable) (Callable, Callable, bool) {
+
+	// safe count, to eventually return
+	var types, cases, ok = s()
+	var count = cases.(VecCol).Len()
+
+	// if arguments have been passed
+	if len(args) > 0 {
+
+		var current, result Callable
+
+		// if there are further cases left
+		if count > 0 {
+			// while call not yields none
+			current, cases = cases.(VecCol).Consume()
+
+			if current != nil {
+				// if boolean indicates success
+				if result, ok = current.(CaseExpr)(); ok {
+					// return set of arguments
+					return result, NewPair(New(count), current), ok
+				}
+			}
+			return NewVector(args...), cases, ok
 		}
 	}
 	// return none if all cases are scrutinized, or no arguments where
 	// passed
-	return NewNone(), matcher
+	return NewVector(args...), types, ok
 }
 
 func (s CaseSwitch) Call(args ...Callable) Callable {
-	var result, _ = s.MatchAll(args...)
+	result, _, _ := s.MatchAll(args...)
 	return result
 }
 
@@ -438,151 +312,123 @@ func (s CaseSwitch) String() string {
 }
 
 /// MAYBE
-func NewMaybe(cas CaseExpr) MaybeVal {
+func NewMaybe(cas CaseExpr, types ...Typed) MaybeType {
+
+	// no arguments where passed, return type and/or expected
+	// argument signature
+	var typeVec VecCol
+
+	if len(types) > 0 {
+
+		var ctype Callable
+		var vals = []Callable{}
+
+		for _, typ := range types {
+			if t, ok := typ.(TyDef); ok {
+				ctype = t
+			} else {
+				ctype = typ.(TyFnc)
+			}
+			vals = append(vals, ctype)
+		}
+		typeVec = NewVector(vals...)
+	}
+
 	return func(args ...Callable) Callable {
+
 		if len(args) > 0 {
 			if val, ok := cas(args...); ok {
 				return NewJust(val)
 			}
 			return NewNone()
 		}
-		var exprs = cas.Expressions()
-		if len(exprs) > 1 {
-			return NewVector(exprs...)
-		}
-		return exprs[0]
+		return typeVec
 	}
 }
 
-func (m MaybeVal) Call(args ...Callable) Callable { return m(args...) }
-func (m MaybeVal) Eval(args ...d.Native) d.Native { return m().Eval(args...) }
-func (m MaybeVal) TypeNat() d.TyNat               { return m().TypeNat() }
-func (m MaybeVal) ElemType() TyFnc                { return m().TypeFnc() }
-func (m MaybeVal) TypeFnc() TyFnc                 { return Maybe }
-func (m MaybeVal) String() string                 { return m().String() }
-func (m MaybeVal) TypeName() string               { return "Maybe " + m().TypeName() + " | None" }
+func (m MaybeType) Eval(args ...d.Native) d.Native { return m().Eval(args...) }
+func (m MaybeType) Expr() Callable                 { return m() }
+func (m MaybeType) TypeNat() d.TyNat               { return m().TypeNat() }
+func (m MaybeType) TypeFnc() TyFnc                 { return Maybe }
+func (m MaybeType) ElemType() Typed                { return m() }
+func (m MaybeType) String() string                 { return m().String() }
+func (m MaybeType) TypeName() string {
+
+	var l = m().(VecCol).Len()
+
+	if l > 0 {
+
+		var head Callable
+		var cons = m().(Consumeable)
+
+		head, cons = cons.Consume()
+		if l > 0 {
+
+			var jname, argn string
+			head, cons = cons.Consume()
+
+			if l > 2 {
+
+				head, cons = cons.Consume()
+
+				for head != nil {
+					argn = head.TypeName() + " → "
+					head, cons = cons.Consume()
+				}
+
+			} else {
+				argn = head.TypeName() + " → "
+			}
+			return argn + " Maybe → Just " + jname + " | None"
+		}
+		return "[T] → Maybe → Just " +
+			cons.Head().TypeName() +
+			" | None"
+	}
+	return "[T] → Maybe → Just | None"
+}
+func (m MaybeType) Type() Typed {
+	return TyDef(func() (string, Callable) {
+		return m().TypeName(), m.ElemType().(TyDef)
+	})
+}
 
 /// JUST
-func NewJust(expr Callable) JustVal {
+func NewJust(expr Callable) OptionVal {
 	return func(args ...Callable) Callable {
 		return expr.Call(args...)
 	}
 }
-func (j JustVal) Call(args ...Callable) Callable { return j(args...) }
-func (j JustVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
-func (j JustVal) TypeNat() d.TyNat               { return j().TypeNat() }
-func (j JustVal) ElemType() TyFnc                { return j().TypeFnc() }
-func (j JustVal) TypeFnc() TyFnc                 { return Just }
-func (j JustVal) String() string                 { return j().String() }
-func (j JustVal) TypeName() string               { return "Just " + j().TypeName() }
+func (j OptionVal) Call(args ...Callable) Callable { return j(args...) }
+func (j OptionVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
+func (j OptionVal) TypeNat() d.TyNat               { return j().TypeNat() }
+func (j OptionVal) ElemType() TyFnc                { return j().TypeFnc() }
+func (j OptionVal) TypeFnc() TyFnc                 { return Just }
+func (j OptionVal) String() string                 { return j().String() }
+func (j OptionVal) TypeName() string               { return "Just " + j().TypeName() }
+func (j OptionVal) Type() Typed {
+	return TyDef(func() (string, Callable) { return j().TypeName(), j.ElemType() })
+}
 
-//// EITHER
+//// OPTION TYPE CONSTRUCTOR
 ///
-// either takes a case expression passes its arguments & applys the result to
-// either the left, or right constructor to yield the final value. the value
-// wrapping might be handled by the case expression allready, in which case nil
-// can be passed to NewEither for left, right, or both constructor and the
-// return from the case switch will be passed directly the left, or right
-// value constructor directly.
-func NewEither(cas CaseExpr, left, right Callable) EitherVal {
-
+func NewOptionType(test CaseExpr, either, or Callable) OptionType {
 	return func(args ...Callable) Callable {
-
-		var val Callable
-		var ok bool
-
-		if len(args) > 0 {
-			if val, ok = cas(args...); ok {
-				if left == nil {
-					return NewLeft(val)
-				}
-				return NewLeft(left.Call(val))
-			}
-			if right == nil {
-				return NewRight(val)
-			}
-			return NewRight(right.Call(args...))
-		}
-		// no arguments, wrap both types in a pair of pairs if
-		// expression to apply on result before either left, or right
-		// values are created is omitted, it needs to be set by the
-		// expression(s) provided in case, or replaced by a Unary that
-		// just returns it's argument
-		if left == nil {
-
-			var exprs = cas.Expressions()
-
-			switch {
-			case len(exprs) > 1:
-				left = Curry(exprs...)
-			case len(exprs) == 1:
-				left = exprs[0]
-			default:
-				left = NewUnary(
-					func(arg Callable) Callable {
-						return arg
-					})
-			}
-		}
-		if right == nil {
-
-			var exprs = cas.Expressions()
-
-			switch {
-			case len(exprs) > 1:
-				right = Curry(exprs...)
-			case len(exprs) == 1:
-				right = exprs[0]
-			default:
-				right = NewUnary(
-					func(arg Callable) Callable {
-						return arg
-					})
-			}
-		}
-		return NewPair(left, right)
+		var option Callable
+		return option
 	}
 }
-func (e EitherVal) Call(args ...Callable) Callable { return e(args...) }
-func (e EitherVal) String() string                 { return e().String() }
-func (e EitherVal) Eval(args ...d.Native) d.Native { return e().Eval(args...) }
-func (e EitherVal) TypeNat() d.TyNat               { return e().TypeNat() }
-func (e EitherVal) TypeFnc() TyFnc                 { return Either }
-func (e EitherVal) TypeName() string {
-	return "Either " + e.LeftType().TypeName() +
-		" | " + e.RightType().TypeName()
+func (o OptionType) Expr() Callable                 { return o() }
+func (o OptionType) TypeFnc() TyFnc                 { return Option }
+func (o OptionType) TypeNat() d.TyNat               { return d.Function }
+func (o OptionType) String() string                 { return o.TypeName() }
+func (o OptionType) Eval(args ...d.Native) d.Native { return o().Eval(args...) }
+func (o OptionType) Call(args ...Callable) Callable { return o(args...) }
+func (o OptionType) TypeName() string {
+	var str string
+	return str
 }
-func (e EitherVal) LeftType() TyFnc  { return e().(Paired).Left().TypeFnc() }
-func (e EitherVal) RightType() TyFnc { return e().(Paired).Right().TypeFnc() }
-func (e EitherVal) LeftTypeNat() d.TyNat {
-	return e().(PairVal).Left().TypeNat()
+func (o OptionType) Type() Typed {
+	var opt OptionType
+	return opt
 }
-func (e EitherVal) RightTypeNat() d.TyNat {
-	return e().(PairVal).Right().TypeNat()
-}
-
-/// LEFT
-func NewLeft(expr Callable) LeftVal {
-	return func(args ...Callable) Callable {
-		return expr.Call(args...)
-	}
-}
-func (j LeftVal) String() string                 { return j().String() }
-func (j LeftVal) TypeName() string               { return "Left " + j().TypeName() }
-func (j LeftVal) Call(args ...Callable) Callable { return j(args...) }
-func (j LeftVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
-func (j LeftVal) TypeNat() d.TyNat               { return j().TypeNat() }
-func (j LeftVal) TypeFnc() TyFnc                 { return Left }
-
-/// RIGHT
-func NewRight(expr Callable) RightVal {
-	return func(args ...Callable) Callable {
-		return expr.Call(args...)
-	}
-}
-func (j RightVal) String() string                 { return j().String() }
-func (j RightVal) TypeName() string               { return "Right " + j().TypeName() }
-func (j RightVal) Call(args ...Callable) Callable { return j(args...) }
-func (j RightVal) Eval(args ...d.Native) d.Native { return j().Eval(args...) }
-func (j RightVal) TypeNat() d.TyNat               { return j().TypeNat() }
-func (j RightVal) TypeFnc() TyFnc                 { return Right }

@@ -6,21 +6,21 @@ import (
 
 //// interfaces imported from data
 type Typed interface {
-	// Flag() d.BitFlag
-	d.Typed
-}
-
-type SubTyped interface {
-	SubType() d.Typed
-}
-
-type CompTyped interface {
-	Callable
-	Types() []d.TyNat
+	Type() Typed
+	TypeFnc() TyFnc
+	TypeName() string
 }
 
 type Evaluable interface {
-	Eval() d.Native
+	Eval(...d.Native) d.Native
+}
+
+type Callable interface {
+	Typed
+	Call(...Callable) Callable
+	Eval(...d.Native) d.Native
+	TypeNat() d.TyNat
+	String() string
 }
 
 type Reproduceable interface {
@@ -107,6 +107,15 @@ type Printable interface {
 	d.Printable
 }
 
+type Verifyable interface {
+	Bool() bool
+}
+
+type Constructing interface {
+	Callable
+	Const() Callable
+}
+
 type Paired interface {
 	Consumeable
 	Empty() bool
@@ -116,14 +125,8 @@ type Paired interface {
 	Both() (Callable, Callable)
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	KeyType() TyFnc
-	ValType() TyFnc
-}
-
-type Verifieable interface {
-	Callable
-	SubTyped
-	Verify(...Callable) bool
+	KeyType() Typed
+	ValType() Typed
 }
 
 type Composed interface {
@@ -154,31 +157,6 @@ type Mapped interface {
 	// Delete(acc Native) bool
 	// Set(Native, Native) Mapped
 	d.Mapped
-}
-
-///////////////////////////////////////////////////////////////////
-//// FUNCTIONAL INTERFACES
-///
-// Callable interface
-//
-// is the smallest common denominator of all functional types. all arguments
-// and return values either are instances, or compositions of values,
-// implementing the data/Native interface. callables can themselfes be treatet
-// as data and need to implement the Native interface to. a callable should
-// return it's return types native type flag when <TypeNat() d.TyNative> is
-// called. TypeFnc() TyFnc returns the funtional type of a callable
-//
-// callables usually return the enclosed, or computed value when called.
-// callables enclosing static data just return it, when called without
-// arguments. if arguments are passed, they are either considered function
-// arguments, when the callable is an expression, or data to be CONVERTED to an
-// instance of that callables type, which forms the base of all functors,
-// applicatives, monads‥. ability to convert, wrap, or box native values to add
-// functional behaviour.
-type Callable interface {
-	d.Native
-	TypeFnc() TyFnc
-	Call(...Callable) Callable
 }
 
 // branched yields two callable return values
@@ -329,8 +307,8 @@ type Aggregating interface {
 // associate them with their position in a collection
 type Associative interface {
 	Callable
-	KeyType() TyFnc
-	ValType() TyFnc
+	KeyType() Typed
+	ValType() Typed
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
 	GetVal(Callable) (Callable, bool)
