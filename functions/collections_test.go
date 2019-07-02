@@ -11,7 +11,7 @@ var listA = NewVector(New(0), New(1), New(2), New(3),
 var listB = NewVector(New(10), New(11), New(12), New(13),
 	New(14), New(15), New(16), New(17), New(18), New(19))
 
-func conList(args ...Callable) Consumeable {
+func conList(args ...Expression) Consumeable {
 	return NewList(args...)
 }
 func printCons(cons Consumeable) {
@@ -30,7 +30,7 @@ func TestList(t *testing.T) {
 func TestConList(t *testing.T) {
 
 	var alist = NewList(listA()...)
-	var head Callable
+	var head Expression
 
 	for i := 0; i < 5; i++ {
 		head, alist = alist()
@@ -45,7 +45,7 @@ func TestConList(t *testing.T) {
 func TestPushList(t *testing.T) {
 
 	var alist = NewList(listA()...)
-	var head Callable
+	var head Expression
 
 	for i := 0; i < 5; i++ {
 		head, alist = alist()

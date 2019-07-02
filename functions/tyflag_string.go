@@ -6,7 +6,7 @@ import "strconv"
 
 const (
 	_TyFlag_name_0 = "Flag_BitFlagFlag_NativeFlag_FunctionalFlag_ArityFlag_Prop"
-	_TyFlag_name_1 = "Flag_Comp"
+	_TyFlag_name_1 = "Flag_Def"
 )
 
 var (

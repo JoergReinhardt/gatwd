@@ -65,7 +65,7 @@ func IntGrZero(i int) bool   { return i > 0 }
 
 ////////////////////////////////////////////////////////////////////////////
 // type to sort slices of data
-type SortedData []Callable
+type SortedData []Expression
 
 func (d SortedData) Empty() bool {
 	if len(d) > 0 {
@@ -79,7 +79,7 @@ func (d SortedData) Empty() bool {
 	return true
 }
 
-func SortData(dat ...Callable) SortedData { return SortedData(dat) }
+func SortData(dat ...Expression) SortedData { return SortedData(dat) }
 
 func (d SortedData) Len() int { return len(d) }
 
@@ -89,7 +89,7 @@ func (ds SortedData) Sort(argType d.TyNat) {
 	sort.Slice(ds, consDataLess(argType, ds))
 }
 
-func (ds SortedData) Search(pred Callable) int {
+func (ds SortedData) Search(pred Expression) int {
 	var idx = sort.Search(len(ds), consDataFind(ds, pred))
 	if idx < len(ds) {
 		if strings.Compare(ds[idx].String(), pred.String()) == 0 {
@@ -139,7 +139,7 @@ func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 	return nil
 }
 
-func consDataFind(ds SortedData, pred Callable) func(int) bool {
+func consDataFind(ds SortedData, pred Expression) func(int) bool {
 
 	// preallocate function
 	var fn func(int) bool
@@ -196,7 +196,7 @@ func (a SortedPairs) ValueSorter() SortedPairs {
 	return NewPairVectorFromPairs(a...).SwitchedPairs()
 }
 
-func (a SortedPairs) AppendKeyValue(key Callable, val Callable) {
+func (a SortedPairs) AppendKeyValue(key Expression, val Expression) {
 	a = append(a, NewPair(key, val))
 }
 
@@ -230,7 +230,7 @@ func (p SortedPairs) SortByValue(f d.TyNat) {
 	p = NewPairVectorFromPairs(ps...).SwitchedPairs()
 }
 
-func (p SortedPairs) Search(pred Callable) int {
+func (p SortedPairs) Search(pred Expression) int {
 	var idx = sort.Search(len(p), consPairFind(p, pred))
 	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
@@ -249,13 +249,13 @@ func (p SortedPairs) Search(pred Callable) int {
 	return -1
 }
 
-func (p SortedPairs) SearchByValue(pred Callable) int {
+func (p SortedPairs) SearchByValue(pred Expression) int {
 	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Search(pred)
 }
 
-func (p SortedPairs) Get(pred Callable) Paired {
+func (p SortedPairs) Get(pred Expression) Paired {
 	idx := p.Search(pred)
 	if idx != -1 {
 		return p[idx]
@@ -263,13 +263,13 @@ func (p SortedPairs) Get(pred Callable) Paired {
 	return NewPair(New(d.NewNil()), New(d.NewNil()))
 }
 
-func (p SortedPairs) GetByValue(pred Callable) Paired {
+func (p SortedPairs) GetByValue(pred Expression) Paired {
 	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Get(pred)
 }
 
-func (p SortedPairs) Range(pred Callable) []Paired {
+func (p SortedPairs) Range(pred Expression) []Paired {
 	var ran = []Paired{}
 	idx := p.Search(pred)
 	if idx != -1 {
@@ -280,7 +280,7 @@ func (p SortedPairs) Range(pred Callable) []Paired {
 	return ran
 }
 
-func (p SortedPairs) RangeByValue(pred Callable) []Paired {
+func (p SortedPairs) RangeByValue(pred Expression) []Paired {
 	return SortedPairs(
 		NewPairVectorFromPairs(p...).SwitchedPairs(),
 	).Range(pred)
@@ -344,7 +344,7 @@ func consPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	return nil
 }
 
-func consPairFind(accs SortedPairs, pred Callable) func(i int) bool {
+func consPairFind(accs SortedPairs, pred Expression) func(i int) bool {
 	var f = pred.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

@@ -5,7 +5,8 @@ import (
 )
 
 type (
-	TyDef     func() (string, Callable)
+	TySig     func() (TyDef, []TyDef)
+	TyDef     func() (string, Expression)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
@@ -20,7 +21,7 @@ const (
 	Flag_Arity
 	Flag_Prop
 
-	Flag_Comp TyFlag = 255
+	Flag_Def TyFlag = 255
 )
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
@@ -36,20 +37,37 @@ const (
 	/// KIND
 	Type TyFnc = 1 << iota
 	/// GENERIC FUNCTION TYPES
-	Static
-	Lambda
-	Defined
+	Data
+	Constant
+	Function
+	/// SUM COLLECTION TYPES
+	List
+	Vector
+	/// PRODUCT COLLECTION TYPES
+	Pair
+	Set
+	Enum
+	Tuple
+	Record
 	/// PARAMETER OPTIONS
 	Key
 	Index
 	Return
 	Argument
 	Property
-	/// TRUTH VALUE types
+	Signature
+	/// TRUTH VALUE OTIONS
 	True
 	False
 	Undecided
 	Predicate
+	/// ORDER VALUE OPTIONS
+	Lesser
+	Greater
+	Equal
+	/// BOUND VALUE OPTIONS
+	Min
+	Max
 	/// BRANCH TYPES
 	If
 	Case
@@ -67,21 +85,19 @@ const (
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
-	//// FUNCTIONS
-	Function = Static | Lambda | Defined
-
 	//// PARAMETERS
 	Paramer = Key | Index | Argument |
 		Return | Property
 
 	//// COLLECTIONS
-	Sum     = List | Vector
-	Product = Set | Pair |
+	CollectSum  = List | Vector
+	CollectProd = Set | Pair |
 		Enum | Tuple | Record
 
 	// TRUTH VALUES & PREDICATES
 	Truth   = True | False
 	Trinary = Truth | Undecided
+	Compare = Lesser | Greater | Equal
 
 	//// OPTIONALS
 	Maybe  = Just | None
@@ -92,58 +108,47 @@ const (
 	//// branch value types
 	Branch = If | Case | Switch
 
-	/// ORDER CLASS PARAMETER
-	Lesser
-	Greater
-	Equal
-	/// BOUND CLASS PARAMETER
-	Min
-	Max
-	/// SUM COLLECTION TYPE & VALUE CONSTRUCTORS
-	List
-	Vector
-	/// PRODUCT COLLECTION TYPE & VALUE CONSTRUCTORS
-	Pair
-	Set
-	Enum
-	Tuple
-	Record
 	// COLLECTION CLASS
 	Collection = List | Vector | Pair |
 		Set | Enum | Tuple | Record
 )
 
-//// type definition
-func Define(name string, cons Callable) TyDef {
-	return func() (string, Callable) { return name, cons }
+//// TYPE DEFINITION
+func Define(name string, expr Expression) TyDef {
+	return func() (string, Expression) { return name, expr }
 }
 
-func (t TyDef) Ident() TyDef                   { return t }
-func (t TyDef) TypeComp() TyDef                { return t }
-func (t TyDef) Type() Typed                    { return Type }
-func (t TyDef) TypeFnc() TyFnc                 { return Type }
-func (t TyDef) TypeNat() d.TyNat               { return d.Type }
-func (t TyDef) Eval(nats ...d.Native) d.Native { return d.Function }
-func (t TyDef) Flag() d.BitFlag                { return Type.Flag() }
-func (t TyDef) FlagType() d.Uint8Val           { return Flag_Comp.U() }
-func (t TyDef) String() string                 { return t.TypeName() }
-func (t TyDef) TypeName() string               { var name, _ = t(); return name }
-func (t TyDef) Constructor() Callable          { var _, cons = t(); return cons }
-func (t TyDef) Call(args ...Callable) Callable { return t.Constructor().Call(args...) }
-func (t TyDef) ConsType() TyFnc                { return t.Constructor().TypeFnc() }
-func (t TyDef) Match(typ d.Typed) bool         { return true }
+func (t TyDef) Ident() TyDef                       { return t }
+func (t TyDef) Type() Typed                        { return Type }
+func (t TyDef) Flag() d.BitFlag                    { return Type.Flag() }
+func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (t TyDef) String() string                     { return t.Expr().String() }
+func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
+func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
+func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
+func (t TyDef) Call(args ...Expression) Expression { return t.Expr().Call(args...) }
+func (t TyDef) Expr() Expression                   { var _, expr = t(); return expr }
+func (t TyDef) Name() string                       { var name, _ = t(); return name }
+func (t TyDef) TypeName() string {
+	var name, expr = t()
+	if expr.FlagType() == Flag_Def.U() {
+		name = expr.TypeName() + " → " + name
+	}
+	return name
+}
+func (t TyDef) Match(typ d.Typed) bool { return true }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (t TyFnc) Type() Typed                    { return Type }
-func (t TyFnc) TypeFnc() TyFnc                 { return Type }
-func (t TyFnc) TypeNat() d.TyNat               { return d.Type }
-func (t TyFnc) Flag() d.BitFlag                { return d.BitFlag(t) }
-func (t TyFnc) Uint() uint                     { return d.BitFlag(t).Uint() }
-func (t TyFnc) Match(arg d.Typed) bool         { return t.Flag().Match(arg) }
-func (t TyFnc) Call(args ...Callable) Callable { return t.TypeFnc() }
-func (t TyFnc) Eval(args ...d.Native) d.Native { return t.TypeNat() }
+func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (t TyFnc) Type() Typed                        { return Type }
+func (t TyFnc) TypeFnc() TyFnc                     { return Type }
+func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
+func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
+func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() }
+func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
+func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
+func (t TyFnc) Eval(args ...d.Native) d.Native     { return t.TypeNat() }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -209,15 +214,15 @@ func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) 
 
 func FlagToProp(flag d.BitFlag) Propertys { return Propertys(uint8(flag.Uint())) }
 
-func (p Propertys) Flag() d.BitFlag                { return d.BitFlag(uint64(p)) }
-func (p Propertys) FlagType() d.Uint8Val           { return Flag_Prop.U() }
-func (p Propertys) TypeNat() d.TyNat               { return d.Type }
-func (p Propertys) TypeFnc() TyFnc                 { return Type }
-func (p Propertys) Type() Typed                    { return Property }
-func (p Propertys) TypeName() string               { return "Propertys" }
-func (p Propertys) Match(flag d.Typed) bool        { return p.Flag().Match(flag) }
-func (p Propertys) Eval(args ...d.Native) d.Native { return d.Int8Val(p) }
-func (p Propertys) Call(args ...Callable) Callable { return p }
+func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
+func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
+func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
+func (p Propertys) TypeFnc() TyFnc                     { return Type }
+func (p Propertys) Type() Typed                        { return Property }
+func (p Propertys) TypeName() string                   { return "Propertys" }
+func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
+func (p Propertys) Eval(args ...d.Native) d.Native     { return d.Int8Val(p) }
+func (p Propertys) Call(args ...Expression) Expression { return p }
 
 //// CALL ARITY
 ///
@@ -246,5 +251,5 @@ func (a Arity) TypeFnc() TyFnc                 { return Type }
 func (a Arity) TypeNat() d.TyNat               { return d.Type }
 func (a Arity) Match(arg d.Typed) bool         { return a == arg }
 func (a Arity) TypeName() string               { return a.String() }
-func (a Arity) Call(...Callable) Callable      { return NewNative(a) }
+func (a Arity) Call(...Expression) Expression  { return NewNative(a) }
 func (a Arity) Flag() d.BitFlag                { return d.BitFlag(a) }

@@ -5,19 +5,24 @@ import (
 )
 
 //// interfaces imported from data
+type Flagged interface {
+	Match(d.Typed) bool
+	Flag() d.BitFlag
+}
 type Typed interface {
 	Type() Typed
 	TypeFnc() TyFnc
 	TypeName() string
+	FlagType() d.Uint8Val
 }
 
 type Evaluable interface {
 	Eval(...d.Native) d.Native
 }
 
-type Callable interface {
+type Expression interface {
 	Typed
-	Call(...Callable) Callable
+	Call(...Expression) Expression
 	Eval(...d.Native) d.Native
 	TypeNat() d.TyNat
 	String() string
@@ -64,7 +69,7 @@ type Imaginary interface {
 	d.Imaginary
 }
 type Numeral interface {
-	Callable
+	Expression
 	Discrete
 	Boolean
 	Natural
@@ -112,17 +117,17 @@ type Verifyable interface {
 }
 
 type Constructing interface {
-	Callable
-	Const() Callable
+	Expression
+	Const() Expression
 }
 
 type Paired interface {
 	Consumeable
 	Empty() bool
 	Pair() Paired
-	Left() Callable
-	Right() Callable
-	Both() (Callable, Callable)
+	Left() Expression
+	Right() Expression
+	Both() (Expression, Expression)
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
 	KeyType() Typed
@@ -161,17 +166,17 @@ type Mapped interface {
 
 // branched yields two callable return values
 type Branched interface {
-	Callable
-	Left() Callable
-	Right() Callable
-	Both() (Callable, Callable)
+	Expression
+	Left() Expression
+	Right() Expression
+	Both() (Expression, Expression)
 }
 
 // swaps position of branched return values either per call, or yielding a
 // new instance containing the values in swapped position
 type Swappable interface {
-	Callable
-	Swap() (Callable, Callable)
+	Expression
+	Swap() (Expression, Expression)
 	SwappedPair() Paired
 }
 
@@ -181,26 +186,26 @@ type Swappable interface {
 // field indicates the optional type of the result yielded, in maybes it
 // indicates succssess, etc‥.
 type Accociated interface {
-	Callable
-	Key() Callable
-	Value() Callable
+	Expression
+	Key() Expression
+	Value() Expression
 }
 
 type Keyed interface {
-	Callable
+	Expression
 	KeyStr() string
 }
 
 type Indexed interface {
-	Callable
+	Expression
 	Index() string
 }
 
 // access elements directly by index position
 type IndexAssoc interface {
-	Callable
-	Get(int) (Callable, bool)
-	Set(int, Callable) (Vectorized, bool)
+	Expression
+	Get(int) (Expression, bool)
+	Set(int, Expression) (Vectorized, bool)
 }
 
 //// CONSUMEABLE
@@ -211,10 +216,10 @@ type IndexAssoc interface {
 // the behaviour the map-/ & fold operators rely on <Head() Callable> as 'unit'
 // function, which forms the base of all functors, applicatives, monads‥.
 type Consumeable interface {
-	Callable
-	Head() Callable
+	Expression
+	Head() Expression
 	Tail() Consumeable
-	Consume() (Callable, Consumeable)
+	Consume() (Expression, Consumeable)
 }
 
 //// CONSUMEABLE PAIRS
@@ -226,43 +231,6 @@ type ConsumeablePairs interface {
 }
 
 //// FUNCTOR
-// callables that are consumeables providing a 'map' method, are functors.
-type Functoric interface {
-	Consumeable
-	Map(UnaryLambda, ...Callable) Functoric
-	Fold(BinaryLambda, ...Callable) Callable
-}
-
-// applicatives are infix operators that compose functor operations
-// sequentialy. the bind function contains the 'composing behaviour', i.e.
-// knows how to compose the expected return types of it's operands, to yield
-// the applicatives boxed return type.
-type Applicative interface {
-	Functoric
-	Bind(...Callable) Callable
-}
-
-// monads are functors with two additional operations, one of which is
-// implemented by a type constructor that knows how to convert any given type
-// to be the boxed monad type. every empty, or depleted monad, behaves like a
-// (data) type constructor, when called providing arguments. arguments are
-// wrapped to be of the monad type. calling a monad that is not empty, results
-// in argument convertion and composition of the arguments with the preexisting
-// elements contained by the monad and yields a new instance of the monad type.
-// for a list, that effectually appends the arguments as new elements to the
-// preexisting list and returns that newly created list. the 'unit' behaviour
-// is implemented by calling the monad without arguments, which will yield the
-// first element as head and all preceeding elements as tail value.
-type Monadic interface {
-	Applicative
-	Join(f, g Consumeable) Callable
-}
-
-// provides branching by any distinguishable property. aka 'case switch'
-type Distinguishable interface {
-	Callable
-	Case(expr ...Callable) Callable
-}
 
 // has numerous elements and knows it
 type Countable interface {
@@ -272,7 +240,7 @@ type Countable interface {
 // collection of elements in a fixed sequence accessable by index, aka
 // 'slice/array'
 type Sequenced interface {
-	Slice() []Callable
+	Slice() []Expression
 }
 
 // ordered collections can be sorted by‥.
@@ -282,7 +250,7 @@ type Sortable interface {
 
 // ‥.and searched after based on a predicate
 type Searchable interface {
-	Search(Callable) int
+	Search(Expression) int
 }
 
 // combines common functions provided by all vector shaped data
@@ -297,22 +265,21 @@ type Vectorized interface {
 // yield the current result of a computation aggregating those passed
 // arguments. base of fold-l behaviour.
 type Aggregating interface {
-	Callable
-	Result() Callable
-	Aggregator() VariadLambda
-	Aggregate(...Callable) Callable
+	Expression
+	Result() Expression
+	Aggregate(...Expression) Expression
 }
 
 // associative values and collections have either a key, or index position, to
 // associate them with their position in a collection
 type Associative interface {
-	Callable
+	Expression
 	KeyType() Typed
 	ValType() Typed
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	GetVal(Callable) (Callable, bool)
-	SetVal(Callable, Callable) (Associative, bool)
+	GetVal(Expression) (Expression, bool)
+	SetVal(Expression, Expression) (Associative, bool)
 	Pairs() []Paired
 }
 
@@ -340,5 +307,5 @@ type Edged interface {
 
 type Leaved interface {
 	Nodular
-	Value() Callable
+	Value() Expression
 }

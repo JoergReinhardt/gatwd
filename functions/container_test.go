@@ -7,62 +7,24 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var intslice = []Callable{
+var intslice = []Expression{
 	New(0), New(1), New(2), New(3), New(4), New(5), New(6), New(7), New(8),
 	New(9), New(0), New(134), New(8566735), New(4534), New(3445),
 	New(76575), New(2234), New(45), New(7646), New(64), New(3), New(314),
 }
 
-var intkeys = []Callable{New("zero"), New("one"), New("two"), New("three"),
+var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 	New("four"), New("five"), New("six"), New("seven"), New("eight"), New("nine"),
 	New("ten"), New("eleven"), New("twelve"), New("thirteen"), New("fourteen"),
 	New("fifteen"), New("sixteen"), New("seventeen"), New("eighteen"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-var f = VariadLambda(func(args ...Callable) Callable {
-	var str = "f and "
-	str = str + args[0].String()
-	return NewNative(d.StrVal(str))
-})
-var g = VariadLambda(func(args ...Callable) Callable {
-	var str = "g and "
-	str = str + args[0].String()
-	return NewNative(d.StrVal(str))
-})
-var h = VariadLambda(func(args ...Callable) Callable {
-	var str = "h and "
-	str = str + args[0].String()
-	return NewNative(d.StrVal(str))
-})
-var i = VariadLambda(func(args ...Callable) Callable {
-	var str = "i and "
-	str = str + args[0].String()
-	return NewNative(d.StrVal(str))
-})
-var j = VariadLambda(func(args ...Callable) Callable {
-	var str = "j and "
-	str = str + args[0].String()
-	return NewNative(d.StrVal(str))
-})
-var k = ConstLambda(func() Callable {
-	return NewNative(d.StrVal("k"))
-})
-
-func TestCurry(t *testing.T) {
-	var result = Curry(f, g, h, i, j, k)
-	fmt.Println(result)
-	if result.String() != "f and g and h and i and j and k" {
-		t.Fail()
-	}
-}
-
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VariadLambda(
-			func(args ...Callable) Callable {
-				return NewVector(args...)
-			}), NewVector(Type, Type, Type))
+		VariadicExpr(func(args ...Expression) Expression {
+			return NewVector(args...)
+		}), Type, Type, Type)
 
 	var r0 = nary(NewNative(d.StrVal("0")))
 
