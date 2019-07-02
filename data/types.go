@@ -25,7 +25,7 @@ func (t TyNat) TypeName() string {
 				str = str + delim
 			}
 		}
-		return "[" + str + "]"
+		return str
 	}
 	return t.String()
 }
@@ -54,8 +54,8 @@ func ListAllTypes() []TyNat {
 
 //go:generate stringer -type=TyNat
 const (
-	Nil  TyNat = 1
-	Bool TyNat = 1 << iota
+	Nil TyNat = 1 << iota
+	Bool
 	Int8
 	Int16
 	Int32

@@ -73,7 +73,7 @@ func (v Imag64Val) String() string {
 	return strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
-func (v DataSlice) String() string { return StringSlice(", ", "(", ")", v.Slice()...) }
+func (v DataSlice) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
 
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag
@@ -144,7 +144,7 @@ func stringChainTable(v ...Native) string {
 
 //// SETS ////
 func (p PairVal) String() string {
-	return p.Left().String() + ": " + p.Right().String()
+	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
 }
 
 func (s SetInt) String() string {

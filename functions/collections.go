@@ -137,7 +137,7 @@ func (l ListCol) TypeName() string {
 }
 func (l ListCol) Type() Typed {
 	return TyDef(func() (string, Expression) {
-		return l.TypeName(), l.TypeElem().(TyDef)
+		return l.TypeName(), l.TypeElem().(Expression)
 	})
 }
 
@@ -269,8 +269,8 @@ func (p PairVal) Type() Typed {
 		return p.TypeName(),
 			TyDef(func() (string, Expression) {
 				return p.TypeName(),
-					NewPair(p.KeyType().(TyDef),
-						p.ValType().(TyDef))
+					NewPair(p.KeyType().(Expression),
+						p.ValType().(Expression))
 			})
 	})
 }
@@ -329,8 +329,8 @@ func (p KeyPair) TypeName() string {
 func (p KeyPair) Type() Typed {
 	return TyDef(func() (string, Expression) {
 		return p.TypeName(), TyDef(func() (string, Expression) {
-			return p.TypeName(), NewPair(p.KeyType().(TyDef),
-				p.ValType().(TyDef))
+			return p.TypeName(), NewPair(p.KeyType().(Expression),
+				p.ValType().(Expression))
 		})
 	})
 }
@@ -411,8 +411,8 @@ func (a IndexPair) Type() Typed {
 		return a.TypeName(),
 			TyDef(func() (string, Expression) {
 				return a.TypeName(), NewPair(
-					a.KeyType().(TyDef),
-					a.ValType().(TyDef))
+					a.KeyType().(Expression),
+					a.ValType().(Expression))
 			})
 	})
 }
@@ -579,8 +579,8 @@ func (l PairList) Type() Typed {
 		return l.TypeName(),
 			TyDef(func() (string, Expression) {
 				return l.TypeName(), NewPair(
-					l.KeyType().(TyDef),
-					l.ValType().(TyDef))
+					l.KeyType().(Expression),
+					l.ValType().(Expression))
 			})
 	})
 }
@@ -743,7 +743,7 @@ func (v VecCol) TypeName() string {
 func (v VecCol) Type() Typed {
 	return TyDef(func() (string, Expression) {
 		return v.TypeName(),
-			v.TypeElem().(TyDef)
+			v.TypeElem().(Expression)
 	})
 }
 
@@ -859,8 +859,8 @@ func (v PairVec) Type() Typed {
 		return v.TypeName(),
 			TyDef(func() (string, Expression) {
 				return v.TypeName(), NewPair(
-					v.KeyType().(TyDef),
-					v.ValType().(TyDef))
+					v.KeyType().(Expression),
+					v.ValType().(Expression))
 			})
 	})
 }
@@ -1138,8 +1138,8 @@ func (v SetCol) Type() Typed {
 		return v.TypeName(),
 			TyDef(func() (string, Expression) {
 				return v.TypeName(), NewPair(
-					v.KeyType().(TyDef),
-					v.ValType().(TyDef))
+					v.KeyType().(Expression),
+					v.ValType().(Expression))
 			})
 	})
 }

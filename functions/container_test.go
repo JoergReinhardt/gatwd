@@ -22,12 +22,31 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VecCol(func(args ...Expression) []Expression {
-			return args
+		Native(func(args ...d.Native) d.Native {
+			var str string
+			for n, arg := range args {
+				str = str + arg.String()
+				if n < len(args)-1 {
+					str = str + " "
+				}
+			}
+			return d.StrVal(str)
+			//			if len(args) > 0 {
+			//				if len(args) > 1 {
+			//					if len(args) == 2 {
+			//						return d.NewPair(args[0], args[1])
+			//					}
+			//					return d.NewSlice(args...)
+			//				}
+			//				return args[0]
+			//			}
+			//			return d.NewTypedNull(d.String)
 		}),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
-		NewNative(d.StrVal("")))
+		NewNative(d.StrVal("")),
+		NewNative(d.NewSlice(d.NewTypedNull(d.String))),
+	)
 
 	var r0 = nary(NewNative(d.StrVal("0")))
 
@@ -82,6 +101,9 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r6.Type(), r6.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
+
+	fmt.Printf("nary typed: %s name: %s, args: %s return: %s\n",
+		nary.Type(), nary.TypeName(), nary.TypeArgs(), nary.TypeReturn())
 
 	// apply additional arguments to partialy applyed expression
 }

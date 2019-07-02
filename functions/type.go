@@ -25,8 +25,8 @@ const (
 )
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
-func (t TyFlag) Match(match TyFlag) bool {
-	if match == t {
+func (t TyFlag) Match(match d.Uint8Val) bool {
+	if match == t.U() {
 		return false
 	}
 	return true
@@ -122,17 +122,17 @@ func (t TyDef) Ident() TyDef                       { return t }
 func (t TyDef) Type() Typed                        { return Type }
 func (t TyDef) Flag() d.BitFlag                    { return Type.Flag() }
 func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (t TyDef) String() string                     { return t.Expr().String() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
 func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
+func (t TyDef) String() string                     { return t.Expr().TypeName() }
 func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
 func (t TyDef) Call(args ...Expression) Expression { return t.Expr().Call(args...) }
 func (t TyDef) Expr() Expression                   { var _, expr = t(); return expr }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
 func (t TyDef) TypeName() string {
 	var name, expr = t()
-	if expr.FlagType() == Flag_Def.U() {
-		name = expr.TypeName() + " → " + name
+	if name == "" {
+		name = expr.TypeName()
 	}
 	return name
 }
@@ -161,7 +161,7 @@ func (t TyFnc) TypeName() string {
 				str = str + delim
 			}
 		}
-		return "[" + str + "]"
+		return str
 	}
 	return t.String()
 }

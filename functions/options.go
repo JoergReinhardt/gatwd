@@ -247,30 +247,26 @@ func (s CaseExpr) Type() Typed {
 // applys passed arguments to all enclosed cases in the order passed to the
 // switch constructor
 func NewSwitch(cases ...CaseExpr) CaseSwitch {
-	var index = 0
 	return func(args ...Expression) (Expression, Expression, bool) {
+		var index = 0
 		if len(args) > 0 {
 			if len(cases) > 0 {
 				var current = cases[index]
 				if expr, ok := current(args...); ok {
-					index = 0
 					return expr,
 						NewNative(d.IntVal(index)),
 						true
 				}
-				if index < len(cases)-1 {
-					index += 1
+				if index <= len(cases)-1 {
 					return NewVector(args...),
-						NewSwitch(cases...),
+						NewSwitch(cases[index : len(cases)-1]...),
 						false
 				}
 			}
-			index = 0
 			return nil,
-				NewSwitch(cases...),
+				NewNone(),
 				false
 		}
-		index = 0
 		var vec = NewVector()
 		for _, c := range cases {
 			vec = vec.Append(c)
@@ -311,6 +307,8 @@ func (s CaseSwitch) FlagType() d.Uint8Val           { return Flag_Functional.U()
 func (s CaseSwitch) TypeFnc() TyFnc                 { return Switch }
 func (s CaseSwitch) TypeNat() d.TyNat               { return d.Function }
 func (s CaseSwitch) String() string                 { return s.TypeName() }
+
+// TODO: correct type name to show actual types
 func (s CaseSwitch) TypeName() string {
 	return "[T] → (Case Switch) → (T, [T]) "
 }
@@ -318,7 +316,7 @@ func (s CaseSwitch) Type() Typed {
 	return Define(s.TypeName(), s.TypeFnc())
 }
 
-/// MAYBE
+/// OPTION TYPE CONSTRUCTOR
 func NewOptionType(test CaseSwitch, types ...Expression) OptionType {
 	return func(args ...Expression) OptionVal {
 		return NewOptionVal(test, NewVector(types...))
