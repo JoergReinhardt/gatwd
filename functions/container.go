@@ -63,25 +63,29 @@ func (c GenericExpr) Eval(args ...d.Native) d.Native {
 //// NARY EXPRESSION TYPE CONSTRUCTOR
 ///
 // TODO: make nary type safe by deriving type switch from signature
+// expression type definition takes an optional name, an expression and a
+// number of expressions, or typed definitions to declare the expression
+// signature. last signature expression is assumed to be the return type. all
+// signature arguments before that are assumed to be the arguments types.
+//
+// defined expressions can are enumerated and partialy applyable.
 func DefineExpressionType(
 	name string,
 	expr Expression,
 	signature ...Expression,
 ) DefinedExpr {
 
-	var arity int
+	var arity = 0
 	var retval Expression
 	var pattern Expression
 
 	switch len(signature) {
 	case 0:
-		arity = 0
 		pattern = AllTypes
 		retval = expr.Type().(TyDef)
 	case 1:
-		arity = 1
-		pattern = signature[0]
-		retval = expr.Type().(TyDef)
+		pattern = AllTypes
+		retval = signature[0]
 	default:
 		arity = len(signature) - 1
 		pattern = NewVector(signature[:arity]...)
