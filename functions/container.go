@@ -228,7 +228,8 @@ func (n NativeSet) Pairs() []Paired {
 
 //// EXPRESSION TYPE CONSTRUCTOR
 ///
-// TODO: make nary type safe by deriving type switch from signature
+// TODO: make nary type safe by deriving type switch from signature and
+// exposing it in a match method
 //
 // expression type definition takes an optional name, an expression and a
 // number of expressions, or typed definitions to declare the expression
@@ -314,8 +315,8 @@ func DefineExpressionType(
 // returns the value returned when calling itself directly, passing arguments
 func (n DefinedExpr) Ident() Expression                  { return n }
 func (n DefinedExpr) String() string                     { return n.Expr().String() }
-func (n DefinedExpr) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (n DefinedExpr) Type() Typed                        { return n() }
+func (n DefinedExpr) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (n DefinedExpr) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
 func (n DefinedExpr) Expr() Expression                   { return n.Definition().Left() }
 func (n DefinedExpr) Signature() Paired                  { return n.Definition().Right().(Paired) }
