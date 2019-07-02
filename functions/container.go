@@ -13,10 +13,10 @@ import (
 type (
 	//// EXPRESSION CONSTRUCTORS
 	ConstantExpr func() Expression
-	VariadicExpr func(...Expression) Expression
+	GenericExpr  func(...Expression) Expression
 
 	//// NARY EXPRESSION TYPE CONSTRUCTOR
-	ExpressionVal func(...Expression) Expression
+	DefinedExpr func(...Expression) Expression
 
 	//// NATIVE TYPE & VALUE CONSTRUCTORS
 	NativeExpr func(...d.Native) d.Native
@@ -42,17 +42,17 @@ func (c ConstantExpr) Type() Typed {
 	return Define("ϝ → "+c().TypeName(), NewPair(Constant, c().TypeFnc()))
 }
 
-func NewExpression(expr func(args ...Expression) Expression) VariadicExpr { return expr }
+func NewExpression(expr func(args ...Expression) Expression) GenericExpr { return expr }
 
-func (c VariadicExpr) Ident() Expression                  { return c }
-func (c VariadicExpr) Type() Typed                        { return c().Type() }
-func (c VariadicExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
-func (c VariadicExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
-func (c VariadicExpr) String() string                     { return c().String() }
-func (c VariadicExpr) TypeName() string                   { return c().TypeName() }
-func (c VariadicExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (c VariadicExpr) Call(args ...Expression) Expression { return c(args...) }
-func (c VariadicExpr) Eval(args ...d.Native) d.Native {
+func (c GenericExpr) Ident() Expression                  { return c }
+func (c GenericExpr) Type() Typed                        { return c().Type() }
+func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
+func (c GenericExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
+func (c GenericExpr) String() string                     { return c().String() }
+func (c GenericExpr) TypeName() string                   { return c().TypeName() }
+func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
+func (c GenericExpr) Eval(args ...d.Native) d.Native {
 	var exprs = make([]Expression, 0, len(args))
 	for _, arg := range args {
 		exprs = append(exprs, NewNative(arg))
@@ -63,23 +63,26 @@ func (c VariadicExpr) Eval(args ...d.Native) d.Native {
 //// NARY EXPRESSION TYPE CONSTRUCTOR
 ///
 // TODO: make nary type safe by deriving type switch from signature
-func NewExpressionType(
+func DefineExpressionType(
 	name string,
 	expr Expression,
 	signature ...Expression,
-) ExpressionVal {
+) DefinedExpr {
 
-	var arity = len(signature)
-	var retval = expr.Type().(Expression)
+	var arity = len(signature) - 1
+	var retval Expression
 	var pattern Expression
 
 	switch arity {
 	case 0:
 		pattern = AllTypes
+		retval = expr.Type().(TyDef)
 	case 1:
 		pattern = signature[0]
+		retval = expr.Type().(TyDef)
 	default:
-		pattern = NewVector(signature...)
+		pattern = NewVector(signature[:arity]...)
+		retval = signature[arity].Type().(TyDef)
 	}
 
 	var definition = Define(name, NewPair(
@@ -96,7 +99,7 @@ func NewExpressionType(
 			}
 			// argument number undersatisfies expression arity
 			if arglen < arity {
-				return NewExpressionType(name, NewExpression(
+				return DefineExpressionType(name, NewExpression(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(
 							args,
@@ -118,7 +121,7 @@ func NewExpressionType(
 					return vec
 				}
 				return vec.Append(
-					NewExpressionType(
+					DefineExpressionType(
 						name,
 						expr,
 						signature...,
@@ -131,24 +134,24 @@ func NewExpressionType(
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n ExpressionVal) Ident() Expression    { return n }
-func (n ExpressionVal) String() string       { return n.Expr().String() }
-func (n ExpressionVal) FlagType() d.Uint8Val { return Flag_Def.U() }
+func (n DefinedExpr) Ident() Expression    { return n }
+func (n DefinedExpr) String() string       { return n.Expr().String() }
+func (n DefinedExpr) FlagType() d.Uint8Val { return Flag_Def.U() }
 
 //	var definition = Define(name, NewPair(
 //		expr, NewPair(pattern, retval),
 //	))
-func (n ExpressionVal) Type() Typed                        { return n() }
-func (n ExpressionVal) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
-func (n ExpressionVal) Expr() Expression                   { return n.Definition().Left() }
-func (n ExpressionVal) Signature() Paired                  { return n.Definition().Right().(Paired) }
-func (n ExpressionVal) Pattern() Expression                { return n.Signature().Left() }
-func (n ExpressionVal) Return() Expression                 { return n.Signature().Right() }
-func (n ExpressionVal) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
-func (n ExpressionVal) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
-func (n ExpressionVal) Eval(args ...d.Native) d.Native     { return n.Expr().Eval(args...) }
-func (n ExpressionVal) Call(args ...Expression) Expression { return n.Expr().Call(args...) }
-func (n ExpressionVal) Arity() Arity {
+func (n DefinedExpr) Type() Typed                        { return n() }
+func (n DefinedExpr) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
+func (n DefinedExpr) Expr() Expression                   { return n.Definition().Left() }
+func (n DefinedExpr) Signature() Paired                  { return n.Definition().Right().(Paired) }
+func (n DefinedExpr) Pattern() Expression                { return n.Signature().Left() }
+func (n DefinedExpr) Return() Expression                 { return n.Signature().Right() }
+func (n DefinedExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
+func (n DefinedExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
+func (n DefinedExpr) Eval(args ...d.Native) d.Native     { return n.Expr().Eval(args...) }
+func (n DefinedExpr) Call(args ...Expression) Expression { return n.Expr().Call(args...) }
+func (n DefinedExpr) Arity() Arity {
 	if n.Pattern().TypeFnc().Match(Vector) {
 		if vec, ok := n.Pattern().(VecCol); ok {
 			return Arity(vec.Len())
@@ -156,7 +159,7 @@ func (n ExpressionVal) Arity() Arity {
 	}
 	return Arity(1)
 }
-func (n ExpressionVal) TypeName() string {
+func (n DefinedExpr) TypeName() string {
 	var name string
 	if n.Pattern().TypeFnc().Match(Vector) {
 		for _, arg := range n.Pattern().(VecCol)() {
