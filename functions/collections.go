@@ -1182,10 +1182,6 @@ func (s SetCol) ValNatType() d.TyNat {
 	return d.Nil
 }
 
-func (v SetCol) Consume() (Expression, Consumeable) {
-	return v.Head(), v.Tail()
-}
-
 func (v SetCol) Head() Expression {
 	if v.Len() > 0 {
 		var vec = NewPairVectorFromPairs(
@@ -1206,4 +1202,23 @@ func (v SetCol) Tail() Consumeable {
 		return NewPairVec(vec()[:1]...)
 	}
 	return nil
+}
+
+func (v SetCol) Consume() (Expression, Consumeable) {
+	return v.Head(), v.Tail()
+}
+
+func (v SetCol) TailSet() SetCol {
+	if v.Len() > 1 {
+		var vec = NewPairVectorFromPairs(
+			v.Pairs()...,
+		)
+		vec.Sort(v.KeyNatType())
+		return NewPairVec(vec()[:1]...)
+	}
+	return nil
+}
+
+func (v SetCol) ConsumeSet() (Expression, SetCol) {
+	return v.Head(), v.TailSet()
 }
