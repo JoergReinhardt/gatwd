@@ -346,7 +346,7 @@ func NewOptionVal(test CaseSwitch, exprs ...Expression) OptionVal {
 	return func(args ...Expression) Expression {
 		var expr, index = test.TestAll(args...)
 		if !expr.TypeFnc().Match(None) {
-			var idx = int(index.(Native)().(d.IntVal))
+			var idx = int(index.(NativeExpr)().(d.IntVal))
 			var result = exprs[idx]
 			if len(args) > 0 {
 				return result.Call(args...)

@@ -21,8 +21,8 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 }
 
 func TestNary(t *testing.T) {
-	var nary = NewNary(
-		Native(func(args ...d.Native) d.Native {
+	var strconc = NewExpressionType("(String Concat)",
+		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
 			for n, arg := range args {
 				str = str + arg.String()
@@ -49,35 +49,35 @@ func TestNary(t *testing.T) {
 		//NewNative(d.NewSlice(d.NewTypedNull(d.String))),
 	)
 
-	var r0 = nary(NewNative(d.StrVal("0")))
+	var r0 = strconc(NewNative(d.StrVal("0")))
 
-	var r1 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")))
+	var r1 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")))
 
-	var r2 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r2 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")))
 
-	var r3 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r3 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")))
 
-	var r4 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r4 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
 		NewNative(d.StrVal("4")))
 
-	var r5 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r5 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
 		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")))
 
-	var r6 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r6 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
 		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
 		NewNative(d.StrVal("6")))
 
-	var r7 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r7 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
 		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
 		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")))
 
-	var r8 = nary(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
+	var r8 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
 		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
 		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
 		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")),
@@ -105,7 +105,7 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
 	fmt.Printf("nary typed: %s name: %s, args: %s return: %s\n",
-		nary.Type(), nary.TypeName(), nary.TypeArgs(), nary.TypeReturn())
+		strconc.Type(), strconc.TypeName(), strconc.TypeArgs(), strconc.TypeReturn())
 
 	// apply additional arguments to partialy applyed expression
 }

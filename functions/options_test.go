@@ -141,7 +141,7 @@ func TestTruth(t *testing.T) {
 
 var test = NewTruthTest(func(args ...Expression) bool {
 	for _, arg := range args {
-		if !arg.(Native).TypeNat().Match(
+		if !arg.(NativeExpr).TypeNat().Match(
 			d.String | d.Integers | d.Float) {
 			return false
 		}
