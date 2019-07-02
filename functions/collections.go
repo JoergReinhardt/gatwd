@@ -679,6 +679,17 @@ func (v VecCol) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
+func (v VecCol) TailVec() VecCol {
+	if v.Len() > 1 {
+		return NewVector(v.Slice()[1:]...)
+	}
+	return NewEmptyVector()
+}
+
+func (v VecCol) ConsumeVec() (Expression, VecCol) {
+	return v.Head(), v.TailVec()
+}
+
 func (v VecCol) Empty() bool {
 	if len(v()) > 0 {
 		for _, val := range v() {
