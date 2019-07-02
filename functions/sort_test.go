@@ -53,22 +53,25 @@ func TestDataSorter(t *testing.T) {
 }
 func TestDataSorterFlags(t *testing.T) {
 	var flags = []Expression{
-		New(d.Nil),
-		New(d.Bool),
 		New(d.Int),
-		New(d.Int8),
 		New(d.Int16),
-		New(d.Int32),
 		New(d.BigInt),
+		New(d.Bool),
+		New(d.Int8),
+		New(d.Int32),
+		New(d.Nil),
 	}
 
-	fmt.Printf("flag: %s TypeFnc: %s TypeNat: %s\n",
-		New(d.Nil), New(d.Nil).TypeFnc(), New(d.Nil).TypeNat())
-	fmt.Printf("flag slice: %s\n", flags)
 	fs := SortedData(flags)
 	fmt.Printf("unsorted flags: %s\n", fs)
+	if fs[0].String() != "Int" {
+		t.Fail()
+	}
 	fs.Sort(d.Type)
 	fmt.Printf("sorted flags: %s\n", fs)
+	if fs[0].String() != "Nil" {
+		t.Fail()
+	}
 
 	var ints = []Expression{
 		New(int(11)),
@@ -113,20 +116,23 @@ func TestDataSorterMixedType(t *testing.T) {
 	ts := SortedData(flags)
 	ts.Sort(d.Type)
 	fmt.Printf("supposedly sorted by flag: %s\n", ts)
+	if ts[0].Eval().(d.IntVal) != 543 {
+		t.Fail()
+	}
 }
 func TestPairSorterStrStr(t *testing.T) {
 	var strPairs = []Paired{
-		NewPair(New("Aaron"), New("val 0")),
+		NewPair(New("Sonja"), New("val 6")),
+		NewPair(New("Tom"), New("val 7")),
 		NewPair(New("Aardvark"), New("val 1")),
 		NewPair(New("Adam"), New("val 2")),
 		NewPair(New("Victor"), New("val 3")),
 		NewPair(New("Sylvest"), New("val 4")),
 		NewPair(New("Stepen"), New("val 5")),
-		NewPair(New("Sonja"), New("val 6")),
-		NewPair(New("Tom"), New("val 7")),
 		NewPair(New("Britta"), New("val 8")),
 		NewPair(New("Peter"), New("val 9")),
 		NewPair(New("Paul"), New("val 10")),
+		NewPair(New("Aaron"), New("val 0")),
 		NewPair(New("Mary"), New("val 11")),
 		NewPair(New("Eve"), New("val 12")),
 		NewPair(New("John"), New("val 13")),
@@ -136,7 +142,16 @@ func TestPairSorterStrStr(t *testing.T) {
 	ps := SortPairs(strPairs...)
 	fmt.Printf("unsorted string|string slice:\n %s\n\n", ps)
 	ps.Sort(d.Letters)
-	fmt.Printf("sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
+	fmt.Printf(
+		"sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
+
+	if ps[0].Left().String() != "Aardvark" {
+		t.Fail()
+	}
+
+	if ps[len(ps)-1].Left().String() != "Victor" {
+		t.Fail()
+	}
 }
 func TestPairSorterIntStr(t *testing.T) {
 	var pairs = []Paired{
@@ -155,6 +170,12 @@ func TestPairSorterIntStr(t *testing.T) {
 	ps := SortPairs(pairs...)
 	ps.Sort(d.Integers)
 	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
+	if ps[0].Left().Eval().(d.IntVal) != 1 {
+		t.Fail()
+	}
+	if ps[len(ps)-1].Left().Eval().(d.IntVal) != 13 {
+		t.Fail()
+	}
 }
 func TestPairSorterUintStr(t *testing.T) {
 	var pairs = []Paired{
@@ -173,6 +194,12 @@ func TestPairSorterUintStr(t *testing.T) {
 	ps := SortPairs(pairs...)
 	ps.Sort(d.Naturals)
 	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
+	if ps[0].Left().Eval().(d.UintVal) != 1 {
+		t.Fail()
+	}
+	if ps[len(ps)-1].Left().Eval().(d.UintVal) != 13 {
+		t.Fail()
+	}
 }
 func TestPairSorterIrrationalStr(t *testing.T) {
 	var pairs = []Paired{
@@ -191,4 +218,10 @@ func TestPairSorterIrrationalStr(t *testing.T) {
 	ps := SortPairs(pairs...)
 	ps.Sort(d.Reals)
 	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
+	if ps[0].Left().Eval().(d.FltVal) != 1.234 {
+		t.Fail()
+	}
+	if ps[len(ps)-1].Left().Eval().(d.FltVal) != 13.23 {
+		t.Fail()
+	}
 }
