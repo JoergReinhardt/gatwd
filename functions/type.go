@@ -34,12 +34,38 @@ func (t TyFlag) Match(match d.Uint8Val) bool {
 
 //go:generate stringer -type=TyFnc
 const (
-	/// KIND
+	/// GENERIC TYPE
 	Type TyFnc = 1 << iota
-	/// GENERIC FUNCTION TYPES
+	/// FUNCTION TYPES
 	Data
 	Constant
 	Function
+	/// PARAMETER OPTIONS
+	Key
+	Index
+	Property
+	Argument
+	Return
+	/// TRUTH VALUE OTIONS
+	True
+	False
+	Undecided
+	/// ORDER VALUE OPTIONS
+	Lesser
+	Greater
+	Equal
+	/// BOUND VALUE OPTIONS
+	Min
+	Max
+	/// VALUE OPTIONS
+	Switch
+	Case
+	Then
+	Else
+	Just
+	None
+	Either
+	Or
 	/// SUM COLLECTION TYPES
 	List
 	Vector
@@ -49,68 +75,43 @@ const (
 	Enum
 	Tuple
 	Record
-	/// PARAMETER OPTIONS
-	Key
-	Index
-	Return
-	Argument
-	Property
-	Signature
-	/// TRUTH VALUE OTIONS
-	True
-	False
-	Undecided
-	Predicate
-	/// ORDER VALUE OPTIONS
-	Lesser
-	Greater
-	Equal
-	/// BOUND VALUE OPTIONS
-	Min
-	Max
-	/// BRANCH TYPES
-	If
-	Case
-	Switch
-	/// VALUE OPTIONS
-	Then
-	Else
-	Just
-	None
-	Either
-	Or
 	/// IMPURE
 	State
 	IO
 	/// HIGHER ORDER TYPE
 	HigherOrder
 
+	Kinds = Type | Data | Constant | Function
+
 	//// PARAMETERS
-	Paramer = Key | Index | Argument |
-		Return | Property
+	Signature = Argument | Return
+	Parameter = Key | Index | Property
+
+	Parameters = Signature | Parameter
+
+	//// TRUTH & COMPARE
+	Truth   = True | False
+	Trinary = Truth | Undecided
+	Compare = Lesser | Greater | Equal
+
+	Tests = Truth | Trinary | Compare
+
+	//// OPTIONALS
+	If     = Then | Else
+	Maybe  = Just | None
+	Option = Either | Or
+
+	Branches = Switch | Case | If | Maybe | Option
 
 	//// COLLECTIONS
 	CollectSum  = List | Vector
 	CollectProd = Set | Pair |
 		Enum | Tuple | Record
 
-	// TRUTH VALUES & PREDICATES
-	Truth   = True | False
-	Trinary = Truth | Undecided
-	Compare = Lesser | Greater | Equal
+	Collections = CollectSum | CollectProd
 
-	//// OPTIONALS
-	Maybe  = Just | None
-	Option = Either | Or
-
-	Optional = Maybe | Either
-
-	//// branch value types
-	Branch = If | Case | Switch
-
-	// COLLECTION CLASS
-	Collection = List | Vector | Pair |
-		Set | Enum | Tuple | Record
+	AllTypes = Kinds | Parameters | Tests |
+		Branches | Collections
 )
 
 //// TYPE DEFINITION

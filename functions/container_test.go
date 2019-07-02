@@ -21,7 +21,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 }
 
 func TestNary(t *testing.T) {
-	var strconc = NewExpressionType("(String Concat)",
+	var strconc = NewExpressionType("String Concat",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
 			for n, arg := range args {
@@ -31,22 +31,10 @@ func TestNary(t *testing.T) {
 				}
 			}
 			return d.StrVal(str)
-			//			if len(args) > 0 {
-			//				if len(args) > 1 {
-			//					if len(args) == 2 {
-			//						return d.NewPair(args[0], args[1])
-			//					}
-			//					return d.NewSlice(args...)
-			//				}
-			//				return args[0]
-			//			}
-			//			return d.NewTypedNull(d.String)
 		}),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
-		NewNative(d.StrVal("")),
-		//NewNative(d.NewSlice(d.NewTypedNull(d.String))),
 	)
 
 	var r0 = strconc(NewNative(d.StrVal("0")))
@@ -104,8 +92,42 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
-	fmt.Printf("nary typed: %s name: %s, args: %s return: %s\n",
-		strconc.Type(), strconc.TypeName(), strconc.TypeArgs(), strconc.TypeReturn())
+	fmt.Printf("string concat type name: %s\n", strconc.TypeName())
+
+	var strvec = NewExpressionType("String Vector",
+		NativeExpr(func(args ...d.Native) d.Native {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					if len(args) == 2 {
+						return d.NewPair(
+							d.StrVal(args[0].String()),
+							d.StrVal(args[1].String()),
+						)
+					}
+					var strs []d.Native
+					for _, arg := range args {
+						strs = append(strs, d.StrVal(arg.String()))
+					}
+					return d.NewSlice(strs...)
+				}
+				return d.StrVal(args[0].String())
+			}
+			return d.NewSlice(d.String)
+		}),
+		NewNative(d.StrVal("")),
+		NewNative(d.IntVal(0)),
+		NewNative(d.UintVal(0)),
+	)
+
+	fmt.Printf("string vector type name: %s\n", strvec.TypeName())
+
+	var sv8 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
+		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)),
+		NewNative(d.UintVal(8)))
+
+	fmt.Printf("string vector: %s\n", sv8)
 
 	// apply additional arguments to partialy applyed expression
 }
