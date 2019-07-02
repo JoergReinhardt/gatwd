@@ -22,9 +22,12 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 
 func TestNary(t *testing.T) {
 	var nary = NewNary(
-		VariadicExpr(func(args ...Expression) Expression {
-			return NewVector(args...)
-		}), Type, Type, Type)
+		VecCol(func(args ...Expression) []Expression {
+			return args
+		}),
+		NewNative(d.StrVal("")),
+		NewNative(d.StrVal("")),
+		NewNative(d.StrVal("")))
 
 	var r0 = nary(NewNative(d.StrVal("0")))
 
@@ -69,6 +72,16 @@ func TestNary(t *testing.T) {
 	fmt.Println(r6.Call())
 	fmt.Println(r7.Call())
 	fmt.Println(r8.Call())
+
+	fmt.Printf("typed: %s name: %s\n", r0.Type(), r0.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r1.Type(), r1.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r2.Type(), r2.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r3.Type(), r3.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r4.Type(), r4.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r5.Type(), r5.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r6.Type(), r6.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
 	// apply additional arguments to partialy applyed expression
 }

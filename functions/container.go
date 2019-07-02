@@ -50,11 +50,17 @@ func (c VariadicExpr) Ident() Expression                  { return c }
 func (c VariadicExpr) TypeFnc() TyFnc                     { return Function }
 func (c VariadicExpr) TypeNat() d.TyNat                   { return d.Function }
 func (c VariadicExpr) String() string                     { return c.TypeName() }
-func (c VariadicExpr) Call(args ...Expression) Expression { return c().Call(args...) }
-func (c VariadicExpr) Eval(args ...d.Native) d.Native     { return c().Eval(args...) }
-func (c VariadicExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c VariadicExpr) Call(args ...Expression) Expression { return c(args...) }
+func (c VariadicExpr) Eval(args ...d.Native) d.Native {
+	var exprs = make([]Expression, 0, len(args))
+	for _, arg := range args {
+		exprs = append(exprs, NewNative(arg))
+	}
+	return c(exprs...)
+}
+func (c VariadicExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (c VariadicExpr) TypeName() string {
-	return "λ.[T] → " + c().TypeName()
+	return "λ.[T] → " + c().Type().TypeName()
 }
 func (c VariadicExpr) Type() Typed {
 	return Define(c().TypeName(), c().TypeFnc())
@@ -129,8 +135,7 @@ func (n NaryExpr) Call(args ...Expression) Expression {
 	return n.Expr().Call()
 }
 func (n NaryExpr) Type() Typed {
-	return Define(
-		n.Expr().TypeName(),
+	return Define(n.Expr().TypeName(),
 		Define("", NewPair(Signature, NewPair(
 			Define("", NewPair(
 				Argument,
@@ -211,7 +216,13 @@ func NewNative(args ...d.Native) Expression {
 }
 
 // ATOMIC NATIVE VALUE CONSTRUCTOR
-func (n Native) Call(...Expression) Expression  { return n }
+func (n Native) Call(args ...Expression) Expression {
+	var nats = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		nats = append(nats, arg.Eval())
+	}
+	return NewNative(n().Eval(nats...))
+}
 func (n Native) TypeFnc() TyFnc                 { return Data }
 func (n Native) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n Native) TypeNat() d.TyNat               { return n().TypeNat() }
@@ -225,7 +236,13 @@ func (n Native) Type() Typed {
 }
 
 // NATIVE SLICE VALUE CONSTRUCTOR
-func (n NativeCol) Call(...Expression) Expression  { return n }
+func (n NativeCol) Call(args ...Expression) Expression {
+	var nats = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		nats = append(nats, arg.Eval())
+	}
+	return NewNative(n().Eval(nats...))
+}
 func (n NativeCol) TypeFnc() TyFnc                 { return Data }
 func (n NativeCol) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativeCol) Len() int                       { return n().Len() }
@@ -253,7 +270,13 @@ func (n NativeCol) Slice() []Expression {
 }
 
 // NATIVE PAIR VALUE CONSTRUCTOR
-func (n NativePair) Call(...Expression) Expression  { return n }
+func (n NativePair) Call(args ...Expression) Expression {
+	var nats = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		nats = append(nats, arg.Eval())
+	}
+	return NewNative(n().Eval(nats...))
+}
 func (n NativePair) TypeFnc() TyFnc                 { return Data }
 func (n NativePair) TypeNat() d.TyNat               { return n().TypeNat() }
 func (n NativePair) Eval(args ...d.Native) d.Native { return n(args...) }
@@ -283,18 +306,19 @@ func (n NativePair) Both() (l, r Expression) {
 		NewNative(n().Right())
 }
 
-func (n NativeSet) Call(args ...Expression) Expression {
-	for _, arg := range args {
-		n().Eval(arg.Eval())
-	}
-	return n
-}
-
 // NATIVE SET VALUE CONSTRUCTOR
+
+func (n NativeSet) Call(args ...Expression) Expression {
+	var nats = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		nats = append(nats, arg.Eval())
+	}
+	return NewNative(n().Eval(nats...))
+}
 func (n NativeSet) Ident() Expression                    { return n }
+func (n NativeSet) Eval(args ...d.Native) d.Native       { return n(args...) }
 func (n NativeSet) TypeFnc() TyFnc                       { return Data }
 func (n NativeSet) TypeNat() d.TyNat                     { return n().TypeNat() }
-func (n NativeSet) Eval(args ...d.Native) d.Native       { return n(args...) }
 func (n NativeSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
 func (n NativeSet) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
 func (n NativeSet) Delete(acc d.Native) bool             { return n().Delete(acc) }

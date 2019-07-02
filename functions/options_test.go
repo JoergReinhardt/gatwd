@@ -139,26 +139,46 @@ func TestTruth(t *testing.T) {
 	}
 }
 
+var test = NewTruthTest(func(args ...Expression) bool {
+	for _, arg := range args {
+		if !arg.(Native).TypeNat().Match(
+			d.String | d.Integers | d.Float) {
+			return false
+		}
+	}
+	return true
+})
+
 func TestCase(t *testing.T) {
-	//	var test = NewTruthTest(func(args ...Expression) bool {
-	//		for _, arg := range args {
-	//			if !arg.(Native).TypeNat().Match(
-	//				d.String | d.Integers | d.Float) {
-	//				return false
-	//			}
-	//		}
-	//		return true
-	//	})
+	var result = test(New(42))
+	fmt.Printf("test integer (expect True): %s\n", result)
+	if result != True {
+		t.Fail()
+	}
+
+	result = test(New(42.23))
+	fmt.Printf("test float (expect True): %s\n", result)
+	if result != True {
+		t.Fail()
+	}
+
+	result = test(New("string"))
+	fmt.Printf("test string (expect True): %s\n", result)
+	if result != True {
+		t.Fail()
+	}
+
+	result = test(New(true))
+	fmt.Printf("test bool (expect False): %s\n", result)
+	if result != False {
+		t.Fail()
+	}
 }
 
 func TestSwitch(t *testing.T) {
-	var swi = NewSwitch(
-		// matches return values native types string,integer, and float
-		NewCase(NewTruthTest(func(args ...Expression) bool {
-			return args[0].TypeNat().Match(d.String | d.Integers | d.Float)
-		})))
+	var swi = NewSwitch(NewCase(test))
 
-	fmt.Printf("switch int & float argument: %s\n", swi.Call(New(23), New(42, 23)))
+	fmt.Printf("switch int & float argument: %s\n", swi.Call(New(23), New(42.23)))
 
 	fmt.Printf("successfull call to Switch passing int: %s\n", swi.Call(New(42)))
 

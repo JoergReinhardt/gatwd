@@ -251,27 +251,26 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 	return func(args ...Expression) (Expression, Expression, bool) {
 		if len(args) > 0 {
 			if len(cases) > 0 {
-				var current = cases[0]
-				if len(cases) == 1 {
-					cases = []CaseExpr{}
-				}
-				if len(cases) > 1 {
-					cases = cases[1:]
-				}
+				var current = cases[index]
 				if expr, ok := current(args...); ok {
+					index = 0
 					return expr,
 						NewNative(d.IntVal(index)),
 						true
 				}
-				index += index
-				return NewVector(args...),
-					NewSwitch(cases...),
-					false
+				if index < len(cases)-1 {
+					index += 1
+					return NewVector(args...),
+						NewSwitch(cases...),
+						false
+				}
 			}
+			index = 0
 			return nil,
 				NewSwitch(cases...),
 				false
 		}
+		index = 0
 		var vec = NewVector()
 		for _, c := range cases {
 			vec = vec.Append(c)
