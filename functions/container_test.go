@@ -119,8 +119,6 @@ func TestNary(t *testing.T) {
 		NewNative(d.UintVal(0)),
 	)
 
-	fmt.Printf("string vector type name: %s\n", strvec.TypeName())
-
 	var sv8 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
 		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
 		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
@@ -128,8 +126,8 @@ func TestNary(t *testing.T) {
 		NewNative(d.UintVal(8)))
 
 	fmt.Printf("string vector: %s\n", sv8)
+	fmt.Printf("string vector type name: %s\n", strvec.TypeName())
 
-	// apply additional arguments to partialy applyed expression
 }
 
 func TestTuple(t *testing.T) {
