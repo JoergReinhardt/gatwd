@@ -69,18 +69,21 @@ func DefineExpressionType(
 	signature ...Expression,
 ) DefinedExpr {
 
-	var arity = len(signature) - 1
+	var arity int
 	var retval Expression
 	var pattern Expression
 
-	switch arity {
+	switch len(signature) {
 	case 0:
+		arity = 0
 		pattern = AllTypes
 		retval = expr.Type().(TyDef)
 	case 1:
+		arity = 1
 		pattern = signature[0]
 		retval = expr.Type().(TyDef)
 	default:
+		arity = len(signature) - 1
 		pattern = NewVector(signature[:arity]...)
 		retval = signature[arity].Type().(TyDef)
 	}
