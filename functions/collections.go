@@ -123,6 +123,12 @@ func (l ListCol) Consume() (Expression, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                     { return List }
 func (l ListCol) TypeNat() d.TyNat                   { return d.Function }
 func (l ListCol) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+
+func (l ListCol) TailList() ListCol { _, t := l(); return t }
+func (l ListCol) ConsumeList() (Expression, ListCol) {
+	return l.Head(), l.TailList()
+}
+
 func (l ListCol) TypeElem() d.Typed {
 	if l.Len() > 0 {
 		return l.Head().Type().(TyDef)
@@ -336,13 +342,18 @@ func (p KeyPair) Type() Typed {
 }
 
 // implement consumeable
-func (p KeyPair) Head() Expression                   { return p.Value() }
-func (p KeyPair) Tail() Consumeable                  { return NewPair(NewNative(d.StrVal(p.KeyStr())), NewNone()) }
+func (p KeyPair) Head() Expression { return p.Value() }
+func (p KeyPair) Tail() Consumeable {
+	return NewPair(NewNative(d.StrVal(p.KeyStr())), NewNone())
+}
 func (p KeyPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
 
 // implement swappable
-func (p KeyPair) Swap() (Expression, Expression) { l, r := p(); return NewNative(d.StrVal(r)), l }
-func (p KeyPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
+func (p KeyPair) Swap() (Expression, Expression) {
+	l, r := p()
+	return NewNative(d.StrVal(r)), l
+}
+func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
 func (a KeyPair) Empty() bool {
 	if a.Key() != nil && a.Value() != nil && a.Value().TypeFnc() != None {
@@ -541,16 +552,18 @@ func (l PairList) Len() int {
 }
 
 func (l PairList) Ident() Expression                       { return l }
-func (l PairList) Null() PairList                          { return NewPairList() }
-func (l PairList) Tail() Consumeable                       { _, t := l(); return t }
-func (l PairList) TailPairs() ConsumeablePairs             { _, t := l(); return t }
-func (l PairList) Head() Expression                        { h, _ := l(); return h }
-func (l PairList) HeadPair() Paired                        { p, _ := l(); return p }
-func (l PairList) Consume() (Expression, Consumeable)      { return l() }
-func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
 func (l PairList) TypeFnc() TyFnc                          { return List }
 func (l PairList) TypeNat() d.TyNat                        { return d.Function }
 func (l PairList) FlagType() d.Uint8Val                    { return Flag_Functional.U() }
+func (l PairList) Null() PairList                          { return NewPairList() }
+func (l PairList) Consume() (Expression, Consumeable)      { return l() }
+func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
+func (l PairList) ConsumePairList() (Paired, PairList)     { return l() }
+func (l PairList) Tail() Consumeable                       { _, t := l(); return t }
+func (l PairList) TailPairs() ConsumeablePairs             { _, t := l(); return t }
+func (l PairList) TailPairList() PairList                  { _, t := l(); return t }
+func (l PairList) Head() Expression                        { h, _ := l(); return h }
+func (l PairList) HeadPair() Paired                        { p, _ := l(); return p }
 func (l PairList) TypeElem() d.Typed {
 	if l.Len() > 0 {
 	}
@@ -817,8 +830,13 @@ func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 func (v PairVec) Con(args ...Expression) PairVec {
 	return ConPairVecFromArgs(v, args...)
 }
+
 func (v PairVec) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
+}
+
+func (v PairVec) ConsumePairVec() (Paired, PairVec) {
+	return v.HeadPair(), v.Tail().(PairVec)
 }
 
 func (v PairVec) Empty() bool {
@@ -1208,7 +1226,7 @@ func (v SetCol) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
-func (v SetCol) TailSet() SetCol {
+func (v SetCol) TailPairVec() PairVec {
 	if v.Len() > 1 {
 		var vec = NewPairVectorFromPairs(
 			v.Pairs()...,
@@ -1219,6 +1237,6 @@ func (v SetCol) TailSet() SetCol {
 	return nil
 }
 
-func (v SetCol) ConsumeSet() (Expression, SetCol) {
-	return v.Head(), v.TailSet()
+func (v SetCol) ConsumeSet() (Expression, PairVec) {
+	return v.Head(), v.TailPairVec()
 }
