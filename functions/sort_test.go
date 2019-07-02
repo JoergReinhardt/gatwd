@@ -62,6 +62,9 @@ func TestDataSorterFlags(t *testing.T) {
 		New(d.BigInt),
 	}
 
+	fmt.Printf("flag: %s TypeFnc: %s TypeNat: %s\n",
+		New(d.Nil), New(d.Nil).TypeFnc(), New(d.Nil).TypeNat())
+	fmt.Printf("flag slice: %s\n", flags)
 	fs := SortedData(flags)
 	fmt.Printf("unsorted flags: %s\n", fs)
 	fs.Sort(d.Type)

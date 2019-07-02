@@ -72,14 +72,12 @@ func NewNary(expr Expression, signat ...Expression) NaryExpr {
 	var argtype, returntype Expression
 	// no signature expression passed, return none definition
 	if len(signat) == 0 {
-		var none = NewNone()
-		argtype = Define(none.TypeName(), none)
+		argtype = Define(Function.TypeName(), Function)
 		returntype = expr.Type().(TyDef)
 	}
 	// one signature expression passed as return type, argument type none
 	if len(signat) == 1 {
-		var none = NewNone()
-		argtype = Define(none.TypeName(), none)
+		argtype = Define(Constant.TypeName(), Constant)
 		returntype = Define(signat[0].TypeName(), signat[0])
 	}
 	// number of signature expressions minus return expression equals arity

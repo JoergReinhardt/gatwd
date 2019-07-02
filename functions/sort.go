@@ -104,8 +104,7 @@ func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 	switch {
 	case f.Match(d.Letters.TypeNat()):
 		return func(i, j int) bool {
-			if strings.Compare(ds[j].String(),
-				ds[i].String()) >=
+			if strings.Compare(ds[j].String(), ds[i].String()) >=
 				0 {
 				return true
 			}

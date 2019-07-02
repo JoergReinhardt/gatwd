@@ -32,12 +32,11 @@ func (t TyNat) TypeName() string {
 func (v TyNat) Flag() BitFlag        { return BitFlag(v) }
 func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
 func (v TyNat) Eval(args ...Native) Native {
+	var nat = v
 	for _, arg := range args {
-		if !v.Match(arg.TypeNat()) {
-			return BoolVal(false)
-		}
+		nat = nat | arg.TypeNat()
 	}
-	return BoolVal(true)
+	return nat
 }
 
 func ListAllTypes() []TyNat {

@@ -45,7 +45,8 @@ func TestNary(t *testing.T) {
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
-		NewNative(d.NewSlice(d.NewTypedNull(d.String))),
+		NewNative(d.StrVal("")),
+		//NewNative(d.NewSlice(d.NewTypedNull(d.String))),
 	)
 
 	var r0 = nary(NewNative(d.StrVal("0")))
@@ -94,7 +95,8 @@ func TestNary(t *testing.T) {
 
 	fmt.Printf("typed: %s name: %s\n", r0.Type(), r0.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r1.Type(), r1.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r2.Type(), r2.TypeName())
+	fmt.Printf("typed: %s fnc: %s, nat: %s name: %s\n",
+		r2.Type(), r2.TypeFnc(), r2.TypeNat(), r2.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r3.Type(), r3.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r4.Type(), r4.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r5.Type(), r5.TypeName())
