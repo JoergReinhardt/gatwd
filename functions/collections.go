@@ -200,7 +200,7 @@ func (p PairVal) Head() Expression { return p.Left() }
 // gets wrapped as a new pair, with a none instance as it's right value.
 func (p PairVal) Tail() Consumeable {
 	var r = p.Right()
-	if r.TypeFnc().Match(Collection) {
+	if r.TypeFnc().Match(Collections) {
 		if cons, ok := r.(Consumeable); ok {
 			return cons
 		}

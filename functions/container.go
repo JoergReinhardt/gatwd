@@ -13,16 +13,16 @@ import (
 type (
 	//// EXPRESSION CONSTRUCTORS
 	ConstantExpr func() Expression
-	VariadicExpr func(...Expression) Expression
-
-	//// NARY EXPRESSION TYPE CONSTRUCTOR
-	DefinedExpr func(...Expression) Expression
+	GenericExpr  func(...Expression) Expression
 
 	//// NATIVE TYPE & VALUE CONSTRUCTORS
 	NativeExpr func(...d.Native) d.Native
 	NativePair func(...d.Native) d.Paired
 	NativeSet  func(...d.Native) d.Mapped
 	NativeCol  func(...d.Native) d.Sliceable
+
+	//// EXPRESSION TYPE CONSTRUCTOR
+	DefinedExpr func(...Expression) Expression
 )
 
 /// CONSTANT VALUE CONSTRUCTOR
@@ -42,143 +42,22 @@ func (c ConstantExpr) Type() Typed {
 	return Define("ϝ → "+c().TypeName(), NewPair(Constant, c().TypeFnc()))
 }
 
-func NewExpression(expr func(args ...Expression) Expression) VariadicExpr { return expr }
+func NewExpression(expr func(args ...Expression) Expression) GenericExpr { return expr }
 
-func (c VariadicExpr) Ident() Expression                  { return c }
-func (c VariadicExpr) TypeFnc() TyFnc                     { return Function }
-func (c VariadicExpr) TypeNat() d.TyNat                   { return d.Function }
-func (c VariadicExpr) String() string                     { return c.TypeName() }
-func (c VariadicExpr) Call(args ...Expression) Expression { return c(args...) }
-func (c VariadicExpr) Eval(args ...d.Native) d.Native {
+func (c GenericExpr) Ident() Expression                  { return c }
+func (c GenericExpr) Type() Typed                        { return c().Type() }
+func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
+func (c GenericExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
+func (c GenericExpr) String() string                     { return c().String() }
+func (c GenericExpr) TypeName() string                   { return c().TypeName() }
+func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
+func (c GenericExpr) Eval(args ...d.Native) d.Native {
 	var exprs = make([]Expression, 0, len(args))
 	for _, arg := range args {
 		exprs = append(exprs, NewNative(arg))
 	}
-	return c(exprs...)
-}
-func (c VariadicExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (c VariadicExpr) TypeName() string {
-	return "[T] → " + c().Type().TypeName()
-}
-func (c VariadicExpr) Type() Typed {
-	return Define(c().TypeName(), Function)
-}
-
-//// NARY EXPRESSION TYPE CONSTRUCTOR
-///
-// TODO: make nary type safe by deriving type switch from signature
-func NewExpressionType(name string, expr Expression, signat ...Expression) DefinedExpr {
-	// allocate argument-/ and return expression
-	var argtype, returntype Expression
-	// no signature expression passed, return none definition
-	if len(signat) == 0 {
-		argtype = Define(Function.TypeName(), Function)
-		returntype = expr.Type().(TyDef)
-	}
-	// one signature expression passed as return type, argument type none
-	if len(signat) == 1 {
-		argtype = Define(Constant.TypeName(), Constant)
-		returntype = Define(signat[0].TypeName(), signat[0])
-	}
-	// number of signature expressions minus return expression equals arity
-	var arity = len(signat) - 1
-	var argslice = make([]Expression, 0, arity)
-	// split off argument expression slice and define return expression type
-	argslice, returntype = signat[:arity], Define(signat[arity].TypeName(), signat[arity])
-	// allocate vector to hold argument definitions
-	var argvec = NewVector()
-	// range over argument expression slice
-	for _, expr := range argslice {
-		// it argument expression is already a type definition, append
-		// it to argument definition vector and continue loop
-		if expr.FlagType() == Flag_Def.U() {
-			if def, ok := expr.(TyDef); ok {
-				argvec = argvec.Append(def)
-				continue
-			}
-		}
-		// otherwise define type from plain expression and append to
-		// argument definition slice
-		argvec = argvec.Append(Define(expr.TypeName(), expr))
-	}
-	// define argument type from vector af argument definitions
-	argtype = Define(name, argvec)
-
-	// create and return nary expression
-	return func(args ...Expression) Expression {
-		var arglen = len(args) // count arguments
-		if arglen > 0 {        // if arguments got passed
-			// argument number satisfies expression arity exactly
-			if arglen == arity {
-				return expr.Call(args...)
-			}
-			// argument number undersatisfies expression arity
-			if arglen < arity {
-				return NewExpressionType(name, VariadicExpr(
-					func(lateargs ...Expression) Expression {
-						return expr.Call(append(args, lateargs...)...)
-					}), signat[:arglen]...)
-			}
-			// argument number oversatisfies expressions arity
-			if arglen > arity {
-				// allocate slice for remaining arguments
-				var remain []Expression
-				// split arguments by arity
-				args, remain = args[:arity], args[arity:]
-				// allocate results vector and assign result of
-				// fully satisfied expression as first element.
-				var vec = NewVector(NewExpressionType(name, expr,
-					signat...).Call(args...))
-				// as long as remaining arguments satisfy, or
-				// oversatisfy arity, assign further elements
-				for len(remain) >= arity {
-					args, remain = remain[:arity], remain[arity:]
-					vec = vec.Append(NewExpressionType(name, expr,
-						signat...).Call(args...))
-				}
-				// if arguments are depleted return vector
-				// containing all results
-				if len(remain) == 0 {
-					return vec
-				}
-				// if remaining arguments undersatisfy arity,
-				// assign partialy applyed nary as last element
-				return vec.Append(NewExpressionType(name, expr,
-					signat...).Call(remain...))
-			}
-		}
-		// no arguments passed, return expression, argument-/ and
-		// returntype of nary expression definition
-		return NewVector(expr, argtype, returntype)
-	}
-}
-
-// returns the value returned when calling itself directly, passing arguments
-func (n DefinedExpr) Ident() Expression    { return n }
-func (n DefinedExpr) String() string       { return n.TypeName() }
-func (n DefinedExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (n DefinedExpr) TypeFnc() TyFnc       { return n.Expr().TypeFnc() }
-func (n DefinedExpr) TypeNat() d.TyNat     { return n.Expr().TypeNat() }
-func (n DefinedExpr) Expr() Expression     { return n().(VecCol)()[0] }
-func (n DefinedExpr) TypeArgs() Typed      { return n().(VecCol)()[1].(Typed) }
-func (n DefinedExpr) TypeReturn() Typed    { return n().(VecCol)()[2].(Typed) }
-func (n DefinedExpr) TypeExpr() Typed      { return n.Expr().Type() }
-func (n DefinedExpr) Eval(args ...d.Native) d.Native {
-	if len(args) > 0 {
-		return n.Expr().Eval(args...)
-	}
-	return n.Expr().Eval()
-}
-func (n DefinedExpr) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return n.Expr().Call(args...)
-	}
-	return n.Expr().Call()
-}
-func (n DefinedExpr) Arity() Arity { return Arity(0) }
-func (n DefinedExpr) Type() Typed  { return n.TypeReturn() }
-func (n DefinedExpr) TypeName() string {
-	return n.Type().TypeName()
+	return c(exprs...).Eval()
 }
 
 //// NATIVE EXPRESSION CONSTRUCTOR
@@ -345,4 +224,130 @@ func (n NativeSet) Pairs() []Paired {
 				NewNative(field.Right())))
 	}
 	return pairs
+}
+
+//// EXPRESSION TYPE CONSTRUCTOR
+///
+// TODO: make nary type safe by deriving type switch from signature and
+// exposing it in a match method
+//
+// expression type definition takes an optional name, an expression and a
+// number of expressions, or typed definitions to declare the expression
+// signature. last signature expression is assumed to be the return type. all
+// signature arguments before that are assumed to be the arguments types.
+//
+// if no signature is passed, return type is derived from expression. if no
+// signature, or only return type are passed, argument types are assumed to be
+// parametric matching all types.
+//
+// defined expressions can are enumerated and partialy applyable.
+func DefineExpressionType(
+	name string,
+	expr Expression,
+	signature ...Expression,
+) DefinedExpr {
+
+	var arity = 0
+	var retval Expression
+	var pattern Expression
+
+	switch len(signature) {
+	case 0:
+		pattern = AllTypes
+		retval = expr.Type().(TyDef)
+	case 1:
+		pattern = AllTypes
+		retval = signature[0]
+	default:
+		arity = len(signature) - 1
+		pattern = NewVector(signature[:arity]...)
+		retval = signature[arity].Type().(TyDef)
+	}
+
+	var definition = Define(name, NewPair(
+		expr, NewPair(pattern, retval),
+	))
+
+	// create and return nary expression
+	return func(args ...Expression) Expression {
+		var arglen = len(args) // count arguments
+		if arglen > 0 {        // if arguments where passed
+			// argument number satisfies expression arity exactly
+			if arglen == arity {
+				return expr.Call(args...)
+			}
+			// argument number undersatisfies expression arity
+			if arglen < arity {
+				return DefineExpressionType(name, NewExpression(
+					func(lateargs ...Expression) Expression {
+						return expr.Call(append(
+							args,
+							lateargs...)...)
+					},
+				),
+					signature[arglen:]...)
+			}
+			// argument number oversatisfies expressions arity
+			if arglen > arity {
+				var remain []Expression
+				args, remain = args[:arity], args[arity:]
+				var vec = NewVector(expr.Call(args...))
+				for len(remain) > arity {
+					args, remain = remain[:arity], remain[arity:]
+					vec = vec.Append(expr.Call(args...))
+				}
+				if len(args) == 0 {
+					return vec
+				}
+				return vec.Append(
+					DefineExpressionType(
+						name,
+						expr,
+						signature...,
+					).Call(remain...))
+			}
+		}
+		// if no arguments are passed, return definition
+		return definition
+	}
+}
+
+// returns the value returned when calling itself directly, passing arguments
+func (n DefinedExpr) Ident() Expression                  { return n }
+func (n DefinedExpr) String() string                     { return n.Expr().String() }
+func (n DefinedExpr) Type() Typed                        { return n() }
+func (n DefinedExpr) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (n DefinedExpr) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
+func (n DefinedExpr) Expr() Expression                   { return n.Definition().Left() }
+func (n DefinedExpr) Signature() Paired                  { return n.Definition().Right().(Paired) }
+func (n DefinedExpr) Pattern() Expression                { return n.Signature().Left() }
+func (n DefinedExpr) Return() Expression                 { return n.Signature().Right() }
+func (n DefinedExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
+func (n DefinedExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
+func (n DefinedExpr) Eval(args ...d.Native) d.Native     { return n.Expr().Eval(args...) }
+func (n DefinedExpr) Call(args ...Expression) Expression { return n.Expr().Call(args...) }
+func (n DefinedExpr) Arity() Arity {
+	if n.Pattern().TypeFnc().Match(Vector) {
+		if vec, ok := n.Pattern().(VecCol); ok {
+			return Arity(vec.Len())
+		}
+	}
+	return Arity(1)
+}
+func (n DefinedExpr) TypeName() string {
+	var name string
+	if n.Pattern().TypeFnc().Match(Vector) {
+		for _, arg := range n.Pattern().(VecCol)() {
+			name = name + arg.TypeName() + " → "
+		}
+	} else {
+		name = name + n.Pattern().TypeName() + " → "
+	}
+	if n.Type().(TyDef).Name() != "" {
+		name = name + n.Type().(TyDef).Name()
+	} else {
+		n.Expr().TypeName()
+	}
+	name = name + " → " + n.Return().TypeName()
+	return name
 }

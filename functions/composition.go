@@ -61,8 +61,8 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 
 func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
 func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (m ConsumeVal) Type() Typed          { return Collection }
-func (m ConsumeVal) TypeFnc() TyFnc       { return Collection }
+func (m ConsumeVal) Type() Typed          { return Collections }
+func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
 func (m ConsumeVal) SubType() d.Typed     { return m.Head().TypeFnc() }
 func (m ConsumeVal) TypeNat() d.TyNat {
 	return m.Head().TypeNat()
@@ -103,7 +103,7 @@ func NewConsumeablePairs(expr Paired) ConsPairVal {
 				pair = val
 			}
 
-		case arg.TypeFnc().Match(Collection):
+		case arg.TypeFnc().Match(Collections):
 			if col, ok := arg.(ConsumeVal); ok {
 				var left, right Expression
 				left, arg = col.Consume()
@@ -150,7 +150,7 @@ func (c ConsPairVal) Tail() Consumeable {
 func (c ConsPairVal) Type() Typed          { return c.Head().Type() }
 func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
 func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (c ConsPairVal) TypeFnc() TyFnc       { return Collection }
+func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsPairVal) SubType() d.Typed     { return c.Head().TypeFnc() }
 func (c ConsPairVal) TypeNat() d.TyNat {
 	return c.Head().TypeNat()

@@ -21,7 +21,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 }
 
 func TestNary(t *testing.T) {
-	var strconc = NewExpressionType("(String Concat)",
+	var strconc = DefineExpressionType("String Concat",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
 			for n, arg := range args {
@@ -31,22 +31,11 @@ func TestNary(t *testing.T) {
 				}
 			}
 			return d.StrVal(str)
-			//			if len(args) > 0 {
-			//				if len(args) > 1 {
-			//					if len(args) == 2 {
-			//						return d.NewPair(args[0], args[1])
-			//					}
-			//					return d.NewSlice(args...)
-			//				}
-			//				return args[0]
-			//			}
-			//			return d.NewTypedNull(d.String)
 		}),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
-		//NewNative(d.NewSlice(d.NewTypedNull(d.String))),
 	)
 
 	var r0 = strconc(NewNative(d.StrVal("0")))
@@ -93,10 +82,10 @@ func TestNary(t *testing.T) {
 	fmt.Println(r7.Call())
 	fmt.Println(r8.Call())
 
+	fmt.Printf("string concat type name: %s\n", strconc.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r0.Type(), r0.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r1.Type(), r1.TypeName())
-	fmt.Printf("typed: %s fnc: %s, nat: %s name: %s\n",
-		r2.Type(), r2.TypeFnc(), r2.TypeNat(), r2.TypeName())
+	fmt.Printf("typed: %s name: %s\n", r2.Type(), r2.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r3.Type(), r3.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r4.Type(), r4.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r5.Type(), r5.TypeName())
@@ -104,10 +93,65 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
-	fmt.Printf("nary typed: %s name: %s, args: %s return: %s\n",
-		strconc.Type(), strconc.TypeName(), strconc.TypeArgs(), strconc.TypeReturn())
+	var strvec = DefineExpressionType("String Vector",
+		NativeExpr(func(args ...d.Native) d.Native {
+			var strs []d.Native
+			for _, arg := range args {
+				strs = append(strs, d.StrVal(arg.String()))
+			}
+			return d.NewSlice(strs...)
+		}),
+		NewNative(d.StrVal("")),
+		NewNative(d.IntVal(0)),
+		NewNative(d.UintVal(0)),
+		NewNative(d.NewSlice(d.StrVal(""))),
+	)
 
-	// apply additional arguments to partialy applyed expression
+	var sv0 = strvec(NewNative(d.StrVal("0")))
+
+	var sv1 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)))
+
+	var sv2 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)))
+
+	var sv3 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")))
+
+	var sv4 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)))
+
+	var sv5 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)))
+
+	var sv6 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
+		NewNative(d.StrVal("6")))
+
+	var sv7 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
+		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)))
+
+	var sv8 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
+		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
+		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)),
+		NewNative(d.UintVal(8)))
+
+	fmt.Printf("string vector: %s type name: %s\n", strvec, strvec.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv0, sv0.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv1, sv1.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv2, sv2.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv3, sv3.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv4, sv4.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv5, sv5.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv6, sv6.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv7, sv7.TypeName())
+	fmt.Printf("string vector: %s type name: %s\n", sv8, sv8.TypeName())
+
 }
 
 func TestTuple(t *testing.T) {
