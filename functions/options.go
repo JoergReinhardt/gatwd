@@ -247,6 +247,10 @@ func (s CaseExpr) Type() Typed {
 // applys passed arguments to all enclosed cases in the order passed to the
 // switch constructor
 func NewSwitch(cases ...CaseExpr) CaseSwitch {
+	var casevec = NewVector()
+	for _, c := range cases {
+		casevec = casevec.Append(c)
+	}
 	return func(args ...Expression) (Expression, Expression, bool) {
 		var index = 0
 		if len(args) > 0 {
@@ -259,7 +263,8 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 				}
 				if index <= len(cases)-1 {
 					return NewVector(args...),
-						NewSwitch(cases[index : len(cases)-1]...),
+						NewSwitch(
+							cases[index : len(cases)-1]...),
 						false
 				}
 			}
@@ -267,11 +272,7 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 				NewNone(),
 				false
 		}
-		var vec = NewVector()
-		for _, c := range cases {
-			vec = vec.Append(c)
-		}
-		return nil, vec, false
+		return nil, casevec, false
 	}
 }
 
