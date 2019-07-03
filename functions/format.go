@@ -15,9 +15,6 @@ func (a KeyPair) String() string {
 func (a IndexPair) String() string {
 	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
 }
-func (a TypedPair) String() string {
-	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
-}
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
 

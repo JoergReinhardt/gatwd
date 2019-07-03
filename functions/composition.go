@@ -187,7 +187,7 @@ func MapF(fnc Consumeable, fmap Map) ConsumeVal {
 	})
 }
 
-func MapP(pairs ConsumeablePairs, pmap MapPaired) ConsPairVal {
+func MapP(pairs ConsumeablePaired, pmap MapPaired) ConsPairVal {
 	return ConsPairVal(func(args ...Expression) (Expression, ConsPairVal) {
 		// decapitate list to get head and list continuation
 		var pair Paired
@@ -235,7 +235,7 @@ func BindF(fa, ga Consumeable, bind Bind) ConsumeVal {
 	})
 }
 
-func BindP(fp, gp ConsumeablePairs, bind Bind) ConsPairVal {
+func BindP(fp, gp ConsumeablePaired, bind Bind) ConsPairVal {
 	return ConsPairVal(func(args ...Expression) (Expression, ConsPairVal) {
 		var f, g Paired
 		f, fp = fp.ConsumePair()
@@ -281,7 +281,7 @@ func FoldF(cons Consumeable, elem Expression, fold Fold) ConsumeVal {
 	})
 }
 
-func FoldP(pairs ConsumeablePairs, elem Expression, fold Fold) ConsPairVal {
+func FoldP(pairs ConsumeablePaired, elem Expression, fold Fold) ConsPairVal {
 	return ConsPairVal(func(args ...Expression) (Expression, ConsPairVal) {
 		var pair Paired
 		pair, pairs = pairs.ConsumePair()
@@ -328,7 +328,7 @@ func FilterF(cons Consumeable, filter Filter) ConsumeVal {
 		})
 }
 
-func FilterP(pairs ConsumeablePairs, filter Filter) ConsPairVal {
+func FilterP(pairs ConsumeablePaired, filter Filter) ConsPairVal {
 	return ConsPairVal(
 		func(args ...Expression) (Expression, ConsPairVal) {
 			var pair Paired
@@ -378,7 +378,7 @@ func ZipF(lcons, rcons Consumeable, zip Zip) ConsumeVal {
 }
 
 //// SPLIT
-func SplitP(pairs ConsumeablePairs, split Split) func() (
+func SplitP(pairs ConsumeablePaired, split Split) func() (
 	Expression, Expression, Consumeable,
 	Consumeable,
 ) {

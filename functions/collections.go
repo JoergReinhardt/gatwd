@@ -179,72 +179,9 @@ func (p PairVal) Ident() Expression { return p }
 // pair implements associative collection
 func (p PairVal) Pair() Paired { return p }
 
-// pairs implement the consumeable interface‥. construct value pairs from any
-// consumeable assuming a slice where keys and values alternate
-func ConPair(list Consumeable) (PairVal, Consumeable) {
-	var first, tail = list.Consume()
-	if first != nil {
-		var second Expression
-		second, tail = tail.Consume()
-		if second != nil {
-			if tail != nil {
-				return NewPair(first, second), tail
-			}
-			return NewPair(first, second), NewNone()
-		}
-		return NewPair(first, NewNone()), NewNone()
-	}
-	return NewEmptyPair(), NewNone()
-}
-
-// head returns left value to implement consumeable
-func (p PairVal) Head() Expression { return p.Left() }
-
-// tail returns right value, which either implements consumeable allready, or
-// gets wrapped as a new pair, with a none instance as it's right value.
-func (p PairVal) Tail() Consumeable {
-	var r = p.Right()
-	if r.TypeFnc().Match(Collections) {
-		if cons, ok := r.(Consumeable); ok {
-			return cons
-		}
-	}
-	return NewPair(r, NewNone())
-}
-
-// consume returns callable head & consumeable tail values
-func (p PairVal) Consume() (Expression, Consumeable) {
-	l, r := p.Head(), p.Tail()
-	return l, r
-}
-
-// consume pair returns either left value, case its implementing paired, and
-// tail, or a new pair instance created from the first two callables and the
-// tail left once those are consumed.
-func (p PairVal) ConsumePair() (Paired, Consumeable) {
-	// allocate left and right value
-	var l, r Expression
-	// assign left value to head
-	l = p.Left()
-	// call tail function to assign initial tail from right value
-	var tail = p.Tail()
-	// if left values function type matches pair flag‥.
-	if l.TypeFnc().Match(Pair) {
-		//‥.and left value casts paired successfully‥.
-		if pair, ok := l.(Paired); ok {
-			//‥.return casted pair and tail
-			return pair, tail
-		}
-	}
-	//‥.otherwise consume right value and reassign returned tail
-	r, tail = tail.Consume()
-	//‥.return new pair from left & right value as well as tail
-	return NewPair(l, r), tail
-}
-
 // implement swappable
 func (p PairVal) Swap() (Expression, Expression) { l, r := p(); return r, l }
-func (p PairVal) SwappedPair() PairVal           { return NewPair(p.Right(), p.Left()) }
+func (p PairVal) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
 
 // implement associated
 func (p PairVal) Left() Expression               { l, _ := p(); return l }
@@ -305,8 +242,8 @@ func NewKeyPair(key string, val Expression) KeyPair {
 }
 
 func (a KeyPair) KeyStr() string                     { _, key := a(); return key }
-func (a KeyPair) Ident() Expression                  { return a }
 func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
+func (a KeyPair) Ident() Expression                  { return a }
 func (a KeyPair) Left() Expression                   { return a.Value() }
 func (a KeyPair) Right() Expression                  { return NewNative(d.StrVal(a.KeyStr())) }
 func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
@@ -319,7 +256,7 @@ func (a KeyPair) KeyNatType() d.TyNat                { return d.String }
 func (a KeyPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
 func (a KeyPair) ValType() TyDef                     { return a.Value().Type() }
 func (a KeyPair) KeyType() TyDef                     { return Key.Type() }
-func (a KeyPair) TypeFnc() TyFnc                     { return Pair }
+func (a KeyPair) TypeFnc() TyFnc                     { return Key }
 func (a KeyPair) TypeNat() d.TyNat                   { return d.Function }
 func (a KeyPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (p KeyPair) TypeName() string {
@@ -329,13 +266,6 @@ func (p KeyPair) Type() TyDef {
 	return Define(p.TypeName(), NewPair(
 		p.KeyType(), p.ValType()))
 }
-
-// implement consumeable
-func (p KeyPair) Head() Expression { return p.Value() }
-func (p KeyPair) Tail() Consumeable {
-	return NewPair(NewNative(d.StrVal(p.KeyStr())), NewNone())
-}
-func (p KeyPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
 
 // implement swappable
 func (p KeyPair) Swap() (Expression, Expression) {
@@ -351,98 +281,10 @@ func (a KeyPair) Empty() bool {
 	return false
 }
 
-// key pair implements associative interface
-func (a KeyPair) GetVal(Expression) (Expression, bool) {
-	var val = a.Value()
-	if val != nil {
-		return val, true
-	}
-	return NewNone(), false
-}
-func (a KeyPair) SetVal(key, val Expression) (Associative, bool) {
-	return NewKeyPair(a.KeyStr(), a.Value()), true
-}
-
-func ConKeyPair(list Consumeable) (KeyPair, Consumeable) {
-	var first, tail = list.Consume()
-	if first != nil {
-		if keyval, ok := first.Eval().(d.StrVal); ok {
-			var key = string(keyval)
-			var second Expression
-			second, tail = tail.Consume()
-			if second != nil {
-				if tail != nil {
-					return NewKeyPair(key, second), tail
-				}
-				return NewKeyPair(key, second), NewNone()
-			}
-			return NewKeyPair(key, NewNone()), NewNone()
-		}
-	}
-	return NewKeyPair("", NewNone()), NewList()
-}
-
 ///////////////////////////////////////////////////////////////////////////////
-//// TYPED PAIR
-func NewTypedPair(typ Typed, val Expression) TypedPair {
-	return func(...Expression) (Expression, Typed) { return val, typ }
-}
-func (a TypedPair) Ident() Expression              { return a }
-func (a TypedPair) Pair() Paired                   { return a }
-func (a TypedPair) TypeKey() TyDef                 { _, typ := a(); return typ.Type() }
-func (a TypedPair) Value() Expression              { val, _ := a(); return val }
-func (a TypedPair) Left() Expression               { return a.Value() }
-func (a TypedPair) Right() Expression              { return a.Type() }
-func (a TypedPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
-func (a TypedPair) Pairs() []Paired {
-	return []Paired{NewPair(a.Both())}
-}
-func (a TypedPair) Key() Expression                    { return a.Right() }
-func (a TypedPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a TypedPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
-func (a TypedPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
-func (a TypedPair) KeyNatType() d.TyNat                { return d.Int }
-func (a TypedPair) TypeFnc() TyFnc                     { return Pair }
-func (a TypedPair) TypeNat() d.TyNat                   { return d.Function }
-func (a TypedPair) KeyType() TyDef                     { return a.Key().Type() }
-func (a TypedPair) ValType() TyDef                     { return a.Value().Type() }
-func (a TypedPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (a TypedPair) TypeName() string {
-	return "(" + a.TypeKey().TypeName() + ":: " + a.Value().TypeName() + ")"
-}
-func (a TypedPair) Type() TyDef {
-	return Define(a.TypeName(), NewPair(
-		a.TypeKey(), a.ValType()))
-}
-
-// implement consumeable
-func (p TypedPair) Head() Expression { return p.Value() }
-func (p TypedPair) Tail() Consumeable {
-	return NewPair(p.TypeKey(), NewNone().Type())
-}
-func (p TypedPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
-
-// implement swappable
-func (p TypedPair) Swap() (Expression, Expression) { l, r := p(); return r.(TyDef), l }
-func (p TypedPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
-func (a TypedPair) Empty() bool {
-	if a.Value().TypeFnc().Match(None) || a.Value().TypeNat().Match(d.Nil) {
-		return true
-	}
-	return false
-}
-
-// key pair implements associative interface
-func (a TypedPair) GetVal(Expression) (Expression, bool) {
-	var val = a.Value()
-	if val != nil {
-		return val, true
-	}
-	return NewNone(), false
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// pair composed of an integer and a functional value
+//// INDEX PAIR
+///
+// pair composed of an integer and a functional value
 func NewIndexPair(idx int, val Expression) IndexPair {
 	return func(...Expression) (Expression, int) { return val, idx }
 }
@@ -471,13 +313,6 @@ func (a IndexPair) Type() TyDef {
 	return Define(a.TypeName(), NewPair(a.KeyType(), a.ValType()))
 }
 
-// implement consumeable
-func (p IndexPair) Head() Expression { return p.Value() }
-func (p IndexPair) Tail() Consumeable {
-	return NewPair(New(d.IntVal(p.Index())), NewNone())
-}
-func (p IndexPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
-
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
@@ -489,36 +324,6 @@ func (a IndexPair) Empty() bool {
 		return true
 	}
 	return false
-}
-
-// key pair implements associative interface
-func (a IndexPair) GetVal(Expression) (Expression, bool) {
-	var val = a.Value()
-	if val != nil {
-		return val, true
-	}
-	return NewNone(), false
-}
-func (a IndexPair) SetVal(index, val Expression) (Associative, bool) {
-	return NewIndexPair(a.Index(), a.Value()), true
-}
-func ConIndexPair(list Consumeable) (IndexPair, Consumeable) {
-	var first, tail = list.Consume()
-	if first != nil {
-		if idxval, ok := first.Eval().(d.IntVal); ok {
-			var index = int(idxval)
-			var second Expression
-			second, tail = tail.Consume()
-			if second != nil {
-				if tail != nil {
-					return NewIndexPair(index, second), tail
-				}
-				return NewIndexPair(index, second), NewNone()
-			}
-			return NewIndexPair(index, NewNone()), NewNone()
-		}
-	}
-	return NewIndexPair(0, NewNone()), NewList()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -600,19 +405,19 @@ func (l PairList) Len() int {
 	return length
 }
 
-func (l PairList) Ident() Expression                       { return l }
-func (l PairList) TypeFnc() TyFnc                          { return List }
-func (l PairList) TypeNat() d.TyNat                        { return d.Function }
-func (l PairList) FlagType() d.Uint8Val                    { return Flag_Functional.U() }
-func (l PairList) Null() PairList                          { return NewPairList() }
-func (l PairList) Consume() (Expression, Consumeable)      { return l() }
-func (l PairList) ConsumePair() (Paired, ConsumeablePairs) { return l() }
-func (l PairList) ConsumePairList() (Paired, PairList)     { return l() }
-func (l PairList) Tail() Consumeable                       { _, t := l(); return t }
-func (l PairList) TailPairs() ConsumeablePairs             { _, t := l(); return t }
-func (l PairList) TailPairList() PairList                  { _, t := l(); return t }
-func (l PairList) Head() Expression                        { h, _ := l(); return h }
-func (l PairList) HeadPair() Paired                        { p, _ := l(); return p }
+func (l PairList) Ident() Expression                        { return l }
+func (l PairList) TypeFnc() TyFnc                           { return List }
+func (l PairList) TypeNat() d.TyNat                         { return d.Function }
+func (l PairList) FlagType() d.Uint8Val                     { return Flag_Functional.U() }
+func (l PairList) Null() PairList                           { return NewPairList() }
+func (l PairList) Consume() (Expression, Consumeable)       { return l() }
+func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
+func (l PairList) ConsumePairList() (Paired, PairList)      { return l() }
+func (l PairList) Tail() Consumeable                        { _, t := l(); return t }
+func (l PairList) TailPairs() ConsumeablePaired             { _, t := l(); return t }
+func (l PairList) TailPairList() PairList                   { _, t := l(); return t }
+func (l PairList) Head() Expression                         { h, _ := l(); return h }
+func (l PairList) HeadPair() Paired                         { p, _ := l(); return p }
 func (l PairList) TypeElem() d.Typed {
 	if l.Len() > 0 {
 	}
@@ -963,7 +768,7 @@ func (v PairVec) Pairs() []Paired {
 	return pairs
 }
 
-func (v PairVec) ConsumePair() (Paired, ConsumeablePairs) {
+func (v PairVec) ConsumePair() (Paired, ConsumeablePaired) {
 	var pairs = v()
 	if len(pairs) > 0 {
 		if len(pairs) > 1 {
@@ -985,7 +790,7 @@ func (v PairVec) SwitchedPairs() []Paired {
 	return switched
 }
 
-func (v PairVec) SetVal(key, value Expression) (Associative, bool) {
+func (v PairVec) SetVal(key, value Expression) (AssociativeCollected, bool) {
 	if idx := v.Search(key); idx >= 0 {
 		var pairs = v()
 		pairs[idx] = NewKeyPair(key.String(), value)
@@ -1015,7 +820,7 @@ func (v PairVec) Head() Expression {
 	return nil
 }
 
-func (v PairVec) TailPairs() ConsumeablePairs {
+func (v PairVec) TailPairs() ConsumeablePaired {
 	if v.Len() > 1 {
 		return NewPairVectorFromPairs(v.Pairs()[1:]...)
 	}
@@ -1144,7 +949,7 @@ func (v SetCol) GetVal(key Expression) (Expression, bool) {
 	return NewNone(), false
 }
 
-func (v SetCol) SetVal(key, value Expression) (Associative, bool) {
+func (v SetCol) SetVal(key, value Expression) (AssociativeCollected, bool) {
 	var m = v()
 	return SetCol(func(pairs ...Paired) d.Mapped { return m.Set(key, value) }), true
 }
@@ -1182,11 +987,11 @@ func (v SetCol) Eval(args ...d.Native) d.Native {
 
 func (v SetCol) TypeNat() d.TyNat { return d.Function }
 func (v SetCol) TypeFnc() TyFnc   { return Set }
-func (v SetCol) TypeElem() Typed {
+func (v SetCol) TypeElem() TyDef {
 	if v.Len() > 0 {
 		return v.Head().Type()
 	}
-	return Pair
+	return Pair.Type()
 }
 func (v SetCol) TypeName() string {
 	if v.Len() > 0 {
