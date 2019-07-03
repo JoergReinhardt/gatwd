@@ -249,7 +249,7 @@ func (s CaseExpr) Call(args ...Expression) Expression {
 func (s CaseExpr) TypeName() string {
 	var expr = s.Expr()
 	var test = s.Test()
-	var str = "Case [T] → (" + test.Type().TypeName() + ") → True ⇒ "
+	var str = "[T] → (" + test.Type().TypeName() + ") → True ⇒ "
 	if !expr.TypeFnc().Match(None) {
 		if expr.FlagType() == Flag_Def.U() {
 			str = str + expr.TypeName()
@@ -269,8 +269,11 @@ func (s CaseExpr) Type() Typed {
 	return Define(s.TypeName(), pair.(Paired))
 }
 
-// applys passed arguments to all enclosed cases in the order passed to the
-// switch constructor
+//// SWITCH CONSTRUCTOR ////
+///
+// type safe constructor wraps switch constructor that takes case arguments of
+// the expression type, loops over case expression arguments once, reallocates
+// as expresssion instances to pass on to the untyped private constructor.
 func NewSwitch(cases ...CaseExpr) CaseSwitch {
 	var exprs = make([]Expression, 0, len(cases))
 	for _, cas := range cases {
@@ -279,36 +282,64 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 	return conSwitch(exprs...)
 }
 
-func conSwitch(cases ...Expression) CaseSwitch {
+// arbitrary typed switch constructor, to eliminate looping and reallocation of
+// case expressions intendet to be stored as consumeable vector
+func conSwitch(exprs ...Expression) CaseSwitch {
 
-	var casevec = NewVector(cases...)
+	var cases = NewVector(exprs...)
 
 	return func(args ...Expression) (Expression, Expression, bool) {
 
-		var depleted = NewVector()
 		var head Expression
 		var current CaseExpr
-		var argvec VecCol
+		var arguments VecCol
+		var completed = NewVector()
 
+		//// CALLED WITH ARGUMENTS ////
+		///
 		if len(args) > 0 {
-			argvec = NewVector(args...)
-			if casevec.Len() > 0 {
-				head, casevec = casevec.ConsumeVec()
+			// safe passed arguments
+			arguments = NewVector(args...)
+			// if cases remain to be tested‥.
+			if cases.Len() > 0 {
+				// consume head & reassign caselist
+				head, cases = cases.ConsumeVec()
+				// cast head as case expression
 				current = head.(CaseExpr)
 				if result, ok := current(args...); ok {
-					casevec = NewVector(cases...)
-					return result, NewPair(current, argvec),
+					//// SUCCESSFUL CASE EVALUATION ////
+					///
+					// replenish case list for switch
+					// instance reusal (in case switch gets
+					// called empty to retrieve case list)
+					cases = NewVector(exprs...)
+					// return result, current case and
+					// arguments that where passed.
+					return result, NewPair(current, arguments),
 						true
 				}
-				depleted = depleted.Append(NewPair(current, argvec))
-				return NewPair(current, argvec),
-					conSwitch(casevec()...),
+				//// FAILED CASE EVALUATION ///
+				///
+				// add failed case and evaluated arguments to
+				// the list of completed cases
+				completed = completed.Append(NewPair(current, arguments))
+				return NewPair(current, arguments),
+					conSwitch(cases()...),
 					false
 			}
-			casevec = NewVector(cases...)
-			return nil, NewPair(casevec, argvec), false
+			//// CASES DEPLETION ///
+			///
+			// replenish cases for switch reusal and return
+			// replenished switch instance for eventual reuse.
+			cases = NewVector(exprs...)
+			return nil, conSwitch(cases()...), false
 		}
-		return nil, NewPair(casevec, depleted), false
+		//// CALLED WITH EMPTY ARGUMENT SET ////
+		///
+		// when called without arguments, return list of all defined
+		// cases and log of cases completed so far, including arguments
+		// that where passed to those cases for evaluation.
+		return nil, NewPair(cases, completed), false
 	}
 }
 
@@ -317,7 +348,20 @@ func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
 func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseSwitch) String() string       { return s.TypeName() }
 
-func (s CaseSwitch) TestAll(args ...Expression) (Expression, Expression) {
+func (s CaseSwitch) TypeName() string {
+	return "[T] → (Case Switch) → (T, [T]) "
+}
+func (s CaseSwitch) Type() Typed {
+	return Define(s.TypeName(), s.TypeFnc())
+}
+
+//// TEST ALL CASES AGAINS ARGUMENT SET
+///
+// test one set of arguments against all cases until either successful result
+// is yielded, or all cases are depleted. gets called by eval & call methods.
+// when called without arguments, list of all cases and list of completed
+// cases, including former call arguments will be returned.
+func (s CaseSwitch) TestAllCases(args ...Expression) (Expression, Expression) {
 	var result, caseargs Expression
 	if len(args) > 0 {
 		var ok bool
@@ -334,23 +378,10 @@ func (s CaseSwitch) TestAll(args ...Expression) (Expression, Expression) {
 	return result, caseargs
 }
 
-func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
-	if len(nats) > 0 {
-		var args = make([]Expression, 0, len(nats))
-		for _, nat := range nats {
-			args = append(args, NewNative(nat))
-		}
-		var result, _ = s.TestAll(args...)
-		if result != nil {
-			return result
-		}
-	}
-	return d.NewNil()
-}
-
+// evaluate arguments against case
 func (s CaseSwitch) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		var result, _ = s.TestAll(args...)
+		var result, _ = s.TestAllCases(args...)
 		if result != nil {
 			return result
 		}
@@ -358,11 +389,19 @@ func (s CaseSwitch) Call(args ...Expression) Expression {
 	return NewNone()
 }
 
-func (s CaseSwitch) TypeName() string {
-	return "[T] → (Case Switch) → (T, [T]) "
-}
-func (s CaseSwitch) Type() Typed {
-	return Define(s.TypeName(), s.TypeFnc())
+// evaluate passed native arguments against case
+func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
+	if len(nats) > 0 {
+		var args = make([]Expression, 0, len(nats))
+		for _, nat := range nats {
+			args = append(args, NewNative(nat))
+		}
+		var result, _ = s.TestAllCases(args...)
+		if result != nil {
+			return result
+		}
+	}
+	return d.NewNil()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -394,7 +433,7 @@ func (o OptionType) TypeName() string {
 /// OPTION VALUE CONSTRUCTOR
 func NewOptionVal(test CaseSwitch, exprs ...Expression) OptionVal {
 	return func(args ...Expression) Expression {
-		var expr, index = test.TestAll(args...)
+		var expr, index = test.TestAllCases(args...)
 		if !expr.TypeFnc().Match(None) {
 			var idx = int(index.(NativeExpr)().(d.IntVal))
 			var result = exprs[idx]

@@ -21,7 +21,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 }
 
 func TestNary(t *testing.T) {
-	var strconc = DefineExpression("String Concat",
+	var strconc = DefineExprType("String Concat",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
 			for n, arg := range args {
@@ -93,7 +93,7 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
-	var strvec = DefineExpression("String Vector",
+	var strvec = DefineExprType("String Vector",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var strs []d.Native
 			for _, arg := range args {
