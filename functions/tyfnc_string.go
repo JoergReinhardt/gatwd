@@ -4,18 +4,18 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataConstantFunctionKeyIndexPropertyArgumentReturnTrueFalseUndecidedLesserGreaterEqualMinMaxSwitchCaseThenElseJustNoneEitherOrListVectorPairSetEnumTupleRecordStateIOHigherOrder"
+const _TyFnc_name = "TypeDataConstantFunctionPropertyArgumentReturnIndexKeyTrueFalseUndecidedLesserGreaterEqualMinMaxSwitchCaseThenElseJustNoneEitherOrListVectorPairSetEnumTupleRecordStateIOHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:           _TyFnc_name[0:4],
 	2:           _TyFnc_name[4:8],
 	4:           _TyFnc_name[8:16],
 	8:           _TyFnc_name[16:24],
-	16:          _TyFnc_name[24:27],
-	32:          _TyFnc_name[27:32],
-	64:          _TyFnc_name[32:40],
-	128:         _TyFnc_name[40:48],
-	256:         _TyFnc_name[48:54],
+	16:          _TyFnc_name[24:32],
+	32:          _TyFnc_name[32:40],
+	64:          _TyFnc_name[40:46],
+	128:         _TyFnc_name[46:51],
+	256:         _TyFnc_name[51:54],
 	512:         _TyFnc_name[54:58],
 	1024:        _TyFnc_name[58:63],
 	2048:        _TyFnc_name[63:72],

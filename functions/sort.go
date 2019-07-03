@@ -10,58 +10,11 @@ package functions
 
 import (
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
 )
-
-// type class based comparison functions
-func CompareText(a, b Text) int {
-	return strings.Compare(a.String(), b.String())
-}
-func CompareRational(a, b d.RatioVal) int {
-	return ((*big.Rat)(&a)).Cmp((*big.Rat)(&b))
-}
-func CompareNatural(a, b Natural) int {
-	if a.Uint() < b.Uint() {
-		return -1
-	}
-	if a.Uint() > b.Uint() {
-		return 1
-	}
-	return 0
-}
-func CompareInteger(a, b Integer) int {
-	if a.Int() < b.Int() {
-		return -1
-	}
-	if a.Int() > b.Int() {
-		return 1
-	}
-	return 0
-}
-func CopareReal(a, b Real) int {
-	if a.Float() < b.Float() {
-		return -1
-	}
-	if a.Float() > b.Float() {
-		return 1
-	}
-	return 0
-}
-func CompareFlag(a, b d.BitFlag) int {
-	if a.TypeNat() < b.TypeNat() {
-		return -1
-	}
-	if a.TypeNat() > b.TypeNat() {
-		return 1
-	}
-	return 0
-}
-func IntGrEqZero(i int) bool { return i >= 0 }
-func IntGrZero(i int) bool   { return i > 0 }
 
 ////////////////////////////////////////////////////////////////////////////
 // type to sort slices of data
@@ -79,18 +32,18 @@ func (d SortedData) Empty() bool {
 	return true
 }
 
-func SortData(dat ...Expression) SortedData { return SortedData(dat) }
+func Sort(dat ...Expression) SortedData { return SortedData(dat) }
 
 func (d SortedData) Len() int { return len(d) }
 
 func (d SortedData) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 
 func (ds SortedData) Sort(argType d.TyNat) {
-	sort.Slice(ds, consDataLess(argType, ds))
+	sort.Slice(ds, ConsLess(argType, ds))
 }
 
 func (ds SortedData) Search(pred Expression) int {
-	var idx = sort.Search(len(ds), consDataFind(ds, pred))
+	var idx = sort.Search(len(ds), ConsFind(ds, pred))
 	if idx < len(ds) {
 		if strings.Compare(ds[idx].String(), pred.String()) == 0 {
 			return idx
@@ -99,7 +52,7 @@ func (ds SortedData) Search(pred Expression) int {
 	return -1
 }
 
-func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
+func ConsLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 	var f = argType.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -138,7 +91,7 @@ func consDataLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 	return nil
 }
 
-func consDataFind(ds SortedData, pred Expression) func(int) bool {
+func ConsFind(ds SortedData, pred Expression) func(int) bool {
 
 	// preallocate function
 	var fn func(int) bool
@@ -213,7 +166,7 @@ func (p SortedPairs) Len() int      { return len(p) }
 func (p SortedPairs) Swap(i, j int) { p[j], p[i] = p[i], p[j] }
 
 func (p SortedPairs) Sort(f d.TyNat) {
-	less := consPairLess(p, f)
+	less := ConsPairLess(p, f)
 	sort.Slice(p, less)
 }
 
@@ -230,7 +183,7 @@ func (p SortedPairs) SortByValue(f d.TyNat) {
 }
 
 func (p SortedPairs) Search(pred Expression) int {
-	var idx = sort.Search(len(p), consPairFind(p, pred))
+	var idx = sort.Search(len(p), ConsPairFind(p, pred))
 	// when predicate is a precedence type encoding bit-flag
 	if idx != -1 {
 		if pred.TypeNat().Flag().Match(d.Type.TypeNat()) {
@@ -285,7 +238,7 @@ func (p SortedPairs) RangeByValue(pred Expression) []Paired {
 	).Range(pred)
 }
 
-func consPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
+func ConsPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	f := t.TypeNat().Flag()
 	switch {
 	case f.Match(d.Letters.TypeNat()):
@@ -343,7 +296,7 @@ func consPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	return nil
 }
 
-func consPairFind(accs SortedPairs, pred Expression) func(i int) bool {
+func ConsPairFind(accs SortedPairs, pred Expression) func(i int) bool {
 	var f = pred.Eval().TypeNat().Flag()
 	var fn func(i int) bool
 	switch { // parameters are accessor/value pairs to be applyed.

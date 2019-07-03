@@ -588,13 +588,13 @@ func (v VecCol) Set(i int, val Expression) (Vectorized, bool) {
 }
 
 func (v VecCol) Sort(flag d.TyNat) {
-	var ps = SortData(v()...)
+	var ps = Sort(v()...)
 	ps.Sort(flag)
 	v = NewVector(ps...)
 }
 
 func (v VecCol) Search(praed Expression) int {
-	return SortData(v()...).Search(praed)
+	return Sort(v()...).Search(praed)
 }
 
 func (v VecCol) TypeFnc() TyFnc       { return Vector }

@@ -18,6 +18,8 @@ const (
 	Flag_BitFlag TyFlag = 0 + iota
 	Flag_Native
 	Flag_Functional
+	Flag_TypeCons
+	Flag_DataCons
 	Flag_Arity
 	Flag_Prop
 
@@ -27,9 +29,9 @@ const (
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
 func (t TyFlag) Match(match d.Uint8Val) bool {
 	if match == t.U() {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 //go:generate stringer -type=TyFnc
@@ -41,11 +43,11 @@ const (
 	Constant
 	Function
 	/// PARAMETER OPTIONS
-	Key
-	Index
 	Property
 	Argument
 	Return
+	Index
+	Key
 	/// TRUTH VALUE OTIONS
 	True
 	False
@@ -120,9 +122,8 @@ func Define(name string, expr Expression) TyDef {
 }
 
 func (t TyDef) Ident() TyDef                       { return t }
-func (t TyDef) Flag() d.BitFlag                    { return Type.Flag() }
 func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (t TyDef) String() string                     { return t.TypeName() }
+func (t TyDef) String() string                     { return t.Expr().String() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
 func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
 func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
@@ -143,11 +144,11 @@ func (t TyDef) Match(typ d.Typed) bool { return true }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() }
+func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval(args ...d.Native) d.Native     { return t.TypeNat() }

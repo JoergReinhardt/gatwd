@@ -23,8 +23,8 @@ type Evaluable interface {
 
 type Expression interface {
 	Typed
+	Evaluable
 	Call(...Expression) Expression
-	Eval(...d.Native) d.Native
 	TypeNat() d.TyNat
 	String() string
 }

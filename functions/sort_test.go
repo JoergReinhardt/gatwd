@@ -27,7 +27,7 @@ func TestDataSorter(t *testing.T) {
 		New("Jill"),
 	}
 
-	ds := SortData(dat...)
+	ds := Sort(dat...)
 	ds.Sort(d.String)
 	fmt.Printf("list after sorterd by string: %s\n", ds)
 
