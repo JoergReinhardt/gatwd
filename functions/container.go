@@ -42,7 +42,7 @@ func (c ConstantExpr) Type() Typed {
 	return Define("ϝ → "+c().TypeName(), NewPair(Constant, c().TypeFnc()))
 }
 
-func NewExpression(expr func(args ...Expression) Expression) GenericExpr { return expr }
+func NewGeneric(expr func(args ...Expression) Expression) GenericExpr { return expr }
 
 func (c GenericExpr) Ident() Expression                  { return c }
 func (c GenericExpr) Type() Typed                        { return c().Type() }
@@ -241,7 +241,7 @@ func (n NativeSet) Pairs() []Paired {
 // parametric matching all types.
 //
 // defined expressions can are enumerated and partialy applyable.
-func DefineExpressionType(
+func DefineExpression(
 	name string,
 	expr Expression,
 	signature ...Expression,
@@ -278,7 +278,7 @@ func DefineExpressionType(
 			}
 			// argument number undersatisfies expression arity
 			if arglen < arity {
-				return DefineExpressionType(name, NewExpression(
+				return DefineExpression(name, NewGeneric(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(
 							args,
@@ -300,7 +300,7 @@ func DefineExpressionType(
 					return vec
 				}
 				return vec.Append(
-					DefineExpressionType(
+					DefineExpression(
 						name,
 						expr,
 						signature...,

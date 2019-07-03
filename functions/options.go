@@ -128,14 +128,12 @@ func (t TestExpr) TypeName() string {
 		return "Ord → Compare → Lesser | Greater | Equal"
 	}
 	if t() == Trinary {
-		return "T → (Trinary Truth) → True | Undecided | False"
+		return "[T] → Trinary Truth → True | Undecided | False"
 	}
-	return "T → Truth → True | False"
+	return "[T] → Truth → True | False"
 }
 
-func (t TestExpr) Type() Typed {
-	return TyDef(func() (string, Expression) { return t.TypeName(), t() })
-}
+func (t TestExpr) Type() Typed { return Define(t().TypeName(), t()) }
 
 func (t TestExpr) Test(args ...Expression) bool {
 	if t() == Compare {
@@ -212,104 +210,154 @@ func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
 			return NewVector(args...), false
 		}
 		if expr != nil {
-			return expr, false
+			return NewPair(test, expr), false
 		}
-		return NewNone(), false
+		return NewPair(test, NewNone()), false
 	}
 }
 
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
 func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseExpr) Eval(args ...d.Native) d.Native {
-	if result, ok := s(NewNative(args...)); ok {
-		return result
+func (s CaseExpr) String() string       { return s.TypeName() }
+func (s CaseExpr) Test() TestExpr {
+	var pair, _ = s()
+	return pair.(Paired).Left().(TestExpr)
+}
+func (s CaseExpr) Expr() Expression {
+	var pair, _ = s()
+	return pair.(Paired).Right()
+}
+func (s CaseExpr) Eval(nats ...d.Native) d.Native {
+	if len(nats) > 0 {
+		var args = make([]Expression, 0, len(nats))
+		for _, nat := range nats {
+			args = append(args, NewNative(nat))
+		}
+		if result, ok := s(args...); ok {
+			return result
+		}
 	}
 	return d.NewNil()
 }
 func (s CaseExpr) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		_, ok := s(args...)
-		return NewNative(d.BoolVal(ok))
+	if result, ok := s(args...); ok {
+		return result
 	}
 	return NewNone()
 }
-func (s CaseExpr) String() string { return s.TypeName() }
 func (s CaseExpr) TypeName() string {
-	var expr, _ = s()
-	return "Case True ⇒ " + expr.TypeName() + "\n"
+	var expr = s.Expr()
+	var test = s.Test()
+	var str = "Case [T] → (" + test.Type().TypeName() + ") → True ⇒ "
+	if !expr.TypeFnc().Match(None) {
+		if expr.FlagType() == Flag_Def.U() {
+			str = str + expr.TypeName()
+		} else {
+			str = str +
+				"[T] → " +
+				expr.TypeFnc().TypeName() +
+				" → T"
+		}
+	} else {
+		str = str + " [T]"
+	}
+	return str + "\n"
 }
 func (s CaseExpr) Type() Typed {
-	var expr, _ = s()
-	return Define(s.TypeName(), expr)
+	var pair, _ = s()
+	return Define(s.TypeName(), pair.(Paired))
 }
 
 // applys passed arguments to all enclosed cases in the order passed to the
 // switch constructor
 func NewSwitch(cases ...CaseExpr) CaseSwitch {
-	var casevec = NewVector()
-	for _, c := range cases {
-		casevec = casevec.Append(c)
+	var exprs = make([]Expression, 0, len(cases))
+	for _, cas := range cases {
+		exprs = append(exprs, cas)
 	}
+	return conSwitch(exprs...)
+}
+
+func conSwitch(cases ...Expression) CaseSwitch {
+
+	var casevec = NewVector(cases...)
+
 	return func(args ...Expression) (Expression, Expression, bool) {
-		var index = 0
+
+		var depleted = NewVector()
+		var head Expression
+		var current CaseExpr
+		var argvec VecCol
+
 		if len(args) > 0 {
-			if len(cases) > 0 {
-				var current = cases[index]
-				if expr, ok := current(args...); ok {
-					return expr,
-						NewNative(d.IntVal(index)),
+			argvec = NewVector(args...)
+			if casevec.Len() > 0 {
+				head, casevec = casevec.ConsumeVec()
+				current = head.(CaseExpr)
+				if result, ok := current(args...); ok {
+					casevec = NewVector(cases...)
+					return result, NewPair(current, argvec),
 						true
 				}
-				if index <= len(cases)-1 {
-					return NewVector(args...),
-						NewSwitch(
-							cases[index : len(cases)-1]...),
-						false
-				}
+				depleted = depleted.Append(NewPair(current, argvec))
+				return NewPair(current, argvec),
+					conSwitch(casevec()...),
+					false
 			}
-			return nil,
-				NewNone(),
-				false
+			casevec = NewVector(cases...)
+			return nil, NewPair(casevec, argvec), false
 		}
-		return nil, casevec, false
+		return nil, NewPair(casevec, depleted), false
 	}
 }
 
+func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
+func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
+func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (s CaseSwitch) String() string       { return s.TypeName() }
+
 func (s CaseSwitch) TestAll(args ...Expression) (Expression, Expression) {
-	var result, caseidx Expression
+	var result, caseargs Expression
 	if len(args) > 0 {
 		var ok bool
-		result, caseidx, ok = s(args...)
+		result, caseargs, ok = s(args...)
 		for result != nil {
 			if ok {
-				return result, caseidx
+				return result, caseargs
 			}
-			result, caseidx, ok = caseidx.(CaseSwitch)(args...)
+			result, caseargs, ok = caseargs.(CaseSwitch)(args...)
 		}
-		return nil, nil
+		return nil, caseargs
 	}
-	result, caseidx, _ = s()
-	return result, caseidx
+	result, caseargs, _ = s()
+	return result, caseargs
+}
+
+func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
+	if len(nats) > 0 {
+		var args = make([]Expression, 0, len(nats))
+		for _, nat := range nats {
+			args = append(args, NewNative(nat))
+		}
+		var result, _ = s.TestAll(args...)
+		if result != nil {
+			return result
+		}
+	}
+	return d.NewNil()
 }
 
 func (s CaseSwitch) Call(args ...Expression) Expression {
-	result, _ := s.TestAll(args...)
-	if result != nil {
-		return result
+	if len(args) > 0 {
+		var result, _ = s.TestAll(args...)
+		if result != nil {
+			return result
+		}
 	}
 	return NewNone()
 }
 
-// eval converts its arguments to callable and evaluates the result to yield a
-// return value of native type
-func (s CaseSwitch) Eval(args ...d.Native) d.Native { return d.NewNil() }
-func (s CaseSwitch) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (s CaseSwitch) TypeFnc() TyFnc                 { return Switch }
-func (s CaseSwitch) TypeNat() d.TyNat               { return d.Function }
-func (s CaseSwitch) String() string                 { return s.TypeName() }
-
-// TODO: correct type name to show actual types
 func (s CaseSwitch) TypeName() string {
 	return "[T] → (Case Switch) → (T, [T]) "
 }
@@ -317,6 +365,7 @@ func (s CaseSwitch) Type() Typed {
 	return Define(s.TypeName(), s.TypeFnc())
 }
 
+///////////////////////////////////////////////////////////////////////////////
 /// OPTION TYPE CONSTRUCTOR
 func NewOptionType(test CaseSwitch, types ...Expression) OptionType {
 	return func(args ...Expression) OptionVal {
