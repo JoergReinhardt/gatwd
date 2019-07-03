@@ -60,12 +60,11 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 }
 
 func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
-func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (m ConsumeVal) Type() Typed          { return Collections }
 func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
-func (m ConsumeVal) SubType() d.Typed     { return m.Head().TypeFnc() }
-func (m ConsumeVal) TypeNat() d.TyNat {
-	return m.Head().TypeNat()
+func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
+func (m ConsumeVal) TypeNat() d.TyNat     { return m.Head().TypeNat() }
+func (m ConsumeVal) Type() TyDef {
+	return Define(m.TypeName(), m.Head().Type())
 }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
@@ -147,16 +146,15 @@ func (c ConsPairVal) Tail() Consumeable {
 	_, t := c()
 	return t
 }
-func (c ConsPairVal) Type() Typed          { return c.Head().Type() }
-func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
-func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsPairVal) SubType() d.Typed     { return c.Head().TypeFnc() }
-func (c ConsPairVal) TypeNat() d.TyNat {
-	return c.Head().TypeNat()
-}
 func (c ConsPairVal) String() string {
 	return c.Head().String()
+}
+func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
+func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
+func (c ConsPairVal) TypeNat() d.TyNat     { return c.Head().TypeNat() }
+func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
+func (c ConsPairVal) Type() TyDef {
+	return Define(c.TypeName(), c.Head().Type())
 }
 
 //// MAP

@@ -9,17 +9,15 @@ type (
 	NoneVal func()
 	//// TRUTH VALUE CONSTRUCTOR
 	TestExpr func(...Expression) TyFnc
-	// JUST VALUE CONSTRUCTOR
+	// OPTION VALUE CONSTRUCTOR
 	OptionVal func(...Expression) Expression
 
 	//// CASE & SWITCH TYPE CONSTRUCTORS
 	CaseExpr   func(...Expression) (Expression, bool)
 	CaseSwitch func(...Expression) (Expression, Expression, bool)
 
-	//// EITHER TYPE CONSTRUCTOR
+	//// OPTION TYPE CONSTRUCTOR
 	OptionType func(...Expression) OptionVal
-
-	//// ALTERNATIVE DECLARATION
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -47,9 +45,7 @@ func (n NoneVal) TypeFnc() TyFnc                 { return None }
 func (n NoneVal) TypeNat() d.TyNat               { return d.Nil }
 func (n NoneVal) TypeName() string               { return n.String() }
 func (n NoneVal) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (n NoneVal) Type() Typed {
-	return Define(n.TypeName(), None)
-}
+func (n NoneVal) Type() TyDef                    { return Define(n.TypeName(), None) }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }
@@ -133,7 +129,7 @@ func (t TestExpr) TypeName() string {
 	return "[T] → Truth → True | False"
 }
 
-func (t TestExpr) Type() Typed { return Define(t().TypeName(), t()) }
+func (t TestExpr) Type() TyDef { return Define(t().TypeName(), t()) }
 
 func (t TestExpr) Test(args ...Expression) bool {
 	if t() == Compare {
@@ -264,9 +260,12 @@ func (s CaseExpr) TypeName() string {
 	}
 	return str + "\n"
 }
-func (s CaseExpr) Type() Typed {
-	var pair, _ = s()
-	return Define(s.TypeName(), pair.(Paired))
+func (s CaseExpr) Type() TyDef {
+	var expr, _ = s()
+	var pair = expr.(Paired)
+	var typeleft = pair.Left().Type()
+	var typeright = pair.Right().Type()
+	return Define(s.TypeName(), NewPair(typeleft, typeright))
 }
 
 //// SWITCH CONSTRUCTOR ////
@@ -351,7 +350,7 @@ func (s CaseSwitch) String() string       { return s.TypeName() }
 func (s CaseSwitch) TypeName() string {
 	return "[T] → (Case Switch) → (T, [T]) "
 }
-func (s CaseSwitch) Type() Typed {
+func (s CaseSwitch) Type() TyDef {
 	return Define(s.TypeName(), s.TypeFnc())
 }
 
@@ -418,12 +417,10 @@ func (o OptionType) Expr() Expression                   { return o() }
 func (o OptionType) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (o OptionType) TypeNat() d.TyNat                   { return o().TypeNat() }
 func (o OptionType) TypeFnc() TyFnc                     { return Option }
-func (o OptionType) ElemType() Typed                    { return o() }
+func (o OptionType) ElemType() TyDef                    { return o().Type() }
 func (o OptionType) String() string                     { return o().String() }
-func (o OptionType) Type() Typed {
-	return TyDef(func() (string, Expression) {
-		return o().TypeName(), o.ElemType().(TyDef)
-	})
+func (o OptionType) Type() TyDef {
+	return Define(o().TypeName(), o.ElemType())
 }
 func (o OptionType) TypeName() string {
 	var name string
@@ -452,4 +449,4 @@ func (o OptionVal) TypeFnc() TyFnc                     { return o(HigherOrder).T
 func (o OptionVal) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (o OptionVal) String() string                     { return o(HigherOrder).String() }
 func (o OptionVal) TypeName() string                   { return o(HigherOrder).TypeName() }
-func (o OptionVal) Type() Typed                        { return Define(o().TypeName(), o()) }
+func (o OptionVal) Type() TyDef                        { return Define(o().TypeName(), o()) }

@@ -120,16 +120,18 @@ func Define(name string, expr Expression) TyDef {
 }
 
 func (t TyDef) Ident() TyDef                       { return t }
-func (t TyDef) Type() Typed                        { return Type }
 func (t TyDef) Flag() d.BitFlag                    { return Type.Flag() }
 func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (t TyDef) String() string                     { return t.TypeName() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
 func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
-func (t TyDef) String() string                     { return t.TypeName() }
 func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
 func (t TyDef) Call(args ...Expression) Expression { return t.Expr().Call(args...) }
 func (t TyDef) Expr() Expression                   { var _, expr = t(); return expr }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
+func (t TyDef) Type() TyDef {
+	return Define(t.TypeName(), Type)
+}
 func (t TyDef) TypeName() string {
 	var name, expr = t()
 	if name == "" {
@@ -142,7 +144,6 @@ func (t TyDef) Match(typ d.Typed) bool { return true }
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (t TyFnc) Type() Typed                        { return Type }
 func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
@@ -150,6 +151,7 @@ func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() 
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval(args ...d.Native) d.Native     { return t.TypeNat() }
+func (t TyFnc) Type() TyDef                        { return Define(t.TypeName(), t) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -219,11 +221,13 @@ func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64
 func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
 func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
 func (p Propertys) TypeFnc() TyFnc                     { return Type }
-func (p Propertys) Type() Typed                        { return Property }
 func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Eval(args ...d.Native) d.Native     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
+func (p Propertys) Type() TyDef {
+	return Define(p.TypeName(), Property)
+}
 
 //// CALL ARITY
 ///

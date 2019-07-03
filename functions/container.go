@@ -38,14 +38,14 @@ func (c ConstantExpr) String() string                     { return c().String() 
 func (c ConstantExpr) Eval(args ...d.Native) d.Native     { return c().Eval(args...) }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
-func (c ConstantExpr) Type() Typed {
-	return Define("ϝ → "+c().TypeName(), NewPair(Constant, c().TypeFnc()))
+func (c ConstantExpr) Type() TyDef {
+	return Define("ϝ → "+c().TypeName(), c().TypeFnc())
 }
 
 func NewGeneric(expr func(args ...Expression) Expression) GenericExpr { return expr }
 
 func (c GenericExpr) Ident() Expression                  { return c }
-func (c GenericExpr) Type() Typed                        { return c().Type() }
+func (c GenericExpr) Type() TyDef                        { return c().Type() }
 func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
 func (c GenericExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
 func (c GenericExpr) String() string                     { return c().String() }
@@ -112,7 +112,7 @@ func (n NativeExpr) TypeNat() d.TyNat               { return n().TypeNat() }
 func (n NativeExpr) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativeExpr) String() string                 { return n().String() }
 func (n NativeExpr) TypeName() string               { return n().TypeName() }
-func (n NativeExpr) Type() Typed {
+func (n NativeExpr) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 
@@ -140,7 +140,7 @@ func (n NativeCol) String() string                 { return n().String() }
 func (n NativeCol) TypeName() string               { return n().TypeName() }
 func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
 func (n NativeCol) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (n NativeCol) Type() Typed {
+func (n NativeCol) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativeCol) Slice() []Expression {
@@ -173,7 +173,7 @@ func (n NativePair) SubType() d.Typed               { return n().TypeNat() }
 func (n NativePair) TypeName() string               { return n().TypeName() }
 func (n NativePair) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativePair) String() string                 { return n().String() }
-func (n NativePair) Type() Typed {
+func (n NativePair) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativePair) Pair() Paired {
@@ -212,7 +212,7 @@ func (n NativeSet) TypeName() string                     { return n().TypeName()
 func (n NativeSet) FlagType() d.Uint8Val                 { return Flag_Functional.U() }
 func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Set() SetCol                          { return NewSet(n.Pairs()...) }
-func (n NativeSet) Type() Typed {
+func (n NativeSet) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativeSet) Pairs() []Paired {
@@ -248,20 +248,24 @@ func DefineExprType(
 ) ExprValCons {
 
 	var arity = 0
-	var retval Expression
+	var retval TyDef
 	var pattern Expression
 
 	switch len(signature) {
 	case 0:
-		pattern = AllTypes
-		retval = expr.Type().(TyDef)
+		pattern = AllTypes.Type()
+		retval = expr.Type()
 	case 1:
-		pattern = AllTypes
-		retval = signature[0]
+		pattern = AllTypes.Type()
+		retval = signature[0].Type()
 	default:
 		arity = len(signature) - 1
-		pattern = NewVector(signature[:arity]...)
-		retval = signature[arity].Type().(TyDef)
+		retval = signature[arity].Type()
+		var vec = NewVector()
+		for _, sig := range signature[:arity] {
+			vec = vec.Append(sig.Type())
+		}
+		pattern = vec
 	}
 
 	var definition = Define(name, NewPair(
@@ -313,13 +317,15 @@ func DefineExprType(
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n ExprValCons) Ident() Expression                  { return n }
-func (n ExprValCons) String() string                     { return n.Expr().String() }
-func (n ExprValCons) Type() Typed                        { return n() }
-func (n ExprValCons) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (n ExprValCons) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
-func (n ExprValCons) Expr() Expression                   { return n.Definition().Left() }
-func (n ExprValCons) Signature() Paired                  { return n.Definition().Right().(Paired) }
+func (n ExprValCons) Ident() Expression    { return n }
+func (n ExprValCons) String() string       { return n.Expr().String() }
+func (n ExprValCons) Type() TyDef          { return n().(TyDef) }
+func (n ExprValCons) FlagType() d.Uint8Val { return Flag_Def.U() }
+func (n ExprValCons) Definition() Paired   { return n.Type().Expr().(Paired) }
+func (n ExprValCons) Expr() Expression     { return n.Definition().Left() }
+func (n ExprValCons) Signature() Paired {
+	return n.Definition().Right().(Paired)
+}
 func (n ExprValCons) Pattern() Expression                { return n.Signature().Left() }
 func (n ExprValCons) Return() Expression                 { return n.Signature().Right() }
 func (n ExprValCons) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
@@ -332,7 +338,7 @@ func (n ExprValCons) Arity() Arity {
 			return Arity(vec.Len())
 		}
 	}
-	return Arity(1)
+	return Arity(0)
 }
 func (n ExprValCons) TypeName() string {
 	var name string
@@ -343,8 +349,8 @@ func (n ExprValCons) TypeName() string {
 	} else {
 		name = name + n.Pattern().TypeName() + " → "
 	}
-	if n.Type().(TyDef).Name() != "" {
-		name = name + n.Type().(TyDef).Name()
+	if n.Type().Name() != "" {
+		name = name + n.Type().Name()
 	} else {
 		n.Expr().TypeName()
 	}

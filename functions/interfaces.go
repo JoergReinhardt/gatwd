@@ -10,7 +10,7 @@ type Flagged interface {
 	Flag() d.BitFlag
 }
 type Typed interface {
-	Type() Typed
+	Type() TyDef
 	TypeFnc() TyFnc
 	TypeName() string
 	FlagType() d.Uint8Val
@@ -130,8 +130,8 @@ type Paired interface {
 	Both() (Expression, Expression)
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	KeyType() Typed
-	ValType() Typed
+	KeyType() TyDef
+	ValType() TyDef
 }
 
 type Composed interface {
@@ -274,8 +274,8 @@ type Aggregating interface {
 // associate them with their position in a collection
 type Associative interface {
 	Expression
-	KeyType() Typed
-	ValType() Typed
+	KeyType() TyDef
+	ValType() TyDef
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
 	GetVal(Expression) (Expression, bool)
