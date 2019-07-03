@@ -10,13 +10,13 @@ type (
 
 	PairVal   func(...Expression) (Expression, Expression)
 	KeyPair   func(...Expression) (Expression, string)
+	TypedPair func(...Expression) (Expression, Typed)
 	IndexPair func(...Expression) (Expression, int)
 
 	PairList func(...Paired) (Paired, PairList)
 	PairVec  func(...Paired) []Paired
 )
 
-///////////////////////////////////////////////////////////////////////////////
 //// RECURSIVE LIST OF VALUES
 ///
 // base implementation of recursively linked lists
@@ -147,6 +147,7 @@ func (l ListCol) Type() Typed {
 	})
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //// PAIRS OF VALUES
 ///
 // pairs can be created empty, key & value may be constructed later
@@ -304,6 +305,7 @@ func (p PairVal) Eval(args ...d.Native) d.Native {
 	return d.NewPair(p.Left().Eval(), p.Right().Eval())
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //// ASSOCIATIVE PAIRS
 ///
 // pair composed of a string key and a functional value
@@ -321,7 +323,7 @@ func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) 
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a KeyPair) Key() Expression                    { return a.Right() }
 func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a KeyPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval() }
+func (a KeyPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
 func (a KeyPair) KeyNatType() d.TyNat                { return d.String }
 func (a KeyPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
 func (a KeyPair) ValType() Typed                     { return a.Value().Type().(TyDef) }
@@ -394,6 +396,69 @@ func ConKeyPair(list Consumeable) (KeyPair, Consumeable) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//// TYPED PAIR
+func NewTypedPair(typ Typed, val Expression) TypedPair {
+	return func(...Expression) (Expression, Typed) { return val, typ }
+}
+func (a TypedPair) Ident() Expression                  { return a }
+func (a TypedPair) Pair() Paired                       { return a }
+func (a TypedPair) TypeKey() Typed                     { _, typ := a(); return typ }
+func (a TypedPair) Value() Expression                  { val, _ := a(); return val }
+func (a TypedPair) Left() Expression                   { return a.Value() }
+func (a TypedPair) Right() Expression                  { return a.Type().(TyDef) }
+func (a TypedPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
+func (a TypedPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
+func (a TypedPair) Key() Expression                    { return a.Right() }
+func (a TypedPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
+func (a TypedPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
+func (a TypedPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
+func (a TypedPair) KeyNatType() d.TyNat                { return d.Int }
+func (a TypedPair) TypeFnc() TyFnc                     { return Pair }
+func (a TypedPair) TypeNat() d.TyNat                   { return d.Function }
+func (a TypedPair) KeyType() Typed                     { return a.TypeKey() }
+func (a TypedPair) ValType() Typed                     { return a.Value().Type() }
+func (a TypedPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (a TypedPair) TypeName() string {
+	return "(" + a.TypeKey().TypeName() + ":: " + a.Value().TypeName() + ")"
+}
+func (a TypedPair) Type() Typed {
+	return TyDef(func() (string, Expression) {
+		return a.TypeName(),
+			TyDef(func() (string, Expression) {
+				return a.TypeName(), NewPair(
+					a.TypeKey().(Expression),
+					a.Value())
+			})
+	})
+}
+
+// implement consumeable
+func (p TypedPair) Head() Expression { return p.Value() }
+func (p TypedPair) Tail() Consumeable {
+	return NewPair(p.TypeKey().(Expression), NewNone())
+}
+func (p TypedPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
+
+// implement swappable
+func (p TypedPair) Swap() (Expression, Expression) { l, r := p(); return r.(TyDef), l }
+func (p TypedPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
+func (a TypedPair) Empty() bool {
+	if a.Value().TypeFnc().Match(None) || a.Value().TypeNat().Match(d.Nil) {
+		return true
+	}
+	return false
+}
+
+// key pair implements associative interface
+func (a TypedPair) GetVal(Expression) (Expression, bool) {
+	var val = a.Value()
+	if val != nil {
+		return val, true
+	}
+	return NewNone(), false
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// pair composed of an integer and a functional value
 func NewIndexPair(idx int, val Expression) IndexPair {
 	return func(...Expression) (Expression, int) { return val, idx }
@@ -408,7 +473,7 @@ func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a IndexPair) Key() Expression                    { return a.Right() }
 func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval() }
+func (a IndexPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
 func (a IndexPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
 func (a IndexPair) KeyNatType() d.TyNat                { return d.Int }
 func (a IndexPair) TypeFnc() TyFnc                     { return Pair }
@@ -416,7 +481,9 @@ func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() Typed                     { return Index }
 func (a IndexPair) ValType() Typed                     { return a.Value().Type() }
 func (a IndexPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (a IndexPair) TypeName() string                   { return "(Index, " + a.Value().TypeName() + ")" }
+func (a IndexPair) TypeName() string {
+	return "(Index, " + a.Value().TypeName() + ")"
+}
 func (a IndexPair) Type() Typed {
 	return TyDef(func() (string, Expression) {
 		return a.TypeName(),
@@ -429,13 +496,18 @@ func (a IndexPair) Type() Typed {
 }
 
 // implement consumeable
-func (p IndexPair) Head() Expression                   { return p.Value() }
-func (p IndexPair) Tail() Consumeable                  { return NewPair(New(d.IntVal(p.Index())), NewNone()) }
+func (p IndexPair) Head() Expression { return p.Value() }
+func (p IndexPair) Tail() Consumeable {
+	return NewPair(New(d.IntVal(p.Index())), NewNone())
+}
 func (p IndexPair) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
 
 // implement swappable
-func (p IndexPair) Swap() (Expression, Expression) { l, r := p(); return NewNative(d.StrVal(r)), l }
-func (p IndexPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
+func (p IndexPair) Swap() (Expression, Expression) {
+	l, r := p()
+	return NewNative(d.StrVal(r)), l
+}
+func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPair) Empty() bool {
 	if a.Index() >= 0 && a.Value() != nil && a.Value().TypeFnc() != None {
 		return true
@@ -473,6 +545,7 @@ func ConIndexPair(list Consumeable) (IndexPair, Consumeable) {
 	return NewIndexPair(0, NewNone()), NewList()
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //// LIST OF PAIRS
 func ConPairList(list PairList, pairs ...Paired) PairList {
 	return list.Con(pairs...)
