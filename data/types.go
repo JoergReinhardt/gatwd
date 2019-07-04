@@ -196,7 +196,62 @@ type ( // NATIVE GOLANG TYPES
 	FlagSet        []BitFlag
 )
 
-func NewTypedNull(nat TyNat) Native {
+func newUnboxed(nat TyNat) Native {
+	var val Native
+	switch nat {
+	case Bool:
+		val = BoolVec([]bool{})
+	case Int:
+		val = IntVec([]int{})
+	case Int8:
+		val = Int8Vec([]int8{})
+	case Int16:
+		val = Int16Vec([]int16{})
+	case Int32:
+		val = Int32Vec([]int32{})
+	case Uint:
+		val = UintVec([]uint{})
+	case Uint8:
+		val = Uint8Vec([]uint8{})
+	case Uint16:
+		val = Uint16Vec([]uint16{})
+	case Uint32:
+		val = Uint32Vec([]uint32{})
+	case Float:
+		val = FltVec([]float64{})
+	case Flt32:
+		val = Flt32Vec([]float32{})
+	case Imag:
+		val = ImagVec([]complex128{})
+	case Imag64:
+		val = Imag64Vec([]complex64{})
+	case Byte:
+		val = ByteVec([]byte{})
+	case Rune:
+		val = RuneVec([]rune{})
+	case Bytes:
+		val = BytesVec([][]byte{})
+	case String:
+		val = StrVec([]string{})
+	case BigInt:
+		val = BigIntVec([]*big.Int{})
+	case BigFlt:
+		val = BigFltVec([]*big.Float{})
+	case Ratio:
+		val = RatioVec([]*big.Rat{})
+	case Time:
+		val = TimeVec([]time.Time{})
+	case Duration:
+		val = DuraVec([]time.Duration{})
+	case Error:
+		val = ErrorVec([]error{})
+	case Flag:
+		val = FlagSet([]BitFlag{})
+	}
+	return val
+}
+
+func newNull(nat TyNat) Native {
 	var val Native
 	switch nat {
 	case Nil:

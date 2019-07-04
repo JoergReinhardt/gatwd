@@ -6,7 +6,7 @@ import (
 )
 
 // expects all arguments to match the type passed in as flag
-func newUnboxed(flag TyNat, args ...Native) Sliceable {
+func NewUnboxed(flag TyNat, args ...Native) Sliceable {
 
 	var d Sliceable
 
@@ -727,31 +727,31 @@ func (v FlagSet) Slice() []Native {
 	return slice
 }
 
-func (v NilVec) TypeName() string    { return Nil.TypeName() }
-func (v BoolVec) TypeName() string   { return Bool.TypeName() }
-func (v IntVec) TypeName() string    { return Int.TypeName() }
-func (v Int8Vec) TypeName() string   { return Int8.TypeName() }
-func (v Int16Vec) TypeName() string  { return Int16.TypeName() }
-func (v Int32Vec) TypeName() string  { return Int32.TypeName() }
-func (v UintVec) TypeName() string   { return Uint.TypeName() }
-func (v Uint8Vec) TypeName() string  { return Uint8.TypeName() }
-func (v Uint16Vec) TypeName() string { return Uint16.TypeName() }
-func (v Uint32Vec) TypeName() string { return Uint32.TypeName() }
-func (v FltVec) TypeName() string    { return Float.TypeName() }
-func (v Flt32Vec) TypeName() string  { return Flt32.TypeName() }
-func (v ImagVec) TypeName() string   { return Imag.TypeName() }
-func (v Imag64Vec) TypeName() string { return Imag64.TypeName() }
-func (v ByteVec) TypeName() string   { return Byte.TypeName() }
-func (v RuneVec) TypeName() string   { return Rune.TypeName() }
-func (v BytesVec) TypeName() string  { return Bytes.TypeName() }
-func (v StrVec) TypeName() string    { return String.TypeName() }
-func (v BigIntVec) TypeName() string { return BigInt.TypeName() }
-func (v BigFltVec) TypeName() string { return BigFlt.TypeName() }
-func (v RatioVec) TypeName() string  { return Ratio.TypeName() }
-func (v TimeVec) TypeName() string   { return Time.TypeName() }
-func (v DuraVec) TypeName() string   { return Duration.TypeName() }
-func (v ErrorVec) TypeName() string  { return Error.TypeName() }
-func (v FlagSet) TypeName() string   { return Type.TypeName() }
+func (v NilVec) TypeName() string    { return "[" + Nil.TypeName() + "]" }
+func (v BoolVec) TypeName() string   { return "[" + Bool.TypeName() + "]" }
+func (v IntVec) TypeName() string    { return "[" + Int.TypeName() + "]" }
+func (v Int8Vec) TypeName() string   { return "[" + Int8.TypeName() + "]" }
+func (v Int16Vec) TypeName() string  { return "[" + Int16.TypeName() + "]" }
+func (v Int32Vec) TypeName() string  { return "[" + Int32.TypeName() + "]" }
+func (v UintVec) TypeName() string   { return "[" + Uint.TypeName() + "]" }
+func (v Uint8Vec) TypeName() string  { return "[" + Uint8.TypeName() + "]" }
+func (v Uint16Vec) TypeName() string { return "[" + Uint16.TypeName() + "]" }
+func (v Uint32Vec) TypeName() string { return "[" + Uint32.TypeName() + "]" }
+func (v FltVec) TypeName() string    { return "[" + Float.TypeName() + "]" }
+func (v Flt32Vec) TypeName() string  { return "[" + Flt32.TypeName() + "]" }
+func (v ImagVec) TypeName() string   { return "[" + Imag.TypeName() + "]" }
+func (v Imag64Vec) TypeName() string { return "[" + Imag64.TypeName() + "]" }
+func (v ByteVec) TypeName() string   { return "[" + Byte.TypeName() + "]" }
+func (v RuneVec) TypeName() string   { return "[" + Rune.TypeName() + "]" }
+func (v BytesVec) TypeName() string  { return "[" + Bytes.TypeName() + "]" }
+func (v StrVec) TypeName() string    { return "[" + String.TypeName() + "]" }
+func (v BigIntVec) TypeName() string { return "[" + BigInt.TypeName() + "]" }
+func (v BigFltVec) TypeName() string { return "[" + BigFlt.TypeName() + "]" }
+func (v RatioVec) TypeName() string  { return "[" + Ratio.TypeName() + "]" }
+func (v TimeVec) TypeName() string   { return "[" + Time.TypeName() + "]" }
+func (v DuraVec) TypeName() string   { return "[" + Duration.TypeName() + "]" }
+func (v ErrorVec) TypeName() string  { return "[" + Error.TypeName() + "]" }
+func (v FlagSet) TypeName() string   { return "[" + Type.TypeName() + "]" }
 
 func (v NilVec) SubType() TyNat    { return Nil.TypeNat() }
 func (v BoolVec) SubType() TyNat   { return Bool.TypeNat() }

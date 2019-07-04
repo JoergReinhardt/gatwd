@@ -153,7 +153,7 @@ func SliceToNatives(c DataSlice) Sliceable {
 	}) {
 		// if all elements yield the same type, convert to unboxed
 		// slice of natives
-		return newUnboxed(flag, c.Slice()...)
+		return NewUnboxed(flag, c.Slice()...)
 	}
 	// return unconverted slice, since elment types are impure
 	return c
