@@ -297,33 +297,34 @@ func (n NativeSet) Pairs() []Paired {
 func DefinePartial(
 	name string,
 	expr Expression,
-	signature ...Expression,
+	retype Expression,
+	paramtypes ...Expression,
 ) PartialExpr {
 
-	var arity = len(signature)
-	var typed = Define(name, expr, signature...)
+	var arity = len(paramtypes)
+	var typed = Define(name, retype, paramtypes...)
 
 	// create and return nary expression
 	return func(args ...Expression) Expression {
-		var arglen = len(args) // count arguments
-		if arglen > 0 {        // if arguments where passed
+		var parmlen = len(args) // count arguments
+		if parmlen > 0 {        // if arguments where passed
 			// argument number satisfies expression arity exactly
-			if arglen == arity {
+			if parmlen == arity {
 				return expr.Call(args...)
 			}
 			// argument number undersatisfies expression arity
-			if arglen < arity {
+			if parmlen < arity {
 				return DefinePartial(name, NewGeneric(
 					func(lateargs ...Expression) Expression {
-						return expr.Call(append(
-							args,
+						return expr.Call(append(args,
 							lateargs...)...)
 					},
 				),
-					signature[arglen:]...)
+					retype,
+					paramtypes[parmlen:]...)
 			}
 			// argument number oversatisfies expressions arity
-			if arglen > arity {
+			if parmlen > arity {
 				var remain []Expression
 				args, remain = args[:arity], args[arity:]
 				var vec = NewVector(expr.Call(args...))
@@ -338,7 +339,8 @@ func DefinePartial(
 					DefinePartial(
 						name,
 						expr,
-						signature...,
+						retype,
+						paramtypes...,
 					).Call(remain...))
 			}
 		}
@@ -355,8 +357,6 @@ func (n PartialExpr) Arity() Arity                       { return n.Type().Arity
 func (n PartialExpr) Return() Expression                 { return n.Type().Return() }
 func (n PartialExpr) Pattern() []Expression              { return n.Type().Pattern() }
 func (n PartialExpr) TypeName() string                   { return n.Type().TypeName() }
-func (n PartialExpr) PatternName() string                { return n.Type().PatternName() }
-func (n PartialExpr) ReturnName() string                 { return n.Type().ReturnName() }
 func (n PartialExpr) String() string                     { return n.Return().String() }
 func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
 func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }

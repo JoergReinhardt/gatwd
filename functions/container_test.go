@@ -30,11 +30,12 @@ func TestNary(t *testing.T) {
 					str = str + " "
 				}
 			}
-			return d.StrVal(str)
+			return NewNative(d.StrVal(str))
 		}),
-		NewNative(d.StrVal("")),
-		NewNative(d.StrVal("")),
-		NewNative(d.StrVal("")),
+		NewNative(d.NewNull(d.String)),
+		NewNative(d.NewNull(d.String)),
+		NewNative(d.NewNull(d.String)),
+		NewNative(d.NewNull(d.String)),
 	)
 
 	var r0 = strconc(NewNative(d.StrVal("0")))
@@ -101,8 +102,9 @@ func TestNary(t *testing.T) {
 				}
 				return d.NewSlice(strs...)
 			}
-			return d.NewSlice(d.NewNull(d.String))
+			return d.NewNil()
 		}),
+		NewNative(d.NewUboxNull(d.String)),
 		NewNative(d.StrVal("")),
 		NewNative(d.IntVal(0)),
 		NewNative(d.UintVal(0)),

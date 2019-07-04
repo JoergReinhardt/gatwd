@@ -38,6 +38,9 @@ func NewErrorFromString(str string) ErrorVal {
 // turns out to be composed from multiple types, null value will be an instance
 // of slice, pair, or map. otherwise an atomic native instance will be
 // returned.
+func NewUboxNull(nat TyNat) Native {
+	return newUnboxed(nat)
+}
 func NewNull(nat TyNat) Native {
 	// should the type flag turn out to be composed
 	if nat.Flag().Count() > 0 {
@@ -49,7 +52,7 @@ func NewNull(nat TyNat) Native {
 			// a single native type should be left
 			if len(nats) == 1 {
 				// return a slice of the particular type
-				return newUnboxed(nats[0].TypeNat())
+				return NewUnboxed(nats[0].TypeNat())
 			}
 		case nat.Match(Pair):
 			// mask pair flag and decompose remaining flags
@@ -59,8 +62,8 @@ func NewNull(nat TyNat) Native {
 				// return an empty pair composed of both type
 				// elements
 				return NewPair(
-					NewTypedNull(nats[0].(TyNat)),
-					NewTypedNull(nats[1].(TyNat)))
+					newNull(nats[0].(TyNat)),
+					newNull(nats[1].(TyNat)))
 			}
 		case nat.Match(Map):
 			// mask the map flag and reassign native type
@@ -84,12 +87,12 @@ func NewNull(nat TyNat) Native {
 		default:
 			// return the nil value, if the composed type flag
 			// turns out to not be parseable
-			return NewTypedNull(nat)
+			return newNull(nat)
 		}
 	}
 	// for non composed types, return an atomic null instance (returns a
 	// nil type, if not parseable)
-	return NewTypedNull(nat)
+	return newNull(nat)
 }
 
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }
@@ -325,7 +328,7 @@ func conNativeVector(flag BitFlag, args ...Native) (nat Sliceable) {
 			slice = append(slice, v.(ErrorVal))
 		}
 	}
-	return newUnboxed(flag.TypeNat(), slice...)
+	return NewUnboxed(flag.TypeNat(), slice...)
 }
 
 func NewEmpty(flag BitFlag) (val Native) {

@@ -119,9 +119,9 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, expr Expression, pattern ...Expression) TyDef {
+func Define(name string, retype Expression, pattern ...Expression) TyDef {
 	return func() (string, []Expression) {
-		return name, append([]Expression{expr}, pattern...)
+		return name, append([]Expression{retype}, pattern...)
 	}
 }
 
@@ -146,7 +146,13 @@ func (t TyDef) Arity() Arity {
 	return Arity(len(t.Pattern()))
 	return Arity(0)
 }
-func (t TyDef) ReturnName() string { return t.Return().TypeName() }
+func (t TyDef) ReturnName() string {
+	var retname = t.Return().TypeName()
+	if strings.Contains(retname, " ") {
+		retname = "(" + retname + ")"
+	}
+	return retname
+}
 func (t TyDef) PatternName() string {
 	if t.Arity() > Arity(0) {
 		var slice []string
@@ -165,8 +171,11 @@ func (t TyDef) PatternName() string {
 func (t TyDef) TypeName() string {
 	var sep = " → "
 	var name = t.Name()
+	if strings.Contains(name, " ") {
+		name = "(" + name + ")"
+	}
 	if name == "" {
-		name = "(" + t.Return().TypeName() + ")"
+		name = t.ReturnName()
 	}
 	if t.Arity() > Arity(0) {
 		var slice []string
