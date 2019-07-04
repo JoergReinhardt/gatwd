@@ -319,7 +319,9 @@ func DefinePartial(
 						return expr.Call(append(args,
 							lateargs...)...)
 					},
-				), retype, paramtypes[parmlen:]...)
+				),
+					retype,
+					paramtypes[parmlen:]...)
 			}
 			// argument number oversatisfies expressions arity
 			if parmlen > arity {
