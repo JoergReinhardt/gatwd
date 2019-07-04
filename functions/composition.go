@@ -32,7 +32,7 @@ func Curry(exprs ...Expression) Expression {
 				var def = expr.(TyDef)
 				return Define(
 					def.TypeName(),
-					def.Expr(),
+					def.Return(),
 				).Call(Curry(exprs[1:]...))
 			}
 			return Define(

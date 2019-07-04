@@ -22,7 +22,7 @@ type (
 	NativeCol  func(...d.Native) d.Sliceable
 
 	//// EXPRESSION VALUE CONSTRUCTOR
-	ExprValCons func(...Expression) Expression
+	PartialExpr func(...Expression) Expression
 )
 
 /// CONSTANT VALUE CONSTRUCTOR
@@ -241,36 +241,14 @@ func (n NativeSet) Pairs() []Paired {
 // parametric matching all types.
 //
 // defined expressions can are enumerated and partialy applyable.
-func DefineExprType(
+func DefinePartial(
 	name string,
 	expr Expression,
 	signature ...Expression,
-) ExprValCons {
+) PartialExpr {
 
-	var arity = 0
-	var retval TyDef
-	var pattern Expression
-
-	switch len(signature) {
-	case 0:
-		pattern = AllTypes.Type()
-		retval = expr.Type()
-	case 1:
-		pattern = AllTypes.Type()
-		retval = signature[0].Type()
-	default:
-		arity = len(signature) - 1
-		retval = signature[arity].Type()
-		var vec = NewVector()
-		for _, sig := range signature[:arity] {
-			vec = vec.Append(sig.Type())
-		}
-		pattern = vec
-	}
-
-	var typed = Define(name, NewPair(
-		expr, NewPair(pattern, retval),
-	))
+	var arity = len(signature)
+	var typed = Define(name, expr, signature...)
 
 	// create and return nary expression
 	return func(args ...Expression) Expression {
@@ -282,7 +260,7 @@ func DefineExprType(
 			}
 			// argument number undersatisfies expression arity
 			if arglen < arity {
-				return DefineExprType(name, NewGeneric(
+				return DefinePartial(name, NewGeneric(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(
 							args,
@@ -304,7 +282,7 @@ func DefineExprType(
 					return vec
 				}
 				return vec.Append(
-					DefineExprType(
+					DefinePartial(
 						name,
 						expr,
 						signature...,
@@ -312,74 +290,22 @@ func DefineExprType(
 			}
 		}
 		// if no arguments are passed, return definition
-		return NewPair(expr, typed)
+		return typed
 	}
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n ExprValCons) Ident() Expression    { return n }
-func (n ExprValCons) String() string       { return n.Expr().String() }
-func (n ExprValCons) TypeFnc() TyFnc       { return n.Return().TypeFnc() }
-func (n ExprValCons) TypeNat() d.TyNat     { return n.Return().TypeNat() }
-func (n ExprValCons) FlagType() d.Uint8Val { return Flag_DataCons.U() }
-func (n ExprValCons) Expr() Expression     { return n().(Paired).Left() }
-func (n ExprValCons) Type() TyDef          { return n().(Paired).Right().(TyDef) }
-func (n ExprValCons) Pattern() TyDef {
-	var expr = n.Type().Expr().(Paired).Right().(Paired).Left()
-	if Flag_DataCons.Match(expr.FlagType()) {
-		return expr.(TyDef)
-	}
-	return expr.Type()
-}
-func (n ExprValCons) PatternName() string {
-	var name string
-	if n.Pattern().TypeFnc().Match(Vector) {
-		var slice = n.Pattern().Expr().(VecCol)()
-		for n, arg := range slice {
-			name = name + arg.TypeName()
-			if n < len(slice)-1 {
-				name = name + " → "
-			}
-		}
-	} else {
-		name = name + n.Pattern().Expr().TypeName()
-	}
-	return name
-}
-func (n ExprValCons) Return() Expression {
-	return n.Type().Expr().(Paired).Right().(Paired).Right()
-}
-func (n ExprValCons) ReturnName() string {
-	return n.Return().TypeName()
-}
-func (n ExprValCons) Eval(args ...d.Native) d.Native {
-	return n.Expr().Eval(args...)
-}
-func (n ExprValCons) Call(args ...Expression) Expression {
-	return n.Expr().Call(args...)
-}
-func (n ExprValCons) Arity() Arity {
-	if n.Pattern().TypeFnc().Match(Vector) {
-		if vec, ok := n.Pattern().Expr().(VecCol); ok {
-			return Arity(vec.Len())
-		}
-	}
-	return Arity(0)
-}
-func (n ExprValCons) TypeName() string {
-	var name string
-	if n.Pattern().TypeFnc().Match(Vector) {
-		for _, arg := range n.Pattern().Expr().(VecCol)() {
-			name = name + arg.TypeName() + " → "
-		}
-	} else {
-		name = name + n.Pattern().TypeName() + " → "
-	}
-	if n.Type().Name() != "" {
-		name = name + n.Type().Name()
-	} else {
-		n.Expr().TypeName()
-	}
-	name = name + " → " + n.Return().TypeName()
-	return name
-}
+func (n PartialExpr) Ident() Expression                  { return n }
+func (n PartialExpr) Type() TyDef                        { return n().(TyDef) }
+func (n PartialExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
+func (n PartialExpr) Arity() Arity                       { return n.Type().Arity() }
+func (n PartialExpr) Return() Expression                 { return n.Type().Return() }
+func (n PartialExpr) Pattern() []Expression              { return n.Type().Pattern() }
+func (n PartialExpr) TypeName() string                   { return n.Type().TypeName() }
+func (n PartialExpr) PatternName() string                { return n.Type().PatternName() }
+func (n PartialExpr) ReturnName() string                 { return n.Type().ReturnName() }
+func (n PartialExpr) String() string                     { return n.Return().String() }
+func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
+func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
+func (n PartialExpr) Eval(args ...d.Native) d.Native     { return n.Return().Eval(args...) }
+func (n PartialExpr) Call(args ...Expression) Expression { return n.Return().Call(args...) }

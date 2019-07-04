@@ -1,12 +1,14 @@
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
 	TySig     func() (TyDef, []TyDef)
-	TyDef     func() (string, Expression)
+	TyDef     func() (string, []Expression)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
@@ -117,28 +119,65 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, expr Expression) TyDef {
-	return func() (string, Expression) { return name, expr }
+func Define(name string, expr Expression, pattern ...Expression) TyDef {
+	return func() (string, []Expression) {
+		return name, append([]Expression{expr}, pattern...)
+	}
 }
 
-func (t TyDef) Ident() TyDef                       { return t }
-func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (t TyDef) String() string                     { return t.Expr().String() }
-func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
-func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
-func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
-func (t TyDef) Call(args ...Expression) Expression { return t.Expr().Call(args...) }
-func (t TyDef) Expr() Expression                   { var _, expr = t(); return expr }
+func (t TyDef) Type() TyDef                        { return t }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
-func (t TyDef) Type() TyDef {
-	return Define(t.TypeName(), Type)
+func (t TyDef) Elems() []Expression                { var _, expr = t(); return expr }
+func (t TyDef) Return() Expression                 { return t.Elems()[0] }
+func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (t TyDef) String() string                     { return t.Return().String() }
+func (t TyDef) TypeFnc() TyFnc                     { return t.Return().TypeFnc() }
+func (t TyDef) TypeNat() d.TyNat                   { return t.Return().TypeNat() }
+func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Return().Eval(args...) }
+func (t TyDef) Call(args ...Expression) Expression { return t.Return().Call(args...) }
+func (t TyDef) Pattern() []Expression {
+	var elems = t.Elems()
+	if len(elems) > 1 {
+		return elems[1:]
+	}
+	return []Expression{None}
+}
+func (t TyDef) Arity() Arity {
+	if t.Pattern()[0] != None {
+		return Arity(len(t.Pattern()))
+	}
+	return Arity(0)
+}
+func (t TyDef) ReturnName() string { return t.Return().TypeName() }
+func (t TyDef) PatternName() string {
+	if t.Arity() > Arity(0) {
+		var pattern = t.Pattern()
+		if len(pattern) > 1 {
+			var slice []string
+			var sep = " → "
+			for _, arg := range pattern {
+				slice = append(slice,
+					arg.TypeName())
+			}
+			return strings.Join(slice, sep)
+		}
+		return pattern[0].String()
+	}
+	return ""
 }
 func (t TyDef) TypeName() string {
-	var name, expr = t()
+	var sep = " → "
+	var name = t.Name()
 	if name == "" {
-		name = expr.TypeName()
+		name = "(" + t.Return().TypeName() + ")"
 	}
-	return name
+	if t.Arity() > Arity(0) {
+		return t.PatternName() + sep + name + sep + t.ReturnName()
+	}
+	if t.Return().TypeFnc() != None || t.Return().TypeNat() != d.Nil {
+		return name
+	}
+	return name + sep + t.ReturnName()
 }
 func (t TyDef) Match(typ d.Typed) bool { return true }
 

@@ -254,8 +254,8 @@ func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
 	var name, pattern, retname string
 	if expr != nil {
 		if Flag_DataCons.Match(expr.FlagType()) {
-			pattern = expr.(ExprValCons).PatternName()
-			retname = expr.(ExprValCons).ReturnName()
+			pattern = expr.(PartialExpr).PatternName()
+			retname = expr.(PartialExpr).ReturnName()
 		}
 		name = pattern + " → (" + test.Type().TypeName() + ") → True ⇒ "
 		if !expr.TypeFnc().Match(None) {

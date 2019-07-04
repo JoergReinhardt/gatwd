@@ -21,7 +21,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 }
 
 func TestNary(t *testing.T) {
-	var strconc = DefineExprType("String Concat",
+	var strconc = DefinePartial("String Concat",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
 			for n, arg := range args {
@@ -32,7 +32,6 @@ func TestNary(t *testing.T) {
 			}
 			return d.StrVal(str)
 		}),
-		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
 		NewNative(d.StrVal("")),
@@ -93,18 +92,20 @@ func TestNary(t *testing.T) {
 	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
 	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
 
-	var strvec = DefineExprType("String Vector",
+	var strvec = DefinePartial("String Vector",
 		NativeExpr(func(args ...d.Native) d.Native {
-			var strs []d.Native
-			for _, arg := range args {
-				strs = append(strs, d.StrVal(arg.String()))
+			if len(args) > 0 {
+				var strs []d.Native
+				for _, arg := range args {
+					strs = append(strs, d.StrVal(arg.String()))
+				}
+				return d.NewSlice(strs...)
 			}
-			return d.NewSlice(strs...)
+			return d.NewSlice(d.NewNull(d.String))
 		}),
 		NewNative(d.StrVal("")),
 		NewNative(d.IntVal(0)),
 		NewNative(d.UintVal(0)),
-		NewNative(d.NewSlice(d.StrVal(""))),
 	)
 
 	var sv0 = strvec(NewNative(d.StrVal("0")))

@@ -84,7 +84,7 @@ func NewNull(nat TyNat) Native {
 		default:
 			// return the nil value, if the composed type flag
 			// turns out to not be parseable
-			return NewNil()
+			return NewTypedNull(nat)
 		}
 	}
 	// for non composed types, return an atomic null instance (returns a

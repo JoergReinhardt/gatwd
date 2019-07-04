@@ -193,7 +193,7 @@ var generic = NewGeneric(func(args ...Expression) Expression {
 
 var genericcase = NewCase(test, generic)
 
-var defcase = NewCase(test, DefineExprType("To String",
+var defcase = NewCase(test, DefinePartial("To String",
 	generic, New(d.String|d.Int|d.Float), New(d.String)))
 
 func TestCase(t *testing.T) {
