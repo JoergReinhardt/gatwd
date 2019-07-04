@@ -144,8 +144,15 @@ func TestNary(t *testing.T) {
 		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)),
 		NewNative(d.UintVal(8)))
 
-	fmt.Printf("\nstring vector: %s type: %s elem name: %s elem type: %s\n\n",
-		sv5, sv5.(VecCol)()[0].TypeNat().String(), sv5.(VecCol)()[0].(NativeUbox)().TypeName(), sv5.(VecCol)()[0].(NativeUbox)().TypeNat())
+	fmt.Printf(
+		"\nstring vector: %s type: %s elem name: %s elem type: %s"+
+			" slice: %s element: %s\n\n",
+		sv5, sv5.(VecCol)()[0].TypeNat().String(),
+		sv5.(VecCol)()[0].(NativeUbox)().TypeName(),
+		sv5.(VecCol)()[0].(NativeUbox)().TypeNat(),
+		sv5.(VecCol)()[0].(NativeUbox).Slice(),
+		sv5.(VecCol)()[0].(NativeUbox).Slice()[1],
+	)
 
 	fmt.Printf("string vector: %s type name: %s\n", strvec, strvec.TypeName())
 	fmt.Printf("string vector: %s type name: %s\n", sv0, sv0.TypeName())
