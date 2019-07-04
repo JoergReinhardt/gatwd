@@ -11,18 +11,19 @@ import (
 )
 
 type (
-	//// EXPRESSION CONSTRUCTORS
+	//// CONSTANT & GENERIC EXPRESSIONS
 	ConstantExpr func() Expression
 	GenericExpr  func(...Expression) Expression
 
-	//// NATIVE TYPE & VALUE CONSTRUCTORS
+	//// NATIVE VALUE CONSTRUCTORS
 	NativeExpr func(...d.Native) d.Native
 	NativePair func(...d.Native) d.Paired
-	NativeSet  func(...d.Native) d.Mapped
+	NativeUbox func(...d.Native) d.Sliceable
 	NativeCol  func(...d.Native) d.Sliceable
+	NativeSet  func(...d.Native) d.Mapped
 
-	//// EXPRESSION TYPE CONSTRUCTOR
-	DefinedExpr func(...Expression) Expression
+	//// EXPRESSION VALUE CONSTRUCTOR
+	PartialExpr func(...Expression) Expression
 )
 
 /// CONSTANT VALUE CONSTRUCTOR
@@ -38,14 +39,14 @@ func (c ConstantExpr) String() string                     { return c().String() 
 func (c ConstantExpr) Eval(args ...d.Native) d.Native     { return c().Eval(args...) }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
-func (c ConstantExpr) Type() Typed {
-	return Define("ϝ → "+c().TypeName(), NewPair(Constant, c().TypeFnc()))
+func (c ConstantExpr) Type() TyDef {
+	return Define("ϝ → "+c().TypeName(), c().TypeFnc())
 }
 
-func NewExpression(expr func(args ...Expression) Expression) GenericExpr { return expr }
+func NewGeneric(expr func(args ...Expression) Expression) GenericExpr { return expr }
 
 func (c GenericExpr) Ident() Expression                  { return c }
-func (c GenericExpr) Type() Typed                        { return c().Type() }
+func (c GenericExpr) Type() TyDef                        { return c().Type() }
 func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
 func (c GenericExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
 func (c GenericExpr) String() string                     { return c().String() }
@@ -77,20 +78,38 @@ func NewNative(args ...d.Native) Expression {
 
 	switch {
 	case tnat.Match(d.Slice):
-		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeExpr(slice.Eval)
+		if slice, ok := nat.(d.DataSlice); ok {
+			return NativeCol(func(args ...d.Native) d.Sliceable {
+				if len(args) > 0 {
+					return slice.Eval(args...).(d.Sliceable)
+				}
+				return slice
+			})
 		}
 	case tnat.Match(d.Unboxed):
-		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeExpr(slice.Eval)
-		}
+		return NativeUbox(func(args ...d.Native) d.Sliceable {
+			if len(args) > 0 {
+				return nat.Eval(args...).(d.Sliceable)
+			}
+			return nat.(d.Sliceable)
+		})
 	case tnat.Match(d.Pair):
 		if pair, ok := nat.(d.Paired); ok {
-			return NativeExpr(pair.Eval)
+			return NativePair(func(args ...d.Native) d.Paired {
+				if len(args) > 0 {
+					return pair.Eval(args...).(d.Paired)
+				}
+				return pair
+			})
 		}
 	case tnat.Match(d.Map):
 		if set, ok := nat.(d.Mapped); ok {
-			return NativeExpr(set.Eval)
+			return NativeSet(func(args ...d.Native) d.Mapped {
+				if len(args) > 0 {
+					return set.Eval(args...).(d.Mapped)
+				}
+				return set
+			})
 		}
 	default:
 		return NativeExpr(nat.Eval)
@@ -112,7 +131,7 @@ func (n NativeExpr) TypeNat() d.TyNat               { return n().TypeNat() }
 func (n NativeExpr) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativeExpr) String() string                 { return n().String() }
 func (n NativeExpr) TypeName() string               { return n().TypeName() }
-func (n NativeExpr) Type() Typed {
+func (n NativeExpr) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 
@@ -140,12 +159,46 @@ func (n NativeCol) String() string                 { return n().String() }
 func (n NativeCol) TypeName() string               { return n().TypeName() }
 func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
 func (n NativeCol) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (n NativeCol) Type() Typed {
+func (n NativeCol) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativeCol) Slice() []Expression {
 	var slice = []Expression{}
 	for _, val := range n.SliceNat() {
+		slice = append(slice, NewNative(val))
+	}
+	return slice
+}
+
+func (n NativeUbox) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var nats = make([]d.Native, 0, len(args))
+		for _, arg := range args {
+			nats = append(nats, arg.Eval())
+		}
+		return NewNative(n(nats...))
+	}
+	return NewNative(n())
+}
+func (n NativeUbox) TypeFnc() TyFnc                 { return Data }
+func (n NativeUbox) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n NativeUbox) Len() int                       { return n().Len() }
+func (n NativeUbox) SliceNat() []d.Native           { return n().Slice() }
+func (n NativeUbox) Get(key d.Native) d.Native      { return n().Get(key) }
+func (n NativeUbox) GetInt(idx int) d.Native        { return n().GetInt(idx) }
+func (n NativeUbox) Range(s, e int) d.Native        { return n().Range(s, e) }
+func (n NativeUbox) Copy() d.Native                 { return n().Copy() }
+func (n NativeUbox) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativeUbox) String() string                 { return n().String() }
+func (n NativeUbox) TypeName() string               { return n().TypeName() }
+func (n NativeUbox) Vector() VecCol                 { return NewVector(n.Slice()...) }
+func (n NativeUbox) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (n NativeUbox) Type() TyDef {
+	return Define(n().TypeName(), New(n().TypeNat()))
+}
+func (n NativeUbox) Slice() []Expression {
+	var slice = []Expression{}
+	for _, val := range n.Slice() {
 		slice = append(slice, NewNative(val))
 	}
 	return slice
@@ -173,7 +226,7 @@ func (n NativePair) SubType() d.Typed               { return n().TypeNat() }
 func (n NativePair) TypeName() string               { return n().TypeName() }
 func (n NativePair) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativePair) String() string                 { return n().String() }
-func (n NativePair) Type() Typed {
+func (n NativePair) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativePair) Pair() Paired {
@@ -212,7 +265,7 @@ func (n NativeSet) TypeName() string                     { return n().TypeName()
 func (n NativeSet) FlagType() d.Uint8Val                 { return Flag_Functional.U() }
 func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Set() SetCol                          { return NewSet(n.Pairs()...) }
-func (n NativeSet) Type() Typed {
+func (n NativeSet) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativeSet) Pairs() []Paired {
@@ -241,32 +294,14 @@ func (n NativeSet) Pairs() []Paired {
 // parametric matching all types.
 //
 // defined expressions can are enumerated and partialy applyable.
-func DefineExpressionType(
+func DefinePartial(
 	name string,
 	expr Expression,
 	signature ...Expression,
-) DefinedExpr {
+) PartialExpr {
 
-	var arity = 0
-	var retval Expression
-	var pattern Expression
-
-	switch len(signature) {
-	case 0:
-		pattern = AllTypes
-		retval = expr.Type().(TyDef)
-	case 1:
-		pattern = AllTypes
-		retval = signature[0]
-	default:
-		arity = len(signature) - 1
-		pattern = NewVector(signature[:arity]...)
-		retval = signature[arity].Type().(TyDef)
-	}
-
-	var definition = Define(name, NewPair(
-		expr, NewPair(pattern, retval),
-	))
+	var arity = len(signature)
+	var typed = Define(name, expr, signature...)
 
 	// create and return nary expression
 	return func(args ...Expression) Expression {
@@ -278,7 +313,7 @@ func DefineExpressionType(
 			}
 			// argument number undersatisfies expression arity
 			if arglen < arity {
-				return DefineExpressionType(name, NewExpression(
+				return DefinePartial(name, NewGeneric(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(
 							args,
@@ -300,7 +335,7 @@ func DefineExpressionType(
 					return vec
 				}
 				return vec.Append(
-					DefineExpressionType(
+					DefinePartial(
 						name,
 						expr,
 						signature...,
@@ -308,46 +343,22 @@ func DefineExpressionType(
 			}
 		}
 		// if no arguments are passed, return definition
-		return definition
+		return typed
 	}
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n DefinedExpr) Ident() Expression                  { return n }
-func (n DefinedExpr) String() string                     { return n.Expr().String() }
-func (n DefinedExpr) Type() Typed                        { return n() }
-func (n DefinedExpr) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (n DefinedExpr) Definition() Paired                 { return n.Type().(TyDef).Expr().(Paired) }
-func (n DefinedExpr) Expr() Expression                   { return n.Definition().Left() }
-func (n DefinedExpr) Signature() Paired                  { return n.Definition().Right().(Paired) }
-func (n DefinedExpr) Pattern() Expression                { return n.Signature().Left() }
-func (n DefinedExpr) Return() Expression                 { return n.Signature().Right() }
-func (n DefinedExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
-func (n DefinedExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
-func (n DefinedExpr) Eval(args ...d.Native) d.Native     { return n.Expr().Eval(args...) }
-func (n DefinedExpr) Call(args ...Expression) Expression { return n.Expr().Call(args...) }
-func (n DefinedExpr) Arity() Arity {
-	if n.Pattern().TypeFnc().Match(Vector) {
-		if vec, ok := n.Pattern().(VecCol); ok {
-			return Arity(vec.Len())
-		}
-	}
-	return Arity(1)
-}
-func (n DefinedExpr) TypeName() string {
-	var name string
-	if n.Pattern().TypeFnc().Match(Vector) {
-		for _, arg := range n.Pattern().(VecCol)() {
-			name = name + arg.TypeName() + " → "
-		}
-	} else {
-		name = name + n.Pattern().TypeName() + " → "
-	}
-	if n.Type().(TyDef).Name() != "" {
-		name = name + n.Type().(TyDef).Name()
-	} else {
-		n.Expr().TypeName()
-	}
-	name = name + " → " + n.Return().TypeName()
-	return name
-}
+func (n PartialExpr) Ident() Expression                  { return n }
+func (n PartialExpr) Type() TyDef                        { return n().(TyDef) }
+func (n PartialExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
+func (n PartialExpr) Arity() Arity                       { return n.Type().Arity() }
+func (n PartialExpr) Return() Expression                 { return n.Type().Return() }
+func (n PartialExpr) Pattern() []Expression              { return n.Type().Pattern() }
+func (n PartialExpr) TypeName() string                   { return n.Type().TypeName() }
+func (n PartialExpr) PatternName() string                { return n.Type().PatternName() }
+func (n PartialExpr) ReturnName() string                 { return n.Type().ReturnName() }
+func (n PartialExpr) String() string                     { return n.Return().String() }
+func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
+func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
+func (n PartialExpr) Eval(args ...d.Native) d.Native     { return n.Return().Eval(args...) }
+func (n PartialExpr) Call(args ...Expression) Expression { return n.Return().Call(args...) }

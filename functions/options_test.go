@@ -149,7 +149,10 @@ var test = NewTruthTest(func(args ...Expression) bool {
 	return true
 })
 
-func TestCase(t *testing.T) {
+func TestTruthTest(t *testing.T) {
+
+	fmt.Printf("test name: %s\n", test.TypeName())
+
 	var result = test(New(42))
 	fmt.Printf("test integer (expect True): %s\n", result)
 	if result != True {
@@ -175,40 +178,89 @@ func TestCase(t *testing.T) {
 	}
 }
 
+var truthcase = NewCase(test)
+
+var generic = NewGeneric(func(args ...Expression) Expression {
+	var str string
+	for n, arg := range args {
+		str = str + arg.String()
+		if n < len(args)-1 {
+			str = str + " "
+		}
+	}
+	return NewNative(d.StrVal(str))
+})
+
+var genericcase = NewCase(test, generic)
+
+var defcase = NewCase(test, DefinePartial("To String",
+	generic, New(d.String|d.Int|d.Float), New(d.String)))
+
+func TestCase(t *testing.T) {
+
+	var result, ok = truthcase(New(42))
+	fmt.Printf("truth case type-name: %s result: %s ok: %t\n\n",
+		truthcase.TypeName(), result, ok)
+
+	result, ok = genericcase(New(42.23))
+	fmt.Printf("generic case type-name: %s result: %s ok: %t\n\n",
+		genericcase.TypeName(), result, ok)
+
+	result, ok = defcase(New("string"))
+	fmt.Printf("defined case type-name: %s result: %s ok: %t\n\n",
+		defcase.TypeName(), result, ok)
+
+	result, ok = defcase(New(true))
+	fmt.Printf("defined case type-name: %s result: %s ok: %t\n\n",
+		defcase.TypeName(), result, ok)
+}
+
 func TestSwitch(t *testing.T) {
-	var swi = NewSwitch(NewCase(test))
 
-	fmt.Printf("switch int & float argument: %s\n", swi.Call(New(23), New(42.23)))
+	var swi = NewSwitch(defcase, truthcase, genericcase)
 
-	fmt.Printf("successfull call to Switch passing int: %s\n", swi.Call(New(42)))
+	fmt.Printf("switch int & float argument: %s\n",
+		swi.Call(New(23), New(42.23)))
+
+	if val := swi.Call(New(42), New(42.23)); val.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("successfull call passing int: %s\n",
+		swi.Call(New(42)))
 
 	if val := swi.Call(New(42)); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("successfull call to Switch passing float: %s\n", swi.Call(New(23.42)))
+	fmt.Printf("successfull call passing float: %s\n",
+		swi.Call(New(23.42)))
 	if val := swi.Call(New(23.42)); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("successfull call to Switch passing string: %s\n", swi.Call(New("string")))
+	fmt.Printf("successfull call passing string: %s\n",
+		swi.Call(New("string")))
 	if val := swi.Call(New(23.42)); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("successfull call to Switch passing multiple integers: %s\n",
+	fmt.Printf("successfull call passing multiple integers: %s\n",
 		swi.Call(New(23), New(42), New(65)))
-	if val := swi.Call(New(23), New(42), New(65)); val.TypeFnc().Match(None) {
+	if val := swi.Call(New(23), New(42),
+		New(65)); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("successfull call to Switch passing mixed args: %s\n",
+	fmt.Printf("successfull call passing mixed args: %s\n",
 		swi.Call(New(23), New(42.23), New("string")))
-	if val := swi.Call(New(23), New(42.23), New("string")); val.TypeFnc().Match(None) {
+	if val := swi.Call(New(23), New(42.23),
+		New("string")); val.TypeFnc().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("unsuccessfull call to Switch passing boolean: %s\n", swi.Call(New(true)))
+	fmt.Printf("unsuccessfull call to Switch passing boolean: %s\n\n",
+		swi.Call(New(true)))
 	if val := swi.Call(New(true)); !val.TypeFnc().Match(None) {
 		t.Fail()
 	}

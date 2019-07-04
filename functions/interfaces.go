@@ -4,13 +4,14 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-//// interfaces imported from data
+//// NATIVE INTERFACE
+///
 type Flagged interface {
 	Match(d.Typed) bool
 	Flag() d.BitFlag
 }
 type Typed interface {
-	Type() Typed
+	Type() TyDef
 	TypeFnc() TyFnc
 	TypeName() string
 	FlagType() d.Uint8Val
@@ -22,8 +23,8 @@ type Evaluable interface {
 
 type Expression interface {
 	Typed
+	Evaluable
 	Call(...Expression) Expression
-	Eval(...d.Native) d.Native
 	TypeNat() d.TyNat
 	String() string
 }
@@ -116,24 +117,6 @@ type Verifyable interface {
 	Bool() bool
 }
 
-type Constructing interface {
-	Expression
-	Const() Expression
-}
-
-type Paired interface {
-	Consumeable
-	Empty() bool
-	Pair() Paired
-	Left() Expression
-	Right() Expression
-	Both() (Expression, Expression)
-	KeyNatType() d.TyNat
-	ValNatType() d.TyNat
-	KeyType() Typed
-	ValType() Typed
-}
-
 type Composed interface {
 	// Empty()
 	d.Composed
@@ -164,57 +147,9 @@ type Mapped interface {
 	d.Mapped
 }
 
-// branched yields two callable return values
-type Branched interface {
-	Expression
-	Left() Expression
-	Right() Expression
-	Both() (Expression, Expression)
-}
-
-// swaps position of branched return values either per call, or yielding a
-// new instance containing the values in swapped position
-type Swappable interface {
-	Expression
-	Swap() (Expression, Expression)
-	SwappedPair() Paired
-}
-
-// associated values are pairs of values, associated to one another and to any
-// collection of associates, in as the left field is either key, or index to
-// access an associated value as an element in a collection. in optionals right
-// field indicates the optional type of the result yielded, in maybes it
-// indicates succssess, etc‥.
-type Accociated interface {
-	Expression
-	Key() Expression
-	Value() Expression
-}
-
-type Keyed interface {
-	Expression
-	KeyStr() string
-}
-
-type Indexed interface {
-	Expression
-	Index() string
-}
-
-// access elements directly by index position
-type IndexAssoc interface {
-	Expression
-	Get(int) (Expression, bool)
-	Set(int, Expression) (Vectorized, bool)
-}
-
-//// CONSUMEABLE
+///////////////////////////////////////////////////////////////////////////////
+//// COLLECTION INTERFACES
 ///
-// all types that implement some type of collection, or step by step recursion,
-// are 'enumerated', as in expected to work with every given type as a single
-// instance, or collection there of. consumeable implements that behaviour.
-// the behaviour the map-/ & fold operators rely on <Head() Callable> as 'unit'
-// function, which forms the base of all functors, applicatives, monads‥.
 type Consumeable interface {
 	Expression
 	Head() Expression
@@ -222,71 +157,123 @@ type Consumeable interface {
 	Consume() (Expression, Consumeable)
 }
 
-//// CONSUMEABLE PAIRS
-type ConsumeablePairs interface {
-	Consumeable
-	HeadPair() Paired
-	TailPairs() ConsumeablePairs
-	ConsumePair() (Paired, ConsumeablePairs)
-}
-
-//// FUNCTOR
-
-// has numerous elements and knows it
 type Countable interface {
 	Len() int // <- performs mutch better on slices
 }
 
-// collection of elements in a fixed sequence accessable by index, aka
-// 'slice/array'
-type Sequenced interface {
+type Listable interface {
+	Consumeable
+	Countable
+}
+
+type Sliceable interface {
 	Slice() []Expression
 }
 
-// ordered collections can be sorted by‥.
 type Sortable interface {
 	Sort(d.TyNat)
 }
 
-// ‥.and searched after based on a predicate
 type Searchable interface {
 	Search(Expression) int
 }
 
-// combines common functions provided by all vector shaped data
+type IndexAssociated interface {
+	Get(int) (Expression, bool)
+	Set(int, Expression) (Vectorized, bool)
+}
+
 type Vectorized interface {
-	Sequenced
+	IndexAssociated
 	Searchable
+	Sliceable
 	Sortable
-	IndexAssoc
+	Countable
 }
 
-// bahaviour of aggregators, that take one, or many arguments per call and
-// yield the current result of a computation aggregating those passed
-// arguments. base of fold-l behaviour.
-type Aggregating interface {
-	Expression
-	Result() Expression
-	Aggregate(...Expression) Expression
+type Swapable interface {
+	Swap() (Expression, Expression)
 }
 
-// associative values and collections have either a key, or index position, to
-// associate them with their position in a collection
+type SwapablePaired interface {
+	Swapable
+	SwappedPair() Paired
+}
+
+type Ordered interface {
+	Swapable
+	Less(Expression) bool
+}
+
+type Associated interface {
+	Key() Expression
+	Value() Expression
+}
+
 type Associative interface {
-	Expression
-	KeyType() Typed
-	ValType() Typed
 	KeyNatType() d.TyNat
 	ValNatType() d.TyNat
-	GetVal(Expression) (Expression, bool)
-	SetVal(Expression, Expression) (Associative, bool)
+	KeyType() TyDef
+	ValType() TyDef
+}
+
+type Paired interface {
+	Swapable
+	Expression
+	Associated
+	Associative
+	Empty() bool
+	Pair() Paired
+	Left() Expression
+	Right() Expression
+	Both() (Expression, Expression)
+}
+
+type Keyed interface {
+	KeyStr() string
+}
+
+type KeyPaired interface {
+	Keyed
+	Paired
+}
+
+type Indexed interface {
+	Index() string
+}
+type IndexPaired interface {
+	Indexed
+	Paired
+}
+type ConsumeablePaired interface {
+	Countable
+	Consumeable
+	Associative
+	HeadPair() Paired
+	TailPairs() ConsumeablePaired
+	ConsumePair() (Paired, ConsumeablePaired)
+}
+type IndexablePaired interface {
+	ConsumeablePaired
+	IndexAssociated
+}
+
+type KeyAssociated interface {
 	Pairs() []Paired
+	GetVal(Expression) (Expression, bool)
+	SetVal(Expression, Expression) (AssociativeCollected, bool)
+}
+type AssociativeCollected interface {
+	KeyAssociated
+	Consumeable
+	Associative
+	Countable
 }
 
 //// TREES & GRAPHS
 ///
 type Nodular interface {
-	Sequenced
+	Sliceable
 	Root() Nodular
 }
 

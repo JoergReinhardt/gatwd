@@ -99,8 +99,9 @@ func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
 	var str string
 	str = str + ldelim
 	for i, d := range s {
-		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
-			str = str + StringSlice(sep, ldelim, rdelim, d.(DataSlice).Slice()...)
+		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) ||
+			FlagMatch(d.TypeNat().Flag(), Unboxed.TypeNat().Flag()) {
+			str = str + StringSlice(sep, ldelim, rdelim, d.(Sliceable).Slice()...)
 		} else {
 			str = str + d.String()
 		}
