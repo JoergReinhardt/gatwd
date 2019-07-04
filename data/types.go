@@ -452,7 +452,6 @@ func (v BytesVal) Ident() BytesVal   { return v }
 func (v StrVal) Ident() StrVal       { return v }
 func (v TimeVal) Ident() TimeVal     { return v }
 func (v DuraVal) Ident() DuraVal     { return v }
-func (v PairVal) Ident() PairVal     { return v }
 func (v ErrorVal) Ident() ErrorVal   { return v }
 
 func (NilVal) Eval(...Native) Native      { return NilVal{} }

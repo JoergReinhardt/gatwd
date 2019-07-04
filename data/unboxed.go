@@ -420,6 +420,7 @@ func (v RatioVec) GetInt(i int) Native            { return RatioVal((*(*big.Rat)
 func (v TimeVec) GetInt(i int) Native             { return TimeVal(v[i]) }
 func (v DuraVec) GetInt(i int) Native             { return DuraVal(v[i]) }
 func (v ErrorVec) GetInt(i int) Native            { return ErrorVal{v[i]} }
+func (v FlagSet) GetInt(i int) Native             { return BitFlag(v[i]) }
 
 func (v InterfaceSlice) Get(i Native) interface{} { return v[i.(IntVal).Int()] }
 func (v NilVec) Get(i Native) Native              { return NilVal(v[i.(IntVal).Int()]) }
@@ -446,6 +447,7 @@ func (v RatioVec) Get(i Native) Native            { return RatioVal((*(*big.Rat)
 func (v TimeVec) Get(i Native) Native             { return TimeVal(v[i.(IntVal).Int()]) }
 func (v DuraVec) Get(i Native) Native             { return DuraVal(v[i.(IntVal).Int()]) }
 func (v ErrorVec) Get(i Native) Native            { return ErrorVal{v[i.(IntVal).Int()]} }
+func (v FlagSet) Get(i Native) Native             { return BitFlag(v[i.(IntVal).Int()]) }
 
 func (v NilVec) Range(i, j int) Sliceable    { return NilVec(v[i:j]) }
 func (v BoolVec) Range(i, j int) Sliceable   { return BoolVec(v[i:j]) }
@@ -471,6 +473,7 @@ func (v RatioVec) Range(i, j int) Sliceable  { return RatioVec(v[i:j]) }
 func (v TimeVec) Range(i, j int) Sliceable   { return TimeVec(v[i:j]) }
 func (v DuraVec) Range(i, j int) Sliceable   { return DuraVec(v[i:j]) }
 func (v ErrorVec) Range(i, j int) Sliceable  { return ErrorVec(v[i:j]) }
+func (v FlagSet) Range(i, j int) Sliceable   { return FlagSet(v[i:j]) }
 
 func (v InterfaceSlice) nat(i int) interface{}    { return v[i] }
 func (v NilVec) Native(i int) struct{}            { return v[i] }
@@ -726,6 +729,32 @@ func (v FlagSet) Slice() []Native {
 	}
 	return slice
 }
+
+func (v NilVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
+func (v BoolVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v IntVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
+func (v Int8Vec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v Int16Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v Int32Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v UintVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v Uint8Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v Uint16Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
+func (v Uint32Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
+func (v FltVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
+func (v Flt32Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v ImagVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v Imag64Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
+func (v ByteVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v RuneVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v BytesVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v StrVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
+func (v BigIntVec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
+func (v BigFltVec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
+func (v RatioVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v TimeVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v DuraVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
+func (v ErrorVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
+func (v FlagSet) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
 
 func (v NilVec) TypeName() string    { return "[" + Nil.TypeName() + "]" }
 func (v BoolVec) TypeName() string   { return "[" + Bool.TypeName() + "]" }

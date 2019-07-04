@@ -119,9 +119,9 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, retype Expression, pattern ...Expression) TyDef {
+func Define(name string, retype Expression, paratypes ...Expression) TyDef {
 	return func() (string, []Expression) {
-		return name, append([]Expression{retype}, pattern...)
+		return name, append([]Expression{retype}, paratypes...)
 	}
 }
 

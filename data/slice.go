@@ -25,6 +25,7 @@ func sliceContainsTypes(c []Native) BitFlag {
 
 // returns type flag by OR concatenating the Slice type to the concatenated
 // type flags of it's members
+func (c DataSlice) Interface(args ...Native) Sliceable { return c.Eval(args...).(Sliceable) }
 func (c DataSlice) Eval(args ...Native) Native {
 	return append(c, args...)
 }

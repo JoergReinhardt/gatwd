@@ -106,6 +106,7 @@ type Paired interface {
 	Both() (Native, Native)
 	LeftType() TyNat
 	RightType() TyNat
+	Interface(...Native) Paired
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -127,6 +128,7 @@ type Sliceable interface {
 	GetInt(int) Native
 	Range(s, e int) Sliceable
 	SubType() TyNat
+	Interface(...Native) Sliceable
 }
 
 type Mutable interface {
@@ -156,4 +158,5 @@ type Mapped interface {
 	Set(Native, Native) Mapped
 	KeyType() TyNat
 	ValType() TyNat
+	Interface(...Native) Mapped
 }
