@@ -230,15 +230,8 @@ func (t TestExpr) Equal(arg Expression) bool {
 
 //// CASE EXPRESSION & SWITCH
 ///
-// eval converts its arguments to callable and evaluates the result to yield a
-// return value of native type
-func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
-
-	// allocate expression, curry multiple expressions are passed
-	var expr Expression
-	if len(exprs) > 0 {
-		expr = Curry(exprs...)
-	}
+//
+func NewCase(test TestExpr, expr Expression) CaseExpr {
 
 	return func(args ...Expression) (Expression, bool) {
 		if len(args) > 0 {
@@ -272,10 +265,7 @@ func (s CaseExpr) Expr() Expression {
 	var pair, _ = s()
 	return pair.(Paired).Right()
 }
-func (s CaseExpr) Type() TyDef {
-	var typ TyDef
-	return typ
-}
+func (s CaseExpr) Type() TyDef      { return s.Expr().Type() }
 func (s CaseExpr) TypeName() string { return s.Type().TypeName() }
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
