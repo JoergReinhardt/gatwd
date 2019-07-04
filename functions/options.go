@@ -249,37 +249,6 @@ func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
 		expr = Curry(exprs...)
 	}
 
-	// create type name
-	var typed TyDef
-	var name, pattern, retname string
-	if expr != nil {
-		if Flag_DataCons.Match(expr.FlagType()) {
-			pattern = expr.(PartialExpr).PatternName()
-			retname = expr.(PartialExpr).ReturnName()
-		}
-		name = pattern + " → (" + test.Type().TypeName() + ") → True ⇒ "
-		if !expr.TypeFnc().Match(None) {
-			if Flag_DataCons.Match(expr.FlagType()) {
-				name = name + retname
-			} else {
-				name = name + "[T] → " +
-					expr.TypeFnc().TypeName() +
-					" → T"
-			}
-		} else {
-			name = name + " [T]"
-		}
-		typed = Define(
-			name, NewPair(test.Type(), expr.Type()))
-	} else { // no expression given
-		name = "[T] → (" + test.Type().TypeName() + ") → True ⇒ [T]"
-		typed = Define(
-			name, NewPair(test.Type(), None.Type()))
-	}
-	var natname = NewNative(d.StrVal(name))
-
-	// create type definition
-
 	return func(args ...Expression) (Expression, bool) {
 		if len(args) > 0 {
 			if test.Test(args...) {
@@ -294,9 +263,9 @@ func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
 			return NewVector(args...), false
 		}
 		if expr != nil {
-			return NewVector(test, expr, typed, natname), false
+			return NewPair(test, expr), false
 		}
-		return NewVector(test, NewNone(), typed, natname), false
+		return NewPair(test, NewNone()), false
 	}
 }
 
@@ -305,21 +274,18 @@ func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
 func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseExpr) String() string       { return s.TypeName() }
 func (s CaseExpr) Test() TestExpr {
-	var vec, _ = s()
-	return vec.(VecCol)()[0].(TestExpr)
+	var pair, _ = s()
+	return pair.(Paired).Left().(TestExpr)
 }
 func (s CaseExpr) Expr() Expression {
-	var vec, _ = s()
-	return vec.(VecCol)()[1]
+	var pair, _ = s()
+	return pair.(Paired).Right()
 }
 func (s CaseExpr) Type() TyDef {
-	var vec, _ = s()
-	return vec.(VecCol)()[2].(TyDef)
+	var typ TyDef
+	return typ
 }
-func (s CaseExpr) TypeName() string {
-	var vec, _ = s()
-	return string(vec.(VecCol)()[3].Eval().(d.StrVal))
-}
+func (s CaseExpr) TypeName() string { return s.Type().TypeName() }
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))
