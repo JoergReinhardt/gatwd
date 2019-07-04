@@ -87,14 +87,12 @@ func NewNative(args ...d.Native) Expression {
 			})
 		}
 	case tnat.Match(d.Unboxed):
-		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeCol(func(args ...d.Native) d.Sliceable {
-				if len(args) > 0 {
-					return slice.Eval(args...).(d.Sliceable)
-				}
-				return slice
-			})
-		}
+		return NativeUbox(func(args ...d.Native) d.Sliceable {
+			if len(args) > 0 {
+				return nat.Eval(args...).(d.Sliceable)
+			}
+			return nat.(d.Sliceable)
+		})
 	case tnat.Match(d.Pair):
 		if pair, ok := nat.(d.Paired); ok {
 			return NativePair(func(args ...d.Native) d.Paired {
@@ -200,7 +198,7 @@ func (n NativeUbox) Type() TyDef {
 }
 func (n NativeUbox) Slice() []Expression {
 	var slice = []Expression{}
-	for _, val := range n.SliceNat() {
+	for _, val := range n.Slice() {
 		slice = append(slice, NewNative(val))
 	}
 	return slice

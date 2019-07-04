@@ -115,16 +115,20 @@ type Composed interface {
 }
 
 // a slice know's it's length and can be represented in as indexable.
+type Sliced interface {
+	Slice() []Native
+}
 type Sliceable interface {
+	Sliced
 	Composed
 	Len() int
 	Copy() Native
-	Slice() []Native
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
 	SubType() TyNat
 }
+
 type Mutable interface {
 	Sliceable
 	Set(s, arg Native)
