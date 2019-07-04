@@ -244,7 +244,7 @@ func TestTruthTest(t *testing.T) {
 	}
 }
 
-var truthcase = NewCase(test)
+var truthcase = NewCase(test, nil)
 
 var generic = NewGeneric(func(args ...Expression) Expression {
 	var str string
