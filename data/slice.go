@@ -31,12 +31,12 @@ func (c DataSlice) Eval(args ...Native) Native {
 }
 func (c DataSlice) TypeName() string {
 	if c.Len() > 0 {
-		return "[" + c.SubType().TypeName() + "]"
+		return "[" + c.ElemType().TypeName() + "]"
 	}
 	return "[]"
 }
 func (c DataSlice) TypeNat() TyNat          { return Slice.TypeNat() }
-func (c DataSlice) SubType() TyNat          { return TyNat(sliceContainsTypes(c.Slice())) }
+func (c DataSlice) ElemType() TyNat         { return TyNat(sliceContainsTypes(c.Slice())) }
 func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }
 func (c DataSlice) Append(n ...Native)      { SliceAppend(c, n...) }
 func (c DataSlice) Null() Native            { return NewSlice([]Native{}...) }

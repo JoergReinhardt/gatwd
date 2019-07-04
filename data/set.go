@@ -76,6 +76,14 @@ func (s SetVal) Data() []Native {
 	return dat
 }
 
+func (s SetVal) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetVal) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -153,6 +161,14 @@ func (s SetString) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetString) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetString) Fields() []Paired {
@@ -234,6 +250,14 @@ func (s SetInt) Data() []Native {
 	return dat
 }
 
+func (s SetInt) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetInt) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -311,6 +335,14 @@ func (s SetUint) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetUint) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetUint) Fields() []Paired {
@@ -392,6 +424,14 @@ func (s SetFloat) Data() []Native {
 	return dat
 }
 
+func (s SetFloat) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetFloat) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -469,6 +509,14 @@ func (s SetFlag) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetFlag) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetFlag) Fields() []Paired {

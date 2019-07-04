@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"math/big"
 	"math/bits"
 	"strconv"
@@ -11,33 +10,50 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-//// NATIVE SLICES /////
+//// DATA SLICES /////
+func (v DataSlice) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
 
-func (v NilVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v BoolVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v IntVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v Int8Vec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Int16Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v Int32Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v UintVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Uint8Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v Uint16Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v Uint32Vec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v FltVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v Flt32Vec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v ImagVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v Imag64Vec) String() string { return StringSlice(", ", "[", "]", v) }
+//// NATIVE SLICES /////
 func (v ByteVec) String() string   { return string([]byte(v)) }
-func (v RuneVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v BytesVec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v StrVec) String() string    { return StringSlice(", ", "[", "]", v) }
-func (v BigIntVec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v BigFltVec) String() string { return StringSlice(", ", "[", "]", v) }
-func (v RatioVec) String() string  { return StringSlice(", ", "[", "]", v) }
-func (v TimeVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v DuraVec) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v FlagSet) String() string   { return StringSlice(", ", "[", "]", v) }
-func (v SetVal) String() string    { return StringSlice(", ", "[", "]", v) }
+func (v NilVec) String() string    { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v BoolVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v IntVec) String() string    { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Int8Vec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Int16Vec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Int32Vec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v UintVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Uint8Vec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Uint16Vec) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Uint32Vec) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v FltVec) String() string    { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Flt32Vec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v ImagVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v Imag64Vec) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v RuneVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v BytesVec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v StrVec) String() string    { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v BigIntVec) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v BigFltVec) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v RatioVec) String() string  { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v TimeVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v DuraVec) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v FlagSet) String() string   { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v ErrorVec) String() string  { return StringSlice("\n", "", "", v) }
+
+//// PAIRS ////
+func (p PairVal) String() string {
+	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
+}
+
+//// SETS ////
+func (v SetVal) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+
+//// NATIVE SETS /////
+func (s SetInt) String() string    { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s SetUint) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s SetFloat) String() string  { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s SetFlag) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s SetString) String() string { return StringSlice(", ", "[", "]", s.Slice()...) }
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }
@@ -73,7 +89,6 @@ func (v Imag64Val) String() string {
 	return strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
-func (v DataSlice) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
 
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag
@@ -92,7 +107,6 @@ func StringBitFlag(v BitFlag) string {
 	}
 	return str
 }
-func (v ErrorVec) String() string { return StringSlice("\n", "", "", v) }
 
 // stringer for ordered chains, without any further specification.
 func StringSlice(sep, ldelim, rdelim string, s ...Native) string {
@@ -140,60 +154,5 @@ func stringChainTable(v ...Native) string {
 		tab.Append(row)
 	}
 	tab.Render()
-	return str.String()
-}
-
-//// SETS ////
-func (p PairVal) String() string {
-	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
-}
-
-func (s SetInt) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
-
-func (s SetUint) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
-
-func (s SetFloat) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
-
-func (s SetFlag) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
-	return str.String()
-}
-
-func (s SetString) String() string {
-	var str = bytes.NewBuffer([]byte{})
-	for k, v := range s {
-		str.WriteString(k.String())
-		str.WriteString(": ")
-		str.WriteString(v.String())
-	}
 	return str.String()
 }

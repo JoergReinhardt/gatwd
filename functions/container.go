@@ -162,14 +162,14 @@ func (n NativeUbox) GetInt(idx int) d.Native        { return n().GetInt(idx) }
 func (n NativeUbox) Range(s, e int) d.Native        { return n().Range(s, e) }
 func (n NativeUbox) Copy() d.Native                 { return n().Copy() }
 func (n NativeUbox) TypeNat() d.TyNat               { return n().TypeNat() }
-func (n NativeUbox) String() string                 { return n().String() }
 func (n NativeUbox) TypeName() string               { return n().TypeName() }
 func (n NativeUbox) Vector() VecCol                 { return NewVector(n.Slice()...) }
 func (n NativeUbox) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (n NativeUbox) SliceNat() []d.Native           { return n().Slice() }
+func (n NativeUbox) String() string                 { return n().String() }
 func (n NativeUbox) Type() TyDef {
-	return Define(n().TypeName(), NewNative(n()))
+	return Define(n().ElemType().TypeName(), NewNative(n()))
 }
-func (n NativeUbox) SliceNat() []d.Native { return n().Slice() }
 func (n NativeUbox) Slice() []Expression {
 	var slice = []Expression{}
 	for _, val := range n().Slice() {
