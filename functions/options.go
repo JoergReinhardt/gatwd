@@ -8,7 +8,7 @@ type (
 	//// NONE VALUE CONSTRUCTOR
 	NoneVal func()
 	//// TRUTH VALUE CONSTRUCTOR
-	TestExpr func(...Expression) TyFnc
+	TestExpr func(...Expression) Typed
 	// OPTION VALUE CONSTRUCTOR
 	OptionVal func(...Expression) Expression
 
@@ -51,20 +51,20 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTruthTest(test func(...Expression) bool) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewTruthTest(test func(...Expression) bool, paratypes ...Expression) TestExpr {
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) {
 				return True
 			}
 			return False
 		}
-		return Truth
+		return Define("Test Truth", Truth, paratypes...)
 	}
 }
 
-func NewTrinaryTest(test func(...Expression) int) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewTrinaryTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
 				return True
@@ -74,12 +74,12 @@ func NewTrinaryTest(test func(...Expression) int) TestExpr {
 			}
 			return Undecided
 		}
-		return Trinary
+		return Define("Test Trinary", Trinary, paratypes...)
 	}
 }
 
-func NewCompareTest(test func(...Expression) int) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewCompareTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
 				return Greater
@@ -89,17 +89,20 @@ func NewCompareTest(test func(...Expression) int) TestExpr {
 			}
 			return Equal
 		}
-		return Compare
+		return Define("Test Compare", Compare, paratypes...)
 	}
 }
 
-func (t TestExpr) Call(args ...Expression) Expression { return t(args...) }
-func (t TestExpr) String() string                     { return t().TypeName() }
+func (t TestExpr) Call(args ...Expression) Expression { return t(args...).(TyFnc) }
 func (t TestExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (t TestExpr) TypeFnc() TyFnc                     { return t().(TyDef).Return().(TyFnc) }
 func (t TestExpr) TypeNat() d.TyNat                   { return d.Function }
-func (t TestExpr) TypeFnc() TyFnc                     { return t() }
+func (t TestExpr) Type() TyDef                        { return t().(TyDef) }
+func (t TestExpr) TypeName() string                   { return t().TypeName() }
+func (t TestExpr) String() string                     { return t().TypeName() }
+
 func (t TestExpr) Eval(args ...d.Native) d.Native {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(NewNative(args...)).TypeFnc() == Lesser {
 			return d.IntVal(-1)
 		}
@@ -119,20 +122,8 @@ func (t TestExpr) Eval(args ...d.Native) d.Native {
 	return d.NewNil()
 }
 
-func (t TestExpr) TypeName() string {
-	if t() == Compare {
-		return "Ord → Compare → Lesser | Greater | Equal"
-	}
-	if t() == Trinary {
-		return "[T] → Trinary Truth → True | Undecided | False"
-	}
-	return "[T] → Truth → True | False"
-}
-
-func (t TestExpr) Type() TyDef { return Define(t().TypeName(), t()) }
-
 func (t TestExpr) Test(args ...Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(args...) == Lesser || t(args...) == Greater {
 			return false
 		}
@@ -140,7 +131,7 @@ func (t TestExpr) Test(args ...Expression) bool {
 			return true
 		}
 	}
-	if t() == Trinary {
+	if t.TypeFnc() == Trinary {
 		if t(args...) == False || t(args...) == Undecided {
 			return false
 		}
@@ -155,7 +146,7 @@ func (t TestExpr) Test(args ...Expression) bool {
 }
 
 func (t TestExpr) Compare(args ...Expression) int {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(args...) == Lesser {
 			return -1
 		}
@@ -166,7 +157,7 @@ func (t TestExpr) Compare(args ...Expression) int {
 			return 1
 		}
 	}
-	if t() == Trinary {
+	if t.TypeFnc() == Trinary {
 		if t(args...) == False {
 			return -1
 		}
@@ -184,7 +175,7 @@ func (t TestExpr) Compare(args ...Expression) int {
 }
 
 func (t TestExpr) True(arg Expression) bool {
-	if t() == Truth || t() == Trinary {
+	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == True {
 			return true
 		}
@@ -193,7 +184,7 @@ func (t TestExpr) True(arg Expression) bool {
 }
 
 func (t TestExpr) False(arg Expression) bool {
-	if t() == Truth || t() == Trinary {
+	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == False {
 			return true
 		}
@@ -202,7 +193,7 @@ func (t TestExpr) False(arg Expression) bool {
 }
 
 func (t TestExpr) Undecided(arg Expression) bool {
-	if t() == Trinary {
+	if t.TypeFnc() == Trinary {
 		if t(arg) == Undecided {
 			return true
 		}
@@ -211,7 +202,7 @@ func (t TestExpr) Undecided(arg Expression) bool {
 }
 
 func (t TestExpr) Lesser(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Lesser {
 			return true
 		}
@@ -220,7 +211,7 @@ func (t TestExpr) Lesser(arg Expression) bool {
 }
 
 func (t TestExpr) Greater(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Greater {
 			return true
 		}
@@ -229,7 +220,7 @@ func (t TestExpr) Greater(arg Expression) bool {
 }
 
 func (t TestExpr) Equal(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Equal {
 			return true
 		}

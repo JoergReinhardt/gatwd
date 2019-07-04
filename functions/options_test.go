@@ -44,7 +44,7 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("test truth bool 1, 0, -1: %t, %t, %t\n",
+	fmt.Printf("test truth bool false, true, false: %t, %t, %t\n",
 		truth.Test(New(1)), truth.Test(New(0)), truth.Test(New(-1)))
 
 	if !truth.Test(New(0)) {
@@ -54,7 +54,7 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("compare truth int -1, 0, 1: %d, %d, %d\n",
+	fmt.Printf("compare truth int -1, 0, -1: %d, %d, %d\n",
 		truth.Compare(New(-1)), truth.Compare(New(0)), truth.Compare(New(1)))
 
 	if truth.Compare(New(0)) != 0 {
@@ -64,7 +64,7 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("trinary truth truth type: -1, 0, 1: %s %s %s\n",
+	fmt.Printf("trinary truth truth type: False, Undecided, True: %s %s %s\n",
 		trinary(New(-1)), trinary(New(0)), trinary(New(1)))
 
 	if trinary(New(-1)) != False {
@@ -77,7 +77,7 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("test trinary truth bool type: -1, 0, 1: %t %t %t\n",
+	fmt.Printf("test trinary truth bool type: false, false, true: %t %t %t\n",
 		trinary.Test(New(-1)), trinary.Test(New(0)), trinary.Test(New(1)))
 
 	if trinary.Test(New(-1)) {
@@ -102,8 +102,8 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("compare order type: -1, 0, 1: %s %s %s\n",
-		compare(New(-1)), compare(New(0)), compare(New(1)))
+	fmt.Printf("compare order type: -1, 0, 1: %d %d %d\n",
+		compare.Compare(New(-1)), compare.Compare(New(0)), compare.Compare(New(1)))
 	if compare(New(-1)) != Lesser {
 		t.Fail()
 	}
@@ -126,7 +126,7 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Printf("test compare bool type: -1, 0, 1: %t %t %t\n",
+	fmt.Printf("test compare bool type: false, true, false: %t %t %t\n",
 		compare.Test(New(-1)), compare.Test(New(0)), compare.Test(New(1)))
 	if compare.Test(New(-1)) {
 		t.Fail()
@@ -135,6 +135,72 @@ func TestTruth(t *testing.T) {
 		t.Fail()
 	}
 	if compare.Test(New(1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test compare Lesser, Equal, Greater all true: %t %t %t\n",
+		compare.Lesser(New(-1)), compare.Equal(New(0)), compare.Greater(New(1)))
+	if !compare.Lesser(New(-1)) {
+		t.Fail()
+	}
+	if !compare.Equal(New(0)) {
+		t.Fail()
+	}
+	if !compare.Greater(New(1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test compare Lesser, Equal, Greater all false: %t %t %t\n",
+		compare.Lesser(New(1)), compare.Equal(New(1)), compare.Greater(New(-1)))
+	if compare.Lesser(New(1)) {
+		t.Fail()
+	}
+	if compare.Equal(New(1)) {
+		t.Fail()
+	}
+	if compare.Greater(New(-1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test trinary Truth, True, Undecided, False all true: %t %t %t\n",
+		trinary.True(New(1)), trinary.Undecided(New(0)), trinary.False(New(-1)))
+	if !trinary.True(New(1)) {
+		t.Fail()
+	}
+	if !trinary.Undecided(New(0)) {
+		t.Fail()
+	}
+	if !trinary.False(New(-1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test trinary Truth, Undecided, False all false: %t %t %t\n",
+		trinary.True(New(-1)), trinary.Undecided(New(11)), trinary.False(New(1)))
+	if trinary.True(New(-1)) {
+		t.Fail()
+	}
+	if trinary.Undecided(New(1)) {
+		t.Fail()
+	}
+	if trinary.False(New(1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test Truth,True, False all true: %t %t\n",
+		truth.True(New(0)), truth.False(New(1)))
+	if !truth.True(New(0)) {
+		t.Fail()
+	}
+	if !truth.False(New(1)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test Truth, True, False all false: %t %t\n",
+		truth.True(New(1)), truth.False(New(0)))
+	if truth.True(New(1)) {
+		t.Fail()
+	}
+	if truth.False(New(0)) {
 		t.Fail()
 	}
 }
