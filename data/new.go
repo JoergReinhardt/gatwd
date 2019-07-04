@@ -49,7 +49,7 @@ func NewNull(nat TyNat) Native {
 			// a single native type should be left
 			if len(nats) == 1 {
 				// return a slice of the particular type
-				return newUnboxed(nats[0].Flag())
+				return newUnboxed(nats[0].TypeNat())
 			}
 		case nat.Match(Pair):
 			// mask pair flag and decompose remaining flags
@@ -84,7 +84,7 @@ func NewNull(nat TyNat) Native {
 		default:
 			// return the nil value, if the composed type flag
 			// turns out to not be parseable
-			return NewNil()
+			return NewTypedNull(nat)
 		}
 	}
 	// for non composed types, return an atomic null instance (returns a
@@ -99,7 +99,10 @@ func NewFromData(args ...Native) Native {
 		if len(args) > 1 {
 			// try to return unboxed natives if possible, falls
 			// back to return slice of native instances if not.
-			return SliceToNatives(DataSlice(args))
+			return SliceToNatives(NewSlice(args...))
+		}
+		if args[0].TypeNat() == Slice {
+			return SliceToNatives(args[0].(DataSlice))
 		}
 		// a single native argument has been passed, return unchanged
 		return args[0]
@@ -322,7 +325,7 @@ func conNativeVector(flag BitFlag, args ...Native) (nat Sliceable) {
 			slice = append(slice, v.(ErrorVal))
 		}
 	}
-	return newUnboxed(flag, slice...)
+	return newUnboxed(flag.TypeNat(), slice...)
 }
 
 func NewEmpty(flag BitFlag) (val Native) {

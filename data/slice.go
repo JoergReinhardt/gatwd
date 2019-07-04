@@ -142,14 +142,14 @@ func SliceEmpty(s DataSlice) bool {
 ///// CONVERT TO SLICE OF NATIVES ////////
 func SliceToNatives(c DataSlice) Sliceable {
 	// allocate nil flag
-	var flag = BitFlag(0)
+	var flag = Nil
 	// replace flag with type flag of first elment, if there are elements
 	if len(c) > 0 {
-		flag = c[0].TypeNat().Flag()
+		flag = c[0].TypeNat()
 	}
 	// check if all elements flags match the first elements flag
 	if SliceAll(c, func(i int, c Native) bool {
-		return FlagMatch(flag, c.TypeNat().Flag())
+		return c.TypeNat() == flag
 	}) {
 		// if all elements yield the same type, convert to unboxed
 		// slice of natives
@@ -203,13 +203,12 @@ func SliceAny(c DataSlice, fn func(i int, d Native) bool) bool {
 }
 
 func SliceAll(c DataSlice, fn func(i int, d Native) bool) bool {
-	var answ = true
 	for i, d := range c.Slice() {
 		if !fn(i, d) {
 			return false
 		}
 	}
-	return answ
+	return true
 }
 
 func SliceReverse(c DataSlice) DataSlice {

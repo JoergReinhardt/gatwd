@@ -1,12 +1,14 @@
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
 	TySig     func() (TyDef, []TyDef)
-	TyDef     func() (string, Expression)
+	TyDef     func() (string, []Expression)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
@@ -18,6 +20,8 @@ const (
 	Flag_BitFlag TyFlag = 0 + iota
 	Flag_Native
 	Flag_Functional
+	Flag_TypeCons
+	Flag_DataCons
 	Flag_Arity
 	Flag_Prop
 
@@ -27,9 +31,9 @@ const (
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
 func (t TyFlag) Match(match d.Uint8Val) bool {
 	if match == t.U() {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 //go:generate stringer -type=TyFnc
@@ -41,11 +45,11 @@ const (
 	Constant
 	Function
 	/// PARAMETER OPTIONS
-	Key
-	Index
 	Property
 	Argument
 	Return
+	Index
+	Key
 	/// TRUTH VALUE OTIONS
 	True
 	False
@@ -115,25 +119,60 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, expr Expression) TyDef {
-	return func() (string, Expression) { return name, expr }
+func Define(name string, expr Expression, pattern ...Expression) TyDef {
+	return func() (string, []Expression) {
+		return name, append([]Expression{expr}, pattern...)
+	}
 }
 
-func (t TyDef) Ident() TyDef                       { return t }
-func (t TyDef) Type() Typed                        { return Type }
-func (t TyDef) Flag() d.BitFlag                    { return Type.Flag() }
-func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (t TyDef) TypeFnc() TyFnc                     { return t.Expr().TypeFnc() }
-func (t TyDef) TypeNat() d.TyNat                   { return t.Expr().TypeNat() }
-func (t TyDef) String() string                     { return t.TypeName() }
-func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Expr().Eval(args...) }
-func (t TyDef) Call(args ...Expression) Expression { return t.Expr().Call(args...) }
-func (t TyDef) Expr() Expression                   { var _, expr = t(); return expr }
+func (t TyDef) Type() TyDef                        { return t }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
+func (t TyDef) Elems() []Expression                { var _, expr = t(); return expr }
+func (t TyDef) Return() Expression                 { return t.Elems()[0] }
+func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (t TyDef) String() string                     { return t.Return().String() }
+func (t TyDef) TypeFnc() TyFnc                     { return t.Return().TypeFnc() }
+func (t TyDef) TypeNat() d.TyNat                   { return t.Return().TypeNat() }
+func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Return().Eval(args...) }
+func (t TyDef) Call(args ...Expression) Expression { return t.Return().Call(args...) }
+func (t TyDef) Pattern() []Expression {
+	var elems = t.Elems()
+	if len(elems) > 1 {
+		return elems[1:]
+	}
+	return []Expression{}
+}
+func (t TyDef) Arity() Arity {
+	return Arity(len(t.Pattern()))
+	return Arity(0)
+}
+func (t TyDef) ReturnName() string { return t.Return().TypeName() }
+func (t TyDef) PatternName() string {
+	if t.Arity() > Arity(0) {
+		var slice []string
+		var sep = " → "
+		var pattern = t.Pattern()
+		if len(pattern) > 0 {
+			for _, arg := range pattern {
+				slice = append(slice,
+					arg.TypeName())
+			}
+			return strings.Join(slice, sep)
+		}
+	}
+	return ""
+}
 func (t TyDef) TypeName() string {
-	var name, expr = t()
+	var sep = " → "
+	var name = t.Name()
 	if name == "" {
-		name = expr.TypeName()
+		name = "(" + t.Return().TypeName() + ")"
+	}
+	if t.Arity() > Arity(0) {
+		var slice []string
+		slice = append(slice, t.PatternName(),
+			name, t.ReturnName())
+		return strings.Join(slice, sep)
 	}
 	return name
 }
@@ -141,15 +180,15 @@ func (t TyDef) Match(typ d.Typed) bool { return true }
 
 // type TyFnc d.BitFlag
 // encodes the kind of functional data as bitflag
-func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (t TyFnc) Type() Typed                        { return Type }
 func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() }
+func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval(args ...d.Native) d.Native     { return t.TypeNat() }
+func (t TyFnc) Type() TyDef                        { return Define(t.TypeName(), t) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -219,11 +258,13 @@ func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64
 func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
 func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
 func (p Propertys) TypeFnc() TyFnc                     { return Type }
-func (p Propertys) Type() Typed                        { return Property }
 func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Eval(args ...d.Native) d.Native     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
+func (p Propertys) Type() TyDef {
+	return Define(p.TypeName(), Property)
+}
 
 //// CALL ARITY
 ///
