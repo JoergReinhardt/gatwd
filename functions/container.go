@@ -18,8 +18,9 @@ type (
 	//// NATIVE VALUE CONSTRUCTORS
 	NativeExpr func(...d.Native) d.Native
 	NativePair func(...d.Native) d.Paired
-	NativeSet  func(...d.Native) d.Mapped
+	NativeUbox func(...d.Native) d.Sliceable
 	NativeCol  func(...d.Native) d.Sliceable
+	NativeSet  func(...d.Native) d.Mapped
 
 	//// EXPRESSION VALUE CONSTRUCTOR
 	PartialExpr func(...Expression) Expression
@@ -77,20 +78,40 @@ func NewNative(args ...d.Native) Expression {
 
 	switch {
 	case tnat.Match(d.Slice):
-		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeExpr(slice.Eval)
+		if slice, ok := nat.(d.DataSlice); ok {
+			return NativeCol(func(args ...d.Native) d.Sliceable {
+				if len(args) > 0 {
+					return slice.Eval(args...).(d.Sliceable)
+				}
+				return slice
+			})
 		}
 	case tnat.Match(d.Unboxed):
 		if slice, ok := nat.(d.Sliceable); ok {
-			return NativeExpr(slice.Eval)
+			return NativeCol(func(args ...d.Native) d.Sliceable {
+				if len(args) > 0 {
+					return slice.Eval(args...).(d.Sliceable)
+				}
+				return slice
+			})
 		}
 	case tnat.Match(d.Pair):
 		if pair, ok := nat.(d.Paired); ok {
-			return NativeExpr(pair.Eval)
+			return NativePair(func(args ...d.Native) d.Paired {
+				if len(args) > 0 {
+					return pair.Eval(args...).(d.Paired)
+				}
+				return pair
+			})
 		}
 	case tnat.Match(d.Map):
 		if set, ok := nat.(d.Mapped); ok {
-			return NativeExpr(set.Eval)
+			return NativeSet(func(args ...d.Native) d.Mapped {
+				if len(args) > 0 {
+					return set.Eval(args...).(d.Mapped)
+				}
+				return set
+			})
 		}
 	default:
 		return NativeExpr(nat.Eval)
@@ -144,6 +165,40 @@ func (n NativeCol) Type() TyDef {
 	return Define(n().TypeName(), New(n().TypeNat()))
 }
 func (n NativeCol) Slice() []Expression {
+	var slice = []Expression{}
+	for _, val := range n.SliceNat() {
+		slice = append(slice, NewNative(val))
+	}
+	return slice
+}
+
+func (n NativeUbox) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var nats = make([]d.Native, 0, len(args))
+		for _, arg := range args {
+			nats = append(nats, arg.Eval())
+		}
+		return NewNative(n(nats...))
+	}
+	return NewNative(n())
+}
+func (n NativeUbox) TypeFnc() TyFnc                 { return Data }
+func (n NativeUbox) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n NativeUbox) Len() int                       { return n().Len() }
+func (n NativeUbox) SliceNat() []d.Native           { return n().Slice() }
+func (n NativeUbox) Get(key d.Native) d.Native      { return n().Get(key) }
+func (n NativeUbox) GetInt(idx int) d.Native        { return n().GetInt(idx) }
+func (n NativeUbox) Range(s, e int) d.Native        { return n().Range(s, e) }
+func (n NativeUbox) Copy() d.Native                 { return n().Copy() }
+func (n NativeUbox) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativeUbox) String() string                 { return n().String() }
+func (n NativeUbox) TypeName() string               { return n().TypeName() }
+func (n NativeUbox) Vector() VecCol                 { return NewVector(n.Slice()...) }
+func (n NativeUbox) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (n NativeUbox) Type() TyDef {
+	return Define(n().TypeName(), New(n().TypeNat()))
+}
+func (n NativeUbox) Slice() []Expression {
 	var slice = []Expression{}
 	for _, val := range n.SliceNat() {
 		slice = append(slice, NewNative(val))

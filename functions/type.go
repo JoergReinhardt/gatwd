@@ -140,28 +140,25 @@ func (t TyDef) Pattern() []Expression {
 	if len(elems) > 1 {
 		return elems[1:]
 	}
-	return []Expression{None}
+	return []Expression{}
 }
 func (t TyDef) Arity() Arity {
-	if t.Pattern()[0] != None {
-		return Arity(len(t.Pattern()))
-	}
+	return Arity(len(t.Pattern()))
 	return Arity(0)
 }
 func (t TyDef) ReturnName() string { return t.Return().TypeName() }
 func (t TyDef) PatternName() string {
 	if t.Arity() > Arity(0) {
+		var slice []string
+		var sep = " → "
 		var pattern = t.Pattern()
-		if len(pattern) > 1 {
-			var slice []string
-			var sep = " → "
+		if len(pattern) > 0 {
 			for _, arg := range pattern {
 				slice = append(slice,
 					arg.TypeName())
 			}
 			return strings.Join(slice, sep)
 		}
-		return pattern[0].String()
 	}
 	return ""
 }
@@ -172,12 +169,12 @@ func (t TyDef) TypeName() string {
 		name = "(" + t.Return().TypeName() + ")"
 	}
 	if t.Arity() > Arity(0) {
-		return t.PatternName() + sep + name + sep + t.ReturnName()
+		var slice []string
+		slice = append(slice, t.PatternName(),
+			name, t.ReturnName())
+		return strings.Join(slice, sep)
 	}
-	if t.Return().TypeFnc() != None || t.Return().TypeNat() != d.Nil {
-		return name
-	}
-	return name + sep + t.ReturnName()
+	return name
 }
 func (t TyDef) Match(typ d.Typed) bool { return true }
 
