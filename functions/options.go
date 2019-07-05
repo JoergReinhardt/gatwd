@@ -52,6 +52,9 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 
 //// TRUTH VALUE CONSTRUCTOR
 func NewTruthTest(test func(...Expression) bool, paratypes ...Expression) TestExpr {
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
 	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) {
@@ -64,6 +67,9 @@ func NewTruthTest(test func(...Expression) bool, paratypes ...Expression) TestEx
 }
 
 func NewTrinaryTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
 	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
@@ -79,6 +85,9 @@ func NewTrinaryTest(test func(...Expression) int, paratypes ...Expression) TestE
 }
 
 func NewCompareTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
 	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
@@ -268,11 +277,19 @@ func (s CaseExpr) Expr() Expression {
 }
 func (s CaseExpr) Type() TyDef {
 	return Define(
-		"Case "+s.Test().TypeName(),
+		"(Case "+s.Test().TypeName()+")",
 		s.Expr().Type().Return(),
 		s.Expr().Type().Pattern()...)
 }
-func (s CaseExpr) TypeName() string { return s.Type().TypeName() }
+func (s CaseExpr) TypeName() string {
+	return s.Expr().Type().PatternName() +
+		" → " +
+		s.Type().Name() +
+		" ⇒ " +
+		s.Expr().Type().Name() +
+		" → " +
+		s.Expr().Type().ReturnName()
+}
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))
