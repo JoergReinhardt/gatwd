@@ -93,33 +93,33 @@ func NewCompareTest(test func(...Expression) int, paratypes ...Expression) TestE
 	}
 }
 
-func (t TestExpr) Call(args ...Expression) Expression { return t(args...).(TyFnc) }
-func (t TestExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (t TestExpr) TypeFnc() TyFnc                     { return t().(TyDef).Return().(TyFnc) }
-func (t TestExpr) TypeNat() d.TyNat                   { return d.Function }
-func (t TestExpr) Type() TyDef                        { return t().(TyDef) }
-func (t TestExpr) TypeName() string                   { return t().TypeName() }
-func (t TestExpr) String() string                     { return t().TypeName() }
-
-func (t TestExpr) Eval(args ...d.Native) d.Native {
+func (t TestExpr) Type() TyDef          { return t().(TyDef) }
+func (t TestExpr) String() string       { return t().TypeName() }
+func (t TestExpr) TypeName() string     { return t().TypeName() }
+func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (t TestExpr) TypeFnc() TyFnc       { return t.Type().Return().(TyFnc) }
+func (t TestExpr) TypeNat() d.TyNat {
+	if t.TypeFnc() == Truth {
+		return d.Bool
+	}
+	return d.Int
+}
+func (t TestExpr) Call(args ...Expression) Expression {
 	if t.TypeFnc() == Compare {
-		if t(NewNative(args...)).TypeFnc() == Lesser {
-			return d.IntVal(-1)
-		}
-		if t(NewNative(args...)).TypeFnc() == Equal {
-			return d.IntVal(0)
-		}
-		if t(NewNative(args...)).TypeFnc() == Greater {
-			return d.IntVal(1)
-		}
+		return NewNative(d.IntVal(t.Compare(args...)))
 	}
-	if t(NewNative(args...)).TypeFnc() == True {
-		return d.BoolVal(true)
+	return NewNative(d.BoolVal(t.Test(args...)))
+}
+
+func (t TestExpr) Eval(nats ...d.Native) d.Native {
+	var args = make([]Expression, 0, len(nats))
+	for _, nat := range nats {
+		args = append(args, NewNative(nat))
 	}
-	if t(NewNative(args...)).TypeFnc() == False {
-		return d.BoolVal(false)
+	if t.TypeFnc() == Compare {
+		return d.IntVal(t.Compare(args...))
 	}
-	return d.NewNil()
+	return d.IntVal(t.Compare(args...))
 }
 
 func (t TestExpr) Test(args ...Expression) bool {
@@ -228,9 +228,10 @@ func (t TestExpr) Equal(arg Expression) bool {
 	return false
 }
 
-//// CASE EXPRESSION & SWITCH
+//// CASE EXPRESSION CONSTRUCTOR
 ///
-//
+// takes a test expression and an expression to apply arguments to and return
+// result from, if arguments applyed to the test expression returned true.
 func NewCase(test TestExpr, expr Expression) CaseExpr {
 
 	return func(args ...Expression) (Expression, bool) {
@@ -255,8 +256,8 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
-func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseExpr) String() string       { return s.TypeName() }
+func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseExpr) Test() TestExpr {
 	var pair, _ = s()
 	return pair.(Paired).Left().(TestExpr)
@@ -265,7 +266,12 @@ func (s CaseExpr) Expr() Expression {
 	var pair, _ = s()
 	return pair.(Paired).Right()
 }
-func (s CaseExpr) Type() TyDef      { return s.Expr().Type() }
+func (s CaseExpr) Type() TyDef {
+	return Define(
+		"Case "+s.Test().TypeName(),
+		s.Expr().Type().Return(),
+		s.Expr().Type().Pattern()...)
+}
 func (s CaseExpr) TypeName() string { return s.Type().TypeName() }
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {

@@ -45,9 +45,11 @@ func (c ConstantExpr) Type() TyDef {
 	return Define("ϝ → "+c().TypeName(), c())
 }
 
-// generic expression takes an expression, name, returntype and parameter
-// types, creates a type definition and returns a wrapper returning the type
-// definition, when no arguments are passed
+//// GENERIC EXPRESSION VALUE CONSTRUCTOR ////
+///
+// generic expression constructor takes an expression, name, returntype and
+// parameter types, creates a type definition and returns a wrapper returning
+// the type definition, when no arguments are passed
 func NewGeneric(
 	expr func(...Expression) Expression,
 	name string,
@@ -300,11 +302,11 @@ func DefinePartial(
 	return func(args ...Expression) Expression {
 		var parmlen = len(args) // count arguments
 		if parmlen > 0 {        // if arguments where passed
-			// argument number satisfies expression arity exactly
+			// argument number SATISFIES expression arity EXACTLY
 			if parmlen == arity {
 				return expr.Call(args...)
 			}
-			// argument number undersatisfies expression arity
+			// argument number UNDERSATISFIES expression arity
 			if parmlen < arity {
 				return DefinePartial(name, PartialExpr(
 					func(lateargs ...Expression) Expression {
@@ -312,7 +314,7 @@ func DefinePartial(
 							lateargs...)...)
 					}), retype, paratypes[parmlen:]...)
 			}
-			// argument number oversatisfies expressions arity
+			// argument number OVERSATISFIES expressions arity
 			if parmlen > arity {
 				var remain []Expression
 				args, remain = args[:arity], args[arity:]
