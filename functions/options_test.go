@@ -255,7 +255,7 @@ var generic = NewGeneric(func(args ...Expression) Expression {
 		}
 	}
 	return NewNative(d.StrVal(str))
-})
+}, "Truth Case", NewNative(d.NewNull(d.Bool)), NewNative(d.NewNull(d.String)))
 
 var genericcase = NewCase(test, generic)
 

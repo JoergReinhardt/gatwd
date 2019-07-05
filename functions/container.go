@@ -26,8 +26,10 @@ type (
 	PartialExpr func(...Expression) Expression
 )
 
-/// CONSTANT VALUE CONSTRUCTOR
-//
+//// CONSTANT VALUE CONSTRUCTOR
+///
+// constant expression constructor takes a generic function returning a value
+// of expression type and takes its methods from that value.
 func NewConstant(constant func() Expression) ConstantExpr { return constant }
 
 func (c ConstantExpr) Ident() Expression                  { return c }
@@ -40,18 +42,34 @@ func (c ConstantExpr) Eval(args ...d.Native) d.Native     { return c().Eval(args
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
 func (c ConstantExpr) Type() TyDef {
-	return Define("ϝ → "+c().TypeName(), c().TypeFnc())
+	return Define("ϝ → "+c().TypeName(), c())
 }
 
-func NewGeneric(expr func(args ...Expression) Expression) GenericExpr { return expr }
+// generic expression takes an expression, name, returntype and parameter
+// types, creates a type definition and returns a wrapper returning the type
+// definition, when no arguments are passed
+func NewGeneric(
+	expr func(...Expression) Expression,
+	name string,
+	retype Expression,
+	paratypes ...Expression,
+) GenericExpr {
+	var typed = Define(name, retype, paratypes...)
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return expr(args...)
+		}
+		return typed
+	}
+}
 
 func (c GenericExpr) Ident() Expression                  { return c }
-func (c GenericExpr) Type() TyDef                        { return c().Type() }
-func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
-func (c GenericExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
+func (c GenericExpr) Type() TyDef                        { return c().(TyDef) }
 func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
 func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().Return().TypeFnc() }
+func (c GenericExpr) TypeNat() d.TyNat                   { return c.Type().Return().TypeNat() }
 func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 func (c GenericExpr) Eval(args ...d.Native) d.Native {
 	var exprs = make([]Expression, 0, len(args))
@@ -288,14 +306,11 @@ func DefinePartial(
 			}
 			// argument number undersatisfies expression arity
 			if parmlen < arity {
-				return DefinePartial(name, NewGeneric(
+				return DefinePartial(name, PartialExpr(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(args,
 							lateargs...)...)
-					},
-				),
-					retype,
-					paratypes[parmlen:]...)
+					}), retype, paratypes[parmlen:]...)
 			}
 			// argument number oversatisfies expressions arity
 			if parmlen > arity {
