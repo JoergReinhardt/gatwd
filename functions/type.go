@@ -140,7 +140,7 @@ func (t TyDef) Pattern() []Expression {
 	if len(elems) > 1 {
 		return elems[1:]
 	}
-	return []Expression{}
+	return []Expression{Type}
 }
 func (t TyDef) Arity() Arity {
 	return Arity(len(t.Pattern()))
