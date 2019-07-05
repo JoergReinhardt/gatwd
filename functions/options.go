@@ -114,6 +114,12 @@ func (t TestExpr) TypeName() string {
 func (t TestExpr) String() string       { return t.TypeName() }
 func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (t TestExpr) Type() TyDef          { return t().(TyDef) }
+func (t TestExpr) TypeNat() d.TyNat {
+	if t.TypeFnc() == Compare {
+		return d.Int
+	}
+	return d.Bool
+}
 func (t TestExpr) TypeFnc() TyFnc {
 	var fnc TyFnc
 	switch t.Type().Name() {
@@ -125,12 +131,6 @@ func (t TestExpr) TypeFnc() TyFnc {
 		fnc = Compare
 	}
 	return fnc
-}
-func (t TestExpr) TypeNat() d.TyNat {
-	if t.TypeFnc() == Compare {
-		return d.Int
-	}
-	return d.Bool
 }
 func (t TestExpr) Call(args ...Expression) Expression {
 	if t.TypeFnc() == Compare {
@@ -258,6 +258,7 @@ func (t TestExpr) Equal(arg Expression) bool {
 // result from, if arguments applyed to the test expression returned true.
 func NewCase(test TestExpr, expr Expression) CaseExpr {
 
+	// generate expression to return arguments, when none has been passed
 	if expr == nil {
 		expr = NewGeneric(func(args ...Expression) Expression {
 			switch len(args) {
@@ -272,6 +273,24 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 		}, "Return", Type)
 	}
 
+	// construct case type definition
+	var ldel, rdel = "(", ")"
+	var pattern = expr.Type().Pattern()
+	if len(pattern) == 0 {
+		pattern = []Expression{Type}
+	}
+	var typed = Define(ldel+"Case "+
+		ldel+test.TypeName()+rdel+rdel,
+		expr.Type().Return(), pattern...)
+
+	// construct case type name
+	var name = NewNative(d.StrVal(
+		expr.Type().PatternName() +
+			" → " + typed.Name() +
+			" ⇒ " + expr.Type().Name() +
+			" → " + expr.Type().ReturnName()))
+
+	// return constructed case expression
 	return func(args ...Expression) (Expression, bool) {
 
 		if len(args) > 0 {
@@ -280,38 +299,30 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 			}
 			return NewVector(args...), false
 		}
-		return NewPair(test, expr), false
+		// return test, expression, type & name
+		return NewVector(test, expr, typed, name), false
 	}
 }
-
-func (s CaseExpr) TypeFnc() TyFnc       { return Case }
-func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
-func (s CaseExpr) String() string       { return s.TypeName() }
-func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseExpr) Test() TestExpr {
-	var pair, _ = s()
-	return pair.(Paired).Left().(TestExpr)
+	var vec, _ = s()
+	return vec.(VecCol)()[0].(TestExpr)
 }
 func (s CaseExpr) Expr() Expression {
-	var pair, _ = s()
-	return pair.(Paired).Right()
+	var vec, _ = s()
+	return vec.(VecCol)()[1]
 }
 func (s CaseExpr) Type() TyDef {
-	var ldel, rdel = "(", ")"
-	var pattern = s.Expr().Type().Pattern()
-	if len(pattern) == 0 {
-		pattern = []Expression{Type}
-	}
-	return Define(ldel+"Case "+
-		ldel+s.Test().TypeName()+rdel+rdel,
-		s.Expr().Type().Return(), pattern...)
+	var vec, _ = s()
+	return vec.(VecCol)()[2].(TyDef)
 }
 func (s CaseExpr) TypeName() string {
-	return s.Expr().Type().PatternName() +
-		" → " + s.Type().Name() +
-		" ⇒ " + s.Expr().Type().Name() +
-		" → " + s.Expr().Type().ReturnName()
+	var vec, _ = s()
+	return vec.(VecCol)()[3].String()
 }
+func (s CaseExpr) String() string       { return s.TypeName() }
+func (s CaseExpr) TypeFnc() TyFnc       { return Case }
+func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
+func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))
