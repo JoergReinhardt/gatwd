@@ -226,7 +226,7 @@ func (s SetInt) Eval(p ...Native) Native {
 			if prime.TypeNat().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
 				if pair.Left().TypeNat().Flag().Match(Integers) {
-					s.Set(IntVal(pair.Left().(Integer).Int()), pair.Right())
+					s.Set(IntVal(pair.Left().(Integer).Idx()), pair.Right())
 				}
 			}
 		}
@@ -311,7 +311,7 @@ func (s SetUint) Eval(p ...Native) Native {
 			if prime.TypeNat().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
 				if pair.Left().TypeNat().Flag().Match(Naturals) {
-					s.Set(UintVal(pair.Left().(Natural).Uint()), pair.Right())
+					s.Set(UintVal(pair.Left().(Natural).GoUint()), pair.Right())
 				}
 			}
 		}
@@ -400,7 +400,7 @@ func (s SetFloat) Eval(p ...Native) Native {
 			if prime.TypeNat().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
 				if pair.Left().TypeNat().Flag().Match(Reals) {
-					s.Set(FltVal(pair.Left().(Real).Float()), pair.Right())
+					s.Set(FltVal(pair.Left().(Real).GoFlt()), pair.Right())
 				}
 			}
 		}
@@ -485,7 +485,7 @@ func (s SetFlag) Eval(p ...Native) Native {
 			if prime.TypeNat().Flag().Match(Pair) {
 				var pair = prime.(PairVal)
 				if pair.Left().TypeNat().Flag().Match(Type) {
-					s.Set(UintVal(pair.Left().(Natural).Uint()), pair.Right())
+					s.Set(UintVal(pair.Left().(Natural).GoUint()), pair.Right())
 				}
 			}
 		}

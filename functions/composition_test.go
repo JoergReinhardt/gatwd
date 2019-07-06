@@ -11,7 +11,7 @@ func TestMapF(t *testing.T) {
 
 	var vector = NewVector(listA()...)
 	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
+		return New(args[0].Eval().(d.IntVal).Idx() * 3)
 	}
 
 	var mapped = MapF(vector, fmap)
@@ -23,7 +23,7 @@ func TestMapL(t *testing.T) {
 
 	var list = NewList(listA()...)
 	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
+		return New(args[0].Eval().(d.IntVal).Idx() * 3)
 	}
 
 	var mapped = MapL(list, fmap)
@@ -65,7 +65,7 @@ func TestListFoldAndMap(t *testing.T) {
 		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
 	}
 	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
+		return New(args[0].Eval().(d.IntVal).Idx() * 3)
 	}
 
 	var mapped = MapL(list, fmap)
@@ -101,7 +101,7 @@ func TestConsumeableFoldAndMap(t *testing.T) {
 		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
 	}
 	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
+		return New(args[0].Eval().(d.IntVal).Idx() * 3)
 	}
 
 	var mapped = MapF(vec, fmap)

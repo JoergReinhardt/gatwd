@@ -232,7 +232,7 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 	dat := sl.Search(New(2))
 	fmt.Println(dat)
-	if dat.(Integer).Int() != 2 {
+	if dat.(Integer).Idx() != 2 {
 		t.Fail()
 	}
 	fmt.Println(sl)

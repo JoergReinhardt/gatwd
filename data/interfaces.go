@@ -43,27 +43,28 @@ type Discrete interface {
 // allow to treat the different sizes of ints and floats alike
 
 type Boolean interface {
-	Bool() bool
+	GoBool() bool
 }
 
 type Natural interface {
-	Uint() uint
+	GoUint() uint
 }
 
 type Integer interface {
-	Int() int
+	GoInt() int
+	Idx() int
 }
 
 type Rational interface {
-	Rat() *big.Rat
+	GoRat() *big.Rat
 }
 
 type Real interface {
-	Float() float64
+	GoFlt() float64
 }
 
 type Imaginary interface {
-	Imag() complex128
+	GoImag() complex128
 }
 
 type Numeral interface {
@@ -76,12 +77,12 @@ type Numeral interface {
 }
 
 type Raw interface {
-	Bytes() []byte
+	GoBytes() []byte
 }
 
 type Letter interface {
-	Rune() rune
-	Byte() byte
+	GoRune() rune
+	GoByte() byte
 }
 
 type Text interface {
@@ -94,8 +95,8 @@ type Serializeable interface {
 
 type Printable interface {
 	String() string
-	Bytes() []byte
-	Runes() []rune
+	GoBytes() []byte
+	GoRunes() []rune
 }
 
 // paired holds key-value pairs intendet as set accessors

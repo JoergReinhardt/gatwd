@@ -21,7 +21,7 @@ func (e CompoundError) Error() string {
 
 // returns a nil value instance
 func NewNil() NilVal { return NilVal{} }
-func NewErrorVal(errs ...error) ErrorVal {
+func NewError(errs ...error) ErrorVal {
 	if len(errs) == 0 {
 		return ErrorVal{}
 	}
@@ -97,7 +97,7 @@ func NewNull(nat TyNat) Native {
 
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }
 
-func NewFromData(args ...Native) Native {
+func NewData(args ...Native) Native {
 	if len(args) > 0 {
 		if len(args) > 1 {
 			// try to return unboxed natives if possible, falls

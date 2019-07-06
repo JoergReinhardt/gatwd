@@ -72,20 +72,20 @@ func ConsLess(argType d.TyNat, ds SortedData) func(i, j int) bool {
 
 	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Natural).Uint() >=
-				ds[i].Eval().(Natural).Uint()
+			return ds[j].Eval().(Natural).GoUint() >=
+				ds[i].Eval().(Natural).GoUint()
 		}
 
 	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Integer).Int() >=
-				ds[i].Eval().(Integer).Int()
+			return ds[j].Eval().(Integer).Idx() >=
+				ds[i].Eval().(Integer).Idx()
 		}
 
 	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
-			return ds[j].Eval().(Real).Float() >=
-				ds[i].Eval().(Real).Float()
+			return ds[j].Eval().(Real).GoFlt() >=
+				ds[i].Eval().(Real).GoFlt()
 		}
 	}
 	return nil
@@ -116,20 +116,20 @@ func ConsFind(ds SortedData, pred Expression) func(int) bool {
 
 	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Natural).Uint() >=
-				pred.(Natural).Uint()
+			return ds[i].(Natural).GoUint() >=
+				pred.(Natural).GoUint()
 		}
 
 	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Integer).Int() >=
-				pred.(Integer).Int()
+			return ds[i].(Integer).Idx() >=
+				pred.(Integer).Idx()
 		}
 
 	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return ds[i].(Real).Float() >=
-				pred.(Real).Float()
+			return ds[i].(Real).GoFlt() >=
+				pred.(Real).GoFlt()
 		}
 	}
 	return fn
@@ -266,8 +266,8 @@ func ConsPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	case f.Match(d.Naturals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].Left().Eval().(Natural).Uint() <=
-				chain[j].Left().Eval().(Natural).Uint() {
+			if chain[i].Left().Eval().(Natural).GoUint() <=
+				chain[j].Left().Eval().(Natural).GoUint() {
 				return true
 			}
 			return false
@@ -276,8 +276,8 @@ func ConsPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	case f.Match(d.Integers.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].Left().Eval().(Integer).Int() <=
-				chain[j].Left().Eval().(Integer).Int() {
+			if chain[i].Left().Eval().(Integer).Idx() <=
+				chain[j].Left().Eval().(Integer).Idx() {
 				return true
 			}
 			return false
@@ -286,8 +286,8 @@ func ConsPairLess(accs SortedPairs, t d.TyNat) func(i, j int) bool {
 	case f.Match(d.Reals.TypeNat()):
 		return func(i, j int) bool {
 			chain := accs
-			if chain[i].Left().Eval().(Real).Float() <=
-				chain[j].Left().Eval().(Real).Float() {
+			if chain[i].Left().Eval().(Real).GoFlt() <=
+				chain[j].Left().Eval().(Real).GoFlt() {
 				return true
 			}
 			return false
@@ -303,20 +303,20 @@ func ConsPairFind(accs SortedPairs, pred Expression) func(i int) bool {
 
 	case f.Match(d.Naturals.TypeNat()):
 		fn = func(i int) bool {
-			return uint(accs[i].Left().Eval().(Natural).Uint()) >=
-				uint(pred.Eval().(Natural).Uint())
+			return uint(accs[i].Left().Eval().(Natural).GoUint()) >=
+				uint(pred.Eval().(Natural).GoUint())
 		}
 
 	case f.Match(d.Integers.TypeNat()):
 		fn = func(i int) bool {
-			return int(accs[i].Left().Eval().(Integer).Int()) >=
-				int(pred.Eval().(Integer).Int())
+			return int(accs[i].Left().Eval().(Integer).Idx()) >=
+				int(pred.Eval().(Integer).Idx())
 		}
 
 	case f.Match(d.Reals.TypeNat()):
 		fn = func(i int) bool {
-			return int(accs[i].Left().Eval().(Real).Float()) >=
-				int(pred.Eval().(Real).Float())
+			return int(accs[i].Left().Eval().(Real).GoFlt()) >=
+				int(pred.Eval().(Real).GoFlt())
 		}
 
 	case f.Match(d.Letters.TypeNat()):

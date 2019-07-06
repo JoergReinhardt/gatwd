@@ -55,7 +55,7 @@ func (c DataSlice) Copy() Native {
 // SLICE ->
 func (v DataSlice) Slice() []Native          { return v }
 func (v DataSlice) GetInt(i int) Native      { return v[i] }
-func (v DataSlice) Get(i Native) Native      { return v[i.(IntVal).Int()] }
+func (v DataSlice) Get(i Native) Native      { return v[i.(IntVal).GoInt()] }
 func (v DataSlice) Range(s, e int) Sliceable { return NewSlice(v[s:e]) }
 func (v DataSlice) SetInt(i int, d Native)   { v[i] = d }
 func (v DataSlice) Set(i Native, d Native)   { v[i.(IntVal)] = d }
@@ -390,16 +390,16 @@ func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 		}
 	case FlagMatch(f, Naturals.TypeNat().Flag()):
 		fn = func(i, j int) bool {
-			if uint(chain[i].(Natural).Uint()) <
-				uint(chain[j].(Natural).Uint()) {
+			if uint(chain[i].(Natural).GoUint()) <
+				uint(chain[j].(Natural).GoUint()) {
 				return true
 			}
 			return false
 		}
 	case FlagMatch(f, Integers.TypeNat().Flag()):
 		fn = func(i, j int) bool {
-			if int(chain[i].(Integer).Int()) <
-				int(chain[j].(Integer).Int()) {
+			if int(chain[i].(Integer).Idx()) <
+				int(chain[j].(Integer).Idx()) {
 				return true
 			}
 			return false
@@ -433,13 +433,13 @@ func newSliceSearchFnc(c DataSlice, comp Native) func(i int) bool {
 		}
 	case FlagMatch(f, Naturals.TypeNat().Flag()):
 		fn = func(i int) bool {
-			return uint(c[i].(Natural).Uint()) >=
-				uint(comp.(Natural).Uint())
+			return uint(c[i].(Natural).GoUint()) >=
+				uint(comp.(Natural).GoUint())
 		}
 	case FlagMatch(f, Integers.TypeNat().Flag()):
 		fn = func(i int) bool {
-			return int(c[i].(Integer).Int()) >=
-				int(comp.(Integer).Int())
+			return int(c[i].(Integer).Idx()) >=
+				int(comp.(Integer).Idx())
 		}
 	}
 	return fn

@@ -93,7 +93,7 @@ func New(inf ...interface{}) Expression {
 
 func NewNative(args ...d.Native) Expression {
 
-	var nat = d.NewFromData(args...)
+	var nat = d.NewData(args...)
 	var tnat = nat.TypeNat()
 
 	switch {
