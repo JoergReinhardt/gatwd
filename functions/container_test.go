@@ -20,7 +20,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-func TestNary(t *testing.T) {
+func TestPartial(t *testing.T) {
 	var strconc = DefinePartial("String Concat",
 		NativeExpr(func(args ...d.Native) d.Native {
 			var str string
@@ -138,7 +138,7 @@ func TestNary(t *testing.T) {
 		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
 		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)))
 
-	var sv8 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
+	var sv8 = strvec.Call(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
 		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
 		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
 		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)),
@@ -154,17 +154,29 @@ func TestNary(t *testing.T) {
 		sv5.(VecCol)()[0].(NativeUbox).Slice()[1],
 	)
 
-	fmt.Printf("string vector: %s type name: %s\n", strvec, strvec.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv0, sv0.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv1, sv1.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv2, sv2.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv3, sv3.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv4, sv4.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv5, sv5.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv6, sv6.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv7, sv7.TypeName())
-	fmt.Printf("string vector: %s type name: %s\n", sv8, sv8.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		strvec, strvec.Type(), strvec.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv0, sv0.TypeFnc(), sv0.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv1, sv1.TypeFnc(), sv1.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv2, sv2.TypeFnc(), sv2.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv3, sv3.TypeFnc(), sv3.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv4, sv4.TypeFnc(), sv4.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv5, sv5.TypeFnc(), sv5.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv6, sv6.TypeFnc(), sv6.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv7, sv7.TypeFnc(), sv7.TypeName())
+	fmt.Printf("string vector: %s type: %s type name: %s\n",
+		sv8, sv8.TypeFnc(), sv8.TypeName())
 
+	fmt.Printf("vector head: %s head type: %s type name: %s\n",
+		sv8.(VecCol).Ident().TypeName(), sv8.(VecCol).Head().TypeFnc(), sv8.(VecCol).TypeElem().TypeName())
 }
 
 func TestTuple(t *testing.T) {

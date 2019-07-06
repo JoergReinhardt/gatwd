@@ -91,9 +91,7 @@ func New(inf ...interface{}) Expression {
 	return NewNative(d.New(inf...))
 }
 
-// TODO replace expression wrappers by d.Native.Eval
 func NewNative(args ...d.Native) Expression {
-	// if any initial arguments have been passed
 
 	var nat = d.NewFromData(args...)
 	var tnat = nat.TypeNat()
@@ -297,13 +295,14 @@ func DefinePartial(
 	paratypes ...Expression,
 ) PartialExpr {
 
-	var arity = len(paratypes)
-	var typed = Define(name, retype, paratypes...)
-
 	// create and return nary expression
 	return func(args ...Expression) Expression {
+
+		var arity = len(paratypes)
+		var typed = Define(name, retype, paratypes...)
 		var parmlen = len(args) // count arguments
-		if parmlen > 0 {        // if arguments where passed
+
+		if parmlen > 0 { // if arguments where passed
 			// argument number SATISFIES expression arity EXACTLY
 			if parmlen == arity {
 				return expr.Call(args...)
@@ -325,16 +324,7 @@ func DefinePartial(
 					args, remain = remain[:arity], remain[arity:]
 					vec = vec.Append(expr.Call(args...))
 				}
-				if len(args) == 0 {
-					return vec
-				}
-				return vec.Append(
-					DefinePartial(
-						name,
-						expr,
-						retype,
-						paratypes...,
-					).Call(remain...))
+				return vec.Append(expr.Call(remain...))
 			}
 		}
 		// if no arguments are passed, return definition
@@ -345,13 +335,19 @@ func DefinePartial(
 // returns the value returned when calling itself directly, passing arguments
 func (n PartialExpr) Ident() Expression                  { return n }
 func (n PartialExpr) Type() TyDef                        { return n().(TyDef) }
+func (n PartialExpr) String() string                     { return n.TypeName() }
+func (n PartialExpr) TypeName() string                   { return n.Type().Name() }
 func (n PartialExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
 func (n PartialExpr) Arity() Arity                       { return n.Type().Arity() }
 func (n PartialExpr) Return() Expression                 { return n.Type().Return() }
 func (n PartialExpr) Pattern() []Expression              { return n.Type().Pattern() }
-func (n PartialExpr) TypeName() string                   { return n.Type().TypeName() }
-func (n PartialExpr) String() string                     { return n.Return().String() }
 func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
 func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
-func (n PartialExpr) Eval(args ...d.Native) d.Native     { return n.Return().Eval(args...) }
 func (n PartialExpr) Call(args ...Expression) Expression { return n(args...) }
+func (n PartialExpr) Eval(args ...d.Native) d.Native {
+	var vals = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		vals = append(vals, NewNative(arg))
+	}
+	return n.Eval(vals...)
+}
