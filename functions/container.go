@@ -56,7 +56,9 @@ func NewGeneric(
 	retype Expression,
 	paratypes ...Expression,
 ) GenericExpr {
+
 	var typed = Define(name, retype, paratypes...)
+
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return expr(args...)
@@ -352,4 +354,4 @@ func (n PartialExpr) String() string                     { return n.Return().Str
 func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
 func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
 func (n PartialExpr) Eval(args ...d.Native) d.Native     { return n.Return().Eval(args...) }
-func (n PartialExpr) Call(args ...Expression) Expression { return n.Return().Call(args...) }
+func (n PartialExpr) Call(args ...Expression) Expression { return n(args...) }

@@ -83,15 +83,15 @@ func TestNary(t *testing.T) {
 	fmt.Println(r8.Call())
 
 	fmt.Printf("string concat type name: %s\n", strconc.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r0.Type(), r0.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r1.Type(), r1.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r2.Type(), r2.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r3.Type(), r3.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r4.Type(), r4.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r5.Type(), r5.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r6.Type(), r6.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r7.Type(), r7.TypeName())
-	fmt.Printf("typed: %s name: %s\n", r8.Type(), r8.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r0, r0.Type(), r0.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r1, r1.Type(), r1.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r2, r2.Type(), r2.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r3, r3.Type(), r3.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r4, r4.Type(), r4.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r5, r5.Type(), r5.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r6, r6.Type(), r6.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r7, r7.Type(), r7.TypeName())
+	fmt.Printf("result: %s typed: %s name: %s\n", r8, r8.Type(), r8.TypeName())
 
 	var strvec = DefinePartial("String Vector",
 		NativeExpr(func(args ...d.Native) d.Native {

@@ -388,8 +388,8 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 					cases = NewVector(exprs...)
 					// return result, current case and
 					// arguments that where passed.
-					return result, NewPair(
-							current, arguments),
+					return result, NewPair(current,
+							arguments),
 						true
 				}
 				//// FAILED CASE EVALUATION ///
@@ -418,17 +418,6 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 	}
 }
 
-func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
-func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
-func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseSwitch) String() string       { return s.TypeName() }
-func (s CaseSwitch) Type() TyDef {
-	return Define(s.TypeName(), s.TypeFnc())
-}
-func (s CaseSwitch) TypeName() string {
-	return "[T] → (Case Switch) → (T, [T]) "
-}
-
 //// TEST ALL CASES AGAINS ARGUMENT SET
 ///
 // test one set of arguments against all cases until either successful result
@@ -436,9 +425,9 @@ func (s CaseSwitch) TypeName() string {
 // when called without arguments, list of all cases and list of completed
 // cases, including former call arguments will be returned.
 func (s CaseSwitch) TestAllCases(args ...Expression) (Expression, Expression) {
+	var ok bool
 	var result, caseargs Expression
 	if len(args) > 0 {
-		var ok bool
 		result, caseargs, ok = s(args...)
 		for result != nil {
 			if ok {
@@ -448,11 +437,8 @@ func (s CaseSwitch) TestAllCases(args ...Expression) (Expression, Expression) {
 		}
 		return nil, caseargs
 	}
-	result, caseargs, _ = s()
 	return result, caseargs
 }
-
-// evaluate arguments against case
 func (s CaseSwitch) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var result, _ = s.TestAllCases(args...)
@@ -462,8 +448,6 @@ func (s CaseSwitch) Call(args ...Expression) Expression {
 	}
 	return NewNone()
 }
-
-// evaluate passed native arguments against case
 func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))
@@ -476,6 +460,16 @@ func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
 		}
 	}
 	return d.NewNil()
+}
+func (s CaseSwitch) TypeName() string {
+	return "[T] → (Case Switch) → (T, [T]) "
+}
+func (s CaseSwitch) String() string       { return s.TypeName() }
+func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
+func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
+func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (s CaseSwitch) Type() TyDef {
+	return Define(s.TypeName(), s.TypeFnc())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
