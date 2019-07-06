@@ -1,227 +1,228 @@
 package functions
 
-import (
-	"fmt"
-	"strings"
-	"testing"
-
-	d "github.com/joergreinhardt/gatwd/data"
-)
-
-func TestDataSorter(t *testing.T) {
-	var dat = []Expression{
-		New("Aaron"),
-		New("Aardvark"),
-		New("Adam"),
-		New("Victor"),
-		New("Sylvest"),
-		New("Stepen"),
-		New("Sonja"),
-		New("Tom"),
-		New("Britta"),
-		New("Peter"),
-		New("Paul"),
-		New("Mary"),
-		New("Eve"),
-		New("John"),
-		New("Jill"),
-	}
-
-	ds := Sort(dat...)
-	ds.Sort(d.String)
-	fmt.Printf("list after sorterd by string: %s\n", ds)
-
-	idx := ds.Search(New("Sonja"))
-	fmt.Printf("Sonja idx: %d\n", idx)
-	if idx != 10 {
-		fmt.Printf("why fail!?: %d\n", idx)
-		t.Fail()
-	}
-	fmt.Printf("access Sonja by idx: %s\n", ds[idx].Eval().String())
-	if strings.Compare(ds[idx].Eval().String(), "Sonja") != 0 {
-		fmt.Printf("why fail: access Sonja by idx: %s\n", ds[idx].Eval().String())
-		t.Fail()
-	}
-
-	fdx := ds.Search(New("NotAName"))
-	fmt.Printf("unfindable index supposed to be -1: %d\n", fdx)
-	if fdx != -1 {
-		fmt.Printf("why fail: unfindable index supposed to be -1: %d\n", fdx)
-		t.Fail()
-	}
-
-}
-func TestDataSorterFlags(t *testing.T) {
-	var flags = []Expression{
-		NewData(d.Int),
-		NewData(d.Int16),
-		NewData(d.BigInt),
-		NewData(d.Bool),
-		NewData(d.Int8),
-		NewData(d.Int32),
-		NewData(d.Nil),
-	}
-
-	fs := SortedData(flags)
-	fmt.Printf("unsorted flags: %s\n", fs)
-	if fs[0].String() != "Int" {
-		t.Fail()
-	}
-	fs.Sort(d.Type)
-	fmt.Printf("sorted flags: %s\n", fs)
-	if fs[0].String() != "Nil" {
-		t.Fail()
-	}
-
-	var ints = []Expression{
-		New(int(11)),
-		New(int(-12)),
-		New(int(12321)),
-		New(int(543)),
-		New(int(8493)),
-		New(int(-134)),
-		New(int(381)),
-	}
-
-	is := SortedData(ints)
-	is.Sort(d.Integers)
-	fmt.Printf("sorted ints: %s\n", is)
-}
-func TestDataSorterMixedType(t *testing.T) {
-
-	// TODO: make this work
-	var flags = []Expression{
-		New(int(11)),
-		New(uint(134)),
-		New("Peter"),
-		New(int(-12)),
-		New("Paul"),
-		New(uint(12321)),
-		New(int(12321)),
-		New("Eve"),
-		New(uint(543)),
-		New(int(543)),
-		New(uint(12)),
-		New(int(8493)),
-		New("John"),
-		New(uint(8493)),
-		New(int(-134)),
-		New(uint(381)),
-		New("Jill"),
-		New(int(381)),
-		New(uint(11)),
-		New("Mary"),
-	}
-
-	ts := SortedData(flags)
-	ts.Sort(d.Type)
-	fmt.Printf("supposedly sorted by flag: %s\n", ts)
-	if ts[0].Eval().(d.IntVal) != 543 {
-		t.Fail()
-	}
-}
-func TestPairSorterStrStr(t *testing.T) {
-	var strPairs = []Paired{
-		NewPair(New("Sonja"), New("val 6")),
-		NewPair(New("Tom"), New("val 7")),
-		NewPair(New("Aardvark"), New("val 1")),
-		NewPair(New("Adam"), New("val 2")),
-		NewPair(New("Victor"), New("val 3")),
-		NewPair(New("Sylvest"), New("val 4")),
-		NewPair(New("Stepen"), New("val 5")),
-		NewPair(New("Britta"), New("val 8")),
-		NewPair(New("Peter"), New("val 9")),
-		NewPair(New("Paul"), New("val 10")),
-		NewPair(New("Aaron"), New("val 0")),
-		NewPair(New("Mary"), New("val 11")),
-		NewPair(New("Eve"), New("val 12")),
-		NewPair(New("John"), New("val 13")),
-		NewPair(New("Jill"), New("val 14")),
-	}
-
-	ps := SortPairs(strPairs...)
-	fmt.Printf("unsorted string|string slice:\n %s\n\n", ps)
-	ps.Sort(d.Letters)
-	fmt.Printf(
-		"sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
-
-	if ps[0].Left().String() != "Aardvark" {
-		t.Fail()
-	}
-
-	if ps[len(ps)-1].Left().String() != "Victor" {
-		t.Fail()
-	}
-}
-func TestPairSorterIntStr(t *testing.T) {
-	var pairs = []Paired{
-		NewPair(New(10), New("valeu ten")),
-		NewPair(New(13), New("valeu thirteen")),
-		NewPair(New(7), New("valeu seven")),
-		NewPair(New(8), New("valeu eight")),
-		NewPair(New(1), New("valeu one")),
-		NewPair(New(2), New("valeu two")),
-		NewPair(New(3), New("valeu three")),
-		NewPair(New(4), New("valeu four")),
-		NewPair(New(5), New("valeu five")),
-		NewPair(New(6), New("valeu six")),
-	}
-
-	ps := SortPairs(pairs...)
-	ps.Sort(d.Integers)
-	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
-	if ps[0].Left().Eval().(d.IntVal) != 1 {
-		t.Fail()
-	}
-	if ps[len(ps)-1].Left().Eval().(d.IntVal) != 13 {
-		t.Fail()
-	}
-}
-func TestPairSorterUintStr(t *testing.T) {
-	var pairs = []Paired{
-		NewPair(New(uint(10)), New("valeu ten")),
-		NewPair(New(uint(13)), New("valeu thirteen")),
-		NewPair(New(uint(7)), New("valeu seven")),
-		NewPair(New(uint(8)), New("valeu eight")),
-		NewPair(New(uint(1)), New("valeu one")),
-		NewPair(New(uint(2)), New("valeu two")),
-		NewPair(New(uint(3)), New("valeu three")),
-		NewPair(New(uint(4)), New("valeu four")),
-		NewPair(New(uint(5)), New("valeu five")),
-		NewPair(New(uint(6)), New("valeu six")),
-	}
-
-	ps := SortPairs(pairs...)
-	ps.Sort(d.Naturals)
-	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
-	if ps[0].Left().Eval().(d.UintVal) != 1 {
-		t.Fail()
-	}
-	if ps[len(ps)-1].Left().Eval().(d.UintVal) != 13 {
-		t.Fail()
-	}
-}
-func TestPairSorterIrrationalStr(t *testing.T) {
-	var pairs = []Paired{
-		NewPair(New(float64(10.21)), New("valeu ten")),
-		NewPair(New(float64(13.23)), New("valeu thirteen")),
-		NewPair(New(float64(7.72323)), New("valeu seven")),
-		NewPair(New(float64(8.342)), New("valeu eight")),
-		NewPair(New(float64(1.234)), New("valeu one")),
-		NewPair(New(float64(2.25)), New("valeu two")),
-		NewPair(New(float64(3.3333)), New("valeu three")),
-		NewPair(New(float64(4)), New("valeu four")),
-		NewPair(New(float64(5)), New("valeu five")),
-		NewPair(New(float64(6)), New("valeu six")),
-	}
-
-	ps := SortPairs(pairs...)
-	ps.Sort(d.Reals)
-	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
-	if ps[0].Left().Eval().(d.FltVal) != 1.234 {
-		t.Fail()
-	}
-	if ps[len(ps)-1].Left().Eval().(d.FltVal) != 13.23 {
-		t.Fail()
-	}
-}
+//
+//import (
+//	"fmt"
+//	"strings"
+//	"testing"
+//
+//	d "github.com/joergreinhardt/gatwd/data"
+//)
+//
+//func TestDataSorter(t *testing.T) {
+//	var dat = []Expression{
+//		New("Aaron"),
+//		New("Aardvark"),
+//		New("Adam"),
+//		New("Victor"),
+//		New("Sylvest"),
+//		New("Stepen"),
+//		New("Sonja"),
+//		New("Tom"),
+//		New("Britta"),
+//		New("Peter"),
+//		New("Paul"),
+//		New("Mary"),
+//		New("Eve"),
+//		New("John"),
+//		New("Jill"),
+//	}
+//
+//	ds := Sort(dat...)
+//	ds.Sort(d.String)
+//	fmt.Printf("list after sorterd by string: %s\n", ds)
+//
+//	idx := ds.Search(New("Sonja"))
+//	fmt.Printf("Sonja idx: %d\n", idx)
+//	if idx != 10 {
+//		fmt.Printf("why fail!?: %d\n", idx)
+//		t.Fail()
+//	}
+//	fmt.Printf("access Sonja by idx: %s\n", ds[idx].Eval().String())
+//	if strings.Compare(ds[idx].Eval().String(), "Sonja") != 0 {
+//		fmt.Printf("why fail: access Sonja by idx: %s\n", ds[idx].Eval().String())
+//		t.Fail()
+//	}
+//
+//	fdx := ds.Search(New("NotAName"))
+//	fmt.Printf("unfindable index supposed to be -1: %d\n", fdx)
+//	if fdx != -1 {
+//		fmt.Printf("why fail: unfindable index supposed to be -1: %d\n", fdx)
+//		t.Fail()
+//	}
+//
+//}
+//func TestDataSorterFlags(t *testing.T) {
+//	var flags = []Expression{
+//		NewData(d.Int),
+//		NewData(d.Int16),
+//		NewData(d.BigInt),
+//		NewData(d.Bool),
+//		NewData(d.Int8),
+//		NewData(d.Int32),
+//		NewData(d.Nil),
+//	}
+//
+//	fs := SortedData(flags)
+//	fmt.Printf("unsorted flags: %s\n", fs)
+//	if fs[0].String() != "Int" {
+//		t.Fail()
+//	}
+//	fs.Sort(d.Type)
+//	fmt.Printf("sorted flags: %s\n", fs)
+//	if fs[0].String() != "Nil" {
+//		t.Fail()
+//	}
+//
+//	var ints = []Expression{
+//		New(int(11)),
+//		New(int(-12)),
+//		New(int(12321)),
+//		New(int(543)),
+//		New(int(8493)),
+//		New(int(-134)),
+//		New(int(381)),
+//	}
+//
+//	is := SortedData(ints)
+//	is.Sort(d.Integers)
+//	fmt.Printf("sorted ints: %s\n", is)
+//}
+//func TestDataSorterMixedType(t *testing.T) {
+//
+//	// TODO: make this work
+//	var flags = []Expression{
+//		New(int(11)),
+//		New(uint(134)),
+//		New("Peter"),
+//		New(int(-12)),
+//		New("Paul"),
+//		New(uint(12321)),
+//		New(int(12321)),
+//		New("Eve"),
+//		New(uint(543)),
+//		New(int(543)),
+//		New(uint(12)),
+//		New(int(8493)),
+//		New("John"),
+//		New(uint(8493)),
+//		New(int(-134)),
+//		New(uint(381)),
+//		New("Jill"),
+//		New(int(381)),
+//		New(uint(11)),
+//		New("Mary"),
+//	}
+//
+//	ts := SortedData(flags)
+//	ts.Sort(d.Type)
+//	fmt.Printf("supposedly sorted by flag: %s\n", ts)
+//	if ts[0].Eval().(d.IntVal) != 543 {
+//		t.Fail()
+//	}
+//}
+//func TestPairSorterStrStr(t *testing.T) {
+//	var strPairs = []Paired{
+//		NewPair(New("Sonja"), New("val 6")),
+//		NewPair(New("Tom"), New("val 7")),
+//		NewPair(New("Aardvark"), New("val 1")),
+//		NewPair(New("Adam"), New("val 2")),
+//		NewPair(New("Victor"), New("val 3")),
+//		NewPair(New("Sylvest"), New("val 4")),
+//		NewPair(New("Stepen"), New("val 5")),
+//		NewPair(New("Britta"), New("val 8")),
+//		NewPair(New("Peter"), New("val 9")),
+//		NewPair(New("Paul"), New("val 10")),
+//		NewPair(New("Aaron"), New("val 0")),
+//		NewPair(New("Mary"), New("val 11")),
+//		NewPair(New("Eve"), New("val 12")),
+//		NewPair(New("John"), New("val 13")),
+//		NewPair(New("Jill"), New("val 14")),
+//	}
+//
+//	ps := SortPairs(strPairs...)
+//	fmt.Printf("unsorted string|string slice:\n %s\n\n", ps)
+//	ps.Sort(d.Letters)
+//	fmt.Printf(
+//		"sorted string|string slice (sorted alphabeticly by key!) :\n %s\n\n", ps)
+//
+//	if ps[0].Left().String() != "Aardvark" {
+//		t.Fail()
+//	}
+//
+//	if ps[len(ps)-1].Left().String() != "Victor" {
+//		t.Fail()
+//	}
+//}
+//func TestPairSorterIntStr(t *testing.T) {
+//	var pairs = []Paired{
+//		NewPair(New(10), New("valeu ten")),
+//		NewPair(New(13), New("valeu thirteen")),
+//		NewPair(New(7), New("valeu seven")),
+//		NewPair(New(8), New("valeu eight")),
+//		NewPair(New(1), New("valeu one")),
+//		NewPair(New(2), New("valeu two")),
+//		NewPair(New(3), New("valeu three")),
+//		NewPair(New(4), New("valeu four")),
+//		NewPair(New(5), New("valeu five")),
+//		NewPair(New(6), New("valeu six")),
+//	}
+//
+//	ps := SortPairs(pairs...)
+//	ps.Sort(d.Integers)
+//	fmt.Printf("pairs sorted by int key:\n%s\n\n", ps)
+//	if ps[0].Left().Eval().(d.IntVal) != 1 {
+//		t.Fail()
+//	}
+//	if ps[len(ps)-1].Left().Eval().(d.IntVal) != 13 {
+//		t.Fail()
+//	}
+//}
+//func TestPairSorterUintStr(t *testing.T) {
+//	var pairs = []Paired{
+//		NewPair(New(uint(10)), New("valeu ten")),
+//		NewPair(New(uint(13)), New("valeu thirteen")),
+//		NewPair(New(uint(7)), New("valeu seven")),
+//		NewPair(New(uint(8)), New("valeu eight")),
+//		NewPair(New(uint(1)), New("valeu one")),
+//		NewPair(New(uint(2)), New("valeu two")),
+//		NewPair(New(uint(3)), New("valeu three")),
+//		NewPair(New(uint(4)), New("valeu four")),
+//		NewPair(New(uint(5)), New("valeu five")),
+//		NewPair(New(uint(6)), New("valeu six")),
+//	}
+//
+//	ps := SortPairs(pairs...)
+//	ps.Sort(d.Naturals)
+//	fmt.Printf("pairs sorted by uint key:\n%s\n\n", ps)
+//	if ps[0].Left().Eval().(d.UintVal) != 1 {
+//		t.Fail()
+//	}
+//	if ps[len(ps)-1].Left().Eval().(d.UintVal) != 13 {
+//		t.Fail()
+//	}
+//}
+//func TestPairSorterIrrationalStr(t *testing.T) {
+//	var pairs = []Paired{
+//		NewPair(New(float64(10.21)), New("valeu ten")),
+//		NewPair(New(float64(13.23)), New("valeu thirteen")),
+//		NewPair(New(float64(7.72323)), New("valeu seven")),
+//		NewPair(New(float64(8.342)), New("valeu eight")),
+//		NewPair(New(float64(1.234)), New("valeu one")),
+//		NewPair(New(float64(2.25)), New("valeu two")),
+//		NewPair(New(float64(3.3333)), New("valeu three")),
+//		NewPair(New(float64(4)), New("valeu four")),
+//		NewPair(New(float64(5)), New("valeu five")),
+//		NewPair(New(float64(6)), New("valeu six")),
+//	}
+//
+//	ps := SortPairs(pairs...)
+//	ps.Sort(d.Reals)
+//	fmt.Printf("pairs sorted by float key:\n%s\n\n", ps)
+//	if ps[0].Left().Eval().(d.FltVal) != 1.234 {
+//		t.Fail()
+//	}
+//	if ps[len(ps)-1].Left().Eval().(d.FltVal) != 13.23 {
+//		t.Fail()
+//	}
+//}

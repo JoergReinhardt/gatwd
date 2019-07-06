@@ -17,11 +17,11 @@ type (
 
 	//// NATIVE VALUE CONSTRUCTORS
 	NativeConst func() d.Native
-	NativeExpr  func(...d.Native) d.Native
-	NativeCol   func(...d.Native) d.Sliceable
-	NativeUbox  func(...d.Native) d.Sliceable
-	NativePair  func(...d.Native) d.Paired
-	NativeSet   func(...d.Native) d.Mapped
+	NativeExpr  func(...Native) d.Native
+	NativeCol   func(...Native) d.Sliceable
+	NativeUbox  func(...Native) d.Sliceable
+	NativePair  func(...Native) d.Paired
+	NativeSet   func(...Native) d.Mapped
 
 	//// EXPRESSION VALUE CONSTRUCTOR
 	PartialExpr func(...Expression) Expression
@@ -37,7 +37,6 @@ func (c ConstantExpr) Ident() Expression                  { return c }
 func (c ConstantExpr) Call(args ...Expression) Expression { return c() }
 func (c ConstantExpr) Arity() Arity                       { return Arity(0) }
 func (c ConstantExpr) TypeFnc() TyFnc                     { return Constant }
-func (c ConstantExpr) TypeNat() d.TyNat                   { return c().TypeNat() }
 func (c ConstantExpr) String() string                     { return c().String() }
 func (c ConstantExpr) Eval() d.Native                     { return native(c) }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
@@ -58,7 +57,11 @@ func NewGeneric(
 	paratypes ...Expression,
 ) GenericExpr {
 
-	var typed = Define(name, retype, paratypes...)
+	var params = make([]Typed, 0, len(paratypes))
+	for _, param := range paratypes {
+		params = append(params, param.Type())
+	}
+	var typed = Define(name, retype.Type(), params...)
 
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
@@ -74,7 +77,6 @@ func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
 func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().Return().TypeFnc() }
-func (c GenericExpr) TypeNat() d.TyNat                   { return c.Type().Return().TypeNat() }
 func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 func (c GenericExpr) Eval() d.Native                     { return native(c) }
 
@@ -86,30 +88,36 @@ func New(inf ...interface{}) Expression {
 	return NewData(d.New(inf...))
 }
 
-func NewData(args ...d.Native) Expression {
+func NewData(args ...Native) Native {
 
-	var nat = d.NewData(args...)
+	var nats = make([]d.Native, 0, len(args))
+	for _, arg := range args {
+		nats = append(nats, arg)
+	}
+	var nat = d.NewData(nats...)
 	var match = nat.TypeNat().Match
 
 	switch {
 	case match(d.Slice):
-		return NativeCol(func(args ...d.Native) d.Sliceable {
+		return NativeCol(func(args ...Native) d.Sliceable {
 			return nat.(d.Sliceable)
 		})
 	case match(d.Unboxed):
-		return NativeUbox(func(args ...d.Native) d.Sliceable {
+		return NativeUbox(func(args ...Native) d.Sliceable {
 			return nat.(d.Sliceable)
 		})
 	case match(d.Pair):
-		return NativePair(func(args ...d.Native) d.Paired {
+		return NativePair(func(args ...Native) d.Paired {
 			return nat.(d.Paired)
 		})
 	case match(d.Map):
-		return NativeSet(func(args ...d.Native) d.Mapped {
+		return NativeSet(func(args ...Native) d.Mapped {
 			return nat.(d.Mapped)
 		})
 	}
-	return NativeConst(nat.Eval)
+	return NativeConst(func() d.Native {
+		return nat
+	})
 }
 
 func native(args ...Expression) d.Native {
@@ -117,12 +125,11 @@ func native(args ...Expression) d.Native {
 	if len(args) == 0 {
 		return d.NewNil()
 	}
-	var nats = make([]d.Native, 0, len(args))
+	var nats = make([]Native, 0, len(args))
 	for _, arg := range args {
-		nats = append(nats, arg.Eval())
+		nats = append(nats, NewData(arg))
 	}
-	return NewData(nats...)
-
+	return NewData(nats...).(Native)
 	return nat
 }
 
@@ -139,9 +146,9 @@ func (n NativeConst) Type() TyDef {
 }
 
 func (n NativeExpr) Call(args ...Expression) Expression {
-	var nats = make([]d.Native, 0, len(args))
+	var nats = make([]Native, 0, len(args))
 	for _, arg := range args {
-		nats = append(nats, arg.Eval())
+		nats = append(nats, arg.(Native).Eval())
 	}
 	return NewData(n(nats...))
 }
@@ -327,7 +334,12 @@ func DefinePartial(
 ) PartialExpr {
 
 	var arity = len(paratypes)
-	var typed = Define(name, retype, paratypes...)
+
+	var params = make([]Typed, 0, arity)
+	for _, param := range paratypes {
+		params = append(params, param.Type())
+	}
+	var typed = Define(name, retype, params...)
 
 	// create and return nary expression
 	return func(args ...Expression) Expression {
@@ -371,9 +383,7 @@ func (n PartialExpr) String() string                     { return n.TypeName() }
 func (n PartialExpr) TypeName() string                   { return n.Type().Name() }
 func (n PartialExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
 func (n PartialExpr) Arity() Arity                       { return n.Type().Arity() }
-func (n PartialExpr) Return() Expression                 { return n.Type().Return() }
-func (n PartialExpr) Pattern() []Expression              { return n.Type().Pattern() }
+func (n PartialExpr) Return() Typed                      { return n.Type().Return() }
+func (n PartialExpr) Pattern() []Typed                   { return n.Type().Pattern() }
 func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
-func (n PartialExpr) TypeNat() d.TyNat                   { return n.Return().TypeNat() }
 func (n PartialExpr) Call(args ...Expression) Expression { return n(args...) }
-func (n PartialExpr) Eval() d.Native                     { return n }

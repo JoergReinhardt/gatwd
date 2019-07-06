@@ -17,15 +17,14 @@ type Typed interface {
 	FlagType() d.Uint8Val
 }
 
-type Evaluable interface {
-	Eval() d.Native
+type Native interface {
+	Expression
+	d.Native
 }
 
 type Expression interface {
-	Evaluable
 	Typed
 	Call(...Expression) Expression
-	TypeNat() d.TyNat
 	String() string
 }
 
@@ -137,14 +136,14 @@ type Sequential interface {
 }
 
 type Mapped interface {
-	// Len() int
-	// Keys() []Native
-	// Data() []Native
-	// Fields() []Paired
-	// Get(acc Native) (Native, bool)
-	// Delete(acc Native) bool
-	// Set(Native, Native) Mapped
-	d.Mapped
+	Len() int
+	Keys() []Expression
+	Data() []Expression
+	Fields() []Paired
+	Get(acc Expression) (Expression, bool)
+	Delete(acc Expression) bool
+	Set(Expression, Expression) Mapped
+	//d.Mapped
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -172,7 +171,7 @@ type Sliceable interface {
 }
 
 type Sortable interface {
-	Sort(d.TyNat)
+	Sort(TyFnc)
 }
 
 type Searchable interface {
@@ -186,9 +185,9 @@ type IndexAssociated interface {
 
 type Vectorized interface {
 	IndexAssociated
-	Searchable
+	//Searchable
 	Sliceable
-	Sortable
+	//Sortable
 	Countable
 }
 
@@ -212,8 +211,6 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyNatType() d.TyNat
-	ValNatType() d.TyNat
 	KeyType() TyDef
 	ValType() TyDef
 }

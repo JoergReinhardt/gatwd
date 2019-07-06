@@ -57,8 +57,13 @@ func NewTestTruth(name string, test func(...Expression) bool, paratypes ...Expre
 	if name == "" {
 		name = "Truth"
 	}
+	var params = make([]Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
+	} else {
+		for _, param := range paratypes {
+			params = append(params, param.Type())
+		}
 	}
 
 	return func(args ...Expression) Typed {
@@ -69,7 +74,7 @@ func NewTestTruth(name string, test func(...Expression) bool, paratypes ...Expre
 			}
 			return False
 		}
-		return Define(name, Truth, paratypes...)
+		return Define(name, Truth, params...)
 	}
 }
 
@@ -78,8 +83,13 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expr
 	if name == "" {
 		name = "Trinary"
 	}
+	var params = make([]Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
+	} else {
+		for _, param := range paratypes {
+			params = append(params, param.Type())
+		}
 	}
 
 	return func(args ...Expression) Typed {
@@ -92,7 +102,7 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expr
 			}
 			return Undecided
 		}
-		return Define(name, Trinary, paratypes...)
+		return Define(name, Trinary, params...)
 	}
 }
 
@@ -101,8 +111,12 @@ func NewTestCompare(name string, test func(...Expression) int, paratypes ...Expr
 	if name == "" {
 		name = "Compare"
 	}
+	var params = make([]Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
+	}
+	for _, param := range paratypes {
+		params = append(params, param.Type())
 	}
 
 	return func(args ...Expression) Typed {
@@ -115,7 +129,7 @@ func NewTestCompare(name string, test func(...Expression) int, paratypes ...Expr
 			}
 			return Equal
 		}
-		return Define(name, Compare, paratypes...)
+		return Define(name, Compare, params...)
 	}
 }
 func (t TestExpr) Type() TyDef    { return t().(TyDef) }
@@ -267,7 +281,7 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 	// construct case type definition
 	var pattern = expr.Type().Pattern()
 	if len(pattern) == 0 {
-		pattern = []Expression{Type}
+		pattern = []Typed{Type}
 	}
 	var typed = Define(test.Type().Name(),
 		expr.Type().Return(), pattern...)
@@ -449,10 +463,8 @@ func NewOptionType(test CaseSwitch, types ...Expression) OptionType {
 }
 
 func (o OptionType) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionType) Eval() d.Native                     { return o }
 func (o OptionType) Expr() Expression                   { return o() }
 func (o OptionType) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (o OptionType) TypeNat() d.TyNat                   { return o().TypeNat() }
 func (o OptionType) TypeFnc() TyFnc                     { return Option }
 func (o OptionType) ElemType() TyDef                    { return o().Type() }
 func (o OptionType) String() string                     { return o().String() }
@@ -480,8 +492,6 @@ func NewOptionVal(test CaseSwitch, exprs ...Expression) OptionVal {
 	}
 }
 func (o OptionVal) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionVal) Eval() d.Native                     { return o }
-func (o OptionVal) TypeNat() d.TyNat                   { return o().TypeNat() }
 func (o OptionVal) TypeFnc() TyFnc                     { return o(HigherOrder).TypeFnc() }
 func (o OptionVal) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (o OptionVal) String() string                     { return o(HigherOrder).String() }

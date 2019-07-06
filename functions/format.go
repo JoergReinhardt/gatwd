@@ -37,13 +37,13 @@ func (v PairVec) String() string {
 }
 
 /// ASSOCIATIVE SET
-func (v SetCol) String() string {
-	var pairs = []string{}
-	for _, pair := range v.Pairs() {
-		pairs = append(pairs, pair.String())
-	}
-	return "[" + strings.Join(pairs, ", ") + "]"
-}
+////func (v SetCol) String() string {
+////	var pairs = []string{}
+////	for _, pair := range v.Pairs() {
+////		pairs = append(pairs, pair.String())
+////	}
+////	return "[" + strings.Join(pairs, ", ") + "]"
+////}
 
 /// LIST
 func (l ListCol) String() string {

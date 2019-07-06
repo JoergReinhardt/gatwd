@@ -22,7 +22,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 
 func TestPartial(t *testing.T) {
 	var strconc = DefinePartial("String Concat",
-		NativeExpr(func(args ...d.Native) d.Native {
+		NativeExpr(func(args ...Native) Native {
 			var str string
 			for n, arg := range args {
 				str = str + arg.String()
@@ -32,7 +32,7 @@ func TestPartial(t *testing.T) {
 			}
 			return NewData(d.StrVal(str))
 		}),
-		NewData(d.NewNull(d.String)),
+		NewData(d.NewNull(d.String)).Type(),
 		NewData(d.NewNull(d.String)),
 		NewData(d.NewNull(d.String)),
 		NewData(d.NewNull(d.String)),
@@ -72,15 +72,15 @@ func TestPartial(t *testing.T) {
 		NewData(d.StrVal("6")), NewData(d.StrVal("7")),
 		NewData(d.StrVal("8")))
 
-	fmt.Println(r0.Eval())
-	fmt.Println(r1.Eval())
-	fmt.Println(r2.Eval())
-	fmt.Println(r3.Eval())
-	fmt.Println(r4.Eval())
-	fmt.Println(r5.Eval())
-	fmt.Println(r6.Eval())
-	fmt.Println(r7.Eval())
-	fmt.Println(r8.Eval())
+	fmt.Println(r0)
+	fmt.Println(r1)
+	fmt.Println(r2)
+	fmt.Println(r3)
+	fmt.Println(r4)
+	fmt.Println(r5)
+	fmt.Println(r6)
+	fmt.Println(r7)
+	fmt.Println(r8)
 
 	fmt.Printf("string concat type name: %s\n", strconc.TypeName())
 	fmt.Printf("result: %s typed: %s name: %s\n", r0, r0.Type(), r0.TypeName())
@@ -178,8 +178,6 @@ func TestPartial(t *testing.T) {
 	fmt.Printf("vector head: %s head type name: %s type name: %s\n",
 		sv8.(VecCol).String(), sv8.(VecCol).Head().TypeName(), sv8.(VecCol).TypeName())
 
-	var flag = New(d.Bool)
-	fmt.Printf("flag type: %s nat type: %s\n", flag.Eval().TypeNat(), flag.TypeFnc().TypeFnc())
 }
 
 func TestTuple(t *testing.T) {
