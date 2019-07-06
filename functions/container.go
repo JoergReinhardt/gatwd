@@ -113,20 +113,23 @@ func NewNative(args ...d.Native) Expression {
 
 // ATOMIC NATIVE VALUE CONSTRUCTOR
 func (n NativeExpr) Call(args ...Expression) Expression {
-	var nats = make([]d.Native, 0, len(args))
-	for _, arg := range args {
-		nats = append(nats, arg.Eval())
+	if len(args) > 0 {
+		var nats = make([]d.Native, 0, len(args))
+		for _, arg := range args {
+			nats = append(nats, arg.Eval())
+		}
+		return NewNative(n(nats...))
 	}
-	return NewNative(n(nats...))
+	return n
 }
-func (n NativeExpr) TypeFnc() TyFnc                 { return Data }
 func (n NativeExpr) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n NativeExpr) TypeFnc() TyFnc                 { return Data }
 func (n NativeExpr) TypeNat() d.TyNat               { return n().TypeNat() }
 func (n NativeExpr) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativeExpr) String() string                 { return n().String() }
 func (n NativeExpr) TypeName() string               { return n().TypeName() }
 func (n NativeExpr) Type() TyDef {
-	return Define(n().TypeName(), New(n().TypeNat()))
+	return Define(n.TypeNat().TypeName(), New(n.TypeNat()))
 }
 
 // NATIVE SLICE VALUE CONSTRUCTOR
@@ -138,30 +141,25 @@ func (n NativeCol) Call(args ...Expression) Expression {
 		}
 		return NewNative(n(nats...).(d.Sliceable).Slice()...)
 	}
-	return NewNative(n())
+	return n
 }
 func (n NativeCol) TypeFnc() TyFnc                 { return Data }
-func (n NativeCol) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
+func (n NativeCol) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n NativeCol) Len() int                       { return n().Len() }
 func (n NativeCol) SliceNat() []d.Native           { return n().Slice() }
 func (n NativeCol) Get(key d.Native) d.Native      { return n().Get(key) }
 func (n NativeCol) GetInt(idx int) d.Native        { return n().GetInt(idx) }
-func (n NativeCol) Range(s, e int) d.Native        { return n().Range(s, e) }
+func (n NativeCol) Range(s, e int) d.Sliceable     { return n().Range(s, e) }
+func (n NativeCol) Empty() bool                    { return n().Empty() }
 func (n NativeCol) Copy() d.Native                 { return n().Copy() }
 func (n NativeCol) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n NativeCol) ElemType() d.TyNat              { return n().ElemType() }
 func (n NativeCol) String() string                 { return n().String() }
 func (n NativeCol) TypeName() string               { return n().TypeName() }
-func (n NativeCol) Vector() VecCol                 { return NewVector(n.Slice()...) }
 func (n NativeCol) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (n NativeCol) Slice() []d.Native              { return n().Slice() }
 func (n NativeCol) Type() TyDef {
-	return Define(n().TypeName(), NewNative(n()))
-}
-func (n NativeCol) Slice() []Expression {
-	var slice = []Expression{}
-	for _, val := range n.SliceNat() {
-		slice = append(slice, NewNative(val))
-	}
-	return slice
+	return Define(n.ElemType().TypeName(), n)
 }
 
 func (n NativeUbox) Call(args ...Expression) Expression {
@@ -170,32 +168,27 @@ func (n NativeUbox) Call(args ...Expression) Expression {
 		for _, arg := range args {
 			nats = append(nats, arg.Eval())
 		}
-		return NewNative(n(nats...).(d.Sliceable).Slice()...)
+		return NewNative(nats...)
 	}
-	return NewNative(n())
+	return n
 }
-func (n NativeUbox) TypeFnc() TyFnc                 { return Data }
-func (n NativeUbox) Eval(args ...d.Native) d.Native { return n().Eval(args...) }
-func (n NativeUbox) Len() int                       { return n().Len() }
-func (n NativeUbox) Get(key d.Native) d.Native      { return n().Get(key) }
-func (n NativeUbox) GetInt(idx int) d.Native        { return n().GetInt(idx) }
-func (n NativeUbox) Range(s, e int) d.Native        { return n().Range(s, e) }
-func (n NativeUbox) Copy() d.Native                 { return n().Copy() }
-func (n NativeUbox) TypeNat() d.TyNat               { return n().TypeNat() }
-func (n NativeUbox) TypeName() string               { return n().TypeName() }
-func (n NativeUbox) Vector() VecCol                 { return NewVector(n.Slice()...) }
-func (n NativeUbox) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (n NativeUbox) SliceNat() []d.Native           { return n().Slice() }
-func (n NativeUbox) String() string                 { return n().String() }
+func (n NativeUbox) TypeFnc() TyFnc                         { return Data }
+func (n NativeUbox) Eval(args ...d.Native) d.Native         { return n(args...) }
+func (n NativeUbox) Len() int                               { return n().Len() }
+func (n NativeUbox) Get(key d.Native) d.Native              { return n().Get(key) }
+func (n NativeUbox) GetInt(idx int) d.Native                { return n().GetInt(idx) }
+func (n NativeUbox) Range(s, e int) d.Sliceable             { return n().Range(s, e) }
+func (n NativeUbox) Copy() d.Native                         { return n().Copy() }
+func (n NativeUbox) Empty() bool                            { return n().Empty() }
+func (n NativeUbox) Interface(args ...d.Native) d.Sliceable { return n().Interface(args...) }
+func (n NativeUbox) Slice() []d.Native                      { return n().Slice() }
+func (n NativeUbox) TypeNat() d.TyNat                       { return n().TypeNat() }
+func (n NativeUbox) ElemType() d.TyNat                      { return n().ElemType() }
+func (n NativeUbox) TypeName() string                       { return n().TypeName() }
+func (n NativeUbox) FlagType() d.Uint8Val                   { return Flag_Functional.U() }
+func (n NativeUbox) String() string                         { return n().String() }
 func (n NativeUbox) Type() TyDef {
-	return Define(n().ElemType().TypeName(), NewNative(n()))
-}
-func (n NativeUbox) Slice() []Expression {
-	var slice = []Expression{}
-	for _, val := range n().Slice() {
-		slice = append(slice, NewNative(val))
-	}
-	return slice
+	return Define(n().TypeName(), n)
 }
 
 // NATIVE PAIR VALUE CONSTRUCTOR
@@ -204,7 +197,7 @@ func (n NativePair) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		nats = append(nats, arg.Eval())
 	}
-	return NewNative(n(nats...))
+	return NewNative(nats...)
 }
 func (n NativePair) TypeFnc() TyFnc                 { return Data }
 func (n NativePair) TypeNat() d.TyNat               { return n().TypeNat() }
@@ -221,7 +214,7 @@ func (n NativePair) TypeName() string               { return n().TypeName() }
 func (n NativePair) FlagType() d.Uint8Val           { return Flag_Functional.U() }
 func (n NativePair) String() string                 { return n().String() }
 func (n NativePair) Type() TyDef {
-	return Define(n().TypeName(), NewNative(n()))
+	return Define(n().TypeName(), NewNative(n.TypeNat()))
 }
 func (n NativePair) Pair() Paired {
 	return NewPair(

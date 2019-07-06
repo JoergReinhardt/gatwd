@@ -145,7 +145,7 @@ func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
 	// if type of value a has higher precedence‥.
 	if a.TypeNat().Flag() > b.TypeNat().Flag() {
 		// convert b's type to match a's type‥.
-		b = castNumberAs(
+		b = CastNumeral(
 			b.(Numeral),
 			a.TypeNat(),
 		).(Numeral)
@@ -155,7 +155,7 @@ func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
 		// reset return type to be b's native type
 		typ = b.TypeNat()
 		// convert a's type to match b's type‥.
-		a = castNumberAs(
+		a = CastNumeral(
 			a.(Numeral),
 			b.TypeNat(),
 		).(Numeral)

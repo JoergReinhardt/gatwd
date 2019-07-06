@@ -173,10 +173,10 @@ func TestPartial(t *testing.T) {
 	fmt.Printf("string vector: %s type: %s type name: %s\n",
 		sv7, sv7.TypeFnc(), sv7.TypeName())
 	fmt.Printf("string vector: %s type: %s type name: %s\n",
-		sv8, sv8.TypeFnc(), sv8.TypeName())
+		sv8, sv8.TypeFnc(), sv8.Type().Name())
 
-	fmt.Printf("vector head: %s head type: %s type name: %s\n",
-		sv8.(VecCol).Ident().TypeName(), sv8.(VecCol).Head().TypeFnc(), sv8.(VecCol).TypeElem().TypeName())
+	fmt.Printf("vector head: %s head type name: %s type name: %s\n",
+		sv8.(VecCol).Ident().TypeName(), sv8.(VecCol).Head().TypeName(), sv8.(VecCol).TypeElem().TypeName())
 }
 
 func TestTuple(t *testing.T) {

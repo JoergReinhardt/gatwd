@@ -12,7 +12,7 @@ import (
 )
 
 // converts a numeral to an instance of another numeral type
-func castNumberAs(num Numeral, typ TyNat) Native {
+func CastNumeral(num Numeral, typ TyNat) Native {
 	if typ.Match(Numbers) {
 		switch typ {
 		case BigInt:
@@ -90,9 +90,17 @@ func castNumberAs(num Numeral, typ TyNat) Native {
 }
 
 // BOOL VALUE
-func (v BoolVal) Unit() Native { return BoolVal(true) }
-func (v BoolVal) Int() IntVal  { return IntVal(v.GoInt()) }
-func (b BoolVal) GoBool() bool { return bool(b) }
+func (v BoolVal) Ratio() *RatioVal     { return v.IntVal().Ratio() }
+func (v BoolVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
+func (v BoolVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.Int())) }
+func (v BoolVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
+func (v BoolVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
+func (v BoolVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
+func (v BoolVal) Unit() Native         { return BoolVal(true) }
+func (v BoolVal) Int() IntVal          { return IntVal(v.GoInt()) }
+func (v BoolVal) Idx() int             { return int(v.Int()) }
+func (v BoolVal) GoFlt() float64       { return float64(v.Float()) }
+func (v BoolVal) GoImag() complex128   { return complex128(v.Imag()) }
 func (v BoolVal) GoUint() uint {
 	if v {
 		return 1
@@ -111,17 +119,8 @@ func (v BoolVal) IntVal() IntVal {
 	}
 	return IntVal(-1)
 }
-func (v BoolVal) Float() FltVal        { return v.IntVal().Float() }
-func (v BoolVal) Imag() ImagVal        { return v.IntVal().Imag() }
-func (v BoolVal) Ratio() *RatioVal     { return v.IntVal().Ratio() }
-func (v BoolVal) Idx() int             { return int(v.Int()) }
-func (v BoolVal) GoFlt() float64       { return float64(v.Float()) }
-func (v BoolVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v BoolVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v BoolVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.Int())) }
-func (v BoolVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v BoolVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v BoolVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
+func (v BoolVal) Float() FltVal { return v.IntVal().Float() }
+func (v BoolVal) Imag() ImagVal { return v.IntVal().Imag() }
 
 // NATURAL VALUE
 func (v UintVal) Idx() int             { return int(v.Int()) }
@@ -153,8 +152,6 @@ func (v UintVal) BoolVal() Native {
 }
 
 // INTEGER VALUE
-func (v IntVal) IntVal() IntVal       { return v }
-func (v IntVal) Unit() Native         { return IntVal(1) }
 func (v IntVal) GoInt() int           { return int(v) }
 func (v IntVal) GoFlt() float64       { return float64(v) }
 func (v IntVal) GoUint() uint         { return uint(v) }
@@ -164,6 +161,8 @@ func (v IntVal) GoBigInt() *big.Int   { return big.NewInt(int64(v)) }
 func (v IntVal) GoBigFlt() *big.Float { return big.NewFloat(float64(v)) }
 func (v IntVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
 func (v IntVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
+func (v IntVal) Unit() Native         { return IntVal(1) }
+func (v IntVal) IntVal() IntVal       { return v }
 func (v IntVal) Float() FltVal        { return FltVal(float64(v)) }
 func (v IntVal) Imag() ImagVal        { return ImagVal(complex(v.Float(), 1.0)) }
 func (v IntVal) Idx() int             { return int(v) }
@@ -302,9 +301,6 @@ func (v ImagVal) Bool() BoolVal {
 
 /// BIG INT VALUE
 func (v *BigIntVal) Int64() int64        { return v.Int64() }
-func (v BigIntVal) Int() IntVal          { return IntVal(int(v.Int64())) }
-func (v BigIntVal) Uint() UintVal        { return UintVal(uint(v.GoBigInt().Uint64())) }
-func (v BigIntVal) Float() FltVal        { return FltVal(float64(v.GoFlt())) }
 func (v BigIntVal) Idx() int             { return int(v.Int()) }
 func (v BigIntVal) GoInt() int           { return int(v.Int()) }
 func (v BigIntVal) GoUint() uint         { return uint(v.Uint()) }
@@ -316,6 +312,9 @@ func (v BigIntVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
 func (v BigIntVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
 func (v BigIntVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
 func (v BigIntVal) Bool() BoolVal        { return IntVal(v.Int()).Bool() }
+func (v BigIntVal) Int() IntVal          { return IntVal(int(v.Int64())) }
+func (v BigIntVal) Uint() UintVal        { return UintVal(uint(v.GoBigInt().Uint64())) }
+func (v BigIntVal) Float() FltVal        { return FltVal(float64(v.GoFlt())) }
 func (v BigIntVal) Ratio() *RatioVal     { return IntVal(v.Int()).Ratio() }
 func (v BigIntVal) Imag() ImagVal        { return IntVal(v.Int()).Imag() }
 
@@ -389,6 +388,8 @@ func (v ByteVal) Bool() bool {
 	return false
 }
 func (v ByteVal) Idx() int             { return int(v.Int()) }
+func (v ByteVal) String() string       { return string(v.Bytes()) }
+func (v ByteVal) GoByte() byte         { return byte(v) }
 func (v ByteVal) GoInt() int           { return int(v.Int()) }
 func (v ByteVal) GoUint() uint         { return uint(v.Uint()) }
 func (v ByteVal) GoFlt() float64       { return float64(v.Float()) }
@@ -398,8 +399,6 @@ func (v ByteVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.GoInt())) }
 func (v ByteVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
 func (v ByteVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
 func (v ByteVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v ByteVal) String() string       { return string(v.Bytes()) }
-func (v ByteVal) GoByte() byte         { return byte(v) }
 func (v ByteVal) Bytes() BytesVal      { return BytesVal([]byte{v.GoByte()}) }
 func (v ByteVal) Unit() Native         { return ByteVal(byte(0)) }
 func (v ByteVal) Uint() UintVal        { return UintVal(uint(v)) }
@@ -412,11 +411,11 @@ func (v ByteVal) Rune() RuneVal        { return RuneVal(rune(v.Byte())) }
 func (v ByteVal) Len() IntVal          { return IntVal(bits.Len8(uint8(v.Uint()))) }
 
 /// BYTE SLICE VALUE
+func (v BytesVal) String() string            { return string(v) }
 func (v BytesVal) GoBytes() []byte           { return []byte(v) }
 func (v BytesVal) GoRunes() []rune           { return []rune(v.String()) }
 func (v BytesVal) ByteBuffer() *bytes.Buffer { return bytes.NewBuffer(v) }
 func (v BytesVal) ByteReader() io.ByteReader { return bytes.NewReader(v) }
-func (v BytesVal) String() string            { return string(v) }
 func (v BytesVal) StrVal() StrVal            { return StrVal(v.String()) }
 func (v BytesVal) Unit() BytesVal            { return BytesVal([]byte{byte(0)}) }
 func (v BytesVal) Bytes() ByteVec            { return ByteVec(v) }
