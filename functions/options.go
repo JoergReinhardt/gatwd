@@ -8,13 +8,13 @@ type (
 	//// NONE VALUE CONSTRUCTOR
 	NoneVal func()
 	//// TRUTH VALUE CONSTRUCTOR
-	TestExpr func(...Expression) TyFnc
+	TestExpr func(...Expression) Typed
 	// OPTION VALUE CONSTRUCTOR
 	OptionVal func(...Expression) Expression
 
 	//// CASE & SWITCH TYPE CONSTRUCTORS
 	CaseExpr   func(...Expression) (Expression, bool)
-	CaseSwitch func(...Expression) (Expression, Expression, bool)
+	CaseSwitch func(...Expression) (Expression, CaseSwitch, bool)
 
 	//// OPTION TYPE CONSTRUCTOR
 	OptionType func(...Expression) OptionVal
@@ -51,20 +51,37 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTruthTest(test func(...Expression) bool) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewTestTruth(name string, test func(...Expression) bool, paratypes ...Expression) TestExpr {
+
+	if name == "" {
+		name = "Truth"
+	}
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
+
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) {
 				return True
+
 			}
 			return False
 		}
-		return Truth
+		return Define(name, Truth, paratypes...)
 	}
 }
 
-func NewTrinaryTest(test func(...Expression) int) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expression) TestExpr {
+
+	if name == "" {
+		name = "Trinary"
+	}
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
+
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
 				return True
@@ -74,12 +91,20 @@ func NewTrinaryTest(test func(...Expression) int) TestExpr {
 			}
 			return Undecided
 		}
-		return Trinary
+		return Define(name, Trinary, paratypes...)
 	}
 }
 
-func NewCompareTest(test func(...Expression) int) TestExpr {
-	return func(args ...Expression) TyFnc {
+func NewTestCompare(name string, test func(...Expression) int, paratypes ...Expression) TestExpr {
+
+	if name == "" {
+		name = "Compare"
+	}
+	if len(paratypes) == 0 {
+		paratypes = append(paratypes, Type)
+	}
+
+	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
 				return Greater
@@ -89,62 +114,53 @@ func NewCompareTest(test func(...Expression) int) TestExpr {
 			}
 			return Equal
 		}
-		return Compare
+		return Define(name, Compare, paratypes...)
 	}
 }
-
-func (t TestExpr) Call(args ...Expression) Expression { return t(args...) }
-func (t TestExpr) String() string                     { return t().TypeName() }
-func (t TestExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (t TestExpr) TypeNat() d.TyNat                   { return d.Function }
-func (t TestExpr) TypeFnc() TyFnc                     { return t() }
-func (t TestExpr) Eval(args ...d.Native) d.Native {
-	if t() == Compare {
-		if t(NewNative(args...)).TypeFnc() == Lesser {
-			return d.IntVal(-1)
-		}
-		if t(NewNative(args...)).TypeFnc() == Equal {
-			return d.IntVal(0)
-		}
-		if t(NewNative(args...)).TypeFnc() == Greater {
-			return d.IntVal(1)
-		}
+func (t TestExpr) Type() TyDef    { return t().(TyDef) }
+func (t TestExpr) TypeFnc() TyFnc { return t.Type().Return().(TyFnc) }
+func (t TestExpr) TypeNat() d.TyNat {
+	if t.TypeFnc() == Compare {
+		return d.Int
 	}
-	if t(NewNative(args...)).TypeFnc() == True {
-		return d.BoolVal(true)
-	}
-	if t(NewNative(args...)).TypeFnc() == False {
-		return d.BoolVal(false)
-	}
-	return d.NewNil()
+	return d.Bool
 }
 
 func (t TestExpr) TypeName() string {
-	if t() == Compare {
-		return "Ord → Compare → Lesser | Greater | Equal"
+	return t.Type().Name() + " → " + t.Type().Return().TypeName()
+}
+func (t TestExpr) String() string       { return t.TypeName() }
+func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (t TestExpr) Call(args ...Expression) Expression {
+	if t.TypeFnc() == Compare {
+		return NewNative(d.IntVal(t.Compare(args...)))
 	}
-	if t() == Trinary {
-		return "[T] → Trinary Truth → True | Undecided | False"
-	}
-	return "[T] → Truth → True | False"
+	return NewNative(d.BoolVal(t.Test(args...)))
 }
 
-func (t TestExpr) Type() TyDef { return Define(t().TypeName(), t()) }
+func (t TestExpr) Eval(nats ...d.Native) d.Native {
+	var args = make([]Expression, 0, len(nats))
+	for _, nat := range nats {
+		args = append(args, NewNative(nat))
+	}
+	if t.TypeFnc() == Compare {
+		return d.IntVal(t.Compare(args...))
+	}
+	return d.IntVal(t.Compare(args...))
+}
 
 func (t TestExpr) Test(args ...Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(args...) == Lesser || t(args...) == Greater {
 			return false
-		}
-		if t(args...) == Equal {
+		} else {
 			return true
 		}
 	}
-	if t() == Trinary {
+	if t.TypeFnc() == Trinary {
 		if t(args...) == False || t(args...) == Undecided {
 			return false
-		}
-		if t(args...) == True {
+		} else {
 			return true
 		}
 	}
@@ -155,25 +171,23 @@ func (t TestExpr) Test(args ...Expression) bool {
 }
 
 func (t TestExpr) Compare(args ...Expression) int {
-	if t() == Compare {
-		if t(args...) == Lesser {
+	if t.TypeFnc() == Compare {
+		switch t(args...) {
+		case Lesser:
 			return -1
-		}
-		if t(args...) == Equal {
+		case Equal:
 			return 0
-		}
-		if t(args...) == Greater {
+		case Greater:
 			return 1
 		}
 	}
-	if t() == Trinary {
-		if t(args...) == False {
+	if t.TypeFnc() == Trinary {
+		switch t(args...) {
+		case False:
 			return -1
-		}
-		if t(args...) == Undecided {
+		case Undecided:
 			return 0
-		}
-		if t(args...) == True {
+		case True:
 			return 1
 		}
 	}
@@ -184,7 +198,7 @@ func (t TestExpr) Compare(args ...Expression) int {
 }
 
 func (t TestExpr) True(arg Expression) bool {
-	if t() == Truth || t() == Trinary {
+	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == True {
 			return true
 		}
@@ -193,7 +207,7 @@ func (t TestExpr) True(arg Expression) bool {
 }
 
 func (t TestExpr) False(arg Expression) bool {
-	if t() == Truth || t() == Trinary {
+	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == False {
 			return true
 		}
@@ -202,7 +216,7 @@ func (t TestExpr) False(arg Expression) bool {
 }
 
 func (t TestExpr) Undecided(arg Expression) bool {
-	if t() == Trinary {
+	if t.TypeFnc() == Trinary {
 		if t(arg) == Undecided {
 			return true
 		}
@@ -211,7 +225,7 @@ func (t TestExpr) Undecided(arg Expression) bool {
 }
 
 func (t TestExpr) Lesser(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Lesser {
 			return true
 		}
@@ -220,7 +234,7 @@ func (t TestExpr) Lesser(arg Expression) bool {
 }
 
 func (t TestExpr) Greater(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Greater {
 			return true
 		}
@@ -229,7 +243,7 @@ func (t TestExpr) Greater(arg Expression) bool {
 }
 
 func (t TestExpr) Equal(arg Expression) bool {
-	if t() == Compare {
+	if t.TypeFnc() == Compare {
 		if t(arg) == Equal {
 			return true
 		}
@@ -237,55 +251,77 @@ func (t TestExpr) Equal(arg Expression) bool {
 	return false
 }
 
-//// CASE EXPRESSION & SWITCH
+//// CASE EXPRESSION CONSTRUCTOR
 ///
-// eval converts its arguments to callable and evaluates the result to yield a
-// return value of native type
-func NewCase(test TestExpr, exprs ...Expression) CaseExpr {
+// takes a test expression and an expression to apply arguments to and return
+// result from, if arguments applyed to the test expression returned true.
+func NewCase(test TestExpr, expr Expression) CaseExpr {
 
-	// allocate expression, curry multiple expressions are passed
-	var expr Expression
-	if len(exprs) > 0 {
-		expr = Curry(exprs...)
+	// generate expression to return arguments, when none has been passed
+	if expr == nil {
+		expr = NewGeneric(func(args ...Expression) Expression {
+			switch len(args) {
+			case 1:
+				return args[0]
+			case 2:
+				return NewPair(
+					args[0],
+					args[1])
+			}
+			return NewVector(args...)
+		}, "Return", Type)
 	}
 
+	// construct case type definition
+	var pattern = expr.Type().Pattern()
+	if len(pattern) == 0 {
+		pattern = []Expression{Type}
+	}
+	var typed = Define(test.Type().Name(),
+		expr.Type().Return(), pattern...)
+
+	// construct case type name
+	var ldel, rdel = "(", ")"
+	var name = NewNative(d.StrVal(
+		ldel + expr.Type().PatternName() + " → " +
+			typed.Name() + " ⇒ " +
+			expr.Type().Name() + " → " +
+			expr.Type().ReturnName() + rdel,
+	))
+
+	// return constructed case expression
 	return func(args ...Expression) (Expression, bool) {
+
 		if len(args) > 0 {
 			if test.Test(args...) {
-				if expr != nil {
-					return expr.Call(args...), true
-				}
-				return NewVector(args...), true
-			}
-			if expr != nil {
-				return NewVector(args...), false
+				return expr.Call(args...), true
 			}
 			return NewVector(args...), false
 		}
-		if expr != nil {
-			return NewPair(test, expr), false
-		}
-		return NewPair(test, NewNone()), false
+		// return test, expression, type & name
+		return NewVector(test, expr, typed, name), false
 	}
 }
-
+func (s CaseExpr) Test() TestExpr {
+	var vec, _ = s()
+	return vec.(VecCol)()[0].(TestExpr)
+}
+func (s CaseExpr) Expr() Expression {
+	var vec, _ = s()
+	return vec.(VecCol)()[1]
+}
+func (s CaseExpr) Type() TyDef {
+	var vec, _ = s()
+	return vec.(VecCol)()[2].(TyDef)
+}
+func (s CaseExpr) TypeName() string {
+	var vec, _ = s()
+	return vec.(VecCol)()[3].String()
+}
+func (s CaseExpr) String() string       { return s.TypeName() }
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
 func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseExpr) String() string       { return s.TypeName() }
-func (s CaseExpr) Test() TestExpr {
-	var pair, _ = s()
-	return pair.(Paired).Left().(TestExpr)
-}
-func (s CaseExpr) Expr() Expression {
-	var pair, _ = s()
-	return pair.(Paired).Right()
-}
-func (s CaseExpr) Type() TyDef {
-	var typ TyDef
-	return typ
-}
-func (s CaseExpr) TypeName() string { return s.Type().TypeName() }
 func (s CaseExpr) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))
@@ -320,12 +356,11 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 
 // arbitrary typed switch constructor, to eliminate looping and reallocation of
 // case expressions intendet to be stored as consumeable vector
-func conSwitch(exprs ...Expression) CaseSwitch {
+func conSwitch(caseset ...Expression) CaseSwitch {
 
-	var cases = NewVector(exprs...)
+	return func(args ...Expression) (Expression, CaseSwitch, bool) {
 
-	return func(args ...Expression) (Expression, Expression, bool) {
-
+		var cases = NewVector(caseset...)
 		var head Expression
 		var current CaseExpr
 		var arguments VecCol
@@ -348,12 +383,10 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 					// replenish case list for switch
 					// instance reusal (in case switch gets
 					// called empty to retrieve case list)
-					cases = NewVector(exprs...)
+					cases = NewVector(caseset...)
 					// return result, current case and
 					// arguments that where passed.
-					return result, NewPair(
-							current, arguments),
-						true
+					return result, conSwitch(caseset...), true
 				}
 				//// FAILED CASE EVALUATION ///
 				///
@@ -361,7 +394,8 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 				// the list of completed cases
 				completed = completed.Append(
 					NewPair(current, arguments))
-				return NewPair(current, arguments),
+
+				return completed,
 					conSwitch(cases()...),
 					false
 			}
@@ -369,7 +403,7 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 			///
 			// replenish cases for switch reusal and return
 			// replenished switch instance for eventual reuse.
-			cases = NewVector(exprs...)
+			cases = NewVector(caseset...)
 			return nil, conSwitch(cases()...), false
 		}
 		//// CALLED WITH EMPTY ARGUMENT SET ////
@@ -377,31 +411,32 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 		// when called without arguments, return list of all defined
 		// cases and log of cases completed so far, including arguments
 		// that where passed to those cases for evaluation.
-		return nil, NewPair(cases, completed), false
+		return cases, conSwitch(caseset...), false
 	}
 }
-
-func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
-func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
-func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseSwitch) String() string       { return s.TypeName() }
+func (s CaseSwitch) Cases() VecCol {
+	var cases, _, _ = s()
+	return cases.(VecCol)
+}
 func (s CaseSwitch) Type() TyDef {
 	return Define(s.TypeName(), s.TypeFnc())
 }
 func (s CaseSwitch) TypeName() string {
 	return "[T] → (Case Switch) → (T, [T]) "
 }
+func (s CaseSwitch) String() string       { return s.TypeName() }
+func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
+func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
+func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
 
-//// TEST ALL CASES AGAINS ARGUMENT SET
-///
 // test one set of arguments against all cases until either successful result
 // is yielded, or all cases are depleted. gets called by eval & call methods.
 // when called without arguments, list of all cases and list of completed
 // cases, including former call arguments will be returned.
 func (s CaseSwitch) TestAllCases(args ...Expression) (Expression, Expression) {
+	var ok bool
 	var result, caseargs Expression
 	if len(args) > 0 {
-		var ok bool
 		result, caseargs, ok = s(args...)
 		for result != nil {
 			if ok {
@@ -411,11 +446,8 @@ func (s CaseSwitch) TestAllCases(args ...Expression) (Expression, Expression) {
 		}
 		return nil, caseargs
 	}
-	result, caseargs, _ = s()
 	return result, caseargs
 }
-
-// evaluate arguments against case
 func (s CaseSwitch) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var result, _ = s.TestAllCases(args...)
@@ -425,8 +457,6 @@ func (s CaseSwitch) Call(args ...Expression) Expression {
 	}
 	return NewNone()
 }
-
-// evaluate passed native arguments against case
 func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
 	if len(nats) > 0 {
 		var args = make([]Expression, 0, len(nats))

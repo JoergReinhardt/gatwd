@@ -106,6 +106,7 @@ type Paired interface {
 	Both() (Native, Native)
 	LeftType() TyNat
 	RightType() TyNat
+	Interface(...Native) Paired
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -126,7 +127,8 @@ type Sliceable interface {
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
-	SubType() TyNat
+	ElemType() TyNat
+	Interface(...Native) Sliceable
 }
 
 type Mutable interface {
@@ -147,6 +149,7 @@ type Sequential interface {
 // mapped is the interface of all sets, that have accessors (index, or key)
 type Mapped interface {
 	Native
+	Sliced
 	Len() int
 	Keys() []Native
 	Data() []Native
@@ -156,4 +159,5 @@ type Mapped interface {
 	Set(Native, Native) Mapped
 	KeyType() TyNat
 	ValType() TyNat
+	Interface(...Native) Mapped
 }

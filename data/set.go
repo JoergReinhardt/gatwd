@@ -3,12 +3,13 @@ package data
 func NewPair(l, r Native) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) Left() Native           { return p.L }
-func (p PairVal) Right() Native          { return p.R }
-func (p PairVal) Both() (Native, Native) { return p.L, p.R }
-func (p PairVal) TypeNat() TyNat         { return Pair.TypeNat() }
-func (p PairVal) LeftType() TyNat        { return p.L.TypeNat() }
-func (p PairVal) RightType() TyNat       { return p.R.TypeNat() }
+func (p PairVal) Interface(args ...Native) Paired { return p.Eval(args...).(Paired) }
+func (p PairVal) Left() Native                    { return p.L }
+func (p PairVal) Right() Native                   { return p.R }
+func (p PairVal) Both() (Native, Native)          { return p.L, p.R }
+func (p PairVal) TypeNat() TyNat                  { return Pair.TypeNat() }
+func (p PairVal) LeftType() TyNat                 { return p.L.TypeNat() }
+func (p PairVal) RightType() TyNat                { return p.R.TypeNat() }
 func (p PairVal) TypeName() string {
 	return "(" + p.Left().TypeName() +
 		"," + p.Right().TypeName() + ")"
@@ -45,7 +46,8 @@ func (s SetVal) Eval(p ...Native) Native {
 	return s
 }
 
-func (s SetVal) TypeNat() TyNat { return Map.TypeNat() }
+func (s SetVal) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
+func (s SetVal) TypeNat() TyNat                  { return Map.TypeNat() }
 func (s SetVal) first() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -72,6 +74,14 @@ func (s SetVal) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetVal) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetVal) Fields() []Paired {
@@ -109,6 +119,7 @@ func NewStringSet(acc ...Paired) Mapped {
 	return SetString(m)
 }
 
+func (s SetString) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
 func (s SetString) Eval(p ...Native) Native {
 	if len(p) > 0 {
 		for _, prime := range p {
@@ -152,6 +163,14 @@ func (s SetString) Data() []Native {
 	return dat
 }
 
+func (s SetString) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetString) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -187,6 +206,7 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
+func (s SetInt) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
 func (s SetInt) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -230,6 +250,14 @@ func (s SetInt) Data() []Native {
 	return dat
 }
 
+func (s SetInt) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetInt) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -271,10 +299,11 @@ func (s SetUint) First() Paired {
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetUint) TypeName() string { return typeNameSet(s) }
-func (s SetUint) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetUint) KeyType() TyNat   { return Uint.TypeNat() }
-func (s SetUint) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetUint) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
+func (s SetUint) TypeName() string                { return typeNameSet(s) }
+func (s SetUint) TypeNat() TyNat                  { return Map.TypeNat() }
+func (s SetUint) KeyType() TyNat                  { return Uint.TypeNat() }
+func (s SetUint) ValType() TyNat                  { return s.First().Right().TypeNat() }
 
 func (s SetUint) Eval(p ...Native) Native {
 	if len(p) > 0 {
@@ -306,6 +335,14 @@ func (s SetUint) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetUint) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetUint) Fields() []Paired {
@@ -343,7 +380,8 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) Len() int { return len(s) }
+func (s SetFloat) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
+func (s SetFloat) Len() int                        { return len(s) }
 
 func (s SetFloat) First() Paired {
 	if s.Len() > 0 {
@@ -386,6 +424,14 @@ func (s SetFloat) Data() []Native {
 	return dat
 }
 
+func (s SetFloat) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
+}
+
 func (s SetFloat) Fields() []Paired {
 	var pairs = []Paired{}
 	for k, d := range s {
@@ -421,6 +467,7 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
+func (s SetFlag) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
 func (s SetFlag) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -462,6 +509,14 @@ func (s SetFlag) Data() []Native {
 		dat = append(dat, d)
 	}
 	return dat
+}
+
+func (s SetFlag) Slice() []Native {
+	var native = []Native{}
+	for k, d := range s {
+		native = append(native, PairVal(PairVal{k, d}))
+	}
+	return native
 }
 
 func (s SetFlag) Fields() []Paired {

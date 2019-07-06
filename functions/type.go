@@ -119,9 +119,9 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, retype Expression, pattern ...Expression) TyDef {
+func Define(name string, retype Expression, paratypes ...Expression) TyDef {
 	return func() (string, []Expression) {
-		return name, append([]Expression{retype}, pattern...)
+		return name, append([]Expression{retype}, paratypes...)
 	}
 }
 
@@ -140,7 +140,7 @@ func (t TyDef) Pattern() []Expression {
 	if len(elems) > 1 {
 		return elems[1:]
 	}
-	return []Expression{}
+	return []Expression{Type}
 }
 func (t TyDef) Arity() Arity {
 	return Arity(len(t.Pattern()))
