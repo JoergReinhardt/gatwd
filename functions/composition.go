@@ -63,6 +63,12 @@ func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + "
 func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
 func (m ConsumeVal) TypeNat() d.TyNat     { return m.Head().TypeNat() }
+func (m ConsumeVal) TypeElem() Typed {
+	if head := m.Head(); head != nil {
+		return head.Type()
+	}
+	return None.Type()
+}
 func (m ConsumeVal) Type() TyDef {
 	return Define(m.TypeName(), m.Head().Type())
 }
@@ -84,9 +90,7 @@ func (m ConsumeVal) Tail() Consumeable {
 func (m ConsumeVal) Call(args ...Expression) Expression {
 	return m.Head().Call(args...)
 }
-func (m ConsumeVal) Eval(args ...d.Native) d.Native {
-	return m.Head().Eval()
-}
+func (m ConsumeVal) Eval() d.Native { return native(m) }
 func (m ConsumeVal) String() string {
 	return m.Head().String()
 }
@@ -128,10 +132,7 @@ func (c ConsPairVal) Call(args ...Expression) Expression {
 	}
 	return head
 }
-func (c ConsPairVal) Eval(args ...d.Native) d.Native {
-	var head, _ = c()
-	return head.Eval()
-}
+func (c ConsPairVal) Eval() d.Native { return native(c) }
 func (c ConsPairVal) Ident() Expression {
 	return c
 }
@@ -153,6 +154,12 @@ func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + 
 func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsPairVal) TypeNat() d.TyNat     { return c.Head().TypeNat() }
 func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
+func (c ConsPairVal) TypeElem() Typed {
+	if head := c.Head(); head != nil {
+		return head.Type()
+	}
+	return None.Type()
+}
 func (c ConsPairVal) Type() TyDef {
 	return Define(c.TypeName(), c.Head().Type())
 }

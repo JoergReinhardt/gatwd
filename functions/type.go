@@ -20,7 +20,6 @@ const (
 	Flag_BitFlag TyFlag = 0 + iota
 	Flag_Native
 	Flag_Functional
-	Flag_TypeCons
 	Flag_DataCons
 	Flag_Arity
 	Flag_Prop
@@ -114,6 +113,10 @@ const (
 
 	Collections = CollectSum | CollectProd
 
+	Pairs        = Pair | Index | Key
+	Consumeables = List | Vector | Collections
+	Nils         = Function | Tests | None | Branches
+
 	AllTypes = Kinds | Parameters | Tests |
 		Branches | Collections
 )
@@ -131,9 +134,10 @@ func (t TyDef) Elems() []Expression                { var _, expr = t(); return e
 func (t TyDef) Return() Expression                 { return t.Elems()[0] }
 func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (t TyDef) String() string                     { return t.Return().String() }
+func (t TyDef) Flag() d.BitFlag                    { return t.Return().TypeNat().Flag() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Return().TypeFnc() }
 func (t TyDef) TypeNat() d.TyNat                   { return t.Return().TypeNat() }
-func (t TyDef) Eval(args ...d.Native) d.Native     { return t.Return().Eval(args...) }
+func (t TyDef) Eval() d.Native                     { return t.TypeNat() }
 func (t TyDef) Call(args ...Expression) Expression { return t.Return().Call(args...) }
 func (t TyDef) Pattern() []Expression {
 	var elems = t.Elems()
@@ -196,7 +200,7 @@ func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() 
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Eval(args ...d.Native) d.Native     { return t.TypeNat() }
+func (t TyFnc) Eval() d.Native                     { return t.TypeNat() }
 func (t TyFnc) Type() TyDef                        { return Define(t.TypeName(), t) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
@@ -269,7 +273,7 @@ func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
 func (p Propertys) TypeFnc() TyFnc                     { return Type }
 func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
-func (p Propertys) Eval(args ...d.Native) d.Native     { return d.Int8Val(p) }
+func (p Propertys) Eval() d.Native                     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
 func (p Propertys) Type() TyDef {
 	return Define(p.TypeName(), Property)
@@ -295,12 +299,12 @@ const (
 	Denary
 )
 
-func (a Arity) Eval(args ...d.Native) d.Native { return a }
-func (a Arity) FlagType() d.Uint8Val           { return Flag_Arity.U() }
-func (a Arity) Int() int                       { return int(a) }
-func (a Arity) TypeFnc() TyFnc                 { return Type }
-func (a Arity) TypeNat() d.TyNat               { return d.Type }
-func (a Arity) Match(arg d.Typed) bool         { return a == arg }
-func (a Arity) TypeName() string               { return a.String() }
-func (a Arity) Call(...Expression) Expression  { return NewNative(a) }
-func (a Arity) Flag() d.BitFlag                { return d.BitFlag(a) }
+func (a Arity) Eval() d.Native                { return a }
+func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
+func (a Arity) Int() int                      { return int(a) }
+func (a Arity) TypeFnc() TyFnc                { return Type }
+func (a Arity) TypeNat() d.TyNat              { return d.Type }
+func (a Arity) Match(arg d.Typed) bool        { return a == arg }
+func (a Arity) TypeName() string              { return a.String() }
+func (a Arity) Call(...Expression) Expression { return NewNative(a) }
+func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }

@@ -31,13 +31,7 @@ func (t TyNat) TypeName() string {
 }
 func (v TyNat) Flag() BitFlag        { return BitFlag(v) }
 func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
-func (v TyNat) Eval(args ...Native) Native {
-	var nat = v
-	for _, arg := range args {
-		nat = nat | arg.TypeNat()
-	}
-	return nat
-}
+func (v TyNat) Eval() Native         { return v }
 
 func ListAllTypes() []TyNat {
 	var tt = []TyNat{}
@@ -339,9 +333,9 @@ func (v StrVal) Null() StrVal       { return StrVal(string("")) }
 func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
 
 /// bind the corresponding TypeNat Method to every type
-func (NilVal) TypeNat() TyNat      { return Nil.TypeNat() }
-func (v BitFlag) TypeNat() TyNat   { return Flag.TypeNat() }
-func (v FlagSlice) Flag() TyNat    { return Type.TypeNat() }
+func (v BitFlag) TypeNat() TyNat   { return Type }
+func (v FlagSlice) Flag() TyNat    { return Type | Slice }
+func (v NilVal) TypeNat() TyNat    { return Nil.TypeNat() }
 func (v BoolVal) TypeNat() TyNat   { return Bool.TypeNat() }
 func (v IntVal) TypeNat() TyNat    { return Int.TypeNat() }
 func (v Int8Val) TypeNat() TyNat   { return Int8.TypeNat() }
@@ -454,29 +448,29 @@ func (v TimeVal) Ident() TimeVal     { return v }
 func (v DuraVal) Ident() DuraVal     { return v }
 func (v ErrorVal) Ident() ErrorVal   { return v }
 
-func (NilVal) Eval(...Native) Native      { return NilVal{} }
-func (v BitFlag) Eval(...Native) Native   { return v }
-func (v BoolVal) Eval(...Native) Native   { return v }
-func (v IntVal) Eval(...Native) Native    { return v }
-func (v Int8Val) Eval(...Native) Native   { return v }
-func (v Int16Val) Eval(...Native) Native  { return v }
-func (v Int32Val) Eval(...Native) Native  { return v }
-func (v UintVal) Eval(...Native) Native   { return v }
-func (v Uint8Val) Eval(...Native) Native  { return v }
-func (v Uint16Val) Eval(...Native) Native { return v }
-func (v Uint32Val) Eval(...Native) Native { return v }
-func (v BigIntVal) Eval(...Native) Native { return v }
-func (v FltVal) Eval(...Native) Native    { return v }
-func (v Flt32Val) Eval(...Native) Native  { return v }
-func (v BigFltVal) Eval(...Native) Native { return v }
-func (v ImagVal) Eval(...Native) Native   { return v }
-func (v Imag64Val) Eval(...Native) Native { return v }
-func (v RatioVal) Eval(...Native) Native  { return v }
-func (v RuneVal) Eval(...Native) Native   { return v }
-func (v ByteVal) Eval(...Native) Native   { return v }
-func (v BytesVal) Eval(...Native) Native  { return v }
-func (v StrVal) Eval(...Native) Native    { return v }
-func (v TimeVal) Eval(...Native) Native   { return v }
-func (v DuraVal) Eval(...Native) Native   { return v }
-func (v PairVal) Eval(...Native) Native   { return v }
-func (v ErrorVal) Eval(...Native) Native  { return v }
+func (NilVal) Eval() Native      { return NilVal{} }
+func (v BitFlag) Eval() Native   { return v }
+func (v BoolVal) Eval() Native   { return v }
+func (v IntVal) Eval() Native    { return v }
+func (v Int8Val) Eval() Native   { return v }
+func (v Int16Val) Eval() Native  { return v }
+func (v Int32Val) Eval() Native  { return v }
+func (v UintVal) Eval() Native   { return v }
+func (v Uint8Val) Eval() Native  { return v }
+func (v Uint16Val) Eval() Native { return v }
+func (v Uint32Val) Eval() Native { return v }
+func (v BigIntVal) Eval() Native { return v }
+func (v FltVal) Eval() Native    { return v }
+func (v Flt32Val) Eval() Native  { return v }
+func (v BigFltVal) Eval() Native { return v }
+func (v ImagVal) Eval() Native   { return v }
+func (v Imag64Val) Eval() Native { return v }
+func (v RatioVal) Eval() Native  { return v }
+func (v RuneVal) Eval() Native   { return v }
+func (v ByteVal) Eval() Native   { return v }
+func (v BytesVal) Eval() Native  { return v }
+func (v StrVal) Eval() Native    { return v }
+func (v TimeVal) Eval() Native   { return v }
+func (v DuraVal) Eval() Native   { return v }
+func (v PairVal) Eval() Native   { return v }
+func (v ErrorVal) Eval() Native  { return v }

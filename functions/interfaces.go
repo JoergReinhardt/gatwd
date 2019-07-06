@@ -18,12 +18,12 @@ type Typed interface {
 }
 
 type Evaluable interface {
-	Eval(...d.Native) d.Native
+	Eval() d.Native
 }
 
 type Expression interface {
-	Typed
 	Evaluable
+	Typed
 	Call(...Expression) Expression
 	TypeNat() d.TyNat
 	String() string
@@ -152,6 +152,7 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
+	TypeElem() Typed
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)

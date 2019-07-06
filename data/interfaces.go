@@ -6,7 +6,7 @@ import (
 
 // the main interface, all native types need to implement.
 type Native interface {
-	Eval(...Native) Native
+	Eval() Native
 	TypeNat() TyNat
 	String() string
 	TypeName() string
@@ -107,7 +107,6 @@ type Paired interface {
 	Both() (Native, Native)
 	LeftType() TyNat
 	RightType() TyNat
-	Interface(...Native) Paired
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -117,6 +116,12 @@ type Composed interface {
 }
 
 // a slice know's it's length and can be represented in as indexable.
+type Sequential interface {
+	Composed
+	Head() Native
+	Tail() Sequential
+	Shift() Sequential
+}
 type Sliced interface {
 	Slice() []Native
 }
@@ -129,22 +134,12 @@ type Sliceable interface {
 	GetInt(int) Native
 	Range(s, e int) Sliceable
 	ElemType() TyNat
-	Interface(...Native) Sliceable
 }
 
 type Mutable interface {
 	Sliceable
 	Set(s, arg Native)
 	SetInt(int, Native)
-}
-
-// slices and set's convieniently 'mimic' the behaviour of linked list's common
-// in functional programming.
-type Sequential interface {
-	Composed
-	Head() Native
-	Tail() Sequential
-	Shift() Sequential
 }
 
 // mapped is the interface of all sets, that have accessors (index, or key)
@@ -160,5 +155,4 @@ type Mapped interface {
 	Set(Native, Native) Mapped
 	KeyType() TyNat
 	ValType() TyNat
-	Interface(...Native) Mapped
 }

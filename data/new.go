@@ -215,6 +215,10 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 	case *big.Rat:
 		v := RatioVal(*temp.(*big.Rat))
 		rval = &v
+	case TyNat:
+		rval = BitFlag(temp.(TyNat))
+	case BitFlag:
+		rval = TyNat(temp.(BitFlag))
 	case Native:
 		rval = temp.(Native)
 	case []Native:

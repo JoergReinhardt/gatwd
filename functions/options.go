@@ -26,26 +26,27 @@ type (
 // key-, index & generic pair interface to be returneable as such.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Ident() Expression              { return n }
-func (n NoneVal) Head() Expression               { return n }
-func (n NoneVal) Tail() Consumeable              { return n }
-func (n NoneVal) Len() int                       { return 0 }
-func (n NoneVal) String() string                 { return "⊥" }
-func (n NoneVal) Eval(args ...d.Native) d.Native { return nil }
-func (n NoneVal) Call(...Expression) Expression  { return nil }
-func (n NoneVal) Key() Expression                { return nil }
-func (n NoneVal) Index() Expression              { return nil }
-func (n NoneVal) Left() Expression               { return nil }
-func (n NoneVal) Right() Expression              { return nil }
-func (n NoneVal) Both() Expression               { return nil }
-func (n NoneVal) Value() Expression              { return nil }
-func (n NoneVal) Empty() bool                    { return true }
-func (n NoneVal) Flag() d.BitFlag                { return d.BitFlag(None) }
-func (n NoneVal) TypeFnc() TyFnc                 { return None }
-func (n NoneVal) TypeNat() d.TyNat               { return d.Nil }
-func (n NoneVal) TypeName() string               { return n.String() }
-func (n NoneVal) FlagType() d.Uint8Val           { return Flag_Functional.U() }
-func (n NoneVal) Type() TyDef                    { return Define(n.TypeName(), None) }
+func (n NoneVal) Ident() Expression             { return n }
+func (n NoneVal) Head() Expression              { return n }
+func (n NoneVal) Tail() Consumeable             { return n }
+func (n NoneVal) Len() int                      { return 0 }
+func (n NoneVal) String() string                { return "⊥" }
+func (n NoneVal) Eval() d.Native                { return nil }
+func (n NoneVal) Call(...Expression) Expression { return nil }
+func (n NoneVal) Key() Expression               { return nil }
+func (n NoneVal) Index() Expression             { return nil }
+func (n NoneVal) Left() Expression              { return nil }
+func (n NoneVal) Right() Expression             { return nil }
+func (n NoneVal) Both() Expression              { return nil }
+func (n NoneVal) Value() Expression             { return nil }
+func (n NoneVal) Empty() bool                   { return true }
+func (n NoneVal) Flag() d.BitFlag               { return d.BitFlag(None) }
+func (n NoneVal) TypeFnc() TyFnc                { return None }
+func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
+func (n NoneVal) TypeElem() Typed               { return None.Type() }
+func (n NoneVal) TypeName() string              { return n.String() }
+func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Functional.U() }
+func (n NoneVal) Type() TyDef                   { return Define(n.TypeName(), None) }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }
@@ -138,16 +139,7 @@ func (t TestExpr) Call(args ...Expression) Expression {
 	return NewNative(d.BoolVal(t.Test(args...)))
 }
 
-func (t TestExpr) Eval(nats ...d.Native) d.Native {
-	var args = make([]Expression, 0, len(nats))
-	for _, nat := range nats {
-		args = append(args, NewNative(nat))
-	}
-	if t.TypeFnc() == Compare {
-		return d.IntVal(t.Compare(args...))
-	}
-	return d.IntVal(t.Compare(args...))
-}
+func (t TestExpr) Eval() d.Native { return t }
 
 func (t TestExpr) Test(args ...Expression) bool {
 	if t.TypeFnc() == Compare {
@@ -322,18 +314,7 @@ func (s CaseExpr) String() string       { return s.TypeName() }
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
 func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseExpr) Eval(nats ...d.Native) d.Native {
-	if len(nats) > 0 {
-		var args = make([]Expression, 0, len(nats))
-		for _, nat := range nats {
-			args = append(args, NewNative(nat))
-		}
-		if result, ok := s(args...); ok {
-			return result
-		}
-	}
-	return d.NewNil()
-}
+func (s CaseExpr) Eval() d.Native       { return s }
 func (s CaseExpr) Call(args ...Expression) Expression {
 	if result, ok := s(args...); ok {
 		return result
@@ -457,19 +438,7 @@ func (s CaseSwitch) Call(args ...Expression) Expression {
 	}
 	return NewNone()
 }
-func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
-	if len(nats) > 0 {
-		var args = make([]Expression, 0, len(nats))
-		for _, nat := range nats {
-			args = append(args, NewNative(nat))
-		}
-		var result, _ = s.TestAllCases(args...)
-		if result != nil {
-			return result
-		}
-	}
-	return d.NewNil()
-}
+func (s CaseSwitch) Eval() d.Native { return s }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// OPTION TYPE CONSTRUCTOR
@@ -480,7 +449,7 @@ func NewOptionType(test CaseSwitch, types ...Expression) OptionType {
 }
 
 func (o OptionType) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionType) Eval(args ...d.Native) d.Native     { return o().Eval(args...) }
+func (o OptionType) Eval() d.Native                     { return o }
 func (o OptionType) Expr() Expression                   { return o() }
 func (o OptionType) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (o OptionType) TypeNat() d.TyNat                   { return o().TypeNat() }
@@ -511,7 +480,7 @@ func NewOptionVal(test CaseSwitch, exprs ...Expression) OptionVal {
 	}
 }
 func (o OptionVal) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionVal) Eval(args ...d.Native) d.Native     { return o().Eval(args...) }
+func (o OptionVal) Eval() d.Native                     { return o }
 func (o OptionVal) TypeNat() d.TyNat                   { return o().TypeNat() }
 func (o OptionVal) TypeFnc() TyFnc                     { return o(HigherOrder).TypeFnc() }
 func (o OptionVal) FlagType() d.Uint8Val               { return Flag_Functional.U() }

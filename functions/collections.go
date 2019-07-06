@@ -65,6 +65,18 @@ func (l ListCol) Push(elems ...Expression) ListCol {
 	return ConcatLists(NewList(elems...), l)
 }
 
+func (l ListCol) Slice() []Expression {
+	var vec = NewVector()
+	var head Expression
+	var tail Consumeable
+	head, tail = l.Head(), l.Tail()
+	for head != nil {
+		vec = vec.Append(head)
+		head, tail = tail.Consume()
+	}
+	return vec.Slice()
+}
+func (l ListCol) Eval() d.Native { return native(l.Slice()...) }
 func (l ListCol) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return l.Con(args...)
@@ -85,12 +97,6 @@ func (l ListCol) GetIdx(n int) Expression {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l ListCol) Eval(args ...d.Native) d.Native {
-	if head := l.Head(); head != nil {
-		return head.Eval()
-	}
-	return d.NilVal{}
-}
 
 func (l ListCol) Empty() bool {
 	if l.Head() != nil {
@@ -127,14 +133,14 @@ func (l ListCol) ConsumeList() (Expression, ListCol) {
 	return l.Head(), l.TailList()
 }
 
-func (l ListCol) TypeElem() TyDef {
+func (l ListCol) TypeElem() Typed {
 	if l.Len() > 0 {
 		return l.Head().Type()
 	}
 	return None.Type()
 }
 func (l ListCol) TypeName() string {
-	if !l.TypeElem().Match(None) {
+	if !l.TypeElem().TypeFnc().Match(None) {
 		return "[" + l.TypeElem().Type().Name() + "]"
 	}
 	return "[]"
@@ -224,13 +230,9 @@ func (p PairVal) Empty() bool {
 }
 
 // call calls the value, arguments are forwarded when calling right element
+func (p PairVal) Eval() d.Native { return native(p) }
 func (p PairVal) Call(args ...Expression) Expression {
 	return NewPair(p.Left().Call(args...), p.Right().Call(args...))
-}
-
-// eval evaluates the value, arguments are forwarded when evaluating right element
-func (p PairVal) Eval(args ...d.Native) d.Native {
-	return d.NewPair(p.Left().Eval(), p.Right().Eval())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -251,7 +253,7 @@ func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) 
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a KeyPair) Key() Expression                    { return a.Right() }
 func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a KeyPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
+func (a KeyPair) Eval() d.Native                     { return native(a) }
 func (a KeyPair) KeyNatType() d.TyNat                { return d.String }
 func (a KeyPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
 func (a KeyPair) ValType() TyDef                     { return a.Value().Type() }
@@ -298,10 +300,10 @@ func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a IndexPair) Key() Expression                    { return a.Right() }
 func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPair) Eval(args ...d.Native) d.Native     { return a.Value().Eval(args...) }
+func (a IndexPair) Eval() d.Native                     { return native(a) }
 func (a IndexPair) ValNatType() d.TyNat                { return a.Value().TypeNat() }
 func (a IndexPair) KeyNatType() d.TyNat                { return d.Int }
-func (a IndexPair) TypeFnc() TyFnc                     { return Pair }
+func (a IndexPair) TypeFnc() TyFnc                     { return Index }
 func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() TyDef                     { return Index.Type() }
 func (a IndexPair) ValType() TyDef                     { return a.Value().Type() }
@@ -379,12 +381,7 @@ func (l PairList) Call(args ...Expression) Expression {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l PairList) Eval(args ...d.Native) d.Native {
-	if head := l.Head(); head != nil {
-		return head.Eval()
-	}
-	return d.NilVal{}
-}
+func (l PairList) Eval() d.Native { return native(l) }
 
 func (l PairList) Empty() bool {
 	if pair := l.HeadPair(); pair != nil {
@@ -418,10 +415,11 @@ func (l PairList) TailPairs() ConsumeablePaired             { _, t := l(); retur
 func (l PairList) TailPairList() PairList                   { _, t := l(); return t }
 func (l PairList) Head() Expression                         { h, _ := l(); return h }
 func (l PairList) HeadPair() Paired                         { p, _ := l(); return p }
-func (l PairList) TypeElem() d.Typed {
+func (l PairList) TypeElem() Typed {
 	if l.Len() > 0 {
+		return l.Head().Type()
 	}
-	return Pair
+	return None.Type()
 }
 func (l PairList) KeyNatType() d.TyNat {
 	return l.Head().(Paired).KeyNatType()
@@ -511,16 +509,7 @@ func (v VecCol) Call(d ...Expression) Expression {
 	return NewVector(v(d...)...)
 }
 
-func (v VecCol) Eval(args ...d.Native) d.Native {
-
-	var results = []d.Native{}
-
-	for _, arg := range v() {
-		results = append(results, arg.Eval())
-	}
-
-	return d.NewSlice(results...)
-}
+func (v VecCol) Eval() d.Native { return native(v()...) }
 
 func (v VecCol) Head() Expression {
 	if v.Len() > 0 {
@@ -600,14 +589,14 @@ func (v VecCol) Search(praed Expression) int {
 func (v VecCol) TypeFnc() TyFnc       { return Vector }
 func (v VecCol) TypeNat() d.TyNat     { return d.Function }
 func (v VecCol) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (v VecCol) TypeElem() TyDef {
+func (v VecCol) TypeElem() Typed {
 	if v.Len() > 0 {
 		return v.Head().Type()
 	}
 	return None.Type()
 }
 func (v VecCol) Type() TyDef {
-	return Define(v.TypeName(), v.TypeElem())
+	return Define(v.TypeName(), v.TypeFnc())
 }
 func (v VecCol) TypeName() string {
 	if v.Len() > 0 {
@@ -695,8 +684,14 @@ func (v PairVec) Empty() bool {
 	return true
 }
 
-func (v PairVec) TypeFnc() TyFnc       { return Vector }
-func (v PairVec) TypeNat() d.TyNat     { return d.Function }
+func (v PairVec) TypeFnc() TyFnc   { return Vector }
+func (v PairVec) TypeNat() d.TyNat { return d.Function }
+func (v PairVec) TypeElem() Typed {
+	if v.Len() > 0 {
+		v()[0].Type()
+	}
+	return None.Type()
+}
 func (v PairVec) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (v PairVec) KeyNatType() d.TyNat {
 	if v.Len() > 0 {
@@ -837,13 +832,7 @@ func (v PairVec) Call(args ...Expression) Expression {
 	return v.Con(args...)
 }
 
-func (v PairVec) Eval(args ...d.Native) d.Native {
-	var slice = d.DataSlice{}
-	for _, pair := range v() {
-		d.SliceAppend(slice, d.NewPair(pair.Left(), pair.Right()))
-	}
-	return slice
-}
+func (v PairVec) Eval() d.Native { return native(v) }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// ASSOCIATIVE SET (HASH MAP OF VALUES)
@@ -981,17 +970,15 @@ func (v SetCol) Call(args ...Expression) Expression {
 
 // eval method performs a value lookup and returns contained value as native
 // without any conversion
-func (v SetCol) Eval(args ...d.Native) d.Native {
-	return d.NewNil()
-}
+func (v SetCol) Eval() d.Native { return native(v) }
 
 func (v SetCol) TypeNat() d.TyNat { return d.Function }
 func (v SetCol) TypeFnc() TyFnc   { return Set }
-func (v SetCol) TypeElem() TyDef {
+func (v SetCol) TypeElem() Typed {
 	if v.Len() > 0 {
 		return v.Head().Type()
 	}
-	return Pair.Type()
+	return None.Type()
 }
 func (v SetCol) TypeName() string {
 	if v.Len() > 0 {

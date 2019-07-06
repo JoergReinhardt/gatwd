@@ -3,13 +3,13 @@ package data
 func NewPair(l, r Native) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) Interface(args ...Native) Paired { return p.Eval(args...).(Paired) }
-func (p PairVal) Left() Native                    { return p.L }
-func (p PairVal) Right() Native                   { return p.R }
-func (p PairVal) Both() (Native, Native)          { return p.L, p.R }
-func (p PairVal) TypeNat() TyNat                  { return Pair.TypeNat() }
-func (p PairVal) LeftType() TyNat                 { return p.L.TypeNat() }
-func (p PairVal) RightType() TyNat                { return p.R.TypeNat() }
+func (p PairVal) Interface() Paired      { return p }
+func (p PairVal) Left() Native           { return p.L }
+func (p PairVal) Right() Native          { return p.R }
+func (p PairVal) Both() (Native, Native) { return p.L, p.R }
+func (p PairVal) TypeNat() TyNat         { return Pair.TypeNat() }
+func (p PairVal) LeftType() TyNat        { return p.L.TypeNat() }
+func (p PairVal) RightType() TyNat       { return p.R.TypeNat() }
 func (p PairVal) TypeName() string {
 	return "(" + p.Left().TypeName() +
 		"," + p.Right().TypeName() + ")"
@@ -34,20 +34,10 @@ func NewValSet(acc ...Paired) Mapped {
 	return SetVal(m)
 }
 
-func (s SetVal) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				s.Set(pair.Left(), pair.Right())
-			}
-		}
-	}
-	return s
-}
+func (s SetVal) Eval() Native { return s }
 
-func (s SetVal) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetVal) TypeNat() TyNat                  { return Map.TypeNat() }
+func (s SetVal) Interface() Mapped { return s }
+func (s SetVal) TypeNat() TyNat    { return Map.TypeNat() }
 func (s SetVal) first() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -119,20 +109,8 @@ func NewStringSet(acc ...Paired) Mapped {
 	return SetString(m)
 }
 
-func (s SetString) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetString) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(String) {
-					s.Set(pair.Left(), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetString) Interface() Mapped { return s }
+func (s SetString) Eval() Native      { return s }
 
 func (s SetString) First() Paired {
 	if s.Len() > 0 {
@@ -206,7 +184,7 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
+func (s SetInt) Interface() Mapped { return s }
 func (s SetInt) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -220,19 +198,7 @@ func (s SetInt) ValType() TyNat   { return s.First().Right().TypeNat() }
 
 func (s SetInt) Len() int { return len(s) }
 
-func (s SetInt) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Integers) {
-					s.Set(IntVal(pair.Left().(Integer).Idx()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetInt) Eval() Native { return s }
 
 func (s SetInt) Keys() []Native {
 	var keys = []Native{}
@@ -299,25 +265,13 @@ func (s SetUint) First() Paired {
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetUint) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetUint) TypeName() string                { return typeNameSet(s) }
-func (s SetUint) TypeNat() TyNat                  { return Map.TypeNat() }
-func (s SetUint) KeyType() TyNat                  { return Uint.TypeNat() }
-func (s SetUint) ValType() TyNat                  { return s.First().Right().TypeNat() }
+func (s SetUint) Interface() Mapped { return s }
+func (s SetUint) TypeName() string  { return typeNameSet(s) }
+func (s SetUint) TypeNat() TyNat    { return Map.TypeNat() }
+func (s SetUint) KeyType() TyNat    { return Uint.TypeNat() }
+func (s SetUint) ValType() TyNat    { return s.First().Right().TypeNat() }
 
-func (s SetUint) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Naturals) {
-					s.Set(UintVal(pair.Left().(Natural).GoUint()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetUint) Eval() Native { return s }
 
 func (s SetUint) Len() int { return len(s) }
 
@@ -380,8 +334,8 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetFloat) Len() int                        { return len(s) }
+func (s SetFloat) Interface() Mapped { return s }
+func (s SetFloat) Len() int          { return len(s) }
 
 func (s SetFloat) First() Paired {
 	if s.Len() > 0 {
@@ -394,19 +348,7 @@ func (s SetFloat) TypeNat() TyNat   { return Map.TypeNat() }
 func (s SetFloat) KeyType() TyNat   { return Float.TypeNat() }
 func (s SetFloat) ValType() TyNat   { return s.First().Right().TypeNat() }
 
-func (s SetFloat) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Reals) {
-					s.Set(FltVal(pair.Left().(Real).GoFlt()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetFloat) Eval() Native { return s }
 
 func (s SetFloat) Keys() []Native {
 	var keys = []Native{}
@@ -467,7 +409,7 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
+func (s SetFlag) Interface() Mapped { return s }
 func (s SetFlag) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
@@ -479,19 +421,7 @@ func (s SetFlag) TypeNat() TyNat   { return Map.TypeNat() }
 func (s SetFlag) KeyType() TyNat   { return Type.TypeNat() }
 func (s SetFlag) ValType() TyNat   { return s.First().Right().TypeNat() }
 
-func (s SetFlag) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Type) {
-					s.Set(UintVal(pair.Left().(Natural).GoUint()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetFlag) Eval() Native { return s }
 
 func (s SetFlag) Len() int { return len(s) }
 
