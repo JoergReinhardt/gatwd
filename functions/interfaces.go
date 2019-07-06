@@ -18,14 +18,21 @@ type Typed interface {
 }
 
 type Native interface {
-	Expression
 	d.Native
+	Type() TyDef
+	TypeFnc() TyFnc
+	FlagType() d.Uint8Val
+	Call(...Expression) Expression
+}
+
+type Stringer interface {
+	String() string
 }
 
 type Expression interface {
 	Typed
+	Stringer
 	Call(...Expression) Expression
-	String() string
 }
 
 type Reproduceable interface {
@@ -79,7 +86,7 @@ type Numeral interface {
 	Imaginary
 }
 
-type Text interface {
+type Textual interface {
 	// String() string
 	d.Text
 }
@@ -158,7 +165,7 @@ type Consumeable interface {
 }
 
 type Countable interface {
-	Len() int // <- performs mutch better on slices
+	Len() int
 }
 
 type Listable interface {
@@ -228,7 +235,7 @@ type Paired interface {
 }
 
 type Keyed interface {
-	KeyStr() string
+	KeyStr() d.StrVal
 }
 
 type KeyPaired interface {
@@ -237,7 +244,7 @@ type KeyPaired interface {
 }
 
 type Indexed interface {
-	Index() string
+	Index() int
 }
 type IndexPaired interface {
 	Indexed

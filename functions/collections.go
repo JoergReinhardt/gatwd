@@ -6,7 +6,6 @@ type (
 	//// COLLECTION
 	ListCol func(...Expression) (Expression, ListCol)
 	VecCol  func(...Expression) []Expression
-	SetCol  func(...Paired) Mapped
 
 	PairVal   func(...Expression) (Expression, Expression)
 	KeyPair   func(...Expression) (Expression, string)
@@ -76,7 +75,6 @@ func (l ListCol) Slice() []Expression {
 	}
 	return vec.Slice()
 }
-func (l ListCol) Eval() d.Native { return native(l.Slice()...) }
 func (l ListCol) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return l.Con(args...)
@@ -126,7 +124,6 @@ func (l ListCol) Tail() Consumeable                  { _, t := l(); return t }
 func (l ListCol) Head() Expression                   { h, _ := l(); return h }
 func (l ListCol) Consume() (Expression, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                     { return List }
-func (l ListCol) TypeNat() d.TyNat                   { return d.Function }
 func (l ListCol) TailList() ListCol                  { _, t := l(); return t }
 func (l ListCol) ConsumeList() (Expression, ListCol) {
 	return l.Head(), l.TailList()
@@ -222,7 +219,6 @@ func (p PairVal) Empty() bool {
 }
 
 // call calls the value, arguments are forwarded when calling right element
-func (p PairVal) Eval() d.Native { return native(p) }
 func (p PairVal) Call(args ...Expression) Expression {
 	return NewPair(p.Left().Call(args...), p.Right().Call(args...))
 }
@@ -239,13 +235,12 @@ func (a KeyPair) KeyStr() string                     { _, key := a(); return key
 func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
 func (a KeyPair) Ident() Expression                  { return a }
 func (a KeyPair) Left() Expression                   { return a.Value() }
-func (a KeyPair) Right() Expression                  { return New(a.KeyStr()) }
+func (a KeyPair) Right() Expression                  { return NewData(d.StrVal(a.KeyStr())) }
 func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a KeyPair) Key() Expression                    { return a.Right() }
 func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a KeyPair) Eval() d.Native                     { return native(a) }
 func (a KeyPair) ValType() TyDef                     { return a.Value().Type() }
 func (a KeyPair) KeyType() TyDef                     { return Key.Type() }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key }
@@ -262,7 +257,7 @@ func (p KeyPair) Type() TyDef {
 // implement swappable
 func (p KeyPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return New(r), l
+	return NewData(d.StrVal(r)), l
 }
 func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
@@ -284,13 +279,12 @@ func (a IndexPair) Ident() Expression                  { return a }
 func (a IndexPair) Index() int                         { _, idx := a(); return idx }
 func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
 func (a IndexPair) Left() Expression                   { return a.Value() }
-func (a IndexPair) Right() Expression                  { return New(a.Index()) }
+func (a IndexPair) Right() Expression                  { return NewData(New(a.Index())) }
 func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a IndexPair) Key() Expression                    { return a.Right() }
 func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPair) Eval() d.Native                     { return native(a) }
 func (a IndexPair) TypeFnc() TyFnc                     { return Index }
 func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() TyDef                     { return Index.Type() }
@@ -306,7 +300,7 @@ func (a IndexPair) Type() TyDef {
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return New(r), l
+	return NewData(New(r)), l
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPair) Empty() bool {
@@ -369,7 +363,6 @@ func (l PairList) Call(args ...Expression) Expression {
 }
 
 // eval applys current heads eval method to passed arguments, or calle it empty
-func (l PairList) Eval() d.Native { return native(l) }
 
 func (l PairList) Empty() bool {
 	if pair := l.HeadPair(); pair != nil {
@@ -490,8 +483,6 @@ func (v VecCol) Ident() Expression { return v }
 func (v VecCol) Call(d ...Expression) Expression {
 	return NewVector(v(d...)...)
 }
-
-func (v VecCol) Eval() d.Native { return native(v()...) }
 
 func (v VecCol) Head() Expression {
 	if v.Len() > 0 {
@@ -800,206 +791,3 @@ func (v PairVec) Tail() Consumeable {
 func (v PairVec) Call(args ...Expression) Expression {
 	return v.Con(args...)
 }
-
-func (v PairVec) Eval() d.Native { return native(v) }
-
-///////////////////////////////////////////////////////////////////////////////
-//// ASSOCIATIVE SET (HASH MAP OF VALUES)
-///
-// unordered associative set of key/value pairs that can be sorted, accessed
-// and searched by the left (key) value of the pair
-//func ConSet(set SetCol, pairs ...Paired) SetCol {
-//	var m = set()
-//	for _, arg := range pairs {
-//		if pair, ok := arg.(Paired); ok {
-//			m.Set(pair.Left(), pair.Right())
-//		}
-//	}
-//	return SetCol(func(pairs ...Paired) Mapped { return m })
-//}
-//
-//// new set discriminates between sets where all members have identical keys and
-//// such with mixed keys and chooses the appropriate native set accordingly.
-//func NewSet(pairs ...Paired) SetCol {
-//	//	var set Mapped
-//	//	if len(pairs) > 0 {
-//	//		// for sets with pure key type, choose the appropriate native
-//	//		// set type
-//	//		if knat.Count() == 1 {
-//	//			switch {
-//	//			case knat.Match(d.Int):
-//	//				set = d.SetInt{}
-//	//			case knat.Match(d.Uint):
-//	//				set = d.SetUint{}
-//	//			case knat.Match(d.Type):
-//	//				set = d.SetFlag{}
-//	//			case knat.Match(d.Float):
-//	//				set = d.SetFloat{}
-//	//			case knat.Match(d.String):
-//	//				set = d.SetString{}
-//	//			}
-//	//		} else {
-//	//			// otherwise choose a set keyed by interface type to
-//	//			// keep every possible kind of value
-//	//			set = NewPair()
-//	//		}
-//	//	}
-//	var set SetCol
-//	return set
-//}
-//
-//// splits set into two lists, one containing all keys and the other all values
-//func (v SetCol) Split() (VecCol, VecCol) {
-//	var keys, vals = []Expression{}, []Expression{}
-//	for _, pair := range v.Pairs() {
-//		keys = append(keys, pair.Left())
-//		vals = append(vals, pair.Right())
-//	}
-//	return NewVector(keys...), NewVector(vals...)
-//}
-//
-//func (v SetCol) Pairs() []Paired {
-//	var pairs = []Paired{}
-//	for _, field := range v().Fields() {
-//		pairs = append(
-//			pairs,
-//			NewPair(
-//				field.Left(),
-//				field.Right()))
-//	}
-//	return pairs
-//}
-//
-//// return all members keys
-//func (v SetCol) Keys() VecCol { k, _ := v.Split(); return k }
-//
-//// return all members values
-//func (v SetCol) Data() VecCol { _, d := v.Split(); return d }
-//
-//func (v SetCol) Len() int { return v().Len() }
-//
-//func (v SetCol) Empty() bool {
-//	for _, pair := range v.Pairs() {
-//		if !pair.Empty() {
-//			return false
-//		}
-//	}
-//	return true
-//}
-//
-//func (v SetCol) GetVal(key Expression) (Expression, bool) {
-//	var m = v()
-//	if value, ok := m.Get(key); ok {
-//		return value, ok
-//	}
-//	return NewNone(), false
-//}
-//
-////func (v SetCol) SetVal(key, value Expression) (AssociativeCollected, bool) {
-////	var m = v()
-////	return SetCol(func(pairs ...Paired) Mapped { return m.Set(key, value) }), true
-////}
-//
-//func (v SetCol) Slice() []Expression {
-//	var pairs = []Expression{}
-//	for _, pair := range v.Pairs() {
-//		pairs = append(pairs, pair)
-//	}
-//	return pairs
-//}
-//
-//// call method performs a value lookup
-//func (v SetCol) Call(args ...Expression) Expression {
-//	var results = []Expression{}
-//	for _, arg := range args {
-//		if val, ok := v.GetVal(arg); ok {
-//			results = append(results, val)
-//		}
-//	}
-//	if len(results) > 0 {
-//		if len(results) > 1 {
-//			return NewVector(results...)
-//		}
-//		return results[0]
-//	}
-//	return NewNone()
-//}
-//
-//// eval method performs a value lookup and returns contained value as native
-//// without any conversion
-//func (v SetCol) Eval() d.Native { return native(v) }
-//
-//func (v SetCol) TypeNat() d.TyNat { return d.Function }
-//func (v SetCol) TypeFnc() TyFnc   { return Set }
-//func (v SetCol) TypeElem() Typed {
-//	if v.Len() > 0 {
-//		return v.Head().Type()
-//	}
-//	return None.Type()
-//}
-//func (v SetCol) TypeName() string {
-//	if v.Len() > 0 {
-//		return "{" + v.Pairs()[0].Left().Type().Name() +
-//			":: " + v.Pairs()[0].Right().Type().Name() + "}"
-//	}
-//	return "{}"
-//}
-//func (v SetCol) FlagType() d.Uint8Val { return Flag_Functional.U() }
-//func (v SetCol) Type() TyDef {
-//	return Define(v.TypeName(), NewPair(
-//		v.KeyType(), v.ValType()))
-//}
-//
-//func (v SetCol) KeyType() TyDef {
-//	if v.Len() > 0 {
-//		return v.Pairs()[0].KeyType()
-//	}
-//	return None.Type()
-//}
-//func (s SetCol) ValType() TyDef {
-//	if s.Len() > 0 {
-//		return s.Pairs()[0].ValType()
-//	}
-//	return None.Type()
-//}
-//
-////func (v SetCol) Head() Expression {
-////	if v.Len() > 0 {
-////		var vec = NewPairVectorFromPairs(
-////			v.Pairs()...,
-////		)
-////		vec.Sort(v.Pairs()[0].Key().TypeFnc())
-////		return vec()[0]
-////	}
-////	return nil
-////}
-//
-//func (v SetCol) Tail() Consumeable {
-//	if v.Len() > 1 {
-//		var vec = NewPairVectorFromPairs(
-//			v.Pairs()...,
-//		)
-//		vec.Sort(v.Pairs()[0].Key().TypeFnc())
-//		return NewPairVec(vec()[:1]...)
-//	}
-//	return nil
-//}
-//
-//func (v SetCol) Consume() (Expression, Consumeable) {
-//	return v.Head(), v.Tail()
-//}
-//
-//func (v SetCol) TailPairVec() PairVec {
-//	if v.Len() > 1 {
-//		var vec = NewPairVectorFromPairs(
-//			v.Pairs()...,
-//		)
-//		vec.Sort(v.Pairs()[0].Key().TypeFnc())
-//		return NewPairVec(vec()[:1]...)
-//	}
-//	return nil
-//}
-//
-//func (v SetCol) ConsumeSet() (Expression, PairVec) {
-//	return v.Head(), v.TailPairVec()
-//}

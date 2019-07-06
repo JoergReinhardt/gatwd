@@ -190,7 +190,7 @@ func (v TimeVec) Eval() Native   { return v }
 func (v DuraVec) Eval() Native   { return v }
 func (v FlagSet) Eval() Native   { return v }
 
-func (v ByteVec) Bytes() []byte { return []byte(v) }
+func (v ByteVec) Bytes() BytesVal { return []byte(v) }
 
 func (v *ByteVec) Set(i int, b byte) { (*v)[i] = b }
 

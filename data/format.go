@@ -95,7 +95,7 @@ func (v Imag64Val) String() string {
 func (v BitFlag) String() string { return StringBitFlag(v) }
 func StringBitFlag(v BitFlag) string {
 	var str string
-	if bits.OnesCount(v.Uint()) > 1 {
+	if bits.OnesCount(uint(v.Uint())) > 1 {
 		for i, f := range FlagDecompose(v) {
 			str = str + f.(TyNat).String()
 			if i < len(FlagDecompose(v))-1 {

@@ -29,7 +29,7 @@ func NewNone() NoneVal { return func() {} }
 func (n NoneVal) Ident() Expression             { return n }
 func (n NoneVal) Head() Expression              { return n }
 func (n NoneVal) Tail() Consumeable             { return n }
-func (n NoneVal) Len() int                      { return 0 }
+func (n NoneVal) Len() d.IntVal                 { return 0 }
 func (n NoneVal) String() string                { return "⊥" }
 func (n NoneVal) Eval() d.Native                { return nil }
 func (n NoneVal) Call(...Expression) Expression { return nil }
@@ -39,7 +39,7 @@ func (n NoneVal) Left() Expression              { return nil }
 func (n NoneVal) Right() Expression             { return nil }
 func (n NoneVal) Both() Expression              { return nil }
 func (n NoneVal) Value() Expression             { return nil }
-func (n NoneVal) Empty() bool                   { return true }
+func (n NoneVal) Empty() d.BoolVal              { return true }
 func (n NoneVal) Flag() d.BitFlag               { return d.BitFlag(None) }
 func (n NoneVal) TypeFnc() TyFnc                { return None }
 func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
@@ -52,7 +52,7 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTestTruth(name string, test func(...Expression) bool, paratypes ...Expression) TestExpr {
+func NewTestTruth(name string, test func(...Expression) d.BoolVal, paratypes ...Expression) TestExpr {
 
 	if name == "" {
 		name = "Truth"
@@ -106,7 +106,7 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expr
 	}
 }
 
-func NewTestCompare(name string, test func(...Expression) int, paratypes ...Expression) TestExpr {
+func NewTestCompare(name string, test func(...Expression) d.IntVal, paratypes ...Expression) TestExpr {
 
 	if name == "" {
 		name = "Compare"
@@ -155,7 +155,7 @@ func (t TestExpr) Call(args ...Expression) Expression {
 
 func (t TestExpr) Eval() d.Native { return t }
 
-func (t TestExpr) Test(args ...Expression) bool {
+func (t TestExpr) Test(args ...Expression) d.BoolVal {
 	if t.TypeFnc() == Compare {
 		if t(args...) == Lesser || t(args...) == Greater {
 			return false
@@ -176,7 +176,7 @@ func (t TestExpr) Test(args ...Expression) bool {
 	return true
 }
 
-func (t TestExpr) Compare(args ...Expression) int {
+func (t TestExpr) Compare(args ...Expression) d.IntVal {
 	if t.TypeFnc() == Compare {
 		switch t(args...) {
 		case Lesser:
@@ -203,7 +203,7 @@ func (t TestExpr) Compare(args ...Expression) int {
 	return 0
 }
 
-func (t TestExpr) True(arg Expression) bool {
+func (t TestExpr) True(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == True {
 			return true
@@ -212,7 +212,7 @@ func (t TestExpr) True(arg Expression) bool {
 	return false
 }
 
-func (t TestExpr) False(arg Expression) bool {
+func (t TestExpr) False(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Truth || t.TypeFnc() == Trinary {
 		if t(arg) == False {
 			return true
@@ -221,7 +221,7 @@ func (t TestExpr) False(arg Expression) bool {
 	return false
 }
 
-func (t TestExpr) Undecided(arg Expression) bool {
+func (t TestExpr) Undecided(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Trinary {
 		if t(arg) == Undecided {
 			return true
@@ -230,7 +230,7 @@ func (t TestExpr) Undecided(arg Expression) bool {
 	return false
 }
 
-func (t TestExpr) Lesser(arg Expression) bool {
+func (t TestExpr) Lesser(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Compare {
 		if t(arg) == Lesser {
 			return true
@@ -239,7 +239,7 @@ func (t TestExpr) Lesser(arg Expression) bool {
 	return false
 }
 
-func (t TestExpr) Greater(arg Expression) bool {
+func (t TestExpr) Greater(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Compare {
 		if t(arg) == Greater {
 			return true
@@ -248,7 +248,7 @@ func (t TestExpr) Greater(arg Expression) bool {
 	return false
 }
 
-func (t TestExpr) Equal(arg Expression) bool {
+func (t TestExpr) Equal(arg Expression) d.BoolVal {
 	if t.TypeFnc() == Compare {
 		if t(arg) == Equal {
 			return true

@@ -78,6 +78,11 @@ const (
 	Enum
 	Tuple
 	Record
+	/// DATA TYPES
+	Numbers
+	Letters
+	Bytes
+	Text
 	/// IMPURE
 	State
 	IO
@@ -201,7 +206,7 @@ func (t TyDef) Match(typ d.Typed) bool {
 func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
-func (t TyFnc) Uint() uint                         { return d.BitFlag(t).Uint() }
+func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
@@ -270,7 +275,7 @@ func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag())
 func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
 func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
 
-func FlagToProp(flag d.BitFlag) Propertys { return Propertys(uint8(flag.Uint())) }
+func FlagToProp(flag d.BitFlag) Propertys { return Propertys(flag.Uint()) }
 
 func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
 func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }

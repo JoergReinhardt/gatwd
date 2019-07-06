@@ -52,7 +52,7 @@ type Natural interface {
 
 type Integer interface {
 	GoInt() int
-	Idx() int
+	Idx() IntVal
 }
 
 type Rational interface {
@@ -86,11 +86,11 @@ type Letter interface {
 }
 
 type Text interface {
-	String() string
+	String() StrVal
 }
 
 type Serializeable interface {
-	MarshalBinary() ([]byte, error)
+	MarshalBinary() (BytesVal, error)
 }
 
 type Printable interface {

@@ -89,7 +89,6 @@ func (m ConsumeVal) Tail() Consumeable {
 func (m ConsumeVal) Call(args ...Expression) Expression {
 	return m.Head().Call(args...)
 }
-func (m ConsumeVal) Eval() d.Native { return native(m) }
 func (m ConsumeVal) String() string {
 	return m.Head().String()
 }
@@ -131,7 +130,6 @@ func (c ConsPairVal) Call(args ...Expression) Expression {
 	}
 	return head
 }
-func (c ConsPairVal) Eval() d.Native { return native(c) }
 func (c ConsPairVal) Ident() Expression {
 	return c
 }
