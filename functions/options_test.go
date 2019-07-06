@@ -9,6 +9,11 @@ import (
 
 var truthcase = NewCase(test, nil)
 
+var falsetest = NewTestTruth("false", func(args ...Expression) bool {
+	return false
+})
+var falsecase = NewCase(falsetest, nil)
+
 var generic = NewGeneric(func(args ...Expression) Expression {
 	var str string
 	for n, arg := range args {
@@ -23,7 +28,7 @@ var generic = NewGeneric(func(args ...Expression) Expression {
 var genericcase = NewCase(test, generic)
 
 var partialcase = NewCase(test, DefinePartial("To String",
-	generic, NewNative(d.NewNull(d.String)), NewNative(Type)))
+	generic, NewNative(d.NewNull(d.String)), NewNative(d.TyNat(d.String|d.Int|d.Float))))
 
 //NewNative(d.TyNat(d.String|d.Int|d.Float))
 func TestCase(t *testing.T) {
@@ -47,9 +52,10 @@ func TestCase(t *testing.T) {
 
 func TestSwitch(t *testing.T) {
 
-	var swi = NewSwitch(partialcase, truthcase, genericcase)
+	var swi = NewSwitch(falsecase, truthcase, partialcase, genericcase)
 
 	var result, pair, ok = swi(New(23), New(42.23))
+
 	fmt.Printf("switch int & float result: %s, (current,args): %s, ok: %t\n",
 		result, pair, ok)
 
@@ -95,6 +101,8 @@ func TestSwitch(t *testing.T) {
 	if val := swi.Call(New(true)); !val.TypeFnc().Match(None) {
 		t.Fail()
 	}
+
+	fmt.Printf("cases: %s\n", swi.Cases())
 }
 
 func TestMaybe(t *testing.T) {

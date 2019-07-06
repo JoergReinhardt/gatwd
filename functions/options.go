@@ -14,7 +14,7 @@ type (
 
 	//// CASE & SWITCH TYPE CONSTRUCTORS
 	CaseExpr   func(...Expression) (Expression, bool)
-	CaseSwitch func(...Expression) (Expression, Expression, bool)
+	CaseSwitch func(...Expression) (Expression, CaseSwitch, bool)
 
 	//// OPTION TYPE CONSTRUCTOR
 	OptionType func(...Expression) OptionVal
@@ -51,8 +51,11 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTruthTest(test func(...Expression) bool, paratypes ...Expression) TestExpr {
+func NewTestTruth(name string, test func(...Expression) bool, paratypes ...Expression) TestExpr {
 
+	if name == "" {
+		name = "Truth"
+	}
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	}
@@ -61,15 +64,19 @@ func NewTruthTest(test func(...Expression) bool, paratypes ...Expression) TestEx
 		if len(args) > 0 {
 			if test(args...) {
 				return True
+
 			}
 			return False
 		}
-		return Define("Truth", NewNative(d.NewNull(d.Bool)), paratypes...)
+		return Define(name, Truth, paratypes...)
 	}
 }
 
-func NewTrinaryTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expression) TestExpr {
 
+	if name == "" {
+		name = "Trinary"
+	}
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	}
@@ -84,12 +91,15 @@ func NewTrinaryTest(test func(...Expression) int, paratypes ...Expression) TestE
 			}
 			return Undecided
 		}
-		return Define("Trinary", NewNative(d.NewNull(d.Bool)), paratypes...)
+		return Define(name, Trinary, paratypes...)
 	}
 }
 
-func NewCompareTest(test func(...Expression) int, paratypes ...Expression) TestExpr {
+func NewTestCompare(name string, test func(...Expression) int, paratypes ...Expression) TestExpr {
 
+	if name == "" {
+		name = "Compare"
+	}
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	}
@@ -104,8 +114,16 @@ func NewCompareTest(test func(...Expression) int, paratypes ...Expression) TestE
 			}
 			return Equal
 		}
-		return Define("Compare", NewNative(d.NewNull(d.Int)), paratypes...)
+		return Define(name, Compare, paratypes...)
 	}
+}
+func (t TestExpr) Type() TyDef    { return t().(TyDef) }
+func (t TestExpr) TypeFnc() TyFnc { return t.Type().Return().(TyFnc) }
+func (t TestExpr) TypeNat() d.TyNat {
+	if t.TypeFnc() == Compare {
+		return d.Int
+	}
+	return d.Bool
 }
 
 func (t TestExpr) TypeName() string {
@@ -113,25 +131,6 @@ func (t TestExpr) TypeName() string {
 }
 func (t TestExpr) String() string       { return t.TypeName() }
 func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (t TestExpr) Type() TyDef          { return t().(TyDef) }
-func (t TestExpr) TypeNat() d.TyNat {
-	if t.TypeFnc() == Compare {
-		return d.Int
-	}
-	return d.Bool
-}
-func (t TestExpr) TypeFnc() TyFnc {
-	var fnc TyFnc
-	switch t.Type().Name() {
-	case "Truth":
-		fnc = Truth
-	case "Trinary":
-		fnc = Trinary
-	case "Compare":
-		fnc = Compare
-	}
-	return fnc
-}
 func (t TestExpr) Call(args ...Expression) Expression {
 	if t.TypeFnc() == Compare {
 		return NewNative(d.IntVal(t.Compare(args...)))
@@ -151,14 +150,14 @@ func (t TestExpr) Eval(nats ...d.Native) d.Native {
 }
 
 func (t TestExpr) Test(args ...Expression) bool {
-	if t().(TyDef).Name() == "Compare" {
+	if t.TypeFnc() == Compare {
 		if t(args...) == Lesser || t(args...) == Greater {
 			return false
 		} else {
 			return true
 		}
 	}
-	if t().(TyDef).Name() == "Trinary" {
+	if t.TypeFnc() == Trinary {
 		if t(args...) == False || t(args...) == Undecided {
 			return false
 		} else {
@@ -172,7 +171,7 @@ func (t TestExpr) Test(args ...Expression) bool {
 }
 
 func (t TestExpr) Compare(args ...Expression) int {
-	if t().(TyDef).Name() == "Compare" {
+	if t.TypeFnc() == Compare {
 		switch t(args...) {
 		case Lesser:
 			return -1
@@ -182,7 +181,7 @@ func (t TestExpr) Compare(args ...Expression) int {
 			return 1
 		}
 	}
-	if t().(TyDef).Name() == "Trinary" {
+	if t.TypeFnc() == Trinary {
 		switch t(args...) {
 		case False:
 			return -1
@@ -274,21 +273,21 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 	}
 
 	// construct case type definition
-	var ldel, rdel = "(", ")"
 	var pattern = expr.Type().Pattern()
 	if len(pattern) == 0 {
 		pattern = []Expression{Type}
 	}
-	var typed = Define(ldel+"Case "+
-		ldel+test.TypeName()+rdel+rdel,
+	var typed = Define(test.Type().Name(),
 		expr.Type().Return(), pattern...)
 
 	// construct case type name
+	var ldel, rdel = "(", ")"
 	var name = NewNative(d.StrVal(
-		expr.Type().PatternName() +
-			" → " + typed.Name() +
-			" ⇒ " + expr.Type().Name() +
-			" → " + expr.Type().ReturnName()))
+		ldel + expr.Type().PatternName() + " → " +
+			typed.Name() + " ⇒ " +
+			expr.Type().Name() + " → " +
+			expr.Type().ReturnName() + rdel,
+	))
 
 	// return constructed case expression
 	return func(args ...Expression) (Expression, bool) {
@@ -357,12 +356,11 @@ func NewSwitch(cases ...CaseExpr) CaseSwitch {
 
 // arbitrary typed switch constructor, to eliminate looping and reallocation of
 // case expressions intendet to be stored as consumeable vector
-func conSwitch(exprs ...Expression) CaseSwitch {
+func conSwitch(caseset ...Expression) CaseSwitch {
 
-	var cases = NewVector(exprs...)
+	return func(args ...Expression) (Expression, CaseSwitch, bool) {
 
-	return func(args ...Expression) (Expression, Expression, bool) {
-
+		var cases = NewVector(caseset...)
 		var head Expression
 		var current CaseExpr
 		var arguments VecCol
@@ -385,12 +383,10 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 					// replenish case list for switch
 					// instance reusal (in case switch gets
 					// called empty to retrieve case list)
-					cases = NewVector(exprs...)
+					cases = NewVector(caseset...)
 					// return result, current case and
 					// arguments that where passed.
-					return result, NewPair(current,
-							arguments),
-						true
+					return result, conSwitch(caseset...), true
 				}
 				//// FAILED CASE EVALUATION ///
 				///
@@ -398,7 +394,8 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 				// the list of completed cases
 				completed = completed.Append(
 					NewPair(current, arguments))
-				return NewPair(current, arguments),
+
+				return completed,
 					conSwitch(cases()...),
 					false
 			}
@@ -406,7 +403,7 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 			///
 			// replenish cases for switch reusal and return
 			// replenished switch instance for eventual reuse.
-			cases = NewVector(exprs...)
+			cases = NewVector(caseset...)
 			return nil, conSwitch(cases()...), false
 		}
 		//// CALLED WITH EMPTY ARGUMENT SET ////
@@ -414,12 +411,24 @@ func conSwitch(exprs ...Expression) CaseSwitch {
 		// when called without arguments, return list of all defined
 		// cases and log of cases completed so far, including arguments
 		// that where passed to those cases for evaluation.
-		return nil, NewPair(cases, completed), false
+		return cases, conSwitch(caseset...), false
 	}
 }
+func (s CaseSwitch) Cases() VecCol {
+	var cases, _, _ = s()
+	return cases.(VecCol)
+}
+func (s CaseSwitch) Type() TyDef {
+	return Define(s.TypeName(), s.TypeFnc())
+}
+func (s CaseSwitch) TypeName() string {
+	return "[T] → (Case Switch) → (T, [T]) "
+}
+func (s CaseSwitch) String() string       { return s.TypeName() }
+func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
+func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
+func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
 
-//// TEST ALL CASES AGAINS ARGUMENT SET
-///
 // test one set of arguments against all cases until either successful result
 // is yielded, or all cases are depleted. gets called by eval & call methods.
 // when called without arguments, list of all cases and list of completed
@@ -460,16 +469,6 @@ func (s CaseSwitch) Eval(nats ...d.Native) d.Native {
 		}
 	}
 	return d.NewNil()
-}
-func (s CaseSwitch) TypeName() string {
-	return "[T] → (Case Switch) → (T, [T]) "
-}
-func (s CaseSwitch) String() string       { return s.TypeName() }
-func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
-func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
-func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseSwitch) Type() TyDef {
-	return Define(s.TypeName(), s.TypeFnc())
 }
 
 ///////////////////////////////////////////////////////////////////////////////

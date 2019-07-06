@@ -7,12 +7,12 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var truth = NewTruthTest(func(args ...Expression) bool {
+var truth = NewTestTruth("x = 0", func(args ...Expression) bool {
 	var num = args[0].Eval().(d.IntVal)
 	return num == 0
 })
 
-var trinary = NewTrinaryTest(func(args ...Expression) int {
+var trinary = NewTestTrinary("x > 0", func(args ...Expression) int {
 	var num = args[0].Eval().(d.IntVal)
 	if num < 0 {
 		return -1
@@ -23,7 +23,7 @@ var trinary = NewTrinaryTest(func(args ...Expression) int {
 	return 0
 })
 
-var compare = NewCompareTest(func(args ...Expression) int {
+var compare = NewTestCompare("x = 0", func(args ...Expression) int {
 	var num = args[0].Eval().(d.IntVal)
 	if num < 0 {
 		return -1
@@ -205,7 +205,7 @@ func TestTruth(t *testing.T) {
 	}
 }
 
-var test = NewTruthTest(func(args ...Expression) bool {
+var test = NewTestTruth("x = String|Integers|Float", func(args ...Expression) bool {
 	for _, arg := range args {
 		if !arg.(NativeExpr).TypeNat().Match(
 			d.String | d.Integers | d.Float) {
