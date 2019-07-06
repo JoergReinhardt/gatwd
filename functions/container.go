@@ -83,35 +83,33 @@ func (c GenericExpr) Eval() d.Native                     { return native(c) }
 // returns an expression with native return type implementing the callable
 // interface
 func New(inf ...interface{}) Expression {
-	return NewNative(d.New(inf...))
+	return NewData(d.New(inf...))
 }
 
-func NewNative(args ...d.Native) Expression {
+func NewData(args ...d.Native) Expression {
 
 	var nat = d.NewData(args...)
-	var tnat = nat.TypeNat()
+	var match = nat.TypeNat().Match
 
 	switch {
-	case tnat.Match(d.Slice):
+	case match(d.Slice):
 		return NativeCol(func(args ...d.Native) d.Sliceable {
 			return nat.(d.Sliceable)
 		})
-	case tnat.Match(d.Unboxed):
+	case match(d.Unboxed):
 		return NativeUbox(func(args ...d.Native) d.Sliceable {
 			return nat.(d.Sliceable)
 		})
-	case tnat.Match(d.Pair):
+	case match(d.Pair):
 		return NativePair(func(args ...d.Native) d.Paired {
 			return nat.(d.Paired)
 		})
-	case tnat.Match(d.Map):
+	case match(d.Map):
 		return NativeSet(func(args ...d.Native) d.Mapped {
 			return nat.(d.Mapped)
 		})
-	default:
-		return NativeConst(nat.Eval)
 	}
-	return NativeExpr(func(...d.Native) d.Native { return d.NewNil() })
+	return NativeConst(nat.Eval)
 }
 
 func native(args ...Expression) d.Native {
@@ -123,7 +121,7 @@ func native(args ...Expression) d.Native {
 	for _, arg := range args {
 		nats = append(nats, arg.Eval())
 	}
-	return NewNative(nats...)
+	return NewData(nats...)
 
 	return nat
 }
@@ -145,7 +143,7 @@ func (n NativeExpr) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		nats = append(nats, arg.Eval())
 	}
-	return NewNative(n(nats...))
+	return NewData(n(nats...))
 }
 func (n NativeExpr) Eval() d.Native       { return n() }
 func (n NativeExpr) TypeFnc() TyFnc       { return Data }
@@ -159,7 +157,7 @@ func (n NativeExpr) Type() TyDef {
 
 // NATIVE SLICE VALUE CONSTRUCTOR
 func (n NativeCol) Call(args ...Expression) Expression {
-	return NewNative(n(native(args...)))
+	return NewData(n(native(args...)))
 }
 func (n NativeCol) Len() int                   { return n().Len() }
 func (n NativeCol) TypeFnc() TyFnc             { return Data }
@@ -180,17 +178,17 @@ func (n NativeCol) String() string             { return n().String() }
 func (n NativeCol) TypeName() string           { return n().TypeName() }
 func (n NativeCol) FlagType() d.Uint8Val       { return Flag_Functional.U() }
 func (n NativeCol) Slice() []d.Native          { return n().Slice() }
-func (n NativeCol) Type() TyDef                { return Define(n().TypeName(), NewNative(n.TypeNat())) }
+func (n NativeCol) Type() TyDef                { return Define(n().TypeName(), NewData(n.TypeNat())) }
 func (n NativeCol) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, NewNative(nat))
+		slice = append(slice, NewData(nat))
 	}
 	return slice
 }
 
 func (n NativeUbox) Call(args ...Expression) Expression {
-	return NewNative(n(native(args...)))
+	return NewData(n(native(args...)))
 }
 func (n NativeUbox) TypeFnc() TyFnc             { return Data }
 func (n NativeUbox) Eval() d.Native             { return n() }
@@ -206,18 +204,18 @@ func (n NativeUbox) ElemType() d.TyNat          { return n().ElemType() }
 func (n NativeUbox) TypeName() string           { return n().TypeName() }
 func (n NativeUbox) FlagType() d.Uint8Val       { return Flag_Functional.U() }
 func (n NativeUbox) String() string             { return n().String() }
-func (n NativeUbox) Type() TyDef                { return Define(n.Eval().TypeName(), NewNative(n.TypeNat())) }
+func (n NativeUbox) Type() TyDef                { return Define(n.Eval().TypeName(), NewData(n.TypeNat())) }
 func (n NativeUbox) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, NewNative(nat))
+		slice = append(slice, NewData(nat))
 	}
 	return slice
 }
 
 // NATIVE PAIR VALUE CONSTRUCTOR
 func (n NativePair) Call(args ...Expression) Expression {
-	return NewNative(n(native(args...)))
+	return NewData(n(native(args...)))
 }
 func (n NativePair) TypeFnc() TyFnc        { return Data }
 func (n NativePair) TypeNat() d.TyNat      { return n().TypeNat() }
@@ -232,24 +230,24 @@ func (n NativePair) TypeName() string      { return n().TypeName() }
 func (n NativePair) FlagType() d.Uint8Val  { return Flag_Functional.U() }
 func (n NativePair) String() string        { return n().String() }
 func (n NativePair) Type() TyDef {
-	return Define(n().TypeName(), NewNative(n().TypeNat()))
+	return Define(n().TypeName(), NewData(n().TypeNat()))
 }
 func (n NativePair) Pair() Paired {
 	return NewPair(
-		NewNative(n().Left()),
-		NewNative(n().Right()))
+		NewData(n().Left()),
+		NewData(n().Right()))
 }
-func (n NativePair) LeftExpr() Expression  { return NewNative(n().Left()) }
-func (n NativePair) RightExpr() Expression { return NewNative(n().Right()) }
+func (n NativePair) LeftExpr() Expression  { return NewData(n().Left()) }
+func (n NativePair) RightExpr() Expression { return NewData(n().Right()) }
 func (n NativePair) BothExpr() (l, r Expression) {
-	return NewNative(n().Left()),
-		NewNative(n().Right())
+	return NewData(n().Left()),
+		NewData(n().Right())
 }
 
 // NATIVE SET VALUE CONSTRUCTOR
 
 func (n NativeSet) Call(args ...Expression) Expression {
-	return NewNative(n(native(args...)))
+	return NewData(n(native(args...)))
 }
 func (n NativeSet) Ident() Expression                    { return n }
 func (n NativeSet) Eval() d.Native                       { return n() }
@@ -272,26 +270,26 @@ func (n NativeSet) TypeName() string                     { return n().TypeName()
 func (n NativeSet) FlagType() d.Uint8Val                 { return Flag_Functional.U() }
 func (n NativeSet) String() string                       { return n().String() }
 func (n NativeSet) Type() TyDef {
-	return Define(n().TypeName(), NewNative(n()))
+	return Define(n().TypeName(), NewData(n()))
 }
 func (n NativeSet) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, key := range n().Keys() {
-		exprs = append(exprs, NewNative(key))
+		exprs = append(exprs, NewData(key))
 	}
 	return exprs
 }
 func (n NativeSet) DataExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, val := range n().Data() {
-		exprs = append(exprs, NewNative(val))
+		exprs = append(exprs, NewData(val))
 	}
 	return exprs
 }
 func (n NativeSet) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Fields() {
-		slice = append(slice, NewNative(nat))
+		slice = append(slice, NewData(nat))
 	}
 	return slice
 }
@@ -300,8 +298,8 @@ func (n NativeSet) Pairs() []Paired {
 	for _, field := range n.Fields() {
 		pairs = append(
 			pairs, NewPair(
-				NewNative(field.Left()),
-				NewNative(field.Right())))
+				NewData(field.Left()),
+				NewData(field.Right())))
 	}
 	return pairs
 }

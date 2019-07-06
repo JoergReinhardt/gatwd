@@ -22,13 +22,13 @@ var generic = NewGeneric(func(args ...Expression) Expression {
 			str = str + " "
 		}
 	}
-	return NewNative(d.StrVal(str))
-}, "Generic", NewNative(d.NewNull(d.String)))
+	return NewData(d.StrVal(str))
+}, "Generic", NewData(d.NewNull(d.String)))
 
 var genericcase = NewCase(test, generic)
 
 var partialcase = NewCase(test, DefinePartial("To String",
-	generic, NewNative(d.NewNull(d.String)), NewNative(d.TyNat(d.String|d.Int|d.Float))))
+	generic, NewData(d.NewNull(d.String)), NewData(d.TyNat(d.String|d.Int|d.Float))))
 
 //NewNative(d.TyNat(d.String|d.Int|d.Float))
 func TestCase(t *testing.T) {

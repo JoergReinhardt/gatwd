@@ -247,7 +247,7 @@ func (a KeyPair) KeyStr() string                     { _, key := a(); return key
 func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
 func (a KeyPair) Ident() Expression                  { return a }
 func (a KeyPair) Left() Expression                   { return a.Value() }
-func (a KeyPair) Right() Expression                  { return NewNative(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Right() Expression                  { return NewData(d.StrVal(a.KeyStr())) }
 func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -272,7 +272,7 @@ func (p KeyPair) Type() TyDef {
 // implement swappable
 func (p KeyPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return NewNative(d.StrVal(r)), l
+	return NewData(d.StrVal(r)), l
 }
 func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
@@ -294,7 +294,7 @@ func (a IndexPair) Ident() Expression                  { return a }
 func (a IndexPair) Index() int                         { _, idx := a(); return idx }
 func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
 func (a IndexPair) Left() Expression                   { return a.Value() }
-func (a IndexPair) Right() Expression                  { return NewNative(d.IntVal(a.Index())) }
+func (a IndexPair) Right() Expression                  { return NewData(d.IntVal(a.Index())) }
 func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -318,7 +318,7 @@ func (a IndexPair) Type() TyDef {
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return NewNative(d.StrVal(r)), l
+	return NewData(d.StrVal(r)), l
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPair) Empty() bool {
@@ -907,8 +907,8 @@ func (v SetCol) Pairs() []Paired {
 		pairs = append(
 			pairs,
 			NewPair(
-				NewNative(field.Left()),
-				NewNative(field.Right())))
+				NewData(field.Left()),
+				NewData(field.Right())))
 	}
 	return pairs
 }
@@ -933,7 +933,7 @@ func (v SetCol) Empty() bool {
 func (v SetCol) GetVal(key Expression) (Expression, bool) {
 	var m = v()
 	if value, ok := m.Get(key); ok {
-		return NewNative(value), ok
+		return NewData(value), ok
 	}
 	return NewNone(), false
 }

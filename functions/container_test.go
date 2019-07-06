@@ -30,47 +30,47 @@ func TestPartial(t *testing.T) {
 					str = str + " "
 				}
 			}
-			return NewNative(d.StrVal(str))
+			return NewData(d.StrVal(str))
 		}),
-		NewNative(d.NewNull(d.String)),
-		NewNative(d.NewNull(d.String)),
-		NewNative(d.NewNull(d.String)),
-		NewNative(d.NewNull(d.String)),
+		NewData(d.NewNull(d.String)),
+		NewData(d.NewNull(d.String)),
+		NewData(d.NewNull(d.String)),
+		NewData(d.NewNull(d.String)),
 	)
 
-	var r0 = strconc(NewNative(d.StrVal("0")))
+	var r0 = strconc(NewData(d.StrVal("0")))
 
-	var r1 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")))
+	var r1 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")))
 
-	var r2 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")))
+	var r2 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")))
 
-	var r3 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")))
+	var r3 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")))
 
-	var r4 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
-		NewNative(d.StrVal("4")))
+	var r4 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")))
 
-	var r5 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
-		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")))
+	var r5 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")))
 
-	var r6 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
-		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
-		NewNative(d.StrVal("6")))
+	var r6 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")))
 
-	var r7 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
-		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
-		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")))
+	var r7 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")), NewData(d.StrVal("7")))
 
-	var r8 = strconc(NewNative(d.StrVal("0")), NewNative(d.StrVal("1")),
-		NewNative(d.StrVal("2")), NewNative(d.StrVal("3")),
-		NewNative(d.StrVal("4")), NewNative(d.StrVal("5")),
-		NewNative(d.StrVal("6")), NewNative(d.StrVal("7")),
-		NewNative(d.StrVal("8")))
+	var r8 = strconc(NewData(d.StrVal("0")), NewData(d.StrVal("1")),
+		NewData(d.StrVal("2")), NewData(d.StrVal("3")),
+		NewData(d.StrVal("4")), NewData(d.StrVal("5")),
+		NewData(d.StrVal("6")), NewData(d.StrVal("7")),
+		NewData(d.StrVal("8")))
 
 	fmt.Println(r0.Eval())
 	fmt.Println(r1.Eval())
@@ -104,45 +104,45 @@ func TestPartial(t *testing.T) {
 			}
 			return d.NewNil()
 		}),
-		NewNative(d.NewUboxNull(d.String)),
-		NewNative(d.StrVal("")),
-		NewNative(d.IntVal(0)),
-		NewNative(d.UintVal(0)),
+		NewData(d.NewUboxNull(d.String)),
+		NewData(d.StrVal("")),
+		NewData(d.IntVal(0)),
+		NewData(d.UintVal(0)),
 	)
 
-	var sv0 = strvec(NewNative(d.StrVal("0")))
+	var sv0 = strvec(NewData(d.StrVal("0")))
 
-	var sv1 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)))
+	var sv1 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)))
 
-	var sv2 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)))
+	var sv2 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)))
 
-	var sv3 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")))
+	var sv3 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")))
 
-	var sv4 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
-		NewNative(d.IntVal(4)))
+	var sv4 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")),
+		NewData(d.IntVal(4)))
 
-	var sv5 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
-		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)))
+	var sv5 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")),
+		NewData(d.IntVal(4)), NewData(d.UintVal(5)))
 
-	var sv6 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
-		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
-		NewNative(d.StrVal("6")))
+	var sv6 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")),
+		NewData(d.IntVal(4)), NewData(d.UintVal(5)),
+		NewData(d.StrVal("6")))
 
-	var sv7 = strvec(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
-		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
-		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)))
+	var sv7 = strvec(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")),
+		NewData(d.IntVal(4)), NewData(d.UintVal(5)),
+		NewData(d.StrVal("6")), NewData(d.IntVal(7)))
 
-	var sv8 = strvec.Call(NewNative(d.StrVal("0")), NewNative(d.IntVal(1)),
-		NewNative(d.UintVal(2)), NewNative(d.StrVal("3")),
-		NewNative(d.IntVal(4)), NewNative(d.UintVal(5)),
-		NewNative(d.StrVal("6")), NewNative(d.IntVal(7)),
-		NewNative(d.UintVal(8)))
+	var sv8 = strvec.Call(NewData(d.StrVal("0")), NewData(d.IntVal(1)),
+		NewData(d.UintVal(2)), NewData(d.StrVal("3")),
+		NewData(d.IntVal(4)), NewData(d.UintVal(5)),
+		NewData(d.StrVal("6")), NewData(d.IntVal(7)),
+		NewData(d.UintVal(8)))
 
 	fmt.Printf(
 		"\nstring vector: %s type: %s elem name: %s elem type: %s"+

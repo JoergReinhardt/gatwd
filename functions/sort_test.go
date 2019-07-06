@@ -53,13 +53,13 @@ func TestDataSorter(t *testing.T) {
 }
 func TestDataSorterFlags(t *testing.T) {
 	var flags = []Expression{
-		NewNative(d.Int),
-		NewNative(d.Int16),
-		NewNative(d.BigInt),
-		NewNative(d.Bool),
-		NewNative(d.Int8),
-		NewNative(d.Int32),
-		NewNative(d.Nil),
+		NewData(d.Int),
+		NewData(d.Int16),
+		NewData(d.BigInt),
+		NewData(d.Bool),
+		NewData(d.Int8),
+		NewData(d.Int32),
+		NewData(d.Nil),
 	}
 
 	fs := SortedData(flags)

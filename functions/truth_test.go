@@ -207,7 +207,7 @@ func TestTruth(t *testing.T) {
 
 var test = NewTestTruth("x = String|Integers|Float", func(args ...Expression) bool {
 	for _, arg := range args {
-		if !arg.(NativeExpr).TypeNat().Match(
+		if !arg.(NativeConst).TypeNat().Match(
 			d.String | d.Integers | d.Float) {
 			return false
 		}

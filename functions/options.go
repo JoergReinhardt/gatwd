@@ -134,9 +134,9 @@ func (t TestExpr) String() string       { return t.TypeName() }
 func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (t TestExpr) Call(args ...Expression) Expression {
 	if t.TypeFnc() == Compare {
-		return NewNative(d.IntVal(t.Compare(args...)))
+		return NewData(d.IntVal(t.Compare(args...)))
 	}
-	return NewNative(d.BoolVal(t.Test(args...)))
+	return NewData(d.BoolVal(t.Test(args...)))
 }
 
 func (t TestExpr) Eval() d.Native { return t }
@@ -274,7 +274,7 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 
 	// construct case type name
 	var ldel, rdel = "(", ")"
-	var name = NewNative(d.StrVal(
+	var name = NewData(d.StrVal(
 		ldel + expr.Type().PatternName() + " → " +
 			typed.Name() + " ⇒ " +
 			expr.Type().Name() + " → " +

@@ -306,5 +306,5 @@ func (a Arity) TypeFnc() TyFnc                { return Type }
 func (a Arity) TypeNat() d.TyNat              { return d.Type }
 func (a Arity) Match(arg d.Typed) bool        { return a == arg }
 func (a Arity) TypeName() string              { return a.String() }
-func (a Arity) Call(...Expression) Expression { return NewNative(a) }
+func (a Arity) Call(...Expression) Expression { return NewData(a) }
 func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
