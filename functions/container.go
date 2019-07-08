@@ -40,7 +40,7 @@ func (c ConstantExpr) TypeFnc() TyFnc                     { return Constant }
 func (c ConstantExpr) String() string                     { return c().String() }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
-func (c ConstantExpr) Type() TyDef {
+func (c ConstantExpr) Type() Typed {
 	return Define("ϝ → "+c().TypeName(), c())
 }
 
@@ -56,11 +56,11 @@ func NewGeneric(
 	paratypes ...Expression,
 ) GenericExpr {
 
-	var params = make([]Typed, 0, len(paratypes))
+	var params = make([]Expression, 0, len(paratypes))
 	for _, param := range paratypes {
-		params = append(params, param.Type())
+		params = append(params, param)
 	}
-	var typed = Define(name, retype.Type(), params...)
+	var typed = Define(name, retype.TypeFnc(), params...)
 
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
@@ -71,11 +71,11 @@ func NewGeneric(
 }
 
 func (c GenericExpr) Ident() Expression                  { return c }
-func (c GenericExpr) Type() TyDef                        { return c().(TyDef) }
+func (c GenericExpr) Type() Typed                        { return c().(Typed) }
 func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
 func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().Return().TypeFnc() }
+func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().(TyDef).Return().TypeFnc() }
 func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 
 //// NATIVE EXPRESSION CONSTRUCTOR
@@ -126,7 +126,7 @@ func (n NativeConst) TypeNat() d.TyNat              { return n().TypeNat() }
 func (n NativeConst) FlagType() d.Uint8Val          { return Flag_Functional.U() }
 func (n NativeConst) String() string                { return n().String() }
 func (n NativeConst) TypeName() string              { return n().TypeName() }
-func (n NativeConst) Type() TyDef {
+func (n NativeConst) Type() Typed {
 	return Define(n().TypeNat().TypeName(), NewData(n().TypeNat()))
 }
 
@@ -137,7 +137,7 @@ func (n NativeExpr) TypeNat() d.TyNat                   { return n().TypeNat() }
 func (n NativeExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (n NativeExpr) String() string                     { return n().String() }
 func (n NativeExpr) TypeName() string                   { return n().TypeName() }
-func (n NativeExpr) Type() TyDef {
+func (n NativeExpr) Type() Typed {
 	return Define(n().TypeNat().TypeName(), NewData(n().TypeNat()))
 }
 
@@ -162,7 +162,7 @@ func (n NativeCol) String() string                     { return n().String() }
 func (n NativeCol) TypeName() string                   { return n().TypeName() }
 func (n NativeCol) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (n NativeCol) Slice() []d.Native                  { return n().Slice() }
-func (n NativeCol) Type() TyDef                        { return Define(n().TypeName(), NewData(n.TypeNat())) }
+func (n NativeCol) Type() Typed                        { return Define(n().TypeName(), NewData(n.TypeNat())) }
 func (n NativeCol) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
@@ -186,7 +186,7 @@ func (n NativeUbox) ElemType() d.TyNat                  { return n().ElemType() 
 func (n NativeUbox) TypeName() string                   { return n().TypeName() }
 func (n NativeUbox) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (n NativeUbox) String() string                     { return n().String() }
-func (n NativeUbox) Type() TyDef                        { return Define(n.Eval().TypeName(), NewData(n.TypeNat())) }
+func (n NativeUbox) Type() Typed                        { return Define(n.Eval().TypeName(), NewData(n.TypeNat())) }
 func (n NativeUbox) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
@@ -209,7 +209,7 @@ func (n NativePair) SubType() d.Typed                   { return n().TypeNat() }
 func (n NativePair) TypeName() string                   { return n().TypeName() }
 func (n NativePair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (n NativePair) String() string                     { return n().String() }
-func (n NativePair) Type() TyDef {
+func (n NativePair) Type() Typed {
 	return Define(n().TypeName(), NewData(n().TypeNat()))
 }
 func (n NativePair) Pair() Paired {
@@ -246,7 +246,7 @@ func (n NativeSet) SubType() d.Typed                     { return n().TypeNat() 
 func (n NativeSet) TypeName() string                     { return n().TypeName() }
 func (n NativeSet) FlagType() d.Uint8Val                 { return Flag_Functional.U() }
 func (n NativeSet) String() string                       { return n().String() }
-func (n NativeSet) Type() TyDef {
+func (n NativeSet) Type() Typed {
 	return Define(n().TypeName(), NewData(n()))
 }
 func (n NativeSet) KeysExpr() []Expression {
@@ -305,9 +305,9 @@ func DefinePartial(
 
 	var arity = len(paratypes)
 
-	var params = make([]Typed, 0, arity)
+	var params = make([]Expression, 0, arity)
 	for _, param := range paratypes {
-		params = append(params, param.Type())
+		params = append(params, param.TypeFnc())
 	}
 	var typed = Define(name, retype, params...)
 
@@ -347,13 +347,15 @@ func DefinePartial(
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n PartialExpr) Ident() Expression                  { return n }
-func (n PartialExpr) Type() TyDef                        { return n().(TyDef) }
-func (n PartialExpr) String() string                     { return n.TypeName() }
-func (n PartialExpr) TypeName() string                   { return n.Type().Name() }
-func (n PartialExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
-func (n PartialExpr) Arity() Arity                       { return n.Type().Arity() }
-func (n PartialExpr) Return() Typed                      { return n.Type().Return() }
-func (n PartialExpr) Pattern() []Typed                   { return n.Type().Pattern() }
-func (n PartialExpr) TypeFnc() TyFnc                     { return n.Return().TypeFnc() }
+func (n PartialExpr) Ident() Expression     { return n }
+func (n PartialExpr) Type() Typed           { return n().(Typed) }
+func (n PartialExpr) String() string        { return n.TypeName() }
+func (n PartialExpr) TypeName() string      { return n.Type().(TyDef).Name() }
+func (n PartialExpr) FlagType() d.Uint8Val  { return Flag_DataCons.U() }
+func (n PartialExpr) Arity() Arity          { return n.Type().(TyDef).Arity() }
+func (n PartialExpr) Return() Expression    { return n.Type().(TyDef).Return() }
+func (n PartialExpr) Pattern() []Expression { return n.Type().(TyDef).Pattern() }
+func (n PartialExpr) TypeFnc() TyFnc {
+	return n.Return().(Expression).TypeFnc()
+}
 func (n PartialExpr) Call(args ...Expression) Expression { return n(args...) }

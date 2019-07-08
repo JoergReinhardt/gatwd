@@ -1,16 +1,14 @@
 package functions
 
 import (
-	"fmt"
 	s "strings"
-	u "unicode"
 
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
 	TySig     func() (TyDef, []TyDef)
-	TyDef     func() (string, []Typed)
+	TyDef     func() (string, []Expression)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
@@ -168,164 +166,28 @@ const (
 	ClassType
 )
 
-type tval struct {
-	Kind    TvKind
-	NatType d.TyNat
-	FncType TyFnc
-}
-
-func newTval(kind TvKind, nat d.TyNat, fnc TyFnc) tval {
-	return tval{kind, nat, fnc}
-}
-
-type tvalm map[string]tval
-
-func splitSignature(signature string) VecCol {
-	var slice = []Expression{}
-	var str = s.Split(signature, " ")
-	for _, str := range str {
-		slice = append(slice, NewData(d.StrVal(str)))
-	}
-	return NewVector(slice...)
-}
-
-func lDelim(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
-	if sig.Len() > 0 {
-		var tok = sig.Head().String()
-		if s.HasPrefix(tok, "(") || tok == "(" {
-			_, sig = sig.ConsumeVec()
-			// shave of the delimiter from the token
-			tok = s.TrimLeft(tok, "(")
-			// generate a new token to replace the popped one
-			sig = sig.Append(NewData(d.StrVal(tok)))
-			// create sub element to take the delimiter expression
-			var subelems = NewVector()
-			// pass on and reassing the subelement,signature and type map
-			tm, sig, subelems = parseSig(tm, sig, subelems)
-			// append the sub element as element
-			elems = elems.Append(subelems)
-		}
-	}
-	return tm, sig, elems
-}
-
-func rDelim(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
-	if sig.Len() > 0 {
-		var tok = sig.Head().String()
-		if s.HasSuffix(tok, ")") || tok == ")" {
-			_, sig = sig.ConsumeVec()
-			// shave delimiter and replace popped toke
-			tok = s.TrimRight(tok, ")")
-			sig = sig.Append(NewData(d.StrVal(tok)))
-		}
-	}
-	return tm, sig, elems
-}
-
-func parseSigElem(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
-	if sig.Len() > 0 {
-		var val tval
-		var tok = sig.Head().String()
-		if u.IsUpper([]rune(tok)[0]) {
-			if nat, ok := searchNatType(tok); ok {
-				_, sig = sig.ConsumeVec()
-				elems = elems.Append(NewData(d.StrVal(tok)))
-				val = newTval(NativeType, nat, None)
-				tm[tok] = val
-				return tm, sig, elems
-			}
-			if fnc, ok := searchFncType(tok); ok {
-				_, sig = sig.ConsumeVec()
-				elems = elems.Append(NewData(d.StrVal(tok)))
-				val = newTval(FunctionType, d.Nil, fnc)
-				tm[tok] = val
-				return tm, sig, elems
-			}
-			_, sig = sig.ConsumeVec()
-			elems = elems.Append(NewData(d.StrVal(tok)))
-			val = newTval(ParamType, d.Nil, None)
-			tm[tok] = val
-			return tm, sig, elems
-		}
-		if elems.Len() > 0 {
-			if elems.Last().TypeFnc().Match(Vector) {
-				fmt.Printf("last element matched vector")
-				return tm, sig, elems
-			}
-		}
-		_, sig = sig.ConsumeVec()
-		elems = elems.Append(NewData(d.StrVal(tok)))
-		val = newTval(FunctionName, d.Nil, None)
-		tm[tok] = val
-		return tm, sig, elems
-	}
-	return tm, sig, elems
-}
-
-func stripArrows(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
-	if sig.Len() > 0 {
-		var tok = sig.Head().String()
-		if s.ContainsAny(tok, "∷:->→=>⇒") {
-			// pop the arrow token
-			_, sig = sig.ConsumeVec()
-		}
-	}
-	return tm, sig, elems
-}
-
-func parseSig(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
-	for sig.Len() > 0 {
-		if elems.Len() > 0 {
-			if elems.Last().TypeFnc().Match(Vector) {
-				fmt.Printf("last element matched vector")
-				continue
-			}
-		}
-		tm, sig, elems = stripArrows(tm, sig, elems)
-		tm, sig, elems = lDelim(tm, sig, elems)
-		tm, sig, elems = rDelim(tm, sig, elems)
-		tm, sig, elems = parseSigElem(tm, sig, elems)
-	}
-	return tm, sig, elems
-}
-
-// remove arrows and continue examining the next token
-// if left delimiter → parse subelement
-//		if s.Contains(tok, "|") {
-//			elem, tval := parseTypeValSet()
-//			elems = append(elems, elem)
-//			tvm[tok] = tval
-//		}
-// if right delim → pop after token has been consumed
-
-//func parseTypeValSet(tok string) (Expression, tval) {
-//	var fnc TyFnc
-//	var nat TyNat
-//	return NewKeyPair(tok, Type), newTval(TypeValue, Type.Flag())
-//}
-
 //// TYPE DEFINITION
-func Define(name string, retype Typed, paratypes ...Typed) TyDef {
-	return func() (string, []Typed) {
-		return name, append([]Typed{retype}, paratypes...)
+func Define(name string, retype Expression, paratypes ...Expression) TyDef {
+	return func() (string, []Expression) {
+		return name, append([]Expression{retype}, paratypes...)
 	}
 }
 
-func (t TyDef) Type() TyDef                        { return t }
+func (t TyDef) Type() Typed                        { return t }
 func (t TyDef) String() string                     { return t.TypeName() }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
-func (t TyDef) Elems() []Typed                     { var _, expr = t(); return expr }
-func (t TyDef) Return() Typed                      { return t.Elems()[0] }
+func (t TyDef) Elems() []Expression                { var _, expr = t(); return expr }
+func (t TyDef) Return() Expression                 { return t.Elems()[0] }
 func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
 func (t TyDef) Flag() d.BitFlag                    { return t.Return().TypeFnc().Flag() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Return().TypeFnc() }
 func (t TyDef) Call(args ...Expression) Expression { return t }
-func (t TyDef) Pattern() []Typed {
+func (t TyDef) Pattern() []Expression {
 	var elems = t.Elems()
 	if len(elems) > 1 {
 		return elems[1:]
 	}
-	return []Typed{Type}
+	return []Expression{Type}
 }
 func (t TyDef) Arity() Arity {
 	return Arity(len(t.Pattern()))
@@ -389,7 +251,7 @@ func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() 
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval() d.Native                     { return t.TypeNat() }
-func (t TyFnc) Type() TyDef                        { return Define(t.TypeName(), t) }
+func (t TyFnc) Type() Typed                        { return Define(t.TypeName(), t) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -463,7 +325,7 @@ func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Eval() d.Native                     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() TyDef {
+func (p Propertys) Type() Typed {
 	return Define(p.TypeName(), Property)
 }
 

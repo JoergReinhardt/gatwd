@@ -32,7 +32,7 @@ func Curry(exprs ...Expression) Expression {
 				var def = expr.Type()
 				return Define(
 					def.TypeName(),
-					def.Return(),
+					def.(TyDef).Return(),
 				).Call(Curry(exprs[1:]...))
 			}
 			return Define(
@@ -62,14 +62,14 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
 func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (m ConsumeVal) TypeElem() Typed {
+func (m ConsumeVal) TypeElem() TyFnc {
 	if head := m.Head(); head != nil {
-		return head.Type()
+		return head.TypeFnc()
 	}
-	return None.Type()
+	return None.TypeFnc()
 }
-func (m ConsumeVal) Type() TyDef {
-	return Define(m.TypeName(), m.Head().Type())
+func (m ConsumeVal) Type() Typed {
+	return Define(m.TypeName(), m.Head().TypeFnc())
 }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
@@ -150,14 +150,14 @@ func (c ConsPairVal) String() string {
 func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
 func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (c ConsPairVal) TypeElem() Typed {
+func (c ConsPairVal) TypeElem() TyFnc {
 	if head := c.Head(); head != nil {
-		return head.Type()
+		return head.TypeFnc()
 	}
-	return None.Type()
+	return None.TypeFnc()
 }
-func (c ConsPairVal) Type() TyDef {
-	return Define(c.TypeName(), c.Head().Type())
+func (c ConsPairVal) Type() Typed {
+	return Define(c.TypeName(), c.Head().TypeFnc())
 }
 
 //// MAP

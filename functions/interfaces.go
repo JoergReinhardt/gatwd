@@ -4,35 +4,46 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-//// NATIVE INTERFACE
-///
-type Flagged interface {
-	Match(d.Typed) bool
-	Flag() d.BitFlag
-}
-type Typed interface {
-	Type() TyDef
-	TypeFnc() TyFnc
-	TypeName() string
-	FlagType() d.Uint8Val
-}
-
-type Native interface {
-	d.Native
-	Type() TyDef
-	TypeFnc() TyFnc
-	FlagType() d.Uint8Val
-	Call(...Expression) Expression
-}
-
+///// EXPRESSION INTERFACES
 type Stringer interface {
 	String() string
 }
-
-type Expression interface {
-	Typed
-	Stringer
+type FlagTyped interface {
+	FlagType() d.Uint8Val
+}
+type Flagged interface {
+	Flag() d.BitFlag
+}
+type Matched interface {
+	Match(d.Typed) bool
+}
+type NameTyped interface {
+	TypeName() string
+}
+type FunctionTyped interface {
+	TypeFnc() TyFnc
+}
+type NativeTyped interface {
+	TypeNat() d.TyNat
+}
+type Callable interface {
 	Call(...Expression) Expression
+}
+type Typed interface {
+	d.Typed
+}
+type Expression interface {
+	FunctionTyped
+	NameTyped
+	FlagTyped
+	Callable
+	Stringer
+	Type() Typed
+}
+type Native interface {
+	d.NativeTyped
+	d.Evaluable
+	Expression
 }
 
 type Reproduceable interface {
@@ -158,7 +169,7 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
-	TypeElem() Typed
+	TypeElem() TyFnc
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
@@ -218,8 +229,8 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyType() TyDef
-	ValType() TyDef
+	KeyType() TyFnc
+	ValType() TyFnc
 }
 
 type Paired interface {

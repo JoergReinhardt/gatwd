@@ -52,7 +52,7 @@ func NewNull(nat TyNat) Native {
 			// a single native type should be left
 			if len(nats) == 1 {
 				// return a slice of the particular type
-				return NewUnboxed(nats[0].TypeNat())
+				return NewUnboxed(nats[0].(NativeTyped).TypeNat())
 			}
 		case nat.Match(Pair):
 			// mask pair flag and decompose remaining flags

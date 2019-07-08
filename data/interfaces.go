@@ -4,20 +4,43 @@ import (
 	"math/big"
 )
 
-// the main interface, all native types need to implement.
-type Native interface {
-	Eval() Native
-	TypeNat() TyNat
+type Stringer interface {
 	String() string
+}
+type Evaluable interface {
+	Eval() Native
+}
+type Flagged interface {
+	Flag() BitFlag
+}
+type FlagTyped interface {
+	FlagType() Uint8Val
+}
+type Matched interface {
+	Match(Typed) bool
+}
+type NativeTyped interface {
+	TypeNat() TyNat
+}
+type NameTyped interface {
 	TypeName() string
 }
 
-// all BitFlag's implement the typed interface (as well as primary)
+// typed needs to not have the NativeTyped interface, to stay interchangeable
+// with types from other packages
 type Typed interface {
-	Native
-	Flag() BitFlag
-	FlagType() Uint8Val
-	Match(Typed) bool
+	FlagTyped
+	NameTyped
+	Flagged
+	Matched
+}
+
+// the main interface, all native types need to implement.
+type Native interface {
+	NativeTyped
+	NameTyped
+	Evaluable
+	Stringer
 }
 
 type BinaryMarshaler interface {

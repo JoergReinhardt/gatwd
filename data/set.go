@@ -164,6 +164,11 @@ func (s SetString) Get(acc Native) (Native, bool) {
 	return nil, false
 }
 
+func (s SetString) Set(acc Native, dat Native) Mapped {
+	s[acc.(StrVal)] = acc.(StrVal)
+	return s
+}
+
 func (s SetString) Delete(acc Native) bool {
 	if _, ok := s[acc.(StrVal)]; ok {
 		delete(s, acc.(StrVal))
@@ -171,8 +176,6 @@ func (s SetString) Delete(acc Native) bool {
 	}
 	return false
 }
-
-func (s SetString) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
 //////////////////////////////////////////////////////////////
 

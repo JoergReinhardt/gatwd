@@ -32,7 +32,7 @@ func TestPartial(t *testing.T) {
 			}
 			return NewData(d.StrVal(str))
 		}),
-		NewData(d.NewNull(d.String)).Type(),
+		NewData(d.NewNull(d.String)),
 		NewData(d.NewNull(d.String)),
 		NewData(d.NewNull(d.String)),
 		NewData(d.NewNull(d.String)),
@@ -148,10 +148,10 @@ func TestPartial(t *testing.T) {
 		"\nstring vector: %s type: %s elem name: %s elem type: %s"+
 			" slice: %s element: %s\n\n",
 		sv5, sv5.(VecCol)()[0].String(),
-		sv5.(VecCol)()[0].(NativeUbox)().TypeName(),
-		sv5.(VecCol)()[0].(NativeUbox)().TypeNat(),
-		sv5.(VecCol)()[0].(NativeUbox),
-		sv5.(VecCol)()[0].(NativeUbox),
+		sv5.(VecCol)()[0].(NativeExpr)().TypeName(),
+		sv5.(VecCol)()[0].(NativeExpr)().TypeNat(),
+		sv5.(VecCol)()[0].(NativeExpr),
+		sv5.(VecCol)()[0].(NativeExpr),
 	)
 
 	fmt.Printf("string vector: %s type: %s type name: %s\n",
@@ -173,7 +173,7 @@ func TestPartial(t *testing.T) {
 	fmt.Printf("string vector: %s type: %s type name: %s\n",
 		sv7.Call(), sv7.TypeFnc(), sv7.TypeName())
 	fmt.Printf("string vector: %s type: %s type name: %s\n",
-		sv8.Call(), sv8.TypeFnc(), sv8.Type().Name())
+		sv8.Call(), sv8.TypeFnc(), sv8.Type())
 
 	fmt.Printf("vector head: %s head type name: %s type name: %s\n",
 		sv8.(VecCol).String(), sv8.(VecCol).Head().TypeName(), sv8.(VecCol).TypeName())
