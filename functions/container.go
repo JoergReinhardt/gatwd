@@ -82,7 +82,7 @@ func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 ///
 // returns an expression with native return type implementing the callable
 // interface
-func New(inf ...interface{}) d.Native {
+func New(inf ...interface{}) Native {
 	return NewData(d.New(inf...))
 }
 

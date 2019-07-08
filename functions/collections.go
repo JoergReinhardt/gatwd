@@ -279,7 +279,7 @@ func (a IndexPair) Ident() Expression                  { return a }
 func (a IndexPair) Index() int                         { _, idx := a(); return idx }
 func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
 func (a IndexPair) Left() Expression                   { return a.Value() }
-func (a IndexPair) Right() Expression                  { return NewData(New(a.Index())) }
+func (a IndexPair) Right() Expression                  { return New(a.Index()) }
 func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -474,6 +474,27 @@ func (v VecCol) Append(args ...Expression) VecCol {
 	return NewVector(append(v(), args...)...)
 }
 
+func (v VecCol) Prepend(args ...Expression) VecCol {
+	return NewVector(append(args, v()...)...)
+}
+
+func (v VecCol) Reverse(args ...Expression) VecCol {
+	var slice []Expression
+	if v.Len() > 1 {
+		slice = []Expression{}
+		var vector = v()
+		for i := v.Len() - 1; i > 0; i-- {
+			slice = append(slice, vector[i])
+		}
+	}
+	if len(args) > 0 {
+		for _, arg := range args {
+			v = v.Prepend(arg)
+		}
+	}
+	return NewVector(slice...)
+}
+
 func (v VecCol) Con(args ...Expression) VecCol {
 	return ConVector(v, args...)
 }
@@ -484,16 +505,23 @@ func (v VecCol) Call(d ...Expression) Expression {
 	return NewVector(v(d...)...)
 }
 
+func (v VecCol) Last() Expression {
+	if v.Len() > 0 {
+		return v()[v.Len()-1]
+	}
+	return nil
+}
+
 func (v VecCol) Head() Expression {
 	if v.Len() > 0 {
-		return v.Slice()[0]
+		return v()[0]
 	}
 	return nil
 }
 
 func (v VecCol) Tail() Consumeable {
 	if v.Len() > 1 {
-		return NewVector(v.Slice()[1:]...)
+		return NewVector(v()[1:]...)
 	}
 	return NewEmptyVector()
 }
@@ -504,7 +532,7 @@ func (v VecCol) Consume() (Expression, Consumeable) {
 
 func (v VecCol) TailVec() VecCol {
 	if v.Len() > 1 {
-		return NewVector(v.Slice()[1:]...)
+		return NewVector(v.Tail().(VecCol)()...)
 	}
 	return NewEmptyVector()
 }
@@ -512,6 +540,8 @@ func (v VecCol) TailVec() VecCol {
 func (v VecCol) ConsumeVec() (Expression, VecCol) {
 	return v.Head(), v.TailVec()
 }
+
+func (v VecCol) Clear() VecCol { return NewVector() }
 
 func (v VecCol) Empty() bool {
 	if len(v()) > 0 {

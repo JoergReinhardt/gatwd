@@ -1,7 +1,9 @@
 package functions
 
 import (
-	"strings"
+	"fmt"
+	s "strings"
+	u "unicode"
 
 	d "github.com/joergreinhardt/gatwd/data"
 )
@@ -69,6 +71,11 @@ const (
 	None
 	Either
 	Or
+	/// DATA TYPE CLASSES
+	Numbers
+	Letters
+	Bytes
+	Text
 	/// SUM COLLECTION TYPES
 	List
 	Vector
@@ -78,11 +85,6 @@ const (
 	Enum
 	Tuple
 	Record
-	/// DATA TYPES
-	Numbers
-	Letters
-	Bytes
-	Text
 	/// IMPURE
 	State
 	IO
@@ -112,19 +114,195 @@ const (
 	Branches = Switch | Case | If | Maybe | Option
 
 	//// COLLECTIONS
-	CollectSum  = List | Vector
-	CollectProd = Set | Pair |
-		Enum | Tuple | Record
-
-	Collections = CollectSum | CollectProd
-
-	Pairs        = Pair | Index | Key
-	Consumeables = List | Vector | Collections
-	Nils         = Function | Tests | None | Branches
+	Consumeables = List | Vector
+	Collections  = Consumeables | Pair |
+		Set | Record | Enum | Tuple
 
 	AllTypes = Kinds | Parameters | Tests |
 		Branches | Collections
 )
+
+var fncTypes = map[string]TyFnc{}
+var natTypes = map[string]d.TyNat{}
+
+func init() {
+	for _, nat := range d.FetchTypes() {
+		natTypes[nat.TypeName()] = nat
+	}
+	for _, fnc := range fetchTypes() {
+		fncTypes[fnc.TypeName()] = fnc
+	}
+}
+func searchNatType(name string) (d.TyNat, bool) {
+	if val, ok := natTypes[name]; ok {
+		return val, ok
+	}
+	return d.Nil, false
+}
+func searchFncType(name string) (TyFnc, bool) {
+	if val, ok := fncTypes[name]; ok {
+		return val, ok
+	}
+	return None, false
+}
+func fetchTypes() []TyFnc {
+	var tt = []TyFnc{}
+	var i uint
+	var t TyFnc = 0
+	for t < Type {
+		t = 1 << i
+		i = i + 1
+		tt = append(tt, TyFnc(t))
+	}
+	return tt
+}
+
+type TvKind uint8
+
+//go:generate stringer -type=TvKind
+const (
+	FunctionName TvKind = 0 + iota
+	FunctionType
+	NativeType
+	ParamType
+	ClassType
+)
+
+type tval struct {
+	Kind    TvKind
+	NatType d.TyNat
+	FncType TyFnc
+}
+
+func newTval(kind TvKind, nat d.TyNat, fnc TyFnc) tval {
+	return tval{kind, nat, fnc}
+}
+
+type tvalm map[string]tval
+
+func splitSignature(signature string) VecCol {
+	var slice = []Expression{}
+	var str = s.Split(signature, " ")
+	for _, str := range str {
+		slice = append(slice, NewData(d.StrVal(str)))
+	}
+	return NewVector(slice...)
+}
+
+func lDelim(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
+	if sig.Len() > 0 {
+		var tok = sig.Head().String()
+		if s.HasPrefix(tok, "(") || tok == "(" {
+			_, sig = sig.ConsumeVec()
+			// shave of the delimiter from the token
+			tok = s.TrimLeft(tok, "(")
+			// generate a new token to replace the popped one
+			sig = sig.Append(NewData(d.StrVal(tok)))
+			// create sub element to take the delimiter expression
+			var subelems = NewVector()
+			// pass on and reassing the subelement,signature and type map
+			tm, sig, subelems = parseSig(tm, sig, subelems)
+			// append the sub element as element
+			elems = elems.Append(subelems)
+		}
+	}
+	return tm, sig, elems
+}
+
+func rDelim(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
+	if sig.Len() > 0 {
+		var tok = sig.Head().String()
+		if s.HasSuffix(tok, ")") || tok == ")" {
+			_, sig = sig.ConsumeVec()
+			// shave delimiter and replace popped toke
+			tok = s.TrimRight(tok, ")")
+			sig = sig.Append(NewData(d.StrVal(tok)))
+		}
+	}
+	return tm, sig, elems
+}
+
+func parseSigElem(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
+	if sig.Len() > 0 {
+		var val tval
+		var tok = sig.Head().String()
+		if u.IsUpper([]rune(tok)[0]) {
+			if nat, ok := searchNatType(tok); ok {
+				_, sig = sig.ConsumeVec()
+				elems = elems.Append(NewData(d.StrVal(tok)))
+				val = newTval(NativeType, nat, None)
+				tm[tok] = val
+				return tm, sig, elems
+			}
+			if fnc, ok := searchFncType(tok); ok {
+				_, sig = sig.ConsumeVec()
+				elems = elems.Append(NewData(d.StrVal(tok)))
+				val = newTval(FunctionType, d.Nil, fnc)
+				tm[tok] = val
+				return tm, sig, elems
+			}
+			_, sig = sig.ConsumeVec()
+			elems = elems.Append(NewData(d.StrVal(tok)))
+			val = newTval(ParamType, d.Nil, None)
+			tm[tok] = val
+			return tm, sig, elems
+		}
+		if elems.Len() > 0 {
+			if elems.Last().TypeFnc().Match(Vector) {
+				fmt.Printf("last element matched vector")
+				return tm, sig, elems
+			}
+		}
+		_, sig = sig.ConsumeVec()
+		elems = elems.Append(NewData(d.StrVal(tok)))
+		val = newTval(FunctionName, d.Nil, None)
+		tm[tok] = val
+		return tm, sig, elems
+	}
+	return tm, sig, elems
+}
+
+func stripArrows(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
+	if sig.Len() > 0 {
+		var tok = sig.Head().String()
+		if s.ContainsAny(tok, "∷:->→=>⇒") {
+			// pop the arrow token
+			_, sig = sig.ConsumeVec()
+		}
+	}
+	return tm, sig, elems
+}
+
+func parseSig(tm tvalm, sig, elems VecCol) (tvalm, VecCol, VecCol) {
+	for sig.Len() > 0 {
+		if elems.Len() > 0 {
+			if elems.Last().TypeFnc().Match(Vector) {
+				fmt.Printf("last element matched vector")
+				continue
+			}
+		}
+		tm, sig, elems = stripArrows(tm, sig, elems)
+		tm, sig, elems = lDelim(tm, sig, elems)
+		tm, sig, elems = rDelim(tm, sig, elems)
+		tm, sig, elems = parseSigElem(tm, sig, elems)
+	}
+	return tm, sig, elems
+}
+
+// remove arrows and continue examining the next token
+// if left delimiter → parse subelement
+//		if s.Contains(tok, "|") {
+//			elem, tval := parseTypeValSet()
+//			elems = append(elems, elem)
+//			tvm[tok] = tval
+//		}
+// if right delim → pop after token has been consumed
+
+//func parseTypeValSet(tok string) (Expression, tval) {
+//	var fnc TyFnc
+//	var nat TyNat
+//	return NewKeyPair(tok, Type), newTval(TypeValue, Type.Flag())
+//}
 
 //// TYPE DEFINITION
 func Define(name string, retype Typed, paratypes ...Typed) TyDef {
@@ -155,7 +333,7 @@ func (t TyDef) Arity() Arity {
 }
 func (t TyDef) ReturnName() string {
 	var retname = t.Return().TypeName()
-	if strings.Contains(retname, " ") {
+	if s.Contains(retname, " ") {
 		retname = "(" + retname + ")"
 	}
 	return retname
@@ -170,7 +348,7 @@ func (t TyDef) PatternName() string {
 				slice = append(slice,
 					arg.TypeName())
 			}
-			return strings.Join(slice, sep)
+			return s.Join(slice, sep)
 		}
 	}
 	return ""
@@ -178,7 +356,7 @@ func (t TyDef) PatternName() string {
 func (t TyDef) TypeName() string {
 	var sep = " → "
 	var name = t.Name()
-	if strings.Contains(name, " ") {
+	if s.Contains(name, " ") {
 		name = "(" + name + ")"
 	}
 	if name == "" {
@@ -188,7 +366,7 @@ func (t TyDef) TypeName() string {
 		var slice []string
 		slice = append(slice, t.PatternName(),
 			name, t.ReturnName())
-		return strings.Join(slice, sep)
+		return s.Join(slice, sep)
 	}
 	return name
 }

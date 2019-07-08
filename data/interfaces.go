@@ -52,7 +52,7 @@ type Natural interface {
 
 type Integer interface {
 	GoInt() int
-	Idx() IntVal
+	Idx() int
 }
 
 type Rational interface {

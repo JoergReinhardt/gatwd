@@ -22,7 +22,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 
 func TestPartial(t *testing.T) {
 	var strconc = DefinePartial("String Concat",
-		NativeExpr(func(args ...Native) Native {
+		NativeExpr(func(args ...Native) d.Native {
 			var str string
 			for n, arg := range args {
 				str = str + arg.String()
@@ -94,7 +94,7 @@ func TestPartial(t *testing.T) {
 	fmt.Printf("result: %s typed: %s name: %s\n", r8, r8.Type(), r8.TypeName())
 
 	var strvec = DefinePartial("String Vector",
-		NativeExpr(func(args ...d.Native) d.Native {
+		NativeExpr(func(args ...Native) d.Native {
 			if len(args) > 0 {
 				var strs []d.Native
 				for _, arg := range args {
@@ -147,7 +147,7 @@ func TestPartial(t *testing.T) {
 	fmt.Printf(
 		"\nstring vector: %s type: %s elem name: %s elem type: %s"+
 			" slice: %s element: %s\n\n",
-		sv5, sv5.(VecCol)()[0].TypeNat().String(),
+		sv5, sv5.(VecCol)()[0].String(),
 		sv5.(VecCol)()[0].(NativeUbox)().TypeName(),
 		sv5.(VecCol)()[0].(NativeUbox)().TypeNat(),
 		sv5.(VecCol)()[0].(NativeUbox),

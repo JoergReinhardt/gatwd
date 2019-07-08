@@ -33,7 +33,7 @@ func (v TyNat) Flag() BitFlag        { return BitFlag(v) }
 func (v TyNat) Match(arg Typed) bool { return v.Flag().Match(arg) }
 func (v TyNat) Eval() Native         { return v }
 
-func ListAllTypes() []TyNat {
+func FetchTypes() []TyNat {
 	var tt = []TyNat{}
 	var i uint
 	var t TyNat = 0

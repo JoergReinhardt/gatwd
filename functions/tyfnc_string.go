@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataConstantFunctionPropertyArgumentReturnIndexKeyTrueFalseUndecidedLesserGreaterEqualMinMaxSwitchCaseThenElseJustNoneEitherOrListVectorPairSetEnumTupleRecordNumbersLettersBytesTextStateIOHigherOrder"
+const _TyFnc_name = "TypeDataConstantFunctionPropertyArgumentReturnIndexKeyTrueFalseUndecidedLesserGreaterEqualMinMaxSwitchCaseThenElseJustNoneEitherOrNumbersLettersBytesTextListVectorPairSetEnumTupleRecordStateIOHigherOrder"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:            _TyFnc_name[0:4],
@@ -32,17 +32,17 @@ var _TyFnc_map = map[TyFnc]string{
 	4194304:      _TyFnc_name[118:122],
 	8388608:      _TyFnc_name[122:128],
 	16777216:     _TyFnc_name[128:130],
-	33554432:     _TyFnc_name[130:134],
-	67108864:     _TyFnc_name[134:140],
-	134217728:    _TyFnc_name[140:144],
-	268435456:    _TyFnc_name[144:147],
-	536870912:    _TyFnc_name[147:151],
-	1073741824:   _TyFnc_name[151:156],
-	2147483648:   _TyFnc_name[156:162],
-	4294967296:   _TyFnc_name[162:169],
-	8589934592:   _TyFnc_name[169:176],
-	17179869184:  _TyFnc_name[176:181],
-	34359738368:  _TyFnc_name[181:185],
+	33554432:     _TyFnc_name[130:137],
+	67108864:     _TyFnc_name[137:144],
+	134217728:    _TyFnc_name[144:149],
+	268435456:    _TyFnc_name[149:153],
+	536870912:    _TyFnc_name[153:157],
+	1073741824:   _TyFnc_name[157:163],
+	2147483648:   _TyFnc_name[163:167],
+	4294967296:   _TyFnc_name[167:170],
+	8589934592:   _TyFnc_name[170:174],
+	17179869184:  _TyFnc_name[174:179],
+	34359738368:  _TyFnc_name[179:185],
 	68719476736:  _TyFnc_name[185:190],
 	137438953472: _TyFnc_name[190:192],
 	274877906944: _TyFnc_name[192:203],
