@@ -17,15 +17,16 @@ type (
 //go:generate stringer -type TyFlag
 const (
 	Flag_BitFlag TyFlag = 0 + iota
-	Flag_Native
-	Flag_Functional
+	Flag_KeyWord
 	Flag_DataCons
+	Flag_Function
+	Flag_Native
 	Flag_Token
 	Flag_Arity
 	Flag_Prop
 	Flag_Lex
 
-	Flag_Def TyFlag = 255
+	Flag_Definition TyFlag = 255
 )
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
@@ -41,7 +42,7 @@ func typedToExpression(typ Typed) Expression {
 	switch {
 	case Flag_Native.Match(typ.FlagType()):
 		expr = NewData(typ.(d.TyNat))
-	case Flag_Functional.Match(typ.FlagType()):
+	case Flag_Function.Match(typ.FlagType()):
 		expr = typ.(TyFnc)
 	case Flag_DataCons.Match(typ.FlagType()):
 		expr = typ.(TyFnc)
@@ -49,9 +50,11 @@ func typedToExpression(typ Typed) Expression {
 		expr = typ.(Arity)
 	case Flag_Prop.Match(typ.FlagType()):
 		expr = typ.(Propertys)
+	case Flag_KeyWord.Match(typ.FlagType()):
+		expr = typ.(TyKeyWord)
 	case Flag_Lex.Match(typ.FlagType()):
 		expr = typ.(TyLex)
-	case Flag_Def.Match(typ.FlagType()):
+	case Flag_Definition.Match(typ.FlagType()):
 		expr = typ.(TyDef)
 	}
 	return expr
@@ -151,7 +154,7 @@ func (t TyDef) String() string                     { return t.TypeName() }
 func (t TyDef) Name() string                       { var name, _ = t(); return name }
 func (t TyDef) Elems() []Expression                { var _, expr = t(); return expr }
 func (t TyDef) Return() Expression                 { return t.Elems()[0] }
-func (t TyDef) FlagType() d.Uint8Val               { return Flag_Def.U() }
+func (t TyDef) FlagType() d.Uint8Val               { return Flag_Definition.U() }
 func (t TyDef) Flag() d.BitFlag                    { return t.Return().TypeFnc().Flag() }
 func (t TyDef) TypeFnc() TyFnc                     { return t.Return().TypeFnc() }
 func (t TyDef) Call(args ...Expression) Expression { return t }
@@ -209,7 +212,7 @@ func (t TyDef) Match(typ d.Typed) bool {
 	switch typ.FlagType() {
 	case Flag_BitFlag.U():
 	case Flag_Native.U():
-	case Flag_Functional.U():
+	case Flag_Function.U():
 	}
 	return false
 }
@@ -220,7 +223,7 @@ func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
-func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval() d.Native                     { return t.TypeNat() }

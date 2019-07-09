@@ -28,7 +28,7 @@ func Curry(exprs ...Expression) Expression {
 	if len(exprs) > 0 {
 		var expr = exprs[0]
 		if len(exprs) > 1 {
-			if exprs[0].FlagType() == Flag_Def.U() {
+			if exprs[0].FlagType() == Flag_Definition.U() {
 				var def = expr.Type()
 				return Define(
 					def.TypeName(),
@@ -61,7 +61,7 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 
 func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
 func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
+func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
 func (m ConsumeVal) TypeElem() TyFnc {
 	if head := m.Head(); head != nil {
 		return head.TypeFnc()
@@ -149,7 +149,7 @@ func (c ConsPairVal) String() string {
 }
 func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
 func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
+func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
 func (c ConsPairVal) TypeElem() TyFnc {
 	if head := c.Head(); head != nil {
 		return head.TypeFnc()

@@ -141,7 +141,7 @@ func (l ListCol) TypeName() string {
 	}
 	return "[]"
 }
-func (l ListCol) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (l ListCol) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (l ListCol) Type() Typed {
 	return Define(l.TypeName(), l.TypeElem())
 }
@@ -200,7 +200,7 @@ func (p PairVal) Value() Expression { return p.Right() }
 func (p PairVal) TypeFnc() TyFnc       { return Pair }
 func (p PairVal) KeyType() TyFnc       { return p.Left().TypeFnc() }
 func (p PairVal) ValType() TyFnc       { return p.Right().TypeFnc() }
-func (p PairVal) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (p PairVal) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (p PairVal) TypeName() string {
 	return "(" + p.Key().TypeName() + ", " + p.Value().TypeName() + ")"
 }
@@ -245,7 +245,7 @@ func (a KeyPair) ValType() TyFnc                     { return a.Value().TypeFnc(
 func (a KeyPair) KeyType() TyFnc                     { return Key.TypeFnc() }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key }
 func (a KeyPair) TypeNat() d.TyNat                   { return d.Function }
-func (a KeyPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (a KeyPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (p KeyPair) TypeName() string {
 	return "(String, " + p.Value().TypeName() + ")"
 }
@@ -289,7 +289,7 @@ func (a IndexPair) TypeFnc() TyFnc                     { return Index }
 func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() TyFnc                     { return Index.TypeFnc() }
 func (a IndexPair) ValType() TyFnc                     { return a.Value().TypeFnc() }
-func (a IndexPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (a IndexPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (a IndexPair) TypeName() string {
 	return "(Index, " + a.Value().TypeName() + ")"
 }
@@ -386,7 +386,7 @@ func (l PairList) Len() int {
 func (l PairList) Ident() Expression                        { return l }
 func (l PairList) TypeFnc() TyFnc                           { return List }
 func (l PairList) TypeNat() d.TyNat                         { return d.Function }
-func (l PairList) FlagType() d.Uint8Val                     { return Flag_Functional.U() }
+func (l PairList) FlagType() d.Uint8Val                     { return Flag_Function.U() }
 func (l PairList) Null() PairList                           { return NewPairList() }
 func (l PairList) Consume() (Expression, Consumeable)       { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
@@ -590,7 +590,7 @@ func (v VecCol) Set(i int, val Expression) (Vectorized, bool) {
 
 func (v VecCol) TypeFnc() TyFnc       { return Vector }
 func (v VecCol) TypeNat() d.TyNat     { return d.Function }
-func (v VecCol) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (v VecCol) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (v VecCol) TypeElem() TyFnc {
 	if v.Len() > 0 {
 		return v.Head().TypeFnc()
@@ -699,7 +699,7 @@ func (v PairVec) TypeElem() TyFnc {
 	}
 	return None.TypeFnc()
 }
-func (v PairVec) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (v PairVec) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (v PairVec) KeyType() TyFnc {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().TypeFnc()

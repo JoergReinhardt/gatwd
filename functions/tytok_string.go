@@ -4,9 +4,9 @@ package functions
 
 import "strconv"
 
-const _TyTok_name = "Tok_TextTok_FncTypeTok_NatTypeTok_ParamTypeTok_ClassType"
+const _TyTok_name = "Tok_TextTok_NumberTok_SymbolTok_KeywordTok_OperatorTok_DelimiterTok_SeperatorTok_PunktationTok_DefinitionTok_ParametricTok_NatTypeTok_FncTypeTok_Context"
 
-var _TyTok_index = [...]uint8{0, 8, 19, 30, 43, 56}
+var _TyTok_index = [...]uint8{0, 8, 18, 28, 39, 51, 64, 77, 91, 105, 119, 130, 141, 152}
 
 func (i TyTok) String() string {
 	if i >= TyTok(len(_TyTok_index)-1) {

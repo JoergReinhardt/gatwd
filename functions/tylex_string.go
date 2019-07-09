@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyLex_name = "NullBlankTabNewLineUnderscoreAsteriskFullstopEllipsisSubstractionAdditionSquareRootDotTimesDotProductCrossProductDivisionInfiniteAndOrXorEqualUnequalLesserGreaterLesserEqGreaterEqLeftParRightParLeftBraRightBraLeftCurRightCurLeftLaceRightLaceSingQuoteDoubQuoteBackTickBackSlashSlashPipeNotDecrementIncrementTripEqualRightArrowLeftArrowLeftFatArrowRightFatArrowDoubleFatArrowSequenceSequenceRevDoubColApplicationLambdaFunctionPolymorphMonadParameterIntegralSubSetEmptySetPiNumberkeyword"
+const _TyLex_name = "NullBlankTabNewLineUnderscoreAsteriskFullstopEllipsisSubstractionAdditionSquareRootDotTimesDotProductCrossProductDivisionInfiniteAndOrXorEqualUnequalLesserGreaterLesserEqGreaterEqLeftParRightParLeftBraRightBraLeftCurRightCurLeftLaceRightLaceSingQuoteDoubQuoteBackTickBackSlashSlashPipeNotDecrementIncrementTripEqualRightArrowLeftArrowLeftFatArrowRightFatArrowDoubleFatArrowSequenceSequenceRevDoubColApplicationLambdaFunctionPolymorphMonadParameterIntegralSubSetEmptySetPi"
 
 var _TyLex_map = map[TyLex]string{
 	0:                   _TyLex_name[0:4],
@@ -69,8 +69,6 @@ var _TyLex_map = map[TyLex]string{
 	576460752303423488:  _TyLex_name[455:461],
 	1152921504606846976: _TyLex_name[461:469],
 	2305843009213693952: _TyLex_name[469:471],
-	4611686018427387904: _TyLex_name[471:477],
-	9223372036854775808: _TyLex_name[477:484],
 }
 
 func (i TyLex) String() string {

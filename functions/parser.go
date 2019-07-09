@@ -25,10 +25,18 @@ func (t TyTok) Match(typ d.Typed) bool {
 //go:generate stringer -type=TyTok
 const (
 	Tok_Text TyTok = 0 + iota
-	Tok_FncType
+	Tok_Number
+	Tok_Symbol
+	Tok_Keyword
+	Tok_Operator
+	Tok_Delimiter
+	Tok_Seperator
+	Tok_Punktation
+	Tok_Definition
+	Tok_Parametric
 	Tok_NatType
-	Tok_ParamType
-	Tok_ClassType
+	Tok_FncType
+	Tok_Context
 )
 
 type runetext d.RuneVec
@@ -111,7 +119,7 @@ func (t token) TypeFnc() TyFnc                 { return Key }
 func (t token) KeyType() TyFnc                 { return Key.TypeFnc() }
 func (t token) TypeNat() d.TyNat               { return d.Function }
 func (t token) KeyPair() KeyPair               { return KeyPair(t) }
-func (t token) FlagType() d.Uint8Val           { return Flag_Functional.U() }
+func (t token) FlagType() d.Uint8Val           { return Flag_Function.U() }
 func (t token) KeyStr() string                 { return t.KeyPair().KeyStr() }
 func (t token) String() string                 { return t.KeyPair().String() }
 func (t token) Value() Expression              { return t.KeyPair().Value() }
@@ -149,7 +157,7 @@ type tokVec PairVec
 func (v tokVec) VecCol() tokVec                           { return tokVec(v) }
 func (v tokVec) TypeFnc() TyFnc                           { return Vector }
 func (v tokVec) TypeNat() d.TyNat                         { return d.Function }
-func (v tokVec) FlagType() d.Uint8Val                     { return Flag_Functional.U() }
+func (v tokVec) FlagType() d.Uint8Val                     { return Flag_Function.U() }
 func (v tokVec) Con(args ...Expression) PairVec           { return v.VecCol().Con(args...) }
 func (v tokVec) ConPairs(pairs ...Paired) PairVec         { return v.VecCol().ConPairs(pairs...) }
 func (v tokVec) Consume() (Expression, Consumeable)       { return v.VecCol().Consume() }

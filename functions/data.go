@@ -59,7 +59,7 @@ func (n DataConst) Call(...Expression) Expression { return n }
 func (n DataConst) Eval() d.Native                { return n() }
 func (n DataConst) TypeFnc() TyFnc                { return Data }
 func (n DataConst) TypeNat() d.TyNat              { return n().TypeNat() }
-func (n DataConst) FlagType() d.Uint8Val          { return Flag_Functional.U() }
+func (n DataConst) FlagType() d.Uint8Val          { return Flag_Function.U() }
 func (n DataConst) String() string                { return n().String() }
 func (n DataConst) TypeName() string              { return n().TypeName() }
 func (n DataConst) Type() Typed {
@@ -84,7 +84,7 @@ func (n DataSlice) TypeNat() d.TyNat                   { return n().TypeNat() }
 func (n DataSlice) ElemType() d.TyNat                  { return n().ElemType() }
 func (n DataSlice) String() string                     { return n().String() }
 func (n DataSlice) TypeName() string                   { return n().TypeName() }
-func (n DataSlice) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (n DataSlice) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataSlice) Slice() []d.Native                  { return n().Slice() }
 func (n DataSlice) Type() Typed {
 	return Define(n().TypeName(), NewData(n.TypeNat()))
@@ -110,7 +110,7 @@ func (n DataGoSlice) Slice() []d.Native                  { return n().Slice() }
 func (n DataGoSlice) TypeNat() d.TyNat                   { return n().TypeNat() }
 func (n DataGoSlice) ElemType() d.TyNat                  { return n().ElemType() }
 func (n DataGoSlice) TypeName() string                   { return n().TypeName() }
-func (n DataGoSlice) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (n DataGoSlice) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataGoSlice) String() string                     { return n().String() }
 func (n DataGoSlice) Type() Typed                        { return Define(n.Eval().TypeName(), NewData(n.TypeNat())) }
 func (n DataGoSlice) SliceExpr() []Expression {
@@ -133,7 +133,7 @@ func (n DataPair) LeftType() d.TyNat                  { return n().LeftType() }
 func (n DataPair) RightType() d.TyNat                 { return n().RightType() }
 func (n DataPair) SubType() d.Typed                   { return n().TypeNat() }
 func (n DataPair) TypeName() string                   { return n().TypeName() }
-func (n DataPair) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (n DataPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataPair) String() string                     { return n().String() }
 func (n DataPair) Type() Typed {
 	return Define(n().TypeName(), NewData(n().TypeNat()))
@@ -170,7 +170,7 @@ func (n DataSet) KeyType() d.TyNat                     { return n().KeyType() }
 func (n DataSet) ValType() d.TyNat                     { return n().ValType() }
 func (n DataSet) SubType() d.Typed                     { return n().TypeNat() }
 func (n DataSet) TypeName() string                     { return n().TypeName() }
-func (n DataSet) FlagType() d.Uint8Val                 { return Flag_Functional.U() }
+func (n DataSet) FlagType() d.Uint8Val                 { return Flag_Function.U() }
 func (n DataSet) String() string                       { return n().String() }
 func (n DataSet) Type() Typed {
 	return Define(n().TypeName(), NewData(n()))
@@ -224,7 +224,7 @@ func (n DataExpr) Eval() d.Native                     { return n }
 func (n DataExpr) TypeFnc() TyFnc                     { return Data }
 func (n DataExpr) TypeNat() d.TyNat                   { return d.Function }
 func (n DataExpr) Call(args ...Expression) Expression { return n().Call(args...) }
-func (n DataExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (n DataExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataExpr) String() string                     { return n().String() }
 func (n DataExpr) TypeName() string                   { return n().TypeName() }
 func (n DataExpr) Type() Typed {

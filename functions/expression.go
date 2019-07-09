@@ -30,7 +30,7 @@ func (c ConstantExpr) Call(args ...Expression) Expression { return c() }
 func (c ConstantExpr) Arity() Arity                       { return Arity(0) }
 func (c ConstantExpr) TypeFnc() TyFnc                     { return Constant }
 func (c ConstantExpr) String() string                     { return c().String() }
-func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
 func (c ConstantExpr) Type() Typed {
 	return Define("ϝ → "+c().TypeName(), c())
@@ -66,7 +66,7 @@ func (c GenericExpr) Ident() Expression                  { return c }
 func (c GenericExpr) Type() Typed                        { return c().(Typed) }
 func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
-func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Functional.U() }
+func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().(TyDef).Return().TypeFnc() }
 func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 

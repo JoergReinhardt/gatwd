@@ -39,7 +39,7 @@ func (n NoneVal) TypeFnc() TyFnc                { return None }
 func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
 func (n NoneVal) TypeElem() TyFnc               { return None }
 func (n NoneVal) TypeName() string              { return n.String() }
-func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Functional.U() }
+func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Function.U() }
 func (n NoneVal) Type() Typed                   { return Define(n.TypeName(), None) }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
@@ -139,7 +139,7 @@ func (t TestExpr) TypeName() string {
 	return t.Type().(TyDef).Name() + " → " + t.Type().(TyDef).Return().TypeName()
 }
 func (t TestExpr) String() string       { return t.TypeName() }
-func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (t TestExpr) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (t TestExpr) Call(args ...Expression) Expression {
 	if t.TypeFnc() == CMP {
 		return NewData(d.IntVal(t.CMP(args...)))
@@ -319,7 +319,7 @@ func (s CaseExpr) TypeName() string {
 func (s CaseExpr) String() string       { return s.TypeName() }
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
-func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (s CaseExpr) Call(args ...Expression) Expression {
 	if result, ok := s(args...); ok {
 		return result
@@ -413,7 +413,7 @@ func (s CaseSwitch) TypeName() string {
 func (s CaseSwitch) String() string       { return s.TypeName() }
 func (s CaseSwitch) TypeFnc() TyFnc       { return Switch }
 func (s CaseSwitch) TypeNat() d.TyNat     { return d.Function }
-func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Functional.U() }
+func (s CaseSwitch) FlagType() d.Uint8Val { return Flag_Function.U() }
 
 // test one set of arguments against all cases until either successful result
 // is yielded, or all cases are depleted. gets called by eval & call methods.

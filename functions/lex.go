@@ -15,9 +15,13 @@ func (t TyLex) Type() Typed                   { return t }
 func (t TyLex) TypeFnc() TyFnc                { return Type }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
-func (t TyLex) Utf8() string                  { return MapUtf[t] }
+func (t TyLex) Utf8() string                  { return MapUtf8[t] }
 func (t TyLex) Ascii() string                 { return MapAscii[t] }
+func (t TyLex) FindUtf8(arg string) TyLex     { return MapUtf8Text[arg] }
+func (t TyLex) FindAscii(arg string) TyLex    { return MapAsciiText[arg] }
+func (t TyLex) MatchUtf8(arg string) bool     { return t.Utf8() == arg }
+func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
+func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyLex) TypeName() string              { return t.String() }
 func (t TyLex) Call(...Expression) Expression { return t }
 
@@ -98,11 +102,9 @@ const (
 	SubSet
 	EmptySet
 	Pi
-	Number
-	keyword
 )
 
-var MapUtf = map[TyLex]string{
+var MapUtf8 = map[TyLex]string{
 	Null:  "⊥",
 	Blank: " ",
 	Tab: "	",
@@ -165,20 +167,69 @@ var MapUtf = map[TyLex]string{
 	EmptySet:       "∅",
 	Pi:             `π`,
 }
-var MapStringItem = func() map[string]TyLex {
-	var m = make(map[string]TyLex, len(MapUtf))
-	for item, str := range MapUtf {
-		m[str] = item
-	}
-	return m
-}()
-var Utf8String = func() string {
-	var str string
-	for _, val := range MapUtf {
-		str = str + val
-	}
-	return str
-}()
+var MapUtf8Text = map[string]TyLex{
+	"⊥":  Null,
+	" ":  Blank,
+	"  ": Tab,
+	`\n`: NewLine,
+	"_":  Underscore,
+	"∗":  Asterisk,
+	"‥.": Ellipsis,
+	"-":  Substraction,
+	"+":  Addition,
+	"√":  SquareRoot,
+	"∘":  Dot,
+	"⨉":  Times,
+	"⊙":  DotProduct,
+	"⊗":  CrossProduct,
+	"÷":  Division,
+	"∞":  Infinite,
+	"∧":  And,
+	"∨":  Or,
+	"⊻":  Xor,
+	"¬":  Not,
+	"＝":  Equal,
+	"≠":  Unequal,
+	"≪":  Lesser,
+	"≫":  Greater,
+	"≤":  LesserEq,
+	"≥":  GreaterEq,
+	"(":  LeftPar,
+	")":  RightPar,
+	"[":  LeftBra,
+	"]":  RightBra,
+	"{":  LeftCur,
+	"}":  RightCur,
+	"<":  LeftLace,
+	">":  RightLace,
+	`'`:  SingQuote,
+	`"`:  DoubQuote,
+	"`":  BackTick,
+	`\`:  BackSlash,
+	"/":  Slash,
+	"|":  Pipe,
+	"∇":  Decrement,
+	"∆":  Increment,
+	"≡":  TripEqual,
+	"→":  RightArrow,
+	"←":  LeftArrow,
+	"⇐":  LeftFatArrow,
+	"⇒":  RightFatArrow,
+	"⇔":  DoubleFatArrow,
+	"»":  Sequence,
+	"«":  SequenceRev,
+	"∷":  DoubCol,
+	"$":  Application,
+	"λ":  Lambda,
+	"ϝ":  Function,
+	"Ф":  Polymorph,
+	"Ω":  Monad,
+	"Π":  Parameter,
+	"∑":  Integral,
+	"⊆":  SubSet,
+	"∅":  EmptySet,
+	`π`:  Pi,
+}
 
 var MapAscii = map[TyLex]string{
 	Null:           "",
@@ -244,6 +295,70 @@ var MapAscii = map[TyLex]string{
 	Pi:             `\pi`,
 }
 
+var MapAsciiText = map[string]TyLex{
+	"":        Null,
+	" ":       Blank,
+	`\t`:      Tab,
+	`\n`:      NewLine,
+	"_":       Underscore,
+	"*":       Asterisk,
+	"...":     Ellipsis,
+	"-":       Substraction,
+	"+":       Addition,
+	`\sqrt`:   SquareRoot,
+	`\dot`:    Dot,
+	`\mul`:    Times,
+	`\dotprd`: DotProduct,
+	`\crxprd`: CrossProduct,
+	`\div`:    Division,
+	`\inf`:    Infinite,
+	`\and`:    And,
+	`\or`:     Or,
+	`\xor`:    Xor,
+	"!-":      Not,
+	"=":       Equal,
+	"!=":      Unequal,
+	"<<":      Lesser,
+	">>":      Greater,
+	"=<":      LesserEq,
+	">=":      GreaterEq,
+	"(":       LeftPar,
+	")":       RightPar,
+	"[":       LeftBra,
+	"]":       RightBra,
+	"{":       LeftCur,
+	"}":       RightCur,
+	"<":       LeftLace,
+	">":       RightLace,
+	`'`:       SingQuote,
+	`"`:       DoubQuote,
+	"`":       BackTick,
+	`\`:       BackSlash,
+	`/`:       Slash,
+	"|":       Pipe,
+	"--":      Decrement,
+	"++":      Increment,
+	"===":     TripEqual,
+	"->":      RightArrow,
+	"<-":      LeftArrow,
+	"<=":      LeftFatArrow,
+	"=>":      RightFatArrow,
+	"<=>":     DoubleFatArrow,
+	">>>":     Sequence,
+	"<<<":     SequenceRev,
+	"::":      DoubCol,
+	"$":       Application,
+	`\y`:      Lambda,
+	`\f`:      Function,
+	`\F`:      Polymorph,
+	`\M`:      Monad,
+	`\P`:      Parameter,
+	`\integ`:  Integral,
+	`\subset`: SubSet,
+	`\empty`:  EmptySet,
+	`\pi`:     Pi,
+}
+
 var AsciiKeysSortedByLength = func() [][]rune {
 	var runes = [][]rune{}
 	for _, key := range MapAscii {
@@ -259,22 +374,69 @@ func (k keyLengthSorter) Len() int           { return len(k) }
 func (k keyLengthSorter) Less(i, j int) bool { return len(k[i]) <= len(k[j]) }
 func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
-var Keywords = []string{
-	"in",
-	"con",
-	"let",
-	"if",
-	"then",
-	"else",
-	"case",
-	"of",
-	"where",
-	"otherwise",
-	"data",
-	"type",
-	"mutable",
+type TyKeyWord d.BitFlag
+
+func (t TyKeyWord) Type() Typed                   { return t }
+func (t TyKeyWord) FlagType() d.Uint8Val          { return Flag_KeyWord.U() }
+func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
+func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
+func (t TyKeyWord) Flag() d.BitFlag               { return d.BitFlag(t) }
+func (t TyKeyWord) KeyWord() string               { return MapKeyWords[t] }
+func (t TyKeyWord) MatchKeyWord(arg string) bool  { return t.KeyWord() == arg }
+func (t TyKeyWord) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
+func (t TyKeyWord) TypeName() string              { return t.String() }
+func (t TyKeyWord) Call(...Expression) Expression { return t }
+
+//go:generate stringer -type=TyKeyWord
+const (
+	Word_Do TyKeyWord = 0
+	Word_In TyKeyWord = 1
+	Word_Of TyKeyWord = 1 << iota
+	Word_Con
+	Word_Let
+	Word_If
+	Word_Then
+	Word_Else
+	Word_Case
+	Word_Where
+	Word_Data
+	Word_Type
+	Word_Mutable
+	Word_Otherwise
+)
+
+var MapKeyWords = map[TyKeyWord]string{
+	Word_Do:        "do",
+	Word_In:        "in",
+	Word_Of:        "of",
+	Word_Con:       "con",
+	Word_Let:       "let",
+	Word_If:        "if",
+	Word_Then:      "then",
+	Word_Else:      "else",
+	Word_Case:      "case",
+	Word_Where:     "where",
+	Word_Data:      "data",
+	Word_Type:      "type",
+	Word_Mutable:   "mutable",
+	Word_Otherwise: "otherwise",
 }
-var KeyWordString = strings.Join(Keywords, "")
+var MapKeyWordsText = map[string]TyKeyWord{
+	"do":        Word_Do,
+	"in":        Word_In,
+	"of":        Word_Of,
+	"con":       Word_Con,
+	"let":       Word_Let,
+	"if":        Word_If,
+	"then":      Word_Then,
+	"else":      Word_Else,
+	"case":      Word_Case,
+	"where":     Word_Where,
+	"data":      Word_Data,
+	"type":      Word_Type,
+	"mutable":   Word_Mutable,
+	"otherwise": Word_Otherwise,
+}
 
 var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 var DigitString = strings.Join(Digits, "")
@@ -289,8 +451,8 @@ var Capitals = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 	"Ö", "Ü"}
 var CapitalString = strings.Join(Capitals, "")
 
-var ScentenceMarks = []string{".", ",", ";", ":", "?", "!"}
-var ScentenceMarkString = strings.Join(ScentenceMarks, "")
+var Punktation = []string{".", ",", ";", ":", "?", "!"}
+var PunktationString = strings.Join(Punktation, "")
 
 type asciiSorter []string
 
@@ -305,19 +467,3 @@ type Item interface {
 	Type() TyLex
 	Syntax() string
 }
-
-type TextItem struct {
-	TyLex
-	Text string
-}
-
-func (t TextItem) Type() TyLex { return keyword }
-
-// pretty utf-8 version of syntax item
-func (t TextItem) String() string { return t.Text }
-func (t TextItem) Syntax() string { return keyword.Utf8() }
-
-// provides an alternative string representation that can be edited without
-// having to produce utf-8 digraphs
-func (t TextItem) StringAlt() string { return t.String() }
-func (t TextItem) Flag() d.BitFlag   { return d.Type.TypeNat().Flag() }
