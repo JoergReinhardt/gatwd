@@ -7,7 +7,6 @@ import (
 )
 
 type (
-	TySig     func() (TyDef, []TyDef)
 	TyDef     func() (string, []Expression)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
@@ -21,6 +20,7 @@ const (
 	Flag_Native
 	Flag_Functional
 	Flag_DataCons
+	Flag_Token
 	Flag_Arity
 	Flag_Prop
 
@@ -42,7 +42,6 @@ const (
 	/// FUNCTION TYPES
 	Data
 	Constant
-	Function
 	/// PARAMETER OPTIONS
 	Property
 	Argument
@@ -54,9 +53,9 @@ const (
 	False
 	Undecided
 	/// ORDER VALUE OPTIONS
-	Lesser
-	Greater
-	Equal
+	EQ
+	LT
+	GT
 	/// BOUND VALUE OPTIONS
 	Min
 	Max
@@ -67,8 +66,8 @@ const (
 	Else
 	Just
 	None
-	Either
-	Or
+	OR
+	EI
 	/// DATA TYPE CLASSES
 	Numbers
 	Letters
@@ -87,27 +86,25 @@ const (
 	State
 	IO
 	/// HIGHER ORDER TYPE
-	HigherOrder
+	HigherORder
 
-	Kinds = Type | Data | Constant | Function
+	Kinds = Type | Data | Constant
 
 	//// PARAMETERS
 	Signature = Argument | Return
-	Parameter = Key | Index | Property
+	Param     = Key | Index | Property
 
-	Parameters = Signature | Parameter
+	Params = Signature | Param
 
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
-	Compare = Lesser | Greater | Equal
-
-	Tests = Truth | Trinary | Compare
+	CMP     = LT | GT | EQ
 
 	//// OPTIONALS
 	If     = Then | Else
 	Maybe  = Just | None
-	Option = Either | Or
+	Option = EI | OR
 
 	Branches = Switch | Case | If | Maybe | Option
 
@@ -116,54 +113,8 @@ const (
 	Collections  = Consumeables | Pair |
 		Set | Record | Enum | Tuple
 
-	AllTypes = Kinds | Parameters | Tests |
+	AllTypes = Kinds | Params |
 		Branches | Collections
-)
-
-var fncTypes = map[string]TyFnc{}
-var natTypes = map[string]d.TyNat{}
-
-func init() {
-	for _, nat := range d.FetchTypes() {
-		natTypes[nat.TypeName()] = nat
-	}
-	for _, fnc := range fetchTypes() {
-		fncTypes[fnc.TypeName()] = fnc
-	}
-}
-func searchNatType(name string) (d.TyNat, bool) {
-	if val, ok := natTypes[name]; ok {
-		return val, ok
-	}
-	return d.Nil, false
-}
-func searchFncType(name string) (TyFnc, bool) {
-	if val, ok := fncTypes[name]; ok {
-		return val, ok
-	}
-	return None, false
-}
-func fetchTypes() []TyFnc {
-	var tt = []TyFnc{}
-	var i uint
-	var t TyFnc = 0
-	for t < Type {
-		t = 1 << i
-		i = i + 1
-		tt = append(tt, TyFnc(t))
-	}
-	return tt
-}
-
-type TvKind uint8
-
-//go:generate stringer -type=TvKind
-const (
-	FunctionName TvKind = 0 + iota
-	FunctionType
-	NativeType
-	ParamType
-	ClassType
 )
 
 //// TYPE DEFINITION
@@ -352,6 +303,7 @@ const (
 func (a Arity) Eval() d.Native                { return a }
 func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
 func (a Arity) Int() int                      { return int(a) }
+func (a Arity) Type() Typed                   { return Type }
 func (a Arity) TypeFnc() TyFnc                { return Type }
 func (a Arity) TypeNat() d.TyNat              { return d.Type }
 func (a Arity) Match(arg d.Typed) bool        { return a == arg }

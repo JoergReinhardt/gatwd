@@ -25,8 +25,6 @@ func sliceContainsTypes(c []Native) BitFlag {
 
 // returns type flag by OR concatenating the Slice type to the concatenated
 // type flags of it's members
-func (c DataSlice) Interface() Sliceable { return c }
-func (c DataSlice) Eval() Native         { return c }
 func (c DataSlice) TypeName() string {
 	if c.Len() > 0 {
 		return "[" + c.ElemType().TypeName() + "]"
@@ -79,7 +77,7 @@ func (s DataSlice) Bottom() (h Native) {
 }
 
 // yields all elements except the first
-func (s DataSlice) Tail() (c Sequential) {
+func (s DataSlice) Tail() (c DataSlice) {
 	if len(s) > 1 {
 		return s[:1]
 	}
@@ -87,7 +85,17 @@ func (s DataSlice) Tail() (c Sequential) {
 	return NewSlice(NilVal{})
 }
 
-func (s DataSlice) Shift() (c Sequential) { return s[:1] }
+func (s DataSlice) Shift() (head Native, tail DataSlice) {
+	if s.Len() > 0 {
+		head = s[0]
+		if s.Len() > 1 {
+			tail = DataSlice(s[1:])
+			return head, tail
+		}
+		return head, NewSlice()
+	}
+	return NewNil(), NewSlice()
+}
 
 func SliceClear(s DataSlice) {
 	if len(s) > 0 {

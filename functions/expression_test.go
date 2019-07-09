@@ -22,7 +22,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 
 func TestPartial(t *testing.T) {
 	var strconc = DefinePartial("String Concat",
-		NativeExpr(func(args ...Native) d.Native {
+		DataExpr(func(args ...d.Native) Expression {
 			var str string
 			for n, arg := range args {
 				str = str + arg.String()
@@ -94,15 +94,15 @@ func TestPartial(t *testing.T) {
 	fmt.Printf("result: %s typed: %s name: %s\n", r8, r8.Type(), r8.TypeName())
 
 	var strvec = DefinePartial("String Vector",
-		NativeExpr(func(args ...Native) d.Native {
+		DataExpr(func(args ...d.Native) Expression {
 			if len(args) > 0 {
 				var strs []d.Native
 				for _, arg := range args {
 					strs = append(strs, d.StrVal(arg.String()))
 				}
-				return d.NewSlice(strs...)
+				return NewData(d.NewSlice(strs...))
 			}
-			return d.NewNil()
+			return NewNone()
 		}),
 		NewData(d.NewUboxNull(d.String)),
 		NewData(d.StrVal("")),
@@ -148,10 +148,10 @@ func TestPartial(t *testing.T) {
 		"\nstring vector: %s type: %s elem name: %s elem type: %s"+
 			" slice: %s element: %s\n\n",
 		sv5, sv5.(VecCol)()[0].String(),
-		sv5.(VecCol)()[0].(NativeExpr)().TypeName(),
-		sv5.(VecCol)()[0].(NativeExpr)().TypeNat(),
-		sv5.(VecCol)()[0].(NativeExpr),
-		sv5.(VecCol)()[0].(NativeExpr),
+		sv5.(VecCol)()[0].(DataExpr)().TypeName(),
+		sv5.(VecCol)()[0].(DataExpr).TypeNat(),
+		sv5.(VecCol)()[0].(DataExpr),
+		sv5.(VecCol)()[0].(DataExpr),
 	)
 
 	fmt.Printf("string vector: %s type: %s type name: %s\n",

@@ -164,31 +164,6 @@ func NewUnboxed(flag TyNat, args ...Native) Sliceable {
 	}
 	return d
 }
-func (v NilVec) Eval() Native    { return v }
-func (v ErrorVec) Eval() Native  { return v }
-func (v BoolVec) Eval() Native   { return v }
-func (v IntVec) Eval() Native    { return v }
-func (v Int8Vec) Eval() Native   { return v }
-func (v Int16Vec) Eval() Native  { return v }
-func (v Int32Vec) Eval() Native  { return v }
-func (v UintVec) Eval() Native   { return v }
-func (v Uint8Vec) Eval() Native  { return v }
-func (v Uint16Vec) Eval() Native { return v }
-func (v Uint32Vec) Eval() Native { return v }
-func (v FltVec) Eval() Native    { return v }
-func (v Flt32Vec) Eval() Native  { return v }
-func (v ImagVec) Eval() Native   { return v }
-func (v Imag64Vec) Eval() Native { return v }
-func (v ByteVec) Eval() Native   { return v }
-func (v RuneVec) Eval() Native   { return v }
-func (v BytesVec) Eval() Native  { return v }
-func (v StrVec) Eval() Native    { return v }
-func (v BigIntVec) Eval() Native { return v }
-func (v BigFltVec) Eval() Native { return v }
-func (v RatioVec) Eval() Native  { return v }
-func (v TimeVec) Eval() Native   { return v }
-func (v DuraVec) Eval() Native   { return v }
-func (v FlagSet) Eval() Native   { return v }
 
 func (v ByteVec) Bytes() BytesVal { return []byte(v) }
 
@@ -558,32 +533,6 @@ func (v FlagSet) Slice() []Native {
 	}
 	return slice
 }
-
-func (v NilVec) Interface() Sliceable    { return v }
-func (v BoolVec) Interface() Sliceable   { return v }
-func (v IntVec) Interface() Sliceable    { return v }
-func (v Int8Vec) Interface() Sliceable   { return v }
-func (v Int16Vec) Interface() Sliceable  { return v }
-func (v Int32Vec) Interface() Sliceable  { return v }
-func (v UintVec) Interface() Sliceable   { return v }
-func (v Uint8Vec) Interface() Sliceable  { return v }
-func (v Uint16Vec) Interface() Sliceable { return v }
-func (v Uint32Vec) Interface() Sliceable { return v }
-func (v FltVec) Interface() Sliceable    { return v }
-func (v Flt32Vec) Interface() Sliceable  { return v }
-func (v ImagVec) Interface() Sliceable   { return v }
-func (v Imag64Vec) Interface() Sliceable { return v }
-func (v ByteVec) Interface() Sliceable   { return v }
-func (v RuneVec) Interface() Sliceable   { return v }
-func (v BytesVec) Interface() Sliceable  { return v }
-func (v StrVec) Interface() Sliceable    { return v }
-func (v BigIntVec) Interface() Sliceable { return v }
-func (v BigFltVec) Interface() Sliceable { return v }
-func (v RatioVec) Interface() Sliceable  { return v }
-func (v TimeVec) Interface() Sliceable   { return v }
-func (v DuraVec) Interface() Sliceable   { return v }
-func (v ErrorVec) Interface() Sliceable  { return v }
-func (v FlagSet) Interface() Sliceable   { return v }
 
 func (v NilVec) TypeName() string    { return "[" + Nil.TypeName() + "]" }
 func (v BoolVec) TypeName() string   { return "[" + Bool.TypeName() + "]" }

@@ -42,7 +42,6 @@ type Expression interface {
 }
 type Native interface {
 	d.NativeTyped
-	d.Evaluable
 	Expression
 }
 

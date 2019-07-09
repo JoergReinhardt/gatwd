@@ -9,15 +9,10 @@ type (
 	NoneVal func()
 	//// TRUTH VALUE CONSTRUCTOR
 	TestExpr func(...Expression) Typed
-	// OPTION VALUE CONSTRUCTOR
-	OptionVal func(...Expression) Expression
 
 	//// CASE & SWITCH TYPE CONSTRUCTORS
 	CaseExpr   func(...Expression) (Expression, bool)
 	CaseSwitch func(...Expression) (Expression, CaseSwitch, bool)
-
-	//// OPTION TYPE CONSTRUCTOR
-	OptionType func(...Expression) OptionVal
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -31,7 +26,6 @@ func (n NoneVal) Head() Expression              { return n }
 func (n NoneVal) Tail() Consumeable             { return n }
 func (n NoneVal) Len() d.IntVal                 { return 0 }
 func (n NoneVal) String() string                { return "⊥" }
-func (n NoneVal) Eval() d.Native                { return nil }
 func (n NoneVal) Call(...Expression) Expression { return nil }
 func (n NoneVal) Key() Expression               { return nil }
 func (n NoneVal) Index() Expression             { return nil }
@@ -106,10 +100,10 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Expr
 	}
 }
 
-func NewTestCompare(name string, test func(...Expression) d.IntVal, paratypes ...Expression) TestExpr {
+func NewTestCMP(name string, test func(...Expression) d.IntVal, paratypes ...Expression) TestExpr {
 
 	if name == "" {
-		name = "Compare"
+		name = "CMP"
 	}
 	var params = make([]Expression, 0, len(paratypes))
 	if len(paratypes) == 0 {
@@ -122,20 +116,20 @@ func NewTestCompare(name string, test func(...Expression) d.IntVal, paratypes ..
 	return func(args ...Expression) Typed {
 		if len(args) > 0 {
 			if test(args...) > 0 {
-				return Greater
+				return GT
 			}
 			if test(args...) < 0 {
-				return Lesser
+				return LT
 			}
-			return Equal
+			return EQ
 		}
-		return Define(name, Compare, params...)
+		return Define(name, CMP, params...)
 	}
 }
 func (t TestExpr) Type() Typed    { return t().(Typed) }
 func (t TestExpr) TypeFnc() TyFnc { return t.Type().(TyDef).Return().(TyFnc) }
 func (t TestExpr) TypeNat() d.TyNat {
-	if t.TypeFnc() == Compare {
+	if t.TypeFnc() == CMP {
 		return d.Int
 	}
 	return d.Bool
@@ -147,17 +141,15 @@ func (t TestExpr) TypeName() string {
 func (t TestExpr) String() string       { return t.TypeName() }
 func (t TestExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
 func (t TestExpr) Call(args ...Expression) Expression {
-	if t.TypeFnc() == Compare {
-		return NewData(d.IntVal(t.Compare(args...)))
+	if t.TypeFnc() == CMP {
+		return NewData(d.IntVal(t.CMP(args...)))
 	}
 	return NewData(d.BoolVal(t.Test(args...)))
 }
 
-func (t TestExpr) Eval() d.Native { return t }
-
 func (t TestExpr) Test(args ...Expression) d.BoolVal {
-	if t.TypeFnc() == Compare {
-		if t(args...) == Lesser || t(args...) == Greater {
+	if t.TypeFnc() == CMP {
+		if t(args...) == LT || t(args...) == GT {
 			return false
 		} else {
 			return true
@@ -176,14 +168,14 @@ func (t TestExpr) Test(args ...Expression) d.BoolVal {
 	return true
 }
 
-func (t TestExpr) Compare(args ...Expression) d.IntVal {
-	if t.TypeFnc() == Compare {
+func (t TestExpr) CMP(args ...Expression) d.IntVal {
+	if t.TypeFnc() == CMP {
 		switch t(args...) {
-		case Lesser:
+		case LT:
 			return -1
-		case Equal:
+		case EQ:
 			return 0
-		case Greater:
+		case GT:
 			return 1
 		}
 	}
@@ -230,27 +222,27 @@ func (t TestExpr) Undecided(arg Expression) d.BoolVal {
 	return false
 }
 
-func (t TestExpr) Lesser(arg Expression) d.BoolVal {
-	if t.TypeFnc() == Compare {
-		if t(arg) == Lesser {
+func (t TestExpr) LT(arg Expression) d.BoolVal {
+	if t.TypeFnc() == CMP {
+		if t(arg) == LT {
 			return true
 		}
 	}
 	return false
 }
 
-func (t TestExpr) Greater(arg Expression) d.BoolVal {
-	if t.TypeFnc() == Compare {
-		if t(arg) == Greater {
+func (t TestExpr) GT(arg Expression) d.BoolVal {
+	if t.TypeFnc() == CMP {
+		if t(arg) == GT {
 			return true
 		}
 	}
 	return false
 }
 
-func (t TestExpr) Equal(arg Expression) d.BoolVal {
-	if t.TypeFnc() == Compare {
-		if t(arg) == Equal {
+func (t TestExpr) EQ(arg Expression) d.BoolVal {
+	if t.TypeFnc() == CMP {
+		if t(arg) == EQ {
 			return true
 		}
 	}
@@ -328,7 +320,6 @@ func (s CaseExpr) String() string       { return s.TypeName() }
 func (s CaseExpr) TypeFnc() TyFnc       { return Case }
 func (s CaseExpr) TypeNat() d.TyNat     { return d.Function }
 func (s CaseExpr) FlagType() d.Uint8Val { return Flag_Functional.U() }
-func (s CaseExpr) Eval() d.Native       { return s }
 func (s CaseExpr) Call(args ...Expression) Expression {
 	if result, ok := s(args...); ok {
 		return result
@@ -452,48 +443,3 @@ func (s CaseSwitch) Call(args ...Expression) Expression {
 	}
 	return NewNone()
 }
-func (s CaseSwitch) Eval() d.Native { return s }
-
-///////////////////////////////////////////////////////////////////////////////
-/// OPTION TYPE CONSTRUCTOR
-func NewOptionType(test CaseSwitch, types ...Expression) OptionType {
-	return func(args ...Expression) OptionVal {
-		return NewOptionVal(test, NewVector(types...))
-	}
-}
-
-func (o OptionType) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionType) Expr() Expression                   { return o() }
-func (o OptionType) FlagType() d.Uint8Val               { return Flag_Def.U() }
-func (o OptionType) TypeFnc() TyFnc                     { return Option }
-func (o OptionType) ElemType() TyFnc                    { return o().TypeFnc() }
-func (o OptionType) String() string                     { return o().String() }
-func (o OptionType) Type() Typed {
-	return Define(o().TypeName(), o.ElemType())
-}
-func (o OptionType) TypeName() string {
-	var name string
-	return name
-}
-
-/// OPTION VALUE CONSTRUCTOR
-func NewOptionVal(test CaseSwitch, exprs ...Expression) OptionVal {
-	return func(args ...Expression) Expression {
-		var expr, index = test.TestAllCases(args...)
-		if !expr.TypeFnc().Match(None) {
-			var idx = int(index.(NativeExpr)().(d.IntVal))
-			var result = exprs[idx]
-			if len(args) > 0 {
-				return result.Call(args...)
-			}
-			return result
-		}
-		return expr
-	}
-}
-func (o OptionVal) Call(args ...Expression) Expression { return o().Call(args...) }
-func (o OptionVal) TypeFnc() TyFnc                     { return o(HigherOrder).TypeFnc() }
-func (o OptionVal) FlagType() d.Uint8Val               { return Flag_Functional.U() }
-func (o OptionVal) String() string                     { return o(HigherOrder).String() }
-func (o OptionVal) TypeName() string                   { return o(HigherOrder).TypeName() }
-func (o OptionVal) Type() Typed                        { return Define(o().TypeName(), o()) }

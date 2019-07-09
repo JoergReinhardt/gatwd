@@ -7,9 +7,6 @@ import (
 type Stringer interface {
 	String() string
 }
-type Evaluable interface {
-	Eval() Native
-}
 type Flagged interface {
 	Flag() BitFlag
 }
@@ -39,7 +36,6 @@ type Typed interface {
 type Native interface {
 	NativeTyped
 	NameTyped
-	Evaluable
 	Stringer
 }
 
@@ -142,8 +138,8 @@ type Composed interface {
 type Sequential interface {
 	Composed
 	Head() Native
-	Tail() Sequential
-	Shift() Sequential
+	Tail() DataSlice
+	Shift() (Native, DataSlice)
 }
 type Sliced interface {
 	Slice() []Native

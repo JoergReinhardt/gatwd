@@ -1,4 +1,4 @@
-package lex
+package functions
 
 import (
 	"sort"
@@ -10,14 +10,16 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
-func (t TyLex) FlagType() uint8        { return 4 }
-func (t TyLex) Type() TyLex            { return t }
-func (t TyLex) TypeName() string       { return t.String() }
-func (t TyLex) TypeNat() d.TyNat       { return d.Type }
-func (t TyLex) Flag() d.BitFlag        { return d.BitFlag(t) }
-func (t TyLex) Match(arg d.Typed) bool { return t.Flag().Match(arg) }
-func (t TyLex) Utf8() string           { return MapUtf[t] }
-func (t TyLex) Ascii() string          { return MapAscii[t] }
+func (t TyLex) FlagType() d.Uint8Val          { return 4 }
+func (t TyLex) Type() Typed                   { return t }
+func (t TyLex) TypeName() string              { return t.String() }
+func (t TyLex) TypeNat() d.TyNat              { return d.Type }
+func (t TyLex) TypeFnc() TyFnc                { return Type }
+func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
+func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
+func (t TyLex) Utf8() string                  { return MapUtf[t] }
+func (t TyLex) Ascii() string                 { return MapAscii[t] }
+func (t TyLex) Call(...Expression) Expression { return t }
 
 // slice of all syntax items in there int constant form
 var AllItems = func() []TyLex {
@@ -34,7 +36,7 @@ var AllItems = func() []TyLex {
 
 //go:generate stringer -type=TyLex
 const (
-	None  TyLex = 0
+	Null  TyLex = 0
 	Blank TyLex = 1
 	Tab   TyLex = 1 << iota
 	NewLine
@@ -101,7 +103,7 @@ const (
 )
 
 var MapUtf = map[TyLex]string{
-	None:  "⊥",
+	Null:  "⊥",
 	Blank: " ",
 	Tab: "	",
 	NewLine:        `\n`,
@@ -179,7 +181,7 @@ var Utf8String = func() string {
 }()
 
 var MapAscii = map[TyLex]string{
-	None:           "",
+	Null:           "",
 	Blank:          " ",
 	Tab:            `\t`,
 	NewLine:        `\n`,
@@ -277,10 +279,10 @@ var KeyWordString = strings.Join(Keywords, "")
 var Digits = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 var DigitString = strings.Join(Digits, "")
 
-var Letters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
+var letters = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
 	"l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "ä",
 	"ö", "ü", "ß"}
-var LetterString = strings.Join(Letters, "")
+var LetterString = strings.Join(letters, "")
 
 var Capitals = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K",
 	"L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Ä",
