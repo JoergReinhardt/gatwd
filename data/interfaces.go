@@ -169,9 +169,10 @@ type Mapped interface {
 	Keys() []Native
 	Data() []Native
 	Fields() []Paired
+	Has(acc Native) bool
 	Get(acc Native) (Native, bool)
-	Delete(acc Native) bool
 	Set(Native, Native) Mapped
+	Delete(acc Native) bool
 	KeyType() TyNat
 	ValType() TyNat
 }

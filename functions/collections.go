@@ -263,9 +263,9 @@ func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
 func (a KeyPair) Empty() bool {
 	if a.Key() != nil && a.Value() != nil && a.Value().TypeFnc() != None {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -663,6 +663,11 @@ func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 		return append(pvec(), pairs...)
 	})
 }
+
+func (v PairVec) ConPairs(pairs ...Paired) PairVec {
+	return ConPairVec(v, pairs...)
+}
+
 func (v PairVec) Con(args ...Expression) PairVec {
 	return ConPairVecFromArgs(v, args...)
 }

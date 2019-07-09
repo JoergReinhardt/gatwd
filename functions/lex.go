@@ -10,15 +10,15 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
-func (t TyLex) FlagType() d.Uint8Val          { return 4 }
+func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
 func (t TyLex) Type() Typed                   { return t }
-func (t TyLex) TypeName() string              { return t.String() }
-func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) TypeFnc() TyFnc                { return Type }
+func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyLex) Utf8() string                  { return MapUtf[t] }
 func (t TyLex) Ascii() string                 { return MapAscii[t] }
+func (t TyLex) TypeName() string              { return t.String() }
 func (t TyLex) Call(...Expression) Expression { return t }
 
 // slice of all syntax items in there int constant form

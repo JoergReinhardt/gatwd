@@ -78,11 +78,11 @@ func (s SetVal) Fields() []Paired {
 	return pairs
 }
 
-func (s SetVal) Has(acc Native) (Native, bool) {
-	if dat, ok := s[acc.(FltVal)]; ok {
-		return dat, ok
+func (s SetVal) Has(acc Native) bool {
+	if _, ok := s[acc]; ok {
+		return ok
 	}
-	return nil, false
+	return false
 }
 
 func (s SetVal) Get(acc Native) (Native, bool) {
@@ -367,11 +367,11 @@ func (s SetUint) HasUint(idx uint) bool {
 	return false
 }
 
-func (s SetUint) Has(acc Native) (Native, bool) {
-	if dat, ok := s[acc.(UintVal)]; ok {
-		return dat, ok
+func (s SetUint) Has(acc Native) bool {
+	if _, ok := s[acc.(UintVal)]; ok {
+		return ok
 	}
-	return nil, false
+	return false
 }
 
 func (s SetUint) Get(acc Native) (Native, bool) {
@@ -468,11 +468,11 @@ func (s SetFloat) HasFlt(flt float64) bool {
 	return false
 }
 
-func (s SetFloat) Has(acc Native) (Native, bool) {
-	if dat, ok := s[acc.(FltVal)]; ok {
-		return dat, ok
+func (s SetFloat) Has(acc Native) bool {
+	if _, ok := s[acc.(FltVal)]; ok {
+		return ok
 	}
-	return nil, false
+	return false
 }
 
 func (s SetFloat) Get(acc Native) (Native, bool) {
@@ -560,6 +560,13 @@ func (s SetFlag) Fields() []Paired {
 		parms = append(parms, PairVal{k, d})
 	}
 	return parms
+}
+
+func (s SetFlag) Has(acc Native) bool {
+	if _, ok := s[acc.(BitFlag)]; ok {
+		return ok
+	}
+	return false
 }
 
 func (s SetFlag) Get(acc Native) (Native, bool) {

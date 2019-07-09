@@ -23,6 +23,7 @@ const (
 	Flag_Token
 	Flag_Arity
 	Flag_Prop
+	Flag_Lex
 
 	Flag_Def TyFlag = 255
 )
@@ -33,6 +34,27 @@ func (t TyFlag) Match(match d.Uint8Val) bool {
 		return true
 	}
 	return false
+}
+
+func typedToExpression(typ Typed) Expression {
+	var expr Expression
+	switch {
+	case Flag_Native.Match(typ.FlagType()):
+		expr = NewData(typ.(d.TyNat))
+	case Flag_Functional.Match(typ.FlagType()):
+		expr = typ.(TyFnc)
+	case Flag_DataCons.Match(typ.FlagType()):
+		expr = typ.(TyFnc)
+	case Flag_Arity.Match(typ.FlagType()):
+		expr = typ.(Arity)
+	case Flag_Prop.Match(typ.FlagType()):
+		expr = typ.(Propertys)
+	case Flag_Lex.Match(typ.FlagType()):
+		expr = typ.(TyLex)
+	case Flag_Def.Match(typ.FlagType()):
+		expr = typ.(TyDef)
+	}
+	return expr
 }
 
 //go:generate stringer -type=TyFnc

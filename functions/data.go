@@ -5,10 +5,10 @@ import d "github.com/joergreinhardt/gatwd/data"
 type (
 	//// NATIVE VALUE CONSTRUCTORS
 	DataConst   func() d.Native
-	DataSlice   func(...Native) d.Sliceable
+	DataSlice   func(...Native) d.DataSlice
 	DataGoSlice func(...Native) d.Sliceable
-	DataPair    func(...Native) d.Paired
 	DataSet     func(...Native) d.Mapped
+	DataPair    func(...Native) d.PairVal
 
 	//// NATIVE EXPRESSION CONSTRUCTOR
 	DataExpr func(...d.Native) Expression
@@ -33,16 +33,16 @@ func NewData(args ...d.Native) Native {
 
 	switch {
 	case match(d.Slice):
-		return DataSlice(func(args ...Native) d.Sliceable {
-			return nat.(d.Sliceable)
+		return DataSlice(func(args ...Native) d.DataSlice {
+			return nat.(d.DataSlice)
 		})
 	case match(d.Unboxed):
 		return DataGoSlice(func(args ...Native) d.Sliceable {
 			return nat.(d.Sliceable)
 		})
 	case match(d.Pair):
-		return DataPair(func(args ...Native) d.Paired {
-			return nat.(d.Paired)
+		return DataPair(func(args ...Native) d.PairVal {
+			return nat.(d.PairVal)
 		})
 	case match(d.Map):
 		return DataSet(func(args ...Native) d.Mapped {
@@ -71,10 +71,9 @@ func (n DataSlice) Call(args ...Expression) Expression { return n }
 func (n DataSlice) Len() int                           { return n().Len() }
 func (n DataSlice) TypeFnc() TyFnc                     { return Data }
 func (n DataSlice) Eval() d.Native                     { return n() }
-func (n DataSlice) Sequential() d.Sequential           { return n().(d.DataSlice) }
-func (n DataSlice) Head() d.Native                     { return n.Sequential().Head() }
-func (n DataSlice) Tail() d.Sequential                 { return n.Sequential().Tail() }
-func (n DataSlice) Shift() (d.Native, d.DataSlice)     { return n.Sequential().Shift() }
+func (n DataSlice) Head() d.Native                     { return n().Head() }
+func (n DataSlice) Tail() d.Sequential                 { return n().Tail() }
+func (n DataSlice) Shift() (d.Native, d.DataSlice)     { return n().Shift() }
 func (n DataSlice) SliceNat() []d.Native               { return n().Slice() }
 func (n DataSlice) Get(key d.Native) d.Native          { return n().Get(key) }
 func (n DataSlice) GetInt(idx int) d.Native            { return n().GetInt(idx) }
@@ -87,7 +86,9 @@ func (n DataSlice) String() string                     { return n().String() }
 func (n DataSlice) TypeName() string                   { return n().TypeName() }
 func (n DataSlice) FlagType() d.Uint8Val               { return Flag_Functional.U() }
 func (n DataSlice) Slice() []d.Native                  { return n().Slice() }
-func (n DataSlice) Type() Typed                        { return Define(n().TypeName(), NewData(n.TypeNat())) }
+func (n DataSlice) Type() Typed {
+	return Define(n().TypeName(), NewData(n.TypeNat()))
+}
 func (n DataSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
@@ -206,7 +207,7 @@ func (n DataSet) Pairs() []Paired {
 	return pairs
 }
 
-func NewNativeExpression(expr Expression) DataExpr {
+func NewNative(expr Expression) DataExpr {
 	return func(args ...d.Native) Expression {
 		if len(args) > 0 {
 			var exprs = make([]Expression, 0, len(args))
