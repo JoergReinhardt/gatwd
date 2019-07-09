@@ -15,15 +15,21 @@ func (t TyLex) Type() Typed                   { return t }
 func (t TyLex) TypeFnc() TyFnc                { return Type }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t TyLex) Utf8() string                  { return MapUtf8[t] }
-func (t TyLex) Ascii() string                 { return MapAscii[t] }
-func (t TyLex) FindUtf8(arg string) TyLex     { return MapUtf8Text[arg] }
-func (t TyLex) FindAscii(arg string) TyLex    { return MapAsciiText[arg] }
+func (t TyLex) Utf8() string                  { return mapUtf8[t] }
+func (t TyLex) Ascii() string                 { return mapAscii[t] }
 func (t TyLex) MatchUtf8(arg string) bool     { return t.Utf8() == arg }
 func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
 func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyLex) TypeName() string              { return t.String() }
 func (t TyLex) Call(...Expression) Expression { return t }
+func (t TyLex) FindUtf8(arg string) (TyLex, bool) {
+	var lex, ok = mapUtf8Text[arg]
+	return lex, ok
+}
+func (t TyLex) FindAscii(arg string) (TyLex, bool) {
+	var lex, ok = mapAsciiText[arg]
+	return lex, ok
+}
 
 // slice of all syntax items in there int constant form
 var AllItems = func() []TyLex {
@@ -104,7 +110,7 @@ const (
 	Pi
 )
 
-var MapUtf8 = map[TyLex]string{
+var mapUtf8 = map[TyLex]string{
 	Null:  "⊥",
 	Blank: " ",
 	Tab: "	",
@@ -167,7 +173,7 @@ var MapUtf8 = map[TyLex]string{
 	EmptySet:       "∅",
 	Pi:             `π`,
 }
-var MapUtf8Text = map[string]TyLex{
+var mapUtf8Text = map[string]TyLex{
 	"⊥":  Null,
 	" ":  Blank,
 	"  ": Tab,
@@ -231,7 +237,7 @@ var MapUtf8Text = map[string]TyLex{
 	`π`:  Pi,
 }
 
-var MapAscii = map[TyLex]string{
+var mapAscii = map[TyLex]string{
 	Null:           "",
 	Blank:          " ",
 	Tab:            `\t`,
@@ -295,7 +301,7 @@ var MapAscii = map[TyLex]string{
 	Pi:             `\pi`,
 }
 
-var MapAsciiText = map[string]TyLex{
+var mapAsciiText = map[string]TyLex{
 	"":        Null,
 	" ":       Blank,
 	`\t`:      Tab,
@@ -361,7 +367,7 @@ var MapAsciiText = map[string]TyLex{
 
 var AsciiKeysSortedByLength = func() [][]rune {
 	var runes = [][]rune{}
-	for _, key := range MapAscii {
+	for _, key := range mapAscii {
 		runes = append(runes, []rune(key))
 	}
 	sort.Sort(keyLengthSorter(runes))
@@ -381,11 +387,15 @@ func (t TyKeyWord) FlagType() d.Uint8Val          { return Flag_KeyWord.U() }
 func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
 func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
 func (t TyKeyWord) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t TyKeyWord) KeyWord() string               { return MapKeyWords[t] }
+func (t TyKeyWord) KeyWord() string               { return mapKeyWords[t] }
 func (t TyKeyWord) MatchKeyWord(arg string) bool  { return t.KeyWord() == arg }
 func (t TyKeyWord) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyKeyWord) TypeName() string              { return t.String() }
 func (t TyKeyWord) Call(...Expression) Expression { return t }
+func (t TyKeyWord) Find(arg string) (TyKeyWord, bool) {
+	var kw, ok = mapKeyWordsText[arg]
+	return kw, ok
+}
 
 //go:generate stringer -type=TyKeyWord
 const (
@@ -405,7 +415,7 @@ const (
 	Word_Otherwise
 )
 
-var MapKeyWords = map[TyKeyWord]string{
+var mapKeyWords = map[TyKeyWord]string{
 	Word_Do:        "do",
 	Word_In:        "in",
 	Word_Of:        "of",
@@ -421,7 +431,7 @@ var MapKeyWords = map[TyKeyWord]string{
 	Word_Mutable:   "mutable",
 	Word_Otherwise: "otherwise",
 }
-var MapKeyWordsText = map[string]TyKeyWord{
+var mapKeyWordsText = map[string]TyKeyWord{
 	"do":        Word_Do,
 	"in":        Word_In,
 	"of":        Word_Of,
