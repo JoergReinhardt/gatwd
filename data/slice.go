@@ -31,7 +31,8 @@ func (c DataSlice) TypeName() string {
 	}
 	return "[]"
 }
-func (c DataSlice) TypeNat() TyNat          { return Slice.TypeNat() }
+func (c DataSlice) Type() Typed             { return Slice }
+func (c DataSlice) TypeNat() TyNat          { return Slice }
 func (c DataSlice) ElemType() TyNat         { return TyNat(sliceContainsTypes(c.Slice())) }
 func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }
 func (c DataSlice) Append(n ...Native)      { SliceAppend(c, n...) }
@@ -156,7 +157,7 @@ func SliceToNatives(c DataSlice) Sliceable {
 	}
 	// check if all elements flags match the first elements flag
 	if SliceAll(c, func(i int, c Native) bool {
-		return c.TypeNat() == flag
+		return c.TypeNat().Match(flag)
 	}) {
 		// if all elements yield the same type, convert to unboxed
 		// slice of natives

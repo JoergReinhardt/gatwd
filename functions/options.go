@@ -40,18 +40,18 @@ func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
 func (n NoneVal) TypeElem() TyFnc               { return None }
 func (n NoneVal) TypeName() string              { return n.String() }
 func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Function.U() }
-func (n NoneVal) Type() Typed                   { return Define(n.TypeName(), None) }
+func (n NoneVal) Type() d.Typed                 { return Define(n.TypeName(), None) }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }
 
 //// TRUTH VALUE CONSTRUCTOR
-func NewTestTruth(name string, test func(...Expression) d.BoolVal, paratypes ...Typed) TestExpr {
+func NewTestTruth(name string, test func(...Expression) d.BoolVal, paratypes ...d.Typed) TestExpr {
 
 	if name == "" {
 		name = "Truth"
 	}
-	var params = make([]Typed, 0, len(paratypes))
+	var params = make([]d.Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	} else {
@@ -72,12 +72,12 @@ func NewTestTruth(name string, test func(...Expression) d.BoolVal, paratypes ...
 	}
 }
 
-func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Typed) TestExpr {
+func NewTestTrinary(name string, test func(...Expression) int, paratypes ...d.Typed) TestExpr {
 
 	if name == "" {
 		name = "Trinary"
 	}
-	var params = make([]Typed, 0, len(paratypes))
+	var params = make([]d.Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	} else {
@@ -100,12 +100,12 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Type
 	}
 }
 
-func NewTestCMP(name string, test func(...Expression) d.IntVal, paratypes ...Typed) TestExpr {
+func NewTestCMP(name string, test func(...Expression) d.IntVal, paratypes ...d.Typed) TestExpr {
 
 	if name == "" {
 		name = "CMP"
 	}
-	var params = make([]Typed, 0, len(paratypes))
+	var params = make([]d.Typed, 0, len(paratypes))
 	if len(paratypes) == 0 {
 		paratypes = append(paratypes, Type)
 	}
@@ -126,7 +126,7 @@ func NewTestCMP(name string, test func(...Expression) d.IntVal, paratypes ...Typ
 		return Define(name, CMP, params...)
 	}
 }
-func (t TestExpr) Type() Typed    { return t().(Typed) }
+func (t TestExpr) Type() d.Typed  { return t().(Typed) }
 func (t TestExpr) TypeFnc() TyFnc { return t.Type().(TyDef).Return().(TyFnc) }
 func (t TestExpr) TypeNat() d.TyNat {
 	if t.TypeFnc() == CMP {
@@ -273,7 +273,7 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 	// construct case type definition
 	var pattern = expr.Type().(TyDef).Arguments()
 	if len(pattern) == 0 {
-		pattern = []Typed{Type}
+		pattern = []d.Typed{Type}
 	}
 	var typed = Define(test.Type().(TyDef).Name(),
 		expr.Type().(TyDef).Return(), pattern...)
@@ -308,7 +308,7 @@ func (s CaseExpr) Expr() Expression {
 	var vec, _ = s()
 	return vec.(VecCol)()[1]
 }
-func (s CaseExpr) Type() Typed {
+func (s CaseExpr) Type() d.Typed {
 	var vec, _ = s()
 	return vec.(VecCol)()[2].(Typed)
 }
@@ -404,7 +404,7 @@ func (s CaseSwitch) Cases() VecCol {
 	var cases, _, _ = s()
 	return cases.(VecCol)
 }
-func (s CaseSwitch) Type() Typed {
+func (s CaseSwitch) Type() d.Typed {
 	return Define(s.TypeName(), s.TypeFnc())
 }
 func (s CaseSwitch) TypeName() string {

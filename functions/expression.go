@@ -31,9 +31,9 @@ func (c ConstantExpr) Arity() Arity                       { return Arity(0) }
 func (c ConstantExpr) TypeFnc() TyFnc                     { return Constant }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (c ConstantExpr) String() string                     { return c().String() }
-func (c ConstantExpr) ElemType() Typed                    { return c().Type() }
+func (c ConstantExpr) ElemType() d.Typed                  { return c().Type() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
-func (c ConstantExpr) Type() Typed {
+func (c ConstantExpr) Type() d.Typed {
 	return Define("ϝ → "+c().TypeName(), c().Type())
 }
 
@@ -45,8 +45,8 @@ func (c ConstantExpr) Type() Typed {
 func NewGeneric(
 	expr func(...Expression) Expression,
 	name string,
-	retype Typed,
-	paratypes ...Typed,
+	retype d.Typed,
+	paratypes ...d.Typed,
 ) GenericExpr {
 
 	var typed = Define(name, retype, paratypes...)
@@ -60,7 +60,7 @@ func NewGeneric(
 }
 
 func (c GenericExpr) Ident() Expression                  { return c }
-func (c GenericExpr) Type() Typed                        { return c().(Typed) }
+func (c GenericExpr) Type() d.Typed                      { return c().(Typed) }
 func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
 func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
@@ -85,41 +85,91 @@ func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 func Declare(
 	expr Expression,
 	name string,
-	retype Typed,
-	paratypes ...Typed,
+	retype d.Typed,
+	paratypes ...d.Typed,
 ) DeclaredExpr {
 	var typed = Define(name, retype, paratypes...)
 	return func(args ...Expression) Expression {
-		var arglen = Arity(len(args))
-		if arglen == typed.Arity() {
+		if len(args) > 0 {
+			var arglen, arity = Arity(len(args)), typed.Arity()
+			var types = make([]d.Typed, 0, arglen)
+			for _, arg := range args {
+				types = append(types, arg.Type())
+			}
+			switch {
+			case arglen < arity:
+				if typed.MatchSignature(types...) {
+					var bound, remain = args, paratypes[:arglen]
+					return Declare(
+						GenericExpr(func(later ...Expression) Expression {
+							return expr.Call(append(bound, later...)...)
+						}), name, retype, remain...)
+				}
+			case arglen == arity:
+				if typed.MatchSignature(types...) {
+					return expr.Call(args...)
+				}
+			case arglen > arity:
+				if typed.MatchSignature(types...) {
+					var bound, remain = args[:arglen], args[arglen:]
+					return NewList(expr.Call(bound...)).Con(Declare(
+						expr, name, retype, paratypes...,
+					).Call(remain...))
+				}
+			}
 		}
 		return NewPair(typed, expr)
 	}
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n DeclaredExpr) Ident() Expression    { return n }
-func (n DeclaredExpr) String() string       { return n().String() }
-func (n DeclaredExpr) TypeName() string     { return n.TypeDef().TypeName() }
-func (n DeclaredExpr) FlagType() d.Uint8Val { return Flag_DataCons.U() }
-func (n DeclaredExpr) Expr() Expression {
-	return n().(Paired).Right().(Expression)
-}
+func (n DeclaredExpr) Ident() Expression                  { return n }
+func (n DeclaredExpr) String() string                     { return n.Expr().String() }
 func (n DeclaredExpr) TypeDef() TyDef                     { return n().(Paired).Left().(TyDef) }
-func (n DeclaredExpr) Type() Typed                        { return n.TypeDef() }
+func (n DeclaredExpr) TypeName() string                   { return n.TypeDef().TypeName() }
+func (n DeclaredExpr) Type() d.Typed                      { return n.TypeDef() }
 func (n DeclaredExpr) TypeFnc() TyFnc                     { return n.TypeDef().TypeFnc() }
 func (n DeclaredExpr) TypeNat() d.TyNat                   { return n.TypeDef().TypeNat() }
 func (n DeclaredExpr) Arity() Arity                       { return n.TypeDef().Arity() }
-func (n DeclaredExpr) Return() Typed                      { return n.TypeDef().Return() }
-func (n DeclaredExpr) Pattern() []Typed                   { return n.TypeDef().Arguments() }
-func (n DeclaredExpr) Call(args ...Expression) Expression { return n(args...) }
+func (n DeclaredExpr) Return() d.Typed                    { return n.TypeDef().Return() }
+func (n DeclaredExpr) Pattern() []d.Typed                 { return n.TypeDef().Arguments() }
+func (n DeclaredExpr) FlagType() d.Uint8Val               { return Flag_DataCons.U() }
+func (n DeclaredExpr) Expr() Expression                   { return n().(Paired).Right().(Expression) }
+func (n DeclaredExpr) Call(args ...Expression) Expression { return n.Expr().Call(args...) }
 func (n DeclaredExpr) Eval(args ...d.Native) d.Native {
 	if n.TypeFnc().Match(Data) {
 		if data, ok := n.Expr().(Native); ok {
 			if len(args) > 0 {
-				return data.Eval(args...)
+				var arglen, arity = Arity(len(args)), n.TypeDef().Arity()
+				var types = make([]d.Typed, 0, arglen)
+				for _, arg := range args {
+					types = append(types, arg.TypeNat())
+				}
+				switch {
+				case arglen < arity:
+					if n.TypeDef().MatchSignature(types...) {
+						var bound, remain = args, n.TypeDef().Arguments()[:arglen]
+						return Declare(
+							New(func(later ...d.Native) d.Native {
+								return data.Eval(append(bound, later...)...)
+							}), n.TypeDef().Name(), n.TypeDef().Return(), remain...)
+					}
+				case arglen == arity:
+					if n.TypeDef().MatchSignature(types...) {
+						return data.Eval(args...)
+					}
+				case arglen > arity:
+					if n.TypeDef().MatchSignature(types...) {
+						var bound, remain = args[:arity], args[arity:]
+						var results = []d.Native{data.Eval(bound...)}
+						for len(remain) > 0 {
+							results = append(results, n.Eval(remain...))
+							remain = remain[len(remain):]
+						}
+						return d.NewSlice(results...)
+					}
+				}
 			}
-			return data.Eval()
 		}
 	}
 	return d.NewNil()

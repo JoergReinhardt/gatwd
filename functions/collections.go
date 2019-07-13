@@ -142,7 +142,7 @@ func (l ListCol) TypeName() string {
 	return "[]"
 }
 func (l ListCol) FlagType() d.Uint8Val { return Flag_Function.U() }
-func (l ListCol) Type() Typed {
+func (l ListCol) Type() d.Typed {
 	return Define(l.TypeName(), l.TypeElem())
 }
 
@@ -204,7 +204,7 @@ func (p PairVal) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (p PairVal) TypeName() string {
 	return "(" + p.Key().TypeName() + ", " + p.Value().TypeName() + ")"
 }
-func (p PairVal) Type() Typed {
+func (p PairVal) Type() d.Typed {
 	return Define(p.TypeName(), Pair,
 		p.KeyType(), p.ValType())
 }
@@ -249,7 +249,7 @@ func (a KeyPair) FlagType() d.Uint8Val               { return Flag_Function.U() 
 func (p KeyPair) TypeName() string {
 	return "(String, " + p.Value().TypeName() + ")"
 }
-func (p KeyPair) Type() Typed {
+func (p KeyPair) Type() d.Typed {
 	return Define(p.TypeName(), Pair,
 		p.KeyType(), p.ValType())
 }
@@ -293,7 +293,7 @@ func (a IndexPair) FlagType() d.Uint8Val               { return Flag_Function.U(
 func (a IndexPair) TypeName() string {
 	return "(Index, " + a.Value().TypeName() + ")"
 }
-func (a IndexPair) Type() Typed {
+func (a IndexPair) Type() d.Typed {
 	return Define(a.TypeName(), Pair, a.KeyType(), a.ValType())
 }
 
@@ -414,7 +414,7 @@ func (l PairList) TypeName() string {
 	}
 	return "[]"
 }
-func (l PairList) Type() Typed {
+func (l PairList) Type() d.Typed {
 	return Define(l.TypeName(), Pair,
 		l.KeyType(), l.ValType())
 }
@@ -597,7 +597,7 @@ func (v VecCol) TypeElem() TyFnc {
 	}
 	return None.TypeFnc()
 }
-func (v VecCol) Type() Typed {
+func (v VecCol) Type() d.Typed {
 	return Define(v.TypeName(), v.TypeFnc(), v.TypeElem())
 }
 func (v VecCol) TypeName() string {
@@ -718,7 +718,7 @@ func (v PairVec) TypeName() string {
 	}
 	return "[]"
 }
-func (v PairVec) Type() Typed {
+func (v PairVec) Type() d.Typed {
 	return Define(v.TypeName(), Pair,
 		v.KeyType(), v.ValType())
 }

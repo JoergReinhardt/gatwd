@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	TyDef     func() (string, []Typed)
+	TyDef     func() (string, []d.Typed)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
@@ -120,15 +120,15 @@ const (
 )
 
 //// TYPE DEFINITION
-func Define(name string, retype Typed, paratypes ...Typed) TyDef {
-	paratypes = append([]Typed{retype}, paratypes...)
-	return func() (string, []Typed) {
+func Define(name string, retype d.Typed, paratypes ...d.Typed) TyDef {
+	paratypes = append([]d.Typed{retype}, paratypes...)
+	return func() (string, []d.Typed) {
 		return name, paratypes
 	}
 }
 
-func (t TyDef) Type() Typed          { return t }
-func (t TyDef) Elements() []Typed    { var _, expr = t(); return expr }
+func (t TyDef) Type() d.Typed        { return t }
+func (t TyDef) Elements() []d.Typed  { var _, expr = t(); return expr }
 func (t TyDef) Name() string         { var name, _ = t(); return name }
 func (t TyDef) String() string       { return t.TypeName() }
 func (t TyDef) FlagType() d.Uint8Val { return Flag_Definition.U() }
@@ -149,14 +149,14 @@ func (t TyDef) TypeNat() d.TyNat {
 	}
 	return d.Function
 }
-func (t TyDef) Return() Typed                      { return t.Elements()[0] }
+func (t TyDef) Return() d.Typed                    { return t.Elements()[0] }
 func (t TyDef) Call(args ...Expression) Expression { return t }
-func (t TyDef) Arguments() []Typed {
+func (t TyDef) Arguments() []d.Typed {
 	var elems = t.Elements()
 	if len(elems) > 1 {
 		return elems[1:]
 	}
-	return []Typed{Type}
+	return []d.Typed{}
 }
 func (t TyDef) Arity() Arity {
 	return Arity(len(t.Arguments()))
@@ -246,7 +246,7 @@ func (t TyDef) MatchArgN(idx int, typ d.Typed) bool {
 }
 
 // matches all signature elements against passed types
-func (t TyDef) MatchArgs(args ...d.Typed) bool {
+func (t TyDef) MatchSignature(args ...d.Typed) bool {
 	var arglen = Arity(len(args))
 	// range over argument set, if shorter arity
 	if arglen < t.Arity() {
@@ -277,7 +277,7 @@ func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
 func (t TyFnc) Eval() d.Native                     { return t.TypeNat() }
-func (t TyFnc) Type() Typed                        { return Define(t.TypeName(), t) }
+func (t TyFnc) Type() d.Typed                      { return Define(t.TypeName(), t) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -351,7 +351,7 @@ func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Eval() d.Native                     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() Typed {
+func (p Propertys) Type() d.Typed {
 	return Define(p.TypeName(), Property)
 }
 
@@ -378,7 +378,7 @@ const (
 func (a Arity) Eval() d.Native                { return a }
 func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
 func (a Arity) Int() int                      { return int(a) }
-func (a Arity) Type() Typed                   { return Type }
+func (a Arity) Type() d.Typed                 { return Type }
 func (a Arity) TypeFnc() TyFnc                { return Type }
 func (a Arity) TypeNat() d.TyNat              { return d.Type }
 func (a Arity) Match(arg d.Typed) bool        { return a == arg }

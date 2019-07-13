@@ -68,7 +68,7 @@ func (m ConsumeVal) TypeElem() TyFnc {
 	}
 	return None.TypeFnc()
 }
-func (m ConsumeVal) Type() Typed {
+func (m ConsumeVal) Type() d.Typed {
 	return Define(m.TypeName(), m.Head().TypeFnc())
 }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
@@ -156,7 +156,7 @@ func (c ConsPairVal) TypeElem() TyFnc {
 	}
 	return None.TypeFnc()
 }
-func (c ConsPairVal) Type() Typed {
+func (c ConsPairVal) Type() d.Typed {
 	return Define(c.TypeName(), c.Head().TypeFnc())
 }
 

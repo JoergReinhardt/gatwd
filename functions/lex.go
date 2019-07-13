@@ -10,7 +10,7 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
-func (t TyLex) Type() Typed                   { return t }
+func (t TyLex) Type() d.Typed                 { return t }
 func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
 func (t TyLex) TypeFnc() TyFnc                { return Type }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
@@ -382,7 +382,7 @@ func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
 type TyKeyWord d.BitFlag
 
-func (t TyKeyWord) Type() Typed                   { return t }
+func (t TyKeyWord) Type() d.Typed                 { return t }
 func (t TyKeyWord) FlagType() d.Uint8Val          { return Flag_KeyWord.U() }
 func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
 func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
@@ -474,6 +474,5 @@ func (s asciiSorter) Sort()              { sort.Sort(s) }
 // item is a bitflag of course
 type Item interface {
 	d.Native
-	Type() TyLex
 	Syntax() string
 }

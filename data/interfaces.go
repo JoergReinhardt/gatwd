@@ -38,6 +38,7 @@ type Native interface {
 	NativeTyped
 	NameTyped
 	Stringer
+	Type() Typed
 }
 
 type BinaryMarshaler interface {

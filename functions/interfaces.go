@@ -38,14 +38,13 @@ type Expression interface {
 	FlagTyped
 	Callable
 	Stringer
-	Type() Typed
+	Type() d.Typed
 }
 type Native interface {
 	FunctionTyped
 	FlagTyped
 	Callable
 	d.Native
-	Type() Typed
 	Eval(...d.Native) d.Native
 }
 
