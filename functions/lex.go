@@ -10,8 +10,8 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
-func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
 func (t TyLex) Type() Typed                   { return t }
+func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
 func (t TyLex) TypeFnc() TyFnc                { return Type }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
@@ -20,7 +20,7 @@ func (t TyLex) Ascii() string                 { return mapAscii[t] }
 func (t TyLex) MatchUtf8(arg string) bool     { return t.Utf8() == arg }
 func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
 func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
-func (t TyLex) TypeName() string              { return t.String() }
+func (t TyLex) TypeName() string              { return mapUtf8[t] }
 func (t TyLex) Call(...Expression) Expression { return t }
 func (t TyLex) FindUtf8(arg string) (TyLex, bool) {
 	var lex, ok = mapUtf8Text[arg]
@@ -389,8 +389,8 @@ func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
 func (t TyKeyWord) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyKeyWord) KeyWord() string               { return mapKeyWords[t] }
 func (t TyKeyWord) MatchKeyWord(arg string) bool  { return t.KeyWord() == arg }
-func (t TyKeyWord) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
-func (t TyKeyWord) TypeName() string              { return t.String() }
+func (t TyKeyWord) Match(arg d.Typed) bool        { return t == arg }
+func (t TyKeyWord) TypeName() string              { return mapKeyWords[t] }
 func (t TyKeyWord) Call(...Expression) Expression { return t }
 func (t TyKeyWord) Find(arg string) (TyKeyWord, bool) {
 	var kw, ok = mapKeyWordsText[arg]
@@ -399,9 +399,9 @@ func (t TyKeyWord) Find(arg string) (TyKeyWord, bool) {
 
 //go:generate stringer -type=TyKeyWord
 const (
-	Word_Do TyKeyWord = 0
-	Word_In TyKeyWord = 1
-	Word_Of TyKeyWord = 1 << iota
+	Word_Do TyKeyWord = 0 + iota
+	Word_In
+	Word_Of
 	Word_Con
 	Word_Let
 	Word_If

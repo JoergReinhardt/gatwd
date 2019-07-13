@@ -30,6 +30,7 @@ type Typed interface {
 	NameTyped
 	Flagged
 	Matched
+	Stringer
 }
 
 // the main interface, all native types need to implement.
@@ -55,6 +56,7 @@ type Destructable interface {
 
 // implemented by types an empty instance is defined for
 type Discrete interface {
+	GoBytes() []byte
 	Unit() Native
 }
 
@@ -62,14 +64,17 @@ type Discrete interface {
 // allow to treat the different sizes of ints and floats alike
 
 type Boolean interface {
+	Bool() BoolVal
 	GoBool() bool
 }
 
 type Natural interface {
+	Uint() UintVal
 	GoUint() uint
 }
 
 type Integer interface {
+	Int() IntVal
 	GoInt() int
 	Idx() int
 }
@@ -79,10 +84,12 @@ type Rational interface {
 }
 
 type Real interface {
+	Float() FltVal
 	GoFlt() float64
 }
 
 type Imaginary interface {
+	Imag() ImagVal
 	GoImag() complex128
 }
 

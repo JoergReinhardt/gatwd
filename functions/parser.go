@@ -24,7 +24,8 @@ func (t TyTok) Match(typ d.Typed) bool {
 
 //go:generate stringer -type=TyTok
 const (
-	Tok_Text TyTok = 0 + iota
+	Tok_Blank TyTok = 0 + iota
+	Tok_Text
 	Tok_Number
 	Tok_Symbol
 	Tok_Keyword
@@ -32,8 +33,7 @@ const (
 	Tok_Delimiter
 	Tok_Seperator
 	Tok_Punktation
-	Tok_Definition
-	Tok_Parametric
+	Tok_DefType
 	Tok_NatType
 	Tok_FncType
 	Tok_Context
@@ -41,7 +41,7 @@ const (
 
 type runetext d.RuneVec
 
-func newRuneTest(str string) runetext {
+func newRuneText(str string) runetext {
 	var runes = d.RuneVec{}
 	for _, r := range []rune(str) {
 		runes = append(runes, r)
@@ -101,197 +101,6 @@ func (t runetext) Take(n int) ([]rune, runetext, bool) {
 		return []rune(t), runetext([]rune{}), false
 	}
 	return nil, t, false
-}
-
-type token KeyPair
-
-func newToken(text string, kind TyTok, types ...Typed) token {
-	var vec = NewVector(NewNative(kind))
-	if len(types) > 0 {
-		for _, typ := range types {
-			vec = vec.Append(typedToExpression(typ))
-		}
-	}
-	return token(NewKeyPair(text, vec))
-}
-
-func (t token) TypeFnc() TyFnc                 { return Key }
-func (t token) KeyType() TyFnc                 { return Key.TypeFnc() }
-func (t token) TypeNat() d.TyNat               { return d.Function }
-func (t token) KeyPair() KeyPair               { return KeyPair(t) }
-func (t token) FlagType() d.Uint8Val           { return Flag_Function.U() }
-func (t token) KeyStr() string                 { return t.KeyPair().KeyStr() }
-func (t token) String() string                 { return t.KeyPair().String() }
-func (t token) Value() Expression              { return t.KeyPair().Value() }
-func (t token) Left() Expression               { return t.KeyPair().Value() }
-func (t token) Right() Expression              { return t.KeyPair().Right() }
-func (t token) Both() (Expression, Expression) { return t.Left(), t.Right() }
-func (t token) Pair() Paired                   { return t.KeyPair().Pair() }
-func (t token) Pairs() []Paired                { return t.KeyPair().Pairs() }
-func (t token) Key() Expression                { return t.KeyPair().Right() }
-func (t token) Swap() (Expression, Expression) { return t.KeyPair().Swap() }
-func (t token) SwappedPair() Paired            { return t.KeyPair().SwappedPair() }
-func (t token) Empty() bool                    { return t.KeyPair().Empty() }
-func (t token) Type() Typed                    { return t.KeyPair().Type() }
-func (t token) TypeName() string               { return t.KeyPair().TypeName() }
-func (t token) ValType() TyFnc                 { return t.KeyPair().Value().TypeFnc() }
-func (t token) Call(args ...Expression) Expression {
-	return t.KeyPair().Value().Call(args...)
-}
-
-func (t token) vector() VecCol   { return t.KeyPair().Right().(VecCol) }
-func (t token) Text() string     { return t.KeyPair().KeyStr() }
-func (t token) TokenType() TyTok { return t.vector().Head().(TyTok) }
-func (t token) TypeFlags() []Typed {
-	var types = make([]Typed, 0, t.vector().Len()-1)
-	if t.vector().Len() > 1 {
-		for _, expr := range t.vector()()[1:] {
-			types = append(types, expr.(Typed))
-		}
-	}
-	return types
-}
-
-type tokVec PairVec
-
-func (v tokVec) VecCol() tokVec                           { return tokVec(v) }
-func (v tokVec) TypeFnc() TyFnc                           { return Vector }
-func (v tokVec) TypeNat() d.TyNat                         { return d.Function }
-func (v tokVec) FlagType() d.Uint8Val                     { return Flag_Function.U() }
-func (v tokVec) Con(args ...Expression) PairVec           { return v.VecCol().Con(args...) }
-func (v tokVec) ConPairs(pairs ...Paired) PairVec         { return v.VecCol().ConPairs(pairs...) }
-func (v tokVec) Consume() (Expression, Consumeable)       { return v.VecCol().Consume() }
-func (v tokVec) ConsumePairVec() (Paired, PairVec)        { return v.VecCol().ConsumePairVec() }
-func (v tokVec) Pairs() []Paired                          { return v.VecCol().Pairs() }
-func (v tokVec) ConsumePair() (Paired, ConsumeablePaired) { return v.VecCol().ConsumePair() }
-func (v tokVec) SwitchedPairs() []Paired                  { return v.VecCol().SwitchedPairs() }
-func (v tokVec) Slice() []Expression                      { return v.VecCol().Slice() }
-func (v tokVec) HeadPair() Paired                         { return v.VecCol().HeadPair() }
-func (v tokVec) Head() Expression                         { return v.VecCol().Head() }
-func (v tokVec) TailPairs() ConsumeablePaired             { return v.VecCol().TailPairs() }
-func (v tokVec) Tail() Consumeable                        { return v.VecCol().Tail() }
-func (v tokVec) Call(args ...Expression) Expression       { return v.VecCol().Call(args...) }
-func (v tokVec) Empty() bool                              { return v.VecCol().Empty() }
-func (v tokVec) TypeElem() TyFnc                          { return v.VecCol().TypeElem() }
-func (v tokVec) KeyType() TyFnc                           { return v.VecCol().KeyType() }
-func (v tokVec) ValType() TyFnc                           { return v.VecCol().ValType() }
-func (v tokVec) TypeName() string                         { return v.VecCol().TypeName() }
-func (v tokVec) Type() Typed                              { return v.VecCol().Type() }
-func (v tokVec) Len() int                                 { return v.VecCol().Len() }
-
-func (v tokVec) Tokens() []token {
-	if v.Len() > 1 {
-		var tokens = make([]token, 0, v.Len()-1)
-		for _, pair := range v.Pairs()[1:] {
-			tokens = append(tokens, token(pair.(KeyPair)))
-		}
-		return tokens
-	}
-	return []token{}
-}
-func (v tokVec) Put(toks ...token) tokVec {
-	var pairs []Paired
-	if len(toks) == 1 {
-		return tokVec(v.VecCol().ConPairs(toks[0]))
-	}
-	if len(toks) > 1 {
-		pairs = make([]Paired, 0, len(toks))
-		for _, tok := range toks {
-			pairs = append(pairs, tok)
-		}
-	}
-	return tokVec(v.VecCol().ConPairs(pairs...))
-}
-func (v tokVec) Pop() (token, tokVec) {
-	var pair, vec = v.VecCol().ConsumePairVec()
-	return token(pair.(KeyPair)), tokVec(vec)
-}
-func (v tokVec) Peek() token {
-	return token(v.VecCol().HeadPair().(KeyPair))
-}
-func (v tokVec) PeekN(n int) token {
-	if n <= v.Len()-1 {
-		return token(v.VecCol().Tokens()[n-1])
-	}
-	return token(NewKeyPair("peek index greater remaining tokens", NewNone()))
-}
-func (v tokVec) TakeN(n int) []token {
-	var tokens = v.Tokens()
-	if n <= len(tokens)-2 {
-		return tokens[:n+1]
-	}
-	if n == len(tokens)-1 {
-		return tokens
-	}
-	return []token{}
-}
-
-type symTab d.SetString
-
-func newSymbolTable() symTab {
-	return symTab(d.NewStringSet().(d.SetString))
-}
-func (s symTab) strset() d.SetString { return d.SetString(s) }
-func (s symTab) Eval() d.Native      { return d.SetString(s) }
-func (s symTab) First() d.Paired     { return s.strset().First() }
-func (s symTab) Keys() []d.Native    { return s.strset().Keys() }
-func (s symTab) Data() []d.Native    { return s.strset().Data() }
-func (s symTab) Slice() []d.Native   { return s.strset().Slice() }
-func (s symTab) Fields() []d.Paired  { return s.strset().Fields() }
-func (s symTab) TypeNat() d.TyNat    { return s.strset().TypeNat() }
-func (s symTab) KeyType() d.TyNat    { return s.strset().KeyType() }
-func (s symTab) TypeName() string    { return s.strset().TypeName() }
-func (s symTab) ValType() d.TyNat {
-	return s.strset().First().Right().TypeNat()
-}
-func (s symTab) Has(acc d.Native) bool {
-	return s.strset().Has(acc)
-}
-func (s symTab) HasStr(key string) bool {
-	return s.strset().HasStr(key)
-}
-func (s symTab) Get(acc d.Native) (d.Native, bool) {
-	return s.strset().Get(acc)
-}
-func (s symTab) Set(acc d.Native, dat d.Native) d.Mapped {
-	return s.strset().Set(acc, dat)
-}
-func (s symTab) GetStr(key string) (d.Native, bool) {
-	return s.strset().GetStr(key)
-}
-func (s symTab) SetStr(key string, dat d.Native) d.Mapped {
-	return s.strset().SetStr(key, dat)
-}
-func (s symTab) DeleteNat(acc d.Native) bool {
-	return s.strset().Delete(acc)
-}
-func (s symTab) Len() int { return s.strset().Len() }
-
-func (s symTab) Tokens() []token {
-	var tokens = make([]token, 0, s.Len())
-	for _, field := range s.Fields() {
-		tokens = append(tokens, token(NewKeyPair(
-			field.Left().String(),
-			field.Right().(DataExpr)().(VecCol),
-		)))
-	}
-	return tokens
-}
-func (s symTab) AddToken(tok token) {
-	var text = tok.KeyStr()
-	var elems = tok.vector()
-	s = symTab(s.Set(
-		d.StrVal(text),
-		NewNative(elems),
-	).(d.SetString))
-}
-func (s symTab) GetToken(str string) (token, bool) {
-	var nat, ok = s.GetStr(str)
-	if ok {
-		var vec = nat.(DataExpr)().(VecCol)
-		return token(NewKeyPair(str, vec)), true
-	}
-	return token(NewKeyPair("empty", NewNone())), false
 }
 
 //func parseSig(tm tokenMap, sig, tokens VecCol) (tokenMap, VecCol, VecCol) {

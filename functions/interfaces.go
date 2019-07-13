@@ -41,8 +41,12 @@ type Expression interface {
 	Type() Typed
 }
 type Native interface {
-	d.NativeTyped
-	Expression
+	FunctionTyped
+	FlagTyped
+	Callable
+	d.Native
+	Type() Typed
+	Eval(...d.Native) d.Native
 }
 
 type Reproduceable interface {

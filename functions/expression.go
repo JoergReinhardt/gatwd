@@ -16,7 +16,7 @@ type (
 	GenericExpr  func(...Expression) Expression
 
 	//// EXPRESSION VALUE CONSTRUCTOR
-	PartialExpr func(...Expression) Expression
+	DeclaredExpr func(...Expression) Expression
 )
 
 //// CONSTANT VALUE CONSTRUCTOR
@@ -29,11 +29,12 @@ func (c ConstantExpr) Ident() Expression                  { return c }
 func (c ConstantExpr) Call(args ...Expression) Expression { return c() }
 func (c ConstantExpr) Arity() Arity                       { return Arity(0) }
 func (c ConstantExpr) TypeFnc() TyFnc                     { return Constant }
-func (c ConstantExpr) String() string                     { return c().String() }
 func (c ConstantExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
+func (c ConstantExpr) String() string                     { return c().String() }
+func (c ConstantExpr) ElemType() Typed                    { return c().Type() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
 func (c ConstantExpr) Type() Typed {
-	return Define("ϝ → "+c().TypeName(), c())
+	return Declare("ϝ → "+c().TypeName(), c().Type())
 }
 
 //// GENERIC EXPRESSION VALUE CONSTRUCTOR ////
@@ -44,15 +45,11 @@ func (c ConstantExpr) Type() Typed {
 func NewGeneric(
 	expr func(...Expression) Expression,
 	name string,
-	retype Expression,
-	paratypes ...Expression,
+	retype Typed,
+	paratypes ...Typed,
 ) GenericExpr {
 
-	var params = make([]Expression, 0, len(paratypes))
-	for _, param := range paratypes {
-		params = append(params, param)
-	}
-	var typed = Define(name, retype.TypeFnc(), params...)
+	var typed = Declare(name, retype, paratypes...)
 
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
@@ -67,7 +64,7 @@ func (c GenericExpr) Type() Typed                        { return c().(Typed) }
 func (c GenericExpr) String() string                     { return c().String() }
 func (c GenericExpr) TypeName() string                   { return c().TypeName() }
 func (c GenericExpr) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (c GenericExpr) TypeFnc() TyFnc                     { return c.Type().(TyDef).Return().TypeFnc() }
+func (c GenericExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
 func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 
 //// EXPRESSION TYPE CONSTRUCTOR
@@ -85,20 +82,20 @@ func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 // parametric matching all types.
 //
 // defined expressions can are enumerated and partialy applyable.
-func DefinePartial(
+func DeclareExpression(
 	name string,
 	expr Expression,
-	retype Expression,
-	paratypes ...Expression,
-) PartialExpr {
+	retype Typed,
+	paratypes ...Typed,
+) DeclaredExpr {
 
 	var arity = len(paratypes)
 
-	var params = make([]Expression, 0, arity)
+	var params = make([]Typed, 0, arity)
 	for _, param := range paratypes {
-		params = append(params, param.TypeFnc())
+		params = append(params, param)
 	}
-	var typed = Define(name, retype, params...)
+	var typed = Declare(name, retype, params...)
 
 	// create and return nary expression
 	return func(args ...Expression) Expression {
@@ -112,7 +109,7 @@ func DefinePartial(
 			}
 			// argument number UNDERSATISFIES expression arity
 			if parmlen < arity {
-				return DefinePartial(name, PartialExpr(
+				return DeclareExpression(name, DeclaredExpr(
 					func(lateargs ...Expression) Expression {
 						return expr.Call(append(lateargs,
 							args...)...)
@@ -136,15 +133,15 @@ func DefinePartial(
 }
 
 // returns the value returned when calling itself directly, passing arguments
-func (n PartialExpr) Ident() Expression     { return n }
-func (n PartialExpr) Type() Typed           { return n().(Typed) }
-func (n PartialExpr) String() string        { return n.TypeName() }
-func (n PartialExpr) TypeName() string      { return n.Type().(TyDef).Name() }
-func (n PartialExpr) FlagType() d.Uint8Val  { return Flag_DataCons.U() }
-func (n PartialExpr) Arity() Arity          { return n.Type().(TyDef).Arity() }
-func (n PartialExpr) Return() Expression    { return n.Type().(TyDef).Return() }
-func (n PartialExpr) Pattern() []Expression { return n.Type().(TyDef).Pattern() }
-func (n PartialExpr) TypeFnc() TyFnc {
-	return n.Return().(Expression).TypeFnc()
+func (n DeclaredExpr) Ident() Expression    { return n }
+func (n DeclaredExpr) Type() Typed          { return n().(Typed) }
+func (n DeclaredExpr) String() string       { return n().String() }
+func (n DeclaredExpr) TypeName() string     { return n().Type().(TyDef).Name() }
+func (n DeclaredExpr) FlagType() d.Uint8Val { return Flag_DataCons.U() }
+func (n DeclaredExpr) Arity() Arity         { return n().Type().(TyDef).Arity() }
+func (n DeclaredExpr) Return() Typed        { return n().Type().(TyDef).Return() }
+func (n DeclaredExpr) Pattern() []Typed     { return n().Type().(TyDef).Pattern() }
+func (n DeclaredExpr) TypeFnc() TyFnc {
+	return n.Return().(TyFnc)
 }
-func (n PartialExpr) Call(args ...Expression) Expression { return n(args...) }
+func (n DeclaredExpr) Call(args ...Expression) Expression { return n(args...) }

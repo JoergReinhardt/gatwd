@@ -10,10 +10,10 @@ func (p PairVal) String() string {
 	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
 }
 func (a KeyPair) String() string {
-	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
+	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 func (a IndexPair) String() string {
-	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
+	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }

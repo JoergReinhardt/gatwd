@@ -163,6 +163,7 @@ func (v IntVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
 func (v IntVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
 func (v IntVal) Unit() Native         { return IntVal(1) }
 func (v IntVal) IntVal() IntVal       { return v }
+func (v IntVal) Int() IntVal          { return v }
 func (v IntVal) Float() FltVal        { return FltVal(float64(v)) }
 func (v IntVal) Imag() ImagVal        { return ImagVal(complex(v.Float(), 1.0)) }
 func (v IntVal) Idx() int             { return int(v) }

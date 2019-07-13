@@ -20,3 +20,10 @@ func TestData(t *testing.T) {
 	fmt.Printf("key pair converted to native: %s, typeFnc: %s typeNat: %s FlagType %s\n",
 		nest, nest.TypeFnc(), nest.TypeNat(), TyFlag(nest.FlagType()))
 }
+func TestNativeFunction(t *testing.T) {
+	var addInt = New(func(args ...d.Native) d.Native {
+		var a, b = args[0].(d.Numeral), args[1].(d.Numeral)
+		return a.Int() + b.Int()
+	})
+	fmt.Printf("2 + 2 = %s\n", addInt.Eval(d.IntVal(2), d.IntVal(2)))
+}

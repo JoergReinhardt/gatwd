@@ -6,7 +6,7 @@ import (
 )
 
 func TestRuneText(t *testing.T) {
-	var text = newRuneTest("this is not a test")
+	var text = newRuneText("this is not a test")
 	fmt.Printf("allocated rune slice: %s\n", text)
 
 	var head, _ = text.Head()
@@ -25,7 +25,7 @@ func TestRuneText(t *testing.T) {
 		head, text, ok = text.Consume()
 	}
 
-	var text1 = newRuneTest("also not a test")
+	var text1 = newRuneText("also not a test")
 	var took = []rune{}
 
 	took, text1, ok = text1.Take(4)
@@ -53,7 +53,4 @@ func TestRuneText(t *testing.T) {
 	fmt.Printf("try take til 10 of rune slice (should succeed but be false "+
 		"remain should be empty), took: %s, ok: %t, remains: %s\n",
 		string(took), ok, text1)
-}
-
-func TestParseSignature(t *testing.T) {
 }

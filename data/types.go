@@ -78,8 +78,8 @@ const (
 	Unboxed
 	Map
 	////
-	Literal
 	Function
+	Literal
 	Type // marks most signifficant native type & data of type bitflag
 
 	// TYPE CLASSES
@@ -155,12 +155,6 @@ type ( // NATIVE GOLANG TYPES
 	SetFlag   map[BitFlag]Native
 	SetVal    map[Native]Native
 
-	// SLICE OF GENERIC VALUES
-	DataSlice []Native
-
-	// SLICE OF BIT FLAGS
-	FlagSlice []BitFlag
-
 	// SLICES OF UNALIASED NATIVE GOLANG VALUES
 	InterfaceSlice []interface{}
 	NilVec         []struct{}
@@ -188,6 +182,15 @@ type ( // NATIVE GOLANG TYPES
 	DuraVec        []time.Duration
 	ErrorVec       []error
 	FlagSet        []BitFlag
+
+	// SLICE OF BIT FLAGS
+	FlagSlice []BitFlag
+
+	// SLICE OF GENERIC VALUES
+	DataSlice []Native
+
+	// FUNCTION VALUE
+	FuncVal func(...Native) Native
 )
 
 func newUnboxed(nat TyNat) Native {
@@ -302,6 +305,8 @@ func newNull(nat TyNat) Native {
 	return val
 }
 
+func (v FuncVal) Eval(args ...Native) Native { return v(args...) }
+
 // yields a null value of the methods type
 func (v FlagSlice) Null() FlagSlice { return FlagSlice(FlagSlice{}) }
 func (v BitFlag) Null() BitFlag     { return BitFlag(BitFlag(0)) }
@@ -333,8 +338,9 @@ func (v StrVal) Null() StrVal       { return StrVal(string("")) }
 func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
 
 /// bind the corresponding TypeNat Method to every type
-func (v BitFlag) TypeNat() TyNat   { return Type }
-func (v FlagSlice) Flag() TyNat    { return Type | Slice }
+func (v BitFlag) TypeNat() TyNat { return Type }
+func (v FlagSlice) Flag() TyNat  { return Type | Slice }
+
 func (v NilVal) TypeNat() TyNat    { return Nil.TypeNat() }
 func (v BoolVal) TypeNat() TyNat   { return Bool.TypeNat() }
 func (v IntVal) TypeNat() TyNat    { return Int.TypeNat() }
@@ -359,6 +365,7 @@ func (v StrVal) TypeNat() TyNat    { return String.TypeNat() }
 func (v TimeVal) TypeNat() TyNat   { return Time.TypeNat() }
 func (v DuraVal) TypeNat() TyNat   { return Duration.TypeNat() }
 func (v ErrorVal) TypeNat() TyNat  { return Error.TypeNat() }
+func (v FuncVal) TypeNat() TyNat   { return Function.TypeNat() }
 
 /// bind the corresponding TypeName Method to every type
 func (NilVal) TypeName() string      { return Nil.TypeNat().String() }
@@ -385,6 +392,7 @@ func (v StrVal) TypeName() string    { return String.TypeNat().String() }
 func (v TimeVal) TypeName() string   { return Time.TypeNat().String() }
 func (v DuraVal) TypeName() string   { return Duration.TypeNat().String() }
 func (v ErrorVal) TypeName() string  { return Error.TypeNat().String() }
+func (v FuncVal) TypeName() string   { return Function.TypeNat().String() }
 
 // provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }
@@ -412,6 +420,7 @@ func (v StrVal) Copy() Native    { return StrVal(v) }
 func (v TimeVal) Copy() Native   { return TimeVal(v) }
 func (v DuraVal) Copy() Native   { return DuraVal(v) }
 func (v ErrorVal) Copy() Native  { return ErrorVal(v) }
+func (v FuncVal) Copy() Native   { return FuncVal(v) }
 func (v PairVal) Copy() Native   { return PairVal{v.L, v.R} }
 func (v FlagSlice) Copy() Native {
 	var nfs = DataSlice{}
@@ -447,3 +456,4 @@ func (v StrVal) Ident() StrVal       { return v }
 func (v TimeVal) Ident() TimeVal     { return v }
 func (v DuraVal) Ident() DuraVal     { return v }
 func (v ErrorVal) Ident() ErrorVal   { return v }
+func (v FuncVal) Ident() FuncVal     { return v }
