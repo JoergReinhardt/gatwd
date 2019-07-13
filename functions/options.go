@@ -40,7 +40,7 @@ func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
 func (n NoneVal) TypeElem() TyFnc               { return None }
 func (n NoneVal) TypeName() string              { return n.String() }
 func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Function.U() }
-func (n NoneVal) Type() Typed                   { return Declare(n.TypeName(), None) }
+func (n NoneVal) Type() Typed                   { return Define(n.TypeName(), None) }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }
@@ -68,7 +68,7 @@ func NewTestTruth(name string, test func(...Expression) d.BoolVal, paratypes ...
 			}
 			return False
 		}
-		return Declare(name, Truth, params...)
+		return Define(name, Truth, params...)
 	}
 }
 
@@ -96,7 +96,7 @@ func NewTestTrinary(name string, test func(...Expression) int, paratypes ...Type
 			}
 			return Undecided
 		}
-		return Declare(name, Trinary, params...)
+		return Define(name, Trinary, params...)
 	}
 }
 
@@ -123,7 +123,7 @@ func NewTestCMP(name string, test func(...Expression) d.IntVal, paratypes ...Typ
 			}
 			return EQ
 		}
-		return Declare(name, CMP, params...)
+		return Define(name, CMP, params...)
 	}
 }
 func (t TestExpr) Type() Typed    { return t().(Typed) }
@@ -271,17 +271,17 @@ func NewCase(test TestExpr, expr Expression) CaseExpr {
 	}
 
 	// construct case type definition
-	var pattern = expr.Type().(TyDef).Pattern()
+	var pattern = expr.Type().(TyDef).Arguments()
 	if len(pattern) == 0 {
 		pattern = []Typed{Type}
 	}
-	var typed = Declare(test.Type().(TyDef).Name(),
+	var typed = Define(test.Type().(TyDef).Name(),
 		expr.Type().(TyDef).Return(), pattern...)
 
 	// construct case type name
 	var ldel, rdel = "(", ")"
 	var name = NewData(d.StrVal(
-		ldel + expr.Type().(TyDef).PatternName() + " → " +
+		ldel + expr.Type().(TyDef).Signature() + " → " +
 			typed.Name() + " ⇒ " +
 			expr.Type().(TyDef).Name() + " → " +
 			expr.Type().(TyDef).ReturnName() + rdel,
@@ -405,7 +405,7 @@ func (s CaseSwitch) Cases() VecCol {
 	return cases.(VecCol)
 }
 func (s CaseSwitch) Type() Typed {
-	return Declare(s.TypeName(), s.TypeFnc())
+	return Define(s.TypeName(), s.TypeFnc())
 }
 func (s CaseSwitch) TypeName() string {
 	return "[T] → (Case Switch) → (T, [T]) "

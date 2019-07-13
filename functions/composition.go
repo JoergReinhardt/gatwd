@@ -30,12 +30,12 @@ func Curry(exprs ...Expression) Expression {
 		if len(exprs) > 1 {
 			if exprs[0].FlagType() == Flag_Definition.U() {
 				var def = expr.Type()
-				return Declare(
+				return Define(
 					def.TypeName(),
 					def.(TyDef).Return(),
 				).Call(Curry(exprs[1:]...))
 			}
-			return Declare(
+			return Define(
 				expr.TypeName(), expr.Type(),
 			).Call(Curry(exprs[1:]...))
 		}
@@ -69,7 +69,7 @@ func (m ConsumeVal) TypeElem() TyFnc {
 	return None.TypeFnc()
 }
 func (m ConsumeVal) Type() Typed {
-	return Declare(m.TypeName(), m.Head().TypeFnc())
+	return Define(m.TypeName(), m.Head().TypeFnc())
 }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
@@ -157,7 +157,7 @@ func (c ConsPairVal) TypeElem() TyFnc {
 	return None.TypeFnc()
 }
 func (c ConsPairVal) Type() Typed {
-	return Declare(c.TypeName(), c.Head().TypeFnc())
+	return Define(c.TypeName(), c.Head().TypeFnc())
 }
 
 //// MAP

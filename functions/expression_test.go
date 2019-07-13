@@ -17,8 +17,7 @@ var intkeys = []Expression{New("zero"), New("one"), New("two"), New("three"),
 	New("nineteen"), New("twenty"), New("twentyone"),
 }
 
-func TestPartial(t *testing.T) {
-
+func TestDeclared(t *testing.T) {
 }
 
 func TestTuple(t *testing.T) {

@@ -34,7 +34,7 @@ func (c ConstantExpr) String() string                     { return c().String() 
 func (c ConstantExpr) ElemType() Typed                    { return c().Type() }
 func (c ConstantExpr) TypeName() string                   { return c().TypeName() }
 func (c ConstantExpr) Type() Typed {
-	return Declare("ϝ → "+c().TypeName(), c().Type())
+	return Define("ϝ → "+c().TypeName(), c().Type())
 }
 
 //// GENERIC EXPRESSION VALUE CONSTRUCTOR ////
@@ -49,7 +49,7 @@ func NewGeneric(
 	paratypes ...Typed,
 ) GenericExpr {
 
-	var typed = Declare(name, retype, paratypes...)
+	var typed = Define(name, retype, paratypes...)
 
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
@@ -82,66 +82,45 @@ func (c GenericExpr) Call(args ...Expression) Expression { return c(args...) }
 // parametric matching all types.
 //
 // defined expressions can are enumerated and partialy applyable.
-func DeclareExpression(
-	name string,
+func Declare(
 	expr Expression,
+	name string,
 	retype Typed,
 	paratypes ...Typed,
 ) DeclaredExpr {
-
-	var arity = len(paratypes)
-
-	var params = make([]Typed, 0, arity)
-	for _, param := range paratypes {
-		params = append(params, param)
-	}
-	var typed = Declare(name, retype, params...)
-
-	// create and return nary expression
+	var typed = Define(name, retype, paratypes...)
 	return func(args ...Expression) Expression {
-
-		var parmlen = len(args) // count arguments
-
-		if parmlen > 0 { // if arguments where passed
-			// argument number SATISFIES expression arity EXACTLY
-			if parmlen == arity {
-				return expr.Call(args...)
-			}
-			// argument number UNDERSATISFIES expression arity
-			if parmlen < arity {
-				return DeclareExpression(name, DeclaredExpr(
-					func(lateargs ...Expression) Expression {
-						return expr.Call(append(lateargs,
-							args...)...)
-					}), retype, paratypes[parmlen:]...)
-			}
-			// argument number OVERSATISFIES expressions arity
-			if parmlen > arity {
-				var remain []Expression
-				args, remain = args[:arity], args[arity:]
-				var vec = NewVector(expr.Call(args...))
-				for len(remain) > arity {
-					args, remain = remain[:arity], remain[arity:]
-					vec = vec.Append(expr.Call(args...))
-				}
-				return vec.Append(expr.Call(remain...))
-			}
+		var arglen = Arity(len(args))
+		if arglen == typed.Arity() {
 		}
-		// if no arguments are passed, return definition
-		return typed
+		return NewPair(typed, expr)
 	}
 }
 
 // returns the value returned when calling itself directly, passing arguments
 func (n DeclaredExpr) Ident() Expression    { return n }
-func (n DeclaredExpr) Type() Typed          { return n().(Typed) }
 func (n DeclaredExpr) String() string       { return n().String() }
-func (n DeclaredExpr) TypeName() string     { return n().Type().(TyDef).Name() }
+func (n DeclaredExpr) TypeName() string     { return n.TypeDef().TypeName() }
 func (n DeclaredExpr) FlagType() d.Uint8Val { return Flag_DataCons.U() }
-func (n DeclaredExpr) Arity() Arity         { return n().Type().(TyDef).Arity() }
-func (n DeclaredExpr) Return() Typed        { return n().Type().(TyDef).Return() }
-func (n DeclaredExpr) Pattern() []Typed     { return n().Type().(TyDef).Pattern() }
-func (n DeclaredExpr) TypeFnc() TyFnc {
-	return n.Return().(TyFnc)
+func (n DeclaredExpr) Expr() Expression {
+	return n().(Paired).Right().(Expression)
 }
+func (n DeclaredExpr) TypeDef() TyDef                     { return n().(Paired).Left().(TyDef) }
+func (n DeclaredExpr) Type() Typed                        { return n.TypeDef() }
+func (n DeclaredExpr) TypeFnc() TyFnc                     { return n.TypeDef().TypeFnc() }
+func (n DeclaredExpr) TypeNat() d.TyNat                   { return n.TypeDef().TypeNat() }
+func (n DeclaredExpr) Arity() Arity                       { return n.TypeDef().Arity() }
+func (n DeclaredExpr) Return() Typed                      { return n.TypeDef().Return() }
+func (n DeclaredExpr) Pattern() []Typed                   { return n.TypeDef().Arguments() }
 func (n DeclaredExpr) Call(args ...Expression) Expression { return n(args...) }
+func (n DeclaredExpr) Eval(args ...d.Native) d.Native {
+	if n.TypeFnc().Match(Data) {
+		if data, ok := n.Expr().(Native); ok {
+			if len(args) > 0 {
+				return data.Eval(args...)
+			}
+			return data.Eval()
+		}
+	}
+	return d.NewNil()
+}

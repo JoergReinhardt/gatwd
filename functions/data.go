@@ -5,11 +5,11 @@ import d "github.com/joergreinhardt/gatwd/data"
 type (
 	//// NATIVE VALUE CONSTRUCTORS
 	DataConst   func() d.Native
+	DataSlice   func() d.DataSlice
+	DataGoSlice func() d.Sliceable
+	DataPair    func() d.PairVal
+	DataSet     func() d.Mapped
 	DataExpr    func(...d.Native) d.Native
-	DataSlice   func(...Native) d.DataSlice
-	DataGoSlice func(...Native) d.Sliceable
-	DataPair    func(...Native) d.PairVal
-	DataSet     func(...Native) d.Mapped
 )
 
 //// NATIVE EXPRESSION CONSTRUCTOR
@@ -31,45 +31,34 @@ func NewData(args ...d.Native) Native {
 
 	switch {
 	case match(d.Function):
-		var fn = nat.(d.FuncVal)
-		return DataExpr(func(args ...d.Native) d.Native {
-			if len(args) > 0 {
-				return fn(args...)
-			}
-			return fn()
-		})
+		if fn, ok := nat.(d.FuncVal); ok {
+			return DataExpr(func(args ...d.Native) d.Native {
+				if len(args) > 0 {
+					return fn(args...)
+				}
+				return fn()
+			})
+		}
 	case match(d.Slice):
-		return DataSlice(func(...Native) d.DataSlice {
+		return DataSlice(func() d.DataSlice {
 			return nat.(d.DataSlice)
 		})
 	case match(d.Unboxed):
-		return DataGoSlice(func(...Native) d.Sliceable {
+		return DataGoSlice(func() d.Sliceable {
 			return nat.(d.Sliceable)
 		})
 	case match(d.Pair):
-		return DataPair(func(...Native) d.PairVal {
+		return DataPair(func() d.PairVal {
 			return nat.(d.PairVal)
 		})
 	case match(d.Map):
-		return DataSet(func(...Native) d.Mapped {
+		return DataSet(func() d.Mapped {
 			return nat.(d.Mapped)
 		})
 	}
 	return DataConst(func() d.Native {
 		return nat
 	})
-}
-
-// ATOMIC NATIVE VALUE CONSTRUCTOR
-func (n DataConst) Call(...Expression) Expression { return n }
-func (n DataConst) Eval(...d.Native) d.Native     { return n() }
-func (n DataConst) TypeFnc() TyFnc                { return Data }
-func (n DataConst) TypeNat() d.TyNat              { return n().TypeNat() }
-func (n DataConst) String() string                { return n().String() }
-func (n DataConst) TypeName() string              { return n().TypeName() }
-func (n DataConst) FlagType() d.Uint8Val          { return Flag_Function.U() }
-func (n DataConst) Type() Typed {
-	return Declare(n().TypeNat().TypeName(), NewData(n().TypeNat()).Type())
 }
 
 // NATIVE FUNCTION VALUE CONSTRUCTOR
@@ -81,7 +70,19 @@ func (n DataExpr) String() string                 { return n().String() }
 func (n DataExpr) TypeName() string               { return n().TypeName() }
 func (n DataExpr) FlagType() d.Uint8Val           { return Flag_Function.U() }
 func (n DataExpr) Type() Typed {
-	return Declare(n().TypeNat().TypeName(), NewData(n().TypeNat()).Type())
+	return Define(n.TypeNat().TypeName(), n().TypeNat())
+}
+
+// ATOMIC NATIVE VALUE CONSTRUCTOR
+func (n DataConst) Call(...Expression) Expression { return n }
+func (n DataConst) Eval(...d.Native) d.Native     { return n() }
+func (n DataConst) TypeFnc() TyFnc                { return Data }
+func (n DataConst) TypeNat() d.TyNat              { return n().TypeNat() }
+func (n DataConst) String() string                { return n().String() }
+func (n DataConst) TypeName() string              { return n().TypeName() }
+func (n DataConst) FlagType() d.Uint8Val          { return Flag_Function.U() }
+func (n DataConst) Type() Typed {
+	return Define(n().TypeNat().TypeName(), NewData(n().TypeNat()).Type())
 }
 
 // NATIVE SLICE VALUE CONSTRUCTOR
@@ -105,7 +106,7 @@ func (n DataSlice) TypeName() string                   { return n().TypeName() }
 func (n DataSlice) Slice() []d.Native                  { return n().Slice() }
 func (n DataSlice) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataSlice) Type() Typed {
-	return Declare(n().TypeName(), n.TypeNat())
+	return Define(n().TypeName(), n.TypeNat())
 }
 func (n DataSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
@@ -131,7 +132,7 @@ func (n DataGoSlice) TypeName() string                   { return n().TypeName()
 func (n DataGoSlice) String() string                     { return n().String() }
 func (n DataGoSlice) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataGoSlice) Type() Typed {
-	return Declare(n.Eval().TypeName(), n.TypeNat())
+	return Define(n.Eval().TypeName(), n.TypeNat())
 }
 func (n DataGoSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
@@ -156,7 +157,7 @@ func (n DataPair) TypeName() string                   { return n().TypeName() }
 func (n DataPair) String() string                     { return n().String() }
 func (n DataPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (n DataPair) Type() Typed {
-	return Declare(n().TypeName(), n().TypeNat())
+	return Define(n().TypeName(), n().TypeNat())
 }
 func (n DataPair) Pair() Paired {
 	return NewPair(
@@ -193,7 +194,7 @@ func (n DataSet) TypeName() string                     { return n().TypeName() }
 func (n DataSet) String() string                       { return n().String() }
 func (n DataSet) FlagType() d.Uint8Val                 { return Flag_Function.U() }
 func (n DataSet) Type() Typed {
-	return Declare(n().TypeName(), n().TypeNat())
+	return Define(n().TypeName(), n().TypeNat())
 }
 func (n DataSet) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())

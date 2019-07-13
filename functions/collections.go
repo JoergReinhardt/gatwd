@@ -143,7 +143,7 @@ func (l ListCol) TypeName() string {
 }
 func (l ListCol) FlagType() d.Uint8Val { return Flag_Function.U() }
 func (l ListCol) Type() Typed {
-	return Declare(l.TypeName(), l.TypeElem())
+	return Define(l.TypeName(), l.TypeElem())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -205,7 +205,7 @@ func (p PairVal) TypeName() string {
 	return "(" + p.Key().TypeName() + ", " + p.Value().TypeName() + ")"
 }
 func (p PairVal) Type() Typed {
-	return Declare(p.TypeName(), Pair,
+	return Define(p.TypeName(), Pair,
 		p.KeyType(), p.ValType())
 }
 
@@ -250,7 +250,7 @@ func (p KeyPair) TypeName() string {
 	return "(String, " + p.Value().TypeName() + ")"
 }
 func (p KeyPair) Type() Typed {
-	return Declare(p.TypeName(), Pair,
+	return Define(p.TypeName(), Pair,
 		p.KeyType(), p.ValType())
 }
 
@@ -294,7 +294,7 @@ func (a IndexPair) TypeName() string {
 	return "(Index, " + a.Value().TypeName() + ")"
 }
 func (a IndexPair) Type() Typed {
-	return Declare(a.TypeName(), Pair, a.KeyType(), a.ValType())
+	return Define(a.TypeName(), Pair, a.KeyType(), a.ValType())
 }
 
 // implement swappable
@@ -415,7 +415,7 @@ func (l PairList) TypeName() string {
 	return "[]"
 }
 func (l PairList) Type() Typed {
-	return Declare(l.TypeName(), Pair,
+	return Define(l.TypeName(), Pair,
 		l.KeyType(), l.ValType())
 }
 
@@ -598,7 +598,7 @@ func (v VecCol) TypeElem() TyFnc {
 	return None.TypeFnc()
 }
 func (v VecCol) Type() Typed {
-	return Declare(v.TypeName(), v.TypeFnc(), v.TypeElem())
+	return Define(v.TypeName(), v.TypeFnc(), v.TypeElem())
 }
 func (v VecCol) TypeName() string {
 	if v.Len() > 0 {
@@ -719,7 +719,7 @@ func (v PairVec) TypeName() string {
 	return "[]"
 }
 func (v PairVec) Type() Typed {
-	return Declare(v.TypeName(), Pair,
+	return Define(v.TypeName(), Pair,
 		v.KeyType(), v.ValType())
 }
 
