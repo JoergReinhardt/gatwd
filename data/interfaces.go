@@ -36,7 +36,6 @@ type Typed interface {
 // the main interface, all native types need to implement.
 type Native interface {
 	NativeTyped
-	NameTyped
 	Stringer
 	Type() Typed
 }
@@ -160,7 +159,7 @@ type Sliceable interface {
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
-	ElemType() TyNat
+	ElemType() Typed
 }
 
 type Mutable interface {
@@ -181,6 +180,6 @@ type Mapped interface {
 	Get(acc Native) (Native, bool)
 	Set(Native, Native) Mapped
 	Delete(acc Native) bool
-	KeyType() TyNat
-	ValType() TyNat
+	KeyType() Typed
+	ValType() Typed
 }

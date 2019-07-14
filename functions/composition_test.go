@@ -142,7 +142,7 @@ func TestZipConsumeable(t *testing.T) {
 
 	var head, tail = zipped.Consume()
 	for head != nil {
-		fmt.Printf("%s, ", head)
+		fmt.Printf("%s,\n ", head)
 		head, tail = tail.Consume()
 	}
 }

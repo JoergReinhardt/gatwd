@@ -34,7 +34,6 @@ type Typed interface {
 }
 type Expression interface {
 	FunctionTyped
-	NameTyped
 	FlagTyped
 	Callable
 	Stringer
@@ -59,7 +58,7 @@ type Destructable interface {
 	d.Destructable
 }
 
-// numberal interfaces
+// numberal interfacesName
 type Boolean interface {
 	// Bool() bool
 	d.Boolean
@@ -171,7 +170,7 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
-	TypeElem() TyFnc
+	TypeElem() d.Typed
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
@@ -231,8 +230,8 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyType() TyFnc
-	ValType() TyFnc
+	KeyType() d.Typed
+	ValType() d.Typed
 }
 
 type Paired interface {

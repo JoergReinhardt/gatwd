@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"math/big"
+	s "strings"
 	"time"
 )
 
@@ -18,15 +19,42 @@ func (t TyNat) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
 	if count > 1 {
-		var delim = " "
-		var str string
-		for i, flag := range t.Flag().Decompose() {
-			str = str + TyNat(flag.Flag()).String()
-			if i < count-1 {
-				str = str + delim
-			}
+		switch t {
+		case Natives:
+			return "Natives"
+		case Bitwise:
+			return "Bitwise"
+		case Booleans:
+			return "Bools"
+		case Naturals:
+			return "Naturals"
+		case Integers:
+			return "Integers"
+		case Rationals:
+			return "Rationals"
+		case Reals:
+			return "Reals"
+		case Imaginarys:
+			return "Imaginarys"
+		case Numbers:
+			return "Numbers"
+		case Letters:
+			return "Letters"
+		case Equals:
+			return "Equals"
+		case Compositions:
+			return "Compositions"
+		case Parametric:
+			return "Parametric"
+		case Functional:
+			return "Functional"
 		}
-		return "(" + str + ")"
+		var delim = "|"
+		var str = make([]string, 0, count)
+		for _, flag := range t.Flag().Decompose() {
+			str = append(str, TyNat(flag.Flag()).String())
+		}
+		return s.Join(str, delim)
 	}
 	return t.String()
 }
@@ -107,7 +135,9 @@ const (
 
 	Functional = Literal | Function | Type
 
-	Sets = Natives | Compositions | Parametric | Functional
+	Sets = Natives | Bitwise | Booleans | Naturals | Integers | Rationals |
+		Reals | Imaginarys | Numbers | Letters | Equals | Compositions |
+		Parametric | Functional
 
 	MASK         TyNat = 0xFFFFFFFFFFFFFFFF
 	MASK_NATIVES       = MASK ^ Natives
@@ -396,33 +426,6 @@ func (v TimeVal) Type() Typed   { return Time }
 func (v DuraVal) Type() Typed   { return Duration }
 func (v ErrorVal) Type() Typed  { return Error }
 func (v FuncVal) Type() Typed   { return Function }
-
-/// bind the corresponding TypeName Method to every type
-func (NilVal) TypeName() string      { return Nil.String() }
-func (v BoolVal) TypeName() string   { return Bool.String() }
-func (v IntVal) TypeName() string    { return Int.String() }
-func (v Int8Val) TypeName() string   { return Int8.String() }
-func (v Int16Val) TypeName() string  { return Int16.String() }
-func (v Int32Val) TypeName() string  { return Int32.String() }
-func (v UintVal) TypeName() string   { return Uint.String() }
-func (v Uint8Val) TypeName() string  { return Uint8.String() }
-func (v Uint16Val) TypeName() string { return Uint16.String() }
-func (v Uint32Val) TypeName() string { return Uint32.String() }
-func (v BigIntVal) TypeName() string { return BigInt.String() }
-func (v FltVal) TypeName() string    { return Float.String() }
-func (v Flt32Val) TypeName() string  { return Flt32.String() }
-func (v BigFltVal) TypeName() string { return BigFlt.String() }
-func (v ImagVal) TypeName() string   { return Imag.String() }
-func (v Imag64Val) TypeName() string { return Imag64.String() }
-func (v RatioVal) TypeName() string  { return Ratio.String() }
-func (v RuneVal) TypeName() string   { return Rune.String() }
-func (v ByteVal) TypeName() string   { return Byte.String() }
-func (v BytesVal) TypeName() string  { return Bytes.String() }
-func (v StrVal) TypeName() string    { return String.String() }
-func (v TimeVal) TypeName() string   { return Time.String() }
-func (v DuraVal) TypeName() string   { return Duration.String() }
-func (v ErrorVal) TypeName() string  { return Error.String() }
-func (v FuncVal) TypeName() string   { return Function.String() }
 
 // provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }

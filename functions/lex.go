@@ -19,9 +19,9 @@ func (t TyLex) Utf8() string                  { return mapUtf8[t] }
 func (t TyLex) Ascii() string                 { return mapAscii[t] }
 func (t TyLex) MatchUtf8(arg string) bool     { return t.Utf8() == arg }
 func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
-func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyLex) TypeName() string              { return mapUtf8[t] }
 func (t TyLex) Call(...Expression) Expression { return t }
+func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
 func (t TyLex) FindUtf8(arg string) (TyLex, bool) {
 	var lex, ok = mapUtf8Text[arg]
 	return lex, ok
@@ -46,323 +46,323 @@ var AllItems = func() []TyLex {
 
 //go:generate stringer -type=TyLex
 const (
-	Null  TyLex = 0
-	Blank TyLex = 1
-	Tab   TyLex = 1 << iota
-	NewLine
-	Underscore
-	Asterisk
-	Fullstop
-	Ellipsis
-	Substraction
-	Addition
-	SquareRoot
-	Dot
-	Times
-	DotProduct
-	CrossProduct
-	Division
-	Infinite
-	And
-	Or
-	Xor
-	Equal
-	Unequal
-	Lesser
-	Greater
-	LesserEq
-	GreaterEq
-	LeftPar
-	RightPar
-	LeftBra
-	RightBra
-	LeftCur
-	RightCur
-	LeftLace
-	RightLace
-	SingQuote
-	DoubQuote
-	BackTick
-	BackSlash
-	Slash
-	Pipe
-	Not
-	Decrement
-	Increment
-	TripEqual
-	RightArrow
-	LeftArrow
-	LeftFatArrow
-	RightFatArrow
-	DoubleFatArrow
-	Sequence
-	SequenceRev
-	DoubCol
-	Application
-	Lambda
-	Function
-	Polymorph
-	Monad
-	Parameter
-	Integral
-	SubSet
-	EmptySet
-	Pi
+	Lex_Null  TyLex = 0
+	Lex_Blank TyLex = 1
+	Lex_Tab   TyLex = 1 << iota
+	Lex_NewLine
+	Lex_Underscore
+	Lex_Asterisk
+	Lex_Fullstop
+	Lex_Ellipsis
+	Lex_Substraction
+	Lex_Addition
+	Lex_SquareRoot
+	Lex_Dot
+	Lex_Times
+	Lex_DotProduct
+	Lex_CrossProduct
+	Lex_Division
+	Lex_Infinite
+	Lex_And
+	Lex_Or
+	Lex_Xor
+	Lex_Equal
+	Lex_Unequal
+	Lex_Lesser
+	Lex_Greater
+	Lex_LesserEq
+	Lex_GreaterEq
+	Lex_LeftPar
+	Lex_RightPar
+	Lex_LeftBra
+	Lex_RightBra
+	Lex_LeftCur
+	Lex_RightCur
+	Lex_LeftLace
+	Lex_RightLace
+	Lex_SingQuote
+	Lex_DoubQuote
+	Lex_BackTick
+	Lex_BackSlash
+	Lex_Slash
+	Lex_Pipe
+	Lex_Not
+	Lex_Decrement
+	Lex_Increment
+	Lex_TripEqual
+	Lex_RightArrow
+	Lex_LeftArrow
+	Lex_LeftFatArrow
+	Lex_RightFatArrow
+	Lex_DoubleFatArrow
+	Lex_Sequence
+	Lex_SequenceRev
+	Lex_DoubCol
+	Lex_Application
+	Lex_Lambda
+	Lex_Function
+	Lex_Polymorph
+	Lex_Monad
+	Lex_Parameter
+	Lex_Integral
+	Lex_SubSet
+	Lex_EmptySet
+	Lex_Pi
 )
 
 var mapUtf8 = map[TyLex]string{
-	Null:  "⊥",
-	Blank: " ",
-	Tab: "	",
-	NewLine:        `\n`,
-	Underscore:     "_",
-	Asterisk:       "∗",
-	Ellipsis:       "‥.",
-	Substraction:   "-",
-	Addition:       "+",
-	SquareRoot:     "√",
-	Dot:            "∘",
-	Times:          "⨉",
-	DotProduct:     "⊙",
-	CrossProduct:   "⊗",
-	Division:       "÷",
-	Infinite:       "∞",
-	And:            "∧",
-	Or:             "∨",
-	Xor:            "⊻",
-	Not:            "¬",
-	Equal:          "＝",
-	Unequal:        "≠",
-	Lesser:         "≪",
-	Greater:        "≫",
-	LesserEq:       "≤",
-	GreaterEq:      "≥",
-	LeftPar:        "(",
-	RightPar:       ")",
-	LeftBra:        "[",
-	RightBra:       "]",
-	LeftCur:        "{",
-	RightCur:       "}",
-	LeftLace:       "<",
-	RightLace:      ">",
-	SingQuote:      `'`,
-	DoubQuote:      `"`,
-	BackTick:       "`",
-	BackSlash:      `\`,
-	Slash:          "/",
-	Pipe:           "|",
-	Decrement:      "∇",
-	Increment:      "∆",
-	TripEqual:      "≡",
-	RightArrow:     "→",
-	LeftArrow:      "←",
-	LeftFatArrow:   "⇐",
-	RightFatArrow:  "⇒",
-	DoubleFatArrow: "⇔",
-	Sequence:       "»",
-	SequenceRev:    "«",
-	DoubCol:        "∷",
-	Application:    "$",
-	Lambda:         "λ",
-	Function:       "ϝ",
-	Polymorph:      "Ф",
-	Monad:          "Ω",
-	Parameter:      "Π",
-	Integral:       "∑",
-	SubSet:         "⊆",
-	EmptySet:       "∅",
-	Pi:             `π`,
+	Lex_Null:  "⊥",
+	Lex_Blank: " ",
+	Lex_Tab: "	",
+	Lex_NewLine:        `\n`,
+	Lex_Underscore:     "_",
+	Lex_Asterisk:       "∗",
+	Lex_Ellipsis:       "‥.",
+	Lex_Substraction:   "-",
+	Lex_Addition:       "+",
+	Lex_SquareRoot:     "√",
+	Lex_Dot:            "∘",
+	Lex_Times:          "⨉",
+	Lex_DotProduct:     "⊙",
+	Lex_CrossProduct:   "⊗",
+	Lex_Division:       "÷",
+	Lex_Infinite:       "∞",
+	Lex_And:            "∧",
+	Lex_Or:             "∨",
+	Lex_Xor:            "⊻",
+	Lex_Not:            "¬",
+	Lex_Equal:          "＝",
+	Lex_Unequal:        "≠",
+	Lex_Lesser:         "≪",
+	Lex_Greater:        "≫",
+	Lex_LesserEq:       "≤",
+	Lex_GreaterEq:      "≥",
+	Lex_LeftPar:        "(",
+	Lex_RightPar:       ")",
+	Lex_LeftBra:        "[",
+	Lex_RightBra:       "]",
+	Lex_LeftCur:        "{",
+	Lex_RightCur:       "}",
+	Lex_LeftLace:       "<",
+	Lex_RightLace:      ">",
+	Lex_SingQuote:      `'`,
+	Lex_DoubQuote:      `"`,
+	Lex_BackTick:       "`",
+	Lex_BackSlash:      `\`,
+	Lex_Slash:          "/",
+	Lex_Pipe:           "|",
+	Lex_Decrement:      "∇",
+	Lex_Increment:      "∆",
+	Lex_TripEqual:      "≡",
+	Lex_RightArrow:     "→",
+	Lex_LeftArrow:      "←",
+	Lex_LeftFatArrow:   "⇐",
+	Lex_RightFatArrow:  "⇒",
+	Lex_DoubleFatArrow: "⇔",
+	Lex_Sequence:       "»",
+	Lex_SequenceRev:    "«",
+	Lex_DoubCol:        "∷",
+	Lex_Application:    "$",
+	Lex_Lambda:         "λ",
+	Lex_Function:       "ϝ",
+	Lex_Polymorph:      "Ф",
+	Lex_Monad:          "Ω",
+	Lex_Parameter:      "Π",
+	Lex_Integral:       "∑",
+	Lex_SubSet:         "⊆",
+	Lex_EmptySet:       "∅",
+	Lex_Pi:             `π`,
 }
 var mapUtf8Text = map[string]TyLex{
-	"⊥":  Null,
-	" ":  Blank,
-	"  ": Tab,
-	`\n`: NewLine,
-	"_":  Underscore,
-	"∗":  Asterisk,
-	"‥.": Ellipsis,
-	"-":  Substraction,
-	"+":  Addition,
-	"√":  SquareRoot,
-	"∘":  Dot,
-	"⨉":  Times,
-	"⊙":  DotProduct,
-	"⊗":  CrossProduct,
-	"÷":  Division,
-	"∞":  Infinite,
-	"∧":  And,
-	"∨":  Or,
-	"⊻":  Xor,
-	"¬":  Not,
-	"＝":  Equal,
-	"≠":  Unequal,
-	"≪":  Lesser,
-	"≫":  Greater,
-	"≤":  LesserEq,
-	"≥":  GreaterEq,
-	"(":  LeftPar,
-	")":  RightPar,
-	"[":  LeftBra,
-	"]":  RightBra,
-	"{":  LeftCur,
-	"}":  RightCur,
-	"<":  LeftLace,
-	">":  RightLace,
-	`'`:  SingQuote,
-	`"`:  DoubQuote,
-	"`":  BackTick,
-	`\`:  BackSlash,
-	"/":  Slash,
-	"|":  Pipe,
-	"∇":  Decrement,
-	"∆":  Increment,
-	"≡":  TripEqual,
-	"→":  RightArrow,
-	"←":  LeftArrow,
-	"⇐":  LeftFatArrow,
-	"⇒":  RightFatArrow,
-	"⇔":  DoubleFatArrow,
-	"»":  Sequence,
-	"«":  SequenceRev,
-	"∷":  DoubCol,
-	"$":  Application,
-	"λ":  Lambda,
-	"ϝ":  Function,
-	"Ф":  Polymorph,
-	"Ω":  Monad,
-	"Π":  Parameter,
-	"∑":  Integral,
-	"⊆":  SubSet,
-	"∅":  EmptySet,
-	`π`:  Pi,
+	"⊥":  Lex_Null,
+	" ":  Lex_Blank,
+	"  ": Lex_Tab,
+	`\n`: Lex_NewLine,
+	"_":  Lex_Underscore,
+	"∗":  Lex_Asterisk,
+	"‥.": Lex_Ellipsis,
+	"-":  Lex_Substraction,
+	"+":  Lex_Addition,
+	"√":  Lex_SquareRoot,
+	"∘":  Lex_Dot,
+	"⨉":  Lex_Times,
+	"⊙":  Lex_DotProduct,
+	"⊗":  Lex_CrossProduct,
+	"÷":  Lex_Division,
+	"∞":  Lex_Infinite,
+	"∧":  Lex_And,
+	"∨":  Lex_Or,
+	"⊻":  Lex_Xor,
+	"¬":  Lex_Not,
+	"＝":  Lex_Equal,
+	"≠":  Lex_Unequal,
+	"≪":  Lex_Lesser,
+	"≫":  Lex_Greater,
+	"≤":  Lex_LesserEq,
+	"≥":  Lex_GreaterEq,
+	"(":  Lex_LeftPar,
+	")":  Lex_RightPar,
+	"[":  Lex_LeftBra,
+	"]":  Lex_RightBra,
+	"{":  Lex_LeftCur,
+	"}":  Lex_RightCur,
+	"<":  Lex_LeftLace,
+	">":  Lex_RightLace,
+	`'`:  Lex_SingQuote,
+	`"`:  Lex_DoubQuote,
+	"`":  Lex_BackTick,
+	`\`:  Lex_BackSlash,
+	"/":  Lex_Slash,
+	"|":  Lex_Pipe,
+	"∇":  Lex_Decrement,
+	"∆":  Lex_Increment,
+	"≡":  Lex_TripEqual,
+	"→":  Lex_RightArrow,
+	"←":  Lex_LeftArrow,
+	"⇐":  Lex_LeftFatArrow,
+	"⇒":  Lex_RightFatArrow,
+	"⇔":  Lex_DoubleFatArrow,
+	"»":  Lex_Sequence,
+	"«":  Lex_SequenceRev,
+	"∷":  Lex_DoubCol,
+	"$":  Lex_Application,
+	"λ":  Lex_Lambda,
+	"ϝ":  Lex_Function,
+	"Ф":  Lex_Polymorph,
+	"Ω":  Lex_Monad,
+	"Π":  Lex_Parameter,
+	"∑":  Lex_Integral,
+	"⊆":  Lex_SubSet,
+	"∅":  Lex_EmptySet,
+	`π`:  Lex_Pi,
 }
 
 var mapAscii = map[TyLex]string{
-	Null:           "",
-	Blank:          " ",
-	Tab:            `\t`,
-	NewLine:        `\n`,
-	Underscore:     "_",
-	Asterisk:       "*",
-	Ellipsis:       "...",
-	Substraction:   "-",
-	Addition:       "+",
-	SquareRoot:     `\sqrt`,
-	Dot:            `\dot`,
-	Times:          `\mul`,
-	DotProduct:     `\dotprd`,
-	CrossProduct:   `\crxprd`,
-	Division:       `\div`,
-	Infinite:       `\inf`,
-	And:            `\and`,
-	Or:             `\or`,
-	Xor:            `\xor`,
-	Not:            "!-",
-	Equal:          "=",
-	Unequal:        "!=",
-	Lesser:         "<<",
-	Greater:        ">>",
-	LesserEq:       "=<",
-	GreaterEq:      ">=",
-	LeftPar:        "(",
-	RightPar:       ")",
-	LeftBra:        "[",
-	RightBra:       "]",
-	LeftCur:        "{",
-	RightCur:       "}",
-	LeftLace:       "<",
-	RightLace:      ">",
-	SingQuote:      `'`,
-	DoubQuote:      `"`,
-	BackTick:       "`",
-	BackSlash:      `\`,
-	Slash:          `/`,
-	Pipe:           "|",
-	Decrement:      "--",
-	Increment:      "++",
-	TripEqual:      "===",
-	RightArrow:     "->",
-	LeftArrow:      "<-",
-	LeftFatArrow:   "<=",
-	RightFatArrow:  "=>",
-	DoubleFatArrow: "<=>",
-	Sequence:       ">>>",
-	SequenceRev:    "<<<",
-	DoubCol:        "::",
-	Application:    "$",
-	Lambda:         `\y`,
-	Function:       `\f`,
-	Polymorph:      `\F`,
-	Monad:          `\M`,
-	Parameter:      `\P`,
-	Integral:       `\integ`,
-	SubSet:         `\subset`,
-	EmptySet:       `\empty`,
-	Pi:             `\pi`,
+	Lex_Null:           "",
+	Lex_Blank:          " ",
+	Lex_Tab:            `\t`,
+	Lex_NewLine:        `\n`,
+	Lex_Underscore:     "_",
+	Lex_Asterisk:       "*",
+	Lex_Ellipsis:       "...",
+	Lex_Substraction:   "-",
+	Lex_Addition:       "+",
+	Lex_SquareRoot:     `\sqrt`,
+	Lex_Dot:            `\dot`,
+	Lex_Times:          `\mul`,
+	Lex_DotProduct:     `\dotprd`,
+	Lex_CrossProduct:   `\crxprd`,
+	Lex_Division:       `\div`,
+	Lex_Infinite:       `\inf`,
+	Lex_And:            `\and`,
+	Lex_Or:             `\or`,
+	Lex_Xor:            `\xor`,
+	Lex_Not:            "!-",
+	Lex_Equal:          "=",
+	Lex_Unequal:        "!=",
+	Lex_Lesser:         "<<",
+	Lex_Greater:        ">>",
+	Lex_LesserEq:       "=<",
+	Lex_GreaterEq:      ">=",
+	Lex_LeftPar:        "(",
+	Lex_RightPar:       ")",
+	Lex_LeftBra:        "[",
+	Lex_RightBra:       "]",
+	Lex_LeftCur:        "{",
+	Lex_RightCur:       "}",
+	Lex_LeftLace:       "<",
+	Lex_RightLace:      ">",
+	Lex_SingQuote:      `'`,
+	Lex_DoubQuote:      `"`,
+	Lex_BackTick:       "`",
+	Lex_BackSlash:      `\`,
+	Lex_Slash:          `/`,
+	Lex_Pipe:           "|",
+	Lex_Decrement:      "--",
+	Lex_Increment:      "++",
+	Lex_TripEqual:      "===",
+	Lex_RightArrow:     "->",
+	Lex_LeftArrow:      "<-",
+	Lex_LeftFatArrow:   "<=",
+	Lex_RightFatArrow:  "=>",
+	Lex_DoubleFatArrow: "<=>",
+	Lex_Sequence:       ">>>",
+	Lex_SequenceRev:    "<<<",
+	Lex_DoubCol:        "::",
+	Lex_Application:    "$",
+	Lex_Lambda:         `\y`,
+	Lex_Function:       `\f`,
+	Lex_Polymorph:      `\F`,
+	Lex_Monad:          `\M`,
+	Lex_Parameter:      `\P`,
+	Lex_Integral:       `\integ`,
+	Lex_SubSet:         `\subset`,
+	Lex_EmptySet:       `\empty`,
+	Lex_Pi:             `\pi`,
 }
 
 var mapAsciiText = map[string]TyLex{
-	"":        Null,
-	" ":       Blank,
-	`\t`:      Tab,
-	`\n`:      NewLine,
-	"_":       Underscore,
-	"*":       Asterisk,
-	"...":     Ellipsis,
-	"-":       Substraction,
-	"+":       Addition,
-	`\sqrt`:   SquareRoot,
-	`\dot`:    Dot,
-	`\mul`:    Times,
-	`\dotprd`: DotProduct,
-	`\crxprd`: CrossProduct,
-	`\div`:    Division,
-	`\inf`:    Infinite,
-	`\and`:    And,
-	`\or`:     Or,
-	`\xor`:    Xor,
-	"!-":      Not,
-	"=":       Equal,
-	"!=":      Unequal,
-	"<<":      Lesser,
-	">>":      Greater,
-	"=<":      LesserEq,
-	">=":      GreaterEq,
-	"(":       LeftPar,
-	")":       RightPar,
-	"[":       LeftBra,
-	"]":       RightBra,
-	"{":       LeftCur,
-	"}":       RightCur,
-	"<":       LeftLace,
-	">":       RightLace,
-	`'`:       SingQuote,
-	`"`:       DoubQuote,
-	"`":       BackTick,
-	`\`:       BackSlash,
-	`/`:       Slash,
-	"|":       Pipe,
-	"--":      Decrement,
-	"++":      Increment,
-	"===":     TripEqual,
-	"->":      RightArrow,
-	"<-":      LeftArrow,
-	"<=":      LeftFatArrow,
-	"=>":      RightFatArrow,
-	"<=>":     DoubleFatArrow,
-	">>>":     Sequence,
-	"<<<":     SequenceRev,
-	"::":      DoubCol,
-	"$":       Application,
-	`\y`:      Lambda,
-	`\f`:      Function,
-	`\F`:      Polymorph,
-	`\M`:      Monad,
-	`\P`:      Parameter,
-	`\integ`:  Integral,
-	`\subset`: SubSet,
-	`\empty`:  EmptySet,
-	`\pi`:     Pi,
+	"":        Lex_Null,
+	" ":       Lex_Blank,
+	`\t`:      Lex_Tab,
+	`\n`:      Lex_NewLine,
+	"_":       Lex_Underscore,
+	"*":       Lex_Asterisk,
+	"...":     Lex_Ellipsis,
+	"-":       Lex_Substraction,
+	"+":       Lex_Addition,
+	`\sqrt`:   Lex_SquareRoot,
+	`\dot`:    Lex_Dot,
+	`\mul`:    Lex_Times,
+	`\dotprd`: Lex_DotProduct,
+	`\crxprd`: Lex_CrossProduct,
+	`\div`:    Lex_Division,
+	`\inf`:    Lex_Infinite,
+	`\and`:    Lex_And,
+	`\or`:     Lex_Or,
+	`\xor`:    Lex_Xor,
+	"!-":      Lex_Not,
+	"=":       Lex_Equal,
+	"!=":      Lex_Unequal,
+	"<<":      Lex_Lesser,
+	">>":      Lex_Greater,
+	"=<":      Lex_LesserEq,
+	">=":      Lex_GreaterEq,
+	"(":       Lex_LeftPar,
+	")":       Lex_RightPar,
+	"[":       Lex_LeftBra,
+	"]":       Lex_RightBra,
+	"{":       Lex_LeftCur,
+	"}":       Lex_RightCur,
+	"<":       Lex_LeftLace,
+	">":       Lex_RightLace,
+	`'`:       Lex_SingQuote,
+	`"`:       Lex_DoubQuote,
+	"`":       Lex_BackTick,
+	`\`:       Lex_BackSlash,
+	`/`:       Lex_Slash,
+	"|":       Lex_Pipe,
+	"--":      Lex_Decrement,
+	"++":      Lex_Increment,
+	"===":     Lex_TripEqual,
+	"->":      Lex_RightArrow,
+	"<-":      Lex_LeftArrow,
+	"<=":      Lex_LeftFatArrow,
+	"=>":      Lex_RightFatArrow,
+	"<=>":     Lex_DoubleFatArrow,
+	">>>":     Lex_Sequence,
+	"<<<":     Lex_SequenceRev,
+	"::":      Lex_DoubCol,
+	"$":       Lex_Application,
+	`\y`:      Lex_Lambda,
+	`\f`:      Lex_Function,
+	`\F`:      Lex_Polymorph,
+	`\M`:      Lex_Monad,
+	`\P`:      Lex_Parameter,
+	`\integ`:  Lex_Integral,
+	`\subset`: Lex_SubSet,
+	`\empty`:  Lex_EmptySet,
+	`\pi`:     Lex_Pi,
 }
 
 var AsciiKeysSortedByLength = func() [][]rune {

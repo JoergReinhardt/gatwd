@@ -5,12 +5,12 @@ package functions
 import "strconv"
 
 const (
-	_TyFlag_name_0 = "Flag_BitFlagFlag_KeyWordFlag_DataConsFlag_FunctionFlag_NativeFlag_TokenFlag_ArityFlag_PropFlag_Lex"
-	_TyFlag_name_1 = "Flag_Definition"
+	_TyFlag_name_0 = "Flag_BitFlagFlag_FunctionFlag_NativeFlag_KeyWordFlag_SymbolFlag_TokenFlag_ArityFlag_PropFlag_Lex"
+	_TyFlag_name_1 = "Flag_Pattern"
 )
 
 var (
-	_TyFlag_index_0 = [...]uint8{0, 12, 24, 37, 50, 61, 71, 81, 90, 98}
+	_TyFlag_index_0 = [...]uint8{0, 12, 25, 36, 48, 59, 69, 79, 88, 96}
 )
 
 func (i TyFlag) String() string {

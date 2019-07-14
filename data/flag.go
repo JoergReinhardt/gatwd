@@ -66,6 +66,9 @@ func FlagHigh(t Typed) BitFlag {
 }
 
 func FlagMatch(t Typed, v Typed) bool {
+	if t.Flag().Count() > 1 && v.Flag().Count() == 1 {
+		return v.Match(t)
+	}
 	if t.Flag().Uint()&^v.Flag().Uint() != 0 {
 		return false
 	}

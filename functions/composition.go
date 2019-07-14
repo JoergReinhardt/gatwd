@@ -23,27 +23,6 @@ type (
 	ConsPairVal func(...Expression) (Expression, ConsPairVal)
 )
 
-//// CURRY
-func Curry(exprs ...Expression) Expression {
-	if len(exprs) > 0 {
-		var expr = exprs[0]
-		if len(exprs) > 1 {
-			if exprs[0].FlagType() == Flag_Definition.U() {
-				var def = expr.Type()
-				return Define(
-					def.TypeName(),
-					def.(TyDef).Return(),
-				).Call(Curry(exprs[1:]...))
-			}
-			return Define(
-				expr.TypeName(), expr.Type(),
-			).Call(Curry(exprs[1:]...))
-		}
-		return expr
-	}
-	return NewNone()
-}
-
 //// CONSUMEABLE FUNCTOR
 func NewConsumeable(cons Consumeable) ConsumeVal {
 	return ConsumeVal(func(args ...Expression) (Expression, ConsumeVal) {
@@ -59,18 +38,16 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 	})
 }
 
-func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
+func (m ConsumeVal) TypeName() string     { return "(" + m.Head().Type().TypeName() + ")" }
 func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
-func (m ConsumeVal) TypeElem() TyFnc {
+func (m ConsumeVal) TypeElem() d.Typed {
 	if head := m.Head(); head != nil {
 		return head.TypeFnc()
 	}
 	return None.TypeFnc()
 }
-func (m ConsumeVal) Type() d.Typed {
-	return Define(m.TypeName(), m.Head().TypeFnc())
-}
+func (m ConsumeVal) Type() d.Typed { return Consumeables }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
 	head, m = m()
@@ -147,18 +124,16 @@ func (c ConsPairVal) Tail() Consumeable {
 func (c ConsPairVal) String() string {
 	return c.Head().String()
 }
-func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
+func (c ConsPairVal) TypeName() string     { return "(" + c.Head().Type().TypeName() + ")" }
 func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
 func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
-func (c ConsPairVal) TypeElem() TyFnc {
+func (c ConsPairVal) TypeElem() d.Typed {
 	if head := c.Head(); head != nil {
 		return head.TypeFnc()
 	}
 	return None.TypeFnc()
 }
-func (c ConsPairVal) Type() d.Typed {
-	return Define(c.TypeName(), c.Head().TypeFnc())
-}
+func (c ConsPairVal) Type() d.Typed { return Consumeables }
 
 //// MAP
 func MapL(list ListCol, mapf Map) ListCol {

@@ -1,33 +1,59 @@
 package functions
 
 import (
-	s "strings"
-
 	d "github.com/joergreinhardt/gatwd/data"
+	s "strings"
 )
 
 type (
-	TyDef     func() (string, []d.Typed)
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
 	Propertys d.Int8Val
+	TyPattern []d.Typed
+	TySymbol  string
 )
 
 //go:generate stringer -type TyFlag
 const (
 	Flag_BitFlag TyFlag = 0 + iota
-	Flag_KeyWord
-	Flag_DataCons
 	Flag_Function
 	Flag_Native
+	Flag_KeyWord
+	Flag_Symbol
 	Flag_Token
 	Flag_Arity
 	Flag_Prop
 	Flag_Lex
 
-	Flag_Definition TyFlag = 255
+	Flag_Pattern TyFlag = 255
 )
+
+func CastFlag(elem d.Typed) Expression {
+	switch {
+	case Flag_Native.Match(elem.FlagType()):
+		return ConPattern(elem.(d.TyNat))
+	case Flag_BitFlag.Match(elem.FlagType()):
+		return ConPattern(elem.(d.BitFlag))
+	case Flag_Function.Match(elem.FlagType()):
+		return elem.(TyFnc)
+	case Flag_Prop.Match(elem.FlagType()):
+		return elem.(Propertys)
+	case Flag_Arity.Match(elem.FlagType()):
+		return elem.(Arity)
+	case Flag_KeyWord.Match(elem.FlagType()):
+		return elem.(TyKeyWord)
+	case Flag_Token.Match(elem.FlagType()):
+		return elem.(TyTok)
+	case Flag_Lex.Match(elem.FlagType()):
+		return elem.(TyLex)
+	case Flag_Pattern.Match(elem.FlagType()):
+		return elem.(TyPattern)
+	case Flag_Symbol.Match(elem.FlagType()):
+		return elem.(TySymbol)
+	}
+	return NewNone()
+}
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
 func (t TyFlag) Match(match d.Uint8Val) bool {
@@ -43,11 +69,15 @@ const (
 	Type TyFnc = 1 << iota
 	/// FUNCTION TYPES
 	Data
-	Constant
+	Value
+	Class
+	Lambda
 	/// PARAMETER OPTIONS
 	Property
 	Argument
+	Pattern
 	Return
+	Symbol
 	Index
 	Key
 	/// TRUTH VALUE OTIONS
@@ -68,8 +98,8 @@ const (
 	Else
 	Just
 	None
-	OR
-	EI
+	Either
+	Or
 	/// DATA TYPE CLASSES
 	Numbers
 	Letters
@@ -79,8 +109,8 @@ const (
 	List
 	Vector
 	/// PRODUCT COLLECTION TYPES
-	Pair
 	Set
+	Pair
 	Enum
 	Tuple
 	Record
@@ -90,178 +120,187 @@ const (
 	/// HIGHER ORDER TYPE
 	HigherORder
 
-	Kinds = Type | Data | Constant
-
+	Kinds = Type | Data | Value | Class | Lambda
 	//// PARAMETERS
-	Signature = Argument | Return
-	Param     = Key | Index | Property
-
-	Params = Signature | Param
+	Params = Key | Index | Pattern | Property | Argument | Return | Symbol
 
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
-	CMP     = LT | GT | EQ
+	Comp    = LT | GT | EQ
 
 	//// OPTIONALS
 	If     = Then | Else
 	Maybe  = Just | None
-	Option = EI | OR
+	Option = Either | Or
 
 	Branches = Switch | Case | If | Maybe | Option
 
 	//// COLLECTIONS
-	Consumeables = List | Vector
-	Collections  = Consumeables | Pair |
-		Set | Record | Enum | Tuple
-
-	AllTypes = Kinds | Params |
-		Branches | Collections
+	Consumeables = List | Vector | Pair
+	Enumerables  = Set | Record | Enum | Tuple
+	Collections  = Consumeables | Enumerables
 )
 
-//// TYPE DEFINITION
-func Define(name string, retype d.Typed, paratypes ...d.Typed) TyDef {
-	paratypes = append([]d.Typed{retype}, paratypes...)
-	return func() (string, []d.Typed) {
-		return name, paratypes
+func ConSymbol(name string) TySymbol {
+	return TySymbol(name)
+}
+func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
+func (n TySymbol) FlagType() d.Uint8Val { return Flag_Symbol.U() }
+func (n TySymbol) Flag() d.BitFlag      { return Symbol.Flag() }
+func (n TySymbol) Type() d.Typed        { return n }
+func (n TySymbol) TypeName() string     { return string(n) }
+func (n TySymbol) String() string       { return string(n) }
+func (n TySymbol) Call(args ...Expression) Expression {
+	for _, arg := range args {
+		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
+			return NewData(d.BoolVal(false))
+		}
 	}
+	return NewData(d.BoolVal(true))
+}
+func (n TySymbol) Match(typ d.Typed) bool {
+	return s.Compare(string(n), typ.TypeName()) == 0
 }
 
-func (t TyDef) Type() d.Typed        { return t }
-func (t TyDef) Elements() []d.Typed  { var _, expr = t(); return expr }
-func (t TyDef) Name() string         { var name, _ = t(); return name }
-func (t TyDef) String() string       { return t.TypeName() }
-func (t TyDef) FlagType() d.Uint8Val { return Flag_Definition.U() }
-func (t TyDef) Flag() d.BitFlag      { return t.TypeFnc().Flag() }
-func (t TyDef) TypeFnc() TyFnc {
-	if Flag_Function.Match(t.Return().FlagType()) {
-		if fnc, ok := t.Return().(TyFnc); ok {
-			return fnc.TypeFnc()
+func ConPattern(types ...d.Typed) TyPattern { return types }
+
+func (p TyPattern) Elems() []d.Typed     { return p }
+func (p TyPattern) Len() int             { return len(p) }
+func (p TyPattern) TypeFnc() TyFnc       { return Pattern }
+func (p TyPattern) Type() d.Typed        { return p.TypeFnc() }
+func (p TyPattern) FlagType() d.Uint8Val { return Flag_Pattern.U() }
+func (p TyPattern) Flag() d.BitFlag      { return p.TypeFnc().Flag() }
+func (p TyPattern) String() string       { return p.TypeName() }
+func (p TyPattern) TypeName() string     { return p.Print("(", " ", ")") }
+
+func (p TyPattern) Pattern() TyPattern {
+	var elems = make([]d.Typed, 0, p.Len())
+	for _, elem := range p.Elems() {
+		// filter nil & none from pattern
+		if Flag_Native.Match(elem.FlagType()) {
+			if elem.Match(d.Nil) {
+				continue
+			}
 		}
-	}
-	return Data
-}
-func (t TyDef) TypeNat() d.TyNat {
-	if Flag_Native.Match(t.Return().FlagType()) {
-		if nat, ok := t.Return().(d.TyNat); ok {
-			return nat.TypeNat()
+		if Flag_Function.Match(elem.FlagType()) {
+			if elem.Match(None) {
+				continue
+			}
 		}
+		elems = append(elems, elem)
 	}
-	return d.Function
+	return elems
 }
-func (t TyDef) Return() d.Typed                    { return t.Elements()[0] }
-func (t TyDef) Call(args ...Expression) Expression { return t }
-func (t TyDef) Arguments() []d.Typed {
-	var elems = t.Elements()
-	if len(elems) > 1 {
-		return elems[1:]
+
+func (p TyPattern) TypeElem() d.Typed {
+	if p.Len() > 0 {
+		return p.Pattern()[0]
+	}
+	return Argument
+}
+func (p TyPattern) Head() Expression {
+	if p.Len() > 0 {
+		var elem = p.Pattern()[0]
+		return CastFlag(elem)
+	}
+	return nil
+}
+func (p TyPattern) TypeHead() d.Typed { return p.Head().(TyPattern) }
+func (p TyPattern) Tail() Consumeable {
+	if p.Len() > 0 {
+		return TyPattern(p.Pattern()[1:])
+	}
+	return TyPattern([]d.Typed{})
+}
+func (p TyPattern) TypeTail() TyPattern {
+	if p.Len() > 0 {
+		return p.Elems()[1:]
 	}
 	return []d.Typed{}
 }
-func (t TyDef) Arity() Arity {
-	return Arity(len(t.Arguments()))
-	return Arity(0)
-}
-func (t TyDef) ReturnName() string {
-	var retname = t.Return().TypeName()
-	if s.Contains(retname, " ") {
-		retname = "(" + retname + ")"
+func (p TyPattern) TypeConsume() (d.Typed, TyPattern) {
+	if p.Len() > 1 {
+		return p.Pattern()[0], p.Pattern()[1:]
 	}
-	return retname
+	if p.Len() > 0 {
+		return p.Pattern()[0], []d.Typed{}
+	}
+	return None, []d.Typed{}
 }
-func (t TyDef) Signature() string {
-	if t.Arity() > Arity(0) {
-		var slice []string
-		var sep = " → "
-		var arguments = t.Arguments()
-		if len(arguments) > 0 {
-			for _, arg := range arguments {
-				slice = append(slice,
-					arg.TypeName())
+func (p TyPattern) Consume() (Expression, Consumeable) {
+	return p.Head(), p.Tail()
+}
+func (p TyPattern) Print(ldelim, sep, rdelim string) string {
+	if p.Len() > 1 {
+		var slice = make([]string, 0, p.Len())
+		for _, elem := range p.Pattern() {
+			// recursively print pattern types
+			if Flag_Pattern.Match(elem.FlagType()) {
+				slice = append(
+					slice,
+					elem.(TyPattern).Print(
+						ldelim, sep, rdelim))
+				continue
 			}
-			return s.Join(slice, sep)
+			if Flag_Function.Match(elem.FlagType()) {
+				if elem.Match(Data) {
+					slice = append(slice, elem.TypeName())
+					continue
+				}
+			}
+			// append type name for all other types
+			slice = append(slice, elem.TypeName())
+		}
+		return ldelim + s.Join(slice, sep) + rdelim
+	}
+	if p.Len() > 0 {
+		var head = p.Elems()[0]
+		if !head.Match(Type) {
+			return ldelim + head.TypeName() + rdelim
 		}
 	}
 	return ""
 }
-func (t TyDef) TypeName() string {
-	var sep = " → "
-	var name = t.Name()
-	if name == "" {
-		name = t.ReturnName()
+
+func (p TyPattern) Call(args ...Expression) Expression {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
 	}
-	if s.Contains(name, " ") {
-		name = "(" + name + ")"
+	return NewData(d.BoolVal(p.MatchAll(types...)))
+}
+func (p TyPattern) Match(typ d.Typed) bool {
+	if Flag_Pattern.Match(typ.FlagType()) {
+		return p.MatchAll(typ.(TyPattern).Pattern()...)
 	}
-	if t.Arity() > Arity(0) {
-		var slice []string
-		if t.Signature() != "" {
-			slice = append(slice, t.Signature(),
-				name, t.ReturnName())
-		} else {
-			slice = append(slice, name, t.ReturnName())
-		}
-		return s.Join(slice, sep)
-	}
-	return name
+	return p.MatchAll(typ)
 }
 
-// match methode matches this instances return type against passed type
-func (t TyDef) Match(typ d.Typed) bool {
-	switch typ.FlagType() {
-	case Flag_BitFlag.U():
-		if flag, ok := t.Return().(d.BitFlag); ok {
-			if match, ok := typ.(d.BitFlag); ok {
-				return flag.Match(match)
-			}
-		}
-	case Flag_Native.U():
-		if nat, ok := t.Return().(d.TyNat); ok {
-			if match, ok := typ.(d.TyNat); ok {
-				return nat.Match(match)
-			}
-		}
-	case Flag_Function.U():
-		if fnc, ok := t.Return().(TyFnc); ok {
-			if match, ok := typ.(TyFnc); ok {
-				return fnc.Match(match)
-			}
-		}
-	case Flag_Definition.U():
-		if def, ok := t.Return().(TyDef); ok {
-			if match, ok := typ.(TyDef); ok {
-				return def.Return().Match(match.Return())
+// matches n'th element of pattern
+func (p TyPattern) MatchN(idx int, typ d.Typed) bool {
+	if idx < p.Len() {
+		if p[idx].FlagType() == typ.FlagType() {
+			if p[idx].Match(typ) {
+				return true
 			}
 		}
 	}
 	return false
 }
 
-// matches signature position n against passed typed
-func (t TyDef) MatchArgN(idx int, typ d.Typed) bool {
-	if Arity(idx) < t.Arity() {
-		return typ.Match(t.Arguments()[idx])
-	}
-	return false
-}
-
-// matches all signature elements against passed types
-func (t TyDef) MatchSignature(args ...d.Typed) bool {
-	var arglen = Arity(len(args))
-	// range over argument set, if shorter arity
-	if arglen < t.Arity() {
-		for n, match := range args {
-			if !t.Arguments()[n].Match(match) {
-				return false
-			}
-		}
-
-		// range over signature elements, when equal, or shorter
+// matches n'th element of pattern
+func (p TyPattern) MatchAll(types ...d.Typed) bool {
+	var elems, match []d.Typed
+	if p.Len() > len(types) {
+		elems, match = types, p
 	} else {
-		for n, arg := range t.Arguments() {
-			if !arg.Match(args[n]) {
-				return false
-			}
+		elems, match = p, types
+	}
+	for n, elem := range elems {
+		if elem.FlagType() != match[n].FlagType() ||
+			!elem.Match(match[n]) {
+			return false
 		}
 	}
 	return true
@@ -274,14 +313,39 @@ func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Eval() d.Native                     { return t.TypeNat() }
-func (t TyFnc) Type() d.Typed                      { return Define(t.TypeName(), t) }
+func (t TyFnc) Type() d.Typed                      { return t }
+func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
 	if count > 1 {
+		switch t {
+		case Kinds:
+			return "Kinds"
+		case Params:
+			return "Params"
+		case Truth:
+			return "Truth"
+		case Trinary:
+			return "Trinary"
+		case Comp:
+			return "Comp"
+		case If:
+			return "Cond"
+		case Maybe:
+			return "Maybe"
+		case Option:
+			return "Option"
+		case Branches:
+			return "Branches"
+		case Consumeables:
+			return "Consumeables"
+		case Collections:
+			return "Collections"
+		case Enumerables:
+			return "Enumerables"
+		}
 		var delim = "|"
 		var str string
 		for i, flag := range t.Flag().Decompose() {
@@ -351,9 +415,7 @@ func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Eval() d.Native                     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() d.Typed {
-	return Define(p.TypeName(), Property)
-}
+func (p Propertys) Type() d.Typed                      { return p }
 
 //// CALL ARITY
 ///

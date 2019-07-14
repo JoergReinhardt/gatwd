@@ -46,7 +46,7 @@ func TestFlag(t *testing.T) {
 
 	fmt.Println(Letters.TypeName())
 
-	if fmt.Sprint(Letters.TypeName()) != "(Rune Bytes String)" {
+	if fmt.Sprint(Letters.TypeName()) != "Letters" {
 		t.Fail()
 	}
 
@@ -76,7 +76,7 @@ var s0 = NewSlice(
 func TestTypeAllocation(t *testing.T) {
 
 	fmt.Println(TyNat(s0.ContainedTypes()).TypeName())
-	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "(Bool Int8 Int16 Int32 Int BigInt Flt32 Float BigFlt Ratio Imag Time Byte Bytes String)" {
+	if fmt.Sprint(TyNat(s0.ContainedTypes()).TypeName()) != "Bool|Int8|Int16|Int32|Int|BigInt|Flt32|Float|BigFlt|Ratio|Imag|Time|Byte|Bytes|String" {
 		t.Fail()
 	}
 	s1 := NewSlice()

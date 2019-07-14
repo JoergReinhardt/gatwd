@@ -21,9 +21,14 @@ func printCons(cons Consumeable) {
 		printCons(tail)
 	}
 }
-
+func TestEmptyList(t *testing.T) {
+	var list = NewList()
+	fmt.Printf("empty list pattern length: %d\n", list.Type().(TyPattern).Len())
+	fmt.Printf("empty list type name: %s\n", list.Type().TypeName())
+}
 func TestList(t *testing.T) {
 	var list = NewList(listA()...)
+	fmt.Printf("list type name: %s\n", list.Type().TypeName())
 	printCons(list)
 }
 
@@ -55,4 +60,11 @@ func TestPushList(t *testing.T) {
 	alist = alist.Push(listB()...)
 
 	printCons(alist)
+}
+
+func TestPairVal(t *testing.T) {
+	var pair = NewPair(NewNone(), NewNone())
+	fmt.Printf("name of empty pair: %s\n", pair.Type().TypeName())
+	pair = NewPair(New(12), New("string"))
+	fmt.Printf("name of (int,string) pair: %s\n", pair.Type().TypeName())
 }

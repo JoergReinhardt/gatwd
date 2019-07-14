@@ -56,9 +56,9 @@ func (t runetext) Native(i int) rune           { return t.RuneVec().Native(i) }
 func (t runetext) RangeNative(i, j int) []rune { return t.RuneVec().RangeNative(i, j) }
 func (t runetext) TypeNat() d.TyNat            { return t.RuneVec().TypeNat() }
 func (t runetext) Slice() []d.Native           { return t.RuneVec().Slice() }
-func (t runetext) TypeName() string            { return t.RuneVec().TypeName() }
+func (t runetext) TypeName() string            { return t.RuneVec().Type().TypeName() }
 func (t runetext) String() string              { return t.RuneVec().String() }
-func (t runetext) ElemType() d.TyNat           { return t.RuneVec().ElemType() }
+func (t runetext) ElemType() d.Typed           { return t.RuneVec().ElemType() }
 func (t runetext) Null() d.Native              { return t.RuneVec().Null() }
 func (t runetext) Empty() bool                 { return t.RuneVec().Empty() }
 func (t runetext) Copy() d.Native              { return t.RuneVec().Copy() }
