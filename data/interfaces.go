@@ -4,20 +4,40 @@ import (
 	"math/big"
 )
 
-// the main interface, all native types need to implement.
-type Native interface {
-	Eval(...Native) Native
-	TypeNat() TyNat
+type Stringer interface {
 	String() string
+}
+type Flagged interface {
+	Flag() BitFlag
+}
+type FlagTyped interface {
+	FlagType() Uint8Val
+}
+type Matched interface {
+	Match(Typed) bool
+}
+type NativeTyped interface {
+	TypeNat() TyNat
+}
+type NameTyped interface {
 	TypeName() string
 }
 
-// all BitFlag's implement the typed interface (as well as primary)
+// typed needs to not have the NativeTyped interface, to stay interchangeable
+// with types from other packages
 type Typed interface {
-	Native
-	Flag() BitFlag
-	FlagType() Uint8Val
-	Match(Typed) bool
+	FlagTyped
+	NameTyped
+	Flagged
+	Matched
+	Stringer
+}
+
+// the main interface, all native types need to implement.
+type Native interface {
+	NativeTyped
+	Stringer
+	Type() Typed
 }
 
 type BinaryMarshaler interface {
@@ -36,6 +56,7 @@ type Destructable interface {
 
 // implemented by types an empty instance is defined for
 type Discrete interface {
+	GoBytes() []byte
 	Unit() Native
 }
 
@@ -43,27 +64,33 @@ type Discrete interface {
 // allow to treat the different sizes of ints and floats alike
 
 type Boolean interface {
-	Bool() bool
+	Bool() BoolVal
+	GoBool() bool
 }
 
 type Natural interface {
-	Uint() uint
+	Uint() UintVal
+	GoUint() uint
 }
 
 type Integer interface {
-	Int() int
+	Int() IntVal
+	GoInt() int
+	Idx() int
 }
 
 type Rational interface {
-	Rat() *big.Rat
+	GoRat() *big.Rat
 }
 
 type Real interface {
-	Float() float64
+	Float() FltVal
+	GoFlt() float64
 }
 
 type Imaginary interface {
-	Imag() complex128
+	Imag() ImagVal
+	GoImag() complex128
 }
 
 type Numeral interface {
@@ -76,26 +103,26 @@ type Numeral interface {
 }
 
 type Raw interface {
-	Bytes() []byte
+	GoBytes() []byte
 }
 
 type Letter interface {
-	Rune() rune
-	Byte() byte
+	GoRune() rune
+	GoByte() byte
 }
 
 type Text interface {
-	String() string
+	String() StrVal
 }
 
 type Serializeable interface {
-	MarshalBinary() ([]byte, error)
+	MarshalBinary() (BytesVal, error)
 }
 
 type Printable interface {
 	String() string
-	Bytes() []byte
-	Runes() []rune
+	GoBytes() []byte
+	GoRunes() []rune
 }
 
 // paired holds key-value pairs intendet as set accessors
@@ -106,7 +133,6 @@ type Paired interface {
 	Both() (Native, Native)
 	LeftType() TyNat
 	RightType() TyNat
-	Interface(...Native) Paired
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -116,6 +142,12 @@ type Composed interface {
 }
 
 // a slice know's it's length and can be represented in as indexable.
+type Sequential interface {
+	Composed
+	Head() Native
+	Tail() DataSlice
+	Shift() (Native, DataSlice)
+}
 type Sliced interface {
 	Slice() []Native
 }
@@ -127,23 +159,13 @@ type Sliceable interface {
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
-	ElemType() TyNat
-	Interface(...Native) Sliceable
+	ElemType() Typed
 }
 
 type Mutable interface {
 	Sliceable
 	Set(s, arg Native)
 	SetInt(int, Native)
-}
-
-// slices and set's convieniently 'mimic' the behaviour of linked list's common
-// in functional programming.
-type Sequential interface {
-	Composed
-	Head() Native
-	Tail() Sequential
-	Shift() Sequential
 }
 
 // mapped is the interface of all sets, that have accessors (index, or key)
@@ -154,10 +176,10 @@ type Mapped interface {
 	Keys() []Native
 	Data() []Native
 	Fields() []Paired
+	Has(acc Native) bool
 	Get(acc Native) (Native, bool)
-	Delete(acc Native) bool
 	Set(Native, Native) Mapped
-	KeyType() TyNat
-	ValType() TyNat
-	Interface(...Native) Mapped
+	Delete(acc Native) bool
+	KeyType() Typed
+	ValType() Typed
 }

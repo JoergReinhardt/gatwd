@@ -164,204 +164,8 @@ func NewUnboxed(flag TyNat, args ...Native) Sliceable {
 	}
 	return d
 }
-func (v NilVec) Eval(args ...Native) Native { return v }
-func (v ErrorVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if er, ok := arg.(ErrorVal); ok {
-			v = append(v, error(er.E))
-		}
-	}
-	return v
-}
-func (v BoolVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Bool) {
-			v = append(v, bool(arg.(BoolVal)))
-		}
-	}
-	return v
-}
-func (v IntVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Int) {
-			v = append(v, int(arg.(IntVal)))
-		}
-	}
-	return v
-}
-func (v Int8Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Int8) {
-			v = append(v, int8(arg.(Int8Val)))
-		}
-	}
-	return v
-}
-func (v Int16Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Int16) {
-			v = append(v, int16(arg.(Int16Val)))
-		}
-	}
-	return v
-}
-func (v Int32Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Int32) {
-			v = append(v, int32(arg.(Int32Val)))
-		}
-	}
-	return v
-}
-func (v UintVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Uint) {
-			v = append(v, uint(arg.(UintVal)))
-		}
-	}
-	return v
-}
-func (v Uint8Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Uint8) {
-			v = append(v, uint8(arg.(Uint8Val)))
-		}
-	}
-	return v
-}
-func (v Uint16Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Uint16) {
-			v = append(v, uint16(arg.(Uint16Val)))
-		}
-	}
-	return v
-}
-func (v Uint32Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Uint32) {
-			v = append(v, uint32(arg.(Uint32Val)))
-		}
-	}
-	return v
-}
-func (v FltVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Float) {
-			v = append(v, float64(arg.(FltVal)))
-		}
-	}
-	return v
-}
-func (v Flt32Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Flt32) {
-			v = append(v, float32(arg.(Flt32Val)))
-		}
-	}
-	return v
-}
-func (v ImagVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Imag) {
-			v = append(v, complex128(arg.(ImagVal)))
-		}
-	}
-	return v
-}
-func (v Imag64Vec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Imag64) {
-			v = append(v, complex64(arg.(Imag64Val)))
-		}
-	}
-	return v
-}
-func (v ByteVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Byte) {
-			v = append(v, byte(arg.(ByteVal)))
-		}
-	}
-	return v
-}
-func (v RuneVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Rune) {
-			v = append(v, rune(arg.(RuneVal)))
-		}
-	}
-	return v
-}
-func (v BytesVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Bytes) {
-			v = append(v, []byte(arg.(BytesVal)))
-		}
-	}
-	return v
-}
-func (v StrVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(String) {
-			v = append(v, string(arg.(StrVal)))
-		}
-	}
-	return v
-}
-func (v BigIntVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(BigInt) {
-			var i = big.Int(*arg.(*BigIntVal))
-			v = append(v, &i)
-		}
-	}
-	return v
-}
-func (v BigFltVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(BigFlt) {
-			var flt = big.Float(*arg.(*BigFltVal))
-			v = append(v, &flt)
-		}
-	}
-	return v
-}
-func (v RatioVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Ratio) {
-			var rat = big.Rat(*arg.(*RatioVal))
-			v = append(v, &rat)
-		}
-	}
-	return v
-}
-func (v TimeVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Time) {
-			v = append(v, time.Time(arg.(TimeVal)))
-		}
-	}
-	return v
-}
-func (v DuraVec) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Duration) {
-			v = append(v, time.Duration(arg.(DuraVal)))
-		}
-	}
-	return v
-}
-func (v FlagSet) Eval(args ...Native) Native {
-	for _, arg := range args {
-		if arg.TypeNat().Match(Type) {
-			v = append(v, BitFlag(arg.(BitFlag)))
-		}
-	}
-	return v
-}
 
-func (v ByteVec) Bytes() []byte { return []byte(v) }
+func (v ByteVec) Bytes() BytesVal { return []byte(v) }
 
 func (v *ByteVec) Set(i int, b byte) { (*v)[i] = b }
 
@@ -422,32 +226,32 @@ func (v DuraVec) GetInt(i int) Native             { return DuraVal(v[i]) }
 func (v ErrorVec) GetInt(i int) Native            { return ErrorVal{v[i]} }
 func (v FlagSet) GetInt(i int) Native             { return BitFlag(v[i]) }
 
-func (v InterfaceSlice) Get(i Native) interface{} { return v[i.(IntVal).Int()] }
-func (v NilVec) Get(i Native) Native              { return NilVal(v[i.(IntVal).Int()]) }
-func (v BoolVec) Get(i Native) Native             { return BoolVal(v[i.(IntVal).Int()]) }
-func (v IntVec) Get(i Native) Native              { return IntVal(v[i.(IntVal).Int()]) }
-func (v Int8Vec) Get(i Native) Native             { return Int8Val(v[i.(IntVal).Int()]) }
-func (v Int16Vec) Get(i Native) Native            { return Int16Val(v[i.(IntVal).Int()]) }
-func (v Int32Vec) Get(i Native) Native            { return Int32Val(v[i.(IntVal).Int()]) }
-func (v UintVec) Get(i Native) Native             { return UintVal(v[i.(IntVal).Int()]) }
-func (v Uint8Vec) Get(i Native) Native            { return Uint8Val(v[i.(IntVal).Int()]) }
-func (v Uint16Vec) Get(i Native) Native           { return Uint16Val(v[i.(IntVal).Int()]) }
-func (v Uint32Vec) Get(i Native) Native           { return Uint32Val(v[i.(IntVal).Int()]) }
-func (v FltVec) Get(i Native) Native              { return FltVal(v[i.(IntVal).Int()]) }
-func (v Flt32Vec) Get(i Native) Native            { return Flt32Val(v[i.(IntVal).Int()]) }
-func (v ImagVec) Get(i Native) Native             { return ImagVal(v[i.(IntVal).Int()]) }
-func (v Imag64Vec) Get(i Native) Native           { return Imag64Val(v[i.(IntVal).Int()]) }
-func (v ByteVec) Get(i Native) Native             { return ByteVal(v[i.(IntVal).Int()]) }
-func (v RuneVec) Get(i Native) Native             { return RuneVal(v[i.(IntVal).Int()]) }
-func (v BytesVec) Get(i Native) Native            { return BytesVal(v[i.(IntVal).Int()]) }
-func (v StrVec) Get(i Native) Native              { return StrVal(v[i.(IntVal).Int()]) }
-func (v BigIntVec) Get(i Native) Native           { return BigIntVal((*(*big.Int)(v[i.(IntVal).Int()]))) }
-func (v BigFltVec) Get(i Native) Native           { return BigFltVal((*(*big.Float)(v[i.(IntVal).Int()]))) }
-func (v RatioVec) Get(i Native) Native            { return RatioVal((*(*big.Rat)(v[i.(IntVal).Int()]))) }
-func (v TimeVec) Get(i Native) Native             { return TimeVal(v[i.(IntVal).Int()]) }
-func (v DuraVec) Get(i Native) Native             { return DuraVal(v[i.(IntVal).Int()]) }
-func (v ErrorVec) Get(i Native) Native            { return ErrorVal{v[i.(IntVal).Int()]} }
-func (v FlagSet) Get(i Native) Native             { return BitFlag(v[i.(IntVal).Int()]) }
+func (v InterfaceSlice) Get(i Native) interface{} { return v[i.(IntVal).Idx()] }
+func (v NilVec) Get(i Native) Native              { return NilVal(v[i.(IntVal).Idx()]) }
+func (v BoolVec) Get(i Native) Native             { return BoolVal(v[i.(IntVal).Idx()]) }
+func (v IntVec) Get(i Native) Native              { return IntVal(v[i.(IntVal).Idx()]) }
+func (v Int8Vec) Get(i Native) Native             { return Int8Val(v[i.(IntVal).Idx()]) }
+func (v Int16Vec) Get(i Native) Native            { return Int16Val(v[i.(IntVal).Idx()]) }
+func (v Int32Vec) Get(i Native) Native            { return Int32Val(v[i.(IntVal).Idx()]) }
+func (v UintVec) Get(i Native) Native             { return UintVal(v[i.(IntVal).Idx()]) }
+func (v Uint8Vec) Get(i Native) Native            { return Uint8Val(v[i.(IntVal).Idx()]) }
+func (v Uint16Vec) Get(i Native) Native           { return Uint16Val(v[i.(IntVal).Idx()]) }
+func (v Uint32Vec) Get(i Native) Native           { return Uint32Val(v[i.(IntVal).Idx()]) }
+func (v FltVec) Get(i Native) Native              { return FltVal(v[i.(IntVal).Idx()]) }
+func (v Flt32Vec) Get(i Native) Native            { return Flt32Val(v[i.(IntVal).Idx()]) }
+func (v ImagVec) Get(i Native) Native             { return ImagVal(v[i.(IntVal).Idx()]) }
+func (v Imag64Vec) Get(i Native) Native           { return Imag64Val(v[i.(IntVal).Idx()]) }
+func (v ByteVec) Get(i Native) Native             { return ByteVal(v[i.(IntVal).Idx()]) }
+func (v RuneVec) Get(i Native) Native             { return RuneVal(v[i.(IntVal).Idx()]) }
+func (v BytesVec) Get(i Native) Native            { return BytesVal(v[i.(IntVal).Idx()]) }
+func (v StrVec) Get(i Native) Native              { return StrVal(v[i.(IntVal).Idx()]) }
+func (v BigIntVec) Get(i Native) Native           { return BigIntVal((*(*big.Int)(v[i.(IntVal).Idx()]))) }
+func (v BigFltVec) Get(i Native) Native           { return BigFltVal((*(*big.Float)(v[i.(IntVal).Idx()]))) }
+func (v RatioVec) Get(i Native) Native            { return RatioVal((*(*big.Rat)(v[i.(IntVal).Idx()]))) }
+func (v TimeVec) Get(i Native) Native             { return TimeVal(v[i.(IntVal).Idx()]) }
+func (v DuraVec) Get(i Native) Native             { return DuraVal(v[i.(IntVal).Idx()]) }
+func (v ErrorVec) Get(i Native) Native            { return ErrorVal{v[i.(IntVal).Idx()]} }
+func (v FlagSet) Get(i Native) Native             { return BitFlag(v[i.(IntVal).Idx()]) }
 
 func (v NilVec) Range(i, j int) Sliceable    { return NilVec(v[i:j]) }
 func (v BoolVec) Range(i, j int) Sliceable   { return BoolVec(v[i:j]) }
@@ -528,31 +332,57 @@ func (v DuraVec) RangeNative(i, j int) []time.Duration { return DuraVec(v[i:j]) 
 func (v ErrorVec) RangeNative(i, j int) []error        { return ErrorVec(v[i:j]) }
 func (v FlagSet) RangeNative(i, j int) []BitFlag       { return FlagSet(v[i:j]) }
 
-func (v NilVec) TypeNat() TyNat    { return Unboxed.TypeNat() }
-func (v BoolVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v IntVec) TypeNat() TyNat    { return Unboxed.TypeNat() }
-func (v Int8Vec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v Int16Vec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v Int32Vec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v UintVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v Uint8Vec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v Uint16Vec) TypeNat() TyNat { return Unboxed.TypeNat() }
-func (v Uint32Vec) TypeNat() TyNat { return Unboxed.TypeNat() }
-func (v FltVec) TypeNat() TyNat    { return Unboxed.TypeNat() }
-func (v Flt32Vec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v ImagVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v Imag64Vec) TypeNat() TyNat { return Unboxed.TypeNat() }
-func (v ByteVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v RuneVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v BytesVec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v StrVec) TypeNat() TyNat    { return Unboxed.TypeNat() }
-func (v BigIntVec) TypeNat() TyNat { return Unboxed.TypeNat() }
-func (v BigFltVec) TypeNat() TyNat { return Unboxed.TypeNat() }
-func (v RatioVec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v TimeVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v DuraVec) TypeNat() TyNat   { return Unboxed.TypeNat() }
-func (v ErrorVec) TypeNat() TyNat  { return Unboxed.TypeNat() }
-func (v FlagSet) TypeNat() TyNat   { return Unboxed.TypeNat() }
+func (v NilVec) TypeNat() TyNat    { return Unboxed }
+func (v BoolVec) TypeNat() TyNat   { return Unboxed }
+func (v IntVec) TypeNat() TyNat    { return Unboxed }
+func (v Int8Vec) TypeNat() TyNat   { return Unboxed }
+func (v Int16Vec) TypeNat() TyNat  { return Unboxed }
+func (v Int32Vec) TypeNat() TyNat  { return Unboxed }
+func (v UintVec) TypeNat() TyNat   { return Unboxed }
+func (v Uint8Vec) TypeNat() TyNat  { return Unboxed }
+func (v Uint16Vec) TypeNat() TyNat { return Unboxed }
+func (v Uint32Vec) TypeNat() TyNat { return Unboxed }
+func (v FltVec) TypeNat() TyNat    { return Unboxed }
+func (v Flt32Vec) TypeNat() TyNat  { return Unboxed }
+func (v ImagVec) TypeNat() TyNat   { return Unboxed }
+func (v Imag64Vec) TypeNat() TyNat { return Unboxed }
+func (v ByteVec) TypeNat() TyNat   { return Unboxed }
+func (v RuneVec) TypeNat() TyNat   { return Unboxed }
+func (v BytesVec) TypeNat() TyNat  { return Unboxed }
+func (v StrVec) TypeNat() TyNat    { return Unboxed }
+func (v BigIntVec) TypeNat() TyNat { return Unboxed }
+func (v BigFltVec) TypeNat() TyNat { return Unboxed }
+func (v RatioVec) TypeNat() TyNat  { return Unboxed }
+func (v TimeVec) TypeNat() TyNat   { return Unboxed }
+func (v DuraVec) TypeNat() TyNat   { return Unboxed }
+func (v ErrorVec) TypeNat() TyNat  { return Unboxed }
+func (v FlagSet) TypeNat() TyNat   { return Unboxed }
+
+func (v NilVec) Type() Typed    { return Slice | Nil }
+func (v BoolVec) Type() Typed   { return Slice | Bool }
+func (v IntVec) Type() Typed    { return Slice | Int }
+func (v Int8Vec) Type() Typed   { return Slice | Int8 }
+func (v Int16Vec) Type() Typed  { return Slice | Int16 }
+func (v Int32Vec) Type() Typed  { return Slice | Int32 }
+func (v UintVec) Type() Typed   { return Slice | Uint }
+func (v Uint8Vec) Type() Typed  { return Slice | Uint8 }
+func (v Uint16Vec) Type() Typed { return Slice | Uint16 }
+func (v Uint32Vec) Type() Typed { return Slice | Uint32 }
+func (v FltVec) Type() Typed    { return Slice | Float }
+func (v Flt32Vec) Type() Typed  { return Slice | Flt32 }
+func (v ImagVec) Type() Typed   { return Slice | Imag }
+func (v Imag64Vec) Type() Typed { return Slice | Imag64 }
+func (v ByteVec) Type() Typed   { return Slice | Byte }
+func (v RuneVec) Type() Typed   { return Slice | Rune }
+func (v BytesVec) Type() Typed  { return Slice | Bytes }
+func (v StrVec) Type() Typed    { return Slice | String }
+func (v BigIntVec) Type() Typed { return Slice | BigInt }
+func (v BigFltVec) Type() Typed { return Slice | BigFlt }
+func (v RatioVec) Type() Typed  { return Slice | Ratio }
+func (v TimeVec) Type() Typed   { return Slice | Time }
+func (v DuraVec) Type() Typed   { return Slice | Duration }
+func (v ErrorVec) Type() Typed  { return Slice | Error }
+func (v FlagSet) Type() Typed   { return Slice | Flag }
 
 func (v NilVec) Slice() []Native {
 	var slice = []Native{}
@@ -718,7 +548,7 @@ func (v DuraVec) Slice() []Native {
 func (v ErrorVec) Slice() []Native {
 	var slice = []Native{}
 	for _, nat := range v {
-		slice = append(slice, NewErrorVal(nat))
+		slice = append(slice, NewError(nat))
 	}
 	return slice
 }
@@ -730,83 +560,31 @@ func (v FlagSet) Slice() []Native {
 	return slice
 }
 
-func (v NilVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
-func (v BoolVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v IntVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
-func (v Int8Vec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v Int16Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v Int32Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v UintVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v Uint8Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v Uint16Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
-func (v Uint32Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
-func (v FltVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
-func (v Flt32Vec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v ImagVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v Imag64Vec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
-func (v ByteVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v RuneVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v BytesVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v StrVec) Interface(args ...Native) Sliceable    { return v.Eval(args...).(Sliceable) }
-func (v BigIntVec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
-func (v BigFltVec) Interface(args ...Native) Sliceable { return v.Eval(args...).(Sliceable) }
-func (v RatioVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v TimeVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v DuraVec) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-func (v ErrorVec) Interface(args ...Native) Sliceable  { return v.Eval(args...).(Sliceable) }
-func (v FlagSet) Interface(args ...Native) Sliceable   { return v.Eval(args...).(Sliceable) }
-
-func (v NilVec) TypeName() string    { return "[" + Nil.TypeName() + "]" }
-func (v BoolVec) TypeName() string   { return "[" + Bool.TypeName() + "]" }
-func (v IntVec) TypeName() string    { return "[" + Int.TypeName() + "]" }
-func (v Int8Vec) TypeName() string   { return "[" + Int8.TypeName() + "]" }
-func (v Int16Vec) TypeName() string  { return "[" + Int16.TypeName() + "]" }
-func (v Int32Vec) TypeName() string  { return "[" + Int32.TypeName() + "]" }
-func (v UintVec) TypeName() string   { return "[" + Uint.TypeName() + "]" }
-func (v Uint8Vec) TypeName() string  { return "[" + Uint8.TypeName() + "]" }
-func (v Uint16Vec) TypeName() string { return "[" + Uint16.TypeName() + "]" }
-func (v Uint32Vec) TypeName() string { return "[" + Uint32.TypeName() + "]" }
-func (v FltVec) TypeName() string    { return "[" + Float.TypeName() + "]" }
-func (v Flt32Vec) TypeName() string  { return "[" + Flt32.TypeName() + "]" }
-func (v ImagVec) TypeName() string   { return "[" + Imag.TypeName() + "]" }
-func (v Imag64Vec) TypeName() string { return "[" + Imag64.TypeName() + "]" }
-func (v ByteVec) TypeName() string   { return "[" + Byte.TypeName() + "]" }
-func (v RuneVec) TypeName() string   { return "[" + Rune.TypeName() + "]" }
-func (v BytesVec) TypeName() string  { return "[" + Bytes.TypeName() + "]" }
-func (v StrVec) TypeName() string    { return "[" + String.TypeName() + "]" }
-func (v BigIntVec) TypeName() string { return "[" + BigInt.TypeName() + "]" }
-func (v BigFltVec) TypeName() string { return "[" + BigFlt.TypeName() + "]" }
-func (v RatioVec) TypeName() string  { return "[" + Ratio.TypeName() + "]" }
-func (v TimeVec) TypeName() string   { return "[" + Time.TypeName() + "]" }
-func (v DuraVec) TypeName() string   { return "[" + Duration.TypeName() + "]" }
-func (v ErrorVec) TypeName() string  { return "[" + Error.TypeName() + "]" }
-func (v FlagSet) TypeName() string   { return "[" + Type.TypeName() + "]" }
-
-func (v NilVec) ElemType() TyNat    { return Nil.TypeNat() }
-func (v BoolVec) ElemType() TyNat   { return Bool.TypeNat() }
-func (v IntVec) ElemType() TyNat    { return Int.TypeNat() }
-func (v Int8Vec) ElemType() TyNat   { return Int8.TypeNat() }
-func (v Int16Vec) ElemType() TyNat  { return Int16.TypeNat() }
-func (v Int32Vec) ElemType() TyNat  { return Int32.TypeNat() }
-func (v UintVec) ElemType() TyNat   { return Uint.TypeNat() }
-func (v Uint8Vec) ElemType() TyNat  { return Uint8.TypeNat() }
-func (v Uint16Vec) ElemType() TyNat { return Uint16.TypeNat() }
-func (v Uint32Vec) ElemType() TyNat { return Uint32.TypeNat() }
-func (v FltVec) ElemType() TyNat    { return Float.TypeNat() }
-func (v Flt32Vec) ElemType() TyNat  { return Flt32.TypeNat() }
-func (v ImagVec) ElemType() TyNat   { return Imag.TypeNat() }
-func (v Imag64Vec) ElemType() TyNat { return Imag64.TypeNat() }
-func (v ByteVec) ElemType() TyNat   { return Byte.TypeNat() }
-func (v RuneVec) ElemType() TyNat   { return Rune.TypeNat() }
-func (v BytesVec) ElemType() TyNat  { return Bytes.TypeNat() }
-func (v StrVec) ElemType() TyNat    { return String.TypeNat() }
-func (v BigIntVec) ElemType() TyNat { return BigInt.TypeNat() }
-func (v BigFltVec) ElemType() TyNat { return BigFlt.TypeNat() }
-func (v RatioVec) ElemType() TyNat  { return Ratio.TypeNat() }
-func (v TimeVec) ElemType() TyNat   { return Time.TypeNat() }
-func (v DuraVec) ElemType() TyNat   { return Duration.TypeNat() }
-func (v ErrorVec) ElemType() TyNat  { return Error.TypeNat() }
-func (v FlagSet) ElemType() TyNat   { return Type.TypeNat() }
+func (v NilVec) ElemType() Typed    { return Nil }
+func (v BoolVec) ElemType() Typed   { return Bool }
+func (v IntVec) ElemType() Typed    { return Int }
+func (v Int8Vec) ElemType() Typed   { return Int8 }
+func (v Int16Vec) ElemType() Typed  { return Int16 }
+func (v Int32Vec) ElemType() Typed  { return Int32 }
+func (v UintVec) ElemType() Typed   { return Uint }
+func (v Uint8Vec) ElemType() Typed  { return Uint8 }
+func (v Uint16Vec) ElemType() Typed { return Uint16 }
+func (v Uint32Vec) ElemType() Typed { return Uint32 }
+func (v FltVec) ElemType() Typed    { return Float }
+func (v Flt32Vec) ElemType() Typed  { return Flt32 }
+func (v ImagVec) ElemType() Typed   { return Imag }
+func (v Imag64Vec) ElemType() Typed { return Imag64 }
+func (v ByteVec) ElemType() Typed   { return Byte }
+func (v RuneVec) ElemType() Typed   { return Rune }
+func (v BytesVec) ElemType() Typed  { return Bytes }
+func (v StrVec) ElemType() Typed    { return String }
+func (v BigIntVec) ElemType() Typed { return BigInt }
+func (v BigFltVec) ElemType() Typed { return BigFlt }
+func (v RatioVec) ElemType() Typed  { return Ratio }
+func (v TimeVec) ElemType() Typed   { return Time }
+func (v DuraVec) ElemType() Typed   { return Duration }
+func (v ErrorVec) ElemType() Typed  { return Error }
+func (v FlagSet) ElemType() Typed   { return Type }
 
 func (v NilVec) Null() Native    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Native   { return BoolVec([]bool{}) }

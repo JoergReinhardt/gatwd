@@ -3,29 +3,18 @@ package data
 func NewPair(l, r Native) Paired { return PairVal{l, r} }
 
 // implements Paired flagged Pair
-func (p PairVal) Interface(args ...Native) Paired { return p.Eval(args...).(Paired) }
-func (p PairVal) Left() Native                    { return p.L }
-func (p PairVal) Right() Native                   { return p.R }
-func (p PairVal) Both() (Native, Native)          { return p.L, p.R }
-func (p PairVal) TypeNat() TyNat                  { return Pair.TypeNat() }
-func (p PairVal) LeftType() TyNat                 { return p.L.TypeNat() }
-func (p PairVal) RightType() TyNat                { return p.R.TypeNat() }
-func (p PairVal) TypeName() string {
-	return "(" + p.Left().TypeName() +
-		"," + p.Right().TypeName() + ")"
-}
+func (p PairVal) Left() Native           { return p.L }
+func (p PairVal) Right() Native          { return p.R }
+func (p PairVal) Both() (Native, Native) { return p.L, p.R }
+func (p PairVal) Type() Typed            { return Pair }
+func (p PairVal) TypeNat() TyNat         { return Pair }
+func (p PairVal) LeftType() TyNat        { return p.L.TypeNat() }
+func (p PairVal) RightType() TyNat       { return p.R.TypeNat() }
 
 ////////////////////////////////////////////////////////////////
 //// GENERIC ACCESSOR TYPED SET
 ///
 //
-func typeNameSet(m Mapped) string {
-	if m.Len() > 0 {
-		return "{" + m.Fields()[0].TypeName() + ":: " +
-			m.Fields()[0].TypeName() + "}"
-	}
-	return "{}"
-}
 func NewValSet(acc ...Paired) Mapped {
 	var m = make(map[Native]Native)
 	for _, pair := range acc {
@@ -34,29 +23,16 @@ func NewValSet(acc ...Paired) Mapped {
 	return SetVal(m)
 }
 
-func (s SetVal) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				s.Set(pair.Left(), pair.Right())
-			}
-		}
-	}
-	return s
-}
-
-func (s SetVal) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetVal) TypeNat() TyNat                  { return Map.TypeNat() }
+func (s SetVal) Type() Typed    { return Map }
+func (s SetVal) TypeNat() TyNat { return Map }
 func (s SetVal) first() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetVal) TypeName() string { return typeNameSet(s) }
-func (s SetVal) KeyType() TyNat   { return s.first().Left().TypeNat() }
-func (s SetVal) ValType() TyNat   { return s.first().Right().TypeNat() }
+func (s SetVal) KeyType() Typed { return s.first().Left().TypeNat() }
+func (s SetVal) ValType() Typed { return s.first().Right().TypeNat() }
 
 func (s SetVal) Len() int { return len(s) }
 
@@ -92,6 +68,13 @@ func (s SetVal) Fields() []Paired {
 	return pairs
 }
 
+func (s SetVal) Has(acc Native) bool {
+	if _, ok := s[acc]; ok {
+		return ok
+	}
+	return false
+}
+
 func (s SetVal) Get(acc Native) (Native, bool) {
 	if dat, ok := s[acc.(StrVal)]; ok {
 		return dat, ok
@@ -99,7 +82,10 @@ func (s SetVal) Get(acc Native) (Native, bool) {
 	return nil, false
 }
 
-func (s SetVal) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
+func (s SetVal) Set(acc Native, dat Native) Mapped {
+	s[acc.(StrVal)] = dat
+	return s
+}
 
 func (s SetVal) Delete(acc Native) bool {
 	if _, ok := s[acc.(StrVal)]; ok {
@@ -119,31 +105,16 @@ func NewStringSet(acc ...Paired) Mapped {
 	return SetString(m)
 }
 
-func (s SetString) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetString) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(String) {
-					s.Set(pair.Left(), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
-
 func (s SetString) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetString) TypeName() string { return typeNameSet(s) }
-func (s SetString) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetString) KeyType() TyNat   { return String.TypeNat() }
-func (s SetString) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetString) Type() Typed    { return Map }
+func (s SetString) TypeNat() TyNat { return Map }
+func (s SetString) KeyType() Typed { return String.TypeNat() }
+func (s SetString) ValType() Typed { return s.First().Right().TypeNat() }
 
 func (s SetString) Len() int { return len(s) }
 
@@ -186,6 +157,35 @@ func (s SetString) Get(acc Native) (Native, bool) {
 	return nil, false
 }
 
+func (s SetString) Has(acc Native) bool {
+	if _, ok := s.Get(acc); ok {
+		return ok
+	}
+	return false
+}
+
+func (s SetString) HasStr(key string) bool {
+	if _, ok := s.GetStr(key); ok {
+		return ok
+	}
+	return false
+}
+
+func (s SetString) Set(acc Native, dat Native) Mapped {
+	s[acc.(StrVal)] = dat
+	return s
+}
+func (s SetString) GetStr(key string) (Native, bool) {
+	if dat, ok := s[StrVal(key)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
+func (s SetString) SetStr(key string, dat Native) Mapped {
+	s[StrVal(key)] = dat
+	return s
+}
+
 func (s SetString) Delete(acc Native) bool {
 	if _, ok := s[acc.(StrVal)]; ok {
 		delete(s, acc.(StrVal))
@@ -193,8 +193,6 @@ func (s SetString) Delete(acc Native) bool {
 	}
 	return false
 }
-
-func (s SetString) Set(acc Native, dat Native) Mapped { s[acc.(StrVal)] = acc.(StrVal); return s }
 
 //////////////////////////////////////////////////////////////
 
@@ -206,33 +204,18 @@ func NewIntSet(acc ...Paired) Mapped {
 	return SetInt(m)
 }
 
-func (s SetInt) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
 func (s SetInt) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetInt) TypeName() string { return typeNameSet(s) }
-func (s SetInt) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetInt) KeyType() TyNat   { return Int.TypeNat() }
-func (s SetInt) ValType() TyNat   { return s.First().Right().TypeNat() }
+func (s SetInt) TypeNat() TyNat { return Map }
+func (s SetInt) Type() Typed    { return Map }
+func (s SetInt) KeyType() Typed { return Int.TypeNat() }
+func (s SetInt) ValType() Typed { return s.First().Right().TypeNat() }
 
 func (s SetInt) Len() int { return len(s) }
-
-func (s SetInt) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Integers) {
-					s.Set(IntVal(pair.Left().(Integer).Int()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
 
 func (s SetInt) Keys() []Native {
 	var keys = []Native{}
@@ -266,8 +249,29 @@ func (s SetInt) Fields() []Paired {
 	return pairs
 }
 
+func (s SetInt) Has(acc Native) bool {
+	if _, ok := s.Get(acc); ok {
+		return ok
+	}
+	return false
+}
+
+func (s SetInt) HasInt(idx int) bool {
+	if _, ok := s.GetIdx(idx); ok {
+		return ok
+	}
+	return false
+}
+
 func (s SetInt) Get(acc Native) (Native, bool) {
 	if dat, ok := s[acc.(IntVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
+
+func (s SetInt) GetIdx(idx int) (Native, bool) {
+	if dat, ok := s[IntVal(idx)]; ok {
 		return dat, ok
 	}
 	return nil, false
@@ -281,7 +285,15 @@ func (s SetInt) Delete(acc Native) bool {
 	return false
 }
 
-func (s SetInt) Set(acc Native, dat Native) Mapped { s[acc.(IntVal)] = acc.(IntVal); return s }
+func (s SetInt) Set(acc Native, dat Native) Mapped {
+	s[acc.(IntVal)] = dat
+	return s
+}
+
+func (s SetInt) SetIdx(idx int, dat Native) Mapped {
+	s[IntVal(idx)] = dat
+	return s
+}
 
 //////////////////////////////////////////////////////////////
 
@@ -299,25 +311,10 @@ func (s SetUint) First() Paired {
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetUint) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetUint) TypeName() string                { return typeNameSet(s) }
-func (s SetUint) TypeNat() TyNat                  { return Map.TypeNat() }
-func (s SetUint) KeyType() TyNat                  { return Uint.TypeNat() }
-func (s SetUint) ValType() TyNat                  { return s.First().Right().TypeNat() }
-
-func (s SetUint) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Naturals) {
-					s.Set(UintVal(pair.Left().(Natural).Uint()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetUint) TypeNat() TyNat { return Map }
+func (s SetUint) Type() Typed    { return Map }
+func (s SetUint) KeyType() Typed { return Uint.TypeNat() }
+func (s SetUint) ValType() Typed { return s.First().Right().TypeNat() }
 
 func (s SetUint) Len() int { return len(s) }
 
@@ -353,8 +350,29 @@ func (s SetUint) Fields() []Paired {
 	return pairs
 }
 
+func (s SetUint) HasUint(idx uint) bool {
+	if _, ok := s.GetUint(idx); ok {
+		return ok
+	}
+	return false
+}
+
+func (s SetUint) Has(acc Native) bool {
+	if _, ok := s[acc.(UintVal)]; ok {
+		return ok
+	}
+	return false
+}
+
 func (s SetUint) Get(acc Native) (Native, bool) {
 	if dat, ok := s[acc.(UintVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
+
+func (s SetUint) GetUint(idx uint) (Native, bool) {
+	if dat, ok := s[UintVal(idx)]; ok {
 		return dat, ok
 	}
 	return nil, false
@@ -368,7 +386,15 @@ func (s SetUint) Delete(acc Native) bool {
 	return false
 }
 
-func (s SetUint) Set(acc Native, dat Native) Mapped { s[acc.(UintVal)] = acc.(UintVal); return s }
+func (s SetUint) Set(acc Native, dat Native) Mapped {
+	s[acc.(UintVal)] = dat
+	return s
+}
+
+func (s SetUint) SetUint(idx uint, dat Native) Mapped {
+	s[UintVal(idx)] = dat
+	return s
+}
 
 //////////////////////////////////////////////////////////////
 
@@ -380,8 +406,7 @@ func NewFloatSet(acc ...Paired) Mapped {
 	return SetFloat(m)
 }
 
-func (s SetFloat) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
-func (s SetFloat) Len() int                        { return len(s) }
+func (s SetFloat) Len() int { return len(s) }
 
 func (s SetFloat) First() Paired {
 	if s.Len() > 0 {
@@ -389,24 +414,10 @@ func (s SetFloat) First() Paired {
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetFloat) TypeName() string { return typeNameSet(s) }
-func (s SetFloat) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetFloat) KeyType() TyNat   { return Float.TypeNat() }
-func (s SetFloat) ValType() TyNat   { return s.First().Right().TypeNat() }
-
-func (s SetFloat) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Reals) {
-					s.Set(FltVal(pair.Left().(Real).Float()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetFloat) TypeNat() TyNat { return Map }
+func (s SetFloat) Type() Typed    { return Map }
+func (s SetFloat) KeyType() Typed { return Float.TypeNat() }
+func (s SetFloat) ValType() Typed { return s.First().Right().TypeNat() }
 
 func (s SetFloat) Keys() []Native {
 	var keys = []Native{}
@@ -440,8 +451,29 @@ func (s SetFloat) Fields() []Paired {
 	return pairs
 }
 
+func (s SetFloat) HasFlt(flt float64) bool {
+	if _, ok := s.GetFlt(flt); ok {
+		return ok
+	}
+	return false
+}
+
+func (s SetFloat) Has(acc Native) bool {
+	if _, ok := s[acc.(FltVal)]; ok {
+		return ok
+	}
+	return false
+}
+
 func (s SetFloat) Get(acc Native) (Native, bool) {
 	if dat, ok := s[acc.(FltVal)]; ok {
+		return dat, ok
+	}
+	return nil, false
+}
+
+func (s SetFloat) GetFlt(flt float64) (Native, bool) {
+	if dat, ok := s[FltVal(flt)]; ok {
 		return dat, ok
 	}
 	return nil, false
@@ -455,7 +487,15 @@ func (s SetFloat) Delete(acc Native) bool {
 	return false
 }
 
-func (s SetFloat) Set(acc Native, dat Native) Mapped { s[acc.(FltVal)] = acc.(FltVal); return s }
+func (s SetFloat) Set(acc Native, dat Native) Mapped {
+	s[acc.(FltVal)] = dat
+	return s
+}
+
+func (s SetFloat) SetFlt(flt float64, dat Native) Mapped {
+	s[FltVal(flt)] = dat
+	return s
+}
 
 //////////////////////////////////////////////////////////////
 
@@ -467,31 +507,16 @@ func NewBitFlagSet(acc ...Paired) Mapped {
 	return SetFlag(m)
 }
 
-func (s SetFlag) Interface(args ...Native) Mapped { return s.Eval(args...).(Mapped) }
 func (s SetFlag) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetFlag) TypeName() string { return typeNameSet(s) }
-func (s SetFlag) TypeNat() TyNat   { return Map.TypeNat() }
-func (s SetFlag) KeyType() TyNat   { return Type.TypeNat() }
-func (s SetFlag) ValType() TyNat   { return s.First().Right().TypeNat() }
-
-func (s SetFlag) Eval(p ...Native) Native {
-	if len(p) > 0 {
-		for _, prime := range p {
-			if prime.TypeNat().Flag().Match(Pair) {
-				var pair = prime.(PairVal)
-				if pair.Left().TypeNat().Flag().Match(Type) {
-					s.Set(UintVal(pair.Left().(Natural).Uint()), pair.Right())
-				}
-			}
-		}
-	}
-	return s
-}
+func (s SetFlag) TypeNat() TyNat { return Map }
+func (s SetFlag) Type() Typed    { return Map }
+func (s SetFlag) KeyType() Typed { return Type.TypeNat() }
+func (s SetFlag) ValType() Typed { return s.First().Right().TypeNat() }
 
 func (s SetFlag) Len() int { return len(s) }
 
@@ -527,6 +552,13 @@ func (s SetFlag) Fields() []Paired {
 	return parms
 }
 
+func (s SetFlag) Has(acc Native) bool {
+	if _, ok := s[acc.(BitFlag)]; ok {
+		return ok
+	}
+	return false
+}
+
 func (s SetFlag) Get(acc Native) (Native, bool) {
 	if dat, ok := s[acc.(BitFlag)]; ok {
 		return dat, ok
@@ -542,4 +574,7 @@ func (s SetFlag) Delete(acc Native) bool {
 	return false
 }
 
-func (s SetFlag) Set(acc Native, dat Native) Mapped { s[acc.(BitFlag)] = acc.(BitFlag); return s }
+func (s SetFlag) Set(acc Native, dat Native) Mapped {
+	s[acc.(BitFlag)] = dat
+	return s
+}

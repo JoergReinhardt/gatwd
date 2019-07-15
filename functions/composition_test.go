@@ -3,136 +3,134 @@ package functions
 import (
 	"fmt"
 	"testing"
-
-	d "github.com/joergreinhardt/gatwd/data"
 )
 
-func TestMapF(t *testing.T) {
+//func TestMapF(t *testing.T) {
+//
+//	var vector = NewVector(listA()...)
+//	var fmap = func(args ...Expression) Expression {
+//		return New(args[0].Eval().(d.IntVal).Idx() * 3)
+//	}
+//
+//	var mapped = MapF(vector, fmap)
+//
+//	printCons(mapped)
+//}
+//
+//func TestMapL(t *testing.T) {
+//
+//	var list = NewList(listA()...)
+//	var fmap = func(args ...Expression) Expression {
+//		return New(args[0].Eval().(d.IntVal).Idx() * 3)
+//	}
+//
+//	var mapped = MapL(list, fmap)
+//
+//	printCons(mapped)
+//}
+//
+//func TestFoldL(t *testing.T) {
+//
+//	var list = NewList(listA()...)
+//	var fold = Fold(func(ilem, head Expression, args ...Expression) Expression {
+//		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+//	})
+//	var ilem = New(0)
+//
+//	var folded = FoldL(list, ilem, fold)
+//
+//	printCons(folded)
+//}
+//
+//func TestFoldF(t *testing.T) {
+//
+//	var vector = NewVector(listA()...)
+//	var fold = Fold(func(ilem, head Expression, args ...Expression) Expression {
+//		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+//	})
+//	var ilem = New(0)
+//
+//	var folded = FoldF(vector, ilem, fold)
+//
+//	printCons(folded)
+//}
+//
+//func TestListFoldAndMap(t *testing.T) {
+//
+//	var list = NewList(listA()...)
+//	var elem = New(0)
+//	var fold = func(elem, head Expression, args ...Expression) Expression {
+//		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+//	}
+//	var fmap = func(args ...Expression) Expression {
+//		return New(args[0].Eval().(d.IntVal).Idx() * 3)
+//	}
+//
+//	var mapped = MapL(list, fmap)
+//	var folded = FoldL(mapped, elem, fold)
+//
+//	printCons(folded)
+//
+//	folded = FoldL(list, elem, fold)
+//	mapped = MapL(folded, fmap)
+//
+//	var head, result Expression
+//	head, mapped = mapped()
+//
+//	for {
+//		fmt.Println(head)
+//		head, mapped = mapped()
+//		if head == nil {
+//			break
+//		}
+//		result = head
+//	}
+//
+//	if result.Eval().(d.IntVal) != 135 {
+//		t.Fail()
+//	}
+//}
+//
+//func TestConsumeableFoldAndMap(t *testing.T) {
+//
+//	var vec = listA
+//	var elem = New(0)
+//	var fold = func(elem, head Expression, args ...Expression) Expression {
+//		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
+//	}
+//	var fmap = func(args ...Expression) Expression {
+//		return New(args[0].Eval().(d.IntVal).Idx() * 3)
+//	}
+//
+//	var mapped = MapF(vec, fmap)
+//	var folded = FoldF(mapped, elem, fold)
+//
+//	folded = FoldF(vec, elem, fold)
+//	mapped = MapF(folded, fmap)
+//
+//	var head, result Expression
+//	head, mapped = mapped()
+//
+//	for {
+//		fmt.Println(head)
+//		head, mapped = mapped()
+//		if head == nil {
+//			break
+//		}
+//		result = head
+//	}
+//
+//	if result.Eval().(d.IntVal) != 135 {
+//		t.Fail()
+//	}
+//}
+//
+var keys = []Expression{NewNative("zero"), NewNative("one"), NewNative("two"), NewNative("three"),
+	NewNative("four"), NewNative("five"), NewNative("six"), NewNative("seven"), NewNative("eight"), NewNative("nine"),
+	NewNative("ten")}
 
-	var vector = NewVector(listA()...)
-	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
-	}
-
-	var mapped = MapF(vector, fmap)
-
-	printCons(mapped)
-}
-
-func TestMapL(t *testing.T) {
-
-	var list = NewList(listA()...)
-	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
-	}
-
-	var mapped = MapL(list, fmap)
-
-	printCons(mapped)
-}
-
-func TestFoldL(t *testing.T) {
-
-	var list = NewList(listA()...)
-	var fold = Fold(func(ilem, head Expression, args ...Expression) Expression {
-		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
-	})
-	var ilem = New(0)
-
-	var folded = FoldL(list, ilem, fold)
-
-	printCons(folded)
-}
-
-func TestFoldF(t *testing.T) {
-
-	var vector = NewVector(listA()...)
-	var fold = Fold(func(ilem, head Expression, args ...Expression) Expression {
-		return New(ilem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
-	})
-	var ilem = New(0)
-
-	var folded = FoldF(vector, ilem, fold)
-
-	printCons(folded)
-}
-
-func TestListFoldAndMap(t *testing.T) {
-
-	var list = NewList(listA()...)
-	var elem = New(0)
-	var fold = func(elem, head Expression, args ...Expression) Expression {
-		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
-	}
-	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
-	}
-
-	var mapped = MapL(list, fmap)
-	var folded = FoldL(mapped, elem, fold)
-
-	printCons(folded)
-
-	folded = FoldL(list, elem, fold)
-	mapped = MapL(folded, fmap)
-
-	var head, result Expression
-	head, mapped = mapped()
-
-	for {
-		fmt.Println(head)
-		head, mapped = mapped()
-		if head == nil {
-			break
-		}
-		result = head
-	}
-
-	if result.Eval().(d.IntVal) != 135 {
-		t.Fail()
-	}
-}
-
-func TestConsumeableFoldAndMap(t *testing.T) {
-
-	var vec = listA
-	var elem = New(0)
-	var fold = func(elem, head Expression, args ...Expression) Expression {
-		return New(elem.Eval().(d.IntVal) + head.Eval().(d.IntVal))
-	}
-	var fmap = func(args ...Expression) Expression {
-		return New(args[0].Eval().(d.IntVal).Int() * 3)
-	}
-
-	var mapped = MapF(vec, fmap)
-	var folded = FoldF(mapped, elem, fold)
-
-	folded = FoldF(vec, elem, fold)
-	mapped = MapF(folded, fmap)
-
-	var head, result Expression
-	head, mapped = mapped()
-
-	for {
-		fmt.Println(head)
-		head, mapped = mapped()
-		if head == nil {
-			break
-		}
-		result = head
-	}
-
-	if result.Eval().(d.IntVal) != 135 {
-		t.Fail()
-	}
-}
-
-var keys = []Expression{New("zero"), New("one"), New("two"), New("three"),
-	New("four"), New("five"), New("six"), New("seven"), New("eight"), New("nine"),
-	New("ten")}
-
-var vals = []Expression{New(0), New(1), New(2), New(3), New(4), New(5), New(6),
-	New(7), New(8), New(9), New(10)}
+var vals = []Expression{NewNative(0), NewNative(1), NewNative(2), NewNative(3), NewNative(4), NewNative(5), NewNative(6),
+	NewNative(7), NewNative(8), NewNative(9), NewNative(10)}
 
 func TestZipLists(t *testing.T) {
 	var zipped = ZipL(NewList(keys...), NewList(vals...), func(l, r Expression) Paired { return NewPair(l, r) })
@@ -144,40 +142,40 @@ func TestZipConsumeable(t *testing.T) {
 
 	var head, tail = zipped.Consume()
 	for head != nil {
-		fmt.Printf("%s, ", head)
+		fmt.Printf("%s,\n ", head)
 		head, tail = tail.Consume()
 	}
 }
 
-func TestFilterList(t *testing.T) {
-	var filtered = FilterL(NewList(vals...), Filter(func(head Expression, args ...Expression) bool {
-		if (head.Eval().(d.IntVal) % 2) == 0 {
-			return true
-		}
-		return false
-	}))
+//func TestFilterList(t *testing.T) {
+//	var filtered = FilterL(NewList(vals...), Filter(func(head Expression, args ...Expression) bool {
+//		if (head.Eval().(d.IntVal) % 2) == 0 {
+//			return true
+//		}
+//		return false
+//	}))
+//
+//	var head, tail = filtered()
+//	for head != nil {
+//		fmt.Printf("filtered element: %s\n", head)
+//		head, tail = tail()
+//	}
+//}
 
-	var head, tail = filtered()
-	for head != nil {
-		fmt.Printf("filtered element: %s\n", head)
-		head, tail = tail()
-	}
-}
-
-func TestFilterConsumeable(t *testing.T) {
-	var filtered = FilterF(NewList(vals...), Filter(func(head Expression, args ...Expression) bool {
-		if (head.Eval().(d.IntVal) % 2) == 0 {
-			return true
-		}
-		return false
-	}))
-
-	var head, tail = filtered.Consume()
-	for head != nil {
-		fmt.Printf("filtered element: %s\n", head)
-		head, tail = tail.Consume()
-	}
-}
+//func TestFilterConsumeable(t *testing.T) {
+//	var filtered = FilterF(NewList(vals...), Filter(func(head Expression, args ...Expression) bool {
+//		if (head.Eval().(d.IntVal) % 2) == 0 {
+//			return true
+//		}
+//		return false
+//	}))
+//
+//	var head, tail = filtered.Consume()
+//	for head != nil {
+//		fmt.Printf("filtered element: %s\n", head)
+//		head, tail = tail.Consume()
+//	}
+//}
 
 //func TestBindF(t *testing.T) {
 //	// bind function will multiply numerals

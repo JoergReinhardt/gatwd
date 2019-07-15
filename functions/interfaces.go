@@ -4,29 +4,44 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-//// NATIVE INTERFACE
-///
-type Flagged interface {
-	Match(d.Typed) bool
-	Flag() d.BitFlag
+///// EXPRESSION INTERFACES
+type Stringer interface {
+	String() string
 }
-type Typed interface {
-	Type() TyDef
-	TypeFnc() TyFnc
-	TypeName() string
+type FlagTyped interface {
 	FlagType() d.Uint8Val
 }
-
-type Evaluable interface {
-	Eval(...d.Native) d.Native
+type Flagged interface {
+	Flag() d.BitFlag
 }
-
-type Expression interface {
-	Typed
-	Evaluable
-	Call(...Expression) Expression
+type Matched interface {
+	Match(d.Typed) bool
+}
+type NameTyped interface {
+	TypeName() string
+}
+type FunctionTyped interface {
+	TypeFnc() TyFnc
+}
+type NativeTyped interface {
 	TypeNat() d.TyNat
-	String() string
+}
+type Callable interface {
+	Call(...Expression) Expression
+}
+type Typed interface {
+	d.Typed
+}
+type Expression interface {
+	FunctionTyped
+	Callable
+	Stringer
+	Type() TyPattern
+}
+type Native interface {
+	Expression
+	TypeNat() d.TyNat
+	Eval(...d.Native) d.Native
 }
 
 type Reproduceable interface {
@@ -40,7 +55,7 @@ type Destructable interface {
 	d.Destructable
 }
 
-// numberal interfaces
+// numberal interfacesName
 type Boolean interface {
 	// Bool() bool
 	d.Boolean
@@ -80,7 +95,7 @@ type Numeral interface {
 	Imaginary
 }
 
-type Text interface {
+type Textual interface {
 	// String() string
 	d.Text
 }
@@ -137,14 +152,14 @@ type Sequential interface {
 }
 
 type Mapped interface {
-	// Len() int
-	// Keys() []Native
-	// Data() []Native
-	// Fields() []Paired
-	// Get(acc Native) (Native, bool)
-	// Delete(acc Native) bool
-	// Set(Native, Native) Mapped
-	d.Mapped
+	Len() int
+	Keys() []Expression
+	Data() []Expression
+	Fields() []Paired
+	Get(acc Expression) (Expression, bool)
+	Delete(acc Expression) bool
+	Set(Expression, Expression) Mapped
+	//d.Mapped
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,13 +167,22 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
+	TypeElem() d.Typed
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
 }
 
+type Testable interface {
+	Test(...Expression) bool
+}
+
+type Compareable interface {
+	Compare(...Expression) int
+}
+
 type Countable interface {
-	Len() int // <- performs mutch better on slices
+	Len() int
 }
 
 type Listable interface {
@@ -171,7 +195,7 @@ type Sliceable interface {
 }
 
 type Sortable interface {
-	Sort(d.TyNat)
+	Sort(TyFnc)
 }
 
 type Searchable interface {
@@ -185,9 +209,9 @@ type IndexAssociated interface {
 
 type Vectorized interface {
 	IndexAssociated
-	Searchable
+	//Searchable
 	Sliceable
-	Sortable
+	//Sortable
 	Countable
 }
 
@@ -211,10 +235,8 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyNatType() d.TyNat
-	ValNatType() d.TyNat
-	KeyType() TyDef
-	ValType() TyDef
+	KeyType() d.Typed
+	ValType() d.Typed
 }
 
 type Paired interface {
@@ -230,7 +252,7 @@ type Paired interface {
 }
 
 type Keyed interface {
-	KeyStr() string
+	KeyStr() d.StrVal
 }
 
 type KeyPaired interface {
@@ -239,7 +261,7 @@ type KeyPaired interface {
 }
 
 type Indexed interface {
-	Index() string
+	Index() int
 }
 type IndexPaired interface {
 	Indexed

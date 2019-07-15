@@ -32,25 +32,25 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 		switch ops {
 
 		case Add:
-			return UintVal(a.Uint() + b.Uint())
+			return UintVal(a.GoUint() + b.GoUint())
 		case Substract:
-			var ua, ub = a.Uint(), b.Uint()
+			var ua, ub = a.GoUint(), b.GoUint()
 			// if negative result is expected‥.
 			if ua < ub {
 				// convert to integer
-				var ia, ib = a.Int(), b.Int()
+				var ia, ib = a.GoInt(), b.GoInt()
 				return IntVal(ia - ib)
 			}
 			//‥.otherwise return natural number
 			return UintVal(ua - ub)
 		case Multiply:
-			return UintVal(a.Uint() * b.Uint())
+			return UintVal(a.GoUint() * b.GoUint())
 		case Divide:
-			if a.Uint() > 0 &&
-				b.Uint() > 0 {
+			if a.GoUint() > 0 &&
+				b.GoUint() > 0 {
 				var rat = RatioVal(*big.NewRat(
-					int64(a.Uint()),
-					int64(b.Uint()),
+					int64(a.GoUint()),
+					int64(b.GoUint()),
 				))
 				return &rat
 			}
@@ -61,17 +61,17 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 		switch ops {
 
 		case Add:
-			return IntVal(a.Int() + b.Int())
+			return IntVal(a.GoInt() + b.GoInt())
 		case Substract:
-			return IntVal(a.Int() - b.Int())
+			return IntVal(a.GoInt() - b.GoInt())
 		case Multiply:
-			return IntVal(a.Int() * b.Int())
+			return IntVal(a.GoInt() * b.GoInt())
 		case Divide:
-			if a.Int() > 0 &&
-				b.Int() > 0 {
+			if a.GoInt() > 0 &&
+				b.GoInt() > 0 {
 				var rat = RatioVal(*big.NewRat(
-					int64(a.Int()),
-					int64(b.Int()),
+					int64(a.GoInt()),
+					int64(b.GoInt()),
 				))
 				return &rat
 			}
@@ -82,15 +82,15 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 		switch ops {
 
 		case Add:
-			return FltVal(a.Float() + b.Float())
+			return FltVal(a.GoFlt() + b.GoFlt())
 		case Substract:
-			return FltVal(a.Float() - b.Float())
+			return FltVal(a.GoFlt() - b.GoFlt())
 		case Multiply:
-			return FltVal(a.Float() * b.Float())
+			return FltVal(a.GoFlt() * b.GoFlt())
 		case Divide:
-			if a.Float() > 0 &&
-				b.Float() > 0 {
-				return FltVal(a.Float() / b.Float())
+			if a.GoFlt() > 0 &&
+				b.GoFlt() > 0 {
+				return FltVal(a.GoFlt() / b.GoFlt())
 			}
 
 		}
@@ -98,7 +98,7 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 	case typ.Match(Rationals): // rational arithmetics
 
 		var rat RatioVal
-		var ratA, ratB = a.Rat(), b.Rat()
+		var ratA, ratB = a.GoRat(), b.GoRat()
 
 		switch ops {
 
@@ -121,15 +121,15 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 		switch ops {
 
 		case Add:
-			return ImagVal(a.Imag() + b.Imag())
+			return ImagVal(a.GoImag() + b.GoImag())
 		case Substract:
-			return ImagVal(a.Imag() - b.Imag())
+			return ImagVal(a.GoImag() - b.GoImag())
 		case Multiply:
-			return ImagVal(a.Imag() * b.Imag())
+			return ImagVal(a.GoImag() * b.GoImag())
 		case Divide:
-			if cmplx.Abs(a.Imag()) > 0 &&
-				cmplx.Abs(b.Imag()) > 0 {
-				return ImagVal(a.Imag() / b.Imag())
+			if cmplx.Abs(a.GoImag()) > 0 &&
+				cmplx.Abs(b.GoImag()) > 0 {
+				return ImagVal(a.GoImag() / b.GoImag())
 			}
 		}
 	}
@@ -145,7 +145,7 @@ func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
 	// if type of value a has higher precedence‥.
 	if a.TypeNat().Flag() > b.TypeNat().Flag() {
 		// convert b's type to match a's type‥.
-		b = castNumberAs(
+		b = CastNumeral(
 			b.(Numeral),
 			a.TypeNat(),
 		).(Numeral)
@@ -155,7 +155,7 @@ func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
 		// reset return type to be b's native type
 		typ = b.TypeNat()
 		// convert a's type to match b's type‥.
-		a = castNumberAs(
+		a = CastNumeral(
 			a.(Numeral),
 			b.TypeNat(),
 		).(Numeral)

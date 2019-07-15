@@ -5,17 +5,17 @@ package functions
 import "strconv"
 
 const (
-	_TyFlag_name_0 = "Flag_BitFlagFlag_NativeFlag_FunctionalFlag_TypeConsFlag_DataConsFlag_ArityFlag_Prop"
-	_TyFlag_name_1 = "Flag_Def"
+	_TyFlag_name_0 = "Flag_BitFlagFlag_FunctionFlag_NativeFlag_KeyWordFlag_SymbolFlag_TokenFlag_ArityFlag_PropFlag_Lex"
+	_TyFlag_name_1 = "Flag_Pattern"
 )
 
 var (
-	_TyFlag_index_0 = [...]uint8{0, 12, 23, 38, 51, 64, 74, 83}
+	_TyFlag_index_0 = [...]uint8{0, 12, 25, 36, 48, 59, 69, 79, 88, 96}
 )
 
 func (i TyFlag) String() string {
 	switch {
-	case 0 <= i && i <= 6:
+	case 0 <= i && i <= 8:
 		return _TyFlag_name_0[_TyFlag_index_0[i]:_TyFlag_index_0[i+1]]
 	case i == 255:
 		return _TyFlag_name_1

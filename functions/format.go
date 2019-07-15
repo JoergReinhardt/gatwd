@@ -10,10 +10,10 @@ func (p PairVal) String() string {
 	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
 }
 func (a KeyPair) String() string {
-	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
+	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 func (a IndexPair) String() string {
-	return "(" + a.Right().String() + "∷ " + a.Left().String() + ")"
+	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
@@ -37,13 +37,13 @@ func (v PairVec) String() string {
 }
 
 /// ASSOCIATIVE SET
-func (v SetCol) String() string {
-	var pairs = []string{}
-	for _, pair := range v.Pairs() {
-		pairs = append(pairs, pair.String())
-	}
-	return "[" + strings.Join(pairs, ", ") + "]"
-}
+////func (v SetCol) String() string {
+////	var pairs = []string{}
+////	for _, pair := range v.Pairs() {
+////		pairs = append(pairs, pair.String())
+////	}
+////	return "[" + strings.Join(pairs, ", ") + "]"
+////}
 
 /// LIST
 func (l ListCol) String() string {

@@ -44,7 +44,7 @@ func (v NilVal) MarshalBinary() ([]byte, error) {
 }
 
 func (v BoolVal) MarshalBinary() ([]byte, error) {
-	var u = uint64(v.Uint())
+	var u = uint64(v.GoUint())
 	var buf = make([]byte, 0, binary.Size(u))
 	binary.PutUvarint(buf, u)
 	return buf, nil

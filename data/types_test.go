@@ -46,7 +46,7 @@ func TestFlag(t *testing.T) {
 
 	fmt.Println(Letters.TypeName())
 
-	if fmt.Sprint(Letters.TypeName()) != "Rune|Bytes|String" {
+	if fmt.Sprint(Letters.TypeName()) != "Letters" {
 		t.Fail()
 	}
 
@@ -218,9 +218,9 @@ func TestTimeType(t *testing.T) {
 	fmt.Printf("time stamp: %s\n", v.String())
 }
 func TestAllTypes(t *testing.T) {
-	fmt.Println(ListAllTypes())
+	fmt.Println(FetchTypes())
 
-	if fmt.Sprint(ListAllTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Flag Error Pair Slice Unboxed Map Literal Function Type]" {
+	if fmt.Sprint(FetchTypes()) != "[Nil Bool Int8 Int16 Int32 Int BigInt Uint8 Uint16 Uint32 Uint Flt32 Float BigFlt Ratio Imag64 Imag Time Duration Byte Rune Bytes String Flag Error Pair Slice Unboxed Map Function Literal Type]" {
 		t.Fail()
 	}
 }
@@ -232,7 +232,7 @@ func TestSearchChainInt(t *testing.T) {
 	fmt.Println(sl)
 	dat := sl.Search(New(2))
 	fmt.Println(dat)
-	if dat.(Integer).Int() != 2 {
+	if dat.(Integer).Idx() != 2 {
 		t.Fail()
 	}
 	fmt.Println(sl)

@@ -21,7 +21,7 @@ func (e CompoundError) Error() string {
 
 // returns a nil value instance
 func NewNil() NilVal { return NilVal{} }
-func NewErrorVal(errs ...error) ErrorVal {
+func NewError(errs ...error) ErrorVal {
 	if len(errs) == 0 {
 		return ErrorVal{}
 	}
@@ -52,7 +52,7 @@ func NewNull(nat TyNat) Native {
 			// a single native type should be left
 			if len(nats) == 1 {
 				// return a slice of the particular type
-				return NewUnboxed(nats[0].TypeNat())
+				return NewUnboxed(nats[0].(NativeTyped).TypeNat())
 			}
 		case nat.Match(Pair):
 			// mask pair flag and decompose remaining flags
@@ -97,7 +97,7 @@ func NewNull(nat TyNat) Native {
 
 func New(vals ...interface{}) Native { dat, _ := newWithTypeInfo(vals...); return dat }
 
-func NewFromData(args ...Native) Native {
+func NewData(args ...Native) Native {
 	if len(args) > 0 {
 		if len(args) > 1 {
 			// try to return unboxed natives if possible, falls
@@ -215,6 +215,12 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 	case *big.Rat:
 		v := RatioVal(*temp.(*big.Rat))
 		rval = &v
+	case func(...Native) Native:
+		rval = FuncVal(temp.(func(...Native) Native))
+	case TyNat:
+		rval = BitFlag(temp.(TyNat))
+	case BitFlag:
+		rval = TyNat(temp.(BitFlag))
 	case Native:
 		rval = temp.(Native)
 	case []Native:

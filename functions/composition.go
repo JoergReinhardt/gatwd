@@ -23,27 +23,6 @@ type (
 	ConsPairVal func(...Expression) (Expression, ConsPairVal)
 )
 
-//// CURRY
-func Curry(exprs ...Expression) Expression {
-	if len(exprs) > 0 {
-		var expr = exprs[0]
-		if len(exprs) > 1 {
-			if exprs[0].FlagType() == Flag_Def.U() {
-				var def = expr.(TyDef)
-				return Define(
-					def.TypeName(),
-					def.Return(),
-				).Call(Curry(exprs[1:]...))
-			}
-			return Define(
-				expr.TypeName(), expr,
-			).Call(Curry(exprs[1:]...))
-		}
-		return expr
-	}
-	return NewNone()
-}
-
 //// CONSUMEABLE FUNCTOR
 func NewConsumeable(cons Consumeable) ConsumeVal {
 	return ConsumeVal(func(args ...Expression) (Expression, ConsumeVal) {
@@ -59,13 +38,15 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 	})
 }
 
-func (m ConsumeVal) TypeName() string     { return "(" + m.Head().TypeName() + ")" }
-func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (m ConsumeVal) TypeNat() d.TyNat     { return m.Head().TypeNat() }
-func (m ConsumeVal) Type() TyDef {
-	return Define(m.TypeName(), m.Head().Type())
+func (m ConsumeVal) TypeName() string { return "(" + m.Head().Type().TypeName() + ")" }
+func (m ConsumeVal) TypeFnc() TyFnc   { return Collections }
+func (m ConsumeVal) TypeElem() d.Typed {
+	if head := m.Head(); head != nil {
+		return head.TypeFnc()
+	}
+	return None.TypeFnc()
 }
+func (m ConsumeVal) Type() TyPattern { return ConPattern(Consumeables) }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
 	head, m = m()
@@ -83,9 +64,6 @@ func (m ConsumeVal) Tail() Consumeable {
 }
 func (m ConsumeVal) Call(args ...Expression) Expression {
 	return m.Head().Call(args...)
-}
-func (m ConsumeVal) Eval(args ...d.Native) d.Native {
-	return m.Head().Eval()
 }
 func (m ConsumeVal) String() string {
 	return m.Head().String()
@@ -128,10 +106,6 @@ func (c ConsPairVal) Call(args ...Expression) Expression {
 	}
 	return head
 }
-func (c ConsPairVal) Eval(args ...d.Native) d.Native {
-	var head, _ = c()
-	return head.Eval()
-}
 func (c ConsPairVal) Ident() Expression {
 	return c
 }
@@ -149,13 +123,15 @@ func (c ConsPairVal) Tail() Consumeable {
 func (c ConsPairVal) String() string {
 	return c.Head().String()
 }
-func (c ConsPairVal) TypeName() string     { return "(" + c.Head().TypeName() + ")" }
-func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsPairVal) TypeNat() d.TyNat     { return c.Head().TypeNat() }
-func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Functional) }
-func (c ConsPairVal) Type() TyDef {
-	return Define(c.TypeName(), c.Head().Type())
+func (c ConsPairVal) TypeName() string { return "(" + c.Head().Type().TypeName() + ")" }
+func (c ConsPairVal) TypeFnc() TyFnc   { return Collections }
+func (c ConsPairVal) TypeElem() d.Typed {
+	if head := c.Head(); head != nil {
+		return head.TypeFnc()
+	}
+	return None.TypeFnc()
 }
+func (c ConsPairVal) Type() TyPattern { return ConPattern(Consumeables) }
 
 //// MAP
 func MapL(list ListCol, mapf Map) ListCol {

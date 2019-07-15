@@ -89,13 +89,14 @@ func (v Imag64Val) String() string {
 	return strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
+func (v FuncVal) String() string { return v().String() }
 
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag
 func (v BitFlag) String() string { return StringBitFlag(v) }
 func StringBitFlag(v BitFlag) string {
 	var str string
-	if bits.OnesCount(v.Uint()) > 1 {
+	if bits.OnesCount(uint(v.Uint())) > 1 {
 		for i, f := range FlagDecompose(v) {
 			str = str + f.(TyNat).String()
 			if i < len(FlagDecompose(v))-1 {

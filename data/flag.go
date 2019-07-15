@@ -8,8 +8,8 @@ import (
 //// BOUND TYPE FLAG METHODS ////
 func (v BitFlag) FlagType() Uint8Val   { return 0 }
 func (v BitFlag) Flag() BitFlag        { return v }
-func (v BitFlag) Uint() uint           { return uint(v) }
-func (v BitFlag) Int() int             { return int(v) }
+func (v BitFlag) Uint() UintVal        { return UintVal(v) }
+func (v BitFlag) Int() IntVal          { return IntVal(v) }
 func (v BitFlag) Len() int             { return FlagLength(v) }
 func (v BitFlag) Count() int           { return FlagCount(v) }
 func (v BitFlag) Least() int           { return FlagLeastSig(v) }
@@ -26,13 +26,25 @@ func (v BitFlag) Match(f Typed) bool   { return FlagMatch(v, f) }
 func (v BitFlag) Decompose() []Typed   { return FlagDecompose(v) }
 
 ///// FREE TYPE FLAG METHOD IMPLEMENTATIONS /////
-func flag(t Typed) BitFlag              { return t.Flag() }
-func FlagLength(t Typed) int            { return bits.Len(t.Flag().Uint()) }
-func FlagCount(t Typed) int             { return bits.OnesCount(t.Flag().Uint()) }
-func FlagLeastSig(t Typed) int          { return bits.TrailingZeros(t.Flag().Uint()) + 1 }
-func FlagMostSig(t Typed) int           { return bits.LeadingZeros(t.Flag().Uint()) - 1 }
-func FlagReverse(t Typed) BitFlag       { return BitFlag(bits.Reverse(t.Flag().Uint())) }
-func FlagRotate(t Typed, n int) BitFlag { return BitFlag(bits.RotateLeft(t.Flag().Uint(), n)) }
+func flag(t Typed) BitFlag { return t.Flag() }
+func FlagLength(t Typed) int {
+	return bits.Len(uint(t.Flag().Uint()))
+}
+func FlagCount(t Typed) int {
+	return bits.OnesCount(uint(t.Flag().Uint()))
+}
+func FlagLeastSig(t Typed) int {
+	return bits.TrailingZeros(uint(t.Flag().Uint()) + 1)
+}
+func FlagMostSig(t Typed) int {
+	return bits.LeadingZeros(uint(t.Flag().Uint()) - 1)
+}
+func FlagReverse(t Typed) BitFlag {
+	return BitFlag(bits.Reverse(uint(t.Flag().Uint())))
+}
+func FlagRotate(t Typed, n int) BitFlag {
+	return BitFlag(bits.RotateLeft(uint(t.Flag().Uint()), n))
+}
 
 func FlagToggle(t Typed, v Typed) BitFlag {
 	return BitFlag(t.Flag().Uint() ^ v.Flag().Uint())
@@ -46,7 +58,7 @@ func FlagMask(t Typed, v Typed) BitFlag {
 	return BitFlag(t.Flag().Uint() &^ v.Flag().Uint())
 }
 
-func FlagShow(f Typed) string { return fmt.Sprintf("%64b\n", f) }
+func FlagShow(f Typed) StrVal { return StrVal(fmt.Sprintf("%64b\n", f)) }
 func FlagLow(t Typed) Typed   { return FlagMask(t.Flag(), Typed(Type)) }
 func FlagHigh(t Typed) BitFlag {
 	len := FlagLength(BitFlag(Type))
@@ -54,6 +66,9 @@ func FlagHigh(t Typed) BitFlag {
 }
 
 func FlagMatch(t Typed, v Typed) bool {
+	if t.Flag().Count() > 1 && v.Flag().Count() == 1 {
+		return v.Match(t)
+	}
 	if t.Flag().Uint()&^v.Flag().Uint() != 0 {
 		return false
 	}
@@ -63,7 +78,7 @@ func FlagMatch(t Typed, v Typed) bool {
 // decomposes flag resulting from OR concatenation, to a slice of flags
 func FlagDecompose(v Typed) []Typed {
 	var slice = []Typed{}
-	if bits.OnesCount(v.Flag().Uint()) == 1 {
+	if bits.OnesCount(uint(v.Flag().Uint())) == 1 {
 		return append(slice, v.Flag())
 	}
 	var u = uint(1)
