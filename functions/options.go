@@ -73,7 +73,7 @@ func NewTest(test func(...Expression) bool) TestVal {
 }
 func (t TestVal) TypeFnc() TyFnc { return Truth }
 func (t TestVal) Type() TyPattern {
-	return Define(t.TypeFnc(), Define(True, False))
+	return Define(t.TypeFnc(), Define(Truth, Define(True, False)))
 }
 func (t TestVal) String() string               { return t.TypeFnc().TypeName() }
 func (t TestVal) Test(args ...Expression) bool { return t(args...) }
@@ -98,7 +98,7 @@ func NewTrinary(test func(...Expression) int) TrinVal {
 }
 func (t TrinVal) TypeFnc() TyFnc { return Trinary }
 func (t TrinVal) Type() TyPattern {
-	return Define(t.TypeFnc(), Define(True, False, Undecided))
+	return Define(t.TypeFnc(), Define(Trinary, Define(True, False, Undecided)))
 }
 func (t TrinVal) String() string                     { return t.TypeFnc().TypeName() }
 func (t TrinVal) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -117,7 +117,7 @@ func NewCompare(comp func(...Expression) int) CompVal {
 }
 func (t CompVal) TypeFnc() TyFnc { return Compare }
 func (t CompVal) Type() TyPattern {
-	return Define(t.TypeFnc(), Define(Lesser, Greater, Equal))
+	return Define(t.TypeFnc(), Define(Compare, Define(Lesser, Greater, Equal)))
 }
 func (t CompVal) String() string                     { return t.TypeFnc().TypeName() }
 func (t CompVal) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -133,7 +133,7 @@ func (t CompVal) Call(args ...Expression) Expression { return NewData(d.IntVal(t
 func NewCase(test Testable, expr Expression) CaseVal {
 	return func(args ...Expression) Expression {
 		if len(args) == 0 {
-			return NewCase(test, expr)
+			return NewPair(test, expr)
 		}
 		if test.Test(args...) {
 			return expr.Call(args...)
@@ -141,9 +141,12 @@ func NewCase(test Testable, expr Expression) CaseVal {
 		return NewNone()
 	}
 }
-func (t CaseVal) TypeFnc() TyFnc  { return Case }
-func (t CaseVal) Type() TyPattern { return Define(t.TypeFnc()) }
-func (t CaseVal) String() string  { return t.TypeFnc().TypeName() }
+func (t CaseVal) String() string { return t.TypeFnc().TypeName() }
+func (t CaseVal) TypeFnc() TyFnc { return Case }
+func (t CaseVal) Type() TyPattern {
+	var pair = t().(Paired)
+	return Define(Case, Define(pair.Left().Type(), pair.Right().Type()))
+}
 func (t CaseVal) Test(args ...Expression) bool {
 	if t(args...).Type().Match(None) {
 		return false
@@ -165,7 +168,11 @@ func (t CaseVal) Call(args ...Expression) Expression { return t(args...) }
 func NewSwitch(cases ...CaseVal) SwitchVal {
 	return func(args ...Expression) (Expression, SwitchVal) {
 		if len(args) == 0 {
-			return NewNone(),
+			var vector = NewVector()
+			for _, c := range cases {
+				vector = vector.Append(c)
+			}
+			return vector,
 				NewSwitch(cases...)
 		}
 		var current CaseVal
@@ -181,9 +188,24 @@ func NewSwitch(cases ...CaseVal) SwitchVal {
 		return NewNone(), nil
 	}
 }
-func (t SwitchVal) TypeFnc() TyFnc  { return Switch }
-func (t SwitchVal) Type() TyPattern { return Define(t.TypeFnc()) }
-func (t SwitchVal) String() string  { return t.TypeFnc().TypeName() }
+func (t SwitchVal) TypeFnc() TyFnc { return Switch }
+func (t SwitchVal) String() string { return t.TypeFnc().TypeName() }
+func (t SwitchVal) Type() TyPattern {
+	var cases = t.Cases()
+	var casetypes = make([]d.Typed, 0, len(cases))
+	for _, c := range cases {
+		casetypes = append(casetypes, c.Type())
+	}
+	return Define(Switch, Define(casetypes...))
+}
+func (t SwitchVal) Cases() []CaseVal {
+	var expr, _ = t()
+	var cases = make([]CaseVal, 0, expr.(VecCol).Len())
+	for _, expr := range expr.(VecCol).Slice() {
+		cases = append(cases, expr.(CaseVal))
+	}
+	return cases
+}
 func (t SwitchVal) Call(args ...Expression) Expression {
 	var expr, swi = t(args...)
 	for swi != nil {
