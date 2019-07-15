@@ -11,8 +11,8 @@ type (
 	Arity     d.Int8Val
 	Propertys d.Int8Val
 	TyPattern []d.Typed
-	TySymbol  string
 	TyValue   func(...Expression) Expression
+	TySymbol  string
 )
 
 //go:generate stringer -type TyFlag
@@ -31,12 +31,12 @@ const (
 	Flag_Pattern TyFlag = 255
 )
 
-func CastFlag(elem d.Typed) Expression {
+func flagToExpr(elem d.Typed) Expression {
 	switch {
 	case Flag_Native.Match(elem.FlagType()):
-		return ConPattern(elem.(d.TyNat))
+		return Define(elem.(d.TyNat))
 	case Flag_BitFlag.Match(elem.FlagType()):
-		return ConPattern(elem.(d.BitFlag))
+		return Define(elem.(d.BitFlag))
 	case Flag_Function.Match(elem.FlagType()):
 		return elem.(TyFnc)
 	case Flag_Prop.Match(elem.FlagType()):
@@ -95,7 +95,8 @@ const (
 	/// BOUND VALUE OPTIONS
 	Min
 	Max
-	/// VALUE OPTIONS
+	/// OPTION VALUES
+	Element
 	Switch
 	Case
 	Then
@@ -147,13 +148,13 @@ const (
 )
 
 // type flag representing pattern elements that define a symbol
-func ConSymbol(name string) TySymbol {
+func DefSymbol(name string) TySymbol {
 	return TySymbol(name)
 }
 func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
 func (n TySymbol) FlagType() d.Uint8Val { return Flag_Symbol.U() }
 func (n TySymbol) Flag() d.BitFlag      { return Symbol.Flag() }
-func (n TySymbol) Type() TyPattern      { return ConPattern(n) }
+func (n TySymbol) Type() TyPattern      { return Define(n) }
 func (n TySymbol) TypeName() string     { return string(n) }
 func (n TySymbol) String() string       { return string(n) }
 func (n TySymbol) Call(args ...Expression) Expression {
@@ -173,10 +174,10 @@ func (n TySymbol) Match(typ d.Typed) bool {
 }
 
 // type flag representing a pattern element that represents a value
-func ConValue(expr Expression) TyValue {
+func DefValue(expr Expression) TyValue {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			return expr(args...)
+			return expr.Call(args...)
 		}
 		return expr
 	}
@@ -184,7 +185,7 @@ func ConValue(expr Expression) TyValue {
 func (n TyValue) TypeFnc() TyFnc                     { return Value }
 func (n TyValue) FlagType() d.Uint8Val               { return Flag_Value.U() }
 func (n TyValue) Flag() d.BitFlag                    { return Value.Flag() }
-func (n TyValue) Type() TyPattern                    { return ConPattern(n) }
+func (n TyValue) Type() TyPattern                    { return Define(n) }
 func (n TyValue) TypeName() string                   { return n.TypeFnc().String() }
 func (n TyValue) String() string                     { return n().String() }
 func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
@@ -199,7 +200,7 @@ func (n TyValue) Match(typ d.Typed) bool {
 }
 
 // pattern of type, property, arity, symbol & value flags
-func ConPattern(types ...d.Typed) TyPattern { return types }
+func Define(types ...d.Typed) TyPattern { return types }
 
 // elems yields all elements contained in the pattern
 func (p TyPattern) Elems() []d.Typed     { return p }
@@ -244,7 +245,7 @@ func (p TyPattern) TypeElem() d.Typed {
 func (p TyPattern) Head() Expression {
 	if p.Len() > 0 {
 		var elem = p.Pattern()[0]
-		return CastFlag(elem)
+		return flagToExpr(elem)
 	}
 	return nil
 }
@@ -260,7 +261,7 @@ func (p TyPattern) HeadPattern() TyPattern {
 	if Flag_Pattern.Match(head.FlagType()) {
 		return head.(TyPattern)
 	}
-	return ConPattern(head)
+	return Define(head)
 }
 
 // tail yields a consumeable consisting all pattern elements but the first one
@@ -398,7 +399,7 @@ func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Type() TyPattern                    { return ConPattern(t) }
+func (t TyFnc) Type() TyPattern                    { return Define(t) }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
@@ -498,7 +499,7 @@ func (p Propertys) TypeFnc() TyFnc                     { return Type }
 func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() TyPattern                    { return ConPattern(p) }
+func (p Propertys) Type() TyPattern                    { return Define(p) }
 
 //// CALL ARITY
 ///
@@ -522,7 +523,7 @@ const (
 
 func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
 func (a Arity) Int() int                      { return int(a) }
-func (a Arity) Type() TyPattern               { return ConPattern(Type) }
+func (a Arity) Type() TyPattern               { return Define(Type) }
 func (a Arity) TypeFnc() TyFnc                { return Type }
 func (a Arity) TypeNat() d.TyNat              { return d.Type }
 func (a Arity) Match(arg d.Typed) bool        { return a == arg }

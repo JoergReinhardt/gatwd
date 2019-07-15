@@ -64,7 +64,7 @@ func NewData(args ...d.Native) Native {
 func (n DataExpr) TypeFnc() TyFnc                 { return Data }
 func (n DataExpr) TypeNat() d.TyNat               { return n().TypeNat() }
 func (n DataExpr) String() string                 { return n.Eval().String() }
-func (n DataExpr) Type() TyPattern                { return ConPattern(Data, n.TypeNat()) }
+func (n DataExpr) Type() TyPattern                { return Define(Data, n.TypeNat()) }
 func (n DataExpr) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n DataExpr) Call(args ...Expression) Expression {
 	if len(args) > 0 {
@@ -88,7 +88,7 @@ func (n DataConst) TypeFnc() TyFnc                { return Data }
 func (n DataConst) TypeNat() d.TyNat              { return n().TypeNat() }
 func (n DataConst) String() string                { return n().String() }
 func (n DataConst) Call(...Expression) Expression { return NewData(n()) }
-func (n DataConst) Type() TyPattern               { return ConPattern(Data, n.TypeNat()) }
+func (n DataConst) Type() TyPattern               { return Define(Data, n.TypeNat()) }
 
 // NATIVE SLICE VALUE CONSTRUCTOR
 func (n DataSlice) Call(args ...Expression) Expression { return n }
@@ -110,7 +110,7 @@ func (n DataSlice) Slice() []d.Native                  { return n().Slice() }
 func (n DataSlice) Eval(args ...d.Native) d.Native {
 	return d.SliceAppend(n(), args...)
 }
-func (n DataSlice) Type() TyPattern { return ConPattern(Data, n.TypeNat()) }
+func (n DataSlice) Type() TyPattern { return Define(Data, n.TypeNat()) }
 func (n DataSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
@@ -134,7 +134,7 @@ func (n DataGoSlice) Empty() bool                { return n().Empty() }
 func (n DataGoSlice) Slice() []d.Native          { return n().Slice() }
 func (n DataGoSlice) ElemType() d.Typed          { return n().ElemType() }
 func (n DataGoSlice) String() string             { return n().String() }
-func (n DataGoSlice) Type() TyPattern            { return ConPattern(Data, n.TypeNat()) }
+func (n DataGoSlice) Type() TyPattern            { return Define(Data, n.TypeNat()) }
 func (n DataGoSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
@@ -155,7 +155,7 @@ func (n DataPair) LeftType() d.TyNat                  { return n().LeftType() }
 func (n DataPair) RightType() d.TyNat                 { return n().RightType() }
 func (n DataPair) SubType() d.Typed                   { return n().TypeNat() }
 func (n DataPair) String() string                     { return n().String() }
-func (n DataPair) Type() TyPattern                    { return ConPattern(Data, n.TypeNat()) }
+func (n DataPair) Type() TyPattern                    { return Define(Data, n.TypeNat()) }
 func (n DataPair) Pair() Paired {
 	return NewPair(
 		NewData(n().Left()),
@@ -188,7 +188,7 @@ func (n DataSet) KeyType() d.Typed                     { return n().KeyType() }
 func (n DataSet) ValType() d.Typed                     { return n().ValType() }
 func (n DataSet) SubType() d.Typed                     { return n().TypeNat() }
 func (n DataSet) String() string                       { return n().String() }
-func (n DataSet) Type() TyPattern                      { return ConPattern(Data, n.TypeNat()) }
+func (n DataSet) Type() TyPattern                      { return Define(Data, n.TypeNat()) }
 func (n DataSet) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, key := range n().Keys() {
