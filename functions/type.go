@@ -185,7 +185,7 @@ func (n TyValue) String() string                     { return n().String() }
 func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
 
 // TODO: implement propper matching, as soon as equal and compare classes are
-// implemented
+// implemented properly.
 func (n TyValue) Match(typ d.Typed) bool {
 	if Flag_Value.Match(typ.FlagType()) {
 		return true
@@ -245,13 +245,13 @@ func (p TyPattern) Head() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyPattern) TypeHead() d.Typed {
+func (p TyPattern) HeadTyped() d.Typed {
 	return p.Head().(TyPattern)
 }
 
 // type-head yields first pattern element as typed
-func (p TyPattern) PatternHead() TyPattern {
-	var head = p.TypeHead()
+func (p TyPattern) HeadPattern() TyPattern {
+	var head = p.HeadTyped()
 	if Flag_Pattern.Match(head.FlagType()) {
 		return head.(TyPattern)
 	}
@@ -269,7 +269,7 @@ func (p TyPattern) Tail() Consumeable {
 
 // tail-type yields a type pattern consisting of all pattern elements but the
 // first one
-func (p TyPattern) TypeTail() TyPattern {
+func (p TyPattern) TailPattern() TyPattern {
 	if p.Len() > 0 {
 		return p.Elems()[1:]
 	}
@@ -283,7 +283,7 @@ func (p TyPattern) Consume() (Expression, Consumeable) {
 
 // type-consume works like consume, but yields the head cast as typed & the
 // tail as a type pattern
-func (p TyPattern) TypeConsume() (d.Typed, TyPattern) {
+func (p TyPattern) ConsumeTyped() (d.Typed, TyPattern) {
 	if p.Len() > 1 {
 		return p.Pattern()[0], p.Pattern()[1:]
 	}
@@ -295,8 +295,8 @@ func (p TyPattern) TypeConsume() (d.Typed, TyPattern) {
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
-func (p TyPattern) PatternConsume() (TyPattern, TyPattern) {
-	return p.PatternHead(), p.TypeTail()
+func (p TyPattern) ConsumePattern() (TyPattern, TyPattern) {
+	return p.HeadPattern(), p.TailPattern()
 }
 
 // print converts pattern to string, seperating the elements with a seperator
@@ -328,7 +328,8 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 	return ""
 }
 
-// call wraps the boolean result of calling match-args in a data instance
+// call wraps the boolean result of calling match-args, passing its arguments,
+// wrapped in a data instance
 func (p TyPattern) Call(args ...Expression) Expression {
 	return NewData(d.BoolVal(p.MatchArgs(args...)))
 }

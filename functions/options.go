@@ -30,7 +30,8 @@ type (
 //// NONE VALUE CONSTRUCTOR
 ///
 // none represens the abscence of a value of any type. implements consumeable,
-// key-, index & generic pair interface to be returneable as such.
+// testable, compareable, key-, index- and generic pair interfaces to be
+// returneable standing in for such expressions as return value.
 func NewNone() NoneVal { return func() {} }
 
 func (n NoneVal) Head() Expression              { return n }
@@ -59,6 +60,8 @@ func (n NoneVal) Consume() (Expression, Consumeable) {
 }
 
 /// TEST
+//
+// create a new test, scrutinizing its arguments and revealing true, or false
 func NewTest(test func(...Expression) bool) TestVal {
 	return func(args ...Expression) bool {
 		return test(args...)
@@ -81,6 +84,9 @@ func (t TestVal) Call(args ...Expression) Expression {
 }
 
 /// TRINARY TEST
+//
+// create a trinary test, that can yield true, false, or undecided, computed by
+// scrutinizing its arguments
 func NewTrinary(test func(...Expression) int) TrinVal {
 	return func(args ...Expression) int {
 		return test(args...)
@@ -96,6 +102,10 @@ func (t TrinVal) Compare(args ...Expression) int     { return t(args...) }
 func (t TrinVal) Call(args ...Expression) Expression { return NewData(d.IntVal(t(args...))) }
 
 /// COMPARE
+//
+// create a comparator expression that yields minus one in case the argument is
+// lesser, zero in case its equal and plus one in case it is greater than the
+// enclosed value to compare against.
 func NewCompare(comp func(...Expression) int) CompVal {
 	return func(args ...Expression) int {
 		return comp(args...)
@@ -111,6 +121,11 @@ func (t CompVal) Compare(args ...Expression) int     { return t(args...) }
 func (t CompVal) Call(args ...Expression) Expression { return NewData(d.IntVal(t(args...))) }
 
 /// CASE
+//
+// case constructor takes a test and an expression, in order for the resulting
+// case instance to test its arguments and yield the result of applying those
+// arguments to the expression, in case the test yielded true. otherwise the
+// case will yield none.
 func NewCase(test Testable, expr Expression) CaseVal {
 	return func(args ...Expression) Expression {
 		if len(args) == 0 {
@@ -134,6 +149,15 @@ func (t CaseVal) Test(args ...Expression) bool {
 func (t CaseVal) Call(args ...Expression) Expression { return t(args...) }
 
 /// SWITCH
+//
+// switch takes a slice of cases and evaluates them against its arguments to
+// yield either a none value, or the result of the case application and a
+// switch enclosing the remaining cases. id all cases are depleted, a none
+// instance will be returned as result and nil will be yielded instead of the
+// switch value
+//
+// when called, a switch evaluates all it's cases until it yields either
+// results from applying the first case that matched the arguments, or none.
 func NewSwitch(cases ...CaseVal) SwitchVal {
 	return func(args ...Expression) (Expression, SwitchVal) {
 		if len(args) == 0 {
