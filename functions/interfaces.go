@@ -174,10 +174,12 @@ type Consumeable interface {
 }
 
 type Testable interface {
+	Expression
 	Test(...Expression) bool
 }
 
 type Compareable interface {
+	Expression
 	Compare(...Expression) int
 }
 
