@@ -12,6 +12,7 @@ type (
 	Propertys d.Int8Val
 	TyPattern []d.Typed
 	TySymbol  string
+	TyValue   func(...Expression) Expression
 )
 
 //go:generate stringer -type TyFlag
@@ -21,6 +22,7 @@ const (
 	Flag_Native
 	Flag_KeyWord
 	Flag_Symbol
+	Flag_Value
 	Flag_Token
 	Flag_Arity
 	Flag_Prop
@@ -51,6 +53,8 @@ func CastFlag(elem d.Typed) Expression {
 		return elem.(TyPattern)
 	case Flag_Symbol.Match(elem.FlagType()):
 		return elem.(TySymbol)
+	case Flag_Value.Match(elem.FlagType()):
+		return elem.(TyValue)
 	}
 	return NewNone()
 }
@@ -142,6 +146,7 @@ const (
 	Collections  = Consumeables | Enumerables
 )
 
+// type flag representing pattern elements that define a symbol
 func ConSymbol(name string) TySymbol {
 	return TySymbol(name)
 }
@@ -167,8 +172,25 @@ func (n TySymbol) Match(typ d.Typed) bool {
 	return s.Compare(string(n), typ.TypeName()) == 0
 }
 
+// type flag representing a pattern element that represents a value
+func ConValue(expr Expression) TyValue {
+	return TyValue(expr.Call)
+}
+func (n TyValue) TypeFnc() TyFnc                     { return Value }
+func (n TyValue) FlagType() d.Uint8Val               { return Flag_Value.U() }
+func (n TyValue) Flag() d.BitFlag                    { return Value.Flag() }
+func (n TyValue) Type() TyPattern                    { return ConPattern(n) }
+func (n TyValue) TypeName() string                   { return n.TypeFnc().String() }
+func (n TyValue) String() string                     { return n().String() }
+func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
+func (n TyValue) Match(typ d.Typed) bool {
+	return false
+}
+
+// pattern of type, property, arity, symbol & value flags
 func ConPattern(types ...d.Typed) TyPattern { return types }
 
+// elems yields all elements contained in the pattern
 func (p TyPattern) Elems() []d.Typed     { return p }
 func (p TyPattern) Type() TyPattern      { return p }
 func (p TyPattern) Len() int             { return len(p) }
@@ -178,6 +200,8 @@ func (p TyPattern) Flag() d.BitFlag      { return p.TypeFnc().Flag() }
 func (p TyPattern) String() string       { return p.TypeName() }
 func (p TyPattern) TypeName() string     { return p.Print("(", " ", ")") }
 
+// pattern yields a slice of type patterns, with all none & nil elements
+// filtered out
 func (p TyPattern) Pattern() TyPattern {
 	var elems = make([]d.Typed, 0, p.Len())
 	for _, elem := range p.Elems() {
@@ -197,12 +221,15 @@ func (p TyPattern) Pattern() TyPattern {
 	return elems
 }
 
+// type-elem yields the first elements typed
 func (p TyPattern) TypeElem() d.Typed {
 	if p.Len() > 0 {
 		return p.Pattern()[0]
 	}
 	return Argument
 }
+
+// head yields the first pattern element cast as expression
 func (p TyPattern) Head() Expression {
 	if p.Len() > 0 {
 		var elem = p.Pattern()[0]
@@ -210,19 +237,46 @@ func (p TyPattern) Head() Expression {
 	}
 	return nil
 }
-func (p TyPattern) TypeHead() d.Typed { return p.Head().(TyPattern) }
+
+// type-head yields first pattern element as typed
+func (p TyPattern) TypeHead() d.Typed {
+	return p.Head().(TyPattern)
+}
+
+// type-head yields first pattern element as typed
+func (p TyPattern) PatternHead() TyPattern {
+	var head = p.TypeHead()
+	if Flag_Pattern.Match(head.FlagType()) {
+		return head.(TyPattern)
+	}
+	return ConPattern(head)
+}
+
+// tail yields a consumeable consisting all pattern elements but the first one
+// cast as slice of expressions
 func (p TyPattern) Tail() Consumeable {
 	if p.Len() > 0 {
 		return TyPattern(p.Pattern()[1:])
 	}
 	return TyPattern([]d.Typed{})
 }
+
+// tail-type yields a type pattern consisting of all pattern elements but the
+// first one
 func (p TyPattern) TypeTail() TyPattern {
 	if p.Len() > 0 {
 		return p.Elems()[1:]
 	}
 	return []d.Typed{}
 }
+
+// consume uses head & tail to implement consumeable
+func (p TyPattern) Consume() (Expression, Consumeable) {
+	return p.Head(), p.Tail()
+}
+
+// type-consume works like consume, but yields the head cast as typed & the
+// tail as a type pattern
 func (p TyPattern) TypeConsume() (d.Typed, TyPattern) {
 	if p.Len() > 1 {
 		return p.Pattern()[0], p.Pattern()[1:]
@@ -232,9 +286,16 @@ func (p TyPattern) TypeConsume() (d.Typed, TyPattern) {
 	}
 	return None, []d.Typed{}
 }
-func (p TyPattern) Consume() (Expression, Consumeable) {
-	return p.Head(), p.Tail()
+
+// pattern-consume works like type consume, but yields the head converted to,
+// or cast as type pattern
+func (p TyPattern) PatternConsume() (TyPattern, TyPattern) {
+	return p.PatternHead(), p.TypeTail()
 }
+
+// print converts pattern to string, seperating the elements with a seperator
+// and putting sub patterns in delimiters. seperator and delimiters are passed
+// to the method. sub patterns are printed recursively.
 func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 	if p.Len() > 1 {
 		var slice = make([]string, 0, p.Len())
@@ -246,12 +307,6 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 					elem.(TyPattern).Print(
 						ldelim, sep, rdelim))
 				continue
-			}
-			if Flag_Function.Match(elem.FlagType()) {
-				if elem.Match(Data) {
-					slice = append(slice, elem.TypeName())
-					continue
-				}
 			}
 			// append type name for all other types
 			slice = append(slice, elem.TypeName())
@@ -267,9 +322,15 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 	return ""
 }
 
+// call wraps the boolean result of calling match-args in a data instance
 func (p TyPattern) Call(args ...Expression) Expression {
 	return NewData(d.BoolVal(p.MatchArgs(args...)))
 }
+
+// match takes its argument, evaluated by passing it to the match-args method
+// and yields the resulting bool. should the argument be a pattern itself, all
+// its sub elements are evaluated to match sub patterns recursively, when
+// called by match-all method.
 func (p TyPattern) Match(typ d.Typed) bool {
 	if Flag_Pattern.Match(typ.FlagType()) {
 		return p.MatchAll(
@@ -278,7 +339,7 @@ func (p TyPattern) Match(typ d.Typed) bool {
 	return p.MatchAll(typ)
 }
 
-// matches n'th element of pattern
+// matches argument against n'th element of pattern
 func (p TyPattern) MatchN(idx int, typ d.Typed) bool {
 	if idx < p.Len() {
 		if p[idx].FlagType() == typ.FlagType() {
@@ -290,7 +351,9 @@ func (p TyPattern) MatchN(idx int, typ d.Typed) bool {
 	return false
 }
 
-// matches n'th element of pattern
+// matches multiple type flags against its elements in order. should there be
+// more, or less arguments than pattern elements, the shorter sequence will be
+// matched.
 func (p TyPattern) MatchAll(types ...d.Typed) bool {
 	var elems, match []d.Typed
 	if p.Len() > len(types) {
@@ -306,6 +369,8 @@ func (p TyPattern) MatchAll(types ...d.Typed) bool {
 	return true
 }
 
+// match-args takes multiple expression arguments and matches their types
+// against the elements of the pattern.
 func (p TyPattern) MatchArgs(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
@@ -314,8 +379,7 @@ func (p TyPattern) MatchArgs(args ...Expression) bool {
 	return p.MatchAll(types...)
 }
 
-// type TyFnc d.BitFlag
-// encodes the kind of functional data as bitflag
+// functional type flag expresses the type of a functional value
 func (t TyFnc) TypeFnc() TyFnc                     { return Type }
 func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
 func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }

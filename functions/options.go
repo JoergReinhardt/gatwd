@@ -6,12 +6,25 @@ import (
 
 type (
 	//// NONE VALUE CONSTRUCTOR
-	NoneVal   func()
-	TestVal   func(...Expression) bool
-	TrinVal   func(...Expression) int
-	CompVal   func(...Expression) int
+	NoneVal func()
+
+	// TESTS AND COMPARE
+	TestVal func(...Expression) bool
+	TrinVal func(...Expression) int
+	CompVal func(...Expression) int
+
+	// CASE & SWITCH
 	CaseVal   func(...Expression) Expression
 	SwitchVal func(...Expression) (Expression, SwitchVal)
+
+	// MAYBE (JUST | NONE)
+	JustVal  func(...Expression) Expression
+	MaybeVal func(...Expression) Expression
+
+	// OPTION (EITHER | OR)
+	OrVal     func(...Expression) Expression
+	EitherVal func(...Expression) Expression
+	OptionVal func(...Expression) Expression
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -100,6 +113,9 @@ func (t CompVal) Call(args ...Expression) Expression { return NewData(d.IntVal(t
 /// CASE
 func NewCase(test Testable, expr Expression) CaseVal {
 	return func(args ...Expression) Expression {
+		if len(args) == 0 {
+			return NewCase(test, expr)
+		}
 		if test.Test(args...) {
 			return expr.Call(args...)
 		}
@@ -120,6 +136,10 @@ func (t CaseVal) Call(args ...Expression) Expression { return t(args...) }
 /// SWITCH
 func NewSwitch(cases ...CaseVal) SwitchVal {
 	return func(args ...Expression) (Expression, SwitchVal) {
+		if len(args) == 0 {
+			return NewNone(),
+				NewSwitch(cases...)
+		}
 		var current CaseVal
 		if len(cases) > 0 {
 			if len(cases) > 1 {
@@ -138,5 +158,11 @@ func (t SwitchVal) Type() TyPattern { return ConPattern(t.TypeFnc()) }
 func (t SwitchVal) String() string  { return t.TypeFnc().TypeName() }
 func (t SwitchVal) Call(args ...Expression) Expression {
 	var expr, swi = t(args...)
-	return NewPair(expr, swi)
+	for swi != nil {
+		if !expr.TypeFnc().Match(None) {
+			return expr
+		}
+		expr, swi = t(args...)
+	}
+	return NewNone()
 }
