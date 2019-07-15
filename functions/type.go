@@ -183,7 +183,13 @@ func (n TyValue) Type() TyPattern                    { return ConPattern(n) }
 func (n TyValue) TypeName() string                   { return n.TypeFnc().String() }
 func (n TyValue) String() string                     { return n().String() }
 func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
+
+// TODO: implement propper matching, as soon as equal and compare classes are
+// implemented
 func (n TyValue) Match(typ d.Typed) bool {
+	if Flag_Value.Match(typ.FlagType()) {
+		return true
+	}
 	return false
 }
 
