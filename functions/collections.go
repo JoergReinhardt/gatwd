@@ -58,9 +58,8 @@ func (l ListCol) Head() Expression                   { h, _ := l(); return h }
 func (l ListCol) TailList() ListCol                  { _, t := l(); return t }
 func (l ListCol) Consume() (Expression, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                     { return List }
-func (l ListCol) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (l ListCol) Null() ListCol                      { return NewList() }
-func (l ListCol) Type() d.Typed                      { return ConPattern(List, l.TypeElem()) }
+func (l ListCol) Type() TyPattern                    { return ConPattern(List, l.TypeElem()) }
 func (l ListCol) TypeElem() d.Typed {
 	if l.Len() > 0 {
 		return l.Head().Type()
@@ -171,7 +170,6 @@ func (p PairVal) Key() Expression                    { return p.Left() }
 func (p PairVal) Value() Expression                  { return p.Right() }
 func (p PairVal) KeyType() d.Typed                   { return p.Left().Type() }
 func (p PairVal) ValType() d.Typed                   { return p.Right().Type() }
-func (p PairVal) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (p PairVal) TypeFnc() TyFnc                     { return Pair }
 func (p PairVal) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
 func (p PairVal) Head() Expression                   { return p.Key() }
@@ -184,7 +182,7 @@ func (p PairVal) Tail() Consumeable {
 	}
 	return NewList(value)
 }
-func (p PairVal) Type() d.Typed { return ConPattern(Pair, ConPattern(p.KeyType(), p.ValType())) }
+func (p PairVal) Type() TyPattern { return ConPattern(Pair, ConPattern(p.KeyType(), p.ValType())) }
 
 func (p PairVal) Empty() bool {
 	if p.Left() == nil || (!p.Left().TypeFnc().Flag().Match(None) &&
@@ -219,8 +217,7 @@ func (a KeyPair) ValType() d.Typed                   { return a.Value().Type() }
 func (a KeyPair) KeyType() d.Typed                   { return Key }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key }
 func (a KeyPair) TypeNat() d.TyNat                   { return d.Function }
-func (a KeyPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (p KeyPair) Type() d.Typed {
+func (p KeyPair) Type() TyPattern {
 	return ConPattern(ConPattern(Pair, Key), ConPattern(p.KeyType(), p.ValType()))
 }
 
@@ -258,8 +255,7 @@ func (a IndexPair) TypeFnc() TyFnc                     { return Index }
 func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() d.Typed                   { return Index }
 func (a IndexPair) ValType() d.Typed                   { return a.Value().Type() }
-func (a IndexPair) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (a IndexPair) Type() d.Typed {
+func (a IndexPair) Type() TyPattern {
 	return ConPattern(ConPattern(Pair, Index), ConPattern(a.KeyType(), a.ValType()))
 }
 
@@ -319,13 +315,12 @@ func (l PairList) HeadPair() Paired                         { p, _ := l(); retur
 func (l PairList) Consume() (Expression, Consumeable)       { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
 func (l PairList) ConsumePairList() (Paired, PairList)      { return l() }
-func (l PairList) Type() d.Typed {
+func (l PairList) Type() TyPattern {
 	return ConPattern(ConPattern(List, Pair), l.TypeElem())
 }
-func (l PairList) TypeFnc() TyFnc       { return List }
-func (l PairList) TypeNat() d.TyNat     { return d.Function }
-func (l PairList) FlagType() d.Uint8Val { return Flag_Function.U() }
-func (l PairList) Null() PairList       { return NewPairList() }
+func (l PairList) TypeFnc() TyFnc   { return List }
+func (l PairList) TypeNat() d.TyNat { return d.Function }
+func (l PairList) Null() PairList   { return NewPairList() }
 
 func (l PairList) Con(elems ...Paired) PairList {
 	return PairList(func(args ...Paired) (Paired, PairList) {
@@ -453,10 +448,9 @@ func (v VecCol) Reverse(args ...Expression) VecCol {
 	}
 	return NewVector(slice...)
 }
-func (v VecCol) TypeFnc() TyFnc       { return Vector }
-func (v VecCol) TypeNat() d.TyNat     { return d.Function }
-func (v VecCol) FlagType() d.Uint8Val { return Flag_Function.U() }
-func (v VecCol) Type() d.Typed        { return ConPattern(Vector, v.TypeElem()) }
+func (v VecCol) TypeFnc() TyFnc   { return Vector }
+func (v VecCol) TypeNat() d.TyNat { return d.Function }
+func (v VecCol) Type() TyPattern  { return ConPattern(Vector, v.TypeElem()) }
 func (v VecCol) TypeElem() d.Typed {
 	if v.Len() > 0 {
 		return v.Head().Type()
@@ -597,12 +591,11 @@ func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 	})
 }
 func (v PairVec) Len() int { return len(v()) }
-func (v PairVec) Type() d.Typed {
+func (v PairVec) Type() TyPattern {
 	return ConPattern(ConPattern(Vector, Pair), v.TypeElem())
 }
-func (v PairVec) FlagType() d.Uint8Val { return Flag_Function.U() }
-func (v PairVec) TypeFnc() TyFnc       { return Vector }
-func (v PairVec) TypeNat() d.TyNat     { return d.Function }
+func (v PairVec) TypeFnc() TyFnc   { return Vector }
+func (v PairVec) TypeNat() d.TyNat { return d.Function }
 
 func (v PairVec) ConPairs(pairs ...Paired) PairVec {
 	return ConPairVec(v, pairs...)

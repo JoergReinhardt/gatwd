@@ -9,7 +9,7 @@ import (
 
 type TyTok uint8
 
-func (t TyTok) Type() d.Typed                 { return t }
+func (t TyTok) Type() TyPattern               { return ConPattern(t) }
 func (t TyTok) TypeFnc() TyFnc                { return Type }
 func (t TyTok) Call(...Expression) Expression { return t }
 func (t TyTok) Flag() d.BitFlag               { return d.BitFlag(uint(t)) }
@@ -49,7 +49,7 @@ func newRuneText(str string) runetext {
 	return runetext(runes)
 }
 func (t runetext) RuneVec() d.RuneVec          { return d.RuneVec(t) }
-func (t runetext) Get(i Native) d.Native       { return t.RuneVec().Get(i) }
+func (t runetext) Get(i d.Native) d.Native     { return t.RuneVec().Get(i) }
 func (t runetext) GetInt(i int) d.Native       { return t.RuneVec().GetInt(i) }
 func (t runetext) Range(i, j int) d.Sliceable  { return t.RuneVec().Range(i, j) }
 func (t runetext) Native(i int) rune           { return t.RuneVec().Native(i) }

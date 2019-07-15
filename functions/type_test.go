@@ -24,6 +24,11 @@ func TestPattern(t *testing.T) {
 	if !pat.MatchAll(d.Numbers, d.Numbers, Vector, List) {
 		t.Fail()
 	}
+	fmt.Printf("pat matches Boolean, Numbers, Vector, List: %t\n",
+		pat.MatchAll(d.Bool, d.Numbers, Vector, List))
+	if pat.MatchAll(d.Bool, d.Numbers, Vector, List) {
+		t.Fail()
+	}
 }
 
 func TestNestedPattern(t *testing.T) {

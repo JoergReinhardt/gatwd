@@ -85,9 +85,9 @@ const (
 	False
 	Undecided
 	/// ORDER VALUE OPTIONS
-	EQ
-	LT
-	GT
+	Equal
+	Lesser
+	Greater
 	/// BOUND VALUE OPTIONS
 	Min
 	Max
@@ -127,7 +127,7 @@ const (
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
-	Comp    = LT | GT | EQ
+	Compare = Lesser | Greater | Equal
 
 	//// OPTIONALS
 	If     = Then | Else
@@ -148,7 +148,7 @@ func ConSymbol(name string) TySymbol {
 func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
 func (n TySymbol) FlagType() d.Uint8Val { return Flag_Symbol.U() }
 func (n TySymbol) Flag() d.BitFlag      { return Symbol.Flag() }
-func (n TySymbol) Type() d.Typed        { return n }
+func (n TySymbol) Type() TyPattern      { return ConPattern(n) }
 func (n TySymbol) TypeName() string     { return string(n) }
 func (n TySymbol) String() string       { return string(n) }
 func (n TySymbol) Call(args ...Expression) Expression {
@@ -160,15 +160,19 @@ func (n TySymbol) Call(args ...Expression) Expression {
 	return NewData(d.BoolVal(true))
 }
 func (n TySymbol) Match(typ d.Typed) bool {
+	if Flag_Symbol.Match(typ.FlagType()) {
+		return s.Compare(string(n),
+			string(typ.(TySymbol))) == 0
+	}
 	return s.Compare(string(n), typ.TypeName()) == 0
 }
 
 func ConPattern(types ...d.Typed) TyPattern { return types }
 
 func (p TyPattern) Elems() []d.Typed     { return p }
+func (p TyPattern) Type() TyPattern      { return p }
 func (p TyPattern) Len() int             { return len(p) }
 func (p TyPattern) TypeFnc() TyFnc       { return Pattern }
-func (p TyPattern) Type() d.Typed        { return p.TypeFnc() }
 func (p TyPattern) FlagType() d.Uint8Val { return Flag_Pattern.U() }
 func (p TyPattern) Flag() d.BitFlag      { return p.TypeFnc().Flag() }
 func (p TyPattern) String() string       { return p.TypeName() }
@@ -264,15 +268,12 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 }
 
 func (p TyPattern) Call(args ...Expression) Expression {
-	var types = make([]d.Typed, 0, len(args))
-	for _, arg := range args {
-		types = append(types, arg.Type())
-	}
-	return NewData(d.BoolVal(p.MatchAll(types...)))
+	return NewData(d.BoolVal(p.MatchArgs(args...)))
 }
 func (p TyPattern) Match(typ d.Typed) bool {
 	if Flag_Pattern.Match(typ.FlagType()) {
-		return p.MatchAll(typ.(TyPattern).Pattern()...)
+		return p.MatchAll(
+			typ.(TyPattern).Pattern().Elems()...)
 	}
 	return p.MatchAll(typ)
 }
@@ -293,17 +294,24 @@ func (p TyPattern) MatchN(idx int, typ d.Typed) bool {
 func (p TyPattern) MatchAll(types ...d.Typed) bool {
 	var elems, match []d.Typed
 	if p.Len() > len(types) {
-		elems, match = types, p
+		elems, match = types, p.Pattern().Elems()
 	} else {
-		elems, match = p, types
+		elems, match = p.Pattern().Elems(), types
 	}
 	for n, elem := range elems {
-		if elem.FlagType() != match[n].FlagType() ||
-			!elem.Match(match[n]) {
+		if !elem.Match(match[n]) {
 			return false
 		}
 	}
 	return true
+}
+
+func (p TyPattern) MatchArgs(args ...Expression) bool {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
+	}
+	return p.MatchAll(types...)
 }
 
 // type TyFnc d.BitFlag
@@ -314,7 +322,7 @@ func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
 func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Type() d.Typed                      { return t }
+func (t TyFnc) Type() TyPattern                    { return ConPattern(t) }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
@@ -329,10 +337,10 @@ func (t TyFnc) TypeName() string {
 			return "Truth"
 		case Trinary:
 			return "Trinary"
-		case Comp:
-			return "Comp"
+		case Compare:
+			return "Compare"
 		case If:
-			return "Cond"
+			return "If"
 		case Maybe:
 			return "Maybe"
 		case Option:
@@ -413,9 +421,8 @@ func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
 func (p Propertys) TypeFnc() TyFnc                     { return Type }
 func (p Propertys) TypeName() string                   { return "Propertys" }
 func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
-func (p Propertys) Eval() d.Native                     { return d.Int8Val(p) }
 func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() d.Typed                      { return p }
+func (p Propertys) Type() TyPattern                    { return ConPattern(p) }
 
 //// CALL ARITY
 ///
@@ -437,13 +444,12 @@ const (
 	Denary
 )
 
-func (a Arity) Eval() d.Native                { return a }
 func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
 func (a Arity) Int() int                      { return int(a) }
-func (a Arity) Type() d.Typed                 { return Type }
+func (a Arity) Type() TyPattern               { return ConPattern(Type) }
 func (a Arity) TypeFnc() TyFnc                { return Type }
 func (a Arity) TypeNat() d.TyNat              { return d.Type }
 func (a Arity) Match(arg d.Typed) bool        { return a == arg }
 func (a Arity) TypeName() string              { return a.String() }
-func (a Arity) Call(...Expression) Expression { return NewData(a) }
+func (a Arity) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
 func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }

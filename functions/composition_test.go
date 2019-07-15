@@ -125,12 +125,12 @@ import (
 //	}
 //}
 //
-var keys = []Expression{New("zero"), New("one"), New("two"), New("three"),
-	New("four"), New("five"), New("six"), New("seven"), New("eight"), New("nine"),
-	New("ten")}
+var keys = []Expression{NewNative("zero"), NewNative("one"), NewNative("two"), NewNative("three"),
+	NewNative("four"), NewNative("five"), NewNative("six"), NewNative("seven"), NewNative("eight"), NewNative("nine"),
+	NewNative("ten")}
 
-var vals = []Expression{New(0), New(1), New(2), New(3), New(4), New(5), New(6),
-	New(7), New(8), New(9), New(10)}
+var vals = []Expression{NewNative(0), NewNative(1), NewNative(2), NewNative(3), NewNative(4), NewNative(5), NewNative(6),
+	NewNative(7), NewNative(8), NewNative(9), NewNative(10)}
 
 func TestZipLists(t *testing.T) {
 	var zipped = ZipL(NewList(keys...), NewList(vals...), func(l, r Expression) Paired { return NewPair(l, r) })

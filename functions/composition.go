@@ -38,16 +38,15 @@ func NewConsumeable(cons Consumeable) ConsumeVal {
 	})
 }
 
-func (m ConsumeVal) TypeName() string     { return "(" + m.Head().Type().TypeName() + ")" }
-func (m ConsumeVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsumeVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
+func (m ConsumeVal) TypeName() string { return "(" + m.Head().Type().TypeName() + ")" }
+func (m ConsumeVal) TypeFnc() TyFnc   { return Collections }
 func (m ConsumeVal) TypeElem() d.Typed {
 	if head := m.Head(); head != nil {
 		return head.TypeFnc()
 	}
 	return None.TypeFnc()
 }
-func (m ConsumeVal) Type() d.Typed { return Consumeables }
+func (m ConsumeVal) Type() TyPattern { return ConPattern(Consumeables) }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
 	head, m = m()
@@ -124,16 +123,15 @@ func (c ConsPairVal) Tail() Consumeable {
 func (c ConsPairVal) String() string {
 	return c.Head().String()
 }
-func (c ConsPairVal) TypeName() string     { return "(" + c.Head().Type().TypeName() + ")" }
-func (c ConsPairVal) TypeFnc() TyFnc       { return Collections }
-func (c ConsPairVal) FlagType() d.Uint8Val { return d.Uint8Val(Flag_Function) }
+func (c ConsPairVal) TypeName() string { return "(" + c.Head().Type().TypeName() + ")" }
+func (c ConsPairVal) TypeFnc() TyFnc   { return Collections }
 func (c ConsPairVal) TypeElem() d.Typed {
 	if head := c.Head(); head != nil {
 		return head.TypeFnc()
 	}
 	return None.TypeFnc()
 }
-func (c ConsPairVal) Type() d.Typed { return Consumeables }
+func (c ConsPairVal) Type() TyPattern { return ConPattern(Consumeables) }
 
 //// MAP
 func MapL(list ListCol, mapf Map) ListCol {

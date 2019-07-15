@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-var listA = NewVector(New(0), New(1), New(2), New(3),
-	New(4), New(5), New(6), New(7), New(8), New(9))
+var listA = NewVector(NewNative(0), NewNative(1), NewNative(2), NewNative(3),
+	NewNative(4), NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
 
-var listB = NewVector(New(10), New(11), New(12), New(13),
-	New(14), New(15), New(16), New(17), New(18), New(19))
+var listB = NewVector(NewNative(10), NewNative(11), NewNative(12), NewNative(13),
+	NewNative(14), NewNative(15), NewNative(16), NewNative(17), NewNative(18), NewNative(19))
 
 func conList(args ...Expression) Consumeable {
 	return NewList(args...)
@@ -23,7 +23,7 @@ func printCons(cons Consumeable) {
 }
 func TestEmptyList(t *testing.T) {
 	var list = NewList()
-	fmt.Printf("empty list pattern length: %d\n", list.Type().(TyPattern).Len())
+	fmt.Printf("empty list pattern length: %d\n", list.Type().Len())
 	fmt.Printf("empty list type name: %s\n", list.Type().TypeName())
 }
 func TestList(t *testing.T) {
@@ -65,6 +65,6 @@ func TestPushList(t *testing.T) {
 func TestPairVal(t *testing.T) {
 	var pair = NewPair(NewNone(), NewNone())
 	fmt.Printf("name of empty pair: %s\n", pair.Type().TypeName())
-	pair = NewPair(New(12), New("string"))
+	pair = NewPair(NewNative(12), NewNative("string"))
 	fmt.Printf("name of (int,string) pair: %s\n", pair.Type().TypeName())
 }

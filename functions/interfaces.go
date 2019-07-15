@@ -34,16 +34,13 @@ type Typed interface {
 }
 type Expression interface {
 	FunctionTyped
-	FlagTyped
 	Callable
 	Stringer
-	Type() d.Typed
+	Type() TyPattern
 }
 type Native interface {
-	FunctionTyped
-	FlagTyped
-	Callable
-	d.Native
+	Expression
+	TypeNat() d.TyNat
 	Eval(...d.Native) d.Native
 }
 
@@ -174,6 +171,14 @@ type Consumeable interface {
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
+}
+
+type Testable interface {
+	Test(...Expression) bool
+}
+
+type Compareable interface {
+	Compare(...Expression) int
 }
 
 type Countable interface {
