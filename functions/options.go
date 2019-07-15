@@ -25,6 +25,9 @@ type (
 
 	// OPTION (EITHER | OR)
 	OptionVal func(...Expression) Expression
+
+	// IF (THEN | ELSE)
+	IfVal func(...Expression) Expression
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -193,6 +196,7 @@ func (t SwitchVal) Call(args ...Expression) Expression {
 }
 
 /// ELEMENT VALUE
+//
 // element value instances return their element type pattern as second result
 func NewElement(expr Expression, typed d.Typed) ElemVal {
 	var pattern TyPattern
@@ -208,18 +212,13 @@ func NewElement(expr Expression, typed d.Typed) ElemVal {
 		return expr, pattern
 	}
 }
-func (t ElemVal) TypeFnc() TyFnc { return Element }
-func (t ElemVal) String() string { return t.Type().TypeName() }
-func (t ElemVal) Type() TyPattern {
-	var _, pattern = t()
-	return pattern
-}
-func (t ElemVal) Call(args ...Expression) Expression {
-	var result, _ = t(args...)
-	return result
-}
+func (t ElemVal) TypeFnc() TyFnc                     { return Element }
+func (t ElemVal) String() string                     { return t.Type().TypeName() }
+func (t ElemVal) Type() TyPattern                    { var _, pattern = t(); return pattern }
+func (t ElemVal) Call(args ...Expression) Expression { var result, _ = t(args...); return result }
 
 /// MAYBE VALUE
+//
 // the constructor takes a case expression, expected to return a result, if the
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
@@ -233,11 +232,12 @@ func NewMaybe(test CaseVal) MaybeVal {
 	}
 }
 func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
+func (t MaybeVal) Call(args ...Expression) Expression { return t(args...) }
 func (t MaybeVal) Type() TyPattern                    { return Define(Maybe, Define(Just, None)) }
 func (t MaybeVal) String() string                     { return t.Type().TypeName() }
-func (t MaybeVal) Call(args ...Expression) Expression { return t(args...) }
 
 /// OPTIONAL VALUE
+//
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
@@ -254,6 +254,26 @@ func NewOption(either, or CaseVal) OptionVal {
 	}
 }
 func (t OptionVal) TypeFnc() TyFnc                     { return Option }
+func (t OptionVal) Call(args ...Expression) Expression { return t(args...) }
 func (t OptionVal) Type() TyPattern                    { return Define(Option, Define(Either, Or)) }
 func (t OptionVal) String() string                     { return t.Type().TypeName() }
-func (t OptionVal) Call(args ...Expression) Expression { return t(args...) }
+
+/// IF THEN ELSE CONDITION
+//
+// conditional constructor works just like optional.
+func NewCondition(then, els CaseVal) IfVal {
+	var result Expression
+	return func(args ...Expression) Expression {
+		if result = then(args...); !result.TypeFnc().Match(None) {
+			return NewElement(result, Then)
+		}
+		if result = els(args...); !result.TypeFnc().Match(None) {
+			return NewElement(result, Else)
+		}
+		return result
+	}
+}
+func (t IfVal) TypeFnc() TyFnc                     { return If }
+func (t IfVal) Call(args ...Expression) Expression { return t(args...) }
+func (t IfVal) Type() TyPattern                    { return Define(Option, Define(Then, Else)) }
+func (t IfVal) String() string                     { return t.Type().TypeName() }

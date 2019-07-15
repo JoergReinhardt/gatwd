@@ -6,20 +6,23 @@ import (
 )
 
 type (
+	// FLAGS
 	TyFlag    d.Uint8Val
 	TyFnc     d.BitFlag
 	Arity     d.Int8Val
 	Propertys d.Int8Val
-	TyPattern []d.Typed
-	TyValue   func(...Expression) Expression
+
+	// PATTERN
 	TySymbol  string
+	TyValue   func(...Expression) Expression
+	TyPattern []d.Typed
 )
 
 //go:generate stringer -type TyFlag
 const (
 	Flag_BitFlag TyFlag = 0 + iota
-	Flag_Function
 	Flag_Native
+	Flag_Function
 	Flag_KeyWord
 	Flag_Symbol
 	Flag_Value
@@ -31,7 +34,9 @@ const (
 	Flag_Pattern TyFlag = 255
 )
 
-func flagToExpr(elem d.Typed) Expression {
+// casts a given flag to its type, based on its flag type and returns it as
+// expression
+func flagToPattern(elem d.Typed) Expression {
 	switch {
 	case Flag_Native.Match(elem.FlagType()):
 		return Define(elem.(d.TyNat))
@@ -147,6 +152,145 @@ const (
 	Collections  = Consumeables | Enumerables
 )
 
+// functional type flag expresses the type of a functional value
+func (t TyFnc) TypeFnc() TyFnc                     { return Type }
+func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
+func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
+func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
+func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
+func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
+func (t TyFnc) Type() TyPattern                    { return Define(t) }
+func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
+func (t TyFnc) TypeName() string {
+	var count = t.Flag().Count()
+	// loop to print concatenated type classes correcty
+	if count > 1 {
+		switch t {
+		case Kinds:
+			return "Kinds"
+		case Params:
+			return "Params"
+		case Truth:
+			return "Truth"
+		case Trinary:
+			return "Trinary"
+		case Compare:
+			return "Compare"
+		case If:
+			return "If"
+		case Maybe:
+			return "Maybe"
+		case Option:
+			return "Option"
+		case Branches:
+			return "Branches"
+		case Consumeables:
+			return "Consumeables"
+		case Collections:
+			return "Collections"
+		case Enumerables:
+			return "Enumerables"
+		}
+		var delim = "|"
+		var str string
+		for i, flag := range t.Flag().Decompose() {
+			str = str + TyFnc(flag.Flag()).String()
+			if i < count-1 {
+				str = str + delim
+			}
+		}
+		return str
+	}
+	return t.String()
+}
+
+/// CALL PROPERTYS
+//
+//go:generate stringer -type Propertys
+const (
+	Default Propertys = 0
+	PostFix Propertys = 1
+	InFix   Propertys = 1 + iota
+	// ⌐: PreFix
+	Atomic
+	// ⌐: Thunk
+	Eager
+	// ⌐: Lazy
+	RightBound
+	// ⌐: Left_Bound
+	Mutable
+	// ⌐: Imutable
+	SideEffect
+	// ⌐: Pure
+	Primitive
+	// ⌐: Parametric
+)
+
+// CALL PROPERTY FLAG
+func (p Propertys) MatchProperty(arg Propertys) bool {
+	if p&arg != 0 {
+		return true
+	}
+	return false
+}
+
+// PROPERTY CONVIENIENCE METHODS
+func flagToProp(flag d.BitFlag) Propertys { return Propertys(flag.Uint()) }
+
+func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
+func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
+func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
+func (p Propertys) TypeFnc() TyFnc                     { return Type }
+func (p Propertys) TypeName() string                   { return "Propertys" }
+func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
+func (p Propertys) Call(args ...Expression) Expression { return p }
+func (p Propertys) Type() TyPattern                    { return Define(p) }
+
+func (p Propertys) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
+func (p Propertys) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
+func (p Propertys) Atomic() bool     { return p.Flag().Match(Atomic.Flag()) }
+func (p Propertys) Thunk() bool      { return !p.Flag().Match(Atomic.Flag()) }
+func (p Propertys) Eager() bool      { return p.Flag().Match(Eager.Flag()) }
+func (p Propertys) Lazy() bool       { return !p.Flag().Match(Eager.Flag()) }
+func (p Propertys) RightBound() bool { return p.Flag().Match(RightBound.Flag()) }
+func (p Propertys) LeftBound() bool  { return !p.Flag().Match(RightBound.Flag()) }
+func (p Propertys) Mutable() bool    { return p.Flag().Match(Mutable.Flag()) }
+func (p Propertys) Imutable() bool   { return !p.Flag().Match(Mutable.Flag()) }
+func (p Propertys) SideEffect() bool { return p.Flag().Match(SideEffect.Flag()) }
+func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag()) }
+func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
+func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
+
+/// CALL ARITY
+//
+// arity of well defined callables
+//
+//go:generate stringer -type Arity
+const (
+	Nary Arity = -1 + iota
+	Nullary
+	Unary
+	Binary
+	Ternary
+	Quaternary
+	Quinary
+	Senary
+	Septenary
+	Octonary
+	Novenary
+	Denary
+)
+
+func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
+func (a Arity) Int() int                      { return int(a) }
+func (a Arity) Type() TyPattern               { return Define(Type) }
+func (a Arity) TypeFnc() TyFnc                { return Type }
+func (a Arity) TypeNat() d.TyNat              { return d.Type }
+func (a Arity) Match(arg d.Typed) bool        { return a == arg }
+func (a Arity) TypeName() string              { return a.String() }
+func (a Arity) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
+func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
+
 // type flag representing pattern elements that define a symbol
 func DefSymbol(name string) TySymbol {
 	return TySymbol(name)
@@ -244,8 +388,8 @@ func (p TyPattern) TypeElem() d.Typed {
 // head yields the first pattern element cast as expression
 func (p TyPattern) Head() Expression {
 	if p.Len() > 0 {
-		var elem = p.Pattern()[0]
-		return flagToExpr(elem)
+		var pattern = p.Pattern()[0]
+		return flagToPattern(pattern)
 	}
 	return nil
 }
@@ -391,142 +535,3 @@ func (p TyPattern) MatchArgs(args ...Expression) bool {
 	}
 	return p.MatchAll(types...)
 }
-
-// functional type flag expresses the type of a functional value
-func (t TyFnc) TypeFnc() TyFnc                     { return Type }
-func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
-func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
-func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
-func (t TyFnc) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Type() TyPattern                    { return Define(t) }
-func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
-func (t TyFnc) TypeName() string {
-	var count = t.Flag().Count()
-	// loop to print concatenated type classes correcty
-	if count > 1 {
-		switch t {
-		case Kinds:
-			return "Kinds"
-		case Params:
-			return "Params"
-		case Truth:
-			return "Truth"
-		case Trinary:
-			return "Trinary"
-		case Compare:
-			return "Compare"
-		case If:
-			return "If"
-		case Maybe:
-			return "Maybe"
-		case Option:
-			return "Option"
-		case Branches:
-			return "Branches"
-		case Consumeables:
-			return "Consumeables"
-		case Collections:
-			return "Collections"
-		case Enumerables:
-			return "Enumerables"
-		}
-		var delim = "|"
-		var str string
-		for i, flag := range t.Flag().Decompose() {
-			str = str + TyFnc(flag.Flag()).String()
-			if i < count-1 {
-				str = str + delim
-			}
-		}
-		return str
-	}
-	return t.String()
-}
-
-//// CALL PROPERTYS
-///
-//go:generate stringer -type Propertys
-const (
-	Default Propertys = 0
-	PostFix Propertys = 1
-	InFix   Propertys = 1 + iota
-	// ⌐: PreFix
-	Atomic
-	// ⌐: Thunk
-	Eager
-	// ⌐: Lazy
-	RightBound
-	// ⌐: Left_Bound
-	Mutable
-	// ⌐: Imutable
-	SideEffect
-	// ⌐: Pure
-	Primitive
-	// ⌐: Parametric
-)
-
-// CALL PROPERTY FLAG
-func (p Propertys) MatchProperty(arg Propertys) bool {
-	if p&arg != 0 {
-		return true
-	}
-	return false
-}
-
-// PROPERTY CONVIENIENCE METHODS
-func (p Propertys) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
-func (p Propertys) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
-func (p Propertys) Atomic() bool     { return p.Flag().Match(Atomic.Flag()) }
-func (p Propertys) Thunk() bool      { return !p.Flag().Match(Atomic.Flag()) }
-func (p Propertys) Eager() bool      { return p.Flag().Match(Eager.Flag()) }
-func (p Propertys) Lazy() bool       { return !p.Flag().Match(Eager.Flag()) }
-func (p Propertys) RightBound() bool { return p.Flag().Match(RightBound.Flag()) }
-func (p Propertys) LeftBound() bool  { return !p.Flag().Match(RightBound.Flag()) }
-func (p Propertys) Mutable() bool    { return p.Flag().Match(Mutable.Flag()) }
-func (p Propertys) Imutable() bool   { return !p.Flag().Match(Mutable.Flag()) }
-func (p Propertys) SideEffect() bool { return p.Flag().Match(SideEffect.Flag()) }
-func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag()) }
-func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
-func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
-
-func FlagToProp(flag d.BitFlag) Propertys { return Propertys(flag.Uint()) }
-
-func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
-func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
-func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
-func (p Propertys) TypeFnc() TyFnc                     { return Type }
-func (p Propertys) TypeName() string                   { return "Propertys" }
-func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
-func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() TyPattern                    { return Define(p) }
-
-//// CALL ARITY
-///
-// arity of well defined callables
-//
-//go:generate stringer -type Arity
-const (
-	Nary Arity = -1 + iota
-	Nullary
-	Unary
-	Binary
-	Ternary
-	Quaternary
-	Quinary
-	Senary
-	Septenary
-	Octonary
-	Novenary
-	Denary
-)
-
-func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
-func (a Arity) Int() int                      { return int(a) }
-func (a Arity) Type() TyPattern               { return Define(Type) }
-func (a Arity) TypeFnc() TyFnc                { return Type }
-func (a Arity) TypeNat() d.TyNat              { return d.Type }
-func (a Arity) Match(arg d.Typed) bool        { return a == arg }
-func (a Arity) TypeName() string              { return a.String() }
-func (a Arity) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
-func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
