@@ -29,9 +29,9 @@ type (
 
 //// NONE VALUE CONSTRUCTOR
 ///
-// none represens the abscence of a value of any type. implements consumeable,
-// testable, compareable, key-, index- and generic pair interfaces to be
-// returneable standing in for such expressions as return value.
+// none represens the abscence of a value of any type. implements countable,
+// sliceable, consumeable, testable, compareable, key-, index- and generic pair
+// interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
 func (n NoneVal) Head() Expression              { return n }
@@ -48,13 +48,14 @@ func (n NoneVal) Value() Expression             { return nil }
 func (n NoneVal) Empty() d.BoolVal              { return true }
 func (n NoneVal) Test(...Expression) bool       { return false }
 func (n NoneVal) Compare(...Expression) int     { return -1 }
-func (n NoneVal) Flag() d.BitFlag               { return d.BitFlag(None) }
 func (n NoneVal) TypeFnc() TyFnc                { return None }
-func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
 func (n NoneVal) TypeElem() d.Typed             { return None }
-func (n NoneVal) TypeName() string              { return n.String() }
+func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
+func (n NoneVal) Flag() d.BitFlag               { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Function.U() }
 func (n NoneVal) Type() TyPattern               { return ConPattern(None) }
+func (n NoneVal) TypeName() string              { return n.String() }
+func (n NoneVal) Slice() []Expression           { return []Expression{} }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }

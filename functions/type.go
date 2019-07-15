@@ -174,7 +174,12 @@ func (n TySymbol) Match(typ d.Typed) bool {
 
 // type flag representing a pattern element that represents a value
 func ConValue(expr Expression) TyValue {
-	return TyValue(expr.Call)
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return expr(args...)
+		}
+		return expr
+	}
 }
 func (n TyValue) TypeFnc() TyFnc                     { return Value }
 func (n TyValue) FlagType() d.Uint8Val               { return Flag_Value.U() }
