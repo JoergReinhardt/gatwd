@@ -28,7 +28,7 @@ func disectEnum(enum ...Expression) (head, tail []Expression) {
 
 func (e EnumType) IsSegmented() bool {
 	for _, elem := range e {
-		if elem.TypeFnc().Match(
+		if elem.Type().Match(
 			Bound | Generator | Lexical,
 		) {
 			return true
