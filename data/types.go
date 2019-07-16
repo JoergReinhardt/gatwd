@@ -13,8 +13,8 @@ import (
 type TyNat BitFlag
 
 func (t TyNat) FlagType() Uint8Val { return 1 }
-func (v TyNat) TypeNat() TyNat     { return v }
-func (v TyNat) Type() Typed        { return v }
+func (v TyNat) Type() TyNat        { return v }
+
 func (t TyNat) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -368,64 +368,63 @@ func (v BytesVal) Null() BytesVal   { return BytesVal([]byte{}) }
 func (v StrVal) Null() StrVal       { return StrVal(string("")) }
 func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
 
-/// bind the corresponding TypeNat Method to every type
-func (v BitFlag) TypeNat() TyNat { return Type }
-func (v FlagSlice) Flag() TyNat  { return Type | Slice }
+/// bind the corresponding Type Method to every type
+func (v BitFlag) Type() TyNat   { return Flag }
+func (v FlagSlice) Flag() TyNat { return Flag | Slice }
 
-func (v NilVal) TypeNat() TyNat    { return Nil }
-func (v BoolVal) TypeNat() TyNat   { return Bool }
-func (v IntVal) TypeNat() TyNat    { return Int }
-func (v Int8Val) TypeNat() TyNat   { return Int8 }
-func (v Int16Val) TypeNat() TyNat  { return Int16 }
-func (v Int32Val) TypeNat() TyNat  { return Int32 }
-func (v UintVal) TypeNat() TyNat   { return Uint }
-func (v Uint8Val) TypeNat() TyNat  { return Uint8 }
-func (v Uint16Val) TypeNat() TyNat { return Uint16 }
-func (v Uint32Val) TypeNat() TyNat { return Uint32 }
-func (v BigIntVal) TypeNat() TyNat { return BigInt }
-func (v FltVal) TypeNat() TyNat    { return Float }
-func (v Flt32Val) TypeNat() TyNat  { return Flt32 }
-func (v BigFltVal) TypeNat() TyNat { return BigFlt }
-func (v ImagVal) TypeNat() TyNat   { return Imag }
-func (v Imag64Val) TypeNat() TyNat { return Imag64 }
-func (v RatioVal) TypeNat() TyNat  { return Ratio }
-func (v RuneVal) TypeNat() TyNat   { return Rune }
-func (v ByteVal) TypeNat() TyNat   { return Byte }
-func (v BytesVal) TypeNat() TyNat  { return Bytes }
-func (v StrVal) TypeNat() TyNat    { return String }
-func (v TimeVal) TypeNat() TyNat   { return Time }
-func (v DuraVal) TypeNat() TyNat   { return Duration }
-func (v ErrorVal) TypeNat() TyNat  { return Error }
-func (v FuncVal) TypeNat() TyNat   { return Function }
+func (v NilVal) Type() TyNat    { return Nil }
+func (v BoolVal) Type() TyNat   { return Bool }
+func (v IntVal) Type() TyNat    { return Int }
+func (v Int8Val) Type() TyNat   { return Int8 }
+func (v Int16Val) Type() TyNat  { return Int16 }
+func (v Int32Val) Type() TyNat  { return Int32 }
+func (v UintVal) Type() TyNat   { return Uint }
+func (v Uint8Val) Type() TyNat  { return Uint8 }
+func (v Uint16Val) Type() TyNat { return Uint16 }
+func (v Uint32Val) Type() TyNat { return Uint32 }
+func (v BigIntVal) Type() TyNat { return BigInt }
+func (v FltVal) Type() TyNat    { return Float }
+func (v Flt32Val) Type() TyNat  { return Flt32 }
+func (v BigFltVal) Type() TyNat { return BigFlt }
+func (v ImagVal) Type() TyNat   { return Imag }
+func (v Imag64Val) Type() TyNat { return Imag64 }
+func (v RatioVal) Type() TyNat  { return Ratio }
+func (v RuneVal) Type() TyNat   { return Rune }
+func (v ByteVal) Type() TyNat   { return Byte }
+func (v BytesVal) Type() TyNat  { return Bytes }
+func (v StrVal) Type() TyNat    { return String }
+func (v TimeVal) Type() TyNat   { return Time }
+func (v DuraVal) Type() TyNat   { return Duration }
+func (v ErrorVal) Type() TyNat  { return Error }
+func (v FuncVal) Type() TyNat   { return Function }
 
-func (v BitFlag) Type() Typed   { return Type }
-func (v FlagSlice) Type() Typed { return Type | Slice }
-
-func (v NilVal) Type() Typed    { return Nil }
-func (v BoolVal) Type() Typed   { return Bool }
-func (v IntVal) Type() Typed    { return Int }
-func (v Int8Val) Type() Typed   { return Int8 }
-func (v Int16Val) Type() Typed  { return Int16 }
-func (v Int32Val) Type() Typed  { return Int32 }
-func (v UintVal) Type() Typed   { return Uint }
-func (v Uint8Val) Type() Typed  { return Uint8 }
-func (v Uint16Val) Type() Typed { return Uint16 }
-func (v Uint32Val) Type() Typed { return Uint32 }
-func (v BigIntVal) Type() Typed { return BigInt }
-func (v FltVal) Type() Typed    { return Float }
-func (v Flt32Val) Type() Typed  { return Flt32 }
-func (v BigFltVal) Type() Typed { return BigFlt }
-func (v ImagVal) Type() Typed   { return Imag }
-func (v Imag64Val) Type() Typed { return Imag64 }
-func (v RatioVal) Type() Typed  { return Ratio }
-func (v RuneVal) Type() Typed   { return Rune }
-func (v ByteVal) Type() Typed   { return Byte }
-func (v BytesVal) Type() Typed  { return Bytes }
-func (v StrVal) Type() Typed    { return String }
-func (v TimeVal) Type() Typed   { return Time }
-func (v DuraVal) Type() Typed   { return Duration }
-func (v ErrorVal) Type() Typed  { return Error }
-func (v FuncVal) Type() Typed   { return Function }
+//func (v BitFlag) Type() Typed   { return Type }
+//func (v FlagSlice) Type() Typed { return Flag | Slice }
+//func (v NilVal) Type() Typed    { return Nil }
+//func (v BoolVal) Type() Typed   { return Bool }
+//func (v IntVal) Type() Typed    { return Int }
+//func (v Int8Val) Type() Typed   { return Int8 }
+//func (v Int16Val) Type() Typed  { return Int16 }
+//func (v Int32Val) Type() Typed  { return Int32 }
+//func (v UintVal) Type() Typed   { return Uint }
+//func (v Uint8Val) Type() Typed  { return Uint8 }
+//func (v Uint16Val) Type() Typed { return Uint16 }
+//func (v Uint32Val) Type() Typed { return Uint32 }
+//func (v BigIntVal) Type() Typed { return BigInt }
+//func (v FltVal) Type() Typed    { return Float }
+//func (v Flt32Val) Type() Typed  { return Flt32 }
+//func (v BigFltVal) Type() Typed { return BigFlt }
+//func (v ImagVal) Type() Typed   { return Imag }
+//func (v Imag64Val) Type() Typed { return Imag64 }
+//func (v RatioVal) Type() Typed  { return Ratio }
+//func (v RuneVal) Type() Typed   { return Rune }
+//func (v ByteVal) Type() Typed   { return Byte }
+//func (v BytesVal) Type() Typed  { return Bytes }
+//func (v StrVal) Type() Typed    { return String }
+//func (v TimeVal) Type() Typed   { return Time }
+//func (v DuraVal) Type() Typed   { return Duration }
+//func (v ErrorVal) Type() Typed  { return Error }
+//func (v FuncVal) Type() Typed   { return Function }
 
 // provide a deep copy method
 func (NilVal) Copy() Native      { return NilVal{} }

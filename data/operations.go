@@ -141,23 +141,23 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 // numeral is cast as the greater of both types.
 func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
 	// preset return type to be a's native type
-	var typ = a.TypeNat()
+	var typ = a.Type()
 	// if type of value a has higher precedence‥.
-	if a.TypeNat().Flag() > b.TypeNat().Flag() {
+	if a.Type().Flag() > b.Type().Flag() {
 		// convert b's type to match a's type‥.
 		b = CastNumeral(
 			b.(Numeral),
-			a.TypeNat(),
+			a.Type(),
 		).(Numeral)
 
 	}
-	if a.TypeNat().Flag() < b.TypeNat().Flag() {
+	if a.Type().Flag() < b.Type().Flag() {
 		// reset return type to be b's native type
-		typ = b.TypeNat()
+		typ = b.Type()
 		// convert a's type to match b's type‥.
 		a = CastNumeral(
 			a.(Numeral),
-			b.TypeNat(),
+			b.Type(),
 		).(Numeral)
 	}
 	// both values are of the same type now‥.

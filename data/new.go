@@ -52,7 +52,7 @@ func NewNull(nat TyNat) Native {
 			// a single native type should be left
 			if len(nats) == 1 {
 				// return a slice of the particular type
-				return NewUnboxed(nats[0].(NativeTyped).TypeNat())
+				return NewUnboxed(nats[0].(NativeTyped).Type())
 			}
 		case nat.Match(Pair):
 			// mask pair flag and decompose remaining flags
@@ -104,7 +104,7 @@ func NewData(args ...Native) Native {
 			// back to return slice of native instances if not.
 			return SliceToNatives(NewSlice(args...))
 		}
-		if args[0].TypeNat() == Slice {
+		if args[0].Type() == Slice {
 			return SliceToNatives(args[0].(DataSlice))
 		}
 		// a single native argument has been passed, return unchanged
@@ -122,7 +122,7 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 
 	// no arguments passed, return nil instance
 	if len(args) == 0 {
-		return nil, Nil.TypeNat().Flag()
+		return nil, Nil.Type().Flag()
 	}
 
 	// multiple arguments have been passed
@@ -148,7 +148,7 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 
 			// OR concatenate flag type flags created by previously
 			// converted arguments
-			flag = flag | nat.TypeNat().Flag()
+			flag = flag | nat.Type().Flag()
 		}
 
 		// if flag length is one, all arguments yielded identical type.
@@ -227,7 +227,7 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 		rval = DataSlice(temp.([]Native))
 	}
 	// return typed native instance and corresponding type flag
-	return rval, rval.TypeNat().Flag()
+	return rval, rval.Type().Flag()
 }
 
 // returns unboxed vector from arguments of the type that has been passed as
@@ -237,104 +237,104 @@ func conNativeVector(flag BitFlag, args ...Native) (nat Sliceable) {
 	var slice = []Native{}
 
 	switch {
-	case FlagMatch(flag, Nil.TypeNat().Flag()):
+	case FlagMatch(flag, Nil.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(NilVal))
 		}
-	case FlagMatch(flag, Bool.TypeNat().Flag()):
+	case FlagMatch(flag, Bool.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(BoolVal))
 		}
-	case FlagMatch(flag, Int.TypeNat().Flag()):
+	case FlagMatch(flag, Int.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(IntVal))
 		}
-	case FlagMatch(flag, Int8.TypeNat().Flag()):
+	case FlagMatch(flag, Int8.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Int8Val))
 		}
-	case FlagMatch(flag, Int16.TypeNat().Flag()):
+	case FlagMatch(flag, Int16.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Int16Val))
 		}
-	case FlagMatch(flag, Int32.TypeNat().Flag()):
+	case FlagMatch(flag, Int32.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Int32Val))
 		}
-	case FlagMatch(flag, Uint.TypeNat().Flag()):
+	case FlagMatch(flag, Uint.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(UintVal))
 		}
-	case FlagMatch(flag, Uint8.TypeNat().Flag()):
+	case FlagMatch(flag, Uint8.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Uint8Val))
 		}
-	case FlagMatch(flag, Uint16.TypeNat().Flag()):
+	case FlagMatch(flag, Uint16.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Uint16Val))
 		}
-	case FlagMatch(flag, Uint32.TypeNat().Flag()):
+	case FlagMatch(flag, Uint32.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Uint32Val))
 		}
-	case FlagMatch(flag, Float.TypeNat().Flag()):
+	case FlagMatch(flag, Float.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(FltVal))
 		}
-	case FlagMatch(flag, Flt32.TypeNat().Flag()):
+	case FlagMatch(flag, Flt32.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Flt32Val))
 		}
-	case FlagMatch(flag, Imag.TypeNat().Flag()):
+	case FlagMatch(flag, Imag.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case FlagMatch(flag, Imag64.TypeNat().Flag()):
+	case FlagMatch(flag, Imag64.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(Imag64Val))
 		}
-	case FlagMatch(flag, Byte.TypeNat().Flag()):
+	case FlagMatch(flag, Byte.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(ByteVal))
 		}
-	case FlagMatch(flag, Rune.TypeNat().Flag()):
+	case FlagMatch(flag, Rune.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(RuneVal))
 		}
-	case FlagMatch(flag, Bytes.TypeNat().Flag()):
+	case FlagMatch(flag, Bytes.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(BytesVal))
 		}
-	case FlagMatch(flag, String.TypeNat().Flag()):
+	case FlagMatch(flag, String.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(StrVal))
 		}
-	case FlagMatch(flag, BigInt.TypeNat().Flag()):
+	case FlagMatch(flag, BigInt.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(BigIntVal))
 		}
-	case FlagMatch(flag, BigFlt.TypeNat().Flag()):
+	case FlagMatch(flag, BigFlt.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(BigFltVal))
 		}
-	case FlagMatch(flag, Ratio.TypeNat().Flag()):
+	case FlagMatch(flag, Ratio.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(RatioVal))
 		}
-	case FlagMatch(flag, Time.TypeNat().Flag()):
+	case FlagMatch(flag, Time.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(TimeVal))
 		}
-	case FlagMatch(flag, Duration.TypeNat().Flag()):
+	case FlagMatch(flag, Duration.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(DuraVal))
 		}
-	case FlagMatch(flag, Error.TypeNat().Flag()):
+	case FlagMatch(flag, Error.Type().Flag()):
 		for _, v := range args {
 			slice = append(slice, v.(ErrorVal))
 		}
 	}
-	return NewUnboxed(flag.TypeNat(), slice...)
+	return NewUnboxed(flag.Type(), slice...)
 }
 
 func NewEmpty(flag BitFlag) (val Native) {
@@ -343,76 +343,76 @@ func NewEmpty(flag BitFlag) (val Native) {
 
 	switch {
 
-	case FlagMatch(flag, Nil.TypeNat().Flag()):
+	case FlagMatch(flag, Nil.Type().Flag()):
 		value = NilVal{}.Null()
 
-	case FlagMatch(flag, Bool.TypeNat().Flag()):
+	case FlagMatch(flag, Bool.Type().Flag()):
 		value = BoolVal(false).Null()
 
-	case FlagMatch(flag, Int.TypeNat().Flag()):
+	case FlagMatch(flag, Int.Type().Flag()):
 		value = IntVal(0).Null()
 
-	case FlagMatch(flag, Int8.TypeNat().Flag()):
+	case FlagMatch(flag, Int8.Type().Flag()):
 		value = Int8Val(0).Null()
 
-	case FlagMatch(flag, Int16.TypeNat().Flag()):
+	case FlagMatch(flag, Int16.Type().Flag()):
 		value = Int16Val(0).Null()
 
-	case FlagMatch(flag, Int32.TypeNat().Flag()):
+	case FlagMatch(flag, Int32.Type().Flag()):
 		value = Int32Val(0).Null()
 
-	case FlagMatch(flag, Uint.TypeNat().Flag()):
+	case FlagMatch(flag, Uint.Type().Flag()):
 		value = UintVal(0).Null()
 
-	case FlagMatch(flag, Uint8.TypeNat().Flag()):
+	case FlagMatch(flag, Uint8.Type().Flag()):
 		value = Uint8Val(0).Null()
 
-	case FlagMatch(flag, Uint16.TypeNat().Flag()):
+	case FlagMatch(flag, Uint16.Type().Flag()):
 		value = Uint16Val(0).Null()
 
-	case FlagMatch(flag, Uint32.TypeNat().Flag()):
+	case FlagMatch(flag, Uint32.Type().Flag()):
 		value = Uint32Val(0).Null()
 
-	case FlagMatch(flag, Float.TypeNat().Flag()):
+	case FlagMatch(flag, Float.Type().Flag()):
 		value = FltVal(0).Null()
 
-	case FlagMatch(flag, Flt32.TypeNat().Flag()):
+	case FlagMatch(flag, Flt32.Type().Flag()):
 		value = Flt32Val(0).Null()
 
-	case FlagMatch(flag, Imag.TypeNat().Flag()):
+	case FlagMatch(flag, Imag.Type().Flag()):
 		value = ImagVal(0).Null()
 
-	case FlagMatch(flag, Imag64.TypeNat().Flag()):
+	case FlagMatch(flag, Imag64.Type().Flag()):
 		value = Imag64Val(0).Null()
 
-	case FlagMatch(flag, Byte.TypeNat().Flag()):
+	case FlagMatch(flag, Byte.Type().Flag()):
 		value = ByteVal(0).Null()
 
-	case FlagMatch(flag, Rune.TypeNat().Flag()):
+	case FlagMatch(flag, Rune.Type().Flag()):
 		value = RuneVal(0).Null()
 
-	case FlagMatch(flag, Bytes.TypeNat().Flag()):
+	case FlagMatch(flag, Bytes.Type().Flag()):
 		value = BytesVal{}.Null()
 
-	case FlagMatch(flag, String.TypeNat().Flag()):
+	case FlagMatch(flag, String.Type().Flag()):
 		value = StrVal(0).Null()
 
-	case FlagMatch(flag, BigInt.TypeNat().Flag()):
+	case FlagMatch(flag, BigInt.Type().Flag()):
 		value = BigIntVal{}.Null()
 
-	case FlagMatch(flag, BigFlt.TypeNat().Flag()):
+	case FlagMatch(flag, BigFlt.Type().Flag()):
 		value = BigFltVal{}.Null()
 
-	case FlagMatch(flag, Ratio.TypeNat().Flag()):
+	case FlagMatch(flag, Ratio.Type().Flag()):
 		value = RatioVal{}.Null()
 
-	case FlagMatch(flag, Time.TypeNat().Flag()):
+	case FlagMatch(flag, Time.Type().Flag()):
 		value = TimeVal{}.Null()
 
-	case FlagMatch(flag, Duration.TypeNat().Flag()):
+	case FlagMatch(flag, Duration.Type().Flag()):
 		value = DuraVal(0).Null()
 
-	case FlagMatch(flag, Error.TypeNat().Flag()):
+	case FlagMatch(flag, Error.Type().Flag()):
 		value = ErrorVal{nil}.Null()
 
 	}

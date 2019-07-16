@@ -7,10 +7,10 @@ import (
 
 type (
 	// FLAGS
-	TyFlag    d.Uint8Val
-	TyFnc     d.BitFlag
-	Arity     d.Int8Val
-	Propertys d.Int8Val
+	TyFlag d.Uint8Val
+	TyFnc  d.BitFlag
+	TyAri  d.Int8Val
+	TyProp d.Int8Val
 
 	// PATTERN
 	TySymbol  string
@@ -45,9 +45,9 @@ func flagToPattern(elem d.Typed) Expression {
 	case Flag_Function.Match(elem.FlagType()):
 		return elem.(TyFnc)
 	case Flag_Prop.Match(elem.FlagType()):
-		return elem.(Propertys)
+		return elem.(TyProp)
 	case Flag_Arity.Match(elem.FlagType()):
-		return elem.(Arity)
+		return elem.(TyAri)
 	case Flag_KeyWord.Match(elem.FlagType()):
 		return elem.(TyKeyWord)
 	case Flag_Token.Match(elem.FlagType()):
@@ -76,32 +76,36 @@ func (t TyFlag) Match(match d.Uint8Val) bool {
 const (
 	/// GENERIC TYPE
 	Type TyFnc = 1 << iota
-	/// FUNCTION TYPES
+	/// EXPRESSION TYPES
 	Data
 	Value
 	Class
 	Lambda
-	/// PARAMETER OPTIONS
+	Generator
+	Accumulator
+	/// PARAMETER
 	Property
 	Argument
 	Pattern
+	Element
+	Lexical
 	Return
 	Symbol
+	Arity
 	Index
 	Key
-	/// TRUTH VALUE OTIONS
+	/// TRUTH
 	True
 	False
 	Undecided
-	/// ORDER VALUE OPTIONS
+	/// ORDER
 	Equal
 	Lesser
 	Greater
-	/// BOUND VALUE OPTIONS
+	/// BOUND
 	Min
 	Max
-	/// OPTION VALUES
-	Element
+	/// OPTIONS
 	Switch
 	Case
 	Then
@@ -110,15 +114,15 @@ const (
 	None
 	Either
 	Or
-	/// DATA TYPE CLASSES
+	/// CLASSES
 	Numbers
 	Letters
 	Bytes
 	Text
-	/// SUM COLLECTION TYPES
+	/// SUM
 	List
 	Vector
-	/// PRODUCT COLLECTION TYPES
+	/// PRODUCT
 	Set
 	Pair
 	Enum
@@ -128,28 +132,31 @@ const (
 	State
 	IO
 	/// HIGHER ORDER TYPE
-	HigherORder
+	Parametric
 
-	Kinds = Type | Data | Value | Class | Lambda
-	//// PARAMETERS
-	Params = Key | Index | Pattern | Property | Argument | Return | Symbol
-
+	Kinds = Type | Data | Value | Class | Lambda | Generator
+	//// PARAMETER
+	Parameter = Property | Argument | Pattern | Element |
+		Lexical | Return | Symbol | Arity | Index | Key
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
 	Compare = Lesser | Greater | Equal
+
+	//// BOUNDS
+	Bound = Min | Max
 
 	//// OPTIONALS
 	If     = Then | Else
 	Maybe  = Just | None
 	Option = Either | Or
 
-	Branches = Switch | Case | If | Maybe | Option
+	Branch = Switch | Case | If | Maybe | Option
 
 	//// COLLECTIONS
-	Consumeables = List | Vector | Pair
-	Enumerables  = Set | Record | Enum | Tuple
-	Collections  = Consumeables | Enumerables
+	SumTypes    = List | Vector
+	ProdTypes   = Set | Record | Enum | Tuple | Pair
+	Collections = SumTypes | ProdTypes
 )
 
 // functional type flag expresses the type of a functional value
@@ -168,8 +175,8 @@ func (t TyFnc) TypeName() string {
 		switch t {
 		case Kinds:
 			return "Kinds"
-		case Params:
-			return "Params"
+		case Parameter:
+			return "Parameter"
 		case Truth:
 			return "Truth"
 		case Trinary:
@@ -182,14 +189,16 @@ func (t TyFnc) TypeName() string {
 			return "Maybe"
 		case Option:
 			return "Option"
-		case Branches:
-			return "Branches"
-		case Consumeables:
-			return "Consumeables"
+		case Branch:
+			return "Branche"
+		case Bound:
+			return "Bound"
+		case SumTypes:
+			return "SumTypes"
+		case ProdTypes:
+			return "ProductTypes"
 		case Collections:
 			return "Collections"
-		case Enumerables:
-			return "Enumerables"
 		}
 		var delim = "|"
 		var str string
@@ -206,11 +215,11 @@ func (t TyFnc) TypeName() string {
 
 /// CALL PROPERTYS
 //
-//go:generate stringer -type Propertys
+//go:generate stringer -type TyProp
 const (
-	Default Propertys = 0
-	PostFix Propertys = 1
-	InFix   Propertys = 1 + iota
+	Default TyProp = 0
+	PostFix TyProp = 1
+	InFix   TyProp = 1 + iota
 	// ⌐: PreFix
 	Atomic
 	// ⌐: Thunk
@@ -227,7 +236,7 @@ const (
 )
 
 // CALL PROPERTY FLAG
-func (p Propertys) MatchProperty(arg Propertys) bool {
+func (p TyProp) MatchProperty(arg TyProp) bool {
 	if p&arg != 0 {
 		return true
 	}
@@ -235,39 +244,39 @@ func (p Propertys) MatchProperty(arg Propertys) bool {
 }
 
 // PROPERTY CONVIENIENCE METHODS
-func flagToProp(flag d.BitFlag) Propertys { return Propertys(flag.Uint()) }
+func flagToProp(flag d.BitFlag) TyProp { return TyProp(flag.Uint()) }
 
-func (p Propertys) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
-func (p Propertys) FlagType() d.Uint8Val               { return Flag_Prop.U() }
-func (p Propertys) TypeNat() d.TyNat                   { return d.Type }
-func (p Propertys) TypeFnc() TyFnc                     { return Type }
-func (p Propertys) TypeName() string                   { return "Propertys" }
-func (p Propertys) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
-func (p Propertys) Call(args ...Expression) Expression { return p }
-func (p Propertys) Type() TyPattern                    { return Define(p) }
+func (p TyProp) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
+func (p TyProp) FlagType() d.Uint8Val               { return Flag_Prop.U() }
+func (p TyProp) Type() TyPattern                    { return Define(p) }
+func (p TyProp) TypeFnc() TyFnc                     { return Property }
+func (p TyProp) TypeNat() d.TyNat                   { return d.Type }
+func (p TyProp) TypeName() string                   { return "Propertys" }
+func (p TyProp) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
+func (p TyProp) Call(args ...Expression) Expression { return p }
 
-func (p Propertys) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
-func (p Propertys) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
-func (p Propertys) Atomic() bool     { return p.Flag().Match(Atomic.Flag()) }
-func (p Propertys) Thunk() bool      { return !p.Flag().Match(Atomic.Flag()) }
-func (p Propertys) Eager() bool      { return p.Flag().Match(Eager.Flag()) }
-func (p Propertys) Lazy() bool       { return !p.Flag().Match(Eager.Flag()) }
-func (p Propertys) RightBound() bool { return p.Flag().Match(RightBound.Flag()) }
-func (p Propertys) LeftBound() bool  { return !p.Flag().Match(RightBound.Flag()) }
-func (p Propertys) Mutable() bool    { return p.Flag().Match(Mutable.Flag()) }
-func (p Propertys) Imutable() bool   { return !p.Flag().Match(Mutable.Flag()) }
-func (p Propertys) SideEffect() bool { return p.Flag().Match(SideEffect.Flag()) }
-func (p Propertys) Pure() bool       { return !p.Flag().Match(SideEffect.Flag()) }
-func (p Propertys) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
-func (p Propertys) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
+func (p TyProp) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
+func (p TyProp) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
+func (p TyProp) Atomic() bool     { return p.Flag().Match(Atomic.Flag()) }
+func (p TyProp) Thunk() bool      { return !p.Flag().Match(Atomic.Flag()) }
+func (p TyProp) Eager() bool      { return p.Flag().Match(Eager.Flag()) }
+func (p TyProp) Lazy() bool       { return !p.Flag().Match(Eager.Flag()) }
+func (p TyProp) RightBound() bool { return p.Flag().Match(RightBound.Flag()) }
+func (p TyProp) LeftBound() bool  { return !p.Flag().Match(RightBound.Flag()) }
+func (p TyProp) Mutable() bool    { return p.Flag().Match(Mutable.Flag()) }
+func (p TyProp) Imutable() bool   { return !p.Flag().Match(Mutable.Flag()) }
+func (p TyProp) SideEffect() bool { return p.Flag().Match(SideEffect.Flag()) }
+func (p TyProp) Pure() bool       { return !p.Flag().Match(SideEffect.Flag()) }
+func (p TyProp) Primitive() bool  { return p.Flag().Match(Primitive.Flag()) }
+func (p TyProp) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
 
 /// CALL ARITY
 //
 // arity of well defined callables
 //
-//go:generate stringer -type Arity
+//go:generate stringer -type TyAri
 const (
-	Nary Arity = -1 + iota
+	Nary TyAri = -1 + iota
 	Nullary
 	Unary
 	Binary
@@ -281,26 +290,26 @@ const (
 	Denary
 )
 
-func (a Arity) FlagType() d.Uint8Val          { return Flag_Arity.U() }
-func (a Arity) Int() int                      { return int(a) }
-func (a Arity) Type() TyPattern               { return Define(Type) }
-func (a Arity) TypeFnc() TyFnc                { return Type }
-func (a Arity) TypeNat() d.TyNat              { return d.Type }
-func (a Arity) Match(arg d.Typed) bool        { return a == arg }
-func (a Arity) TypeName() string              { return a.String() }
-func (a Arity) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
-func (a Arity) Flag() d.BitFlag               { return d.BitFlag(a) }
+func (a TyAri) FlagType() d.Uint8Val          { return Flag_Arity.U() }
+func (a TyAri) Flag() d.BitFlag               { return d.BitFlag(a) }
+func (a TyAri) Type() TyPattern               { return Define(a) }
+func (a TyAri) TypeNat() d.TyNat              { return d.Type }
+func (a TyAri) TypeFnc() TyFnc                { return Arity }
+func (a TyAri) Int() int                      { return int(a) }
+func (a TyAri) Match(arg d.Typed) bool        { return a == arg }
+func (a TyAri) TypeName() string              { return a.String() }
+func (a TyAri) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
 
 // type flag representing pattern elements that define a symbol
 func DefSymbol(name string) TySymbol {
 	return TySymbol(name)
 }
-func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
 func (n TySymbol) FlagType() d.Uint8Val { return Flag_Symbol.U() }
 func (n TySymbol) Flag() d.BitFlag      { return Symbol.Flag() }
 func (n TySymbol) Type() TyPattern      { return Define(n) }
-func (n TySymbol) TypeName() string     { return string(n) }
+func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
 func (n TySymbol) String() string       { return string(n) }
+func (n TySymbol) TypeName() string     { return string(n) }
 func (n TySymbol) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
@@ -326,12 +335,12 @@ func DefValue(expr Expression) TyValue {
 		return expr
 	}
 }
-func (n TyValue) TypeFnc() TyFnc                     { return Value }
 func (n TyValue) FlagType() d.Uint8Val               { return Flag_Value.U() }
 func (n TyValue) Flag() d.BitFlag                    { return Value.Flag() }
 func (n TyValue) Type() TyPattern                    { return Define(n) }
-func (n TyValue) TypeName() string                   { return n.TypeFnc().String() }
+func (n TyValue) TypeFnc() TyFnc                     { return Value }
 func (n TyValue) String() string                     { return n().String() }
+func (n TyValue) TypeName() string                   { return n().Type().TypeName() }
 func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
 
 // TODO: implement propper matching, as soon as equal and compare classes are
@@ -347,12 +356,12 @@ func (n TyValue) Match(typ d.Typed) bool {
 func Define(types ...d.Typed) TyPattern { return types }
 
 // elems yields all elements contained in the pattern
-func (p TyPattern) Elems() []d.Typed     { return p }
-func (p TyPattern) Type() TyPattern      { return p }
-func (p TyPattern) Len() int             { return len(p) }
-func (p TyPattern) TypeFnc() TyFnc       { return Pattern }
 func (p TyPattern) FlagType() d.Uint8Val { return Flag_Pattern.U() }
 func (p TyPattern) Flag() d.BitFlag      { return p.TypeFnc().Flag() }
+func (p TyPattern) TypeFnc() TyFnc       { return Pattern }
+func (p TyPattern) Type() TyPattern      { return p }
+func (p TyPattern) Elems() []d.Typed     { return p }
+func (p TyPattern) Len() int             { return len(p) }
 func (p TyPattern) String() string       { return p.TypeName() }
 func (p TyPattern) TypeName() string     { return p.Print("(", " ", ")") }
 
