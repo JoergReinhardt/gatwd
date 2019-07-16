@@ -14,19 +14,18 @@ func NewSlice(args ...Native) DataSlice {
 func sliceContainsTypes(c []Native) BitFlag {
 	var flag BitFlag
 	for _, d := range c {
-		if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
+		if FlagMatch(d.Type().Flag(), Slice.Type().Flag()) {
 			sliceContainsTypes(d.(DataSlice))
 			continue
 		}
-		flag = flag | d.TypeNat().Flag()
+		flag = flag | d.Type().Flag()
 	}
 	return flag
 }
 
 // returns type flag by OR concatenating the Slice type to the concatenated
 // type flags of it's members
-func (c DataSlice) Type() Typed             { return Slice }
-func (c DataSlice) TypeNat() TyNat          { return Slice }
+func (c DataSlice) Type() TyNat             { return Slice }
 func (c DataSlice) ElemType() Typed         { return TyNat(sliceContainsTypes(c.Slice())) }
 func (c DataSlice) ContainedTypes() BitFlag { return sliceContainsTypes(c.Slice()) }
 func (c DataSlice) Append(n ...Native)      { SliceAppend(c, n...) }
@@ -105,14 +104,14 @@ func SliceClear(s DataSlice) {
 
 func ElemEmpty(d Native) bool {
 	// not flagged nil, not a composition either...
-	if !FlagMatch(d.TypeNat().Flag(), (Nil.TypeNat().Flag() | Slice.TypeNat().Flag())) {
+	if !FlagMatch(d.Type().Flag(), (Nil.Type().Flag() | Slice.Type().Flag())) {
 		if d != nil { // not a nil pointer...
 			// --> not empty
 			return false
 		}
 	}
 	// since it's a composition, inspect...
-	if FlagMatch(d.TypeNat().Flag(), Slice.TypeNat().Flag()) {
+	if FlagMatch(d.Type().Flag(), Slice.Type().Flag()) {
 		// slice --> call sliceEmpty
 		if sl, ok := d.(DataSlice); ok {
 			return SliceEmpty(sl)
@@ -147,11 +146,11 @@ func SliceToNatives(c DataSlice) Sliceable {
 	var flag = Nil
 	// replace flag with type flag of first elment, if there are elements
 	if len(c) > 0 {
-		flag = c[0].TypeNat()
+		flag = c[0].Type()
 	}
 	// check if all elements flags match the first elements flag
 	if SliceAll(c, func(i int, c Native) bool {
-		return c.TypeNat().Match(flag)
+		return c.Type().Match(flag)
 	}) {
 		// if all elements yield the same type, convert to unboxed
 		// slice of natives
@@ -357,7 +356,7 @@ func SliceInsertVector(s DataSlice, i int, v ...Native) DataSlice {
 	return append(s[:i], append(v, s[i:]...)...)
 }
 
-func SliceAttrType(s DataSlice) BitFlag { return Int.TypeNat().Flag() }
+func SliceAttrType(s DataSlice) BitFlag { return Int.Type().Flag() }
 
 func (c DataSlice) Swap(i, j int) { c = SliceSwap(c, i, j) }
 
@@ -369,9 +368,9 @@ func SliceSwap(c DataSlice, i, j int) DataSlice {
 func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 	chain := c
 	var fn func(i, j int) bool
-	f := compT.TypeNat().Flag()
+	f := compT.Type().Flag()
 	switch {
-	case FlagMatch(f, Letters.TypeNat().Flag()):
+	case FlagMatch(f, Letters.Type().Flag()):
 		fn = func(i, j int) bool {
 			if strings.Compare(
 				string(chain[i].String()),
@@ -381,15 +380,15 @@ func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Type.TypeNat().Flag()):
+	case FlagMatch(f, Type.Type().Flag()):
 		fn = func(i, j int) bool {
-			if chain[i].(TyNat).TypeNat() <
-				chain[j].(TyNat).TypeNat() {
+			if chain[i].(TyNat).Type() <
+				chain[j].(TyNat).Type() {
 				return true
 			}
 			return false
 		}
-	case FlagMatch(f, Naturals.TypeNat().Flag()):
+	case FlagMatch(f, Naturals.Type().Flag()):
 		fn = func(i, j int) bool {
 			if uint(chain[i].(Natural).GoUint()) <
 				uint(chain[j].(Natural).GoUint()) {
@@ -397,7 +396,7 @@ func newSliceLess(c DataSlice, compT TyNat) func(i, j int) bool {
 			}
 			return false
 		}
-	case FlagMatch(f, Integers.TypeNat().Flag()):
+	case FlagMatch(f, Integers.Type().Flag()):
 		fn = func(i, j int) bool {
 			if int(chain[i].(Integer).Idx()) <
 				int(chain[j].(Integer).Idx()) {
@@ -420,24 +419,24 @@ func (c DataSlice) Sort(compT TyNat) {
 
 func newSliceSearchFnc(c DataSlice, comp Native) func(i int) bool {
 	var fn func(i int) bool
-	f := comp.TypeNat().Flag()
+	f := comp.Type().Flag()
 	switch {
-	case FlagMatch(f, Letters.TypeNat().Flag()):
+	case FlagMatch(f, Letters.Type().Flag()):
 		fn = func(i int) bool {
 			return strings.Compare(c[i].String(),
 				comp.String()) >= 0
 		}
-	case FlagMatch(f, Type.TypeNat().Flag()):
+	case FlagMatch(f, Type.Type().Flag()):
 		fn = func(i int) bool {
-			return c[i].TypeNat() >=
-				comp.TypeNat()
+			return c[i].Type() >=
+				comp.Type()
 		}
-	case FlagMatch(f, Naturals.TypeNat().Flag()):
+	case FlagMatch(f, Naturals.Type().Flag()):
 		fn = func(i int) bool {
 			return uint(c[i].(Natural).GoUint()) >=
 				uint(comp.(Natural).GoUint())
 		}
-	case FlagMatch(f, Integers.TypeNat().Flag()):
+	case FlagMatch(f, Integers.Type().Flag()):
 		fn = func(i int) bool {
 			return int(c[i].(Integer).Idx()) >=
 				int(comp.(Integer).Idx())
@@ -455,7 +454,7 @@ func SliceSearch(c DataSlice, comp Native) Native {
 func SliceSearchRange(c DataSlice, comp Native) []Native {
 	var idx = sort.Search(c.Len(), newSliceSearchFnc(c, comp))
 	var dat = []Native{}
-	for SliceGet(c, idx).TypeNat().Flag().Match(comp.TypeNat().Flag()) {
+	for SliceGet(c, idx).Type().Flag().Match(comp.Type().Flag()) {
 		dat = append(dat, SliceGet(c, idx))
 	}
 	return dat

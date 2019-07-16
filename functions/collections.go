@@ -175,7 +175,7 @@ func (p PairVal) Consume() (Expression, Consumeable) { return p.Head(), p.Tail()
 func (p PairVal) Head() Expression                   { return p.Key() }
 func (p PairVal) Tail() Consumeable {
 	var value = p.Value()
-	if value.Type().Match(Consumeables) {
+	if value.Type().Match(SumTypes) {
 		if cons, ok := value.(Consumeable); ok {
 			return cons
 		}

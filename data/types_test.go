@@ -19,18 +19,18 @@ func TestMutability(t *testing.T) {
 	}
 }
 func TestFlag(t *testing.T) {
-	flag := Type.TypeNat()
-	ok := FlagMatch(flag, Type.TypeNat())
+	flag := Type.Type()
+	ok := FlagMatch(flag, Type.Type())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Type.TypeNat()|Int.TypeNat())
+	ok = FlagMatch(flag, Type.Type()|Int.Type())
 	fmt.Println(ok)
 	if !ok {
 		t.Fail()
 	}
-	ok = FlagMatch(flag, Int.TypeNat())
+	ok = FlagMatch(flag, Int.Type())
 	fmt.Println(ok)
 	if ok {
 		t.Fail()
@@ -41,7 +41,7 @@ func TestFlag(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Println(BitFlag(Int.TypeNat() | Float.TypeNat()).Decompose())
+	fmt.Println(BitFlag(Int.Type() | Float.Type()).Decompose())
 	fmt.Println(TyNat(Int | Float).TypeName())
 
 	fmt.Println(Letters.TypeName())

@@ -332,57 +332,31 @@ func (v DuraVec) RangeNative(i, j int) []time.Duration { return DuraVec(v[i:j]) 
 func (v ErrorVec) RangeNative(i, j int) []error        { return ErrorVec(v[i:j]) }
 func (v FlagSet) RangeNative(i, j int) []BitFlag       { return FlagSet(v[i:j]) }
 
-func (v NilVec) TypeNat() TyNat    { return Unboxed }
-func (v BoolVec) TypeNat() TyNat   { return Unboxed }
-func (v IntVec) TypeNat() TyNat    { return Unboxed }
-func (v Int8Vec) TypeNat() TyNat   { return Unboxed }
-func (v Int16Vec) TypeNat() TyNat  { return Unboxed }
-func (v Int32Vec) TypeNat() TyNat  { return Unboxed }
-func (v UintVec) TypeNat() TyNat   { return Unboxed }
-func (v Uint8Vec) TypeNat() TyNat  { return Unboxed }
-func (v Uint16Vec) TypeNat() TyNat { return Unboxed }
-func (v Uint32Vec) TypeNat() TyNat { return Unboxed }
-func (v FltVec) TypeNat() TyNat    { return Unboxed }
-func (v Flt32Vec) TypeNat() TyNat  { return Unboxed }
-func (v ImagVec) TypeNat() TyNat   { return Unboxed }
-func (v Imag64Vec) TypeNat() TyNat { return Unboxed }
-func (v ByteVec) TypeNat() TyNat   { return Unboxed }
-func (v RuneVec) TypeNat() TyNat   { return Unboxed }
-func (v BytesVec) TypeNat() TyNat  { return Unboxed }
-func (v StrVec) TypeNat() TyNat    { return Unboxed }
-func (v BigIntVec) TypeNat() TyNat { return Unboxed }
-func (v BigFltVec) TypeNat() TyNat { return Unboxed }
-func (v RatioVec) TypeNat() TyNat  { return Unboxed }
-func (v TimeVec) TypeNat() TyNat   { return Unboxed }
-func (v DuraVec) TypeNat() TyNat   { return Unboxed }
-func (v ErrorVec) TypeNat() TyNat  { return Unboxed }
-func (v FlagSet) TypeNat() TyNat   { return Unboxed }
-
-func (v NilVec) Type() Typed    { return Slice | Nil }
-func (v BoolVec) Type() Typed   { return Slice | Bool }
-func (v IntVec) Type() Typed    { return Slice | Int }
-func (v Int8Vec) Type() Typed   { return Slice | Int8 }
-func (v Int16Vec) Type() Typed  { return Slice | Int16 }
-func (v Int32Vec) Type() Typed  { return Slice | Int32 }
-func (v UintVec) Type() Typed   { return Slice | Uint }
-func (v Uint8Vec) Type() Typed  { return Slice | Uint8 }
-func (v Uint16Vec) Type() Typed { return Slice | Uint16 }
-func (v Uint32Vec) Type() Typed { return Slice | Uint32 }
-func (v FltVec) Type() Typed    { return Slice | Float }
-func (v Flt32Vec) Type() Typed  { return Slice | Flt32 }
-func (v ImagVec) Type() Typed   { return Slice | Imag }
-func (v Imag64Vec) Type() Typed { return Slice | Imag64 }
-func (v ByteVec) Type() Typed   { return Slice | Byte }
-func (v RuneVec) Type() Typed   { return Slice | Rune }
-func (v BytesVec) Type() Typed  { return Slice | Bytes }
-func (v StrVec) Type() Typed    { return Slice | String }
-func (v BigIntVec) Type() Typed { return Slice | BigInt }
-func (v BigFltVec) Type() Typed { return Slice | BigFlt }
-func (v RatioVec) Type() Typed  { return Slice | Ratio }
-func (v TimeVec) Type() Typed   { return Slice | Time }
-func (v DuraVec) Type() Typed   { return Slice | Duration }
-func (v ErrorVec) Type() Typed  { return Slice | Error }
-func (v FlagSet) Type() Typed   { return Slice | Flag }
+func (v NilVec) Type() TyNat    { return Unboxed }
+func (v BoolVec) Type() TyNat   { return Unboxed }
+func (v IntVec) Type() TyNat    { return Unboxed }
+func (v Int8Vec) Type() TyNat   { return Unboxed }
+func (v Int16Vec) Type() TyNat  { return Unboxed }
+func (v Int32Vec) Type() TyNat  { return Unboxed }
+func (v UintVec) Type() TyNat   { return Unboxed }
+func (v Uint8Vec) Type() TyNat  { return Unboxed }
+func (v Uint16Vec) Type() TyNat { return Unboxed }
+func (v Uint32Vec) Type() TyNat { return Unboxed }
+func (v FltVec) Type() TyNat    { return Unboxed }
+func (v Flt32Vec) Type() TyNat  { return Unboxed }
+func (v ImagVec) Type() TyNat   { return Unboxed }
+func (v Imag64Vec) Type() TyNat { return Unboxed }
+func (v ByteVec) Type() TyNat   { return Unboxed }
+func (v RuneVec) Type() TyNat   { return Unboxed }
+func (v BytesVec) Type() TyNat  { return Unboxed }
+func (v StrVec) Type() TyNat    { return Unboxed }
+func (v BigIntVec) Type() TyNat { return Unboxed }
+func (v BigFltVec) Type() TyNat { return Unboxed }
+func (v RatioVec) Type() TyNat  { return Unboxed }
+func (v TimeVec) Type() TyNat   { return Unboxed }
+func (v DuraVec) Type() TyNat   { return Unboxed }
+func (v ErrorVec) Type() TyNat  { return Unboxed }
+func (v FlagSet) Type() TyNat   { return Unboxed }
 
 func (v NilVec) Slice() []Native {
 	var slice = []Native{}

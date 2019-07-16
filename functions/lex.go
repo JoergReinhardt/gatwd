@@ -10,10 +10,10 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
+func (t TyLex) TypeFnc() TyFnc                { return Lexical }
+func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Type() TyPattern               { return Define(t) }
 func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
-func (t TyLex) TypeFnc() TyFnc                { return Type }
-func (t TyLex) TypeNat() d.TyNat              { return d.Type }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyLex) Utf8() string                  { return mapUtf8[t] }
 func (t TyLex) Ascii() string                 { return mapAscii[t] }

@@ -17,7 +17,7 @@ type Matched interface {
 	Match(Typed) bool
 }
 type NativeTyped interface {
-	TypeNat() TyNat
+	Type() TyNat
 }
 type NameTyped interface {
 	TypeName() string
@@ -37,7 +37,7 @@ type Typed interface {
 type Native interface {
 	NativeTyped
 	Stringer
-	Type() Typed
+	//	Type() Typed
 }
 
 type BinaryMarshaler interface {

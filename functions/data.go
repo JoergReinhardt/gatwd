@@ -26,7 +26,7 @@ func NewNative(inf ...interface{}) Native {
 
 func NewData(args ...d.Native) Native {
 	var nat = d.NewData(args...)
-	var match = nat.TypeNat().Match
+	var match = nat.Type().Match
 
 	switch {
 	case match(d.Function):
@@ -62,7 +62,7 @@ func NewData(args ...d.Native) Native {
 
 // NATIVE FUNCTION VALUE CONSTRUCTOR
 func (n DataExpr) TypeFnc() TyFnc                 { return Data }
-func (n DataExpr) TypeNat() d.TyNat               { return n().TypeNat() }
+func (n DataExpr) TypeNat() d.TyNat               { return n().Type() }
 func (n DataExpr) String() string                 { return n.Eval().String() }
 func (n DataExpr) Type() TyPattern                { return Define(Data, n.TypeNat()) }
 func (n DataExpr) Eval(args ...d.Native) d.Native { return n(args...) }
@@ -85,7 +85,7 @@ func (n DataExpr) Call(args ...Expression) Expression {
 // ATOMIC NATIVE VALUE CONSTRUCTOR
 func (n DataConst) Eval(...d.Native) d.Native     { return n() }
 func (n DataConst) TypeFnc() TyFnc                { return Data }
-func (n DataConst) TypeNat() d.TyNat              { return n().TypeNat() }
+func (n DataConst) TypeNat() d.TyNat              { return n().Type() }
 func (n DataConst) String() string                { return n().String() }
 func (n DataConst) Call(...Expression) Expression { return NewData(n()) }
 func (n DataConst) Type() TyPattern               { return Define(Data, n.TypeNat()) }
@@ -93,7 +93,7 @@ func (n DataConst) Type() TyPattern               { return Define(Data, n.TypeNa
 // NATIVE SLICE VALUE CONSTRUCTOR
 func (n DataSlice) Call(args ...Expression) Expression { return n }
 func (n DataSlice) TypeFnc() TyFnc                     { return Data }
-func (n DataSlice) TypeNat() d.TyNat                   { return n().TypeNat() }
+func (n DataSlice) TypeNat() d.TyNat                   { return n().Type() }
 func (n DataSlice) Len() int                           { return n().Len() }
 func (n DataSlice) Head() d.Native                     { return n().Head() }
 func (n DataSlice) Tail() d.Sequential                 { return n().Tail() }
@@ -124,7 +124,7 @@ func (n DataGoSlice) Eval(args ...d.Native) d.Native {
 	return d.NewSlice(append(n.Slice(), args...)...)
 }
 func (n DataGoSlice) TypeFnc() TyFnc             { return Data }
-func (n DataGoSlice) TypeNat() d.TyNat           { return n().TypeNat() }
+func (n DataGoSlice) TypeNat() d.TyNat           { return n().Type() }
 func (n DataGoSlice) Len() int                   { return n().Len() }
 func (n DataGoSlice) Get(key d.Native) d.Native  { return n().Get(key) }
 func (n DataGoSlice) GetInt(idx int) d.Native    { return n().GetInt(idx) }
@@ -147,13 +147,13 @@ func (n DataGoSlice) SliceExpr() []Expression {
 func (n DataPair) Call(args ...Expression) Expression { return n }
 func (n DataPair) Eval(...d.Native) d.Native          { return n() }
 func (n DataPair) TypeFnc() TyFnc                     { return Data }
-func (n DataPair) TypeNat() d.TyNat                   { return n().TypeNat() }
+func (n DataPair) TypeNat() d.TyNat                   { return n().Type() }
 func (n DataPair) Left() d.Native                     { return n().Left() }
 func (n DataPair) Right() d.Native                    { return n().Right() }
 func (n DataPair) Both() (l, r d.Native)              { return n().Both() }
 func (n DataPair) LeftType() d.TyNat                  { return n().LeftType() }
 func (n DataPair) RightType() d.TyNat                 { return n().RightType() }
-func (n DataPair) SubType() d.Typed                   { return n().TypeNat() }
+func (n DataPair) SubType() d.Typed                   { return n().Type() }
 func (n DataPair) String() string                     { return n().String() }
 func (n DataPair) Type() TyPattern                    { return Define(Data, n.TypeNat()) }
 func (n DataPair) Pair() Paired {
@@ -173,7 +173,7 @@ func (n DataPair) BothExpr() (l, r Expression) {
 func (n DataSet) Call(args ...Expression) Expression   { return n }
 func (n DataSet) Eval(...d.Native) d.Native            { return n() }
 func (n DataSet) TypeFnc() TyFnc                       { return Data }
-func (n DataSet) TypeNat() d.TyNat                     { return n().TypeNat() }
+func (n DataSet) TypeNat() d.TyNat                     { return n().Type() }
 func (n DataSet) Len() int                             { return n().Len() }
 func (n DataSet) Slice() []d.Native                    { return n().Slice() }
 func (n DataSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
@@ -186,7 +186,7 @@ func (n DataSet) Data() []d.Native                     { return n().Data() }
 func (n DataSet) Fields() []d.Paired                   { return n().Fields() }
 func (n DataSet) KeyType() d.Typed                     { return n().KeyType() }
 func (n DataSet) ValType() d.Typed                     { return n().ValType() }
-func (n DataSet) SubType() d.Typed                     { return n().TypeNat() }
+func (n DataSet) SubType() d.Typed                     { return n().Type() }
 func (n DataSet) String() string                       { return n().String() }
 func (n DataSet) Type() TyPattern                      { return Define(Data, n.TypeNat()) }
 func (n DataSet) KeysExpr() []Expression {

@@ -7,16 +7,16 @@ import (
 )
 
 func TestPattern(t *testing.T) {
-	var pat = Define(d.Int, d.Float, Vector, Consumeables)
+	var pat = Define(d.Int, d.Float, Vector, SumTypes)
 	fmt.Printf("pat: %s\n", pat)
 	fmt.Printf("pat matches Int, Float, Vector, Consumeables: %t\n",
-		pat.MatchAll(d.Int, d.Float, Vector, Consumeables))
-	if !pat.MatchAll(d.Int, d.Float, Vector, Consumeables) {
+		pat.MatchAll(d.Int, d.Float, Vector, SumTypes))
+	if !pat.MatchAll(d.Int, d.Float, Vector, SumTypes) {
 		t.Fail()
 	}
 	fmt.Printf("pat matches Numbers, Float, Vector, Consumeables: %t\n",
-		pat.MatchAll(d.Numbers, d.Float, Vector, Consumeables))
-	if !pat.MatchAll(d.Numbers, d.Float, Vector, Consumeables) {
+		pat.MatchAll(d.Numbers, d.Float, Vector, SumTypes))
+	if !pat.MatchAll(d.Numbers, d.Float, Vector, SumTypes) {
 		t.Fail()
 	}
 	fmt.Printf("pat matches Numbers, Numbers, Vector, List: %t\n",
@@ -32,7 +32,7 @@ func TestPattern(t *testing.T) {
 }
 
 func TestNestedPattern(t *testing.T) {
-	var nest = Define(Define(d.Int, d.Float), Define(Vector, List), Consumeables)
+	var nest = Define(Define(d.Int, d.Float), Define(Vector, List), SumTypes)
 	fmt.Printf("nest: %s\n", nest)
 	fmt.Printf("nest print '(',' ',')': %s\n", nest.Print("(", " ", ")"))
 	fmt.Printf("nest match pattern(d.Int), %t\n", nest.MatchAll(Define(d.Int)))
