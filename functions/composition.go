@@ -46,7 +46,7 @@ func (m ConsumeVal) TypeElem() d.Typed {
 	}
 	return None.TypeFnc()
 }
-func (m ConsumeVal) Type() TyPattern { return Define(SumTypes) }
+func (m ConsumeVal) Type() TyPattern { return Def(SumTypes) }
 func (m ConsumeVal) Consume() (Expression, Consumeable) {
 	var head Expression
 	head, m = m()
@@ -131,7 +131,7 @@ func (c ConsPairVal) TypeElem() d.Typed {
 	}
 	return None.TypeFnc()
 }
-func (c ConsPairVal) Type() TyPattern { return Define(SumTypes) }
+func (c ConsPairVal) Type() TyPattern { return Def(SumTypes) }
 
 //// MAP
 func MapL(list ListCol, mapf Map) ListCol {

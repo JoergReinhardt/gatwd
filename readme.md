@@ -43,23 +43,28 @@ Should this library reach the necessary stability and set of features, it should
     * numerals
     * textuals (string, rune, byte, byte slice)
     * binarys (byte, byte slice)
+
   * a generic slice of (interfaced) natives, featuring helpful methods on slices
   * type flags that make the type detectable without relying on reflection.
   * poor mans implementation of 'type classes', by checking for membership of type flags in or concatenated sets of flags
   * lots of type conversions implemented as methods on alias types.
+
 * the function package provides
   * more interfaces for expressions that share common behaviour
   * pattern matching
+
   * user defined types:
     * type constructor
     * parametric, strongly typed expression
     * type classes providing default methods to derive from
     * parametric types that construct values of sub-types, based on argument type(s)
+
   * type pattern with elements of types:
     * fixed type flag 
     * user defined symbol
     * type variable
     * lexical token
+
   * generic implementations of:
     * comparator
     * test
@@ -93,11 +98,13 @@ Should this library reach the necessary stability and set of features, it should
 ## Roadmap:
 
 * completing the base features (see above)
+
   * current state of implementation:
     * data package entirely as described
     * generic collections, pairs, maybe and optional 
     * function composition
     * pattern matching
+
   * work in progress:
     * type & value constructor for user defined types
     * type checked and pattern matched expressions and types
@@ -106,12 +113,15 @@ Should this library reach the necessary stability and set of features, it should
     * functor
     * applicative 
     * monad
+
 * function composition based parser library
 * ML syntax parser
 * ML interpreter
+
 * data structure generation from:
   * json/yaml
   * ini format
   * markdown
   * ‥.
+
 * compiler to generate go native typed code, stripped of as much indirection as possible

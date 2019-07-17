@@ -59,7 +59,7 @@ func (l ListCol) TailList() ListCol                  { _, t := l(); return t }
 func (l ListCol) Consume() (Expression, Consumeable) { return l() }
 func (l ListCol) TypeFnc() TyFnc                     { return List }
 func (l ListCol) Null() ListCol                      { return NewList() }
-func (l ListCol) Type() TyPattern                    { return Define(List, l.TypeElem()) }
+func (l ListCol) Type() TyPattern                    { return Def(List, l.TypeElem()) }
 func (l ListCol) TypeElem() d.Typed {
 	if l.Len() > 0 {
 		return l.Head().Type()
@@ -182,7 +182,7 @@ func (p PairVal) Tail() Consumeable {
 	}
 	return NewList(value)
 }
-func (p PairVal) Type() TyPattern { return Define(Pair, Define(p.KeyType(), p.ValType())) }
+func (p PairVal) Type() TyPattern { return Def(Pair, Def(p.KeyType(), p.ValType())) }
 
 func (p PairVal) Empty() bool {
 	if p.Left() == nil || (!p.Left().TypeFnc().Flag().Match(None) &&
@@ -218,7 +218,7 @@ func (a KeyPair) KeyType() d.Typed                   { return Key }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key }
 func (a KeyPair) TypeNat() d.TyNat                   { return d.Function }
 func (p KeyPair) Type() TyPattern {
-	return Define(Define(Pair, Key), Define(p.KeyType(), p.ValType()))
+	return Def(Def(Pair, Key), Def(p.KeyType(), p.ValType()))
 }
 
 // implement swappable
@@ -256,7 +256,7 @@ func (a IndexPair) TypeNat() d.TyNat                   { return d.Function }
 func (a IndexPair) KeyType() d.Typed                   { return Index }
 func (a IndexPair) ValType() d.Typed                   { return a.Value().Type() }
 func (a IndexPair) Type() TyPattern {
-	return Define(Define(Pair, Index), Define(a.KeyType(), a.ValType()))
+	return Def(Def(Pair, Index), Def(a.KeyType(), a.ValType()))
 }
 
 // implement swappable
@@ -316,7 +316,7 @@ func (l PairList) Consume() (Expression, Consumeable)       { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
 func (l PairList) ConsumePairList() (Paired, PairList)      { return l() }
 func (l PairList) Type() TyPattern {
-	return Define(Define(List, Pair), l.TypeElem())
+	return Def(Def(List, Pair), l.TypeElem())
 }
 func (l PairList) TypeFnc() TyFnc   { return List }
 func (l PairList) TypeNat() d.TyNat { return d.Function }
@@ -450,7 +450,7 @@ func (v VecCol) Reverse(args ...Expression) VecCol {
 }
 func (v VecCol) TypeFnc() TyFnc   { return Vector }
 func (v VecCol) TypeNat() d.TyNat { return d.Function }
-func (v VecCol) Type() TyPattern  { return Define(Vector, v.TypeElem()) }
+func (v VecCol) Type() TyPattern  { return Def(Vector, v.TypeElem()) }
 func (v VecCol) TypeElem() d.Typed {
 	if v.Len() > 0 {
 		return v.Head().Type()
@@ -592,7 +592,7 @@ func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 }
 func (v PairVec) Len() int { return len(v()) }
 func (v PairVec) Type() TyPattern {
-	return Define(Define(Vector, Pair), v.TypeElem())
+	return Def(Def(Vector, Pair), v.TypeElem())
 }
 func (v PairVec) TypeFnc() TyFnc   { return Vector }
 func (v PairVec) TypeNat() d.TyNat { return d.Function }

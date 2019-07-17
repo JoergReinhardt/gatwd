@@ -2,98 +2,150 @@ package functions
 
 import (
 	d "github.com/joergreinhardt/gatwd/data"
-	s "strings"
 )
 
 type (
-	EnumType  []Expression
-	TupleType []Expression
+	EnumGen    func(int) Expression
+	EnumType   func(...int) ElemVal
+	TupleType  EnumType
+	RecordType TupleType
 )
 
-// enumerable type declaration takes variadic arguments of the expression type.
-// the arguments can either represent all elements of the declared enumerable
-// type, or be a combination of min, max, elipse and/or expressions, to declare
-// bound and/or infinite enumerables.
-func DeclareEnum(exprs ...Expression) EnumType {
-	var segments, _ = disectEnum(exprs...)
-	return segments
-}
+func DeclareElementGenerator(gen func(int) Expression) EnumGen { return gen }
 
-// disects enumerable type into segments seperated by ellipse, bounds, or
-// generator expression
-func disectEnum(enum ...Expression) (head, tail []Expression) {
-	head, tail = []Expression{}, enum
-	return head, tail
-}
-
-func (e EnumType) IsSegmented() bool {
-	for _, elem := range e {
-		if elem.Type().Match(
-			Bound | Generator | Lexical,
-		) {
-			return true
+func (g EnumGen) TypeFnc() TyFnc  { return Generator }
+func (g EnumGen) Type() TyPattern { return Def(Generator, Element) }
+func (g EnumGen) String() string  { return g.Type().TypeName() }
+func (g EnumGen) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vec = NewVector()
+			for _, arg := range args {
+				vec = vec.Append(g.Call(arg))
+			}
+			return vec
 		}
-	}
-	return false
-}
-func (e EnumType) TypeFnc() TyFnc         { return Enum }
-func (e EnumType) Slice() []Expression    { return e }
-func (e EnumType) Get(idx int) Expression { return e[idx] }
-func (e EnumType) GetElem(idx int) ElemVal {
-	return NewElement(e[idx], DefValue(NewNative(idx)))
-}
-
-// string concatenates the elements string representations
-func (e EnumType) String() string {
-	var slice = make([]string, 0, e.Len())
-	for _, expr := range e {
-		slice = append(slice, expr.String())
-	}
-	return "[" + s.Join(slice, " | ") + "]"
-}
-func (e EnumType) Len() int { return len(e) }
-
-// type method ranges over all elements to determine if they are values, or
-// sub-pattern like min|max bounds or elipse to indicate a partly defined,
-// possibly infinite range of elements.
-func (e EnumType) Type() TyPattern {
-	var elems = make(TyPattern, 0, e.Len())
-	for n, elem := range e {
-		if elem.TypeFnc().Match(Pattern) {
-			elems = append(elem.Type())
-			continue
-		}
-		elems = append(
-			elems,
-			Define(
-				DefValue(NewNative(n)),
-				elem.Type(),
-			))
-	}
-	return Define(Enum, Define(elems...))
-}
-
-// call tests if the first argument can be evaluated to yield an integer, if
-// that's not the case, it take the count of arguments as an index, in case it
-// is not greater, than the number of elements. when called empty, the enum
-// type instance itself is returned
-func (e EnumType) Call(args ...Expression) Expression {
-	var arglen = len(args)
-	if arglen > 0 {
+		var idx int
 		var arg = args[0]
 		if arg.TypeFnc().Match(Data) {
-			if native, ok := arg.(Native); ok {
-				if native.Type().Match(d.Integers) ||
-					native.Type().Match(d.Naturals) {
-					return e[int(native.(d.Numeral).Int())]
+			if nat, ok := arg.(Native); ok {
+				if nat.Type().Match(d.Numbers) {
+					if num, ok := arg.(d.Numeral); ok {
+						idx = num.GoInt()
+					}
 				}
 			}
 		}
-		if arglen < e.Len() {
-			return e[arglen]
-		}
+		return g(idx)
 	}
-	return e
+	return NewNone()
 }
 
-func DeclareTuple(exprs ...Expression) TupleType { return exprs }
+// helpers to define bounds from native, or go literal
+func DefMinNum(min d.Numeral) TyPattern {
+	return Def(Min, DefVal(NewNative(min)))
+}
+func DefMin(min int) TyPattern {
+	return DefMinNum(New(min).(d.Numeral))
+}
+func DefMaxNum(max d.Numeral) TyPattern {
+	return Def(Max, DefVal(NewNative(max)))
+}
+func DefMax(max int) TyPattern {
+	return DefMaxNum(New(max).(d.Numeral))
+}
+
+// enum declaration takes a name, that might be the empty string (in which case
+// the typename is generated from type pattern), a generator expression
+// expected to return the expression expected at that position and a slice of
+// typed instances, that may be of type TyValue, to define bounds, or
+// particular values, TyLex → Ellipsis to define ranges, and a type flag to
+// define the member elements type.
+func DeclareEnum(name string, gen EnumGen, typeds ...d.Typed) EnumType {
+
+	// define new pattern from typed elements
+	var pattern = Def(typeds...)
+	// define types name, by either name that has been passed, or its
+	// signature
+	var symbol TySymbol
+	if name != "" {
+		symbol = DefSym(name)
+	} else {
+		symbol = DefSym(pattern.Print("[", " | ", "]"))
+	}
+
+	return func(idx ...int) ElemVal {
+		if len(idx) > 0 {
+			if len(idx) > 1 { // fetch multiple elements
+				var elements = make([]Expression, 0, len(idx))
+				for _, pos := range idx {
+					elements = append(elements,
+						NewElement(
+							gen(pos),
+							Def(
+								symbol,
+								DefValGo(pos),
+							)))
+				}
+				return NewElement(
+					NewVector(elements...),
+					symbol,
+				)
+			}
+			// fetch one element
+			var pos = idx[0]
+			NewElement(
+				gen(pos),
+				Def(
+					symbol,
+					DefValGo(pos),
+				))
+
+		}
+		// return typename and pattern
+		return NewElement(symbol, pattern)
+	}
+}
+
+func (e EnumType) TypeFnc() TyFnc   { return Enum }
+func (e EnumType) Type() TyPattern  { return e().Type() }
+func (e EnumType) TypeName() string { return e.Type().TypeName() }
+func (e EnumType) String() string   { return e.TypeName() }
+func (e EnumType) Len() int {
+	var length int
+	return length
+}
+func (e EnumType) Get(idx int) ElemVal {
+	if idx < e.Len() || idx == -1 {
+		return e(idx)
+	}
+	return NewElement(NewNone(), None)
+}
+func (e EnumType) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		// cast n args to int and fetch n elements
+		if len(args) > 1 {
+			var exprs = make([]Expression, 0, len(args))
+			for _, arg := range args {
+				exprs = append(exprs, e.Call(arg))
+			}
+			return NewVector(exprs...)
+		}
+		//  cast arg to int and fetch single element
+		var idx int
+		var arg = args[0]
+		if arg.TypeFnc().Match(Data) {
+			if nat, ok := arg.(Native); ok {
+				if nat.Type().Match(d.Numbers) {
+					if num, ok := arg.(d.Numeral); ok {
+						idx = num.GoInt()
+					}
+				}
+			}
+		}
+		return e(idx)
+	}
+	return NewNone()
+}
+
+//func DeclareTuple(exprs ...Expression) TupleType { return exprs }
