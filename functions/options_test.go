@@ -169,15 +169,52 @@ func TestOption(t *testing.T) {
 	var option = NewOption(caseInt, caseFloat)
 	fmt.Printf("option: %s\n", option)
 	fmt.Printf("option type: %s\n", option.Type())
-	var result = option(NewNative(1))
+
+	var result = option(NewNative(1)).(ElemVal)
 	fmt.Printf("option called with int: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(Def(Data, d.String)) {
+		t.Fail()
+	}
 
-	result = option(NewNative(1.1))
+	result = option(NewNative(1.1)).(ElemVal)
 	fmt.Printf("option called with float: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(Def(Data, d.String)) {
+		t.Fail()
+	}
 
-	result = option(NewNative(true))
+	result = option(NewNative(true)).(ElemVal)
 	fmt.Printf("option called with bool: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(None) {
+		t.Fail()
+	}
+}
+
+func TestIf(t *testing.T) {
+	var ifs = NewIf(caseInt, caseFloat)
+	fmt.Printf("if: %s\n", ifs)
+	fmt.Printf("if type: %s\n", ifs.Type())
+
+	var result = ifs(NewNative(1)).(ElemVal)
+	fmt.Printf("if called with int: %s\n", result)
+	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(Def(Data, d.String)) {
+		t.Fail()
+	}
+
+	result = ifs(NewNative(1.1)).(ElemVal)
+	fmt.Printf("if called with float: %s\n", result)
+	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(Def(Data, d.String)) {
+		t.Fail()
+	}
+
+	result = ifs(NewNative(true)).(ElemVal)
+	fmt.Printf("if called with bool: %s\n", result)
+	fmt.Printf("result type %s\n", result.Type())
+	if !result.TypeReturn().Match(None) {
+		t.Fail()
+	}
 }

@@ -237,6 +237,7 @@ func NewElement(expr Expression, typed d.Typed) ElemVal {
 }
 func (e ElemVal) Type() TyPattern                    { var _, p = e(); return p }
 func (e ElemVal) Unbox() Expression                  { var r, _ = e(); return r }
+func (e ElemVal) TypeReturn() TyPattern              { return e.Unbox().Type() }
 func (e ElemVal) TypeFnc() TyFnc                     { return e.Unbox().TypeFnc() }
 func (e ElemVal) Call(args ...Expression) Expression { return e.Unbox().Call(args...) }
 func (e ElemVal) String() string                     { return e.Unbox().String() }
@@ -279,7 +280,7 @@ func NewOption(either, or CaseVal) OptionVal {
 			if result = or(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Or)
 			}
-			return result // ← will be None
+			return NewElement(result, None) // ← will be None
 		}
 		return NewPair(either, or)
 	}
@@ -307,18 +308,18 @@ func (t OptionVal) OrCase() CaseVal {
 
 /// IF THEN ELSE CONDITION
 //
-// conditional constructor works just like optional.
-func NewIfStatement(then, els CaseVal) IfVal {
+// if statement is a slight variation of an optional.
+func NewIf(then, els CaseVal) IfVal {
 	var result Expression
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			if result = then(args...); result.TypeFnc().Match(None) {
+			if result = then(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Then)
 			}
 			if result = els(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Else)
 			}
-			return result // ← will be None
+			return NewElement(result, None) // ← will be None
 		}
 		return NewPair(then, els)
 	}
