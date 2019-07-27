@@ -74,34 +74,38 @@ func (a ArgType) MatchArgs(args ...Expression) bool {
 
 // declare type-safe expression that can be partialy applyed
 func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
-	var tlength = len(types)
+	var tlen = len(types)
 	return func(args ...Expression) Expression {
-		var alength = len(args)
-		if alength > 0 {
+		var alen = len(args)
+		if alen > 0 {
 			switch {
-			case alength == tlength:
+			case alen == tlen:
 				var matcher = DeclareArguments(types...)
 				if matcher.MatchArgs(args...) {
 					return expr.Call(args...)
 				}
-			case alength < tlength:
+
+			case alen < tlen:
 				var (
-					currenTypes = types[:alength]
-					remainTypes = types[alength:]
+					currenTypes = types[:alen]
+					remainTypes = types[alen:]
 					matcher     = DeclareArguments(currenTypes...)
 				)
 				if matcher.MatchArgs(args...) {
 					return DeclareExpression(NewFunction(
 						func(lateargs ...Expression) Expression {
-							return DeclareExpression(
-								expr, remainTypes...,
-							)(append(args, lateargs...)...)
+							return expr.Call(
+								append(
+									args,
+									lateargs...,
+								)...)
 						}, expr.Type()), remainTypes...)
 				}
-			case alength > tlength:
+
+			case alen > tlen:
 				var (
-					currenArgs = args[:tlength]
-					remainArgs = args[tlength:]
+					currenArgs = args[:tlen]
+					remainArgs = args[tlen:]
 					matcher    = DeclareArguments(types...)
 				)
 				if matcher.MatchArgs(currenArgs...) {
@@ -112,6 +116,7 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 					)(remainArgs...))
 				}
 			}
+			return NewNone()
 		}
 		return NewPair(expr, DeclareArguments(types...))
 	}
