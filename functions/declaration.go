@@ -109,11 +109,22 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 					matcher    = DeclareArguments(types...)
 				)
 				if matcher.MatchArgs(currenArgs...) {
-					return NewList(
-						expr.Call(currenArgs...),
-					).Con(DeclareExpression(
-						expr, types...,
-					)(remainArgs...))
+					var list = NewList(expr.Call(currenArgs...))
+					for len(remainArgs) > 0 {
+						if len(remainArgs) >= tlen {
+							currenArgs = remainArgs[:tlen]
+							remainArgs = remainArgs[tlen:]
+						} else {
+							currenArgs = remainArgs
+							remainArgs = []Expression{}
+						}
+						list = list.Con(
+							DeclareExpression(
+								expr,
+								types...,
+							)(currenArgs...))
+					}
+					return list
 				}
 			}
 			return NewNone()
