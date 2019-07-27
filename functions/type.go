@@ -81,6 +81,7 @@ const (
 	Value
 	Class
 	Lambda
+	Constant
 	Generator
 	Accumulator
 	/// PARAMETER

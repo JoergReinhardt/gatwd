@@ -6,7 +6,9 @@ import (
 
 type (
 	//// NONE VALUE CONSTRUCTOR
-	NoneVal func()
+	NoneVal  func()
+	ConstVal func() Expression
+	FuncVal  func(...Expression) Expression
 
 	// TESTS AND COMPARE
 	TestVal func(...Expression) bool
@@ -29,6 +31,25 @@ type (
 	// IF (THEN | ELSE)
 	IfVal func(...Expression) Expression
 )
+
+func NewConstant(fn func() Expression) ConstVal  { return fn }
+func (c ConstVal) TypeFnc() TyFnc                { return Constant }
+func (c ConstVal) Type() TyPattern               { return c().(TyPattern) }
+func (c ConstVal) String() string                { return c().String() }
+func (c ConstVal) Call(...Expression) Expression { return c() }
+
+func NewFunction(fn func(...Expression) Expression, pattern TyPattern) FuncVal {
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return fn(args...)
+		}
+		return pattern
+	}
+}
+func (g FuncVal) TypeFnc() TyFnc                     { return Value }
+func (g FuncVal) Type() TyPattern                    { return g().(TyPattern) }
+func (g FuncVal) String() string                     { return g().String() }
+func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
 
 //// NONE VALUE CONSTRUCTOR
 ///
@@ -142,6 +163,23 @@ func NewCase(test Testable, expr Expression) CaseVal {
 		return NewPair(test, expr)
 	}
 }
+
+// return case constructor only takes a test as argument and returns a case,
+// that returns its set of arguments, when matched by the enclosed test
+func NewReturnCase(test Testable) CaseVal {
+	return NewCase(
+		test, NewFunction(
+			func(args ...Expression) Expression {
+				if len(args) > 0 {
+					if len(args) > 1 {
+						return NewVector(args...)
+					}
+					return args[0]
+				}
+				return NewNone()
+			}, Def(Value)))
+}
+
 func (t CaseVal) TypeFnc() TyFnc { return Case }
 func (t CaseVal) String() string { return t.TypeFnc().TypeName() }
 func (t CaseVal) TypeReturn() TyPattern {
@@ -220,6 +258,47 @@ func (t SwitchVal) Call(args ...Expression) Expression {
 	}
 	t = t.Reload()
 	return NewNone()
+}
+
+/// TYPE SWITCHES
+//
+// type switch constructors take a list of types, generate a case for every
+// type argument and return a switch over all enclosed cases
+//
+// type all switches return set of arguments passed, if the types of all
+// arguments passed to are matched by one of the enclosed type case
+func NewAllTypeSwitch(types ...TyPattern) SwitchVal {
+	var cases = make([]CaseVal, 0, len(types))
+	for _, t := range types {
+		cases = append(cases, NewReturnCase(NewTest(
+			func(args ...Expression) bool {
+				for _, arg := range args {
+					if !t.Match(arg.Type()) {
+						return false
+					}
+				}
+				return true
+			})))
+	}
+	return NewSwitch(cases...)
+}
+
+// type any switches return set of arguments passed, if any of the passed
+// arguments is matched by one of the enclosed type cases
+func NewAnyTypeSwitch(types ...TyPattern) SwitchVal {
+	var cases = make([]CaseVal, 0, len(types))
+	for _, t := range types {
+		cases = append(cases, NewReturnCase(NewTest(
+			func(args ...Expression) bool {
+				for _, arg := range args {
+					if t.Match(arg.Type()) {
+						return true
+					}
+				}
+				return false
+			})))
+	}
+	return NewSwitch(cases...)
 }
 
 /// ELEMENT VALUE
