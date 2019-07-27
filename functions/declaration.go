@@ -1,151 +1,135 @@
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
-	EnumGen    func(int) Expression
-	EnumType   func(...int) ElemVal
-	TupleType  EnumType
-	RecordType TupleType
+	ArgType      func() []d.Typed
+	DeclaredExpr func(...Expression) Expression
 )
 
-func DeclareElementGenerator(gen func(int) Expression) EnumGen { return gen }
-
-func (g EnumGen) TypeFnc() TyFnc  { return Generator }
-func (g EnumGen) Type() TyPattern { return Def(Generator, Element) }
-func (g EnumGen) String() string  { return g.Type().TypeName() }
-func (g EnumGen) Call(args ...Expression) Expression {
+// declare types of set of arguments
+func DeclareArguments(types ...d.Typed) ArgType { return func() []d.Typed { return types } }
+func (a ArgType) TypeFnc() TyFnc                { return Argument }
+func (a ArgType) Type() TyPattern               { return Def(a()...) }
+func (a ArgType) Len() int                      { return len(a()) }
+func (a ArgType) String() string {
+	var strs = make([]string, 0, a.Len())
+	for _, t := range a() {
+		strs = append(strs, t.String())
+	}
+	return strings.Join(strs, " → ")
+}
+func (a ArgType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		if len(args) > 1 {
-			var vec = NewVector()
-			for _, arg := range args {
-				vec = vec.Append(g.Call(arg))
+		if a.MatchArgs(args...) {
+			if len(args) > 1 {
+				return NewVector(args...)
 			}
-			return vec
+			return args[0]
 		}
-		var idx int
-		var arg = args[0]
-		if arg.TypeFnc().Match(Data) {
-			if nat, ok := arg.(Native); ok {
-				if nat.Type().Match(d.Numbers) {
-					if num, ok := arg.(d.Numeral); ok {
-						idx = num.GoInt()
-					}
-				}
-			}
-		}
-		return g(idx)
 	}
 	return NewNone()
 }
-
-// helpers to define bounds from native, or go literal
-func DefMinNum(min d.Numeral) TyPattern {
-	return Def(Min, DefVal(NewNative(min)))
-}
-func DefMin(min int) TyPattern {
-	return DefMinNum(New(min).(d.Numeral))
-}
-func DefMaxNum(max d.Numeral) TyPattern {
-	return Def(Max, DefVal(NewNative(max)))
-}
-func DefMax(max int) TyPattern {
-	return DefMaxNum(New(max).(d.Numeral))
-}
-
-// enum declaration takes a name, that might be the empty string (in which case
-// the typename is generated from type pattern), a generator expression
-// expected to return the expression expected at that position and a slice of
-// typed instances, that may be of type TyValue, to define bounds, or
-// particular values, TyLex → Ellipsis to define ranges, and a type flag to
-// define the member elements type.
-func DeclareEnum(name string, gen EnumGen, typeds ...d.Typed) EnumType {
-
-	// define new pattern from typed elements
-	var pattern = Def(typeds...)
-	// define types name, by either name that has been passed, or its
-	// signature
-	var symbol TySymbol
-	if name != "" {
-		symbol = DefSym(name)
+func (a ArgType) MatchArg(arg Expression) (ArgType, bool) {
+	var (
+		types   = a()
+		current d.Typed
+	)
+	if len(types) > 0 {
+		current = types[0]
+	}
+	if len(types) > 1 {
+		types = types[1:]
 	} else {
-		symbol = DefSym(pattern.Print("[", " | ", "]"))
+		types = []d.Typed{}
 	}
-
-	return func(idx ...int) ElemVal {
-		if len(idx) > 0 {
-			if len(idx) > 1 { // fetch multiple elements
-				var elements = make([]Expression, 0, len(idx))
-				for _, pos := range idx {
-					elements = append(elements,
-						NewElement(
-							gen(pos),
-							Def(
-								symbol,
-								DefValGo(pos),
-							)))
-				}
-				return NewElement(
-					NewVector(elements...),
-					symbol,
-				)
-			}
-			// fetch one element
-			var pos = idx[0]
-			NewElement(
-				gen(pos),
-				Def(
-					symbol,
-					DefValGo(pos),
-				))
-
+	return DeclareArguments(types...),
+		current.Match(arg.Type())
+}
+func (a ArgType) MatchArgs(args ...Expression) bool {
+	var (
+		at      = a
+		ok      bool
+		current Expression
+	)
+	for len(args) > 0 {
+		if len(args) > 0 {
+			current = args[0]
 		}
-		// return typename and pattern
-		return NewElement(symbol, pattern)
-	}
-}
-
-func (e EnumType) TypeFnc() TyFnc   { return Enum }
-func (e EnumType) Type() TyPattern  { return e().Type() }
-func (e EnumType) TypeName() string { return e.Type().TypeName() }
-func (e EnumType) String() string   { return e.TypeName() }
-func (e EnumType) Len() int {
-	var length int
-	return length
-}
-func (e EnumType) Get(idx int) ElemVal {
-	if idx < e.Len() || idx == -1 {
-		return e(idx)
-	}
-	return NewElement(NewNone(), None)
-}
-func (e EnumType) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		// cast n args to int and fetch n elements
 		if len(args) > 1 {
-			var exprs = make([]Expression, 0, len(args))
-			for _, arg := range args {
-				exprs = append(exprs, e.Call(arg))
-			}
-			return NewVector(exprs...)
+			args = args[1:]
+		} else {
+			args = []Expression{}
 		}
-		//  cast arg to int and fetch single element
-		var idx int
-		var arg = args[0]
-		if arg.TypeFnc().Match(Data) {
-			if nat, ok := arg.(Native); ok {
-				if nat.Type().Match(d.Numbers) {
-					if num, ok := arg.(d.Numeral); ok {
-						idx = num.GoInt()
-					}
+		if at, ok = at.MatchArg(current); !ok {
+			return ok // ← will be false
+		}
+	}
+	return ok // ← will be true
+}
+
+// declare type-safe expression that can be partialy applyed
+func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
+	var tlength = len(types)
+	return func(args ...Expression) Expression {
+		var alength = len(args)
+		if alength > 0 {
+			switch {
+			case alength == tlength:
+				var matcher = DeclareArguments(types...)
+				if matcher.MatchArgs(args...) {
+					return expr.Call(args...)
+				}
+			case alength < tlength:
+				var (
+					currenTypes = types[:alength]
+					remainTypes = types[alength:]
+					matcher     = DeclareArguments(currenTypes...)
+				)
+				if matcher.MatchArgs(args...) {
+					return DeclareExpression(NewFunction(
+						func(lateargs ...Expression) Expression {
+							return DeclareExpression(
+								expr, remainTypes...,
+							)(append(args, lateargs...)...)
+						}, expr.Type()), remainTypes...)
+				}
+			case alength > tlength:
+				var (
+					currenArgs = args[:tlength]
+					remainArgs = args[tlength:]
+					matcher    = DeclareArguments(types...)
+				)
+				if matcher.MatchArgs(currenArgs...) {
+					return NewList(
+						expr.Call(currenArgs...),
+					).Con(DeclareExpression(
+						expr, types...,
+					)(remainArgs...))
 				}
 			}
 		}
-		return e(idx)
+		return NewPair(expr, DeclareArguments(types...))
 	}
-	return NewNone()
 }
-
-//func DeclareTuple(exprs ...Expression) TupleType { return exprs }
+func (e DeclaredExpr) TypeFnc() TyFnc                     { return Value }
+func (e DeclaredExpr) Type() TyPattern                    { return e.Expr().Type() }
+func (e DeclaredExpr) ArgType() ArgType                   { return e().(PairVal).Right().(ArgType) }
+func (e DeclaredExpr) Expr() Expression                   { return e().(PairVal).Left() }
+func (e DeclaredExpr) Call(args ...Expression) Expression { return e(args...) }
+func (e DeclaredExpr) String() string {
+	return strings.Join(append(
+		make(
+			[]string, 0,
+			e.ArgType().Len(),
+		),
+		e.ArgType().String(),
+		e.Expr().Type().String(),
+		e.Expr().Type().String()),
+		" → ",
+	)
+}

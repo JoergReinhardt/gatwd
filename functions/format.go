@@ -47,8 +47,10 @@ func (v PairVec) String() string {
 
 /// LIST
 func (l ListCol) String() string {
-	var args = []string{}
-	var head, list = l()
+	var (
+		args       = []string{}
+		head, list = l()
+	)
 	for head != nil {
 		args = append(args, head.String())
 		head, list = list()
@@ -56,8 +58,10 @@ func (l ListCol) String() string {
 	return "(" + strings.Join(args, ", ") + ")"
 }
 func (l PairList) String() string {
-	var args = []string{}
-	var head, list = l()
+	var (
+		args       = []string{}
+		head, list = l()
+	)
 	for head != nil {
 		args = append(args, head.String())
 		head, list = list()

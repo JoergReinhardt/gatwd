@@ -90,7 +90,6 @@ const (
 	Pattern
 	Element
 	Lexical
-	Return
 	Symbol
 	Arity
 	Index
@@ -138,7 +137,7 @@ const (
 	Kinds = Type | Data | Value | Class | Lambda | Generator
 	//// PARAMETER
 	Parameter = Property | Argument | Pattern | Element |
-		Lexical | Return | Symbol | Arity | Index | Key
+		Lexical | Symbol | Arity | Index | Key
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided

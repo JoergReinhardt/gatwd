@@ -30,9 +30,6 @@ type (
 
 	// IF (THEN | ELSE)
 	IfVal func(...Expression) ElemVal
-
-	// TUPLE (...TYPE)
-	TupleVal func(...Expression) ElemVal
 )
 
 func NewConstant(fn func() Expression) ConstVal  { return fn }
@@ -245,10 +242,11 @@ func NewTypeCase(typ d.Typed) CaseVal {
 // when called, a switch evaluates all it's cases until it yields either
 // results from applying the first case that matched the arguments, or none.
 func NewSwitch(cases ...CaseVal) SwitchVal {
-
-	var all = cases
-	var current CaseVal
-	var types = make([]d.Typed, 0, len(cases))
+	var (
+		all     = cases
+		current CaseVal
+		types   = make([]d.Typed, 0, len(cases))
+	)
 	for _, c := range cases {
 		types = append(types, c.Type().Pattern())
 	}
@@ -275,8 +273,10 @@ func (t SwitchVal) Reload() SwitchVal {
 	return NewSwitch(cases...)
 }
 func (t SwitchVal) Type() TyPattern {
-	var _, cases = t()
-	var types = make([]d.Typed, 0, len(cases)+1)
+	var (
+		_, cases = t()
+		types    = make([]d.Typed, 0, len(cases)+1)
+	)
 	types = append(types, Switch)
 	for _, c := range cases {
 		types = append(types, c.Type())

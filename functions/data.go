@@ -25,8 +25,10 @@ func NewNative(inf ...interface{}) Native {
 }
 
 func NewData(args ...d.Native) Native {
-	var nat = d.NewData(args...)
-	var match = nat.Type().Match
+	var (
+		nat   = d.NewData(args...)
+		match = nat.Type().Match
+	)
 
 	switch {
 	case match(d.Function):

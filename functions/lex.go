@@ -33,9 +33,11 @@ func (t TyLex) FindAscii(arg string) (TyLex, bool) {
 
 // slice of all syntax items in there int constant form
 var AllItems = func() []TyLex {
-	var tt = []TyLex{}
-	var i uint
-	var t TyLex = 0
+	var (
+		tt = []TyLex{}
+		i  uint
+		t  TyLex = 0
+	)
 	for i < 63 {
 		t = 1 << i
 		i = i + 1

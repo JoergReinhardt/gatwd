@@ -72,8 +72,10 @@ func (m ConsumeVal) String() string {
 //// CONSUMEABLE PAIRS FUNCTOR
 func NewConsumeablePairs(expr Paired) ConsPairVal {
 	return func(args ...Expression) (Expression, ConsPairVal) {
-		var pair Expression
-		var arg = expr.Call(args...)
+		var (
+			pair Expression
+			arg  = expr.Call(args...)
+		)
 		switch {
 		case arg.TypeFnc().Match(Pair):
 			if val, ok := arg.(Paired); ok {
@@ -323,8 +325,10 @@ func FilterP(pairs ConsumeablePaired, filter Filter) ConsPairVal {
 func ZipL(llist, rlist ListCol, zip Zip) ListCol {
 	return ListCol(
 		func(args ...Expression) (Expression, ListCol) {
-			var lhead, ltail = llist()
-			var rhead, rtail = rlist()
+			var (
+				lhead, ltail = llist()
+				rhead, rtail = rlist()
+			)
 			if lhead == nil || rhead == nil {
 				return nil, ZipL(llist, rlist, zip)
 			}
@@ -338,8 +342,10 @@ func ZipL(llist, rlist ListCol, zip Zip) ListCol {
 func ZipF(lcons, rcons Consumeable, zip Zip) ConsumeVal {
 	return ConsumeVal(
 		func(args ...Expression) (Expression, ConsumeVal) {
-			var lhead, ltail = lcons.Consume()
-			var rhead, rtail = rcons.Consume()
+			var (
+				lhead, ltail = lcons.Consume()
+				rhead, rtail = rcons.Consume()
+			)
 			if lhead == nil || rhead == nil {
 				return nil,
 					ZipF(lcons, rcons, zip)

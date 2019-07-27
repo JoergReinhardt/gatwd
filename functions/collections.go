@@ -82,9 +82,11 @@ func (l ListCol) Push(elems ...Expression) ListCol {
 }
 
 func (l ListCol) Slice() []Expression {
-	var vec = NewVector()
-	var head Expression
-	var tail Consumeable
+	var (
+		vec  = NewVector()
+		head Expression
+		tail Consumeable
+	)
 	head, tail = l.Head(), l.Tail()
 	for head != nil {
 		vec = vec.Append(head)
@@ -122,8 +124,10 @@ func (l ListCol) Empty() bool {
 }
 
 func (l ListCol) Len() int {
-	var length int
-	var head, tail = l()
+	var (
+		length     int
+		head, tail = l()
+	)
 	if head != nil {
 		length += 1 + tail.Len()
 	}
@@ -350,8 +354,10 @@ func (l PairList) Empty() bool {
 }
 
 func (l PairList) Len() int {
-	var length int
-	var head, tail = l()
+	var (
+		length     int
+		head, tail = l()
+	)
 	if head != nil {
 		length += 1 + tail.Len()
 	}
@@ -374,8 +380,10 @@ func (l PairList) ValType() d.Typed {
 }
 
 func argsToPaired(args ...Expression) []Paired {
-	var pairs = []Paired{}
-	var alen = len(args)
+	var (
+		pairs = []Paired{}
+		alen  = len(args)
+	)
 	for i, arg := range args {
 		if arg.TypeFnc().Match(Pair) {
 			pairs = append(pairs, arg.(Paired))
