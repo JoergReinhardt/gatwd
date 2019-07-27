@@ -23,13 +23,16 @@ type (
 	ElemVal func(...Expression) (Expression, TyPattern)
 
 	// MAYBE (JUST | NONE)
-	MaybeVal func(...Expression) Expression
+	MaybeVal func(...Expression) ElemVal
 
 	// OPTION (EITHER | OR)
-	OptionVal func(...Expression) Expression
+	OptionVal func(...Expression) ElemVal
 
 	// IF (THEN | ELSE)
-	IfVal func(...Expression) Expression
+	IfVal func(...Expression) ElemVal
+
+	// TUPLE (...TYPE)
+	TupleVal func(...Expression) ElemVal
 )
 
 func NewConstant(fn func() Expression) ConstVal  { return fn }
@@ -94,7 +97,7 @@ func NewTest(test func(...Expression) bool) TestVal {
 }
 func (t TestVal) TypeFnc() TyFnc { return Truth }
 func (t TestVal) Type() TyPattern {
-	return Def(Truth, Def(True, False))
+	return Def(Truth, Def(True, Lex_Pipe, False))
 }
 func (t TestVal) String() string               { return t.TypeFnc().TypeName() }
 func (t TestVal) Test(args ...Expression) bool { return t(args...) }
@@ -119,7 +122,7 @@ func NewTrinary(test func(...Expression) int) TrinVal {
 }
 func (t TrinVal) TypeFnc() TyFnc { return Trinary }
 func (t TrinVal) Type() TyPattern {
-	return Def(Trinary, Def(True, False, Undecided))
+	return Def(Trinary, Def(True, Lex_Pipe, False, Lex_Pipe, Undecided))
 }
 func (t TrinVal) String() string                     { return t.TypeFnc().TypeName() }
 func (t TrinVal) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -138,7 +141,7 @@ func NewCompare(comp func(...Expression) int) CompVal {
 }
 func (t CompVal) TypeFnc() TyFnc { return Compare }
 func (t CompVal) Type() TyPattern {
-	return Def(Compare, Def(Lesser, Greater, Equal))
+	return Def(Compare, Def(Lesser, Lex_Pipe, Greater, Lex_Pipe, Equal))
 }
 func (t CompVal) String() string                     { return t.TypeFnc().TypeName() }
 func (t CompVal) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -167,17 +170,16 @@ func NewCase(test Testable, expr Expression) CaseVal {
 // return case constructor only takes a test as argument and returns a case,
 // that returns its set of arguments, when matched by the enclosed test
 func NewReturnCase(test Testable) CaseVal {
-	return NewCase(
-		test, NewFunction(
-			func(args ...Expression) Expression {
-				if len(args) > 0 {
-					if len(args) > 1 {
-						return NewVector(args...)
-					}
-					return args[0]
+	return NewCase(test, NewFunction(
+		func(args ...Expression) Expression {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					return NewVector(args...)
 				}
-				return NewNone()
-			}, Def(Value)))
+				return args[0]
+			}
+			return NewNone()
+		}, Def(Value)))
 }
 
 func (t CaseVal) TypeFnc() TyFnc { return Case }
@@ -188,7 +190,9 @@ func (t CaseVal) TypeReturn() TyPattern {
 }
 func (t CaseVal) Type() TyPattern {
 	var pair = t().(Paired)
-	return Def(Case, Def(pair.Left().Type().Pattern(), pair.Right().Type().Pattern()))
+	return Def(Case, Def(
+		pair.Left().Type().Pattern(),
+		pair.Right().Type().Pattern()))
 }
 func (t CaseVal) Test(args ...Expression) bool {
 	var pair = t().(Paired)
@@ -199,6 +203,36 @@ func (t CaseVal) Unbox() (Testable, Expression) {
 	return pair.Left().(Testable), pair.Right()
 }
 func (t CaseVal) Call(args ...Expression) Expression { return t(args...) }
+
+// all type case returns its set of arguments, if the types of all passed
+// arguments are matched by the test comparing it to the type passed to the
+// constructor
+func NewTypeCase(typ d.Typed) CaseVal {
+	var pattern TyPattern
+	if Flag_Pattern.Match(typ.FlagType()) {
+		pattern = typ.(TyPattern)
+	} else {
+		pattern = Def(typ)
+	}
+	return NewCase(NewTest(
+		func(args ...Expression) bool {
+			for _, arg := range args {
+				if !arg.Type().Match(typ) {
+					return false
+				}
+			}
+			return true
+		}),
+		NewFunction(func(args ...Expression) Expression {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					return NewVector(args...)
+				}
+				return args[0]
+			}
+			return pattern
+		}, pattern))
+}
 
 /// SWITCH
 //
@@ -234,15 +268,16 @@ func NewSwitch(cases ...CaseVal) SwitchVal {
 		return NewNone(), all
 	}
 }
+func (t SwitchVal) TypeFnc() TyFnc { return Switch }
+func (t SwitchVal) String() string { return t.Type().TypeName() }
 func (t SwitchVal) Reload() SwitchVal {
 	var _, cases = t()
 	return NewSwitch(cases...)
 }
-func (t SwitchVal) TypeFnc() TyFnc { return Switch }
-func (t SwitchVal) String() string { return t.Type().TypeName() }
 func (t SwitchVal) Type() TyPattern {
-	var types = []d.Typed{Switch}
 	var _, cases = t()
+	var types = make([]d.Typed, 0, len(cases)+1)
+	types = append(types, Switch)
 	for _, c := range cases {
 		types = append(types, c.Type())
 	}
@@ -251,13 +286,13 @@ func (t SwitchVal) Type() TyPattern {
 func (t SwitchVal) Call(args ...Expression) Expression {
 	var result, cases = t(args...)
 	for len(cases) > 0 {
-		result, cases = NewSwitch(cases...)(args...)
 		if !result.TypeFnc().Match(None) {
-			return result
+			break
 		}
+		result, cases = NewSwitch(cases...)(args...)
 	}
 	t = t.Reload()
-	return NewNone()
+	return result
 }
 
 /// TYPE SWITCHES
@@ -267,36 +302,10 @@ func (t SwitchVal) Call(args ...Expression) Expression {
 //
 // type all switches return set of arguments passed, if the types of all
 // arguments passed to are matched by one of the enclosed type case
-func NewAllTypeSwitch(types ...TyPattern) SwitchVal {
+func NewTypeSwitch(types ...d.Typed) SwitchVal {
 	var cases = make([]CaseVal, 0, len(types))
 	for _, t := range types {
-		cases = append(cases, NewReturnCase(NewTest(
-			func(args ...Expression) bool {
-				for _, arg := range args {
-					if !t.Match(arg.Type()) {
-						return false
-					}
-				}
-				return true
-			})))
-	}
-	return NewSwitch(cases...)
-}
-
-// type any switches return set of arguments passed, if any of the passed
-// arguments is matched by one of the enclosed type cases
-func NewAnyTypeSwitch(types ...TyPattern) SwitchVal {
-	var cases = make([]CaseVal, 0, len(types))
-	for _, t := range types {
-		cases = append(cases, NewReturnCase(NewTest(
-			func(args ...Expression) bool {
-				for _, arg := range args {
-					if t.Match(arg.Type()) {
-						return true
-					}
-				}
-				return false
-			})))
+		cases = append(cases, NewTypeCase(t))
 	}
 	return NewSwitch(cases...)
 }
@@ -328,21 +337,21 @@ func (e ElemVal) String() string                     { return e.Unbox().String()
 // or creates a just instance enclosing the resulting value.
 func NewMaybe(test CaseVal) MaybeVal {
 	var result Expression
-	return func(args ...Expression) Expression {
+	return func(args ...Expression) ElemVal {
 		if len(args) > 0 {
 			if result = test(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Just)
 			}
-			return result // ← will be None
+			return NewElement(result, None) // ← will be None
 		}
-		return test
+		return NewElement(test, Truth)
 	}
 }
 func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeVal) Call(args ...Expression) Expression { return t(args...) }
-func (t MaybeVal) Unbox() CaseVal                     { return t().(CaseVal) }
+func (t MaybeVal) Unbox() CaseVal                     { return t().Unbox().(CaseVal) }
 func (t MaybeVal) String() string                     { return t.Type().TypeName() }
-func (t MaybeVal) Type() TyPattern                    { return Def(Maybe, t().(CaseVal).TypeReturn()) }
+func (t MaybeVal) Type() TyPattern                    { return Def(Maybe, t.Unbox().TypeReturn()) }
 
 /// OPTIONAL VALUE
 //
@@ -351,7 +360,7 @@ func (t MaybeVal) Type() TyPattern                    { return Def(Maybe, t().(C
 // matches. if none of the cases match, a none instance will be returned
 func NewOption(either, or CaseVal) OptionVal {
 	var result Expression
-	return func(args ...Expression) Expression {
+	return func(args ...Expression) ElemVal {
 		if len(args) > 0 {
 			if result = either(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Either)
@@ -361,7 +370,7 @@ func NewOption(either, or CaseVal) OptionVal {
 			}
 			return NewElement(result, None) // ← will be None
 		}
-		return NewPair(either, or)
+		return NewElement(NewPair(either, or), Pair)
 	}
 }
 func (t OptionVal) TypeFnc() TyFnc                     { return Option }
@@ -370,18 +379,19 @@ func (t OptionVal) String() string                     { return t.Type().TypeNam
 func (t OptionVal) Type() TyPattern {
 	return Def(Option, Def(
 		Def(Either, t.EitherCase().TypeReturn()),
+		Lex_Pipe,
 		Def(Or, t.OrCase().TypeReturn())))
 }
 func (t OptionVal) Unbox() (CaseVal, CaseVal) {
-	var either, or = t().(Paired).Both()
+	var either, or = t().Unbox().(Paired).Both()
 	return either.(CaseVal), or.(CaseVal)
 }
 func (t OptionVal) EitherCase() CaseVal {
-	var pair = t().(Paired)
+	var pair = t().Unbox().(Paired)
 	return pair.Left().(CaseVal)
 }
 func (t OptionVal) OrCase() CaseVal {
-	var pair = t().(Paired)
+	var pair = t().Unbox().(Paired)
 	return pair.Right().(CaseVal)
 }
 
@@ -390,7 +400,7 @@ func (t OptionVal) OrCase() CaseVal {
 // if statement is a slight variation of an optional.
 func NewIf(then, els CaseVal) IfVal {
 	var result Expression
-	return func(args ...Expression) Expression {
+	return func(args ...Expression) ElemVal {
 		if len(args) > 0 {
 			if result = then(args...); !result.TypeFnc().Match(None) {
 				return NewElement(result, Then)
@@ -400,7 +410,7 @@ func NewIf(then, els CaseVal) IfVal {
 			}
 			return NewElement(result, None) // ← will be None
 		}
-		return NewPair(then, els)
+		return NewElement(NewPair(then, els), Pair)
 	}
 }
 func (t IfVal) TypeFnc() TyFnc                     { return If }
@@ -409,17 +419,18 @@ func (t IfVal) String() string                     { return t.Type().TypeName() 
 func (t IfVal) Type() TyPattern {
 	return Def(If, Def(
 		Def(Then, t.Then().Type()),
+		Lex_Pipe,
 		Def(Else, t.Else().Type())))
 }
 func (t IfVal) Unbox() (CaseVal, CaseVal) {
-	var then, els = t().(Paired).Both()
+	var then, els = t().Unbox().(Paired).Both()
 	return then.(CaseVal), els.(CaseVal)
 }
 func (t IfVal) Then() CaseVal {
-	var pair = t().(Paired)
+	var pair = t().Unbox().(Paired)
 	return pair.Left().(CaseVal)
 }
 func (t IfVal) Else() CaseVal {
-	var pair = t().(Paired)
+	var pair = t().Unbox().(Paired)
 	return pair.Right().(CaseVal)
 }

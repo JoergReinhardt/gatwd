@@ -80,7 +80,7 @@ var caseFloat = NewCase(isFloat, NewNative("this is a float"))
 
 var swi = NewSwitch(caseFloat, caseUint, caseInt)
 
-func TestTypeSwitch(t *testing.T) {
+func TestSwitch(t *testing.T) {
 	fmt.Printf("switch: %s\n\n", swi)
 
 	fmt.Printf("types:\nint: %s uint: %s float: %s\n\n",
@@ -149,6 +149,53 @@ func TestTypeSwitch(t *testing.T) {
 	}
 }
 
+var intCase = NewTypeCase(Def(Data, d.Int))
+var uintCase = NewTypeCase(Def(Data, d.Uint))
+var floatCase = NewTypeCase(Def(Data, d.Float))
+
+func TestAllTypeCase(t *testing.T) {
+
+	fmt.Printf("all type cases: %s, %s, %s\n",
+		intCase.Type(), uintCase.Type(), floatCase.Type())
+
+	fmt.Printf("int value? %s\n", intCase.Call(NewNative(1)))
+	if !intCase(NewNative(1)).Type().Match(Def(Data, d.Int)) {
+		t.Fail()
+	}
+
+	fmt.Printf("not int value? %s\n", intCase(NewNative(1.1)))
+	if !intCase(NewNative(1.1)).Type().Match(Def(None)) {
+		t.Fail()
+	}
+}
+
+var typeSwitch = NewTypeSwitch(Def(Data, d.Int), Def(Data, d.Uint), Def(Data, d.Float))
+
+func TestTypeSwitch(t *testing.T) {
+
+	fmt.Printf("type switch: %s\n", typeSwitch)
+
+	var result, cases = typeSwitch(NewNative(1))
+	for len(cases) > 0 {
+		fmt.Printf("result: %s cases: %s type: %s\n", result, cases, result.Type())
+		result, cases = NewSwitch(cases...)(NewNative(1))
+	}
+
+	typeSwitch = typeSwitch.Reload()
+	result = typeSwitch.Call(NewNative(1.2))
+	fmt.Printf("result from Call %s Type: %s\n", result, result.Type())
+	if !result.Type().Match(Def(Data, d.Float)) {
+		t.Fail()
+	}
+
+	typeSwitch = typeSwitch.Reload()
+	result = typeSwitch.Call(NewNative(1))
+	fmt.Printf("result from Call %s Type: %s\n", result, result.Type())
+	if !result.Type().Match(Def(Data, d.Int)) {
+		t.Fail()
+	}
+}
+
 func TestMaybe(t *testing.T) {
 	var maybe = NewMaybe(caseInt)
 	var result = maybe(NewNative(1))
@@ -170,21 +217,21 @@ func TestOption(t *testing.T) {
 	fmt.Printf("option: %s\n", option)
 	fmt.Printf("option type: %s\n", option.Type())
 
-	var result = option(NewNative(1)).(ElemVal)
+	var result = option(NewNative(1))
 	fmt.Printf("option called with int: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
 
-	result = option(NewNative(1.1)).(ElemVal)
+	result = option(NewNative(1.1))
 	fmt.Printf("option called with float: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
 
-	result = option(NewNative(true)).(ElemVal)
+	result = option(NewNative(true))
 	fmt.Printf("option called with bool: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(None) {
@@ -197,21 +244,21 @@ func TestIf(t *testing.T) {
 	fmt.Printf("if: %s\n", ifs)
 	fmt.Printf("if type: %s\n", ifs.Type())
 
-	var result = ifs(NewNative(1)).(ElemVal)
+	var result = ifs(NewNative(1))
 	fmt.Printf("if called with int: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
 
-	result = ifs(NewNative(1.1)).(ElemVal)
+	result = ifs(NewNative(1.1))
 	fmt.Printf("if called with float: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
 
-	result = ifs(NewNative(true)).(ElemVal)
+	result = ifs(NewNative(true))
 	fmt.Printf("if called with bool: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
 	if !result.TypeReturn().Match(None) {

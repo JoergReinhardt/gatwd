@@ -363,20 +363,20 @@ func (n TyValue) Match(typ d.Typed) bool {
 func Def(types ...d.Typed) TyPattern { return types }
 
 // elems yields all elements contained in the pattern
+func (p TyPattern) Type() TyPattern      { return p }
+func (p TyPattern) Elems() []d.Typed     { return p }
+func (p TyPattern) Len() int             { return len(p) }
+func (p TyPattern) String() string       { return p.TypeName() }
+func (p TyPattern) TypeName() string     { return p.Print("(", " ", ")") }
 func (p TyPattern) FlagType() d.Uint8Val { return Flag_Pattern.U() }
 func (p TyPattern) Flag() d.BitFlag      { return p.TypeFnc().Flag() }
 func (p TyPattern) TypeFnc() TyFnc       { return Pattern }
-func (p TyPattern) Type() TyPattern      { return p }
-func (p TyPattern) Elems() []d.Typed     { return p }
 func (p TyPattern) Get(idx int) TyPattern {
 	if idx < p.Len() {
 		return p[idx].(TyPattern)
 	}
 	return Def(None)
 }
-func (p TyPattern) Len() int         { return len(p) }
-func (p TyPattern) String() string   { return p.TypeName() }
-func (p TyPattern) TypeName() string { return p.Print("(", " ", ")") }
 
 // pattern yields a slice of type patterns, with all none & nil elements
 // filtered out
