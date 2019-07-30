@@ -13,25 +13,24 @@ type (
 	DeclaredExpr func(...Expression) Expression
 )
 
-func NewConstant(fn func() Expression) ConstVal  { return fn }
-func (c ConstVal) TypeFnc() TyFnc                { return Constant | c().TypeFnc() }
-func (c ConstVal) Type() TyPattern               { return c().Type() }
-func (c ConstVal) String() string                { return c().String() }
-func (c ConstVal) Call(...Expression) Expression { return c() }
-
 func NewFunction(fn func(...Expression) Expression, pattern TyPattern) FuncVal {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return fn(args...)
 		}
-		return NewPair(fn(), pattern)
+		return pattern
 	}
 }
 func (g FuncVal) TypeFnc() TyFnc                     { return Value }
-func (g FuncVal) Type() TyPattern                    { return g().(Paired).Right().(TyPattern) }
-func (g FuncVal) Unbox() Expression                  { return g().(Paired).Left() }
-func (g FuncVal) String() string                     { return g.Unbox().String() }
+func (g FuncVal) Type() TyPattern                    { return g().(TyPattern) }
+func (g FuncVal) String() string                     { return g().String() }
 func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
+
+func NewConstant(fn func() Expression) ConstVal  { return fn }
+func (c ConstVal) TypeFnc() TyFnc                { return Constant | c().TypeFnc() }
+func (c ConstVal) Type() TyPattern               { return c().Type() }
+func (c ConstVal) String() string                { return c().String() }
+func (c ConstVal) Call(...Expression) Expression { return c() }
 
 // declare types of set of arguments
 func DeclareArguments(types ...d.Typed) ArgType      { return func() []d.Typed { return types } }
@@ -132,9 +131,9 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 					currenArgs = args[:tlen]
 					remainArgs = args[tlen:]
 					matcher    = DeclareArguments(types...)
+					vec        = NewVector()
 				)
 				if matcher.MatchArgs(currenArgs...) {
-					var list = NewList(expr.Call(currenArgs...))
 					for len(remainArgs) > 0 {
 						if len(remainArgs) >= tlen {
 							currenArgs = remainArgs[:tlen]
@@ -143,13 +142,12 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 							currenArgs = remainArgs
 							remainArgs = []Expression{}
 						}
-						list = list.Con(
+						vec = vec.Con(
 							DeclareExpression(
-								expr,
-								types...,
+								expr, types...,
 							)(currenArgs...))
 					}
-					return list
+					return vec
 				}
 			}
 			return NewNone()
