@@ -155,7 +155,7 @@ const (
 
 	//// COLLECTIONS
 	SumTypes    = List | Vector
-	ProdTypes   = Set | Record | Enum | Tuple | Pair
+	ProdTypes   = Set | Record | Enum | Tuple
 	Collections = SumTypes | ProdTypes
 )
 
@@ -436,6 +436,18 @@ func (p TyPattern) Tail() Consumeable {
 		return TyPattern(p.Pattern()[1:])
 	}
 	return TyPattern([]d.Typed{})
+}
+
+func (p TyPattern) Append(args ...Expression) Consumeable {
+	var types = append(make([]d.Typed, 0, p.Len()+len(args)), p...)
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Type) {
+			if typed, ok := arg.(d.Typed); ok {
+				types = append(types, typed)
+			}
+		}
+	}
+	return TyPattern(types)
 }
 
 // tail-type yields a type pattern consisting of all pattern elements but the

@@ -20,11 +20,3 @@ func TestData(t *testing.T) {
 	fmt.Printf("nested pair converted to native: %s, typeFnc: %s typeNat: %s\n",
 		nest, nest.TypeFnc(), nest.Type())
 }
-func TestDeclaration(t *testing.T) {
-}
-func TestFunction(t *testing.T) {
-}
-func TestNativeFunction(t *testing.T) {
-}
-func TestDataFunction(t *testing.T) {
-}

@@ -7,15 +7,40 @@ import (
 )
 
 type (
+	ConstVal     func() Expression
+	FuncVal      func(...Expression) Expression
 	ArgType      func() []d.Typed
 	DeclaredExpr func(...Expression) Expression
 )
 
+func NewConstant(fn func() Expression) ConstVal  { return fn }
+func (c ConstVal) TypeFnc() TyFnc                { return Constant | c().TypeFnc() }
+func (c ConstVal) Type() TyPattern               { return c().Type() }
+func (c ConstVal) String() string                { return c().String() }
+func (c ConstVal) Call(...Expression) Expression { return c() }
+
+func NewFunction(fn func(...Expression) Expression, pattern TyPattern) FuncVal {
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return fn(args...)
+		}
+		return NewPair(fn(), pattern)
+	}
+}
+func (g FuncVal) TypeFnc() TyFnc                     { return Value }
+func (g FuncVal) Type() TyPattern                    { return g().(Paired).Right().(TyPattern) }
+func (g FuncVal) Unbox() Expression                  { return g().(Paired).Left() }
+func (g FuncVal) String() string                     { return g.Unbox().String() }
+func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
+
 // declare types of set of arguments
-func DeclareArguments(types ...d.Typed) ArgType { return func() []d.Typed { return types } }
-func (a ArgType) TypeFnc() TyFnc                { return Argument }
-func (a ArgType) Type() TyPattern               { return Def(a()...) }
-func (a ArgType) Len() int                      { return len(a()) }
+func DeclareArguments(types ...d.Typed) ArgType      { return func() []d.Typed { return types } }
+func (a ArgType) TypeFnc() TyFnc                     { return Argument }
+func (a ArgType) Type() TyPattern                    { return Def(a()...) }
+func (a ArgType) Len() int                           { return len(a()) }
+func (a ArgType) Head() Expression                   { return a.Type().Head() }
+func (a ArgType) Tail() Consumeable                  { return a.Type().Tail() }
+func (a ArgType) Consume() (Expression, Consumeable) { return a.Type().Consume() }
 func (a ArgType) String() string {
 	var strs = make([]string, 0, a.Len())
 	for _, t := range a() {
@@ -82,7 +107,7 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 			case alen == tlen:
 				var matcher = DeclareArguments(types...)
 				if matcher.MatchArgs(args...) {
-					return expr.Call(args...)
+					return DeclareExpression(expr, types...).Call(args...)
 				}
 
 			case alen < tlen:
@@ -94,11 +119,14 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 				if matcher.MatchArgs(args...) {
 					return DeclareExpression(NewFunction(
 						func(lateargs ...Expression) Expression {
-							return expr.Call(
-								append(
-									args,
-									lateargs...,
-								)...)
+							if len(lateargs) > 0 {
+								return expr.Call(
+									append(
+										args,
+										lateargs...,
+									)...)
+							}
+							return expr.Call(args...)
 						}, expr.Type()), remainTypes...)
 				}
 
@@ -107,24 +135,20 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 					currenArgs = args[:tlen]
 					remainArgs = args[tlen:]
 					matcher    = DeclareArguments(types...)
+					results    = []Expression{}
 				)
-				if matcher.MatchArgs(currenArgs...) {
-					var list = NewList(expr.Call(currenArgs...))
-					for len(remainArgs) > 0 {
-						if len(remainArgs) >= tlen {
-							currenArgs = remainArgs[:tlen]
-							remainArgs = remainArgs[tlen:]
-						} else {
-							currenArgs = remainArgs
-							remainArgs = []Expression{}
-						}
-						list = list.Con(
-							DeclareExpression(
-								expr,
-								types...,
-							)(currenArgs...))
+				for len(remainArgs) > tlen {
+					if matcher.MatchArgs(currenArgs...) {
+
+						results = append(results, expr.Call(currenArgs...))
+
+						currenArgs = remainArgs[:tlen]
+						remainArgs = remainArgs[tlen:]
 					}
-					return list
+
+					results = append(results, expr.Call(remainArgs...))
+
+					return NewVector(results...)
 				}
 			}
 			return NewNone()
@@ -132,11 +156,16 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 		return NewPair(expr, DeclareArguments(types...))
 	}
 }
-func (e DeclaredExpr) TypeFnc() TyFnc                     { return Value }
-func (e DeclaredExpr) Type() TyPattern                    { return e.Expr().Type() }
-func (e DeclaredExpr) ArgType() ArgType                   { return e().(PairVal).Right().(ArgType) }
-func (e DeclaredExpr) Expr() Expression                   { return e().(PairVal).Left() }
-func (e DeclaredExpr) Call(args ...Expression) Expression { return e(args...) }
+func (e DeclaredExpr) ArgType() ArgType  { return e().(PairVal).Right().(ArgType) }
+func (e DeclaredExpr) Unbox() Expression { return e().(PairVal).Left() }
+func (e DeclaredExpr) Type() TyPattern   { return e.ArgType().Type() }
+func (e DeclaredExpr) TypeFnc() TyFnc    { return Value }
+func (e DeclaredExpr) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return e(args...)
+	}
+	return e.Unbox()
+}
 func (e DeclaredExpr) String() string {
 	return strings.Join(append(
 		make(
@@ -144,8 +173,8 @@ func (e DeclaredExpr) String() string {
 			e.ArgType().Len(),
 		),
 		e.ArgType().String(),
-		e.Expr().Type().String(),
-		e.Expr().Type().String()),
+		e.Unbox().Type().String(),
+		e.Unbox().Type().String()),
 		" → ",
 	)
 }

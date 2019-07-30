@@ -19,7 +19,7 @@ func (a IndexPair) String() string {
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
 
 /// VECTOR
-func (v VecCol) String() string {
+func (v ColVec) String() string {
 	var pairs = []string{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair.String())
@@ -28,7 +28,7 @@ func (v VecCol) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v PairVec) String() string {
+func (v ColPairV) String() string {
 	var pairs = []string{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair.String())
@@ -46,7 +46,7 @@ func (v PairVec) String() string {
 ////}
 
 /// LIST
-func (l ListCol) String() string {
+func (l ColList) String() string {
 	var (
 		args       = []string{}
 		head, list = l()
@@ -57,7 +57,7 @@ func (l ListCol) String() string {
 	}
 	return "(" + strings.Join(args, ", ") + ")"
 }
-func (l PairList) String() string {
+func (l ColPairL) String() string {
 	var (
 		args       = []string{}
 		head, list = l()

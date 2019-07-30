@@ -7,6 +7,28 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
+func TestConstant(t *testing.T) {
+	var cons = NewConstant(func() Expression {
+		return NewNative("this is a constant")
+	})
+	fmt.Printf("constant string: %s\n", cons)
+	fmt.Printf("constant call: %s\n", cons.Call())
+	fmt.Printf("constant function type: %s\n", cons.TypeFnc().TypeName())
+	fmt.Printf("constant type: %s\n", cons.Type())
+}
+func TestFunction(t *testing.T) {
+	var fnc = NewFunction(func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return NewNative(args[0].String())
+		}
+		return NewNative(None.String())
+	}, Def(Data, d.String))
+	fmt.Printf("fnc: %s\n", fnc)
+	fmt.Printf("fnc('test'): %s\n", fnc(NewNative("test")))
+	fmt.Printf("fnc.Call('test'): %s\n", fnc.Call(NewNative("test")))
+	fmt.Printf("fnc.Type(): %s\n", fnc.Type())
+}
+
 func TestArgType(t *testing.T) {
 	var at = DeclareArguments(Def(Data, d.Int), Def(Data, d.Int), Def(Data, d.Int))
 	fmt.Printf("declared arguments: %s\n", at)
@@ -78,7 +100,7 @@ func TestDeclaredExpression(t *testing.T) {
 
 	var partial = expr.Call(NewNative(23))
 	fmt.Printf("result from applying one int to addInt: %s, expression: %s arg type: %s len: %d\n",
-		partial, partial.(DeclaredExpr).Expr(), partial.(DeclaredExpr).ArgType(),
+		partial, partial.(DeclaredExpr).Unbox(), partial.(DeclaredExpr).ArgType(),
 		partial.(DeclaredExpr).ArgType().Len())
 
 	fmt.Printf("result from applying second int to partial addInt: %s\n",

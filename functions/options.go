@@ -6,9 +6,7 @@ import (
 
 type (
 	//// NONE VALUE CONSTRUCTOR
-	NoneVal  func()
-	ConstVal func() Expression
-	FuncVal  func(...Expression) Expression
+	NoneVal func()
 
 	// TESTS AND COMPARE
 	TestVal func(...Expression) bool
@@ -32,25 +30,6 @@ type (
 	IfVal func(...Expression) ElemVal
 )
 
-func NewConstant(fn func() Expression) ConstVal  { return fn }
-func (c ConstVal) TypeFnc() TyFnc                { return Constant }
-func (c ConstVal) Type() TyPattern               { return c().(TyPattern) }
-func (c ConstVal) String() string                { return c().String() }
-func (c ConstVal) Call(...Expression) Expression { return c() }
-
-func NewFunction(fn func(...Expression) Expression, pattern TyPattern) FuncVal {
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return fn(args...)
-		}
-		return pattern
-	}
-}
-func (g FuncVal) TypeFnc() TyFnc                     { return Value }
-func (g FuncVal) Type() TyPattern                    { return g().(TyPattern) }
-func (g FuncVal) String() string                     { return g().String() }
-func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
-
 //// NONE VALUE CONSTRUCTOR
 ///
 // none represens the abscence of a value of any type. implements countable,
@@ -58,28 +37,29 @@ func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Expression              { return n }
-func (n NoneVal) Tail() Consumeable             { return n }
-func (n NoneVal) Len() d.IntVal                 { return 0 }
-func (n NoneVal) String() string                { return "⊥" }
-func (n NoneVal) Call(...Expression) Expression { return nil }
-func (n NoneVal) Key() Expression               { return nil }
-func (n NoneVal) Index() Expression             { return nil }
-func (n NoneVal) Left() Expression              { return nil }
-func (n NoneVal) Right() Expression             { return nil }
-func (n NoneVal) Both() Expression              { return nil }
-func (n NoneVal) Value() Expression             { return nil }
-func (n NoneVal) Empty() d.BoolVal              { return true }
-func (n NoneVal) Test(...Expression) bool       { return false }
-func (n NoneVal) Compare(...Expression) int     { return -1 }
-func (n NoneVal) TypeFnc() TyFnc                { return None }
-func (n NoneVal) TypeElem() d.Typed             { return None }
-func (n NoneVal) TypeNat() d.TyNat              { return d.Nil }
-func (n NoneVal) Flag() d.BitFlag               { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val          { return Flag_Function.U() }
-func (n NoneVal) Type() TyPattern               { return Def(None) }
-func (n NoneVal) TypeName() string              { return n.String() }
-func (n NoneVal) Slice() []Expression           { return []Expression{} }
+func (n NoneVal) Head() Expression                 { return n }
+func (n NoneVal) Tail() Consumeable                { return n }
+func (n NoneVal) Append(...Expression) Consumeable { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) String() string                   { return "⊥" }
+func (n NoneVal) Call(...Expression) Expression    { return nil }
+func (n NoneVal) Key() Expression                  { return nil }
+func (n NoneVal) Index() Expression                { return nil }
+func (n NoneVal) Left() Expression                 { return nil }
+func (n NoneVal) Right() Expression                { return nil }
+func (n NoneVal) Both() Expression                 { return nil }
+func (n NoneVal) Value() Expression                { return nil }
+func (n NoneVal) Empty() d.BoolVal                 { return true }
+func (n NoneVal) Test(...Expression) bool          { return false }
+func (n NoneVal) Compare(...Expression) int        { return -1 }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) TypeElem() d.Typed                { return None }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) Flag() d.BitFlag                  { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val             { return Flag_Function.U() }
+func (n NoneVal) Type() TyPattern                  { return Def(None) }
+func (n NoneVal) TypeName() string                 { return n.String() }
+func (n NoneVal) Slice() []Expression              { return []Expression{} }
 func (n NoneVal) Consume() (Expression, Consumeable) {
 	return NewNone(), NewNone()
 }
