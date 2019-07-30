@@ -107,7 +107,7 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 			case alen == tlen:
 				var matcher = DeclareArguments(types...)
 				if matcher.MatchArgs(args...) {
-					return DeclareExpression(expr, types...).Call(args...)
+					return expr.Call(args...)
 				}
 
 			case alen < tlen:
@@ -119,14 +119,11 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 				if matcher.MatchArgs(args...) {
 					return DeclareExpression(NewFunction(
 						func(lateargs ...Expression) Expression {
-							if len(lateargs) > 0 {
-								return expr.Call(
-									append(
-										args,
-										lateargs...,
-									)...)
-							}
-							return expr.Call(args...)
+							return expr.Call(
+								append(
+									args,
+									lateargs...,
+								)...)
 						}, expr.Type()), remainTypes...)
 				}
 
@@ -135,20 +132,24 @@ func DeclareExpression(expr Expression, types ...d.Typed) DeclaredExpr {
 					currenArgs = args[:tlen]
 					remainArgs = args[tlen:]
 					matcher    = DeclareArguments(types...)
-					results    = []Expression{}
 				)
-				for len(remainArgs) > tlen {
-					if matcher.MatchArgs(currenArgs...) {
-
-						results = append(results, expr.Call(currenArgs...))
-
-						currenArgs = remainArgs[:tlen]
-						remainArgs = remainArgs[tlen:]
+				if matcher.MatchArgs(currenArgs...) {
+					var list = NewList(expr.Call(currenArgs...))
+					for len(remainArgs) > 0 {
+						if len(remainArgs) >= tlen {
+							currenArgs = remainArgs[:tlen]
+							remainArgs = remainArgs[tlen:]
+						} else {
+							currenArgs = remainArgs
+							remainArgs = []Expression{}
+						}
+						list = list.Con(
+							DeclareExpression(
+								expr,
+								types...,
+							)(currenArgs...))
 					}
-
-					results = append(results, expr.Call(remainArgs...))
-
-					return NewVector(results...)
+					return list
 				}
 			}
 			return NewNone()
