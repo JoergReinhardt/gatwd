@@ -220,37 +220,26 @@ func (e ExpressionType) String() string {
 // will be returned
 func DeclareParametricExpression(exprs ...ExpressionType) ParametricType {
 	var cases = make([]CaseType, 0, len(exprs))
-	var patterns = make([]d.Typed, 0, len(exprs))
 	for _, expr := range exprs {
-		patterns = append(patterns, expr.Type())
-		cases = append(cases, DeclareCase(DeclareTest(
-			func(args ...Expression) bool {
-				return !expr(args...).Type().Match(None)
+		cases = append(cases, DeclareCase(
+			DeclareTest(func(args ...Expression) bool {
+				return !expr.Call(args...).TypeFnc().Match(None)
 			}), expr))
 	}
-	return ParametricType(DeclareExpression(NewSwitch(cases...), patterns...))
+	return ParametricType(func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return NewSwitch(cases...).Call(args...)
+		}
+		return NewSwitch(cases...)
+	})
 }
 
 func (p ParametricType) TypeFnc() TyFnc { return Parametric }
-func (p ParametricType) String() string { return p.Unbox().(SwitchType).String() }
 
-// cast parametric type as expression type and unbox the enclosed switch
-func (p ParametricType) Unbox() Expression { return ExpressionType(p).Unbox() } // ← switch-type
-
-// yield slice of enclosed cases
-func (p ParametricType) Cases() []CaseType { return p.Unbox().(SwitchType).Cases() }
-
-// return number of enclosed cases
-func (p ParametricType) Len() int { return len(p.Cases()) }
-
-// call method calls the enclosed switch to yield either none, or result of
-// applying the arguments to the first matching case.
-func (p ParametricType) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return p.Unbox().Call(args...)
-	}
-	return p.Unbox().Call()
-}
+func (p ParametricType) Unbox() Expression { return p() } // ← switch-type
+func (p ParametricType) String() string    { return p().(SwitchType).String() }
+func (p ParametricType) Cases() []CaseType { return p().(SwitchType).Cases() }
+func (p ParametricType) Len() int          { return len(p.Cases()) }
 
 // yield slice of expressions enclosed by cases
 func (p ParametricType) Slice() []Expression {
@@ -274,6 +263,15 @@ func (p ParametricType) Type() TyPattern {
 		}
 	}
 	return Def(types...)
+}
+
+// call method calls the enclosed switch to yield either none, or result of
+// applying the arguments to the first matching case.
+func (p ParametricType) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return p(args...)
+	}
+	return p()
 }
 
 //// CURRY
