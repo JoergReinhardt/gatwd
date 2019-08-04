@@ -12,18 +12,28 @@ type (
 	ArumentSet  func() []d.Typed
 	TypedExpr   func(...Expression) Expression
 	CurryExpr   func(...Expression) Expression
+
+	//// COLLECTION TYPES
+	ListType  func(...Expression) (Expression, ColList)
+	Vec       func(...Expression) []Expression
+	TypedPair func(...Expression) (l, r Expression)
+
+	ColPairL func(...Paired) (Paired, ColPairL)
+	ColPairV func(...Paired) []Paired
+
+	ColVal func(...Expression) (Expression, Consumeable)
 )
 
 //// FUNCTION DECLARATION
 ///
 // declares an expression from some generic functions, with a signature
 // indicating that it takes expressions as arguments and returns an expression
-func DeclareFunction(fn func(...Expression) Expression, pattern TyPattern) ValFunction {
+func DeclareFunction(fn func(...Expression) Expression, reType TyPattern) ValFunction {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return fn(args...)
 		}
-		return pattern
+		return reType
 	}
 }
 func (g ValFunction) TypeFnc() TyFnc                     { return Value }
@@ -128,6 +138,7 @@ func DeclareExpression(expr Expression, types ...d.Typed) TypedExpr {
 		var alen = len(args)
 		if alen > 0 {
 			switch {
+
 			// satisfied
 			case alen == tlen:
 				var matcher = DefineArgumentSet(types...)
@@ -206,25 +217,39 @@ func (e TypedExpr) String() string {
 	)
 }
 
+//// CURRY UNTYPED & TYPESAFE
+///
+// curry instances of simple expression type
 func UntypedCurry(fns ...Expression) Expression {
-	return ValFunction(func(args ...Expression) Expression {
+	return CurryExpr(func(args ...Expression) Expression {
 		if len(fns) > 0 {
 			if len(fns) > 1 {
 				if len(args) > 0 {
-					return fns[0].Call(append([]Expression{UntypedCurry(
-						fns[1:]...)}, args...)...)
+					return fns[0].Call(UntypedCurry(
+						append(fns[1:], args...)...))
 				}
 				return fns[0].Call(UntypedCurry(fns[1:]...))
 			}
-			fns[0].Call()
+			if len(args) > 0 {
+				return fns[0].Call(args...)
+			}
+			return fns[0].Call()
 		}
 		return NewNone()
 	})
 }
+
+// curry instances of typesafe expressions
 func Curry(fns ...TypedExpr) Expression {
-	var exprs = make([]Expression, 0, len(fns))
+	var args = make([]Expression, 0, len(fns))
 	for _, arg := range fns {
-		exprs = append(exprs, arg)
+		args = append(args, arg)
 	}
-	return UntypedCurry(exprs...)
+	return UntypedCurry(args...)
 }
+
+// method set to implement curryed expressions
+func (c CurryExpr) String() string                     { return c().String() }
+func (c CurryExpr) Call(args ...Expression) Expression { return c(args...) }
+func (c CurryExpr) Type() TyPattern                    { return c().Type() }
+func (c CurryExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }

@@ -1,11 +1,5 @@
 package parser
 
-import (
-	"fmt"
-	f "github.com/joergreinhardt/gatwd/functions"
-	"testing"
-)
-
 //func TestRuneText(t *testing.T) {
 //	var text = newRuneText("this is not a test")
 //	fmt.Printf("allocated rune slice: %s\n", text)
