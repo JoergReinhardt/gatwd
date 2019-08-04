@@ -389,3 +389,428 @@ func NewPairList(elems ...Paired) ColPairL {
 		return nil, NewPairList()
 	}
 }
+
+func (l ColPairL) Tail() Consumeable                        { _, t := l(); return t }
+func (l ColPairL) TailPairs() ConsumeablePaired             { _, t := l(); return t }
+func (l ColPairL) TailPairList() ColPairL                   { _, t := l(); return t }
+func (l ColPairL) Head() Expression                         { h, _ := l(); return h }
+func (l ColPairL) HeadPair() Paired                         { p, _ := l(); return p }
+func (l ColPairL) String() string                           { return l() }
+func (l ColPairL) Consume() (Expression, Consumeable)       { return l() }
+func (l ColPairL) ConsumePair() (Paired, ConsumeablePaired) { return l() }
+func (l ColPairL) ConsumePairList() (Paired, ColPairL)      { return l() }
+func (l ColPairL) Append(args ...Expression) Consumeable {
+	var pairs = make([]Paired, 0, len(args))
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Pair) {
+			if pair, ok := arg.(Paired); ok {
+				pairs = append(pairs, pair)
+			}
+		}
+	}
+	return l.Con(pairs...)
+}
+func (l ColPairL) Type() TyPattern {
+	return Def(Def(List, Pair), l.TypeElem())
+}
+func (l ColPairL) TypeFnc() TyFnc   { return List }
+func (l ColPairL) TypeNat() d.TyNat { return d.Function }
+func (l ColPairL) Null() ColPairL   { return NewPairList() }
+
+func (l ColPairL) Con(elems ...Paired) ColPairL {
+	return ColPairL(func(args ...Paired) (Paired, ColPairL) {
+		return l(append(elems, args...)...)
+	})
+}
+
+func (l ColPairL) Push(elems ...Paired) ColPairL {
+	return ConcatPairLists(NewPairList(elems...), l)
+}
+
+func (l ColPairL) Call(args ...Expression) Expression {
+	var pairs = []Paired{}
+	if len(args) > 0 {
+		pairs = append(pairs, argsToPaired(args...)...)
+	}
+	var head Expression
+	head, l = l(pairs...)
+	return head
+}
+
+func (l ColPairL) Empty() bool {
+	if pair := l.HeadPair(); pair != nil {
+		return pair.Empty()
+	}
+	return true
+}
+
+func (l ColPairL) Len() int {
+	var (
+		length     int
+		head, tail = l()
+	)
+	if head != nil {
+		length += 1 + tail.Len()
+	}
+	return length
+}
+
+func (l ColPairL) TypeElem() d.Typed {
+	if l.Len() > 0 {
+		return l.Head().Type()
+	}
+	return None.Type()
+}
+
+func (l ColPairL) KeyType() d.Typed {
+	return l.Head().(PairVal).KeyType()
+}
+
+func (l ColPairL) ValType() d.Typed {
+	return l.Head().(Paired).ValType()
+}
+
+func argsToPaired(args ...Expression) []Paired {
+	var (
+		pairs = []Paired{}
+		alen  = len(args)
+	)
+	for i, arg := range args {
+		if arg.TypeFnc().Match(Pair) {
+			pairs = append(pairs, arg.(Paired))
+		}
+		if i < alen-2 {
+			i = i + 1
+			pairs = append(pairs, NewPair(arg, args[i]))
+		}
+		pairs = append(pairs, NewPair(arg, NewNone()))
+	}
+	return pairs
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//// VECTORS (SLICES) OF VALUES
+func NewEmptyVector(init ...Expression) ColVec { return NewVector() }
+
+func NewVector(init ...Expression) ColVec {
+	var vector = init
+	return func(args ...Expression) []Expression {
+		if len(args) > 0 {
+			vector = append(
+				vector,
+				args...,
+			)
+		}
+		return vector
+	}
+}
+
+func ConVector(vec Vectorized, args ...Expression) ColVec {
+	return NewVector(append(vec.Slice(), args...)...)
+}
+
+func AppendVectors(vec Vectorized, args ...Expression) ColVec {
+	return NewVector(append(vec.Slice(), args...)...)
+}
+
+func AppendArgToVector(init ...Expression) ColVec {
+	return func(args ...Expression) []Expression {
+		return append(init, args...)
+	}
+}
+
+func (v ColVec) Len() int            { return len(v()) }
+func (v ColVec) Vector() ColVec      { return v }
+func (v ColVec) Slice() []Expression { return v() }
+
+func (v ColVec) Append(args ...Expression) Consumeable { return v.Con(args...) }
+
+func (v ColVec) Prepend(args ...Expression) ColVec {
+	return NewVector(append(args, v()...)...)
+}
+
+func (v ColVec) Reverse(args ...Expression) ColVec {
+	var slice []Expression
+	if v.Len() > 1 {
+		slice = []Expression{}
+		var vector = v()
+		for i := v.Len() - 1; i > 0; i-- {
+			slice = append(slice, vector[i])
+		}
+	}
+	if len(args) > 0 {
+		for _, arg := range args {
+			v = v.Prepend(arg)
+		}
+	}
+	return NewVector(slice...)
+}
+func (v ColVec) TypeFnc() TyFnc   { return Vector }
+func (v ColVec) TypeNat() d.TyNat { return d.Function }
+func (v ColVec) Type() TyPattern  { return Def(Vector, v.TypeElem()) }
+func (v ColVec) TypeElem() d.Typed {
+	if v.Len() > 0 {
+		return v.Head().Type()
+	}
+	return None.Type()
+}
+
+func (v ColVec) Con(args ...Expression) ColVec {
+	return ConVector(v, args...)
+}
+
+func (v ColVec) Call(d ...Expression) Expression {
+	return NewVector(v(d...)...)
+}
+
+func (v ColVec) Last() Expression {
+	if v.Len() > 0 {
+		return v()[v.Len()-1]
+	}
+	return nil
+}
+
+func (v ColVec) Head() Expression {
+	if v.Len() > 0 {
+		return v()[0]
+	}
+	return nil
+}
+
+func (v ColVec) Tail() Consumeable {
+	if v.Len() > 1 {
+		return NewVector(v()[1:]...)
+	}
+	return NewEmptyVector()
+}
+
+func (v ColVec) Consume() (Expression, Consumeable) {
+	return v.Head(), v.Tail()
+}
+
+func (v ColVec) TailVec() ColVec {
+	if v.Len() > 1 {
+		return NewVector(v.Tail().(ColVec)()...)
+	}
+	return NewEmptyVector()
+}
+
+func (v ColVec) ConsumeVec() (Expression, ColVec) {
+	return v.Head(), v.TailVec()
+}
+
+func (v ColVec) Clear() ColVec { return NewVector() }
+
+func (v ColVec) Empty() bool {
+	if len(v()) > 0 {
+		for _, val := range v() {
+			if !val.TypeFnc().Flag().Match(None) {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (v ColVec) Get(i int) (Expression, bool) {
+	if i < v.Len() {
+		return v()[i], true
+	}
+	return NewNone(), false
+}
+
+func (v ColVec) Set(i int, val Expression) (Vectorized, bool) {
+	if i < v.Len() {
+		var slice = v()
+		slice[i] = val
+		return ColVec(
+			func(elems ...Expression) []Expression {
+				return slice
+			}), true
+
+	}
+	return v, false
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//// ASSOCIATIVE SLICE OF VALUE PAIRS
+///
+// list of associative pairs in sequential order associated, sorted and
+// searched by left value of the pairs
+func NewEmptyPairVec() ColPairV {
+	return ColPairV(func(args ...Paired) []Paired {
+		var pairs = []Paired{}
+		if len(args) > 0 {
+			pairs = append(pairs, args...)
+		}
+		return pairs
+	})
+}
+
+func NewPairVectorFromPairs(pairs ...Paired) ColPairV {
+	return ColPairV(func(args ...Paired) []Paired {
+		if len(args) > 0 {
+			return append(pairs, args...)
+		}
+		return pairs
+	})
+}
+
+func ConPairListFromArgs(rec ColPairV, args ...Expression) ColPairV {
+	var pairs = []Paired{}
+	for _, arg := range args {
+		if pair, ok := arg.(Paired); ok {
+			pairs = append(pairs, pair)
+		}
+	}
+	return NewPairVectorFromPairs(append(rec(), pairs...)...)
+}
+
+func NewPairVec(args ...Paired) ColPairV {
+	return NewPairVectorFromPairs(args...)
+}
+
+func ConPairVec(rec ColPairV, pairs ...Paired) ColPairV {
+	return NewPairVectorFromPairs(append(rec(), pairs...)...)
+}
+
+func ConPairVecFromArgs(pvec ColPairV, args ...Expression) ColPairV {
+	var pairs = pvec.Pairs()
+	for _, arg := range args {
+		if pair, ok := arg.(Paired); ok {
+			pairs = append(pairs, pair)
+		}
+	}
+	return ColPairV(func(args ...Paired) []Paired {
+		if len(args) > 0 {
+			return ConPairVec(pvec, args...)()
+		}
+		return append(pvec(), pairs...)
+	})
+}
+func (v ColPairV) Len() int { return len(v()) }
+func (v ColPairV) Type() TyPattern {
+	return Def(Def(Vector, Pair), v.TypeElem())
+}
+func (v ColPairV) TypeFnc() TyFnc   { return Vector }
+func (v ColPairV) TypeNat() d.TyNat { return d.Function }
+
+func (v ColPairV) ConPairs(pairs ...Paired) ColPairV {
+	return ConPairVec(v, pairs...)
+}
+
+func (v ColPairV) Con(args ...Expression) ColPairV {
+	return ConPairVecFromArgs(v, args...)
+}
+
+func (v ColPairV) Append(args ...Expression) Consumeable { return v.Con(args...) }
+
+func (v ColPairV) Consume() (Expression, Consumeable) {
+	return v.Head(), v.Tail()
+}
+
+func (v ColPairV) ConsumePairVec() (Paired, ColPairV) {
+	return v.HeadPair(), v.Tail().(ColPairV)
+}
+
+func (v ColPairV) Empty() bool {
+	if len(v()) > 0 {
+		for _, pair := range v() {
+			if !pair.Empty() {
+				return false
+			}
+		}
+	}
+	return true
+}
+func (v ColPairV) TypeElem() d.Typed {
+	if v.Len() > 0 {
+		v()[0].Type()
+	}
+	return None
+}
+func (v ColPairV) KeyType() d.Typed {
+	if v.Len() > 0 {
+		return v.Pairs()[0].Left().Type()
+	}
+	return None.TypeFnc()
+}
+func (v ColPairV) ValType() d.Typed {
+	if v.Len() > 0 {
+		return v.Pairs()[0].Right().Type()
+	}
+	return None.TypeFnc()
+}
+func (v ColPairV) Get(idx int) (Paired, bool) {
+	if idx < v.Len()-1 {
+		return v()[idx], true
+	}
+	return NewKeyPair("None", None), false
+}
+
+func (v ColPairV) Pairs() []Paired {
+	var pairs = []Paired{}
+	for _, pair := range v() {
+		pairs = append(pairs, pair)
+	}
+	return pairs
+}
+
+func (v ColPairV) ConsumePair() (Paired, ConsumeablePaired) {
+	var pairs = v()
+	if len(pairs) > 0 {
+		if len(pairs) > 1 {
+			return pairs[0], NewPairVec(pairs[1:]...)
+		}
+		return pairs[0], NewPairVec()
+	}
+	return nil, NewPairVec()
+}
+
+func (v ColPairV) SwitchedPairs() []Paired {
+	var switched = []Paired{}
+	for _, pair := range v() {
+		switched = append(
+			switched,
+			pair,
+		)
+	}
+	return switched
+}
+
+func (v ColPairV) Slice() []Expression {
+	var fncs = []Expression{}
+	for _, pair := range v() {
+		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
+	}
+	return fncs
+}
+
+func (v ColPairV) HeadPair() Paired {
+	if v.Len() > 0 {
+		return v()[0].(Paired)
+	}
+	return NewPair(NewNone(), NewNone())
+}
+func (v ColPairV) Head() Expression {
+	if v.Len() > 0 {
+		return v.Pairs()[0]
+	}
+	return nil
+}
+
+func (v ColPairV) TailPairs() ConsumeablePaired {
+	if v.Len() > 1 {
+		return NewPairVectorFromPairs(v.Pairs()[1:]...)
+	}
+	return NewEmptyPairVec()
+}
+func (v ColPairV) Tail() Consumeable {
+	if v.Len() > 1 {
+		return NewPairVectorFromPairs(v.Pairs()[1:]...)
+	}
+	return NewEmptyPairVec()
+}
+
+func (v ColPairV) Call(args ...Expression) Expression {
+	return v.Con(args...)
+}
