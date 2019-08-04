@@ -7,21 +7,30 @@ import (
 )
 
 type (
-	ValFunction func(...Expression) Expression
-	ValConstant func() Expression
-	ArgumentSet func() []d.Typed
-	TypedExpr   func(...Expression) Expression
-	CurryExpr   func(...Expression) Expression
+	ValueType    func() Expression
+	FunctionType func(...Expression) Expression
 
-	//// TYPESAFE COLLECTION
+	ArgumentSet    func() []d.Typed
+	ExpressionType func(...Expression) Expression
+	ParametricType func(...Expression) Expression
+	CurryedType    func(...Expression) Expression
 	CollectionType func(...Expression) (Expression, Consumeable)
 )
+
+//// CONSTANT DECLARATION
+///
+// declares an expression from a constant function, that returns an expression
+func DeclareConstant(fn func() Expression) ValueType { return fn }
+func (c ValueType) TypeFnc() TyFnc                   { return Constant | c().TypeFnc() }
+func (c ValueType) Type() TyPattern                  { return c().Type() }
+func (c ValueType) String() string                   { return c().String() }
+func (c ValueType) Call(...Expression) Expression    { return c() }
 
 //// FUNCTION DECLARATION
 ///
 // declares an expression from some generic functions, with a signature
 // indicating that it takes expressions as arguments and returns an expression
-func DeclareFunction(fn func(...Expression) Expression, reType TyPattern) ValFunction {
+func DeclareFunction(fn func(...Expression) Expression, reType TyPattern) FunctionType {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return fn(args...)
@@ -29,19 +38,10 @@ func DeclareFunction(fn func(...Expression) Expression, reType TyPattern) ValFun
 		return reType
 	}
 }
-func (g ValFunction) TypeFnc() TyFnc                     { return Value }
-func (g ValFunction) Type() TyPattern                    { return g().(TyPattern) }
-func (g ValFunction) String() string                     { return g().String() }
-func (g ValFunction) Call(args ...Expression) Expression { return g(args...) }
-
-//// CONSTANT DECLARATION
-///
-// declares an expression from a constant function, that returns an expression
-func DeclareConstant(fn func() Expression) ValConstant { return fn }
-func (c ValConstant) TypeFnc() TyFnc                   { return Constant | c().TypeFnc() }
-func (c ValConstant) Type() TyPattern                  { return c().Type() }
-func (c ValConstant) String() string                   { return c().String() }
-func (c ValConstant) Call(...Expression) Expression    { return c() }
+func (g FunctionType) TypeFnc() TyFnc                     { return Value }
+func (g FunctionType) Type() TyPattern                    { return g().(TyPattern) }
+func (g FunctionType) String() string                     { return g().String() }
+func (g FunctionType) Call(args ...Expression) Expression { return g(args...) }
 
 //// ARGUMENT SET
 ///
@@ -125,7 +125,7 @@ func (a ArgumentSet) MatchArgs(args ...Expression) bool {
 // - a call can pass a sequence of multiple argument sets in which case a
 //   vector of results, the last of which might be a partialy applyed
 //   expression, will be returned,
-func DeclareExpression(expr Expression, types ...d.Typed) TypedExpr {
+func DeclareExpression(expr Expression, types ...d.Typed) ExpressionType {
 	var tlen = len(types)
 	return func(args ...Expression) Expression {
 		var alen = len(args)
@@ -187,17 +187,17 @@ func DeclareExpression(expr Expression, types ...d.Typed) TypedExpr {
 		return NewPair(expr, DefineArgumentSet(types...))
 	}
 }
-func (e TypedExpr) ArgType() ArgumentSet { return e().(PairVal).Right().(ArgumentSet) }
-func (e TypedExpr) Unbox() Expression    { return e().(PairVal).Left() }
-func (e TypedExpr) Type() TyPattern      { return e.ArgType().Type() }
-func (e TypedExpr) TypeFnc() TyFnc       { return Value }
-func (e TypedExpr) Call(args ...Expression) Expression {
+func (e ExpressionType) ArgType() ArgumentSet { return e().(PairVal).Right().(ArgumentSet) }
+func (e ExpressionType) Unbox() Expression    { return e().(PairVal).Left() }
+func (e ExpressionType) Type() TyPattern      { return e.ArgType().Type() }
+func (e ExpressionType) TypeFnc() TyFnc       { return Value }
+func (e ExpressionType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return e(args...)
 	}
 	return e.Unbox()
 }
-func (e TypedExpr) String() string {
+func (e ExpressionType) String() string {
 	return strings.Join(append(
 		make(
 			[]string, 0,
@@ -210,42 +210,110 @@ func (e TypedExpr) String() string {
 	)
 }
 
-//// CURRY UNTYPED & TYPESAFE
+//// PARAMETRIC EXPRESSION
 ///
-// curry instances of simple expression type
-func UntypedCurry(fns ...Expression) Expression {
-	return CurryExpr(func(args ...Expression) Expression {
-		if len(fns) > 0 {
-			if len(fns) > 1 {
-				if len(args) > 0 {
-					return fns[0].Call(UntypedCurry(
-						append(fns[1:], args...)...))
-				}
-				return fns[0].Call(UntypedCurry(fns[1:]...))
-			}
-			if len(args) > 0 {
-				return fns[0].Call(args...)
-			}
-			return fns[0].Call()
-		}
-		return NewNone()
-	})
-}
-
-// curry instances of typesafe expressions
-func Curry(fns ...TypedExpr) Expression {
-	var args = make([]Expression, 0, len(fns))
-	for _, arg := range fns {
-		args = append(args, arg)
+// the parametric expression constructor returns a parametric type by
+// constructing a switch from a sequence of expression-type arguments, by
+// declaring a case per expression type that tests, if the arguments passed
+// during runtime match the expression type, or return none instead. first
+// result from applying argument-set successfull to an expression constructor
+// will be returned
+func DeclareParametricExpression(exprs ...ExpressionType) ParametricType {
+	var cases = make([]CaseType, 0, len(exprs))
+	var patterns = make([]d.Typed, 0, len(exprs))
+	for _, expr := range exprs {
+		patterns = append(patterns, expr.Type())
+		cases = append(cases, DeclareCase(DeclareTest(
+			func(args ...Expression) bool {
+				return !expr(args...).Type().Match(None)
+			}), expr))
 	}
-	return UntypedCurry(args...)
+	return ParametricType(DeclareExpression(NewSwitch(cases...), patterns...))
 }
 
-// method set to implement curryed expressions
-func (c CurryExpr) String() string                     { return c().String() }
-func (c CurryExpr) Call(args ...Expression) Expression { return c(args...) }
-func (c CurryExpr) Type() TyPattern                    { return c().Type() }
-func (c CurryExpr) TypeFnc() TyFnc                     { return c().TypeFnc() }
+func (p ParametricType) TypeFnc() TyFnc { return Parametric }
+func (p ParametricType) String() string { return p.Unbox().(SwitchType).String() }
+
+// cast parametric type as expression type and unbox the enclosed switch
+func (p ParametricType) Unbox() Expression { return ExpressionType(p).Unbox() } // ← switch-type
+
+// yield slice of enclosed cases
+func (p ParametricType) Cases() []CaseType { return p.Unbox().(SwitchType).Cases() }
+
+// return number of enclosed cases
+func (p ParametricType) Len() int { return len(p.Cases()) }
+
+// call method calls the enclosed switch to yield either none, or result of
+// applying the arguments to the first matching case.
+func (p ParametricType) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return p.Unbox().Call(args...)
+	}
+	return p.Unbox().Call()
+}
+
+// yield slice of expressions enclosed by cases
+func (p ParametricType) Slice() []Expression {
+	var exprs = make([]Expression, 0, p.Len())
+	for _, c := range p.Cases() {
+		// discard testable
+		var _, expr = c.Unbox()
+		exprs = append(exprs, expr)
+	}
+	return exprs
+}
+
+// yield types of expressions enclosed by cases
+func (p ParametricType) Type() TyPattern {
+	var length = p.Len()
+	var types = []d.Typed{}
+	for n, expr := range p.Slice() {
+		types = append(types, expr.Type())
+		if n < length-1 {
+			types = append(types, Lex_Pipe)
+		}
+	}
+	return Def(types...)
+}
+
+//// CURRY
+///
+//
+func Curry(fns ...ExpressionType) ExpressionType {
+
+	if len(fns) > 0 {
+
+		var (
+			expr ExpressionType
+		)
+
+		if len(fns) == 1 {
+			expr = fns[0]
+		}
+		if len(fns) == 2 {
+			expr = Curry(fns[0], fns[1])
+		}
+		if len(fns) > 2 {
+			expr = Curry(append([]ExpressionType{
+				Curry(fns[0], fns[1]),
+			}, fns[2:]...)...)
+		}
+
+		if expr != nil {
+			if !expr.TypeFnc().Match(None) {
+				return DeclareExpression(DeclareFunction(
+					func(args ...Expression) Expression {
+						if len(args) > 0 {
+							return expr.Call(args...)
+						}
+						return expr.Call()
+					}, fns[0].Unbox().Type()), fns[0].Type())
+			}
+		}
+	}
+
+	return DeclareExpression(NewNone(), None)
+}
 
 //// TYPE SAFE COLLECTIONS
 ///
@@ -260,7 +328,7 @@ func DeclareCollection(col Consumeable, argtype d.Typed) CollectionType {
 			if arg.TypeFnc().Match(Type) {
 				if t, ok := arg.(TyFnc); ok {
 					if t.Match(Type) {
-						return NewNative(true), col
+						return DeclareNative(true), col
 					}
 				}
 			}

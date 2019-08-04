@@ -137,6 +137,10 @@ func (l ColList) Len() int {
 	return length
 }
 
+func (l ColList) DeclareList() CollectionType {
+	return DeclareCollection(l, l.TypeElem())
+}
+
 func (l ColList) Map(fn Expression) ColList {
 	return func(args ...Expression) (Expression, ColList) {
 		if len(args) > 0 {
@@ -179,7 +183,7 @@ func (l ColList) FoldL(acc, init Expression) ColList {
 	}
 }
 
-func (l ColList) Filter(filter TestVal) ColList {
+func (l ColList) Filter(filter TestType) ColList {
 	return func(args ...Expression) (Expression, ColList) {
 		if len(args) > 0 {
 			l = l.Con(args...)
@@ -272,7 +276,7 @@ func NewKeyPair(key string, val Expression) KeyPair {
 func (a KeyPair) KeyStr() string                     { _, key := a(); return key }
 func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
 func (a KeyPair) Left() Expression                   { return a.Value() }
-func (a KeyPair) Right() Expression                  { return NewData(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Right() Expression                  { return DeclareData(d.StrVal(a.KeyStr())) }
 func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -289,7 +293,7 @@ func (p KeyPair) Type() TyPattern {
 // implement swappable
 func (p KeyPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return NewData(d.StrVal(r)), l
+	return DeclareData(d.StrVal(r)), l
 }
 func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
@@ -310,7 +314,7 @@ func NewIndexPair(idx int, val Expression) IndexPair {
 func (a IndexPair) Index() int                         { _, idx := a(); return idx }
 func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
 func (a IndexPair) Left() Expression                   { return a.Value() }
-func (a IndexPair) Right() Expression                  { return NewData(d.IntVal(a.Index())) }
+func (a IndexPair) Right() Expression                  { return DeclareData(d.IntVal(a.Index())) }
 func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -327,7 +331,7 @@ func (a IndexPair) Type() TyPattern {
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return NewData(New(r)), l
+	return DeclareData(Declare(r)), l
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPair) Empty() bool {

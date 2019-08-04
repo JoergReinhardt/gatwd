@@ -7,11 +7,11 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var listA = NewVector(NewNative(0), NewNative(1), NewNative(2), NewNative(3),
-	NewNative(4), NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
+var listA = NewVector(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(3),
+	DeclareNative(4), DeclareNative(5), DeclareNative(6), DeclareNative(7), DeclareNative(8), DeclareNative(9))
 
-var listB = NewVector(NewNative(10), NewNative(11), NewNative(12), NewNative(13),
-	NewNative(14), NewNative(15), NewNative(16), NewNative(17), NewNative(18), NewNative(19))
+var listB = NewVector(DeclareNative(10), DeclareNative(11), DeclareNative(12), DeclareNative(13),
+	DeclareNative(14), DeclareNative(15), DeclareNative(16), DeclareNative(17), DeclareNative(18), DeclareNative(19))
 
 func conList(args ...Expression) Consumeable {
 	return NewList(args...)
@@ -67,21 +67,21 @@ func TestPushList(t *testing.T) {
 func TestPairVal(t *testing.T) {
 	var pair = NewPair(NewNone(), NewNone())
 	fmt.Printf("name of empty pair: %s\n", pair.Type().TypeName())
-	pair = NewPair(NewNative(12), NewNative("string"))
+	pair = NewPair(DeclareNative(12), DeclareNative("string"))
 	fmt.Printf("name of (int,string) pair: %s\n", pair.Type().TypeName())
 }
 
-var list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3))
+var list = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(3))
 
 func TestMapList(t *testing.T) {
 	var add = DeclareFunction(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			return NewData(args[0].(DataConst).Eval().(d.IntVal) + d.IntVal(10))
+			return DeclareData(args[0].(DataConst).Eval().(d.IntVal) + d.IntVal(10))
 		}
-		return NewNative(1)
+		return DeclareNative(1)
 	}, Def(Data, d.Int))
 	fmt.Printf("add %s\n", add)
-	fmt.Printf("add two %s\n", add.Call(NewNative(d.IntVal(2))))
+	fmt.Printf("add two %s\n", add.Call(DeclareNative(d.IntVal(2))))
 	var list = list.Map(add)
 	var head, tail = list.Consume()
 	fmt.Printf("head: %s, tail: %s\n", head, tail)
@@ -96,7 +96,7 @@ var add = DeclareExpression(DeclareFunction(func(args ...Expression) Expression 
 			if len(args) > 1 {
 				var a, b = args[0].(DataConst).Eval().(d.IntVal),
 					args[1].(DataConst).Eval().(d.IntVal)
-				return NewNative(a + b)
+				return DeclareNative(a + b)
 			}
 			return NewNone()
 		}, Def(Data, d.Int)), Def(Data, d.Int), Def(Data, d.Int)).Call(args[0])
@@ -105,13 +105,13 @@ var add = DeclareExpression(DeclareFunction(func(args ...Expression) Expression 
 }, Def(Data, d.Int)), Def(Data, d.Int))
 
 func TestApplyList(t *testing.T) {
-	var list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3))
-	var first = add(NewNative(10))
+	var list = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(3))
+	var first = add(DeclareNative(10))
 	fmt.Printf("first: %s\n", first)
-	var second = first.Call(NewNative(10))
+	var second = first.Call(DeclareNative(10))
 	fmt.Printf("second: %s\n", second)
 	var fns = list.Map(add)
-	var applyed = NewList(NewNative(10), NewNative(20), NewNative(30), NewNative(40), NewNative(50), NewNative(60), NewNative(70)).Apply(fns)
+	var applyed = NewList(DeclareNative(10), DeclareNative(20), DeclareNative(30), DeclareNative(40), DeclareNative(50), DeclareNative(60), DeclareNative(70)).Apply(fns)
 	fmt.Printf("applyed: %s\n", applyed)
 	var head, tail = applyed.Head(), applyed.Tail()
 	fmt.Printf("head: %s, tail: %s\n", head, tail)
@@ -130,17 +130,17 @@ func TestFoldList(t *testing.T) {
 		return sum
 	}, Def(Data, d.Int)), Def(Data, d.Int), Def(Data, d.Int))
 	fmt.Printf("sum: %s\n", sum)
-	var result = sum.Call(NewNative(1))
+	var result = sum.Call(DeclareNative(1))
 	fmt.Printf("result: %s\n", result)
-	result = result.Call(NewNative(3))
+	result = result.Call(DeclareNative(3))
 	fmt.Printf("result: %s\n", result)
 
-	var fold = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(4), NewNative(5), NewNative(6), NewNative(7)).FoldL(sum, NewNative(8))
+	var fold = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(4), DeclareNative(5), DeclareNative(6), DeclareNative(7)).FoldL(sum, DeclareNative(8))
 	fmt.Printf("fold: %s\n", fold)
 }
 
 func TestFilterList(t *testing.T) {
-	var filter = NewTest(func(args ...Expression) bool {
+	var filter = DeclareTest(func(args ...Expression) bool {
 		if nat, ok := args[0].(Native); ok {
 			if i, ok := nat.Eval().(d.IntVal); ok {
 				return i%2 == 0
@@ -148,14 +148,14 @@ func TestFilterList(t *testing.T) {
 		}
 		return false
 	})
-	var list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(4), NewNative(5), NewNative(6), NewNative(7)).Filter(filter)
+	var list = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(4), DeclareNative(5), DeclareNative(6), DeclareNative(7)).Filter(filter)
 	fmt.Printf("list: %s\n", list)
 
 }
 
 func TestTakeN(t *testing.T) {
-	var list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3), NewNative(4),
-		NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
+	var list = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(3), DeclareNative(4),
+		DeclareNative(5), DeclareNative(6), DeclareNative(7), DeclareNative(8), DeclareNative(9))
 
 	fmt.Printf("list: %s\n", list)
 	var head, tail = list.TakeN(4)
@@ -168,8 +168,8 @@ func TestTakeN(t *testing.T) {
 	vec = vec.Con(head)
 	fmt.Printf("head: %s, list: %s vec: %s\n", head, tail, vec)
 
-	list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3), NewNative(4),
-		NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
+	list = NewList(DeclareNative(0), DeclareNative(1), DeclareNative(2), DeclareNative(3), DeclareNative(4),
+		DeclareNative(5), DeclareNative(6), DeclareNative(7), DeclareNative(8), DeclareNative(9))
 
 	var take4 = DeclareFunction(func(args ...Expression) Expression {
 		var ok bool

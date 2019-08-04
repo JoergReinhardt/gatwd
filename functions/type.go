@@ -296,7 +296,7 @@ func (a TyAri) TypeFnc() TyFnc                { return Arity }
 func (a TyAri) Int() int                      { return int(a) }
 func (a TyAri) Match(arg d.Typed) bool        { return a == arg }
 func (a TyAri) TypeName() string              { return a.String() }
-func (a TyAri) Call(...Expression) Expression { return NewData(d.IntVal(int(a))) }
+func (a TyAri) Call(...Expression) Expression { return DeclareData(d.IntVal(int(a))) }
 
 // type flag representing pattern elements that define a symbol
 func DefSym(name string) TySymbol {
@@ -311,10 +311,10 @@ func (n TySymbol) TypeName() string     { return string(n) }
 func (n TySymbol) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
-			return NewData(d.BoolVal(false))
+			return DeclareData(d.BoolVal(false))
 		}
 	}
-	return NewData(d.BoolVal(true))
+	return DeclareData(d.BoolVal(true))
 }
 func (n TySymbol) Match(typ d.Typed) bool {
 	if Flag_Symbol.Match(typ.FlagType()) {
@@ -326,10 +326,10 @@ func (n TySymbol) Match(typ d.Typed) bool {
 
 // type flag representing a pattern element that represents a value
 func DefValNative(nat d.Native) TyValue {
-	return DefVal(NewNative(nat))
+	return DefVal(DeclareNative(nat))
 }
 func DefValGo(val interface{}) TyValue {
-	return DefVal(NewNative(New(val)))
+	return DefVal(DeclareNative(Declare(val)))
 }
 func DefVal(expr Expression) TyValue {
 	return func(args ...Expression) Expression {
@@ -512,7 +512,7 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 // call wraps the boolean result of calling match-args, passing its arguments,
 // wrapped in a data instance
 func (p TyPattern) Call(args ...Expression) Expression {
-	return NewData(d.BoolVal(p.MatchArgs(args...)))
+	return DeclareData(d.BoolVal(p.MatchArgs(args...)))
 }
 
 // match takes its argument, evaluated by passing it to the match-args method
@@ -521,8 +521,9 @@ func (p TyPattern) Call(args ...Expression) Expression {
 // called by match-all method.
 func (p TyPattern) Match(typ d.Typed) bool {
 	if Flag_Pattern.Match(typ.FlagType()) {
-		return p.MatchAll(
-			typ.(TyPattern).Pattern().Elems()...)
+		if pattern, ok := typ.(TyPattern); ok {
+			return p.MatchAll(pattern.Pattern().Elems()...)
+		}
 	}
 	return p.MatchAll(typ)
 }

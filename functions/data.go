@@ -31,15 +31,15 @@ type (
 ///
 // returns an expression with native return type implementing the callable
 // interface
-func New(inf ...interface{}) d.Native {
+func Declare(inf ...interface{}) d.Native {
 	return d.New(inf...)
 }
 
-func NewNative(inf ...interface{}) Native {
-	return NewData(New(inf...))
+func DeclareNative(inf ...interface{}) Native {
+	return DeclareData(Declare(inf...))
 }
 
-func NewData(args ...d.Native) Native {
+func DeclareData(args ...d.Native) Native {
 	var (
 		nat   = d.NewData(args...)
 		match = nat.Type().Match
@@ -94,9 +94,9 @@ func (n DataExpr) Call(args ...Expression) Expression {
 				}
 			}
 		}
-		return NewData(n(nats...))
+		return DeclareData(n(nats...))
 	}
-	return NewData(n())
+	return DeclareData(n())
 }
 
 // ATOMIC NATIVE VALUE CONSTRUCTOR
@@ -104,7 +104,7 @@ func (n DataConst) Eval(...d.Native) d.Native     { return n() }
 func (n DataConst) TypeFnc() TyFnc                { return Data }
 func (n DataConst) TypeNat() d.TyNat              { return n().Type() }
 func (n DataConst) String() string                { return n().String() }
-func (n DataConst) Call(...Expression) Expression { return NewData(n()) }
+func (n DataConst) Call(...Expression) Expression { return DeclareData(n()) }
 func (n DataConst) Type() TyPattern               { return Def(n.TypeNat()) }
 
 // NATIVE SLICE VALUE CONSTRUCTOR
@@ -131,7 +131,7 @@ func (n DataSlice) Type() TyPattern { return Def(n.TypeNat()) }
 func (n DataSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, NewData(nat))
+		slice = append(slice, DeclareData(nat))
 	}
 	return slice
 }
@@ -155,7 +155,7 @@ func (n DataGoSlice) Type() TyPattern            { return Def(n.TypeNat()) }
 func (n DataGoSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, NewData(nat))
+		slice = append(slice, DeclareData(nat))
 	}
 	return slice
 }
@@ -175,14 +175,14 @@ func (n DataPair) String() string                     { return n().String() }
 func (n DataPair) Type() TyPattern                    { return Def(n.TypeNat()) }
 func (n DataPair) Pair() Paired {
 	return NewPair(
-		NewData(n().Left()),
-		NewData(n().Right()))
+		DeclareData(n().Left()),
+		DeclareData(n().Right()))
 }
-func (n DataPair) LeftExpr() Expression  { return NewData(n().Left()) }
-func (n DataPair) RightExpr() Expression { return NewData(n().Right()) }
+func (n DataPair) LeftExpr() Expression  { return DeclareData(n().Left()) }
+func (n DataPair) RightExpr() Expression { return DeclareData(n().Right()) }
 func (n DataPair) BothExpr() (l, r Expression) {
-	return NewData(n().Left()),
-		NewData(n().Right())
+	return DeclareData(n().Left()),
+		DeclareData(n().Right())
 }
 
 // NATIVE SET VALUE CONSTRUCTOR
@@ -208,21 +208,21 @@ func (n DataSet) Type() TyPattern                      { return Def(n.TypeNat())
 func (n DataSet) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, key := range n().Keys() {
-		exprs = append(exprs, NewData(key))
+		exprs = append(exprs, DeclareData(key))
 	}
 	return exprs
 }
 func (n DataSet) DataExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, val := range n().Data() {
-		exprs = append(exprs, NewData(val))
+		exprs = append(exprs, DeclareData(val))
 	}
 	return exprs
 }
 func (n DataSet) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Fields() {
-		slice = append(slice, NewData(nat))
+		slice = append(slice, DeclareData(nat))
 	}
 	return slice
 }
@@ -231,8 +231,8 @@ func (n DataSet) Pairs() []Paired {
 	for _, field := range n.Fields() {
 		pairs = append(
 			pairs, NewPair(
-				NewData(field.Left()),
-				NewData(field.Right())))
+				DeclareData(field.Left()),
+				DeclareData(field.Right())))
 	}
 	return pairs
 }
