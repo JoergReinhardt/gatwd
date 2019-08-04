@@ -16,8 +16,6 @@ type (
 
 	ColPairL func(...Paired) (Paired, ColPairL)
 	ColPairV func(...Paired) []Paired
-
-	ColVal func(...Expression) (Expression, Consumeable)
 )
 
 //// RECURSIVE LIST OF VALUES
@@ -208,22 +206,6 @@ func (l ColList) TakeN(n int, elems ...Expression) (ColVec, ColList) {
 	return NewVector(elems...), l
 }
 
-func (l ColList) takeN(n int) ColList {
-	var init ColVec
-	var acc = DeclareFunction(func(args ...Expression) Expression {
-		if len(args) > 0 {
-			init = args[0].(ColVec)
-			if init.Len() < n {
-				if len(args) > 1 {
-					return init.Con(args[1:]...)
-				}
-			}
-		}
-		return init
-	}, Def(Vector))
-	return l.FoldL(acc, NewVector())
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 //// PAIRS OF VALUES
 ///
@@ -395,7 +377,6 @@ func (l ColPairL) TailPairs() ConsumeablePaired             { _, t := l(); retur
 func (l ColPairL) TailPairList() ColPairL                   { _, t := l(); return t }
 func (l ColPairL) Head() Expression                         { h, _ := l(); return h }
 func (l ColPairL) HeadPair() Paired                         { p, _ := l(); return p }
-func (l ColPairL) String() string                           { return l() }
 func (l ColPairL) Consume() (Expression, Consumeable)       { return l() }
 func (l ColPairL) ConsumePair() (Paired, ConsumeablePaired) { return l() }
 func (l ColPairL) ConsumePairList() (Paired, ColPairL)      { return l() }
