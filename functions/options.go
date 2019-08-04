@@ -147,7 +147,7 @@ func NewCase(test Testable, expr Expression) CaseVal {
 // return case constructor only takes a test as argument and returns a case,
 // that returns its set of arguments, when matched by the enclosed test
 func NewReturnCase(test Testable) CaseVal {
-	return NewCase(test, NewFunction(
+	return NewCase(test, DeclareFunction(
 		func(args ...Expression) Expression {
 			if len(args) > 0 {
 				if len(args) > 1 {
@@ -200,7 +200,7 @@ func NewTypeCase(typ d.Typed) CaseVal {
 			}
 			return true
 		}),
-		NewFunction(func(args ...Expression) Expression {
+		DeclareFunction(func(args ...Expression) Expression {
 			if len(args) > 0 {
 				if len(args) > 1 {
 					return NewVector(args...)

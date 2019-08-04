@@ -50,8 +50,6 @@ func flagToPattern(elem d.Typed) Expression {
 		return elem.(TyAri)
 	case Flag_KeyWord.Match(elem.FlagType()):
 		return elem.(TyKeyWord)
-	case Flag_Token.Match(elem.FlagType()):
-		return elem.(TyTok)
 	case Flag_Lex.Match(elem.FlagType()):
 		return elem.(TyLex)
 	case Flag_Pattern.Match(elem.FlagType()):

@@ -74,7 +74,7 @@ func TestPairVal(t *testing.T) {
 var list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3))
 
 func TestMapList(t *testing.T) {
-	var add = NewFunction(func(args ...Expression) Expression {
+	var add = DeclareFunction(func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return NewData(args[0].(DataConst).Eval().(d.IntVal) + d.IntVal(10))
 		}
@@ -90,9 +90,9 @@ func TestMapList(t *testing.T) {
 	}
 }
 
-var add = DeclareExpression(NewFunction(func(args ...Expression) Expression {
+var add = DeclareExpression(DeclareFunction(func(args ...Expression) Expression {
 	if len(args) > 0 {
-		return DeclareExpression(NewFunction(func(args ...Expression) Expression {
+		return DeclareExpression(DeclareFunction(func(args ...Expression) Expression {
 			if len(args) > 1 {
 				var a, b = args[0].(DataConst).Eval().(d.IntVal),
 					args[1].(DataConst).Eval().(d.IntVal)
@@ -118,7 +118,7 @@ func TestApplyList(t *testing.T) {
 }
 
 func TestFoldList(t *testing.T) {
-	var sum = DeclareExpression(NewFunction(func(args ...Expression) Expression {
+	var sum = DeclareExpression(DeclareFunction(func(args ...Expression) Expression {
 		var sum = DataExpr(func(args ...d.Native) d.Native {
 			if len(args) > 1 {
 				var a, b = args[0].(d.IntVal),
@@ -171,7 +171,7 @@ func TestTakeN(t *testing.T) {
 	list = NewList(NewNative(0), NewNative(1), NewNative(2), NewNative(3), NewNative(4),
 		NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
 
-	var take4 = NewFunction(func(args ...Expression) Expression {
+	var take4 = DeclareFunction(func(args ...Expression) Expression {
 		var ok bool
 		var init ColVec
 		if len(args) > 0 {

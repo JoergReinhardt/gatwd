@@ -1,22 +1,23 @@
-package functions
+package parser
 
 import (
 	//	s "strings"
 	//	u "unicode"
 
 	d "github.com/joergreinhardt/gatwd/data"
+	f "github.com/joergreinhardt/gatwd/functions"
 )
 
 type TyTok uint8
 
-func (t TyTok) Type() TyPattern               { return Def(t) }
-func (t TyTok) TypeFnc() TyFnc                { return Type }
-func (t TyTok) Call(...Expression) Expression { return t }
-func (t TyTok) Flag() d.BitFlag               { return d.BitFlag(uint(t)) }
-func (t TyTok) FlagType() d.Uint8Val          { return Flag_Token.U() }
-func (t TyTok) TypeName() string              { return t.String() }
+func (t TyTok) Type() f.TyPattern                 { return f.Def(t) }
+func (t TyTok) TypeFnc() f.TyFnc                  { return f.Type }
+func (t TyTok) Call(...f.Expression) f.Expression { return t }
+func (t TyTok) Flag() d.BitFlag                   { return d.BitFlag(uint(t)) }
+func (t TyTok) FlagType() d.Uint8Val              { return f.Flag_Token.U() }
+func (t TyTok) TypeName() string                  { return t.String() }
 func (t TyTok) Match(typ d.Typed) bool {
-	if typ.FlagType() == Flag_Token.U() {
+	if typ.FlagType() == f.Flag_Token.U() {
 		return t == typ.(TyTok)
 	}
 	return false

@@ -126,7 +126,7 @@ func TestSwitch(t *testing.T) {
 	result = swi.Call(NewNative(1.1))
 	fmt.Printf("switch return: %s\n", result)
 	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.TypeFnc().Match(Def(Data, d.String)) {
+	if result.TypeFnc().Match(Def(d.String)) {
 		t.Fail()
 	}
 
@@ -136,7 +136,7 @@ func TestSwitch(t *testing.T) {
 	result = swi.Call(NewNative(uint(1)))
 	fmt.Printf("switch return: %s\n", result)
 	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.TypeFnc().Match(Def(Data, d.String)) {
+	if result.TypeFnc().Match(Def(d.String)) {
 		t.Fail()
 	}
 
@@ -149,9 +149,9 @@ func TestSwitch(t *testing.T) {
 	}
 }
 
-var intCase = NewTypeCase(Def(Data, d.Int))
-var uintCase = NewTypeCase(Def(Data, d.Uint))
-var floatCase = NewTypeCase(Def(Data, d.Float))
+var intCase = NewTypeCase(Def(d.Int))
+var uintCase = NewTypeCase(Def(d.Uint))
+var floatCase = NewTypeCase(Def(d.Float))
 
 func TestAllTypeCase(t *testing.T) {
 
@@ -159,7 +159,7 @@ func TestAllTypeCase(t *testing.T) {
 		intCase.Type(), uintCase.Type(), floatCase.Type())
 
 	fmt.Printf("int value? %s\n", intCase.Call(NewNative(1)))
-	if !intCase(NewNative(1)).Type().Match(Def(Data, d.Int)) {
+	if !intCase(NewNative(1)).Type().Match(Def(d.Int)) {
 		t.Fail()
 	}
 
@@ -169,7 +169,7 @@ func TestAllTypeCase(t *testing.T) {
 	}
 }
 
-var typeSwitch = NewTypeSwitch(Def(Data, d.Int), Def(Data, d.Uint), Def(Data, d.Float))
+var typeSwitch = NewTypeSwitch(Def(d.Int), Def(d.Uint), Def(d.Float))
 
 func TestTypeSwitch(t *testing.T) {
 
@@ -184,14 +184,14 @@ func TestTypeSwitch(t *testing.T) {
 	typeSwitch = typeSwitch.Reload()
 	result = typeSwitch.Call(NewNative(1.2))
 	fmt.Printf("result from Call %s Type: %s\n", result, result.Type())
-	if !result.Type().Match(Def(Data, d.Float)) {
+	if !result.Type().Match(Def(d.Float)) {
 		t.Fail()
 	}
 
 	typeSwitch = typeSwitch.Reload()
 	result = typeSwitch.Call(NewNative(1))
 	fmt.Printf("result from Call %s Type: %s\n", result, result.Type())
-	if !result.Type().Match(Def(Data, d.Int)) {
+	if !result.Type().Match(Def(d.Int)) {
 		t.Fail()
 	}
 }
@@ -220,14 +220,14 @@ func TestOption(t *testing.T) {
 	var result = option(NewNative(1))
 	fmt.Printf("option called with int: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
+	if !result.TypeReturn().Match(Def(d.String)) {
 		t.Fail()
 	}
 
 	result = option(NewNative(1.1))
 	fmt.Printf("option called with float: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
+	if !result.TypeReturn().Match(Def(d.String)) {
 		t.Fail()
 	}
 
@@ -247,14 +247,14 @@ func TestIf(t *testing.T) {
 	var result = ifs(NewNative(1))
 	fmt.Printf("if called with int: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
+	if !result.TypeReturn().Match(Def(d.String)) {
 		t.Fail()
 	}
 
 	result = ifs(NewNative(1.1))
 	fmt.Printf("if called with float: %s\n", result)
 	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
+	if !result.TypeReturn().Match(Def(d.String)) {
 		t.Fail()
 	}
 

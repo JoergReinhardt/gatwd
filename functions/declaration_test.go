@@ -7,44 +7,22 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-func TestConstant(t *testing.T) {
-	var cons = NewConstant(func() Expression {
-		return NewNative("this is a constant")
-	})
-	fmt.Printf("constant string: %s\n", cons)
-	fmt.Printf("constant call: %s\n", cons.Call())
-	fmt.Printf("constant function type: %s\n", cons.TypeFnc().TypeName())
-	fmt.Printf("constant type: %s\n", cons.Type())
-}
-func TestFunction(t *testing.T) {
-	var fnc = NewFunction(func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return NewNative(args[0].String())
-		}
-		return NewNative(None.String())
-	}, Def(Data, d.String))
-	fmt.Printf("fnc: %s\n", fnc)
-	fmt.Printf("fnc('test'): %s\n", fnc(NewNative("test")))
-	fmt.Printf("fnc.Call('test'): %s\n", fnc.Call(NewNative("test")))
-	fmt.Printf("fnc.Type(): %s\n", fnc.Type())
-}
-
 func TestArgType(t *testing.T) {
-	var at = DeclareArguments(Def(Data, d.Int), Def(Data, d.Int), Def(Data, d.Int))
+	var at = DefineArgumentSet(Def(d.Int), Def(d.Int), Def(d.Int))
 	fmt.Printf("declared arguments: %s\n", at)
-	if !at.Type().Match(Def(Def(Data, d.Int), Def(Data, d.Int), Def(Data, d.Int))) {
+	if !at.Type().Match(Def(Def(d.Int), Def(d.Int), Def(d.Int))) {
 		t.Fail()
 	}
 
 	var result = at.Call(NewNative(1))
 	fmt.Printf("match pass int: %s result type: %s\n", result, result.Type())
-	if !result.Type().Match(Def(Data, d.Int)) {
+	if !result.Type().Match(Def(d.Int)) {
 		t.Fail()
 	}
 
 	result = at.Call(NewNative(1), NewNative(1), NewNative(1))
 	fmt.Printf("match pass three ints: %s result type: %s\n", result, result.Type())
-	if !result.Type().Match(Def(Vector, Def(Data, d.Int))) {
+	if !result.Type().Match(Def(Vector, Def(d.Int))) {
 		t.Fail()
 	}
 
@@ -54,7 +32,7 @@ func TestArgType(t *testing.T) {
 		t.Fail()
 	}
 
-	at = DeclareArguments(Def(Data, d.Int), Def(Data, d.Float))
+	at = DefineArgumentSet(Def(d.Int), Def(d.Float))
 	fmt.Printf("declared arguments: %s\n", at)
 	if !at.MatchArgs(NewNative(1), NewNative(1.0)) {
 		t.Fail()
@@ -63,15 +41,15 @@ func TestArgType(t *testing.T) {
 
 func TestDeclaredExpression(t *testing.T) {
 
-	var addInt = NewFunction(func(args ...Expression) Expression {
+	var addInt = DeclareFunction(func(args ...Expression) Expression {
 		var a, b = args[0].(DataConst).Eval().(d.IntVal), args[1].(DataConst).Eval().(d.IntVal)
 		return NewData(a + b)
-	}, Def(Data, d.Int))
+	}, Def(d.Int))
 
 	var result = addInt(NewNative(23), NewNative(42))
 	fmt.Printf("result from applying ints to addInt: %s\n", result)
 
-	var expr = DeclareExpression(addInt, Def(Data, d.Int), Def(Data, d.Int))
+	var expr = DeclareExpression(addInt, Def(d.Int), Def(d.Int))
 	fmt.Printf("declared expression: %s\n", expr)
 
 	fmt.Printf("result from applying ints to addInt: %s\n",
@@ -100,8 +78,8 @@ func TestDeclaredExpression(t *testing.T) {
 
 	var partial = expr.Call(NewNative(23))
 	fmt.Printf("result from applying one int to addInt: %s, expression: %s arg type: %s len: %d\n",
-		partial, partial.(DeclaredExpr).Unbox(), partial.(DeclaredExpr).ArgType(),
-		partial.(DeclaredExpr).ArgType().Len())
+		partial, partial.(TypedExpr).Unbox(), partial.(TypedExpr).ArgType(),
+		partial.(TypedExpr).ArgType().Len())
 
 	fmt.Printf("result from applying second int to partial addInt: %s\n",
 		partial.Call(NewNative(42)))
