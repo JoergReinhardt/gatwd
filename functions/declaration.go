@@ -7,8 +7,10 @@ import (
 )
 
 type (
-	ValueType    func() Expression
-	FunctionType func(...Expression) Expression
+	ConstantType    func() Expression
+	GeneratorType   func(...Expression) Expression
+	FunctionType    func(...Expression) Expression
+	AccumulatorType func(...Expression) (Expression, AccumulatorType)
 
 	ArgumentSet    func() []d.Typed
 	ExpressionType func(...Expression) Expression
@@ -20,28 +22,82 @@ type (
 //// CONSTANT DECLARATION
 ///
 // declares an expression from a constant function, that returns an expression
-func DeclareConstant(fn func() Expression) ValueType { return fn }
-func (c ValueType) TypeFnc() TyFnc                   { return Constant | c().TypeFnc() }
-func (c ValueType) Type() TyPattern                  { return c().Type() }
-func (c ValueType) String() string                   { return c().String() }
-func (c ValueType) Call(...Expression) Expression    { return c() }
+func DeclareConstant(fn func() Expression) ConstantType { return fn }
+func (c ConstantType) TypeFnc() TyFnc                   { return Constant | c().TypeFnc() }
+func (c ConstantType) Type() TyPattern                  { return c().Type() }
+func (c ConstantType) String() string                   { return c().String() }
+func (c ConstantType) Call(...Expression) Expression    { return c() }
+
+//// GENERATOR DECLARATION
+///
+// declares an expression generating a series of values of the same type,
+// yielding the next element in sequence with every call.
+func DeclareGenerator(constructor func(...Expression) func() Expression, retype TyPattern) GeneratorType {
+
+	var generator = constructor()
+
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			if args[0].Type().Match(Type) {
+				return retype
+			}
+			generator = constructor(args...)
+		}
+		var result = generator()
+		generator = constructor(result)
+		return result
+	}
+}
+func (c GeneratorType) TypeFnc() TyFnc                { return Generator | c(Type).TypeFnc() }
+func (c GeneratorType) Type() TyPattern               { return c(Type).(TyPattern) }
+func (c GeneratorType) String() string                { return c().String() }
+func (c GeneratorType) Call(...Expression) Expression { return c() }
 
 //// FUNCTION DECLARATION
 ///
 // declares an expression from some generic functions, with a signature
 // indicating that it takes expressions as arguments and returns an expression
-func DeclareFunction(fn func(...Expression) Expression, reType TyPattern) FunctionType {
+func DeclareFunction(fn func(...Expression) Expression, retype TyPattern) FunctionType {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return fn(args...)
 		}
-		return reType
+		return retype
 	}
 }
-func (g FunctionType) TypeFnc() TyFnc                     { return Value }
+func (g FunctionType) TypeFnc() TyFnc                     { return Value | g().TypeFnc() }
 func (g FunctionType) Type() TyPattern                    { return g().(TyPattern) }
 func (g FunctionType) String() string                     { return g().String() }
 func (g FunctionType) Call(args ...Expression) Expression { return g(args...) }
+
+//// ACCUMULATOR DECLARATION
+///
+// declares an expression accumulating results in a value intendet to be
+// reassigned to itself with every accumulation.
+func DeclareAccumulator(acc func(...Expression) (Expression, AccumulatorType)) AccumulatorType {
+	return func(args ...Expression) (Expression, AccumulatorType) {
+		var head Expression
+		if len(args) > 0 {
+			head, acc = acc(args...)
+			return head, acc
+		}
+		return acc()
+	}
+}
+func (g AccumulatorType) Expr() Expression {
+	var expr, _ = g()
+	return expr
+}
+func (g AccumulatorType) Accumulator() AccumulatorType {
+	var _, acc = g()
+	return acc
+}
+func (g AccumulatorType) TypeFnc() TyFnc {
+	return Accumulator | g.Expr().TypeFnc()
+}
+func (g AccumulatorType) Type() TyPattern                    { return g.Expr().Type() }
+func (g AccumulatorType) String() string                     { return g.Expr().String() }
+func (g AccumulatorType) Call(args ...Expression) Expression { return g.Expr().Call(args...) }
 
 //// ARGUMENT SET
 ///
@@ -49,10 +105,10 @@ func (g FunctionType) Call(args ...Expression) Expression { return g(args...) }
 func DefineArgumentSet(types ...d.Typed) ArgumentSet     { return func() []d.Typed { return types } }
 func (a ArgumentSet) TypeFnc() TyFnc                     { return Argument }
 func (a ArgumentSet) Type() TyPattern                    { return Def(a()...) }
-func (a ArgumentSet) Len() int                           { return len(a()) }
 func (a ArgumentSet) Head() Expression                   { return a.Type().Head() }
 func (a ArgumentSet) Tail() Consumeable                  { return a.Type().Tail() }
 func (a ArgumentSet) Consume() (Expression, Consumeable) { return a.Type().Consume() }
+func (a ArgumentSet) Len() int                           { return len(a()) }
 func (a ArgumentSet) String() string {
 	var strs = make([]string, 0, a.Len())
 	for _, t := range a() {
@@ -69,7 +125,7 @@ func (a ArgumentSet) Call(args ...Expression) Expression {
 			return args[0]
 		}
 	}
-	return NewNone()
+	return DeclareNone()
 }
 func (a ArgumentSet) MatchArg(arg Expression) (ArgumentSet, bool) {
 	var (
@@ -182,7 +238,7 @@ func DeclareExpression(expr Expression, types ...d.Typed) ExpressionType {
 					return vec
 				}
 			}
-			return NewNone()
+			return DeclareNone()
 		}
 		return NewPair(expr, DefineArgumentSet(types...))
 	}
@@ -228,17 +284,17 @@ func DeclareParametricExpression(exprs ...ExpressionType) ParametricType {
 	}
 	return ParametricType(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			return NewSwitch(cases...).Call(args...)
+			return DeclareSwitch(cases...).Call(args...)
 		}
-		return NewSwitch(cases...)
+		return DeclareSwitch(cases...)
 	})
 }
 
 func (p ParametricType) TypeFnc() TyFnc { return Parametric }
 
 func (p ParametricType) Unbox() Expression { return p() } // ← switch-type
-func (p ParametricType) String() string    { return p().(SwitchType).String() }
 func (p ParametricType) Cases() []CaseType { return p().(SwitchType).Cases() }
+func (p ParametricType) String() string    { return p().(SwitchType).String() }
 func (p ParametricType) Len() int          { return len(p.Cases()) }
 
 // yield slice of expressions enclosed by cases
@@ -278,72 +334,70 @@ func (p ParametricType) Call(args ...Expression) Expression {
 ///
 //
 func Curry(fns ...ExpressionType) ExpressionType {
-
-	if len(fns) > 0 {
-
-		var (
-			expr ExpressionType
-		)
-
-		if len(fns) == 1 {
-			expr = fns[0]
-		}
-		if len(fns) == 2 {
-			expr = Curry(fns[0], fns[1])
-		}
-		if len(fns) > 2 {
-			expr = Curry(append([]ExpressionType{
-				Curry(fns[0], fns[1]),
-			}, fns[2:]...)...)
-		}
-
-		if expr != nil {
-			if !expr.TypeFnc().Match(None) {
-				return DeclareExpression(DeclareFunction(
-					func(args ...Expression) Expression {
-						if len(args) > 0 {
-							return expr.Call(args...)
-						}
-						return expr.Call()
-					}, fns[0].Unbox().Type()), fns[0].Type())
-			}
-		}
+	switch len(fns) {
+	case 0:
+		return DeclareExpression(DeclareNone(), None)
+	case 1:
+		return fns[0]
+	case 2:
+		return DeclareExpression(DeclareFunction(
+			func(args ...Expression) Expression {
+				if len(args) > 0 {
+					return fns[0].Call(
+						fns[1]).Call(
+						args...)
+				}
+				return fns[0].Call(fns[1])
+			}, fns[1].Type()),
+			Def(fns[1].Type(), fns[0].Type()))
 	}
-
-	return DeclareExpression(NewNone(), None)
+	var pattern TyPattern
+	for _, fn := range fns[:len(fns)-1] {
+		if pattern == nil {
+			pattern = fn.Type()
+			continue
+		}
+		pattern = Def(pattern, fn.Type())
+	}
+	return DeclareExpression(DeclareFunction(
+		func(args ...Expression) Expression {
+			var expr = Curry(append(
+				[]ExpressionType{
+					Curry(fns[0], fns[1]),
+				}, fns[2:]...)...)
+			if len(args) > 0 {
+				return expr.Call(args...)
+			}
+			return expr.Call()
+		}, fns[len(fns)-1].Type()), pattern)
 }
 
 //// TYPE SAFE COLLECTIONS
 ///
 //
-func DeclareCollection(col Consumeable, argtype d.Typed) CollectionType {
+func DeclareCollection(col Consumeable, elemtype TyPattern) CollectionType {
 	return func(args ...Expression) (Expression, Consumeable) {
-		if len(args) == 1 {
-			var arg = args[0]
-			if arg.Type().Match(argtype) {
-				col = col.Append(arg)
+		if len(args) > 0 {
+			if len(args) == 1 &&
+				args[0].Type().Match(Type) {
+				return elemtype, col
 			}
-			if arg.TypeFnc().Match(Type) {
-				if t, ok := arg.(TyFnc); ok {
-					if t.Match(Type) {
-						return DeclareNative(true), col
-					}
-				}
-			}
-		}
-		if len(args) > 1 {
 			var fas = make([]Expression, 0, len(args))
 			for _, arg := range args {
-				if argtype.Match(arg.Type()) {
+				if elemtype.Match(arg.Type()) {
 					fas = append(fas, arg)
 				}
 			}
 			col = col.Append(fas...)
 		}
 		var head, tail = col.Consume()
-		return head, DeclareCollection(tail, argtype)
+		return head, DeclareCollection(tail, elemtype)
 	}
 }
+func (c CollectionType) Type() TyPattern                    { return c.Unbox().Type() }
+func (c CollectionType) TypeFnc() TyFnc                     { return c.Unbox().TypeFnc() }
+func (c CollectionType) Len() int                           { return c.Unbox().Len() }
+func (c CollectionType) String() string                     { return c.Unbox().String() }
 func (c CollectionType) Consume() (Expression, Consumeable) { return c() }
 func (c CollectionType) Head() Expression {
 	var head, _ = c()
@@ -353,24 +407,135 @@ func (c CollectionType) Tail() Consumeable {
 	var _, tail = c()
 	return tail
 }
-func (c CollectionType) Unbox() Consumeable {
-	var _, unboxed = c(Type)
-	return unboxed
+func (c CollectionType) TypeElem() d.Typed {
+	var elemtype, _ = c(Type)
+	return elemtype.(TyPattern)
 }
-func (c CollectionType) TypeFnc() TyFnc    { return c.Unbox().TypeFnc() }
-func (c CollectionType) Type() TyPattern   { return c.Unbox().Type() }
-func (c CollectionType) TypeElem() d.Typed { return c.Unbox().TypeElem() }
-func (c CollectionType) Len() int          { return c.Unbox().Len() }
-func (c CollectionType) String() string    { return c.Unbox().String() }
-func (c CollectionType) Append(args ...Expression) Consumeable {
-	var _, col = c(args...)
+func (c CollectionType) Unbox() Consumeable {
+	var _, col = c(Type)
 	return col
 }
 func (c CollectionType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		var head, tail = c(args...)
-		return NewPair(head, tail)
+		var _, col = c(args...)
+		return col
 	}
-	var head, tail = c()
-	return NewPair(head, tail)
+	var head, _ = c()
+	return head
+}
+
+func (c CollectionType) Append(args ...Expression) Consumeable {
+	var (
+		cons  = c.Unbox()
+		etype TyPattern
+	)
+	if Flag_Pattern.Match(cons.TypeElem().FlagType()) {
+		etype = cons.TypeElem().(TyPattern)
+	} else {
+		etype = Def(cons.TypeElem())
+	}
+	return DeclareCollection(cons.Append(args...), etype)
+}
+
+func (c CollectionType) Concat(colls ...Consumeable) CollectionType {
+	return func(args ...Expression) (Expression, Consumeable) {
+		var (
+			cons = c.Unbox()
+			head Expression
+			coll CollectionType
+		)
+		if len(colls) > 0 {
+			if len(args) > 0 {
+				cons = cons.Append(args...)
+			}
+			head, cons = cons.Consume()
+			if head != nil {
+				coll = cons.(CollectionType)
+				return head, coll
+			}
+			coll = colls[0].(CollectionType)
+			if len(colls) > 1 {
+				colls = colls[1:]
+			} else {
+				colls = []Consumeable{}
+			}
+		}
+		return coll.Consume()
+	}
+}
+
+func (c CollectionType) Map(fn Expression) CollectionType {
+	return func(args ...Expression) (Expression, Consumeable) {
+		var (
+			cons = c.Unbox()
+			head Expression
+			col  CollectionType
+		)
+		if len(args) > 0 {
+			cons = cons.Append(args...)
+		}
+		head, cons = cons.Consume()
+		col = cons.(CollectionType).Map(fn)
+		if head != nil {
+			return fn.Call(head), col
+		}
+		return nil, col
+	}
+}
+
+func (c CollectionType) Apply(cons Consumeable) CollectionType {
+
+	var pattern TyPattern
+	if Flag_Pattern.Match(cons.TypeElem().FlagType()) {
+		pattern = cons.TypeElem().(TyPattern)
+	} else {
+		pattern = Def(cons.TypeElem())
+	}
+	var fns = DeclareCollection(cons, pattern)
+
+	return func(args ...Expression) (Expression, Consumeable) {
+		var fn, fns = fns.Consume()
+		if fn != nil {
+			return c.Map(fn).Concat(c.Apply(fns)).Consume()
+		}
+		return c.Consume()
+	}
+}
+func (c CollectionType) FoldL(acc AccumulatorType) CollectionType {
+	return func(args ...Expression) (Expression, Consumeable) {
+		var (
+			cons   = c.Unbox()
+			result Expression
+			head   Expression
+			col    CollectionType
+		)
+		if len(args) > 0 {
+			cons = cons.Append(args...)
+		}
+		head, cons = cons.Consume()
+		col = cons.(CollectionType).FoldL(acc)
+		result, acc = acc(head)
+		return result, col
+	}
+}
+
+func (c CollectionType) Filter(filter TestType) CollectionType {
+	return func(args ...Expression) (Expression, Consumeable) {
+		var (
+			cons = c.Unbox()
+			col  CollectionType
+			head Expression
+		)
+		if len(args) > 0 {
+			cons = cons.Append(args...)
+		}
+		head, cons = cons.Consume()
+		col = cons.(CollectionType).Filter(filter)
+		if head != nil {
+			if filter(head) {
+				return head, col
+			}
+		}
+		return nil, col
+	}
 }

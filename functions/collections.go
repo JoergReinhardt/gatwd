@@ -110,7 +110,7 @@ func (l ColList) GetIdx(n int) Expression {
 	for i := 0; i < n; i++ {
 		head, list = list()
 		if head == nil {
-			return NewNone()
+			return DeclareNone()
 		}
 	}
 	return head
@@ -137,79 +137,6 @@ func (l ColList) Len() int {
 	return length
 }
 
-func (l ColList) DeclareList() CollectionType {
-	return DeclareCollection(l, l.TypeElem())
-}
-
-func (l ColList) Map(fn Expression) ColList {
-	return func(args ...Expression) (Expression, ColList) {
-		if len(args) > 0 {
-			var head, list = l(args...)
-			return fn.Call(head), list.Map(fn)
-		}
-		var head, list = l()
-		if head != nil {
-			return fn.Call(head), list.Map(fn)
-		}
-		return nil, NewList().Map(fn)
-	}
-}
-
-func (l ColList) Apply(exprs Consumeable) ColList {
-	return func(args ...Expression) (Expression, ColList) {
-		if len(args) > 0 {
-			l = l.Con(args...)
-		}
-		var fn, fns = exprs.Consume()
-		if fn != nil {
-			return ConcatLists(l.Map(fn),
-				l.Apply(fns))()
-		}
-		return nil, l
-	}
-}
-func (l ColList) FoldL(acc, init Expression) ColList {
-	return func(args ...Expression) (Expression, ColList) {
-		if len(args) > 0 {
-			l = l.Con(args...)
-			return l()
-		}
-		var head, tail = l()
-		if head != nil {
-			init = acc.Call(init, head)
-			return init, tail.FoldL(acc, init)
-		}
-		return nil, tail.FoldL(acc, init)
-	}
-}
-
-func (l ColList) Filter(filter TestType) ColList {
-	return func(args ...Expression) (Expression, ColList) {
-		if len(args) > 0 {
-			l = l.Con(args...)
-		}
-		var head, tail = l()
-		if head != nil {
-			if filter(head) {
-				return head, tail.Filter(filter)
-			}
-			return tail.Filter(filter)()
-		}
-		return nil, tail
-	}
-}
-
-func (l ColList) TakeN(n int, elems ...Expression) (ColVec, ColList) {
-	if len(elems) < n {
-		var head, tail = l()
-		for head != nil {
-			elems = append(elems, head)
-			return tail.TakeN(n, elems...)
-		}
-	}
-	return NewVector(elems...), l
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 //// PAIRS OF VALUES
 ///
@@ -220,9 +147,9 @@ func NewEmptyPair() PairVal {
 			if len(args) > 1 {
 				return args[0], args[1]
 			}
-			return args[0], NewNone()
+			return args[0], DeclareNone()
 		}
-		return NewNone(), NewNone()
+		return DeclareNone(), DeclareNone()
 	}
 }
 
@@ -468,7 +395,7 @@ func argsToPaired(args ...Expression) []Paired {
 			i = i + 1
 			pairs = append(pairs, NewPair(arg, args[i]))
 		}
-		pairs = append(pairs, NewPair(arg, NewNone()))
+		pairs = append(pairs, NewPair(arg, DeclareNone()))
 	}
 	return pairs
 }
@@ -600,7 +527,7 @@ func (v ColVec) Get(i int) (Expression, bool) {
 	if i < v.Len() {
 		return v()[i], true
 	}
-	return NewNone(), false
+	return DeclareNone(), false
 }
 
 func (v ColVec) Set(i int, val Expression) (Vectorized, bool) {
@@ -774,7 +701,7 @@ func (v ColPairV) HeadPair() Paired {
 	if v.Len() > 0 {
 		return v()[0].(Paired)
 	}
-	return NewPair(NewNone(), NewNone())
+	return NewPair(DeclareNone(), DeclareNone())
 }
 func (v ColPairV) Head() Expression {
 	if v.Len() > 0 {

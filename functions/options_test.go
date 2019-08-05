@@ -78,7 +78,7 @@ var isFloat = DeclareTest(func(args ...Expression) bool {
 })
 var caseFloat = DeclareCase(isFloat, DeclareNative("this is a float"))
 
-var swi = NewSwitch(caseFloat, caseUint, caseInt)
+var swi = DeclareSwitch(caseFloat, caseUint, caseInt)
 
 func TestSwitch(t *testing.T) {
 	fmt.Printf("switch: %s\n\n", swi)
@@ -178,7 +178,7 @@ func TestTypeSwitch(t *testing.T) {
 	var result, cases = typeSwitch(DeclareNative(1))
 	for len(cases) > 0 {
 		fmt.Printf("result: %s cases: %s type: %s\n", result, cases, result.Type())
-		result, cases = NewSwitch(cases...)(DeclareNative(1))
+		result, cases = DeclareSwitch(cases...)(DeclareNative(1))
 	}
 
 	typeSwitch = typeSwitch.Reload()
@@ -197,7 +197,7 @@ func TestTypeSwitch(t *testing.T) {
 }
 
 func TestMaybe(t *testing.T) {
-	var maybe = NewMaybe(caseInt)
+	var maybe = DeclareMaybe(caseInt)
 	var result = maybe(DeclareNative(1))
 	fmt.Printf("result of calling maybe int with an int: %s\n", result)
 	fmt.Printf("result type: %s\n", result.Type())
@@ -213,7 +213,7 @@ func TestMaybe(t *testing.T) {
 }
 
 func TestOption(t *testing.T) {
-	var option = NewOption(caseInt, caseFloat)
+	var option = DeclareOption(caseInt, caseFloat)
 	fmt.Printf("option: %s\n", option)
 	fmt.Printf("option type: %s\n", option.Type())
 
@@ -240,7 +240,7 @@ func TestOption(t *testing.T) {
 }
 
 func TestIf(t *testing.T) {
-	var ifs = NewIf(caseInt, caseFloat)
+	var ifs = DeclareBranch(caseInt, caseFloat)
 	fmt.Printf("if: %s\n", ifs)
 	fmt.Printf("if type: %s\n", ifs.Type())
 

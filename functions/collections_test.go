@@ -65,7 +65,7 @@ func TestPushList(t *testing.T) {
 }
 
 func TestPairVal(t *testing.T) {
-	var pair = NewPair(NewNone(), NewNone())
+	var pair = NewPair(DeclareNone(), DeclareNone())
 	fmt.Printf("name of empty pair: %s\n", pair.Type().TypeName())
 	pair = NewPair(DeclareNative(12), DeclareNative("string"))
 	fmt.Printf("name of (int,string) pair: %s\n", pair.Type().TypeName())
@@ -98,10 +98,10 @@ var add = DeclareExpression(DeclareFunction(func(args ...Expression) Expression 
 					args[1].(DataConst).Eval().(d.IntVal)
 				return DeclareNative(a + b)
 			}
-			return NewNone()
+			return DeclareNone()
 		}, Def(Data, d.Int)), Def(Data, d.Int), Def(Data, d.Int)).Call(args[0])
 	}
-	return NewNone()
+	return DeclareNone()
 }, Def(Data, d.Int)), Def(Data, d.Int))
 
 func TestApplyList(t *testing.T) {

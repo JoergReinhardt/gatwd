@@ -27,7 +27,7 @@ type (
 	OptionType func(...Expression) ElemType
 
 	// IF (THEN | ELSE)
-	IfBranch func(...Expression) ElemType
+	BranchType func(...Expression) ElemType
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -35,7 +35,7 @@ type (
 // none represens the abscence of a value of any type. implements countable,
 // sliceable, consumeable, testable, compareable, key-, index- and generic pair
 // interfaces to be able to stand in as return value for such expressions.
-func NewNone() NoneType { return func() {} }
+func DeclareNone() NoneType { return func() {} }
 
 func (n NoneType) Head() Expression                 { return n }
 func (n NoneType) Tail() Consumeable                { return n }
@@ -61,7 +61,7 @@ func (n NoneType) Type() TyPattern                  { return Def(None) }
 func (n NoneType) TypeName() string                 { return n.String() }
 func (n NoneType) Slice() []Expression              { return []Expression{} }
 func (n NoneType) Consume() (Expression, Consumeable) {
-	return NewNone(), NewNone()
+	return DeclareNone(), DeclareNone()
 }
 
 /// TEST
@@ -136,7 +136,7 @@ func DeclareCase(test Testable, expr Expression) CaseType {
 			if test.Test(args...) {
 				return expr.Call(args...)
 			}
-			return NewNone()
+			return DeclareNone()
 		}
 		return NewPair(test, expr)
 	}
@@ -153,7 +153,7 @@ func DeclareYield(test Testable) CaseType {
 				}
 				return args[0]
 			}
-			return NewNone()
+			return DeclareNone()
 		}, Def(Value)))
 }
 
@@ -211,7 +211,7 @@ func (t CaseType) Call(args ...Expression) Expression { return t(args...) }
 //
 // when called, a switch evaluates all it's cases until it yields either
 // results from applying the first case that matched the arguments, or none.
-func NewSwitch(cases ...CaseType) SwitchType {
+func DeclareSwitch(cases ...CaseType) SwitchType {
 	var (
 		all     = cases
 		current CaseType
@@ -233,7 +233,7 @@ func NewSwitch(cases ...CaseType) SwitchType {
 			}
 			return current(args...), cases
 		}
-		return NewNone(), all
+		return DeclareNone(), all
 	}
 }
 func (t SwitchType) TypeFnc() TyFnc { return Switch }
@@ -244,7 +244,7 @@ func (t SwitchType) Cases() []CaseType {
 }
 func (t SwitchType) Reload() SwitchType {
 	var _, cases = t()
-	return NewSwitch(cases...)
+	return DeclareSwitch(cases...)
 }
 func (t SwitchType) Type() TyPattern {
 	var (
@@ -263,7 +263,7 @@ func (t SwitchType) Call(args ...Expression) Expression {
 		if !result.TypeFnc().Match(None) {
 			break
 		}
-		result, cases = NewSwitch(cases...)(args...)
+		result, cases = DeclareSwitch(cases...)(args...)
 	}
 	t = t.Reload()
 	return result
@@ -284,14 +284,14 @@ func NewTypeSwitch(patterns ...TyPattern) SwitchType {
 				return pattern.MatchArgs(args...)
 			})))
 	}
-	return NewSwitch(cases...)
+	return DeclareSwitch(cases...)
 }
 
 /// ELEMENT VALUE
 //
 // element values yield a subelements of optional, tuple, or enumerable
 // expressions with sub-type pattern as second return value
-func NewElement(expr Expression, typed d.Typed) ElemType {
+func DeclareElementType(expr Expression, typed d.Typed) ElemType {
 	var pattern = Def(typed, expr.Type())
 	return func(args ...Expression) (Expression, TyPattern) {
 		if len(args) > 0 {
@@ -312,16 +312,16 @@ func (e ElemType) String() string                     { return e.Unbox().String(
 // the constructor takes a case expression, expected to return a result, if the
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
-func NewMaybe(test CaseType) MaybeType {
+func DeclareMaybe(test CaseType) MaybeType {
 	var result Expression
 	return func(args ...Expression) ElemType {
 		if len(args) > 0 {
 			if result = test(args...); !result.TypeFnc().Match(None) {
-				return NewElement(result, Just)
+				return DeclareElementType(result, Just)
 			}
-			return NewElement(result, None) // ← will be None
+			return DeclareElementType(result, None) // ← will be None
 		}
-		return NewElement(test, Truth)
+		return DeclareElementType(test, Truth)
 	}
 }
 func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
@@ -335,19 +335,19 @@ func (t MaybeType) Type() TyPattern                    { return t.Unbox().TypeRe
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
-func NewOption(either, or CaseType) OptionType {
+func DeclareOption(either, or CaseType) OptionType {
 	var result Expression
 	return func(args ...Expression) ElemType {
 		if len(args) > 0 {
 			if result = either(args...); !result.TypeFnc().Match(None) {
-				return NewElement(result, Either)
+				return DeclareElementType(result, Either)
 			}
 			if result = or(args...); !result.TypeFnc().Match(None) {
-				return NewElement(result, Or)
+				return DeclareElementType(result, Or)
 			}
-			return NewElement(result, None) // ← will be None
+			return DeclareElementType(result, None) // ← will be None
 		}
-		return NewElement(NewPair(either, or), Pair)
+		return DeclareElementType(NewPair(either, or), Pair)
 	}
 }
 func (t OptionType) TypeFnc() TyFnc                     { return Option }
@@ -373,37 +373,37 @@ func (t OptionType) OrCase() CaseType {
 /// IF THEN ELSE CONDITION
 //
 // if statement is a slight variation of an optional.
-func NewIf(then, els CaseType) IfBranch {
+func DeclareBranch(then, els CaseType) BranchType {
 	var result Expression
 	return func(args ...Expression) ElemType {
 		if len(args) > 0 {
 			if result = then(args...); !result.TypeFnc().Match(None) {
-				return NewElement(result, Then)
+				return DeclareElementType(result, Then)
 			}
 			if result = els(args...); !result.TypeFnc().Match(None) {
-				return NewElement(result, Else)
+				return DeclareElementType(result, Else)
 			}
-			return NewElement(result, None) // ← will be None
+			return DeclareElementType(result, None) // ← will be None
 		}
-		return NewElement(NewPair(then, els), Pair)
+		return DeclareElementType(NewPair(then, els), Pair)
 	}
 }
-func (t IfBranch) TypeFnc() TyFnc                     { return If }
-func (t IfBranch) Call(args ...Expression) Expression { return t(args...) }
-func (t IfBranch) String() string                     { return t.Type().TypeName() }
-func (t IfBranch) Type() TyPattern {
+func (t BranchType) TypeFnc() TyFnc                     { return If }
+func (t BranchType) Call(args ...Expression) Expression { return t(args...) }
+func (t BranchType) String() string                     { return t.Type().TypeName() }
+func (t BranchType) Type() TyPattern {
 	return Def(Def(Then, t.Then().Type()),
 		Lex_Pipe, Def(Else, t.Else().Type()))
 }
-func (t IfBranch) Unbox() (CaseType, CaseType) {
+func (t BranchType) Unbox() (CaseType, CaseType) {
 	var then, els = t().Unbox().(Paired).Both()
 	return then.(CaseType), els.(CaseType)
 }
-func (t IfBranch) Then() CaseType {
+func (t BranchType) Then() CaseType {
 	var pair = t().Unbox().(Paired)
 	return pair.Left().(CaseType)
 }
-func (t IfBranch) Else() CaseType {
+func (t BranchType) Else() CaseType {
 	var pair = t().Unbox().(Paired)
 	return pair.Right().(CaseType)
 }
