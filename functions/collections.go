@@ -68,7 +68,10 @@ func (l ListType) TypeElem() TyPattern {
 	return Def(None)
 }
 func (l ListType) Type() TyPattern {
-	return Def(l.TypeElem(), List, l.TypeElem())
+	if l.Len() > 0 {
+		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	}
+	return Def(None)
 }
 
 func (l ListType) ConsumeList() (Expression, ListType) {

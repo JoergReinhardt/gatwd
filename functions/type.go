@@ -472,8 +472,8 @@ func (p TyPattern) ArgumentsName() string {
 					ldelim, sep, rdelim,
 				)
 			}
+			return p.TypeArguments().Print("", " ", "")
 		}
-		return p.TypeArguments().Print("", " ", "")
 	}
 	return ""
 }
@@ -493,7 +493,7 @@ func (p TyPattern) IdentName() string {
 	if p.TypeIdent().Len() > 0 {
 		if !p.TypeIdent().Match(None) {
 			if p.TypeIdent().Len() > 1 {
-				var ldelim, sep, rdelim string
+				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
 				case p.TypeIdent().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
@@ -505,15 +505,13 @@ func (p TyPattern) IdentName() string {
 					ldelim, sep, rdelim = "(", " | ", ")"
 				case p.TypeIdent().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
-				default:
-					ldelim, sep, rdelim = "(", " ", ")"
 				}
 				return p.TypeIdent().Print(
 					ldelim, sep, rdelim,
 				)
 			}
+			return p.TypeIdent().Print("", " ", "")
 		}
-		return p.TypeIdent().Print("", " ", "")
 	}
 	return ""
 }
@@ -533,7 +531,7 @@ func (p TyPattern) ReturnName() string {
 	if p.TypeReturn().Len() > 0 {
 		if !p.TypeReturn().Match(None) {
 			if p.TypeReturn().Len() > 1 {
-				var ldelim, sep, rdelim string
+				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
 				case p.TypeIdent().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
@@ -545,15 +543,13 @@ func (p TyPattern) ReturnName() string {
 					ldelim, sep, rdelim = "(", " | ", ")"
 				case p.TypeIdent().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
-				default:
-					ldelim, sep, rdelim = "(", " ", ")"
 				}
 				return p.TypeReturn().Print(
 					ldelim, sep, rdelim,
 				)
 			}
+			return p.TypeReturn().Print("", " ", "")
 		}
-		return p.TypeReturn().Print("", " ", "")
 	}
 	return ""
 }
