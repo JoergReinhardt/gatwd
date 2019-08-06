@@ -61,7 +61,7 @@ func TestCase(t *testing.T) {
 	result = caseZero.Call(DecNative(1))
 	fmt.Printf("case none zero: %s none zero type: %s\n",
 		result, result.Type())
-	if result.Type().Match(None) {
+	if !result.Type().Match(None) {
 		t.Fail()
 	}
 }
@@ -104,4 +104,8 @@ func TestSwitch(t *testing.T) {
 		fmt.Printf("result from calling switch passing int: %s\n", result)
 		result, cases = DecSwitch(cases...)(DecNative(1))
 	}
+
+	swi = swi.Switch()
+	result = swi.Call(DecNative(1))
+	fmt.Printf("result from call(1): %s\n", result)
 }

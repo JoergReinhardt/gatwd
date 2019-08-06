@@ -24,11 +24,20 @@ func printCons(cons Consumeable) {
 func TestEmptyList(t *testing.T) {
 	var list = NewList()
 	fmt.Printf("empty list pattern length: %d\n", list.Type().Len())
-	fmt.Printf("empty list type name: %s\n", list.Type().TypeName())
+	fmt.Printf("empty list patterns: %d\n", list.Type().Patterns())
+	fmt.Printf("empty list arg types: %s\n", list.Type().TypeArguments())
+	fmt.Printf("empty list ident types: %s\n", list.Type().TypeIdent())
+	fmt.Printf("empty list return types: %s\n", list.Type().TypeReturn())
+	fmt.Printf("empty list type name: %s\n", list.Type())
 }
 func TestList(t *testing.T) {
 	var list = NewList(listA()...)
-	fmt.Printf("list type name: %s\n", list.Type().TypeName())
+	fmt.Printf("list pattern length: %d\n", list.Type().Len())
+	fmt.Printf("list patterns: %d\n", list.Type().Patterns())
+	fmt.Printf("list arg types: %s\n", list.Type().ArgumentsName())
+	fmt.Printf("list ident types: %s\n", list.Type().IdentName())
+	fmt.Printf("list return types: %s\n", list.Type().ReturnName())
+	fmt.Printf("list type name: %s\n", list.Type())
 	printCons(list)
 }
 

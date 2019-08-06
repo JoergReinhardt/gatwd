@@ -199,6 +199,10 @@ func DecSwitch(cases ...CaseType) SwitchType {
 		return DecSwitch(all...), cases
 	}
 }
+func (t SwitchType) Switch() SwitchType {
+	var swi, _ = t()
+	return swi.(SwitchType)
+}
 func (t SwitchType) Cases() []CaseType {
 	var _, cases = t()
 	return cases
@@ -206,9 +210,10 @@ func (t SwitchType) Cases() []CaseType {
 func (t SwitchType) Call(args ...Expression) Expression {
 	var result, cases = t(args...)
 	for len(cases) > 0 {
-		if !result.TypeFnc().Match(None) {
+		if !result.Type().Match(None) {
 			return result
 		}
+		result, cases = DecSwitch(cases...)(args...)
 	}
 	result, _ = t()
 	t = result.(SwitchType)

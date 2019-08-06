@@ -63,15 +63,12 @@ func (l ListType) TypeFnc() TyFnc                     { return List }
 func (l ListType) Null() ListType                     { return NewList() }
 func (l ListType) TypeElem() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.Head().TypeFnc())
+		return l.Head().Type()
 	}
 	return Def(None)
 }
 func (l ListType) Type() TyPattern {
-	if l.Len() > 0 {
-		return Def(l.TypeElem(), List, l.TypeElem())
-	}
-	return Def(None)
+	return Def(l.TypeElem(), List, l.TypeElem())
 }
 
 func (l ListType) ConsumeList() (Expression, ListType) {
