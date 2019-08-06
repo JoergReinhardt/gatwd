@@ -7,8 +7,8 @@ func (p PairVal) Left() Native           { return p.L }
 func (p PairVal) Right() Native          { return p.R }
 func (p PairVal) Both() (Native, Native) { return p.L, p.R }
 func (p PairVal) Type() TyNat            { return Pair }
-func (p PairVal) LeftType() TyNat        { return p.L.Type() }
-func (p PairVal) RightType() TyNat       { return p.R.Type() }
+func (p PairVal) TypeKey() TyNat         { return p.L.Type() }
+func (p PairVal) TypeValue() TyNat       { return p.R.Type() }
 
 ////////////////////////////////////////////////////////////////
 //// GENERIC ACCESSOR TYPED SET
@@ -23,14 +23,14 @@ func NewValSet(acc ...Paired) Mapped {
 }
 
 func (s SetVal) Type() TyNat { return Map }
-func (s SetVal) first() Paired {
+func (s SetVal) First() Paired {
 	if s.Len() > 0 {
 		return s.Fields()[0]
 	}
 	return NewPair(NewNil(), NewNil())
 }
-func (s SetVal) KeyType() Typed { return s.first().Left().Type() }
-func (s SetVal) ValType() Typed { return s.first().Right().Type() }
+func (s SetVal) TypeKey() Typed   { return s.First().Left().Type() }
+func (s SetVal) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetVal) Len() int { return len(s) }
 
@@ -110,9 +110,9 @@ func (s SetString) First() Paired {
 	return NewPair(NewNil(), NewNil())
 }
 
-func (s SetString) Type() TyNat    { return Map }
-func (s SetString) KeyType() Typed { return String.Type() }
-func (s SetString) ValType() Typed { return s.First().Right().Type() }
+func (s SetString) Type() TyNat      { return Map }
+func (s SetString) TypeKey() Typed   { return String.Type() }
+func (s SetString) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetString) Len() int { return len(s) }
 
@@ -210,8 +210,8 @@ func (s SetInt) First() Paired {
 }
 func (s SetInt) Type() TyNat { return Map }
 
-func (s SetInt) KeyType() Typed { return Int.Type() }
-func (s SetInt) ValType() Typed { return s.First().Right().Type() }
+func (s SetInt) TypeKey() Typed   { return Int.Type() }
+func (s SetInt) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetInt) Len() int { return len(s) }
 
@@ -311,8 +311,8 @@ func (s SetUint) First() Paired {
 }
 func (s SetUint) Type() TyNat { return Map }
 
-func (s SetUint) KeyType() Typed { return Uint.Type() }
-func (s SetUint) ValType() Typed { return s.First().Right().Type() }
+func (s SetUint) TypeKey() Typed   { return Uint.Type() }
+func (s SetUint) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetUint) Len() int { return len(s) }
 
@@ -414,8 +414,8 @@ func (s SetFloat) First() Paired {
 }
 func (s SetFloat) Type() TyNat { return Map }
 
-func (s SetFloat) KeyType() Typed { return Float.Type() }
-func (s SetFloat) ValType() Typed { return s.First().Right().Type() }
+func (s SetFloat) TypeKey() Typed   { return Float.Type() }
+func (s SetFloat) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetFloat) Keys() []Native {
 	var keys = []Native{}
@@ -513,8 +513,8 @@ func (s SetFlag) First() Paired {
 }
 func (s SetFlag) Type() TyNat { return Map }
 
-func (s SetFlag) KeyType() Typed { return Type.Type() }
-func (s SetFlag) ValType() Typed { return s.First().Right().Type() }
+func (s SetFlag) TypeKey() Typed   { return Type.Type() }
+func (s SetFlag) TypeValue() Typed { return s.First().Right().Type() }
 
 func (s SetFlag) Len() int { return len(s) }
 

@@ -131,8 +131,8 @@ type Paired interface {
 	Left() Native
 	Right() Native
 	Both() (Native, Native)
-	LeftType() TyNat
-	RightType() TyNat
+	TypeKey() TyNat
+	TypeValue() TyNat
 }
 
 // collections are expected nothing more, but to know, if they are empty
@@ -159,7 +159,7 @@ type Sliceable interface {
 	Get(Native) Native
 	GetInt(int) Native
 	Range(s, e int) Sliceable
-	ElemType() Typed
+	TypeElem() Typed
 }
 
 type Mutable interface {
@@ -173,6 +173,7 @@ type Mapped interface {
 	Native
 	Sliced
 	Len() int
+	First() Paired
 	Keys() []Native
 	Data() []Native
 	Fields() []Paired
@@ -180,6 +181,6 @@ type Mapped interface {
 	Get(acc Native) (Native, bool)
 	Set(Native, Native) Mapped
 	Delete(acc Native) bool
-	KeyType() Typed
-	ValType() Typed
+	TypeKey() Typed
+	TypeValue() Typed
 }

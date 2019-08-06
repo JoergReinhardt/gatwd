@@ -168,7 +168,7 @@ type Mapped interface {
 type Consumeable interface {
 	Expression
 	Len() int
-	TypeElem() d.Typed
+	TypeElem() TyPattern
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
@@ -238,8 +238,8 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyType() d.Typed
-	ValType() d.Typed
+	TypeKey() d.Typed
+	TypeValue() d.Typed
 }
 
 type Paired interface {

@@ -534,31 +534,31 @@ func (v FlagSet) Slice() []Native {
 	return slice
 }
 
-func (v NilVec) ElemType() Typed    { return Nil }
-func (v BoolVec) ElemType() Typed   { return Bool }
-func (v IntVec) ElemType() Typed    { return Int }
-func (v Int8Vec) ElemType() Typed   { return Int8 }
-func (v Int16Vec) ElemType() Typed  { return Int16 }
-func (v Int32Vec) ElemType() Typed  { return Int32 }
-func (v UintVec) ElemType() Typed   { return Uint }
-func (v Uint8Vec) ElemType() Typed  { return Uint8 }
-func (v Uint16Vec) ElemType() Typed { return Uint16 }
-func (v Uint32Vec) ElemType() Typed { return Uint32 }
-func (v FltVec) ElemType() Typed    { return Float }
-func (v Flt32Vec) ElemType() Typed  { return Flt32 }
-func (v ImagVec) ElemType() Typed   { return Imag }
-func (v Imag64Vec) ElemType() Typed { return Imag64 }
-func (v ByteVec) ElemType() Typed   { return Byte }
-func (v RuneVec) ElemType() Typed   { return Rune }
-func (v BytesVec) ElemType() Typed  { return Bytes }
-func (v StrVec) ElemType() Typed    { return String }
-func (v BigIntVec) ElemType() Typed { return BigInt }
-func (v BigFltVec) ElemType() Typed { return BigFlt }
-func (v RatioVec) ElemType() Typed  { return Ratio }
-func (v TimeVec) ElemType() Typed   { return Time }
-func (v DuraVec) ElemType() Typed   { return Duration }
-func (v ErrorVec) ElemType() Typed  { return Error }
-func (v FlagSet) ElemType() Typed   { return Type }
+func (v NilVec) TypeElem() Typed    { return Nil }
+func (v BoolVec) TypeElem() Typed   { return Bool }
+func (v IntVec) TypeElem() Typed    { return Int }
+func (v Int8Vec) TypeElem() Typed   { return Int8 }
+func (v Int16Vec) TypeElem() Typed  { return Int16 }
+func (v Int32Vec) TypeElem() Typed  { return Int32 }
+func (v UintVec) TypeElem() Typed   { return Uint }
+func (v Uint8Vec) TypeElem() Typed  { return Uint8 }
+func (v Uint16Vec) TypeElem() Typed { return Uint16 }
+func (v Uint32Vec) TypeElem() Typed { return Uint32 }
+func (v FltVec) TypeElem() Typed    { return Float }
+func (v Flt32Vec) TypeElem() Typed  { return Flt32 }
+func (v ImagVec) TypeElem() Typed   { return Imag }
+func (v Imag64Vec) TypeElem() Typed { return Imag64 }
+func (v ByteVec) TypeElem() Typed   { return Byte }
+func (v RuneVec) TypeElem() Typed   { return Rune }
+func (v BytesVec) TypeElem() Typed  { return Bytes }
+func (v StrVec) TypeElem() Typed    { return String }
+func (v BigIntVec) TypeElem() Typed { return BigInt }
+func (v BigFltVec) TypeElem() Typed { return BigFlt }
+func (v RatioVec) TypeElem() Typed  { return Ratio }
+func (v TimeVec) TypeElem() Typed   { return Time }
+func (v DuraVec) TypeElem() Typed   { return Duration }
+func (v ErrorVec) TypeElem() Typed  { return Error }
+func (v FlagSet) TypeElem() Typed   { return Type }
 
 func (v NilVec) Null() Native    { return NilVec([]struct{}{}) }
 func (v BoolVec) Null() Native   { return BoolVec([]bool{}) }
