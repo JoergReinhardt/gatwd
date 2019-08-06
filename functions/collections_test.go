@@ -38,8 +38,6 @@ func TestList(t *testing.T) {
 	fmt.Printf("list ident types: %s\n", list.Type().IdentName())
 	fmt.Printf("list return types: %s\n", list.Type().ReturnName())
 	fmt.Printf("list type name: %s\n", list.Type())
-	fmt.Printf("list head type: %s\n", list.Head().Type())
-	fmt.Printf("list head type: %s\n", list.TypeElem())
 	printCons(list)
 }
 

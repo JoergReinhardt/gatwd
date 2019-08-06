@@ -67,6 +67,7 @@ func (l ListType) TypeElem() TyPattern {
 	}
 	return Def(None)
 }
+
 func (l ListType) Type() TyPattern {
 	if l.Len() > 0 {
 		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
@@ -357,7 +358,10 @@ func (l PairListType) Append(args ...Expression) Consumeable {
 func (l PairListType) TypeFnc() TyFnc     { return List }
 func (l PairListType) Null() PairListType { return NewPairList() }
 func (l PairListType) Type() TyPattern {
-	return Def(l.TypeElem(), Def(List, Pair), l.TypeElem())
+	if l.Len() > 0 {
+		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	}
+	return Def(None)
 }
 
 func (l PairListType) Con(elems ...Paired) PairListType {
@@ -490,7 +494,10 @@ func (v VecType) Reverse(args ...Expression) VecType {
 }
 func (v VecType) TypeFnc() TyFnc { return Vector }
 func (v VecType) Type() TyPattern {
-	return Def(v.TypeElem(), Vector, v.TypeElem())
+	if l.Len() > 0 {
+		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	}
+	return Def(None)
 }
 func (v VecType) TypeElem() TyPattern {
 	if v.Len() > 0 {
@@ -633,7 +640,10 @@ func ConPairVecFromArgs(pvec PairVecType, args ...Expression) PairVecType {
 }
 func (v PairVecType) Len() int { return len(v()) }
 func (v PairVecType) Type() TyPattern {
-	return Def(v.TypeElem(), Vector, v.TypeElem())
+	if v.Len() {
+		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	}
+	return Def(None)
 }
 func (v PairVecType) TypeFnc() TyFnc { return Vector }
 

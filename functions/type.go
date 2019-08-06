@@ -604,8 +604,8 @@ func (p TyPattern) Match(typ d.Typed) bool {
 	return p.MatchTypes(typ)
 }
 
-// match-args takes multiple expression arguments and matches their types
-// against the elements of the pattern.
+// match-types takes multiple types and matches them against an equal number of
+// arguments starting with the first one
 func (p TyPattern) MatchTypes(types ...d.Typed) bool {
 	var elems, match = p.short(types...)
 	for n, elem := range elems {
@@ -615,6 +615,9 @@ func (p TyPattern) MatchTypes(types ...d.Typed) bool {
 	}
 	return true
 }
+
+// match-args takes multiple expression arguments and matches their types
+// against the elements of the pattern.
 func (p TyPattern) MatchArgs(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
