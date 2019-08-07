@@ -70,7 +70,8 @@ func (l ListType) TypeElem() TyPattern {
 
 func (l ListType) Type() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+		return Def(l.TypeElem().TypeReturn(),
+			List, l.TypeElem().TypeReturn())
 	}
 	return Def(None)
 }
@@ -203,10 +204,8 @@ func (p PairType) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair)
 	}
-	return Def(
-		Def(p.TypeKey(), p.TypeValue()),
-		Pair,
-		Def(p.TypeKey(), p.TypeValue()),
+	return Def(Def(p.TypeKey(), p.TypeValue()),
+		Pair, Def(p.TypeKey(), p.TypeValue()),
 	)
 }
 
@@ -243,10 +242,11 @@ func (a KeyPairType) TypeValue() d.Typed                 { return a.Value().Type
 func (a KeyPairType) TypeKey() d.Typed                   { return Key }
 func (a KeyPairType) TypeFnc() TyFnc                     { return Key }
 func (p KeyPairType) Type() TyPattern {
-	return Def(
-		Def(p.TypeKey(), p.TypeValue()),
-		Def(Key, Pair),
-		Def(p.TypeKey(), p.TypeValue()))
+	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
+		return Def(Key, Pair)
+	}
+	return Def(Def(p.TypeKey(), p.TypeValue()),
+		Def(Key, Pair), Def(p.TypeKey(), p.TypeValue()))
 }
 
 // implement swappable
@@ -283,9 +283,11 @@ func (a IndexPairType) TypeFnc() TyFnc                     { return Index }
 func (a IndexPairType) TypeKey() d.Typed                   { return Index }
 func (a IndexPairType) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a IndexPairType) Type() TyPattern {
+	if a.TypeKey().Match(None) && a.TypeValue().Match(None) {
+		return Def(Index, Pair)
+	}
 	return Def(Def(a.TypeKey(), a.TypeValue()),
-		Def(Index, Pair),
-		Def(a.TypeKey(), a.TypeValue()))
+		Def(Index, Pair), Def(a.TypeKey(), a.TypeValue()))
 }
 
 // implement swappable
@@ -359,7 +361,8 @@ func (l PairListType) TypeFnc() TyFnc     { return List }
 func (l PairListType) Null() PairListType { return NewPairList() }
 func (l PairListType) Type() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+		return Def(l.TypeElem().TypeReturn(),
+			Def(List, Pair), l.TypeElem().TypeReturn())
 	}
 	return Def(None)
 }
@@ -494,8 +497,9 @@ func (v VecType) Reverse(args ...Expression) VecType {
 }
 func (v VecType) TypeFnc() TyFnc { return Vector }
 func (v VecType) Type() TyPattern {
-	if l.Len() > 0 {
-		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	if v.Len() > 0 {
+		return Def(v.TypeElem().TypeReturn(),
+			Vector, v.TypeElem().TypeReturn())
 	}
 	return Def(None)
 }
@@ -640,8 +644,9 @@ func ConPairVecFromArgs(pvec PairVecType, args ...Expression) PairVecType {
 }
 func (v PairVecType) Len() int { return len(v()) }
 func (v PairVecType) Type() TyPattern {
-	if v.Len() {
-		return Def(l.TypeElem().TypeReturn(), List, l.TypeElem().TypeReturn())
+	if v.Len() > 0 {
+		return Def(v.TypeElem().TypeReturn(),
+			Def(Vector, Pair), v.TypeElem().TypeReturn())
 	}
 	return Def(None)
 }

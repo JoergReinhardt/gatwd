@@ -18,14 +18,18 @@ var testIsZero = DecTest(func(args ...Expression) bool {
 
 func TestTestable(t *testing.T) {
 
+	fmt.Printf("test: %s\n", testIsZero)
+
 	fmt.Printf("test zero is zero (true): %t\n", testIsZero(DecNative(0)))
 	if !testIsZero(DecNative(0)) {
 		t.Fail()
 	}
+
 	fmt.Printf("test one is zero (false): %t\n", testIsZero(DecNative(1)))
 	if testIsZero(DecNative(1)) {
 		t.Fail()
 	}
+
 	fmt.Printf("test three zeros are zero (true): %t\n",
 		testIsZero(DecNative(0), DecNative(0), DecNative(0)))
 	if !testIsZero(DecNative(0), DecNative(0), DecNative(0)) {
@@ -44,6 +48,7 @@ var compZero = DecComparator(func(args ...Expression) int {
 })
 
 func TestCompareable(t *testing.T) {
+	fmt.Printf("compareable: %s\n", compZero)
 	fmt.Printf("zero equals zero (0): %d\n", compZero(DecNative(0)))
 	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(DecNative(-1)))
 	fmt.Printf("one greater zero (1): %d\n", compZero(DecNative(1)))
@@ -52,6 +57,8 @@ func TestCompareable(t *testing.T) {
 var caseZero = DecCase(testIsZero, DecNative("this is indeed zero"))
 
 func TestCase(t *testing.T) {
+	fmt.Printf("case: %s\n", caseZero)
+
 	var result = caseZero.Call(DecNative(0))
 	fmt.Printf("case zero: %s\n", result)
 	if result.String() != "this is indeed zero" {
@@ -99,13 +106,15 @@ var caseFloat = DecCase(isFloat, DecNative("this is a float"))
 var swi = DecSwitch(caseFloat, caseUint, caseInt)
 
 func TestSwitch(t *testing.T) {
-	var result, cases = swi(DecNative(1))
-	for len(cases) > 0 {
-		fmt.Printf("result from calling switch passing int: %s\n", result)
-		result, cases = DecSwitch(cases...)(DecNative(1))
-	}
 
-	swi = swi.Switch()
-	result = swi.Call(DecNative(1))
-	fmt.Printf("result from call(1): %s\n", result)
+	var result = swi.Call(DecNative(42))
+	fmt.Printf("result from calling switch on 42: %s\n", result)
+
+	swi = DecSwitch(swi.Cases()...)
+	result = swi.Call(DecNative(uint(42)))
+	fmt.Printf("result from calling switch on uint 42: %s\n", result)
+
+	swi = DecSwitch(swi.Cases()...)
+	result = swi.Call(DecNative(42.23))
+	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
 }

@@ -27,6 +27,26 @@ type (
 	DataValue   func(...d.Native) d.Native
 )
 
+func nativeType(nat d.Native) (typed d.Typed) {
+	switch {
+	case nat.Type().Match(d.Pair):
+		var p = nat.(d.PairVal)
+		typed = Def(p.TypeKey(), p.TypeValue())
+	case nat.Type().Match(d.Unboxed):
+		var u = nat.(d.Sliceable)
+		typed = Def(u.Type(), u.TypeElem())
+	case nat.Type().Match(d.Slice):
+		var s = nat.(d.Sliceable)
+		typed = Def(s.Type(), s.TypeElem())
+	case nat.Type().Match(d.Map):
+		var m = nat.(d.Mapped)
+		typed = Def(m.Type(), m.TypeKey(), m.TypeValue())
+	default:
+		typed = nat.Type()
+	}
+	return typed
+}
+
 //// DATA CONSTRUCTOR
 ///
 // returns an expression with native return type implementing the callable
@@ -75,25 +95,6 @@ func DecData(args ...d.Native) Native {
 	return DataConst(func() d.Native {
 		return nat
 	})
-}
-func nativeType(nat d.Native) (typed d.Typed) {
-	switch {
-	case nat.Type().Match(d.Pair):
-		var p = nat.(d.PairVal)
-		typed = Def(p.TypeKey(), p.TypeValue())
-	case nat.Type().Match(d.Unboxed):
-		var u = nat.(d.Sliceable)
-		typed = Def(u.Type(), u.TypeElem())
-	case nat.Type().Match(d.Slice):
-		var s = nat.(d.Sliceable)
-		typed = Def(s.Type(), s.TypeElem())
-	case nat.Type().Match(d.Map):
-		var m = nat.(d.Mapped)
-		typed = Def(m.Type(), m.TypeKey(), m.TypeValue())
-	default:
-		typed = nat.Type()
-	}
-	return typed
 }
 
 // NATIVE FUNCTION VALUE CONSTRUCTOR
@@ -212,9 +213,15 @@ func (n DataPair) Pair() Paired {
 }
 func (n DataPair) Type() TyPattern {
 	return Def(
-		Def(nativeType(n().Left()), nativeType(n().Right())),
+		Def(
+			nativeType(n().Left()),
+			nativeType(n().Right()),
+		),
 		Def(Data, Pair),
-		Def(nativeType(n().Left()), nativeType(n().Right())),
+		Def(
+			nativeType(n().Left()),
+			nativeType(n().Right()),
+		),
 	)
 }
 
@@ -274,7 +281,9 @@ func (n DataSet) Type() TyPattern {
 			Def(
 				nativeType(n().First().Left()),
 				nativeType(n().First().Right()),
-			), Def(Data, Pair), Def(
+			),
+			Def(Data, Pair),
+			Def(
 				nativeType(n().First().Left()),
 				nativeType(n().First().Right()),
 			),

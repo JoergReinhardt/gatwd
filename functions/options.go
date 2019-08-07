@@ -68,12 +68,10 @@ func (n NoneType) Consume() (Expression, Consumeable) {
 //
 // create a new test, scrutinizing its arguments and revealing true, or false
 func DecTest(test func(...Expression) bool) TestType {
-	return func(args ...Expression) bool {
-		return test(args...)
-	}
+	return func(args ...Expression) bool { return test(args...) }
 }
 func (t TestType) TypeFnc() TyFnc               { return Truth }
-func (t TestType) Type() TyPattern              { return Def(True, Lex_Pipe, False) }
+func (t TestType) Type() TyPattern              { return Def(True | False) }
 func (t TestType) String() string               { return t.TypeFnc().TypeName() }
 func (t TestType) Test(args ...Expression) bool { return t(args...) }
 func (t TestType) Compare(args ...Expression) int {
@@ -97,7 +95,7 @@ func DecTrinary(test func(...Expression) int) TrinaryType {
 }
 func (t TrinaryType) TypeFnc() TyFnc { return Trinary }
 func (t TrinaryType) Type() TyPattern {
-	return Def(Trinary, Lex_Pipe, False, Lex_Pipe, Undecided)
+	return Def(True | False | Undecided)
 }
 func (t TrinaryType) String() string                     { return t.TypeFnc().TypeName() }
 func (t TrinaryType) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -114,11 +112,11 @@ func DecComparator(comp func(...Expression) int) ComparatorType {
 		return comp(args...)
 	}
 }
-func (t ComparatorType) TypeFnc() TyFnc { return Compare }
 func (t ComparatorType) Type() TyPattern {
-	return Def(Lesser, Lex_Pipe, Greater, Lex_Pipe, Equal)
+	return Def(Lesser | Greater | Equal)
 }
-func (t ComparatorType) String() string                     { return t.TypeFnc().TypeName() }
+func (t ComparatorType) TypeFnc() TyFnc                     { return Compare }
+func (t ComparatorType) String() string                     { return t.Type().TypeName() }
 func (t ComparatorType) Test(args ...Expression) bool       { return t(args...) == 0 }
 func (t ComparatorType) Less(args ...Expression) bool       { return t(args...) < 0 }
 func (t ComparatorType) Compare(args ...Expression) int     { return t(args...) }
@@ -175,63 +173,56 @@ func (t CaseType) Call(args ...Expression) Expression { return t(args...) }
 // when called, a switch evaluates all it's cases until it yields either
 // results from applying the first case that matched the arguments, or none.
 func DecSwitch(cases ...CaseType) SwitchType {
-	var (
-		all     = cases
-		current CaseType
-		types   = make([]d.Typed, 0, len(cases))
-	)
+	var types = make([]d.Typed, 0, len(cases))
 	for _, c := range cases {
 		types = append(types, c.Type())
 	}
 
+	var (
+		current CaseType
+		remains = cases
+		pattern = Def(Switch, Def(types...))
+	)
+
 	return func(args ...Expression) (Expression, []CaseType) {
 		if len(args) > 0 {
-			if len(cases) > 0 {
-				current = cases[0]
-				if len(cases) > 1 {
-					cases = cases[1:]
+			if remains != nil {
+				current = remains[0]
+				if len(remains) > 1 {
+					remains = remains[1:]
 				} else {
-					cases = []CaseType{}
+					remains = nil
 				}
-				return current(args...), cases
+				return current(args...), remains
 			}
+			return DeclareNone(), remains
 		}
-		return DecSwitch(all...), cases
+		return pattern, cases
 	}
 }
-func (t SwitchType) Switch() SwitchType {
-	var swi, _ = t()
-	return swi.(SwitchType)
+func (t SwitchType) String() string { return t.Type().TypeName() }
+func (t SwitchType) TypeFnc() TyFnc { return Switch }
+func (t SwitchType) Type() TyPattern {
+	var pat, _ = t()
+	return pat.(TyPattern)
 }
 func (t SwitchType) Cases() []CaseType {
 	var _, cases = t()
 	return cases
 }
 func (t SwitchType) Call(args ...Expression) Expression {
-	var result, cases = t(args...)
-	for len(cases) > 0 {
-		if !result.Type().Match(None) {
+	var (
+		remains = t.Cases()
+		result  Expression
+	)
+	for remains != nil {
+		result, remains = t(args...)
+		if !result.TypeFnc().Match(None) {
 			return result
 		}
-		result, cases = DecSwitch(cases...)(args...)
 	}
-	result, _ = t()
-	t = result.(SwitchType)
 	return DeclareNone()
 }
-func (t SwitchType) Type() TyPattern {
-	var (
-		_, cases = t()
-		types    = make([]d.Typed, 0, len(cases)+1)
-	)
-	types = append(types, Switch)
-	for _, c := range cases {
-		types = append(types, c.Type())
-	}
-	return Def(types...)
-}
-func (t SwitchType) TypeFnc() TyFnc { return Switch }
-func (t SwitchType) String() string { return t.Type().TypeName() }
 
 /// ELEMENT VALUE
 //
@@ -246,12 +237,12 @@ func DecElemType(expr Expression, typed d.Typed) ElemType {
 		return expr, pattern
 	}
 }
-func (e ElemType) Type() TyPattern                    { var _, p = e(); return p }
 func (e ElemType) Unbox() Expression                  { var r, _ = e(); return r }
+func (e ElemType) Type() TyPattern                    { var _, p = e(); return p }
 func (e ElemType) TypeReturn() TyPattern              { return e.Unbox().Type() }
 func (e ElemType) TypeFnc() TyFnc                     { return e.Unbox().TypeFnc() }
-func (e ElemType) Call(args ...Expression) Expression { return e.Unbox().Call(args...) }
 func (e ElemType) String() string                     { return e.Unbox().String() }
+func (e ElemType) Call(args ...Expression) Expression { return e.Unbox().Call(args...) }
 
 /// MAYBE VALUE
 //
@@ -270,11 +261,12 @@ func DecMaybe(test CaseType) MaybeType {
 		return DecElemType(test, Truth)
 	}
 }
-func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeType) Call(args ...Expression) Expression { return t(args...) }
-func (t MaybeType) Unbox() CaseType                    { return t().Unbox().(CaseType) }
 func (t MaybeType) String() string                     { return t.Type().TypeName() }
-func (t MaybeType) Type() TyPattern                    { return t.Unbox().TypeReturn() }
+func (t MaybeType) Unbox() CaseType                    { return t().Unbox().(CaseType) }
+func (t MaybeType) TypeReturn() TyPattern              { return t.Unbox().TypeReturn() }
+func (t MaybeType) Type() TyPattern                    { return t.Unbox().Type() }
+func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
 
 /// OPTIONAL VALUE
 //
