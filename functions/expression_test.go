@@ -10,15 +10,19 @@ import (
 var addInts = DecExpression(DecNative(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
-}),
-	Def(
-		DecNative(0).Type(),
-		DecNative(0).Type(),
-	),
+}), Def(
+	DecNative(0).Type(),
+	DecNative(0).Type(),
+),
 	DecNative(0).Type(),
 	DefSym("AddInts"))
 
 func TestExpression(t *testing.T) {
+
+	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
+		addInts, addInts.Type().TypeArguments(),
+		addInts.Type().TypeIdent(),
+		addInts.Type().TypeReturn())
 
 	var wrong = addInts.Call(DecNative("string one"), DecNative(true))
 	fmt.Printf("called with argument of wrong type: %s\n", wrong)
@@ -52,6 +56,10 @@ func TestExpression(t *testing.T) {
 	}
 
 	var result2 = addInts.Call(DecNative(23), DecNative(42))
+	fmt.Printf("result2: %s argtype : %s identype: %s, retype: %s\n",
+		result2, result2.Type().TypeArguments(),
+		result2.Type().TypeIdent(),
+		result2.Type().TypeReturn())
 	fmt.Printf("result2: %s\n", result2)
 	if vec, ok := result2.(VecType); ok {
 		if vec.Len() != 2 {
