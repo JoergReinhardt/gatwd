@@ -54,7 +54,12 @@ func TestCompareable(t *testing.T) {
 	fmt.Printf("one greater zero (1): %d\n", compZero(DecNative(1)))
 }
 
-var caseZero = DecCase(testIsZero, DecNative("this is indeed zero"))
+var caseZero = DecCase(
+	testIsZero,
+	DecNative("this is indeed zero"),
+	d.Numbers,
+	d.String,
+)
 
 func TestCase(t *testing.T) {
 	fmt.Printf("case: %s\n", caseZero)
@@ -81,7 +86,7 @@ var isInt = DecTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseInt = DecCase(isInt, DecNative("this is an int"))
+var caseInt = DecCase(isInt, DecNative("this is an int"), d.Int, d.String)
 
 var isUint = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
@@ -91,7 +96,7 @@ var isUint = DecTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseUint = DecCase(isUint, DecNative("this is a uint"))
+var caseUint = DecCase(isUint, DecNative("this is a uint"), d.Uint, d.String)
 
 var isFloat = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
@@ -101,7 +106,7 @@ var isFloat = DecTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseFloat = DecCase(isFloat, DecNative("this is a float"))
+var caseFloat = DecCase(isFloat, DecNative("this is a float"), d.Float, d.String)
 
 var swi = DecSwitch(caseFloat, caseUint, caseInt)
 
@@ -109,12 +114,28 @@ func TestSwitch(t *testing.T) {
 
 	var result = swi.Call(DecNative(42))
 	fmt.Printf("result from calling switch on 42: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(0)) {
+		t.Fail()
+	}
 
-	swi = DecSwitch(swi.Cases()...)
+	swi = swi.Reload()
 	result = swi.Call(DecNative(uint(42)))
 	fmt.Printf("result from calling switch on uint 42: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(uint(0))) {
+		t.Fail()
+	}
 
-	swi = DecSwitch(swi.Cases()...)
+	swi = swi.Reload()
 	result = swi.Call(DecNative(42.23))
 	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(uint(0.0))) {
+		t.Fail()
+	}
+
+	swi = swi.Reload()
+	result = swi.Call(DecNative(true))
+	fmt.Printf("result from calling switch on true: %s\n", result)
+	if !result.Type().Match(None) {
+		t.Fail()
+	}
 }
