@@ -134,9 +134,8 @@ func DecSwitch(cases ...CaseType) SwitchType {
 		return pattern, cases
 	}
 }
-func (t SwitchType) String() string     { return t.Type().TypeName() }
+
 func (t SwitchType) Reload() SwitchType { return DecSwitch(t.Cases()...) }
-func (t SwitchType) TypeFnc() TyFnc     { return Switch }
 func (t SwitchType) Type() TyPattern {
 	var pat, _ = t()
 	return pat.(TyPattern)

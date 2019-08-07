@@ -166,17 +166,21 @@ func DecExpression(
 		return pattern
 	}
 }
-func (e ExprVal) Call(args ...Expression) Expression { return e(args...) }
 func (e ExprVal) TypeFnc() TyFnc                     { return Value }
 func (e ExprVal) Type() TyPattern                    { return e().(TyPattern) }
 func (e ExprVal) String() string                     { return e().String() }
+func (e ExprVal) Call(args ...Expression) Expression { return e(args...) }
 
-//// TUPLE TYPE
+//// PARAMETRIC VALUE
 ///
-//
+// declare parametric value from set of cases. when arguments are passed, they
+// are applyed to all enclosed cases in the order they where passed in at
+// creation. first result that is not a none instance will be returned, returns
+// type pattern, when called empty.
 func DecParametric(params ...ExprVal) ParamVal {
 	var (
-		current ExprVal
+		current Expression
+		pattern TyPattern
 		exprs   = make([]Expression, 0, len(params))
 	)
 	for _, param := range params {
@@ -185,8 +189,28 @@ func DecParametric(params ...ExprVal) ParamVal {
 
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			return current.Call(args...)
+			if len(exprs) > 0 {
+				current = exprs[0]
+				if len(exprs) > 1 {
+					exprs = exprs[1:]
+				} else {
+					exprs = nil
+				}
+				return current.Call(args...)
+			}
+			for _, param := range params {
+				exprs = append(exprs, param)
+			}
+			return nil
 		}
-		return NewVector(exprs...)
+		return pattern
 	}
 }
+
+func (p ParamVal) Call(args ...Expression) Expression {
+	var result = p(args...)
+	return result
+}
+func (p ParamVal) TypeFnc() TyFnc  { return Parametric }
+func (p ParamVal) Type() TyPattern { return p().(TyPattern) }
+func (p ParamVal) String() string  { return p().String() }
