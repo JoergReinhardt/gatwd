@@ -7,7 +7,8 @@ type (
 	NoneVal  func()
 	ConstVal func() Expression
 	FuncVal  func(...Expression) Expression
-	ExprVal  func(...Expression) (Expression, TyPattern)
+	ExprVal  func(...Expression) Expression
+	ParamVal func(...Expression) Expression
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -116,7 +117,7 @@ func DecExpression(
 	}
 	pattern = Def(argtype, ident, retype)
 
-	return func(args ...Expression) (Expression, TyPattern) {
+	return func(args ...Expression) Expression {
 		var length = len(args)
 		if length > 0 {
 			if pattern.TypeArguments().MatchArgs(args...) {
@@ -124,7 +125,7 @@ func DecExpression(
 				switch {
 				case length == arglen:
 					result = expr.Call(args...)
-					return result, result.Type()
+					return result
 
 				case length < arglen:
 					var argtypes = make(
@@ -143,7 +144,7 @@ func DecExpression(
 								)...)
 							}
 							return pattern
-						}), Def(argtypes...), ident, retype), pattern
+						}), Def(argtypes...), ident, retype)
 
 				case length > arglen:
 					var vector = NewVector()
@@ -157,19 +158,35 @@ func DecExpression(
 							expr, argtype, retype, identypes...,
 						).Call(args...))
 					}
-					return vector, vector.Type()
+					return vector
 				}
 			}
-			return NewNone(), pattern
+			return NewNone()
 		}
-		return expr, pattern
+		return pattern
 	}
 }
-func (e ExprVal) Call(args ...Expression) Expression {
-	var result, _ = e(args...)
-	return result
+func (e ExprVal) Call(args ...Expression) Expression { return e(args...) }
+func (e ExprVal) TypeFnc() TyFnc                     { return Value }
+func (e ExprVal) Type() TyPattern                    { return e().(TyPattern) }
+func (e ExprVal) String() string                     { return e().String() }
+
+//// TUPLE TYPE
+///
+//
+func DecParametric(params ...ExprVal) ParamVal {
+	var (
+		current ExprVal
+		exprs   = make([]Expression, 0, len(params))
+	)
+	for _, param := range params {
+		exprs = append(exprs, param)
+	}
+
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return current.Call(args...)
+		}
+		return NewVector(exprs...)
+	}
 }
-func (e ExprVal) Unbox() Expression { var expr, _ = e(); return expr }
-func (e ExprVal) Type() TyPattern   { var _, pat = e(); return pat }
-func (e ExprVal) TypeFnc() TyFnc    { return e.Unbox().TypeFnc() }
-func (e ExprVal) String() string    { return e.Unbox().String() }

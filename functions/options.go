@@ -15,10 +15,10 @@ type (
 	SwitchType func(...Expression) (Expression, []CaseType)
 
 	// MAYBE (JUST | NONE)
-	MaybeType func(...Expression) ExprVal
+	MaybeType func(...Expression) Expression
 
 	// OPTION (EITHER | OR)
-	OptionType func(...Expression) ExprVal
+	OptionType func(...Expression) Expression
 )
 
 /// TRUTH TEST
@@ -169,7 +169,7 @@ func DecMaybe(test CaseType) MaybeType {
 		result Expression
 		ttype  = test.Type()
 	)
-	return func(args ...Expression) ExprVal {
+	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			if result = test(args...); !result.TypeFnc().Match(None) {
 				return DecExpression(
@@ -196,8 +196,8 @@ func (t MaybeType) TypeReturn() TyPattern              { return t().Type().TypeR
 func (t MaybeType) String() string                     { return t.Type().TypeName() }
 func (t MaybeType) Call(args ...Expression) Expression { return t(args...) }
 
-/// OPTIONAL VALUE
-//
+//// OPTIONAL VALUE
+///
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
@@ -217,12 +217,13 @@ func DecOption(either, or CaseType) OptionType {
 		orargs     = Def(ots...)
 		eitherargs = Def(ets...)
 		ortype     = Def(orargs, Def(Or, or.TypeReturn()), or.TypeReturn())
-		eithertype = Def(eitherargs, Def(Either, either.TypeReturn()), either.TypeReturn())
-		pattern    = Def(Def(eitherargs, Lex_Pipe, orargs),
+		eithertype = Def(eitherargs,
+			Def(Either, either.TypeReturn()), either.TypeReturn())
+		pattern = Def(Def(eitherargs, Lex_Pipe, orargs),
 			Def(Option, Def(eithertype.TypeIdent(), ortype.TypeIdent())),
 			Def(eithertype, Lex_Pipe, ortype))
 	)
-	return func(args ...Expression) ExprVal {
+	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			if result = either(args...); !result.TypeFnc().Match(None) {
 				return DecExpression(result, eitherargs, either.TypeReturn())
@@ -232,10 +233,10 @@ func DecOption(either, or CaseType) OptionType {
 			}
 			return DecExpression(result, None, None) // ← result will be None
 		}
-		return DecExpression(pattern, None, Pattern)
+		return pattern
 	}
 }
 func (t OptionType) TypeFnc() TyFnc                     { return Option }
 func (t OptionType) Call(args ...Expression) Expression { return t(args...) }
 func (t OptionType) String() string                     { return t.Type().TypeName() }
-func (t OptionType) Type() TyPattern                    { return t().Unbox().(TyPattern) }
+func (t OptionType) Type() TyPattern                    { return t().(TyPattern) }
