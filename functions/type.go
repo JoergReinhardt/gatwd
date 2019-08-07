@@ -61,7 +61,7 @@ func flagToPattern(elem d.Typed) Expression {
 	case Flag_Value.Match(elem.FlagType()):
 		return elem.(TyValue)
 	}
-	return DeclareNone()
+	return NewNone()
 }
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }

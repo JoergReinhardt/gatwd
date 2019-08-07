@@ -84,7 +84,7 @@ func TestPushList(t *testing.T) {
 }
 
 func TestPairVal(t *testing.T) {
-	var pair = NewPair(DeclareNone(), DeclareNone())
+	var pair = NewPair(NewNone(), NewNone())
 	fmt.Printf("name of empty pair: %s\n", pair.Type())
 
 	pair = NewPair(DecNative(12), DecNative("string"))

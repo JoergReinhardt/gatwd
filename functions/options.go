@@ -84,7 +84,7 @@ func DecCase(test Testable, expr Expression, argtype, retype d.Typed) CaseType {
 			if test.Test(args...) {
 				return expr.Call(args...)
 			}
-			return DeclareNone()
+			return NewNone()
 		}
 		return pattern
 	}
@@ -129,7 +129,7 @@ func DecSwitch(cases ...CaseType) SwitchType {
 				}
 				return current(args...), remains
 			}
-			return DeclareNone(), remains
+			return NewNone(), remains
 		}
 		return pattern, cases
 	}
@@ -156,7 +156,7 @@ func (t SwitchType) Call(args ...Expression) Expression {
 			return result
 		}
 	}
-	return DeclareNone()
+	return NewNone()
 }
 
 /// MAYBE VALUE

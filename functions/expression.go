@@ -15,7 +15,7 @@ type (
 // none represens the abscence of a value of any type. implements countable,
 // sliceable, consumeable, testable, compareable, key-, index- and generic pair
 // interfaces to be able to stand in as return value for such expressions.
-func DeclareNone() NoneVal { return func() {} }
+func NewNone() NoneVal { return func() {} }
 
 func (n NoneVal) Head() Expression                   { return n }
 func (n NoneVal) Tail() Consumeable                  { return n }
@@ -40,7 +40,7 @@ func (n NoneVal) TypeName() string                   { return n.String() }
 func (n NoneVal) Slice() []Expression                { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                    { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val               { return Flag_Function.U() }
-func (n NoneVal) Consume() (Expression, Consumeable) { return DeclareNone(), DeclareNone() }
+func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone() }
 
 //// CONSTANT DECLARATION
 ///
@@ -160,7 +160,7 @@ func DecExpression(
 					return vector, vector.Type()
 				}
 			}
-			return DeclareNone(), pattern
+			return NewNone(), pattern
 		}
 		return expr, pattern
 	}

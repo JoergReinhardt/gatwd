@@ -117,7 +117,7 @@ func (l ListType) GetIdx(n int) Expression {
 	for i := 0; i < n; i++ {
 		head, list = list()
 		if head == nil {
-			return DeclareNone()
+			return NewNone()
 		}
 	}
 	return head
@@ -154,9 +154,9 @@ func NewEmptyPair() PairType {
 			if len(args) > 1 {
 				return args[0], args[1]
 			}
-			return args[0], DeclareNone()
+			return args[0], NewNone()
 		}
-		return DeclareNone(), DeclareNone()
+		return NewNone(), NewNone()
 	}
 }
 
@@ -433,7 +433,7 @@ func argsToPaired(args ...Expression) []Paired {
 			i = i + 1
 			pairs = append(pairs, NewPair(arg, args[i]))
 		}
-		pairs = append(pairs, NewPair(arg, DeclareNone()))
+		pairs = append(pairs, NewPair(arg, NewNone()))
 	}
 	return pairs
 }
@@ -570,7 +570,7 @@ func (v VecType) Get(i int) (Expression, bool) {
 	if i < v.Len() {
 		return v()[i], true
 	}
-	return DeclareNone(), false
+	return NewNone(), false
 }
 
 func (v VecType) Set(i int, val Expression) (Vectorized, bool) {
@@ -747,7 +747,7 @@ func (v PairVecType) HeadPair() Paired {
 	if v.Len() > 0 {
 		return v()[0].(Paired)
 	}
-	return NewPair(DeclareNone(), DeclareNone())
+	return NewPair(NewNone(), NewNone())
 }
 func (v PairVecType) Head() Expression {
 	if v.Len() > 0 {
