@@ -87,7 +87,6 @@ var isInt = DecTest(func(args ...Expression) bool {
 	return false
 })
 var caseInt = DecCase(isInt, DecNative("this is an int"), d.Int, d.String)
-
 var isUint = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
@@ -97,7 +96,6 @@ var isUint = DecTest(func(args ...Expression) bool {
 	return false
 })
 var caseUint = DecCase(isUint, DecNative("this is a uint"), d.Uint, d.String)
-
 var isFloat = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
@@ -107,7 +105,6 @@ var isFloat = DecTest(func(args ...Expression) bool {
 	return false
 })
 var caseFloat = DecCase(isFloat, DecNative("this is a float"), d.Float, d.String)
-
 var swi = DecSwitch(caseFloat, caseUint, caseInt)
 
 func TestSwitch(t *testing.T) {
@@ -138,4 +135,40 @@ func TestSwitch(t *testing.T) {
 	if !result.Type().Match(None) {
 		t.Fail()
 	}
+}
+
+func TestMaybe(t *testing.T) {
+	var maybeString = DecMaybe(caseInt)
+	var str = maybeString(DecNative(42))
+	if !str.Type().MatchArgs(DecNative("")) {
+		t.Fail()
+	}
+	var none = maybeString(DecNative(true))
+	if !none.Type().Match(None) {
+		t.Fail()
+	}
+
+	fmt.Printf("maybe string: %s\n", maybeString)
+	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
+}
+
+func TestOption(t *testing.T) {
+	var (
+		option   = DecOption(caseInt, caseFloat)
+		intStr   = option(DecNative(23))
+		fltStr   = option(DecNative(42.23))
+		boolNone = option(DecNative(true))
+	)
+	if intStr.Type().MatchArgs(DecNative(0)) {
+		t.Fail()
+	}
+	if fltStr.Type().MatchArgs(DecNative(0.0)) {
+		t.Fail()
+	}
+	if boolNone.Type().MatchArgs(DecNative(true)) {
+		t.Fail()
+	}
+
+	fmt.Printf("ist str: %s, flt str: %s, bool none: %s\n ",
+		intStr, fltStr, boolNone)
 }
