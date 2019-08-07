@@ -165,7 +165,7 @@ func TestOption(t *testing.T) {
 	if fltStr.Type().MatchArgs(DecNative(0.0)) {
 		t.Fail()
 	}
-	if boolNone.Type().MatchArgs(DecNative(true)) {
+	if !boolNone.Type().Match(None) {
 		t.Fail()
 	}
 

@@ -7,29 +7,16 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var addInts = DecExpression(FuncVal(func(args ...Expression) Expression {
-	if len(args) > 0 {
-		var (
-			a = args[0].(Native).Eval().(d.IntVal)
-			b = args[1].(Native).Eval().(d.IntVal)
-		)
-		return DecNative(a + b)
-	}
-	return Def(Def(
-		DecNative(0).Type(),
-		DecNative(0).Type(),
-	),
-		DecNative(0).Type(),
-		DefSym("AddInts"),
-	)
+var addInts = DecExpression(DecNative(func(args ...d.Native) d.Native {
+	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
+	return a + b
 }),
 	Def(
 		DecNative(0).Type(),
 		DecNative(0).Type(),
 	),
 	DecNative(0).Type(),
-	DefSym("AddInts"),
-)
+	DefSym("AddInts"))
 
 func TestExpression(t *testing.T) {
 
