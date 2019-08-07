@@ -7,7 +7,7 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var testIsZero = NewTest(func(args ...Expression) bool {
+var testIsZero = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.(Native).Eval().(d.Numeral).GoInt() != 0 {
 			return false
@@ -18,22 +18,26 @@ var testIsZero = NewTest(func(args ...Expression) bool {
 
 func TestTestable(t *testing.T) {
 
-	fmt.Printf("test zero is zero (true): %t\n", testIsZero(NewNative(0)))
-	if !testIsZero(NewNative(0)) {
+	fmt.Printf("test: %s\n", testIsZero)
+
+	fmt.Printf("test zero is zero (true): %t\n", testIsZero(DecNative(0)))
+	if !testIsZero(DecNative(0)) {
 		t.Fail()
 	}
-	fmt.Printf("test one is zero (false): %t\n", testIsZero(NewNative(1)))
-	if testIsZero(NewNative(1)) {
+
+	fmt.Printf("test one is zero (false): %t\n", testIsZero(DecNative(1)))
+	if testIsZero(DecNative(1)) {
 		t.Fail()
 	}
+
 	fmt.Printf("test three zeros are zero (true): %t\n",
-		testIsZero(NewNative(0), NewNative(0), NewNative(0)))
-	if !testIsZero(NewNative(0), NewNative(0), NewNative(0)) {
+		testIsZero(DecNative(0), DecNative(0), DecNative(0)))
+	if !testIsZero(DecNative(0), DecNative(0), DecNative(0)) {
 		t.Fail()
 	}
 }
 
-var compZero = NewCompare(func(args ...Expression) int {
+var compZero = DecComparator(func(args ...Expression) int {
 	switch args[0].(Native).Eval().(d.Numeral).GoInt() {
 	case -1:
 		return -1
@@ -44,177 +48,127 @@ var compZero = NewCompare(func(args ...Expression) int {
 })
 
 func TestCompareable(t *testing.T) {
-	fmt.Printf("zero equals zero (0): %d\n", compZero(NewNative(0)))
-	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(NewNative(-1)))
-	fmt.Printf("one greater zero (1): %d\n", compZero(NewNative(1)))
+	fmt.Printf("compareable: %s\n", compZero)
+	fmt.Printf("zero equals zero (0): %d\n", compZero(DecNative(0)))
+	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(DecNative(-1)))
+	fmt.Printf("one greater zero (1): %d\n", compZero(DecNative(1)))
 }
 
-var caseZero = NewCase(testIsZero, NewNative("this is indeed zero"))
+var caseZero = DecCase(
+	testIsZero,
+	DecNative("this is indeed zero"),
+	d.Numbers,
+	d.String,
+)
 
 func TestCase(t *testing.T) {
-	var result = caseZero.Call(NewNative(0))
+	fmt.Printf("case: %s\n", caseZero)
+
+	var result = caseZero.Call(DecNative(0))
 	fmt.Printf("case zero: %s\n", result)
 	if result.String() != "this is indeed zero" {
 		t.Fail()
 	}
-	fmt.Printf("case none zero: %s\n", result)
-	if result.Type().Match(None) {
+
+	result = caseZero.Call(DecNative(1))
+	fmt.Printf("case none zero: %s none zero type: %s\n",
+		result, result.Type())
+	if !result.Type().Match(None) {
 		t.Fail()
 	}
 }
 
-var isInt = NewTest(func(args ...Expression) bool {
-	return args[0].(Native).TypeNat().Match(d.Int)
-})
-var caseInt = NewCase(isInt, NewNative("this is an int"))
-
-var isUint = NewTest(func(args ...Expression) bool {
-	return args[0].(Native).TypeNat().Match(d.Uint)
-})
-var caseUint = NewCase(isUint, NewNative("this is a uint"))
-
-var isFloat = NewTest(func(args ...Expression) bool {
-	return args[0].(Native).TypeNat().Match(d.Float)
-})
-var caseFloat = NewCase(isFloat, NewNative("this is a float"))
-
-var swi = NewSwitch(caseFloat, caseUint, caseInt)
-
-func TestTypeSwitch(t *testing.T) {
-	fmt.Printf("switch: %s\n\n", swi)
-
-	fmt.Printf("types:\nint: %s uint: %s float: %s\n\n",
-		NewNative(1).Type(), NewNative(uint(1)).Type(), NewNative(1.1).Type())
-
-	fmt.Printf("type matches:\nint: %t uint: %t float: %t\n\n",
-		NewNative(1).TypeNat().Match(d.Int),
-		NewNative(uint(1)).TypeNat().Match(d.Uint),
-		NewNative(1.1).TypeNat().Match(d.Float))
-
-	var result, cases = swi(NewNative(1))
-	fmt.Printf("result: %s, cases: %s\n",
-		result, cases)
-	for len(cases) > 0 {
-		result, cases = swi(NewNative(1))
-		fmt.Printf("result: %s, cases: %s\n",
-			result, cases)
+var isInt = DecTest(func(args ...Expression) bool {
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Data) {
+			return arg.(Native).TypeNat().Match(d.Int)
+		}
 	}
-
-	swi = swi.Reload()
-	result, cases = swi(NewNative(true))
-	fmt.Printf("result: %s, cases: %s\n",
-		result, cases)
-	for len(cases) > 0 {
-		result, cases = swi(NewNative(true))
-		fmt.Printf("result: %s, cases: %s\n",
-			result, cases)
+	return false
+})
+var caseInt = DecCase(isInt, DecNative("this is an int"), d.Int, d.String)
+var isUint = DecTest(func(args ...Expression) bool {
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Data) {
+			return arg.(Native).TypeNat().Match(d.Uint)
+		}
 	}
+	return false
+})
+var caseUint = DecCase(isUint, DecNative("this is a uint"), d.Uint, d.String)
+var isFloat = DecTest(func(args ...Expression) bool {
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Data) {
+			return arg.(Native).TypeNat().Match(d.Float)
+		}
+	}
+	return false
+})
+var caseFloat = DecCase(isFloat, DecNative("this is a float"), d.Float, d.String)
+var swi = DecSwitch(caseFloat, caseUint, caseInt)
 
-	swi = swi.Reload()
-	fmt.Printf("\nis int: %t\n", isInt(NewNative(1)))
-	fmt.Printf("case int: %s\n", caseInt.Call(NewNative(1)))
-	result = swi.Call(NewNative(1))
-	fmt.Printf("switch return: %s\n", result)
-	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.String() != "this is an int" {
+func TestSwitch(t *testing.T) {
+
+	var result = swi.Call(DecNative(42))
+	fmt.Printf("result from calling switch on 42: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(0)) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	fmt.Printf("is float: %t\n", isFloat(NewNative(1.1)))
-	fmt.Printf("case float: %s\n", caseFloat.Call(NewNative(1.1)))
-	result = swi.Call(NewNative(1.1))
-	fmt.Printf("switch return: %s\n", result)
-	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.TypeFnc().Match(Def(Data, d.String)) {
+	result = swi.Call(DecNative(uint(42)))
+	fmt.Printf("result from calling switch on uint 42: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(uint(0))) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	fmt.Printf("is uint: %t\n", isUint(NewNative(uint(1))))
-	fmt.Printf("case uint: %s\n", caseUint.Call(NewNative(uint(11))))
-	result = swi.Call(NewNative(uint(1)))
-	fmt.Printf("switch return: %s\n", result)
-	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.TypeFnc().Match(Def(Data, d.String)) {
+	result = swi.Call(DecNative(42.23))
+	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
+	if !result.Type().MatchArgs(DecNative(uint(0.0))) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	result = swi.Call(NewNative(true))
-	fmt.Printf("switch return call with bool: %s\n", result)
-	fmt.Printf("switch return type: %s\n\n", result.Type())
-	if result.TypeFnc().Match(Def(None)) {
+	result = swi.Call(DecNative(true))
+	fmt.Printf("result from calling switch on true: %s\n", result)
+	if !result.Type().Match(None) {
 		t.Fail()
 	}
 }
 
 func TestMaybe(t *testing.T) {
-	var maybe = NewMaybe(caseInt)
-	var result = maybe(NewNative(1))
-	fmt.Printf("result of calling maybe int with an int: %s\n", result)
-	fmt.Printf("result type: %s\n", result.Type())
-	if !result.TypeFnc().Match(Data) {
+	var maybeString = DecMaybe(caseInt)
+	var str = maybeString(DecNative(42))
+	if !str.Type().MatchArgs(DecNative("")) {
 		t.Fail()
 	}
-	result = maybe(NewNative(1.1))
-	fmt.Printf("result of calling maybe int with a float: %s\n", result)
-	fmt.Printf("result type: %s\n", result.Type())
-	if !result.TypeFnc().Match(None) {
+	var none = maybeString(DecNative(true))
+	if !none.Type().Match(None) {
 		t.Fail()
 	}
+
+	fmt.Printf("maybe string: %s\n", maybeString)
+	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
 }
 
 func TestOption(t *testing.T) {
-	var option = NewOption(caseInt, caseFloat)
-	fmt.Printf("option: %s\n", option)
-	fmt.Printf("option type: %s\n", option.Type())
-
-	var result = option(NewNative(1)).(ElemVal)
-	fmt.Printf("option called with int: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
+	var (
+		option   = DecOption(caseInt, caseFloat)
+		intStr   = option(DecNative(23))
+		fltStr   = option(DecNative(42.23))
+		boolNone = option(DecNative(true))
+	)
+	if intStr.Type().MatchArgs(DecNative(0)) {
+		t.Fail()
+	}
+	if fltStr.Type().MatchArgs(DecNative(0.0)) {
+		t.Fail()
+	}
+	if boolNone.Type().MatchArgs(DecNative(true)) {
 		t.Fail()
 	}
 
-	result = option(NewNative(1.1)).(ElemVal)
-	fmt.Printf("option called with float: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
-		t.Fail()
-	}
-
-	result = option(NewNative(true)).(ElemVal)
-	fmt.Printf("option called with bool: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(None) {
-		t.Fail()
-	}
-}
-
-func TestIf(t *testing.T) {
-	var ifs = NewIf(caseInt, caseFloat)
-	fmt.Printf("if: %s\n", ifs)
-	fmt.Printf("if type: %s\n", ifs.Type())
-
-	var result = ifs(NewNative(1)).(ElemVal)
-	fmt.Printf("if called with int: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
-		t.Fail()
-	}
-
-	result = ifs(NewNative(1.1)).(ElemVal)
-	fmt.Printf("if called with float: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(Def(Data, d.String)) {
-		t.Fail()
-	}
-
-	result = ifs(NewNative(true)).(ElemVal)
-	fmt.Printf("if called with bool: %s\n", result)
-	fmt.Printf("result type %s\n", result.Type())
-	if !result.TypeReturn().Match(None) {
-		t.Fail()
-	}
+	fmt.Printf("ist str: %s, flt str: %s, bool none: %s\n ",
+		intStr, fltStr, boolNone)
 }

@@ -167,10 +167,12 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
-	TypeElem() d.Typed
+	Len() int
+	TypeElem() TyPattern
 	Head() Expression
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
+	Append(...Expression) Consumeable
 }
 
 type Testable interface {
@@ -189,7 +191,6 @@ type Countable interface {
 
 type Listable interface {
 	Consumeable
-	Countable
 }
 
 type Sliceable interface {
@@ -237,8 +238,8 @@ type Associated interface {
 }
 
 type Associative interface {
-	KeyType() d.Typed
-	ValType() d.Typed
+	TypeKey() d.Typed
+	TypeValue() d.Typed
 }
 
 type Paired interface {
@@ -270,7 +271,6 @@ type IndexPaired interface {
 	Paired
 }
 type ConsumeablePaired interface {
-	Countable
 	Consumeable
 	Associative
 	HeadPair() Paired
@@ -291,7 +291,6 @@ type AssociativeCollected interface {
 	KeyAssociated
 	Consumeable
 	Associative
-	Countable
 }
 
 //// TREES & GRAPHS

@@ -1,22 +1,23 @@
-package functions
+package parser
 
 import (
 	//	s "strings"
 	//	u "unicode"
 
 	d "github.com/joergreinhardt/gatwd/data"
+	f "github.com/joergreinhardt/gatwd/functions"
 )
 
 type TyTok uint8
 
-func (t TyTok) Type() TyPattern               { return Def(t) }
-func (t TyTok) TypeFnc() TyFnc                { return Type }
-func (t TyTok) Call(...Expression) Expression { return t }
-func (t TyTok) Flag() d.BitFlag               { return d.BitFlag(uint(t)) }
-func (t TyTok) FlagType() d.Uint8Val          { return Flag_Token.U() }
-func (t TyTok) TypeName() string              { return t.String() }
+func (t TyTok) Type() f.TyPattern                 { return f.Def(t) }
+func (t TyTok) TypeFnc() f.TyFnc                  { return f.Type }
+func (t TyTok) Call(...f.Expression) f.Expression { return t }
+func (t TyTok) Flag() d.BitFlag                   { return d.BitFlag(uint(t)) }
+func (t TyTok) FlagType() d.Uint8Val              { return f.Flag_Token.U() }
+func (t TyTok) TypeName() string                  { return t.String() }
 func (t TyTok) Match(typ d.Typed) bool {
-	if typ.FlagType() == Flag_Token.U() {
+	if typ.FlagType() == f.Flag_Token.U() {
 		return t == typ.(TyTok)
 	}
 	return false
@@ -58,7 +59,7 @@ func (t runetext) TypeNat() d.TyNat            { return t.RuneVec().Type() }
 func (t runetext) Slice() []d.Native           { return t.RuneVec().Slice() }
 func (t runetext) TypeName() string            { return t.RuneVec().Type().TypeName() }
 func (t runetext) String() string              { return t.RuneVec().String() }
-func (t runetext) ElemType() d.Typed           { return t.RuneVec().ElemType() }
+func (t runetext) ElemType() d.Typed           { return t.RuneVec().TypeElem() }
 func (t runetext) Null() d.Native              { return t.RuneVec().Null() }
 func (t runetext) Empty() bool                 { return t.RuneVec().Empty() }
 func (t runetext) Copy() d.Native              { return t.RuneVec().Copy() }

@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-var listA = NewVector(NewNative(0), NewNative(1), NewNative(2), NewNative(3),
-	NewNative(4), NewNative(5), NewNative(6), NewNative(7), NewNative(8), NewNative(9))
+var listA = NewVector(DecNative(0), DecNative(1), DecNative(2), DecNative(3),
+	DecNative(4), DecNative(5), DecNative(6), DecNative(7), DecNative(8), DecNative(9))
 
-var listB = NewVector(NewNative(10), NewNative(11), NewNative(12), NewNative(13),
-	NewNative(14), NewNative(15), NewNative(16), NewNative(17), NewNative(18), NewNative(19))
+var listB = NewVector(DecNative(10), DecNative(11), DecNative(12), DecNative(13),
+	DecNative(14), DecNative(15), DecNative(16), DecNative(17), DecNative(18), DecNative(19))
 
 func conList(args ...Expression) Consumeable {
 	return NewList(args...)
@@ -23,12 +23,33 @@ func printCons(cons Consumeable) {
 }
 func TestEmptyList(t *testing.T) {
 	var list = NewList()
-	fmt.Printf("empty list pattern length: %d\n", list.Type().Len())
-	fmt.Printf("empty list type name: %s\n", list.Type().TypeName())
+	fmt.Printf("empty list pattern length: %d\n",
+		list.Type().Len())
+	fmt.Printf("empty list patterns: %d\n",
+		list.Type().Patterns())
+	fmt.Printf("empty list arg types: %s\n",
+		list.Type().TypeArguments())
+	fmt.Printf("empty list ident types: %s\n",
+		list.Type().TypeIdent())
+	fmt.Printf("empty list return types: %s\n",
+		list.Type().TypeReturn())
+	fmt.Printf("empty list type name: %s\n",
+		list.Type())
 }
 func TestList(t *testing.T) {
 	var list = NewList(listA()...)
-	fmt.Printf("list type name: %s\n", list.Type().TypeName())
+	fmt.Printf("list pattern length: %d\n",
+		list.Type().Len())
+	fmt.Printf("list patterns: %d\n",
+		list.Type().Patterns())
+	fmt.Printf("list arg types: %s\n",
+		list.Type().ArgumentsName())
+	fmt.Printf("list ident types: %s\n",
+		list.Type().IdentName())
+	fmt.Printf("list return types: %s\n",
+		list.Type().ReturnName())
+	fmt.Printf("list type name: %s\n",
+		list.Type())
 	printCons(list)
 }
 
@@ -64,7 +85,24 @@ func TestPushList(t *testing.T) {
 
 func TestPairVal(t *testing.T) {
 	var pair = NewPair(NewNone(), NewNone())
-	fmt.Printf("name of empty pair: %s\n", pair.Type().TypeName())
-	pair = NewPair(NewNative(12), NewNative("string"))
-	fmt.Printf("name of (int,string) pair: %s\n", pair.Type().TypeName())
+	fmt.Printf("name of empty pair: %s\n", pair.Type())
+
+	pair = NewPair(DecNative(12), DecNative("string"))
+	fmt.Printf("name of (int,string) pair: %s\n",
+		pair.Type())
+	fmt.Printf("name of (int,string) pair args: %s\n",
+		pair.Type().TypeArguments())
+	fmt.Printf("name of (int,string) pair return: %s\n",
+		pair.Type().TypeReturn())
+}
+
+var list = NewList(DecNative(0), DecNative(1), DecNative(2), DecNative(3))
+
+func TestMapList(t *testing.T) {
+}
+
+func TestFoldList(t *testing.T) {
+}
+
+func TestFilterList(t *testing.T) {
 }
