@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -19,6 +21,10 @@ type (
 
 	// OPTION (EITHER | OR)
 	OptionType func(...Expression) Expression
+
+	// TUPLE (ELEM | ‥. | ELEM)
+	TupleVal  []Expression
+	TupleType func(...Expression) TupleVal
 )
 
 /// TRUTH TEST
@@ -216,8 +222,8 @@ func DecOption(either, or CaseType) OptionType {
 		orargs     = Def(ots...)
 		eitherargs = Def(ets...)
 		ortype     = Def(orargs, Def(Or, or.TypeReturn()), or.TypeReturn())
-		eithertype = Def(eitherargs,
-			Def(Either, either.TypeReturn()), either.TypeReturn())
+		eithertype = Def(eitherargs, Def(
+			Either, either.TypeReturn()), either.TypeReturn())
 		pattern = Def(Def(eitherargs, Lex_Pipe, orargs),
 			Def(Option, Def(eithertype.TypeIdent(), ortype.TypeIdent())),
 			Def(eithertype, Lex_Pipe, ortype))
@@ -235,7 +241,130 @@ func DecOption(either, or CaseType) OptionType {
 		return pattern
 	}
 }
-func (t OptionType) TypeFnc() TyFnc                     { return Option }
-func (t OptionType) Call(args ...Expression) Expression { return t(args...) }
-func (t OptionType) String() string                     { return t.Type().TypeName() }
-func (t OptionType) Type() TyPattern                    { return t().(TyPattern) }
+func (o OptionType) TypeFnc() TyFnc                     { return Option }
+func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
+func (o OptionType) String() string                     { return o.Type().TypeName() }
+func (o OptionType) Type() TyPattern                    { return o().(TyPattern) }
+
+//// TUPLE TYPE
+///
+//
+func (t TupleVal) TypeFnc() TyFnc { return Tuple }
+func (t TupleVal) Type() TyPattern {
+	var types = make([]d.Typed, 0, len(t))
+	for _, field := range t {
+		types = append(types, field.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+func (t TupleVal) String() string {
+	var strs = make([]string, 0, len(t))
+	for _, field := range t {
+		strs = append(strs, field.String())
+	}
+	return "[" + strings.Join(strs, " ") + "]"
+}
+func (t TupleVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var elems = make([]Expression, 0, len(args))
+		for _, arg := range args {
+			if arg.TypeFnc().Match(Data) {
+				if data, ok := arg.(Native); ok {
+					if data.Eval().Type().Match(d.Int) {
+						if i, ok := data.Eval().(d.IntVal); ok {
+							if len(args) == 1 {
+								return t[i.Int()]
+							}
+							elems = append(elems, t[i.Int()])
+						}
+					}
+				}
+			}
+		}
+	}
+	return t
+}
+
+func DefineTuple(examples ...Expression) TupleType {
+	var (
+		length  = len(examples)
+		types   = make([]Expression, length, length)
+		members = make([]Expression, length, length)
+	)
+	for n, e := range examples {
+		if Flag_Pattern.Match(e.Type().FlagType()) {
+			types[n] = e.(TyPattern)
+			members[n] = NewNone()
+			continue
+		}
+		if Flag_Symbol.Match(e.Type().FlagType()) {
+			types[n] = e.(TySymbol)
+			members[n] = NewNone()
+			continue
+		}
+		types[n] = e.Type()
+		members[n] = e
+	}
+	return func(args ...Expression) TupleVal {
+		if len(args) > 0 {
+			for n, arg := range args {
+				if arg.TypeFnc().Match(Index) {
+					if ipair, ok := arg.(IndexPairType); ok {
+						if types[ipair.Index()].Type().Match(arg.Type()) &&
+							members[ipair.Index()].Type().Match(None) {
+							members[ipair.Index()] = ipair.Value()
+						}
+						continue
+					}
+				}
+				if types[n].Type().Match(arg.Type()) {
+					members[n] = arg
+				}
+			}
+		}
+		for _, elem := range members {
+			if elem.Type().Match(None) {
+				return types
+			}
+		}
+		return members
+	}
+}
+func (t TupleType) TypeFnc() TyFnc { return Type | Tuple }
+func (t TupleType) Type() TyPattern {
+	var (
+		elements = t()
+		length   = len(elements)
+		types    = make([]d.Typed, 0, length)
+	)
+	for _, elem := range elements {
+		types = append(types, elem.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+func (t TupleType) String() string {
+	var (
+		types = t()
+		strs  = make([]string, 0, len(types))
+	)
+	for _, typ := range types {
+		strs = append(strs, typ.Type().TypeName())
+	}
+	return strings.Join(strs, " ")
+}
+func (t TupleType) Call(args ...Expression) Expression {
+	var tuple = t(args...)
+	for _, elem := range tuple {
+		if elem.Type().Match(None) {
+			return NewNone()
+		}
+	}
+	return tuple
+}
+func (t TupleType) Declare(args ...Expression) TupleVal {
+	var tuple = t.Call(args...)
+	if tuple.Type().Match(None) {
+		return []Expression{}
+	}
+	return tuple.(TupleVal)
+}
