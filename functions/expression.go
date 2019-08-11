@@ -1,14 +1,21 @@
 package functions
 
-import d "github.com/joergreinhardt/gatwd/data"
+import (
+	"strings"
+
+	d "github.com/joergreinhardt/gatwd/data"
+)
 
 type (
 	// GENERIC EXPRESSIONS
 	NoneVal  func()
 	ConstVal func() Expression
-	FuncVal  func(...Expression) Expression
 	ExprVal  func(...Expression) Expression
-	ParamVal func(...Expression) Expression
+	ExprType func(...Expression) Expression
+
+	// TUPLE TYPE (FIELD | ‥. | FIELD)
+	TupleVal  []Expression
+	TupleType func(...Expression) TupleVal
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -58,48 +65,22 @@ func (c ConstVal) Call(...Expression) Expression { return c() }
 //// EXPRESSION DECLARATION
 ///
 // declares an expression with defined argument-, return- and an optional identity type
-func DecFuntion(
-	fn func(...Expression) Expression,
-	argtype, retype d.Typed,
-	identypes ...d.Typed,
-) FuncVal {
+func DecFuntion(fn func(...Expression) Expression) ExprVal { return fn }
 
-	var (
-		ident TyPattern
-	)
-
-	if len(identypes) == 0 {
-		ident = Def(Value)
-	} else {
-		ident = Def(identypes...)
-	}
-
-	var pattern = Def(argtype, ident, retype)
-
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			if pattern.TypeArguments().MatchArgs(args...) {
-				return fn(args...)
-			}
-		}
-		return pattern
-	}
-}
-
-func (g FuncVal) TypeFnc() TyFnc                     { return Value }
-func (g FuncVal) Type() TyPattern                    { return g().(TyPattern) }
-func (g FuncVal) String() string                     { return g.Type().TypeName() }
-func (g FuncVal) Call(args ...Expression) Expression { return g(args...) }
+func (g ExprVal) TypeFnc() TyFnc                     { return Value }
+func (g ExprVal) Type() TyPattern                    { return Def(Value) }
+func (g ExprVal) String() string                     { return g.Type().TypeName() }
+func (g ExprVal) Call(args ...Expression) Expression { return g(args...) }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
 // element values yield a subelements of optional, tuple, or enumerable
 // expressions with sub-type pattern as second return value
-func DecExpression(
+func ConstructExpressionType(
 	expr Expression,
 	argtype, retype d.Typed,
 	identypes ...d.Typed,
-) ExprVal {
+) ExprType {
 
 	var (
 		arglen         int
@@ -136,7 +117,7 @@ func DecExpression(
 						argtypes = append(argtypes, atype)
 					}
 					var pattern = Def(Def(argtypes...), ident, retype)
-					return DecExpression(FuncVal(
+					return ConstructExpressionType(ExprVal(
 						func(lateargs ...Expression) Expression {
 							if len(lateargs) > 0 {
 								return expr.Call(append(
@@ -154,7 +135,7 @@ func DecExpression(
 						args = args[arglen:]
 					}
 					if length > 0 {
-						vector = vector.Con(DecExpression(
+						vector = vector.Con(ConstructExpressionType(
 							expr, argtype, retype, identypes...,
 						).Call(args...))
 					}
@@ -166,51 +147,145 @@ func DecExpression(
 		return pattern
 	}
 }
-func (e ExprVal) TypeFnc() TyFnc                     { return Value }
-func (e ExprVal) Type() TyPattern                    { return e().(TyPattern) }
-func (e ExprVal) String() string                     { return e().String() }
-func (e ExprVal) Call(args ...Expression) Expression { return e(args...) }
+func (e ExprType) TypeFnc() TyFnc                     { return Value }
+func (e ExprType) Type() TyPattern                    { return e().(TyPattern) }
+func (e ExprType) String() string                     { return e().String() }
+func (e ExprType) Call(args ...Expression) Expression { return e(args...) }
 
 //// PARAMETRIC VALUE
 ///
-// declare parametric value from set of cases. when arguments are passed, they
-// are applyed to all enclosed cases in the order they where passed in at
-// creation. first result that is not a none instance will be returned, returns
-// type pattern, when called empty.
-func DecParametric(params ...ExprVal) ParamVal {
+// declare parametric value from set of declared expressions.
+func ConstructParametricType(exprs ...ExprType) SwitchType {
+	var cases = make([]CaseType, 0, len(exprs))
+	for _, expr := range exprs {
+		cases = append(cases, CaseType(expr))
+	}
+	return DecSwitch(cases...)
+}
+
+//// TUPLE VALUE CONSTRUCTOR
+///
+// returns a tuple type constructor, defined by tuples field types. the first
+// typed argument passed may be the types symbolic name.
+//
+// tuple type constructor either expects a sequence of flat args, or pairs with
+// an index assigned to the left fields corresponding to fields position, for
+// cases where the constructor is wrapped as declared expression and arguments
+// are not intendet to be passed in the correct order. non-pair arguments are
+// assigned in the order they are passed in.  field types will be replaced with
+// corresponding argument if it matches the fields type and an array with the
+// tuple types name as first and its fields as succeeding elements will be
+// returned.
+//
+// if partial application is intendet, constructor needs to be declared as
+// expression by calling the declaration method.
+func ConstructTupleType(types ...d.Typed) TupleType {
 	var (
-		current Expression
-		pattern TyPattern
-		exprs   = make([]Expression, 0, len(params))
+		symbol TySymbol
+		ftypes []Expression
 	)
-	for _, param := range params {
-		exprs = append(exprs, param)
+	// return if no types where passed
+	if len(types) == 0 {
+		return nil
 	}
-
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			if len(exprs) > 0 {
-				current = exprs[0]
-				if len(exprs) > 1 {
-					exprs = exprs[1:]
-				} else {
-					exprs = nil
-				}
-				return current.Call(args...)
+	if len(types) > 0 {
+		// set tuple typed name by first element, if its a symbol
+		if Flag_Symbol.Match(types[0].FlagType()) {
+			// return early if nothing but the name has been passed
+			if len(types) == 1 {
+				return nil
 			}
-			for _, param := range params {
-				exprs = append(exprs, param)
-			}
-			return nil
+			symbol = types[0].(TySymbol)
+			// shift fields
+			types = types[1:]
+		} else {
+			// generate tuple types name from type pattern
+			symbol = DefSym(Tuple.String())
 		}
-		return pattern
+	}
+	// allocate field set with an extra element to hold the name
+	ftypes = make([]Expression, 0, len(types))
+	ftypes = append(ftypes, symbol)
+	// expect all remaining type arguments, to be tuples field types
+	for _, typ := range types {
+		if Flag_Pattern.Match(typ.FlagType()) {
+			ftypes = append(ftypes, typ.(TyPattern))
+		}
+	}
+	return func(args ...Expression) TupleVal {
+		var fields []Expression
+		if fields == nil {
+			fields = make([]Expression, 0, len(types))
+			fields = append(fields, symbol)
+		}
+		if len(args) == len(ftypes)-1 {
+			for n, arg := range args {
+				if ftypes[n+1].Type().Match(arg.Type()) {
+					fields = append(fields, arg)
+				}
+			}
+			return fields
+		}
+		return ftypes
 	}
 }
-
-func (p ParamVal) Call(args ...Expression) Expression {
-	var result = p(args...)
-	return result
+func (t TupleType) TypeFnc() TyFnc                       { return Type | Tuple }
+func (t TupleType) Call(args ...Expression) Expression   { return t(args...) }
+func (t TupleType) Allocate(args ...Expression) TupleVal { return t(args...) }
+func (t TupleType) Symbol() TySymbol                     { return t()[0].(TySymbol) }
+func (t TupleType) Fields() []Expression                 { return t()[1:] }
+func (t TupleType) Declare() ExprType {
+	var (
+		fields = t.Fields()
+		types  = make([]d.Typed, 0, len(fields))
+	)
+	for _, field := range fields {
+		types = append(types, field.Type())
+	}
+	return ConstructExpressionType(t, Def(types...),
+		t()[0].(TySymbol), Def(types...))
 }
-func (p ParamVal) TypeFnc() TyFnc  { return Parametric }
-func (p ParamVal) Type() TyPattern { return p().(TyPattern) }
-func (p ParamVal) String() string  { return p().String() }
+func (t TupleType) Type() TyPattern {
+	var (
+		fields = t.Fields()
+		types  = make([]d.Typed, 0, len(fields))
+	)
+	for _, field := range fields {
+		types = append(types, field.Type())
+	}
+	return Def(t.Symbol(), Def(types...))
+}
+func (t TupleType) String() string {
+	var (
+		fields = t()
+		strs   = make([]string, 0, len(fields))
+	)
+	for _, field := range fields {
+		strs = append(strs, field.String())
+	}
+	return strings.Join(strs, ", ")
+}
+
+//// TUPLE VALUE
+///
+//
+func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
+func (t TupleVal) Symbol() TySymbol              { return t[0].(TySymbol) }
+func (t TupleVal) Name() string                  { return t.Symbol().String() }
+func (t TupleVal) Fields() []Expression          { return t[1:] }
+func (t TupleVal) Len() int                      { return len(t.Fields()) }
+func (t TupleVal) Call(...Expression) Expression { return TupleVal(t.Fields()) }
+func (t TupleVal) Type() TyPattern {
+	var types = make([]d.Typed, 0, len(t))
+	for _, field := range t.Fields() {
+		types = append(types, field.Type())
+	}
+	return Def(t.Symbol(), Def(types...))
+}
+func (t TupleVal) String() string {
+	var strs = make([]string, 0, len(t.Fields()))
+	for _, field := range t.Fields() {
+		strs = append(strs, field.String())
+	}
+	return "[" + strings.Join(strs, " ") + "]"
+}

@@ -301,15 +301,18 @@ func (a TyAri) TypeName() string              { return a.String() }
 func (a TyAri) Call(...Expression) Expression { return DecData(d.IntVal(int(a))) }
 
 // type flag representing pattern elements that define a symbol
-func DefSym(name string) TySymbol {
-	return TySymbol(name)
-}
+func DefSym(name string) TySymbol       { return TySymbol(name) }
 func (n TySymbol) FlagType() d.Uint8Val { return Flag_Symbol.U() }
 func (n TySymbol) Flag() d.BitFlag      { return Symbol.Flag() }
 func (n TySymbol) Type() TyPattern      { return Def(n) }
 func (n TySymbol) TypeFnc() TyFnc       { return Symbol }
-func (n TySymbol) String() string       { return string(n) }
-func (n TySymbol) TypeName() string     { return string(n) }
+func (n TySymbol) String() string       { return n.TypeName() }
+func (n TySymbol) TypeName() string {
+	if strings.Contains(string(n), " ") {
+		return "(" + string(n) + ")"
+	}
+	return string(n)
+}
 func (n TySymbol) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
