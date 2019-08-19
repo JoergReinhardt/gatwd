@@ -10,6 +10,8 @@ type (
 	// TUPLE TYPE
 	TupleVal  []Expression
 	TupleType func(...Expression) TupleVal
+
+	// ENUM TYPE
 )
 
 //// TUPLE VALUE CONSTRUCTOR
