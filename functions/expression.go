@@ -63,8 +63,8 @@ func (c ConstVal) Call(...Expression) Expression { return c() }
 func DecFuntion(fn func(...Expression) Expression) ExprVal { return fn }
 
 func (g ExprVal) TypeFnc() TyFnc                     { return Value }
-func (g ExprVal) Type() TyPattern                    { return Def(Value) }
-func (g ExprVal) String() string                     { return g.Type().TypeName() }
+func (g ExprVal) Type() TyPattern                    { return g().Type() }
+func (g ExprVal) String() string                     { return g().String() }
 func (g ExprVal) Call(args ...Expression) Expression { return g(args...) }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE

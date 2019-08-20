@@ -12,6 +12,7 @@ type (
 	TupleType func(...Expression) TupleVal
 
 	// ENUM TYPE
+	EnumType func(...int) Expression
 )
 
 //// TUPLE VALUE CONSTRUCTOR
@@ -139,4 +140,14 @@ func (t TupleVal) String() string {
 		strs = append(strs, field.String())
 	}
 	return "[" + strings.Join(strs, " ") + "]"
+}
+
+//// ENUM VAL
+///
+//
+// EnumType func(...int) ExprType
+func ConstructEnumType(fn func(...int) Expression, bounds ...int) EnumType {
+	return func(idxs ...int) Expression {
+		return fn(idxs[0])
+	}
 }
