@@ -22,11 +22,11 @@ func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
 func (t TyLex) TypeName() string              { return mapUtf8[t] }
 func (t TyLex) Call(...Expression) Expression { return t }
 func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
-func (t TyLex) FindUtf8(arg string) (TyLex, bool) {
+func FindUtf8(arg string) (TyLex, bool) {
 	var lex, ok = mapUtf8Text[arg]
 	return lex, ok
 }
-func (t TyLex) FindAscii(arg string) (TyLex, bool) {
+func FindAscii(arg string) (TyLex, bool) {
 	var lex, ok = mapAsciiText[arg]
 	return lex, ok
 }
@@ -46,7 +46,7 @@ var AllItems = func() []TyLex {
 	return tt
 }()
 
-//go:generate stringer -type=TyLex
+//go:generate stringer -type TyLex
 const (
 	Lex_Null  TyLex = 0
 	Lex_Blank TyLex = 1
@@ -56,8 +56,8 @@ const (
 	Lex_Asterisk
 	Lex_Fullstop
 	Lex_Ellipsis
-	Lex_Substraction
-	Lex_Addition
+	Lex_Negative
+	Lex_Positive
 	Lex_SquareRoot
 	Lex_Dot
 	Lex_Times
@@ -120,8 +120,8 @@ var mapUtf8 = map[TyLex]string{
 	Lex_Underscore:     "_",
 	Lex_Asterisk:       "∗",
 	Lex_Ellipsis:       "‥.",
-	Lex_Substraction:   "-",
-	Lex_Addition:       "+",
+	Lex_Negative:       "-",
+	Lex_Positive:       "+",
 	Lex_SquareRoot:     "√",
 	Lex_Dot:            "∘",
 	Lex_Times:          "⨉",
@@ -183,8 +183,8 @@ var mapUtf8Text = map[string]TyLex{
 	"_":  Lex_Underscore,
 	"∗":  Lex_Asterisk,
 	"‥.": Lex_Ellipsis,
-	"-":  Lex_Substraction,
-	"+":  Lex_Addition,
+	"-":  Lex_Negative,
+	"+":  Lex_Positive,
 	"√":  Lex_SquareRoot,
 	"∘":  Lex_Dot,
 	"⨉":  Lex_Times,
@@ -247,8 +247,8 @@ var mapAscii = map[TyLex]string{
 	Lex_Underscore:     "_",
 	Lex_Asterisk:       "*",
 	Lex_Ellipsis:       "...",
-	Lex_Substraction:   "-",
-	Lex_Addition:       "+",
+	Lex_Negative:       "-",
+	Lex_Positive:       "+",
 	Lex_SquareRoot:     `\sqrt`,
 	Lex_Dot:            `\dot`,
 	Lex_Times:          `\mul`,
@@ -311,8 +311,8 @@ var mapAsciiText = map[string]TyLex{
 	"_":       Lex_Underscore,
 	"*":       Lex_Asterisk,
 	"...":     Lex_Ellipsis,
-	"-":       Lex_Substraction,
-	"+":       Lex_Addition,
+	"-":       Lex_Negative,
+	"+":       Lex_Positive,
 	`\sqrt`:   Lex_SquareRoot,
 	`\dot`:    Lex_Dot,
 	`\mul`:    Lex_Times,

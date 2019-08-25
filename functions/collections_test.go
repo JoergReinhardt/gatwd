@@ -26,7 +26,7 @@ func TestEmptyList(t *testing.T) {
 	fmt.Printf("empty list pattern length: %d\n",
 		list.Type().Len())
 	fmt.Printf("empty list patterns: %d\n",
-		list.Type().Patterns())
+		list.Type().Pattern())
 	fmt.Printf("empty list arg types: %s\n",
 		list.Type().TypeArguments())
 	fmt.Printf("empty list ident types: %s\n",
@@ -41,7 +41,7 @@ func TestList(t *testing.T) {
 	fmt.Printf("list pattern length: %d\n",
 		list.Type().Len())
 	fmt.Printf("list patterns: %d\n",
-		list.Type().Patterns())
+		list.Type().Pattern())
 	fmt.Printf("list arg types: %s\n",
 		list.Type().ArgumentsName())
 	fmt.Printf("list ident types: %s\n",

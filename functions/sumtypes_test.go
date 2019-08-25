@@ -140,7 +140,7 @@ func TestSwitch(t *testing.T) {
 func TestMaybe(t *testing.T) {
 	var maybeString = DecMaybe(caseInt)
 	var str = maybeString(DecNative(42))
-	if !str.Type().MatchArgs(DecNative("")) {
+	if str.Type().MatchArgs(DecNative("")) {
 		t.Fail()
 	}
 	var none = maybeString(DecNative(true))
@@ -154,21 +154,22 @@ func TestMaybe(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	var (
-		option   = DecOption(caseInt, caseFloat)
+		option   = DecVariant(caseInt, caseFloat)
 		intStr   = option(DecNative(23))
 		fltStr   = option(DecNative(42.23))
 		boolNone = option(DecNative(true))
 	)
-	if intStr.Type().MatchArgs(DecNative(0)) {
+
+	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
+		intStr.Type(), fltStr.Type(), boolNone.Type())
+
+	if !intStr.Type().TypeReturn().Match(d.String) {
 		t.Fail()
 	}
-	if fltStr.Type().MatchArgs(DecNative(0.0)) {
+	if !fltStr.Type().TypeReturn().Match(d.String) {
 		t.Fail()
 	}
 	if !boolNone.Type().Match(None) {
 		t.Fail()
 	}
-
-	fmt.Printf("ist str: %s, flt str: %s, bool none: %s\n ",
-		intStr, fltStr, boolNone)
 }

@@ -12,7 +12,7 @@ func TestData(t *testing.T) {
 	fmt.Printf("uint converted to native: %s, type: %s, typeFnc: %s, typeNat: %s \n",
 		nat, nat.Type(), nat.TypeFnc(), nat.Type())
 
-	var pair = DecData(d.NewPair(Declare("key"), Declare(42)))
+	var pair = DecData(d.NewPair(d.New("key"), d.New(42)))
 	fmt.Printf("key pair converted to native: %s, type: %s, len type: %d,"+
 		" typeFnc: %s, typeNat: %s\n",
 		pair, pair.Type(), pair.Type().Len(), pair.TypeFnc(), pair.Type())

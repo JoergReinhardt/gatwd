@@ -4,56 +4,113 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseThenElseJustNoneEitherOrNumbersLettersBytesTextListVectorSetPairEnumTupleRecordStateIOParametric"
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Type-1]
+	_ = x[Data-2]
+	_ = x[Value-4]
+	_ = x[Class-8]
+	_ = x[Lambda-16]
+	_ = x[Constant-32]
+	_ = x[Generator-64]
+	_ = x[Accumulator-128]
+	_ = x[Constructor-256]
+	_ = x[Property-512]
+	_ = x[Argument-1024]
+	_ = x[Pattern-2048]
+	_ = x[Element-4096]
+	_ = x[Lexical-8192]
+	_ = x[Symbol-16384]
+	_ = x[Arity-32768]
+	_ = x[Index-65536]
+	_ = x[Key-131072]
+	_ = x[True-262144]
+	_ = x[False-524288]
+	_ = x[Undecided-1048576]
+	_ = x[Equal-2097152]
+	_ = x[Lesser-4194304]
+	_ = x[Greater-8388608]
+	_ = x[Min-16777216]
+	_ = x[Max-33554432]
+	_ = x[Switch-67108864]
+	_ = x[Case-134217728]
+	_ = x[Just-268435456]
+	_ = x[None-536870912]
+	_ = x[Either-1073741824]
+	_ = x[Or-2147483648]
+	_ = x[Natural-4294967296]
+	_ = x[Integer-8589934592]
+	_ = x[Real-17179869184]
+	_ = x[Ratio-34359738368]
+	_ = x[Letter-68719476736]
+	_ = x[Text-137438953472]
+	_ = x[Bytes-274877906944]
+	_ = x[List-549755813888]
+	_ = x[Vector-1099511627776]
+	_ = x[Set-2199023255552]
+	_ = x[Pair-4398046511104]
+	_ = x[Enum-8796093022208]
+	_ = x[Tuple-17592186044416]
+	_ = x[Record-35184372088832]
+	_ = x[State-70368744177664]
+	_ = x[IO-140737488355328]
+	_ = x[Parametric-281474976710656]
+}
+
+const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
 
 var _TyFnc_map = map[TyFnc]string{
-	1:              _TyFnc_name[0:4],
-	2:              _TyFnc_name[4:8],
-	4:              _TyFnc_name[8:13],
-	8:              _TyFnc_name[13:18],
-	16:             _TyFnc_name[18:24],
-	32:             _TyFnc_name[24:32],
-	64:             _TyFnc_name[32:41],
-	128:            _TyFnc_name[41:52],
-	256:            _TyFnc_name[52:60],
-	512:            _TyFnc_name[60:68],
-	1024:           _TyFnc_name[68:75],
-	2048:           _TyFnc_name[75:82],
-	4096:           _TyFnc_name[82:89],
-	8192:           _TyFnc_name[89:95],
-	16384:          _TyFnc_name[95:100],
-	32768:          _TyFnc_name[100:105],
-	65536:          _TyFnc_name[105:108],
-	131072:         _TyFnc_name[108:112],
-	262144:         _TyFnc_name[112:117],
-	524288:         _TyFnc_name[117:126],
-	1048576:        _TyFnc_name[126:131],
-	2097152:        _TyFnc_name[131:137],
-	4194304:        _TyFnc_name[137:144],
-	8388608:        _TyFnc_name[144:147],
-	16777216:       _TyFnc_name[147:150],
-	33554432:       _TyFnc_name[150:156],
-	67108864:       _TyFnc_name[156:160],
-	134217728:      _TyFnc_name[160:164],
-	268435456:      _TyFnc_name[164:168],
-	536870912:      _TyFnc_name[168:172],
-	1073741824:     _TyFnc_name[172:176],
-	2147483648:     _TyFnc_name[176:182],
-	4294967296:     _TyFnc_name[182:184],
-	8589934592:     _TyFnc_name[184:191],
-	17179869184:    _TyFnc_name[191:198],
-	34359738368:    _TyFnc_name[198:203],
-	68719476736:    _TyFnc_name[203:207],
-	137438953472:   _TyFnc_name[207:211],
-	274877906944:   _TyFnc_name[211:217],
-	549755813888:   _TyFnc_name[217:220],
-	1099511627776:  _TyFnc_name[220:224],
-	2199023255552:  _TyFnc_name[224:228],
-	4398046511104:  _TyFnc_name[228:233],
-	8796093022208:  _TyFnc_name[233:239],
-	17592186044416: _TyFnc_name[239:244],
-	35184372088832: _TyFnc_name[244:246],
-	70368744177664: _TyFnc_name[246:256],
+	1:               _TyFnc_name[0:4],
+	2:               _TyFnc_name[4:8],
+	4:               _TyFnc_name[8:13],
+	8:               _TyFnc_name[13:18],
+	16:              _TyFnc_name[18:24],
+	32:              _TyFnc_name[24:32],
+	64:              _TyFnc_name[32:41],
+	128:             _TyFnc_name[41:52],
+	256:             _TyFnc_name[52:63],
+	512:             _TyFnc_name[63:71],
+	1024:            _TyFnc_name[71:79],
+	2048:            _TyFnc_name[79:86],
+	4096:            _TyFnc_name[86:93],
+	8192:            _TyFnc_name[93:100],
+	16384:           _TyFnc_name[100:106],
+	32768:           _TyFnc_name[106:111],
+	65536:           _TyFnc_name[111:116],
+	131072:          _TyFnc_name[116:119],
+	262144:          _TyFnc_name[119:123],
+	524288:          _TyFnc_name[123:128],
+	1048576:         _TyFnc_name[128:137],
+	2097152:         _TyFnc_name[137:142],
+	4194304:         _TyFnc_name[142:148],
+	8388608:         _TyFnc_name[148:155],
+	16777216:        _TyFnc_name[155:158],
+	33554432:        _TyFnc_name[158:161],
+	67108864:        _TyFnc_name[161:167],
+	134217728:       _TyFnc_name[167:171],
+	268435456:       _TyFnc_name[171:175],
+	536870912:       _TyFnc_name[175:179],
+	1073741824:      _TyFnc_name[179:185],
+	2147483648:      _TyFnc_name[185:187],
+	4294967296:      _TyFnc_name[187:194],
+	8589934592:      _TyFnc_name[194:201],
+	17179869184:     _TyFnc_name[201:205],
+	34359738368:     _TyFnc_name[205:210],
+	68719476736:     _TyFnc_name[210:216],
+	137438953472:    _TyFnc_name[216:220],
+	274877906944:    _TyFnc_name[220:225],
+	549755813888:    _TyFnc_name[225:229],
+	1099511627776:   _TyFnc_name[229:235],
+	2199023255552:   _TyFnc_name[235:238],
+	4398046511104:   _TyFnc_name[238:242],
+	8796093022208:   _TyFnc_name[242:246],
+	17592186044416:  _TyFnc_name[246:251],
+	35184372088832:  _TyFnc_name[251:257],
+	70368744177664:  _TyFnc_name[257:262],
+	140737488355328: _TyFnc_name[262:264],
+	281474976710656: _TyFnc_name[264:274],
 }
 
 func (i TyFnc) String() string {
