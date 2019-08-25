@@ -16,6 +16,8 @@ type (
 
 	PairListType func(...Paired) (Paired, PairListType)
 	PairVecType  func(...Paired) []Paired
+
+	SetType func(...Expression) (Expression, map[string]Expression)
 )
 
 //// RECURSIVE LIST OF VALUES
@@ -65,15 +67,14 @@ func (l ListType) TypeElem() TyPattern {
 	if l.Len() > 0 {
 		return l.Head().Type()
 	}
-	return Def(None)
+	return Def(None, List, None)
 }
 
 func (l ListType) Type() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.TypeElem().TypeReturn(),
-			List, l.TypeElem().TypeReturn())
+		return Def(List, l.TypeElem().TypeReturn())
 	}
-	return Def(None)
+	return Def(List, None)
 }
 
 func (l ListType) ConsumeList() (Expression, ListType) {
@@ -186,7 +187,7 @@ func (p PairType) TypeElem() TyPattern {
 	if p.Right() != nil {
 		return p.Right().Type()
 	}
-	return Def(None)
+	return Def(None, Pair, None)
 }
 func (p PairType) TypeKey() d.Typed {
 	if p.Left() != nil {
@@ -202,11 +203,9 @@ func (p PairType) TypeValue() d.Typed {
 }
 func (p PairType) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
-		return Def(Pair)
+		return Def(Pair, None)
 	}
-	return Def(Def(p.TypeKey(), p.TypeValue()),
-		Pair, Def(p.TypeKey(), p.TypeValue()),
-	)
+	return Def(Pair, Def(p.TypeKey(), p.TypeValue()))
 }
 
 func (p PairType) Empty() bool {
@@ -243,10 +242,9 @@ func (a KeyPairType) TypeKey() d.Typed                   { return Key }
 func (a KeyPairType) TypeFnc() TyFnc                     { return Key }
 func (p KeyPairType) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
-		return Def(Key, Pair)
+		return Def(Key|Pair, None)
 	}
-	return Def(Def(p.TypeKey(), p.TypeValue()),
-		Def(Key, Pair), Def(p.TypeKey(), p.TypeValue()))
+	return Def(Key|Pair, Def(p.TypeKey(), p.TypeValue()))
 }
 
 // implement swappable
@@ -284,16 +282,15 @@ func (a IndexPairType) TypeKey() d.Typed                   { return Index }
 func (a IndexPairType) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a IndexPairType) Type() TyPattern {
 	if a.TypeKey().Match(None) && a.TypeValue().Match(None) {
-		return Def(Index, Pair)
+		return Def(Index|Pair, None)
 	}
-	return Def(Def(a.TypeKey(), a.TypeValue()),
-		Def(Index, Pair), Def(a.TypeKey(), a.TypeValue()))
+	return Def(Index|Pair, Def(a.TypeKey(), a.TypeValue()))
 }
 
 // implement swappable
 func (p IndexPairType) Swap() (Expression, Expression) {
 	l, r := p()
-	return DecData(Declare(r)), l
+	return DecData(d.New(r)), l
 }
 func (p IndexPairType) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPairType) Empty() bool {
@@ -361,10 +358,9 @@ func (l PairListType) TypeFnc() TyFnc     { return List }
 func (l PairListType) Null() PairListType { return NewPairList() }
 func (l PairListType) Type() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.TypeElem().TypeReturn(),
-			Def(List, Pair), l.TypeElem().TypeReturn())
+		return Def(List|Pair, l.TypeElem().TypeReturn())
 	}
-	return Def(None)
+	return Def(Pair|List, None)
 }
 
 func (l PairListType) Con(elems ...Paired) PairListType {
@@ -407,9 +403,9 @@ func (l PairListType) Len() int {
 
 func (l PairListType) TypeElem() TyPattern {
 	if l.Len() > 0 {
-		return Def(l.Head().TypeFnc())
+		return Def(l.Head().TypeFnc(), Def(Pair, List), l.Head().TypeFnc())
 	}
-	return Def(None)
+	return Def(None, Def(Pair, List), None)
 }
 
 func (l PairListType) TypeKey() d.Typed {
@@ -498,16 +494,16 @@ func (v VecType) Reverse(args ...Expression) VecType {
 func (v VecType) TypeFnc() TyFnc { return Vector }
 func (v VecType) Type() TyPattern {
 	if v.Len() > 0 {
-		return Def(v.TypeElem().TypeReturn(),
-			Vector, v.TypeElem().TypeReturn())
+		return Def(Vector, v.TypeElem().TypeReturn())
 	}
-	return Def(None)
+	return Def(Vector, None)
 }
 func (v VecType) TypeElem() TyPattern {
 	if v.Len() > 0 {
-		return Def(v.Head().TypeFnc())
+		return Def(v.Head().TypeFnc(),
+			Vector, v.Head().TypeFnc())
 	}
-	return Def(None)
+	return Def(None, Vector, None)
 }
 
 func (v VecType) Con(args ...Expression) VecType {
@@ -645,10 +641,9 @@ func ConPairVecFromArgs(pvec PairVecType, args ...Expression) PairVecType {
 func (v PairVecType) Len() int { return len(v()) }
 func (v PairVecType) Type() TyPattern {
 	if v.Len() > 0 {
-		return Def(v.TypeElem().TypeReturn(),
-			Def(Vector, Pair), v.TypeElem().TypeReturn())
+		return Def(Vector|Pair, v.TypeElem().TypeReturn())
 	}
-	return Def(None)
+	return Def(None, Vector|Pair, None)
 }
 func (v PairVecType) TypeFnc() TyFnc { return Vector }
 
@@ -682,9 +677,9 @@ func (v PairVecType) Empty() bool {
 }
 func (v PairVecType) TypeElem() TyPattern {
 	if v.Len() > 0 {
-		return Def(v.Head().TypeFnc())
+		return Def(v.Head().TypeFnc(), Vector|Pair, v.Head().TypeFnc())
 	}
-	return Def(None)
+	return Def(None, Vector|Pair, None)
 }
 func (v PairVecType) TypeKey() d.Typed {
 	if v.Len() > 0 {
@@ -771,4 +766,96 @@ func (v PairVecType) Tail() Consumeable {
 
 func (v PairVecType) Call(args ...Expression) Expression {
 	return v.Con(args...)
+}
+
+/// DATA SET
+func NewSet(pairs ...PairType) SetType {
+	var (
+		set = make(map[string]Expression, len(pairs))
+	)
+	return func(args ...Expression) (Expression, map[string]Expression) {
+		if len(args) > 0 {
+			// access element by srting key
+			if len(args) == 1 {
+				var arg = args[0]
+				if arg.Type().MatchArgs(DecNative("")) {
+					if val, ok := set[arg.String()]; ok {
+						return val, set
+					}
+				}
+			}
+			// add arguments to set
+			for _, arg := range args {
+				// argument implements paired → srting
+				// representation of left field will be key
+				if arg.TypeFnc().Match(Key | Pair | Index) {
+					if pair, ok := arg.(Paired); ok {
+						var val = pair.Value()
+						set[pair.Left().String()] = val
+						continue
+					}
+				}
+				// argument does not implement paired → string
+				// representation of value will be the key
+				set[arg.String()] = arg
+			}
+		}
+		return None, set
+	}
+}
+func (s SetType) Dict() map[string]Expression {
+	var _, set = s()
+	return set
+}
+func (s SetType) Keys() []string {
+	var keys = []string{}
+	for key, _ := range s.Dict() {
+		keys = append(keys, key)
+	}
+	return keys
+}
+func (s SetType) Values() []Expression {
+	var vals = []Expression{}
+	for _, val := range s.Dict() {
+		vals = append(vals, val)
+	}
+	return vals
+}
+func (s SetType) Pairs() []Paired {
+	var pairs = make([]Paired, 0, s.Len())
+	for _, key := range s.Keys() {
+		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
+	}
+	return pairs
+}
+func (s SetType) KeyPairs() []KeyPairType {
+	var pairs = make([]KeyPairType, 0, s.Len())
+	for _, key := range s.Keys() {
+		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
+	}
+	return pairs
+}
+func (s SetType) Get(key string) Expression {
+	if val, ok := s.Dict()[key]; ok {
+		return val
+	}
+	return NewNone()
+}
+func (s SetType) Len() int                             { return len(s.Keys()) }
+func (s SetType) TypeFnc() TyFnc                       { return Set }
+func (s SetType) GetByData(key Native) Expression      { return s.Get(key.String()) }
+func (s SetType) Set(key string, val Expression)       { s(NewKeyPair(key, val)) }
+func (s SetType) SetByData(key Native, val Expression) { s(NewKeyPair(key.String(), val)) }
+func (s SetType) Type() TyPattern                      { return Def(Set, s.TypeElem()) }
+func (s SetType) TypeElem() TyPattern {
+	if s.Len() > 0 {
+		if val := s.Values()[0]; !val.Type().Match(None) {
+			return val.Type()
+		}
+	}
+	return None.Type()
+}
+func (s SetType) Call(args ...Expression) Expression {
+	var expr, _ = s(args...)
+	return expr
 }

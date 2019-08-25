@@ -7,15 +7,10 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var addInts = ConstructExpressionType(DecNative(func(args ...d.Native) d.Native {
+var addInts = Declare(DecNative(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
-}), Def(
-	DecNative(0).Type(),
-	DecNative(0).Type(),
-),
-	DecNative(0).Type(),
-	DefSym("AddInts"))
+}), Def(Def(Data, d.Int), Def(Data, d.Int)), Def(Data, d.Int), DefSym("AddInts"))
 
 func TestExpression(t *testing.T) {
 
@@ -83,4 +78,18 @@ func TestExpression(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
+func TestTuple(t *testing.T) {
+	var con = DecTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
+	fmt.Printf("tuple constructor %s\n", con)
+
+	var tup = con.Call(DecNative(23), DecNative(42.23), DecNative(true))
+	fmt.Printf("tuple %s\n", tup)
+
+	var partial = con(DecNative(23))
+	fmt.Printf("partial %s\n", partial)
+	partial = partial.Call(DecNative(42.23))
+	fmt.Printf("partial %s\n", partial)
+	tup = partial.Call(DecNative(true))
+	fmt.Printf("result %s\n", tup)
 }

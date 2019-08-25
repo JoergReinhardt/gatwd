@@ -27,6 +27,7 @@ const (
 	Flag_Function
 	Flag_KeyWord
 	Flag_Symbol
+	Flag_Tuple
 	Flag_Value
 	Flag_Token
 	Flag_Arity
@@ -38,31 +39,6 @@ const (
 
 // casts a given flag to its type, based on its flag type and returns it as
 // expression
-func flagToPattern(elem d.Typed) Expression {
-	switch {
-	case Flag_Native.Match(elem.FlagType()):
-		return Def(elem.(d.TyNat))
-	case Flag_BitFlag.Match(elem.FlagType()):
-		return Def(elem.(d.BitFlag))
-	case Flag_Function.Match(elem.FlagType()):
-		return elem.(TyFnc)
-	case Flag_Prop.Match(elem.FlagType()):
-		return elem.(TyProp)
-	case Flag_Arity.Match(elem.FlagType()):
-		return elem.(TyAri)
-	case Flag_KeyWord.Match(elem.FlagType()):
-		return elem.(TyKeyWord)
-	case Flag_Lex.Match(elem.FlagType()):
-		return elem.(TyLex)
-	case Flag_Pattern.Match(elem.FlagType()):
-		return elem.(TyPattern)
-	case Flag_Symbol.Match(elem.FlagType()):
-		return elem.(TySymbol)
-	case Flag_Value.Match(elem.FlagType()):
-		return elem.(TyValue)
-	}
-	return NewNone()
-}
 
 func (t TyFlag) U() d.Uint8Val { return d.Uint8Val(t) }
 func (t TyFlag) Match(match d.Uint8Val) bool {
@@ -84,6 +60,7 @@ const (
 	Constant
 	Generator
 	Accumulator
+	Constructor
 	/// PARAMETER
 	Property
 	Argument
@@ -108,17 +85,18 @@ const (
 	/// OPTIONS
 	Switch
 	Case
-	Then
-	Else
 	Just
 	None
 	Either
 	Or
 	/// CLASSES
-	Numbers
-	Letters
-	Bytes
+	Natural
+	Integer
+	Real
+	Ratio
+	Letter
 	Text
+	Bytes
 	/// SUM
 	List
 	Vector
@@ -147,16 +125,18 @@ const (
 	Bound = Min | Max
 
 	//// OPTIONALS
-	If     = Then | Else
-	Maybe  = Just | None
-	Option = Either | Or
+	Maybe   = Just | None
+	Variant = Either | Or
 
-	Optional = Switch | Case | If | Maybe | Option | Tuple | Record
+	Optional = Switch | Case | Maybe | Variant | Tuple | Record
 
 	//// COLLECTIONS
-	SumTypes    = List | Vector
-	ProdTypes   = Set | Record | Enum | Tuple
+	ProdTypes   = List | Vector | Enum
+	SumTypes    = Set | Record | Tuple
 	Collections = SumTypes | ProdTypes
+
+	Number = Natural | Integer | Real | Ratio
+	String = Letter | Text
 )
 
 // functional type flag expresses the type of a functional value
@@ -183,11 +163,9 @@ func (t TyFnc) TypeName() string {
 			return "Trinary"
 		case Compare:
 			return "Compare"
-		case If:
-			return "If"
 		case Maybe:
 			return "Maybe"
-		case Option:
+		case Variant:
 			return "Option"
 		case Optional:
 			return "Branche"
@@ -334,7 +312,7 @@ func DefValNative(nat d.Native) TyValue {
 	return DefVal(DecNative(nat))
 }
 func DefValGo(val interface{}) TyValue {
-	return DefVal(DecNative(Declare(val)))
+	return DefVal(DecNative(d.New(val)))
 }
 func DefVal(expr Expression) TyValue {
 	return func(args ...Expression) Expression {
@@ -360,7 +338,7 @@ func (n TyValue) Match(typ d.Typed) bool {
 }
 
 // pattern of type, property, arity, symbol & value flags
-func Def(types ...d.Typed) TyPattern { return types }
+func Def(args ...d.Typed) TyPattern { return args }
 
 // elems yields all elements contained in the pattern
 func (p TyPattern) Type() TyPattern               { return p }
@@ -371,9 +349,231 @@ func (p TyPattern) String() string                { return p.TypeName() }
 func (p TyPattern) FlagType() d.Uint8Val          { return Flag_Pattern.U() }
 func (p TyPattern) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
 func (p TyPattern) TypeFnc() TyFnc                { return Pattern }
+
+// length of elements excluding fields set to none
+func (p TyPattern) Count() int {
+	var count int
+	for _, elem := range p {
+		if !elem.Match(None) {
+			count = count + 1
+		}
+	}
+	return count
+}
+func (p TyPattern) HasIdentity() bool {
+	if p.Count() > 0 {
+		return true
+	}
+	return false
+}
+func (p TyPattern) HasReturnType() bool {
+	if p.Count() > 1 {
+		return true
+	}
+	return false
+}
+func (p TyPattern) HasArguments() bool {
+	if p.Count() > 2 {
+		return true
+	}
+	return false
+}
+
+// one element pattern is a type identity
+func (p TyPattern) IsIdentity() bool {
+	if p.Count() == 1 {
+		return true
+	}
+	return false
+}
+func (p TyPattern) IsAtomic() bool {
+	if p.IsIdentity() {
+		return !strings.ContainsAny(p.Elements()[0].TypeName(), " |,:")
+	}
+	return false
+}
+func (p TyPattern) IsTruth() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Truth)
+	}
+	return false
+}
+func (p TyPattern) IsTrinary() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Trinary)
+	}
+	return false
+}
+func (p TyPattern) IsCompare() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Compare)
+	}
+	return false
+}
+func (p TyPattern) IsParameter() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Parameter)
+	}
+	return false
+}
+func (p TyPattern) IsData() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Data)
+	}
+	return false
+}
+func (p TyPattern) IsPair() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Pair)
+	}
+	return false
+}
+func (p TyPattern) IsVector() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Vector)
+	}
+	return false
+}
+func (p TyPattern) IsList() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(List)
+	}
+	return false
+}
+func (p TyPattern) IsCollection() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Collections)
+	}
+	return false
+}
+func (p TyPattern) IsEnum() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Enum)
+	}
+	return false
+}
+func (p TyPattern) IsTuple() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Tuple)
+	}
+	return false
+}
+func (p TyPattern) IsRecord() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Record)
+	}
+	return false
+}
+func (p TyPattern) IsSet() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Set)
+	}
+	return false
+}
+func (p TyPattern) IsSwitch() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Switch)
+	}
+	return false
+}
+func (p TyPattern) IsNumber() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Number)
+	}
+	return false
+}
+func (p TyPattern) IsString() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(String)
+	}
+	return false
+}
+func (p TyPattern) IsBytes() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Bytes)
+	}
+	return false
+}
+func (p TyPattern) IsSumType() bool {
+	if p.Count() == 2 && (p.IsList() || p.IsVector() || p.IsEnum()) {
+		return true
+	}
+	return false
+}
+func (p TyPattern) IsProductType() bool {
+	if p.Count() == 2 && (p.IsTuple() || p.IsRecord() || p.IsPair() || p.IsSet()) {
+		return true
+	}
+	return false
+}
+func (p TyPattern) IsCase() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Case)
+	}
+	return false
+}
+func (p TyPattern) IsMaybe() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Maybe)
+	}
+	return false
+}
+func (p TyPattern) IsAlternative() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Variant)
+	}
+	return false
+}
+func (p TyPattern) IsFunction() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Value)
+	}
+	return false
+}
+func (p TyPattern) IsParametric() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Parametric)
+	}
+	return false
+}
+
+// two element pattern is a constant type returning a value type
+func (p TyPattern) HasData() bool        { return p.MatchAnyType(Data) }
+func (p TyPattern) HasPair() bool        { return p.MatchAnyType(Pair) }
+func (p TyPattern) HasEnum() bool        { return p.MatchAnyType(Enum) }
+func (p TyPattern) HasTuple() bool       { return p.MatchAnyType(Tuple) }
+func (p TyPattern) HasRecord() bool      { return p.MatchAnyType(Record) }
+func (p TyPattern) HasParameter() bool   { return p.MatchAnyType(Parameter) }
+func (p TyPattern) HasTruth() bool       { return p.MatchAnyType(Truth) }
+func (p TyPattern) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
+func (p TyPattern) HasCompare() bool     { return p.MatchAnyType(Compare) }
+func (p TyPattern) HasBound() bool       { return p.MatchAnyType(Min, Max) }
+func (p TyPattern) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
+func (p TyPattern) HasAlternative() bool { return p.MatchAnyType(Variant) }
+func (p TyPattern) HasOptional() bool    { return p.MatchAnyType(Optional) }
+func (p TyPattern) HasNumber() bool      { return p.MatchAnyType(Number) }
+func (p TyPattern) HasString() bool      { return p.MatchAnyType(String) }
+func (p TyPattern) HasBytes() bool       { return p.MatchAnyType(Bytes) }
+func (p TyPattern) HasCollection() bool {
+	return p.MatchAnyType(
+		List, Vector, Tuple, Enum, Record)
+}
+func (p TyPattern) HasReturn() bool {
+	if p.Count() >= 2 {
+		return true
+	}
+	return false
+}
+func (p TyPattern) HasArgs() bool {
+	if p.Count() >= 3 {
+		return true
+	}
+	return false
+}
+
 func (p TyPattern) Get(idx int) TyPattern {
 	if idx < p.Len() {
-		return p.Patterns()[idx]
+		return p.Pattern()[idx]
 	}
 	return Def(None)
 }
@@ -381,7 +581,7 @@ func (p TyPattern) Get(idx int) TyPattern {
 // head yields the first pattern element cast as expression
 func (p TyPattern) Head() Expression {
 	if p.Len() > 0 {
-		var head = p.Patterns()[0]
+		var head = p.Pattern()[0]
 		return head
 	}
 	return nil
@@ -418,10 +618,10 @@ func (p TyPattern) Consume() (Expression, Consumeable) { return p.Head(), p.Tail
 // tail as a type pattern
 func (p TyPattern) ConsumeTyped() (d.Typed, TyPattern) {
 	if p.Len() > 1 {
-		return p.Patterns()[0], Def(p.Types()[1:]...)
+		return p.Pattern()[0], Def(p.Types()[1:]...)
 	}
 	if p.Len() > 0 {
-		return p.Patterns()[0], []d.Typed{}
+		return p.Pattern()[0], []d.Typed{}
 	}
 	return None, []d.Typed{}
 }
@@ -446,7 +646,7 @@ func (p TyPattern) Append(args ...Expression) Consumeable {
 
 // pattern yields a slice of type patterns, with all none & nil elements
 // filtered out
-func (p TyPattern) Patterns() []TyPattern {
+func (p TyPattern) Pattern() []TyPattern {
 	var pattern = make([]TyPattern, 0, p.Len())
 	for _, typ := range p.Types() {
 		if Flag_Pattern.Match(typ.FlagType()) {
@@ -458,11 +658,48 @@ func (p TyPattern) Patterns() []TyPattern {
 	return pattern
 }
 
+// pattern yields a slice of type patterns, with all none & nil elements
+// filtered out
+func (p TyPattern) Elements() []d.Typed {
+	var elems = make([]d.Typed, 0, p.Count())
+	for _, elem := range p {
+		if Flag_Native.Match(elem.FlagType()) {
+			if elem.Match(d.Nil) {
+				continue
+			}
+		}
+		if elem.Match(None) {
+			continue
+		}
+		elems = append(elems, elem)
+	}
+	return elems
+}
+func (p TyPattern) Fields() []TyPattern {
+	var elems = make([]TyPattern, 0, p.Count())
+	for _, elem := range p.Elements() {
+		if Flag_Native.Match(elem.FlagType()) {
+			if elem.Match(d.Nil) {
+				continue
+			}
+		}
+		if elem.Match(None) {
+			continue
+		}
+		if Flag_Pattern.Match(elem.FlagType()) {
+			elems = append(elems, elem.(TyPattern))
+			continue
+		}
+		elems = append(elems, Def(elem))
+	}
+	return elems
+}
+
 // expressions that take arguments are expected to also have a type identity
 // and return type.
 func (p TyPattern) TypeArguments() TyPattern {
 	if p.Len() > 2 {
-		return p.Patterns()[0]
+		return p.Pattern()[0]
 	}
 	return Def(None)
 }
@@ -485,10 +722,10 @@ func (p TyPattern) ArgumentsName() string {
 // element in the types pattern
 func (p TyPattern) TypeIdent() TyPattern {
 	if p.Len() > 2 {
-		return p.Patterns()[1]
+		return p.Pattern()[1]
 	}
 	if p.Len() > 0 {
-		return p.Patterns()[0]
+		return p.Pattern()[0]
 	}
 	return Def(None)
 }
@@ -523,10 +760,10 @@ func (p TyPattern) IdentName() string {
 // in the types pattern
 func (p TyPattern) TypeReturn() TyPattern {
 	if p.Len() > 2 {
-		return p.Patterns()[2]
+		return p.Pattern()[2]
 	}
 	if p.Len() > 1 {
-		return p.Patterns()[1]
+		return p.Pattern()[1]
 	}
 	return Def(None)
 }
@@ -610,13 +847,23 @@ func (p TyPattern) Match(typ d.Typed) bool {
 // match-types takes multiple types and matches them against an equal number of
 // arguments starting with the first one
 func (p TyPattern) MatchTypes(types ...d.Typed) bool {
-	var elems, match = p.short(types...)
-	for n, elem := range elems {
-		if !elem.Match(match[n]) {
+	var short, long = p.sortLength(types...)
+	for n, elem := range short {
+		if !elem.Match(long[n]) {
 			return false
 		}
 	}
 	return true
+}
+func (p TyPattern) MatchAnyType(args ...d.Typed) bool {
+	for _, elem := range p {
+		for _, arg := range args {
+			if elem.Match(arg) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // match-args takes multiple expression arguments and matches their types
@@ -628,17 +875,24 @@ func (p TyPattern) MatchArgs(args ...Expression) bool {
 	}
 	return p.MatchTypes(types...)
 }
+func (p TyPattern) MatchAnyArg(args ...Expression) bool {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
+	}
+	return p.MatchAnyType(types...)
+}
 
 // matches multiple type flags against its elements in order. should there be
 // more, or less arguments than pattern elements, the shorter sequence will be
 // matched.
-func (p TyPattern) short(types ...d.Typed) (elems, match []d.Typed) {
+func (p TyPattern) sortLength(types ...d.Typed) (short, long []d.Typed) {
 	// if number of arguments is not equal to number of elements, find
 	// shorter sequence
 	if p.Len() > len(types) {
-		elems, match = types, p.Types()
+		short, long = types, p.Types()
 	} else {
-		elems, match = p.Types(), types
+		short, long = p.Types(), types
 	}
-	return elems, match
+	return short, long
 }
