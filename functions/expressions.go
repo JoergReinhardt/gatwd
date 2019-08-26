@@ -8,11 +8,15 @@ import (
 
 type (
 	// GENERIC EXPRESSIONS
-	NoneVal   func()
-	ConstVal  func() Expression
-	FuncVal   func(...Expression) Expression
-	ExprType  func(...Expression) ExprVal
-	ExprVal   Expression
+	NoneVal  func()
+	ConstVal func() Expression
+	FuncVal  func(...Expression) Expression
+
+	//// DECLARED EXPRESSION
+	ExprType func(...Expression) ExprVal
+	ExprVal  Expression
+
+	// TUPLE (TYPE[0]...TYPE[N])
 	TupleType func(...Expression) TupleVal
 	TupleVal  []Expression
 )
@@ -80,7 +84,7 @@ func (c FuncVal) Call(...Expression) Expression { return c() }
 func Declare(
 	expr Expression,
 	argtype, retype d.Typed,
-	identypes ...d.Typed,
+	propertys ...d.Typed,
 ) ExprType {
 
 	if !Flag_Pattern.Match(argtype.FlagType()) {
@@ -88,22 +92,32 @@ func Declare(
 	}
 
 	var (
-		ident    d.Typed
-		pattern  TyPattern
-		arglen   = argtype.(TyPattern).Count()
-		argtypes = argtype.(TyPattern).Types()
+		ident         d.Typed
+		pattern       TyPattern
+		arglen        = argtype.(TyPattern).Count()
+		argtypes      = argtype.(TyPattern).Types()
+		props, idents []d.Typed
 	)
 
-	if len(identypes) == 0 {
+	if len(propertys) == 0 {
 		ident = expr.TypeFnc()
 	} else {
-		if len(identypes) == 1 {
-			ident = identypes[0]
+		props, idents = []d.Typed{}, []d.Typed{}
+		for _, typ := range propertys {
+			if Flag_Symbol.Match(typ.FlagType()) {
+				idents = append(idents, typ)
+				continue
+			}
+			props = append(props, typ)
 		}
-		ident = Def(identypes...)
+		ident = Def(idents...)
 	}
 
-	pattern = Def(argtype, ident, retype)
+	if len(props) > 0 {
+		pattern = Def(argtype, ident, retype, Def(props...))
+	} else {
+		pattern = Def(argtype, ident, retype)
+	}
 
 	return func(args ...Expression) ExprVal {
 		var length = len(args)
@@ -114,7 +128,7 @@ func Declare(
 					return expr.Call(args...)
 
 				case length < arglen:
-					argtypes = argtypes[length:]
+					var remains = argtypes[length:]
 					return Declare(ExprType(
 						func(lateargs ...Expression) ExprVal {
 							if len(lateargs) > 0 {
@@ -122,8 +136,8 @@ func Declare(
 									args, lateargs...,
 								)...)
 							}
-							return Def(Def(argtypes...), ident, retype)
-						}), Def(argtypes...), ident, retype)
+							return Def(Def(remains...), ident, retype)
+						}), Def(remains...), ident, retype)
 
 				case length > arglen:
 					var vector = NewVector()
@@ -134,7 +148,7 @@ func Declare(
 					}
 					if length > 0 {
 						vector = vector.Con(Declare(
-							expr, argtype, retype, identypes...,
+							expr, argtype, retype, propertys...,
 						).Call(args...))
 					}
 					return vector
@@ -199,6 +213,7 @@ func (t TupleType) Type() TyPattern {
 	return Def(Tuple, Def(types...))
 }
 
+/// TUPLE VALUE
 func (t TupleVal) Count() int                    { return len(t) }
 func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
 func (t TupleVal) Call(...Expression) Expression { return t }

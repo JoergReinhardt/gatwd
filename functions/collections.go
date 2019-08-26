@@ -6,29 +6,29 @@ import (
 
 type (
 	//// COLLECTION
-	ListType func(...Expression) (Expression, ListType)
-	VecType  func(...Expression) []Expression
+	ListVal func(...Expression) (Expression, ListVal)
+	VecVal  func(...Expression) []Expression
 
-	PairType      func(...Expression) (Expression, Expression)
-	KeyPairType   func(...Expression) (Expression, string)
-	TypePairType  func(...Expression) (Expression, Typed)
-	IndexPairType func(...Expression) (Expression, int)
+	PairVal   func(...Expression) (Expression, Expression)
+	KeyPair   func(...Expression) (Expression, string)
+	TypePair  func(...Expression) (Expression, Typed)
+	IndexPair func(...Expression) (Expression, int)
 
-	PairListType func(...Paired) (Paired, PairListType)
-	PairVecType  func(...Paired) []Paired
+	PairList func(...Paired) (Paired, PairList)
+	PairVec  func(...Paired) []Paired
 
-	SetType func(...Expression) (Expression, map[string]Expression)
+	SetVal func(...Expression) (Expression, map[string]Expression)
 )
 
 //// RECURSIVE LIST OF VALUES
 ///
 // base implementation of recursively linked lists
-func ConList(list ListType, elems ...Expression) ListType {
+func ConList(list ListVal, elems ...Expression) ListVal {
 	return list.Con(elems...)
 }
 
-func ConcatLists(a, b ListType) ListType {
-	return ListType(func(args ...Expression) (Expression, ListType) {
+func ConcatLists(a, b ListVal) ListVal {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			b = b.Con(args...)
 		}
@@ -40,8 +40,8 @@ func ConcatLists(a, b ListType) ListType {
 	})
 }
 
-func NewList(elems ...Expression) ListType {
-	return func(args ...Expression) (Expression, ListType) {
+func NewList(elems ...Expression) ListVal {
+	return func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			elems = append(elems, args...)
 		}
@@ -57,42 +57,42 @@ func NewList(elems ...Expression) ListType {
 		return nil, NewList()
 	}
 }
-func (l ListType) Tail() Consumeable                  { _, t := l(); return t }
-func (l ListType) Head() Expression                   { h, _ := l(); return h }
-func (l ListType) TailList() ListType                 { _, t := l(); return t }
-func (l ListType) Consume() (Expression, Consumeable) { return l() }
-func (l ListType) TypeFnc() TyFnc                     { return List }
-func (l ListType) Null() ListType                     { return NewList() }
-func (l ListType) TypeElem() TyPattern {
+func (l ListVal) Tail() Consumeable                  { _, t := l(); return t }
+func (l ListVal) Head() Expression                   { h, _ := l(); return h }
+func (l ListVal) TailList() ListVal                  { _, t := l(); return t }
+func (l ListVal) Consume() (Expression, Consumeable) { return l() }
+func (l ListVal) TypeFnc() TyFnc                     { return List }
+func (l ListVal) Null() ListVal                      { return NewList() }
+func (l ListVal) TypeElem() TyPattern {
 	if l.Len() > 0 {
 		return l.Head().Type()
 	}
 	return Def(None, List, None)
 }
 
-func (l ListType) Type() TyPattern {
+func (l ListVal) Type() TyPattern {
 	if l.Len() > 0 {
 		return Def(List, l.TypeElem().TypeReturn())
 	}
 	return Def(List, None)
 }
 
-func (l ListType) ConsumeList() (Expression, ListType) {
+func (l ListVal) ConsumeList() (Expression, ListVal) {
 	return l.Head(), l.TailList()
 }
 
-func (l ListType) Append(elems ...Expression) Consumeable { _, l = l(elems...); return l }
-func (l ListType) Con(elems ...Expression) ListType {
-	return ListType(func(args ...Expression) (Expression, ListType) {
+func (l ListVal) Append(elems ...Expression) Consumeable { _, l = l(elems...); return l }
+func (l ListVal) Con(elems ...Expression) ListVal {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		return l(append(elems, args...)...)
 	})
 }
 
-func (l ListType) Push(elems ...Expression) ListType {
+func (l ListVal) Push(elems ...Expression) ListVal {
 	return ConcatLists(NewList(elems...), l)
 }
 
-func (l ListType) Slice() []Expression {
+func (l ListVal) Slice() []Expression {
 	var (
 		vec  = NewVector()
 		head Expression
@@ -106,14 +106,14 @@ func (l ListType) Slice() []Expression {
 	return vec.Slice()
 }
 
-func (l ListType) Call(args ...Expression) Expression {
+func (l ListVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return l.Con(args...)
 	}
 	return l.Head()
 }
 
-func (l ListType) GetIdx(n int) Expression {
+func (l ListVal) GetIdx(n int) Expression {
 	var head, list = l()
 	for i := 0; i < n; i++ {
 		head, list = list()
@@ -124,7 +124,7 @@ func (l ListType) GetIdx(n int) Expression {
 	return head
 }
 
-func (l ListType) Empty() bool {
+func (l ListVal) Empty() bool {
 	if l.Head() != nil {
 		if !None.Flag().Match(l.Head().TypeFnc()) {
 			return false
@@ -134,7 +134,7 @@ func (l ListType) Empty() bool {
 	return true
 }
 
-func (l ListType) Len() int {
+func (l ListVal) Len() int {
 	var (
 		length     int
 		head, tail = l()
@@ -149,7 +149,7 @@ func (l ListType) Len() int {
 //// PAIRS OF VALUES
 ///
 // pairs can be created empty, key & value may be constructed later
-func NewEmptyPair() PairType {
+func NewEmptyPair() PairVal {
 	return func(args ...Expression) (a, b Expression) {
 		if len(args) > 0 {
 			if len(args) > 1 {
@@ -162,7 +162,7 @@ func NewEmptyPair() PairType {
 }
 
 // new pair from two callable instances
-func NewPair(l, r Expression) PairType {
+func NewPair(l, r Expression) PairVal {
 	return func(args ...Expression) (Expression, Expression) {
 		if len(args) > 0 {
 			if len(args) > 1 {
@@ -173,42 +173,42 @@ func NewPair(l, r Expression) PairType {
 		return l, r
 	}
 }
-func (p PairType) Pair() Paired                   { return p }
-func (p PairType) Both() (Expression, Expression) { return p() }
-func (p PairType) Left() Expression               { l, _ := p(); return l }
-func (p PairType) Right() Expression              { _, r := p(); return r }
-func (p PairType) Swap() (Expression, Expression) { l, r := p(); return r, l }
-func (p PairType) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
-func (p PairType) Slice() []Expression            { return []Expression{p.Left(), p.Right()} }
-func (p PairType) Key() Expression                { return p.Left() }
-func (p PairType) Value() Expression              { return p.Right() }
-func (p PairType) TypeFnc() TyFnc                 { return Pair }
-func (p PairType) TypeElem() TyPattern {
+func (p PairVal) Pair() Paired                   { return p }
+func (p PairVal) Both() (Expression, Expression) { return p() }
+func (p PairVal) Left() Expression               { l, _ := p(); return l }
+func (p PairVal) Right() Expression              { _, r := p(); return r }
+func (p PairVal) Swap() (Expression, Expression) { l, r := p(); return r, l }
+func (p PairVal) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
+func (p PairVal) Slice() []Expression            { return []Expression{p.Left(), p.Right()} }
+func (p PairVal) Key() Expression                { return p.Left() }
+func (p PairVal) Value() Expression              { return p.Right() }
+func (p PairVal) TypeFnc() TyFnc                 { return Pair }
+func (p PairVal) TypeElem() TyPattern {
 	if p.Right() != nil {
 		return p.Right().Type()
 	}
 	return Def(None, Pair, None)
 }
-func (p PairType) TypeKey() d.Typed {
+func (p PairVal) TypeKey() d.Typed {
 	if p.Left() != nil {
 		return p.Left().Type()
 	}
 	return None
 }
-func (p PairType) TypeValue() d.Typed {
+func (p PairVal) TypeValue() d.Typed {
 	if p.Right() != nil {
 		return p.Right().Type()
 	}
 	return None
 }
-func (p PairType) Type() TyPattern {
+func (p PairVal) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, None)
 	}
 	return Def(Pair, Def(p.TypeKey(), p.TypeValue()))
 }
 
-func (p PairType) Empty() bool {
+func (p PairVal) Empty() bool {
 	if p.Left() == nil || (!p.Left().TypeFnc().Flag().Match(None) &&
 		(p.Right() == nil || (!p.Right().TypeFnc().Flag().Match(None)))) {
 		return true
@@ -216,7 +216,7 @@ func (p PairType) Empty() bool {
 	return false
 }
 
-func (p PairType) Call(args ...Expression) Expression {
+func (p PairVal) Call(args ...Expression) Expression {
 	return NewPair(p.Key(), p.Value().Call(args...))
 }
 
@@ -224,23 +224,23 @@ func (p PairType) Call(args ...Expression) Expression {
 //// ASSOCIATIVE PAIRS
 ///
 // pair composed of a string key and a functional value
-func NewKeyPair(key string, val Expression) KeyPairType {
+func NewKeyPair(key string, val Expression) KeyPair {
 	return func(...Expression) (Expression, string) { return val, key }
 }
 
-func (a KeyPairType) KeyStr() string                     { _, key := a(); return key }
-func (a KeyPairType) Value() Expression                  { val, _ := a(); return val }
-func (a KeyPairType) Left() Expression                   { return a.Value() }
-func (a KeyPairType) Right() Expression                  { return DecData(d.StrVal(a.KeyStr())) }
-func (a KeyPairType) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a KeyPairType) Pair() Paired                       { return NewPair(a.Both()) }
-func (a KeyPairType) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a KeyPairType) Key() Expression                    { return a.Right() }
-func (a KeyPairType) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a KeyPairType) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a KeyPairType) TypeKey() d.Typed                   { return Key }
-func (a KeyPairType) TypeFnc() TyFnc                     { return Key }
-func (p KeyPairType) Type() TyPattern {
+func (a KeyPair) KeyStr() string                     { _, key := a(); return key }
+func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
+func (a KeyPair) Left() Expression                   { return a.Value() }
+func (a KeyPair) Right() Expression                  { return DecData(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
+func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
+func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
+func (a KeyPair) Key() Expression                    { return a.Right() }
+func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
+func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
+func (a KeyPair) TypeKey() d.Typed                   { return Key }
+func (a KeyPair) TypeFnc() TyFnc                     { return Key }
+func (p KeyPair) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Key|Pair, None)
 	}
@@ -248,13 +248,13 @@ func (p KeyPairType) Type() TyPattern {
 }
 
 // implement swappable
-func (p KeyPairType) Swap() (Expression, Expression) {
+func (p KeyPair) Swap() (Expression, Expression) {
 	l, r := p()
 	return DecData(d.StrVal(r)), l
 }
-func (p KeyPairType) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
+func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
-func (a KeyPairType) Empty() bool {
+func (a KeyPair) Empty() bool {
 	if a.Key() != nil && a.Value() != nil && a.Value().TypeFnc() != None {
 		return false
 	}
@@ -265,22 +265,22 @@ func (a KeyPairType) Empty() bool {
 //// INDEX PAIR
 ///
 // pair composed of an integer and a functional value
-func NewIndexPair(idx int, val Expression) IndexPairType {
+func NewIndexPair(idx int, val Expression) IndexPair {
 	return func(...Expression) (Expression, int) { return val, idx }
 }
-func (a IndexPairType) Index() int                         { _, idx := a(); return idx }
-func (a IndexPairType) Value() Expression                  { val, _ := a(); return val }
-func (a IndexPairType) Left() Expression                   { return a.Value() }
-func (a IndexPairType) Right() Expression                  { return DecData(d.IntVal(a.Index())) }
-func (a IndexPairType) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a IndexPairType) Pair() Paired                       { return a }
-func (a IndexPairType) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a IndexPairType) Key() Expression                    { return a.Right() }
-func (a IndexPairType) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPairType) TypeFnc() TyFnc                     { return Index }
-func (a IndexPairType) TypeKey() d.Typed                   { return Index }
-func (a IndexPairType) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a IndexPairType) Type() TyPattern {
+func (a IndexPair) Index() int                         { _, idx := a(); return idx }
+func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
+func (a IndexPair) Left() Expression                   { return a.Value() }
+func (a IndexPair) Right() Expression                  { return DecData(d.IntVal(a.Index())) }
+func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
+func (a IndexPair) Pair() Paired                       { return a }
+func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
+func (a IndexPair) Key() Expression                    { return a.Right() }
+func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
+func (a IndexPair) TypeFnc() TyFnc                     { return Index }
+func (a IndexPair) TypeKey() d.Typed                   { return Index }
+func (a IndexPair) TypeValue() d.Typed                 { return a.Value().Type() }
+func (a IndexPair) Type() TyPattern {
 	if a.TypeKey().Match(None) && a.TypeValue().Match(None) {
 		return Def(Index|Pair, None)
 	}
@@ -288,12 +288,12 @@ func (a IndexPairType) Type() TyPattern {
 }
 
 // implement swappable
-func (p IndexPairType) Swap() (Expression, Expression) {
+func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
 	return DecData(d.New(r)), l
 }
-func (p IndexPairType) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
-func (a IndexPairType) Empty() bool {
+func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
+func (a IndexPair) Empty() bool {
 	if a.Index() >= 0 && a.Value() != nil && a.Value().TypeFnc() != None {
 		return true
 	}
@@ -302,11 +302,11 @@ func (a IndexPairType) Empty() bool {
 
 ///////////////////////////////////////////////////////////////////////////////
 //// LIST OF PAIRS
-func ConPairList(list PairListType, pairs ...Paired) PairListType {
+func ConPairList(list PairList, pairs ...Paired) PairList {
 	return list.Con(pairs...)
 }
-func ConcatPairLists(a, b PairListType) PairListType {
-	return PairListType(func(args ...Paired) (Paired, PairListType) {
+func ConcatPairLists(a, b PairList) PairList {
+	return PairList(func(args ...Paired) (Paired, PairList) {
 		if len(args) > 0 {
 			b = b.Con(args...)
 		}
@@ -317,8 +317,8 @@ func ConcatPairLists(a, b PairListType) PairListType {
 		return b()
 	})
 }
-func NewPairList(elems ...Paired) PairListType {
-	return func(pairs ...Paired) (Paired, PairListType) {
+func NewPairList(elems ...Paired) PairList {
+	return func(pairs ...Paired) (Paired, PairList) {
 		if len(pairs) > 0 {
 			elems = append(elems, pairs...)
 		}
@@ -335,15 +335,15 @@ func NewPairList(elems ...Paired) PairListType {
 	}
 }
 
-func (l PairListType) Tail() Consumeable                        { _, t := l(); return t }
-func (l PairListType) TailPairs() ConsumeablePaired             { _, t := l(); return t }
-func (l PairListType) TailPairList() PairListType               { _, t := l(); return t }
-func (l PairListType) Head() Expression                         { h, _ := l(); return h }
-func (l PairListType) HeadPair() Paired                         { p, _ := l(); return p }
-func (l PairListType) Consume() (Expression, Consumeable)       { return l() }
-func (l PairListType) ConsumePair() (Paired, ConsumeablePaired) { return l() }
-func (l PairListType) ConsumePairList() (Paired, PairListType)  { return l() }
-func (l PairListType) Append(args ...Expression) Consumeable {
+func (l PairList) Tail() Consumeable                        { _, t := l(); return t }
+func (l PairList) TailPairs() ConsumeablePaired             { _, t := l(); return t }
+func (l PairList) TailPairList() PairList                   { _, t := l(); return t }
+func (l PairList) Head() Expression                         { h, _ := l(); return h }
+func (l PairList) HeadPair() Paired                         { p, _ := l(); return p }
+func (l PairList) Consume() (Expression, Consumeable)       { return l() }
+func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
+func (l PairList) ConsumePairList() (Paired, PairList)      { return l() }
+func (l PairList) Append(args ...Expression) Consumeable {
 	var pairs = make([]Paired, 0, len(args))
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Pair) {
@@ -354,26 +354,26 @@ func (l PairListType) Append(args ...Expression) Consumeable {
 	}
 	return l.Con(pairs...)
 }
-func (l PairListType) TypeFnc() TyFnc     { return List }
-func (l PairListType) Null() PairListType { return NewPairList() }
-func (l PairListType) Type() TyPattern {
+func (l PairList) TypeFnc() TyFnc { return List }
+func (l PairList) Null() PairList { return NewPairList() }
+func (l PairList) Type() TyPattern {
 	if l.Len() > 0 {
 		return Def(List|Pair, l.TypeElem().TypeReturn())
 	}
 	return Def(Pair|List, None)
 }
 
-func (l PairListType) Con(elems ...Paired) PairListType {
-	return PairListType(func(args ...Paired) (Paired, PairListType) {
+func (l PairList) Con(elems ...Paired) PairList {
+	return PairList(func(args ...Paired) (Paired, PairList) {
 		return l(append(elems, args...)...)
 	})
 }
 
-func (l PairListType) Push(elems ...Paired) PairListType {
+func (l PairList) Push(elems ...Paired) PairList {
 	return ConcatPairLists(NewPairList(elems...), l)
 }
 
-func (l PairListType) Call(args ...Expression) Expression {
+func (l PairList) Call(args ...Expression) Expression {
 	var pairs = []Paired{}
 	if len(args) > 0 {
 		pairs = append(pairs, argsToPaired(args...)...)
@@ -383,14 +383,14 @@ func (l PairListType) Call(args ...Expression) Expression {
 	return head
 }
 
-func (l PairListType) Empty() bool {
+func (l PairList) Empty() bool {
 	if pair := l.HeadPair(); pair != nil {
 		return pair.Empty()
 	}
 	return true
 }
 
-func (l PairListType) Len() int {
+func (l PairList) Len() int {
 	var (
 		length     int
 		head, tail = l()
@@ -401,18 +401,18 @@ func (l PairListType) Len() int {
 	return length
 }
 
-func (l PairListType) TypeElem() TyPattern {
+func (l PairList) TypeElem() TyPattern {
 	if l.Len() > 0 {
 		return Def(l.Head().TypeFnc(), Def(Pair, List), l.Head().TypeFnc())
 	}
 	return Def(None, Def(Pair, List), None)
 }
 
-func (l PairListType) TypeKey() d.Typed {
-	return l.Head().(PairType).TypeKey()
+func (l PairList) TypeKey() d.Typed {
+	return l.Head().(PairVal).TypeKey()
 }
 
-func (l PairListType) TypeValue() d.Typed {
+func (l PairList) TypeValue() d.Typed {
 	return l.Head().(Paired).TypeValue()
 }
 
@@ -436,9 +436,9 @@ func argsToPaired(args ...Expression) []Paired {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
-func NewEmptyVector(init ...Expression) VecType { return NewVector() }
+func NewEmptyVector(init ...Expression) VecVal { return NewVector() }
 
-func NewVector(init ...Expression) VecType {
+func NewVector(init ...Expression) VecVal {
 	var vector = init
 	return func(args ...Expression) []Expression {
 		if len(args) > 0 {
@@ -451,31 +451,31 @@ func NewVector(init ...Expression) VecType {
 	}
 }
 
-func ConVector(vec Vectorized, args ...Expression) VecType {
+func ConVector(vec Vectorized, args ...Expression) VecVal {
 	return NewVector(append(vec.Slice(), args...)...)
 }
 
-func AppendVectors(vec Vectorized, args ...Expression) VecType {
+func AppendVectors(vec Vectorized, args ...Expression) VecVal {
 	return NewVector(append(vec.Slice(), args...)...)
 }
 
-func AppendArgToVector(init ...Expression) VecType {
+func AppendArgToVector(init ...Expression) VecVal {
 	return func(args ...Expression) []Expression {
 		return append(init, args...)
 	}
 }
 
-func (v VecType) Len() int            { return len(v()) }
-func (v VecType) Vector() VecType     { return v }
-func (v VecType) Slice() []Expression { return v() }
+func (v VecVal) Len() int            { return len(v()) }
+func (v VecVal) Vector() VecVal      { return v }
+func (v VecVal) Slice() []Expression { return v() }
 
-func (v VecType) Append(args ...Expression) Consumeable { return v.Con(args...) }
+func (v VecVal) Append(args ...Expression) Consumeable { return v.Con(args...) }
 
-func (v VecType) Prepend(args ...Expression) VecType {
+func (v VecVal) Prepend(args ...Expression) VecVal {
 	return NewVector(append(args, v()...)...)
 }
 
-func (v VecType) Reverse(args ...Expression) VecType {
+func (v VecVal) Reverse(args ...Expression) VecVal {
 	var slice []Expression
 	if v.Len() > 1 {
 		slice = []Expression{}
@@ -491,14 +491,14 @@ func (v VecType) Reverse(args ...Expression) VecType {
 	}
 	return NewVector(slice...)
 }
-func (v VecType) TypeFnc() TyFnc { return Vector }
-func (v VecType) Type() TyPattern {
+func (v VecVal) TypeFnc() TyFnc { return Vector }
+func (v VecVal) Type() TyPattern {
 	if v.Len() > 0 {
 		return Def(Vector, v.TypeElem().TypeReturn())
 	}
 	return Def(Vector, None)
 }
-func (v VecType) TypeElem() TyPattern {
+func (v VecVal) TypeElem() TyPattern {
 	if v.Len() > 0 {
 		return Def(v.Head().TypeFnc(),
 			Vector, v.Head().TypeFnc())
@@ -506,53 +506,53 @@ func (v VecType) TypeElem() TyPattern {
 	return Def(None, Vector, None)
 }
 
-func (v VecType) Con(args ...Expression) VecType {
+func (v VecVal) Con(args ...Expression) VecVal {
 	return ConVector(v, args...)
 }
 
-func (v VecType) Call(d ...Expression) Expression {
+func (v VecVal) Call(d ...Expression) Expression {
 	return NewVector(v(d...)...)
 }
 
-func (v VecType) Last() Expression {
+func (v VecVal) Last() Expression {
 	if v.Len() > 0 {
 		return v()[v.Len()-1]
 	}
 	return nil
 }
 
-func (v VecType) Head() Expression {
+func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
 	}
 	return nil
 }
 
-func (v VecType) Tail() Consumeable {
+func (v VecVal) Tail() Consumeable {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewEmptyVector()
 }
 
-func (v VecType) Consume() (Expression, Consumeable) {
+func (v VecVal) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
-func (v VecType) TailVec() VecType {
+func (v VecVal) TailVec() VecVal {
 	if v.Len() > 1 {
-		return NewVector(v.Tail().(VecType)()...)
+		return NewVector(v.Tail().(VecVal)()...)
 	}
 	return NewEmptyVector()
 }
 
-func (v VecType) ConsumeVec() (Expression, VecType) {
+func (v VecVal) ConsumeVec() (Expression, VecVal) {
 	return v.Head(), v.TailVec()
 }
 
-func (v VecType) Clear() VecType { return NewVector() }
+func (v VecVal) Clear() VecVal { return NewVector() }
 
-func (v VecType) Empty() bool {
+func (v VecVal) Empty() bool {
 	if len(v()) > 0 {
 		for _, val := range v() {
 			if !val.TypeFnc().Flag().Match(None) {
@@ -562,18 +562,18 @@ func (v VecType) Empty() bool {
 	}
 	return true
 }
-func (v VecType) Get(i int) (Expression, bool) {
+func (v VecVal) Get(i int) (Expression, bool) {
 	if i < v.Len() {
 		return v()[i], true
 	}
 	return NewNone(), false
 }
 
-func (v VecType) Set(i int, val Expression) (Vectorized, bool) {
+func (v VecVal) Set(i int, val Expression) (Vectorized, bool) {
 	if i < v.Len() {
 		var slice = v()
 		slice[i] = val
-		return VecType(
+		return VecVal(
 			func(elems ...Expression) []Expression {
 				return slice
 			}), true
@@ -587,8 +587,8 @@ func (v VecType) Set(i int, val Expression) (Vectorized, bool) {
 ///
 // list of associative pairs in sequential order associated, sorted and
 // searched by left value of the pairs
-func NewEmptyPairVec() PairVecType {
-	return PairVecType(func(args ...Paired) []Paired {
+func NewEmptyPairVec() PairVec {
+	return PairVec(func(args ...Paired) []Paired {
 		var pairs = []Paired{}
 		if len(args) > 0 {
 			pairs = append(pairs, args...)
@@ -597,8 +597,8 @@ func NewEmptyPairVec() PairVecType {
 	})
 }
 
-func NewPairVectorFromPairs(pairs ...Paired) PairVecType {
-	return PairVecType(func(args ...Paired) []Paired {
+func NewPairVectorFromPairs(pairs ...Paired) PairVec {
+	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
 			return append(pairs, args...)
 		}
@@ -606,7 +606,7 @@ func NewPairVectorFromPairs(pairs ...Paired) PairVecType {
 	})
 }
 
-func ConPairListFromArgs(rec PairVecType, args ...Expression) PairVecType {
+func ConPairListFromArgs(rec PairVec, args ...Expression) PairVec {
 	var pairs = []Paired{}
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
@@ -616,56 +616,56 @@ func ConPairListFromArgs(rec PairVecType, args ...Expression) PairVecType {
 	return NewPairVectorFromPairs(append(rec(), pairs...)...)
 }
 
-func NewPairVec(args ...Paired) PairVecType {
+func NewPairVec(args ...Paired) PairVec {
 	return NewPairVectorFromPairs(args...)
 }
 
-func ConPairVec(rec PairVecType, pairs ...Paired) PairVecType {
+func ConPairVec(rec PairVec, pairs ...Paired) PairVec {
 	return NewPairVectorFromPairs(append(rec(), pairs...)...)
 }
 
-func ConPairVecFromArgs(pvec PairVecType, args ...Expression) PairVecType {
+func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 	var pairs = pvec.Pairs()
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
 			pairs = append(pairs, pair)
 		}
 	}
-	return PairVecType(func(args ...Paired) []Paired {
+	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
 			return ConPairVec(pvec, args...)()
 		}
 		return append(pvec(), pairs...)
 	})
 }
-func (v PairVecType) Len() int { return len(v()) }
-func (v PairVecType) Type() TyPattern {
+func (v PairVec) Len() int { return len(v()) }
+func (v PairVec) Type() TyPattern {
 	if v.Len() > 0 {
 		return Def(Vector|Pair, v.TypeElem().TypeReturn())
 	}
 	return Def(None, Vector|Pair, None)
 }
-func (v PairVecType) TypeFnc() TyFnc { return Vector }
+func (v PairVec) TypeFnc() TyFnc { return Vector }
 
-func (v PairVecType) ConPairs(pairs ...Paired) PairVecType {
+func (v PairVec) ConPairs(pairs ...Paired) PairVec {
 	return ConPairVec(v, pairs...)
 }
 
-func (v PairVecType) Con(args ...Expression) PairVecType {
+func (v PairVec) Con(args ...Expression) PairVec {
 	return ConPairVecFromArgs(v, args...)
 }
 
-func (v PairVecType) Append(args ...Expression) Consumeable { return v.Con(args...) }
+func (v PairVec) Append(args ...Expression) Consumeable { return v.Con(args...) }
 
-func (v PairVecType) Consume() (Expression, Consumeable) {
+func (v PairVec) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
 }
 
-func (v PairVecType) ConsumePairVec() (Paired, PairVecType) {
-	return v.HeadPair(), v.Tail().(PairVecType)
+func (v PairVec) ConsumePairVec() (Paired, PairVec) {
+	return v.HeadPair(), v.Tail().(PairVec)
 }
 
-func (v PairVecType) Empty() bool {
+func (v PairVec) Empty() bool {
 	if len(v()) > 0 {
 		for _, pair := range v() {
 			if !pair.Empty() {
@@ -675,32 +675,32 @@ func (v PairVecType) Empty() bool {
 	}
 	return true
 }
-func (v PairVecType) TypeElem() TyPattern {
+func (v PairVec) TypeElem() TyPattern {
 	if v.Len() > 0 {
 		return Def(v.Head().TypeFnc(), Vector|Pair, v.Head().TypeFnc())
 	}
 	return Def(None, Vector|Pair, None)
 }
-func (v PairVecType) TypeKey() d.Typed {
+func (v PairVec) TypeKey() d.Typed {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Left().Type()
 	}
 	return None.TypeFnc()
 }
-func (v PairVecType) TypeValue() d.Typed {
+func (v PairVec) TypeValue() d.Typed {
 	if v.Len() > 0 {
 		return v.Pairs()[0].Right().Type()
 	}
 	return None.TypeFnc()
 }
-func (v PairVecType) Get(idx int) (Paired, bool) {
+func (v PairVec) Get(idx int) (Paired, bool) {
 	if idx < v.Len()-1 {
 		return v()[idx], true
 	}
 	return NewKeyPair("None", None), false
 }
 
-func (v PairVecType) Pairs() []Paired {
+func (v PairVec) Pairs() []Paired {
 	var pairs = []Paired{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair)
@@ -708,7 +708,7 @@ func (v PairVecType) Pairs() []Paired {
 	return pairs
 }
 
-func (v PairVecType) ConsumePair() (Paired, ConsumeablePaired) {
+func (v PairVec) ConsumePair() (Paired, ConsumeablePaired) {
 	var pairs = v()
 	if len(pairs) > 0 {
 		if len(pairs) > 1 {
@@ -719,7 +719,7 @@ func (v PairVecType) ConsumePair() (Paired, ConsumeablePaired) {
 	return nil, NewPairVec()
 }
 
-func (v PairVecType) SwitchedPairs() []Paired {
+func (v PairVec) SwitchedPairs() []Paired {
 	var switched = []Paired{}
 	for _, pair := range v() {
 		switched = append(
@@ -730,7 +730,7 @@ func (v PairVecType) SwitchedPairs() []Paired {
 	return switched
 }
 
-func (v PairVecType) Slice() []Expression {
+func (v PairVec) Slice() []Expression {
 	var fncs = []Expression{}
 	for _, pair := range v() {
 		fncs = append(fncs, NewPair(pair.Left(), pair.Right()))
@@ -738,38 +738,38 @@ func (v PairVecType) Slice() []Expression {
 	return fncs
 }
 
-func (v PairVecType) HeadPair() Paired {
+func (v PairVec) HeadPair() Paired {
 	if v.Len() > 0 {
 		return v()[0].(Paired)
 	}
 	return NewPair(NewNone(), NewNone())
 }
-func (v PairVecType) Head() Expression {
+func (v PairVec) Head() Expression {
 	if v.Len() > 0 {
 		return v.Pairs()[0]
 	}
 	return nil
 }
 
-func (v PairVecType) TailPairs() ConsumeablePaired {
+func (v PairVec) TailPairs() ConsumeablePaired {
 	if v.Len() > 1 {
 		return NewPairVectorFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyPairVec()
 }
-func (v PairVecType) Tail() Consumeable {
+func (v PairVec) Tail() Consumeable {
 	if v.Len() > 1 {
 		return NewPairVectorFromPairs(v.Pairs()[1:]...)
 	}
 	return NewEmptyPairVec()
 }
 
-func (v PairVecType) Call(args ...Expression) Expression {
+func (v PairVec) Call(args ...Expression) Expression {
 	return v.Con(args...)
 }
 
 /// DATA SET
-func NewSet(pairs ...PairType) SetType {
+func NewSet(pairs ...PairVal) SetVal {
 	var (
 		set = make(map[string]Expression, len(pairs))
 	)
@@ -803,51 +803,51 @@ func NewSet(pairs ...PairType) SetType {
 		return None, set
 	}
 }
-func (s SetType) Dict() map[string]Expression {
+func (s SetVal) Dict() map[string]Expression {
 	var _, set = s()
 	return set
 }
-func (s SetType) Keys() []string {
+func (s SetVal) Keys() []string {
 	var keys = []string{}
 	for key, _ := range s.Dict() {
 		keys = append(keys, key)
 	}
 	return keys
 }
-func (s SetType) Values() []Expression {
+func (s SetVal) Values() []Expression {
 	var vals = []Expression{}
 	for _, val := range s.Dict() {
 		vals = append(vals, val)
 	}
 	return vals
 }
-func (s SetType) Pairs() []Paired {
+func (s SetVal) Pairs() []Paired {
 	var pairs = make([]Paired, 0, s.Len())
 	for _, key := range s.Keys() {
 		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
 	}
 	return pairs
 }
-func (s SetType) KeyPairs() []KeyPairType {
-	var pairs = make([]KeyPairType, 0, s.Len())
+func (s SetVal) KeyPairs() []KeyPair {
+	var pairs = make([]KeyPair, 0, s.Len())
 	for _, key := range s.Keys() {
 		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
 	}
 	return pairs
 }
-func (s SetType) Get(key string) Expression {
+func (s SetVal) Get(key string) Expression {
 	if val, ok := s.Dict()[key]; ok {
 		return val
 	}
 	return NewNone()
 }
-func (s SetType) Len() int                             { return len(s.Keys()) }
-func (s SetType) TypeFnc() TyFnc                       { return Set }
-func (s SetType) GetByData(key Native) Expression      { return s.Get(key.String()) }
-func (s SetType) Set(key string, val Expression)       { s(NewKeyPair(key, val)) }
-func (s SetType) SetByData(key Native, val Expression) { s(NewKeyPair(key.String(), val)) }
-func (s SetType) Type() TyPattern                      { return Def(Set, s.TypeElem()) }
-func (s SetType) TypeElem() TyPattern {
+func (s SetVal) Len() int                             { return len(s.Keys()) }
+func (s SetVal) TypeFnc() TyFnc                       { return Set }
+func (s SetVal) GetByData(key Native) Expression      { return s.Get(key.String()) }
+func (s SetVal) Set(key string, val Expression)       { s(NewKeyPair(key, val)) }
+func (s SetVal) SetByData(key Native, val Expression) { s(NewKeyPair(key.String(), val)) }
+func (s SetVal) Type() TyPattern                      { return Def(Set, s.TypeElem()) }
+func (s SetVal) TypeElem() TyPattern {
 	if s.Len() > 0 {
 		if val := s.Values()[0]; !val.Type().Match(None) {
 			return val.Type()
@@ -855,7 +855,7 @@ func (s SetType) TypeElem() TyPattern {
 	}
 	return None.Type()
 }
-func (s SetType) Call(args ...Expression) Expression {
+func (s SetVal) Call(args ...Expression) Expression {
 	var expr, _ = s(args...)
 	return expr
 }

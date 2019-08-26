@@ -14,14 +14,20 @@ type (
 	CaseType   func(...Expression) Expression
 	SwitchType func(...Expression) (Expression, []CaseType)
 
+	//// POLYMORPHIC EXPRESSION
+	PolyVal SwitchType
+
 	// MAYBE (JUST | NONE)
-	MaybeType func(...Expression) ExprVal
+	MaybeType func(...Expression) Expression
+	MaybeVal  func(...Expression) (Expression, TyPattern)
 
 	// OPTION (EITHER | OR)
-	VariantType func(...Expression) ExprVal
+	VariantType func(...Expression) Expression
+	VariantVal  func(...Expression) (Expression, TyPattern)
 
-	// ENUM TYP)E
-	EnumType func(d.Integer) ExprVal
+	//// ENUMERABLE
+	EnumType TupleVal
+	EnumVal  func(...Expression) TupleVal
 )
 
 /// TRUTH TEST
@@ -89,15 +95,16 @@ func DecCase(test Testable, expr Expression, argtype, retype d.Typed) CaseType {
 			}
 			return NewNone()
 		}
-		return pattern
+		return NewPair(pattern, test)
 	}
 }
 
 func (t CaseType) TypeFnc() TyFnc                     { return Case }
-func (t CaseType) Type() TyPattern                    { return t().(TyPattern) }
-func (t CaseType) TypeReturn() TyPattern              { return t().(TyPattern).Pattern()[2] }
-func (t CaseType) TypeIdent() TyPattern               { return t().(TyPattern).Pattern()[1] }
-func (t CaseType) TypeArguments() []TyPattern         { return t().(TyPattern).Pattern()[0].Pattern() }
+func (t CaseType) Type() TyPattern                    { return t().(Paired).Left().(TyPattern) }
+func (t CaseType) Test() TestType                     { return t().(Paired).Right().(TestType) }
+func (t CaseType) TypeReturn() TyPattern              { return t.Type().Pattern()[2] }
+func (t CaseType) TypeIdent() TyPattern               { return t.Type().Pattern()[1] }
+func (t CaseType) TypeArguments() []TyPattern         { return t.Type().Pattern()[0].Pattern() }
 func (t CaseType) String() string                     { return t.TypeFnc().TypeName() }
 func (t CaseType) Call(args ...Expression) Expression { return t(args...) }
 
@@ -139,6 +146,8 @@ func DecSwitch(cases ...CaseType) SwitchType {
 }
 
 func (t SwitchType) Reload() SwitchType { return DecSwitch(t.Cases()...) }
+func (t SwitchType) String() string     { return t.Type().TypeName() }
+func (t SwitchType) TypeFnc() TyFnc     { return Switch }
 func (t SwitchType) Type() TyPattern {
 	var pat, _ = t()
 	return pat.(TyPattern)
@@ -167,35 +176,51 @@ func (t SwitchType) Call(args ...Expression) Expression {
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
 func DecMaybe(cas CaseType) MaybeType {
+	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
+	for _, arg := range cas.TypeArguments() {
+		argtypes = append(argtypes, arg)
+	}
 	var (
-		result Expression
-		ctype  = cas.Type()
+		pattern = Def(Def(argtypes...), Def(Just|None), Def(cas.TypeReturn()))
 	)
-	return func(args ...Expression) ExprVal {
+	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			if result = cas(args...); !result.TypeFnc().Match(None) {
-				return Declare(
-					result, None, Def(
-						Just, result.Type().TypeReturn(),
-					), result.Type(),
-				)
+			if result := cas.Call(args...); !result.Type().Match(None) {
+				return MaybeVal(func(args ...Expression) (Expression, TyPattern) {
+					if len(args) > 0 {
+						return result.Call(args...),
+							Def(
+								Def(argtypes...),
+								Just,
+								result.Type().TypeReturn(),
+							)
+					}
+					return result, Def(
+						Def(argtypes...),
+						Just,
+						result.Type().TypeReturn(),
+					)
+				})
 			}
-			return Declare(result, None, None) // ← will be None
+			return MaybeVal(func(...Expression) (Expression, TyPattern) {
+				return NewNone(), Def(None)
+			})
 		}
-		return Declare(
-			cas,
-			ctype.TypeArguments(),
-			ctype.TypeReturn(),
-			Maybe|ctype.TypeReturn().TypeFnc(),
-		)
+		return pattern
 	}
 }
-func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeType) Type() TyPattern                    { return t().Type() }
+
+func (t MaybeType) TypeFnc() TyFnc                     { return Constructor }
+func (t MaybeType) Type() TyPattern                    { return t().(TyPattern) }
 func (t MaybeType) TypeArguments() TyPattern           { return t().Type().TypeArguments() }
 func (t MaybeType) TypeReturn() TyPattern              { return t().Type().TypeReturn() }
-func (t MaybeType) String() string                     { return t.Type().TypeName() }
-func (t MaybeType) Call(args ...Expression) Expression { return t(args...) }
+func (t MaybeType) String() string                     { return t().String() }
+func (t MaybeType) Call(args ...Expression) Expression { return t.Call(args...) }
+
+func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
+func (t MaybeVal) Call(args ...Expression) Expression { var result, _ = t(args...); return result }
+func (t MaybeVal) String() string                     { var result, _ = t(); return result.String() }
+func (t MaybeVal) Type() TyPattern                    { var _, pat = t(); return pat }
 
 //// OPTIONAL VALUE
 ///
@@ -204,38 +229,88 @@ func (t MaybeType) Call(args ...Expression) Expression { return t(args...) }
 // matches. if none of the cases match, a none instance will be returned
 func DecVariant(either, or CaseType) VariantType {
 	var (
-		ets = make([]d.Typed, 0, len(either.TypeArguments()))
-		ots = make([]d.Typed, 0, len(or.TypeArguments()))
+		typesEither = make([]d.Typed, 0, len(either.TypeArguments()))
+		typesOr     = make([]d.Typed, 0, len(or.TypeArguments()))
 	)
-	for _, t := range either.TypeArguments() {
-		ets = append(ets, t)
+	for _, arg := range either.TypeArguments() {
+		typesEither = append(typesEither, arg)
 	}
-	for _, t := range or.TypeArguments() {
-		ots = append(ots, t)
+	for _, arg := range or.TypeArguments() {
+		typesOr = append(typesOr, arg)
 	}
 	var (
-		result     Expression
-		orargs     = Def(ots...)
-		eitherargs = Def(ets...)
-		ortype     = Def(orargs, Def(Or, or.TypeReturn()), or.TypeReturn())
-		eithertype = Def(eitherargs, Def(
-			Either, either.TypeReturn()), either.TypeReturn())
-		pattern = Def(Variant, Def(eitherargs, orargs), Def(eithertype, ortype))
+		eitherArgs, orArgs = Def(typesEither...), Def(typesOr...)
+
+		pattern = Def(
+			Def(
+				Def(Either, eitherArgs),
+				Lex_Pipe,
+				Def(Or, orArgs),
+			),
+			Def(Either|Or),
+			Def(
+				Def(Either, either.TypeReturn()),
+				Lex_Pipe,
+				Def(Or, or.TypeReturn()),
+			))
 	)
-	return func(args ...Expression) ExprVal {
+
+	return VariantType(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			if result = either(args...); !result.TypeFnc().Match(None) {
-				return Declare(result, eitherargs, either.TypeReturn())
+			var result Expression
+			if result = either.Call(args...); !result.Type().Match(None) {
+				return VariantVal(func(args ...Expression) (Expression, TyPattern) {
+					if len(args) > 0 {
+						return result.Call(args...),
+							Def(
+								eitherArgs,
+								Def(Either),
+								result.Type().TypeReturn(),
+							)
+					}
+					return result, Def(
+						eitherArgs,
+						Def(Either),
+						result.Type().TypeReturn(),
+					)
+				})
 			}
-			if result = or(args...); !result.TypeFnc().Match(None) {
-				return Declare(result, orargs, or.TypeReturn())
+			if result = or.Call(args...); !result.Type().Match(None) {
+				return VariantVal(func(args ...Expression) (Expression, TyPattern) {
+					if len(args) > 0 {
+						return result.Call(args...),
+							Def(
+								orArgs,
+								Def(Or),
+								result.Type().TypeReturn(),
+							)
+					}
+					return result, Def(
+						orArgs,
+						Def(Or),
+						result.Type().TypeReturn(),
+					)
+				})
 			}
-			return Declare(result, None, None) // ← result will be None
+			return VariantVal(func(...Expression) (Expression, TyPattern) {
+				return NewNone(), Def(None)
+			})
 		}
 		return pattern
-	}
+	})
 }
-func (o VariantType) TypeFnc() TyFnc                     { return Variant }
+func (o VariantType) TypeFnc() TyFnc                     { return Constructor }
+func (o VariantType) Type() TyPattern                    { return o().Type() }
+func (o VariantType) String() string                     { return o().String() }
 func (o VariantType) Call(args ...Expression) Expression { return o(args...) }
-func (o VariantType) String() string                     { return o.Type().TypeName() }
-func (o VariantType) Type() TyPattern                    { return o().Call().(TyPattern) }
+
+func (o VariantVal) TypeFnc() TyFnc { return Variant }
+func (o VariantVal) Call(args ...Expression) Expression {
+	var result, _ = o(args...)
+	return result
+}
+func (o VariantVal) String() string {
+	var result, _ = o()
+	return result.String()
+}
+func (o VariantVal) Type() TyPattern { var _, pat = o(); return pat }

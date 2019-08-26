@@ -86,7 +86,7 @@ var isInt = DecTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseInt = DecCase(isInt, DecNative("this is an int"), d.Int, d.String)
+var caseInteger = DecCase(isInt, DecNative("this is an int"), d.Int, d.String)
 var isUint = DecTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
@@ -105,7 +105,7 @@ var isFloat = DecTest(func(args ...Expression) bool {
 	return false
 })
 var caseFloat = DecCase(isFloat, DecNative("this is a float"), d.Float, d.String)
-var swi = DecSwitch(caseFloat, caseUint, caseInt)
+var swi = DecSwitch(caseFloat, caseUint, caseInteger)
 
 func TestSwitch(t *testing.T) {
 
@@ -138,27 +138,34 @@ func TestSwitch(t *testing.T) {
 }
 
 func TestMaybe(t *testing.T) {
-	var maybeString = DecMaybe(caseInt)
+	var maybeString = DecMaybe(caseInteger)
 	var str = maybeString(DecNative(42))
-	if str.Type().MatchArgs(DecNative("")) {
+	fmt.Printf("string: %s\n", str)
+	if str.Type().TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
 	var none = maybeString(DecNative(true))
-	if !none.Type().Match(None) {
+	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
+	if !none.Type().TypeReturn().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("maybe string: %s\n", maybeString)
+	fmt.Printf("maybe string: %s, type: %s\n", maybeString, maybeString.Type())
 	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
 }
 
 func TestOption(t *testing.T) {
 	var (
-		option   = DecVariant(caseInt, caseFloat)
+		option   = DecVariant(caseInteger, caseFloat)
 		intStr   = option(DecNative(23))
 		fltStr   = option(DecNative(42.23))
 		boolNone = option(DecNative(true))
 	)
+	fmt.Printf("option: %s, option type: %s\n",
+		option, option.Type())
+
+	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
+		intStr, fltStr, boolNone)
 
 	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr.Type(), fltStr.Type(), boolNone.Type())
@@ -169,7 +176,7 @@ func TestOption(t *testing.T) {
 	if !fltStr.Type().TypeReturn().Match(d.String) {
 		t.Fail()
 	}
-	if !boolNone.Type().Match(None) {
+	if !boolNone.Type().TypeReturn().Match(None) {
 		t.Fail()
 	}
 }

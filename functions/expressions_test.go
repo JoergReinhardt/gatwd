@@ -56,7 +56,7 @@ func TestExpression(t *testing.T) {
 		result2.Type().TypeIdent(),
 		result2.Type().TypeReturn())
 	fmt.Printf("result2: %s\n", result2)
-	if vec, ok := result2.(VecType); ok {
+	if vec, ok := result2.(VecVal); ok {
 		if vec.Len() != 2 {
 			t.Fail()
 		}
@@ -64,7 +64,7 @@ func TestExpression(t *testing.T) {
 
 	var result3 = addInts.Call(DecNative(23), DecNative(42), DecNative(23))
 	fmt.Printf("result3: %s\n", result3)
-	if vec, ok := result3.(VecType); ok {
+	if vec, ok := result3.(VecVal); ok {
 		if !vec()[1].Type().TypeReturn().Match(DefSym("AddInts")) {
 			t.Fail()
 		}
@@ -73,7 +73,7 @@ func TestExpression(t *testing.T) {
 	var result4 = addInts.Call(DecNative(23), DecNative(42),
 		DecNative(23), DecNative(42))
 	fmt.Printf("result4: %s\n", result4)
-	if vec, ok := result4.(VecType); ok {
+	if vec, ok := result4.(VecVal); ok {
 		if !vec.Head().Type().MatchArgs(DecNative(0)) {
 			t.Fail()
 		}
@@ -85,6 +85,11 @@ func TestTuple(t *testing.T) {
 
 	var tup = con.Call(DecNative(23), DecNative(42.23), DecNative(true))
 	fmt.Printf("tuple %s\n", tup)
+	if tup.(TupleVal)[0].(Native).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(Native).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(Native).Eval() != d.BoolVal(true) {
+		t.Fail()
+	}
 
 	var partial = con(DecNative(23))
 	fmt.Printf("partial %s\n", partial)
@@ -92,4 +97,9 @@ func TestTuple(t *testing.T) {
 	fmt.Printf("partial %s\n", partial)
 	tup = partial.Call(DecNative(true))
 	fmt.Printf("result %s\n", tup)
+	if tup.(TupleVal)[0].(Native).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(Native).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(Native).Eval() != d.BoolVal(true) {
+		t.Fail()
+	}
 }
