@@ -6,20 +6,20 @@ import (
 
 /// VALUE
 
-func (p PairType) String() string {
+func (p PairVal) String() string {
 	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
 }
-func (a KeyPairType) String() string {
+func (a KeyPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
-func (a IndexPairType) String() string {
+func (a IndexPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
 //func (r RightBoundFnc) String() string { return "ϝ ← [т‥.]" }
 
 /// VECTOR
-func (v VecType) String() string {
+func (v VecVal) String() string {
 	var pairs = []string{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair.String())
@@ -28,7 +28,7 @@ func (v VecType) String() string {
 }
 
 /// ACCESSABLE VECTOR (SLICE OF PAIRS)
-func (v PairVecType) String() string {
+func (v PairVec) String() string {
 	var pairs = []string{}
 	for _, pair := range v() {
 		pairs = append(pairs, pair.String())
@@ -46,7 +46,7 @@ func (v PairVecType) String() string {
 ////}
 
 /// LIST
-func (l ListType) String() string {
+func (l ListVal) String() string {
 	var (
 		args       = []string{}
 		head, list = l()
@@ -57,7 +57,7 @@ func (l ListType) String() string {
 	}
 	return "(" + strings.Join(args, ", ") + ")"
 }
-func (l PairListType) String() string {
+func (l PairList) String() string {
 	var (
 		args       = []string{}
 		head, list = l()

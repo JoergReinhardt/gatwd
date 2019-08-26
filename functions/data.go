@@ -24,7 +24,7 @@ type (
 	DataGoSlice func() d.Sliceable
 	DataPair    func() d.PairVal
 	DataSet     func() d.Mapped
-	DataValue   func(...d.Native) d.Native
+	DataVal     func(...d.Native) d.Native
 )
 
 func nativeType(nat d.Native) (typed d.Typed) {
@@ -64,7 +64,7 @@ func DecData(args ...d.Native) Native {
 	switch {
 	case match(d.Function):
 		if fn, ok := nat.(d.FuncVal); ok {
-			return DataValue(func(args ...d.Native) d.Native {
+			return DataVal(func(args ...d.Native) d.Native {
 				if len(args) > 0 {
 					return fn(args...)
 				}
@@ -94,12 +94,12 @@ func DecData(args ...d.Native) Native {
 }
 
 // NATIVE FUNCTION VALUE CONSTRUCTOR
-func (n DataValue) TypeFnc() TyFnc                 { return Data }
-func (n DataValue) TypeNat() d.TyNat               { return n().Type() }
-func (n DataValue) String() string                 { return n().String() }
-func (n DataValue) Eval(args ...d.Native) d.Native { return n(args...) }
-func (n DataValue) Type() TyPattern                { return Def(Data|Value, nativeType(n())) }
-func (n DataValue) Call(args ...Expression) Expression {
+func (n DataVal) TypeFnc() TyFnc                 { return Data }
+func (n DataVal) TypeNat() d.TyNat               { return n().Type() }
+func (n DataVal) String() string                 { return n().String() }
+func (n DataVal) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n DataVal) Type() TyPattern                { return Def(Data|Value, nativeType(n())) }
+func (n DataVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var nats = make([]d.Native, 0, len(args))
 		for _, arg := range args {
