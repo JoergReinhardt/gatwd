@@ -26,77 +26,9 @@ type (
 	AlternateVal  func(...Expression) (Expression, TyPattern)
 
 	//// ENUMERABLE
-	EnumType func(...d.Integer) (EnumVal, d.Integer, d.Integer)
-	EnumVal  func(...Expression) (Expression, OptionalVal, EnumType)
+	EnumType func(d.Integer) (Expression, d.Typed, d.Typed)        // generator expression, min. max bound
+	EnumVal  func(...Expression) (Expression, d.Integer, EnumType) // instance value,index, enum type
 )
-
-//// ENUM TYPE
-///
-//
-func NewEnum(fn func(...d.Integer) Expression, bounds ...d.Integer) ExprType {
-	var (
-		enumtype EnumType
-		isInt    = NewTest(func(args ...Expression) bool {
-			for _, arg := range args {
-				if arg.Type().Match(Data) {
-					if nat, ok := args[0].(Native); ok {
-						if idx, ok := nat.Eval().(d.Integer); ok {
-							continue
-						}
-					}
-				}
-				return false
-			}
-			return true
-		})
-	)
-	enumtype = func(idx ...d.Integer) (EnumVal, OptionalVal, OptionalVal) {
-		return func(args ...Expression) (Expression, OptionalVal, EnumType) {
-			return fn(idx).Call(args...), idx, enumtype
-		}, min, max
-	}
-	return enumtype
-}
-func (e EnumType) Expr() Expression {
-	var expr, _, _ = e()
-	return expr
-}
-func (e EnumType) Bounds() (min, max d.Integer) {
-	_, min, max = e()
-	return min, max
-}
-func (e EnumType) Min() d.Integer {
-	var min, _ = e.Bounds()
-	return min
-}
-func (e EnumType) Max() d.Integer {
-	var _, max = e.Bounds()
-	return max
-}
-func (e EnumType) String() string                     { return "Enum " + e.Null().Type().TypeName() }
-func (e EnumType) Type() TyPattern                    { return e.Unit().Type() }
-func (e EnumType) TypeFnc() TyFnc                     { return e.Unit().TypeFnc() }
-func (e EnumType) Null() Expression                   { return e.Expr(d.IntVal(0)) }
-func (e EnumType) Unit() Expression                   { return e.Expr(d.IntVal(1)) }
-func (e EnumType) Call(args ...Expression) Expression { return e.Expr(nums...) }
-
-//// ENUM VALUE
-///
-//
-func (e EnumVal) Index() d.Integer {
-	var _, idx = e()
-	return idx
-}
-func (e EnumVal) Expr() Expression {
-	var expr, _ = e()
-	return expr
-}
-func (e EnumVal) String() string  { return e.Expr().String() }
-func (e EnumVal) Type() TyPattern { return e.Expr().Type() }
-func (e EnumVal) TypeFnc() TyFnc  { return e.Expr().TypeFnc() }
-func (e EnumVal) Call(args ...Expression) Expression {
-	return e.Expr().Call(args...)
-}
 
 /// TRUTH TEST
 //
@@ -382,3 +314,155 @@ func (o AlternateVal) String() string {
 	return result.String()
 }
 func (o AlternateVal) Type() TyPattern { var _, pat = o(); return pat }
+
+//// ENUM VALUE
+///
+//
+func (e EnumVal) Index() d.Integer {
+	var _, idx, _ = e()
+	return idx
+}
+func (e EnumVal) Expr() Expression {
+	var expr, _, _ = e()
+	return expr
+}
+func (e EnumVal) String() string  { return e.Expr().String() }
+func (e EnumVal) Type() TyPattern { return e.Expr().Type() }
+func (e EnumVal) TypeFnc() TyFnc  { return e.Expr().TypeFnc() }
+func (e EnumVal) Call(args ...Expression) Expression {
+	return e.Expr().Call(args...)
+}
+
+//// ENUM TYPE
+///
+//
+var isInt = NewTest(func(args ...Expression) bool {
+	for _, arg := range args {
+		if arg.Type().Match(Data) {
+			if nat, ok := args[0].(Native); ok {
+				if nat.Eval().Type().Match(d.Integers) {
+					continue
+				}
+			}
+		}
+		return false
+	}
+	return true
+})
+
+func NewEnum(fn func(...d.Integer) Expression, bounds ...Expression) EnumType {
+	var (
+		enumtype EnumType
+		min, max d.Typed
+
+		lesserMin, greaterMax TestType
+	)
+	// set minimal bound and test bounds
+	if len(bounds) > 0 {
+		if isInt(bounds[0]) {
+			if idx, ok := bounds[0].(d.Integer); ok {
+				min = DefValNative(idx.Int())
+				lesserMin = NewTest(func(args ...Expression) bool {
+					for _, arg := range args {
+						if isInt(arg) {
+							if arg.(Native).Eval().(d.Integer).Int() <
+								idx.Int() {
+								return true
+							}
+						}
+					}
+					return false
+				})
+			}
+		}
+		// set maximal bound and test bounds
+		if len(bounds) > 1 {
+			if isInt(bounds[1]) {
+				if idx, ok := bounds[1].(d.Integer); ok {
+					max = DefValNative(idx.Int())
+					greaterMax = NewTest(func(args ...Expression) bool {
+						for _, arg := range args {
+							if isInt(arg) {
+								if arg.(Native).Eval().(d.Integer).Int() >
+									idx.Int() {
+									return true
+								}
+							}
+						}
+						return false
+					})
+				}
+			}
+		}
+	}
+	// if no minimum was defined, set minimal bound to infinite and bounds
+	// test to allways pass
+	if min == nil {
+		min = Lex_Infinite
+		lesserMin = NewTest(func(...Expression) bool { return false })
+	}
+	// if no maximum was defined, set maximal bound to infinite and bounds
+	// test to allways pass
+	if max == nil {
+		min = Lex_Infinite
+		greaterMax = NewTest(func(...Expression) bool { return false })
+	}
+	enumtype = func(idx d.Integer) (Expression, d.Typed, d.Typed) {
+		return EnumVal(func(args ...Expression) (Expression, d.Integer, EnumType) {
+			if !lesserMin(args...) && !greaterMax(args...) {
+				return fn(idx).Call(args...), idx, enumtype
+			}
+			return NewNone(), idx, enumtype
+		}), min, max
+	}
+	return enumtype
+}
+func (e EnumType) Expr() Expression {
+	var expr, _, _ = e(d.IntVal(0))
+	return expr
+}
+func (e EnumType) Bounds() (min, max d.Typed) {
+	_, min, max = e(d.IntVal(0))
+	return min, max
+}
+func (e EnumType) Min() d.Typed {
+	var min, _ = e.Bounds()
+	return min
+}
+func (e EnumType) Max() d.Typed {
+	var _, max = e.Bounds()
+	return max
+}
+func (e EnumType) String() string {
+	return "Enum " + e.Null().Type().TypeName()
+}
+func (e EnumType) Type() TyPattern { return e.Unit().Type() }
+func (e EnumType) TypeFnc() TyFnc  { return e.Unit().TypeFnc() }
+func (e EnumType) Null() Expression {
+	var result, _, _ = e(d.IntVal(0))
+	return result
+}
+func (e EnumType) Unit() Expression {
+	var result, _, _ = e(d.IntVal(1))
+	return result
+}
+func (e EnumType) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		if len(args) == 1 {
+			if isInt(args[0]) {
+				var result, _, _ = e(args[0].(Native).Eval().(d.Integer))
+				return result
+			}
+		}
+		var enums = NewVector()
+		for _, arg := range args {
+			if isInt(arg) {
+				var result, _, _ = e(arg.(Native).Eval().(d.Integer))
+				var num = enums.Con(result)
+				enums = enums.Con(num)
+			}
+		}
+		return enums
+	}
+	return e
+}
