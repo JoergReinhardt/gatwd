@@ -80,7 +80,7 @@ func TestExpression(t *testing.T) {
 	}
 }
 func TestTuple(t *testing.T) {
-	var con = DecTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
+	var con = NewTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
 	fmt.Printf("tuple constructor %s\n", con)
 
 	var tup = con.Call(DecNative(23), DecNative(42.23), DecNative(true))

@@ -56,7 +56,7 @@ func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone
 //// CONSTANT DECLARATION
 ///
 // declares a constant value
-func DecConstant(constant func() Expression) ConstVal { return constant }
+func NewConstant(constant func() Expression) ConstVal { return constant }
 
 func (c ConstVal) Type() TyPattern {
 	return Def(Constant|c().Type().TypeFnc(), c().Type())
@@ -68,7 +68,7 @@ func (c ConstVal) Call(...Expression) Expression { return c() }
 //// FUNCTION DECLARATION
 ///
 // declares a constant value
-func DecFunction(fnc func(...Expression) Expression) FuncVal { return fnc }
+func NewFunction(fnc func(...Expression) Expression) FuncVal { return fnc }
 
 func (c FuncVal) Type() TyPattern {
 	return Def(Value|c().Type().TypeFnc(), c().Type())
@@ -168,7 +168,7 @@ func (e ExprType) Call(args ...Expression) Expression { return e(args...) }
 //// TUPLE DECLARATION
 ///
 //
-func DecTuple(types ...d.Typed) ExprType {
+func NewTuple(types ...d.Typed) ExprType {
 	var (
 		pattern = make([]Expression, 0, len(types))
 		symbol  d.Typed
