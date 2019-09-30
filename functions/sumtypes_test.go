@@ -180,3 +180,50 @@ func TestOption(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestEnum(t *testing.T) {
+	var enumtype EnumType
+	enumtype = NewEnumType(
+		func(days ...d.Integer) Expression {
+			if len(days) > 0 {
+				if len(days) > 1 {
+					var vec = NewVector()
+					for _, day := range days {
+						if (d.IntVal(0) <= day.Int()) &&
+							(day.Int() <= d.IntVal(6)) {
+							var result, _, _ = enumtype(day)
+							vec = vec.Con(result)
+						}
+					}
+				}
+				switch days[0].Int() {
+				case 0:
+					return DecNative("Monday")
+				case 1:
+					return DecNative("Tuesday")
+				case 2:
+					return DecNative("Wednesday")
+				case 3:
+					return DecNative("Thursday")
+				case 4:
+					return DecNative("Friday")
+				case 5:
+					return DecNative("Saturday")
+				case 6:
+					return DecNative("Sunday")
+				}
+			}
+			return NewNone()
+		},
+		d.IntVal(0),
+		d.IntVal(6),
+	)
+
+	fmt.Printf("enum type days of the week: %s\n", enumtype)
+	var enum, min, max = enumtype(d.IntVal(2))
+	fmt.Printf("wednesday eum: %s, min: %s, max: %s\n",
+		enum, min, max)
+	var val, idx, typ = enum()
+	fmt.Printf("enum value val %s, index: %s, type: %s min %s, max %s\n",
+		val, idx, typ, typ.Min(), typ.Max())
+}
