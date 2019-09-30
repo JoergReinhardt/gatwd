@@ -78,7 +78,7 @@ func TestCase(t *testing.T) {
 	}
 }
 
-var isInt = NewTest(func(args ...Expression) bool {
+var isInteger = NewTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
 			return arg.(Native).TypeNat().Match(d.Int)
@@ -86,7 +86,7 @@ var isInt = NewTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseInteger = NewCase(isInt, DecNative("this is an int"), d.Int, d.String)
+var caseInteger = NewCase(isInteger, DecNative("this is an int"), d.Int, d.String)
 var isUint = NewTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
