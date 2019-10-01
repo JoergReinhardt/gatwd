@@ -19,6 +19,10 @@ type (
 	// TUPLE (TYPE[0]...TYPE[N])
 	TupleType func(...Expression) TupleVal
 	TupleVal  []Expression
+
+	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
+	RecordType func(...KeyPair) RecordVal
+	RecordVal  []KeyPair
 )
 
 //// NONE VALUE CONSTRUCTOR
