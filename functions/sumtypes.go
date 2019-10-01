@@ -23,11 +23,11 @@ type (
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
 	AlternateType func(...Expression) Expression
-	AlternateVal  func(...Expression) (Expression, TyFnc, AlternateType)
+	AlternateVal  func(...Expression) (Expression, TyPattern, AlternateType)
 
 	// OPTION TYPE (Option[0]‥.Option[n])
-	OptionType func(...Expression) (OptionVal, TyPattern)
-	OptionVal  func(...Expression) (Expression, OptionType)
+	OptionType func(...Expression) Expression
+	OptionVal  func(...Expression) (Expression, TyPattern, OptionType)
 
 	//// ENUMERABLE
 	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
@@ -262,23 +262,23 @@ func NewVariant(either, or CaseType) AlternateType {
 		if len(args) > 0 {
 			var result Expression
 			if result = either.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, TyFnc, AlternateType) {
+				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
 					if len(args) > 0 {
-						return result.Call(args...), Either, NewVariant(either, or)
+						return result.Call(args...), Def(Either), NewVariant(either, or)
 					}
-					return result, Either, NewVariant(either, or)
+					return result, Def(Either), NewVariant(either, or)
 				})
 			}
 			if result = or.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, TyFnc, AlternateType) {
+				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
 					if len(args) > 0 {
-						return result.Call(args...), Or, NewVariant(either, or)
+						return result.Call(args...), Def(Or), NewVariant(either, or)
 					}
-					return result, Or, NewVariant(either, or)
+					return result, Def(Or), NewVariant(either, or)
 				})
 			}
-			return AlternateVal(func(...Expression) (Expression, TyFnc, AlternateType) {
-				return NewNone(), None, NewVariant(either, or)
+			return AlternateVal(func(...Expression) (Expression, TyPattern, AlternateType) {
+				return NewNone(), Def(None), NewVariant(either, or)
 			})
 		}
 		return pattern
@@ -293,7 +293,7 @@ func (o AlternateType) Call(args ...Expression) Expression { return o(args...) }
 ///
 func (o AlternateVal) TypeFnc() TyFnc {
 	var _, eio, _ = o()
-	return eio
+	return eio.TypeFnc()
 }
 func (o AlternateVal) AlternativeType() AlternateType {
 	var _, _, altype = o()
