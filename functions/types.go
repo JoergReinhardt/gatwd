@@ -61,6 +61,7 @@ const (
 	Generator
 	Accumulator
 	Constructor
+	Polymorphic
 	/// PARAMETER
 	Property
 	Argument

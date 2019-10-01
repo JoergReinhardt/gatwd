@@ -17,102 +17,104 @@ func _() {
 	_ = x[Generator-64]
 	_ = x[Accumulator-128]
 	_ = x[Constructor-256]
-	_ = x[Property-512]
-	_ = x[Argument-1024]
-	_ = x[Pattern-2048]
-	_ = x[Element-4096]
-	_ = x[Lexical-8192]
-	_ = x[Symbol-16384]
-	_ = x[Arity-32768]
-	_ = x[Index-65536]
-	_ = x[Key-131072]
-	_ = x[True-262144]
-	_ = x[False-524288]
-	_ = x[Undecided-1048576]
-	_ = x[Equal-2097152]
-	_ = x[Lesser-4194304]
-	_ = x[Greater-8388608]
-	_ = x[Min-16777216]
-	_ = x[Max-33554432]
-	_ = x[Switch-67108864]
-	_ = x[Case-134217728]
-	_ = x[Just-268435456]
-	_ = x[None-536870912]
-	_ = x[Option-1073741824]
-	_ = x[Either-2147483648]
-	_ = x[Or-4294967296]
-	_ = x[Natural-8589934592]
-	_ = x[Integer-17179869184]
-	_ = x[Real-34359738368]
-	_ = x[Ratio-68719476736]
-	_ = x[Letter-137438953472]
-	_ = x[Text-274877906944]
-	_ = x[Bytes-549755813888]
-	_ = x[List-1099511627776]
-	_ = x[Vector-2199023255552]
-	_ = x[Set-4398046511104]
-	_ = x[Pair-8796093022208]
-	_ = x[Enum-17592186044416]
-	_ = x[Tuple-35184372088832]
-	_ = x[Record-70368744177664]
-	_ = x[State-140737488355328]
-	_ = x[IO-281474976710656]
-	_ = x[Parametric-562949953421312]
+	_ = x[Polymorphic-512]
+	_ = x[Property-1024]
+	_ = x[Argument-2048]
+	_ = x[Pattern-4096]
+	_ = x[Element-8192]
+	_ = x[Lexical-16384]
+	_ = x[Symbol-32768]
+	_ = x[Arity-65536]
+	_ = x[Index-131072]
+	_ = x[Key-262144]
+	_ = x[True-524288]
+	_ = x[False-1048576]
+	_ = x[Undecided-2097152]
+	_ = x[Equal-4194304]
+	_ = x[Lesser-8388608]
+	_ = x[Greater-16777216]
+	_ = x[Min-33554432]
+	_ = x[Max-67108864]
+	_ = x[Switch-134217728]
+	_ = x[Case-268435456]
+	_ = x[Just-536870912]
+	_ = x[None-1073741824]
+	_ = x[Option-2147483648]
+	_ = x[Either-4294967296]
+	_ = x[Or-8589934592]
+	_ = x[Natural-17179869184]
+	_ = x[Integer-34359738368]
+	_ = x[Real-68719476736]
+	_ = x[Ratio-137438953472]
+	_ = x[Letter-274877906944]
+	_ = x[Text-549755813888]
+	_ = x[Bytes-1099511627776]
+	_ = x[List-2199023255552]
+	_ = x[Vector-4398046511104]
+	_ = x[Set-8796093022208]
+	_ = x[Pair-17592186044416]
+	_ = x[Enum-35184372088832]
+	_ = x[Tuple-70368744177664]
+	_ = x[Record-140737488355328]
+	_ = x[State-281474976710656]
+	_ = x[IO-562949953421312]
+	_ = x[Parametric-1125899906842624]
 }
 
-const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
+const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorPolymorphicPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
 
 var _TyFnc_map = map[TyFnc]string{
-	1:               _TyFnc_name[0:4],
-	2:               _TyFnc_name[4:8],
-	4:               _TyFnc_name[8:13],
-	8:               _TyFnc_name[13:18],
-	16:              _TyFnc_name[18:24],
-	32:              _TyFnc_name[24:32],
-	64:              _TyFnc_name[32:41],
-	128:             _TyFnc_name[41:52],
-	256:             _TyFnc_name[52:63],
-	512:             _TyFnc_name[63:71],
-	1024:            _TyFnc_name[71:79],
-	2048:            _TyFnc_name[79:86],
-	4096:            _TyFnc_name[86:93],
-	8192:            _TyFnc_name[93:100],
-	16384:           _TyFnc_name[100:106],
-	32768:           _TyFnc_name[106:111],
-	65536:           _TyFnc_name[111:116],
-	131072:          _TyFnc_name[116:119],
-	262144:          _TyFnc_name[119:123],
-	524288:          _TyFnc_name[123:128],
-	1048576:         _TyFnc_name[128:137],
-	2097152:         _TyFnc_name[137:142],
-	4194304:         _TyFnc_name[142:148],
-	8388608:         _TyFnc_name[148:155],
-	16777216:        _TyFnc_name[155:158],
-	33554432:        _TyFnc_name[158:161],
-	67108864:        _TyFnc_name[161:167],
-	134217728:       _TyFnc_name[167:171],
-	268435456:       _TyFnc_name[171:175],
-	536870912:       _TyFnc_name[175:179],
-	1073741824:      _TyFnc_name[179:185],
-	2147483648:      _TyFnc_name[185:191],
-	4294967296:      _TyFnc_name[191:193],
-	8589934592:      _TyFnc_name[193:200],
-	17179869184:     _TyFnc_name[200:207],
-	34359738368:     _TyFnc_name[207:211],
-	68719476736:     _TyFnc_name[211:216],
-	137438953472:    _TyFnc_name[216:222],
-	274877906944:    _TyFnc_name[222:226],
-	549755813888:    _TyFnc_name[226:231],
-	1099511627776:   _TyFnc_name[231:235],
-	2199023255552:   _TyFnc_name[235:241],
-	4398046511104:   _TyFnc_name[241:244],
-	8796093022208:   _TyFnc_name[244:248],
-	17592186044416:  _TyFnc_name[248:252],
-	35184372088832:  _TyFnc_name[252:257],
-	70368744177664:  _TyFnc_name[257:263],
-	140737488355328: _TyFnc_name[263:268],
-	281474976710656: _TyFnc_name[268:270],
-	562949953421312: _TyFnc_name[270:280],
+	1:                _TyFnc_name[0:4],
+	2:                _TyFnc_name[4:8],
+	4:                _TyFnc_name[8:13],
+	8:                _TyFnc_name[13:18],
+	16:               _TyFnc_name[18:24],
+	32:               _TyFnc_name[24:32],
+	64:               _TyFnc_name[32:41],
+	128:              _TyFnc_name[41:52],
+	256:              _TyFnc_name[52:63],
+	512:              _TyFnc_name[63:74],
+	1024:             _TyFnc_name[74:82],
+	2048:             _TyFnc_name[82:90],
+	4096:             _TyFnc_name[90:97],
+	8192:             _TyFnc_name[97:104],
+	16384:            _TyFnc_name[104:111],
+	32768:            _TyFnc_name[111:117],
+	65536:            _TyFnc_name[117:122],
+	131072:           _TyFnc_name[122:127],
+	262144:           _TyFnc_name[127:130],
+	524288:           _TyFnc_name[130:134],
+	1048576:          _TyFnc_name[134:139],
+	2097152:          _TyFnc_name[139:148],
+	4194304:          _TyFnc_name[148:153],
+	8388608:          _TyFnc_name[153:159],
+	16777216:         _TyFnc_name[159:166],
+	33554432:         _TyFnc_name[166:169],
+	67108864:         _TyFnc_name[169:172],
+	134217728:        _TyFnc_name[172:178],
+	268435456:        _TyFnc_name[178:182],
+	536870912:        _TyFnc_name[182:186],
+	1073741824:       _TyFnc_name[186:190],
+	2147483648:       _TyFnc_name[190:196],
+	4294967296:       _TyFnc_name[196:202],
+	8589934592:       _TyFnc_name[202:204],
+	17179869184:      _TyFnc_name[204:211],
+	34359738368:      _TyFnc_name[211:218],
+	68719476736:      _TyFnc_name[218:222],
+	137438953472:     _TyFnc_name[222:227],
+	274877906944:     _TyFnc_name[227:233],
+	549755813888:     _TyFnc_name[233:237],
+	1099511627776:    _TyFnc_name[237:242],
+	2199023255552:    _TyFnc_name[242:246],
+	4398046511104:    _TyFnc_name[246:252],
+	8796093022208:    _TyFnc_name[252:255],
+	17592186044416:   _TyFnc_name[255:259],
+	35184372088832:   _TyFnc_name[259:263],
+	70368744177664:   _TyFnc_name[263:268],
+	140737488355328:  _TyFnc_name[268:274],
+	281474976710656:  _TyFnc_name[274:279],
+	562949953421312:  _TyFnc_name[279:281],
+	1125899906842624: _TyFnc_name[281:291],
 }
 
 func (i TyFnc) String() string {

@@ -16,9 +16,6 @@ type (
 	CaseType   func(...Expression) Expression
 	SwitchType func(...Expression) (Expression, []CaseType)
 
-	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	PolymorphExpr func(...Expression) (Expression, []TyPattern)
-
 	// MAYBE (JUST | NONE)
 	MaybeType func(...Expression) Expression
 	MaybeVal  func(...Expression) (Expression, TyPattern, MaybeType)
@@ -27,15 +24,81 @@ type (
 	AlternateType func(...Expression) Expression
 	AlternateVal  func(...Expression) (Expression, TyPattern, AlternateType)
 
-	// OPTION TYPE (Option[0]‥.Option[n])
-	OptionType func(...Expression) Expression
-
 	//// ENUMERABLE
 	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
 	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
+
+	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
+	PolyType func(...Expression) Expression
+
+	// OPTION TYPE (Option[0]‥.Option[n])
+	OptionType func(...Expression) Expression
 )
 
-/// option type
+//// POLYMORPHIC TYPE
+///
+//
+func NewPolyType(cases ...CaseType) PolyType {
+	var (
+		typeSwitch = NewSwitch(cases...)
+		patterns   = make([]Expression, 0, len(cases))
+	)
+	for _, c := range cases {
+		patterns = append(patterns, c.Type())
+	}
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return typeSwitch.Call(args...)
+		}
+		return NewVector(patterns...)
+	}
+}
+
+func (p PolyType) Patterns() []TyPattern {
+	var (
+		slice    = p().(VecVal)()
+		length   = len(slice)
+		patterns = make([]TyPattern, 0, length)
+	)
+	for _, elem := range slice {
+		patterns = append(patterns, elem.Type())
+	}
+	return patterns
+}
+
+func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
+func (p PolyType) TypeFnc() TyFnc                     { return Polymorphic }
+func (p PolyType) Type() TyPattern {
+	var length = len(p.Patterns())
+	var argtype, retype = make(
+		[]d.Typed,
+		0, length,
+	), make(
+		[]d.Typed,
+		0, length,
+	)
+	for n, pat := range p.Patterns() {
+		argtype = append(argtype, pat.TypeArguments())
+		retype = append(retype, pat.TypeReturn())
+		if n < length-1 {
+			argtype = append(argtype, Def(Lex_Pipe))
+			retype = append(retype, Def(Lex_Pipe))
+		}
+	}
+	return Def(Def(argtype...), Option, Def(retype...))
+}
+func (p PolyType) String() string {
+	var length = len(p.Patterns())
+	var strs = make([]string, 0, length)
+	for _, pat := range p.Patterns() {
+		strs = append(strs, pat.Type().TypeName())
+	}
+	return strings.Join(strs, " |\n")
+}
+
+//// OPTION TYPE
+///
+//
 func NewOptionType(cases ...CaseType) OptionType {
 	var (
 		typeSwitch = NewSwitch(cases...)
