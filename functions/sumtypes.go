@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -27,12 +29,70 @@ type (
 
 	// OPTION TYPE (Option[0]‥.Option[n])
 	OptionType func(...Expression) Expression
-	OptionVal  func(...Expression) (Expression, TyPattern, OptionType)
 
 	//// ENUMERABLE
 	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
 	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
 )
+
+/// option type
+func NewOptionType(cases ...CaseType) OptionType {
+	var (
+		typeSwitch = NewSwitch(cases...)
+		patterns   = make([]Expression, 0, len(cases))
+	)
+	for _, c := range cases {
+		patterns = append(patterns, c.Type())
+	}
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return typeSwitch.Call(args...)
+		}
+		return NewVector(patterns...)
+	}
+}
+
+func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
+func (o OptionType) TypeFnc() TyFnc                     { return Switch }
+func (o OptionType) String() string {
+	var length = len(o.Patterns())
+	var strs = make([]string, 0, length)
+	for _, pat := range o.Patterns() {
+		strs = append(strs, pat.Type().TypeName())
+	}
+	return strings.Join(strs, " |\n")
+}
+
+func (o OptionType) Patterns() []TyPattern {
+	var (
+		slice = o().(VecVal)()
+		pats  = make([]TyPattern, 0, len(slice))
+	)
+	for _, elem := range slice {
+		pats = append(pats, elem.Type())
+	}
+	return pats
+}
+
+func (o OptionType) Type() TyPattern {
+	var length = len(o.Patterns())
+	var argtype, retype = make(
+		[]d.Typed,
+		0, length,
+	), make(
+		[]d.Typed,
+		0, length,
+	)
+	for n, pat := range o.Patterns() {
+		argtype = append(argtype, pat.TypeArguments())
+		retype = append(retype, pat.TypeReturn())
+		if n < length-1 {
+			argtype = append(argtype, Def(Lex_Pipe))
+			retype = append(retype, Def(Lex_Pipe))
+		}
+	}
+	return Def(Def(argtype...), Option, Def(retype...))
+}
 
 /// TRUTH TEST
 //
