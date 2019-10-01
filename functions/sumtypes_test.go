@@ -225,5 +225,5 @@ func TestEnum(t *testing.T) {
 		enum, min, max)
 	var val, idx, typ = enum()
 	fmt.Printf("enum value val %s, index: %s, type: %s min %s, max %s\n",
-		val, idx, typ, typ.Min(), typ.Max())
+		val, idx, typ, typ.Low(), typ.High())
 }

@@ -14,7 +14,7 @@ type (
 	CaseType   func(...Expression) Expression
 	SwitchType func(...Expression) (Expression, []CaseType)
 
-	//// POLYMORPHIC EXPRESSION
+	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
 	PolymorphExpr func(...Expression) (Expression, []TyPattern)
 
 	// MAYBE (JUST | NONE)
@@ -30,10 +30,8 @@ type (
 	OptionVal  func(...Expression) (Expression, OptionType)
 
 	//// ENUMERABLE
-	// generator expression, min. max bound
 	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
-	// llltance value,index, enum type
-	EnumVal func(...Expression) (Expression, d.Integer, EnumType)
+	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
 )
 
 /// TRUTH TEST
@@ -314,127 +312,131 @@ func (o AlternateVal) Call(args ...Expression) Expression {
 //// ENUM TYPE
 ///
 //
-var isInt = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.Type().Match(Data) {
-			if nat, ok := args[0].(Native); ok {
-				if nat.Eval().Type().Match(d.Integers) {
-					continue
+var (
+	isInt = NewTest(func(args ...Expression) bool {
+		for _, arg := range args {
+			if arg.Type().Match(Data) {
+				if nat, ok := args[0].(Native); ok {
+					if nat.Eval().Type().Match(d.Integers) {
+						continue
+					}
 				}
+			}
+			return false
+		}
+		return true
+	})
+	makeBounds = func(bounds ...d.Integer) (low, high d.Typed, lesser, greater ComparatorType) {
+		if len(bounds) == 0 {
+			low, high = Lex_Infinite, Lex_Infinite
+			lesser = func(...Expression) int { return 0 }
+			greater = func(...Expression) int { return 0 }
+		}
+
+		if len(bounds) >= 1 {
+			var minBound = bounds[0].(d.Native)
+			low = DefValNative(minBound)
+			lesser = NewComparator(func(args ...Expression) int {
+				for _, arg := range args {
+					if arg.Type().Match(Data) {
+						var aint = arg.(Native).Eval()
+						if aint.Type().Match(d.BigInt) {
+							if minBound.Type().Match(d.BigInt) {
+								if minBound.(d.BigIntVal).GoBigInt().Cmp(
+									aint.(d.BigIntVal).GoBigInt()) < 0 {
+									return -1
+								}
+							}
+						}
+						if aint.Type().Match(d.Integers) {
+							if minBound.Type().Match(d.Integers) {
+								if aint.(d.Integer).Int() < minBound.(d.Integer).Int() {
+									return -1
+								}
+							}
+						}
+					}
+				}
+				return -2
+			})
+		}
+
+		if len(bounds) >= 2 {
+			var maxBound = bounds[1].(d.Native)
+			high = DefValNative(maxBound)
+			greater = NewComparator(func(args ...Expression) int {
+				for _, arg := range args {
+					if arg.Type().Match(Data) {
+						var aint = arg.(Native).Eval()
+						if maxBound.Type().Match(d.BigInt) {
+							if aint.Type().Match(d.BigInt) {
+								if maxBound.(d.BigIntVal).GoBigInt().Cmp(
+									aint.(d.BigIntVal).GoBigInt()) > 0 {
+									return 1
+								}
+							}
+						}
+						if aint.Type().Match(d.Integers) {
+							if maxBound.Type().Match(d.Integers) {
+								if aint.(d.Integer).Int() > maxBound.(d.Integer).Int() {
+									return 1
+								}
+							}
+						}
+					}
+				}
+				return -2
+			})
+		}
+		return low, high, lesser, greater
+	}
+	inBound = func(lesser, greater ComparatorType, args ...Expression) bool {
+		for _, arg := range args {
+			if isInt(arg) && lesser(arg) < 0 && greater(arg) > 0 {
+				return false
 			}
 		}
-		return false
+		return true
 	}
-	return true
-})
+)
 
-func NewEnumType(fnc func(...d.Integer) Expression, bounds ...d.Integer) EnumType {
-
-	var (
-		min, max        d.Typed
-		lesser, greater ComparatorType
-		inBounds        = NewTest(func(args ...Expression) bool {
-			for _, arg := range args {
-				if isInt(arg) && lesser(arg) < 0 && greater(arg) > 0 {
-					return false
-				}
-			}
-			return true
-		})
-	)
-
-	if len(bounds) == 0 {
-		min, max = Lex_Infinite, Lex_Infinite
-		lesser = func(...Expression) int { return 0 }
-		greater = func(...Expression) int { return 0 }
-	}
-
-	if len(bounds) >= 1 {
-		var minBound = bounds[0].(d.Native)
-		min = DefValNative(minBound)
-		lesser = NewComparator(func(args ...Expression) int {
-			for _, arg := range args {
-				if arg.Type().Match(Data) {
-					var aint = arg.(Native).Eval()
-					if aint.Type().Match(d.BigInt) {
-						if minBound.Type().Match(d.BigInt) {
-							if minBound.(d.BigIntVal).GoBigInt().Cmp(
-								aint.(d.BigIntVal).GoBigInt()) < 0 {
-								return -1
-							}
-						}
-					}
-					if aint.Type().Match(d.Integers) {
-						if minBound.Type().Match(d.Integers) {
-							if aint.(d.Integer).Int() < minBound.(d.Integer).Int() {
-								return -1
-							}
-						}
-					}
-				}
-			}
-			return -2
-		})
-	}
-
-	if len(bounds) >= 2 {
-		var maxBound = bounds[1].(d.Native)
-		max = DefValNative(maxBound)
-		greater = NewComparator(func(args ...Expression) int {
-			for _, arg := range args {
-				if arg.Type().Match(Data) {
-					var aint = arg.(Native).Eval()
-					if maxBound.Type().Match(d.BigInt) {
-						if aint.Type().Match(d.BigInt) {
-							if maxBound.(d.BigIntVal).GoBigInt().Cmp(
-								aint.(d.BigIntVal).GoBigInt()) > 0 {
-								return 1
-							}
-						}
-					}
-					if aint.Type().Match(d.Integers) {
-						if maxBound.Type().Match(d.Integers) {
-							if aint.(d.Integer).Int() > maxBound.(d.Integer).Int() {
-								return 1
-							}
-						}
-					}
-				}
-			}
-			return -2
-		})
-	}
-
+func NewEnumType(fnc func(...d.Integer) Expression, limits ...d.Integer) EnumType {
+	var low, high, lesser, greater = makeBounds(limits...)
 	return func(idx d.Integer) (EnumVal, d.Typed, d.Typed) {
 		return func(args ...Expression) (Expression, d.Integer, EnumType) {
-			if inBounds(args...) {
-				return fnc(idx).Call(args...), idx, NewEnumType(fnc, bounds...)
+			if inBound(lesser, greater, args...) {
+				return fnc(idx).Call(args...), idx, NewEnumType(fnc, limits...)
 			}
-			return NewNone(), idx, NewEnumType(fnc, bounds...)
-		}, min, max
+			return NewNone(), idx, NewEnumType(fnc, limits...)
+		}, low, high
 	}
 }
 func (e EnumType) Expr() Expression {
 	var expr, _, _ = e(d.IntVal(0))
 	return expr
 }
-func (e EnumType) Bounds() (min, max d.Typed) {
+func (e EnumType) Limits() (min, max d.Typed) {
 	_, min, max = e(d.IntVal(0))
 	return min, max
 }
-func (e EnumType) Min() d.Typed {
-	var min, _ = e.Bounds()
+func (e EnumType) Low() d.Typed {
+	var min, _ = e.Limits()
 	return min
 }
-func (e EnumType) Max() d.Typed {
-	var _, max = e.Bounds()
+func (e EnumType) High() d.Typed {
+	var _, max = e.Limits()
 	return max
+}
+func (e EnumType) InBound(args ...Expression) bool {
+	var _, _, lesser, greater = makeBounds(
+		e.Low().(d.Integer),
+		e.High().(d.Integer),
+	)
+	return inBound(lesser, greater, args...)
 }
 func (e EnumType) String() string {
 	return "Enum " + e.Null().Type().TypeName()
 }
-func (e EnumType) Type() TyPattern { return e.Unit().Type() }
-func (e EnumType) TypeFnc() TyFnc  { return e.Unit().TypeFnc() }
 func (e EnumType) Null() Expression {
 	var result, _, _ = e(d.IntVal(0))
 	return result
@@ -443,6 +445,8 @@ func (e EnumType) Unit() Expression {
 	var result, _, _ = e(d.IntVal(1))
 	return result
 }
+func (e EnumType) Type() TyPattern { return e.Unit().Type() }
+func (e EnumType) TypeFnc() TyFnc  { return e.Unit().TypeFnc() }
 func (e EnumType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		if len(args) == 1 {
