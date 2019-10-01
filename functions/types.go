@@ -87,6 +87,7 @@ const (
 	Case
 	Just
 	None
+	Option
 	Either
 	Or
 	/// CLASSES
@@ -128,8 +129,6 @@ const (
 	Maybe   = Just | None
 	Variant = Either | Or
 
-	Optional = Switch | Case | Maybe | Variant | Tuple | Record
-
 	//// COLLECTIONS
 	ProdTypes   = List | Vector | Enum
 	SumTypes    = Set | Record | Tuple
@@ -167,8 +166,6 @@ func (t TyFnc) TypeName() string {
 			return "Maybe"
 		case Variant:
 			return "Option"
-		case Optional:
-			return "Branche"
 		case Bound:
 			return "Bound"
 		case SumTypes:
@@ -550,7 +547,6 @@ func (p TyPattern) HasCompare() bool     { return p.MatchAnyType(Compare) }
 func (p TyPattern) HasBound() bool       { return p.MatchAnyType(Min, Max) }
 func (p TyPattern) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
 func (p TyPattern) HasAlternative() bool { return p.MatchAnyType(Variant) }
-func (p TyPattern) HasOptional() bool    { return p.MatchAnyType(Optional) }
 func (p TyPattern) HasNumber() bool      { return p.MatchAnyType(Number) }
 func (p TyPattern) HasString() bool      { return p.MatchAnyType(String) }
 func (p TyPattern) HasBytes() bool       { return p.MatchAnyType(Bytes) }
