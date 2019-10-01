@@ -23,10 +23,10 @@ type (
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
 	AlternateType func(...Expression) Expression
-	AlternateVal  func(...Expression) (Expression, AlternateType)
+	AlternateVal  func(...Expression) (Expression, TyFnc, AlternateType)
 
 	// OPTION TYPE (Option[0]‥.Option[n])
-	OptionType func(...Expression) Expression
+	OptionType func(...Expression) (OptionVal, TyPattern)
 	OptionVal  func(...Expression) (Expression, OptionType)
 
 	//// ENUMERABLE
@@ -262,23 +262,23 @@ func NewVariant(either, or CaseType) AlternateType {
 		if len(args) > 0 {
 			var result Expression
 			if result = either.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, AlternateType) {
+				return AlternateVal(func(args ...Expression) (Expression, TyFnc, AlternateType) {
 					if len(args) > 0 {
-						return result.Call(args...), NewVariant(either, or)
+						return result.Call(args...), Either, NewVariant(either, or)
 					}
-					return result, NewVariant(either, or)
+					return result, Either, NewVariant(either, or)
 				})
 			}
 			if result = or.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, AlternateType) {
+				return AlternateVal(func(args ...Expression) (Expression, TyFnc, AlternateType) {
 					if len(args) > 0 {
-						return result.Call(args...), NewVariant(either, or)
+						return result.Call(args...), Or, NewVariant(either, or)
 					}
-					return result, NewVariant(either, or)
+					return result, Or, NewVariant(either, or)
 				})
 			}
-			return AlternateVal(func(...Expression) (Expression, AlternateType) {
-				return NewNone(), NewVariant(either, or)
+			return AlternateVal(func(...Expression) (Expression, TyFnc, AlternateType) {
+				return NewNone(), None, NewVariant(either, or)
 			})
 		}
 		return pattern
@@ -291,21 +291,24 @@ func (o AlternateType) Call(args ...Expression) Expression { return o(args...) }
 
 //// ALTERNATIVE VALUE
 ///
+func (o AlternateVal) TypeFnc() TyFnc {
+	var _, eio, _ = o()
+	return eio
+}
 func (o AlternateVal) AlternativeType() AlternateType {
-	var _, altype = o()
+	var _, _, altype = o()
 	return altype
 }
-func (o AlternateVal) TypeFnc() TyFnc { return Variant }
 func (o AlternateVal) Type() TyPattern {
-	var result, _ = o()
-	return result.Type()
+	var result, eio, _ = o()
+	return Def(eio, result.Type())
 }
 func (o AlternateVal) String() string {
-	var result, _ = o()
+	var result, _, _ = o()
 	return result.String()
 }
 func (o AlternateVal) Call(args ...Expression) Expression {
-	var result, _ = o(args...)
+	var result, _, _ = o(args...)
 	return result
 }
 
