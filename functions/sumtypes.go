@@ -53,19 +53,6 @@ func NewPolyType(cases ...CaseType) PolyType {
 		return NewVector(patterns...)
 	}
 }
-
-func (p PolyType) Patterns() []TyPattern {
-	var (
-		slice    = p().(VecVal)()
-		length   = len(slice)
-		patterns = make([]TyPattern, 0, length)
-	)
-	for _, elem := range slice {
-		patterns = append(patterns, elem.Type())
-	}
-	return patterns
-}
-
 func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
 func (p PolyType) TypeFnc() TyFnc                     { return Polymorphic }
 func (p PolyType) Type() TyPattern {
@@ -86,6 +73,17 @@ func (p PolyType) Type() TyPattern {
 		}
 	}
 	return Def(Def(argtype...), Option, Def(retype...))
+}
+func (p PolyType) Patterns() []TyPattern {
+	var (
+		slice    = p().(VecVal)()
+		length   = len(slice)
+		patterns = make([]TyPattern, 0, length)
+	)
+	for _, elem := range slice {
+		patterns = append(patterns, elem.Type())
+	}
+	return patterns
 }
 func (p PolyType) String() string {
 	var length = len(p.Patterns())

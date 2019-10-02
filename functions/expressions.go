@@ -85,7 +85,7 @@ func (c FuncVal) Call(...Expression) Expression { return c() }
 //
 // element values yield a subelements of optional, tuple, or enumerable
 // expressions with sub-type pattern as second return value
-func Declare(
+func Define(
 	expr Expression,
 	argtype, retype d.Typed,
 	propertys ...d.Typed,
@@ -98,9 +98,9 @@ func Declare(
 	var (
 		ident         d.Typed
 		pattern       TyPattern
+		props, idents []d.Typed
 		arglen        = argtype.(TyPattern).Count()
 		argtypes      = argtype.(TyPattern).Types()
-		props, idents []d.Typed
 	)
 
 	if len(propertys) == 0 {
@@ -133,7 +133,7 @@ func Declare(
 
 				case length < arglen:
 					var remains = argtypes[length:]
-					return Declare(ExprType(
+					return Define(ExprType(
 						func(lateargs ...Expression) ExprVal {
 							if len(lateargs) > 0 {
 								return expr.Call(append(
@@ -151,7 +151,7 @@ func Declare(
 						args = args[arglen:]
 					}
 					if length > 0 {
-						vector = vector.Con(Declare(
+						vector = vector.Con(Define(
 							expr, argtype, retype, propertys...,
 						).Call(args...))
 					}
@@ -193,7 +193,7 @@ func NewTuple(types ...d.Typed) ExprType {
 			pattern = append(pattern, Def(typ))
 		}
 	}
-	return Declare(
+	return Define(
 		TupleType(func(args ...Expression) TupleVal {
 			if len(args) > 0 {
 				return args
@@ -203,8 +203,8 @@ func NewTuple(types ...d.Typed) ExprType {
 		Def(types...), Def(symbol, Def(types...)))
 }
 func (t TupleType) Call(args ...Expression) Expression { return t(args...) }
-func (t TupleType) String() string                     { return t.Type().String() }
 func (t TupleType) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupleType) String() string                     { return t.Type().String() }
 func (t TupleType) Type() TyPattern {
 	var (
 		elems = t()
@@ -218,21 +218,21 @@ func (t TupleType) Type() TyPattern {
 }
 
 /// TUPLE VALUE
-func (t TupleVal) Count() int     { return len(t) }
-func (t TupleVal) TypeFnc() TyFnc { return Tuple }
-func (t TupleVal) Get(idx int) Expression {
-	if idx < t.Count() {
-		return t[idx]
-	}
-	return NewNone()
-}
 func (t TupleVal) Call(...Expression) Expression { return t }
+func (t TupleVal) Count() int                    { return len(t) }
+func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
 func (t TupleVal) Type() TyPattern {
 	var types = make([]d.Typed, 0, t.Count())
 	for _, elem := range t {
 		types = append(types, elem.Type())
 	}
 	return Def(Tuple, Def(types...))
+}
+func (t TupleVal) Get(idx int) Expression {
+	if idx < t.Count() {
+		return t[idx]
+	}
+	return NewNone()
 }
 func (t TupleVal) String() string {
 	var strs = make([]string, 0, t.Count())
@@ -269,7 +269,7 @@ func (r RecordType) String() string {
 		strs = append(
 			strs,
 			record.Key().String()+"∷ "+
-				record.Value().String(),
+				record.Value().Type().TypeName(),
 		)
 	}
 	return "{" + strings.Join(strs, ", ") + "}"
@@ -297,6 +297,23 @@ func (r RecordType) Call(args ...Expression) Expression {
 //// RECORD VALUE
 ///
 //
+func (r RecordVal) Count() int      { return len(r) }
+func (r RecordVal) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
+func (r RecordVal) TypeFnc() TyFnc  { return Record }
+func (r RecordVal) Keys() []string {
+	var keys = make([]string, 0, len(r))
+	for _, record := range r {
+		keys = append(keys, record.Key().String())
+	}
+	return keys
+}
+func (r RecordVal) Types() []d.Typed {
+	var types = make([]d.Typed, 0, len(r))
+	for _, pair := range r {
+		types = append(types, pair.Value().Type())
+	}
+	return types
+}
 func (r RecordVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var result = make([]KeyPair, 0, len(r))
@@ -309,14 +326,6 @@ func (r RecordVal) Call(args ...Expression) Expression {
 	}
 	return r
 }
-func (r RecordVal) Types() []d.Typed {
-	var types = make([]d.Typed, 0, len(r))
-	for _, pair := range r {
-		types = append(types, pair.Value().Type())
-	}
-	return types
-}
-func (r RecordVal) Count() int { return len(r) }
 func (r RecordVal) Get(key string) Expression {
 	for _, record := range r {
 		if record.Key().String() == key {
@@ -325,8 +334,14 @@ func (r RecordVal) Get(key string) Expression {
 	}
 	return NewNone()
 }
-func (r RecordVal) TypeFnc() TyFnc  { return Record }
-func (r RecordVal) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
 func (r RecordVal) String() string {
-	return ""
+	var strs = make([]string, 0, len(r))
+	for _, record := range r {
+		strs = append(
+			strs,
+			record.Key().String()+"∷ "+
+				record.Value().String(),
+		)
+	}
+	return "{" + strings.Join(strs, ", ") + "}"
 }

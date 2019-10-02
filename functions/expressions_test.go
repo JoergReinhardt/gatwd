@@ -7,7 +7,7 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var addInts = Declare(DecNative(func(args ...d.Native) d.Native {
+var addInts = Define(DecNative(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
 }), Def(Def(Data, d.Int), Def(Data, d.Int)), Def(Data, d.Int), DefSym("AddInts"))

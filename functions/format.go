@@ -6,7 +6,7 @@ import (
 
 /// VALUE
 
-func (p PairVal) String() string {
+func (p ValPair) String() string {
 	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
 }
 func (a KeyPair) String() string {

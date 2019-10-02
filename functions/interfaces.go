@@ -32,18 +32,17 @@ type Callable interface {
 type Typed interface {
 	d.Typed
 }
+type Native interface {
+	Expression
+	TypeNat() d.TyNat
+	Eval(...d.Native) d.Native
+}
 type Expression interface {
 	FunctionTyped
 	Callable
 	Stringer
 	Type() TyPattern
 }
-type Native interface {
-	Expression
-	TypeNat() d.TyNat
-	Eval(...d.Native) d.Native
-}
-
 type Mapped interface {
 	Len() int
 	Keys() []Expression

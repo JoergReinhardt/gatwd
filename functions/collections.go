@@ -606,7 +606,7 @@ func NewPairVectorFromPairs(pairs ...Paired) PairVec {
 	})
 }
 
-func ConPairListFromArgs(rec PairVec, args ...Expression) PairVec {
+func ConPairVecFromPairs(rec PairVec, args ...Expression) PairVec {
 	var pairs = []Paired{}
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
