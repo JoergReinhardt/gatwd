@@ -61,7 +61,6 @@ const (
 	Generator
 	Accumulator
 	Constructor
-	Polymorphic
 	/// PARAMETER
 	Property
 	Argument
@@ -89,6 +88,7 @@ const (
 	Just
 	None
 	Option
+	Polymorphic
 	Either
 	Or
 	/// CLASSES

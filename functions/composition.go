@@ -1,8 +1,12 @@
 package functions
 
 func Map(function, data Expression) Expression {
-	var result Expression
-	return result
+	switch {
+	case data.TypeFnc().Match(Collections):
+	case data.TypeFnc().Match(Pair):
+	case data.TypeFnc().Match(None):
+	}
+	return function.Call(data)
 }
 func Bind(function, data Expression) Expression {
 	var result Expression

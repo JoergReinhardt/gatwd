@@ -184,6 +184,12 @@ type AssociativeCollected interface {
 	Consumeable
 	Associative
 }
+type ProtoTyped interface {
+	Expression
+	Name() string
+	Methods() []string
+	CallMethod(string, ...Expression) Expression
+}
 
 //// TREES & GRAPHS
 ///

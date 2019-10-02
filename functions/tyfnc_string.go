@@ -17,29 +17,29 @@ func _() {
 	_ = x[Generator-64]
 	_ = x[Accumulator-128]
 	_ = x[Constructor-256]
-	_ = x[Polymorphic-512]
-	_ = x[Property-1024]
-	_ = x[Argument-2048]
-	_ = x[Pattern-4096]
-	_ = x[Element-8192]
-	_ = x[Lexical-16384]
-	_ = x[Symbol-32768]
-	_ = x[Arity-65536]
-	_ = x[Index-131072]
-	_ = x[Key-262144]
-	_ = x[True-524288]
-	_ = x[False-1048576]
-	_ = x[Undecided-2097152]
-	_ = x[Equal-4194304]
-	_ = x[Lesser-8388608]
-	_ = x[Greater-16777216]
-	_ = x[Min-33554432]
-	_ = x[Max-67108864]
-	_ = x[Switch-134217728]
-	_ = x[Case-268435456]
-	_ = x[Just-536870912]
-	_ = x[None-1073741824]
-	_ = x[Option-2147483648]
+	_ = x[Property-512]
+	_ = x[Argument-1024]
+	_ = x[Pattern-2048]
+	_ = x[Element-4096]
+	_ = x[Lexical-8192]
+	_ = x[Symbol-16384]
+	_ = x[Arity-32768]
+	_ = x[Index-65536]
+	_ = x[Key-131072]
+	_ = x[True-262144]
+	_ = x[False-524288]
+	_ = x[Undecided-1048576]
+	_ = x[Equal-2097152]
+	_ = x[Lesser-4194304]
+	_ = x[Greater-8388608]
+	_ = x[Min-16777216]
+	_ = x[Max-33554432]
+	_ = x[Switch-67108864]
+	_ = x[Case-134217728]
+	_ = x[Just-268435456]
+	_ = x[None-536870912]
+	_ = x[Option-1073741824]
+	_ = x[Polymorphic-2147483648]
 	_ = x[Either-4294967296]
 	_ = x[Or-8589934592]
 	_ = x[Natural-17179869184]
@@ -61,7 +61,7 @@ func _() {
 	_ = x[Parametric-1125899906842624]
 }
 
-const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorPolymorphicPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
+const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorPropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphicEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                _TyFnc_name[0:4],
@@ -73,29 +73,29 @@ var _TyFnc_map = map[TyFnc]string{
 	64:               _TyFnc_name[32:41],
 	128:              _TyFnc_name[41:52],
 	256:              _TyFnc_name[52:63],
-	512:              _TyFnc_name[63:74],
-	1024:             _TyFnc_name[74:82],
-	2048:             _TyFnc_name[82:90],
-	4096:             _TyFnc_name[90:97],
-	8192:             _TyFnc_name[97:104],
-	16384:            _TyFnc_name[104:111],
-	32768:            _TyFnc_name[111:117],
-	65536:            _TyFnc_name[117:122],
-	131072:           _TyFnc_name[122:127],
-	262144:           _TyFnc_name[127:130],
-	524288:           _TyFnc_name[130:134],
-	1048576:          _TyFnc_name[134:139],
-	2097152:          _TyFnc_name[139:148],
-	4194304:          _TyFnc_name[148:153],
-	8388608:          _TyFnc_name[153:159],
-	16777216:         _TyFnc_name[159:166],
-	33554432:         _TyFnc_name[166:169],
-	67108864:         _TyFnc_name[169:172],
-	134217728:        _TyFnc_name[172:178],
-	268435456:        _TyFnc_name[178:182],
-	536870912:        _TyFnc_name[182:186],
-	1073741824:       _TyFnc_name[186:190],
-	2147483648:       _TyFnc_name[190:196],
+	512:              _TyFnc_name[63:71],
+	1024:             _TyFnc_name[71:79],
+	2048:             _TyFnc_name[79:86],
+	4096:             _TyFnc_name[86:93],
+	8192:             _TyFnc_name[93:100],
+	16384:            _TyFnc_name[100:106],
+	32768:            _TyFnc_name[106:111],
+	65536:            _TyFnc_name[111:116],
+	131072:           _TyFnc_name[116:119],
+	262144:           _TyFnc_name[119:123],
+	524288:           _TyFnc_name[123:128],
+	1048576:          _TyFnc_name[128:137],
+	2097152:          _TyFnc_name[137:142],
+	4194304:          _TyFnc_name[142:148],
+	8388608:          _TyFnc_name[148:155],
+	16777216:         _TyFnc_name[155:158],
+	33554432:         _TyFnc_name[158:161],
+	67108864:         _TyFnc_name[161:167],
+	134217728:        _TyFnc_name[167:171],
+	268435456:        _TyFnc_name[171:175],
+	536870912:        _TyFnc_name[175:179],
+	1073741824:       _TyFnc_name[179:185],
+	2147483648:       _TyFnc_name[185:196],
 	4294967296:       _TyFnc_name[196:202],
 	8589934592:       _TyFnc_name[202:204],
 	17179869184:      _TyFnc_name[204:211],

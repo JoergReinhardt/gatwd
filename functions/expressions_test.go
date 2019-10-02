@@ -79,6 +79,7 @@ func TestExpression(t *testing.T) {
 		}
 	}
 }
+
 func TestTuple(t *testing.T) {
 	var con = NewTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
 	fmt.Printf("tuple constructor %s\n", con)
