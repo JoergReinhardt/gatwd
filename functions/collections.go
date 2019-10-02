@@ -239,7 +239,7 @@ func (a KeyPair) Key() Expression                    { return a.Right() }
 func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
 func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a KeyPair) TypeKey() d.Typed                   { return Key }
-func (a KeyPair) TypeFnc() TyFnc                     { return Key }
+func (a KeyPair) TypeFnc() TyFnc                     { return Key | Pair }
 func (p KeyPair) Type() TyPattern {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Key|Pair, None)
@@ -277,7 +277,7 @@ func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
 func (a IndexPair) Key() Expression                    { return a.Right() }
 func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPair) TypeFnc() TyFnc                     { return Index }
+func (a IndexPair) TypeFnc() TyFnc                     { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed                   { return Index }
 func (a IndexPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a IndexPair) Type() TyPattern {
