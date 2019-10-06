@@ -88,7 +88,7 @@ const (
 	Just
 	None
 	Option
-	Polymorphic
+	Polymorph
 	Either
 	Or
 	/// CLASSES

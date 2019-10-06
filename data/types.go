@@ -87,7 +87,6 @@ const (
 	Uint16
 	Uint32
 	Uint
-	BigUint
 	Flt32
 	Float
 	BigFlt
@@ -98,9 +97,9 @@ const (
 	Duration
 	Byte
 	Rune
-	Bytes
-	String
 	Flag
+	String
+	Bytes
 	Error // let's do something sophisticated here...
 	////
 	Pair
@@ -125,7 +124,7 @@ const (
 	Integers   = Int | Int8 | Int16 | Int32 | BigInt
 	Rationals  = Naturals | Integers | Ratio
 	Reals      = Float | Flt32 | BigFlt
-	Big        = BigUint | BigInt | BigFlt | Ratio
+	Big        = BigInt | BigFlt | Ratio
 	Imaginarys = Imag | Imag64
 	Numbers    = Rationals | Reals | Imaginarys
 	Letters    = String | Rune | Bytes

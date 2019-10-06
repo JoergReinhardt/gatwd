@@ -12,8 +12,9 @@ func (v BitFlag) Uint() UintVal        { return UintVal(v) }
 func (v BitFlag) Int() IntVal          { return IntVal(v) }
 func (v BitFlag) Len() int             { return FlagLength(v) }
 func (v BitFlag) Count() int           { return FlagCount(v) }
-func (v BitFlag) Least() int           { return FlagLeastSig(v) }
-func (v BitFlag) Most() int            { return FlagMostSig(v) }
+func (v BitFlag) Index() int           { return FlagLeast(v) }
+func (v BitFlag) Least() int           { return FlagLeast(v) }
+func (v BitFlag) Most() int            { return FlagMost(v) }
 func (v BitFlag) TypeName() string     { return v.String() }
 func (v BitFlag) Low(f Typed) Typed    { return FlagLow(f).Flag() }
 func (v BitFlag) High(f Typed) Typed   { return FlagHigh(f).Flag() }
@@ -33,10 +34,10 @@ func FlagLength(t Typed) int {
 func FlagCount(t Typed) int {
 	return bits.OnesCount(uint(t.Flag().Uint()))
 }
-func FlagLeastSig(t Typed) int {
+func FlagLeast(t Typed) int {
 	return bits.TrailingZeros(uint(t.Flag().Uint()) + 1)
 }
-func FlagMostSig(t Typed) int {
+func FlagMost(t Typed) int {
 	return bits.LeadingZeros(uint(t.Flag().Uint()) - 1)
 }
 func FlagReverse(t Typed) BitFlag {

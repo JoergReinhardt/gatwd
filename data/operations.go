@@ -19,15 +19,17 @@ const (
 // operation type. casts operands to match in type, switches on the operands
 // type and sub-switches on operation type passed, to perform the propper
 // operation and return resulting value as instance of native.
-func arithmetics(a, b Numeral, ops TyOps) Native {
+func Ops(x, y Native, ops TyOps) Native {
 
-	var typ TyNat // allocate common operand type
-	// cast operands to be of common type
-	a, b, typ = castNumeralsGreaterType(a, b)
+	var typ = x.Type()
+
+	x, y = Precedence(x, y)
 
 	switch { // switch on operands type
 
 	case typ.Match(Naturals): // natural arithmetics
+
+		var a, b = x.(Numeral).Uint(), y.(Numeral).Uint()
 
 		switch ops {
 
@@ -58,6 +60,8 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 
 	case typ.Match(Integers): // integer arithmetics
 
+		var a, b = x.(Numeral).Uint(), y.(Numeral).Uint()
+
 		switch ops {
 
 		case Add:
@@ -79,6 +83,8 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 
 	case typ.Match(Reals): // real arithmetics
 
+		var a, b = x.(Numeral).Float(), y.(Numeral).Float()
+
 		switch ops {
 
 		case Add:
@@ -98,7 +104,7 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 	case typ.Match(Rationals): // rational arithmetics
 
 		var rat RatioVal
-		var ratA, ratB = a.GoRat(), b.GoRat()
+		var ratA, ratB = x.(Numeral).GoRat(), y.(Numeral).GoRat()
 
 		switch ops {
 
@@ -118,6 +124,8 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 
 	case typ.Match(Imaginarys): // imaginary arithmetics
 
+		var a, b = x.(Numeral).Imag(), y.(Numeral).Imag()
+
 		switch ops {
 
 		case Add:
@@ -135,31 +143,4 @@ func arithmetics(a, b Numeral, ops TyOps) Native {
 	}
 	// if no value has been computed, return nil instance
 	return NilVal{}
-}
-
-// takes two numerals to compare their types. in case types don't match, lesser
-// numeral is cast as the greater of both types.
-func castNumeralsGreaterType(a, b Numeral) (Numeral, Numeral, TyNat) {
-	// preset return type to be a's native type
-	var typ = a.Type()
-	// if type of value a has higher precedence‥.
-	if a.Type().Flag() > b.Type().Flag() {
-		// convert b's type to match a's type‥.
-		b = CastNumeral(
-			b.(Numeral),
-			a.Type(),
-		).(Numeral)
-
-	}
-	if a.Type().Flag() < b.Type().Flag() {
-		// reset return type to be b's native type
-		typ = b.Type()
-		// convert a's type to match b's type‥.
-		a = CastNumeral(
-			a.(Numeral),
-			b.Type(),
-		).(Numeral)
-	}
-	// both values are of the same type now‥.
-	return a, b, typ
 }

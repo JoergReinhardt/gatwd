@@ -31,126 +31,6 @@ type (
 	OptionType func(...Expression) Expression
 )
 
-//// POLYMORPHIC TYPE
-///
-//
-func NewPolyType(cases ...CaseType) PolyType {
-	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
-	)
-	for _, c := range cases {
-		patterns = append(patterns, c.Type())
-	}
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return typeSwitch.Call(args...)
-		}
-		return NewVector(patterns...)
-	}
-}
-func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
-func (p PolyType) TypeFnc() TyFnc                     { return Polymorphic }
-func (p PolyType) Type() TyPattern {
-	var length = len(p.Patterns())
-	var argtype, retype = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range p.Patterns() {
-		argtype = append(argtype, pat.TypeArguments())
-		retype = append(retype, pat.TypeReturn())
-		if n < length-1 {
-			argtype = append(argtype, Def(Lex_Pipe))
-			retype = append(retype, Def(Lex_Pipe))
-		}
-	}
-	return Def(Def(argtype...), Option, Def(retype...))
-}
-func (p PolyType) Patterns() []TyPattern {
-	var (
-		slice    = p().(VecVal)()
-		length   = len(slice)
-		patterns = make([]TyPattern, 0, length)
-	)
-	for _, elem := range slice {
-		patterns = append(patterns, elem.Type())
-	}
-	return patterns
-}
-func (p PolyType) String() string {
-	var length = len(p.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range p.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
-}
-
-//// OPTION TYPE
-///
-//
-func NewOptionType(cases ...CaseType) OptionType {
-	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
-	)
-	for _, c := range cases {
-		patterns = append(patterns, c.Type())
-	}
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return typeSwitch.Call(args...)
-		}
-		return NewVector(patterns...)
-	}
-}
-
-func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
-func (o OptionType) TypeFnc() TyFnc                     { return Switch }
-func (o OptionType) String() string {
-	var length = len(o.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range o.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
-}
-
-func (o OptionType) Patterns() []TyPattern {
-	var (
-		slice = o().(VecVal)()
-		pats  = make([]TyPattern, 0, len(slice))
-	)
-	for _, elem := range slice {
-		pats = append(pats, elem.Type())
-	}
-	return pats
-}
-
-func (o OptionType) Type() TyPattern {
-	var length = len(o.Patterns())
-	var argtype, retype = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range o.Patterns() {
-		argtype = append(argtype, pat.TypeArguments())
-		retype = append(retype, pat.TypeReturn())
-		if n < length-1 {
-			argtype = append(argtype, Def(Lex_Pipe))
-			retype = append(retype, Def(Lex_Pipe))
-		}
-	}
-	return Def(Def(argtype...), Option, Def(retype...))
-}
-
 /// TRUTH TEST
 //
 // create a new test, scrutinizing its arguments and revealing true, or false
@@ -385,8 +265,6 @@ func NewVariant(either, or CaseType) AlternateType {
 					}
 					return result, Def(Either), NewVariant(either, or)
 				})
-			}
-			if result = or.Call(args...); !result.Type().Match(None) {
 				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
 					if len(args) > 0 {
 						return result.Call(args...), Def(Or), NewVariant(either, or)
@@ -427,4 +305,124 @@ func (o AlternateVal) String() string {
 func (o AlternateVal) Call(args ...Expression) Expression {
 	var result, _, _ = o(args...)
 	return result
+}
+
+//// POLYMORPHIC TYPE
+///
+//
+func NewPolyType(cases ...CaseType) PolyType {
+	var (
+		typeSwitch = NewSwitch(cases...)
+		patterns   = make([]Expression, 0, len(cases))
+	)
+	for _, c := range cases {
+		patterns = append(patterns, c.Type())
+	}
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return typeSwitch.Call(args...)
+		}
+		return NewVector(patterns...)
+	}
+}
+func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
+func (p PolyType) TypeFnc() TyFnc                     { return Polymorph }
+func (p PolyType) Type() TyPattern {
+	var length = len(p.Patterns())
+	var args, returns = make(
+		[]d.Typed,
+		0, length,
+	), make(
+		[]d.Typed,
+		0, length,
+	)
+	for n, pat := range p.Patterns() {
+		args = append(args, pat.TypeArguments())
+		returns = append(returns, pat.TypeReturn())
+		if n < length-1 {
+			args = append(args, Def(Lex_Pipe))
+			returns = append(returns, Def(Lex_Pipe))
+		}
+	}
+	return Def(Def(args...), Option, Def(returns...))
+}
+func (p PolyType) Patterns() []TyPattern {
+	var (
+		slice    = p().(VecVal)()
+		length   = len(slice)
+		patterns = make([]TyPattern, 0, length)
+	)
+	for _, elem := range slice {
+		patterns = append(patterns, elem.Type())
+	}
+	return patterns
+}
+func (p PolyType) String() string {
+	var length = len(p.Patterns())
+	var strs = make([]string, 0, length)
+	for _, pat := range p.Patterns() {
+		strs = append(strs, pat.Type().TypeName())
+	}
+	return strings.Join(strs, " |\n")
+}
+
+//// OPTION TYPE
+///
+//
+func NewOptionType(cases ...CaseType) OptionType {
+	var (
+		typeSwitch = NewSwitch(cases...)
+		patterns   = make([]Expression, 0, len(cases))
+	)
+	for _, c := range cases {
+		patterns = append(patterns, c.Type())
+	}
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return typeSwitch.Call(args...)
+		}
+		return NewVector(patterns...)
+	}
+}
+
+func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
+func (o OptionType) TypeFnc() TyFnc                     { return Option }
+func (o OptionType) String() string {
+	var length = len(o.Patterns())
+	var strs = make([]string, 0, length)
+	for _, pat := range o.Patterns() {
+		strs = append(strs, pat.Type().TypeName())
+	}
+	return strings.Join(strs, " |\n")
+}
+
+func (o OptionType) Patterns() []TyPattern {
+	var (
+		slice = o().(VecVal)()
+		pats  = make([]TyPattern, 0, len(slice))
+	)
+	for _, elem := range slice {
+		pats = append(pats, elem.(TyPattern))
+	}
+	return pats
+}
+
+func (o OptionType) Type() TyPattern {
+	var length = len(o.Patterns())
+	var args, returns = make(
+		[]d.Typed,
+		0, length,
+	), make(
+		[]d.Typed,
+		0, length,
+	)
+	for n, pat := range o.Patterns() {
+		args = append(args, pat.TypeArguments())
+		returns = append(returns, pat.TypeReturn())
+		if n < length-1 {
+			args = append(args, Def(Lex_Pipe))
+			returns = append(returns, Def(Lex_Pipe))
+		}
+	}
+	return Def(Def(args...), Option, Def(returns...))
 }
