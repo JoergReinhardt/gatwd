@@ -328,8 +328,8 @@ func (e EnumType) Call(args ...Expression) Expression {
 		for _, arg := range args {
 			if isInt(arg) {
 				var result, _, _ = e(arg.(Native).Eval().(d.Integer))
-				var num = enums.Con(result)
-				enums = enums.Con(num)
+				var num = enums.Cons(result)
+				enums = enums.Cons(num).(VecVal)
 			}
 		}
 		return enums
@@ -382,8 +382,8 @@ func NewVector(init ...Expression) VecVal {
 	}
 }
 
-func ConVector(vec Vectorized, args ...Expression) VecVal {
-	return NewVector(append(vec.Slice(), args...)...)
+func ConsVector(vec Vectorized, args ...Expression) VecVal {
+	return NewVector(append(args, vec.Slice()...)...)
 }
 
 func AppendVectors(vec Vectorized, args ...Expression) VecVal {
@@ -400,7 +400,7 @@ func (v VecVal) Len() int            { return len(v()) }
 func (v VecVal) Vector() VecVal      { return v }
 func (v VecVal) Slice() []Expression { return v() }
 
-func (v VecVal) Append(args ...Expression) Consumeable { return v.Con(args...) }
+func (v VecVal) Append(args ...Expression) Consumeable { return v.Cons(args...) }
 
 func (v VecVal) Prepend(args ...Expression) VecVal {
 	return NewVector(append(args, v()...)...)
@@ -437,8 +437,8 @@ func (v VecVal) TypeElem() TyPattern {
 	return Def(None, Vector, None)
 }
 
-func (v VecVal) Con(args ...Expression) VecVal {
-	return ConVector(v, args...)
+func (v VecVal) Cons(args ...Expression) Consumeable {
+	return ConsVector(NewVector(args...), v()...)
 }
 
 func (v VecVal) Call(d ...Expression) Expression {
@@ -516,14 +516,14 @@ func (v VecVal) Set(i int, val Expression) (Vectorized, bool) {
 //// RECURSIVE LIST OF VALUES
 ///
 // base implementation of recursively linked lists
-func ConList(list ListVal, elems ...Expression) ListVal {
-	return list.Con(elems...)
+func ConsList(list ListVal, elems ...Expression) ListVal {
+	return list.Cons(elems...).(ListVal)
 }
 
 func ConcatLists(a, b ListVal) ListVal {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
-			b = b.Con(args...)
+			b = b.Cons(args...).(ListVal)
 		}
 		var head Expression
 		if head, a = a(); head != nil {
@@ -574,15 +574,34 @@ func (l ListVal) ConsumeList() (Expression, ListVal) {
 	return l.Head(), l.TailList()
 }
 
-func (l ListVal) Append(elems ...Expression) Consumeable { _, l = l(elems...); return l }
-func (l ListVal) Con(elems ...Expression) ListVal {
+func (l ListVal) Append(elems ...Expression) Consumeable {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		return l(append(elems, args...)...)
+		if len(args) > 0 {
+			return l(append(elems, args...)...)
+		}
+		return l()
 	})
 }
 
-func (l ListVal) Push(elems ...Expression) ListVal {
-	return ConcatLists(NewList(elems...), l)
+func (l ListVal) Cons(elems ...Expression) Consumeable {
+	if len(elems) == 0 {
+		return l
+	}
+	if len(elems) == 1 {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
+			if len(args) > 0 {
+				return elems[0], l.Append(args...).(ListVal)
+			}
+			return elems[0], l
+		})
+	}
+	var head Expression
+	head, elems = elems[0], elems[1:]
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
+		if len(args) > 0 {
+		}
+		return head, l.Cons(elems...).(ListVal)
+	})
 }
 
 func (l ListVal) Slice() []Expression {
@@ -593,7 +612,7 @@ func (l ListVal) Slice() []Expression {
 	)
 	head, tail = l.Head(), l.Tail()
 	for head != nil {
-		vec = vec.Con(head)
+		vec = vec.Cons(head).(VecVal)
 		head, tail = tail.Consume()
 	}
 	return vec.Slice()
@@ -601,7 +620,7 @@ func (l ListVal) Slice() []Expression {
 
 func (l ListVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return l.Con(args...)
+		return l.Cons(args...)
 	}
 	return l.Head()
 }
@@ -662,26 +681,26 @@ func NewPairVectorFromPairs(pairs ...Paired) PairVec {
 	})
 }
 
-func ConPairVecFromPairs(rec PairVec, args ...Expression) PairVec {
+func ConsPairVecFromPairs(rec PairVec, args ...Expression) PairVec {
 	var pairs = []Paired{}
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
 			pairs = append(pairs, pair)
 		}
 	}
-	return NewPairVectorFromPairs(append(rec(), pairs...)...)
+	return NewPairVectorFromPairs(append(pairs, rec()...)...)
 }
 
 func NewPairVec(args ...Paired) PairVec {
 	return NewPairVectorFromPairs(args...)
 }
 
-func ConPairVec(rec PairVec, pairs ...Paired) PairVec {
-	return NewPairVectorFromPairs(append(rec(), pairs...)...)
+func ConsPairVec(rec PairVec, pairs ...Paired) PairVec {
+	return NewPairVectorFromPairs(append(pairs, rec()...)...)
 }
 
-func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
-	var pairs = pvec.Pairs()
+func ConsPairFromArgs(pvec PairVec, args ...Expression) PairVec {
+	var pairs = make([]Paired, 0, len(args))
 	for _, arg := range args {
 		if pair, ok := arg.(Paired); ok {
 			pairs = append(pairs, pair)
@@ -689,9 +708,11 @@ func ConPairVecFromArgs(pvec PairVec, args ...Expression) PairVec {
 	}
 	return PairVec(func(args ...Paired) []Paired {
 		if len(args) > 0 {
-			return ConPairVec(pvec, args...)()
+			return append(append(
+				args, pairs...),
+				pvec()...)
 		}
-		return append(pvec(), pairs...)
+		return append(pairs, pvec()...)
 	})
 }
 func (v PairVec) Len() int { return len(v()) }
@@ -703,15 +724,28 @@ func (v PairVec) Type() TyPattern {
 }
 func (v PairVec) TypeFnc() TyFnc { return Vector }
 
-func (v PairVec) ConPairs(pairs ...Paired) PairVec {
-	return ConPairVec(v, pairs...)
+func (v PairVec) ConsPairs(pairs ...Paired) PairVec {
+	return NewPairVec(append(pairs, v()...)...)
 }
 
-func (v PairVec) Con(args ...Expression) PairVec {
-	return ConPairVecFromArgs(v, args...)
+func (v PairVec) Cons(elems ...Expression) Consumeable {
+	var pairs = make([]Paired, 0, len(elems))
+	for _, elem := range elems {
+		if elem.Type().Match(Pair) {
+			if pair, ok := elem.(Paired); ok {
+				pairs = append(pairs, pair)
+			}
+		}
+	}
+	return PairVec(func(args ...Paired) []Paired {
+		if len(args) > 0 {
+			return v.ConsPairs(pairs...).ConsPairs(args...)()
+		}
+		return v.ConsPairs(pairs...)()
+	})
 }
 
-func (v PairVec) Append(args ...Expression) Consumeable { return v.Con(args...) }
+func (v PairVec) Append(args ...Expression) Consumeable { return v.Cons(args...) }
 
 func (v PairVec) Consume() (Expression, Consumeable) {
 	return v.Head(), v.Tail()
@@ -821,18 +855,18 @@ func (v PairVec) Tail() Consumeable {
 }
 
 func (v PairVec) Call(args ...Expression) Expression {
-	return v.Con(args...)
+	return v.Cons(args...)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// LIST OF PAIRS
-func ConPairList(list PairList, pairs ...Paired) PairList {
-	return list.Con(pairs...)
+func ConsPairList(list PairList, pairs ...Paired) PairList {
+	return list.ConsFromPairs(pairs...).(PairList)
 }
 func ConcatPairLists(a, b PairList) PairList {
 	return PairList(func(args ...Paired) (Paired, PairList) {
 		if len(args) > 0 {
-			b = b.Con(args...)
+			b = b.ConsFromPairs(args...).(PairList)
 		}
 		var pair Paired
 		if pair, a = a(); pair != nil {
@@ -876,7 +910,7 @@ func (l PairList) Append(args ...Expression) Consumeable {
 			}
 		}
 	}
-	return l.Con(pairs...)
+	return l.ConsFromPairs(pairs...)
 }
 func (l PairList) TypeFnc() TyFnc { return List }
 func (l PairList) Null() PairList { return NewPairList() }
@@ -887,9 +921,34 @@ func (l PairList) Type() TyPattern {
 	return Def(Pair|List, None)
 }
 
-func (l PairList) Con(elems ...Paired) PairList {
+func (l PairList) ConsFromPairs(pairs ...Paired) Consumeable {
 	return PairList(func(args ...Paired) (Paired, PairList) {
-		return l(append(elems, args...)...)
+		if len(args) > 0 {
+			pairs = append(args, pairs...)
+		}
+		if len(pairs) == 0 {
+			return l()
+		}
+		if len(pairs) == 1 {
+			return pairs[0], l
+		}
+		var head Paired
+		head, pairs = pairs[0], pairs[1:]
+		return head, l.ConsFromPairs(pairs...).(PairList)
+	})
+}
+
+func (l PairList) Cons(elems ...Expression) Consumeable {
+	var pairs = make([]Paired, 0, len(elems))
+	for _, elem := range elems {
+		if elem.Type().Match(Pair) {
+			if pair, ok := elem.(Paired); ok {
+				pairs = append(pairs, pair)
+			}
+		}
+	}
+	return PairList(func(args ...Paired) (Paired, PairList) {
+		return l(append(args, pairs...)...)
 	})
 }
 

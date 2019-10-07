@@ -65,6 +65,7 @@ type Consumeable interface {
 	Tail() Consumeable
 	Consume() (Expression, Consumeable)
 	Append(...Expression) Consumeable
+	Cons(...Expression) Consumeable
 }
 
 type Testable interface {

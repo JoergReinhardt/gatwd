@@ -192,7 +192,7 @@ func TestEnum(t *testing.T) {
 						if (d.IntVal(0) <= day.Int()) &&
 							(day.Int() <= d.IntVal(6)) {
 							var result, _, _ = enumtype(day)
-							vec = vec.Con(result)
+							vec = vec.Cons(result).(VecVal)
 						}
 					}
 				}

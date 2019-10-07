@@ -63,7 +63,7 @@ func TestConList(t *testing.T) {
 		fmt.Println("for loop: " + head.String())
 	}
 
-	alist = alist.Con(listB()...)
+	alist = alist.Cons(listB()...).(ListVal)
 
 	printCons(alist)
 }
@@ -77,8 +77,6 @@ func TestPushList(t *testing.T) {
 		head, alist = alist()
 		fmt.Println("for loop: " + head.String())
 	}
-
-	alist = alist.Push(listB()...)
 
 	printCons(alist)
 }

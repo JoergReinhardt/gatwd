@@ -34,6 +34,7 @@ func NewNone() NoneVal { return func() {} }
 
 func (n NoneVal) Head() Expression                   { return n }
 func (n NoneVal) Tail() Consumeable                  { return n }
+func (n NoneVal) Cons(...Expression) Consumeable     { return n }
 func (n NoneVal) Append(...Expression) Consumeable   { return n }
 func (n NoneVal) Len() int                           { return 0 }
 func (n NoneVal) Compare(...Expression) int          { return -1 }
@@ -146,14 +147,14 @@ func Define(
 				case length > arglen:
 					var vector = NewVector()
 					for len(args) > arglen {
-						vector = vector.Con(
-							expr.Call(args[:arglen]...))
+						vector = vector.Cons(
+							expr.Call(args[:arglen]...)).(VecVal)
 						args = args[arglen:]
 					}
 					if length > 0 {
-						vector = vector.Con(Define(
+						vector = vector.Cons(Define(
 							expr, argtype, retype, propertys...,
-						).Call(args...))
+						).Call(args...)).(VecVal)
 					}
 					return vector
 				}

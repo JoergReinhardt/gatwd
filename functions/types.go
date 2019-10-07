@@ -629,16 +629,20 @@ func (p TyPattern) ConsumePattern() (TyPattern, TyPattern) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyPattern) Append(args ...Expression) Consumeable {
-	var types = append(make([]d.Typed, 0, p.Len()+len(args)), p...)
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Type) {
-			if typed, ok := arg.(d.Typed); ok {
-				types = append(types, typed)
-			}
-		}
+func (p TyPattern) Cons(args ...Expression) Consumeable {
+	var types = make([]Expression, 0, p.Len())
+	for _, pat := range p {
+		types = append(types, pat.(TyPattern))
 	}
-	return TyPattern(types)
+	return NewVector(append(args, types...)...)
+}
+
+func (p TyPattern) Append(args ...Expression) Consumeable {
+	var types = make([]Expression, 0, p.Len())
+	for _, pat := range p {
+		types = append(types, pat.(TyPattern))
+	}
+	return NewVector(append(types, args...)...)
 }
 
 // pattern yields a slice of type patterns, with all none & nil elements
