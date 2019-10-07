@@ -7,422 +7,341 @@ import (
 )
 
 type (
-	// TESTS AND COMPARE
-	TestType       func(...Expression) bool
-	TrinaryType    func(...Expression) int
-	ComparatorType func(...Expression) int
+	// GENERIC EXPRESSIONS
+	NoneVal  func()
+	ConstVal func() Expression
+	FuncVal  func(...Expression) Expression
 
-	// CASE & SWITCH
-	CaseType   func(...Expression) Expression
-	SwitchType func(...Expression) (Expression, []CaseType)
+	//// DECLARED EXPRESSION
+	ExprType func(...Expression) ExprVal
+	ExprVal  Expression
 
-	// MAYBE (JUST | NONE)
-	MaybeType func(...Expression) Expression
-	MaybeVal  func(...Expression) (Expression, TyPattern, MaybeType)
+	// TUPLE (TYPE[0]...TYPE[N])
+	TupleType func(...Expression) TupleVal
+	TupleVal  []Expression
 
-	// ALTERNATETIVES TYPE (EITHER | OR)
-	AlternateType func(...Expression) Expression
-	AlternateVal  func(...Expression) (Expression, TyPattern, AlternateType)
-
-	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	PolyType func(...Expression) Expression
-
-	// OPTION TYPE (Option[0]‥.Option[n])
-	OptionType func(...Expression) Expression
+	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
+	RecordType func(...KeyPair) RecordVal
+	RecordVal  []KeyPair
 )
 
-/// TRUTH TEST
-//
-// create a new test, scrutinizing its arguments and revealing true, or false
-func NewTest(test func(...Expression) bool) TestType {
-	return func(args ...Expression) bool { return test(args...) }
+//// NONE VALUE CONSTRUCTOR
+///
+// none represens the abscence of a value of any type. implements countable,
+// sliceable, consumeable, testable, compareable, key-, index- and generic pair
+// interfaces to be able to stand in as return value for such expressions.
+func NewNone() NoneVal { return func() {} }
+
+func (n NoneVal) Head() Expression                   { return n }
+func (n NoneVal) Tail() Consumeable                  { return n }
+func (n NoneVal) Append(...Expression) Consumeable   { return n }
+func (n NoneVal) Len() int                           { return 0 }
+func (n NoneVal) Compare(...Expression) int          { return -1 }
+func (n NoneVal) String() string                     { return "⊥" }
+func (n NoneVal) Call(...Expression) Expression      { return nil }
+func (n NoneVal) Key() Expression                    { return nil }
+func (n NoneVal) Index() Expression                  { return nil }
+func (n NoneVal) Left() Expression                   { return nil }
+func (n NoneVal) Right() Expression                  { return nil }
+func (n NoneVal) Both() Expression                   { return nil }
+func (n NoneVal) Value() Expression                  { return nil }
+func (n NoneVal) Empty() d.BoolVal                   { return true }
+func (n NoneVal) Test(...Expression) bool            { return false }
+func (n NoneVal) TypeFnc() TyFnc                     { return None }
+func (n NoneVal) TypeNat() d.TyNat                   { return d.Nil }
+func (n NoneVal) Type() TyPattern                    { return Def(None) }
+func (n NoneVal) TypeElem() TyPattern                { return Def(None) }
+func (n NoneVal) TypeName() string                   { return n.String() }
+func (n NoneVal) Slice() []Expression                { return []Expression{} }
+func (n NoneVal) Flag() d.BitFlag                    { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val               { return Flag_Function.U() }
+func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone() }
+
+//// CONSTANT DECLARATION
+///
+// declares a constant value
+func NewConstant(constant func() Expression) ConstVal { return constant }
+
+func (c ConstVal) Type() TyPattern {
+	return Def(Constant|c().Type().TypeFnc(), c().Type())
 }
-func (t TestType) TypeFnc() TyFnc               { return Truth }
-func (t TestType) Type() TyPattern              { return Def(True | False) }
-func (t TestType) String() string               { return t.TypeFnc().TypeName() }
-func (t TestType) Test(args ...Expression) bool { return t(args...) }
-func (t TestType) Compare(args ...Expression) int {
-	if t(args...) {
-		return 0
+func (c ConstVal) TypeFnc() TyFnc                { return Constant }
+func (c ConstVal) String() string                { return c().String() }
+func (c ConstVal) Call(...Expression) Expression { return c() }
+
+//// FUNCTION DECLARATION
+///
+// declares a constant value
+func NewFunction(fnc func(...Expression) Expression) FuncVal { return fnc }
+
+func (c FuncVal) Type() TyPattern {
+	return Def(Value|c().Type().TypeFnc(), c().Type())
+}
+func (c FuncVal) TypeFnc() TyFnc                { return Value }
+func (c FuncVal) String() string                { return c().String() }
+func (c FuncVal) Call(...Expression) Expression { return c() }
+
+/// PARTIAL APPLYABLE EXPRESSION VALUE
+//
+// element values yield a subelements of optional, tuple, or enumerable
+// expressions with sub-type pattern as second return value
+func Define(
+	expr Expression,
+	argtype, retype d.Typed,
+	propertys ...d.Typed,
+) ExprType {
+
+	if !Flag_Pattern.Match(argtype.FlagType()) {
+		argtype = Def(argtype)
 	}
-	return -1
-}
-func (t TestType) Call(args ...Expression) Expression {
-	return DecData(d.BoolVal(t(args...)))
-}
 
-/// TRINARY TEST
-//
-// create a trinary test, that can yield true, false, or undecided, computed by
-// scrutinizing its arguments
-func NewTrinary(test func(...Expression) int) TrinaryType {
-	return func(args ...Expression) int { return test(args...) }
-}
-func (t TrinaryType) TypeFnc() TyFnc                     { return Trinary }
-func (t TrinaryType) Type() TyPattern                    { return Def(True | False | Undecided) }
-func (t TrinaryType) Call(args ...Expression) Expression { return DecData(d.IntVal(t(args...))) }
-func (t TrinaryType) String() string                     { return t.TypeFnc().TypeName() }
-func (t TrinaryType) Test(args ...Expression) bool       { return t(args...) == 0 }
-func (t TrinaryType) Compare(args ...Expression) int     { return t(args...) }
-
-/// COMPARATOR
-//
-// create a comparator expression that yields minus one in case the argument is
-// lesser, zero in case its equal and plus one in case it is greater than the
-// enclosed value to compare against.
-func NewComparator(comp func(...Expression) int) ComparatorType {
-	return func(args ...Expression) int { return comp(args...) }
-}
-func (t ComparatorType) TypeFnc() TyFnc                     { return Compare }
-func (t ComparatorType) Type() TyPattern                    { return Def(Lesser | Greater | Equal) }
-func (t ComparatorType) Call(args ...Expression) Expression { return DecData(d.IntVal(t(args...))) }
-func (t ComparatorType) String() string                     { return t.Type().TypeName() }
-func (t ComparatorType) Test(args ...Expression) bool       { return t(args...) == 0 }
-func (t ComparatorType) Less(args ...Expression) bool       { return t(args...) < 0 }
-func (t ComparatorType) Compare(args ...Expression) int     { return t(args...) }
-
-/// CASE
-//
-// case constructor takes a test and an expression, in order for the resulting
-// case instance to test its arguments and yield the result of applying those
-// arguments to the expression, in case the test yielded true. otherwise the
-// case will yield none.
-func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseType {
-	var pattern = Def(argtype, Def(Case, test.Type()), retype)
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			if test.Test(args...) {
-				return expr.Call(args...)
-			}
-			return NewNone()
-		}
-		return NewPair(pattern, test)
-	}
-}
-
-func (t CaseType) TypeFnc() TyFnc                     { return Case }
-func (t CaseType) Type() TyPattern                    { return t().(Paired).Left().(TyPattern) }
-func (t CaseType) Test() TestType                     { return t().(Paired).Right().(TestType) }
-func (t CaseType) TypeReturn() TyPattern              { return t.Type().Pattern()[2] }
-func (t CaseType) TypeIdent() TyPattern               { return t.Type().Pattern()[1] }
-func (t CaseType) TypeArguments() []TyPattern         { return t.Type().Pattern()[0].Pattern() }
-func (t CaseType) String() string                     { return t.TypeFnc().TypeName() }
-func (t CaseType) Call(args ...Expression) Expression { return t(args...) }
-
-/// SWITCH
-//
-// switch takes a slice of cases and evaluates them against its arguments to
-// yield either a none value, or the result of the case application and a
-// switch enclosing the remaining cases. id all cases are depleted, a none
-// instance will be returned as result and nil will be yielded instead of the
-// switch value
-//
-// when called, a switch evaluates all it's cases until it yields either
-// results from applying the first case that matched the arguments, or none.
-func NewSwitch(cases ...CaseType) SwitchType {
-	var types = make([]d.Typed, 0, len(cases))
-	for _, c := range cases {
-		types = append(types, c.Type())
-	}
 	var (
-		current CaseType
-		remains = cases
-		pattern = Def(Switch, Def(types...))
+		ident         d.Typed
+		pattern       TyPattern
+		props, idents []d.Typed
+		arglen        = argtype.(TyPattern).Count()
+		argtypes      = argtype.(TyPattern).Types()
 	)
-	return func(args ...Expression) (Expression, []CaseType) {
-		if len(args) > 0 {
-			if remains != nil {
-				current = remains[0]
-				if len(remains) > 1 {
-					remains = remains[1:]
-				} else {
-					remains = remains[:0]
+
+	if len(propertys) == 0 {
+		ident = expr.TypeFnc()
+	} else {
+		props, idents = []d.Typed{}, []d.Typed{}
+		for _, typ := range propertys {
+			if Flag_Symbol.Match(typ.FlagType()) {
+				idents = append(idents, typ)
+				continue
+			}
+			props = append(props, typ)
+		}
+		ident = Def(idents...)
+	}
+
+	if len(props) > 0 {
+		pattern = Def(argtype, ident, retype, Def(props...))
+	} else {
+		pattern = Def(argtype, ident, retype)
+	}
+
+	return func(args ...Expression) ExprVal {
+		var length = len(args)
+		if length > 0 {
+			if pattern.TypeArguments().MatchArgs(args...) {
+				switch {
+				case length == arglen:
+					return expr.Call(args...)
+
+				case length < arglen:
+					var remains = argtypes[length:]
+					return Define(ExprType(
+						func(lateargs ...Expression) ExprVal {
+							if len(lateargs) > 0 {
+								return expr.Call(append(
+									args, lateargs...,
+								)...)
+							}
+							return Def(Def(remains...), ident, retype)
+						}), Def(remains...), ident, retype)
+
+				case length > arglen:
+					var vector = NewVector()
+					for len(args) > arglen {
+						vector = vector.Con(
+							expr.Call(args[:arglen]...))
+						args = args[arglen:]
+					}
+					if length > 0 {
+						vector = vector.Con(Define(
+							expr, argtype, retype, propertys...,
+						).Call(args...))
+					}
+					return vector
 				}
-				return current(args...), remains
 			}
-			return NewNone(), remains
+			return None
 		}
-		return pattern, cases
+		return pattern
+	}
+}
+func (e ExprType) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e ExprType) Type() TyPattern                    { return e().Call().(TyPattern) }
+func (e ExprType) ArgCount() int                      { return e.Type().TypeArguments().Count() }
+func (e ExprType) String() string                     { return e().String() }
+func (e ExprType) Call(args ...Expression) Expression { return e(args...) }
+
+//// TUPLE TYPE
+///
+//
+func NewTuple(types ...d.Typed) ExprType {
+	var (
+		pattern = make([]Expression, 0, len(types))
+		symbol  d.Typed
+	)
+	if len(types) > 1 {
+		if Flag_Symbol.Match(types[0].FlagType()) {
+			symbol = types[0]
+			types = types[1:]
+		}
+	}
+	if symbol == nil {
+		symbol = Tuple
+	}
+	for _, typ := range types {
+		if Flag_Pattern.Match(typ.FlagType()) {
+			pattern = append(pattern, typ.(TyPattern))
+		} else {
+			pattern = append(pattern, Def(typ))
+		}
+	}
+	return Define(
+		TupleType(func(args ...Expression) TupleVal {
+			if len(args) > 0 {
+				return args
+			}
+			return pattern
+		}),
+		Def(types...), Def(symbol, Def(types...)))
+}
+func (t TupleType) Call(args ...Expression) Expression { return t(args...) }
+func (t TupleType) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupleType) String() string                     { return t.Type().String() }
+func (t TupleType) Type() TyPattern {
+	var (
+		elems = t()
+		count = len(elems)
+		types = make([]d.Typed, 0, count)
+	)
+	for _, elem := range elems {
+		types = append(types, elem.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+
+/// TUPLE VALUE
+func (t TupleVal) Call(...Expression) Expression { return t }
+func (t TupleVal) Count() int                    { return len(t) }
+func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
+func (t TupleVal) Type() TyPattern {
+	var types = make([]d.Typed, 0, t.Count())
+	for _, elem := range t {
+		types = append(types, elem.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+func (t TupleVal) Get(idx int) Expression {
+	if idx < t.Count() {
+		return t[idx]
+	}
+	return NewNone()
+}
+func (t TupleVal) String() string {
+	var strs = make([]string, 0, t.Count())
+	for _, elem := range t {
+		strs = append(strs, elem.String())
+	}
+	return "[" + strings.Join(strs, ", ") + "]"
+}
+
+//// RECORD TYPE
+func NewRecordType(types ...KeyPair) RecordType {
+	return func(args ...KeyPair) RecordVal {
+		if len(args) > 0 {
+			for idx, arg := range args {
+				if idx < len(types) {
+					if types[idx].Key() == arg.Key() {
+						if !types[idx].Value().Type().Match(arg.Type()) {
+							return []KeyPair{}
+						}
+					}
+				}
+			}
+			return args
+		}
+		return types
 	}
 }
 
-func (t SwitchType) Reload() SwitchType { return NewSwitch(t.Cases()...) }
-func (t SwitchType) String() string     { return t.Type().TypeName() }
-func (t SwitchType) TypeFnc() TyFnc     { return Switch }
-func (t SwitchType) Type() TyPattern {
-	var pat, _ = t()
-	return pat.(TyPattern)
+func (r RecordType) TypeFnc() TyFnc  { return Record }
+func (r RecordType) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
+func (r RecordType) String() string {
+	var strs = make([]string, 0, len(r()))
+	for _, record := range r() {
+		strs = append(
+			strs,
+			record.Key().String()+"∷ "+
+				record.Value().Type().TypeName(),
+		)
+	}
+	return "{" + strings.Join(strs, ", ") + "}"
 }
-func (t SwitchType) Cases() []CaseType {
-	var _, cases = t()
-	return cases
-}
-func (t SwitchType) Call(args ...Expression) Expression {
+func (r RecordType) Types() []d.Typed {
 	var (
-		remains = t.Cases()
-		result  Expression
+		pairs = r()
+		types = make([]d.Typed, 0, len(pairs))
 	)
-	for len(remains) > 0 {
-		result, remains = t(args...)
-		if !result.TypeFnc().Match(None) {
-			return result
+	for _, pair := range pairs {
+		types = append(types, pair.Value().Type())
+	}
+	return types
+}
+func (r RecordType) Call(args ...Expression) Expression {
+	var pairs = make([]KeyPair, 0, len(args))
+	for _, arg := range args {
+		if arg.TypeFnc().Match(Key | Pair) {
+			pairs = append(pairs, arg.(KeyPair))
+		}
+	}
+	return r(pairs...)
+}
+
+//// RECORD VALUE
+///
+//
+func (r RecordVal) Count() int      { return len(r) }
+func (r RecordVal) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
+func (r RecordVal) TypeFnc() TyFnc  { return Record }
+func (r RecordVal) Keys() []string {
+	var keys = make([]string, 0, len(r))
+	for _, record := range r {
+		keys = append(keys, record.Key().String())
+	}
+	return keys
+}
+func (r RecordVal) Types() []d.Typed {
+	var types = make([]d.Typed, 0, len(r))
+	for _, pair := range r {
+		types = append(types, pair.Value().Type())
+	}
+	return types
+}
+func (r RecordVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var result = make([]KeyPair, 0, len(r))
+		for _, pair := range r {
+			result = append(result,
+				NewKeyPair(
+					pair.Key().String(),
+					pair.Value().Call(args...)))
+		}
+	}
+	return r
+}
+func (r RecordVal) Get(key string) Expression {
+	for _, record := range r {
+		if record.Key().String() == key {
+			return record
 		}
 	}
 	return NewNone()
 }
-
-/// MAYBE VALUE
-//
-// the constructor takes a case expression, expected to return a result, if the
-// case matches the arguments and either returns the resulting none instance,
-// or creates a just instance enclosing the resulting value.
-func NewOptional(cas CaseType) MaybeType {
-	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
-	for _, arg := range cas.TypeArguments() {
-		argtypes = append(argtypes, arg)
+func (r RecordVal) String() string {
+	var strs = make([]string, 0, len(r))
+	for _, record := range r {
+		strs = append(
+			strs,
+			record.Key().String()+"∷ "+
+				record.Value().String(),
+		)
 	}
-	var (
-		pattern = Def(Def(argtypes...), Def(Just|None), Def(cas.TypeReturn()))
-	)
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			if result := cas.Call(args...); !result.Type().Match(None) {
-				return MaybeVal(func(args ...Expression) (Expression, TyPattern, MaybeType) {
-					if len(args) > 0 {
-						return result.Call(args...), Def(
-							Def(argtypes...),
-							Just,
-							result.Type().TypeReturn(),
-						), NewOptional(cas)
-					}
-					return result, Def(
-						Def(argtypes...),
-						Just,
-						result.Type().TypeReturn(),
-					), NewOptional(cas)
-				})
-			}
-			return MaybeVal(func(...Expression) (Expression, TyPattern, MaybeType) {
-				return NewNone(), Def(None), NewOptional(cas)
-			})
-		}
-		return pattern
-	}
-}
-
-func (t MaybeType) TypeFnc() TyFnc                     { return Constructor }
-func (t MaybeType) Type() TyPattern                    { return t().(TyPattern) }
-func (t MaybeType) TypeArguments() TyPattern           { return t().Type().TypeArguments() }
-func (t MaybeType) TypeReturn() TyPattern              { return t().Type().TypeReturn() }
-func (t MaybeType) String() string                     { return t().String() }
-func (t MaybeType) Call(args ...Expression) Expression { return t.Call(args...) }
-
-func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeVal) Call(args ...Expression) Expression { var result, _, _ = t(args...); return result }
-func (t MaybeVal) String() string                     { var result, _, _ = t(); return result.String() }
-func (t MaybeVal) Type() TyPattern                    { var _, pat, _ = t(); return pat }
-
-//// OPTIONAL VALUE
-///
-// constructor takes two case expressions, first one expected to return the
-// either result, second one expected to return the or result if the case
-// matches. if none of the cases match, a none instance will be returned
-func NewVariant(either, or CaseType) AlternateType {
-	var (
-		typesEither = make([]d.Typed, 0, len(either.TypeArguments()))
-		typesOr     = make([]d.Typed, 0, len(or.TypeArguments()))
-	)
-	for _, arg := range either.TypeArguments() {
-		typesEither = append(typesEither, arg)
-	}
-	for _, arg := range or.TypeArguments() {
-		typesOr = append(typesOr, arg)
-	}
-	var (
-		eitherArgs, orArgs = Def(typesEither...), Def(typesOr...)
-
-		pattern = Def(
-			Def(
-				Def(Either, eitherArgs),
-				Lex_Pipe,
-				Def(Or, orArgs),
-			),
-			Def(Either|Or),
-			Def(
-				Def(Either, either.TypeReturn()),
-				Lex_Pipe,
-				Def(Or, or.TypeReturn()),
-			))
-	)
-
-	return AlternateType(func(args ...Expression) Expression {
-		if len(args) > 0 {
-			var result Expression
-			if result = either.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
-					if len(args) > 0 {
-						return result.Call(args...), Def(Either), NewVariant(either, or)
-					}
-					return result, Def(Either), NewVariant(either, or)
-				})
-				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
-					if len(args) > 0 {
-						return result.Call(args...), Def(Or), NewVariant(either, or)
-					}
-					return result, Def(Or), NewVariant(either, or)
-				})
-			}
-			return AlternateVal(func(...Expression) (Expression, TyPattern, AlternateType) {
-				return NewNone(), Def(None), NewVariant(either, or)
-			})
-		}
-		return pattern
-	})
-}
-func (o AlternateType) TypeFnc() TyFnc                     { return Constructor }
-func (o AlternateType) Type() TyPattern                    { return o().Type() }
-func (o AlternateType) String() string                     { return o().String() }
-func (o AlternateType) Call(args ...Expression) Expression { return o(args...) }
-
-//// ALTERNATIVE VALUE
-///
-func (o AlternateVal) TypeFnc() TyFnc {
-	var _, eio, _ = o()
-	return eio.TypeFnc()
-}
-func (o AlternateVal) AlternativeType() AlternateType {
-	var _, _, altype = o()
-	return altype
-}
-func (o AlternateVal) Type() TyPattern {
-	var result, eio, _ = o()
-	return Def(eio, result.Type())
-}
-func (o AlternateVal) String() string {
-	var result, _, _ = o()
-	return result.String()
-}
-func (o AlternateVal) Call(args ...Expression) Expression {
-	var result, _, _ = o(args...)
-	return result
-}
-
-//// POLYMORPHIC TYPE
-///
-//
-func NewPolyType(cases ...CaseType) PolyType {
-	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
-	)
-	for _, c := range cases {
-		patterns = append(patterns, c.Type())
-	}
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return typeSwitch.Call(args...)
-		}
-		return NewVector(patterns...)
-	}
-}
-func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
-func (p PolyType) TypeFnc() TyFnc                     { return Polymorph }
-func (p PolyType) Type() TyPattern {
-	var length = len(p.Patterns())
-	var args, returns = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range p.Patterns() {
-		args = append(args, pat.TypeArguments())
-		returns = append(returns, pat.TypeReturn())
-		if n < length-1 {
-			args = append(args, Def(Lex_Pipe))
-			returns = append(returns, Def(Lex_Pipe))
-		}
-	}
-	return Def(Def(args...), Option, Def(returns...))
-}
-func (p PolyType) Patterns() []TyPattern {
-	var (
-		slice    = p().(VecVal)()
-		length   = len(slice)
-		patterns = make([]TyPattern, 0, length)
-	)
-	for _, elem := range slice {
-		patterns = append(patterns, elem.Type())
-	}
-	return patterns
-}
-func (p PolyType) String() string {
-	var length = len(p.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range p.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
-}
-
-//// OPTION TYPE
-///
-//
-func NewOptionType(cases ...CaseType) OptionType {
-	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
-	)
-	for _, c := range cases {
-		patterns = append(patterns, c.Type())
-	}
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return typeSwitch.Call(args...)
-		}
-		return NewVector(patterns...)
-	}
-}
-
-func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
-func (o OptionType) TypeFnc() TyFnc                     { return Option }
-func (o OptionType) String() string {
-	var length = len(o.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range o.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
-}
-
-func (o OptionType) Patterns() []TyPattern {
-	var (
-		slice = o().(VecVal)()
-		pats  = make([]TyPattern, 0, len(slice))
-	)
-	for _, elem := range slice {
-		pats = append(pats, elem.(TyPattern))
-	}
-	return pats
-}
-
-func (o OptionType) Type() TyPattern {
-	var length = len(o.Patterns())
-	var args, returns = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range o.Patterns() {
-		args = append(args, pat.TypeArguments())
-		returns = append(returns, pat.TypeReturn())
-		if n < length-1 {
-			args = append(args, Def(Lex_Pipe))
-			returns = append(returns, Def(Lex_Pipe))
-		}
-	}
-	return Def(Def(args...), Option, Def(returns...))
+	return "{" + strings.Join(strs, ", ") + "}"
 }

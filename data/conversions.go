@@ -23,21 +23,20 @@ import (
 // 7  ← Uint16
 // 9  ← Uint32
 // 10 ← Uint
-// 11 ← BigUint
-// 12 ← Flt32
-// 13 ← Float
-// 14 ← BigFlt
-// 15 ← Ratio
-// 16 ← Imag64
-// 17 ← Imag
-// 18 ← Time
-// 19 ← Duration
-// 20 ← Byte
-// 21 ← Rune
-// 22 ← Flag
-// 23 ← String
-// 24 ← Bytes
-// 25 ← Error
+// 11 ← Flt32
+// 12 ← Float
+// 13 ← BigFlt
+// 14 ← Ratio
+// 15 ← Imag64
+// 16 ← Imag
+// 17 ← Time
+// 18 ← Duration
+// 19 ← Byte
+// 20 ← Rune
+// 21 ← Flag
+// 22 ← String
+// 23 ← Bytes
+// 24 ← Error
 var TypeConversionTable = [][]func(arg Native) Native{
 
 	[]func(arg Native) Native{ // 0  ← Nil
@@ -621,10 +620,10 @@ var TypeConversionTable = [][]func(arg Native) Native{
 		func(arg Native) Native { return IntVal(arg.(BigFltVal).Int()) },           // 4  ← Int32
 		func(arg Native) Native { return IntVal(arg.(BigFltVal).Int()) },           // 4  ← Int
 		func(arg Native) Native { return IntVal(arg.(BigFltVal).Int()).BigInt() },  // 5  ← BigInt
-		func(arg Native) Native { return Uint8Val(arg.(BigFltVal).Int()) },         // 6  ← Uint8
-		func(arg Native) Native { return Uint16Val(arg.(BigFltVal).Int()) },        // 7  ← Uint16
-		func(arg Native) Native { return Uint32Val(arg.(BigFltVal).Int()) },        // 9  ← Uint32
-		func(arg Native) Native { return UintVal(arg.(BigFltVal).Int()) },          // 10 ← Uint
+		func(arg Native) Native { return Uint8Val(arg.(BigFltVal).Uint()) },        // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(BigFltVal).Uint()) },       // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(BigFltVal).Uint()) },       // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(BigFltVal).Uint()) },         // 10 ← Uint
 		func(arg Native) Native { return arg.(BigFltVal).Float().Flt32() },         // 12 ← Flt32
 		func(arg Native) Native { return arg.(BigFltVal).Float() },                 // 13 ← Float
 		func(arg Native) Native { return FltVal(arg.(BigFltVal).Int()).BigFlt() },  // 14 ← BigFlt
@@ -666,10 +665,10 @@ var TypeConversionTable = [][]func(arg Native) Native{
 		func(arg Native) Native { return IntVal(arg.(RatioVal).Int()) },           // 4  ← Int32
 		func(arg Native) Native { return arg.(RatioVal).Int() },                   // 4  ← Int
 		func(arg Native) Native { return IntVal(arg.(RatioVal).Int()).BigInt() },  // 5  ← BigInt
-		func(arg Native) Native { return Uint8Val(arg.(RatioVal).Int()) },         // 6  ← Uint8
-		func(arg Native) Native { return Uint16Val(arg.(RatioVal).Int()) },        // 7  ← Uint16
-		func(arg Native) Native { return Uint32Val(arg.(RatioVal).Int()) },        // 9  ← Uint32
-		func(arg Native) Native { return UintVal(arg.(RatioVal).Int()) },          // 10 ← Uint
+		func(arg Native) Native { return Uint8Val(arg.(RatioVal).Uint()) },        // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(RatioVal).Uint()) },       // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(RatioVal).Uint()) },       // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(RatioVal).Uint()) },         // 10 ← Uint
 		func(arg Native) Native { return arg.(RatioVal).Float().Flt32() },         // 12 ← Flt32
 		func(arg Native) Native { return arg.(RatioVal).Float() },                 // 13 ← Float
 		func(arg Native) Native { return FltVal(arg.(RatioVal).Int()).BigFlt() },  // 14 ← BigFlt
@@ -756,10 +755,10 @@ var TypeConversionTable = [][]func(arg Native) Native{
 		func(arg Native) Native { return IntVal(arg.(ImagVal).Int()) },           // 4  ← Int32
 		func(arg Native) Native { return arg.(ImagVal).Int() },                   // 4  ← Int
 		func(arg Native) Native { return IntVal(arg.(ImagVal).Int()).BigInt() },  // 5  ← BigInt
-		func(arg Native) Native { return Uint8Val(arg.(ImagVal).Int()) },         // 6  ← Uint8
-		func(arg Native) Native { return Uint16Val(arg.(ImagVal).Int()) },        // 7  ← Uint16
-		func(arg Native) Native { return Uint32Val(arg.(ImagVal).Int()) },        // 9  ← Uint32
-		func(arg Native) Native { return UintVal(arg.(ImagVal).Int()) },          // 10 ← Uint
+		func(arg Native) Native { return Uint8Val(arg.(ImagVal).Uint()) },        // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(ImagVal).Uint()) },       // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(ImagVal).Uint()) },       // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(ImagVal).Uint()) },         // 10 ← Uint
 		func(arg Native) Native { return arg.(ImagVal).Float().Flt32() },         // 12 ← Flt32
 		func(arg Native) Native { return arg.(ImagVal).Float() },                 // 13 ← Float
 		func(arg Native) Native { return FltVal(arg.(ImagVal).Int()).BigFlt() },  // 14 ← BigFlt
@@ -789,24 +788,354 @@ var TypeConversionTable = [][]func(arg Native) Native{
 	},
 
 	[]func(arg Native) Native{ // 18 ← Time
+		func(arg Native) Native { return NilVal{} }, // 0  ← Nil
+		func(arg Native) Native {
+			if arg.(TimeVal).Time().Before(time.Now()) {
+				return BoolVal(true)
+			}
+			return BoolVal(false)
+		}, // 1  ← Bool
+		func(arg Native) Native { return IntVal(arg.(TimeVal).Int()) },          // 2  ← Int8
+		func(arg Native) Native { return IntVal(arg.(TimeVal).Int()) },          // 3  ← Int16
+		func(arg Native) Native { return IntVal(arg.(TimeVal).Int()) },          // 4  ← Int32
+		func(arg Native) Native { return arg.(TimeVal).Int() },                  // 4  ← Int
+		func(arg Native) Native { return IntVal(arg.(TimeVal).Int()).BigInt() }, // 5  ← BigInt
+		func(arg Native) Native { return Uint8Val(arg.(TimeVal).Uint()) },       // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(TimeVal).Uint()) },      // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(TimeVal).Uint()) },      // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(TimeVal).Uint()) },        // 10 ← Uint
+		func(arg Native) Native { return arg.(TimeVal).Float().Flt32() },        // 12 ← Flt32
+		func(arg Native) Native { return arg.(TimeVal).Float() },                // 13 ← Float
+		func(arg Native) Native { return FltVal(arg.(TimeVal).Int()).BigFlt() }, // 14 ← BigFlt
+		func(arg Native) Native { return arg.(TimeVal).Ratio() },                // 15 ← Ratio
+		func(arg Native) Native { return Imag64Val(arg.(TimeVal).Imag()) },      // 16 ← Imag64
+		func(arg Native) Native { return arg.(TimeVal).Imag() },                 // 17 ← Imag
+		func(arg Native) Native { return arg.(TimeVal) },                        // 18 ← Time
+		func(arg Native) Native {
+			if time.Now().Before(arg.(TimeVal).Time()) {
+				return DuraVal(arg.(TimeVal).Time().Sub(time.Now()))
+			}
+			return DuraVal(time.Now().Sub(arg.(TimeVal).Time()))
+		}, // 19 ← Duration
+		func(arg Native) Native { return ByteVal([]byte(arg.(TimeVal).String())[0]) }, // 20 ← Byte
+		func(arg Native) Native { return RuneVal([]rune(arg.(TimeVal).String())[0]) }, // 21 ← Rune
+		func(arg Native) Native { return BitFlag(UintVal(arg.(TimeVal).Int())) },      // 22 ← Flag
+		func(arg Native) Native { return StrVal(arg.(TimeVal).String()) },             // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte(arg.(TimeVal).String())) },   // 24 ← Bytes
+		func(arg Native) Native {
+			if arg.(BoolVal).Bool() {
+				return NewError(
+					fmt.Errorf(
+						"error occured during convertion from uint"))
+			}
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 19 ← Duration
+		func(arg Native) Native { return NilVal{} }, // 0  ← Nil
+		func(arg Native) Native {
+			if arg.(DuraVal) > 0 {
+				return BoolVal(true)
+			}
+			return BoolVal(false)
+		}, // 1  ← Bool
+		func(arg Native) Native { return IntVal(arg.(DuraVal).Int()) },          // 2  ← Int8
+		func(arg Native) Native { return IntVal(arg.(DuraVal).Int()) },          // 3  ← Int16
+		func(arg Native) Native { return IntVal(arg.(DuraVal).Int()) },          // 4  ← Int32
+		func(arg Native) Native { return arg.(DuraVal).Int() },                  // 4  ← Int
+		func(arg Native) Native { return IntVal(arg.(DuraVal).Int()).BigInt() }, // 5  ← BigInt
+		func(arg Native) Native { return Uint8Val(arg.(DuraVal).Uint()) },       // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(DuraVal).Uint()) },      // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(DuraVal).Uint()) },      // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(DuraVal).Uint()) },        // 10 ← Uint
+		func(arg Native) Native { return arg.(DuraVal).Float().Flt32() },        // 12 ← Flt32
+		func(arg Native) Native { return arg.(DuraVal).Float() },                // 13 ← Float
+		func(arg Native) Native { return FltVal(arg.(DuraVal).Int()).BigFlt() }, // 14 ← BigFlt
+		func(arg Native) Native { return arg.(DuraVal).Ratio() },                // 15 ← Ratio
+		func(arg Native) Native { return Imag64Val(arg.(DuraVal).Imag()) },      // 16 ← Imag64
+		func(arg Native) Native { return arg.(DuraVal).Imag() },                 // 17 ← Imag
+		func(arg Native) Native {
+			if arg.(DuraVal).Int() > 0 {
+				return TimeVal(time.Now())
+			}
+			return TimeVal{}
+		}, // 18 ← Time
+		func(arg Native) Native { return arg.(DuraVal) },                              // 19 ← Duration
+		func(arg Native) Native { return ByteVal([]byte(arg.(DuraVal).String())[0]) }, // 20 ← Byte
+		func(arg Native) Native { return RuneVal([]rune(arg.(DuraVal).String())[0]) }, // 21 ← Rune
+		func(arg Native) Native { return BitFlag(UintVal(arg.(DuraVal).Int())) },      // 22 ← Flag
+		func(arg Native) Native { return StrVal(arg.(DuraVal).String()) },             // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte(arg.(DuraVal).String())) },   // 24 ← Bytes
+		func(arg Native) Native {
+			if arg.(BoolVal).Bool() {
+				return NewError(
+					fmt.Errorf(
+						"error occured during convertion from uint"))
+			}
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 20 ← Byte
+		func(arg Native) Native { return NilVal{} }, // 0  ← Nil
+		func(arg Native) Native {
+			if arg.(ByteVal).GoByte() > byte(0) {
+				return BoolVal(true)
+			}
+			return BoolVal(false)
+		}, // 1  ← Bool
+		func(arg Native) Native { return IntVal(arg.(ByteVal).Int()) },          // 2  ← Int8
+		func(arg Native) Native { return IntVal(arg.(ByteVal).Int()) },          // 3  ← Int16
+		func(arg Native) Native { return IntVal(arg.(ByteVal).Int()) },          // 4  ← Int32
+		func(arg Native) Native { return arg.(ByteVal).Int() },                  // 4  ← Int
+		func(arg Native) Native { return IntVal(arg.(ByteVal).Int()).BigInt() }, // 5  ← BigInt
+		func(arg Native) Native { return Uint8Val(arg.(ByteVal).Uint()) },       // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(arg.(ByteVal).Uint()) },      // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(arg.(ByteVal).Uint()) },      // 9  ← Uint32
+		func(arg Native) Native { return UintVal(arg.(ByteVal).Uint()) },        // 10 ← Uint
+		func(arg Native) Native { return arg.(ByteVal).Float().Flt32() },        // 12 ← Flt32
+		func(arg Native) Native { return arg.(ByteVal).Float() },                // 13 ← Float
+		func(arg Native) Native { return FltVal(arg.(ByteVal).Int()).BigFlt() }, // 14 ← BigFlt
+		func(arg Native) Native { return arg.(ByteVal).Ratio() },                // 15 ← Ratio
+		func(arg Native) Native { return Imag64Val(arg.(ByteVal).Imag()) },      // 16 ← Imag64
+		func(arg Native) Native { return arg.(ByteVal).Imag() },                 // 17 ← Imag
+		func(arg Native) Native {
+			if arg.(ByteVal).Int() > 0 {
+				return TimeVal(time.Now())
+			}
+			return TimeVal{}
+		}, // 18 ← Time
+		func(arg Native) Native { return arg.(ByteVal) },                            // 19 ← Duration
+		func(arg Native) Native { return arg.(ByteVal) },                            // 20 ← Byte
+		func(arg Native) Native { return RuneVal(rune(arg.(ByteVal))) },             // 21 ← Rune
+		func(arg Native) Native { return BitFlag(UintVal(arg.(ByteVal))) },          // 22 ← Flag
+		func(arg Native) Native { return StrVal(string(arg.(ByteVal))) },            // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte{arg.(ByteVal).GoByte()}) }, // 24 ← Bytes
+		func(arg Native) Native {
+			if arg.(BoolVal).Bool() {
+				return NewError(
+					fmt.Errorf(
+						"error occured during convertion from uint"))
+			}
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 21 ← Rune
+		func(arg Native) Native { return NilVal{} }, // 0  ← Nil
+		func(arg Native) Native {
+			if rune(arg.(RuneVal)) > rune(0) {
+				return BoolVal(true)
+			}
+			return BoolVal(false)
+		}, // 1  ← Bool
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))) },                   // 2  ← Int8
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))) },                   // 3  ← Int16
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))) },                   // 4  ← Int32
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))) },                   // 4  ← Int
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))).BigInt() },          // 5  ← BigInt
+		func(arg Native) Native { return Uint8Val(uint(arg.(RuneVal))) },                // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(uint(arg.(RuneVal))) },               // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(uint(arg.(RuneVal))) },               // 9  ← Uint32
+		func(arg Native) Native { return UintVal(uint(arg.(RuneVal))) },                 // 10 ← Uint
+		func(arg Native) Native { return FltVal(float64(arg.(RuneVal))).Flt32() },       // 12 ← Flt32
+		func(arg Native) Native { return FltVal(arg.(RuneVal)) },                        // 13 ← Float
+		func(arg Native) Native { return FltVal(float64(arg.(RuneVal))).BigFlt() },      // 14 ← BigFlt
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))).Ratio() },           // 15 ← Ratio
+		func(arg Native) Native { return Imag64Val(IntVal(int(arg.(RuneVal))).Imag()) }, // 16 ← Imag64
+		func(arg Native) Native { return IntVal(int(arg.(RuneVal))).Imag() },            // 17 ← Imag
+		func(arg Native) Native {
+			if int(arg.(RuneVal)) > 0 {
+				return TimeVal(time.Now())
+			}
+			return TimeVal{}
+		}, // 18 ← Time
+		func(arg Native) Native { return arg.(RuneVal) },                               // 19 ← Duration
+		func(arg Native) Native { return arg.(RuneVal) },                               // 20 ← Byte
+		func(arg Native) Native { return RuneVal(rune(arg.(RuneVal))) },                // 21 ← Rune
+		func(arg Native) Native { return BitFlag(UintVal(arg.(RuneVal))) },             // 22 ← Flag
+		func(arg Native) Native { return StrVal(string(arg.(RuneVal))) },               // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte{byte(rune(arg.(RuneVal)))}) }, // 24 ← Bytes
+		func(arg Native) Native {
+			if arg.(BoolVal).Bool() {
+				return NewError(
+					fmt.Errorf(
+						"error occured during convertion from uint"))
+			}
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 22 ← Flag
+		func(arg Native) Native { return NilVal{} }, // 0  ← Nil
+		func(arg Native) Native {
+			if rune(arg.(BitFlag)) > rune(0) {
+				return BoolVal(true)
+			}
+			return BoolVal(false)
+		}, // 1  ← Bool
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))) },                   // 2  ← Int8
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))) },                   // 3  ← Int16
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))) },                   // 4  ← Int32
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))) },                   // 4  ← Int
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))).BigInt() },          // 5  ← BigInt
+		func(arg Native) Native { return Uint8Val(uint(arg.(BitFlag))) },                // 6  ← Uint8
+		func(arg Native) Native { return Uint16Val(uint(arg.(BitFlag))) },               // 7  ← Uint16
+		func(arg Native) Native { return Uint32Val(uint(arg.(BitFlag))) },               // 9  ← Uint32
+		func(arg Native) Native { return UintVal(uint(arg.(BitFlag))) },                 // 10 ← Uint
+		func(arg Native) Native { return FltVal(float64(arg.(BitFlag))).Flt32() },       // 12 ← Flt32
+		func(arg Native) Native { return FltVal(arg.(BitFlag)) },                        // 13 ← Float
+		func(arg Native) Native { return FltVal(float64(arg.(BitFlag))).BigFlt() },      // 14 ← BigFlt
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))).Ratio() },           // 15 ← Ratio
+		func(arg Native) Native { return Imag64Val(IntVal(int(arg.(BitFlag))).Imag()) }, // 16 ← Imag64
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))).Imag() },            // 17 ← Imag
+		func(arg Native) Native {
+			if int(arg.(BitFlag)) > 0 {
+				return TimeVal(time.Now())
+			}
+			return TimeVal{}
+		}, // 18 ← Time
+		func(arg Native) Native { return arg.(BitFlag) },                               // 19 ← Duration
+		func(arg Native) Native { return arg.(BitFlag) },                               // 20 ← Byte
+		func(arg Native) Native { return RuneVal(rune(arg.(BitFlag))) },                // 21 ← Rune
+		func(arg Native) Native { return BitFlag(UintVal(arg.(BitFlag))) },             // 22 ← Flag
+		func(arg Native) Native { return StrVal(string(arg.(BitFlag))) },               // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte{byte(rune(arg.(BitFlag)))}) }, // 24 ← Bytes
+		func(arg Native) Native {
+			if arg.(BoolVal).Bool() {
+				return NewError(
+					fmt.Errorf(
+						"error occured during convertion from uint"))
+			}
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 23 ← String
+		func(arg Native) Native { return NilVal{} },                   // 0  ← Nil
+		func(arg Native) Native { return arg.(StrVal).ReadBoolVal() }, // 1  ← Bool
+		func(arg Native) Native { // 2  ← Int8
+			if i := arg.(StrVal).ReadIntVal(); i.Type().Match(Int) {
+				return Int8Val(i.(IntVal).Int())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Int16
+			if i := arg.(StrVal).ReadIntVal(); i.Type().Match(Int) {
+				return Int16Val(i.(IntVal).Int())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Int32
+			if i := arg.(StrVal).ReadIntVal(); i.Type().Match(Int) {
+				return Int32Val(i.(IntVal).Int())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Int
+			if i := arg.(StrVal).ReadIntVal(); i.Type().Match(Int) {
+				return IntVal(i.(IntVal).Int())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Int32
+			if i := arg.(StrVal).ReadIntVal(); i.Type().Match(Int) {
+				return (*BigIntVal)(big.NewInt(int64(i.(IntVal))))
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Uint8
+			if i := arg.(StrVal).ReadUintVal(); i.Type().Match(Uint) {
+				return Uint8Val(i.(UintVal).Uint())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Uint16
+			if i := arg.(StrVal).ReadUintVal(); i.Type().Match(Uint) {
+				return Uint16Val(i.(UintVal).Uint())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 2  ← Uint32
+			if i := arg.(StrVal).ReadUintVal(); i.Type().Match(Uint) {
+				return Uint32Val(i.(UintVal).Uint())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 11  ← Uint
+			if i := arg.(StrVal).ReadUintVal(); i.Type().Match(Uint) {
+				return UintVal(i.(UintVal).Uint())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 11  ← Flt32
+			if i := arg.(StrVal).ReadFloatVal(); i.Type().Match(Float) {
+				return Flt32Val(i.(FltVal).Float())
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 12  ← Float
+			if i := arg.(StrVal).ReadFloatVal(); i.Type().Match(Float) {
+				return (*BigFltVal)(big.NewFloat(float64(i.(FltVal))))
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { // 13  ← BigFlt
+			if i := arg.(StrVal).ReadFloatVal(); i.Type().Match(Float) {
+				return (*BigFltVal)(big.NewFloat(float64(i.(FltVal))))
+			}
+			return NewNil()
+		},
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))).Ratio() },           // 14 ← Ratio
+		func(arg Native) Native { return Imag64Val(IntVal(int(arg.(BitFlag))).Imag()) }, // 15 ← Imag64
+		func(arg Native) Native { return IntVal(int(arg.(BitFlag))).Imag() },            // 16 ← Imag
+		func(arg Native) Native { // 18 ← Time
+			if int(arg.(BitFlag)) > 0 {
+				return TimeVal(time.Now())
+			}
+			return TimeVal{}
+		},
+		func(arg Native) Native { return arg.(BitFlag) },                            // 19 ← Duration
+		func(arg Native) Native { return ByteVal([]byte(string(arg.(StrVal)))[0]) }, // 20 ← Byte
+		func(arg Native) Native { return RuneVal([]rune(string(arg.(StrVal)))[0]) }, // 21 ← Rune
+		func(arg Native) Native { return RuneVal([]rune(string(arg.(StrVal)))[0]) }, // 22 ← Flag
+		func(arg Native) Native { return arg.(StrVal) },                             // 23 ← String
+		func(arg Native) Native { return BytesVal([]byte(string(arg.(StrVal)))) },   // 24 ← Bytes
+		func(arg Native) Native {
+			return NewError(
+				fmt.Errorf(
+					"error occured during convertion from uint"))
+			return ErrorVal{}
+		}, // 25 ← Error
 	},
 
 	[]func(arg Native) Native{ // 24 ← Bytes
+		func(Native) Native { return NilVal{} },                  // 0  ← Nil
+		func(Native) Native { return BoolVal(false) },            // 1  ← Bool
+		func(Native) Native { return Int8Val(0) },                // 2  ← Int8
+		func(Native) Native { return Int16Val(0) },               // 3  ← Int16
+		func(Native) Native { return Int32Val(0) },               // 4  ← Int32
+		func(Native) Native { return IntVal(0) },                 // 4  ← Int
+		func(Native) Native { return IntVal(0).BigInt() },        // 5  ← BigInt
+		func(Native) Native { return Uint8Val(0) },               // 6  ← Uint8
+		func(Native) Native { return Uint16Val(0) },              // 7  ← Uint16
+		func(Native) Native { return Uint32Val(0) },              // 9  ← Uint32
+		func(Native) Native { return UintVal(0) },                // 10 ← Uint
+		func(Native) Native { return Flt32Val(0.0) },             // 12 ← Flt32
+		func(Native) Native { return FltVal(0.0) },               // 13 ← Float
+		func(Native) Native { return FltVal(0.0).BigFlt() },      // 14 ← BigFlt
+		func(Native) Native { return IntVal(0).Ratio() },         // 15 ← Ratio
+		func(Native) Native { return IntVal(0).Imag().Imag64() }, // 16 ← Imag64
+		func(Native) Native { return IntVal(0).Imag() },          // 17 ← Imag
+		func(Native) Native { return TimeVal{} },                 // 18 ← Time
+		func(arg Native) Native { return DuraVal(0) },            // 19 ← Duration
+		func(arg Native) Native { return ByteVal(0) },            // 20 ← Byte
+		func(arg Native) Native { return RuneVal(0) },            // 21 ← Rune
+		func(arg Native) Native { return BitFlag(0) },            // 22 ← Flag
+		func(arg Native) Native { return StrVal("") },            // 23 ← String
+		func(arg Native) Native { return BytesVal{} },            // 24 ← Bytes
+		func(arg Native) Native { return ErrorVal{} },            // 25 ← Error
 	},
 }
 
@@ -858,30 +1187,47 @@ func (v BoolVal) IntVal() IntVal {
 	}
 	return IntVal(-1)
 }
-func (v BoolVal) Float() FltVal { return v.IntVal().Float() }
-func (v BoolVal) Imag() ImagVal { return v.IntVal().Imag() }
+func (v BoolVal) Float() FltVal           { return v.IntVal().Float() }
+func (v BoolVal) Imag() ImagVal           { return v.IntVal().Imag() }
+func (v BoolVal) Or(arg BoolVal) BoolVal  { return v || arg }
+func (v BoolVal) And(arg BoolVal) BoolVal { return v && arg }
+func (v BoolVal) Not() BoolVal            { return !v }
 
 // NATURAL VALUE
-func (v UintVal) Idx() int             { return int(v.Int()) }
-func (v UintVal) GoInt() int           { return int(v.Int()) }
-func (v UintVal) GoUint() uint         { return uint(v.Uint()) }
-func (v UintVal) GoFlt() float64       { return float64(v.Float()) }
-func (v UintVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v UintVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v UintVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.Int())) }
-func (v UintVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v UintVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v UintVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v UintVal) Unit() Native         { return UintVal(1) }
-func (v UintVal) Uint() UintVal        { return v }
-func (v UintVal) Uint8() Uint8Val      { return Uint8Val(uint8(v)) }
-func (v UintVal) Uint16() Uint16Val    { return Uint16Val(uint16(v)) }
-func (v UintVal) Uint32() Uint32Val    { return Uint32Val(uint32(v)) }
-func (v UintVal) Int() IntVal          { return IntVal(int(v)) }
-func (v UintVal) IntVal() IntVal       { return IntVal(int(v)) }
-func (v UintVal) Bool() BoolVal        { return v.BoolVal().(BoolVal) }
-func (v UintVal) Float() FltVal        { return FltVal(float64(v)) }
-func (v UintVal) Imag() ImagVal        { return v.IntVal().Imag() }
+func (v UintVal) Idx() int                      { return int(v.Int()) }
+func (v UintVal) GoInt() int                    { return int(v.Int()) }
+func (v UintVal) GoUint() uint                  { return uint(v.Uint()) }
+func (v UintVal) GoFlt() float64                { return float64(v.Float()) }
+func (v UintVal) GoImag() complex128            { return complex128(v.Imag()) }
+func (v UintVal) GoRat() *big.Rat               { return (*big.Rat)(v.Ratio()) }
+func (v UintVal) GoBigInt() *big.Int            { return big.NewInt(int64(v.Int())) }
+func (v UintVal) GoBigFlt() *big.Float          { return big.NewFloat(v.GoFlt()) }
+func (v UintVal) BigInt() *BigIntVal            { return (*BigIntVal)(v.GoBigInt()) }
+func (v UintVal) BigFlt() *BigFltVal            { return (*BigFltVal)(v.GoBigFlt()) }
+func (v UintVal) Unit() Native                  { return UintVal(1) }
+func (v UintVal) Uint() UintVal                 { return v }
+func (v UintVal) Uint8() Uint8Val               { return Uint8Val(uint8(v)) }
+func (v UintVal) Uint16() Uint16Val             { return Uint16Val(uint16(v)) }
+func (v UintVal) Uint32() Uint32Val             { return Uint32Val(uint32(v)) }
+func (v UintVal) Int() IntVal                   { return IntVal(int(v)) }
+func (v UintVal) IntVal() IntVal                { return IntVal(int(v)) }
+func (v UintVal) Bool() BoolVal                 { return v.BoolVal().(BoolVal) }
+func (v UintVal) Float() FltVal                 { return FltVal(float64(v)) }
+func (v UintVal) Imag() ImagVal                 { return v.IntVal().Imag() }
+func (v UintVal) And(arg UintVal) UintVal       { return v & arg }
+func (v UintVal) Xor(arg UintVal) UintVal       { return v ^ arg }
+func (v UintVal) Or(arg UintVal) UintVal        { return v | arg }
+func (v UintVal) AndNot(arg UintVal) UintVal    { return v &^ arg }
+func (v UintVal) Not() UintVal                  { return ^v }
+func (v UintVal) Negate() UintVal               { return -v }
+func (v UintVal) Add(arg UintVal) UintVal       { return v + arg }
+func (v UintVal) Substract(arg UintVal) UintVal { return v - arg }
+func (v UintVal) Multipy(arg UintVal) UintVal   { return v * arg }
+func (v UintVal) Power(arg UintVal) UintVal     { return v ^ arg }
+func (v UintVal) Divide(arg UintVal) UintVal    { return v / arg }
+func (v UintVal) DivideRatio(arg UintVal) *RatioVal {
+	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
+}
 func (v UintVal) Ratio() *RatioVal {
 	var rat = big.NewRat(int64(v), 1)
 	return (*RatioVal)(rat)
@@ -894,27 +1240,38 @@ func (v UintVal) BoolVal() Native {
 }
 
 // INTEGER VALUE
-func (v IntVal) GoInt() int           { return int(v) }
-func (v IntVal) GoFlt() float64       { return float64(v) }
-func (v IntVal) GoUint() uint         { return uint(v) }
-func (v IntVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v IntVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v IntVal) GoBigInt() *big.Int   { return big.NewInt(int64(v)) }
-func (v IntVal) GoBigFlt() *big.Float { return big.NewFloat(float64(v)) }
-func (v IntVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v IntVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v IntVal) Unit() Native         { return UintVal(uint(v)) }
-func (v IntVal) Byte() Native         { return IntVal(byte(v.Int8())) }
-func (v IntVal) Rune() Native         { return RuneVal(rune(v.Int32())) }
-func (v IntVal) Flag() Native         { return BitFlag(uint(v)) }
-func (v IntVal) IntVal() IntVal       { return v }
-func (v IntVal) Int8() Int8Val        { return Int8Val(int8(v)) }
-func (v IntVal) Int16() Int16Val      { return Int16Val(int16(v)) }
-func (v IntVal) Int32() Int32Val      { return Int32Val(int32(v)) }
-func (v IntVal) Int() IntVal          { return v }
-func (v IntVal) Float() FltVal        { return FltVal(float64(v)) }
-func (v IntVal) Imag() ImagVal        { return ImagVal(complex(v.Float(), 1.0)) }
-func (v IntVal) Idx() int             { return int(v) }
+func (v IntVal) GoInt() int                  { return int(v) }
+func (v IntVal) GoFlt() float64              { return float64(v) }
+func (v IntVal) GoUint() uint                { return uint(v) }
+func (v IntVal) GoImag() complex128          { return complex128(v.Imag()) }
+func (v IntVal) GoRat() *big.Rat             { return (*big.Rat)(v.Ratio()) }
+func (v IntVal) GoBigInt() *big.Int          { return big.NewInt(int64(v)) }
+func (v IntVal) GoBigFlt() *big.Float        { return big.NewFloat(float64(v)) }
+func (v IntVal) BigInt() *BigIntVal          { return (*BigIntVal)(v.GoBigInt()) }
+func (v IntVal) BigFlt() *BigFltVal          { return (*BigFltVal)(v.GoBigFlt()) }
+func (v IntVal) Unit() Native                { return UintVal(uint(v)) }
+func (v IntVal) Byte() Native                { return IntVal(byte(v.Int8())) }
+func (v IntVal) Rune() Native                { return RuneVal(rune(v.Int32())) }
+func (v IntVal) Flag() Native                { return BitFlag(uint(v)) }
+func (v IntVal) IntVal() IntVal              { return v }
+func (v IntVal) Int8() Int8Val               { return Int8Val(int8(v)) }
+func (v IntVal) Int16() Int16Val             { return Int16Val(int16(v)) }
+func (v IntVal) Int32() Int32Val             { return Int32Val(int32(v)) }
+func (v IntVal) Int() IntVal                 { return v }
+func (v IntVal) Float() FltVal               { return FltVal(float64(v)) }
+func (v IntVal) Imag() ImagVal               { return ImagVal(complex(v.Float(), 1.0)) }
+func (v IntVal) Idx() int                    { return int(v) }
+func (v IntVal) And(arg IntVal) IntVal       { return v & arg }
+func (v IntVal) Xor(arg IntVal) IntVal       { return v ^ arg }
+func (v IntVal) Or(arg IntVal) IntVal        { return v | arg }
+func (v IntVal) AndNot(arg IntVal) IntVal    { return v &^ arg }
+func (v IntVal) Not() IntVal                 { return ^v }
+func (v IntVal) Negate() IntVal              { return -v }
+func (v IntVal) Add(arg IntVal) IntVal       { return v + arg }
+func (v IntVal) Substract(arg IntVal) IntVal { return v - arg }
+func (v IntVal) Multipy(arg IntVal) IntVal   { return v * arg }
+func (v IntVal) Power(arg IntVal) IntVal     { return v ^ arg }
+func (v IntVal) Divide(arg IntVal) IntVal    { return v / arg }
 func (v IntVal) Ratio() *RatioVal {
 	var rat = big.NewRat(1, int64(v))
 	return (*RatioVal)(rat)
@@ -942,22 +1299,27 @@ func (v IntVal) Uint() UintVal {
 }
 
 // REAL VALUE
-func (v FltVal) Unit() Native         { return FltVal(1.0) }
-func (v FltVal) Idx() int             { return int(v) }
-func (v FltVal) GoInt() int           { return int(v) }
-func (v FltVal) GoUint() uint         { return uint(v) }
-func (v FltVal) GoFlt() float64       { return float64(v) }
-func (v FltVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v FltVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v FltVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.GoInt())) }
-func (v FltVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v FltVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v FltVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v FltVal) Uint() UintVal        { return UintVal(uint(v)) }
-func (v FltVal) Int() IntVal          { return IntVal(int(v)) }
-func (v FltVal) Float() FltVal        { return v }
-func (v FltVal) Flt32() Flt32Val      { return Flt32Val(float32(v)) }
-func (v FltVal) Imag() ImagVal        { return ImagVal(complex(v, 1.0)) }
+func (v FltVal) Unit() Native                { return FltVal(1.0) }
+func (v FltVal) Idx() int                    { return int(v) }
+func (v FltVal) GoInt() int                  { return int(v) }
+func (v FltVal) GoUint() uint                { return uint(v) }
+func (v FltVal) GoFlt() float64              { return float64(v) }
+func (v FltVal) GoImag() complex128          { return complex128(v.Imag()) }
+func (v FltVal) GoRat() *big.Rat             { return (*big.Rat)(v.Ratio()) }
+func (v FltVal) GoBigInt() *big.Int          { return big.NewInt(int64(v.GoInt())) }
+func (v FltVal) GoBigFlt() *big.Float        { return big.NewFloat(v.GoFlt()) }
+func (v FltVal) BigInt() *BigIntVal          { return (*BigIntVal)(v.GoBigInt()) }
+func (v FltVal) BigFlt() *BigFltVal          { return (*BigFltVal)(v.GoBigFlt()) }
+func (v FltVal) Uint() UintVal               { return UintVal(uint(v)) }
+func (v FltVal) Int() IntVal                 { return IntVal(int(v)) }
+func (v FltVal) Float() FltVal               { return v }
+func (v FltVal) Flt32() Flt32Val             { return Flt32Val(float32(v)) }
+func (v FltVal) Imag() ImagVal               { return ImagVal(complex(v, 1.0)) }
+func (v FltVal) Negate() FltVal              { return -v }
+func (v FltVal) Add(arg FltVal) FltVal       { return v + arg }
+func (v FltVal) Substract(arg FltVal) FltVal { return v - arg }
+func (v FltVal) Multipy(arg FltVal) FltVal   { return v * arg }
+func (v FltVal) Divide(arg FltVal) FltVal    { return v / arg }
 func (v FltVal) Ratio() *RatioVal {
 	var rat = big.NewRat(int64(1), int64(1)).SetFloat64(v.GoFlt())
 	return (*RatioVal)(rat)
@@ -1052,64 +1414,80 @@ func (v ImagVal) Bool() BoolVal {
 }
 
 /// BIG INT VALUE
-func (v *BigIntVal) Int64() int64        { return v.Int64() }
-func (v BigIntVal) Idx() int             { return int(v.Int()) }
-func (v BigIntVal) GoInt() int           { return int(v.Int()) }
-func (v BigIntVal) GoUint() uint         { return uint(v.Uint()) }
-func (v BigIntVal) GoFlt() float64       { return float64(v.Int64()) }
-func (v BigIntVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v BigIntVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v BigIntVal) GoBigInt() *big.Int   { return (*big.Int)(&v) }
-func (v BigIntVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v BigIntVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v BigIntVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v BigIntVal) Bool() BoolVal        { return IntVal(v.Int()).Bool() }
-func (v BigIntVal) Int() IntVal          { return IntVal(int(v.Int64())) }
-func (v BigIntVal) Uint() UintVal        { return UintVal(uint(v.GoBigInt().Uint64())) }
-func (v BigIntVal) Float() FltVal        { return FltVal(float64(v.GoFlt())) }
-func (v BigIntVal) Ratio() *RatioVal     { return IntVal(v.Int()).Ratio() }
-func (v BigIntVal) Imag() ImagVal        { return IntVal(v.Int()).Imag() }
+func (v *BigIntVal) Int64() int64                     { return v.Int64() }
+func (v BigIntVal) Idx() int                          { return int(v.Int()) }
+func (v BigIntVal) GoInt() int                        { return int(v.Int()) }
+func (v BigIntVal) GoUint() uint                      { return uint(v.Uint()) }
+func (v BigIntVal) GoFlt() float64                    { return float64(v.Int64()) }
+func (v BigIntVal) GoImag() complex128                { return complex128(v.Imag()) }
+func (v BigIntVal) GoRat() *big.Rat                   { return (*big.Rat)(v.Ratio()) }
+func (v BigIntVal) GoBigInt() *big.Int                { return (*big.Int)(&v) }
+func (v BigIntVal) GoBigFlt() *big.Float              { return big.NewFloat(v.GoFlt()) }
+func (v BigIntVal) BigInt() *BigIntVal                { return (*BigIntVal)(v.GoBigInt()) }
+func (v BigIntVal) BigFlt() *BigFltVal                { return (*BigFltVal)(v.GoBigFlt()) }
+func (v BigIntVal) Bool() BoolVal                     { return IntVal(v.Int()).Bool() }
+func (v BigIntVal) Int() IntVal                       { return IntVal(int(v.Int64())) }
+func (v BigIntVal) Uint() UintVal                     { return UintVal(uint(v.GoBigInt().Uint64())) }
+func (v BigIntVal) Float() FltVal                     { return FltVal(float64(v.GoFlt())) }
+func (v BigIntVal) Ratio() *RatioVal                  { return IntVal(v.Int()).Ratio() }
+func (v BigIntVal) Imag() ImagVal                     { return IntVal(v.Int()).Imag() }
+func (v BigIntVal) Add(arg BigIntVal) BigIntVal       { return v.Add(arg) }
+func (v BigIntVal) Substract(arg BigIntVal) BigIntVal { return v.Substract(arg) }
+func (v BigIntVal) Multipy(arg BigIntVal) BigIntVal   { return v.Multipy(arg) }
+func (v BigIntVal) Divide(arg BigIntVal) BigIntVal    { return v.Divide(arg) }
+func (v BigIntVal) Power(arg BigIntVal) BigIntVal     { return v.Power(arg) }
+func (v BigIntVal) And(arg BigIntVal) BigIntVal       { return v.And(arg) }
+func (v BigIntVal) Xor(arg BigIntVal) BigIntVal       { return v.Xor(arg) }
+func (v BigIntVal) Or(arg BigIntVal) BigIntVal        { return v.Or(arg) }
+func (v BigIntVal) AndNot(arg BigIntVal) BigIntVal    { return v.AndNot(arg) }
+func (v BigIntVal) Not() BigIntVal                    { return v.Not() }
 
 /// BIG FLOAT VALUE
-func (v *BigFltVal) Float64() int64      { return v.Float64() }
-func (v BigFltVal) Idx() int             { return int(v.Int()) }
-func (v BigFltVal) GoInt() int           { return int(v.Int()) }
-func (v BigFltVal) GoUint() uint         { return uint(v.Uint()) }
-func (v BigFltVal) GoFlt() float64       { return float64(v.BigFlt().Float64()) }
-func (v BigFltVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v BigFltVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v BigFltVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.Int())) }
-func (v BigFltVal) GoBigFlt() *big.Float { return (*big.Float)(&v) }
-func (v BigFltVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v BigFltVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v BigFltVal) Bool() BoolVal        { return IntVal(v.Int()).Bool() }
-func (v BigFltVal) Int() IntVal          { return IntVal(int(v.GoBigInt().Int64())) }
-func (v BigFltVal) Uint() UintVal        { return UintVal(uint(v.GoBigInt().Uint64())) }
-func (v BigFltVal) Float() FltVal        { return FltVal(float64(v.Float64())) }
-func (v BigFltVal) Ratio() *RatioVal     { return IntVal(v.Int()).Ratio() }
-func (v BigFltVal) Imag() ImagVal        { return IntVal(v.Int()).Imag() }
+func (v *BigFltVal) Float64() int64                   { return v.Float64() }
+func (v BigFltVal) Idx() int                          { return int(v.Int()) }
+func (v BigFltVal) GoInt() int                        { return int(v.Int()) }
+func (v BigFltVal) GoUint() uint                      { return uint(v.Uint()) }
+func (v BigFltVal) GoFlt() float64                    { return float64(v.BigFlt().Float64()) }
+func (v BigFltVal) GoImag() complex128                { return complex128(v.Imag()) }
+func (v BigFltVal) GoRat() *big.Rat                   { return (*big.Rat)(v.Ratio()) }
+func (v BigFltVal) GoBigInt() *big.Int                { return big.NewInt(int64(v.Int())) }
+func (v BigFltVal) GoBigFlt() *big.Float              { return (*big.Float)(&v) }
+func (v BigFltVal) BigInt() *BigIntVal                { return (*BigIntVal)(v.GoBigInt()) }
+func (v BigFltVal) BigFlt() *BigFltVal                { return (*BigFltVal)(v.GoBigFlt()) }
+func (v BigFltVal) Bool() BoolVal                     { return IntVal(v.Int()).Bool() }
+func (v BigFltVal) Int() IntVal                       { return IntVal(int(v.GoBigInt().Int64())) }
+func (v BigFltVal) Uint() UintVal                     { return UintVal(uint(v.GoBigInt().Uint64())) }
+func (v BigFltVal) Float() FltVal                     { return FltVal(float64(v.Float64())) }
+func (v BigFltVal) Ratio() *RatioVal                  { return IntVal(v.Int()).Ratio() }
+func (v BigFltVal) Imag() ImagVal                     { return IntVal(v.Int()).Imag() }
+func (v BigFltVal) Add(arg BigFltVal) BigFltVal       { return v.Add(arg) }
+func (v BigFltVal) Substract(arg BigFltVal) BigFltVal { return v.Substract(arg) }
+func (v BigFltVal) Multipy(arg BigFltVal) BigFltVal   { return v.Multipy(arg) }
+func (v BigFltVal) Divide(arg BigFltVal) BigFltVal    { return v.Divide(arg) }
 
 /// TIME VALUE
-func (v TimeVal) Idx() int             { return int(v.Int()) }
-func (v TimeVal) GoInt() int           { return int(v.Int()) }
-func (v TimeVal) GoUint() uint         { return uint(v.Uint()) }
-func (v TimeVal) GoFlt() float64       { return float64(v.Float()) }
-func (v TimeVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v TimeVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v TimeVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.GoInt())) }
-func (v TimeVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v TimeVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v TimeVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v TimeVal) Time() time.Time      { return time.Time(v) }
-func (v TimeVal) Uint() UintVal        { return UintVal(uint(time.Time(v).Unix())) }
-func (v TimeVal) UintVal() UintVal     { return UintVal(uint(time.Time(v).Unix())) }
-func (v TimeVal) Int() IntVal          { return IntVal(int(time.Time(v).Unix())) }
-func (v TimeVal) IntVal() IntVal       { return IntVal(time.Time(v).Unix()) }
-func (v TimeVal) Bool() BoolVal        { return IntVal(v.Int()).Bool() }
-func (v TimeVal) Ratio() *RatioVal     { return IntVal(v.Int()).Ratio() }
-func (v TimeVal) Float() FltVal        { return IntVal(v.Int()).Float() }
-func (v TimeVal) Imag() ImagVal        { return IntVal(v.Int()).Imag() }
-func (v TimeVal) ANSIC() StrVal        { return StrVal(time.ANSIC) }
+func (v TimeVal) Idx() int                      { return int(v.Int()) }
+func (v TimeVal) GoInt() int                    { return int(v.Int()) }
+func (v TimeVal) GoUint() uint                  { return uint(v.Uint()) }
+func (v TimeVal) GoFlt() float64                { return float64(v.Float()) }
+func (v TimeVal) GoImag() complex128            { return complex128(v.Imag()) }
+func (v TimeVal) GoRat() *big.Rat               { return (*big.Rat)(v.Ratio()) }
+func (v TimeVal) GoBigInt() *big.Int            { return big.NewInt(int64(v.GoInt())) }
+func (v TimeVal) GoBigFlt() *big.Float          { return big.NewFloat(v.GoFlt()) }
+func (v TimeVal) BigInt() *BigIntVal            { return (*BigIntVal)(v.GoBigInt()) }
+func (v TimeVal) BigFlt() *BigFltVal            { return (*BigFltVal)(v.GoBigFlt()) }
+func (v TimeVal) Time() time.Time               { return time.Time(v) }
+func (v TimeVal) Uint() UintVal                 { return UintVal(uint(time.Time(v).Unix())) }
+func (v TimeVal) UintVal() UintVal              { return UintVal(uint(time.Time(v).Unix())) }
+func (v TimeVal) Int() IntVal                   { return IntVal(int(time.Time(v).Unix())) }
+func (v TimeVal) IntVal() IntVal                { return IntVal(time.Time(v).Unix()) }
+func (v TimeVal) Bool() BoolVal                 { return IntVal(v.Int()).Bool() }
+func (v TimeVal) Ratio() *RatioVal              { return IntVal(v.Int()).Ratio() }
+func (v TimeVal) Float() FltVal                 { return IntVal(v.Int()).Float() }
+func (v TimeVal) Imag() ImagVal                 { return IntVal(v.Int()).Imag() }
+func (v TimeVal) ANSIC() StrVal                 { return StrVal(time.ANSIC) }
+func (v TimeVal) Add(arg DuraVal) TimeVal       { return v.Add(arg) }
+func (v TimeVal) Substract(arg DuraVal) TimeVal { return v.Substract(arg) }
 
 /// DURATION VALUE
 func (v DuraVal) Idx() int                { return int(v.Int()) }
@@ -1139,28 +1517,34 @@ func (v ByteVal) Bool() bool {
 	}
 	return false
 }
-func (v ByteVal) Idx() int             { return int(v.Int()) }
-func (v ByteVal) String() string       { return string(v.Bytes()) }
-func (v ByteVal) GoByte() byte         { return byte(v) }
-func (v ByteVal) GoInt() int           { return int(v.Int()) }
-func (v ByteVal) GoUint() uint         { return uint(v.Uint()) }
-func (v ByteVal) GoFlt() float64       { return float64(v.Float()) }
-func (v ByteVal) GoImag() complex128   { return complex128(v.Imag()) }
-func (v ByteVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
-func (v ByteVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.GoInt())) }
-func (v ByteVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
-func (v ByteVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
-func (v ByteVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v ByteVal) Bytes() BytesVal      { return BytesVal([]byte{v.GoByte()}) }
-func (v ByteVal) Unit() Native         { return ByteVal(byte(0)) }
-func (v ByteVal) Uint() UintVal        { return UintVal(uint(v)) }
-func (v ByteVal) Int() IntVal          { return IntVal(int(v)) }
-func (v ByteVal) Ratio() *RatioVal     { return IntVal(int(v)).Ratio() }
-func (v ByteVal) Float() FltVal        { return FltVal(float64(v)) }
-func (v ByteVal) Imag() ImagVal        { return IntVal(int(v)).Imag() }
-func (v ByteVal) Byte() ByteVal        { return ByteVal(byte(v)) }
-func (v ByteVal) Rune() RuneVal        { return RuneVal(rune(v.Byte())) }
-func (v ByteVal) Len() IntVal          { return IntVal(bits.Len8(uint8(v.Uint()))) }
+func (v ByteVal) Idx() int                    { return int(v.Int()) }
+func (v ByteVal) String() string              { return string(v.Bytes()) }
+func (v ByteVal) GoByte() byte                { return byte(v) }
+func (v ByteVal) GoInt() int                  { return int(v.Int()) }
+func (v ByteVal) GoUint() uint                { return uint(v.Uint()) }
+func (v ByteVal) GoFlt() float64              { return float64(v.Float()) }
+func (v ByteVal) GoImag() complex128          { return complex128(v.Imag()) }
+func (v ByteVal) GoRat() *big.Rat             { return (*big.Rat)(v.Ratio()) }
+func (v ByteVal) GoBigInt() *big.Int          { return big.NewInt(int64(v.GoInt())) }
+func (v ByteVal) GoBigFlt() *big.Float        { return big.NewFloat(v.GoFlt()) }
+func (v ByteVal) BigInt() *BigIntVal          { return (*BigIntVal)(v.GoBigInt()) }
+func (v ByteVal) BigFlt() *BigFltVal          { return (*BigFltVal)(v.GoBigFlt()) }
+func (v ByteVal) Bytes() BytesVal             { return BytesVal([]byte{v.GoByte()}) }
+func (v ByteVal) Unit() Native                { return ByteVal(byte(0)) }
+func (v ByteVal) Uint() UintVal               { return UintVal(uint(v)) }
+func (v ByteVal) Int() IntVal                 { return IntVal(int(v)) }
+func (v ByteVal) Ratio() *RatioVal            { return IntVal(int(v)).Ratio() }
+func (v ByteVal) Float() FltVal               { return FltVal(float64(v)) }
+func (v ByteVal) Imag() ImagVal               { return IntVal(int(v)).Imag() }
+func (v ByteVal) Byte() ByteVal               { return ByteVal(byte(v)) }
+func (v ByteVal) Rune() RuneVal               { return RuneVal(rune(v.Byte())) }
+func (v ByteVal) Len() IntVal                 { return IntVal(bits.Len8(uint8(v.Uint()))) }
+func (v ByteVal) Concat(arg ByteVal) BytesVal { return BytesVal([]byte{byte(v), byte(arg)}) }
+func (v ByteVal) And(arg ByteVal) ByteVal     { return v & arg }
+func (v ByteVal) Xor(arg ByteVal) ByteVal     { return v ^ arg }
+func (v ByteVal) Or(arg ByteVal) ByteVal      { return v | arg }
+func (v ByteVal) AndNot(arg ByteVal) ByteVal  { return v &^ arg }
+func (v ByteVal) Not() ByteVal                { return ^v }
 
 /// BYTE SLICE VALUE
 func (v BytesVal) String() string            { return string(v) }
@@ -1173,6 +1557,12 @@ func (v BytesVal) Unit() BytesVal            { return BytesVal([]byte{byte(0)}) 
 func (v BytesVal) Bytes() ByteVec            { return ByteVec(v) }
 func (v BytesVal) RuneVec() RuneVec          { return RuneVec(v.GoRunes()) }
 func (v BytesVal) Len() IntVal               { return IntVal(len(v.Bytes())) }
+func (v BytesVal) Concat(args ...ByteVal) BytesVal {
+	for _, arg := range args {
+		v = append(v, byte(arg))
+	}
+	return v
+}
 func (v BytesVal) UintNative() Native {
 	u, err := binary.ReadUvarint(v.ByteReader())
 	if err != nil {
@@ -1205,6 +1595,15 @@ func (v StrVal) Len() IntVal                     { return IntVal(int(len(string(
 func (v StrVal) Bytes() BytesVal                 { return []byte(string(v)) }
 func (v StrVal) DurationNative() Native          { return v.ReadDuraVal() }
 func (v StrVal) TimeNative(layout string) Native { return v.ReadTimeVal(layout) }
+func (v StrVal) Concat(arg StrVal) StrVal        { return StrVal(string(v) + string(arg)) }
+func (v StrVal) Split(arg StrVal) (val []StrVal) {
+	var slice = strings.Split(string(v), string(arg))
+	val = make([]StrVal, 0, len(slice))
+	for _, str := range slice {
+		val = append(val, StrVal(str))
+	}
+	return val
+}
 func (v StrVal) NumberNative() Native {
 	if _, err := v.ReadBool(); err == nil {
 		return v.ReadBoolVal()
@@ -1219,4 +1618,11 @@ func (v StrVal) NumberNative() Native {
 		return v.ReadFloatVal()
 	}
 	return NewNil()
+}
+func (v StrVec) Join(arg StrVal) (val []StrVal) {
+	val = make([]StrVal, 0, len(v))
+	for _, str := range v {
+		val = append(val, StrVal(str))
+	}
+	return val
 }

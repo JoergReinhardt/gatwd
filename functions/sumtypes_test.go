@@ -7,223 +7,100 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var testIsZero = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.(Native).Eval().(d.Numeral).GoInt() != 0 {
-			return false
-		}
-	}
-	return true
-})
+var addInts = Define(DecNative(func(args ...d.Native) d.Native {
+	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
+	return a + b
+}), Def(Def(Data, d.Int), Def(Data, d.Int)), Def(Data, d.Int), DefSym("AddInts"))
 
-func TestTestable(t *testing.T) {
+func TestExpression(t *testing.T) {
 
-	fmt.Printf("test: %s\n", testIsZero)
+	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
+		addInts, addInts.Type().TypeArguments(),
+		addInts.Type().TypeIdent(),
+		addInts.Type().TypeReturn())
 
-	fmt.Printf("test zero is zero (true): %t\n", testIsZero(DecNative(0)))
-	if !testIsZero(DecNative(0)) {
+	var wrong = addInts.Call(DecNative("string one"), DecNative(true))
+	fmt.Printf("called with argument of wrong type: %s\n", wrong)
+	if !wrong.Type().Match(None) {
 		t.Fail()
 	}
 
-	fmt.Printf("test one is zero (false): %t\n", testIsZero(DecNative(1)))
-	if testIsZero(DecNative(1)) {
+	var partial = addInts.Call(DecNative(23))
+	fmt.Printf("partial: %s argtype : %s identype: %s, retype: %s\n",
+		partial, partial.Type().TypeArguments(),
+		partial.Type().TypeIdent(),
+		partial.Type().TypeReturn())
+	if !partial.Type().TypeReturn().Match(DefSym("AddInts")) {
 		t.Fail()
 	}
 
-	fmt.Printf("test three zeros are zero (true): %t\n",
-		testIsZero(DecNative(0), DecNative(0), DecNative(0)))
-	if !testIsZero(DecNative(0), DecNative(0), DecNative(0)) {
-		t.Fail()
-	}
-}
-
-var compZero = NewComparator(func(args ...Expression) int {
-	switch args[0].(Native).Eval().(d.Numeral).GoInt() {
-	case -1:
-		return -1
-	case 0:
-		return 0
-	}
-	return 1
-})
-
-func TestCompareable(t *testing.T) {
-	fmt.Printf("compareable: %s\n", compZero)
-	fmt.Printf("zero equals zero (0): %d\n", compZero(DecNative(0)))
-	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(DecNative(-1)))
-	fmt.Printf("one greater zero (1): %d\n", compZero(DecNative(1)))
-}
-
-var caseZero = NewCase(
-	testIsZero,
-	DecNative("this is indeed zero"),
-	d.Numbers,
-	d.String,
-)
-
-func TestCase(t *testing.T) {
-	fmt.Printf("case: %s\n", caseZero)
-
-	var result = caseZero.Call(DecNative(0))
-	fmt.Printf("case zero: %s\n", result)
-	if result.String() != "this is indeed zero" {
+	var wrongpart = partial.Call(DecNative("string"))
+	fmt.Printf("partial called with argument of wrong type: %s\n", wrongpart)
+	if !wrongpart.Type().Match(None) {
 		t.Fail()
 	}
 
-	result = caseZero.Call(DecNative(1))
-	fmt.Printf("case none zero: %s none zero type: %s\n",
-		result, result.Type())
-	if !result.Type().Match(None) {
-		t.Fail()
-	}
-}
-
-var isInteger = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Int)
-		}
-	}
-	return false
-})
-var caseInteger = NewCase(isInteger, DecNative("this is an int"), d.Int, d.String)
-var isUint = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Uint)
-		}
-	}
-	return false
-})
-var caseUint = NewCase(isUint, DecNative("this is a uint"), d.Uint, d.String)
-var isFloat = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Float)
-		}
-	}
-	return false
-})
-var caseFloat = NewCase(isFloat, DecNative("this is a float"), d.Float, d.String)
-var swi = NewSwitch(caseFloat, caseUint, caseInteger)
-
-func TestSwitch(t *testing.T) {
-
-	var result = swi.Call(DecNative(42))
-	fmt.Printf("result from calling switch on 42: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(0)) {
-		t.Fail()
-	}
-
-	swi = swi.Reload()
-	result = swi.Call(DecNative(uint(42)))
-	fmt.Printf("result from calling switch on uint 42: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(uint(0))) {
-		t.Fail()
-	}
-
-	swi = swi.Reload()
-	result = swi.Call(DecNative(42.23))
-	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(uint(0.0))) {
-		t.Fail()
-	}
-
-	swi = swi.Reload()
-	result = swi.Call(DecNative(true))
-	fmt.Printf("result from calling switch on true: %s\n", result)
-	if !result.Type().Match(None) {
-		t.Fail()
-	}
-}
-
-func TestMaybe(t *testing.T) {
-	var maybeString = NewOptional(caseInteger)
-	var str = maybeString(DecNative(42))
-	fmt.Printf("string: %s\n", str)
-	if str.Type().TypeReturn().Match(Def(Data, d.String)) {
-		t.Fail()
-	}
-	var none = maybeString(DecNative(true))
-	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
-	if !none.Type().TypeReturn().Match(None) {
-		t.Fail()
-	}
-
-	fmt.Printf("maybe string: %s, type: %s\n", maybeString, maybeString.Type())
-	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
-}
-
-func TestOption(t *testing.T) {
-	var (
-		option   = NewVariant(caseInteger, caseFloat)
-		intStr   = option(DecNative(23))
-		fltStr   = option(DecNative(42.23))
-		boolNone = option(DecNative(true))
-	)
-	fmt.Printf("option: %s, option type: %s\n",
-		option, option.Type())
-
-	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
-		intStr, fltStr, boolNone)
-
-	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
-		intStr.Type(), fltStr.Type(), boolNone.Type())
-
-	if !intStr.Type().TypeReturn().Match(d.String) {
-		t.Fail()
-	}
-	if !fltStr.Type().TypeReturn().Match(d.String) {
-		t.Fail()
-	}
-	if !boolNone.Type().TypeReturn().Match(None) {
-		t.Fail()
-	}
-}
-
-func TestEnum(t *testing.T) {
-	var enumtype EnumType
-	enumtype = NewEnumType(
-		func(days ...d.Integer) Expression {
-			if len(days) > 0 {
-				if len(days) > 1 {
-					var vec = NewVector()
-					for _, day := range days {
-						if (d.IntVal(0) <= day.Int()) &&
-							(day.Int() <= d.IntVal(6)) {
-							var result, _, _ = enumtype(day)
-							vec = vec.Con(result)
-						}
-					}
-				}
-				switch days[0].Int() {
-				case 0:
-					return DecNative("Monday")
-				case 1:
-					return DecNative("Tuesday")
-				case 2:
-					return DecNative("Wednesday")
-				case 3:
-					return DecNative("Thursday")
-				case 4:
-					return DecNative("Friday")
-				case 5:
-					return DecNative("Saturday")
-				case 6:
-					return DecNative("Sunday")
-				}
+	var complete = partial.Call(DecNative(42))
+	fmt.Printf("complete: %s\n", complete)
+	if data, ok := complete.(Native); ok {
+		if num, ok := data.Eval().(d.IntVal); ok {
+			if num.Int() != 65 {
+				t.Fail()
 			}
-			return NewNone()
-		},
-		d.IntVal(0),
-		d.IntVal(6),
-	)
+		}
+	}
 
-	fmt.Printf("enum type days of the week: %s\n", enumtype)
-	var enum, min, max = enumtype(d.IntVal(2))
-	fmt.Printf("wednesday eum: %s, min: %s, max: %s\n",
-		enum, min, max)
-	var val, idx, typ = enum()
-	fmt.Printf("enum value val %s, index: %s, type: %s min %s, max %s\n",
-		val, idx, typ, typ.Low(), typ.High())
+	var result2 = addInts.Call(DecNative(23), DecNative(42))
+	fmt.Printf("result2: %s argtype : %s identype: %s, retype: %s\n",
+		result2, result2.Type().TypeArguments(),
+		result2.Type().TypeIdent(),
+		result2.Type().TypeReturn())
+	fmt.Printf("result2: %s\n", result2)
+	if vec, ok := result2.(VecVal); ok {
+		if vec.Len() != 2 {
+			t.Fail()
+		}
+	}
+
+	var result3 = addInts.Call(DecNative(23), DecNative(42), DecNative(23))
+	fmt.Printf("result3: %s\n", result3)
+	if vec, ok := result3.(VecVal); ok {
+		if !vec()[1].Type().TypeReturn().Match(DefSym("AddInts")) {
+			t.Fail()
+		}
+	}
+
+	var result4 = addInts.Call(DecNative(23), DecNative(42),
+		DecNative(23), DecNative(42))
+	fmt.Printf("result4: %s\n", result4)
+	if vec, ok := result4.(VecVal); ok {
+		if !vec.Head().Type().MatchArgs(DecNative(0)) {
+			t.Fail()
+		}
+	}
+}
+
+func TestTuple(t *testing.T) {
+	var con = NewTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
+	fmt.Printf("tuple constructor %s\n", con)
+
+	var tup = con.Call(DecNative(23), DecNative(42.23), DecNative(true))
+	fmt.Printf("tuple %s\n", tup)
+	if tup.(TupleVal)[0].(Native).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(Native).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(Native).Eval() != d.BoolVal(true) {
+		t.Fail()
+	}
+
+	var partial = con(DecNative(23))
+	fmt.Printf("partial %s\n", partial)
+	partial = partial.Call(DecNative(42.23))
+	fmt.Printf("partial %s\n", partial)
+	tup = partial.Call(DecNative(true))
+	fmt.Printf("result %s\n", tup)
+	if tup.(TupleVal)[0].(Native).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(Native).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(Native).Eval() != d.BoolVal(true) {
+		t.Fail()
+	}
 }
