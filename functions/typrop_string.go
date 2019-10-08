@@ -4,6 +4,21 @@ package functions
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Default-0]
+	_ = x[PostFix-1]
+	_ = x[InFix-3]
+	_ = x[Atomic-4]
+	_ = x[Eager-5]
+	_ = x[RightBound-6]
+	_ = x[Mutable-7]
+	_ = x[SideEffect-8]
+	_ = x[Primitive-9]
+}
+
 const (
 	_TyProp_name_0 = "DefaultPostFix"
 	_TyProp_name_1 = "InFixAtomicEagerRightBoundMutableSideEffectPrimitive"

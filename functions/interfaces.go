@@ -59,7 +59,6 @@ type Mapped interface {
 ///
 type Consumeable interface {
 	Expression
-	Len() int
 	TypeElem() TyPattern
 	Head() Expression
 	Tail() Consumeable

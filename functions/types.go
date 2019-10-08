@@ -61,6 +61,7 @@ const (
 	Generator
 	Accumulator
 	Constructor
+	Sequence
 	/// PARAMETER
 	Property
 	Argument

@@ -4,6 +4,24 @@ package functions
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Flag_BitFlag-0]
+	_ = x[Flag_Native-1]
+	_ = x[Flag_Function-2]
+	_ = x[Flag_KeyWord-3]
+	_ = x[Flag_Symbol-4]
+	_ = x[Flag_Tuple-5]
+	_ = x[Flag_Value-6]
+	_ = x[Flag_Token-7]
+	_ = x[Flag_Arity-8]
+	_ = x[Flag_Prop-9]
+	_ = x[Flag_Lex-10]
+	_ = x[Flag_Pattern-255]
+}
+
 const (
 	_TyFlag_name_0 = "Flag_BitFlagFlag_NativeFlag_FunctionFlag_KeyWordFlag_SymbolFlag_TupleFlag_ValueFlag_TokenFlag_ArityFlag_PropFlag_Lex"
 	_TyFlag_name_1 = "Flag_Pattern"
