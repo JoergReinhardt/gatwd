@@ -11,31 +11,31 @@ import (
 )
 
 //
-// 0  ← Nil
-// 1  ← Bool
-// 2  ← Int8
-// 3  ← Int16
-// 4  ← Int32
-// 4  ← Int
-// 5  ← BigInt
-// 6  ← Uint8
-// 7  ← Uint16
-// 9  ← Uint32
-// 10 ← Uint
-// 11 ← Flt32
-// 12 ← Float
-// 13 ← BigFlt
-// 14 ← Ratio
-// 15 ← Imag64
-// 16 ← Imag
-// 17 ← Time
-// 18 ← Duration
-// 19 ← Byte
-// 20 ← Rune
-// 21 ← Flag
-// 22 ← String
-// 23 ← Bytes
-// 24 ← Error
+// Nil
+// Bool
+// Int8
+// Int16
+// Int32
+// Int
+// BigInt
+// Uint8
+// Uint16
+// Uint32
+// Uint
+// Flt32
+// Float
+// BigFlt
+// Ratio
+// Imag64
+// Imag
+// Time
+// Duration
+// Byte
+// Rune
+// Flag
+// String
+// Bytes
+// Error
 
 // BOOL VALUE
 func (v BoolVal) Ratio() *RatioVal     { return v.IntVal().Ratio() }
@@ -47,6 +47,8 @@ func (v BoolVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
 func (v BoolVal) Unit() Native         { return BoolVal(true) }
 func (v BoolVal) Int() IntVal          { return IntVal(v.GoInt()) }
 func (v BoolVal) Uint() UintVal        { return UintVal(uint(v.Int())) }
+func (v BoolVal) Float() FltVal        { return v.IntVal().Float() }
+func (v BoolVal) Imag() ImagVal        { return v.IntVal().Imag() }
 func (v BoolVal) Bool() bool           { return bool(v) }
 func (v BoolVal) Idx() int             { return int(v.Int()) }
 func (v BoolVal) GoFlt() float64       { return float64(v.Float()) }
@@ -69,8 +71,6 @@ func (v BoolVal) IntVal() IntVal {
 	}
 	return IntVal(-1)
 }
-func (v BoolVal) Float() FltVal           { return v.IntVal().Float() }
-func (v BoolVal) Imag() ImagVal           { return v.IntVal().Imag() }
 func (v BoolVal) Not() BoolVal            { return !v }
 func (v BoolVal) Or(arg BoolVal) BoolVal  { return v || arg }
 func (v BoolVal) And(arg BoolVal) BoolVal { return v && arg }

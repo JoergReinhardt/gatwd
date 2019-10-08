@@ -1,24 +1,25 @@
 package data
 
-type TyOp uint8
+type OpStr string
 
-//go:generate stringer -type=TyOp
 const (
-	Not TyOp = 0 + iota
-	And
-	Or
-	Xor
-	AndNot
-	ShiftL
-	ShiftR
-	Negate
-	Add
-	Substract
-	Multiply
-	QuoRatio
-	Quotient
-	Power
-	Greater
-	Lesser
-	Equal
+	Not       OpStr = "¬"
+	And             = "&&"
+	Or              = "||"
+	Xor             = "^"
+	AndNot          = "&^"
+	ShiftL          = "<<"
+	ShiftR          = ">>"
+	Add             = "+"
+	Substract       = "-"
+	Multiply        = "×"
+	QuoRatio        = "÷"
+	QuoModul        = "%"
+	Quotient        = "/"
+	Power           = "^"
+	Greater         = ">"
+	Lesser          = "<"
+	Equal           = "="
+	Leq             = "≤"
+	Geq             = "≥"
 )

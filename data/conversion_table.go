@@ -21,6 +21,20 @@ func Precedence(a, b Native) (x, y Native) {
 	return a, b
 }
 
+type indexTable [][]func(arg Native) Native
+
+func newIndexTable() indexTable {
+	return make([][]func(arg Native) Native, 64, 64)
+}
+func (i indexTable) idx(tx, ty TyNat) (x, y int) {
+	return tx.Flag().Least(), ty.Flag().Least()
+}
+func (i indexTable) Get(tx, ty TyNat) func(Native) Native {
+	var x, y = i.idx(tx, ty)
+	return i[x][y]
+}
+func (i indexTable) Set(x, y int, fnc func(Native) Native) { i[x][y] = fnc }
+
 var TypeConversionTable = [][]func(arg Native) Native{
 
 	[]func(arg Native) Native{ // 0  ← Nil
