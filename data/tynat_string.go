@@ -4,6 +4,45 @@ package data
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Nil-1]
+	_ = x[Bool-2]
+	_ = x[Int8-4]
+	_ = x[Int16-8]
+	_ = x[Int32-16]
+	_ = x[Int-32]
+	_ = x[BigInt-64]
+	_ = x[Uint8-128]
+	_ = x[Uint16-256]
+	_ = x[Uint32-512]
+	_ = x[Uint-1024]
+	_ = x[Flt32-2048]
+	_ = x[Float-4096]
+	_ = x[BigFlt-8192]
+	_ = x[Ratio-16384]
+	_ = x[Imag64-32768]
+	_ = x[Imag-65536]
+	_ = x[Time-131072]
+	_ = x[Duration-262144]
+	_ = x[Byte-524288]
+	_ = x[Rune-1048576]
+	_ = x[Flag-2097152]
+	_ = x[String-4194304]
+	_ = x[Bytes-8388608]
+	_ = x[Error-16777216]
+	_ = x[Pair-33554432]
+	_ = x[Slice-67108864]
+	_ = x[Unboxed-134217728]
+	_ = x[Map-268435456]
+	_ = x[Function-536870912]
+	_ = x[Literal-1073741824]
+	_ = x[Type-2147483648]
+	_ = x[MASK-18446744073709551615]
+}
+
 const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneFlagStringBytesErrorPairSliceUnboxedMapFunctionLiteralTypeMASK"
 
 var _TyNat_map = map[TyNat]string{
