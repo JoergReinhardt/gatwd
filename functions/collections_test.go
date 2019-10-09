@@ -11,12 +11,12 @@ var listA = NewVector(DecNative(0), DecNative(1), DecNative(2), DecNative(3),
 var listB = NewVector(DecNative(10), DecNative(11), DecNative(12), DecNative(13),
 	DecNative(14), DecNative(15), DecNative(16), DecNative(17), DecNative(18), DecNative(19))
 
-func conList(args ...Expression) Consumeable {
+func conList(args ...Expression) Sequential {
 	return NewList(args...)
 }
-func printCons(cons Consumeable) {
+func printCons(cons Sequential) {
 	var head, tail = cons.Consume()
-	if head != nil {
+	if !head.TypeFnc().Match(None) {
 		fmt.Println(head)
 		printCons(tail)
 	}

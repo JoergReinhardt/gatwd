@@ -51,7 +51,7 @@ func (l ListVal) String() string {
 		args       = []string{}
 		head, list = l()
 	)
-	for head != nil {
+	for !head.TypeFnc().Match(None) {
 		args = append(args, head.String())
 		head, list = list()
 	}

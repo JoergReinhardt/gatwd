@@ -4,64 +4,6 @@ package functions
 
 import "strconv"
 
-func _() {
-	// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-run the stringer command to generate them again.
-	var x [1]struct{}
-	_ = x[Type-1]
-	_ = x[Data-2]
-	_ = x[Value-4]
-	_ = x[Class-8]
-	_ = x[Lambda-16]
-	_ = x[Constant-32]
-	_ = x[Generator-64]
-	_ = x[Accumulator-128]
-	_ = x[Constructor-256]
-	_ = x[Sequence-512]
-	_ = x[Property-1024]
-	_ = x[Argument-2048]
-	_ = x[Pattern-4096]
-	_ = x[Element-8192]
-	_ = x[Lexical-16384]
-	_ = x[Symbol-32768]
-	_ = x[Arity-65536]
-	_ = x[Index-131072]
-	_ = x[Key-262144]
-	_ = x[True-524288]
-	_ = x[False-1048576]
-	_ = x[Undecided-2097152]
-	_ = x[Equal-4194304]
-	_ = x[Lesser-8388608]
-	_ = x[Greater-16777216]
-	_ = x[Min-33554432]
-	_ = x[Max-67108864]
-	_ = x[Switch-134217728]
-	_ = x[Case-268435456]
-	_ = x[Just-536870912]
-	_ = x[None-1073741824]
-	_ = x[Option-2147483648]
-	_ = x[Polymorph-4294967296]
-	_ = x[Either-8589934592]
-	_ = x[Or-17179869184]
-	_ = x[Natural-34359738368]
-	_ = x[Integer-68719476736]
-	_ = x[Real-137438953472]
-	_ = x[Ratio-274877906944]
-	_ = x[Letter-549755813888]
-	_ = x[Text-1099511627776]
-	_ = x[Bytes-2199023255552]
-	_ = x[List-4398046511104]
-	_ = x[Vector-8796093022208]
-	_ = x[Set-17592186044416]
-	_ = x[Pair-35184372088832]
-	_ = x[Enum-70368744177664]
-	_ = x[Tuple-140737488355328]
-	_ = x[Record-281474976710656]
-	_ = x[State-562949953421312]
-	_ = x[IO-1125899906842624]
-	_ = x[Parametric-2251799813685248]
-}
-
 const _TyFnc_name = "TypeDataValueClassLambdaConstantGeneratorAccumulatorConstructorSequencePropertyArgumentPatternElementLexicalSymbolArityIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesListVectorSetPairEnumTupleRecordStateIOParametric"
 
 var _TyFnc_map = map[TyFnc]string{

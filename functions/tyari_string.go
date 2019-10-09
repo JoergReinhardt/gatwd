@@ -4,24 +4,6 @@ package functions
 
 import "strconv"
 
-func _() {
-	// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-run the stringer command to generate them again.
-	var x [1]struct{}
-	_ = x[Nary - -1]
-	_ = x[Nullary-0]
-	_ = x[Unary-1]
-	_ = x[Binary-2]
-	_ = x[Ternary-3]
-	_ = x[Quaternary-4]
-	_ = x[Quinary-5]
-	_ = x[Senary-6]
-	_ = x[Septenary-7]
-	_ = x[Octonary-8]
-	_ = x[Novenary-9]
-	_ = x[Denary-10]
-}
-
 const _TyAri_name = "NaryNullaryUnaryBinaryTernaryQuaternaryQuinarySenarySeptenaryOctonaryNovenaryDenary"
 
 var _TyAri_index = [...]uint8{0, 4, 11, 16, 22, 29, 39, 46, 52, 61, 69, 77, 83}

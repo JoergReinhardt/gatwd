@@ -327,6 +327,7 @@ func (n TyValue) Type() TyPattern                    { return Def(n) }
 func (n TyValue) TypeFnc() TyFnc                     { return Value }
 func (n TyValue) String() string                     { return n().String() }
 func (n TyValue) TypeName() string                   { return n().Type().TypeName() }
+func (n TyValue) Value() Expression                  { return n() }
 func (n TyValue) Call(args ...Expression) Expression { return n(args...) }
 
 func (n TyValue) Match(typ d.Typed) bool {
@@ -593,7 +594,7 @@ func (p TyPattern) HeadPattern() TyPattern { return p.Head().(TyPattern) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyPattern) Tail() Consumeable {
+func (p TyPattern) Tail() Sequential {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -610,7 +611,7 @@ func (p TyPattern) TailPattern() TyPattern {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyPattern) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
+func (p TyPattern) Consume() (Expression, Sequential) { return p.Head(), p.Tail() }
 
 // type-consume works like consume, but yields the head cast as typed & the
 // tail as a type pattern
@@ -630,7 +631,7 @@ func (p TyPattern) ConsumePattern() (TyPattern, TyPattern) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyPattern) Cons(args ...Expression) Consumeable {
+func (p TyPattern) Cons(args ...Expression) Sequential {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyPattern))
@@ -638,7 +639,7 @@ func (p TyPattern) Cons(args ...Expression) Consumeable {
 	return NewVector(append(args, types...)...)
 }
 
-func (p TyPattern) Append(args ...Expression) Consumeable {
+func (p TyPattern) Append(args ...Expression) Sequential {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyPattern))

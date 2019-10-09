@@ -57,14 +57,14 @@ type Mapped interface {
 ///////////////////////////////////////////////////////////////////////////////
 //// COLLECTION INTERFACES
 ///
-type Consumeable interface {
+type Sequential interface {
 	Expression
 	TypeElem() TyPattern
 	Head() Expression
-	Tail() Consumeable
-	Consume() (Expression, Consumeable)
-	Append(...Expression) Consumeable
-	Cons(...Expression) Consumeable
+	Tail() Sequential
+	Consume() (Expression, Sequential)
+	Append(...Expression) Sequential
+	Cons(...Expression) Sequential
 }
 
 type Testable interface {
@@ -82,7 +82,7 @@ type Countable interface {
 }
 
 type Listable interface {
-	Consumeable
+	Sequential
 }
 
 type Sliceable interface {
@@ -163,7 +163,7 @@ type IndexPaired interface {
 	Paired
 }
 type ConsumeablePaired interface {
-	Consumeable
+	Sequential
 	Associative
 	HeadPair() Paired
 	TailPairs() ConsumeablePaired
@@ -181,7 +181,7 @@ type KeyAssociated interface {
 }
 type AssociativeCollected interface {
 	KeyAssociated
-	Consumeable
+	Sequential
 	Associative
 }
 type ProtoTyped interface {

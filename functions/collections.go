@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"sort"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -182,6 +184,7 @@ func (a IndexPair) Empty() bool {
 ///
 //
 var (
+	// check argument expression to implement data.integers interface
 	isInt = NewTest(func(args ...Expression) bool {
 		for _, arg := range args {
 			if arg.Type().Match(Data) {
@@ -195,86 +198,81 @@ var (
 		}
 		return true
 	})
-	makeBounds = func(bounds ...d.Integer) (low, high d.Typed, lesser, greater ComparatorType) {
+	// creates low/high bound type argument and lesser/greater bounds
+	// checks, if no bound arguments where given, they will be set to minus
+	// infinity to infinity and always check out true.
+	createBounds = func(bounds ...d.Integer) (low, high d.Typed, lesser, greater func(idx d.Integer) bool) {
 		if len(bounds) == 0 {
-			low, high = Lex_Infinite, Lex_Infinite
-			lesser = func(...Expression) int { return 0 }
-			greater = func(...Expression) int { return 0 }
+			low, high = Def(Lex_Negative, Lex_Infinite), Lex_Infinite
+			lesser = func(idx d.Integer) bool { return true }
+			greater = func(idx d.Integer) bool { return true }
 		}
-
-		if len(bounds) >= 1 {
+		if len(bounds) > 0 {
 			var minBound = bounds[0].(d.Native)
 			low = DefValNative(minBound)
-			lesser = NewComparator(func(args ...Expression) int {
-				for _, arg := range args {
-					if arg.Type().Match(Data) {
-						var aint = arg.(Native).Eval()
-						if aint.Type().Match(d.BigInt) {
-							if minBound.Type().Match(d.BigInt) {
-								if minBound.(d.BigIntVal).GoBigInt().Cmp(
-									aint.(d.BigIntVal).GoBigInt()) < 0 {
-									return -1
-								}
-							}
-						}
-						if aint.Type().Match(d.Integers) {
-							if minBound.Type().Match(d.Integers) {
-								if aint.(d.Integer).Int() < minBound.(d.Integer).Int() {
-									return -1
-								}
-							}
-						}
+			// bound argument could be instance of type big int
+			if minBound.Type().Match(d.BigInt) {
+				lesser = func(arg d.Integer) bool {
+					if minBound.(*d.BigIntVal).GoBigInt().Cmp(
+						arg.(*d.BigIntVal).GoBigInt()) < 0 {
+						return true
 					}
+					return false
 				}
-				return -2
-			})
+			} else {
+				lesser = func(arg d.Integer) bool {
+					if minBound.(d.Integer).Int() >
+						arg.(Native).Eval().(d.Integer).Int() {
+						return true
+					}
+					return false
+				}
+			}
 		}
 
-		if len(bounds) >= 2 {
+		if len(bounds) > 1 {
 			var maxBound = bounds[1].(d.Native)
 			high = DefValNative(maxBound)
-			greater = NewComparator(func(args ...Expression) int {
-				for _, arg := range args {
-					if arg.Type().Match(Data) {
-						var aint = arg.(Native).Eval()
-						if maxBound.Type().Match(d.BigInt) {
-							if aint.Type().Match(d.BigInt) {
-								if maxBound.(d.BigIntVal).GoBigInt().Cmp(
-									aint.(d.BigIntVal).GoBigInt()) > 0 {
-									return 1
-								}
-							}
-						}
-						if aint.Type().Match(d.Integers) {
-							if maxBound.Type().Match(d.Integers) {
-								if aint.(d.Integer).Int() > maxBound.(d.Integer).Int() {
-									return 1
-								}
-							}
-						}
+			if maxBound.Type().Match(d.BigInt) {
+				greater = func(arg d.Integer) bool {
+					if maxBound.(*d.BigIntVal).GoBigInt().Cmp(
+						arg.(*d.BigIntVal).GoBigInt()) > 0 {
+						return true
 					}
+					return false
 				}
-				return -2
-			})
+			} else {
+				greater = func(arg d.Integer) bool {
+					if arg.(d.Integer).Int() >
+						maxBound.(d.Integer).Int() {
+						return true
+					}
+					return false
+				}
+			}
 		}
 		return low, high, lesser, greater
 	}
-	inBound = func(lesser, greater ComparatorType, args ...Expression) bool {
-		for _, arg := range args {
-			if isInt(arg) && lesser(arg) < 0 && greater(arg) > 0 {
-				return false
+
+	inBound = func(lesser, greater func(d.Integer) bool, ints ...d.Integer) bool {
+		for _, i := range ints {
+			if !lesser(i) && !greater(i) {
+				return true
 			}
 		}
-		return true
+		return false
 	}
 )
 
 func NewEnumType(fnc func(...d.Integer) Expression, limits ...d.Integer) EnumType {
-	var low, high, lesser, greater = makeBounds(limits...)
+	var low, high, lesser, greater = createBounds(limits...)
 	return func(idx d.Integer) (EnumVal, d.Typed, d.Typed) {
 		return func(args ...Expression) (Expression, d.Integer, EnumType) {
-			if inBound(lesser, greater, args...) {
-				return fnc(idx).Call(args...), idx, NewEnumType(fnc, limits...)
+			if inBound(lesser, greater, idx) {
+				if len(args) > 0 {
+					return fnc(idx).Call(args...), idx, NewEnumType(fnc, limits...)
+				}
+				return fnc(idx), idx, NewEnumType(fnc, limits...)
 			}
 			return NewNone(), idx, NewEnumType(fnc, limits...)
 		}, low, high
@@ -296,15 +294,12 @@ func (e EnumType) High() d.Typed {
 	var _, max = e.Limits()
 	return max
 }
-func (e EnumType) InBound(args ...Expression) bool {
-	var _, _, lesser, greater = makeBounds(
+func (e EnumType) InBound(ints ...d.Integer) bool {
+	var _, _, lesser, greater = createBounds(
 		e.Low().(d.Integer),
 		e.High().(d.Integer),
 	)
-	return inBound(lesser, greater, args...)
-}
-func (e EnumType) String() string {
-	return "Enum " + e.Null().Type().TypeName()
+	return inBound(lesser, greater, ints...)
 }
 func (e EnumType) Null() Expression {
 	var result, _, _ = e(d.IntVal(0))
@@ -314,27 +309,14 @@ func (e EnumType) Unit() Expression {
 	var result, _, _ = e(d.IntVal(1))
 	return result
 }
-func (e EnumType) Type() TyPattern { return e.Unit().Type() }
-func (e EnumType) TypeFnc() TyFnc  { return e.Unit().TypeFnc() }
+func (e EnumType) Type() TyPattern { return Def(Enum, e.Unit().Type()) }
+func (e EnumType) TypeFnc() TyFnc  { return Enum | e.Unit().TypeFnc() }
+func (e EnumType) String() string  { return e.Type().TypeName() }
 func (e EnumType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		if len(args) == 1 {
-			if isInt(args[0]) {
-				var result, _, _ = e(args[0].(Native).Eval().(d.Integer))
-				return result
-			}
-		}
-		var enums = NewVector()
-		for _, arg := range args {
-			if isInt(arg) {
-				var result, _, _ = e(arg.(Native).Eval().(d.Integer))
-				var num = enums.Cons(result)
-				enums = enums.Cons(num).(VecVal)
-			}
-		}
-		return enums
+		return e.Expr().Call(args...)
 	}
-	return e
+	return e.Expr().Call()
 }
 
 //// ENUM VALUE
@@ -349,8 +331,8 @@ func (e EnumVal) Index() d.Integer {
 	return idx
 }
 func (e EnumVal) EnumType() EnumType {
-	var _, _, etype = e()
-	return etype
+	var _, _, et = e()
+	return et
 }
 func (e EnumVal) Next() EnumVal {
 	var result, _, _ = e.EnumType()(e.Index().Int() + d.IntVal(1))
@@ -361,127 +343,114 @@ func (e EnumVal) Previous() EnumVal {
 	return result
 }
 func (e EnumVal) String() string                     { return e.Expr().String() }
-func (e EnumVal) Type() TyPattern                    { return e.Expr().Type() }
-func (e EnumVal) TypeFnc() TyFnc                     { return e.Expr().TypeFnc() }
+func (e EnumVal) Type() TyPattern                    { return e.EnumType().Type() }
+func (e EnumVal) TypeFnc() TyFnc                     { return e.EnumType().TypeFnc() }
 func (e EnumVal) Call(args ...Expression) Expression { return e.Expr().Call(args...) }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
-func NewEmptyVector(init ...Expression) VecVal { return NewVector() }
+///
+// helper function to reverse argument sets
+func reverse(args []Expression) (rev []Expression) {
+	if len(args) > 1 {
+		var l = len(args)
+		rev = make([]Expression, l, l)
+		for i, arg := range args {
+			rev[l-1-i] = arg
+		}
+		return rev
+	}
+	return args
+}
 
-func NewVector(init ...Expression) VecVal {
-	var vector = init
+// sequential vector provides random access to sequential data. appends
+// arguments in the order they where passed in, at the end of slice, when
+// called
+func NewVector(elems ...Expression) VecVal {
 	return func(args ...Expression) []Expression {
 		if len(args) > 0 {
-			vector = append(
-				vector,
-				args...,
-			)
+			return append(elems, args...)
 		}
-		return vector
+		return elems
 	}
 }
 
-func ConsVector(vec Vectorized, args ...Expression) VecVal {
-	return NewVector(append(args, vec.Slice()...)...)
+// default operation
+func (v VecVal) Append(args ...Expression) Sequential {
+	return NewVector(append(v(), args...)...)
 }
 
-func AppendVectors(vec Vectorized, args ...Expression) VecVal {
-	return NewVector(append(vec.Slice(), args...)...)
+// prepends arguments at head of list in reversed order, to emulate arguments
+// added once at a time recursively.
+func (v VecVal) Cons(args ...Expression) Sequential {
+	return NewVector(append(reverse(args), v()...)...)
 }
 
-func AppendArgToVector(init ...Expression) VecVal {
-	return func(args ...Expression) []Expression {
-		return append(init, args...)
-	}
-}
-
-func (v VecVal) Len() int            { return len(v()) }
-func (v VecVal) Vector() VecVal      { return v }
-func (v VecVal) Slice() []Expression { return v() }
-
-func (v VecVal) Append(args ...Expression) Consumeable { return v.Cons(args...) }
-
-func (v VecVal) Prepend(args ...Expression) VecVal {
-	return NewVector(append(args, v()...)...)
-}
-
-func (v VecVal) Reverse(args ...Expression) VecVal {
-	var slice []Expression
-	if v.Len() > 1 {
-		slice = []Expression{}
-		var vector = v()
-		for i := v.Len() - 1; i > 0; i-- {
-			slice = append(slice, vector[i])
-		}
-	}
+// appends arguments to the vector, or returns unaltered vector, when no
+// arguments are passed.
+func (v VecVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		for _, arg := range args {
-			v = v.Prepend(arg)
-		}
+		return v.Append(args...)
 	}
-	return NewVector(slice...)
+	return v
 }
-func (v VecVal) TypeFnc() TyFnc { return Vector }
+func (v VecVal) Slice() []Expression { return v() }
+func (v VecVal) Len() int            { return len(v()) }
+func (v VecVal) TypeFnc() TyFnc      { return Vector }
 func (v VecVal) Type() TyPattern {
 	if v.Len() > 0 {
-		return Def(Vector, v.TypeElem().TypeReturn())
+		return Def(Vector, v.Head().Type())
 	}
 	return Def(Vector, None)
 }
 func (v VecVal) TypeElem() TyPattern {
 	if v.Len() > 0 {
-		return Def(v.Head().TypeFnc(),
-			Vector, v.Head().TypeFnc())
+		return v.Head().Type()
 	}
-	return Def(None, Vector, None)
-}
-
-func (v VecVal) Cons(args ...Expression) Consumeable {
-	return ConsVector(NewVector(args...), v()...)
-}
-
-func (v VecVal) Call(d ...Expression) Expression {
-	return NewVector(v(d...)...)
-}
-
-func (v VecVal) Last() Expression {
-	if v.Len() > 0 {
-		return v()[v.Len()-1]
-	}
-	return nil
+	return Def(None)
 }
 
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
 	}
-	return nil
+	return NewNone()
 }
 
-func (v VecVal) Tail() Consumeable {
+func (v VecVal) Tail() Sequential {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
-	return NewEmptyVector()
-}
-
-func (v VecVal) Consume() (Expression, Consumeable) {
-	return v.Head(), v.Tail()
+	return NewVector()
 }
 
 func (v VecVal) TailVec() VecVal {
 	if v.Len() > 1 {
 		return NewVector(v.Tail().(VecVal)()...)
 	}
-	return NewEmptyVector()
+	return NewVector()
+}
+
+func (v VecVal) Consume() (Expression, Sequential) {
+	return v.Head(), v.Tail()
 }
 
 func (v VecVal) ConsumeVec() (Expression, VecVal) {
 	return v.Head(), v.TailVec()
 }
 
-func (v VecVal) Clear() VecVal { return NewVector() }
+func (v VecVal) First() Expression { return v.Head() }
+
+func (v VecVal) Last() Expression {
+	if v.Len() > 0 {
+		return v()[v.Len()-1]
+	}
+	return NewNone()
+}
+
+func (v VecVal) Reverse() VecVal {
+	return NewVector(reverse(v())...)
+}
 
 func (v VecVal) Empty() bool {
 	if len(v()) > 0 {
@@ -493,6 +462,19 @@ func (v VecVal) Empty() bool {
 	}
 	return true
 }
+
+func (v VecVal) Clear() VecVal { return NewVector() }
+
+func (v VecVal) Sequential() SequenceVal {
+	return func(args ...Expression) (Expression, Sequential) {
+		var head, tail = v.ConsumeVec()
+		if len(args) > 0 {
+			return head, NewVector(tail(args...)...).Sequential()
+		}
+		return head, tail.Sequential()
+	}
+}
+
 func (v VecVal) Get(i int) (Expression, bool) {
 	if i < v.Len() {
 		return v()[i], true
@@ -512,138 +494,166 @@ func (v VecVal) Set(i int, val Expression) (Vectorized, bool) {
 	}
 	return v, false
 }
+func (v VecVal) Sort(less func(a, b Expression) bool) VecVal {
+	var s = vecSort(func() ([]Expression, func(i, j Expression) bool) {
+		return v(), less
+	})
+	sort.Sort(s)
+	var vec, _ = s()
+	return NewVector(vec...)
+}
+func (v VecVal) Search(
+	less func(a, b Expression) bool,
+	match func(arg Expression) bool,
+) Expression {
+	var s = vecSort(func() ([]Expression, func(i, j Expression) bool) {
+		return v(), less
+	})
+	sort.Sort(s)
+	var vec, _ = s()
+	for _, elem := range vec {
+		if match(elem) {
+			return elem
+		}
+	}
+	return NewNone()
+}
+func (v VecVal) SearchAll(
+	less func(a, b Expression) bool,
+	match func(arg Expression) bool,
+) VecVal {
+	var s = vecSort(func() ([]Expression, func(i, j Expression) bool) {
+		return v(), less
+	})
+	sort.Sort(s)
+	var vec, _ = s()
+	var res = []Expression{}
+	for _, elem := range vec {
+		if match(elem) {
+			res = append(res, elem)
+		}
+	}
+	return NewVector(res...)
+}
+
+// vector sorter with parametrizes less method
+type vecSort func() ([]Expression, func(i, j Expression) bool)
+
+func (v vecSort) Len() int {
+	var s, _ = v()
+	return len(s)
+}
+func (v vecSort) Less(i, j int) bool {
+	var s, l = v()
+	return l(s[i], s[j])
+}
+func (v vecSort) Swap(i, j int) {
+	var s, l = v()
+	s[i], s[j] = s[j], s[i]
+	v = func() ([]Expression, func(Expression, Expression) bool) {
+		return s, l
+	}
+}
 
 //// RECURSIVE LIST OF VALUES
 ///
-// base implementation of recursively linked lists
-func ConsList(list ListVal, elems ...Expression) ListVal {
-	return list.Cons(elems...).(ListVal)
-}
-
-func ConcatLists(a, b ListVal) ListVal {
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		if len(args) > 0 {
-			b = b.Cons(args...).(ListVal)
-		}
-		var head Expression
-		if head, a = a(); head != nil {
-			return head, ConcatLists(a, b)
-		}
-		return b()
-	})
-}
-
+// lazy implementation of recursively linked list. backed by slice. returns
+// last element put in as head. prepends arguments when called to become new
+// head of list, one at a time, thereby reversing argument order.
 func NewList(elems ...Expression) ListVal {
 	return func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			elems = append(elems, args...)
 		}
-		if len(elems) > 0 {
-			var head = elems[0]
-			if len(elems) > 1 {
-				return head, NewList(
-					elems[1:]...,
-				)
+		var l = len(elems)
+		if l > 0 {
+			var head = elems[l-1]
+			if l > 1 {
+				return head, NewList(elems[:l-1]...)
 			}
 			return head, NewList()
 		}
-		return nil, NewList()
+		return NewNone(), NewList()
 	}
 }
-func (l ListVal) Tail() Consumeable                  { _, t := l(); return t }
-func (l ListVal) Head() Expression                   { h, _ := l(); return h }
-func (l ListVal) TailList() ListVal                  { _, t := l(); return t }
-func (l ListVal) Consume() (Expression, Consumeable) { return l() }
-func (l ListVal) TypeFnc() TyFnc                     { return List }
-func (l ListVal) Null() ListVal                      { return NewList() }
-func (l ListVal) TypeElem() TyPattern {
-	if l.Len() > 0 {
-		return l.Head().Type()
+
+// default operation
+func (l ListVal) Cons(elems ...Expression) Sequential {
+	if len(elems) == 0 {
+		return l
 	}
-	return Def(None, List, None)
-}
-
-func (l ListVal) Type() TyPattern {
-	if l.Len() > 0 {
-		return Def(List, l.TypeElem().TypeReturn())
-	}
-	return Def(List, None)
-}
-
-func (l ListVal) ConsumeList() (Expression, ListVal) {
-	return l.Head(), l.TailList()
-}
-
-func (l ListVal) Append(elems ...Expression) Consumeable {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			return l(append(elems, args...)...)
 		}
-		return l()
+		return l(elems...)
 	})
 }
 
-func (l ListVal) Cons(elems ...Expression) Consumeable {
-	if len(elems) == 0 {
-		return l
-	}
-	if len(elems) == 1 {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
-			if len(args) > 0 {
-				return elems[0], l.Append(args...).(ListVal)
-			}
-			return elems[0], l
-		})
-	}
-	var head Expression
-	head, elems = elems[0], elems[1:]
+// appends elements at the end of list in the order they where passed.
+func (l ListVal) Append(elems ...Expression) Sequential {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
+			var head, tail = l(args...)
+			if tail.Empty() {
+				return head, NewList(reverse(elems)...)
+			}
+			return head, tail.Append(elems...).(ListVal)
 		}
-		return head, l.Cons(elems...).(ListVal)
+		var head, tail = l()
+		if tail.Empty() {
+			return head, NewList(reverse(elems)...)
+		}
+		return head, tail.Append(elems...).(ListVal)
 	})
+}
+func (l ListVal) Head() Expression                  { h, _ := l(); return h }
+func (l ListVal) Tail() Sequential                  { _, t := l(); return t }
+func (l ListVal) TailList() ListVal                 { _, t := l(); return t }
+func (l ListVal) Consume() (Expression, Sequential) { return l() }
+func (l ListVal) ConsumeList() (Expression, ListVal) {
+	return l.Head(), l.TailList()
+}
+func (l ListVal) TypeFnc() TyFnc { return List }
+func (l ListVal) Null() ListVal  { return NewList() }
+func (l ListVal) TypeElem() TyPattern {
+	if l.Len() > 0 {
+		return l.Head().Type()
+	}
+	return Def(List, None)
+}
+
+func (l ListVal) Type() TyPattern {
+	if l.Len() > 0 {
+		return Def(List, l.Head().Type())
+	}
+	return Def(List, None)
 }
 
 func (l ListVal) Slice() []Expression {
 	var (
-		vec  = NewVector()
-		head Expression
-		tail Consumeable
+		vec        = []Expression{}
+		head, tail = l()
 	)
-	head, tail = l.Head(), l.Tail()
-	for head != nil {
-		vec = vec.Cons(head).(VecVal)
-		head, tail = tail.Consume()
+	for !head.TypeFnc().Match(None) {
+		vec = append(vec, head)
+		head, tail = tail()
 	}
-	return vec.Slice()
+	return vec
 }
 
 func (l ListVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return l.Cons(args...)
 	}
-	return l.Head()
-}
-
-func (l ListVal) GetIdx(n int) Expression {
-	var head, list = l()
-	for i := 0; i < n; i++ {
-		head, list = list()
-		if head == nil {
-			return NewNone()
-		}
-	}
-	return head
+	return l
 }
 
 func (l ListVal) Empty() bool {
-	if l.Head() != nil {
-		if !None.Flag().Match(l.Head().TypeFnc()) {
-			return false
-		}
+	if l.Head().TypeFnc().Match(None) {
+		return true
 	}
-
-	return true
+	return false
 }
 
 func (l ListVal) Len() int {
@@ -651,7 +661,7 @@ func (l ListVal) Len() int {
 		length     int
 		head, tail = l()
 	)
-	if head != nil {
+	if !head.TypeFnc().Match(None) {
 		length += 1 + tail.Len()
 	}
 	return length
@@ -728,7 +738,7 @@ func (v PairVec) ConsPairs(pairs ...Paired) PairVec {
 	return NewPairVec(append(pairs, v()...)...)
 }
 
-func (v PairVec) Cons(elems ...Expression) Consumeable {
+func (v PairVec) Cons(elems ...Expression) Sequential {
 	var pairs = make([]Paired, 0, len(elems))
 	for _, elem := range elems {
 		if elem.Type().Match(Pair) {
@@ -745,9 +755,9 @@ func (v PairVec) Cons(elems ...Expression) Consumeable {
 	})
 }
 
-func (v PairVec) Append(args ...Expression) Consumeable { return v.Cons(args...) }
+func (v PairVec) Append(args ...Expression) Sequential { return v.Cons(args...) }
 
-func (v PairVec) Consume() (Expression, Consumeable) {
+func (v PairVec) Consume() (Expression, Sequential) {
 	return v.Head(), v.Tail()
 }
 
@@ -847,7 +857,7 @@ func (v PairVec) TailPairs() ConsumeablePaired {
 	}
 	return NewEmptyPairVec()
 }
-func (v PairVec) Tail() Consumeable {
+func (v PairVec) Tail() Sequential {
 	if v.Len() > 1 {
 		return NewPairVectorFromPairs(v.Pairs()[1:]...)
 	}
@@ -893,15 +903,15 @@ func NewPairList(elems ...Paired) PairList {
 	}
 }
 
-func (l PairList) Tail() Consumeable                        { _, t := l(); return t }
+func (l PairList) Tail() Sequential                         { _, t := l(); return t }
 func (l PairList) TailPairs() ConsumeablePaired             { _, t := l(); return t }
 func (l PairList) TailPairList() PairList                   { _, t := l(); return t }
 func (l PairList) Head() Expression                         { h, _ := l(); return h }
 func (l PairList) HeadPair() Paired                         { p, _ := l(); return p }
-func (l PairList) Consume() (Expression, Consumeable)       { return l() }
+func (l PairList) Consume() (Expression, Sequential)        { return l() }
 func (l PairList) ConsumePair() (Paired, ConsumeablePaired) { return l() }
 func (l PairList) ConsumePairList() (Paired, PairList)      { return l() }
-func (l PairList) Append(args ...Expression) Consumeable {
+func (l PairList) Append(args ...Expression) Sequential {
 	var pairs = make([]Paired, 0, len(args))
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Pair) {
@@ -921,7 +931,7 @@ func (l PairList) Type() TyPattern {
 	return Def(Pair|List, None)
 }
 
-func (l PairList) ConsFromPairs(pairs ...Paired) Consumeable {
+func (l PairList) ConsFromPairs(pairs ...Paired) Sequential {
 	return PairList(func(args ...Paired) (Paired, PairList) {
 		if len(args) > 0 {
 			pairs = append(args, pairs...)
@@ -938,7 +948,7 @@ func (l PairList) ConsFromPairs(pairs ...Paired) Consumeable {
 	})
 }
 
-func (l PairList) Cons(elems ...Expression) Consumeable {
+func (l PairList) Cons(elems ...Expression) Sequential {
 	var pairs = make([]Paired, 0, len(elems))
 	for _, elem := range elems {
 		if elem.Type().Match(Pair) {

@@ -21,8 +21,8 @@ type (
 	MaybeVal  func(...Expression) (Expression, TyPattern, MaybeType)
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
-	AlternateType func(...Expression) Expression
-	AlternateVal  func(...Expression) (Expression, TyPattern, AlternateType)
+	EitherOrType func(...Expression) Expression
+	EitherOrVal  func(...Expression) (Expression, TyFnc, EitherOrType)
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
 	PolyType func(...Expression) Expression
@@ -227,7 +227,7 @@ func (t MaybeVal) Type() TyPattern                    { var _, pat, _ = t(); ret
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
-func NewVariant(either, or CaseType) AlternateType {
+func NewEitherOr(either, or CaseType) EitherOrType {
 	var (
 		typesEither = make([]d.Typed, 0, len(either.TypeArguments()))
 		typesOr     = make([]d.Typed, 0, len(or.TypeArguments()))
@@ -255,56 +255,62 @@ func NewVariant(either, or CaseType) AlternateType {
 			))
 	)
 
-	return AlternateType(func(args ...Expression) Expression {
+	return EitherOrType(func(args ...Expression) Expression {
 		if len(args) > 0 {
 			var result Expression
 			if result = either.Call(args...); !result.Type().Match(None) {
-				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
+				return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrType) {
 					if len(args) > 0 {
-						return result.Call(args...), Def(Either), NewVariant(either, or)
+						return result.Call(args...), Either, NewEitherOr(either, or)
 					}
-					return result, Def(Either), NewVariant(either, or)
-				})
-				return AlternateVal(func(args ...Expression) (Expression, TyPattern, AlternateType) {
-					if len(args) > 0 {
-						return result.Call(args...), Def(Or), NewVariant(either, or)
-					}
-					return result, Def(Or), NewVariant(either, or)
+					return result, Either, NewEitherOr(either, or)
 				})
 			}
-			return AlternateVal(func(...Expression) (Expression, TyPattern, AlternateType) {
-				return NewNone(), Def(None), NewVariant(either, or)
+			if result = or.Call(args...); !result.Type().Match(None) {
+				return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrType) {
+					if len(args) > 0 {
+						return result.Call(args...), Or, NewEitherOr(either, or)
+					}
+					return result, Or, NewEitherOr(either, or)
+				})
+			}
+			return EitherOrVal(func(...Expression) (Expression, TyFnc, EitherOrType) {
+				return NewNone(), None, NewEitherOr(either, or)
 			})
 		}
 		return pattern
 	})
 }
-func (o AlternateType) TypeFnc() TyFnc                     { return Constructor }
-func (o AlternateType) Type() TyPattern                    { return o().Type() }
-func (o AlternateType) String() string                     { return o().String() }
-func (o AlternateType) Call(args ...Expression) Expression { return o(args...) }
+func (o EitherOrType) TypeFnc() TyFnc                     { return Constructor }
+func (o EitherOrType) Type() TyPattern                    { return o().Type() }
+func (o EitherOrType) String() string                     { return o().String() }
+func (o EitherOrType) Call(args ...Expression) Expression { return o(args...) }
 
 //// ALTERNATIVE VALUE
 ///
-func (o AlternateVal) TypeFnc() TyFnc {
-	var _, eio, _ = o()
-	return eio.TypeFnc()
+func (o EitherOrVal) TypeFnc() TyFnc {
+	var _, ft, _ = o()
+	return ft
 }
-func (o AlternateVal) AlternativeType() AlternateType {
-	var _, _, altype = o()
-	return altype
+func (o EitherOrVal) AlternativeType() EitherOrType {
+	var _, _, eo = o()
+	return eo
 }
-func (o AlternateVal) Type() TyPattern {
-	var result, eio, _ = o()
-	return Def(eio, result.Type())
+func (o EitherOrVal) Value() Expression {
+	var r, _, _ = o()
+	return r
 }
-func (o AlternateVal) String() string {
-	var result, _, _ = o()
-	return result.String()
+func (o EitherOrVal) ValType() TyPattern {
+	return o.Value().Type()
 }
-func (o AlternateVal) Call(args ...Expression) Expression {
-	var result, _, _ = o(args...)
-	return result
+func (o EitherOrVal) Type() TyPattern {
+	return Def(o.ValType(), o.TypeFnc())
+}
+func (o EitherOrVal) String() string {
+	return o.Value().String()
+}
+func (o EitherOrVal) Call(args ...Expression) Expression {
+	return o.Value().Call(args...)
 }
 
 //// POLYMORPHIC TYPE

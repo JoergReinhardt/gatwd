@@ -156,7 +156,7 @@ func TestMaybe(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	var (
-		option   = NewVariant(caseInteger, caseFloat)
+		option   = NewEitherOr(caseInteger, caseFloat)
 		intStr   = option(DecNative(23))
 		fltStr   = option(DecNative(42.23))
 		boolNone = option(DecNative(true))
@@ -166,14 +166,16 @@ func TestOption(t *testing.T) {
 
 	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr, fltStr, boolNone)
+	fmt.Printf("intStr type: %s, fltStr type: %s, boolNone type: %s\n",
+		intStr.Type().TypeReturn(), fltStr.Type().TypeReturn(), boolNone.Type())
 
 	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr.Type(), fltStr.Type(), boolNone.Type())
 
-	if !intStr.Type().TypeReturn().Match(d.String) {
+	if !intStr.Type().TypeReturn().Match(Either) {
 		t.Fail()
 	}
-	if !fltStr.Type().TypeReturn().Match(d.String) {
+	if !fltStr.Type().TypeReturn().Match(Or) {
 		t.Fail()
 	}
 	if !boolNone.Type().TypeReturn().Match(None) {

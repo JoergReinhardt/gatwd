@@ -1,11 +1,11 @@
 package functions
 
 type (
-	SequenceVal func(...Expression) (Expression, Consumeable)
+	SequenceVal func(...Expression) (Expression, Sequential)
 )
 
-func NewSequence(coll Consumeable) SequenceVal {
-	return func(args ...Expression) (Expression, Consumeable) {
+func NewSequence(coll Sequential) SequenceVal {
+	return func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			return coll.Cons(args...).Consume()
 		}
@@ -16,16 +16,16 @@ func NewSequence(coll Consumeable) SequenceVal {
 func (s SequenceVal) TypeFnc() TyFnc      { return Sequence }
 func (s SequenceVal) Type() TyPattern     { return s.Tail().Type() }
 func (s SequenceVal) TypeElem() TyPattern { return s.Head().Type() }
-func (s SequenceVal) Cons(elems ...Expression) Consumeable {
-	return SequenceVal(func(args ...Expression) (Expression, Consumeable) {
+func (s SequenceVal) Cons(elems ...Expression) Sequential {
+	return SequenceVal(func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			return s.Cons(elems...).Cons(args...).Consume()
 		}
 		return s.Cons(elems...).Consume()
 	})
 }
-func (s SequenceVal) Append(elems ...Expression) Consumeable {
-	return SequenceVal(func(args ...Expression) (Expression, Consumeable) {
+func (s SequenceVal) Append(elems ...Expression) Sequential {
+	return SequenceVal(func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			return s.Append(elems...).Cons(args...).Consume()
 		}
@@ -41,12 +41,12 @@ func (s SequenceVal) Call(args ...Expression) Expression {
 	head, _ = s()
 	return head
 }
-func (s SequenceVal) Consume() (Expression, Consumeable) { return s() }
+func (s SequenceVal) Consume() (Expression, Sequential) { return s() }
 func (s SequenceVal) Head() Expression {
 	var expr, _ = s()
 	return expr
 }
-func (s SequenceVal) Tail() Consumeable {
+func (s SequenceVal) Tail() Sequential {
 	var _, coll = s()
 	return coll
 }
