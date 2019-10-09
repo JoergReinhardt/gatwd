@@ -6,21 +6,6 @@ import (
 	"time"
 )
 
-func Precedence(a, b Native) (x, y Native) {
-	// if arguments types happend to be different‥.
-	if at, bt := a.Type(), b.Type(); at != bt {
-		var ati, bti = at.Flag().Index(), bt.Flag().Index()
-		if ati > bti {
-			// return unchanged a and cast b as type of a
-			return a, TypeConversionTable[bti][ati](b)
-		}
-		// cast a as type of b and return unchanged b
-		return TypeConversionTable[ati][bti](a), b
-	}
-	// ‥.otherwise just return both arguments unchagend
-	return a, b
-}
-
 type indexTable [][]func(arg Native) Native
 
 func newIndexTable() indexTable {

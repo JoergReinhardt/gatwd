@@ -23,8 +23,8 @@ type (
 	DataSlice   func() d.DataSlice
 	DataGoSlice func() d.Sliceable
 	DataPair    func() d.PairVal
-	DataSet     func() d.Mapped
-	DataVal     func(...d.Native) d.Native
+	DataMap     func() d.Mapped
+	DataExpr    func(...d.Native) d.Native
 )
 
 func nativeType(nat d.Native) (typed d.Typed) {
@@ -63,8 +63,8 @@ func DecData(args ...d.Native) Native {
 
 	switch {
 	case match(d.Function):
-		if fn, ok := nat.(d.FuncVal); ok {
-			return DataVal(func(args ...d.Native) d.Native {
+		if fn, ok := nat.(d.Expression); ok {
+			return DataExpr(func(args ...d.Native) d.Native {
 				if len(args) > 0 {
 					return fn(args...)
 				}
@@ -84,7 +84,7 @@ func DecData(args ...d.Native) Native {
 			return nat.(d.PairVal)
 		})
 	case match(d.Map):
-		return DataSet(func() d.Mapped {
+		return DataMap(func() d.Mapped {
 			return nat.(d.Mapped)
 		})
 	}
@@ -94,12 +94,12 @@ func DecData(args ...d.Native) Native {
 }
 
 // NATIVE FUNCTION VALUE CONSTRUCTOR
-func (n DataVal) TypeFnc() TyFnc                 { return Data }
-func (n DataVal) TypeNat() d.TyNat               { return n().Type() }
-func (n DataVal) String() string                 { return n().String() }
-func (n DataVal) Eval(args ...d.Native) d.Native { return n(args...) }
-func (n DataVal) Type() TyPattern                { return Def(Data|Value, nativeType(n())) }
-func (n DataVal) Call(args ...Expression) Expression {
+func (n DataExpr) TypeFnc() TyFnc                 { return Data }
+func (n DataExpr) TypeNat() d.TyNat               { return n().Type() }
+func (n DataExpr) String() string                 { return n().String() }
+func (n DataExpr) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n DataExpr) Type() TyPattern                { return Def(Data|Value, nativeType(n())) }
+func (n DataExpr) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var nats = make([]d.Native, 0, len(args))
 		for _, arg := range args {
@@ -213,46 +213,46 @@ func (n DataPair) Type() TyPattern {
 }
 
 // NATIVE SET VALUE CONSTRUCTOR
-func (n DataSet) Call(args ...Expression) Expression   { return n }
-func (n DataSet) Eval(...d.Native) d.Native            { return n() }
-func (n DataSet) TypeFnc() TyFnc                       { return Data }
-func (n DataSet) TypeNat() d.TyNat                     { return n().Type() }
-func (n DataSet) Len() int                             { return n().Len() }
-func (n DataSet) Slice() []d.Native                    { return n().Slice() }
-func (n DataSet) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
-func (n DataSet) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
-func (n DataSet) Delete(acc d.Native) bool             { return n().Delete(acc) }
-func (n DataSet) Get(acc d.Native) (d.Native, bool)    { return n().Get(acc) }
-func (n DataSet) Set(acc, val d.Native) d.Mapped       { return n().Set(acc, val) }
-func (n DataSet) Keys() []d.Native                     { return n().Keys() }
-func (n DataSet) Data() []d.Native                     { return n().Data() }
-func (n DataSet) Fields() []d.Paired                   { return n().Fields() }
-func (n DataSet) KeyType() d.Typed                     { return n().TypeKey() }
-func (n DataSet) ValType() d.Typed                     { return n().TypeValue() }
-func (n DataSet) SubType() d.Typed                     { return n().Type() }
-func (n DataSet) String() string                       { return n().String() }
-func (n DataSet) KeysExpr() []Expression {
+func (n DataMap) Call(args ...Expression) Expression   { return n }
+func (n DataMap) Eval(...d.Native) d.Native            { return n() }
+func (n DataMap) TypeFnc() TyFnc                       { return Data }
+func (n DataMap) TypeNat() d.TyNat                     { return n().Type() }
+func (n DataMap) Len() int                             { return n().Len() }
+func (n DataMap) Slice() []d.Native                    { return n().Slice() }
+func (n DataMap) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
+func (n DataMap) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
+func (n DataMap) Delete(acc d.Native) bool             { return n().Delete(acc) }
+func (n DataMap) Get(acc d.Native) (d.Native, bool)    { return n().Get(acc) }
+func (n DataMap) Set(acc, val d.Native) d.Mapped       { return n().Set(acc, val) }
+func (n DataMap) Keys() []d.Native                     { return n().Keys() }
+func (n DataMap) Data() []d.Native                     { return n().Data() }
+func (n DataMap) Fields() []d.Paired                   { return n().Fields() }
+func (n DataMap) KeyType() d.Typed                     { return n().TypeKey() }
+func (n DataMap) ValType() d.Typed                     { return n().TypeValue() }
+func (n DataMap) SubType() d.Typed                     { return n().Type() }
+func (n DataMap) String() string                       { return n().String() }
+func (n DataMap) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, key := range n().Keys() {
 		exprs = append(exprs, DecData(key))
 	}
 	return exprs
 }
-func (n DataSet) DataExpr() []Expression {
+func (n DataMap) DataExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, val := range n().Data() {
 		exprs = append(exprs, DecData(val))
 	}
 	return exprs
 }
-func (n DataSet) SliceExpr() []Expression {
+func (n DataMap) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Fields() {
 		slice = append(slice, DecData(nat))
 	}
 	return slice
 }
-func (n DataSet) Pairs() []Paired {
+func (n DataMap) Pairs() []Paired {
 	var pairs = []Paired{}
 	for _, field := range n.Fields() {
 		pairs = append(
@@ -262,7 +262,7 @@ func (n DataSet) Pairs() []Paired {
 	}
 	return pairs
 }
-func (n DataSet) Type() TyPattern {
+func (n DataMap) Type() TyPattern {
 	if n().Len() > 0 {
 		return Def(Data|Pair, Def(
 			nativeType(n().First().Left()),

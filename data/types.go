@@ -180,12 +180,12 @@ type ( // NATIVE GOLANG TYPES
 	PairVal   struct{ L, R Native }
 
 	// SETS OF NATIVES
-	SetString map[StrVal]Native
-	SetUint   map[UintVal]Native
-	SetInt    map[IntVal]Native
-	SetFloat  map[FltVal]Native
-	SetFlag   map[BitFlag]Native
-	SetVal    map[Native]Native
+	MapString map[StrVal]Native
+	MapUint   map[UintVal]Native
+	MapInt    map[IntVal]Native
+	MapFloat  map[FltVal]Native
+	MapFlag   map[BitFlag]Native
+	MapVal    map[Native]Native
 
 	// SLICES OF UNALIASED NATIVE GOLANG VALUES
 	InterfaceSlice []interface{}
@@ -222,7 +222,7 @@ type ( // NATIVE GOLANG TYPES
 	DataSlice []Native
 
 	// FUNCTION VALUE
-	FuncVal func(...Native) Native
+	Expression func(...Native) Native
 )
 
 func newUnboxed(nat TyNat) Native {
@@ -337,7 +337,7 @@ func newNull(nat TyNat) Native {
 	return val
 }
 
-func (v FuncVal) Eval(args ...Native) Native { return v(args...) }
+func (v Expression) Eval(args ...Native) Native { return v(args...) }
 
 // yields a null value of the methods type
 func (v FlagSlice) Null() FlagSlice { return FlagSlice(FlagSlice{}) }
@@ -373,31 +373,31 @@ func (v ErrorVal) Null() ErrorVal   { return ErrorVal{error(fmt.Errorf(""))} }
 func (v BitFlag) Type() TyNat   { return Flag }
 func (v FlagSlice) Flag() TyNat { return Flag | Slice }
 
-func (v NilVal) Type() TyNat    { return Nil }
-func (v BoolVal) Type() TyNat   { return Bool }
-func (v IntVal) Type() TyNat    { return Int }
-func (v Int8Val) Type() TyNat   { return Int8 }
-func (v Int16Val) Type() TyNat  { return Int16 }
-func (v Int32Val) Type() TyNat  { return Int32 }
-func (v UintVal) Type() TyNat   { return Uint }
-func (v Uint8Val) Type() TyNat  { return Uint8 }
-func (v Uint16Val) Type() TyNat { return Uint16 }
-func (v Uint32Val) Type() TyNat { return Uint32 }
-func (v BigIntVal) Type() TyNat { return BigInt }
-func (v FltVal) Type() TyNat    { return Float }
-func (v Flt32Val) Type() TyNat  { return Flt32 }
-func (v BigFltVal) Type() TyNat { return BigFlt }
-func (v ImagVal) Type() TyNat   { return Imag }
-func (v Imag64Val) Type() TyNat { return Imag64 }
-func (v RatioVal) Type() TyNat  { return Ratio }
-func (v RuneVal) Type() TyNat   { return Rune }
-func (v ByteVal) Type() TyNat   { return Byte }
-func (v BytesVal) Type() TyNat  { return Bytes }
-func (v StrVal) Type() TyNat    { return String }
-func (v TimeVal) Type() TyNat   { return Time }
-func (v DuraVal) Type() TyNat   { return Duration }
-func (v ErrorVal) Type() TyNat  { return Error }
-func (v FuncVal) Type() TyNat   { return Function }
+func (v NilVal) Type() TyNat     { return Nil }
+func (v BoolVal) Type() TyNat    { return Bool }
+func (v IntVal) Type() TyNat     { return Int }
+func (v Int8Val) Type() TyNat    { return Int8 }
+func (v Int16Val) Type() TyNat   { return Int16 }
+func (v Int32Val) Type() TyNat   { return Int32 }
+func (v UintVal) Type() TyNat    { return Uint }
+func (v Uint8Val) Type() TyNat   { return Uint8 }
+func (v Uint16Val) Type() TyNat  { return Uint16 }
+func (v Uint32Val) Type() TyNat  { return Uint32 }
+func (v BigIntVal) Type() TyNat  { return BigInt }
+func (v FltVal) Type() TyNat     { return Float }
+func (v Flt32Val) Type() TyNat   { return Flt32 }
+func (v BigFltVal) Type() TyNat  { return BigFlt }
+func (v ImagVal) Type() TyNat    { return Imag }
+func (v Imag64Val) Type() TyNat  { return Imag64 }
+func (v RatioVal) Type() TyNat   { return Ratio }
+func (v RuneVal) Type() TyNat    { return Rune }
+func (v ByteVal) Type() TyNat    { return Byte }
+func (v BytesVal) Type() TyNat   { return Bytes }
+func (v StrVal) Type() TyNat     { return String }
+func (v TimeVal) Type() TyNat    { return Time }
+func (v DuraVal) Type() TyNat    { return Duration }
+func (v ErrorVal) Type() TyNat   { return Error }
+func (v Expression) Type() TyNat { return Function }
 
 //func (v BitFlag) Type() Typed   { return Type }
 //func (v FlagSlice) Type() Typed { return Flag | Slice }
@@ -428,33 +428,33 @@ func (v FuncVal) Type() TyNat   { return Function }
 //func (v FuncVal) Type() Typed   { return Function }
 
 // provide a deep copy method
-func (NilVal) Copy() Native      { return NilVal{} }
-func (v BitFlag) Copy() Native   { return BitFlag(v) }
-func (v BoolVal) Copy() Native   { return BoolVal(v) }
-func (v IntVal) Copy() Native    { return IntVal(v) }
-func (v Int8Val) Copy() Native   { return Int8Val(v) }
-func (v Int16Val) Copy() Native  { return Int16Val(v) }
-func (v Int32Val) Copy() Native  { return Int32Val(v) }
-func (v UintVal) Copy() Native   { return UintVal(v) }
-func (v Uint8Val) Copy() Native  { return Uint8Val(v) }
-func (v Uint16Val) Copy() Native { return Uint16Val(v) }
-func (v Uint32Val) Copy() Native { return Uint32Val(v) }
-func (v BigIntVal) Copy() Native { return BigIntVal(v) }
-func (v FltVal) Copy() Native    { return FltVal(v) }
-func (v Flt32Val) Copy() Native  { return Flt32Val(v) }
-func (v BigFltVal) Copy() Native { return BigFltVal(v) }
-func (v ImagVal) Copy() Native   { return ImagVal(v) }
-func (v Imag64Val) Copy() Native { return Imag64Val(v) }
-func (v RatioVal) Copy() Native  { return RatioVal(v) }
-func (v RuneVal) Copy() Native   { return RuneVal(v) }
-func (v ByteVal) Copy() Native   { return ByteVal(v) }
-func (v BytesVal) Copy() Native  { return BytesVal(v) }
-func (v StrVal) Copy() Native    { return StrVal(v) }
-func (v TimeVal) Copy() Native   { return TimeVal(v) }
-func (v DuraVal) Copy() Native   { return DuraVal(v) }
-func (v ErrorVal) Copy() Native  { return ErrorVal(v) }
-func (v FuncVal) Copy() Native   { return FuncVal(v) }
-func (v PairVal) Copy() Native   { return PairVal{v.L, v.R} }
+func (NilVal) Copy() Native       { return NilVal{} }
+func (v BitFlag) Copy() Native    { return BitFlag(v) }
+func (v BoolVal) Copy() Native    { return BoolVal(v) }
+func (v IntVal) Copy() Native     { return IntVal(v) }
+func (v Int8Val) Copy() Native    { return Int8Val(v) }
+func (v Int16Val) Copy() Native   { return Int16Val(v) }
+func (v Int32Val) Copy() Native   { return Int32Val(v) }
+func (v UintVal) Copy() Native    { return UintVal(v) }
+func (v Uint8Val) Copy() Native   { return Uint8Val(v) }
+func (v Uint16Val) Copy() Native  { return Uint16Val(v) }
+func (v Uint32Val) Copy() Native  { return Uint32Val(v) }
+func (v BigIntVal) Copy() Native  { return BigIntVal(v) }
+func (v FltVal) Copy() Native     { return FltVal(v) }
+func (v Flt32Val) Copy() Native   { return Flt32Val(v) }
+func (v BigFltVal) Copy() Native  { return BigFltVal(v) }
+func (v ImagVal) Copy() Native    { return ImagVal(v) }
+func (v Imag64Val) Copy() Native  { return Imag64Val(v) }
+func (v RatioVal) Copy() Native   { return RatioVal(v) }
+func (v RuneVal) Copy() Native    { return RuneVal(v) }
+func (v ByteVal) Copy() Native    { return ByteVal(v) }
+func (v BytesVal) Copy() Native   { return BytesVal(v) }
+func (v StrVal) Copy() Native     { return StrVal(v) }
+func (v TimeVal) Copy() Native    { return TimeVal(v) }
+func (v DuraVal) Copy() Native    { return DuraVal(v) }
+func (v ErrorVal) Copy() Native   { return ErrorVal(v) }
+func (v Expression) Copy() Native { return Expression(v) }
+func (v PairVal) Copy() Native    { return PairVal{v.L, v.R} }
 func (v FlagSlice) Copy() Native {
 	var nfs = DataSlice{}
 	for _, dat := range v {
@@ -464,29 +464,29 @@ func (v FlagSlice) Copy() Native {
 }
 
 // ident returns the instance as it's given type
-func (NilVal) Ident() NilVal         { return NilVal{} }
-func (v BitFlag) Ident() BitFlag     { return v }
-func (v BoolVal) Ident() BoolVal     { return v }
-func (v IntVal) Ident() IntVal       { return v }
-func (v Int8Val) Ident() Int8Val     { return v }
-func (v Int16Val) Ident() Int16Val   { return v }
-func (v Int32Val) Ident() Int32Val   { return v }
-func (v UintVal) Ident() UintVal     { return v }
-func (v Uint8Val) Ident() Uint8Val   { return v }
-func (v Uint16Val) Ident() Uint16Val { return v }
-func (v Uint32Val) Ident() Uint32Val { return v }
-func (v BigIntVal) Ident() BigIntVal { return v }
-func (v FltVal) Ident() FltVal       { return v }
-func (v Flt32Val) Ident() Flt32Val   { return v }
-func (v BigFltVal) Ident() BigFltVal { return v }
-func (v ImagVal) Ident() ImagVal     { return v }
-func (v Imag64Val) Ident() Imag64Val { return v }
-func (v RatioVal) Ident() RatioVal   { return v }
-func (v RuneVal) Ident() RuneVal     { return v }
-func (v ByteVal) Ident() ByteVal     { return v }
-func (v BytesVal) Ident() BytesVal   { return v }
-func (v StrVal) Ident() StrVal       { return v }
-func (v TimeVal) Ident() TimeVal     { return v }
-func (v DuraVal) Ident() DuraVal     { return v }
-func (v ErrorVal) Ident() ErrorVal   { return v }
-func (v FuncVal) Ident() FuncVal     { return v }
+func (NilVal) Ident() NilVal           { return NilVal{} }
+func (v BitFlag) Ident() BitFlag       { return v }
+func (v BoolVal) Ident() BoolVal       { return v }
+func (v IntVal) Ident() IntVal         { return v }
+func (v Int8Val) Ident() Int8Val       { return v }
+func (v Int16Val) Ident() Int16Val     { return v }
+func (v Int32Val) Ident() Int32Val     { return v }
+func (v UintVal) Ident() UintVal       { return v }
+func (v Uint8Val) Ident() Uint8Val     { return v }
+func (v Uint16Val) Ident() Uint16Val   { return v }
+func (v Uint32Val) Ident() Uint32Val   { return v }
+func (v BigIntVal) Ident() BigIntVal   { return v }
+func (v FltVal) Ident() FltVal         { return v }
+func (v Flt32Val) Ident() Flt32Val     { return v }
+func (v BigFltVal) Ident() BigFltVal   { return v }
+func (v ImagVal) Ident() ImagVal       { return v }
+func (v Imag64Val) Ident() Imag64Val   { return v }
+func (v RatioVal) Ident() RatioVal     { return v }
+func (v RuneVal) Ident() RuneVal       { return v }
+func (v ByteVal) Ident() ByteVal       { return v }
+func (v BytesVal) Ident() BytesVal     { return v }
+func (v StrVal) Ident() StrVal         { return v }
+func (v TimeVal) Ident() TimeVal       { return v }
+func (v DuraVal) Ident() DuraVal       { return v }
+func (v ErrorVal) Ident() ErrorVal     { return v }
+func (v Expression) Ident() Expression { return v }

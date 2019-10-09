@@ -72,16 +72,16 @@ func NewNull(nat TyNat) Native {
 			if len(nats) > 0 {
 				switch {
 				case nat.Match(String):
-					return NewStringSet()
+					return NewStringMap()
 				case nat.Match(Uint):
-					return NewUintSet()
+					return NewUintMap()
 				case nat.Match(Type):
-					return NewBitFlagSet()
+					return NewFLagMap()
 				default:
 					// if remaining type doesn't match any
 					// of the existing set types, return a
 					// generic set
-					return NewValSet()
+					return NewValMap()
 				}
 			}
 		default:
@@ -216,7 +216,7 @@ func newWithTypeInfo(args ...interface{}) (rval Native, flag BitFlag) {
 		v := RatioVal(*temp.(*big.Rat))
 		rval = &v
 	case func(...Native) Native:
-		rval = FuncVal(temp.(func(...Native) Native))
+		rval = Expression(temp.(func(...Native) Native))
 	case TyNat:
 		rval = BitFlag(temp.(TyNat))
 	case BitFlag:
