@@ -22,7 +22,7 @@ type (
 	ListVal  func(...Expression) (Expression, ListVal)
 	PairVec  func(...Paired) []Paired
 	PairList func(...Paired) (Paired, PairList)
-	SetVal   func(...Expression) (Expression, map[string]Expression)
+	MapVal   func(...Expression) (Expression, map[string]Expression)
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1028,7 +1028,7 @@ func argsToPaired(args ...Expression) []Paired {
 }
 
 /// DATA SET
-func NewSet(pairs ...ValPair) SetVal {
+func NewSet(pairs ...ValPair) MapVal {
 	var (
 		set = make(map[string]Expression, len(pairs))
 	)
@@ -1062,51 +1062,51 @@ func NewSet(pairs ...ValPair) SetVal {
 		return None, set
 	}
 }
-func (s SetVal) Dict() map[string]Expression {
+func (s MapVal) Dict() map[string]Expression {
 	var _, set = s()
 	return set
 }
-func (s SetVal) Keys() []string {
+func (s MapVal) Keys() []string {
 	var keys = []string{}
 	for key, _ := range s.Dict() {
 		keys = append(keys, key)
 	}
 	return keys
 }
-func (s SetVal) Values() []Expression {
+func (s MapVal) Values() []Expression {
 	var vals = []Expression{}
 	for _, val := range s.Dict() {
 		vals = append(vals, val)
 	}
 	return vals
 }
-func (s SetVal) Pairs() []Paired {
+func (s MapVal) Pairs() []Paired {
 	var pairs = make([]Paired, 0, s.Len())
 	for _, key := range s.Keys() {
 		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
 	}
 	return pairs
 }
-func (s SetVal) KeyPairs() []KeyPair {
+func (s MapVal) KeyPairs() []KeyPair {
 	var pairs = make([]KeyPair, 0, s.Len())
 	for _, key := range s.Keys() {
 		pairs = append(pairs, NewKeyPair(key, s.Get(key)))
 	}
 	return pairs
 }
-func (s SetVal) Get(key string) Expression {
+func (s MapVal) Get(key string) Expression {
 	if val, ok := s.Dict()[key]; ok {
 		return val
 	}
 	return NewNone()
 }
-func (s SetVal) Len() int                             { return len(s.Keys()) }
-func (s SetVal) TypeFnc() TyFnc                       { return Set }
-func (s SetVal) GetByData(key Native) Expression      { return s.Get(key.String()) }
-func (s SetVal) Set(key string, val Expression)       { s(NewKeyPair(key, val)) }
-func (s SetVal) SetByData(key Native, val Expression) { s(NewKeyPair(key.String(), val)) }
-func (s SetVal) Type() TyPattern                      { return Def(Set, s.TypeElem()) }
-func (s SetVal) TypeElem() TyPattern {
+func (s MapVal) Len() int                             { return len(s.Keys()) }
+func (s MapVal) TypeFnc() TyFnc                       { return Set }
+func (s MapVal) GetByData(key Native) Expression      { return s.Get(key.String()) }
+func (s MapVal) Set(key string, val Expression)       { s(NewKeyPair(key, val)) }
+func (s MapVal) SetByData(key Native, val Expression) { s(NewKeyPair(key.String(), val)) }
+func (s MapVal) Type() TyPattern                      { return Def(Set, s.TypeElem()) }
+func (s MapVal) TypeElem() TyPattern {
 	if s.Len() > 0 {
 		if val := s.Values()[0]; !val.Type().Match(None) {
 			return val.Type()
@@ -1114,7 +1114,7 @@ func (s SetVal) TypeElem() TyPattern {
 	}
 	return None.Type()
 }
-func (s SetVal) Call(args ...Expression) Expression {
+func (s MapVal) Call(args ...Expression) Expression {
 	var expr, _ = s(args...)
 	return expr
 }

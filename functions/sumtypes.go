@@ -86,9 +86,27 @@ func (c FuncVal) Call(...Expression) Expression { return c() }
 //
 // element values yield a subelements of optional, tuple, or enumerable
 // expressions with sub-type pattern as second return value
+func tTp(typ []d.Typed) []TyPattern {
+	var pat = make([]TyPattern, 0, len(typ))
+	for _, t := range typ {
+		if Flag_Pattern.Match(t.FlagType()) {
+			pat = append(pat, t.(TyPattern))
+			continue
+		}
+		pat = append(pat, Def(t))
+	}
+	return pat
+}
+func pTt(pat []TyPattern) []d.Typed {
+	var typ = make([]d.Typed, 0, len(pat))
+	for _, p := range pat {
+		typ = append(typ, p)
+	}
+	return typ
+}
 func Define(
 	expr Expression,
-	argtype, retype d.Typed,
+	argtype, retype TyPattern,
 	propertys ...d.Typed,
 ) ExprType {
 
@@ -100,13 +118,15 @@ func Define(
 		ident         d.Typed
 		pattern       TyPattern
 		props, idents []d.Typed
-		arglen        = argtype.(TyPattern).Count()
-		argtypes      = argtype.(TyPattern).Types()
+		arglen        = argtype.Len()
+		argtypes      = argtype.Pattern()
 	)
 
+	// if no propertys are passed, function type is the types ident
 	if len(propertys) == 0 {
 		ident = expr.TypeFnc()
 	} else {
+		// scan passed propertys for symbols
 		props, idents = []d.Typed{}, []d.Typed{}
 		for _, typ := range propertys {
 			if Flag_Symbol.Match(typ.FlagType()) {
@@ -115,6 +135,7 @@ func Define(
 			}
 			props = append(props, typ)
 		}
+		// define type identity from fetched symbol(s)
 		ident = Def(idents...)
 	}
 
@@ -141,8 +162,8 @@ func Define(
 									args, lateargs...,
 								)...)
 							}
-							return Def(Def(remains...), ident, retype)
-						}), Def(remains...), ident, retype)
+							return Def(Def(pTt(remains)...), ident, retype)
+						}), Def(pTt(remains)...), Def(ident), retype)
 
 				case length > arglen:
 					var vector = NewVector()
@@ -172,7 +193,9 @@ func (e ExprType) Call(args ...Expression) Expression { return e(args...) }
 
 //// TUPLE TYPE
 ///
-//
+// tuple type constructor expects a slice of field types and possibly a symbol
+// type flag, to define the types name, otherwise 'tuple' is the type name and
+// the sequence of field types is shown instead
 func NewTuple(types ...d.Typed) ExprType {
 	var (
 		pattern = make([]Expression, 0, len(types))
@@ -219,6 +242,9 @@ func (t TupleType) Type() TyPattern {
 }
 
 /// TUPLE VALUE
+//
+// tuple value is a slice of expressions, constructed by a tuple type
+// constructor validated according to its type pattern.
 func (t TupleVal) Call(...Expression) Expression { return t }
 func (t TupleVal) Count() int                    { return len(t) }
 func (t TupleVal) TypeFnc() TyFnc                { return Tuple }

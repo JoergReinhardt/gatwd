@@ -24,6 +24,9 @@ type (
 	EitherOrType func(...Expression) Expression
 	EitherOrVal  func(...Expression) (Expression, TyFnc, EitherOrType)
 
+	// TODO: either poly-/ or option type (homolog)‥. also option value
+	// should reference its type constructor and sibling types.
+
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
 	PolyType func(...Expression) Expression
 
@@ -176,7 +179,7 @@ func (t SwitchType) Call(args ...Expression) Expression {
 // the constructor takes a case expression, expected to return a result, if the
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
-func NewOptional(cas CaseType) MaybeType {
+func NewMaybe(cas CaseType) MaybeType {
 	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
 	for _, arg := range cas.TypeArguments() {
 		argtypes = append(argtypes, arg)
@@ -186,24 +189,30 @@ func NewOptional(cas CaseType) MaybeType {
 	)
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
+			// pass arguments to case, check if result is none‥.
 			if result := cas.Call(args...); !result.Type().Match(None) {
+				// ‥.otherwise return a maybe just
 				return MaybeVal(func(args ...Expression) (Expression, TyPattern, MaybeType) {
 					if len(args) > 0 {
+						// return result from passing
+						// args to result of initial
+						// call
 						return result.Call(args...), Def(
 							Def(argtypes...),
 							Just,
 							result.Type().TypeReturn(),
-						), NewOptional(cas)
+						), NewMaybe(cas)
 					}
 					return result, Def(
 						Def(argtypes...),
 						Just,
 						result.Type().TypeReturn(),
-					), NewOptional(cas)
+					), NewMaybe(cas)
 				})
 			}
+			// no matching arguments where passed, return none
 			return MaybeVal(func(...Expression) (Expression, TyPattern, MaybeType) {
-				return NewNone(), Def(None), NewOptional(cas)
+				return NewNone(), Def(None), NewMaybe(cas)
 			})
 		}
 		return pattern
@@ -217,6 +226,7 @@ func (t MaybeType) TypeReturn() TyPattern              { return t().Type().TypeR
 func (t MaybeType) String() string                     { return t().String() }
 func (t MaybeType) Call(args ...Expression) Expression { return t.Call(args...) }
 
+// maybe values methods
 func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeVal) Call(args ...Expression) Expression { var result, _, _ = t(args...); return result }
 func (t MaybeVal) String() string                     { var result, _, _ = t(); return result.String() }

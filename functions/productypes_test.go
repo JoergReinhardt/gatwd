@@ -138,7 +138,7 @@ func TestSwitch(t *testing.T) {
 }
 
 func TestMaybe(t *testing.T) {
-	var maybeString = NewOptional(caseInteger)
+	var maybeString = NewMaybe(caseInteger)
 	var str = maybeString(DecNative(42))
 	fmt.Printf("string: %s\n", str)
 	if str.Type().TypeReturn().Match(Def(Data, d.String)) {
