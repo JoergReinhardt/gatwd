@@ -28,10 +28,8 @@ type (
 	// should reference its type constructor and sibling types.
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	PolyType func(...Expression) Expression
-
-	// OPTION TYPE (Option[0]‥.Option[n])
-	OptionType func(...Expression) Expression
+	PolyType func(...Expression) (Expression, []ExprType, int)
+	PolyVal  func(...Expression) (Expression, PolyType)
 )
 
 /// TRUTH TEST
@@ -141,9 +139,13 @@ func NewSwitch(cases ...CaseType) SwitchType {
 				} else {
 					remains = remains[:0]
 				}
-				return current(args...), remains
+				var result = current(args...)
+				if result.Type().Match(None) {
+					return result, remains
+				}
+				return result, cases
 			}
-			return NewNone(), remains
+			return NewNone(), cases
 		}
 		return pattern, cases
 	}
@@ -254,13 +256,11 @@ func NewEitherOr(either, or CaseType) EitherOrType {
 		pattern = Def(
 			Def(
 				Def(Either, eitherArgs),
-				Lex_Pipe,
 				Def(Or, orArgs),
 			),
 			Def(Either|Or),
 			Def(
 				Def(Either, either.TypeReturn()),
-				Lex_Pipe,
 				Def(Or, or.TypeReturn()),
 			))
 	)
@@ -326,119 +326,157 @@ func (o EitherOrVal) Call(args ...Expression) Expression {
 //// POLYMORPHIC TYPE
 ///
 //
-func NewPolyType(cases ...CaseType) PolyType {
+// declare new polymorphic named type from cases
+func NewPolyType(name string, cases ...ExprType) PolyType {
 	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
+		patterns = make([]d.Typed, 0, len(cases))
+		pat      TyPattern
 	)
 	for _, c := range cases {
 		patterns = append(patterns, c.Type())
 	}
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return typeSwitch.Call(args...)
+	pat = Def(DefSym(name), Def(patterns...))
+	return createPolyType(pat, 0, cases...)
+}
+
+// type constructor to construct type instances holding execution state during
+// recursion
+func createPolyType(pat TyPattern, idx int, cases ...ExprType) PolyType {
+	var length = len(cases)
+	return func(args ...Expression) (Expression, []ExprType, int) {
+		if len(args) > 0 { // arguments where passed
+			if idx < length { // not all cases scrutinized yet
+				// scrutinize arguments, retrieve expr, or none
+				var expr = cases[idx](args...)
+				// if none‥.
+				if expr.Type().Match(None) {
+					// either increment count, or reset to
+					// zero, if all cases have been
+					// scrutinized
+					if idx == length-1 {
+						idx = 0
+					} else {
+						idx += 1
+					}
+					// return poly type instance pointing
+					// to next case for testing it's
+					// arguments
+					return createPolyType(pat, idx, cases...), cases, idx
+				}
+				// if arguments matched case, return result as
+				// instance of polymorphic sub type instance
+				return PolyVal(func(args ...Expression) (Expression, PolyType) {
+					if len(args) > 0 {
+						return expr.Call(args...), createPolyType(pat, idx, cases...)
+					}
+					return expr.Call(), createPolyType(pat, idx, cases...)
+				}), cases, idx
+			}
 		}
-		return NewVector(patterns...)
+		// return reset poly type instance, slice of cases and minus
+		// one to indicate end of cases list
+		return createPolyType(pat, 0, cases...), cases, 0
 	}
 }
-func (p PolyType) Call(args ...Expression) Expression { return p(args...) }
-func (p PolyType) TypeFnc() TyFnc                     { return Polymorph }
+
+// loops over all cases with a set of passed arguments and returns either
+// result, or none
+func (p PolyType) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var r, _, i = p(args...)
+		for i > 0 {
+			if !r.Type().Match(None) {
+				return r
+			}
+			r, _, i = p(args...)
+		}
+	}
+	return NewNone()
+}
+
+// function type is polymorph
+func (p PolyType) TypeFnc() TyFnc { return Polymorph }
+
+// type is the sum of all argument set and return value types, identity is
+// defined by passed name
 func (p PolyType) Type() TyPattern {
-	var length = len(p.Patterns())
-	var args, returns = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range p.Patterns() {
-		args = append(args, pat.TypeArguments())
-		returns = append(returns, pat.TypeReturn())
-		if n < length-1 {
-			args = append(args, Def(Lex_Pipe))
-			returns = append(returns, Def(Lex_Pipe))
-		}
-	}
-	return Def(Def(args...), Option, Def(returns...))
-}
-func (p PolyType) Patterns() []TyPattern {
 	var (
-		slice    = p().(VecVal)()
-		length   = len(slice)
-		patterns = make([]TyPattern, 0, length)
+		t, _, _  = p()
+		pat      = t.(TyPattern)
+		identype = pat.Pattern()[0]
+		argtypes = make([]d.Typed, 0, len(pat.Pattern()))
+		retypes  = make([]d.Typed, 0, len(pat.Pattern()))
 	)
-	for _, elem := range slice {
-		patterns = append(patterns, elem.Type())
+	for _, pat := range pat.Pattern()[1:] {
+		argtypes = append(argtypes, Def(pat.TypeArguments()...))
+		retypes = append(retypes, pat.TypeReturn())
 	}
-	return patterns
+	return Def(Def(argtypes...), identype, Def(retypes...))
+}
+
+// returns set of all sub-type defining cases
+func (p PolyType) Cases() []ExprType {
+	var _, c, _ = p()
+	return c
+}
+
+// returns set index of last evaluated case
+func (p PolyType) Index() int {
+	var _, _, i = p()
+	return i
 }
 func (p PolyType) String() string {
-	var length = len(p.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range p.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
-}
-
-//// OPTION TYPE
-///
-//
-func NewOptionType(cases ...CaseType) OptionType {
 	var (
-		typeSwitch = NewSwitch(cases...)
-		patterns   = make([]Expression, 0, len(cases))
+		cases              = p.Cases()
+		length             = len(cases)
+		arguments, returns = make([]string, 0, length), make([]string, 0, length)
 	)
 	for _, c := range cases {
-		patterns = append(patterns, c.Type())
-	}
-	return func(args ...Expression) Expression {
+		var (
+			args   = c.Type().TypeArguments()
+			argstr string
+		)
 		if len(args) > 0 {
-			return typeSwitch.Call(args...)
+			var argstrs = make([]string, 0, len(args))
+			for _, arg := range args {
+				argstrs = append(argstrs, arg.TypeName())
+			}
+			argstr = strings.Join(argstrs, " → ")
+		} else {
+			argstr = args[0].TypeName()
 		}
-		return NewVector(patterns...)
+		arguments = append(arguments, argstr)
+		returns = append(returns, c.Type().TypeReturn().TypeName())
 	}
+	return "(" + strings.Join(arguments, " | ") + ")" +
+		" → " + p.Type().Pattern()[0].TypeName() +
+		" → " + "(" + strings.Join(returns, " | ") + ")"
 }
 
-func (o OptionType) Call(args ...Expression) Expression { return o(args...) }
-func (o OptionType) TypeFnc() TyFnc                     { return Option }
-func (o OptionType) String() string {
-	var length = len(o.Patterns())
-	var strs = make([]string, 0, length)
-	for _, pat := range o.Patterns() {
-		strs = append(strs, pat.Type().TypeName())
-	}
-	return strings.Join(strs, " |\n")
+//// POLYMORPHIC SUBTYPE INSTANCE VALUE
+///
+//
+func (p PolyVal) Expr() Expression {
+	var e, _ = p()
+	return e
 }
-
-func (o OptionType) Patterns() []TyPattern {
-	var (
-		slice = o().(VecVal)()
-		pats  = make([]TyPattern, 0, len(slice))
+func (p PolyVal) PolyType() PolyType {
+	var _, t = p()
+	return t
+}
+func (p PolyVal) String() string { return p.Expr().String() }
+func (p PolyVal) TypeFnc() TyFnc { return Polymorph }
+func (p PolyVal) Type() TyPattern {
+	return Def(Def(
+		Polymorph,
+		DefValNative(d.IntVal(p.PolyType().Index())),
+	),
+		p.Expr().Type(),
 	)
-	for _, elem := range slice {
-		pats = append(pats, elem.(TyPattern))
-	}
-	return pats
 }
-
-func (o OptionType) Type() TyPattern {
-	var length = len(o.Patterns())
-	var args, returns = make(
-		[]d.Typed,
-		0, length,
-	), make(
-		[]d.Typed,
-		0, length,
-	)
-	for n, pat := range o.Patterns() {
-		args = append(args, pat.TypeArguments())
-		returns = append(returns, pat.TypeReturn())
-		if n < length-1 {
-			args = append(args, Def(Lex_Pipe))
-			returns = append(returns, Def(Lex_Pipe))
-		}
+func (p PolyVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return p.Expr().Call(args...)
 	}
-	return Def(Def(args...), Option, Def(returns...))
+	return p.Expr()
 }

@@ -13,10 +13,6 @@ type (
 	TypePair  func(...Expression) (Expression, Typed)
 	IndexPair func(...Expression) (Expression, int)
 
-	//// ENUMERABLE
-	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
-	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
-
 	//// COLLECTIONS
 	VecVal   func(...Expression) []Expression
 	ListVal  func(...Expression) (Expression, ListVal)
@@ -180,173 +176,6 @@ func (a IndexPair) Empty() bool {
 	return false
 }
 
-//// ENUM TYPE
-///
-//
-var (
-	// check argument expression to implement data.integers interface
-	isInt = NewTest(func(args ...Expression) bool {
-		for _, arg := range args {
-			if arg.Type().Match(Data) {
-				if nat, ok := args[0].(Native); ok {
-					if nat.Eval().Type().Match(d.Integers) {
-						continue
-					}
-				}
-			}
-			return false
-		}
-		return true
-	})
-	// creates low/high bound type argument and lesser/greater bounds
-	// checks, if no bound arguments where given, they will be set to minus
-	// infinity to infinity and always check out true.
-	createBounds = func(bounds ...d.Integer) (low, high d.Typed, lesser, greater func(idx d.Integer) bool) {
-		if len(bounds) == 0 {
-			low, high = Def(Lex_Negative, Lex_Infinite), Lex_Infinite
-			lesser = func(idx d.Integer) bool { return true }
-			greater = func(idx d.Integer) bool { return true }
-		}
-		if len(bounds) > 0 {
-			var minBound = bounds[0].(d.Native)
-			low = DefValNative(minBound)
-			// bound argument could be instance of type big int
-			if minBound.Type().Match(d.BigInt) {
-				lesser = func(arg d.Integer) bool {
-					if minBound.(*d.BigIntVal).GoBigInt().Cmp(
-						arg.(*d.BigIntVal).GoBigInt()) < 0 {
-						return true
-					}
-					return false
-				}
-			} else {
-				lesser = func(arg d.Integer) bool {
-					if minBound.(d.Integer).Int() >
-						arg.(Native).Eval().(d.Integer).Int() {
-						return true
-					}
-					return false
-				}
-			}
-		}
-
-		if len(bounds) > 1 {
-			var maxBound = bounds[1].(d.Native)
-			high = DefValNative(maxBound)
-			if maxBound.Type().Match(d.BigInt) {
-				greater = func(arg d.Integer) bool {
-					if maxBound.(*d.BigIntVal).GoBigInt().Cmp(
-						arg.(*d.BigIntVal).GoBigInt()) > 0 {
-						return true
-					}
-					return false
-				}
-			} else {
-				greater = func(arg d.Integer) bool {
-					if arg.(d.Integer).Int() >
-						maxBound.(d.Integer).Int() {
-						return true
-					}
-					return false
-				}
-			}
-		}
-		return low, high, lesser, greater
-	}
-
-	inBound = func(lesser, greater func(d.Integer) bool, ints ...d.Integer) bool {
-		for _, i := range ints {
-			if !lesser(i) && !greater(i) {
-				return true
-			}
-		}
-		return false
-	}
-)
-
-func NewEnumType(fnc func(...d.Integer) Expression, limits ...d.Integer) EnumType {
-	var low, high, lesser, greater = createBounds(limits...)
-	return func(idx d.Integer) (EnumVal, d.Typed, d.Typed) {
-		return func(args ...Expression) (Expression, d.Integer, EnumType) {
-			if inBound(lesser, greater, idx) {
-				if len(args) > 0 {
-					return fnc(idx).Call(args...), idx, NewEnumType(fnc, limits...)
-				}
-				return fnc(idx), idx, NewEnumType(fnc, limits...)
-			}
-			return NewNone(), idx, NewEnumType(fnc, limits...)
-		}, low, high
-	}
-}
-func (e EnumType) Expr() Expression {
-	var expr, _, _ = e(d.IntVal(0))
-	return expr
-}
-func (e EnumType) Limits() (min, max d.Typed) {
-	_, min, max = e(d.IntVal(0))
-	return min, max
-}
-func (e EnumType) Low() d.Typed {
-	var min, _ = e.Limits()
-	return min
-}
-func (e EnumType) High() d.Typed {
-	var _, max = e.Limits()
-	return max
-}
-func (e EnumType) InBound(ints ...d.Integer) bool {
-	var _, _, lesser, greater = createBounds(
-		e.Low().(d.Integer),
-		e.High().(d.Integer),
-	)
-	return inBound(lesser, greater, ints...)
-}
-func (e EnumType) Null() Expression {
-	var result, _, _ = e(d.IntVal(0))
-	return result
-}
-func (e EnumType) Unit() Expression {
-	var result, _, _ = e(d.IntVal(1))
-	return result
-}
-func (e EnumType) Type() TyPattern { return Def(Enum, e.Unit().Type()) }
-func (e EnumType) TypeFnc() TyFnc  { return Enum | e.Unit().TypeFnc() }
-func (e EnumType) String() string  { return e.Type().TypeName() }
-func (e EnumType) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return e.Expr().Call(args...)
-	}
-	return e.Expr().Call()
-}
-
-//// ENUM VALUE
-///
-//
-func (e EnumVal) Expr() Expression {
-	var expr, _, _ = e()
-	return expr
-}
-func (e EnumVal) Index() d.Integer {
-	var _, idx, _ = e()
-	return idx
-}
-func (e EnumVal) EnumType() EnumType {
-	var _, _, et = e()
-	return et
-}
-func (e EnumVal) Next() EnumVal {
-	var result, _, _ = e.EnumType()(e.Index().Int() + d.IntVal(1))
-	return result
-}
-func (e EnumVal) Previous() EnumVal {
-	var result, _, _ = e.EnumType()(e.Index().Int() - d.IntVal(1))
-	return result
-}
-func (e EnumVal) String() string                     { return e.Expr().String() }
-func (e EnumVal) Type() TyPattern                    { return e.EnumType().Type() }
-func (e EnumVal) TypeFnc() TyFnc                     { return e.EnumType().TypeFnc() }
-func (e EnumVal) Call(args ...Expression) Expression { return e.Expr().Call(args...) }
-
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
 ///
@@ -465,7 +294,7 @@ func (v VecVal) Empty() bool {
 
 func (v VecVal) Clear() VecVal { return NewVector() }
 
-func (v VecVal) Sequential() SequenceVal {
+func (v VecVal) Sequential() SequenceType {
 	return func(args ...Expression) (Expression, Sequential) {
 		var head, tail = v.ConsumeVec()
 		if len(args) > 0 {
