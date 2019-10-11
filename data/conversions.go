@@ -53,17 +53,17 @@ func TypePrec(a, b Native) (x, y Native) {
 }
 
 // BOOL VALUE
-func (v BoolVal) Ratio() *RatioVal     { return v.IntVal().Ratio() }
 func (v BoolVal) GoRat() *big.Rat      { return (*big.Rat)(v.Ratio()) }
 func (v BoolVal) GoBigInt() *big.Int   { return big.NewInt(int64(v.Int())) }
 func (v BoolVal) GoBigFlt() *big.Float { return big.NewFloat(v.GoFlt()) }
 func (v BoolVal) BigInt() *BigIntVal   { return (*BigIntVal)(v.GoBigInt()) }
 func (v BoolVal) BigFlt() *BigFltVal   { return (*BigFltVal)(v.GoBigFlt()) }
-func (v BoolVal) Unit() Native         { return BoolVal(true) }
+func (v BoolVal) Ratio() *RatioVal     { return v.IntVal().Ratio() }
 func (v BoolVal) Int() IntVal          { return IntVal(v.GoInt()) }
 func (v BoolVal) Uint() UintVal        { return UintVal(uint(v.Int())) }
 func (v BoolVal) Float() FltVal        { return v.IntVal().Float() }
 func (v BoolVal) Imag() ImagVal        { return v.IntVal().Imag() }
+func (v BoolVal) Unit() Native         { return BoolVal(true) }
 func (v BoolVal) Bool() bool           { return bool(v) }
 func (v BoolVal) Idx() int             { return int(v.Int()) }
 func (v BoolVal) GoFlt() float64       { return float64(v.Float()) }
@@ -153,12 +153,14 @@ func (v Uint8Val) BoolVal() Native {
 	return BoolVal(false)
 }
 
-// operators
-func (v Uint8Val) Not() Uint8Val                   { return ^v }
-func (v Uint8Val) And(arg Uint8Val) Uint8Val       { return v & arg }
-func (v Uint8Val) Xor(arg Uint8Val) Uint8Val       { return v ^ arg }
-func (v Uint8Val) Or(arg Uint8Val) Uint8Val        { return v | arg }
-func (v Uint8Val) AndNot(arg Uint8Val) Uint8Val    { return v &^ arg }
+// operators bool
+func (v Uint8Val) Not() Uint8Val                { return ^v }
+func (v Uint8Val) And(arg Uint8Val) Uint8Val    { return v & arg }
+func (v Uint8Val) Xor(arg Uint8Val) Uint8Val    { return v ^ arg }
+func (v Uint8Val) Or(arg Uint8Val) Uint8Val     { return v | arg }
+func (v Uint8Val) AndNot(arg Uint8Val) Uint8Val { return v &^ arg }
+
+// operators arithmetic
 func (v Uint8Val) Negate() Uint8Val                { return -v }
 func (v Uint8Val) Add(arg Uint8Val) Uint8Val       { return v + arg }
 func (v Uint8Val) Substract(arg Uint8Val) Uint8Val { return v - arg }
@@ -170,9 +172,31 @@ func (v Uint8Val) QuoRatio(arg Uint8Val) *RatioVal {
 }
 
 // comparators
-func (v Uint8Val) Equal(arg Uint8Val) bool   { return arg == v }
-func (v Uint8Val) Lesser(arg Uint8Val) bool  { return arg < v }
-func (v Uint8Val) Greater(arg Uint8Val) bool { return arg > v }
+func (v Uint8Val) Equal(arg Uint8Val) bool   { return v == arg }
+func (v Uint8Val) Lesser(arg Uint8Val) bool  { return v < arg }
+func (v Uint8Val) Greater(arg Uint8Val) bool { return v > arg }
+
+// operators
+func (v Uint8Val) NotU() UintVal               { return ^v.Uint() }
+func (v Uint8Val) AndU(arg UintVal) UintVal    { return v.Uint() & arg }
+func (v Uint8Val) XorU(arg UintVal) UintVal    { return v.Uint() ^ arg }
+func (v Uint8Val) OrU(arg UintVal) UintVal     { return v.Uint() | arg }
+func (v Uint8Val) AndNotU(arg UintVal) UintVal { return v.Uint() &^ arg }
+
+// operators arithmetic
+func (v Uint8Val) AddU(arg UintVal) UintVal       { return v.Uint() + arg }
+func (v Uint8Val) SubstractU(arg UintVal) UintVal { return v.Uint() - arg }
+func (v Uint8Val) MultipyU(arg UintVal) UintVal   { return v.Uint() * arg }
+func (v Uint8Val) PowerU(arg UintVal) UintVal     { return v.Uint() ^ arg }
+func (v Uint8Val) QuotientU(arg UintVal) UintVal  { return v.Uint() / arg }
+func (v Uint8Val) QuoRatioU(arg UintVal) *RatioVal {
+	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
+}
+
+// comparators
+func (v Uint8Val) EqualU(arg UintVal) bool   { return v.Uint() == arg }
+func (v Uint8Val) LesserU(arg UintVal) bool  { return v.Uint() < arg }
+func (v Uint8Val) GreaterU(arg UintVal) bool { return v.Uint() > arg }
 
 // Uint16Val
 // conversions
@@ -208,11 +232,13 @@ func (v Uint16Val) BoolVal() Native {
 }
 
 // operators
-func (v Uint16Val) Not() Uint16Val                    { return ^v }
-func (v Uint16Val) And(arg Uint16Val) Uint16Val       { return v & arg }
-func (v Uint16Val) Xor(arg Uint16Val) Uint16Val       { return v ^ arg }
-func (v Uint16Val) Or(arg Uint16Val) Uint16Val        { return v | arg }
-func (v Uint16Val) AndNot(arg Uint16Val) Uint16Val    { return v &^ arg }
+func (v Uint16Val) Not() Uint16Val                 { return ^v }
+func (v Uint16Val) And(arg Uint16Val) Uint16Val    { return v & arg }
+func (v Uint16Val) Xor(arg Uint16Val) Uint16Val    { return v ^ arg }
+func (v Uint16Val) Or(arg Uint16Val) Uint16Val     { return v | arg }
+func (v Uint16Val) AndNot(arg Uint16Val) Uint16Val { return v &^ arg }
+
+// operators arithmetic
 func (v Uint16Val) Negate() Uint16Val                 { return -v }
 func (v Uint16Val) Add(arg Uint16Val) Uint16Val       { return v + arg }
 func (v Uint16Val) Substract(arg Uint16Val) Uint16Val { return v - arg }
@@ -224,9 +250,31 @@ func (v Uint16Val) QuoRatio(arg Uint16Val) *RatioVal {
 }
 
 // comparators
-func (v Uint16Val) Equal(arg Uint16Val) bool   { return arg == v }
-func (v Uint16Val) Lesser(arg Uint16Val) bool  { return arg < v }
-func (v Uint16Val) Greater(arg Uint16Val) bool { return arg > v }
+func (v Uint16Val) Equal(arg Uint16Val) bool   { return v == arg }
+func (v Uint16Val) Lesser(arg Uint16Val) bool  { return v < arg }
+func (v Uint16Val) Greater(arg Uint16Val) bool { return v > arg }
+
+// operators
+func (v Uint16Val) NotU() UintVal               { return ^v.Uint() }
+func (v Uint16Val) AndU(arg UintVal) UintVal    { return v.Uint() & arg }
+func (v Uint16Val) XorU(arg UintVal) UintVal    { return v.Uint() ^ arg }
+func (v Uint16Val) OrU(arg UintVal) UintVal     { return v.Uint() | arg }
+func (v Uint16Val) AndNotU(arg UintVal) UintVal { return v.Uint() &^ arg }
+
+// operators arithmetic
+func (v Uint16Val) AddU(arg UintVal) UintVal       { return v.Uint() + arg }
+func (v Uint16Val) SubstractU(arg UintVal) UintVal { return v.Uint() - arg }
+func (v Uint16Val) MultipyU(arg UintVal) UintVal   { return v.Uint() * arg }
+func (v Uint16Val) PowerU(arg UintVal) UintVal     { return v.Uint() ^ arg }
+func (v Uint16Val) QuotientU(arg UintVal) UintVal  { return v.Uint() / arg }
+func (v Uint16Val) QuoRatioU(arg UintVal) *RatioVal {
+	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
+}
+
+// comparators
+func (v Uint16Val) EqualU(arg UintVal) bool   { return v.Uint() == arg }
+func (v Uint16Val) LesserU(arg UintVal) bool  { return v.Uint() < arg }
+func (v Uint16Val) GreaterU(arg UintVal) bool { return v.Uint() > arg }
 
 // Uint32Val
 // conversions
@@ -261,26 +309,50 @@ func (v Uint32Val) BoolVal() Native {
 	return BoolVal(false)
 }
 
-// operators
-func (v Uint32Val) Not() Uint32Val                    { return ^v }
-func (v Uint32Val) And(arg Uint32Val) Uint32Val       { return v & arg }
-func (v Uint32Val) Xor(arg Uint32Val) Uint32Val       { return v ^ arg }
-func (v Uint32Val) Or(arg Uint32Val) Uint32Val        { return v | arg }
-func (v Uint32Val) AndNot(arg Uint32Val) Uint32Val    { return v &^ arg }
+// operators 32bit
+func (v Uint32Val) Not() Uint32Val                 { return ^v }
+func (v Uint32Val) And(arg Uint32Val) Uint32Val    { return v & arg }
+func (v Uint32Val) Xor(arg Uint32Val) Uint32Val    { return v ^ arg }
+func (v Uint32Val) Or(arg Uint32Val) Uint32Val     { return v | arg }
+func (v Uint32Val) AndNot(arg Uint32Val) Uint32Val { return v &^ arg }
+
+// operators arithmetic 32bit
 func (v Uint32Val) Negate() Uint32Val                 { return -v }
 func (v Uint32Val) Add(arg Uint32Val) Uint32Val       { return v + arg }
 func (v Uint32Val) Substract(arg Uint32Val) Uint32Val { return v - arg }
 func (v Uint32Val) Multipy(arg Uint32Val) Uint32Val   { return v * arg }
 func (v Uint32Val) Power(arg Uint32Val) Uint32Val     { return v ^ arg }
-func (v Uint32Val) Quotient(arg Uint32Val) Uint32Val  { return v / arg }
+func (v Uint32Val) Quotien(arg Uint32Val) Uint32Val   { return v / arg }
 func (v Uint32Val) QuoRatio(arg Uint32Val) *RatioVal {
 	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
 }
 
+// comparators 32bit
+func (v Uint32Val) Equal(arg Uint32Val) bool   { return v == arg }
+func (v Uint32Val) Lesser(arg Uint32Val) bool  { return v < arg }
+func (v Uint32Val) Greater(arg Uint32Val) bool { return v > arg }
+
+// operators
+func (v Uint32Val) NotU() UintVal               { return ^v.Uint() }
+func (v Uint32Val) AndU(arg UintVal) UintVal    { return v.Uint() & arg }
+func (v Uint32Val) XorU(arg UintVal) UintVal    { return v.Uint() ^ arg }
+func (v Uint32Val) OrU(arg UintVal) UintVal     { return v.Uint() | arg }
+func (v Uint32Val) AndNotU(arg UintVal) UintVal { return v.Uint() &^ arg }
+
+// operators arithmetic
+func (v Uint32Val) AddU(arg UintVal) UintVal       { return v.Uint() + arg }
+func (v Uint32Val) SubstractU(arg UintVal) UintVal { return v.Uint() - arg }
+func (v Uint32Val) MultipyU(arg UintVal) UintVal   { return v.Uint() * arg }
+func (v Uint32Val) PowerU(arg UintVal) UintVal     { return v.Uint() ^ arg }
+func (v Uint32Val) QuotientU(arg UintVal) UintVal  { return v.Uint() / arg }
+func (v Uint32Val) QuoRatioU(arg UintVal) *RatioVal {
+	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
+}
+
 // comparators
-func (v Uint32Val) Equal(arg Uint32Val) bool   { return arg == v }
-func (v Uint32Val) Lesser(arg Uint32Val) bool  { return arg < v }
-func (v Uint32Val) Greater(arg Uint32Val) bool { return arg > v }
+func (v Uint32Val) EqualU(arg UintVal) bool   { return v.Uint() == arg }
+func (v Uint32Val) LesserU(arg UintVal) bool  { return v.Uint() < arg }
+func (v Uint32Val) GreaterU(arg UintVal) bool { return v.Uint() > arg }
 
 // UintVal
 // conversions
@@ -316,11 +388,13 @@ func (v UintVal) BoolVal() Native {
 }
 
 // operators
-func (v UintVal) Not() UintVal                  { return ^v }
-func (v UintVal) And(arg UintVal) UintVal       { return v & arg }
-func (v UintVal) Xor(arg UintVal) UintVal       { return v ^ arg }
-func (v UintVal) Or(arg UintVal) UintVal        { return v | arg }
-func (v UintVal) AndNot(arg UintVal) UintVal    { return v &^ arg }
+func (v UintVal) Not() UintVal               { return ^v }
+func (v UintVal) And(arg UintVal) UintVal    { return v & arg }
+func (v UintVal) Xor(arg UintVal) UintVal    { return v ^ arg }
+func (v UintVal) Or(arg UintVal) UintVal     { return v | arg }
+func (v UintVal) AndNot(arg UintVal) UintVal { return v &^ arg }
+
+// operators arithmetic
 func (v UintVal) Negate() UintVal               { return -v }
 func (v UintVal) Add(arg UintVal) UintVal       { return v + arg }
 func (v UintVal) Substract(arg UintVal) UintVal { return v - arg }
@@ -332,9 +406,31 @@ func (v UintVal) QuoRatio(arg UintVal) *RatioVal {
 }
 
 // comparators
-func (v UintVal) Equal(arg UintVal) bool   { return arg == v }
-func (v UintVal) Lesser(arg UintVal) bool  { return arg < v }
-func (v UintVal) Greater(arg UintVal) bool { return arg > v }
+func (v UintVal) Equal(arg UintVal) bool   { return v == arg }
+func (v UintVal) Lesser(arg UintVal) bool  { return v < arg }
+func (v UintVal) Greater(arg UintVal) bool { return v > arg }
+
+// operators
+func (v UintVal) NotU() UintVal               { return ^v }
+func (v UintVal) AndU(arg UintVal) UintVal    { return v & arg }
+func (v UintVal) XorU(arg UintVal) UintVal    { return v ^ arg }
+func (v UintVal) OrU(arg UintVal) UintVal     { return v | arg }
+func (v UintVal) AndNotU(arg UintVal) UintVal { return v &^ arg }
+
+// operators arithmetic
+func (v UintVal) AddU(arg UintVal) UintVal       { return v + arg }
+func (v UintVal) SubstractU(arg UintVal) UintVal { return v - arg }
+func (v UintVal) MultipyU(arg UintVal) UintVal   { return v * arg }
+func (v UintVal) PowerU(arg UintVal) UintVal     { return v ^ arg }
+func (v UintVal) QuotientU(arg UintVal) UintVal  { return v / arg }
+func (v UintVal) QuoRatioU(arg UintVal) *RatioVal {
+	return (*RatioVal)(big.NewRat(int64(v), int64(arg)))
+}
+
+// comparators
+func (v UintVal) EqualU(arg UintVal) bool   { return v == arg }
+func (v UintVal) LesserU(arg UintVal) bool  { return v < arg }
+func (v UintVal) GreaterU(arg UintVal) bool { return v > arg }
 
 // INTEGER VALUE
 // Int8Val
@@ -385,11 +481,13 @@ func (v Int8Val) Uint() UintVal {
 }
 
 // operators
-func (v Int8Val) Not() Int8Val                  { return ^v }
-func (v Int8Val) And(arg Int8Val) Int8Val       { return v & arg }
-func (v Int8Val) Xor(arg Int8Val) Int8Val       { return v ^ arg }
-func (v Int8Val) Or(arg Int8Val) Int8Val        { return v | arg }
-func (v Int8Val) AndNot(arg Int8Val) Int8Val    { return v &^ arg }
+func (v Int8Val) Not() Int8Val               { return ^v }
+func (v Int8Val) And(arg Int8Val) Int8Val    { return v & arg }
+func (v Int8Val) Xor(arg Int8Val) Int8Val    { return v ^ arg }
+func (v Int8Val) Or(arg Int8Val) Int8Val     { return v | arg }
+func (v Int8Val) AndNot(arg Int8Val) Int8Val { return v &^ arg }
+
+// operators arithmetic
 func (v Int8Val) Negate() Int8Val               { return -v }
 func (v Int8Val) Add(arg Int8Val) Int8Val       { return v + arg }
 func (v Int8Val) Substract(arg Int8Val) Int8Val { return v - arg }
@@ -398,9 +496,29 @@ func (v Int8Val) Power(arg Int8Val) Int8Val     { return v ^ arg }
 func (v Int8Val) Quotient(arg Int8Val) Int8Val  { return v / arg }
 
 // comparators
-func (v Int8Val) Equal(arg Int8Val) bool   { return arg == v }
-func (v Int8Val) Lesser(arg Int8Val) bool  { return arg < v }
-func (v Int8Val) Greater(arg Int8Val) bool { return arg > v }
+func (v Int8Val) Equal(arg Int8Val) bool   { return v == arg }
+func (v Int8Val) Lesser(arg Int8Val) bool  { return v < arg }
+func (v Int8Val) Greater(arg Int8Val) bool { return v > arg }
+
+// operators
+func (v Int8Val) NotI() IntVal              { return ^v.Int() }
+func (v Int8Val) AndI(arg IntVal) IntVal    { return v.Int() & arg }
+func (v Int8Val) XorI(arg IntVal) IntVal    { return v.Int() ^ arg }
+func (v Int8Val) OrI(arg IntVal) IntVal     { return v.Int() | arg }
+func (v Int8Val) AndNotI(arg IntVal) IntVal { return v.Int() &^ arg }
+
+// operators arithmetic
+func (v Int8Val) NegateI() IntVal              { return -v.Int() }
+func (v Int8Val) AddI(arg IntVal) IntVal       { return v.Int() + arg }
+func (v Int8Val) SubstractI(arg IntVal) IntVal { return v.Int() - arg }
+func (v Int8Val) MultipyI(arg IntVal) IntVal   { return v.Int() * arg }
+func (v Int8Val) PowerI(arg IntVal) IntVal     { return v.Int() ^ arg }
+func (v Int8Val) QuotientI(arg IntVal) IntVal  { return v.Int() / arg }
+
+// comparators
+func (v Int8Val) EqualI(arg IntVal) bool   { return v.Int() == arg }
+func (v Int8Val) LesserI(arg IntVal) bool  { return v.Int() < arg }
+func (v Int8Val) GreaterI(arg IntVal) bool { return v.Int() > arg }
 
 // Int16Val
 func (v Int16Val) GoInt() int           { return int(v) }
@@ -463,9 +581,29 @@ func (v Int16Val) Power(arg Int16Val) Int16Val     { return v ^ arg }
 func (v Int16Val) Quotient(arg Int16Val) Int16Val  { return v / arg }
 
 // comparators
-func (v Int16Val) Equal(arg Int16Val) bool   { return arg == v }
-func (v Int16Val) Lesser(arg Int16Val) bool  { return arg < v }
-func (v Int16Val) Greater(arg Int16Val) bool { return arg > v }
+func (v Int16Val) Equal(arg Int16Val) bool   { return v == arg }
+func (v Int16Val) Lesser(arg Int16Val) bool  { return v < arg }
+func (v Int16Val) Greater(arg Int16Val) bool { return v > arg }
+
+// operators
+func (v Int32Val) NotI() IntVal              { return ^v.Int() }
+func (v Int32Val) AndI(arg IntVal) IntVal    { return v.Int() & arg }
+func (v Int32Val) XorI(arg IntVal) IntVal    { return v.Int() ^ arg }
+func (v Int32Val) OrI(arg IntVal) IntVal     { return v.Int() | arg }
+func (v Int32Val) AndNotI(arg IntVal) IntVal { return v.Int() &^ arg }
+
+// operators arithmetic
+func (v Int32Val) NegateI() IntVal              { return -v.Int() }
+func (v Int32Val) AddI(arg IntVal) IntVal       { return v.Int() + arg }
+func (v Int32Val) SubstractI(arg IntVal) IntVal { return v.Int() - arg }
+func (v Int32Val) MultipyI(arg IntVal) IntVal   { return v.Int() * arg }
+func (v Int32Val) PowerI(arg IntVal) IntVal     { return v.Int() ^ arg }
+func (v Int32Val) QuotientI(arg IntVal) IntVal  { return v.Int() / arg }
+
+// comparators
+func (v Int32Val) EqualI(arg IntVal) bool   { return v.Int() == arg }
+func (v Int32Val) LesserI(arg IntVal) bool  { return v.Int() < arg }
+func (v Int32Val) GreaterI(arg IntVal) bool { return v.Int() > arg }
 
 // Int32Val
 func (v Int32Val) GoInt() int           { return int(v) }
@@ -515,12 +653,14 @@ func (v Int32Val) Uint() UintVal {
 }
 
 // operators
-func (v Int32Val) Not() Int32Val                   { return ^v }
-func (v Int32Val) And(arg Int32Val) Int32Val       { return v & arg }
-func (v Int32Val) Xor(arg Int32Val) Int32Val       { return v ^ arg }
-func (v Int32Val) Or(arg Int32Val) Int32Val        { return v | arg }
-func (v Int32Val) AndNot(arg Int32Val) Int32Val    { return v &^ arg }
-func (v Int32Val) Negate() Int32Val                { return -v }
+func (v Int32Val) Not() Int32Val                { return ^v }
+func (v Int32Val) And(arg Int32Val) Int32Val    { return v & arg }
+func (v Int32Val) Xor(arg Int32Val) Int32Val    { return v ^ arg }
+func (v Int32Val) Or(arg Int32Val) Int32Val     { return v | arg }
+func (v Int32Val) AndNot(arg Int32Val) Int32Val { return v &^ arg }
+func (v Int32Val) Negate() Int32Val             { return -v }
+
+// operators arithmetic
 func (v Int32Val) Add(arg Int32Val) Int32Val       { return v + arg }
 func (v Int32Val) Substract(arg Int32Val) Int32Val { return v - arg }
 func (v Int32Val) Multipy(arg Int32Val) Int32Val   { return v * arg }
@@ -528,9 +668,9 @@ func (v Int32Val) Power(arg Int32Val) Int32Val     { return v ^ arg }
 func (v Int32Val) Quotient(arg Int32Val) Int32Val  { return v / arg }
 
 // comparators
-func (v Int32Val) Equal(arg Int32Val) bool   { return arg == v }
-func (v Int32Val) Lesser(arg Int32Val) bool  { return arg < v }
-func (v Int32Val) Greater(arg Int32Val) bool { return arg > v }
+func (v Int32Val) Equal(arg Int32Val) bool   { return v == arg }
+func (v Int32Val) Lesser(arg Int32Val) bool  { return v < arg }
+func (v Int32Val) Greater(arg Int32Val) bool { return v > arg }
 
 // IntVal
 // conversions
@@ -595,9 +735,27 @@ func (v IntVal) Power(arg IntVal) IntVal     { return v ^ arg }
 func (v IntVal) Quotient(arg IntVal) IntVal  { return v / arg }
 
 // comparators
-func (v IntVal) Equal(arg IntVal) bool   { return arg == v }
-func (v IntVal) Lesser(arg IntVal) bool  { return arg < v }
-func (v IntVal) Greater(arg IntVal) bool { return arg > v }
+func (v IntVal) Equal(arg IntVal) bool   { return v == arg }
+func (v IntVal) Lesser(arg IntVal) bool  { return v < arg }
+func (v IntVal) Greater(arg IntVal) bool { return v > arg }
+
+// operators
+func (v IntVal) NotI() IntVal                 { return ^v }
+func (v IntVal) AndI(arg IntVal) IntVal       { return v & arg }
+func (v IntVal) XorI(arg IntVal) IntVal       { return v ^ arg }
+func (v IntVal) OrI(arg IntVal) IntVal        { return v | arg }
+func (v IntVal) AndNotI(arg IntVal) IntVal    { return v &^ arg }
+func (v IntVal) NegateI() IntVal              { return -v }
+func (v IntVal) AddI(arg IntVal) IntVal       { return v + arg }
+func (v IntVal) SubstractI(arg IntVal) IntVal { return v - arg }
+func (v IntVal) MultipyI(arg IntVal) IntVal   { return v * arg }
+func (v IntVal) PowerI(arg IntVal) IntVal     { return v ^ arg }
+func (v IntVal) QuotientI(arg IntVal) IntVal  { return v / arg }
+
+// comparators
+func (v IntVal) EqualI(arg IntVal) bool   { return v == arg }
+func (v IntVal) LesserI(arg IntVal) bool  { return v < arg }
+func (v IntVal) GreaterI(arg IntVal) bool { return v > arg }
 
 // REAL VALUE
 func (v FltVal) Unit() Native         { return FltVal(1.0) }
@@ -648,6 +806,18 @@ func (v FltVal) Equal(arg FltVal) bool   { return v == arg }
 func (v FltVal) Lesser(arg FltVal) bool  { return v < arg }
 func (v FltVal) Greater(arg FltVal) bool { return v > arg }
 
+// operators
+func (v FltVal) NegateR() FltVal              { return -v }
+func (v FltVal) AddR(arg FltVal) FltVal       { return v + arg }
+func (v FltVal) SubstractR(arg FltVal) FltVal { return v - arg }
+func (v FltVal) MultipyR(arg FltVal) FltVal   { return v * arg }
+func (v FltVal) QuotientR(arg FltVal) FltVal  { return v / arg }
+
+// comparators
+func (v FltVal) EqualR(arg FltVal) bool   { return v == arg }
+func (v FltVal) LesserR(arg FltVal) bool  { return v < arg }
+func (v FltVal) GreaterR(arg FltVal) bool { return v > arg }
+
 // REAL VALUE
 func (v Flt32Val) Unit() Native         { return Flt32Val(1.0) }
 func (v Flt32Val) Idx() int             { return int(v) }
@@ -697,6 +867,18 @@ func (v Flt32Val) Equal(arg Flt32Val) bool   { return v == arg }
 func (v Flt32Val) Lesser(arg Flt32Val) bool  { return v < arg }
 func (v Flt32Val) Greater(arg Flt32Val) bool { return v > arg }
 
+// operators
+func (v Flt32Val) NegateR() FltVal              { return -v.Float() }
+func (v Flt32Val) AddR(arg FltVal) FltVal       { return v.Float() + arg }
+func (v Flt32Val) SubstractR(arg FltVal) FltVal { return v.Float() - arg }
+func (v Flt32Val) MultipyR(arg FltVal) FltVal   { return v.Float() * arg }
+func (v Flt32Val) QuotientR(arg FltVal) FltVal  { return v.Float() / arg }
+
+// comparators
+func (v Flt32Val) EqualR(arg FltVal) bool   { return v.Float() == arg }
+func (v Flt32Val) LesserR(arg FltVal) bool  { return v.Float() < arg }
+func (v Flt32Val) GreaterR(arg FltVal) bool { return v.Float() > arg }
+
 // RATIONAL VALUE
 func (v RatioVal) Idx() int               { return int(v.Int()) }
 func (v RatioVal) GoInt() int             { return int(v.Int()) }
@@ -708,6 +890,7 @@ func (v RatioVal) GoBigInt() *big.Int     { return big.NewInt(int64(v.GoInt())) 
 func (v RatioVal) GoBigFlt() *big.Float   { return big.NewFloat(v.GoFlt()) }
 func (v RatioVal) BigInt() *BigIntVal     { return (*BigIntVal)(v.GoBigInt()) }
 func (v RatioVal) BigFlt() *BigFltVal     { return (*BigFltVal)(v.GoBigFlt()) }
+func (v RatioVal) Ratio() *RatioVal       { return (*RatioVal)(v.GoRat()) }
 func (v RatioVal) Unit() Native           { return RatioVal(*big.NewRat(1, 1)) }
 func (v RatioVal) Uint() UintVal          { return UintVal(uint(v.Int())) }
 func (v RatioVal) Int() IntVal            { var num, _ = v.Rat().Float64(); return IntVal(int(num)) }
@@ -792,6 +975,7 @@ func (v Imag64Val) Bool() BoolVal {
 	return BoolVal(false)
 }
 func (v Imag64Val) Equal(arg Imag64Val) bool { return v == arg }
+func (v Imag64Val) EqualI(arg ImagVal) bool  { return v.Imag() == arg }
 
 // IMAGINARY VALUE
 func (v ImagVal) Idx() int                    { return int(v.Int()) }
@@ -824,7 +1008,8 @@ func (v ImagVal) Bool() BoolVal {
 	}
 	return BoolVal(false)
 }
-func (v ImagVal) Equal(arg ImagVal) bool { return v == arg }
+func (v ImagVal) Equal(arg ImagVal) bool  { return v == arg }
+func (v ImagVal) EqualI(arg ImagVal) bool { return v == arg }
 
 /// BIG INT VALUE
 func (v *BigIntVal) Int64() int64      { return v.Int64() }

@@ -16,7 +16,7 @@ func conList(args ...Expression) Sequential {
 }
 func printCons(cons Sequential) {
 	var head, tail = cons.Consume()
-	if !head.TypeFnc().Match(None) {
+	if !head.Type().Match(None) {
 		fmt.Println(head)
 		printCons(tail)
 	}

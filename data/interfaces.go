@@ -72,33 +72,100 @@ type Natural interface {
 	Uint() UintVal
 	GoUint() uint
 }
+type NaturalAriOps interface {
+	AddU(arg UintVal) UintVal
+	SubstractU(arg UintVal) UintVal
+	MultipyU(arg UintVal) UintVal
+	PowerU(arg UintVal) UintVal
+	QuotientU(arg UintVal) UintVal
+	QuoRatioU(arg UintVal) *RatioVal
+}
+type NaturalBoolOps interface {
+	NotU() UintVal
+	AndU(arg UintVal) UintVal
+	XorU(arg UintVal) UintVal
+	OrU(arg UintVal) UintVal
+	AndNotU(arg UintVal) UintVal
+}
+type NaturalComparators interface {
+	EqualU(arg UintVal) bool
+	LesserU(arg UintVal) bool
+	GreaterU(arg UintVal) bool
+}
 
 type Integer interface {
 	Int() IntVal
 	GoInt() int
 	Idx() int
 }
-
-type Rational interface {
-	GoRat() *big.Rat
+type IntegerAriOps interface {
+	AddI(arg UintVal) UintVal
+	SubstractI(arg UintVal) UintVal
+	MultipyI(arg UintVal) UintVal
+	PowerI(arg UintVal) UintVal
+	QuotientI(arg UintVal) UintVal
+	QuoRatioI(arg UintVal) *RatioVal
+}
+type IntegerBoolOps interface {
+	NotI() IntVal
+	AndI(arg IntVal) IntVal
+	XorI(arg IntVal) IntVal
+	OrI(arg IntVal) IntVal
+	AndNotI(arg IntVal) IntVal
+}
+type IntegerComparators interface {
+	EqualI(arg IntVal) bool
+	LesserI(arg IntVal) bool
+	GreaterI(arg IntVal) bool
 }
 
 type Real interface {
 	Float() FltVal
 	GoFlt() float64
 }
+type RealOps interface {
+	NegateR() FltVal
+	AddR(arg FltVal) FltVal
+	SubstractR(arg FltVal) FltVal
+	MultipyR(arg FltVal) FltVal
+	QuotientR(arg FltVal) FltVal
+}
+type RealComparators interface {
+	EqualR(arg FltVal) bool
+	LesserR(arg FltVal) bool
+	GreaterR(arg FltVal) bool
+}
+
+type Rational interface {
+	GoRat() *big.Rat
+	Rational() *RatioVal
+}
+type RationalOps interface {
+	Negate() *RatioVal
+	Invert() *RatioVal
+	Add(arg *RatioVal) *RatioVal
+	Substract(arg *RatioVal) *RatioVal
+	Multipy(arg *RatioVal) *RatioVal
+	Quotient(arg *RatioVal) *RatioVal
+}
+type RationalComparators interface {
+	Lesser(arg *RatioVal) bool
+	Greater(arg *RatioVal) bool
+	Equal(arg *RatioVal) bool
+}
 
 type Imaginary interface {
 	Imag() ImagVal
 	GoImag() complex128
+	EqualI(ImagVal) bool
 }
 
 type Numeral interface {
 	Native
 	Natural
 	Integer
-	Rational
 	Real
+	Rational
 	Imaginary
 }
 

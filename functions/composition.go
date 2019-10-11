@@ -6,6 +6,8 @@ type (
 	//// SEQUENCE
 	SequenceType func(...Expression) (Expression, Sequential)
 
+	StateMonad func(...Expression) (Expression, StateMonad)
+
 	//// ENUMERABLE
 	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
 	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
@@ -15,11 +17,19 @@ type (
 ///
 //
 func NewSequence(coll Sequential) SequenceType {
+	var (
+		head Expression
+		tail Sequential
+	)
 	return func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
-			return coll.Cons(args...).Consume()
+			head, tail = coll.Cons(args...).Consume()
 		}
-		return coll.Consume()
+		head, tail = coll.Consume()
+		if head.Type().Match(None) {
+			tail = NewSequence(coll)
+		}
+		return head, tail
 	}
 }
 func (s SequenceType) TypeFnc() TyFnc      { return Sequence }
@@ -62,6 +72,116 @@ func (s SequenceType) Tail() Sequential {
 func (s SequenceType) String() string {
 	var head, tail = s()
 	return tail.Cons(head).String()
+}
+
+func (s SequenceType) Map(mapf func(Expression) Expression) Sequential {
+	var (
+		head Expression
+		tail Sequential
+	)
+	return SequenceType(func(args ...Expression) (Expression, Sequential) {
+		if len(args) > 0 {
+			head, tail = s(args...)
+		} else {
+			head, tail = s()
+		}
+		if !head.Type().Match(None) {
+			var result = mapf(head)
+			// skip function applications yielding none
+			for result.Type().Match(None) {
+				head, tail = s()
+				result = mapf(head)
+			}
+			return result, tail.(SequenceType).Map(mapf)
+		}
+		return head, tail.(SequenceType).Map(mapf)
+	})
+}
+
+func (s SequenceType) Apply(
+	mapf func(Expression) Expression,
+	apply func(
+		Expression,
+		func(Expression) Expression,
+	) Expression,
+) Sequential {
+	var (
+		head Expression
+		tail Sequential
+	)
+	return SequenceType(func(args ...Expression) (Expression, Sequential) {
+		if len(args) > 0 {
+			head, tail = s(args...)
+		} else {
+			head, tail = s()
+		}
+		if !head.Type().Match(None) {
+			var result = apply(head, mapf)
+			for result.Type().Match(None) {
+				head, tail = s()
+				result = apply(head, mapf)
+			}
+			return result, tail.(SequenceType).Apply(mapf, apply)
+		}
+		return head, tail.(SequenceType).Apply(mapf, apply)
+	})
+}
+
+func (s SequenceType) Fold(mapf, acc func(...Expression) Expression) Sequential {
+	var (
+		head Expression
+		tail Sequential
+	)
+	return SequenceType(func(args ...Expression) (Expression, Sequential) {
+		if len(args) > 0 {
+			head, tail = s(args...)
+		} else {
+			head, tail = s()
+		}
+		if !head.Type().Match(None) {
+			var result = acc(mapf(head))
+			for result.Type().Match(None) {
+				head, tail = s()
+				result = acc(mapf(head))
+			}
+			return result, tail.(SequenceType).Fold(mapf, result.Call)
+		}
+		return acc(), tail.(SequenceType).Fold(mapf, acc)
+	})
+}
+
+func (s SequenceType) Filter(test Testable) Sequential {
+	var (
+		acc    = NewVector()
+		filter = func(args ...Expression) Expression {
+			if test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		}
+	)
+	return s.Fold(acc.Call, filter)
+}
+
+func (s SequenceType) Pass(test Testable) Sequential {
+	var (
+		acc    = NewVector()
+		filter = func(args ...Expression) Expression {
+			if !test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		}
+	)
+	return s.Fold(acc.Call, filter)
 }
 
 //// ENUM TYPE
