@@ -1,328 +1,130 @@
 package functions
 
-import d "github.com/joergreinhardt/gatwd/data"
-
-type (
-	//// SEQUENCE
-	SequenceType func(...Expression) (Expression, Sequential)
-
-	StateMonad func(...Expression) (Expression, StateMonad)
-
-	//// ENUMERABLE
-	EnumType func(d.Integer) (EnumVal, d.Typed, d.Typed)
-	EnumVal  func(...Expression) (Expression, d.Integer, EnumType)
+import (
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
-//// SEQUENCE TYPE
+type (
+	//// GENERATOR | ACCUMULATOR
+	GenVal func(...Expression) Expression
+	AccVal func(...Expression) Expression
+
+	//// ENUMERABLE
+	EnumType func(d.Numeral) EnumVal
+	EnumVal  func(...Expression) (Expression, d.Numeral, EnumType)
+
+	//// SEQUENCE
+	SeqVal func(...Expression) (Expression, SeqVal)
+
+	//// MONAD
+	MonVal func(...Expression) (Expression, MonVal)
+
+	//// STATE MONADS
+	DataState func(args ...d.Native) (d.Native, DataState)
+	ExprState func(args ...Expression) (Expression, ExprState)
+)
+
+//// GENERATOR
 ///
-//
-func NewSequence(coll Sequential) SequenceType {
-	var (
-		head Expression
-		tail Sequential
-	)
-	return func(args ...Expression) (Expression, Sequential) {
+// expects an expression that returns an unboxed value, when called empty and
+// some notion of 'next' value, relative to its arguments, if arguments where
+// passed.
+func NewGenerator(gen Expression) GenVal {
+	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			head, tail = coll.Cons(args...).Consume()
+			NewGenerator(gen.Call(args...))
 		}
-		head, tail = coll.Consume()
-		if head.Type().Match(None) {
-			tail = NewSequence(coll)
-		}
-		return head, tail
+		return gen.Call()
 	}
 }
-func (s SequenceType) TypeFnc() TyFnc      { return Sequence }
-func (s SequenceType) Type() TyPattern     { return s.Tail().Type() }
-func (s SequenceType) TypeElem() TyPattern { return s.Head().Type() }
-func (s SequenceType) Cons(elems ...Expression) Sequential {
-	return SequenceType(func(args ...Expression) (Expression, Sequential) {
+func (g GenVal) Call(...Expression) Expression {
+	return NewPair(g(), NewGenerator(g()))
+}
+func (g GenVal) TypeFnc() TyFnc  { return Generator }
+func (g GenVal) Type() TyPattern { return Def(Generator, g.Head().Type()) }
+func (g GenVal) String() string  { return g.Head().String() }
+
+func (g GenVal) Consume() (Expression, Consumeable) { return g(), NewGenerator(g()) }
+func (g GenVal) Head() Expression                   { return g() }
+func (g GenVal) Tail() Consumeable {
+	var _, tail = g.Consume()
+	return tail
+}
+
+//// ACCUMULATOR
+///
+// accumulator expects an expression as input, that returns itself unboxed,
+// when called empty and returns a new accumulator accumulating its value and
+// arguments to create a new accumulator, if arguments where passed.
+func NewAccumulator(acc Expression) AccVal {
+	return AccVal(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			return s.Cons(elems...).Cons(args...).Consume()
+			return NewAccumulator(acc.Call(args...))
 		}
-		return s.Cons(elems...).Consume()
+		return acc
 	})
 }
-func (s SequenceType) Append(elems ...Expression) Sequential {
-	return SequenceType(func(args ...Expression) (Expression, Sequential) {
-		if len(args) > 0 {
-			return s.Append(elems...).Cons(args...).Consume()
-		}
-		return s.Append(elems...).Consume()
-	})
-}
-func (s SequenceType) Call(args ...Expression) Expression {
-	var head Expression
+
+func (g AccVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		head, _ = s(args...)
-		return head
+		return g(args...)
 	}
-	head, _ = s()
-	return head
+	return g()
 }
-func (s SequenceType) Consume() (Expression, Sequential) { return s() }
-func (s SequenceType) Head() Expression {
-	var expr, _ = s()
-	return expr
-}
-func (s SequenceType) Tail() Sequential {
-	var _, coll = s()
-	return coll
-}
-func (s SequenceType) String() string {
-	var head, tail = s()
-	return tail.Cons(head).String()
-}
-
-func (s SequenceType) Map(mapf func(Expression) Expression) Sequential {
-	var (
-		head Expression
-		tail Sequential
+func (g AccVal) TypeFnc() TyFnc { return Accumulator }
+func (g AccVal) Type() TyPattern {
+	return Def(
+		Accumulator,
+		g.Head().Type().TypeReturn(),
+		g.Head().Type().TypeArguments(),
 	)
-	return SequenceType(func(args ...Expression) (Expression, Sequential) {
-		if len(args) > 0 {
-			head, tail = s(args...)
-		} else {
-			head, tail = s()
-		}
-		if !head.Type().Match(None) {
-			var result = mapf(head)
-			// skip function applications yielding none
-			for result.Type().Match(None) {
-				head, tail = s()
-				result = mapf(head)
-			}
-			return result, tail.(SequenceType).Map(mapf)
-		}
-		return head, tail.(SequenceType).Map(mapf)
-	})
 }
+func (g AccVal) String() string { return g.Head().String() }
 
-func (s SequenceType) Apply(
-	mapf func(Expression) Expression,
-	apply func(
-		Expression,
-		func(Expression) Expression,
-	) Expression,
-) Sequential {
-	var (
-		head Expression
-		tail Sequential
-	)
-	return SequenceType(func(args ...Expression) (Expression, Sequential) {
-		if len(args) > 0 {
-			head, tail = s(args...)
-		} else {
-			head, tail = s()
-		}
-		if !head.Type().Match(None) {
-			var result = apply(head, mapf)
-			for result.Type().Match(None) {
-				head, tail = s()
-				result = apply(head, mapf)
-			}
-			return result, tail.(SequenceType).Apply(mapf, apply)
-		}
-		return head, tail.(SequenceType).Apply(mapf, apply)
-	})
-}
-
-func (s SequenceType) Fold(mapf, acc func(...Expression) Expression) Sequential {
-	var (
-		head Expression
-		tail Sequential
-	)
-	return SequenceType(func(args ...Expression) (Expression, Sequential) {
-		if len(args) > 0 {
-			head, tail = s(args...)
-		} else {
-			head, tail = s()
-		}
-		if !head.Type().Match(None) {
-			var result = acc(mapf(head))
-			for result.Type().Match(None) {
-				head, tail = s()
-				result = acc(mapf(head))
-			}
-			return result, tail.(SequenceType).Fold(mapf, result.Call)
-		}
-		return acc(), tail.(SequenceType).Fold(mapf, acc)
-	})
-}
-
-func (s SequenceType) Filter(test Testable) Sequential {
-	var (
-		acc    = NewVector()
-		filter = func(args ...Expression) Expression {
-			if test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-
-		}
-	)
-	return s.Fold(acc.Call, filter)
-}
-
-func (s SequenceType) Pass(test Testable) Sequential {
-	var (
-		acc    = NewVector()
-		filter = func(args ...Expression) Expression {
-			if !test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-
-		}
-	)
-	return s.Fold(acc.Call, filter)
-}
+func (g AccVal) Head() Expression                   { return g() }
+func (g AccVal) Tail() Consumeable                  { return NewAccumulator(g) }
+func (g AccVal) Consume() (Expression, Consumeable) { return g(), NewAccumulator(g) }
 
 //// ENUM TYPE
 ///
-//
-// check argument expression to implement data.integers interface
-var isInt = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.Type().Match(Data) {
-			if nat, ok := args[0].(Native); ok {
-				if nat.Eval().Type().Match(d.Integers) {
-					continue
-				}
+// declares an enumerable type returning instances from the set of enumerables
+// defined by the passed function
+func NewEnumType(fnc func(d.Numeral) Expression) EnumType {
+	return func(idx d.Numeral) EnumVal {
+		return func(args ...Expression) (Expression, d.Numeral, EnumType) {
+			if len(args) > 0 {
+				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
 			}
-		}
-		return false
-	}
-	return true
-})
-
-/// TODO: refactor using maybe/eitherOr types
-//
-// creates low/high bound type argument and lesser/greater bounds
-// checks, if no bound arguments where given, they will be set to minus
-// infinity to infinity and always check out true.
-func createBounds(bounds ...d.Integer) (low, high d.Typed, lesser, greater func(idx d.Integer) bool) {
-	if len(bounds) == 0 {
-		low, high = Def(Lex_Negative, Lex_Infinite), Lex_Infinite
-		lesser = func(idx d.Integer) bool { return true }
-		greater = func(idx d.Integer) bool { return true }
-	}
-	if len(bounds) > 0 {
-		var minBound = bounds[0]
-		// bound argument could be instance of type big int
-		if minBound.(d.Native).Type().Match(d.BigInt) {
-			lesser = func(arg d.Integer) bool {
-				if minBound.(*d.BigIntVal).GoBigInt().Cmp(
-					arg.(*d.BigIntVal).GoBigInt()) < 0 {
-					low = DefValNative(minBound.(*d.BigIntVal))
-					return true
-				}
-				return false
-			}
-		} else {
-			lesser = func(arg d.Integer) bool {
-				if minBound.(d.Integer).Int() >
-					arg.(Native).Eval().(d.Integer).Int() {
-					low = DefValNative(minBound.Int())
-					return true
-				}
-				return false
-			}
+			return fnc(idx), idx, NewEnumType(fnc)
 		}
 	}
-
-	if len(bounds) > 1 {
-		var maxBound = bounds[1].(d.Native)
-		high = DefValNative(maxBound)
-		if maxBound.Type().Match(d.BigInt) {
-			greater = func(arg d.Integer) bool {
-				if maxBound.(*d.BigIntVal).GoBigInt().Cmp(
-					arg.(*d.BigIntVal).GoBigInt()) > 0 {
-					return true
-				}
-				return false
-			}
-		} else {
-			greater = func(arg d.Integer) bool {
-				if arg.(d.Integer).Int() >
-					maxBound.(d.Integer).Int() {
-					return true
-				}
-				return false
-			}
-		}
-	}
-	return low, high, lesser, greater
 }
-
-func inBound(lesser, greater func(d.Integer) bool, ints ...d.Integer) bool {
-	for _, i := range ints {
-		if !lesser(i) && !greater(i) {
-			return true
-		}
-	}
-	return false
+func (e EnumType) Expr() Expression            { return e(d.IntVal(0)) }
+func (e EnumType) Alloc(idx d.Numeral) EnumVal { return e(idx) }
+func (e EnumType) Type() TyPattern {
+	return Def(Enum, e.Expr().Type().TypeReturn())
 }
-
-func NewEnumType(fnc func(...d.Integer) Expression, limits ...d.Integer) EnumType {
-	var low, high, lesser, greater = createBounds(limits...)
-	return func(idx d.Integer) (EnumVal, d.Typed, d.Typed) {
-		return func(args ...Expression) (Expression, d.Integer, EnumType) {
-			if inBound(lesser, greater, idx) {
-				if len(args) > 0 {
-					return fnc(idx).Call(args...), idx, NewEnumType(fnc, limits...)
-				}
-				return fnc(idx), idx, NewEnumType(fnc, limits...)
-			}
-			return NewNone(), idx, NewEnumType(fnc, limits...)
-		}, low, high
-	}
-}
-func (e EnumType) Expr() Expression {
-	var expr, _, _ = e(d.IntVal(0))
-	return expr
-}
-func (e EnumType) Limits() (min, max d.Typed) {
-	_, min, max = e(d.IntVal(0))
-	return min, max
-}
-func (e EnumType) Low() d.Typed {
-	var min, _ = e.Limits()
-	return min
-}
-func (e EnumType) High() d.Typed {
-	var _, max = e.Limits()
-	return max
-}
-func (e EnumType) InBound(ints ...d.Integer) bool {
-	var _, _, lesser, greater = createBounds(
-		e.Low().(d.Integer),
-		e.High().(d.Integer),
-	)
-	return inBound(lesser, greater, ints...)
-}
-func (e EnumType) Null() Expression {
-	var result, _, _ = e(d.IntVal(0))
-	return result
-}
-func (e EnumType) Unit() Expression {
-	var result, _, _ = e(d.IntVal(1))
-	return result
-}
-func (e EnumType) Type() TyPattern { return Def(Enum, e.Unit().Type()) }
-func (e EnumType) TypeFnc() TyFnc  { return Enum | e.Unit().TypeFnc() }
-func (e EnumType) String() string  { return e.Type().TypeName() }
+func (e EnumType) TypeFnc() TyFnc { return Enum }
+func (e EnumType) String() string { return e.Type().TypeName() }
 func (e EnumType) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return e.Expr().Call(args...)
+		if len(args) > 1 {
+			var vec = NewVector()
+			for _, arg := range args {
+				vec = vec.AppendVec(e.Call(arg))
+			}
+			return vec
+		}
+		var arg = args[0]
+		if arg.Type().Match(Data) {
+			if nat, ok := arg.(Native); ok {
+				if i, ok := nat.Eval().(d.Numeral); ok {
+					return e(i)
+				}
+			}
+		}
 	}
-	return e.Expr().Call()
+	return e
 }
 
 //// ENUM VALUE
@@ -332,7 +134,7 @@ func (e EnumVal) Expr() Expression {
 	var expr, _, _ = e()
 	return expr
 }
-func (e EnumVal) Index() d.Integer {
+func (e EnumVal) Index() d.Numeral {
 	var _, idx, _ = e()
 	return idx
 }
@@ -340,15 +142,360 @@ func (e EnumVal) EnumType() EnumType {
 	var _, _, et = e()
 	return et
 }
+func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
 func (e EnumVal) Next() EnumVal {
-	var result, _, _ = e.EnumType()(e.Index().Int() + d.IntVal(1))
+	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
 	return result
 }
 func (e EnumVal) Previous() EnumVal {
-	var result, _, _ = e.EnumType()(e.Index().Int() - d.IntVal(1))
+	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
 	return result
 }
-func (e EnumVal) String() string                     { return e.Expr().String() }
-func (e EnumVal) Type() TyPattern                    { return e.EnumType().Type() }
-func (e EnumVal) TypeFnc() TyFnc                     { return e.EnumType().TypeFnc() }
-func (e EnumVal) Call(args ...Expression) Expression { return e.Expr().Call(args...) }
+func (e EnumVal) String() string { return e.Expr().String() }
+func (e EnumVal) Type() TyPattern {
+	var (
+		nat d.Native
+		idx = e.Index()
+	)
+	if idx.Type().Match(d.BigInt) {
+		nat = idx.BigInt()
+	} else {
+		nat = idx.Int()
+	}
+	return Def(Def(Enum, DefValNative(nat)), e.Expr().Type())
+}
+func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
+func (e EnumVal) Call(args ...Expression) Expression {
+	var r, _, _ = e(args...)
+	return r
+}
+
+//// SEQUENCE TYPE
+///
+// generic sequential type
+func NewSequence(seq Sequential) SeqVal {
+	var (
+		head Expression
+		tail Consumeable
+	)
+	return func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			head, tail = seq.Cons(args...).Consume()
+		}
+		head, tail = seq.Consume()
+		if head.Type().Match(None) {
+			tail = NewSequence(seq)
+		}
+		return head, tail.(SeqVal)
+	}
+}
+func (s SeqVal) TypeFnc() TyFnc      { return s.Tail().TypeFnc() }
+func (s SeqVal) Type() TyPattern     { return s.Tail().Type() }
+func (s SeqVal) TypeElem() TyPattern { return s.Head().Type() }
+func (s SeqVal) Cons(elems ...Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			_, s = s(args...)
+		}
+		if len(elems) > 0 {
+			return s(elems...)
+		}
+		return s()
+	})
+}
+func (s SeqVal) Append(elems ...Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			_, s = s(args...)
+		}
+		if len(elems) > 0 {
+			return s(elems...)
+		}
+		return s()
+	})
+}
+func (s SeqVal) Call(args ...Expression) Expression {
+	var head Expression
+	if len(args) > 0 {
+		head, _ = s(args...)
+		return head
+	}
+	head, _ = s()
+	return head
+}
+func (s SeqVal) Consume() (Expression, Consumeable) { return s() }
+func (s SeqVal) Head() Expression {
+	var expr, _ = s()
+	return expr
+}
+func (s SeqVal) Tail() Consumeable {
+	var _, seq = s()
+	return seq
+}
+func (s SeqVal) String() string {
+	var head, tail = s()
+	return tail.Cons(head).String()
+}
+
+// apply takes another sequence of elements as arguments to apply to its
+// collection of expressions elements.
+func (s SeqVal) Apply(
+	apply func(Expression) Expression,
+) SeqVal {
+	var (
+		head Expression
+		tail SeqVal
+	)
+	return func(args ...Expression) (Expression, SeqVal) {
+		head, tail = s()
+		if len(args) > 0 {
+			head, tail = tail(args...)
+		}
+		return apply(head), tail.Apply(apply)
+	}
+}
+
+//// MONAD TYPE
+///
+// sequence of computations
+func NewMonad(expr Expression) MonVal {
+	return MonVal(func(args ...Expression) (Expression, MonVal) {
+		if len(args) > 0 {
+			expr = expr.Call(args...)
+			return expr, NewMonad(expr)
+		}
+		expr = expr.Call()
+		return expr, NewMonad(expr)
+	})
+}
+
+func (s MonVal) Type() TyPattern     { return Def(Monad, s.Current().Type()) }
+func (s MonVal) TypeElem() TyPattern { return s.Current().Type() }
+func (s MonVal) TypeFnc() TyFnc      { return s.Current().TypeFnc() }
+func (s MonVal) String() string      { return s.Current().String() }
+
+func (s MonVal) Step(args ...Expression) (Expression, Monadic) { return s(args...) }
+func (s MonVal) Call(args ...Expression) Expression {
+	var (
+		expr Expression
+		mon  MonVal
+	)
+	if len(args) > 0 {
+		expr, mon = s(args...)
+		return NewPair(expr, mon)
+	}
+	expr, mon = s()
+	return NewPair(expr, mon)
+}
+func (s MonVal) Current() Expression {
+	var cur, _ = s()
+	return cur
+}
+func (s MonVal) Monad() Monadic {
+	var _, mon = s()
+	return mon
+}
+func (s MonVal) Sequence() Sequential {
+	var (
+		expr Expression
+		mon  Monadic
+	)
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			expr, mon = s(args...)
+			return expr, mon.Sequence().(SeqVal)
+		}
+		expr, mon = s()
+		return expr, mon.Sequence().(SeqVal)
+	})
+}
+
+//// DATA STATE
+///
+// monad enclosing over stateful native data
+func NewStatefulData(
+	state d.Native,
+	trans func(state d.Native, args ...d.Native) d.Native,
+) DataState {
+	return func(args ...d.Native) (d.Native, DataState) {
+		if len(args) > 0 {
+			return trans(state, args...), NewStatefulData(state, trans)
+		}
+		return state, NewStatefulData(state, trans)
+	}
+}
+func (s DataState) Monad() Monadic { var _, m = s(); return m }
+func (s DataState) Step(args ...Expression) (Expression, Monadic) {
+	var r = s.Call(args...)
+	s = s.Call().(DataState)
+	return r, s
+}
+func (s DataState) Current() Expression {
+	var c, _ = s()
+	return DecData(c)
+}
+func (s DataState) Sequence() Sequential {
+	var (
+		data  d.Native
+		state DataState
+		pair  Paired
+	)
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			pair = s.Call(args...).(Paired)
+			return pair.Left(), pair.Right().(DataState).Sequence().(SeqVal)
+		}
+		data, state = s()
+		return DecData(data), state.Sequence().(SeqVal)
+	})
+}
+func (s DataState) String() string  { return s.Monad().String() }
+func (s DataState) Type() TyPattern { return Def(Monad, s.Current().Type()) }
+func (s DataState) TypeFnc() TyFnc  { return Data | State }
+func (s DataState) Call(args ...Expression) Expression {
+	var (
+		n d.Native
+		m Monadic
+	)
+	if len(args) > 0 {
+		var nats = make([]d.Native, 0, len(args))
+		for _, arg := range args {
+			if arg.Type().Match(Data) {
+				if dat, ok := arg.(Native); ok {
+					nats = append(nats, dat.Eval())
+				}
+			}
+		}
+		n, m = s(nats...)
+		return NewPair(DecData(n), m)
+	}
+	n, m = s()
+	return NewPair(DecData(n), m)
+}
+
+//// EXPRESSION STATE
+///
+// monad enclosing over stateful expressions
+func NewStatefulExpression(
+	state Expression,
+	trans func(state Expression, args ...Expression) Expression,
+) ExprState {
+	return func(args ...Expression) (Expression, ExprState) {
+		if len(args) > 0 {
+			return trans(state, args...), NewStatefulExpression(state, trans)
+		}
+		return state, NewStatefulExpression(state, trans)
+	}
+}
+func (s ExprState) Step(args ...Expression) (Expression, Monadic) {
+	return s(args...)
+}
+func (s ExprState) Current() Expression { var c, _ = s(); return c }
+func (s ExprState) Monad() Monadic      { var _, m = s(); return m }
+func (s ExprState) String() string      { return s.Monad().String() }
+func (s ExprState) Type() TyPattern     { return Def(Monad, s.Current().Type()) }
+func (s ExprState) TypeFnc() TyFnc      { return State | s.Monad().TypeFnc() }
+func (s ExprState) Sequence() Sequential {
+	var (
+		expr  Expression
+		state ExprState
+	)
+
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			expr, state = s(args...)
+			return expr, state.Sequence().(SeqVal)
+		}
+		expr, state = s()
+		return expr, state.Sequence().(SeqVal)
+	})
+}
+func (s ExprState) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var e, m = s(args...)
+		return NewPair(e, m)
+	}
+	var e, m = s()
+	return NewPair(e, m)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//// COMPOSITION
+///
+// function composition primitives
+func MapF(s Sequential, mapf func(Expression) Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			s = s.Cons(args...)
+		}
+		var head, tail = s.Consume()
+		if !head.Type().Match(None) {
+			var result = mapf(head)
+			// skip function applications yielding none
+			for result.Type().Match(None) {
+				head, tail = s.Consume()
+				result = mapf(head)
+			}
+			head = result
+		}
+		var seq = tail.(SeqVal)
+		return head, MapF(seq, mapf).(SeqVal)
+	})
+}
+
+func FoldL(s Sequential, mapf, acc Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			s = s.Cons(args...)
+		}
+		var head, tail = s.Consume()
+		if !head.Type().Match(None) {
+			var result = acc.Call(mapf.Call(head))
+			for result.Type().Match(None) {
+				head, tail = s.Consume()
+				result = acc.Call(mapf.Call(head))
+			}
+			return result, FoldL(tail.(SeqVal), mapf, result).(SeqVal)
+		}
+		return acc, NewSequence(NewList())
+	})
+}
+
+func Filter(s Sequential, test Testable) Sequential {
+	var (
+		acc    = NewVector()
+		filter = CaseType(func(args ...Expression) Expression {
+			if test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		})
+	)
+	return FoldL(s, acc, filter)
+}
+
+func Pass(s Sequential, test Testable) Sequential {
+	var (
+		acc    = NewVector()
+		filter = CaseType(func(args ...Expression) Expression {
+			if !test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		})
+	)
+	return FoldL(s, acc, filter)
+}
+
+//func TakeN(s Sequential, num int) Sequential {
+//	var ()
+//	return FoldL(s, acc, taker)
+//}

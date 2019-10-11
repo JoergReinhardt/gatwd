@@ -185,47 +185,28 @@ func TestOption(t *testing.T) {
 
 func TestEnum(t *testing.T) {
 	var enumtype EnumType
-	enumtype = NewEnumType(
-		func(days ...d.Integer) Expression {
-			if len(days) > 0 {
-				if len(days) > 1 {
-					var vec = NewVector()
-					for _, day := range days {
-						if (d.IntVal(0) <= day.Int()) &&
-							(day.Int() <= d.IntVal(6)) {
-							var result, _, _ = enumtype(day)
-							vec = vec.Cons(result).(VecVal)
-						}
-					}
-				}
-				switch days[0].Int() {
-				case 0:
-					return DecNative("Monday")
-				case 1:
-					return DecNative("Tuesday")
-				case 2:
-					return DecNative("Wednesday")
-				case 3:
-					return DecNative("Thursday")
-				case 4:
-					return DecNative("Friday")
-				case 5:
-					return DecNative("Saturday")
-				case 6:
-					return DecNative("Sunday")
-				}
-			}
-			return NewNone()
-		},
-		d.IntVal(0),
-		d.IntVal(6),
+	var weekdays = NewVector(
+		DecNative("Monday"),
+		DecNative("Tuesday"),
+		DecNative("Wednesday"),
+		DecNative("Thursday"),
+		DecNative("Friday"),
+		DecNative("Saturday"),
+		DecNative("Sunday"),
 	)
+	enumtype = NewEnumType(func(day d.Numeral) Expression {
+		var idx = day.GoInt()
+		if idx > 6 {
+			idx = idx%6 - 1
+		}
+		return weekdays()[idx]
+	})
 
-	fmt.Printf("enum type days of the week: %s\n", enumtype)
-	var enum, min, max = enumtype(d.IntVal(2))
-	fmt.Printf("wednesday eum: %s, min: %s, max: %s\n",
-		enum, min, max)
-	var val, idx, typ = enum()
-	fmt.Printf("enum value val %s, index: %s, type: %s min %s, max %s\n",
-		val, idx, typ, typ.Low(), typ.High())
+	fmt.Printf("enum type days of the week: %s type: %s\n", enumtype, enumtype.Type().TypeName())
+	var enum = enumtype(d.IntVal(8))
+	fmt.Printf("wednesday eum: %s\n", enum)
+	fmt.Printf("eum expr: %s\n", enum.Type())
+	var val, idx, _ = enum()
+	fmt.Printf("enum value val %s, index: %s\n",
+		val, idx)
 }

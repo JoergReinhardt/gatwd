@@ -73,6 +73,8 @@ type Natural interface {
 	GoUint() uint
 }
 type NaturalAriOps interface {
+	Inc() Natural
+	Dec() Natural
 	AddU(arg UintVal) UintVal
 	SubstractU(arg UintVal) UintVal
 	MultipyU(arg UintVal) UintVal
@@ -95,10 +97,13 @@ type NaturalComparators interface {
 
 type Integer interface {
 	Int() IntVal
+	BigInt() *BigIntVal
 	GoInt() int
 	Idx() int
 }
 type IntegerAriOps interface {
+	Inc() Integer
+	Dec() Integer
 	AddI(arg UintVal) UintVal
 	SubstractI(arg UintVal) UintVal
 	MultipyI(arg UintVal) UintVal
@@ -138,7 +143,6 @@ type RealComparators interface {
 
 type Rational interface {
 	GoRat() *big.Rat
-	Rational() *RatioVal
 }
 type RationalOps interface {
 	Negate() *RatioVal
@@ -157,7 +161,6 @@ type RationalComparators interface {
 type Imaginary interface {
 	Imag() ImagVal
 	GoImag() complex128
-	EqualI(ImagVal) bool
 }
 
 type Numeral interface {

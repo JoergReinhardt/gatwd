@@ -14,7 +14,7 @@ var listB = NewVector(DecNative(10), DecNative(11), DecNative(12), DecNative(13)
 func conList(args ...Expression) Sequential {
 	return NewList(args...)
 }
-func printCons(cons Sequential) {
+func printCons(cons Consumeable) {
 	var head, tail = cons.Consume()
 	if !head.Type().Match(None) {
 		fmt.Println(head)

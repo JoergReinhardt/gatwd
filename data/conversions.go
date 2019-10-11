@@ -161,7 +161,6 @@ func (v Uint8Val) Or(arg Uint8Val) Uint8Val     { return v | arg }
 func (v Uint8Val) AndNot(arg Uint8Val) Uint8Val { return v &^ arg }
 
 // operators arithmetic
-func (v Uint8Val) Negate() Uint8Val                { return -v }
 func (v Uint8Val) Add(arg Uint8Val) Uint8Val       { return v + arg }
 func (v Uint8Val) Substract(arg Uint8Val) Uint8Val { return v - arg }
 func (v Uint8Val) Multipy(arg Uint8Val) Uint8Val   { return v * arg }
@@ -184,6 +183,8 @@ func (v Uint8Val) OrU(arg UintVal) UintVal     { return v.Uint() | arg }
 func (v Uint8Val) AndNotU(arg UintVal) UintVal { return v.Uint() &^ arg }
 
 // operators arithmetic
+func (v Uint8Val) Inc() UintVal                   { r := v.Uint() + 1; return r }
+func (v Uint8Val) Dec() UintVal                   { r := v.Uint() - 1; return r }
 func (v Uint8Val) AddU(arg UintVal) UintVal       { return v.Uint() + arg }
 func (v Uint8Val) SubstractU(arg UintVal) UintVal { return v.Uint() - arg }
 func (v Uint8Val) MultipyU(arg UintVal) UintVal   { return v.Uint() * arg }
@@ -239,7 +240,6 @@ func (v Uint16Val) Or(arg Uint16Val) Uint16Val     { return v | arg }
 func (v Uint16Val) AndNot(arg Uint16Val) Uint16Val { return v &^ arg }
 
 // operators arithmetic
-func (v Uint16Val) Negate() Uint16Val                 { return -v }
 func (v Uint16Val) Add(arg Uint16Val) Uint16Val       { return v + arg }
 func (v Uint16Val) Substract(arg Uint16Val) Uint16Val { return v - arg }
 func (v Uint16Val) Multipy(arg Uint16Val) Uint16Val   { return v * arg }
@@ -262,6 +262,8 @@ func (v Uint16Val) OrU(arg UintVal) UintVal     { return v.Uint() | arg }
 func (v Uint16Val) AndNotU(arg UintVal) UintVal { return v.Uint() &^ arg }
 
 // operators arithmetic
+func (v Uint16Val) Inc() UintVal                   { r := v.Uint() + 1; return r }
+func (v Uint16Val) Dec() UintVal                   { r := v.Uint() - 1; return r }
 func (v Uint16Val) AddU(arg UintVal) UintVal       { return v.Uint() + arg }
 func (v Uint16Val) SubstractU(arg UintVal) UintVal { return v.Uint() - arg }
 func (v Uint16Val) MultipyU(arg UintVal) UintVal   { return v.Uint() * arg }
@@ -317,7 +319,8 @@ func (v Uint32Val) Or(arg Uint32Val) Uint32Val     { return v | arg }
 func (v Uint32Val) AndNot(arg Uint32Val) Uint32Val { return v &^ arg }
 
 // operators arithmetic 32bit
-func (v Uint32Val) Negate() Uint32Val                 { return -v }
+func (v Uint32Val) Inc() UintVal                      { r := v.Uint() + 1; return r }
+func (v Uint32Val) Dec() UintVal                      { r := v.Uint() - 1; return r }
 func (v Uint32Val) Add(arg Uint32Val) Uint32Val       { return v + arg }
 func (v Uint32Val) Substract(arg Uint32Val) Uint32Val { return v - arg }
 func (v Uint32Val) Multipy(arg Uint32Val) Uint32Val   { return v * arg }
@@ -395,7 +398,6 @@ func (v UintVal) Or(arg UintVal) UintVal     { return v | arg }
 func (v UintVal) AndNot(arg UintVal) UintVal { return v &^ arg }
 
 // operators arithmetic
-func (v UintVal) Negate() UintVal               { return -v }
 func (v UintVal) Add(arg UintVal) UintVal       { return v + arg }
 func (v UintVal) Substract(arg UintVal) UintVal { return v - arg }
 func (v UintVal) Multipy(arg UintVal) UintVal   { return v * arg }
@@ -418,6 +420,8 @@ func (v UintVal) OrU(arg UintVal) UintVal     { return v | arg }
 func (v UintVal) AndNotU(arg UintVal) UintVal { return v &^ arg }
 
 // operators arithmetic
+func (v UintVal) Inc() UintVal                   { r := v + 1; return r }
+func (v UintVal) Dec() UintVal                   { r := v - 1; return r }
 func (v UintVal) AddU(arg UintVal) UintVal       { return v + arg }
 func (v UintVal) SubstractU(arg UintVal) UintVal { return v - arg }
 func (v UintVal) MultipyU(arg UintVal) UintVal   { return v * arg }
@@ -508,6 +512,8 @@ func (v Int8Val) OrI(arg IntVal) IntVal     { return v.Int() | arg }
 func (v Int8Val) AndNotI(arg IntVal) IntVal { return v.Int() &^ arg }
 
 // operators arithmetic
+func (v Int8Val) Inc() IntVal                  { r := v.Int() + 1; return r }
+func (v Int8Val) Dec() IntVal                  { r := v.Int() - 1; return r }
 func (v Int8Val) NegateI() IntVal              { return -v.Int() }
 func (v Int8Val) AddI(arg IntVal) IntVal       { return v.Int() + arg }
 func (v Int8Val) SubstractI(arg IntVal) IntVal { return v.Int() - arg }
@@ -573,6 +579,8 @@ func (v Int16Val) And(arg Int16Val) Int16Val       { return v & arg }
 func (v Int16Val) Xor(arg Int16Val) Int16Val       { return v ^ arg }
 func (v Int16Val) Or(arg Int16Val) Int16Val        { return v | arg }
 func (v Int16Val) AndNot(arg Int16Val) Int16Val    { return v &^ arg }
+func (v Int16Val) Inc() IntVal                     { r := v.Int() + 1; return r }
+func (v Int16Val) Dec() IntVal                     { r := v.Int() - 1; return r }
 func (v Int16Val) Negate() Int16Val                { return -v }
 func (v Int16Val) Add(arg Int16Val) Int16Val       { return v + arg }
 func (v Int16Val) Substract(arg Int16Val) Int16Val { return v - arg }
@@ -661,6 +669,8 @@ func (v Int32Val) AndNot(arg Int32Val) Int32Val { return v &^ arg }
 func (v Int32Val) Negate() Int32Val             { return -v }
 
 // operators arithmetic
+func (v Int32Val) Inc() IntVal                     { r := v.Int() + 1; return r }
+func (v Int32Val) Dec() IntVal                     { r := v.Int() - 1; return r }
 func (v Int32Val) Add(arg Int32Val) Int32Val       { return v + arg }
 func (v Int32Val) Substract(arg Int32Val) Int32Val { return v - arg }
 func (v Int32Val) Multipy(arg Int32Val) Int32Val   { return v * arg }
@@ -740,6 +750,8 @@ func (v IntVal) Lesser(arg IntVal) bool  { return v < arg }
 func (v IntVal) Greater(arg IntVal) bool { return v > arg }
 
 // operators
+func (v IntVal) Inc() IntVal                  { r := v + 1; return r }
+func (v IntVal) Dec() IntVal                  { r := v - 1; return r }
 func (v IntVal) NotI() IntVal                 { return ^v }
 func (v IntVal) AndI(arg IntVal) IntVal       { return v & arg }
 func (v IntVal) XorI(arg IntVal) IntVal       { return v ^ arg }
@@ -807,6 +819,8 @@ func (v FltVal) Lesser(arg FltVal) bool  { return v < arg }
 func (v FltVal) Greater(arg FltVal) bool { return v > arg }
 
 // operators
+func (v FltVal) Inc() FltVal                  { r := v + 1; return r }
+func (v FltVal) Dec() FltVal                  { r := v - 1; return r }
 func (v FltVal) NegateR() FltVal              { return -v }
 func (v FltVal) AddR(arg FltVal) FltVal       { return v + arg }
 func (v FltVal) SubstractR(arg FltVal) FltVal { return v - arg }
@@ -868,6 +882,8 @@ func (v Flt32Val) Lesser(arg Flt32Val) bool  { return v < arg }
 func (v Flt32Val) Greater(arg Flt32Val) bool { return v > arg }
 
 // operators
+func (v Flt32Val) Inc() FltVal                  { r := v.Float() + 1; return r }
+func (v Flt32Val) Dec() FltVal                  { r := v.Float() - 1; return r }
 func (v Flt32Val) NegateR() FltVal              { return -v.Float() }
 func (v Flt32Val) AddR(arg FltVal) FltVal       { return v.Float() + arg }
 func (v Flt32Val) SubstractR(arg FltVal) FltVal { return v.Float() - arg }
@@ -922,6 +938,14 @@ func (v RatioVal) Truth() Native {
 }
 
 // operators
+func (v *RatioVal) Inc() *RatioVal {
+	r := v.Add((*RatioVal)(big.NewRat(int64(1), int64(1))))
+	return r
+}
+func (v *RatioVal) Dec() *RatioVal {
+	r := v.Substract((*RatioVal)(big.NewRat(int64(1), int64(1))))
+	return r
+}
 func (v *RatioVal) Negate() *RatioVal { return (*RatioVal)((*big.Rat)(v).Neg((*big.Rat)(v))) }
 func (v *RatioVal) Invert() *RatioVal { return (*RatioVal)((*big.Rat)(v).Inv((*big.Rat)(v))) }
 func (v *RatioVal) Add(arg *RatioVal) *RatioVal {

@@ -57,12 +57,15 @@ type Mapped interface {
 ///////////////////////////////////////////////////////////////////////////////
 //// COLLECTION INTERFACES
 ///
-type Sequential interface {
+type Consumeable interface {
 	Expression
-	TypeElem() TyPattern
+	Consume() (Expression, Consumeable)
 	Head() Expression
-	Tail() Sequential
-	Consume() (Expression, Sequential)
+	Tail() Consumeable
+}
+type Sequential interface {
+	Consumeable
+	TypeElem() TyPattern
 	Append(...Expression) Sequential
 	Cons(...Expression) Sequential
 }
@@ -183,6 +186,19 @@ type AssociativeCollected interface {
 	KeyAssociated
 	Sequential
 	Associative
+}
+type Enumerable interface {
+	Expression
+	Next() EnumVal
+	Prev() EnumVal
+	EnumType() EnumType
+	Alloc(d.Numeral) EnumVal
+}
+type Monadic interface {
+	Expression
+	Current() Expression
+	Step(...Expression) (Expression, Monadic)
+	Sequence() Sequential
 }
 type ProtoTyped interface {
 	Expression
