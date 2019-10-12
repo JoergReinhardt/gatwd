@@ -19,15 +19,78 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS
-	DataConst   func() d.Native
-	DataSlice   func() d.DataSlice
-	DataGoSlice func() d.Sliceable
-	DataPair    func() d.PairVal
-	DataMap     func() d.Mapped
-	DataExpr    func(...d.Native) d.Native
+	DatAtom    func() d.Native
+	DatSlice   func() d.DataSlice
+	DatGoSlice func() d.Sliceable
+	DatPair    func() d.PairVal
+	DatMap     func() d.Mapped
+	DatFunc    func(...d.Native) d.Native
 )
 
-func nativeType(nat d.Native) (typed d.Typed) {
+//// DATA CONSTRUCTOR
+///
+// Nat(inf ...interface{}) Native
+// takes any instance of a native go type and returns a data/native instance
+// based on its value.
+func Nat(inf ...interface{}) d.Native { return d.New(inf...) }
+
+// Dat(inf ...interface{}) Native
+// takes any instance of any of the native go types and returns it as instance
+// of data/native boxed in a functional wrapper.
+func Dat(inf ...interface{}) Native { return Box(d.New(inf...)) }
+
+// Box(args ...d.Native) Native
+// takes an instance of data/native interface and boxes it in a functional
+// wrapper with propper type information and referencial tranparency
+func Box(args ...d.Native) Native {
+	// allocate data and assign match function to a value
+	var (
+		nat   = d.NewData(args...)
+		match = nat.Type().Match
+	)
+
+	switch { // switch based on type match
+	case match(d.Function):
+		if fn, ok := nat.(d.Expression); ok {
+			return DatFunc(func(args ...d.Native) d.Native {
+				if len(args) > 0 {
+					return fn(args...)
+				}
+				return fn()
+			})
+		}
+	case match(d.Slice):
+		if slice, ok := nat.(d.DataSlice); ok {
+			return DatSlice(func() d.DataSlice {
+				return slice
+			})
+		}
+	case match(d.Unboxed):
+		if unboxed, ok := nat.(d.Sliceable); ok {
+			return DatGoSlice(func() d.Sliceable {
+				return unboxed
+			})
+		}
+	case match(d.Pair):
+		if pair, ok := nat.(d.PairVal); ok {
+			return DatPair(func() d.PairVal {
+				return pair
+			})
+		}
+	case match(d.Map):
+		if hmap, ok := nat.(d.Mapped); ok {
+			return DatMap(func() d.Mapped {
+				return hmap
+			})
+		}
+	}
+	// if instance is neither of type function, nor a collection,
+	// instanciate a native atomic constant.
+	return DatAtom(func() d.Native { return nat })
+}
+
+// helper to generate type identifying pattern from native types
+func patternFromNative(nat d.Native) (typed d.Typed) {
 	switch {
 	case nat.Type().Match(d.Pair):
 		var p = nat.(d.PairVal)
@@ -47,227 +110,193 @@ func nativeType(nat d.Native) (typed d.Typed) {
 	return typed
 }
 
-//// DATA CONSTRUCTOR
+//// NATIVE FUNCTION EXPRESSION
 ///
-// returns an expression with native return type implementing the callable
-// interface
-func DecNative(inf ...interface{}) Native {
-	return DecData(d.New(inf...))
+// function argument-/ and return types are not known by the framework, to make
+// native expressions type safe, they need to be wrapped in a function
+// definition
+func (n DatFunc) TypeFnc() TyFnc                 { return Data }
+func (n DatFunc) TypeNat() d.TyNat               { return n().Type() }
+func (n DatFunc) String() string                 { return n().String() }
+func (n DatFunc) Eval(args ...d.Native) d.Native { return n(args...) }
+func (n DatFunc) Type() TyPattern {
+	return Def(Def(Data, Value), patternFromNative(n()))
 }
-
-func DecData(args ...d.Native) Native {
-	var (
-		nat   = d.NewData(args...)
-		match = nat.Type().Match
-	)
-
-	switch {
-	case match(d.Function):
-		if fn, ok := nat.(d.Expression); ok {
-			return DataExpr(func(args ...d.Native) d.Native {
-				if len(args) > 0 {
-					return fn(args...)
-				}
-				return fn()
-			})
-		}
-	case match(d.Slice):
-		return DataSlice(func() d.DataSlice {
-			return nat.(d.DataSlice)
-		})
-	case match(d.Unboxed):
-		return DataGoSlice(func() d.Sliceable {
-			return nat.(d.Sliceable)
-		})
-	case match(d.Pair):
-		return DataPair(func() d.PairVal {
-			return nat.(d.PairVal)
-		})
-	case match(d.Map):
-		return DataMap(func() d.Mapped {
-			return nat.(d.Mapped)
-		})
-	}
-	return DataConst(func() d.Native {
-		return nat
-	})
-}
-
-// NATIVE FUNCTION VALUE CONSTRUCTOR
-func (n DataExpr) TypeFnc() TyFnc                 { return Data }
-func (n DataExpr) TypeNat() d.TyNat               { return n().Type() }
-func (n DataExpr) String() string                 { return n().String() }
-func (n DataExpr) Eval(args ...d.Native) d.Native { return n(args...) }
-func (n DataExpr) Type() TyPattern                { return Def(Data|Value, nativeType(n())) }
-func (n DataExpr) Call(args ...Expression) Expression {
+func (n DatFunc) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var nats = make([]d.Native, 0, len(args))
 		for _, arg := range args {
 			if arg.TypeFnc().Match(Data) {
-				if data, ok := arg.(Native); ok {
+				if data, ok := arg.(NatEval); ok {
 					var eval = data.Eval()
 					nats = append(nats, eval)
 				}
 			}
 		}
-		return DecData(n(nats...))
+		return Box(n(nats...))
 	}
-	return DecData(n())
+	return Box(n())
 }
 
-// ATOMIC NATIVE VALUE CONSTRUCTOR
-func (n DataConst) Eval(...d.Native) d.Native     { return n() }
-func (n DataConst) TypeFnc() TyFnc                { return Data }
-func (n DataConst) TypeNat() d.TyNat              { return n().Type() }
-func (n DataConst) String() string                { return n().String() }
-func (n DataConst) Call(...Expression) Expression { return DecData(n()) }
-func (n DataConst) Type() TyPattern {
-	return Def(Data|Constant, nativeType(n()))
+// NATIVE ATOMIC CONSTANT
+func (n DatAtom) Eval(...d.Native) d.Native     { return n() }
+func (n DatAtom) TypeFnc() TyFnc                { return Data }
+func (n DatAtom) TypeNat() d.TyNat              { return n().Type() }
+func (n DatAtom) String() string                { return n().String() }
+func (n DatAtom) Call(...Expression) Expression { return Box(n()) }
+func (n DatAtom) Type() TyPattern {
+	return Def(Def(Data, Constant), patternFromNative(n()))
 }
 
-// NATIVE SLICE VALUE CONSTRUCTOR
-func (n DataSlice) Call(args ...Expression) Expression { return n }
-func (n DataSlice) TypeFnc() TyFnc                     { return Data }
-func (n DataSlice) TypeNat() d.TyNat                   { return n().Type() }
-func (n DataSlice) Len() int                           { return n().Len() }
-func (n DataSlice) Head() d.Native                     { return n().Head() }
-func (n DataSlice) Tail() d.Sequential                 { return n().Tail() }
-func (n DataSlice) Shift() (d.Native, d.DataSlice)     { return n().Shift() }
-func (n DataSlice) SliceNat() []d.Native               { return n().Slice() }
-func (n DataSlice) Get(key d.Native) d.Native          { return n().Get(key) }
-func (n DataSlice) GetInt(idx int) d.Native            { return n().GetInt(idx) }
-func (n DataSlice) Range(s, e int) d.Sliceable         { return n().Range(s, e) }
-func (n DataSlice) Empty() bool                        { return n().Empty() }
-func (n DataSlice) Copy() d.Native                     { return n().Copy() }
-func (n DataSlice) ElemType() d.Typed                  { return n().TypeElem() }
-func (n DataSlice) String() string                     { return n().String() }
-func (n DataSlice) Slice() []d.Native                  { return n().Slice() }
-func (n DataSlice) Type() TyPattern {
-	return Def(Data|Vector, nativeType(n()))
+// NATIVE SLICE VALUE
+func (n DatSlice) Call(args ...Expression) Expression { return n }
+func (n DatSlice) TypeFnc() TyFnc                     { return Data }
+func (n DatSlice) TypeNat() d.TyNat                   { return n().Type() }
+func (n DatSlice) Len() int                           { return n().Len() }
+func (n DatSlice) Head() d.Native                     { return n().Head() }
+func (n DatSlice) Tail() d.Sequential                 { return n().Tail() }
+func (n DatSlice) Shift() (d.Native, d.DataSlice)     { return n().Shift() }
+func (n DatSlice) SliceNat() []d.Native               { return n().Slice() }
+func (n DatSlice) Get(key d.Native) d.Native          { return n().Get(key) }
+func (n DatSlice) GetInt(idx int) d.Native            { return n().GetInt(idx) }
+func (n DatSlice) Range(s, e int) d.Sliceable         { return n().Range(s, e) }
+func (n DatSlice) Empty() bool                        { return n().Empty() }
+func (n DatSlice) Copy() d.Native                     { return n().Copy() }
+func (n DatSlice) ElemType() d.Typed                  { return n().TypeElem() }
+func (n DatSlice) String() string                     { return n().String() }
+func (n DatSlice) Slice() []d.Native                  { return n().Slice() }
+func (n DatSlice) Type() TyPattern {
+	return Def(Def(Data, Vector), patternFromNative(n()))
 }
-func (n DataSlice) Eval(args ...d.Native) d.Native {
+func (n DatSlice) Eval(args ...d.Native) d.Native {
 	return d.SliceAppend(n(), args...)
 }
-func (n DataSlice) SliceExpr() []Expression {
+func (n DatSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, DecData(nat))
+		slice = append(slice, Box(nat))
 	}
 	return slice
 }
 
-func (n DataGoSlice) Call(args ...Expression) Expression { return n }
-func (n DataGoSlice) Eval(args ...d.Native) d.Native {
+// SLICES OF NATIVE VALUES
+func (n DatGoSlice) Call(args ...Expression) Expression { return n }
+func (n DatGoSlice) Eval(args ...d.Native) d.Native {
 	return d.NewSlice(append(n.Slice(), args...)...)
 }
-func (n DataGoSlice) TypeFnc() TyFnc             { return Data }
-func (n DataGoSlice) TypeNat() d.TyNat           { return n().Type() }
-func (n DataGoSlice) Len() int                   { return n().Len() }
-func (n DataGoSlice) Get(key d.Native) d.Native  { return n().Get(key) }
-func (n DataGoSlice) GetInt(idx int) d.Native    { return n().GetInt(idx) }
-func (n DataGoSlice) Range(s, e int) d.Sliceable { return n().Range(s, e) }
-func (n DataGoSlice) Copy() d.Native             { return n().Copy() }
-func (n DataGoSlice) Empty() bool                { return n().Empty() }
-func (n DataGoSlice) Slice() []d.Native          { return n().Slice() }
-func (n DataGoSlice) ElemType() d.Typed          { return n().TypeElem() }
-func (n DataGoSlice) String() string             { return n().String() }
-func (n DataGoSlice) Type() TyPattern {
-	return Def(Data|Vector, nativeType(n()))
+func (n DatGoSlice) TypeFnc() TyFnc             { return Data }
+func (n DatGoSlice) TypeNat() d.TyNat           { return n().Type() }
+func (n DatGoSlice) Len() int                   { return n().Len() }
+func (n DatGoSlice) Get(key d.Native) d.Native  { return n().Get(key) }
+func (n DatGoSlice) GetInt(idx int) d.Native    { return n().GetInt(idx) }
+func (n DatGoSlice) Range(s, e int) d.Sliceable { return n().Range(s, e) }
+func (n DatGoSlice) Copy() d.Native             { return n().Copy() }
+func (n DatGoSlice) Empty() bool                { return n().Empty() }
+func (n DatGoSlice) Slice() []d.Native          { return n().Slice() }
+func (n DatGoSlice) ElemType() d.Typed          { return n().TypeElem() }
+func (n DatGoSlice) String() string             { return n().String() }
+func (n DatGoSlice) Type() TyPattern {
+	return Def(Def(Data, Vector), patternFromNative(n()))
 }
-func (n DataGoSlice) SliceExpr() []Expression {
+func (n DatGoSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Slice() {
-		slice = append(slice, DecData(nat))
+		slice = append(slice, Box(nat))
 	}
 	return slice
 }
 
 // NATIVE PAIR VALUE CONSTRUCTOR
-func (n DataPair) Call(args ...Expression) Expression { return n }
-func (n DataPair) Eval(...d.Native) d.Native          { return n() }
-func (n DataPair) TypeFnc() TyFnc                     { return Data }
-func (n DataPair) TypeNat() d.TyNat                   { return n().Type() }
-func (n DataPair) Left() d.Native                     { return n().Left() }
-func (n DataPair) Right() d.Native                    { return n().Right() }
-func (n DataPair) Both() (l, r d.Native)              { return n().Both() }
-func (n DataPair) LeftType() d.TyNat                  { return n().TypeKey() }
-func (n DataPair) RightType() d.TyNat                 { return n().TypeValue() }
-func (n DataPair) SubType() d.Typed                   { return n().Type() }
-func (n DataPair) String() string                     { return n().String() }
-func (n DataPair) LeftExpr() Expression               { return DecData(n().Left()) }
-func (n DataPair) RightExpr() Expression              { return DecData(n().Right()) }
-func (n DataPair) BothExpr() (l, r Expression) {
-	return DecData(n().Left()),
-		DecData(n().Right())
+func (n DatPair) Call(args ...Expression) Expression { return n }
+func (n DatPair) Eval(...d.Native) d.Native          { return n() }
+func (n DatPair) TypeFnc() TyFnc                     { return Data }
+func (n DatPair) TypeNat() d.TyNat                   { return n().Type() }
+func (n DatPair) Left() d.Native                     { return n().Left() }
+func (n DatPair) Right() d.Native                    { return n().Right() }
+func (n DatPair) Both() (l, r d.Native)              { return n().Both() }
+func (n DatPair) LeftType() d.TyNat                  { return n().TypeKey() }
+func (n DatPair) RightType() d.TyNat                 { return n().TypeValue() }
+func (n DatPair) SubType() d.Typed                   { return n().Type() }
+func (n DatPair) String() string                     { return n().String() }
+func (n DatPair) LeftExpr() Expression               { return Box(n().Left()) }
+func (n DatPair) RightExpr() Expression              { return Box(n().Right()) }
+func (n DatPair) BothExpr() (l, r Expression) {
+	return Box(n().Left()),
+		Box(n().Right())
 }
-func (n DataPair) Pair() Paired {
+func (n DatPair) Pair() Paired {
 	return NewPair(
-		DecData(n().Left()),
-		DecData(n().Right()))
+		Box(n().Left()),
+		Box(n().Right()))
 }
-func (n DataPair) Type() TyPattern {
-	return Def(Data|Pair, Def(
-		nativeType(n().Left()),
-		nativeType(n().Right())),
-	)
+func (n DatPair) Type() TyPattern {
+	return Def(Def(
+		Data,
+		Pair,
+	), Def(
+		patternFromNative(n().Left()),
+		patternFromNative(n().Right())))
 }
 
-// NATIVE SET VALUE CONSTRUCTOR
-func (n DataMap) Call(args ...Expression) Expression   { return n }
-func (n DataMap) Eval(...d.Native) d.Native            { return n() }
-func (n DataMap) TypeFnc() TyFnc                       { return Data }
-func (n DataMap) TypeNat() d.TyNat                     { return n().Type() }
-func (n DataMap) Len() int                             { return n().Len() }
-func (n DataMap) Slice() []d.Native                    { return n().Slice() }
-func (n DataMap) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
-func (n DataMap) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
-func (n DataMap) Delete(acc d.Native) bool             { return n().Delete(acc) }
-func (n DataMap) Get(acc d.Native) (d.Native, bool)    { return n().Get(acc) }
-func (n DataMap) Set(acc, val d.Native) d.Mapped       { return n().Set(acc, val) }
-func (n DataMap) Keys() []d.Native                     { return n().Keys() }
-func (n DataMap) Data() []d.Native                     { return n().Data() }
-func (n DataMap) Fields() []d.Paired                   { return n().Fields() }
-func (n DataMap) KeyType() d.Typed                     { return n().TypeKey() }
-func (n DataMap) ValType() d.Typed                     { return n().TypeValue() }
-func (n DataMap) SubType() d.Typed                     { return n().Type() }
-func (n DataMap) String() string                       { return n().String() }
-func (n DataMap) KeysExpr() []Expression {
+// NATIVE MAP OF VALUES
+func (n DatMap) Call(args ...Expression) Expression   { return n }
+func (n DatMap) Eval(...d.Native) d.Native            { return n() }
+func (n DatMap) TypeFnc() TyFnc                       { return Data }
+func (n DatMap) TypeNat() d.TyNat                     { return n().Type() }
+func (n DatMap) Len() int                             { return n().Len() }
+func (n DatMap) Slice() []d.Native                    { return n().Slice() }
+func (n DatMap) GetNat(acc d.Native) (d.Native, bool) { return n().Get(acc) }
+func (n DatMap) SetNat(acc, val d.Native) d.Mapped    { return n().Set(acc, val) }
+func (n DatMap) Delete(acc d.Native) bool             { return n().Delete(acc) }
+func (n DatMap) Get(acc d.Native) (d.Native, bool)    { return n().Get(acc) }
+func (n DatMap) Set(acc, val d.Native) d.Mapped       { return n().Set(acc, val) }
+func (n DatMap) Keys() []d.Native                     { return n().Keys() }
+func (n DatMap) Data() []d.Native                     { return n().Data() }
+func (n DatMap) Fields() []d.Paired                   { return n().Fields() }
+func (n DatMap) KeyType() d.Typed                     { return n().TypeKey() }
+func (n DatMap) ValType() d.Typed                     { return n().TypeValue() }
+func (n DatMap) SubType() d.Typed                     { return n().Type() }
+func (n DatMap) String() string                       { return n().String() }
+func (n DatMap) KeysExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, key := range n().Keys() {
-		exprs = append(exprs, DecData(key))
+		exprs = append(exprs, Box(key))
 	}
 	return exprs
 }
-func (n DataMap) DataExpr() []Expression {
+func (n DatMap) DataExpr() []Expression {
 	var exprs = make([]Expression, 0, n.Len())
 	for _, val := range n().Data() {
-		exprs = append(exprs, DecData(val))
+		exprs = append(exprs, Box(val))
 	}
 	return exprs
 }
-func (n DataMap) SliceExpr() []Expression {
+func (n DatMap) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n.Len())
 	for _, nat := range n.Fields() {
-		slice = append(slice, DecData(nat))
+		slice = append(slice, Box(nat))
 	}
 	return slice
 }
-func (n DataMap) Pairs() []Paired {
+func (n DatMap) Pairs() []Paired {
 	var pairs = []Paired{}
 	for _, field := range n.Fields() {
 		pairs = append(
 			pairs, NewPair(
-				DecData(field.Left()),
-				DecData(field.Right())))
+				Box(field.Left()),
+				Box(field.Right())))
 	}
 	return pairs
 }
-func (n DataMap) Type() TyPattern {
+func (n DatMap) Type() TyPattern {
 	if n().Len() > 0 {
-		return Def(Data|Pair, Def(
-			nativeType(n().First().Left()),
-			nativeType(n().First().Right()),
-		))
+		return Def(
+			Def(
+				Data,
+				Pair,
+			), Def(
+				patternFromNative(n().First().Left()),
+				patternFromNative(n().First().Right())))
 	}
-	return Def(Data|Pair, None)
+	return Def(Def(Data, Pair), Def(None, None))
 }

@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-var listA = NewVector(DecNative(0), DecNative(1), DecNative(2), DecNative(3),
-	DecNative(4), DecNative(5), DecNative(6), DecNative(7), DecNative(8), DecNative(9))
+var listA = NewVector(Dat(0), Dat(1), Dat(2), Dat(3),
+	Dat(4), Dat(5), Dat(6), Dat(7), Dat(8), Dat(9))
 
-var listB = NewVector(DecNative(10), DecNative(11), DecNative(12), DecNative(13),
-	DecNative(14), DecNative(15), DecNative(16), DecNative(17), DecNative(18), DecNative(19))
+var listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
+	Dat(14), Dat(15), Dat(16), Dat(17), Dat(18), Dat(19))
 
 func conList(args ...Expression) Sequential {
 	return NewList(args...)
@@ -85,7 +85,7 @@ func TestPairVal(t *testing.T) {
 	var pair = NewPair(NewNone(), NewNone())
 	fmt.Printf("name of empty pair: %s\n", pair.Type())
 
-	pair = NewPair(DecNative(12), DecNative("string"))
+	pair = NewPair(Dat(12), Dat("string"))
 	fmt.Printf("name of (int,string) pair: %s\n",
 		pair.Type())
 	fmt.Printf("name of (int,string) pair args: %s\n",
@@ -94,7 +94,7 @@ func TestPairVal(t *testing.T) {
 		pair.Type().TypeReturn())
 }
 
-var list = NewList(DecNative(0), DecNative(1), DecNative(2), DecNative(3))
+var list = NewList(Dat(0), Dat(1), Dat(2), Dat(3))
 
 func TestMapList(t *testing.T) {
 }

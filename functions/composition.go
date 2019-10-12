@@ -10,8 +10,8 @@ type (
 	AccVal func(...Expression) Expression
 
 	//// ENUMERABLE
-	EnumType func(d.Numeral) EnumVal
-	EnumVal  func(...Expression) (Expression, d.Numeral, EnumType)
+	EnumDef func(d.Numeral) EnumVal
+	EnumVal func(...Expression) (Expression, d.Numeral, EnumDef)
 
 	//// SEQUENCE
 	SeqVal func(...Expression) (Expression, SeqVal)
@@ -89,9 +89,9 @@ func (g AccVal) Consume() (Expression, Consumeable) { return g(), NewAccumulator
 ///
 // declares an enumerable type returning instances from the set of enumerables
 // defined by the passed function
-func NewEnumType(fnc func(d.Numeral) Expression) EnumType {
+func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
 	return func(idx d.Numeral) EnumVal {
-		return func(args ...Expression) (Expression, d.Numeral, EnumType) {
+		return func(args ...Expression) (Expression, d.Numeral, EnumDef) {
 			if len(args) > 0 {
 				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
 			}
@@ -99,14 +99,14 @@ func NewEnumType(fnc func(d.Numeral) Expression) EnumType {
 		}
 	}
 }
-func (e EnumType) Expr() Expression            { return e(d.IntVal(0)) }
-func (e EnumType) Alloc(idx d.Numeral) EnumVal { return e(idx) }
-func (e EnumType) Type() TyPattern {
+func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
+func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
+func (e EnumDef) Type() TyPattern {
 	return Def(Enum, e.Expr().Type().TypeReturn())
 }
-func (e EnumType) TypeFnc() TyFnc { return Enum }
-func (e EnumType) String() string { return e.Type().TypeName() }
-func (e EnumType) Call(args ...Expression) Expression {
+func (e EnumDef) TypeFnc() TyFnc { return Enum }
+func (e EnumDef) String() string { return e.Type().TypeName() }
+func (e EnumDef) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		if len(args) > 1 {
 			var vec = NewVector()
@@ -117,7 +117,7 @@ func (e EnumType) Call(args ...Expression) Expression {
 		}
 		var arg = args[0]
 		if arg.Type().Match(Data) {
-			if nat, ok := arg.(Native); ok {
+			if nat, ok := arg.(NatEval); ok {
 				if i, ok := nat.Eval().(d.Numeral); ok {
 					return e(i)
 				}
@@ -138,7 +138,7 @@ func (e EnumVal) Index() d.Numeral {
 	var _, idx, _ = e()
 	return idx
 }
-func (e EnumVal) EnumType() EnumType {
+func (e EnumVal) EnumType() EnumDef {
 	var _, _, et = e()
 	return et
 }
@@ -203,6 +203,17 @@ func (s SeqVal) Cons(elems ...Expression) Sequential {
 		return s()
 	})
 }
+func (s SeqVal) Prepend(elems ...Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(elems) > 0 {
+			return s(elems...)
+		}
+		if len(args) > 0 {
+			_, s = s(args...)
+		}
+		return s()
+	})
+}
 func (s SeqVal) Append(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
@@ -240,8 +251,7 @@ func (s SeqVal) String() string {
 // apply takes another sequence of elements as arguments to apply to its
 // collection of expressions elements.
 func (s SeqVal) Apply(
-	apply func(Expression) Expression,
-) SeqVal {
+	apply func(Expression) Expression) SeqVal {
 	var (
 		head Expression
 		tail SeqVal
@@ -332,7 +342,7 @@ func (s DataState) Step(args ...Expression) (Expression, Monadic) {
 }
 func (s DataState) Current() Expression {
 	var c, _ = s()
-	return DecData(c)
+	return Box(c)
 }
 func (s DataState) Sequence() Sequential {
 	var (
@@ -346,7 +356,7 @@ func (s DataState) Sequence() Sequential {
 			return pair.Left(), pair.Right().(DataState).Sequence().(SeqVal)
 		}
 		data, state = s()
-		return DecData(data), state.Sequence().(SeqVal)
+		return Box(data), state.Sequence().(SeqVal)
 	})
 }
 func (s DataState) String() string  { return s.Monad().String() }
@@ -361,25 +371,23 @@ func (s DataState) Call(args ...Expression) Expression {
 		var nats = make([]d.Native, 0, len(args))
 		for _, arg := range args {
 			if arg.Type().Match(Data) {
-				if dat, ok := arg.(Native); ok {
+				if dat, ok := arg.(NatEval); ok {
 					nats = append(nats, dat.Eval())
 				}
 			}
 		}
 		n, m = s(nats...)
-		return NewPair(DecData(n), m)
+		return NewPair(Box(n), m)
 	}
 	n, m = s()
-	return NewPair(DecData(n), m)
+	return NewPair(Box(n), m)
 }
 
 //// EXPRESSION STATE
 ///
 // monad enclosing over stateful expressions
 func NewStatefulExpression(
-	state Expression,
-	trans func(state Expression, args ...Expression) Expression,
-) ExprState {
+	state Expression, trans func(state Expression, args ...Expression) Expression) ExprState {
 	return func(args ...Expression) (Expression, ExprState) {
 		if len(args) > 0 {
 			return trans(state, args...), NewStatefulExpression(state, trans)
@@ -464,7 +472,7 @@ func FoldL(s Sequential, mapf, acc Expression) Sequential {
 func Filter(s Sequential, test Testable) Sequential {
 	var (
 		acc    = NewVector()
-		filter = CaseType(func(args ...Expression) Expression {
+		filter = CaseDef(func(args ...Expression) Expression {
 			if test.Test(args...) {
 				return NewNone()
 			}
@@ -481,7 +489,7 @@ func Filter(s Sequential, test Testable) Sequential {
 func Pass(s Sequential, test Testable) Sequential {
 	var (
 		acc    = NewVector()
-		filter = CaseType(func(args ...Expression) Expression {
+		filter = CaseDef(func(args ...Expression) Expression {
 			if !test.Test(args...) {
 				return NewNone()
 			}

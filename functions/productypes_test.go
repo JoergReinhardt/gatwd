@@ -9,7 +9,7 @@ import (
 
 var testIsZero = NewTest(func(args ...Expression) bool {
 	for _, arg := range args {
-		if arg.(Native).Eval().(d.Numeral).GoInt() != 0 {
+		if arg.(NatEval).Eval().(d.Numeral).GoInt() != 0 {
 			return false
 		}
 	}
@@ -20,25 +20,25 @@ func TestTestable(t *testing.T) {
 
 	fmt.Printf("test: %s\n", testIsZero)
 
-	fmt.Printf("test zero is zero (true): %t\n", testIsZero(DecNative(0)))
-	if !testIsZero(DecNative(0)) {
+	fmt.Printf("test zero is zero (true): %t\n", testIsZero(Dat(0)))
+	if !testIsZero(Dat(0)) {
 		t.Fail()
 	}
 
-	fmt.Printf("test one is zero (false): %t\n", testIsZero(DecNative(1)))
-	if testIsZero(DecNative(1)) {
+	fmt.Printf("test one is zero (false): %t\n", testIsZero(Dat(1)))
+	if testIsZero(Dat(1)) {
 		t.Fail()
 	}
 
 	fmt.Printf("test three zeros are zero (true): %t\n",
-		testIsZero(DecNative(0), DecNative(0), DecNative(0)))
-	if !testIsZero(DecNative(0), DecNative(0), DecNative(0)) {
+		testIsZero(Dat(0), Dat(0), Dat(0)))
+	if !testIsZero(Dat(0), Dat(0), Dat(0)) {
 		t.Fail()
 	}
 }
 
 var compZero = NewComparator(func(args ...Expression) int {
-	switch args[0].(Native).Eval().(d.Numeral).GoInt() {
+	switch args[0].(NatEval).Eval().(d.Numeral).GoInt() {
 	case -1:
 		return -1
 	case 0:
@@ -49,14 +49,14 @@ var compZero = NewComparator(func(args ...Expression) int {
 
 func TestCompareable(t *testing.T) {
 	fmt.Printf("compareable: %s\n", compZero)
-	fmt.Printf("zero equals zero (0): %d\n", compZero(DecNative(0)))
-	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(DecNative(-1)))
-	fmt.Printf("one greater zero (1): %d\n", compZero(DecNative(1)))
+	fmt.Printf("zero equals zero (0): %d\n", compZero(Dat(0)))
+	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(Dat(-1)))
+	fmt.Printf("one greater zero (1): %d\n", compZero(Dat(1)))
 }
 
 var caseZero = NewCase(
 	testIsZero,
-	DecNative("this is indeed zero"),
+	Dat("this is indeed zero"),
 	d.Numbers,
 	d.String,
 )
@@ -64,13 +64,13 @@ var caseZero = NewCase(
 func TestCase(t *testing.T) {
 	fmt.Printf("case: %s\n", caseZero)
 
-	var result = caseZero.Call(DecNative(0))
+	var result = caseZero.Call(Dat(0))
 	fmt.Printf("case zero: %s\n", result)
 	if result.String() != "this is indeed zero" {
 		t.Fail()
 	}
 
-	result = caseZero.Call(DecNative(1))
+	result = caseZero.Call(Dat(1))
 	fmt.Printf("case none zero: %s none zero type: %s\n",
 		result, result.Type())
 	if !result.Type().Match(None) {
@@ -86,7 +86,7 @@ var isInteger = NewTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseInteger = NewCase(isInteger, DecNative("this is an int"), d.Int, d.String)
+var caseInteger = NewCase(isInteger, Dat("this is an int"), d.Int, d.String)
 var isUint = NewTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
@@ -95,7 +95,7 @@ var isUint = NewTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseUint = NewCase(isUint, DecNative("this is a uint"), d.Uint, d.String)
+var caseUint = NewCase(isUint, Dat("this is a uint"), d.Uint, d.String)
 var isFloat = NewTest(func(args ...Expression) bool {
 	for _, arg := range args {
 		if arg.TypeFnc().Match(Data) {
@@ -104,33 +104,33 @@ var isFloat = NewTest(func(args ...Expression) bool {
 	}
 	return false
 })
-var caseFloat = NewCase(isFloat, DecNative("this is a float"), d.Float, d.String)
+var caseFloat = NewCase(isFloat, Dat("this is a float"), d.Float, d.String)
 var swi = NewSwitch(caseFloat, caseUint, caseInteger)
 
 func TestSwitch(t *testing.T) {
 
-	var result = swi.Call(DecNative(42))
+	var result = swi.Call(Dat(42))
 	fmt.Printf("result from calling switch on 42: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(0)) {
+	if !result.Type().MatchArgs(Dat(0)) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	result = swi.Call(DecNative(uint(42)))
+	result = swi.Call(Dat(uint(42)))
 	fmt.Printf("result from calling switch on uint 42: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(uint(0))) {
+	if !result.Type().MatchArgs(Dat(uint(0))) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	result = swi.Call(DecNative(42.23))
+	result = swi.Call(Dat(42.23))
 	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
-	if !result.Type().MatchArgs(DecNative(uint(0.0))) {
+	if !result.Type().MatchArgs(Dat(uint(0.0))) {
 		t.Fail()
 	}
 
 	swi = swi.Reload()
-	result = swi.Call(DecNative(true))
+	result = swi.Call(Dat(true))
 	fmt.Printf("result from calling switch on true: %s\n", result)
 	if !result.Type().Match(None) {
 		t.Fail()
@@ -139,12 +139,12 @@ func TestSwitch(t *testing.T) {
 
 func TestMaybe(t *testing.T) {
 	var maybeString = NewMaybe(caseInteger)
-	var str = maybeString(DecNative(42))
+	var str = maybeString(Dat(42))
 	fmt.Printf("string: %s\n", str)
 	if str.Type().TypeReturn().Match(Def(Data, d.String)) {
 		t.Fail()
 	}
-	var none = maybeString(DecNative(true))
+	var none = maybeString(Dat(true))
 	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
 	if !none.Type().TypeReturn().Match(None) {
 		t.Fail()
@@ -157,9 +157,9 @@ func TestMaybe(t *testing.T) {
 func TestOption(t *testing.T) {
 	var (
 		option   = NewEitherOr(caseInteger, caseFloat)
-		intStr   = option(DecNative(23))
-		fltStr   = option(DecNative(42.23))
-		boolNone = option(DecNative(true))
+		intStr   = option(Dat(23))
+		fltStr   = option(Dat(42.23))
+		boolNone = option(Dat(true))
 	)
 	fmt.Printf("option: %s, option type: %s\n",
 		option, option.Type())
@@ -184,15 +184,15 @@ func TestOption(t *testing.T) {
 }
 
 func TestEnum(t *testing.T) {
-	var enumtype EnumType
+	var enumtype EnumDef
 	var weekdays = NewVector(
-		DecNative("Monday"),
-		DecNative("Tuesday"),
-		DecNative("Wednesday"),
-		DecNative("Thursday"),
-		DecNative("Friday"),
-		DecNative("Saturday"),
-		DecNative("Sunday"),
+		Dat("Monday"),
+		Dat("Tuesday"),
+		Dat("Wednesday"),
+		Dat("Thursday"),
+		Dat("Friday"),
+		Dat("Saturday"),
+		Dat("Sunday"),
 	)
 	enumtype = NewEnumType(func(day d.Numeral) Expression {
 		var idx = day.GoInt()

@@ -110,7 +110,7 @@ func NewNatPair(key d.Native, val Expression) NatPair {
 func (a NatPair) KeyNat() d.Native                   { _, key := a(); return key }
 func (a NatPair) Value() Expression                  { val, _ := a(); return val }
 func (a NatPair) Left() Expression                   { return a.Value() }
-func (a NatPair) Right() Expression                  { return DecData(a.KeyNat()) }
+func (a NatPair) Right() Expression                  { return Box(a.KeyNat()) }
 func (a NatPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a NatPair) Pair() Paired                       { return NewPair(a.Both()) }
 func (a NatPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -129,7 +129,7 @@ func (p NatPair) Type() TyPattern {
 // implement swappable
 func (p NatPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return DecData(r), l
+	return Box(r), l
 }
 func (p NatPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
@@ -153,7 +153,7 @@ func NewKeyPair(key string, val Expression) KeyPair {
 func (a KeyPair) KeyStr() string                     { _, key := a(); return key }
 func (a KeyPair) Value() Expression                  { val, _ := a(); return val }
 func (a KeyPair) Left() Expression                   { return a.Value() }
-func (a KeyPair) Right() Expression                  { return DecData(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Right() Expression                  { return Box(d.StrVal(a.KeyStr())) }
 func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
 func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -172,7 +172,7 @@ func (p KeyPair) Type() TyPattern {
 // implement swappable
 func (p KeyPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return DecData(d.StrVal(r)), l
+	return Box(d.StrVal(r)), l
 }
 func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
@@ -196,7 +196,7 @@ func NewIndexPair(idx int, val Expression) IndexPair {
 func (a IndexPair) Index() int                         { _, idx := a(); return idx }
 func (a IndexPair) Value() Expression                  { val, _ := a(); return val }
 func (a IndexPair) Left() Expression                   { return a.Value() }
-func (a IndexPair) Right() Expression                  { return DecData(d.IntVal(a.Index())) }
+func (a IndexPair) Right() Expression                  { return Box(d.IntVal(a.Index())) }
 func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
 func (a IndexPair) Pair() Paired                       { return a }
 func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
@@ -215,7 +215,7 @@ func (a IndexPair) Type() TyPattern {
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {
 	l, r := p()
-	return DecData(d.New(r)), l
+	return Box(d.New(r)), l
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 func (a IndexPair) Empty() bool {

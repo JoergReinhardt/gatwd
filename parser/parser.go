@@ -14,10 +14,10 @@ func (t TyTok) Type() f.TyPattern                 { return f.Def(t) }
 func (t TyTok) TypeFnc() f.TyFnc                  { return f.Type }
 func (t TyTok) Call(...f.Expression) f.Expression { return t }
 func (t TyTok) Flag() d.BitFlag                   { return d.BitFlag(uint(t)) }
-func (t TyTok) FlagType() d.Uint8Val              { return f.Flag_Token.U() }
+func (t TyTok) Kind() d.Uint8Val                  { return f.Kind_Token.U() }
 func (t TyTok) TypeName() string                  { return t.String() }
 func (t TyTok) Match(typ d.Typed) bool {
-	if typ.FlagType() == f.Flag_Token.U() {
+	if typ.Kind() == f.Kind_Token.U() {
 		return t == typ.(TyTok)
 	}
 	return false

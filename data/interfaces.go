@@ -10,34 +10,33 @@ type Stringer interface {
 type Flagged interface {
 	Flag() BitFlag
 }
-type FlagTyped interface {
-	FlagType() Uint8Val
-}
 type Matched interface {
 	Match(Typed) bool
 }
 type NativeTyped interface {
 	Type() TyNat
 }
-type NameTyped interface {
+type NameOfType interface {
 	TypeName() string
 }
 
 // typed needs to not have the NativeTyped interface, to stay interchangeable
 // with types from other packages
 type Typed interface {
-	FlagTyped
-	NameTyped
+	KindOfFlag
+	NameOfType
 	Flagged
 	Matched
 	Stringer
+}
+type KindOfFlag interface {
+	Kind() Uint8Val
 }
 
 // the main interface, all native types need to implement.
 type Native interface {
 	NativeTyped
 	Stringer
-	//	Type() Typed
 }
 
 type BinaryMarshaler interface {
@@ -218,9 +217,13 @@ type Sequential interface {
 	Tail() DataSlice
 	Shift() (Native, DataSlice)
 }
+
+// indexable sequence of native instances
 type Sliced interface {
 	Slice() []Native
 }
+
+// indexable sequence methods
 type Sliceable interface {
 	Sliced
 	Composed
@@ -232,13 +235,14 @@ type Sliceable interface {
 	TypeElem() Typed
 }
 
+// data mutability interface
 type Mutable interface {
 	Sliceable
 	Set(s, arg Native)
 	SetInt(int, Native)
 }
 
-// mapped is the interface of all sets, that have accessors (index, or key)
+// mapped is the interface of all key accessable hash maps
 type Mapped interface {
 	Native
 	Sliced
