@@ -58,7 +58,7 @@ func (p ValPair) Slice() []Expression            { return []Expression{p.Left(),
 func (p ValPair) Key() Expression                { return p.Right() }
 func (p ValPair) Value() Expression              { return p.Left() }
 func (p ValPair) TypeFnc() TyFnc                 { return Pair }
-func (p ValPair) TypeElem() TyPattern {
+func (p ValPair) TypeElem() TyPat {
 	if p.Right() != nil {
 		return p.Left().Type()
 	}
@@ -76,7 +76,7 @@ func (p ValPair) TypeValue() d.Typed {
 	}
 	return None
 }
-func (p ValPair) Type() TyPattern {
+func (p ValPair) Type() TyPat {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(None, None))
 	}
@@ -97,9 +97,6 @@ func (p ValPair) Call(args ...Expression) Expression {
 	return NewPair(p.Key(), p.Value().Call(args...))
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//// ASSOCIATIVE PAIRS
-///
 //// NATIVE VALUE KEY PAIR
 ///
 //
@@ -119,7 +116,7 @@ func (a NatPair) Call(args ...Expression) Expression { return a.Value().Call(arg
 func (a NatPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a NatPair) TypeKey() d.Typed                   { return a.KeyNat().Type() }
 func (a NatPair) TypeFnc() TyFnc                     { return Data | Pair }
-func (p NatPair) Type() TyPattern {
+func (p NatPair) Type() TyPat {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(Key, None))
 	}
@@ -162,7 +159,7 @@ func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(arg
 func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a KeyPair) TypeKey() d.Typed                   { return Key }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key | Pair }
-func (p KeyPair) Type() TyPattern {
+func (p KeyPair) Type() TyPat {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(Key, None))
 	}
@@ -186,7 +183,6 @@ func (a KeyPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
-///////////////////////////////////////////////////////////////////////////////
 //// INDEX PAIR
 ///
 // pair composed of an integer and a functional value
@@ -205,7 +201,7 @@ func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(a
 func (a IndexPair) TypeFnc() TyFnc                     { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed                   { return Index }
 func (a IndexPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a IndexPair) Type() TyPattern {
+func (a IndexPair) Type() TyPat {
 	if a.TypeKey().Match(None) && a.TypeValue().Match(None) {
 		return Def(Pair, Def(Index, None))
 	}
@@ -315,13 +311,13 @@ func (v VecVal) Call(args ...Expression) Expression {
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) Len() int            { return len(v()) }
 func (v VecVal) TypeFnc() TyFnc      { return Vector }
-func (v VecVal) Type() TyPattern {
+func (v VecVal) Type() TyPat {
 	if v.Len() > 0 {
 		return Def(Vector, v.Head().Type())
 	}
 	return Def(Vector, None)
 }
-func (v VecVal) TypeElem() TyPattern {
+func (v VecVal) TypeElem() TyPat {
 	if v.Len() > 0 {
 		return v.Head().Type()
 	}
@@ -476,6 +472,7 @@ func (v VecVal) String() string {
 	return "[" + strings.Join(strs, ", ") + "]"
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //// RECURSIVE LIST OF VALUES
 ///
 // lazy implementation of recursively linked list. backed by slice. returns
@@ -556,14 +553,14 @@ func (l ListVal) ConsumeList() (Expression, ListVal) {
 }
 func (l ListVal) TypeFnc() TyFnc { return List }
 func (l ListVal) Null() ListVal  { return NewList() }
-func (l ListVal) TypeElem() TyPattern {
+func (l ListVal) TypeElem() TyPat {
 	if l.Len() > 0 {
 		return l.Head().Type()
 	}
 	return Def(List, None)
 }
 
-func (l ListVal) Type() TyPattern {
+func (l ListVal) Type() TyPat {
 	if l.Len() > 0 {
 		return Def(List, l.Head().Type())
 	}

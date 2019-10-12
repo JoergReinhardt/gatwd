@@ -40,9 +40,9 @@ func NewGenerator(gen Expression) GenVal {
 func (g GenVal) Call(...Expression) Expression {
 	return NewPair(g(), NewGenerator(g()))
 }
-func (g GenVal) TypeFnc() TyFnc  { return Generator }
-func (g GenVal) Type() TyPattern { return Def(Generator, g.Head().Type()) }
-func (g GenVal) String() string  { return g.Head().String() }
+func (g GenVal) TypeFnc() TyFnc { return Generator }
+func (g GenVal) Type() TyPat    { return Def(Generator, g.Head().Type()) }
+func (g GenVal) String() string { return g.Head().String() }
 
 func (g GenVal) Consume() (Expression, Consumeable) { return g(), NewGenerator(g()) }
 func (g GenVal) Head() Expression                   { return g() }
@@ -72,7 +72,7 @@ func (g AccVal) Call(args ...Expression) Expression {
 	return g()
 }
 func (g AccVal) TypeFnc() TyFnc { return Accumulator }
-func (g AccVal) Type() TyPattern {
+func (g AccVal) Type() TyPat {
 	return Def(
 		Accumulator,
 		g.Head().Type().TypeReturn(),
@@ -101,7 +101,7 @@ func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
 }
 func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
 func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
-func (e EnumDef) Type() TyPattern {
+func (e EnumDef) Type() TyPat {
 	return Def(Enum, e.Expr().Type().TypeReturn())
 }
 func (e EnumDef) TypeFnc() TyFnc { return Enum }
@@ -152,7 +152,7 @@ func (e EnumVal) Previous() EnumVal {
 	return result
 }
 func (e EnumVal) String() string { return e.Expr().String() }
-func (e EnumVal) Type() TyPattern {
+func (e EnumVal) Type() TyPat {
 	var (
 		nat d.Native
 		idx = e.Index()
@@ -162,7 +162,7 @@ func (e EnumVal) Type() TyPattern {
 	} else {
 		nat = idx.Int()
 	}
-	return Def(Def(Enum, DefValNative(nat)), e.Expr().Type())
+	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
 }
 func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
 func (e EnumVal) Call(args ...Expression) Expression {
@@ -189,9 +189,9 @@ func NewSequence(seq Sequential) SeqVal {
 		return head, tail.(SeqVal)
 	}
 }
-func (s SeqVal) TypeFnc() TyFnc      { return s.Tail().TypeFnc() }
-func (s SeqVal) Type() TyPattern     { return s.Tail().Type() }
-func (s SeqVal) TypeElem() TyPattern { return s.Head().Type() }
+func (s SeqVal) TypeFnc() TyFnc  { return s.Tail().TypeFnc() }
+func (s SeqVal) Type() TyPat     { return s.Tail().Type() }
+func (s SeqVal) TypeElem() TyPat { return s.Head().Type() }
 func (s SeqVal) Cons(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
@@ -205,11 +205,11 @@ func (s SeqVal) Cons(elems ...Expression) Sequential {
 }
 func (s SeqVal) Prepend(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(elems) > 0 {
-			return s(elems...)
-		}
 		if len(args) > 0 {
 			_, s = s(args...)
+		}
+		if len(elems) > 0 {
+			return s(elems...)
 		}
 		return s()
 	})
@@ -279,10 +279,10 @@ func NewMonad(expr Expression) MonVal {
 	})
 }
 
-func (s MonVal) Type() TyPattern     { return Def(Monad, s.Current().Type()) }
-func (s MonVal) TypeElem() TyPattern { return s.Current().Type() }
-func (s MonVal) TypeFnc() TyFnc      { return s.Current().TypeFnc() }
-func (s MonVal) String() string      { return s.Current().String() }
+func (s MonVal) Type() TyPat     { return Def(Monad, s.Current().Type()) }
+func (s MonVal) TypeElem() TyPat { return s.Current().Type() }
+func (s MonVal) TypeFnc() TyFnc  { return s.Current().TypeFnc() }
+func (s MonVal) String() string  { return s.Current().String() }
 
 func (s MonVal) Step(args ...Expression) (Expression, Monadic) { return s(args...) }
 func (s MonVal) Call(args ...Expression) Expression {
@@ -359,9 +359,9 @@ func (s DataState) Sequence() Sequential {
 		return Box(data), state.Sequence().(SeqVal)
 	})
 }
-func (s DataState) String() string  { return s.Monad().String() }
-func (s DataState) Type() TyPattern { return Def(Monad, s.Current().Type()) }
-func (s DataState) TypeFnc() TyFnc  { return Data | State }
+func (s DataState) String() string { return s.Monad().String() }
+func (s DataState) Type() TyPat    { return Def(Monad, s.Current().Type()) }
+func (s DataState) TypeFnc() TyFnc { return Data | State }
 func (s DataState) Call(args ...Expression) Expression {
 	var (
 		n d.Native
@@ -401,7 +401,7 @@ func (s ExprState) Step(args ...Expression) (Expression, Monadic) {
 func (s ExprState) Current() Expression { var c, _ = s(); return c }
 func (s ExprState) Monad() Monadic      { var _, m = s(); return m }
 func (s ExprState) String() string      { return s.Monad().String() }
-func (s ExprState) Type() TyPattern     { return Def(Monad, s.Current().Type()) }
+func (s ExprState) Type() TyPat         { return Def(Monad, s.Current().Type()) }
 func (s ExprState) TypeFnc() TyFnc      { return State | s.Monad().TypeFnc() }
 func (s ExprState) Sequence() Sequential {
 	var (

@@ -12,7 +12,7 @@ type TyLex d.BitFlag
 
 func (t TyLex) TypeFnc() TyFnc                { return Lexical }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
-func (t TyLex) Type() TyPattern               { return Def(t) }
+func (t TyLex) Type() TyPat                   { return Def(t) }
 func (t TyLex) Kind() d.Uint8Val              { return Kind_Lexi.U() }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyLex) Utf8() string                  { return mapUtf8[t] }
@@ -384,7 +384,7 @@ func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
 type TyKeyWord d.BitFlag
 
-func (t TyKeyWord) Type() TyPattern               { return Def(t) }
+func (t TyKeyWord) Type() TyPat                   { return Def(t) }
 func (t TyKeyWord) Kind() d.Uint8Val              { return Kind_KeyWord.U() }
 func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
 func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }

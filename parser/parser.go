@@ -10,7 +10,7 @@ import (
 
 type TyTok uint8
 
-func (t TyTok) Type() f.TyPattern                 { return f.Def(t) }
+func (t TyTok) Type() f.TyPat                     { return f.Def(t) }
 func (t TyTok) TypeFnc() f.TyFnc                  { return f.Type }
 func (t TyTok) Call(...f.Expression) f.Expression { return t }
 func (t TyTok) Flag() d.BitFlag                   { return d.BitFlag(uint(t)) }

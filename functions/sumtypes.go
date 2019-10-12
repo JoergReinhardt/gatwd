@@ -51,8 +51,8 @@ func (n NoneVal) Empty() d.BoolVal                   { return true }
 func (n NoneVal) Test(...Expression) bool            { return false }
 func (n NoneVal) TypeFnc() TyFnc                     { return None }
 func (n NoneVal) TypeNat() d.TyNat                   { return d.Nil }
-func (n NoneVal) Type() TyPattern                    { return Def(None) }
-func (n NoneVal) TypeElem() TyPattern                { return Def(None) }
+func (n NoneVal) Type() TyPat                        { return Def(None) }
+func (n NoneVal) TypeElem() TyPat                    { return Def(None) }
 func (n NoneVal) TypeName() string                   { return n.String() }
 func (n NoneVal) Slice() []Expression                { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                    { return d.BitFlag(None) }
@@ -64,7 +64,7 @@ func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone
 // declares a constant value
 func NewConstant(constant func() Expression) GenericConst { return constant }
 
-func (c GenericConst) Type() TyPattern {
+func (c GenericConst) Type() TyPat {
 	return Def(Constant|c().Type().TypeFnc(), c().Type())
 }
 func (c GenericConst) TypeFnc() TyFnc                { return Constant }
@@ -76,7 +76,7 @@ func (c GenericConst) Call(...Expression) Expression { return c() }
 // declares a constant value
 func NewFunction(fnc func(...Expression) Expression) GenericFunc { return fnc }
 
-func (c GenericFunc) Type() TyPattern {
+func (c GenericFunc) Type() TyPat {
 	return Def(Value|c().Type().TypeFnc(), c().Type())
 }
 func (c GenericFunc) TypeFnc() TyFnc                { return Value }
@@ -87,18 +87,18 @@ func (c GenericFunc) Call(...Expression) Expression { return c() }
 //
 // element values yield a subelements of optional, tuple, or enumerable
 // expressions with sub-type pattern as second return value
-func tTp(typ []d.Typed) []TyPattern {
-	var pat = make([]TyPattern, 0, len(typ))
+func tTp(typ []d.Typed) []TyPat {
+	var pat = make([]TyPat, 0, len(typ))
 	for _, t := range typ {
 		if Kind_Comp.Match(t.Kind()) {
-			pat = append(pat, t.(TyPattern))
+			pat = append(pat, t.(TyPat))
 			continue
 		}
 		pat = append(pat, Def(t))
 	}
 	return pat
 }
-func pTt(pat []TyPattern) []d.Typed {
+func pTt(pat []TyPat) []d.Typed {
 	var typ = make([]d.Typed, 0, len(pat))
 	for _, p := range pat {
 		typ = append(typ, p)
@@ -106,7 +106,7 @@ func pTt(pat []TyPattern) []d.Typed {
 	return typ
 }
 func Define(
-	expr Expression, argtype, retype TyPattern,
+	expr Expression, argtype, retype TyPat,
 	propertys ...d.Typed,
 ) FuncDef {
 
@@ -116,7 +116,7 @@ func Define(
 
 	var (
 		ident         d.Typed
-		pattern       TyPattern
+		pattern       TyPat
 		props, idents []d.Typed
 		arglen        = argtype.Len()
 		argtypes      = argtype.Pattern()
@@ -186,7 +186,7 @@ func Define(
 	}
 }
 func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyPattern                    { return e().Call().(TyPattern) }
+func (e FuncDef) Type() TyPat                        { return e().Call().(TyPat) }
 func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
 func (e FuncDef) String() string                     { return e().String() }
 func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
@@ -212,7 +212,7 @@ func NewTuple(types ...d.Typed) FuncDef {
 	}
 	for _, typ := range types {
 		if Kind_Comp.Match(typ.Kind()) {
-			pattern = append(pattern, typ.(TyPattern))
+			pattern = append(pattern, typ.(TyPat))
 		} else {
 			pattern = append(pattern, Def(typ))
 		}
@@ -229,7 +229,7 @@ func NewTuple(types ...d.Typed) FuncDef {
 func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
 func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
 func (t TupleDef) String() string                     { return t.Type().String() }
-func (t TupleDef) Type() TyPattern {
+func (t TupleDef) Type() TyPat {
 	var (
 		elems = t()
 		count = len(elems)
@@ -248,7 +248,7 @@ func (t TupleDef) Type() TyPattern {
 func (t TupleVal) Call(...Expression) Expression { return t }
 func (t TupleVal) Count() int                    { return len(t) }
 func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
-func (t TupleVal) Type() TyPattern {
+func (t TupleVal) Type() TyPat {
 	var types = make([]d.Typed, 0, t.Count())
 	for _, elem := range t {
 		types = append(types, elem.Type())
@@ -288,8 +288,8 @@ func NewRecordType(types ...KeyPair) RecordDef {
 	}
 }
 
-func (r RecordDef) TypeFnc() TyFnc  { return Record }
-func (r RecordDef) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
+func (r RecordDef) TypeFnc() TyFnc { return Record }
+func (r RecordDef) Type() TyPat    { return Def(Record, Def(r.Types()...)) }
 func (r RecordDef) String() string {
 	var strs = make([]string, 0, len(r()))
 	for _, record := range r() {
@@ -324,9 +324,9 @@ func (r RecordDef) Call(args ...Expression) Expression {
 //// RECORD VALUE
 ///
 //
-func (r RecordVal) Count() int      { return len(r) }
-func (r RecordVal) Type() TyPattern { return Def(Record, Def(r.Types()...)) }
-func (r RecordVal) TypeFnc() TyFnc  { return Record }
+func (r RecordVal) Count() int     { return len(r) }
+func (r RecordVal) Type() TyPat    { return Def(Record, Def(r.Types()...)) }
+func (r RecordVal) TypeFnc() TyFnc { return Record }
 func (r RecordVal) Keys() []string {
 	var keys = make([]string, 0, len(r))
 	for _, record := range r {

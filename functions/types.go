@@ -13,11 +13,12 @@ type (
 	TyFnc  d.BitFlag  // functional primitive type
 	TyAri  d.Int8Val  // flag to mark function arity (TODO: tbr?)
 	TyProp d.Int8Val  // call property types
+	//TyNat d.BitFlag ← defined in data
 
 	// TYPE PATTERN
-	TyExpr    func(...Expression) Expression
-	TySymbol  string
-	TyPattern []d.Typed
+	TyExp func(...Expression) Expression
+	TySym string
+	TyPat []d.Typed
 )
 
 //go:generate stringer -type TyKind
@@ -51,8 +52,6 @@ const (
 	/// EXPRESSION TYPES
 	Data
 	Value
-	Class
-	Lambda
 	Constant
 	Generator
 	Accumulator
@@ -95,23 +94,22 @@ const (
 	Letter
 	Text
 	Bytes
-	/// SUM
-	List
-	Vector
 	/// PRODUCT
+	Vector
+	List
 	Set
 	Pair
+	/// SUM
 	Enum
 	Tuple
 	Record
+	/// COMPOUND
 	Monad
-	/// IMPURE
 	State
 	IO
 	/// HIGHER ORDER TYPE
 	Parametric
 
-	Kinds = Type | Data | Value | Class | Lambda | Generator
 	//// PARAMETER
 	Parameter = Property | Argument | Pattern | Element |
 		Lexical | Symbol | Arity | Index | Key
@@ -134,6 +132,8 @@ const (
 
 	Number = Natural | Integer | Real | Ratio
 	String = Letter | Text
+
+	ALL TyFnc = 0xFFFFFFFFFFFFFFFF
 )
 
 // functional type flag expresses the type of a functional value
@@ -143,15 +143,13 @@ func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
 func (t TyFnc) Kind() d.Uint8Val                   { return Kind_Func.U() }
 func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Type() TyPattern                    { return Def(t) }
+func (t TyFnc) Type() TyPat                        { return Def(t) }
 func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
 	if count > 1 {
 		switch t {
-		case Kinds:
-			return "Kinds"
 		case Parameter:
 			return "Parameter"
 		case Truth:
@@ -221,7 +219,7 @@ func flagToProp(flag d.BitFlag) TyProp { return TyProp(flag.Uint()) }
 
 func (p TyProp) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
 func (p TyProp) Kind() d.Uint8Val                   { return Kind_Prop.U() }
-func (p TyProp) Type() TyPattern                    { return Def(p) }
+func (p TyProp) Type() TyPat                        { return Def(p) }
 func (p TyProp) TypeFnc() TyFnc                     { return Property }
 func (p TyProp) TypeNat() d.TyNat                   { return d.Type }
 func (p TyProp) TypeName() string                   { return "Propertys" }
@@ -265,7 +263,7 @@ const (
 
 func (a TyAri) Kind() d.Uint8Val              { return Kind_Arity.U() }
 func (a TyAri) Flag() d.BitFlag               { return d.BitFlag(a) }
-func (a TyAri) Type() TyPattern               { return Def(a) }
+func (a TyAri) Type() TyPat                   { return Def(a) }
 func (a TyAri) TypeNat() d.TyNat              { return d.Type }
 func (a TyAri) TypeFnc() TyFnc                { return Arity }
 func (a TyAri) Int() int                      { return int(a) }
@@ -273,20 +271,22 @@ func (a TyAri) Match(arg d.Typed) bool        { return a == arg }
 func (a TyAri) TypeName() string              { return a.String() }
 func (a TyAri) Call(...Expression) Expression { return Box(d.IntVal(int(a))) }
 
-// type flag representing pattern elements that define a symbol
-func DefSym(name string) TySymbol   { return TySymbol(name) }
-func (n TySymbol) Kind() d.Uint8Val { return Kind_Symbol.U() }
-func (n TySymbol) Flag() d.BitFlag  { return Symbol.Flag() }
-func (n TySymbol) Type() TyPattern  { return Def(n) }
-func (n TySymbol) TypeFnc() TyFnc   { return Symbol }
-func (n TySymbol) String() string   { return n.TypeName() }
-func (n TySymbol) TypeName() string {
+//// TYPE SYMBOL
+///
+// type flag representing pattern elements that define symbols
+func DefSym(name string) TySym   { return TySym(name) }
+func (n TySym) Kind() d.Uint8Val { return Kind_Symbol.U() }
+func (n TySym) Flag() d.BitFlag  { return Symbol.Flag() }
+func (n TySym) Type() TyPat      { return Def(n) }
+func (n TySym) TypeFnc() TyFnc   { return Symbol }
+func (n TySym) String() string   { return n.TypeName() }
+func (n TySym) TypeName() string {
 	if strings.Contains(string(n), " ") {
 		return "(" + string(n) + ")"
 	}
 	return string(n)
 }
-func (n TySymbol) Call(args ...Expression) Expression {
+func (n TySym) Call(args ...Expression) Expression {
 	for _, arg := range args {
 		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
 			return Box(d.BoolVal(false))
@@ -294,60 +294,66 @@ func (n TySymbol) Call(args ...Expression) Expression {
 	}
 	return Box(d.BoolVal(true))
 }
-func (n TySymbol) Match(typ d.Typed) bool {
+func (n TySym) Match(typ d.Typed) bool {
 	if Kind_Symbol.Match(typ.Kind()) {
 		return s.Compare(string(n),
-			string(typ.(TySymbol))) == 0
+			string(typ.(TySym))) == 0
 	}
 	return s.Compare(string(n), typ.TypeName()) == 0
 }
 
-// type flag representing a pattern element that represents a value
-func DefValNative(nat d.Native) TyExpr {
-	return DefVal(Dat(nat))
-}
-func DefValGo(val interface{}) TyExpr {
+//// TYPE EXPRESSION
+///
+// type flag representing a parametric element in a type pattern by a value, or
+// type-expression, expecting and returning typeflags as its values.
+func DefValGo(val interface{}) TyExp {
 	return DefVal(Dat(d.New(val)))
 }
-func DefVal(expr Expression) TyExpr {
+func DefValNat(nat d.Native) TyExp {
+	return DefVal(Dat(nat))
+}
+func DefVal(expr Expression) TyExp {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return expr.Call(args...)
 		}
-		return expr
+		return expr.Call()
 	}
 }
-func (n TyExpr) Kind() d.Uint8Val                   { return Kind_Value.U() }
-func (n TyExpr) Flag() d.BitFlag                    { return Value.Flag() }
-func (n TyExpr) Type() TyPattern                    { return Def(n) }
-func (n TyExpr) TypeFnc() TyFnc                     { return Value }
-func (n TyExpr) String() string                     { return n().String() }
-func (n TyExpr) TypeName() string                   { return n().Type().TypeName() }
-func (n TyExpr) Value() Expression                  { return n() }
-func (n TyExpr) Call(args ...Expression) Expression { return n(args...) }
+func (n TyExp) Kind() d.Uint8Val                   { return Kind_Value.U() }
+func (n TyExp) Flag() d.BitFlag                    { return Value.Flag() }
+func (n TyExp) Type() TyPat                        { return Def(n) }
+func (n TyExp) TypeFnc() TyFnc                     { return Value }
+func (n TyExp) String() string                     { return n().String() }
+func (n TyExp) TypeName() string                   { return n().Type().TypeName() }
+func (n TyExp) Value() Expression                  { return n() }
+func (n TyExp) Call(args ...Expression) Expression { return n(args...) }
 
-func (n TyExpr) Match(typ d.Typed) bool {
+func (n TyExp) Match(typ d.Typed) bool {
 	if Kind_Value.Match(typ.Kind()) {
 		return true
 	}
 	return false
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//// TYPE PATTERN
+///
 // pattern of type, property, arity, symbol & value flags
-func Def(args ...d.Typed) TyPattern { return args }
+func Def(args ...d.Typed) TyPat { return args }
 
 // elems yields all elements contained in the pattern
-func (p TyPattern) Type() TyPattern               { return p }
-func (p TyPattern) Types() []d.Typed              { return p }
-func (p TyPattern) Call(...Expression) Expression { return p }
-func (p TyPattern) Len() int                      { return len(p.Types()) }
-func (p TyPattern) String() string                { return p.TypeName() }
-func (p TyPattern) Kind() d.Uint8Val              { return Kind_Comp.U() }
-func (p TyPattern) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
-func (p TyPattern) TypeFnc() TyFnc                { return Pattern }
+func (p TyPat) Type() TyPat                   { return p }
+func (p TyPat) Types() []d.Typed              { return p }
+func (p TyPat) Call(...Expression) Expression { return p } // ← TODO: match arg instances
+func (p TyPat) Len() int                      { return len(p.Types()) }
+func (p TyPat) String() string                { return p.TypeName() }
+func (p TyPat) Kind() d.Uint8Val              { return Kind_Comp.U() }
+func (p TyPat) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
+func (p TyPat) TypeFnc() TyFnc                { return Pattern }
 
 // length of elements excluding fields set to none
-func (p TyPattern) Count() int {
+func (p TyPat) Count() int {
 	var count int
 	for _, elem := range p {
 		if !elem.Match(None) {
@@ -356,217 +362,7 @@ func (p TyPattern) Count() int {
 	}
 	return count
 }
-func (p TyPattern) HasIdentity() bool {
-	if p.Count() > 0 {
-		return true
-	}
-	return false
-}
-func (p TyPattern) HasReturnType() bool {
-	if p.Count() > 1 {
-		return true
-	}
-	return false
-}
-func (p TyPattern) HasArguments() bool {
-	if p.Count() > 2 {
-		return true
-	}
-	return false
-}
-
-// one element pattern is a type identity
-func (p TyPattern) IsIdentity() bool {
-	if p.Count() == 1 {
-		return true
-	}
-	return false
-}
-func (p TyPattern) IsAtomic() bool {
-	if p.IsIdentity() {
-		return !strings.ContainsAny(p.Elements()[0].TypeName(), " |,:")
-	}
-	return false
-}
-func (p TyPattern) IsTruth() bool {
-	if p.Count() == 1 {
-		return p.Elements()[0].Match(Truth)
-	}
-	return false
-}
-func (p TyPattern) IsTrinary() bool {
-	if p.Count() == 1 {
-		return p.Elements()[0].Match(Trinary)
-	}
-	return false
-}
-func (p TyPattern) IsCompare() bool {
-	if p.Count() == 1 {
-		return p.Elements()[0].Match(Compare)
-	}
-	return false
-}
-func (p TyPattern) IsParameter() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Parameter)
-	}
-	return false
-}
-func (p TyPattern) IsData() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Data)
-	}
-	return false
-}
-func (p TyPattern) IsPair() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Pair)
-	}
-	return false
-}
-func (p TyPattern) IsVector() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Vector)
-	}
-	return false
-}
-func (p TyPattern) IsList() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(List)
-	}
-	return false
-}
-func (p TyPattern) IsCollection() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Collections)
-	}
-	return false
-}
-func (p TyPattern) IsEnum() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Enum)
-	}
-	return false
-}
-func (p TyPattern) IsTuple() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Tuple)
-	}
-	return false
-}
-func (p TyPattern) IsRecord() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Record)
-	}
-	return false
-}
-func (p TyPattern) IsSet() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Set)
-	}
-	return false
-}
-func (p TyPattern) IsSwitch() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Switch)
-	}
-	return false
-}
-func (p TyPattern) IsNumber() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Number)
-	}
-	return false
-}
-func (p TyPattern) IsString() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(String)
-	}
-	return false
-}
-func (p TyPattern) IsBytes() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Bytes)
-	}
-	return false
-}
-func (p TyPattern) IsSumType() bool {
-	if p.Count() == 2 && (p.IsList() || p.IsVector() || p.IsEnum()) {
-		return true
-	}
-	return false
-}
-func (p TyPattern) IsProductType() bool {
-	if p.Count() == 2 && (p.IsTuple() || p.IsRecord() || p.IsPair() || p.IsSet()) {
-		return true
-	}
-	return false
-}
-func (p TyPattern) IsCase() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Case)
-	}
-	return false
-}
-func (p TyPattern) IsMaybe() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Maybe)
-	}
-	return false
-}
-func (p TyPattern) IsAlternative() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Variant)
-	}
-	return false
-}
-func (p TyPattern) IsFunction() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Value)
-	}
-	return false
-}
-func (p TyPattern) IsParametric() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Parametric)
-	}
-	return false
-}
-
-// two element pattern is a constant type returning a value type
-func (p TyPattern) HasData() bool        { return p.MatchAnyType(Data) }
-func (p TyPattern) HasPair() bool        { return p.MatchAnyType(Pair) }
-func (p TyPattern) HasEnum() bool        { return p.MatchAnyType(Enum) }
-func (p TyPattern) HasTuple() bool       { return p.MatchAnyType(Tuple) }
-func (p TyPattern) HasRecord() bool      { return p.MatchAnyType(Record) }
-func (p TyPattern) HasParameter() bool   { return p.MatchAnyType(Parameter) }
-func (p TyPattern) HasTruth() bool       { return p.MatchAnyType(Truth) }
-func (p TyPattern) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
-func (p TyPattern) HasCompare() bool     { return p.MatchAnyType(Compare) }
-func (p TyPattern) HasBound() bool       { return p.MatchAnyType(Min, Max) }
-func (p TyPattern) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
-func (p TyPattern) HasAlternative() bool { return p.MatchAnyType(Variant) }
-func (p TyPattern) HasNumber() bool      { return p.MatchAnyType(Number) }
-func (p TyPattern) HasString() bool      { return p.MatchAnyType(String) }
-func (p TyPattern) HasBytes() bool       { return p.MatchAnyType(Bytes) }
-func (p TyPattern) HasCollection() bool {
-	return p.MatchAnyType(
-		List, Vector, Tuple, Enum, Record)
-}
-func (p TyPattern) HasReturn() bool {
-	if p.Count() >= 2 {
-		return true
-	}
-	return false
-}
-func (p TyPattern) HasArgs() bool {
-	if p.Count() >= 3 {
-		return true
-	}
-	return false
-}
-
-func (p TyPattern) Get(idx int) TyPattern {
+func (p TyPat) Get(idx int) TyPat {
 	if idx < p.Len() {
 		return p.Pattern()[idx]
 	}
@@ -574,7 +370,7 @@ func (p TyPattern) Get(idx int) TyPattern {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyPattern) Head() Expression {
+func (p TyPat) Head() Expression {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -583,23 +379,23 @@ func (p TyPattern) Head() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyPattern) HeadTyped() d.Typed { return p.Head().(d.Typed) }
+func (p TyPat) HeadTyped() d.Typed { return p.Head().(d.Typed) }
 
 // type-head yields first pattern element as typed
-func (p TyPattern) HeadPattern() TyPattern { return p.Head().(TyPattern) }
+func (p TyPat) HeadPattern() TyPat { return p.Head().(TyPat) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyPattern) Tail() Consumeable {
+func (p TyPat) Tail() Consumeable {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
-	return TyPattern([]d.Typed{})
+	return TyPat([]d.Typed{})
 }
 
 // tail-type yields a type pattern consisting of all pattern elements but the
 // first one
-func (p TyPattern) TailPattern() TyPattern {
+func (p TyPat) TailPattern() TyPat {
 	if p.Len() > 0 {
 		return p.Types()[1:]
 	}
@@ -607,11 +403,11 @@ func (p TyPattern) TailPattern() TyPattern {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyPattern) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
+func (p TyPat) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
 
 // type-consume works like consume, but yields the head cast as typed & the
 // tail as a type pattern
-func (p TyPattern) ConsumeTyped() (d.Typed, TyPattern) {
+func (p TyPat) ConsumeTyped() (d.Typed, TyPat) {
 	if p.Len() > 1 {
 		return p.Pattern()[0], Def(p.Types()[1:]...)
 	}
@@ -623,33 +419,33 @@ func (p TyPattern) ConsumeTyped() (d.Typed, TyPattern) {
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
-func (p TyPattern) ConsumePattern() (TyPattern, TyPattern) {
+func (p TyPat) ConsumePattern() (TyPat, TyPat) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyPattern) Cons(args ...Expression) Sequential {
+func (p TyPat) Cons(args ...Expression) Sequential {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
-		types = append(types, pat.(TyPattern))
+		types = append(types, pat.(TyPat))
 	}
 	return NewVector(append(args, types...)...)
 }
 
-func (p TyPattern) Append(args ...Expression) Sequential {
+func (p TyPat) Append(args ...Expression) Sequential {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
-		types = append(types, pat.(TyPattern))
+		types = append(types, pat.(TyPat))
 	}
 	return NewVector(append(types, args...)...)
 }
 
 // pattern yields a slice of type patterns, with all none & nil elements
 // filtered out
-func (p TyPattern) Pattern() []TyPattern {
-	var pattern = make([]TyPattern, 0, p.Len())
+func (p TyPat) Pattern() []TyPat {
+	var pattern = make([]TyPat, 0, p.Len())
 	for _, typ := range p.Types() {
 		if Kind_Comp.Match(typ.Kind()) {
-			pattern = append(pattern, typ.(TyPattern))
+			pattern = append(pattern, typ.(TyPat))
 			continue
 		}
 		pattern = append(pattern, Def(typ))
@@ -659,7 +455,7 @@ func (p TyPattern) Pattern() []TyPattern {
 
 // pattern yields a slice of type patterns, with all none & nil elements
 // filtered out
-func (p TyPattern) Elements() []d.Typed {
+func (p TyPat) Elements() []d.Typed {
 	var elems = make([]d.Typed, 0, p.Count())
 	for _, elem := range p {
 		if Kind_Native.Match(elem.Kind()) {
@@ -674,8 +470,8 @@ func (p TyPattern) Elements() []d.Typed {
 	}
 	return elems
 }
-func (p TyPattern) Fields() []TyPattern {
-	var elems = make([]TyPattern, 0, p.Count())
+func (p TyPat) Fields() []TyPat {
+	var elems = make([]TyPat, 0, p.Count())
 	for _, elem := range p.Elements() {
 		if Kind_Native.Match(elem.Kind()) {
 			if elem.Match(d.Nil) {
@@ -686,7 +482,7 @@ func (p TyPattern) Fields() []TyPattern {
 			continue
 		}
 		if Kind_Comp.Match(elem.Kind()) {
-			elems = append(elems, elem.(TyPattern))
+			elems = append(elems, elem.(TyPat))
 			continue
 		}
 		elems = append(elems, Def(elem))
@@ -696,13 +492,13 @@ func (p TyPattern) Fields() []TyPattern {
 
 // expressions that take arguments are expected to also have a type identity
 // and return type.
-func (p TyPattern) TypeArguments() TyPattern {
+func (p TyPat) TypeArguments() TyPat {
 	if p.Len() > 2 {
 		return p.Pattern()[0]
 	}
 	return Def(None)
 }
-func (p TyPattern) ArgumentsName() string {
+func (p TyPat) ArgumentsName() string {
 	if p.TypeArguments().Len() > 0 {
 		if !p.TypeArguments().Match(None) {
 			if p.TypeArguments().Len() > 1 {
@@ -719,7 +515,7 @@ func (p TyPattern) ArgumentsName() string {
 
 // each type is expected to have a type identity, which is the second last
 // element in the types pattern
-func (p TyPattern) TypeIdent() TyPattern {
+func (p TyPat) TypeIdent() TyPat {
 	if p.Len() > 2 {
 		return p.Pattern()[1]
 	}
@@ -728,7 +524,7 @@ func (p TyPattern) TypeIdent() TyPattern {
 	}
 	return Def(None)
 }
-func (p TyPattern) IdentName() string {
+func (p TyPat) IdentName() string {
 	if p.TypeIdent().Len() > 0 {
 		if !p.TypeIdent().Match(None) {
 			if p.TypeIdent().Len() > 1 {
@@ -757,7 +553,7 @@ func (p TyPattern) IdentName() string {
 
 // each type is expected to have an return type, which equals the last element
 // in the types pattern
-func (p TyPattern) TypeReturn() TyPattern {
+func (p TyPat) TypeReturn() TyPat {
 	if p.Len() > 2 {
 		return p.Pattern()[2]
 	}
@@ -766,7 +562,7 @@ func (p TyPattern) TypeReturn() TyPattern {
 	}
 	return Def(None)
 }
-func (p TyPattern) ReturnName() string {
+func (p TyPat) ReturnName() string {
 	if p.TypeReturn().Len() > 0 {
 		if !p.TypeReturn().Match(None) {
 			if p.TypeReturn().Len() > 1 {
@@ -794,9 +590,9 @@ func (p TyPattern) ReturnName() string {
 }
 
 // type-elem yields the first elements typed
-func (p TyPattern) TypeElem() TyPattern { return p.TypeIdent() }
+func (p TyPat) TypeElem() TyPat { return p.TypeIdent() }
 
-func (p TyPattern) TypeName() string {
+func (p TyPat) TypeName() string {
 	var strs = []string{}
 	if !p.TypeArguments().Match(None) {
 		strs = append(strs, p.ArgumentsName())
@@ -813,7 +609,7 @@ func (p TyPattern) TypeName() string {
 // print converts pattern to string, seperating the elements with a seperator
 // and putting sub patterns in delimiters. seperator and delimiters are passed
 // to the method. sub patterns are printed recursively.
-func (p TyPattern) Print(ldelim, sep, rdelim string) string {
+func (p TyPat) Print(ldelim, sep, rdelim string) string {
 	var names = make([]string, 0, p.Len())
 	for _, typ := range p.Types() {
 		// element is instance of data/typed → print type-name
@@ -822,7 +618,7 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 			continue
 		}
 		// element is a type pattern
-		var pat = typ.(TyPattern)
+		var pat = typ.(TyPat)
 		// print type pattern with delimiters and separator
 		names = append(names, pat.Print(ldelim, sep, rdelim))
 	}
@@ -834,9 +630,9 @@ func (p TyPattern) Print(ldelim, sep, rdelim string) string {
 // and yields the resulting bool. should the argument be a pattern itself, all
 // its sub elements are evaluated to match sub patterns recursively, when
 // called by match-all method.
-func (p TyPattern) Match(typ d.Typed) bool {
+func (p TyPat) Match(typ d.Typed) bool {
 	if Kind_Comp.Match(typ.Kind()) {
-		if pat, ok := typ.(TyPattern); ok {
+		if pat, ok := typ.(TyPat); ok {
 			return p.MatchTypes(pat.Types()...)
 		}
 	}
@@ -845,7 +641,7 @@ func (p TyPattern) Match(typ d.Typed) bool {
 
 // match-types takes multiple types and matches them against an equal number of
 // arguments starting with the first one
-func (p TyPattern) MatchTypes(types ...d.Typed) bool {
+func (p TyPat) MatchTypes(types ...d.Typed) bool {
 	var short, long = p.sortLength(types...)
 	for n, elem := range short {
 		if !elem.Match(long[n]) {
@@ -854,7 +650,7 @@ func (p TyPattern) MatchTypes(types ...d.Typed) bool {
 	}
 	return true
 }
-func (p TyPattern) MatchAnyType(args ...d.Typed) bool {
+func (p TyPat) MatchAnyType(args ...d.Typed) bool {
 	for _, elem := range p {
 		for _, arg := range args {
 			if elem.Match(arg) {
@@ -867,14 +663,14 @@ func (p TyPattern) MatchAnyType(args ...d.Typed) bool {
 
 // match-args takes multiple expression arguments and matches their types
 // against the elements of the pattern.
-func (p TyPattern) MatchArgs(args ...Expression) bool {
+func (p TyPat) MatchArgs(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
 		types = append(types, arg.Type())
 	}
 	return p.MatchTypes(types...)
 }
-func (p TyPattern) MatchAnyArg(args ...Expression) bool {
+func (p TyPat) MatchAnyArg(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
 		types = append(types, arg.Type())
@@ -885,7 +681,7 @@ func (p TyPattern) MatchAnyArg(args ...Expression) bool {
 // matches multiple type flags against its elements in order. should there be
 // more, or less arguments than pattern elements, the shorter sequence will be
 // matched.
-func (p TyPattern) sortLength(types ...d.Typed) (short, long []d.Typed) {
+func (p TyPat) sortLength(types ...d.Typed) (short, long []d.Typed) {
 	// if number of arguments is not equal to number of elements, find
 	// shorter sequence
 	if p.Len() > len(types) {
@@ -894,4 +690,215 @@ func (p TyPattern) sortLength(types ...d.Typed) (short, long []d.Typed) {
 		short, long = p.Types(), types
 	}
 	return short, long
+}
+
+// bool methods
+func (p TyPat) HasIdentity() bool {
+	if p.Count() > 0 {
+		return true
+	}
+	return false
+}
+func (p TyPat) HasReturnType() bool {
+	if p.Count() > 1 {
+		return true
+	}
+	return false
+}
+func (p TyPat) HasArguments() bool {
+	if p.Count() > 2 {
+		return true
+	}
+	return false
+}
+
+// one element pattern is a type identity
+func (p TyPat) IsIdentity() bool {
+	if p.Count() == 1 {
+		return true
+	}
+	return false
+}
+func (p TyPat) IsAtomic() bool {
+	if p.IsIdentity() {
+		return !strings.ContainsAny(p.Elements()[0].TypeName(), " |,:")
+	}
+	return false
+}
+func (p TyPat) IsTruth() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Truth)
+	}
+	return false
+}
+func (p TyPat) IsTrinary() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Trinary)
+	}
+	return false
+}
+func (p TyPat) IsCompare() bool {
+	if p.Count() == 1 {
+		return p.Elements()[0].Match(Compare)
+	}
+	return false
+}
+func (p TyPat) IsParameter() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Parameter)
+	}
+	return false
+}
+func (p TyPat) IsData() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Data)
+	}
+	return false
+}
+func (p TyPat) IsPair() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Pair)
+	}
+	return false
+}
+func (p TyPat) IsVector() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Vector)
+	}
+	return false
+}
+func (p TyPat) IsList() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(List)
+	}
+	return false
+}
+func (p TyPat) IsCollection() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Collections)
+	}
+	return false
+}
+func (p TyPat) IsEnum() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Enum)
+	}
+	return false
+}
+func (p TyPat) IsTuple() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Tuple)
+	}
+	return false
+}
+func (p TyPat) IsRecord() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Record)
+	}
+	return false
+}
+func (p TyPat) IsSet() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Set)
+	}
+	return false
+}
+func (p TyPat) IsSwitch() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Switch)
+	}
+	return false
+}
+func (p TyPat) IsNumber() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Number)
+	}
+	return false
+}
+func (p TyPat) IsString() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(String)
+	}
+	return false
+}
+func (p TyPat) IsBytes() bool {
+	if p.Count() == 2 {
+		return p.Elements()[0].Match(Bytes)
+	}
+	return false
+}
+func (p TyPat) IsSumType() bool {
+	if p.Count() == 2 && (p.IsList() || p.IsVector() || p.IsEnum()) {
+		return true
+	}
+	return false
+}
+func (p TyPat) IsProductType() bool {
+	if p.Count() == 2 && (p.IsTuple() || p.IsRecord() || p.IsPair() || p.IsSet()) {
+		return true
+	}
+	return false
+}
+func (p TyPat) IsCase() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Case)
+	}
+	return false
+}
+func (p TyPat) IsMaybe() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Maybe)
+	}
+	return false
+}
+func (p TyPat) IsAlternative() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Variant)
+	}
+	return false
+}
+func (p TyPat) IsFunction() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Value)
+	}
+	return false
+}
+func (p TyPat) IsParametric() bool {
+	if p.Count() == 3 {
+		return p.Elements()[1].Match(Parametric)
+	}
+	return false
+}
+
+// two element pattern is a constant type returning a value type
+func (p TyPat) HasData() bool        { return p.MatchAnyType(Data) }
+func (p TyPat) HasPair() bool        { return p.MatchAnyType(Pair) }
+func (p TyPat) HasEnum() bool        { return p.MatchAnyType(Enum) }
+func (p TyPat) HasTuple() bool       { return p.MatchAnyType(Tuple) }
+func (p TyPat) HasRecord() bool      { return p.MatchAnyType(Record) }
+func (p TyPat) HasParameter() bool   { return p.MatchAnyType(Parameter) }
+func (p TyPat) HasTruth() bool       { return p.MatchAnyType(Truth) }
+func (p TyPat) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
+func (p TyPat) HasCompare() bool     { return p.MatchAnyType(Compare) }
+func (p TyPat) HasBound() bool       { return p.MatchAnyType(Min, Max) }
+func (p TyPat) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
+func (p TyPat) HasAlternative() bool { return p.MatchAnyType(Variant) }
+func (p TyPat) HasNumber() bool      { return p.MatchAnyType(Number) }
+func (p TyPat) HasString() bool      { return p.MatchAnyType(String) }
+func (p TyPat) HasBytes() bool       { return p.MatchAnyType(Bytes) }
+func (p TyPat) HasCollection() bool {
+	return p.MatchAnyType(
+		List, Vector, Tuple, Enum, Record)
+}
+func (p TyPat) HasReturn() bool {
+	if p.Count() >= 2 {
+		return true
+	}
+	return false
+}
+func (p TyPat) HasArgs() bool {
+	if p.Count() >= 3 {
+		return true
+	}
+	return false
 }

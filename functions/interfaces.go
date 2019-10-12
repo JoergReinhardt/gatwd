@@ -86,7 +86,7 @@ type Expression interface {
 	FunctionTyped
 	Evaluable
 	Stringer
-	Type() TyPattern
+	Type() TyPat
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -125,7 +125,7 @@ type Consumeable interface {
 // which in the case of appending to an infinite list, may as well be never.
 type Sequential interface {
 	Consumeable
-	TypeElem() TyPattern
+	TypeElem() TyPat
 	Prepend(...Expression) Sequential
 	Append(...Expression) Sequential
 	Cons(...Expression) Sequential
