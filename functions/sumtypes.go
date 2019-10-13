@@ -12,17 +12,19 @@ type (
 	GenericConst func() Expression
 	GenericFunc  func(...Expression) Expression
 
+	//// NAMED EXPRESSION
+	NameDef func(...Expression) (Expression, TyComp)
+
 	//// DECLARED EXPRESSION
-	FuncDef func(...Expression) FuncVal
-	FuncVal Expression
+	FuncDef func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
-	TupleDef func(...Expression) TupleVal
-	TupleVal []Expression
+	TupleDef func(...Expression) Expression
+	TupleVal func() ([]Expression, TyComp)
 
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
 	RecordDef func(...KeyPair) RecordVal
-	RecordVal []KeyPair
+	RecordVal func() ([]KeyPair, TyComp)
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -51,324 +53,254 @@ func (n NoneVal) Empty() d.BoolVal                   { return true }
 func (n NoneVal) Test(...Expression) bool            { return false }
 func (n NoneVal) TypeFnc() TyFnc                     { return None }
 func (n NoneVal) TypeNat() d.TyNat                   { return d.Nil }
-func (n NoneVal) Type() TyPat                        { return Def(None) }
-func (n NoneVal) TypeElem() TyPat                    { return Def(None) }
+func (n NoneVal) Type() TyComp                       { return Def(None) }
+func (n NoneVal) TypeElem() TyComp                   { return Def(None) }
 func (n NoneVal) TypeName() string                   { return n.String() }
 func (n NoneVal) Slice() []Expression                { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                    { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val               { return Kind_Func.U() }
+func (n NoneVal) FlagType() d.Uint8Val               { return Kind_Fnc.U() }
 func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone() }
 
-//// CONSTANT DECLARATION
+//// GENERIC CONSTANT DEFINITION
 ///
 // declares a constant value
 func NewConstant(constant func() Expression) GenericConst { return constant }
 
-func (c GenericConst) Type() TyPat {
-	return Def(Constant|c().Type().TypeFnc(), c().Type())
-}
+func (c GenericConst) Type() TyComp                  { return Def(Constant, c().Type()) }
 func (c GenericConst) TypeFnc() TyFnc                { return Constant }
 func (c GenericConst) String() string                { return c().String() }
 func (c GenericConst) Call(...Expression) Expression { return c() }
 
-//// FUNCTION DECLARATION
+//// GENERIC FUNCTION DEFINITION
 ///
 // declares a constant value
-func NewFunction(fnc func(...Expression) Expression) GenericFunc { return fnc }
-
-func (c GenericFunc) Type() TyPat {
-	return Def(Value|c().Type().TypeFnc(), c().Type())
-}
-func (c GenericFunc) TypeFnc() TyFnc                { return Value }
-func (c GenericFunc) String() string                { return c().String() }
-func (c GenericFunc) Call(...Expression) Expression { return c() }
-
-/// PARTIAL APPLYABLE EXPRESSION VALUE
-//
-// element values yield a subelements of optional, tuple, or enumerable
-// expressions with sub-type pattern as second return value
-func tTp(typ []d.Typed) []TyPat {
-	var pat = make([]TyPat, 0, len(typ))
-	for _, t := range typ {
-		if Kind_Comp.Match(t.Kind()) {
-			pat = append(pat, t.(TyPat))
-			continue
+func NewFunction(fnc func(...Expression) Expression) GenericFunc {
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return fnc(args...)
 		}
-		pat = append(pat, Def(t))
+		return fnc()
 	}
-	return pat
 }
-func pTt(pat []TyPat) []d.Typed {
-	var typ = make([]d.Typed, 0, len(pat))
-	for _, p := range pat {
-		typ = append(typ, p)
+
+func (c GenericFunc) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return c(args...)
 	}
-	return typ
+	return c()
 }
-func Define(
-	expr Expression, argtype, retype TyPat,
-	propertys ...d.Typed,
-) FuncDef {
+func (c GenericFunc) String() string { return c().String() }
+func (c GenericFunc) Type() TyComp   { return c().Type() }
+func (c GenericFunc) TypeFnc() TyFnc { return c().TypeFnc() }
 
-	if !Kind_Comp.Match(argtype.Kind()) {
-		argtype = Def(argtype)
-	}
+//// NAMED EXPRESSION DEFINITION
+///
+// declares a constant value
+func NewNamedDefinition(
+	fnc func(...Expression) Expression,
+	name string,
+	retype d.Typed,
+	argtypes ...d.Typed,
+) NameDef {
+	var tc = Def(DefSym(name), retype, Def(argtypes...))
+	return NameDef(func(args ...Expression) (Expression, TyComp) {
+		if len(args) > 0 {
+			return fnc(args...), tc
+		}
+		return fnc(), tc
+	})
+}
 
-	var (
-		ident         d.Typed
-		pattern       TyPat
-		props, idents []d.Typed
-		arglen        = argtype.Len()
-		argtypes      = argtype.Pattern()
+// define named alias from defined expression
+func NewAliasDefinition(
+	expr Expression,
+	name string,
+) NameDef {
+	var tc = Def(
+		DefSym(name),
+		expr.Type().TypeReturn(),
+		expr.Type().TypeArguments(),
 	)
-
-	// if no propertys are passed, function type is the types ident
-	if len(propertys) == 0 {
-		ident = expr.TypeFnc()
-	} else {
-		// scan passed propertys for symbols
-		props, idents = []d.Typed{}, []d.Typed{}
-		for _, typ := range propertys {
-			if Kind_Symbol.Match(typ.Kind()) {
-				idents = append(idents, typ)
-				continue
-			}
-			props = append(props, typ)
+	return NameDef(func(args ...Expression) (Expression, TyComp) {
+		if len(args) > 0 {
+			return expr.Call(args...), tc
 		}
-		// define type identity from fetched symbol(s)
-		ident = Def(idents...)
-	}
-
-	if len(props) > 0 {
-		pattern = Def(argtype, ident, retype, Def(props...))
-	} else {
-		pattern = Def(argtype, ident, retype)
-	}
-
-	return func(args ...Expression) FuncVal {
-		var length = len(args)
-		if length > 0 {
-			if pattern.TypeArguments().MatchArgs(args...) {
-				switch {
-				case length == arglen:
-					return expr.Call(args...)
-
-				case length < arglen:
-					var remains = argtypes[length:]
-					return Define(FuncDef(
-						func(lateargs ...Expression) FuncVal {
-							if len(lateargs) > 0 {
-								return expr.Call(append(
-									args, lateargs...,
-								)...)
-							}
-							return Def(Def(pTt(remains)...), ident, retype)
-						}), Def(pTt(remains)...), Def(ident), retype)
-
-				case length > arglen:
-					var vector = NewVector()
-					for len(args) > arglen {
-						vector = vector.Cons(
-							expr.Call(args[:arglen]...)).(VecVal)
-						args = args[arglen:]
-					}
-					if length > 0 {
-						vector = vector.Cons(Define(
-							expr, argtype, retype, propertys...,
-						).Call(args...)).(VecVal)
-					}
-					return vector
-				}
-			}
-			return None
-		}
-		return pattern
-	}
+		return expr, tc
+	})
 }
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyPat                        { return e().Call().(TyPat) }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
+func (c NameDef) Expr() Expression { var e, _ = c(); return e }
+func (c NameDef) Type() TyComp     { var _, t = c(); return t }
+func (c NameDef) TypeFnc() TyFnc   { return c.Expr().TypeFnc() }
+func (c NameDef) String() string   { return c.Expr().String() }
+func (c NameDef) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return c.Expr().Call(args...)
+	}
+	return c.Expr()
+}
 
 //// TUPLE TYPE
 ///
 // tuple type constructor expects a slice of field types and possibly a symbol
 // type flag, to define the types name, otherwise 'tuple' is the type name and
 // the sequence of field types is shown instead
-func NewTuple(types ...d.Typed) FuncDef {
-	var (
-		pattern = make([]Expression, 0, len(types))
-		symbol  d.Typed
-	)
-	if len(types) > 1 {
-		if Kind_Symbol.Match(types[0].Kind()) {
-			symbol = types[0]
-			types = types[1:]
+//
+// tuple definition helper either|or type definition.
+// f(args VecVal, types TyComp) (TupleDef|TupleVal)
+func createTupleType(types ...d.Typed) TyComp {
+	if len(types) > 0 {
+		if Kind_Sym.Match(types[0].Kind()) {
+			return Def(types...)
 		}
+		return Def(append([]d.Typed{Tuple}, types...)...)
 	}
-	if symbol == nil {
-		symbol = Tuple
-	}
-	for _, typ := range types {
-		if Kind_Comp.Match(typ.Kind()) {
-			pattern = append(pattern, typ.(TyPat))
-		} else {
-			pattern = append(pattern, Def(typ))
-		}
-	}
-	return Define(
-		TupleDef(func(args ...Expression) TupleVal {
-			if len(args) > 0 {
-				return args
-			}
-			return pattern
-		}),
-		Def(types...), Def(symbol, Def(types...)))
+	return Def(None)
 }
+func NewTuple(types ...d.Typed) TupleDef {
+	var (
+		tt  = createTupleType(types...)
+		def = Define(TupleDef(func(args ...Expression) Expression {
+			return TupleVal(func() ([]Expression, TyComp) { return args, tt })
+		}), tt.Types()...)
+	)
+	return TupleDef(func(args ...Expression) Expression {
+		if len(args) > 0 {
+			return def(args...)
+		}
+		return tt
+	})
+}
+
 func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
 func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
 func (t TupleDef) String() string                     { return t.Type().String() }
-func (t TupleDef) Type() TyPat {
-	var (
-		elems = t()
-		count = len(elems)
-		types = make([]d.Typed, 0, count)
-	)
-	for _, elem := range elems {
-		types = append(types, elem.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
+func (t TupleDef) Type() TyComp                       { return Def() }
 
 /// TUPLE VALUE
-//
 // tuple value is a slice of expressions, constructed by a tuple type
 // constructor validated according to its type pattern.
-func (t TupleVal) Call(...Expression) Expression { return t }
-func (t TupleVal) Count() int                    { return len(t) }
 func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
-func (t TupleVal) Type() TyPat {
-	var types = make([]d.Typed, 0, t.Count())
-	for _, elem := range t {
-		types = append(types, elem.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
+func (t TupleVal) Type() TyComp                  { var _, typ = t(); return typ }
+func (t TupleVal) Value() []Expression           { var v, _ = t(); return v }
+func (t TupleVal) Count() int                    { return len(t.Value()) }
+func (t TupleVal) Call(...Expression) Expression { return NewVector(t.Value()...) }
 func (t TupleVal) Get(idx int) Expression {
 	if idx < t.Count() {
-		return t[idx]
+		return t.Value()[idx]
 	}
 	return NewNone()
 }
 func (t TupleVal) String() string {
 	var strs = make([]string, 0, t.Count())
-	for _, elem := range t {
-		strs = append(strs, elem.String())
+	for _, val := range t.Value() {
+		strs = append(strs, val.String())
 	}
 	return "[" + strings.Join(strs, ", ") + "]"
 }
 
 //// RECORD TYPE
-func NewRecordType(types ...KeyPair) RecordDef {
-	return func(args ...KeyPair) RecordVal {
-		if len(args) > 0 {
-			for idx, arg := range args {
-				if idx < len(types) {
-					if types[idx].Key() == arg.Key() {
-						if !types[idx].Value().Type().Match(arg.Type()) {
-							return []KeyPair{}
+
+/// PARTIAL APPLYABLE EXPRESSION VALUE
+//
+// defines typesafe partialy applicable expression. if the set of optional type
+// argument(s) starts with a symbol, that will be assumed to be the types
+// identity. otherwise the identity is derived from the passed expression,
+// types first field will be the return type, its second field the (set of)
+// argument type(s), additional arguments are considered propertys.
+func createFuncType(expr Expression, types ...d.Typed) TyComp {
+	// if type arguments have been passed, build the type based on them‥.
+	if len(types) > 0 {
+		// if the first element in pattern is a symbol to be used as
+		// ident, just define type from type arguments‥.
+		if Kind_Sym.Match(types[0].Kind()) {
+			return Def(types...)
+		} else { // ‥.otherwise use the expressions ident type
+			return Def(append([]d.Typed{expr.Type().TypeIdent()}, types...)...)
+		}
+	} // ‥.otherwise define by expressions identity, return-/ &
+	// argument types
+	return Def(expr.Type().TypeIdent(),
+		expr.Type().TypeReturn(),
+		expr.Type().TypeArguments())
+
+}
+func Define(
+	expr Expression, types ...d.Typed,
+) FuncDef {
+	var (
+		ct     = createFuncType(expr, types...)
+		arglen = len(ct.TypeArguments())
+	)
+	// return partialy applicable function
+	return func(args ...Expression) Expression {
+		var length = len(args)
+		if length > 0 {
+			if ct.TypeArguments().MatchArgs(args...) {
+				switch {
+				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
+				case length == arglen:
+					return expr.Call(args...)
+
+				// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
+				case length < arglen:
+					// safe types of arguments remaining to be filled
+					var (
+						remains = ct.TypeArguments().Types()[length:]
+						newpat  = Def(
+							ct.Type().TypeIdent(),
+							ct.Type().TypeReturn(),
+							Def(remains...))
+					)
+					// define new function from remaining
+					// set of argument types, enclosing the
+					// current arguments & appending its
+					// own aruments to them, when called.
+					return Define(GenericFunc(func(lateargs ...Expression) Expression {
+						// will return result, or
+						// another partial, when called
+						// with arguments
+						if len(lateargs) > 0 {
+							return expr.Call(append(
+								args, lateargs...,
+							)...)
 						}
+						// if no arguments where
+						// passed, return the reduced
+						// type ct
+						return newpat
+					}), newpat.TypeIdent(), newpat.TypeReturn(), newpat.TypeArguments())
+
+				// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
+				case length > arglen:
+					// allocate vector to hold multiple instances
+					var vector = NewVector()
+					// iterate over arguments, allocate an instance per satisfying set
+					for len(args) > arglen {
+						vector = vector.Cons(
+							expr.Call(args[:arglen]...)).(VecVal)
+						args = args[arglen:]
 					}
+					if length > 0 { // number of leftover arguments is insufficient
+						// add a partial expression as vectors last element
+						vector = vector.Cons(Define(
+							expr, ct.Types()...,
+						).Call(args...)).(VecVal)
+					}
+					// return vector of instances
+					return vector
 				}
 			}
-			return args
+			// passed argument(s) didn't match the expected type(s)
+			return None
 		}
-		return types
+		// no arguments where passed, return the expression type
+		return ct
 	}
 }
-
-func (r RecordDef) TypeFnc() TyFnc { return Record }
-func (r RecordDef) Type() TyPat    { return Def(Record, Def(r.Types()...)) }
-func (r RecordDef) String() string {
-	var strs = make([]string, 0, len(r()))
-	for _, record := range r() {
-		strs = append(
-			strs,
-			record.Key().String()+"∷ "+
-				record.Value().Type().TypeName(),
-		)
-	}
-	return "{" + strings.Join(strs, ", ") + "}"
-}
-func (r RecordDef) Types() []d.Typed {
-	var (
-		pairs = r()
-		types = make([]d.Typed, 0, len(pairs))
-	)
-	for _, pair := range pairs {
-		types = append(types, pair.Value().Type())
-	}
-	return types
-}
-func (r RecordDef) Call(args ...Expression) Expression {
-	var pairs = make([]KeyPair, 0, len(args))
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Key | Pair) {
-			pairs = append(pairs, arg.(KeyPair))
-		}
-	}
-	return r(pairs...)
-}
-
-//// RECORD VALUE
-///
-//
-func (r RecordVal) Count() int     { return len(r) }
-func (r RecordVal) Type() TyPat    { return Def(Record, Def(r.Types()...)) }
-func (r RecordVal) TypeFnc() TyFnc { return Record }
-func (r RecordVal) Keys() []string {
-	var keys = make([]string, 0, len(r))
-	for _, record := range r {
-		keys = append(keys, record.Key().String())
-	}
-	return keys
-}
-func (r RecordVal) Types() []d.Typed {
-	var types = make([]d.Typed, 0, len(r))
-	for _, pair := range r {
-		types = append(types, pair.Value().Type())
-	}
-	return types
-}
-func (r RecordVal) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		var result = make([]KeyPair, 0, len(r))
-		for _, pair := range r {
-			result = append(result,
-				NewKeyPair(
-					pair.Key().String(),
-					pair.Value().Call(args...)))
-		}
-	}
-	return r
-}
-func (r RecordVal) Get(key string) Expression {
-	for _, record := range r {
-		if record.Key().String() == key {
-			return record
-		}
-	}
-	return NewNone()
-}
-func (r RecordVal) String() string {
-	var strs = make([]string, 0, len(r))
-	for _, record := range r {
-		strs = append(
-			strs,
-			record.Key().String()+"∷ "+
-				record.Value().String(),
-		)
-	}
-	return "{" + strings.Join(strs, ", ") + "}"
-}
+func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
+func (e FuncDef) TypeArguments() TyComp              { return e.Type().TypeArguments() }
+func (e FuncDef) TypeReturn() TyComp                 { return e.Type().TypeReturn() }
+func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
+func (e FuncDef) String() string                     { return e().String() }
+func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }

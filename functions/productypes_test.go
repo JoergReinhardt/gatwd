@@ -156,7 +156,7 @@ func TestMaybe(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	var (
-		option   = NewEitherOr(caseInteger, caseFloat)
+		option   = NewEitherOr(caseInteger, Define(Dat("this is a float"), None, d.String))
 		intStr   = option(Dat(23))
 		fltStr   = option(Dat(42.23))
 		boolNone = option(Dat(true))

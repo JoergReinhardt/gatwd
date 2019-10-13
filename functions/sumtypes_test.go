@@ -10,12 +10,13 @@ import (
 var addInts = Define(Dat(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
-}), Def(Def(Data, d.Int), Def(Data, d.Int)), Def(Data, d.Int), DefSym("AddInts"))
+}), DefSym("AddInts"), Def(Dat(0).Type()), Def(Dat(0).Type(), Dat(0).Type()))
 
 func TestExpression(t *testing.T) {
 
 	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
-		addInts, addInts.Type().TypeArguments(),
+		addInts,
+		addInts.Type().TypeArguments(),
 		addInts.Type().TypeIdent(),
 		addInts.Type().TypeReturn())
 
@@ -27,7 +28,8 @@ func TestExpression(t *testing.T) {
 
 	var partial = addInts.Call(Dat(23))
 	fmt.Printf("partial: %s argtype : %s identype: %s, retype: %s\n",
-		partial, partial.Type().TypeArguments(),
+		partial,
+		partial.Type().TypeArguments(),
 		partial.Type().TypeIdent(),
 		partial.Type().TypeReturn())
 	if !partial.Type().TypeReturn().Match(DefSym("AddInts")) {
@@ -86,21 +88,21 @@ func TestTuple(t *testing.T) {
 
 	var tup = con.Call(Dat(23), Dat(42.23), Dat(true))
 	fmt.Printf("tuple %s\n", tup)
-	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 
 	var partial = con(Dat(23))
 	fmt.Printf("partial %s\n", partial)
-	partial = partial.Call(Dat(42.23))
+	partial = partial.Call(Dat(42.23)).(TupleVal)
 	fmt.Printf("partial %s\n", partial)
 	tup = partial.Call(Dat(true))
 	fmt.Printf("result %s\n", tup)
-	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 }

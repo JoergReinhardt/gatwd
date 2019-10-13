@@ -5,17 +5,17 @@ package functions
 import "strconv"
 
 const (
-	_TyKind_name_0 = "Kind_BitFlagKind_NativeKind_FuncKind_KeyWordKind_SymbolKind_ValueKind_TokenKind_ArityKind_PropKind_Lexi"
+	_TyKind_name_0 = "Kind_BitFlagKind_NatKind_FncKind_KeyKind_SymKind_ExprKind_PropKind_Lex"
 	_TyKind_name_1 = "Kind_Comp"
 )
 
 var (
-	_TyKind_index_0 = [...]uint8{0, 12, 23, 32, 44, 55, 65, 75, 85, 94, 103}
+	_TyKind_index_0 = [...]uint8{0, 12, 20, 28, 36, 44, 53, 62, 70}
 )
 
 func (i TyKind) String() string {
 	switch {
-	case 0 <= i && i <= 9:
+	case 0 <= i && i <= 7:
 		return _TyKind_name_0[_TyKind_index_0[i]:_TyKind_index_0[i+1]]
 	case i == 255:
 		return _TyKind_name_1

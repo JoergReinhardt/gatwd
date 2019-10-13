@@ -58,7 +58,7 @@ func (p ValPair) Slice() []Expression            { return []Expression{p.Left(),
 func (p ValPair) Key() Expression                { return p.Right() }
 func (p ValPair) Value() Expression              { return p.Left() }
 func (p ValPair) TypeFnc() TyFnc                 { return Pair }
-func (p ValPair) TypeElem() TyPat {
+func (p ValPair) TypeElem() TyComp {
 	if p.Right() != nil {
 		return p.Left().Type()
 	}
@@ -76,7 +76,7 @@ func (p ValPair) TypeValue() d.Typed {
 	}
 	return None
 }
-func (p ValPair) Type() TyPat {
+func (p ValPair) Type() TyComp {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(None, None))
 	}
@@ -116,7 +116,7 @@ func (a NatPair) Call(args ...Expression) Expression { return a.Value().Call(arg
 func (a NatPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a NatPair) TypeKey() d.Typed                   { return a.KeyNat().Type() }
 func (a NatPair) TypeFnc() TyFnc                     { return Data | Pair }
-func (p NatPair) Type() TyPat {
+func (p NatPair) Type() TyComp {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(Key, None))
 	}
@@ -159,7 +159,7 @@ func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(arg
 func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
 func (a KeyPair) TypeKey() d.Typed                   { return Key }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key | Pair }
-func (p KeyPair) Type() TyPat {
+func (p KeyPair) Type() TyComp {
 	if p.TypeKey().Match(None) && p.TypeValue().Match(None) {
 		return Def(Pair, Def(Key, None))
 	}
@@ -201,7 +201,7 @@ func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(a
 func (a IndexPair) TypeFnc() TyFnc                     { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed                   { return Index }
 func (a IndexPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a IndexPair) Type() TyPat {
+func (a IndexPair) Type() TyComp {
 	if a.TypeKey().Match(None) && a.TypeValue().Match(None) {
 		return Def(Pair, Def(Index, None))
 	}
@@ -311,13 +311,13 @@ func (v VecVal) Call(args ...Expression) Expression {
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) Len() int            { return len(v()) }
 func (v VecVal) TypeFnc() TyFnc      { return Vector }
-func (v VecVal) Type() TyPat {
+func (v VecVal) Type() TyComp {
 	if v.Len() > 0 {
 		return Def(Vector, v.Head().Type())
 	}
 	return Def(Vector, None)
 }
-func (v VecVal) TypeElem() TyPat {
+func (v VecVal) TypeElem() TyComp {
 	if v.Len() > 0 {
 		return v.Head().Type()
 	}
@@ -553,14 +553,14 @@ func (l ListVal) ConsumeList() (Expression, ListVal) {
 }
 func (l ListVal) TypeFnc() TyFnc { return List }
 func (l ListVal) Null() ListVal  { return NewList() }
-func (l ListVal) TypeElem() TyPat {
+func (l ListVal) TypeElem() TyComp {
 	if l.Len() > 0 {
 		return l.Head().Type()
 	}
 	return Def(List, None)
 }
 
-func (l ListVal) Type() TyPat {
+func (l ListVal) Type() TyComp {
 	if l.Len() > 0 {
 		return Def(List, l.Head().Type())
 	}

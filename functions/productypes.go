@@ -18,7 +18,7 @@ type (
 
 	// MAYBE (JUST | NONE)
 	MaybeDef func(...Expression) Expression
-	MaybeVal func(...Expression) (Expression, TyPat, MaybeDef)
+	MaybeVal func(...Expression) (Expression, TyComp, MaybeDef)
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
 	EitherOrDef func(...Expression) Expression
@@ -39,7 +39,7 @@ func NewTest(test func(...Expression) bool) TestFunc {
 	return func(args ...Expression) bool { return test(args...) }
 }
 func (t TestFunc) TypeFnc() TyFnc               { return Truth }
-func (t TestFunc) Type() TyPat                  { return Def(True | False) }
+func (t TestFunc) Type() TyComp                 { return Def(True | False) }
 func (t TestFunc) String() string               { return t.TypeFnc().TypeName() }
 func (t TestFunc) Test(args ...Expression) bool { return t(args...) }
 func (t TestFunc) Compare(args ...Expression) int {
@@ -60,7 +60,7 @@ func NewTrinary(test func(...Expression) int) TrinaryFunc {
 	return func(args ...Expression) int { return test(args...) }
 }
 func (t TrinaryFunc) TypeFnc() TyFnc                     { return Trinary }
-func (t TrinaryFunc) Type() TyPat                        { return Def(True | False | Undecided) }
+func (t TrinaryFunc) Type() TyComp                       { return Def(True | False | Undecided) }
 func (t TrinaryFunc) Call(args ...Expression) Expression { return Box(d.IntVal(t(args...))) }
 func (t TrinaryFunc) String() string                     { return t.TypeFnc().TypeName() }
 func (t TrinaryFunc) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -75,7 +75,7 @@ func NewComparator(comp func(...Expression) int) CompareFunc {
 	return func(args ...Expression) int { return comp(args...) }
 }
 func (t CompareFunc) TypeFnc() TyFnc                     { return Compare }
-func (t CompareFunc) Type() TyPat                        { return Def(Lesser | Greater | Equal) }
+func (t CompareFunc) Type() TyComp                       { return Def(Lesser | Greater | Equal) }
 func (t CompareFunc) Call(args ...Expression) Expression { return Box(d.IntVal(t(args...))) }
 func (t CompareFunc) String() string                     { return t.Type().TypeName() }
 func (t CompareFunc) Test(args ...Expression) bool       { return t(args...) == 0 }
@@ -89,7 +89,7 @@ func (t CompareFunc) Compare(args ...Expression) int     { return t(args...) }
 // arguments to the expression, in case the test yielded true. otherwise the
 // case will yield none.
 func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
-	var pattern = Def(argtype, Def(Case, test.Type()), retype)
+	var pattern = Def(Def(Case, test.Type()), retype, argtype)
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			if test.Test(args...) {
@@ -102,11 +102,11 @@ func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
 }
 
 func (t CaseDef) TypeFnc() TyFnc                     { return Case }
-func (t CaseDef) Type() TyPat                        { return t().(Paired).Left().(TyPat) }
+func (t CaseDef) Type() TyComp                       { return t().(Paired).Left().(TyComp) }
 func (t CaseDef) Test() TestFunc                     { return t().(Paired).Right().(TestFunc) }
-func (t CaseDef) TypeReturn() TyPat                  { return t.Type().Pattern()[2] }
-func (t CaseDef) TypeIdent() TyPat                   { return t.Type().Pattern()[1] }
-func (t CaseDef) TypeArguments() []TyPat             { return t.Type().Pattern()[0].Pattern() }
+func (t CaseDef) TypeReturn() TyComp                 { return t.Type().Pattern()[2] }
+func (t CaseDef) TypeIdent() TyComp                  { return t.Type().Pattern()[1] }
+func (t CaseDef) TypeArguments() []TyComp            { return t.Type().Pattern()[0].Pattern() }
 func (t CaseDef) String() string                     { return t.TypeFnc().TypeName() }
 func (t CaseDef) Call(args ...Expression) Expression { return t(args...) }
 
@@ -154,9 +154,9 @@ func NewSwitch(cases ...CaseDef) SwitchDef {
 func (t SwitchDef) Reload() SwitchDef { return NewSwitch(t.Cases()...) }
 func (t SwitchDef) String() string    { return t.Type().TypeName() }
 func (t SwitchDef) TypeFnc() TyFnc    { return Switch }
-func (t SwitchDef) Type() TyPat {
+func (t SwitchDef) Type() TyComp {
 	var pat, _ = t()
-	return pat.(TyPat)
+	return pat.(TyComp)
 }
 func (t SwitchDef) Cases() []CaseDef {
 	var _, cases = t()
@@ -187,14 +187,14 @@ func NewMaybe(cas CaseDef) MaybeDef {
 		argtypes = append(argtypes, arg)
 	}
 	var (
-		pattern = Def(Def(argtypes...), Def(Just|None), Def(cas.TypeReturn()))
+		pattern = Def(Def(Just|None), Def(cas.TypeReturn()), Def(argtypes...))
 	)
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			// pass arguments to case, check if result is none‥.
 			if result := cas.Call(args...); !result.Type().Match(None) {
 				// ‥.otherwise return a maybe just
-				return MaybeVal(func(args ...Expression) (Expression, TyPat, MaybeDef) {
+				return MaybeVal(func(args ...Expression) (Expression, TyComp, MaybeDef) {
 					if len(args) > 0 {
 						// return result from passing
 						// args to result of initial
@@ -213,7 +213,7 @@ func NewMaybe(cas CaseDef) MaybeDef {
 				})
 			}
 			// no matching arguments where passed, return none
-			return MaybeVal(func(...Expression) (Expression, TyPat, MaybeDef) {
+			return MaybeVal(func(...Expression) (Expression, TyComp, MaybeDef) {
 				return NewNone(), Def(None), NewMaybe(cas)
 			})
 		}
@@ -222,9 +222,9 @@ func NewMaybe(cas CaseDef) MaybeDef {
 }
 
 func (t MaybeDef) TypeFnc() TyFnc                     { return Constructor }
-func (t MaybeDef) Type() TyPat                        { return t().(TyPat) }
-func (t MaybeDef) TypeArguments() TyPat               { return t().Type().TypeArguments() }
-func (t MaybeDef) TypeReturn() TyPat                  { return t().Type().TypeReturn() }
+func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
+func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArguments() }
+func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeReturn() }
 func (t MaybeDef) String() string                     { return t().String() }
 func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
 
@@ -232,17 +232,17 @@ func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
 func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeVal) Call(args ...Expression) Expression { var result, _, _ = t(args...); return result }
 func (t MaybeVal) String() string                     { var result, _, _ = t(); return result.String() }
-func (t MaybeVal) Type() TyPat                        { var _, pat, _ = t(); return pat }
+func (t MaybeVal) Type() TyComp                       { var _, pat, _ = t(); return pat }
 
 //// OPTIONAL VALUE
 ///
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
-func NewEitherOr(either, or CaseDef) EitherOrDef {
+func NewEitherOr(either CaseDef, or FuncDef) EitherOrDef {
 	var (
 		typesEither = make([]d.Typed, 0, len(either.TypeArguments()))
-		typesOr     = make([]d.Typed, 0, len(or.TypeArguments()))
+		typesOr     = make([]d.Typed, 0, len(or.Type().TypeArguments()))
 	)
 	for _, arg := range either.TypeArguments() {
 		typesEither = append(typesEither, arg)
@@ -254,14 +254,14 @@ func NewEitherOr(either, or CaseDef) EitherOrDef {
 		eitherArgs, orArgs = Def(typesEither...), Def(typesOr...)
 
 		pattern = Def(
-			Def(
-				Def(Either, eitherArgs),
-				Def(Or, orArgs),
-			),
 			Def(Either|Or),
 			Def(
 				Def(Either, either.TypeReturn()),
 				Def(Or, or.TypeReturn()),
+			),
+			Def(
+				Def(Either, eitherArgs),
+				Def(Or, orArgs),
 			))
 	)
 
@@ -276,23 +276,19 @@ func NewEitherOr(either, or CaseDef) EitherOrDef {
 					return result, Either, NewEitherOr(either, or)
 				})
 			}
-			if result = or.Call(args...); !result.Type().Match(None) {
-				return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
-					if len(args) > 0 {
-						return result.Call(args...), Or, NewEitherOr(either, or)
-					}
-					return result, Or, NewEitherOr(either, or)
-				})
-			}
-			return EitherOrVal(func(...Expression) (Expression, TyFnc, EitherOrDef) {
-				return NewNone(), None, NewEitherOr(either, or)
+			result = or.Call(args...)
+			return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
+				if len(args) > 0 {
+					return result.Call(args...), Or, NewEitherOr(either, or)
+				}
+				return result, Or, NewEitherOr(either, or)
 			})
 		}
 		return pattern
 	})
 }
 func (o EitherOrDef) TypeFnc() TyFnc                     { return Constructor }
-func (o EitherOrDef) Type() TyPat                        { return o().Type() }
+func (o EitherOrDef) Type() TyComp                       { return o().Type() }
 func (o EitherOrDef) String() string                     { return o().String() }
 func (o EitherOrDef) Call(args ...Expression) Expression { return o(args...) }
 
@@ -310,10 +306,10 @@ func (o EitherOrVal) Value() Expression {
 	var r, _, _ = o()
 	return r
 }
-func (o EitherOrVal) ValType() TyPat {
+func (o EitherOrVal) ValType() TyComp {
 	return o.Value().Type()
 }
-func (o EitherOrVal) Type() TyPat {
+func (o EitherOrVal) Type() TyComp {
 	return Def(o.ValType(), o.TypeFnc())
 }
 func (o EitherOrVal) String() string {
@@ -330,7 +326,7 @@ func (o EitherOrVal) Call(args ...Expression) Expression {
 func NewPolyType(name string, cases ...FuncDef) PolyDef {
 	var (
 		patterns = make([]d.Typed, 0, len(cases))
-		pat      TyPat
+		pat      TyComp
 	)
 	for _, c := range cases {
 		patterns = append(patterns, c.Type())
@@ -341,7 +337,7 @@ func NewPolyType(name string, cases ...FuncDef) PolyDef {
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pat TyPat, idx int, cases ...FuncDef) PolyDef {
+func createPolyType(pat TyComp, idx int, cases ...FuncDef) PolyDef {
 	var length = len(cases)
 	return func(args ...Expression) (Expression, []FuncDef, int) {
 		if len(args) > 0 { // arguments where passed
@@ -399,10 +395,10 @@ func (p PolyDef) TypeFnc() TyFnc { return Polymorph }
 
 // type is the sum of all argument set and return value types, identity is
 // defined by passed name
-func (p PolyDef) Type() TyPat {
+func (p PolyDef) Type() TyComp {
 	var (
 		t, _, _  = p()
-		pat      = t.(TyPat)
+		pat      = t.(TyComp)
 		identype = pat.Pattern()[0]
 		argtypes = make([]d.Typed, 0, len(pat.Pattern()))
 		retypes  = make([]d.Typed, 0, len(pat.Pattern()))
@@ -411,7 +407,7 @@ func (p PolyDef) Type() TyPat {
 		argtypes = append(argtypes, Def(pat.TypeArguments()...))
 		retypes = append(retypes, pat.TypeReturn())
 	}
-	return Def(Def(argtypes...), identype, Def(retypes...))
+	return Def(identype, Def(retypes...), Def(argtypes...))
 }
 
 // returns set of all sub-type defining cases
@@ -466,7 +462,7 @@ func (p PolyVal) PolyType() PolyDef {
 }
 func (p PolyVal) String() string { return p.Expr().String() }
 func (p PolyVal) TypeFnc() TyFnc { return Polymorph }
-func (p PolyVal) Type() TyPat {
+func (p PolyVal) Type() TyComp {
 	return Def(Def(
 		Polymorph,
 		DefValNat(d.IntVal(p.PolyType().Index())),
