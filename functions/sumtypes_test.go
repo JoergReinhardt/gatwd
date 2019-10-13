@@ -83,7 +83,10 @@ func TestExpression(t *testing.T) {
 }
 
 func TestTuple(t *testing.T) {
-	var con = NewTuple(Def(Data, d.Int), Def(Data, d.Float), Def(Data, d.Bool))
+	var con = NewTuple(
+		Def(Def(Data, Constant), d.Int),
+		Def(Def(Data, Constant), d.Float),
+		Def(Def(Data, Constant), d.Bool))
 	fmt.Printf("tuple constructor %s\n", con)
 
 	var tup = con.Call(Dat(23), Dat(42.23), Dat(true))
@@ -94,12 +97,24 @@ func TestTuple(t *testing.T) {
 		t.Fail()
 	}
 
-	var partial = con(Dat(23))
-	fmt.Printf("partial %s\n", partial)
-	partial = partial.Call(Dat(42.23)).(TupleVal)
-	fmt.Printf("partial %s\n", partial)
-	tup = partial.Call(Dat(true))
-	fmt.Printf("result %s\n", tup)
+	tup = con.Call(Dat(23), Dat(42.23), Dat(true))
+	fmt.Printf("tuple second call %s\n", tup)
+	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
+		t.Fail()
+	}
+
+	var partial = con.Call(Dat(23))
+	fmt.Printf("partial0: %s partial0 type-fnc: %s\n", partial, partial.TypeFnc().TypeName())
+	fmt.Printf("partial0 type: %s ident: %s\n", partial.Type(), partial.Type().TypeIdent())
+
+	var partial1 = partial.Call(Dat(42.23), Dat(false))
+	fmt.Printf("partial1: %s partial1 type-fnc: %s\n", partial1, partial1.TypeFnc().TypeName())
+	fmt.Printf("partial1 type: %s\n", partial1.Type())
+
+	tup = partial1.Call(Dat(true))
+	fmt.Printf("result: %s\n", tup)
 	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
 		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
 		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {

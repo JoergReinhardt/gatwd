@@ -395,6 +395,10 @@ func (p TyComp) TypePropertys() []TyComp {
 	return []TyComp{}
 }
 
+func (p TyComp) Match(typ d.Typed) bool {
+	return castedMatch(p, typ)
+}
+
 // match takes its argument, evaluated by passing it to the match-args method
 // and yields the resulting bool. should the argument be a pattern itself, all
 // its sub elements are evaluated to match sub patterns recursively, when
@@ -446,8 +450,17 @@ func castedMatch(a, b d.Typed) bool {
 	return false
 }
 
-func (p TyComp) Match(typ d.Typed) bool {
-	return castedMatch(p, typ)
+// match-types takes multiple types and matches them against an equal number of
+// pattern elements one at a time, starting with the first one. if the number
+// of arguments and elements differ, the shorter list will be evaluated.
+func (p TyComp) MatchTypes(types ...d.Typed) bool {
+	var short, long = p.sortLength(types...)
+	for n, elem := range short {
+		if !elem.Match(long[n]) {
+			return false
+		}
+	}
+	return true
 }
 
 // matches multiple type flags against its elements in order. should there be
@@ -462,19 +475,6 @@ func (p TyComp) sortLength(types ...d.Typed) (short, long []d.Typed) {
 		short, long = p.Types(), types
 	}
 	return short, long
-}
-
-// match-types takes multiple types and matches them against an equal number of
-// pattern elements one at a time, starting with the first one. if the number
-// of arguments and elements differ, the shorter list will be evaluated.
-func (p TyComp) MatchTypes(types ...d.Typed) bool {
-	var short, long = p.sortLength(types...)
-	for n, elem := range short {
-		if !elem.Match(long[n]) {
-			return false
-		}
-	}
-	return true
 }
 
 // matches if any of the arguments matches any of the patterns elements
@@ -493,11 +493,27 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 // against the elements of the pattern.
 func (p TyComp) MatchArgs(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
-	for _, arg := range args {
-		types = append(types, arg.Type())
+	for n, arg := range args {
+		// composed type pattern has a type expression at that position
+		// → pass argument itself to expression for validation. if
+		// result is not none, pass its typ on to match-types for
+		// further evaluation.
+		if len(p.Types()) > n {
+			if Kind_Expr.Match(p.Types()[n].Kind()) {
+				var result = p.Types()[n].(TyExp).Value().Call(arg)
+				if result.Type().Match(None) {
+					return false
+				}
+				types = append(types, result.Type())
+				continue
+			}
+			types = append(types, arg.Type())
+		}
 	}
 	return p.MatchTypes(types...)
 }
+
+// returns true if the arguments type matches any of the patterns types
 func (p TyComp) MatchAnyArg(args ...Expression) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {

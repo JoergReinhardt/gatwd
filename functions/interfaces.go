@@ -126,9 +126,14 @@ type Consumeable interface {
 type Sequential interface {
 	Consumeable
 	TypeElem() TyComp
-	Prepend(...Expression) Sequential
+	Cons(...Expression) Sequential // default op, list = front, vector = back
+}
+type Ordered interface {
+	Sequential
+	Swapable
+	Less(Expression) bool
 	Append(...Expression) Sequential
-	Cons(...Expression) Sequential
+	Prepend(...Expression) Sequential
 }
 
 // interface to implement by all conditional types
@@ -162,13 +167,6 @@ type Swapable interface {
 type SwapablePaired interface {
 	Swapable
 	SwappedPair() Paired
-}
-
-// ordered is implementet by types that can be compared in some meaningful way,
-// to identify the lesser of two instances of that type and swap them.
-type Ordered interface {
-	Swapable
-	Less(Expression) bool
 }
 
 // interface implementet by types sortable by some praedicate

@@ -176,48 +176,26 @@ func (e EnumVal) Call(args ...Expression) Expression {
 //// SEQUENCE TYPE
 ///
 // generic sequential type
-func NewSequence(seq Sequential) SeqVal {
+func NewSequence(seq Consumeable) SeqVal {
 	var (
 		head Expression
 		tail Consumeable
 	)
 	return func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			head, tail = seq.Cons(args...).Consume()
+			seq = seq.Call(args...).(Consumeable)
 		}
 		head, tail = seq.Consume()
 		if head.Type().Match(None) {
 			tail = NewSequence(seq)
 		}
-		return head, tail.(SeqVal)
+		return head, NewSequence(tail)
 	}
 }
 func (s SeqVal) TypeFnc() TyFnc   { return s.Tail().TypeFnc() }
 func (s SeqVal) Type() TyComp     { return s.Tail().Type() }
 func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
 func (s SeqVal) Cons(elems ...Expression) Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			_, s = s(args...)
-		}
-		if len(elems) > 0 {
-			return s(elems...)
-		}
-		return s()
-	})
-}
-func (s SeqVal) Prepend(elems ...Expression) Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			_, s = s(args...)
-		}
-		if len(elems) > 0 {
-			return s(elems...)
-		}
-		return s()
-	})
-}
-func (s SeqVal) Append(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			_, s = s(args...)
@@ -251,21 +229,85 @@ func (s SeqVal) String() string {
 	return tail.Cons(head).String()
 }
 
-// apply takes another sequence of elements as arguments to apply to its
-// collection of expressions elements.
-func (s SeqVal) Apply(
-	apply func(Expression) Expression) SeqVal {
+//// APPLICABLE TYPE
+///
+// generic sequential type
+func NewApplicable(
+	seq Consumeable,
+	apply func(...Expression) Expression,
+) AppVal {
 	var (
 		head Expression
-		tail SeqVal
+		tail Consumeable
 	)
-	return func(args ...Expression) (Expression, SeqVal) {
-		head, tail = s()
+	return func(args ...Expression) (Expression, AppVal) {
 		if len(args) > 0 {
-			head, tail = tail(args...)
+			seq = seq.Call(args...).(Consumeable)
 		}
-		return apply(head), tail.Apply(apply)
+		head, tail = seq.Consume()
+		if head.Type().Match(None) {
+			tail = NewApplicable(seq, apply)
+		}
+		return head, NewApplicable(tail, apply)
 	}
+}
+func (s AppVal) TypeFnc() TyFnc   { return s.Tail().TypeFnc() }
+func (s AppVal) Type() TyComp     { return s.Tail().Type() }
+func (s AppVal) TypeElem() TyComp { return s.Head().Type() }
+func (s AppVal) Cons(elems ...Expression) Sequential {
+	return AppVal(func(args ...Expression) (Expression, AppVal) {
+		if len(args) > 0 {
+			s = s.Cons(args...).(AppVal)
+		}
+		if len(elems) > 0 {
+			return s(elems...)
+		}
+		return s()
+	})
+}
+func (s AppVal) Prepend(elems ...Expression) Sequential {
+	return AppVal(func(args ...Expression) (Expression, AppVal) {
+		if len(elems) > 0 {
+			s = s.Prepend(elems...).(AppVal)
+		}
+		if len(args) > 0 {
+			return s(args...)
+		}
+		return s()
+	})
+}
+func (s AppVal) Append(elems ...Expression) Sequential {
+	return AppVal(func(args ...Expression) (Expression, AppVal) {
+		if len(elems) > 0 {
+			s = s.Append(elems...).(AppVal)
+		}
+		if len(args) > 0 {
+			return s(args...)
+		}
+		return s()
+	})
+}
+func (s AppVal) Call(args ...Expression) Expression {
+	var head Expression
+	if len(args) > 0 {
+		head, _ = s(args...)
+		return head
+	}
+	head, _ = s()
+	return head
+}
+func (s AppVal) Consume() (Expression, Consumeable) { return s() }
+func (s AppVal) Head() Expression {
+	var expr, _ = s()
+	return expr
+}
+func (s AppVal) Tail() Consumeable {
+	var _, seq = s()
+	return seq
+}
+func (s AppVal) String() string {
+	var head, tail = s()
+	return tail.Cons(head).String()
 }
 
 //// MONAD TYPE

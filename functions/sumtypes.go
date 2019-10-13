@@ -147,34 +147,33 @@ func (c NameDef) Call(args ...Expression) Expression {
 //
 // tuple definition helper either|or type definition.
 // f(args VecVal, types TyComp) (TupleDef|TupleVal)
-func createTupleType(types ...d.Typed) TyComp {
-	if len(types) > 0 {
-		if Kind_Sym.Match(types[0].Kind()) {
-			return Def(types...)
-		}
-		return Def(append([]d.Typed{Tuple}, types...)...)
-	}
-	return Def(None)
-}
 func NewTuple(types ...d.Typed) TupleDef {
 	var (
-		tt  = createTupleType(types...)
-		def = Define(TupleDef(func(args ...Expression) Expression {
-			return TupleVal(func() ([]Expression, TyComp) { return args, tt })
-		}), tt.Types()...)
+		comp TyComp
+		expr Expression
 	)
-	return TupleDef(func(args ...Expression) Expression {
-		if len(args) > 0 {
-			return def(args...)
+	if len(types) >= 0 {
+		if Kind_Sym.Match(types[0].Kind()) {
+			if len(types) > 1 {
+				comp = Def(Def(Tuple, types[0]), Def(types[1:]...), Def(types[1:]...))
+			}
 		}
-		return tt
+		comp = Def(Def(Tuple), Def(types...), Def(types...))
+	}
+	expr = Define(TupleDef(func(args ...Expression) Expression {
+		return TupleVal(func() ([]Expression, TyComp) { return args, comp })
+	}), comp.TypeIdent(), comp.TypeReturn(), comp.TypeArguments())
+	// return tuple definition passing its arguments on to  the type-safe
+	// partialy applicable and returning the result
+	return TupleDef(func(args ...Expression) Expression {
+		return expr.Call(args...)
 	})
 }
 
 func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
 func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
 func (t TupleDef) String() string                     { return t.Type().String() }
-func (t TupleDef) Type() TyComp                       { return Def() }
+func (t TupleDef) Type() TyComp                       { return t().Type() }
 
 /// TUPLE VALUE
 // tuple value is a slice of expressions, constructed by a tuple type
@@ -198,8 +197,6 @@ func (t TupleVal) String() string {
 	return "[" + strings.Join(strs, ", ") + "]"
 }
 
-//// RECORD TYPE
-
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
 // defines typesafe partialy applicable expression. if the set of optional type
@@ -217,8 +214,9 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 		} else { // ‥.otherwise use the expressions ident type
 			return Def(append([]d.Typed{expr.Type().TypeIdent()}, types...)...)
 		}
-	} // ‥.otherwise define by expressions identity, return-/ &
-	// argument types
+	}
+	// ‥.otherwise define by expressions identity entirely in terms of the
+	// passed expression type
 	return Def(expr.Type().TypeIdent(),
 		expr.Type().TypeReturn(),
 		expr.Type().TypeArguments())

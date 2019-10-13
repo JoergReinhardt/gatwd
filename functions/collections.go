@@ -278,7 +278,7 @@ func (v VecVal) PrependVec(args ...Expression) VecVal {
 	return NewVector(append(reverse(args), v()...)...)
 }
 func (v VecVal) Append(args ...Expression) Sequential {
-	return v.Cons(args...)
+	return v.Cons(args...).(VecVal)
 }
 func (v VecVal) AppendVec(args ...Expression) VecVal {
 	return v.ConsVec(args...)
@@ -527,7 +527,7 @@ func (l ListVal) Cons(elems ...Expression) Sequential {
 }
 
 // appends elements at the end of list in the order they where passed.
-func (l ListVal) Prepend(elems ...Expression) Sequential { return l.Cons(elems...) }
+func (l ListVal) Prepend(elems ...Expression) Sequential { return l.Cons(elems...).(ListVal) }
 func (l ListVal) Append(elems ...Expression) Sequential {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
