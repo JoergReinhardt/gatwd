@@ -12,9 +12,6 @@ type (
 	GenericConst func() Expression
 	GenericFunc  func(...Expression) Expression
 
-	//// NAMED EXPRESSION
-	NameDef func(...Expression) (Expression, TyComp)
-
 	//// DECLARED EXPRESSION
 	FuncDef func(...Expression) Expression
 
@@ -93,52 +90,6 @@ func (c GenericFunc) String() string { return c().String() }
 func (c GenericFunc) Type() TyComp   { return c().Type() }
 func (c GenericFunc) TypeFnc() TyFnc { return c().TypeFnc() }
 
-//// NAMED EXPRESSION DEFINITION
-///
-// declares a constant value
-func NewNamedDefinition(
-	fnc func(...Expression) Expression,
-	name string,
-	retype d.Typed,
-	argtypes ...d.Typed,
-) NameDef {
-	var tc = Def(DefSym(name), retype, Def(argtypes...))
-	return NameDef(func(args ...Expression) (Expression, TyComp) {
-		if len(args) > 0 {
-			return fnc(args...), tc
-		}
-		return fnc(), tc
-	})
-}
-
-// define named alias from defined expression
-func NewAliasDefinition(
-	expr Expression,
-	name string,
-) NameDef {
-	var tc = Def(
-		DefSym(name),
-		expr.Type().TypeReturn(),
-		expr.Type().TypeArguments(),
-	)
-	return NameDef(func(args ...Expression) (Expression, TyComp) {
-		if len(args) > 0 {
-			return expr.Call(args...), tc
-		}
-		return expr, tc
-	})
-}
-func (c NameDef) Expr() Expression { var e, _ = c(); return e }
-func (c NameDef) Type() TyComp     { var _, t = c(); return t }
-func (c NameDef) TypeFnc() TyFnc   { return c.Expr().TypeFnc() }
-func (c NameDef) String() string   { return c.Expr().String() }
-func (c NameDef) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return c.Expr().Call(args...)
-	}
-	return c.Expr()
-}
-
 //// TUPLE TYPE
 ///
 // tuple type constructor expects a slice of field types and possibly a symbol
@@ -150,7 +101,6 @@ func (c NameDef) Call(args ...Expression) Expression {
 func NewTuple(types ...d.Typed) TupleDef {
 	var (
 		comp TyComp
-		expr Expression
 	)
 	if len(types) >= 0 {
 		if Kind_Sym.Match(types[0].Kind()) {
@@ -160,14 +110,9 @@ func NewTuple(types ...d.Typed) TupleDef {
 		}
 		comp = Def(Def(Tuple), Def(types...), Def(types...))
 	}
-	expr = Define(TupleDef(func(args ...Expression) Expression {
+	return TupleDef(Define(GenericFunc(func(args ...Expression) Expression {
 		return TupleVal(func() ([]Expression, TyComp) { return args, comp })
-	}), comp.TypeIdent(), comp.TypeReturn(), comp.TypeArguments())
-	// return tuple definition passing its arguments on to  the type-safe
-	// partialy applicable and returning the result
-	return TupleDef(func(args ...Expression) Expression {
-		return expr.Call(args...)
-	})
+	}), comp.TypeIdent(), comp.TypeReturn(), comp.TypeArguments()))
 }
 
 func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
