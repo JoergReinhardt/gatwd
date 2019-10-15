@@ -15,9 +15,10 @@ type (
 	//TyNat d.BitFlag ← defined in data
 
 	// TYPE PATTERN
-	TyExp  func(...Expression) Expression
-	TySym  string
-	TyComp []d.Typed
+	TyComp []d.Typed                                // composed type indicator
+	TyCons func(...Expression) (Expression, TyComp) // type constructor
+	TyExp  func(...Expression) Expression           // type expression (constraint)
+	TySym  string                                   // dynamicly defined symbol
 )
 
 //go:generate stringer -type TyKind
@@ -356,7 +357,12 @@ func (n TyExp) Match(typ d.Typed) bool {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//// TYPE PATTERN
+//// TYPE CONTRUCTOR
+///
+// constructs a new sub-type and instance there of, based on value parameters
+// passed as arguments.
+
+//// COMPOSED TYPE
 ///
 // defines a new type according to a slice of possibly nested data/typed
 // instances.  arguments are expected to be passed in troublesome irish order:
@@ -395,8 +401,18 @@ func (p TyComp) TypePropertys() []TyComp {
 	return []TyComp{}
 }
 
-func (p TyComp) Match(typ d.Typed) bool {
-	return castedMatch(p, typ)
+// matches multiple type flags against its elements in order. should there be
+// more, or less arguments than pattern elements, the shorter sequence will be
+// matched.
+func (p TyComp) sortLength(types ...d.Typed) (short, long []d.Typed) {
+	// if number of arguments is not equal to number of elements, find
+	// shorter sequence
+	if p.Len() > len(types) {
+		short, long = types, p.Types()
+	} else {
+		short, long = p.Types(), types
+	}
+	return short, long
 }
 
 // match takes its argument, evaluated by passing it to the match-args method
@@ -419,36 +435,25 @@ func castedMatch(a, b d.Typed) bool {
 			return b.(TyComp).MatchTypes(a)
 		}
 	case Kind_Fnc.Match(a.Kind()):
-		if Kind_Fnc.Match(b.Kind()) {
-			return a.(TyFnc).Match(b.(TyFnc))
-		}
+		return a.(TyFnc).Match(b)
 	case Kind_Nat.Match(a.Kind()):
-		if Kind_Nat.Match(b.Kind()) {
-			return a.(d.TyNat).Match(b.(d.TyNat))
-		}
+		return a.(d.TyNat).Match(b)
 	case Kind_Expr.Match(a.Kind()):
-		if Kind_Expr.Match(b.Kind()) {
-			return a.(TyExp).Match(b.(TyExp))
-		}
+		return a.(TyExp).Match(b)
 	case Kind_Sym.Match(a.Kind()):
-		if Kind_Sym.Match(b.Kind()) {
-			return a.(TySym).Match(b.(TySym))
-		}
+		return a.(TySym).Match(b)
 	case Kind_Prop.Match(a.Kind()):
-		if Kind_Prop.Match(b.Kind()) {
-			return a.(TyProp).Match(b.(TyProp))
-		}
+		return a.(TyProp).Match(b)
 	case Kind_Lex.Match(a.Kind()):
-		if Kind_Lex.Match(b.Kind()) {
-			return a.(TyLex).Match(b.(TyLex))
-		}
+		return a.(TyLex).Match(b)
 	case Kind_Key.Match(a.Kind()):
-		if Kind_Key.Match(b.Kind()) {
-			return a.(TyKeyWord).Match(b.(TyKeyWord))
-		}
+		return a.(TyKeyWord).Match(b)
 	}
 	return false
 }
+
+// match a type flag against this type pattern
+func (p TyComp) Match(typ d.Typed) bool { return castedMatch(p, typ) }
 
 // match-types takes multiple types and matches them against an equal number of
 // pattern elements one at a time, starting with the first one. if the number
@@ -461,20 +466,6 @@ func (p TyComp) MatchTypes(types ...d.Typed) bool {
 		}
 	}
 	return true
-}
-
-// matches multiple type flags against its elements in order. should there be
-// more, or less arguments than pattern elements, the shorter sequence will be
-// matched.
-func (p TyComp) sortLength(types ...d.Typed) (short, long []d.Typed) {
-	// if number of arguments is not equal to number of elements, find
-	// shorter sequence
-	if p.Len() > len(types) {
-		short, long = types, p.Types()
-	} else {
-		short, long = p.Types(), types
-	}
-	return short, long
 }
 
 // matches if any of the arguments matches any of the patterns elements
@@ -492,25 +483,12 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 // match-args takes multiple expression arguments and matches their types
 // against the elements of the pattern.
 func (p TyComp) MatchArgs(args ...Expression) bool {
-	var types = make([]d.Typed, 0, len(args))
-	for n, arg := range args {
-		// composed type pattern has a type expression at that position
-		// → pass argument itself to expression for validation. if
-		// result is not none, pass its typ on to match-types for
-		// further evaluation.
-		if len(p.Types()) > n {
-			if Kind_Expr.Match(p.Types()[n].Kind()) {
-				var result = p.Types()[n].(TyExp).Value().Call(arg)
-				if result.Type().Match(None) {
-					return false
-				}
-				types = append(types, result.Type())
-				continue
-			}
-			types = append(types, arg.Type())
+	for _, arg := range args {
+		if !p.Match(arg.Type()) {
+			return false
 		}
 	}
-	return p.MatchTypes(types...)
+	return true
 }
 
 // returns true if the arguments type matches any of the patterns types

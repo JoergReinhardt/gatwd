@@ -4,6 +4,62 @@ package functions
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Type-1]
+	_ = x[Data-2]
+	_ = x[Value-4]
+	_ = x[Constant-8]
+	_ = x[Generator-16]
+	_ = x[Accumulator-32]
+	_ = x[Constructor-64]
+	_ = x[Property-128]
+	_ = x[Argument-256]
+	_ = x[Pattern-512]
+	_ = x[Element-1024]
+	_ = x[Lexical-2048]
+	_ = x[Symbol-4096]
+	_ = x[Index-8192]
+	_ = x[Key-16384]
+	_ = x[True-32768]
+	_ = x[False-65536]
+	_ = x[Undecided-131072]
+	_ = x[Equal-262144]
+	_ = x[Lesser-524288]
+	_ = x[Greater-1048576]
+	_ = x[Min-2097152]
+	_ = x[Max-4194304]
+	_ = x[Switch-8388608]
+	_ = x[Case-16777216]
+	_ = x[Just-33554432]
+	_ = x[None-67108864]
+	_ = x[Option-134217728]
+	_ = x[Polymorph-268435456]
+	_ = x[Either-536870912]
+	_ = x[Or-1073741824]
+	_ = x[Natural-2147483648]
+	_ = x[Integer-4294967296]
+	_ = x[Real-8589934592]
+	_ = x[Ratio-17179869184]
+	_ = x[Letter-34359738368]
+	_ = x[Text-68719476736]
+	_ = x[Bytes-137438953472]
+	_ = x[Vector-274877906944]
+	_ = x[List-549755813888]
+	_ = x[Set-1099511627776]
+	_ = x[Pair-2199023255552]
+	_ = x[Enum-4398046511104]
+	_ = x[Tuple-8796093022208]
+	_ = x[Record-17592186044416]
+	_ = x[Monad-35184372088832]
+	_ = x[State-70368744177664]
+	_ = x[IO-140737488355328]
+	_ = x[Parametric-281474976710656]
+	_ = x[ALL-18446744073709551615]
+}
+
 const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentPatternElementLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetPairEnumTupleRecordMonadStateIOParametricALL"
 
 var _TyFnc_map = map[TyFnc]string{
