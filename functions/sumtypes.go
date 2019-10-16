@@ -63,7 +63,10 @@ func (n NoneVal) Consume() (Expression, Consumeable) { return NewNone(), NewNone
 // declares a constant value
 func NewConstant(constant func() Expression) GenericConst { return constant }
 
-func (c GenericConst) Type() TyComp                  { return Def(Constant, c().Type()) }
+func (c GenericConst) Type() TyComp                  { return Def(Constant, c().Type(), None) }
+func (c GenericConst) TypeIdent() TyComp             { return c().Type().TypeIdent() }
+func (c GenericConst) TypeReturn() TyComp            { return c().Type().TypeReturn() }
+func (c GenericConst) TypeArguments() TyComp         { return Def(None) }
 func (c GenericConst) TypeFnc() TyFnc                { return Constant }
 func (c GenericConst) String() string                { return c().String() }
 func (c GenericConst) Call(...Expression) Expression { return c() }
@@ -86,9 +89,12 @@ func (c GenericFunc) Call(args ...Expression) Expression {
 	}
 	return c()
 }
-func (c GenericFunc) String() string { return c().String() }
-func (c GenericFunc) Type() TyComp   { return c().Type() }
-func (c GenericFunc) TypeFnc() TyFnc { return c().TypeFnc() }
+func (c GenericFunc) String() string        { return c().String() }
+func (c GenericFunc) TypeFnc() TyFnc        { return c().TypeFnc() }
+func (c GenericFunc) Type() TyComp          { return c().Type() }
+func (c GenericFunc) TypeIdent() TyComp     { return c().Type().TypeIdent() }
+func (c GenericFunc) TypeReturn() TyComp    { return c().Type().TypeReturn() }
+func (c GenericFunc) TypeArguments() TyComp { return c().Type().TypeArguments() }
 
 //// TUPLE TYPE
 ///
@@ -168,11 +174,12 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 
 }
 func Define(
-	expr Expression, types ...d.Typed,
+	expr Expression,
+	types ...d.Typed,
 ) FuncDef {
 	var (
 		ct     = createFuncType(expr, types...)
-		arglen = len(ct.TypeArguments())
+		arglen = ct.TypeArguments().Len()
 	)
 	// return partialy applicable function
 	return func(args ...Expression) Expression {
@@ -190,8 +197,8 @@ func Define(
 					var (
 						remains = ct.TypeArguments().Types()[length:]
 						newpat  = Def(
-							ct.Type().TypeIdent(),
-							ct.Type().TypeReturn(),
+							ct.TypeIdent(),
+							ct.TypeReturn(),
 							Def(remains...))
 					)
 					// define new function from remaining
@@ -211,7 +218,7 @@ func Define(
 						// passed, return the reduced
 						// type ct
 						return newpat
-					}), newpat.TypeIdent(), newpat.TypeReturn(), newpat.TypeArguments())
+					}), newpat.Types()...)
 
 				// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
 				case length > arglen:
@@ -242,6 +249,7 @@ func Define(
 }
 func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
 func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
+func (e FuncDef) TypeIdent() TyComp                  { return e.Type().TypeIdent() }
 func (e FuncDef) TypeArguments() TyComp              { return e.Type().TypeArguments() }
 func (e FuncDef) TypeReturn() TyComp                 { return e.Type().TypeReturn() }
 func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }

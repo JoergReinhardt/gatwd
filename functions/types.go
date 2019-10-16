@@ -15,9 +15,10 @@ type (
 	//TyNat d.BitFlag ← defined in data
 
 	// TYPE PATTERN
-	TyExp  func(...Expression) Expression
-	TySym  string
-	TyComp []d.Typed
+	TyComp []d.Typed                                // composed type indicator
+	TyCons func(...Expression) (Expression, TyComp) // type constructor
+	TyExp  func(...Expression) Expression           // type expression (constraint)
+	TySym  string                                   // dynamicly defined symbol
 )
 
 //go:generate stringer -type TyKind
@@ -356,7 +357,12 @@ func (n TyExp) Match(typ d.Typed) bool {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//// TYPE PATTERN
+//// TYPE CONTRUCTOR
+///
+// constructs a new sub-type and instance there of, based on value parameters
+// passed as arguments.
+
+//// COMPOSED TYPE
 ///
 // defines a new type according to a slice of possibly nested data/typed
 // instances.  arguments are expected to be passed in troublesome irish order:
@@ -395,12 +401,65 @@ func (p TyComp) TypePropertys() []TyComp {
 	return []TyComp{}
 }
 
+<<<<<<< HEAD
 func (p TyComp) Match(typ d.Typed) bool {
 	if Kind_Comp.Match(typ.Kind()) {
 		return p.MatchTypes(typ.(TyComp).Types()...)
+=======
+// matches multiple type flags against its elements in order. should there be
+// more, or less arguments than pattern elements, the shorter sequence will be
+// matched.
+func (p TyComp) sortLength(types ...d.Typed) (short, long []d.Typed) {
+	// if number of arguments is not equal to number of elements, find
+	// shorter sequence
+	if p.Len() > len(types) {
+		short, long = types, p.Types()
+	} else {
+		short, long = p.Types(), types
+	}
+	return short, long
+}
+
+// match takes its argument, evaluated by passing it to the match-args method
+// and yields the resulting bool. should the argument be a pattern itself, all
+// its sub elements are evaluated to match sub patterns recursively, when
+// called by match-all method.
+func castedMatch(a, b d.Typed) bool {
+	switch {
+	case Kind_Comp.Match(a.Kind()) || Kind_Comp.Match(a.Kind()):
+		if Kind_Comp.Match(a.Kind()) {
+			// both are composed
+			if Kind_Comp.Match(b.Kind()) {
+				return a.(TyComp).MatchTypes(b.(TyComp).Types()...)
+			}
+			// only a is composed
+			return a.(TyComp).MatchTypes(b)
+		}
+		// only b is composed
+		if Kind_Comp.Match(a.Kind()) {
+			return b.(TyComp).MatchTypes(a)
+		}
+	case Kind_Fnc.Match(a.Kind()):
+		return a.(TyFnc).Match(b)
+	case Kind_Nat.Match(a.Kind()):
+		return a.(d.TyNat).Match(b)
+	case Kind_Expr.Match(a.Kind()):
+		return a.(TyExp).Match(b)
+	case Kind_Sym.Match(a.Kind()):
+		return a.(TySym).Match(b)
+	case Kind_Prop.Match(a.Kind()):
+		return a.(TyProp).Match(b)
+	case Kind_Lex.Match(a.Kind()):
+		return a.(TyLex).Match(b)
+	case Kind_Key.Match(a.Kind()):
+		return a.(TyKeyWord).Match(b)
+>>>>>>> d7ae81fe7aa833477fa9855a524e33fd3c31fea7
 	}
 	return p.MatchTypes(typ)
 }
+
+// match a type flag against this type pattern
+func (p TyComp) Match(typ d.Typed) bool { return castedMatch(p, typ) }
 
 // match-types takes multiple types and matches them against an equal number of
 // pattern elements one at a time, starting with the first one. if the number
@@ -415,6 +474,7 @@ func (p TyComp) MatchTypes(types ...d.Typed) bool {
 	return true
 }
 
+<<<<<<< HEAD
 // matches multiple type flags against its elements in order. should there be
 // more, or less arguments than pattern elements, the shorter sequence will be
 // matched.
@@ -445,6 +505,8 @@ func (p TyComp) ConsumeTyped() (d.Typed, TyComp) {
 	return p.HeadTyped(), p.TailTyped()
 }
 
+=======
+>>>>>>> d7ae81fe7aa833477fa9855a524e33fd3c31fea7
 // matches if any of the arguments matches any of the patterns elements
 func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 	var head, tail = p.ConsumeTyped()
@@ -463,12 +525,17 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 // match-args takes multiple expression arguments and matches their types
 // against the elements of the pattern.
 func (p TyComp) MatchArgs(args ...Expression) bool {
+<<<<<<< HEAD
 	var head, tail = p.ConsumeTyped()
 	for _, arg := range args {
 		if head == nil {
 			break
 		}
 		if !head.Match(arg.Type()) {
+=======
+	for _, arg := range args {
+		if !p.Match(arg.Type()) {
+>>>>>>> d7ae81fe7aa833477fa9855a524e33fd3c31fea7
 			return false
 		}
 		head, tail = tail.ConsumeTyped()

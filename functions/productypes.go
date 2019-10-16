@@ -104,9 +104,9 @@ func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
 func (t CaseDef) TypeFnc() TyFnc                     { return Case }
 func (t CaseDef) Type() TyComp                       { return t().(Paired).Left().(TyComp) }
 func (t CaseDef) Test() TestFunc                     { return t().(Paired).Right().(TestFunc) }
-func (t CaseDef) TypeReturn() TyComp                 { return t.Type().Pattern()[2] }
-func (t CaseDef) TypeIdent() TyComp                  { return t.Type().Pattern()[1] }
-func (t CaseDef) TypeArguments() []TyComp            { return t.Type().Pattern()[0].Pattern() }
+func (t CaseDef) TypeIdent() TyComp                  { return t.Type().Pattern()[0] }
+func (t CaseDef) TypeReturn() TyComp                 { return t.Type().Pattern()[1] }
+func (t CaseDef) TypeArguments() TyComp              { return t.Type().Pattern()[2] }
 func (t CaseDef) String() string                     { return t.TypeFnc().TypeName() }
 func (t CaseDef) Call(args ...Expression) Expression { return t(args...) }
 
@@ -242,48 +242,38 @@ func (t MaybeVal) Type() TyComp                       { var _, pat, _ = t(); ret
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
 func NewEitherOr(either CaseDef, or FuncDef) EitherOrDef {
-	var (
-		typesEither = make([]d.Typed, 0, len(either.TypeArguments()))
-		typesOr     = make([]d.Typed, 0, len(or.Type().TypeArguments()))
-	)
-	for _, arg := range either.TypeArguments() {
-		typesEither = append(typesEither, arg)
-	}
-	for _, arg := range or.TypeArguments() {
-		typesOr = append(typesOr, arg)
-	}
-	var (
-		eitherArgs, orArgs = Def(typesEither...), Def(typesOr...)
-
-		pattern = Def(
-			Def(Either|Or),
-			Def(
-				Def(Either, either.TypeReturn()),
-				Def(Or, or.TypeReturn()),
-			),
-			Def(
-				Def(Either, eitherArgs),
-				Def(Or, orArgs),
-			))
+	var pattern = Def(
+		Def(
+			Def(Either, either.TypeIdent()),
+			Def(Or, or.TypeIdent()),
+		),
+		Def(
+			Def(Either, either.TypeReturn()),
+			Def(Or, or.TypeReturn()),
+		),
+		Def(
+			Def(Either, either.TypeArguments()),
+			Def(Or, or.TypeArguments()),
+		),
 	)
 
 	return EitherOrDef(func(args ...Expression) Expression {
 		if len(args) > 0 {
 			var result Expression
-			if result = either.Call(args...); !result.Type().Match(None) {
+			if result = either.Call(args...); result.Type().Match(None) {
+				result = or.Call(args...)
 				return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
 					if len(args) > 0 {
-						return result.Call(args...), Either, NewEitherOr(either, or)
+						return result.Call(args...), Or, NewEitherOr(either, or)
 					}
-					return result, Either, NewEitherOr(either, or)
+					return result, Or, NewEitherOr(either, or)
 				})
 			}
-			result = or.Call(args...)
 			return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
 				if len(args) > 0 {
-					return result.Call(args...), Or, NewEitherOr(either, or)
+					return result.Call(args...), Either, NewEitherOr(either, or)
 				}
-				return result, Or, NewEitherOr(either, or)
+				return result.Call(), Either, NewEitherOr(either, or)
 			})
 		}
 		return pattern
