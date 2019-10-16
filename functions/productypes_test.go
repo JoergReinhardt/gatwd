@@ -110,12 +110,7 @@ var swi = NewSwitch(caseFloat, caseUint, caseInteger)
 func TestSwitch(t *testing.T) {
 
 	var result = swi.Call(Dat(42))
-<<<<<<< HEAD
 	fmt.Printf("result match args int: %t\n", result.Type().MatchArgs(Dat("")))
-=======
-	fmt.Printf("result from calling switch on 42: %s\n", result)
-	fmt.Printf("result type: %s\n", result.Type())
->>>>>>> d7ae81fe7aa833477fa9855a524e33fd3c31fea7
 	if !result.Type().MatchArgs(Dat("")) {
 		t.Fail()
 	}
@@ -127,11 +122,7 @@ func TestSwitch(t *testing.T) {
 	}
 
 	result = swi.Call(Dat(42.23))
-<<<<<<< HEAD
 	fmt.Printf("result from calling switch on float 42.23: %s\n", result)
-=======
-	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
->>>>>>> d7ae81fe7aa833477fa9855a524e33fd3c31fea7
 	if !result.Type().MatchArgs(Dat("")) {
 		t.Fail()
 	}
@@ -160,34 +151,14 @@ func TestMaybe(t *testing.T) {
 }
 
 func TestOption(t *testing.T) {
-	var repeat = Define(
-		GenericFunc(func(...Expression) Expression {
-			return Dat("this is a float")
-		}),
-		Dat("").Type(),
-		Dat(0.0).Type(),
-	)
 	var (
-		option   = NewEitherOr(caseInteger, repeat)
+		option   = NewEitherOr(caseInteger, Define(Dat("this is a float"), None, d.String))
 		intStr   = option(Dat(23))
 		fltStr   = option(Dat(42.23))
 		boolNone = option(Dat(true))
 	)
-
-	fmt.Printf("float match float arg? %t\n", Dat(0.0).Type().MatchArgs(Dat(0.0)))
-	fmt.Printf("float match float type? %t\n\n", Dat(0.0).Type().Match(Dat(0.0).Type()))
-	fmt.Printf("call repeat ident: %s\ntype arguments: %s\ntype return: %s\n\n",
-		repeat.Type().TypeIdent(), repeat.Type().TypeReturn(), repeat.Type().TypeArguments())
-
-	var result = repeat.Call(Dat(42.23))
-	fmt.Printf("call repeat with float: %s\ntype ident: %s\ntype return: %s\ntype args: %s\n\n",
-		result,
-		result.Type().TypeIdent(),
-		result.Type().TypeReturn(),
-		result.Type().TypeArguments(),
-	)
-
-	fmt.Printf("option type: %s\n", option.Type())
+	fmt.Printf("option: %s, option type: %s\n",
+		option, option.Type())
 
 	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr, fltStr, boolNone)
