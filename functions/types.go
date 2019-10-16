@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"fmt"
 	"strings"
 	s "strings"
 
@@ -399,7 +400,7 @@ func (p TyComp) Match(typ d.Typed) bool {
 	if Kind_Comp.Match(typ.Kind()) {
 		return p.MatchTypes(typ.(TyComp).Types()...)
 	}
-	return p.MatchTypes(typ)
+	return p[0].Match(typ)
 }
 
 // match-types takes multiple types and matches them against an equal number of
@@ -465,6 +466,7 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 func (p TyComp) MatchArgs(args ...Expression) bool {
 	var head, tail = p.ConsumeTyped()
 	for _, arg := range args {
+		fmt.Printf("manno ey! %s %s\n", arg.Type(), head)
 		if head == nil {
 			break
 		}
