@@ -32,7 +32,7 @@ func TestExpression(t *testing.T) {
 		partial.Type().TypeArguments(),
 		partial.Type().TypeIdent(),
 		partial.Type().TypeReturn())
-	if !partial.Type().TypeReturn().Match(DefSym("AddInts")) {
+	if !partial.Type().TypeIdent().Match(DefSym("AddInts")) {
 		t.Fail()
 	}
 
@@ -76,7 +76,7 @@ func TestExpression(t *testing.T) {
 		Dat(23), Dat(42))
 	fmt.Printf("result4: %s\n", result4)
 	if vec, ok := result4.(VecVal); ok {
-		if !vec.Head().Type().MatchArgs(Dat(0)) {
+		if !vec()[0].Type().TypeReturn().Match(d.Int) {
 			t.Fail()
 		}
 	}

@@ -143,15 +143,17 @@ func NewSwitch(cases ...CaseDef) SwitchDef {
 				if result.Type().Match(None) {
 					return result, remains
 				}
+				remains = cases
 				return result, cases
 			}
+			remains = cases
 			return NewNone(), cases
 		}
 		return pattern, cases
 	}
 }
 
-func (t SwitchDef) Reload() SwitchDef { return NewSwitch(t.Cases()...) }
+func (t SwitchDef) reload() SwitchDef { return NewSwitch(t.Cases()...) }
 func (t SwitchDef) String() string    { return t.Type().TypeName() }
 func (t SwitchDef) TypeFnc() TyFnc    { return Switch }
 func (t SwitchDef) Type() TyComp {

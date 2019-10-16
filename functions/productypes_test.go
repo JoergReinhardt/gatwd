@@ -110,28 +110,24 @@ var swi = NewSwitch(caseFloat, caseUint, caseInteger)
 func TestSwitch(t *testing.T) {
 
 	var result = swi.Call(Dat(42))
-	fmt.Printf("result from calling switch on 42: %s\n", result)
-	if !result.Type().MatchArgs(Dat(0)) {
+	fmt.Printf("result match args int: %t\n", result.Type().MatchArgs(Dat("")))
+	if !result.Type().MatchArgs(Dat("")) {
 		t.Fail()
 	}
 
-	swi = swi.Reload()
 	result = swi.Call(Dat(uint(42)))
 	fmt.Printf("result from calling switch on uint 42: %s\n", result)
-	if !result.Type().MatchArgs(Dat(uint(0))) {
+	if !result.Type().MatchArgs(Dat("")) {
 		t.Fail()
 	}
 
-	swi = swi.Reload()
 	result = swi.Call(Dat(42.23))
-	fmt.Printf("result from calling switch on uint 42.23: %s\n", result)
-	if !result.Type().MatchArgs(Dat(uint(0.0))) {
+	fmt.Printf("result from calling switch on float 42.23: %s\n", result)
+	if !result.Type().MatchArgs(Dat("")) {
 		t.Fail()
 	}
 
-	swi = swi.Reload()
 	result = swi.Call(Dat(true))
-	fmt.Printf("result from calling switch on true: %s\n", result)
 	if !result.Type().Match(None) {
 		t.Fail()
 	}

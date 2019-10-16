@@ -396,58 +396,10 @@ func (p TyComp) TypePropertys() []TyComp {
 }
 
 func (p TyComp) Match(typ d.Typed) bool {
-	return castedMatch(p, typ)
-}
-
-// match takes its argument, evaluated by passing it to the match-args method
-// and yields the resulting bool. should the argument be a pattern itself, all
-// its sub elements are evaluated to match sub patterns recursively, when
-// called by match-all method.
-func castedMatch(a, b d.Typed) bool {
-	switch {
-	case Kind_Comp.Match(a.Kind()) || Kind_Comp.Match(a.Kind()):
-		if Kind_Comp.Match(a.Kind()) {
-			// both are composed
-			if Kind_Comp.Match(b.Kind()) {
-				return a.(TyComp).MatchTypes(b.(TyComp).Types()...)
-			}
-			// only a is composed
-			return a.(TyComp).MatchTypes(b)
-		}
-		// only b is composed
-		if Kind_Comp.Match(a.Kind()) {
-			return b.(TyComp).MatchTypes(a)
-		}
-	case Kind_Fnc.Match(a.Kind()):
-		if Kind_Fnc.Match(b.Kind()) {
-			return a.(TyFnc).Match(b.(TyFnc))
-		}
-	case Kind_Nat.Match(a.Kind()):
-		if Kind_Nat.Match(b.Kind()) {
-			return a.(d.TyNat).Match(b.(d.TyNat))
-		}
-	case Kind_Expr.Match(a.Kind()):
-		if Kind_Expr.Match(b.Kind()) {
-			return a.(TyExp).Match(b.(TyExp))
-		}
-	case Kind_Sym.Match(a.Kind()):
-		if Kind_Sym.Match(b.Kind()) {
-			return a.(TySym).Match(b.(TySym))
-		}
-	case Kind_Prop.Match(a.Kind()):
-		if Kind_Prop.Match(b.Kind()) {
-			return a.(TyProp).Match(b.(TyProp))
-		}
-	case Kind_Lex.Match(a.Kind()):
-		if Kind_Lex.Match(b.Kind()) {
-			return a.(TyLex).Match(b.(TyLex))
-		}
-	case Kind_Key.Match(a.Kind()):
-		if Kind_Key.Match(b.Kind()) {
-			return a.(TyKeyWord).Match(b.(TyKeyWord))
-		}
+	if Kind_Comp.Match(typ.Kind()) {
+		return p.MatchTypes(typ.(TyComp).Types()...)
 	}
-	return false
+	return p.MatchTypes(typ)
 }
 
 // match-types takes multiple types and matches them against an equal number of
@@ -477,14 +429,33 @@ func (p TyComp) sortLength(types ...d.Typed) (short, long []d.Typed) {
 	return short, long
 }
 
+func (p TyComp) HeadTyped() d.Typed {
+	if len(p) > 0 {
+		return p[0]
+	}
+	return nil
+}
+func (p TyComp) TailTyped() TyComp {
+	if len(p) > 1 {
+		return p[1:]
+	}
+	return nil
+}
+func (p TyComp) ConsumeTyped() (d.Typed, TyComp) {
+	return p.HeadTyped(), p.TailTyped()
+}
+
 // matches if any of the arguments matches any of the patterns elements
 func (p TyComp) MatchAnyType(args ...d.Typed) bool {
-	for _, elem := range p {
-		for _, arg := range args {
-			if elem.Match(arg) {
-				return true
-			}
+	var head, tail = p.ConsumeTyped()
+	for _, arg := range args {
+		if head == nil {
+			return false
 		}
+		if head.Match(arg) {
+			return true
+		}
+		head, tail = tail.ConsumeTyped()
 	}
 	return false
 }
@@ -492,25 +463,17 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 // match-args takes multiple expression arguments and matches their types
 // against the elements of the pattern.
 func (p TyComp) MatchArgs(args ...Expression) bool {
-	var types = make([]d.Typed, 0, len(args))
-	for n, arg := range args {
-		// composed type pattern has a type expression at that position
-		// → pass argument itself to expression for validation. if
-		// result is not none, pass its typ on to match-types for
-		// further evaluation.
-		if len(p.Types()) > n {
-			if Kind_Expr.Match(p.Types()[n].Kind()) {
-				var result = p.Types()[n].(TyExp).Value().Call(arg)
-				if result.Type().Match(None) {
-					return false
-				}
-				types = append(types, result.Type())
-				continue
-			}
-			types = append(types, arg.Type())
+	var head, tail = p.ConsumeTyped()
+	for _, arg := range args {
+		if head == nil {
+			break
 		}
+		if !head.Match(arg.Type()) {
+			return false
+		}
+		head, tail = tail.ConsumeTyped()
 	}
-	return p.MatchTypes(types...)
+	return true
 }
 
 // returns true if the arguments type matches any of the patterns types
@@ -680,9 +643,6 @@ func (p TyComp) Head() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyComp) HeadTyped() d.Typed { return p.Head().(d.Typed) }
-
-// type-head yields first pattern element as typed
 func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
@@ -705,18 +665,6 @@ func (p TyComp) TailPattern() TyComp {
 
 // consume uses head & tail to implement consumeable
 func (p TyComp) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
-
-// type-consume works like consume, but yields the head cast as typed & the
-// tail as a type pattern
-func (p TyComp) ConsumeTyped() (d.Typed, TyComp) {
-	if p.Len() > 1 {
-		return p.Pattern()[0], Def(p.Types()[1:]...)
-	}
-	if p.Len() > 0 {
-		return p.Pattern()[0], []d.Typed{}
-	}
-	return None, []d.Typed{}
-}
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
