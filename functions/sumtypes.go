@@ -17,11 +17,11 @@ type (
 
 	// TUPLE (TYPE[0]...TYPE[N])
 	TupleDef func(...Expression) Expression
-	TupleVal func() ([]Expression, TyComp)
+	TupleVal []Expression
 
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecordDef func(...KeyPair) RecordVal
-	RecordVal func() ([]KeyPair, TyComp)
+	RecordDef func(...Expression) Expression
+	RecordVal []KeyPair
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -95,58 +95,6 @@ func (c GenericFunc) Type() TyComp          { return c().Type() }
 func (c GenericFunc) TypeIdent() TyComp     { return c().Type().TypeIdent() }
 func (c GenericFunc) TypeReturn() TyComp    { return c().Type().TypeReturn() }
 func (c GenericFunc) TypeArguments() TyComp { return c().Type().TypeArguments() }
-
-//// TUPLE TYPE
-///
-// tuple type constructor expects a slice of field types and possibly a symbol
-// type flag, to define the types name, otherwise 'tuple' is the type name and
-// the sequence of field types is shown instead
-//
-// tuple definition helper either|or type definition.
-// f(args VecVal, types TyComp) (TupleDef|TupleVal)
-func NewTuple(types ...d.Typed) TupleDef {
-	var (
-		comp TyComp
-	)
-	if len(types) >= 0 {
-		if Kind_Sym.Match(types[0].Kind()) {
-			if len(types) > 1 {
-				comp = Def(Def(Tuple, types[0]), Def(types[1:]...), Def(types[1:]...))
-			}
-		}
-		comp = Def(Def(Tuple), Def(types...), Def(types...))
-	}
-	return TupleDef(Define(GenericFunc(func(args ...Expression) Expression {
-		return TupleVal(func() ([]Expression, TyComp) { return args, comp })
-	}), comp.TypeIdent(), comp.TypeReturn(), comp.TypeArguments()))
-}
-
-func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
-func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupleDef) String() string                     { return t.Type().String() }
-func (t TupleDef) Type() TyComp                       { return t().Type() }
-
-/// TUPLE VALUE
-// tuple value is a slice of expressions, constructed by a tuple type
-// constructor validated according to its type pattern.
-func (t TupleVal) TypeFnc() TyFnc                { return Tuple }
-func (t TupleVal) Type() TyComp                  { var _, typ = t(); return typ }
-func (t TupleVal) Value() []Expression           { var v, _ = t(); return v }
-func (t TupleVal) Count() int                    { return len(t.Value()) }
-func (t TupleVal) Call(...Expression) Expression { return NewVector(t.Value()...) }
-func (t TupleVal) Get(idx int) Expression {
-	if idx < t.Count() {
-		return t.Value()[idx]
-	}
-	return NewNone()
-}
-func (t TupleVal) String() string {
-	var strs = make([]string, 0, t.Count())
-	for _, val := range t.Value() {
-		strs = append(strs, val.String())
-	}
-	return "[" + strings.Join(strs, ", ") + "]"
-}
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
@@ -255,3 +203,58 @@ func (e FuncDef) TypeReturn() TyComp                 { return e.Type().TypeRetur
 func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
 func (e FuncDef) String() string                     { return e().String() }
 func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
+
+//// TUPLE TYPE
+///
+// tuple type constructor expects a slice of field types and possibly a symbol
+// type flag, to define the types name, otherwise 'tuple' is the type name and
+// the sequence of field types is shown instead
+func NewTuple(types ...d.Typed) TupleDef {
+	return func(args ...Expression) Expression {
+		var tup = make(TupleVal, 0, len(args))
+		if Def(types...).MatchArgs(args...) {
+			for _, arg := range args {
+				tup = append(tup, arg)
+			}
+		}
+		return tup
+	}
+}
+
+func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
+func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupleDef) String() string                     { return t.Type().String() }
+func (t TupleDef) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t().(TupleVal)))
+	for _, tup := range t().(TupleVal) {
+		types = append(types, tup.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+
+/// TUPLE VALUE
+// tuple value is a slice of expressions, constructed by a tuple type
+// constructor validated according to its type pattern.
+func (t TupleVal) Len() int { return len(t) }
+func (t TupleVal) String() string {
+	var strs = make([]string, 0, t.Len())
+	for _, val := range t {
+		strs = append(strs, val.String())
+	}
+	return "[" + strings.Join(strs, ", ") + "]"
+}
+func (t TupleVal) Get(idx int) Expression {
+	if idx < t.Len() {
+		return t[idx]
+	}
+	return NewNone()
+}
+func (t TupleVal) TypeFnc() TyFnc                     { return Tuple }
+func (t TupleVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
+func (t TupleVal) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t))
+	for _, tup := range t {
+		types = append(types, tup.Type())
+	}
+	return Def(Tuple, Def(types...))
+}

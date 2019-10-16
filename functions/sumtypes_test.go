@@ -93,17 +93,17 @@ func TestTuple(t *testing.T) {
 
 	var tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
 	fmt.Printf("tuple %s\n", tup)
-	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 
 	tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
 	fmt.Printf("tuple second call %s\n", tup)
-	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 
@@ -117,9 +117,11 @@ func TestTuple(t *testing.T) {
 
 	tup = partial1.Call(Dat(true), Dat(false))
 	fmt.Printf("result: %s\n", tup)
-	if tup.(TupleVal).Value()[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal).Value()[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal).Value()[2].(NatEval).Eval() != d.BoolVal(true) {
-		t.Fail()
+	if tup.(ValPair).Value().(NatEval).Eval() != d.IntVal(23) {
+		if tup.(ValPair).Value().(NatEval).Eval() != d.FltVal(42.23) {
+			if tup.(ValPair).Value().(NatEval).Eval() != d.BoolVal(true) {
+				t.Fail()
+			}
+		}
 	}
 }
