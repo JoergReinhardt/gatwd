@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"sort"
 	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
@@ -16,12 +17,12 @@ type (
 	FuncDef func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
-	TupleDef func(...Expression) Expression
-	TupleVal []Expression
+	TupDef func(...Expression) TupVal
+	TupVal []Expression
 
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecordDef func(...Expression) Expression
-	RecordVal []KeyPair
+	RecDef func(...Expression) RecVal
+	RecVal []KeyPair
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -209,9 +210,9 @@ func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 // tuple type constructor expects a slice of field types and possibly a symbol
 // type flag, to define the types name, otherwise 'tuple' is the type name and
 // the sequence of field types is shown instead
-func NewTuple(types ...d.Typed) TupleDef {
-	return func(args ...Expression) Expression {
-		var tup = make(TupleVal, 0, len(args))
+func NewTuple(types ...d.Typed) TupDef {
+	return func(args ...Expression) TupVal {
+		var tup = make(TupVal, 0, len(args))
 		if Def(types...).MatchArgs(args...) {
 			for _, arg := range args {
 				tup = append(tup, arg)
@@ -221,12 +222,12 @@ func NewTuple(types ...d.Typed) TupleDef {
 	}
 }
 
-func (t TupleDef) Call(args ...Expression) Expression { return t(args...) }
-func (t TupleDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupleDef) String() string                     { return t.Type().String() }
-func (t TupleDef) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t().(TupleVal)))
-	for _, tup := range t().(TupleVal) {
+func (t TupDef) Call(args ...Expression) Expression { return t(args...) }
+func (t TupDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupDef) String() string                     { return t.Type().String() }
+func (t TupDef) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t()))
+	for _, tup := range t() {
 		types = append(types, tup.Type())
 	}
 	return Def(Tuple, Def(types...))
@@ -235,26 +236,164 @@ func (t TupleDef) Type() TyComp {
 /// TUPLE VALUE
 // tuple value is a slice of expressions, constructed by a tuple type
 // constructor validated according to its type pattern.
-func (t TupleVal) Len() int { return len(t) }
-func (t TupleVal) String() string {
+func (t TupVal) Len() int { return len(t) }
+func (t TupVal) String() string {
 	var strs = make([]string, 0, t.Len())
 	for _, val := range t {
 		strs = append(strs, val.String())
 	}
 	return "[" + strings.Join(strs, ", ") + "]"
 }
-func (t TupleVal) Get(idx int) Expression {
+func (t TupVal) Get(idx int) Expression {
 	if idx < t.Len() {
 		return t[idx]
 	}
 	return NewNone()
 }
-func (t TupleVal) TypeFnc() TyFnc                     { return Tuple }
-func (t TupleVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
-func (t TupleVal) Type() TyComp {
+func (t TupVal) TypeFnc() TyFnc                     { return Tuple }
+func (t TupVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
+func (t TupVal) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t))
 	for _, tup := range t {
 		types = append(types, tup.Type())
 	}
 	return Def(Tuple, Def(types...))
+}
+
+//// RECORD TYPE
+///
+//
+func NewRecord(types ...KeyPair) RecDef {
+	return func(args ...Expression) RecVal {
+		var tup = make(RecVal, 0, len(args))
+		if len(args) > 0 {
+			for n, arg := range args {
+				if len(types) > n {
+					if arg.Type().Match(Key | Pair) {
+						if kp, ok := arg.(KeyPair); ok {
+							if strings.Compare( // equal keys
+								string(kp.KeyStr()),
+								string(types[n].KeyStr()),
+							) == 0 && // equal values
+								types[n].Value().Type().Match(
+									kp.Value().Type()) {
+								tup = append(tup, kp)
+							}
+						}
+					}
+				}
+			}
+			return tup
+		}
+		return types
+	}
+}
+
+func (t RecDef) Call(args ...Expression) Expression { return t(args...) }
+func (t RecDef) TypeFnc() TyFnc                     { return Record | Constructor }
+func (t RecDef) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t()))
+	for _, field := range t() {
+		types = append(types,
+			Def(
+				DefSym(field.KeyStr()),
+				Def(field.Value().Type()),
+			))
+	}
+	return Def(Record, Def(types...))
+}
+func (t RecDef) String() string {
+	var strs = make([]string, 0, len(t()))
+	for _, f := range t() {
+		strs = append(strs,
+			"("+f.KeyStr()+" ∷ "+f.Value().String()+")",
+		)
+	}
+	return "{" + strings.Join(strs, " ") + "}"
+}
+
+/// RECORD VALUE
+// tuple value is a slice of expressions, constructed by a tuple type
+// constructor validated according to its type pattern.
+func (t RecVal) TypeFnc() TyFnc { return Record }
+func (t RecVal) Call(args ...Expression) Expression {
+	var exprs = make([]Expression, 0, len(t)+len(args))
+	for _, elem := range t {
+		exprs = append(exprs, elem)
+	}
+	for _, arg := range args {
+		if arg.Type().Match(Pair | Key) {
+			if kp, ok := arg.(KeyPair); ok {
+				exprs = append(exprs, kp)
+			}
+		}
+	}
+	return NewVector(exprs...)
+}
+func (t RecVal) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t))
+	for _, tup := range t {
+		types = append(types, tup.Type())
+	}
+	return Def(Record, Def(types...))
+}
+func (t RecVal) Len() int { return len(t) }
+func (t RecVal) String() string {
+	var strs = make([]string, 0, t.Len())
+	for _, field := range t {
+		strs = append(strs,
+			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
+	}
+	return "{" + strings.Join(strs, " ") + "}"
+}
+func (t RecVal) SortByKeys() RecVal {
+	var exprs = make([]Expression, 0, len(t))
+	var pairs = make([]KeyPair, 0, len(t))
+	for _, field := range t {
+		exprs = append(exprs, field)
+	}
+	exprs = By(func(i, j int) bool {
+		return strings.Compare(
+			string(t[i].KeyStr()),
+			string(t[j].KeyStr()),
+		) == 0
+	}).Sort(exprs)
+	for _, expr := range exprs {
+		pairs = append(pairs, expr.(KeyPair))
+	}
+	return pairs
+}
+func (t RecVal) SearchForKey(key string) KeyPair {
+	var search = sort.Search(len(t),
+		func(i int) bool { return strings.Compare(t[i].KeyStr(), key) >= 0 },
+	)
+}
+
+// record sorter is a helper struct to sort record fields inline
+type recordSorter struct {
+	exprs []Expression
+	by    By
+}
+
+func newRecordSorter(pairs []Expression, by By) *recordSorter {
+	var exprs = make([]Expression, 0, len(pairs))
+	for _, pair := range pairs {
+		exprs = append(exprs, pair)
+	}
+	return &recordSorter{exprs, by}
+}
+
+func (t recordSorter) Less(i, j int) bool { return t.by(i, j) }
+func (t recordSorter) Swap(i, j int)      { t.exprs[j], t.exprs[i] = t.exprs[i], t.exprs[j] }
+func (t recordSorter) Len() int           { return len(t.exprs) }
+
+// sort interface. the'By' type implements 'sort.Less() int' and is the
+// function type of a parameterized sort & search function.
+type By func(a, b int) bool
+
+// sort is a method of the by function type
+func (by By) Sort(exprs []Expression) []Expression {
+	var sorter = newRecordSorter(exprs, by)
+	sort.Sort(sorter)
+	return sorter.exprs
 }

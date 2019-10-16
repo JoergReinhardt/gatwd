@@ -66,14 +66,16 @@ A particular sub-type, & value constructor will be defined for every instanciate
     0. Data Map       ‥.                          ‥.
     0. Data Function  ‥.                          ‥.
 
-  - a value-/ and type constructor per **product-/ sum-type** in the functions package.
+  - a value-/ and type constructor per **product- and/or sum-type** in the functions package.
     0. Function     func(...Expression) Expression                          all fields defined at runtime
     0. Generator    ‥.                                                      ‥.
     0. Accumulator  ‥.                                                      ‥.
-    0. Tuple        func(...Expression) []Expression                        ‥.
-    0. Record       func(...Expression) (Expression, Record)                ‥.
     0. Vector       func(...Expression) (Expression, Vector)                ‥.
     0. List         func(...Expression) (Expression, List)                  ‥.
+    0. Tuple        func(...Expression) []Expression                        ‥.
+    0. Record       func(...Expression) []KeyPair                           ‥.
+
+  - a value-/ and type constructor for every **sequentially composable** type
     0. Monad        func(...Expression) (Expression, Monad)                 ‥.
     0. Sequence     func(...Expression) (Expression, Sequence)              ‥.
     0. Applicable   func(...Expression) (Expression, Applicable)            ‥.
@@ -82,5 +84,4 @@ A particular sub-type, & value constructor will be defined for every instanciate
 
 
 A particular sub-type and value constructor will be defined for every instanciated permutation (unique in terms of argument-/ & return types), of each agnosic, data-/, sum-/ and/or product-type. 
-
-Type constructors keep references to all instanciated sub-type value constructors. sub-types keep references to their parent types
+TODO: Type constructors keep references to all instanciated sub-type value constructors. sub-types keep references to their parent types

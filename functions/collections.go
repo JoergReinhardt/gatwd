@@ -157,6 +157,7 @@ func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a
 func (a KeyPair) Key() Expression                    { return a.Right() }
 func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
 func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
+func (a KeyPair) TypeElem() d.Typed                  { return a.Value().Type() }
 func (a KeyPair) TypeKey() d.Typed                   { return Key }
 func (a KeyPair) TypeFnc() TyFnc                     { return Key | Pair }
 func (p KeyPair) Type() TyComp {

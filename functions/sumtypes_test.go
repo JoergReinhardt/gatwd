@@ -93,17 +93,17 @@ func TestTuple(t *testing.T) {
 
 	var tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
 	fmt.Printf("tuple %s\n", tup)
-	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupVal)[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupVal)[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 
 	tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
 	fmt.Printf("tuple second call %s\n", tup)
-	if tup.(TupleVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupleVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupleVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+	if tup.(TupVal)[0].(NatEval).Eval() != d.IntVal(23) ||
+		tup.(TupVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
+		tup.(TupVal)[2].(NatEval).Eval() != d.BoolVal(true) {
 		t.Fail()
 	}
 
@@ -124,4 +124,43 @@ func TestTuple(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestRecord(t *testing.T) {
+	var recfield = NewRecord(
+		NewKeyPair("zero int", Dat(0).Type()),
+		NewKeyPair("one uint", Dat(uint(0)).Type()),
+		NewKeyPair("two float", Dat(float64(0.0)).Type()),
+		NewKeyPair("three bool", Dat(bool(false)).Type()),
+	)
+	fmt.Printf("record definition:%s \n", recfield)
+	fmt.Printf("record def type:%s \n", recfield.Type())
+
+	var rec = recfield(
+		NewKeyPair("zero int", Dat(1)),
+		NewKeyPair("one uint", Dat(uint(2))),
+		NewKeyPair("two float", Dat(float64(3.0))),
+		NewKeyPair("three bool", Dat(bool(true))),
+	)
+	fmt.Printf("record value APPLYED CORRECTLY:%s \n", rec)
+	fmt.Printf("record val type:%s \n", rec.Type())
+	fmt.Printf("record val length:%d \n", rec.Len())
+
+	rec = recfield(
+		NewKeyPair("zero int", Dat(1)),
+		NewKeyPair("one uint", Dat(uint(2))),
+		NewKeyPair("two float", Dat(float64(3.0))),
+		NewKeyPair("three bool", Dat(bool(true))),
+	)
+	fmt.Printf("record value CALLED CORRECTLY:%s \n", rec)
+	fmt.Printf("record val type:%s \n", rec.Type())
+
+	rec = recfield(
+		NewKeyPair("zero int", Dat(1)),
+		NewKeyPair("one uint", Dat(2)),
+		NewKeyPair("two float", Dat(float64(3.0))),
+		NewKeyPair("three bool", Dat(bool(true))),
+	)
+	fmt.Printf("record value applyed INCORRECTLY:%s \n", rec)
+	fmt.Printf("record val type:%s \n", rec.Type())
 }

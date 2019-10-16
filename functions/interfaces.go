@@ -212,7 +212,7 @@ type Associated interface {
 
 // implemented by keyed values, where the key is of type string
 type Keyed interface {
-	KeyStr() d.StrVal
+	KeyStr() string
 }
 
 // pairs associated by key
