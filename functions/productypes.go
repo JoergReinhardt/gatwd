@@ -18,11 +18,12 @@ type (
 
 	// MAYBE (JUST | NONE)
 	MaybeDef func(...Expression) Expression
-	MaybeVal func(...Expression) (Expression, TyComp, MaybeDef)
+	JustVal  func(...Expression) Expression
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
 	EitherOrDef func(...Expression) Expression
-	EitherOrVal func(...Expression) (Expression, TyFnc, EitherOrDef)
+	EitherVal   func(...Expression) Expression
+	OrVal       func(...Expression) Expression
 
 	// TODO: either poly-/ or option type (homolog)‥. also option value
 	// should reference its type constructor and sibling types.
@@ -196,34 +197,24 @@ func NewMaybe(cas CaseDef) MaybeDef {
 			// pass arguments to case, check if result is none‥.
 			if result := cas.Call(args...); !result.Type().Match(None) {
 				// ‥.otherwise return a maybe just
-				return MaybeVal(func(args ...Expression) (Expression, TyComp, MaybeDef) {
+				return JustVal(func(args ...Expression) Expression {
 					if len(args) > 0 {
 						// return result from passing
 						// args to result of initial
 						// call
-						return result.Call(args...), Def(
-							Def(argtypes...),
-							Just,
-							result.Type().TypeReturn(),
-						), NewMaybe(cas)
+						return result.Call(args...)
 					}
-					return result, Def(
-						Def(argtypes...),
-						Just,
-						result.Type().TypeReturn(),
-					), NewMaybe(cas)
+					return result.Call()
 				})
 			}
 			// no matching arguments where passed, return none
-			return MaybeVal(func(...Expression) (Expression, TyComp, MaybeDef) {
-				return NewNone(), Def(None), NewMaybe(cas)
-			})
+			return NewNone()
 		}
 		return pattern
 	}
 }
 
-func (t MaybeDef) TypeFnc() TyFnc                     { return Constructor }
+func (t MaybeDef) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
 func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArguments() }
 func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeReturn() }
@@ -231,85 +222,59 @@ func (t MaybeDef) String() string                     { return t().String() }
 func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
 
 // maybe values methods
-func (t MaybeVal) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeVal) Call(args ...Expression) Expression { var result, _, _ = t(args...); return result }
-func (t MaybeVal) String() string                     { var result, _, _ = t(); return result.String() }
-func (t MaybeVal) Type() TyComp                       { var _, pat, _ = t(); return pat }
+func (t JustVal) TypeFnc() TyFnc                     { return Just }
+func (t JustVal) Call(args ...Expression) Expression { return t(args...) }
+func (t JustVal) String() string                     { return t().String() }
+func (t JustVal) Type() TyComp                       { return t().Type() }
 
 //// OPTIONAL VALUE
 ///
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
-func NewEitherOr(either CaseDef, or FuncDef) EitherOrDef {
+func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
 	var pattern = Def(
 		Def(
-			Def(Either, either.TypeIdent()),
-			Def(Or, or.TypeIdent()),
+			Def(Either, either.Type().TypeIdent()),
+			Def(Or, or.Type().TypeIdent()),
 		),
 		Def(
-			Def(Either, either.TypeReturn()),
-			Def(Or, or.TypeReturn()),
+			Def(Either, either.Type().TypeReturn()),
+			Def(Or, or.Type().TypeReturn()),
 		),
 		Def(
-			Def(Either, either.TypeArguments()),
-			Def(Or, or.TypeArguments()),
+			Def(Either, either.Type().TypeArguments()),
+			Def(Or, or.Type().TypeArguments()),
 		),
 	)
 
 	return EitherOrDef(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			var result Expression
-			if result = either.Call(args...); result.Type().Match(None) {
-				result = or.Call(args...)
-				return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
-					if len(args) > 0 {
-						return result.Call(args...), Or, NewEitherOr(either, or)
-					}
-					return result, Or, NewEitherOr(either, or)
-				})
+			if test.Test(args...) {
+				return EitherVal(either.Call)
 			}
-			return EitherOrVal(func(args ...Expression) (Expression, TyFnc, EitherOrDef) {
-				if len(args) > 0 {
-					return result.Call(args...), Either, NewEitherOr(either, or)
-				}
-				return result.Call(), Either, NewEitherOr(either, or)
-			})
+			return OrVal(or.Call)
 		}
 		return pattern
 	})
 }
-func (o EitherOrDef) TypeFnc() TyFnc                     { return Constructor }
+func (o EitherOrDef) TypeFnc() TyFnc                     { return Option }
 func (o EitherOrDef) Type() TyComp                       { return o().Type() }
 func (o EitherOrDef) String() string                     { return o().String() }
 func (o EitherOrDef) Call(args ...Expression) Expression { return o(args...) }
 
 //// ALTERNATIVE VALUE
 ///
-func (o EitherOrVal) TypeFnc() TyFnc {
-	var _, ft, _ = o()
-	return ft
-}
-func (o EitherOrVal) AlternativeType() EitherOrDef {
-	var _, _, eo = o()
-	return eo
-}
-func (o EitherOrVal) Value() Expression {
-	var r, _, _ = o()
-	return r
-}
-func (o EitherOrVal) ValType() TyComp {
-	return o.Value().Type()
-}
-func (o EitherOrVal) Type() TyComp {
-	return Def(o.ValType(), o.TypeFnc())
-}
-func (o EitherOrVal) String() string {
-	return o.Value().String()
-}
-func (o EitherOrVal) Call(args ...Expression) Expression {
-	return o.Value().Call(args...)
-}
+func (o EitherVal) TypeFnc() TyFnc                     { return Either }
+func (o EitherVal) Type() TyComp                       { return o().Type() }
+func (o EitherVal) String() string                     { return o().String() }
+func (o EitherVal) Call(args ...Expression) Expression { return o.Call(args...) }
+
+///
+func (o OrVal) TypeFnc() TyFnc                     { return Or }
+func (o OrVal) Type() TyComp                       { return o().Type() }
+func (o OrVal) String() string                     { return o().String() }
+func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 
 //// POLYMORPHIC TYPE
 ///

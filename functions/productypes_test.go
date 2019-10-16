@@ -110,36 +110,35 @@ var swi = NewSwitch(caseFloat, caseUint, caseInteger)
 func TestSwitch(t *testing.T) {
 
 	var result = swi.Call(Dat(42))
-	fmt.Printf("result type: %s\n", result.Type())
-	fmt.Printf("string type: %s\n", Dat("").Type())
-	fmt.Printf("result match args int: %t\n", result.Type().MatchArgs(Dat("")))
-	if !result.Type().MatchArgs(Dat("")) {
+	fmt.Printf("result: %s\n", result)
+	if !result.Type().Match(Dat("").Type()) {
 		t.Fail()
 	}
 
 	result = swi.Call(Dat(uint(42)))
 	fmt.Printf("result from calling switch on uint 42: %s\n", result)
-	if !result.Type().MatchArgs(Dat("")) {
+	if !result.Type().Match(Dat("").Type()) {
 		t.Fail()
 	}
 
 	result = swi.Call(Dat(42.23))
 	fmt.Printf("result from calling switch on float 42.23: %s\n", result)
-	//	if !result.Type().MatchArgs(Dat("")) {
-	//		t.Fail()
-	//	}
+	if !result.Type().Match(Dat("").Type()) {
+		t.Fail()
+	}
 
 	result = swi.Call(Dat(true))
-	//	if !result.Type().Match(None) {
-	//		t.Fail()
-	//	}
+	if !result.Type().Match(None) {
+		t.Fail()
+	}
 }
 
 func TestMaybe(t *testing.T) {
 	var maybeString = NewMaybe(caseInteger)
 	var str = maybeString(Dat(42))
+	fmt.Printf("str type: %s fnctype: %s\n", str.Type(), str.TypeFnc())
 	fmt.Printf("string: %s\n", str)
-	if str.Type().TypeReturn().Match(Def(Data, d.String)) {
+	if !str.TypeFnc().Match(Just) {
 		t.Fail()
 	}
 	var none = maybeString(Dat(true))
@@ -154,7 +153,7 @@ func TestMaybe(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	var (
-		option   = NewEitherOr(caseInteger, Define(Dat("this is a float"), None, d.String))
+		option   = NewEitherOr(isInteger, Dat("EITHER this IS an integer"), Dat("OR this is NOT an integer"))
 		intStr   = option(Dat(23))
 		fltStr   = option(Dat(42.23))
 		boolNone = option(Dat(true))
@@ -165,18 +164,18 @@ func TestOption(t *testing.T) {
 	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr, fltStr, boolNone)
 	fmt.Printf("intStr type: %s, fltStr type: %s, boolNone type: %s\n",
-		intStr.Type().TypeReturn(), fltStr.Type().TypeReturn(), boolNone.Type())
+		intStr.TypeFnc(), fltStr.TypeFnc(), boolNone.TypeFnc())
 
 	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
 		intStr.Type(), fltStr.Type(), boolNone.Type())
 
-	if !intStr.Type().TypeReturn().Match(Either) {
+	if !intStr.TypeFnc().Match(Either) {
 		t.Fail()
 	}
-	if !fltStr.Type().TypeReturn().Match(Or) {
+	if !fltStr.TypeFnc().Match(Or) {
 		t.Fail()
 	}
-	if !boolNone.Type().TypeReturn().Match(None) {
+	if !boolNone.TypeFnc().Match(Or) {
 		t.Fail()
 	}
 }

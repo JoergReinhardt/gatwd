@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"fmt"
 	"strings"
 	s "strings"
 
@@ -466,7 +465,6 @@ func (p TyComp) MatchAnyType(args ...d.Typed) bool {
 func (p TyComp) MatchArgs(args ...Expression) bool {
 	var head, tail = p.ConsumeTyped()
 	for _, arg := range args {
-		fmt.Printf("manno ey! %s %s\n", arg.Type(), head)
 		if head == nil {
 			break
 		}

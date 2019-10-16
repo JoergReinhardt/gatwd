@@ -76,7 +76,7 @@ func TestExpression(t *testing.T) {
 		Dat(23), Dat(42))
 	fmt.Printf("result4: %s\n", result4)
 	if vec, ok := result4.(VecVal); ok {
-		if !vec()[0].Type().TypeReturn().Match(d.Int) {
+		if !vec()[0].Type().Match(Dat(0).Type()) {
 			t.Fail()
 		}
 	}

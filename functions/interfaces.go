@@ -52,11 +52,6 @@ type FunctionTyped interface {
 	TypeFnc() TyFnc
 }
 
-// reveals the types name
-type NameOfType interface {
-	TypeName() string
-}
-
 // native interface implements data native, provides assigability of
 // functionale instances implementing it to native data structures using the
 // 'data/Function' type.
