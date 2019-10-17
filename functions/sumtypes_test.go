@@ -164,3 +164,6 @@ func TestRecord(t *testing.T) {
 	fmt.Printf("record value applyed INCORRECTLY:%s \n", rec)
 	fmt.Printf("record val type:%s \n", rec.Type())
 }
+
+func TestRecordSearch(t *testing.T) {
+}

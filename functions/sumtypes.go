@@ -265,7 +265,7 @@ func (t TupVal) Type() TyComp {
 //
 func NewRecord(types ...KeyPair) RecDef {
 	return func(args ...Expression) RecVal {
-		var tup = make(RecVal, 0, len(args))
+		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
 			for n, arg := range args {
 				if len(types) > n {
@@ -277,13 +277,13 @@ func NewRecord(types ...KeyPair) RecDef {
 							) == 0 && // equal values
 								types[n].Value().Type().Match(
 									kp.Value().Type()) {
-								tup = append(tup, kp)
+								rec = append(rec, kp)
 							}
 						}
 					}
 				}
 			}
-			return tup
+			return rec
 		}
 		return types
 	}
@@ -347,53 +347,33 @@ func (t RecVal) String() string {
 	return "{" + strings.Join(strs, " ") + "}"
 }
 func (t RecVal) SortByKeys() RecVal {
-	var exprs = make([]Expression, 0, len(t))
-	var pairs = make([]KeyPair, 0, len(t))
-	for _, field := range t {
-		exprs = append(exprs, field)
+	var (
+		vec   = NewVector()
+		pairs = make([]KeyPair, 0, len(t))
+	)
+	for _, pair := range t {
+		vec = vec.AppendVec(pair)
 	}
-	exprs = By(func(i, j int) bool {
+	for _, expr := range By(func(i, j int) bool {
 		return strings.Compare(
 			string(t[i].KeyStr()),
 			string(t[j].KeyStr()),
-		) == 0
-	}).Sort(exprs)
-	for _, expr := range exprs {
+		) >= 0
+	}).Sort(vec) {
 		pairs = append(pairs, expr.(KeyPair))
 	}
-	return pairs
+	return RecVal(pairs)
 }
-func (t RecVal) SearchForKey(key string) KeyPair {
-	var search = sort.Search(len(t),
-		func(i int) bool { return strings.Compare(t[i].KeyStr(), key) >= 0 },
-	)
-}
-
-// record sorter is a helper struct to sort record fields inline
-type recordSorter struct {
-	exprs []Expression
-	by    By
-}
-
-func newRecordSorter(pairs []Expression, by By) *recordSorter {
-	var exprs = make([]Expression, 0, len(pairs))
-	for _, pair := range pairs {
-		exprs = append(exprs, pair)
+func (t RecVal) Get(key string) Expression {
+	var idx = sort.Search(len(t), func(i int) bool {
+		return strings.Compare(
+			t[i].KeyStr(), key,
+		) >= 0
+	})
+	if idx < len(t) {
+		if strings.Compare(string(t[idx].KeyStr()), key) == 0 {
+			return t[idx]
+		}
 	}
-	return &recordSorter{exprs, by}
-}
-
-func (t recordSorter) Less(i, j int) bool { return t.by(i, j) }
-func (t recordSorter) Swap(i, j int)      { t.exprs[j], t.exprs[i] = t.exprs[i], t.exprs[j] }
-func (t recordSorter) Len() int           { return len(t.exprs) }
-
-// sort interface. the'By' type implements 'sort.Less() int' and is the
-// function type of a parameterized sort & search function.
-type By func(a, b int) bool
-
-// sort is a method of the by function type
-func (by By) Sort(exprs []Expression) []Expression {
-	var sorter = newRecordSorter(exprs, by)
-	sort.Sort(sorter)
-	return sorter.exprs
+	return NewNone()
 }

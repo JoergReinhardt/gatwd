@@ -447,6 +447,8 @@ func (v VecVal) SearchAll(
 	return NewVector(res...)
 }
 
+//// VECTOR SORT IMPLEMENTATION
+///
 // vector sorter with parametrizes less method
 type vecSort func() ([]Expression, func(i, j Expression) bool)
 
@@ -471,6 +473,33 @@ func (v VecVal) String() string {
 		strs = append(strs, str.String())
 	}
 	return "[" + strings.Join(strs, ", ") + "]"
+}
+
+//// VECTOR SORTER
+///
+// sorter is a helper struct to sort vector elements inline
+type Sorter struct {
+	exprs []Expression
+	by    By
+}
+
+func newSorter(vec VecVal, by By) *Sorter {
+	return &Sorter{vec(), by}
+}
+
+func (t Sorter) Less(i, j int) bool { return t.by(i, j) }
+func (t Sorter) Swap(i, j int)      { t.exprs[j], t.exprs[i] = t.exprs[i], t.exprs[j] }
+func (t Sorter) Len() int           { return len(t.exprs) }
+
+// sort interface. the'By' type implements 'sort.Less() int' and is the
+// function type of a parameterized sort & search function.
+type By func(a, b int) bool
+
+// sort is a method of the by function type
+func (by By) Sort(vec VecVal) []Expression {
+	var sorter = newSorter(vec, by)
+	sort.Sort(sorter)
+	return sorter.exprs
 }
 
 ///////////////////////////////////////////////////////////////////////////////
