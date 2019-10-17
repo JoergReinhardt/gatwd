@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"sort"
 	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
@@ -265,25 +264,25 @@ func (t TupVal) Type() TyComp {
 //
 func NewRecord(types ...KeyPair) RecDef {
 	return func(args ...Expression) RecVal {
+		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
-			var rec = make(RecVal, 0, len(args))
 			for n, arg := range args {
 				if len(types) > n && arg.Type().Match(Key|Pair) {
 					if kp, ok := arg.(KeyPair); ok {
 						if strings.Compare(
 							string(kp.KeyStr()),
 							string(types[n].KeyStr()),
-						) == 0 && types[n].Value().Type().Match(
-							kp.Value().Type(),
-						) {
+						) == 0 &&
+							types[n].Value().Type().Match(
+								kp.Value().Type(),
+							) {
 							rec = append(rec, kp)
 						}
 					}
 				}
 			}
-			return rec
 		}
-		return types
+		return rec
 	}
 }
 
@@ -334,35 +333,4 @@ func (t RecVal) String() string {
 			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
 	}
 	return "{" + strings.Join(strs, " ") + "}"
-}
-func (t RecVal) SortByKeys() RecVal {
-	var (
-		vec   = NewVector()
-		pairs = make([]KeyPair, 0, len(t))
-	)
-	for _, pair := range t {
-		vec = vec.AppendVec(pair)
-	}
-	for _, expr := range By(func(i, j int) bool {
-		return strings.Compare(
-			string(t[i].KeyStr()),
-			string(t[j].KeyStr()),
-		) >= 0
-	}).Sort(vec) {
-		pairs = append(pairs, expr.(KeyPair))
-	}
-	return RecVal(pairs)
-}
-func (t RecVal) Get(key string) Expression {
-	var idx = sort.Search(len(t), func(i int) bool {
-		return strings.Compare(
-			t[i].KeyStr(), key,
-		) >= 0
-	})
-	if idx < len(t) {
-		if strings.Compare(string(t[idx].KeyStr()), key) == 0 {
-			return t[idx]
-		}
-	}
-	return NewNone()
 }

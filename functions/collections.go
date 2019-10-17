@@ -17,6 +17,7 @@ type (
 
 	//// COLLECTIONS
 	VecVal  func(...Expression) []Expression
+	MapVal  func(...Expression) map[string]Expression
 	ListVal func(...Expression) (Expression, ListVal)
 )
 
@@ -503,6 +504,125 @@ func (by By) Sort(vec VecVal) []Expression {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//// MAP VALUE
+///
+// sequential vector provides random access to sequential data. appends
+// arguments in the order they where passed in, at the end of slice, when
+// called
+func NewMap(pairs ...KeyPair) MapVal {
+	var (
+		val = map[string]Expression{}
+		cp  = func(m map[string]Expression) map[string]Expression {
+			var cpval = map[string]Expression{}
+			for k, v := range m {
+				cpval[k] = v
+			}
+			return cpval
+		}
+	)
+	if len(pairs) == 0 {
+		for _, pair := range pairs {
+			val[string(pair.KeyStr())] = pair.Value()
+		}
+		return MapVal(func(args ...Expression) map[string]Expression {
+			if len(args) > 0 {
+				var cpval = cp(val)
+				for _, arg := range args {
+					if arg.Type().Match(Pair | Key) {
+						if pair, ok := arg.(KeyPair); ok {
+							cpval[string(pair.KeyStr())] = pair.Value()
+						}
+					}
+				}
+				return cpval
+			}
+			return val
+		})
+	}
+	return func(args ...Expression) map[string]Expression {
+		if len(args) > 0 {
+			var cpval = cp(val)
+			for _, arg := range args {
+				if arg.TypeFnc().Match(Pair | Key) {
+					if pair, ok := arg.(KeyPair); ok {
+						cpval[string(pair.KeyStr())] = pair.Value()
+					}
+				}
+			}
+		}
+		return val
+	}
+}
+
+// default operation depends on map state. For empty maps, elements will be
+// added to the map, for maps containing elements allready, arguments are cast
+// to string, looked up and the corresponding values are returned.
+func (m MapVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var result = make([]Expression, 0, len(args))
+		for _, arg := range args {
+			if found, ok := m()[arg.String()]; ok {
+				result = append(result, found)
+				continue
+			}
+		}
+		return NewVector(result...)
+	}
+	return m
+}
+func (m MapVal) KeyVals() ([]string, []Expression) {
+	var (
+		keys = make([]string, 0, m.Len())
+		vals = make([]Expression, 0, m.Len())
+	)
+	for k, v := range m() {
+		keys = append(keys, k)
+		vals = append(vals, v)
+	}
+	return keys, vals
+}
+func (m MapVal) Keys() []string {
+	var k, _ = m.KeyVals()
+	return k
+}
+func (m MapVal) Values() []Expression {
+	var _, v = m.KeyVals()
+	return v
+}
+func (m MapVal) Fields() []KeyPair {
+	var (
+		keys, vals = m.KeyVals()
+		pairs      = make([]KeyPair, 0, m.Len())
+	)
+	for n, key := range keys {
+		pairs = append(pairs, NewKeyPair(key, vals[n]))
+	}
+	return pairs
+}
+func (m MapVal) Get(key string) Expression {
+	if found, ok := m[key]; ok {
+		return found
+	}
+	return NewNone()
+}
+func (m MapVal) Type() TyComp   { return Def(Map, m.TypeElem()) }
+func (m MapVal) TypeFnc() TyFnc { return Map }
+func (m MapVal) TypeElem() TyComp {
+	if m.Len() > 0 {
+		return m()[m.Keys()[0]].Type()
+	}
+	return Def(None)
+}
+func (m MapVal) Len() int { return len(m()) }
+func (m MapVal) String() string {
+	var strs = make([]string, 0, m.Len())
+	for k, v := range m() {
+		strs = append(strs, k+" ∷ "+v.String())
+	}
+	return "{" + strings.Join(strs, " ") + "}"
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //// RECURSIVE LIST OF VALUES
 ///
 // lazy implementation of recursively linked list. backed by slice. returns
@@ -543,7 +663,7 @@ func NewList(elems ...Expression) ListVal {
 	}
 }
 
-// default operation
+// default list operation prepends at the beginning of the list
 func (l ListVal) Cons(elems ...Expression) Sequential {
 	if len(elems) == 0 {
 		return l
@@ -578,11 +698,9 @@ func (l ListVal) Head() Expression                   { h, _ := l(); return h }
 func (l ListVal) Tail() Consumeable                  { _, t := l(); return t }
 func (l ListVal) TailList() ListVal                  { _, t := l(); return t }
 func (l ListVal) Consume() (Expression, Consumeable) { return l() }
-func (l ListVal) ConsumeList() (Expression, ListVal) {
-	return l.Head(), l.TailList()
-}
-func (l ListVal) TypeFnc() TyFnc { return List }
-func (l ListVal) Null() ListVal  { return NewList() }
+func (l ListVal) ConsumeList() (Expression, ListVal) { return l.Head(), l.TailList() }
+func (l ListVal) TypeFnc() TyFnc                     { return List }
+func (l ListVal) Null() ListVal                      { return NewList() }
 func (l ListVal) TypeElem() TyComp {
 	if l.Len() > 0 {
 		return l.Head().Type()

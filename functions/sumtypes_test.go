@@ -176,6 +176,4 @@ func TestRecord(t *testing.T) {
 }
 
 func TestRecordGet(t *testing.T) {
-	var result = rec.Get("zero int")
-	fmt.Printf("result from getting by key: %s\n", result)
 }

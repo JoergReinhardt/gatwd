@@ -90,12 +90,10 @@ type Expression interface {
 // mapped interface is implementet by all key accessable data types
 type Mapped interface {
 	Len() int
-	Keys() []Expression
-	Data() []Expression
-	Fields() []Paired
-	Get(Expression) (Expression, bool)
-	Delete(Expression) bool
-	Set(Expression, Expression) Mapped
+	Keys() []string
+	Values() []Expression
+	Fields() []KeyPair
+	Get(string) (Expression, bool)
 	//d.Mapped
 }
 

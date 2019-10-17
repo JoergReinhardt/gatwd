@@ -15,9 +15,9 @@ type (
 	//TyNat d.BitFlag ← defined in data
 
 	// TYPE PATTERN
-	TyExp  func(...Expression) Expression
 	TySym  string
 	TyComp []d.Typed
+	TyExp  func(...Expression) Expression
 )
 
 //go:generate stringer -type TyKind
@@ -56,7 +56,6 @@ const (
 	/// PARAMETER
 	Property
 	Argument
-	Pattern
 	Element
 	Lexical
 	Symbol
@@ -94,6 +93,7 @@ const (
 	Vector
 	List
 	Set
+	Map
 	Pair
 	/// SUM
 	Enum
@@ -106,9 +106,6 @@ const (
 	/// HIGHER ORDER TYPE
 	Parametric
 
-	//// PARAMETER
-	Parameter = Property | Argument | Pattern | Element |
-		Lexical | Symbol | Index | Key
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
@@ -183,8 +180,6 @@ func (t TyFnc) TypeName() string {
 		switch t {
 		case ALL:
 			return "*"
-		case Parameter:
-			return "Parameter"
 		case Truth:
 			return "Truth"
 		case Trinary:
@@ -402,6 +397,22 @@ func (p TyComp) Match(typ d.Typed) bool {
 	return p[0].Match(typ)
 }
 
+// match-args takes multiple expression arguments and matches their types
+// against the elements of the pattern.
+func (p TyComp) MatchArgs(args ...Expression) bool {
+	var head, tail = p.ConsumeTyped()
+	for _, arg := range args {
+		if head == nil {
+			break
+		}
+		if !head.Match(arg.Type()) {
+			return false
+		}
+		head, tail = tail.ConsumeTyped()
+	}
+	return true
+}
+
 // match-types takes multiple types and matches them against an equal number of
 // pattern elements one at a time, starting with the first one. if the number
 // of arguments and elements differ, the shorter list will be evaluated.
@@ -413,6 +424,30 @@ func (p TyComp) MatchTypes(types ...d.Typed) bool {
 		}
 	}
 	return true
+}
+
+// matches if any of the arguments matches any of the patterns elements
+func (p TyComp) MatchAnyType(args ...d.Typed) bool {
+	var head, tail = p.ConsumeTyped()
+	for _, arg := range args {
+		if head == nil {
+			return false
+		}
+		if head.Match(arg) {
+			return true
+		}
+		head, tail = tail.ConsumeTyped()
+	}
+	return false
+}
+
+// returns true if the arguments type matches any of the patterns types
+func (p TyComp) MatchAnyArg(args ...Expression) bool {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
+	}
+	return p.MatchAnyType(types...)
 }
 
 // matches multiple type flags against its elements in order. should there be
@@ -443,46 +478,6 @@ func (p TyComp) TailTyped() TyComp {
 }
 func (p TyComp) ConsumeTyped() (d.Typed, TyComp) {
 	return p.HeadTyped(), p.TailTyped()
-}
-
-// matches if any of the arguments matches any of the patterns elements
-func (p TyComp) MatchAnyType(args ...d.Typed) bool {
-	var head, tail = p.ConsumeTyped()
-	for _, arg := range args {
-		if head == nil {
-			return false
-		}
-		if head.Match(arg) {
-			return true
-		}
-		head, tail = tail.ConsumeTyped()
-	}
-	return false
-}
-
-// match-args takes multiple expression arguments and matches their types
-// against the elements of the pattern.
-func (p TyComp) MatchArgs(args ...Expression) bool {
-	var head, tail = p.ConsumeTyped()
-	for _, arg := range args {
-		if head == nil {
-			break
-		}
-		if !head.Match(arg.Type()) {
-			return false
-		}
-		head, tail = tail.ConsumeTyped()
-	}
-	return true
-}
-
-// returns true if the arguments type matches any of the patterns types
-func (p TyComp) MatchAnyArg(args ...Expression) bool {
-	var types = make([]d.Typed, 0, len(args))
-	for _, arg := range args {
-		types = append(types, arg.Type())
-	}
-	return p.MatchAnyType(types...)
 }
 
 // pattern yields a slice of type patterns, with all none & nil elements
@@ -614,7 +609,7 @@ func (p TyComp) Len() int                      { return len(p.Types()) }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
-func (p TyComp) TypeFnc() TyFnc                { return Pattern }
+func (p TyComp) TypeFnc() TyFnc                { return Type }
 
 // length of elements excluding fields set to none
 func (p TyComp) Count() int {
@@ -773,12 +768,6 @@ func (p TyComp) IsCompare() bool {
 	}
 	return false
 }
-func (p TyComp) IsParameter() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Parameter)
-	}
-	return false
-}
 func (p TyComp) IsData() bool {
 	if p.Count() == 2 {
 		return p.Elements()[0].Match(Data)
@@ -906,7 +895,6 @@ func (p TyComp) HasPair() bool        { return p.MatchAnyType(Pair) }
 func (p TyComp) HasEnum() bool        { return p.MatchAnyType(Enum) }
 func (p TyComp) HasTuple() bool       { return p.MatchAnyType(Tuple) }
 func (p TyComp) HasRecord() bool      { return p.MatchAnyType(Record) }
-func (p TyComp) HasParameter() bool   { return p.MatchAnyType(Parameter) }
 func (p TyComp) HasTruth() bool       { return p.MatchAnyType(Truth) }
 func (p TyComp) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
 func (p TyComp) HasCompare() bool     { return p.MatchAnyType(Compare) }
