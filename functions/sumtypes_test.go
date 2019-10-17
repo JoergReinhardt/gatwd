@@ -126,13 +126,23 @@ func TestTuple(t *testing.T) {
 	}
 }
 
-func TestRecord(t *testing.T) {
-	var recfield = NewRecord(
+var (
+	recfield = NewRecord(
 		NewKeyPair("zero int", Dat(0).Type()),
 		NewKeyPair("one uint", Dat(uint(0)).Type()),
 		NewKeyPair("two float", Dat(float64(0.0)).Type()),
 		NewKeyPair("three bool", Dat(bool(false)).Type()),
 	)
+
+	rec = recfield(
+		NewKeyPair("zero int", Dat(1)),
+		NewKeyPair("one uint", Dat(uint(2))),
+		NewKeyPair("two float", Dat(float64(3.0))),
+		NewKeyPair("three bool", Dat(bool(true))),
+	)
+)
+
+func TestRecord(t *testing.T) {
 	fmt.Printf("record definition:%s \n", recfield)
 	fmt.Printf("record def type:%s \n", recfield.Type())
 
@@ -157,7 +167,7 @@ func TestRecord(t *testing.T) {
 
 	rec = recfield(
 		NewKeyPair("zero int", Dat(1)),
-		NewKeyPair("one uint", Dat(2)),
+		NewKeyPair("one uint", Dat(int(2))),
 		NewKeyPair("two float", Dat(float64(3.0))),
 		NewKeyPair("three bool", Dat(bool(true))),
 	)
@@ -165,5 +175,7 @@ func TestRecord(t *testing.T) {
 	fmt.Printf("record val type:%s \n", rec.Type())
 }
 
-func TestRecordSearch(t *testing.T) {
+func TestRecordGet(t *testing.T) {
+	var result = rec.Get("zero int")
+	fmt.Printf("result from getting by key: %s\n", result)
 }
