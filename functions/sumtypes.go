@@ -265,20 +265,18 @@ func (t TupVal) Type() TyComp {
 //
 func NewRecord(types ...KeyPair) RecDef {
 	return func(args ...Expression) RecVal {
-		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
+			var rec = make(RecVal, 0, len(args))
 			for n, arg := range args {
-				if len(types) > n {
-					if arg.Type().Match(Key | Pair) {
-						if kp, ok := arg.(KeyPair); ok {
-							if strings.Compare( // equal keys
-								string(kp.KeyStr()),
-								string(types[n].KeyStr()),
-							) == 0 && // equal values
-								types[n].Value().Type().Match(
-									kp.Value().Type()) {
-								rec = append(rec, kp)
-							}
+				if len(types) > n && arg.Type().Match(Key|Pair) {
+					if kp, ok := arg.(KeyPair); ok {
+						if strings.Compare(
+							string(kp.KeyStr()),
+							string(types[n].KeyStr()),
+						) == 0 && types[n].Value().Type().Match(
+							kp.Value().Type(),
+						) {
+							rec = append(rec, kp)
 						}
 					}
 				}
@@ -294,23 +292,14 @@ func (t RecDef) TypeFnc() TyFnc                     { return Record | Constructo
 func (t RecDef) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
 	for _, field := range t() {
-		types = append(types,
-			Def(
-				DefSym(field.KeyStr()),
-				Def(field.Value().Type()),
-			))
+		types = append(types, Def(
+			DefSym(field.KeyStr()),
+			Def(field.Value().Type()),
+		))
 	}
 	return Def(Record, Def(types...))
 }
-func (t RecDef) String() string {
-	var strs = make([]string, 0, len(t()))
-	for _, f := range t() {
-		strs = append(strs,
-			"("+f.KeyStr()+" ∷ "+f.Value().String()+")",
-		)
-	}
-	return "{" + strings.Join(strs, " ") + "}"
-}
+func (t RecDef) String() string { return t.Type().String() }
 
 /// RECORD VALUE
 // tuple value is a slice of expressions, constructed by a tuple type
