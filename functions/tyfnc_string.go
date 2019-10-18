@@ -48,7 +48,7 @@ func _() {
 	_ = x[Vector-137438953472]
 	_ = x[List-274877906944]
 	_ = x[Set-549755813888]
-	_ = x[Map-1099511627776]
+	_ = x[HashMap-1099511627776]
 	_ = x[Pair-2199023255552]
 	_ = x[Enum-4398046511104]
 	_ = x[Tuple-8796093022208]
@@ -60,7 +60,7 @@ func _() {
 	_ = x[ALL-18446744073709551615]
 }
 
-const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentElementLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetMapPairEnumTupleRecordMonadStateIOParametricALL"
+const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentElementLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordMonadStateIOParametricALL"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
@@ -103,16 +103,16 @@ var _TyFnc_map = map[TyFnc]string{
 	137438953472:         _TyFnc_name[217:223],
 	274877906944:         _TyFnc_name[223:227],
 	549755813888:         _TyFnc_name[227:230],
-	1099511627776:        _TyFnc_name[230:233],
-	2199023255552:        _TyFnc_name[233:237],
-	4398046511104:        _TyFnc_name[237:241],
-	8796093022208:        _TyFnc_name[241:246],
-	17592186044416:       _TyFnc_name[246:252],
-	35184372088832:       _TyFnc_name[252:257],
-	70368744177664:       _TyFnc_name[257:262],
-	140737488355328:      _TyFnc_name[262:264],
-	281474976710656:      _TyFnc_name[264:274],
-	18446744073709551615: _TyFnc_name[274:277],
+	1099511627776:        _TyFnc_name[230:237],
+	2199023255552:        _TyFnc_name[237:241],
+	4398046511104:        _TyFnc_name[241:245],
+	8796093022208:        _TyFnc_name[245:250],
+	17592186044416:       _TyFnc_name[250:256],
+	35184372088832:       _TyFnc_name[256:261],
+	70368744177664:       _TyFnc_name[261:266],
+	140737488355328:      _TyFnc_name[266:268],
+	281474976710656:      _TyFnc_name[268:278],
+	18446744073709551615: _TyFnc_name[278:281],
 }
 
 func (i TyFnc) String() string {

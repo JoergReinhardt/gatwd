@@ -93,7 +93,7 @@ const (
 	Vector
 	List
 	Set
-	Map
+	HashMap
 	Pair
 	/// SUM
 	Enum

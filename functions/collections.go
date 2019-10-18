@@ -600,13 +600,13 @@ func (m MapVal) Fields() []KeyPair {
 	return pairs
 }
 func (m MapVal) Get(key string) Expression {
-	if found, ok := m[key]; ok {
+	if found, ok := m()[key]; ok {
 		return found
 	}
 	return NewNone()
 }
-func (m MapVal) Type() TyComp   { return Def(Map, m.TypeElem()) }
-func (m MapVal) TypeFnc() TyFnc { return Map }
+func (m MapVal) Type() TyComp   { return Def(HashMap, m.TypeElem()) }
+func (m MapVal) TypeFnc() TyFnc { return HashMap }
 func (m MapVal) TypeElem() TyComp {
 	if m.Len() > 0 {
 		return m()[m.Keys()[0]].Type()

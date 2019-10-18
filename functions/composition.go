@@ -15,8 +15,6 @@ type (
 
 	//// SEQUENCE
 	SeqVal func(...Expression) (Expression, SeqVal)
-
-	//// APPLICABLE
 	AppVal func(...Expression) (Expression, AppVal)
 
 	//// MONAD
@@ -197,13 +195,19 @@ func (s SeqVal) Type() TyComp     { return s.Tail().Type() }
 func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
 func (s SeqVal) Cons(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var (
+			head Expression
+			tail Consumeable
+		)
 		if len(args) > 0 {
 			_, s = s(args...)
 		}
 		if len(elems) > 0 {
-			return s(elems...)
+			head, tail = s(elems...)
+			return head, NewSequence(tail)
 		}
-		return s()
+		head, tail = s()
+		return head, NewSequence(tail)
 	})
 }
 func (s SeqVal) Call(args ...Expression) Expression {
@@ -224,31 +228,23 @@ func (s SeqVal) Tail() Consumeable {
 	var _, seq = s()
 	return seq
 }
+func (s SeqVal) TailSeq() SeqVal { return s.Tail().(SeqVal) }
+func (s SeqVal) ConsumeSeq() (Expression, SeqVal) {
+	return s.Head(), s.TailSeq()
+}
 func (s SeqVal) String() string {
 	var head, tail = s()
 	return tail.Cons(head).String()
 }
-
-//// APPLICABLE TYPE
-///
-// generic sequential type
-func NewApplicable(
-	seq Consumeable,
-	apply func(...Expression) Expression,
-) AppVal {
-	var (
-		head Expression
-		tail Consumeable
-	)
+func (s SeqVal) Apply(apply func(...Expression) Expression) AppVal {
 	return func(args ...Expression) (Expression, AppVal) {
 		if len(args) > 0 {
-			seq = seq.Call(args...).(Consumeable)
+			return apply(append([]Expression{
+					s.Head()},
+					args...)...),
+				s.TailSeq().Apply(apply)
 		}
-		head, tail = seq.Consume()
-		if head.Type().Match(None) {
-			tail = NewApplicable(seq, apply)
-		}
-		return head, NewApplicable(tail, apply)
+		return apply(s.Head()), s.TailSeq().Apply(apply)
 	}
 }
 func (s AppVal) TypeFnc() TyFnc   { return s.Tail().TypeFnc() }
@@ -256,35 +252,19 @@ func (s AppVal) Type() TyComp     { return s.Tail().Type() }
 func (s AppVal) TypeElem() TyComp { return s.Head().Type() }
 func (s AppVal) Cons(elems ...Expression) Sequential {
 	return AppVal(func(args ...Expression) (Expression, AppVal) {
+		var (
+			head Expression
+			tail AppVal
+		)
 		if len(args) > 0 {
-			s = s.Cons(args...).(AppVal)
+			_, s = s(args...)
 		}
 		if len(elems) > 0 {
-			return s(elems...)
+			head, tail = s(elems...)
+			return head, tail
 		}
-		return s()
-	})
-}
-func (s AppVal) Prepend(elems ...Expression) Sequential {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(elems) > 0 {
-			s = s.Prepend(elems...).(AppVal)
-		}
-		if len(args) > 0 {
-			return s(args...)
-		}
-		return s()
-	})
-}
-func (s AppVal) Append(elems ...Expression) Sequential {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(elems) > 0 {
-			s = s.Append(elems...).(AppVal)
-		}
-		if len(args) > 0 {
-			return s(args...)
-		}
-		return s()
+		head, tail = s()
+		return head, AppVal(tail)
 	})
 }
 func (s AppVal) Call(args ...Expression) Expression {
@@ -304,6 +284,10 @@ func (s AppVal) Head() Expression {
 func (s AppVal) Tail() Consumeable {
 	var _, seq = s()
 	return seq
+}
+func (s AppVal) TailApp() AppVal { return s.Tail().(AppVal) }
+func (s AppVal) ConsumeApp() (Expression, AppVal) {
+	return s.Head(), s.TailApp()
 }
 func (s AppVal) String() string {
 	var head, tail = s()
@@ -440,14 +424,12 @@ func NewStatefulExpression(
 		return state, NewStatefulExpression(state, trans)
 	}
 }
-func (s StateE) Step(args ...Expression) (Expression, Monadic) {
-	return s(args...)
-}
-func (s StateE) Current() Expression { var c, _ = s(); return c }
-func (s StateE) Monad() Monadic      { var _, m = s(); return m }
-func (s StateE) String() string      { return s.Monad().String() }
-func (s StateE) Type() TyComp        { return Def(Monad, s.Current().Type()) }
-func (s StateE) TypeFnc() TyFnc      { return State | s.Monad().TypeFnc() }
+func (s StateE) Step(args ...Expression) (Expression, Monadic) { return s(args...) }
+func (s StateE) Current() Expression                           { var c, _ = s(); return c }
+func (s StateE) Monad() Monadic                                { var _, m = s(); return m }
+func (s StateE) String() string                                { return s.Monad().String() }
+func (s StateE) Type() TyComp                                  { return Def(Monad, s.Current().Type()) }
+func (s StateE) TypeFnc() TyFnc                                { return State | s.Monad().TypeFnc() }
 func (s StateE) Sequence() Sequential {
 	var (
 		expr  Expression
@@ -476,7 +458,7 @@ func (s StateE) Call(args ...Expression) Expression {
 //// COMPOSITION
 ///
 // function composition primitives
-func MapF(s Sequential, mapf func(Expression) Expression) Sequential {
+func Map(s Sequential, mapf func(Expression) Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			s = s.Cons(args...)
@@ -492,11 +474,11 @@ func MapF(s Sequential, mapf func(Expression) Expression) Sequential {
 			head = result
 		}
 		var seq = tail.(SeqVal)
-		return head, MapF(seq, mapf).(SeqVal)
+		return head, Map(seq, mapf).(SeqVal)
 	})
 }
 
-func FoldL(s Sequential, mapf, acc Expression) Sequential {
+func Fold(s Sequential, mapf, acc Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			s = s.Cons(args...)
@@ -508,7 +490,7 @@ func FoldL(s Sequential, mapf, acc Expression) Sequential {
 				head, tail = s.Consume()
 				result = acc.Call(mapf.Call(head))
 			}
-			return result, FoldL(tail.(SeqVal), mapf, result).(SeqVal)
+			return result, Fold(tail.(SeqVal), mapf, result).(SeqVal)
 		}
 		return acc, NewSequence(NewList())
 	})
@@ -528,7 +510,7 @@ func Filter(s Sequential, test Testable) Sequential {
 
 		})
 	)
-	return FoldL(s, acc, filter)
+	return Fold(s, acc, filter)
 }
 
 func Pass(s Sequential, test Testable) Sequential {
@@ -545,10 +527,5 @@ func Pass(s Sequential, test Testable) Sequential {
 
 		})
 	)
-	return FoldL(s, acc, filter)
+	return Fold(s, acc, filter)
 }
-
-//func TakeN(s Sequential, num int) Sequential {
-//	var ()
-//	return FoldL(s, acc, taker)
-//}
