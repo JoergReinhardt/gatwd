@@ -174,21 +174,21 @@ func (e EnumVal) Call(args ...Expression) Expression {
 //// SEQUENCE TYPE
 ///
 // generic sequential type
-func NewSequence(seq Traversable) SeqVal {
+func NewSequence(seq Sequential) SeqVal {
 	var (
 		head Expression
-		tail Traversable
+		tail Sequential
 	)
-	return func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			seq = seq.Call(args...).(Traversable)
+			seq = seq.Cons(args...)
 		}
-		head, tail = seq.Traverse()
+		head, tail = seq.Consume()
 		if head.Type().Match(None) {
 			tail = NewSequence(seq)
 		}
 		return head, NewSequence(tail)
-	}
+	})
 }
 func (s SeqVal) TypeFnc() TyFnc   { return s.Tail().TypeFnc() }
 func (s SeqVal) Type() TyComp     { return s.Tail().Type() }
@@ -197,10 +197,10 @@ func (s SeqVal) Cons(elems ...Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		var (
 			head Expression
-			tail Traversable
+			tail Sequential
 		)
 		if len(args) > 0 {
-			_, s = s(args...)
+			_, tail = s(args...)
 		}
 		if len(elems) > 0 {
 			head, tail = s(elems...)
@@ -220,6 +220,7 @@ func (s SeqVal) Call(args ...Expression) Expression {
 	return head
 }
 func (s SeqVal) Traverse() (Expression, Traversable) { return s() }
+func (s SeqVal) Consume() (Expression, Sequential)   { return s() }
 func (s SeqVal) Head() Expression {
 	var expr, _ = s()
 	return expr
@@ -277,6 +278,7 @@ func (s AppVal) Call(args ...Expression) Expression {
 	return head
 }
 func (s AppVal) Traverse() (Expression, Traversable) { return s() }
+func (s AppVal) Consume() (Expression, Sequential)   { return s() }
 func (s AppVal) Head() Expression {
 	var expr, _ = s()
 	return expr
@@ -476,23 +478,22 @@ func Curry(f, g FuncDef) FuncDef {
 	}
 	return Define(NewNone(), None, None)
 }
-func Map(s Sequential, mapf func(Expression) Expression) Sequential {
+func Map(s Sequential, mapf func(...Expression) Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			s = s.Cons(args...)
 		}
-		var head, tail = s.Traverse()
+		var head, tail = s.Consume()
 		if !head.Type().Match(None) {
 			var result = mapf(head)
 			// skip function applications yielding none
 			for result.Type().Match(None) {
-				head, tail = s.Traverse()
+				head, tail = tail.Consume()
 				result = mapf(head)
 			}
-			head = result
+			return result, Map(NewSequence(tail), mapf).(SeqVal)
 		}
-		var seq = tail.(SeqVal)
-		return head, Map(seq, mapf).(SeqVal)
+		return head, Map(NewSequence(tail), mapf).(SeqVal)
 	})
 }
 
@@ -505,7 +506,7 @@ func Fold(s Sequential, mapf, acc Expression) Sequential {
 		if !head.Type().Match(None) {
 			var result = acc.Call(mapf.Call(head))
 			for result.Type().Match(None) {
-				head, tail = s.Traverse()
+				head, tail = tail.Traverse()
 				result = acc.Call(mapf.Call(head))
 			}
 			return result, Fold(tail.(SeqVal), mapf, result).(SeqVal)

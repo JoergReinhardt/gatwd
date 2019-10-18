@@ -310,9 +310,8 @@ func (v VecVal) Call(args ...Expression) Expression {
 	head, tail = v.Traverse()
 	return NewPair(head, tail)
 }
-func (v VecVal) Slice() []Expression { return v() }
-func (v VecVal) Len() int            { return len(v()) }
-func (v VecVal) TypeFnc() TyFnc      { return Vector }
+func (v VecVal) Len() int       { return len(v()) }
+func (v VecVal) TypeFnc() TyFnc { return Vector }
 func (v VecVal) Type() TyComp {
 	if v.Len() > 0 {
 		return Def(Vector, v.Head().Type())
@@ -349,6 +348,9 @@ func (v VecVal) TailVec() VecVal {
 
 func (v VecVal) Traverse() (Expression, Traversable) {
 	return v.Head(), v.Tail()
+}
+func (v VecVal) Consume() (Expression, Sequential) {
+	return v.Head(), v.TailVec()
 }
 
 func (v VecVal) ConsumeVec() (Expression, VecVal) {
@@ -392,19 +394,6 @@ func (v VecVal) Get(i int) (Expression, bool) {
 		return v()[i], true
 	}
 	return NewNone(), false
-}
-
-func (v VecVal) Set(i int, val Expression) (Vectorized, bool) {
-	if i < v.Len() {
-		var slice = v()
-		slice[i] = val
-		return VecVal(
-			func(elems ...Expression) []Expression {
-				return slice
-			}), true
-
-	}
-	return v, false
 }
 func (v VecVal) Sort(less func(a, b Expression) bool) VecVal {
 	var s = vecSort(func() ([]Expression, func(i, j Expression) bool) {
@@ -697,6 +686,7 @@ func (l ListVal) Append(elems ...Expression) Sequential {
 func (l ListVal) Head() Expression                    { h, _ := l(); return h }
 func (l ListVal) Tail() Traversable                   { _, t := l(); return t }
 func (l ListVal) TailList() ListVal                   { _, t := l(); return t }
+func (l ListVal) Consume() (Expression, Sequential)   { return l() }
 func (l ListVal) Traverse() (Expression, Traversable) { return l() }
 func (l ListVal) ConsumeList() (Expression, ListVal)  { return l.Head(), l.TailList() }
 func (l ListVal) TypeFnc() TyFnc                      { return List }

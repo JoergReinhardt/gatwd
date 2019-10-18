@@ -108,9 +108,9 @@ type Mapped interface {
 // execution is performed lazily and infinite lists can be handled.
 type Traversable interface {
 	Expression
-	Traverse() (Expression, Traversable)
 	Head() Expression
 	Tail() Traversable
+	Traverse() (Expression, Traversable)
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
@@ -120,6 +120,7 @@ type Sequential interface {
 	Traversable
 	TypeElem() TyComp
 	Cons(...Expression) Sequential // default op, list = front, vector = back
+	Consume() (Expression, Sequential)
 }
 type Ordered interface {
 	Sequential

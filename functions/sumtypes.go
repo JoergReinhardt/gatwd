@@ -57,6 +57,7 @@ func (n NoneVal) Slice() []Expression                 { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                     { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val                { return Kind_Fnc.U() }
 func (n NoneVal) Traverse() (Expression, Traversable) { return NewNone(), NewNone() }
+func (n NoneVal) Consume() (Expression, Sequential)   { return NewNone(), NewNone() }
 
 //// GENERIC CONSTANT DEFINITION
 ///

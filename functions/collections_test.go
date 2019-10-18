@@ -2,6 +2,7 @@ package functions
 
 import (
 	"fmt"
+	d "github.com/joergreinhardt/gatwd/data"
 	"testing"
 )
 
@@ -94,9 +95,31 @@ func TestPairVal(t *testing.T) {
 		pair.Type().TypeReturn())
 }
 
-var list = NewList(Dat(0), Dat(1), Dat(2), Dat(3))
+var (
+	mapAddInt = Define(GenericFunc(func(args ...Expression) Expression {
+		if args[0].Type().Match(Data) &&
+			args[1].Type().Match(Data) {
+			if ia, ok := args[0].(NatEval).Eval().(d.Integer); ok {
+				if ib, ok := args[1].(NatEval).Eval().(d.Integer); ok {
+					return Box(ia.Int() + ib.Int())
+				}
+			}
+		}
+		return NewNone()
+	}),
+		DefSym("+"),
+		Def(Def(Data, Constant), d.Int),
+		Def(
+			Def(Def(Data, Constant), d.Int),
+			Def(Def(Data, Constant), d.Int),
+		))
+)
 
 func TestMapList(t *testing.T) {
+	var listAdder = Map(listA, mapAddInt)
+	fmt.Printf("add ints function mapped to a-list %s\n", listAdder)
+	fmt.Printf("list-adder head: %s\ntail: %s\ntype: %s\n",
+		listAdder.Head(), listAdder.Tail(), listAdder.Type())
 }
 
 func TestFoldList(t *testing.T) {

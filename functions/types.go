@@ -119,9 +119,9 @@ const (
 	Variant = Either | Or
 
 	//// COLLECTIONS
-	ProdTypes   = List | Vector | Enum
-	SumTypes    = Set | Record | Tuple
-	Collections = SumTypes | ProdTypes
+	ProdTypes    = List | Vector | Enum
+	SumTypes     = Set | Record | Tuple
+	Traversables = SumTypes | ProdTypes
 
 	Number = Natural | Integer | Real | Ratio
 	String = Letter | Text
@@ -196,7 +196,7 @@ func (t TyFnc) TypeName() string {
 			return "SumTypes"
 		case ProdTypes:
 			return "ProductTypes"
-		case Collections:
+		case Traversables:
 			return "Collections"
 		}
 		var delim = "|"
@@ -794,7 +794,7 @@ func (p TyComp) IsList() bool {
 }
 func (p TyComp) IsCollection() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Collections)
+		return p.Elements()[0].Match(Traversables)
 	}
 	return false
 }
