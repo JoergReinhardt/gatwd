@@ -301,13 +301,13 @@ func (v VecVal) ConsVec(args ...Expression) VecVal {
 func (v VecVal) Call(args ...Expression) Expression {
 	var (
 		head Expression
-		tail Consumeable
+		tail Traversable
 	)
 	if len(args) > 0 {
-		head, tail = NewVector(v(args...)...).Consume()
+		head, tail = NewVector(v(args...)...).Traverse()
 		return NewPair(head, tail)
 	}
-	head, tail = v.Consume()
+	head, tail = v.Traverse()
 	return NewPair(head, tail)
 }
 func (v VecVal) Slice() []Expression { return v() }
@@ -333,7 +333,7 @@ func (v VecVal) Head() Expression {
 	return NewNone()
 }
 
-func (v VecVal) Tail() Consumeable {
+func (v VecVal) Tail() Traversable {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
@@ -347,7 +347,7 @@ func (v VecVal) TailVec() VecVal {
 	return nil
 }
 
-func (v VecVal) Consume() (Expression, Consumeable) {
+func (v VecVal) Traverse() (Expression, Traversable) {
 	return v.Head(), v.Tail()
 }
 
@@ -694,13 +694,13 @@ func (l ListVal) Append(elems ...Expression) Sequential {
 		return head, tail.Append(elems...).(ListVal)
 	})
 }
-func (l ListVal) Head() Expression                   { h, _ := l(); return h }
-func (l ListVal) Tail() Consumeable                  { _, t := l(); return t }
-func (l ListVal) TailList() ListVal                  { _, t := l(); return t }
-func (l ListVal) Consume() (Expression, Consumeable) { return l() }
-func (l ListVal) ConsumeList() (Expression, ListVal) { return l.Head(), l.TailList() }
-func (l ListVal) TypeFnc() TyFnc                     { return List }
-func (l ListVal) Null() ListVal                      { return NewList() }
+func (l ListVal) Head() Expression                    { h, _ := l(); return h }
+func (l ListVal) Tail() Traversable                   { _, t := l(); return t }
+func (l ListVal) TailList() ListVal                   { _, t := l(); return t }
+func (l ListVal) Traverse() (Expression, Traversable) { return l() }
+func (l ListVal) ConsumeList() (Expression, ListVal)  { return l.Head(), l.TailList() }
+func (l ListVal) TypeFnc() TyFnc                      { return List }
+func (l ListVal) Null() ListVal                       { return NewList() }
 func (l ListVal) TypeElem() TyComp {
 	if l.Len() > 0 {
 		return l.Head().Type()

@@ -106,18 +106,18 @@ type Mapped interface {
 // same values in a loop, thereby implementing a functional trampolin to
 // flatten recursive calls.
 // execution is performed lazily and infinite lists can be handled.
-type Consumeable interface {
+type Traversable interface {
 	Expression
-	Consume() (Expression, Consumeable)
+	Traverse() (Expression, Traversable)
 	Head() Expression
-	Tail() Consumeable
+	Tail() Traversable
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
 // this is even true for infinite lists, since appending is performed lazily,
 // which in the case of appending to an infinite list, may as well be never.
 type Sequential interface {
-	Consumeable
+	Traversable
 	TypeElem() TyComp
 	Cons(...Expression) Sequential // default op, list = front, vector = back
 }

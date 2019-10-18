@@ -14,8 +14,8 @@ var listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
 func conList(args ...Expression) Sequential {
 	return NewList(args...)
 }
-func printCons(cons Consumeable) {
-	var head, tail = cons.Consume()
+func printCons(cons Traversable) {
+	var head, tail = cons.Traverse()
 	if !head.Type().Match(None) {
 		fmt.Println(head)
 		printCons(tail)

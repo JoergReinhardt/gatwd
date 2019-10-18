@@ -642,7 +642,7 @@ func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Tail() Consumeable {
+func (p TyComp) Tail() Traversable {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -659,7 +659,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Consume() (Expression, Consumeable) { return p.Head(), p.Tail() }
+func (p TyComp) Traverse() (Expression, Traversable) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
