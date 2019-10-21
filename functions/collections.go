@@ -17,8 +17,8 @@ type (
 
 	//// COLLECTIONS
 	VecVal  func(...Expression) []Expression
+	ListVal func(...Expression) []Expression
 	MapVal  func(...Expression) map[string]Expression
-	ListVal func(...Expression) (Expression, ListVal)
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -272,89 +272,56 @@ func NewVector(elems ...Expression) VecVal {
 	}
 }
 
-// default operation
-func (v VecVal) Prepend(args ...Expression) Sequential {
-	return NewVector(append(reverse(args), v()...)...)
-}
-func (v VecVal) PrependVec(args ...Expression) VecVal {
-	return NewVector(append(reverse(args), v()...)...)
-}
-func (v VecVal) Append(args ...Expression) Sequential {
-	return v.Cons(args...).(VecVal)
-}
-func (v VecVal) AppendVec(args ...Expression) VecVal {
-	return v.ConsVec(args...)
-}
-
-// prepends arguments at head of list in reversed order, to emulate arguments
-// added once at a time recursively.
-func (v VecVal) Cons(args ...Expression) Sequential {
-	return NewVector(append(v(), args...)...)
-}
-
-func (v VecVal) ConsVec(args ...Expression) VecVal {
-	return NewVector(append(v(), args...)...)
-}
-
-// appends arguments to the vector, or returns unaltered vector, when no
-// arguments are passed.
-func (v VecVal) Call(args ...Expression) Expression {
-	var (
-		head Expression
-		tail Traversable
-	)
-	if len(args) > 0 {
-		head, tail = NewVector(v(args...)...).Traverse()
-		return NewPair(head, tail)
-	}
-	head, tail = v.Traverse()
-	return NewPair(head, tail)
-}
-func (v VecVal) Len() int       { return len(v()) }
-func (v VecVal) TypeFnc() TyFnc { return Vector }
-func (v VecVal) Type() TyComp {
-	if v.Len() > 0 {
-		return Def(Vector, v.Head().Type())
-	}
-	return Def(Vector, None)
-}
-func (v VecVal) TypeElem() TyComp {
-	if v.Len() > 0 {
-		return v.Head().Type()
-	}
-	return Def(None)
-}
-
+// default list operation prepends at the beginning of the list
+func (v VecVal) Cons(args ...Expression) Sequential { return NewVector(v(args...)...) }
+func (v VecVal) ConsVec(args ...Expression) VecVal  { return NewVector(v(args...)...) }
+func (v VecVal) Len() int                           { return len(v()) }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
 	}
 	return NewNone()
 }
-
 func (v VecVal) Tail() Traversable {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
-	return nil
+	return NewVector()
 }
-
-func (v VecVal) TailVec() VecVal {
-	if v.Len() > 1 {
-		return NewVector(v.Tail().(VecVal)()...)
+func (v VecVal) TailVec() VecVal                     { return v.Tail().(VecVal) }
+func (v VecVal) Consume() (Expression, Sequential)   { return v.Head(), v.TailVec() }
+func (v VecVal) ConsumeVec() (Expression, VecVal)    { return v.Head(), v.TailVec() }
+func (v VecVal) Traverse() (Expression, Traversable) { return v.Consume() }
+func (v VecVal) Null() VecVal                        { return NewVector() }
+func (v VecVal) TypeFnc() TyFnc                      { return Vector }
+func (v VecVal) TypeElem() TyComp                    { return v.Head().Type() }
+func (v VecVal) Type() TyComp                        { return Def(Vector, v.TypeElem()) }
+func (v VecVal) Slice() []Expression                 { return v() }
+func (v VecVal) Call(args ...Expression) Expression {
+	var (
+		head Expression
+		tail Sequential
+	)
+	if len(args) > 0 {
+		head, tail = NewVector(v(args...)...).Consume()
+		return NewPair(head, tail)
 	}
-	return nil
+	head, tail = v.Consume()
+	return NewPair(head, tail)
 }
 
-func (v VecVal) Traverse() (Expression, Traversable) {
-	return v.Head(), v.Tail()
+func (v VecVal) Empty() bool {
+	if v.Len() != 0 || !v.Head().Type().Match(None) {
+		return false
+	}
+	return true
 }
-func (v VecVal) Consume() (Expression, Sequential) {
-	return v.Head(), v.TailVec()
-}
-
-func (v VecVal) ConsumeVec() (Expression, VecVal) {
-	return v.Head(), v.TailVec()
+func (v VecVal) String() string {
+	var strs = []string{}
+	for _, str := range v() {
+		strs = append(strs, str.String())
+	}
+	return "[" + strings.Join(strs, ", ") + "]"
 }
 
 func (v VecVal) First() Expression { return v.Head() }
@@ -368,13 +335,6 @@ func (v VecVal) Last() Expression {
 
 func (v VecVal) Reverse() VecVal {
 	return NewVector(reverse(v())...)
-}
-
-func (v VecVal) Empty() bool {
-	if len(v()) > 0 {
-		return false
-	}
-	return true
 }
 
 func (v VecVal) Clear() VecVal { return NewVector() }
@@ -456,13 +416,6 @@ func (v vecSort) Swap(i, j int) {
 	v = func() ([]Expression, func(Expression, Expression) bool) {
 		return s, l
 	}
-}
-func (v VecVal) String() string {
-	var strs = []string{}
-	for _, str := range v() {
-		strs = append(strs, str.String())
-	}
-	return "[" + strings.Join(strs, ", ") + "]"
 }
 
 //// VECTOR SORTER
@@ -619,11 +572,11 @@ func (m MapVal) String() string {
 // head of list, one at a time, thereby reversing argument order.
 func NewList(elems ...Expression) ListVal {
 	if len(elems) == 0 {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Expression) []Expression {
 			if len(args) > 0 {
-				return NewList(args...)()
+				return NewVector(args...)()
 			}
-			return NewNone(), nil
+			return []Expression{}
 		})
 	}
 	var match = func(args []Expression) bool {
@@ -634,127 +587,68 @@ func NewList(elems ...Expression) ListVal {
 		}
 		return true
 	}
-	return func(args ...Expression) (Expression, ListVal) {
+	return func(args ...Expression) []Expression {
 		if len(args) > 0 {
 			if match(args) {
-				elems = append(elems, args...)
+				return append(elems, args...)
 			}
 		}
-		var l = len(elems)
-		if l > 0 {
-			var head = elems[l-1]
-			if l > 1 {
-				return head, NewList(elems[:l-1]...)
-			}
-			return head, NewList()
-		}
-		return NewNone(), nil
+		return elems
 	}
 }
 
 // default list operation prepends at the beginning of the list
-func (l ListVal) Cons(elems ...Expression) Sequential {
-	if len(elems) == 0 {
-		return l
+func (l ListVal) Cons(args ...Expression) Sequential  { return NewList(l(args...)...) }
+func (l ListVal) ConsList(args ...Expression) ListVal { return NewList(l(args...)...) }
+func (l ListVal) Len() int                            { return len(l()) }
+func (l ListVal) Head() Expression {
+	if l.Len() > 0 {
+		return l()[l.Len()-1]
 	}
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		if len(args) > 0 {
-			return l(append(elems, args...)...)
-		}
-		return l(elems...)
-	})
+	return NewNone()
 }
-
-// appends elements at the end of list in the order they where passed.
-func (l ListVal) Prepend(elems ...Expression) Sequential { return l.Cons(elems...).(ListVal) }
-func (l ListVal) Append(elems ...Expression) Sequential {
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		if len(args) > 0 {
-			var head, tail = l(args...)
-			if tail.Empty() {
-				return head, NewList(reverse(elems)...)
-			}
-			return head, tail.Append(elems...).(ListVal)
-		}
-		var head, tail = l()
-		if tail.Empty() {
-			return head, NewList(reverse(elems)...)
-		}
-		return head, tail.Append(elems...).(ListVal)
-	})
+func (l ListVal) Tail() Traversable {
+	if l.Len() > 1 {
+		return NewList(l()[:l.Len()-1]...)
+	}
+	return NewList()
 }
-func (l ListVal) Head() Expression                    { h, _ := l(); return h }
-func (l ListVal) Tail() Traversable                   { _, t := l(); return t }
-func (l ListVal) TailList() ListVal                   { _, t := l(); return t }
-func (l ListVal) Consume() (Expression, Sequential)   { return l() }
-func (l ListVal) Traverse() (Expression, Traversable) { return l() }
+func (l ListVal) TailList() ListVal                   { return l.Tail().(ListVal) }
 func (l ListVal) ConsumeList() (Expression, ListVal)  { return l.Head(), l.TailList() }
-func (l ListVal) TypeFnc() TyFnc                      { return List }
+func (l ListVal) Consume() (Expression, Sequential)   { return l.Head(), l.TailList() }
+func (l ListVal) Traverse() (Expression, Traversable) { return l.Head(), l.Tail() }
 func (l ListVal) Null() ListVal                       { return NewList() }
-func (l ListVal) TypeElem() TyComp {
-	if l.Len() > 0 {
-		return l.Head().Type()
-	}
-	return Def(List, None)
-}
-
-func (l ListVal) Type() TyComp {
-	if l.Len() > 0 {
-		return Def(List, l.Head().Type())
-	}
-	return Def(List, None)
-}
-
-func (l ListVal) Slice() []Expression {
-	var (
-		vec        = []Expression{}
-		head, tail = l()
-	)
-	for tail != nil {
-		vec = append(vec, head)
-		head, tail = tail()
-	}
-	return vec
-}
-
+func (l ListVal) TypeFnc() TyFnc                      { return List }
+func (l ListVal) TypeElem() TyComp                    { return l.Head().Type() }
+func (l ListVal) Type() TyComp                        { return Def(List, l.TypeElem()) }
+func (l ListVal) Slice() []Expression                 { return l() }
 func (l ListVal) Call(args ...Expression) Expression {
 	var (
 		head Expression
 		tail Sequential
 	)
 	if len(args) > 0 {
-		head, tail = l(args...)
+		head, tail = NewList(l(args...)...).Consume()
 		return NewPair(head, tail)
 	}
-	head, tail = l()
+	head, tail = l.Consume()
 	return NewPair(head, tail)
 }
 
 func (l ListVal) Empty() bool {
-	if l.Tail() != nil {
+	if l.Len() != 0 || !l.Head().Type().Match(None) {
 		return false
 	}
 	return true
 }
-
-func (l ListVal) Len() int {
-	var (
-		length  int
-		_, tail = l()
-	)
-	if tail != nil {
-		length += 1 + tail.Len()
-	}
-	return length
-}
 func (l ListVal) String() string {
 	var (
 		args       = []string{}
-		head, list = l()
+		head, list = l.ConsumeList()
 	)
 	for list != nil {
 		args = append(args, head.String())
-		head, list = list()
+		head, list = list.ConsumeList()
 	}
 	return "(" + strings.Join(args, ", ") + ")"
 }

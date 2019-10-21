@@ -67,13 +67,14 @@ func TestExpression(t *testing.T) {
 	var result3 = addInts.Call(Dat(23), Dat(42), Dat(23))
 	fmt.Printf("result3: %s\n", result3)
 	if vec, ok := result3.(VecVal); ok {
-		if !vec()[1].Type().TypeReturn().Match(DefSym("AddInts")) {
+		if !vec()[0].Type().Match(DefSym("AddInts")) {
 			t.Fail()
 		}
 	}
 
-	var result4 = addInts.Call(Dat(23), Dat(42),
-		Dat(23), Dat(42))
+	var result4 = addInts.Call(
+		Dat(23), Dat(42), Dat(23), Dat(42),
+	)
 	fmt.Printf("result4: %s\n", result4)
 	if vec, ok := result4.(VecVal); ok {
 		if !vec()[0].Type().Match(Dat(0).Type()) {

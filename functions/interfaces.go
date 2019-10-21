@@ -108,6 +108,7 @@ type Mapped interface {
 // execution is performed lazily and infinite lists can be handled.
 type Traversable interface {
 	Expression
+	Empty() bool
 	Head() Expression
 	Tail() Traversable
 	Traverse() (Expression, Traversable)
@@ -126,8 +127,6 @@ type Ordered interface {
 	Sequential
 	Swapable
 	Less(Expression) bool
-	Append(...Expression) Sequential
-	Prepend(...Expression) Sequential
 }
 
 // interface to implement by all conditional types

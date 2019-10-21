@@ -46,7 +46,7 @@ func (n NoneVal) Left() Expression                    { return nil }
 func (n NoneVal) Right() Expression                   { return nil }
 func (n NoneVal) Both() Expression                    { return nil }
 func (n NoneVal) Value() Expression                   { return nil }
-func (n NoneVal) Empty() d.BoolVal                    { return true }
+func (n NoneVal) Empty() bool                         { return true }
 func (n NoneVal) Test(...Expression) bool             { return false }
 func (n NoneVal) TypeFnc() TyFnc                      { return None }
 func (n NoneVal) TypeNat() d.TyNat                    { return d.Nil }

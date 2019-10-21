@@ -17,6 +17,7 @@ func conList(args ...Expression) Sequential {
 }
 func printCons(cons Traversable) {
 	var head, tail = cons.Traverse()
+	//if !head.Type().Match(None) {
 	if !head.Type().Match(None) {
 		fmt.Println(head)
 		printCons(tail)
@@ -60,7 +61,7 @@ func TestConList(t *testing.T) {
 	var head Expression
 
 	for i := 0; i < 5; i++ {
-		head, alist = alist()
+		head, alist = alist.ConsumeList()
 		fmt.Println("for loop: " + head.String())
 	}
 
@@ -75,11 +76,27 @@ func TestPushList(t *testing.T) {
 	var head Expression
 
 	for i := 0; i < 5; i++ {
-		head, alist = alist()
+		head, alist = alist.ConsumeList()
 		fmt.Println("for loop: " + head.String())
 	}
 
 	printCons(alist)
+}
+
+func TestVector(t *testing.T) {
+
+	var vec = NewVector(listA.Slice()...)
+	fmt.Printf("vector: %s\n", vec)
+
+	vec = vec.Cons(listB.Slice()...).(VecVal)
+	fmt.Printf("vector after cons list-B: %s\n", vec)
+	fmt.Printf("vector first: %s last: %s\n", vec.First(), vec.Last())
+
+	var head, tail = vec.Consume()
+	for !head.Type().Match(None) {
+		fmt.Printf("head: %s\n", head)
+		head, tail = tail.Consume()
+	}
 }
 
 func TestPairVal(t *testing.T) {
@@ -93,6 +110,18 @@ func TestPairVal(t *testing.T) {
 		pair.Type().TypeArguments())
 	fmt.Printf("name of (int,string) pair return: %s\n",
 		pair.Type().TypeReturn())
+}
+
+func TestSequence(t *testing.T) {
+	var seq = NewSequence(listA)
+	var head, tail = seq()
+	for !head.Type().Match(None) {
+		fmt.Printf("head iteration: %s\n", head)
+		head, tail = tail()
+	}
+	fmt.Printf("sequence: %s\n", seq)
+	fmt.Printf("seq head: %s, tail: %s type: %s\n",
+		seq.Head(), seq.Tail(), seq.TypeFnc())
 }
 
 var (
@@ -117,7 +146,7 @@ var (
 
 func TestMapList(t *testing.T) {
 	var listAdder = Map(listA, mapAddInt)
-	fmt.Printf("add ints function mapped to a-list %s\n", listAdder)
+	//fmt.Printf("add ints function mapped to a-list %s\n", listAdder)
 	fmt.Printf("list-adder head: %s\ntail: %s\ntype: %s\n",
 		listAdder.Head(), listAdder.Tail(), listAdder.Type())
 }

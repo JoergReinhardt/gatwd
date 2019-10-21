@@ -56,7 +56,6 @@ const (
 	/// PARAMETER
 	Property
 	Argument
-	Element
 	Lexical
 	Symbol
 	Index
@@ -100,6 +99,7 @@ const (
 	Tuple
 	Record
 	/// COMPOUND
+	Sequence
 	Monad
 	State
 	IO
@@ -606,6 +606,7 @@ func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) Types() []d.Typed              { return p }
 func (p TyComp) Call(...Expression) Expression { return p } // ← TODO: match arg instances
 func (p TyComp) Len() int                      { return len(p.Types()) }
+func (p TyComp) Empty() bool                   { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
