@@ -145,10 +145,13 @@ var (
 )
 
 func TestMapList(t *testing.T) {
-	var listAdder = Map(listA, mapAddInt)
+	var listAdder = Map(NewSequence(listA), mapAddInt)
 	//fmt.Printf("add ints function mapped to a-list %s\n", listAdder)
 	fmt.Printf("list-adder head: %s\ntail: %s\ntype: %s\n",
 		listAdder.Head(), listAdder.Tail(), listAdder.Type())
+
+	var result = Map(NewSequence(listB), listAdder.Call)
+	fmt.Printf("addition results: %s\n", result)
 }
 
 func TestFoldList(t *testing.T) {

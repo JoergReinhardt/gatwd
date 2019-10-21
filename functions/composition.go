@@ -266,18 +266,10 @@ func (s SeqVal) String() string {
 	}
 	return hstr + tstr
 }
-func (s SeqVal) Apply(apply func(...Expression) Expression) AppVal {
-	return func(args ...Expression) (Expression, AppVal) {
-		if len(args) > 0 {
-			return apply(append([]Expression{
-					s.Head()},
-					args...)...),
-				s.TailSeq().Apply(apply)
-		}
-		return apply(s.Head()), s.TailSeq().Apply(apply)
-	}
-}
-func NewApplicative(s Sequential) AppVal {
+func (s SeqVal) Apply(apply func(...Expression) Expression) AppVal { return NewApplicative(s) }
+
+//// APPLICATIVE MONOID
+func NewApplicative(s Sequential, apply func(...Expression) Expression) AppVal {
 	return func(args ...Expression) (Expression, AppVal) {
 		if len(args) > 0 {
 			var head, tail = s.Cons(args...).Consume()
@@ -287,9 +279,9 @@ func NewApplicative(s Sequential) AppVal {
 		return head, NewApplicative(tail)
 	}
 }
-func (s AppVal) TypeFnc() TyFnc   { return s.Tail().TypeFnc() }
-func (s AppVal) Type() TyComp     { return s.Tail().Type() }
 func (s AppVal) TypeElem() TyComp { return s.Head().Type() }
+func (s AppVal) TypeFnc() TyFnc   { return Applicative }
+func (s AppVal) Type() TyComp     { return Def(Applicative, s.TypeElem()) }
 func (a AppVal) Empty() bool {
 	if !a.Tail().Empty() || !a.Head().Type().Match(None) {
 		return false
@@ -531,6 +523,7 @@ func Curry(f, g FuncDef) FuncDef {
 	}
 	return Define(NewNone(), None, None)
 }
+
 func Map(s Sequential, mapf func(...Expression) Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
@@ -547,6 +540,25 @@ func Map(s Sequential, mapf func(...Expression) Expression) Sequential {
 			return result, Map(NewSequence(tail), mapf).(SeqVal)
 		}
 		return head, Map(NewSequence(tail), mapf).(SeqVal)
+	})
+}
+
+func Apply(s Sequential, apply func(...Expression) Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			s = s.Cons(args...)
+		}
+		var head, tail = s.Consume()
+		if !head.Type().Match(None) {
+			var result = apply(head)
+			// skip function applications yielding none
+			for result.Type().Match(None) {
+				head, tail = tail.Consume()
+				result = mapf(head)
+			}
+			return result, Map(NewSequence(tail), apply).(SeqVal)
+		}
+		return head, Map(NewSequence(tail), apply).(SeqVal)
 	})
 }
 
