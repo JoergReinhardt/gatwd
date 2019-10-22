@@ -112,6 +112,32 @@ func TestPairVal(t *testing.T) {
 		pair.Type().TypeReturn())
 }
 
+var generator = NewGenerator(Dat(0), GenericFunc(func(args ...Expression) Expression {
+	return mapAddInt.Call(args[0], Dat(1))
+}))
+
+func TestGenerator(t *testing.T) {
+	fmt.Printf("generator: %s\n", generator)
+	var answ Expression
+	for i := 0; i < 10; i++ {
+		answ, generator = generator()
+		fmt.Printf("answer: %s generator: %s\n", answ, generator)
+	}
+}
+
+var accumulator = NewAccumulator(Dat(0), GenericFunc(func(args ...Expression) Expression {
+	return mapAddInt.Call(args[0], Dat(1))
+}))
+
+func TestAccumulator(t *testing.T) {
+	fmt.Printf("accumulator: %s \n", accumulator)
+	var res Expression
+	for i := 0; i < 10; i++ {
+		res, accumulator = accumulator(Dat(1))
+		fmt.Printf("result: %s accumulator called on argument: %s\n", res, accumulator)
+	}
+}
+
 func TestSequence(t *testing.T) {
 	var seq = NewSequence(listA)
 	var head, tail = seq()
@@ -145,12 +171,6 @@ var (
 )
 
 func TestMapList(t *testing.T) {
-	var applyAdd = NewSequence(listA).Apply(mapAddInt)
-	fmt.Printf("list-adder head: %s\ntail: %s\ntype: %s\n",
-		applyAdd.Head(), applyAdd.Tail(), applyAdd.Type())
-
-	var result = applyAdd.Map(listB)
-	fmt.Printf("addition results: %s\n", result)
 }
 
 func TestFoldList(t *testing.T) {

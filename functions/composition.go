@@ -6,8 +6,8 @@ import (
 
 type (
 	//// GENERATOR | ACCUMULATOR
-	GenVal func(...Expression) Expression
-	AccVal func(...Expression) Expression
+	GenVal func() (Expression, GenVal)
+	AccVal func(...Expression) (Expression, AccVal)
 
 	//// ENUMERABLE
 	EnumDef func(d.Numeral) EnumVal
@@ -30,16 +30,25 @@ type (
 // expects an expression that returns an unboxed value, when called empty and
 // some notion of 'next' value, relative to its arguments, if arguments where
 // passed.
-func NewGenerator(gen Expression) GenVal {
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			NewGenerator(gen.Call(args...))
-		}
-		return gen.Call()
+func NewGenerator(init, generate Expression) GenVal {
+	return func() (Expression, GenVal) {
+		var next = generate.Call(init)
+		return init, NewGenerator(next, generate)
 	}
 }
-func (g GenVal) Call(...Expression) Expression {
-	return NewPair(g(), NewGenerator(g()))
+func (g GenVal) Expr() Expression {
+	var expr, _ = g()
+	return expr
+}
+func (g GenVal) Generator() GenVal {
+	var _, gen = g()
+	return gen
+}
+func (g GenVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewPair(g.Expr().Call(args...), g.Generator())
+	}
+	return NewPair(g.Expr(), g.Generator())
 }
 func (g GenVal) TypeFnc() TyFnc { return Generator }
 func (g GenVal) Type() TyComp   { return Def(Generator, g.Head().Type()) }
@@ -51,32 +60,39 @@ func (g GenVal) Empty() bool {
 	}
 	return true
 }
-func (g GenVal) Traverse() (Expression, Traversable) { return g(), NewGenerator(g()) }
-func (g GenVal) Head() Expression                    { return g() }
-func (g GenVal) Tail() Traversable {
-	var _, tail = g.Traverse()
-	return tail
-}
+func (g GenVal) Traverse() (Expression, Traversable) { return g() }
+func (g GenVal) Head() Expression                    { return g.Expr() }
+func (g GenVal) Tail() Traversable                   { return g.Generator() }
 
 //// ACCUMULATOR
 ///
 // accumulator expects an expression as input, that returns itself unboxed,
 // when called empty and returns a new accumulator accumulating its value and
 // arguments to create a new accumulator, if arguments where passed.
-func NewAccumulator(acc Expression) AccVal {
-	return AccVal(func(args ...Expression) Expression {
+func NewAccumulator(init, acc Expression) AccVal {
+	return AccVal(func(args ...Expression) (Expression, AccVal) {
 		if len(args) > 0 {
-			return NewAccumulator(acc.Call(args...))
+			init = acc.Call(append([]Expression{init}, args...)...)
+			return init, NewAccumulator(init, acc)
 		}
-		return acc
+		return init, NewAccumulator(init, acc)
 	})
 }
 
+func (g AccVal) Result() Expression {
+	var res, _ = g()
+	return res
+}
+func (g AccVal) Accumulator() AccVal {
+	var _, acc = g()
+	return acc
+}
 func (g AccVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return g(args...)
+		var res, acc = g(args...)
+		return NewPair(res, acc)
 	}
-	return g()
+	return g.Result()
 }
 func (g AccVal) TypeFnc() TyFnc { return Accumulator }
 func (g AccVal) Type() TyComp {
@@ -94,9 +110,9 @@ func (a AccVal) Empty() bool {
 	}
 	return true
 }
-func (g AccVal) Head() Expression                    { return g() }
-func (g AccVal) Tail() Traversable                   { return NewAccumulator(g) }
-func (g AccVal) Traverse() (Expression, Traversable) { return g(), NewAccumulator(g) }
+func (g AccVal) Head() Expression                    { return g.Result() }
+func (g AccVal) Tail() Traversable                   { return g.Accumulator() }
+func (g AccVal) Traverse() (Expression, Traversable) { return g() }
 
 //// ENUM TYPE
 ///
