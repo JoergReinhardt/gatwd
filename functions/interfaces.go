@@ -123,6 +123,14 @@ type Sequential interface {
 	Cons(...Expression) Sequential // default op, list = front, vector = back
 	Consume() (Expression, Sequential)
 }
+
+type Monoidal interface {
+	Sequential
+	Concat(Sequential) Sequential
+	Map(Expression) Monoidal
+	MapX(Expression) Monoidal
+	Fold(Expression, func(...Expression) Expression) Monoidal
+}
 type Ordered interface {
 	Sequential
 	Swapable

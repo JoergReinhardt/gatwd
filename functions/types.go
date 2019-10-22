@@ -100,6 +100,7 @@ const (
 	Record
 	/// COMPOUND
 	Sequence
+	Functor
 	Applicative
 	Monad
 	State
