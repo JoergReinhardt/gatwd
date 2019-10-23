@@ -130,14 +130,14 @@ type Filtered interface {
 	Pass(Testable) Sequential
 }
 
-type Monoid interface {
+type Functoric interface {
 	Continuation
 	MapF(Expression) Sequential
 	FoldL(Expression, Expression) Sequential
 }
 
 type Applicable interface {
-	Monoid
+	Functoric
 	Apply(func(
 		Sequential,
 		...Expression,
@@ -145,6 +145,11 @@ type Applicable interface {
 		Expression,
 		Continuation,
 	)) Sequential
+}
+
+type Monoidal interface {
+	Applicable
+	Bind(Expression, Functoric) Sequential
 }
 
 type Ordered interface {

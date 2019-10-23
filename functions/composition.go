@@ -316,7 +316,7 @@ func (s SeqVal) MapF(mapf Expression) Sequential {
 			lst = args[len(args)-1]
 			// cross product, if last argument is a functor
 			if lst.Type().Match(Functors) {
-				if arg, ok := lst.(Monoid); ok {
+				if arg, ok := lst.(Functoric); ok {
 					if len(args) > 1 {
 						return s.MapS(head.Call(args...),
 							mapf, arg), tail.MapF(mapf).(SeqVal)
@@ -358,6 +358,18 @@ func (s SeqVal) Apply(
 		}
 		var result, seq = apply(s)
 		return result, NewSequentialContinuation(seq)
+	})
+}
+
+func (s SeqVal) BindM(bindf Expression, cont Continuation) Sequential {
+	var step, next = s()
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			return step.Call(cont.Step().Call(args...)),
+				next.BindM(bindf, cont.Next()).(SeqVal)
+		}
+		return step.Call(cont.Step()),
+			next.BindM(bindf, cont.Next()).(SeqVal)
 	})
 }
 
