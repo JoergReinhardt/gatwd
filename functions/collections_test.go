@@ -8,15 +8,46 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var listA = NewVector(Dat(0), Dat(1), Dat(2), Dat(3),
-	Dat(4), Dat(5), Dat(6), Dat(7), Dat(8), Dat(9))
+// test data
+var (
+	listA = NewVector(Dat(0), Dat(1), Dat(2), Dat(3),
+		Dat(4), Dat(5), Dat(6), Dat(7), Dat(8), Dat(9))
 
-var listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
-	Dat(14), Dat(15), Dat(16), Dat(17), Dat(18), Dat(19))
+	listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
+		Dat(14), Dat(15), Dat(16), Dat(17), Dat(18), Dat(19))
 
+	mapAddInt = Define(Lambda(func(args ...Expression) Expression {
+		if args[0].Type().Match(Data) &&
+			args[1].Type().Match(Data) {
+			if inta, ok := args[0].(NatEval).Eval().(d.Integer); ok {
+				if intb, ok := args[1].(NatEval).Eval().(d.Integer); ok {
+					return Box(inta.Int() + intb.Int())
+				}
+			}
+		}
+		return NewNone()
+	}),
+		DefSym("+"),
+		Def(Def(Data, Constant), d.Int),
+		Def(
+			Def(Def(Data, Constant), d.Int),
+			Def(Def(Data, Constant), d.Int),
+		))
+
+	generator = NewGenerator(Dat(0), Lambda(func(args ...Expression) Expression {
+		return mapAddInt.Call(args[0], Dat(1))
+	}))
+
+	accumulator = NewAccumulator(Dat(0), Lambda(func(args ...Expression) Expression {
+		return mapAddInt.Call(args[0], Dat(1))
+	}))
+)
+
+// helper functions
 func conList(args ...Expression) Sequential {
 	return NewStack(args...)
 }
+
 func printCons(cons Continuation) {
 	var head, tail = cons.Continue()
 	//if !head.Type().Match(None) {
@@ -25,6 +56,7 @@ func printCons(cons Continuation) {
 		printCons(tail)
 	}
 }
+
 func TestEmptyList(t *testing.T) {
 	var list = NewStack()
 	fmt.Printf("empty list pattern length: %d\n",
@@ -148,10 +180,6 @@ func TestPairVal(t *testing.T) {
 		pair.Type().TypeReturn())
 }
 
-var generator = NewGenerator(Dat(0), GenericFunc(func(args ...Expression) Expression {
-	return mapAddInt.Call(args[0], Dat(1))
-}))
-
 func TestGenerator(t *testing.T) {
 	fmt.Printf("generator: %s\n", generator)
 	var answ Expression
@@ -159,11 +187,10 @@ func TestGenerator(t *testing.T) {
 		answ, generator = generator()
 		fmt.Printf("answer: %s generator: %s\n", answ, generator)
 	}
+	if answ.(NatEval).Eval().(d.IntVal) != d.IntVal(9) {
+		t.Fail()
+	}
 }
-
-var accumulator = NewAccumulator(Dat(0), GenericFunc(func(args ...Expression) Expression {
-	return mapAddInt.Call(args[0], Dat(1))
-}))
 
 func TestAccumulator(t *testing.T) {
 	fmt.Printf("accumulator: %s \n", accumulator)
@@ -172,11 +199,19 @@ func TestAccumulator(t *testing.T) {
 		res, accumulator = accumulator(Dat(1))
 		fmt.Printf("result: %s accumulator called on argument: %s\n", res, accumulator)
 	}
+	if res.(NatEval).Eval().(d.IntVal) != d.IntVal(10) {
+		t.Fail()
+	}
 }
 
 func TestSequence(t *testing.T) {
 	var seq = NewSequence(listA)
+	fmt.Printf("fresh sequence: %s\n", seq)
+	seq = NewSequence(listA)
+	fmt.Printf("sequence second print: %s\n", seq)
+	seq = NewSequence(listA)
 	var head, tail = seq()
+	fmt.Printf("head: %s tail: %s\n", head, tail)
 	for !head.Type().Match(None) {
 		fmt.Printf("head iteration: %s\n", head)
 		head, tail = tail()
@@ -186,31 +221,47 @@ func TestSequence(t *testing.T) {
 		seq.Step(), seq.Next(), seq.TypeFnc())
 }
 
-var (
-	mapAddInt = Define(GenericFunc(func(args ...Expression) Expression {
-		if args[0].Type().Match(Data) &&
-			args[1].Type().Match(Data) {
-			if ia, ok := args[0].(NatEval).Eval().(d.Integer); ok {
-				if ib, ok := args[1].(NatEval).Eval().(d.Integer); ok {
-					return Box(ia.Int() + ib.Int())
+func TestMapSequential(t *testing.T) {
+	var (
+		a, b   Expression
+		la     = NewContiSeq(listA)
+		lb     = NewContiSeq(listB)
+		mapped = la.MapF(NewLambda(func(args ...Expression) Expression {
+			a, la = la()
+			b, lb = lb()
+			return mapAddInt(a, b)
+		}))
+	)
+	fmt.Printf("mapped: %s\n", mapped)
+}
+
+func TestConcatSequences(t *testing.T) {
+	var lc = NewSequence(listA).ConcatSeq(NewSequence(listB))
+	fmt.Printf("concated lists a-/ & b: %s\n", lc)
+}
+
+func TestMapSequentialProduct(t *testing.T) {
+	var (
+		ll   = NewContiSeq(NewStack(listA, listB, listA, listB))
+		mapf = NewLambda(func(args ...Expression) Expression {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					return NewSequence(args...)
 				}
+				return args[0]
 			}
-		}
-		return NewNone()
-	}),
-		DefSym("+"),
-		Def(Def(Data, Constant), d.Int),
-		Def(
-			Def(Def(Data, Constant), d.Int),
-			Def(Def(Data, Constant), d.Int),
-		))
-)
+			return NewNone()
+		})
+		mapped = ll.MapF(mapf)
+	)
+	fmt.Printf("mapped sequences: %s\n", mapped)
 
-func TestMapList(t *testing.T) {
+	var flattened = mapped.(SeqVal).Flatten()
+	fmt.Printf("flattened sequences: %s\n", flattened)
 }
 
-func TestFoldList(t *testing.T) {
+func TestFoldSequential(t *testing.T) {
 }
 
-func TestFilterList(t *testing.T) {
+func TestFilterSequential(t *testing.T) {
 }

@@ -218,7 +218,7 @@ func NewSequence(elems ...Expression) SeqVal {
 	})
 }
 
-func NewSequentialContinuation(val Continuation) SeqVal {
+func NewContiSeq(val Continuation) SeqVal {
 	var (
 		head Expression
 		tail Continuation
@@ -226,10 +226,10 @@ func NewSequentialContinuation(val Continuation) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			head, tail = val.Continue()
-			return head.Call(args...), NewSequentialContinuation(tail)
+			return head.Call(args...), NewContiSeq(tail)
 		}
 		head, tail = val.Continue()
-		return head, NewSequentialContinuation(tail)
+		return head, NewContiSeq(tail)
 	})
 }
 
@@ -249,17 +249,19 @@ func (s SeqVal) Next() Continuation {
 	var _, seq = s()
 	return seq
 }
-func (s SeqVal) Concat(elems ...Expression) Sequential { return s.ConcatSeq() }
-func (s SeqVal) ConcatSeq(elems ...Expression) SeqVal {
+func (s SeqVal) Concat(elems ...Expression) Sequential {
+	return s.ConcatSeq(NewSequence(elems...))
+}
+func (s SeqVal) ConcatSeq(seq Sequential) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		var head, tail = s.Continue()
-		if tail.End() {
+		if !tail.Type().Match(None) {
 			if len(args) > 0 {
-				return head.Call(args...), tail.(SeqVal).Concat(elems...).(SeqVal)
+				return head.Call(args...), tail.(SeqVal).ConcatSeq(seq)
 			}
-			return head, tail.(SeqVal).Concat(elems...).(SeqVal)
+			return head, tail.(SeqVal).ConcatSeq(seq)
 		}
-		return head, NewSequence(elems...)
+		return head, seq.(SeqVal)
 	})
 }
 
@@ -287,10 +289,10 @@ func (s SeqVal) TypeElem() TyComp { return s.Step().Type() }
 func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
 func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
 func (s SeqVal) End() bool {
-	if !s.Next().End() && !s.Step().Type().Match(None) {
-		return false
+	if s.Step().Type().Match(None) && s.Next().Type().Match(None) {
+		return true
 	}
-	return true
+	return false
 }
 
 func (s SeqVal) String() string {
@@ -354,7 +356,7 @@ func (s SeqVal) Flatten() SeqVal {
 		if head.Type().Match(Sequences) {
 			if seq, ok := head.(Sequential); ok {
 				seq = seq.Concat(tail)
-				return seq.Step(), NewSequentialContinuation(seq.Next())
+				return seq.Step(), NewContiSeq(seq.Next())
 			}
 		}
 		return head, tail
@@ -437,10 +439,10 @@ func (s SeqVal) Apply(
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			var result, seq = apply(s, args...)
-			return result, NewSequentialContinuation(seq)
+			return result, NewContiSeq(seq)
 		}
 		var result, seq = apply(s)
-		return result, NewSequentialContinuation(seq)
+		return result, NewContiSeq(seq)
 	})
 }
 
@@ -639,7 +641,7 @@ func (s StateE) Call(args ...Expression) Expression {
 // define the curryed function
 func Curry(f, g FuncDef) FuncDef {
 	if f.TypeArguments().Match(g.TypeReturn()) {
-		return Define(GenericFunc(
+		return Define(Lambda(
 			func(args ...Expression) Expression {
 				if len(args) > 0 {
 					return f.Call(g.Call(args...))

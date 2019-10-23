@@ -8,9 +8,9 @@ import (
 
 type (
 	// GENERIC EXPRESSIONS
-	NoneVal      func()
-	GenericConst func() Expression
-	GenericFunc  func(...Expression) Expression
+	NoneVal func()
+	Const   func() Expression
+	Lambda  func(...Expression) Expression
 
 	//// DECLARED EXPRESSION
 	FuncDef func(...Expression) Expression
@@ -63,20 +63,20 @@ func (n NoneVal) Consume() (Expression, Sequential)    { return NewNone(), NewNo
 //// GENERIC CONSTANT DEFINITION
 ///
 // declares a constant value
-func NewConstant(constant func() Expression) GenericConst { return constant }
+func NewConstant(constant func() Expression) Const { return constant }
 
-func (c GenericConst) Type() TyComp                  { return Def(Constant, c().Type(), None) }
-func (c GenericConst) TypeIdent() TyComp             { return c().Type().TypeIdent() }
-func (c GenericConst) TypeReturn() TyComp            { return c().Type().TypeReturn() }
-func (c GenericConst) TypeArguments() TyComp         { return Def(None) }
-func (c GenericConst) TypeFnc() TyFnc                { return Constant }
-func (c GenericConst) String() string                { return c().String() }
-func (c GenericConst) Call(...Expression) Expression { return c() }
+func (c Const) Type() TyComp                  { return Def(Constant, c().Type(), None) }
+func (c Const) TypeIdent() TyComp             { return c().Type().TypeIdent() }
+func (c Const) TypeReturn() TyComp            { return c().Type().TypeReturn() }
+func (c Const) TypeArguments() TyComp         { return Def(None) }
+func (c Const) TypeFnc() TyFnc                { return Constant }
+func (c Const) String() string                { return c().String() }
+func (c Const) Call(...Expression) Expression { return c() }
 
 //// GENERIC FUNCTION DEFINITION
 ///
 // declares a constant value
-func NewFunction(fnc func(...Expression) Expression) GenericFunc {
+func NewLambda(fnc func(...Expression) Expression) Lambda {
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
 			return fnc(args...)
@@ -85,18 +85,18 @@ func NewFunction(fnc func(...Expression) Expression) GenericFunc {
 	}
 }
 
-func (c GenericFunc) Call(args ...Expression) Expression {
+func (c Lambda) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return c(args...)
 	}
 	return c()
 }
-func (c GenericFunc) String() string        { return c().String() }
-func (c GenericFunc) TypeFnc() TyFnc        { return c().TypeFnc() }
-func (c GenericFunc) Type() TyComp          { return c().Type() }
-func (c GenericFunc) TypeIdent() TyComp     { return c().Type().TypeIdent() }
-func (c GenericFunc) TypeReturn() TyComp    { return c().Type().TypeReturn() }
-func (c GenericFunc) TypeArguments() TyComp { return c().Type().TypeArguments() }
+func (c Lambda) String() string        { return c().String() }
+func (c Lambda) TypeFnc() TyFnc        { return c().TypeFnc() }
+func (c Lambda) Type() TyComp          { return c().Type() }
+func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeIdent() }
+func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeReturn() }
+func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArguments() }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
@@ -155,7 +155,7 @@ func Define(
 					// set of argument types, enclosing the
 					// current arguments & appending its
 					// own aruments to them, when called.
-					return Define(GenericFunc(func(lateargs ...Expression) Expression {
+					return Define(Lambda(func(lateargs ...Expression) Expression {
 						// will return result, or
 						// another partial, when called
 						// with arguments

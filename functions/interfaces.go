@@ -134,6 +134,7 @@ type Functoric interface {
 	Continuation
 	MapF(Expression) Sequential
 	FoldL(Expression, Expression) Sequential
+	Flatten() Sequential
 }
 
 type Zipped interface {
