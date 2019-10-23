@@ -31,8 +31,8 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Expression                     { return n }
-func (n NoneVal) Tail() Continuation                   { return n }
+func (n NoneVal) Step() Expression                     { return n }
+func (n NoneVal) Next() Continuation                   { return n }
 func (n NoneVal) Cons(...Expression) Sequential        { return n }
 func (n NoneVal) Concat(...Expression) Sequential      { return n }
 func (n NoneVal) Prepend(...Expression) Sequential     { return n }
@@ -47,7 +47,7 @@ func (n NoneVal) Left() Expression                     { return nil }
 func (n NoneVal) Right() Expression                    { return nil }
 func (n NoneVal) Both() Expression                     { return nil }
 func (n NoneVal) Value() Expression                    { return nil }
-func (n NoneVal) Empty() bool                          { return true }
+func (n NoneVal) End() bool                            { return true }
 func (n NoneVal) Test(...Expression) bool              { return false }
 func (n NoneVal) TypeFnc() TyFnc                       { return None }
 func (n NoneVal) TypeNat() d.TyNat                     { return d.Nil }

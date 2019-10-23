@@ -2,8 +2,10 @@ package functions
 
 import (
 	"fmt"
-	d "github.com/joergreinhardt/gatwd/data"
+	"strings"
 	"testing"
+
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 var listA = NewVector(Dat(0), Dat(1), Dat(2), Dat(3),
@@ -13,7 +15,7 @@ var listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
 	Dat(14), Dat(15), Dat(16), Dat(17), Dat(18), Dat(19))
 
 func conList(args ...Expression) Sequential {
-	return NewList(args...)
+	return NewStack(args...)
 }
 func printCons(cons Continuation) {
 	var head, tail = cons.Continue()
@@ -24,7 +26,7 @@ func printCons(cons Continuation) {
 	}
 }
 func TestEmptyList(t *testing.T) {
-	var list = NewList()
+	var list = NewStack()
 	fmt.Printf("empty list pattern length: %d\n",
 		list.Type().Len())
 	fmt.Printf("empty list patterns: %d\n",
@@ -39,7 +41,7 @@ func TestEmptyList(t *testing.T) {
 		list.Type())
 }
 func TestList(t *testing.T) {
-	var list = NewList(listA()...)
+	var list = NewStack(listA()...)
 	fmt.Printf("list pattern length: %d\n",
 		list.Type().Len())
 	fmt.Printf("list patterns: %d\n",
@@ -57,7 +59,7 @@ func TestList(t *testing.T) {
 
 func TestConList(t *testing.T) {
 
-	var alist = NewList(listA()...)
+	var alist = NewStack(listA()...)
 	var tail Continuation
 	var head Expression
 
@@ -73,7 +75,7 @@ func TestConList(t *testing.T) {
 
 func TestPushList(t *testing.T) {
 
-	var alist = NewList(listA()...)
+	var alist = NewStack(listA()...)
 	var tail Continuation
 	var head Expression
 
@@ -99,6 +101,38 @@ func TestVector(t *testing.T) {
 		fmt.Printf("head: %s\n", head)
 		head, tail = tail.Continue()
 	}
+}
+
+func TestSortVector(t *testing.T) {
+	var vec = NewVector(Dat(13), Dat(7), Dat(3), Dat(23), Dat(42))
+	fmt.Printf("unsorted list: %s\n", vec)
+
+	var sorted = vec.Sort(func(i, j int) bool {
+		if vec.Len() > i && vec.Len() > j {
+			return vec()[i].(NatEval).Eval().(d.IntVal) <
+				vec()[j].(NatEval).Eval().(d.IntVal)
+		}
+		return false
+	})
+	fmt.Printf("sorted list: %s\n", sorted)
+}
+func TestSearchVector(t *testing.T) {
+	var vec = NewVector(Dat("one"), Dat("two"), Dat("three"), Dat("four"), Dat("five"))
+	fmt.Printf("unsorted list: %s\n", vec)
+
+	var sorted = vec.Search(
+		func(i, j int) bool {
+			if vec.Len() > i && vec.Len() > j {
+				return strings.Compare(
+					vec()[i].(NatEval).Eval().String(),
+					vec()[j].(NatEval).Eval().String()) < 0
+			}
+			return false
+		},
+		func(arg Expression) bool {
+			return strings.Compare(arg.String(), "one") == 0
+		})
+	fmt.Printf("found element one: %s\n", sorted)
 }
 
 func TestPairVal(t *testing.T) {
@@ -149,7 +183,7 @@ func TestSequence(t *testing.T) {
 	}
 	fmt.Printf("sequence: %s\n", seq)
 	fmt.Printf("seq head: %s, tail: %s type: %s\n",
-		seq.Head(), seq.Tail(), seq.TypeFnc())
+		seq.Step(), seq.Next(), seq.TypeFnc())
 }
 
 var (

@@ -108,10 +108,10 @@ type Mapped interface {
 // execution is performed lazily and infinite lists can be handled.
 type Continuation interface {
 	Expression
-	Empty() bool
+	End() bool
 	TypeElem() TyComp
-	Head() Expression
-	Tail() Continuation
+	Step() Expression
+	Next() Continuation
 	Continue() (Expression, Continuation)
 }
 
@@ -123,16 +123,30 @@ type Sequential interface {
 	Cons(...Expression) Sequential // default op, list = front, vector = back
 	Concat(...Expression) Sequential
 }
+
 type Filtered interface {
+	Continuation
 	Filter(Testable) Sequential
 	Pass(Testable) Sequential
 }
 
-type Functorial interface {
+type Monoid interface {
 	Continuation
-	MapF(Expression) Functorial
-	FoldL(Expression, Expression) Functorial
+	MapF(Expression) Sequential
+	FoldL(Expression, Expression) Sequential
 }
+
+type Applicable interface {
+	Monoid
+	Apply(func(
+		Sequential,
+		...Expression,
+	) (
+		Expression,
+		Continuation,
+	)) Sequential
+}
+
 type Ordered interface {
 	Sequential
 	Swapable
@@ -290,7 +304,6 @@ type Enumerable interface {
 type Monadic interface {
 	Expression
 	Current() Expression
-	Step(...Expression) (Expression, Monadic)
 	Sequence() Sequential
 }
 

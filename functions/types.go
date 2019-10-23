@@ -609,7 +609,7 @@ func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) Types() []d.Typed              { return p }
 func (p TyComp) Call(...Expression) Expression { return p } // ← TODO: match arg instances
 func (p TyComp) Len() int                      { return len(p.Types()) }
-func (p TyComp) Empty() bool                   { return p.Len() == 0 }
+func (p TyComp) End() bool                     { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
@@ -633,7 +633,7 @@ func (p TyComp) Get(idx int) TyComp {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyComp) Head() Expression {
+func (p TyComp) Step() Expression {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -642,11 +642,11 @@ func (p TyComp) Head() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
+func (p TyComp) HeadPattern() TyComp { return p.Step().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Tail() Continuation {
+func (p TyComp) Next() Continuation {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -663,7 +663,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
+func (p TyComp) Continue() (Expression, Continuation) { return p.Step(), p.Next() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
