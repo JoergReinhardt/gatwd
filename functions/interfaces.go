@@ -136,6 +136,17 @@ type Functoric interface {
 	FoldL(Expression, Expression) Sequential
 }
 
+type Zipped interface {
+	Functoric
+	Split() (l, r Sequential)
+}
+type Zippable interface {
+	Functoric
+	ZipWith(
+		zipf func(l, r Continuation) Sequential,
+		with Continuation,
+	) Sequential
+}
 type Applicable interface {
 	Functoric
 	Apply(func(
@@ -154,8 +165,8 @@ type Monoidal interface {
 
 type Ordered interface {
 	Sequential
-	Swapable
-	Less(Expression) bool
+	Sort(By) Sequential
+	Search(By, func(Expression) bool) Expression
 }
 
 // interface to implement by all conditional types

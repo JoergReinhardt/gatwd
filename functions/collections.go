@@ -244,6 +244,18 @@ func (p IndexPair) Continue() (Expression, Continuation) { return p.Step(), p.Ne
 ////////////////////////////////////////////////////////////////////////////////
 //// SORTER
 ///
+// function of type 'match'
+type Match func(arg Expression) bool
+
+// function of type 'by' of a parameterized sort & search function.
+type By func(a, b int) bool
+
+func (by By) Sort(slice []Expression) []Expression {
+	var sorter = newSorter(slice, by)
+	sort.Sort(sorter)
+	return sorter.Slice
+}
+
 // sorter is a helper struct to sort vector elements inline
 type sorter struct {
 	Slice []Expression
@@ -257,16 +269,6 @@ func newSorter(slice []Expression, by By) *sorter {
 func (t *sorter) Swap(i, j int)     { (*t).Slice[j], (*t).Slice[i] = (*t).Slice[i], (*t).Slice[j] }
 func (t sorter) Less(i, j int) bool { return t.By(i, j) }
 func (t sorter) Len() int           { return len(t.Slice) }
-
-// sort interface. the'By' type implements 'sort.Less() int' and is the
-// function type of a parameterized sort & search function.
-type By func(a, b int) bool
-
-func (by By) Sort(slice []Expression) []Expression {
-	var sorter = newSorter(slice, by)
-	sort.Sort(sorter)
-	return sorter.Slice
-}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
@@ -389,16 +391,13 @@ func (v VecVal) Get(i int) (Expression, bool) {
 	}
 	return NewNone(), false
 }
-func (v VecVal) Sort(by By) VecVal {
+func (v VecVal) Sort(by By) Sequential {
 	var s = newSorter(v(), by)
 	sort.Sort(s)
 	return NewVector(s.Slice...)
 }
 
-func (v VecVal) Search(
-	by By,
-	match func(arg Expression) bool,
-) Expression {
+func (v VecVal) Search(by By, match Match) Expression {
 	var s = newSorter(v(), by)
 	sort.Sort(s)
 	for _, elem := range s.Slice {
@@ -409,10 +408,7 @@ func (v VecVal) Search(
 	return NewNone()
 }
 
-func (v VecVal) SearchAll(
-	by func(i, j int) bool,
-	match func(arg Expression) bool,
-) VecVal {
+func (v VecVal) SearchAll(by By, match Match) VecVal {
 	var (
 		s   = newSorter(v(), by)
 		vec = NewVector()
@@ -525,16 +521,13 @@ func (v StackVal) Get(i int) (Expression, bool) {
 	}
 	return NewNone(), false
 }
-func (v StackVal) Sort(by By) StackVal {
+func (v StackVal) Sort(by By) Sequential {
 	var s = newSorter(v(), by)
 	sort.Sort(s)
 	return NewStack(s.Slice...)
 }
 
-func (v StackVal) Search(
-	by By,
-	match func(arg Expression) bool,
-) Expression {
+func (v StackVal) Search(by By, match Match) Expression {
 	var s = newSorter(v(), by)
 	sort.Sort(s)
 	for _, elem := range s.Slice {
@@ -545,10 +538,7 @@ func (v StackVal) Search(
 	return NewNone()
 }
 
-func (v StackVal) SearchAll(
-	by func(i, j int) bool,
-	match func(arg Expression) bool,
-) StackVal {
+func (v StackVal) SearchAll(by By, match Match) StackVal {
 	var (
 		s     = newSorter(v(), by)
 		stack = NewStack()

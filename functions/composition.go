@@ -348,31 +348,6 @@ func (s SeqVal) MapS(head, mapf Expression, arg Continuation) Sequential {
 	})
 }
 
-func (s SeqVal) Apply(
-	apply func(seq Sequential, args ...Expression) (Expression, Continuation),
-) Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			var result, seq = apply(s, args...)
-			return result, NewSequentialContinuation(seq)
-		}
-		var result, seq = apply(s)
-		return result, NewSequentialContinuation(seq)
-	})
-}
-
-func (s SeqVal) BindM(bindf Expression, cont Continuation) Sequential {
-	var step, next = s()
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			return step.Call(cont.Step().Call(args...)),
-				next.BindM(bindf, cont.Next()).(SeqVal)
-		}
-		return step.Call(cont.Step()),
-			next.BindM(bindf, cont.Next()).(SeqVal)
-	})
-}
-
 func (s SeqVal) Flatten() SeqVal {
 	var head, tail = s()
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
@@ -448,6 +423,109 @@ func (s SeqVal) Pass(test Testable) Sequential {
 		})
 	)
 	return s.FoldL(list, filter)
+}
+
+// application of boxed arguments to boxed functions
+func (s SeqVal) Apply(
+	apply func(
+		seq Sequential,
+		args ...Expression,
+	) (
+		Expression,
+		Continuation,
+	)) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			var result, seq = apply(s, args...)
+			return result, NewSequentialContinuation(seq)
+		}
+		var result, seq = apply(s)
+		return result, NewSequentialContinuation(seq)
+	})
+}
+
+// sequential composition of function application
+func (s SeqVal) BindM(bindf Expression, cont Continuation) Sequential {
+	var step, next = s()
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			return step.Call(cont.Step().Call(args...)),
+				next.BindM(bindf, cont.Next()).(SeqVal)
+		}
+		return step.Call(cont.Step()),
+			next.BindM(bindf, cont.Next()).(SeqVal)
+	})
+}
+
+func (s SeqVal) ZipWith(
+	zipf func(l, r Continuation) Sequential,
+	cont Continuation,
+) SeqVal {
+	var (
+		leftStep, left   = s()
+		rightStep, right = cont.Continue()
+	)
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if leftStep.Type().Match(None) || rightStep.Type().Match(None) {
+			return NewNone(), NewSequence()
+		}
+		if len(args) > 0 {
+			return NewPair(leftStep, rightStep).Call(args...),
+				left.ZipWith(zipf, right)
+		}
+		return NewPair(leftStep, rightStep),
+			left.ZipWith(zipf, right)
+	})
+}
+
+func (s SeqVal) Split() (Sequential, Sequential) {
+	var (
+		head, tail  = s.Continue()
+		left, right = tail.(Zipped).Split()
+	)
+	if head.Type().Match(Pair) { // list of pairs gets zipped into keys & values
+		if pair, ok := head.(Paired); ok {
+			return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+					if len(args) > 0 {
+						return pair.Left().Call(args...), left.(SeqVal)
+					}
+					return pair.Left(), left.(SeqVal)
+				}),
+				SeqVal(func(args ...Expression) (Expression, SeqVal) {
+					if len(args) > 0 {
+						return pair.Right().Call(args...), right.(SeqVal)
+					}
+					return pair.Right(), right.(SeqVal)
+				})
+		}
+	}
+	if !head.Type().Match(None) { // flat lists are split two elements at a step
+		var resl, resr Sequential
+		if !head.Type().Match(None) {
+			resl = SeqVal(func(args ...Expression) (Expression, SeqVal) {
+				if len(args) > 0 {
+					return head.Call(args...), left.(SeqVal)
+				}
+				return head, left.(SeqVal)
+			})
+		} else {
+			resl = NewSequence()
+		}
+		head, tail = tail.Continue()
+		if !head.Type().Match(None) {
+			resr = SeqVal(func(args ...Expression) (Expression, SeqVal) {
+				if len(args) > 0 {
+					return head.Call(args...), right.(SeqVal)
+				}
+				return head, right.(SeqVal)
+			})
+		} else {
+			resr = NewSequence()
+		}
+		return resl, resr
+	}
+	// head is a none value
+	return NewSequence(), NewSequence()
 }
 
 //// DATA STATE
