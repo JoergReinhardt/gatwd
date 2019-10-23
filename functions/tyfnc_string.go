@@ -4,7 +4,7 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordSequenceApplicativeMonadStateIOParametricALL"
+const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordSequenceFunctorApplicativeMonadStateIOParametricALL"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
@@ -52,12 +52,13 @@ var _TyFnc_map = map[TyFnc]string{
 	4398046511104:        _TyFnc_name[238:243],
 	8796093022208:        _TyFnc_name[243:249],
 	17592186044416:       _TyFnc_name[249:257],
-	35184372088832:       _TyFnc_name[257:268],
-	70368744177664:       _TyFnc_name[268:273],
-	140737488355328:      _TyFnc_name[273:278],
-	281474976710656:      _TyFnc_name[278:280],
-	562949953421312:      _TyFnc_name[280:290],
-	18446744073709551615: _TyFnc_name[290:293],
+	35184372088832:       _TyFnc_name[257:264],
+	70368744177664:       _TyFnc_name[264:275],
+	140737488355328:      _TyFnc_name[275:280],
+	281474976710656:      _TyFnc_name[280:285],
+	562949953421312:      _TyFnc_name[285:287],
+	1125899906842624:     _TyFnc_name[287:297],
+	18446744073709551615: _TyFnc_name[297:300],
 }
 
 func (i TyFnc) String() string {

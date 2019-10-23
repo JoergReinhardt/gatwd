@@ -16,9 +16,9 @@ type (
 	IndexPair func(...Expression) (Expression, int)
 
 	//// COLLECTIONS
-	VecVal  func(...Expression) []Expression
-	ListVal func(...Expression) []Expression
-	MapVal  func(...Expression) map[string]Expression
+	VecVal   func(...Expression) []Expression
+	StackVal func(...Expression) []Expression
+	MapVal   func(...Expression) map[string]Expression
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -273,40 +273,38 @@ func NewVector(elems ...Expression) VecVal {
 }
 
 // default list operation prepends at the beginning of the list
-func (v VecVal) Cons(args ...Expression) Sequential { return NewVector(v(args...)...) }
-func (v VecVal) ConsVec(args ...Expression) VecVal  { return NewVector(v(args...)...) }
-func (v VecVal) Len() int                           { return len(v()) }
+func (v VecVal) Cons(args ...Expression) Sequential   { return NewVector(append(args, v()...)...) }
+func (v VecVal) Concat(args ...Expression) Sequential { return NewVector(v(args...)...) }
+func (v VecVal) ConcatVec(args ...Expression) VecVal  { return NewVector(v(args...)...) }
+func (v VecVal) Len() int                             { return len(v()) }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
 	}
 	return NewNone()
 }
-func (v VecVal) Tail() Traversable {
+func (v VecVal) Tail() Continuation {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewVector()
 }
-func (v VecVal) TailVec() VecVal                     { return v.Tail().(VecVal) }
-func (v VecVal) Consume() (Expression, Sequential)   { return v.Head(), v.TailVec() }
-func (v VecVal) ConsumeVec() (Expression, VecVal)    { return v.Head(), v.TailVec() }
-func (v VecVal) Traverse() (Expression, Traversable) { return v.Consume() }
-func (v VecVal) Null() VecVal                        { return NewVector() }
-func (v VecVal) TypeFnc() TyFnc                      { return Vector }
-func (v VecVal) TypeElem() TyComp                    { return v.Head().Type() }
-func (v VecVal) Type() TyComp                        { return Def(Vector, v.TypeElem()) }
-func (v VecVal) Slice() []Expression                 { return v() }
+func (v VecVal) Continue() (Expression, Continuation) { return v.Head(), v.Tail() }
+func (v VecVal) Null() VecVal                         { return NewVector() }
+func (v VecVal) TypeFnc() TyFnc                       { return Vector }
+func (v VecVal) TypeElem() TyComp                     { return v.Head().Type() }
+func (v VecVal) Type() TyComp                         { return Def(Vector, v.TypeElem()) }
+func (v VecVal) Slice() []Expression                  { return v() }
 func (v VecVal) Call(args ...Expression) Expression {
 	var (
 		head Expression
-		tail Sequential
+		tail Continuation
 	)
 	if len(args) > 0 {
-		head, tail = NewVector(v(args...)...).Consume()
+		head, tail = NewVector(v(args...)...).Continue()
 		return NewPair(head, tail)
 	}
-	head, tail = v.Consume()
+	head, tail = v.Continue()
 	return NewPair(head, tail)
 }
 
@@ -341,11 +339,11 @@ func (v VecVal) Clear() VecVal { return NewVector() }
 
 func (v VecVal) Sequential() SeqVal {
 	return func(args ...Expression) (Expression, SeqVal) {
-		var head, tail = v.ConsumeVec()
+		var head, tail = v.Continue()
 		if len(args) > 0 {
-			return head, NewVector(tail(args...)...).Sequential()
+			return head, NewVector(tail.(VecVal)(args...)...).Sequential()
 		}
-		return head, tail.Sequential()
+		return head, tail.(VecVal).Sequential()
 	}
 }
 
@@ -570,9 +568,9 @@ func (m MapVal) String() string {
 // lazy implementation of recursively linked list. backed by slice. returns
 // last element put in as head. prepends arguments when called to become new
 // head of list, one at a time, thereby reversing argument order.
-func NewList(elems ...Expression) ListVal {
+func NewList(elems ...Expression) StackVal {
 	if len(elems) == 0 {
-		return ListVal(func(args ...Expression) []Expression {
+		return StackVal(func(args ...Expression) []Expression {
 			if len(args) > 0 {
 				return NewVector(args...)()
 			}
@@ -598,57 +596,55 @@ func NewList(elems ...Expression) ListVal {
 }
 
 // default list operation prepends at the beginning of the list
-func (l ListVal) Cons(args ...Expression) Sequential  { return NewList(l(args...)...) }
-func (l ListVal) ConsList(args ...Expression) ListVal { return NewList(l(args...)...) }
-func (l ListVal) Len() int                            { return len(l()) }
-func (l ListVal) Head() Expression {
+func (l StackVal) Cons(args ...Expression) Sequential     { return NewList(l(args...)...) }
+func (l StackVal) Concat(args ...Expression) Sequential   { return NewList(append(l(), args...)...) }
+func (l StackVal) ConcatList(args ...Expression) StackVal { return NewList(append(l(), args...)...) }
+func (l StackVal) Len() int                               { return len(l()) }
+func (l StackVal) Head() Expression {
 	if l.Len() > 0 {
 		return l()[l.Len()-1]
 	}
 	return NewNone()
 }
-func (l ListVal) Tail() Traversable {
+func (l StackVal) Tail() Continuation {
 	if l.Len() > 1 {
 		return NewList(l()[:l.Len()-1]...)
 	}
 	return NewList()
 }
-func (l ListVal) TailList() ListVal                   { return l.Tail().(ListVal) }
-func (l ListVal) ConsumeList() (Expression, ListVal)  { return l.Head(), l.TailList() }
-func (l ListVal) Consume() (Expression, Sequential)   { return l.Head(), l.TailList() }
-func (l ListVal) Traverse() (Expression, Traversable) { return l.Head(), l.Tail() }
-func (l ListVal) Null() ListVal                       { return NewList() }
-func (l ListVal) TypeFnc() TyFnc                      { return List }
-func (l ListVal) TypeElem() TyComp                    { return l.Head().Type() }
-func (l ListVal) Type() TyComp                        { return Def(List, l.TypeElem()) }
-func (l ListVal) Slice() []Expression                 { return l() }
-func (l ListVal) Call(args ...Expression) Expression {
+func (l StackVal) Continue() (Expression, Continuation) { return l.Head(), l.Tail() }
+func (l StackVal) Null() StackVal                       { return NewList() }
+func (l StackVal) TypeFnc() TyFnc                       { return List }
+func (l StackVal) TypeElem() TyComp                     { return l.Head().Type() }
+func (l StackVal) Type() TyComp                         { return Def(List, l.TypeElem()) }
+func (l StackVal) Slice() []Expression                  { return l() }
+func (l StackVal) Call(args ...Expression) Expression {
 	var (
 		head Expression
-		tail Sequential
+		tail Continuation
 	)
 	if len(args) > 0 {
-		head, tail = NewList(l(args...)...).Consume()
+		head, tail = NewList(l(args...)...).Continue()
 		return NewPair(head, tail)
 	}
-	head, tail = l.Consume()
+	head, tail = l.Continue()
 	return NewPair(head, tail)
 }
 
-func (l ListVal) Empty() bool {
+func (l StackVal) Empty() bool {
 	if l.Len() != 0 || !l.Head().Type().Match(None) {
 		return false
 	}
 	return true
 }
-func (l ListVal) String() string {
+func (l StackVal) String() string {
 	var (
 		args       = []string{}
-		head, list = l.ConsumeList()
+		head, list = l.Continue()
 	)
 	for list != nil {
 		args = append(args, head.String())
-		head, list = list.ConsumeList()
+		head, list = list.Continue()
 	}
 	return "(" + strings.Join(args, ", ") + ")"
 }

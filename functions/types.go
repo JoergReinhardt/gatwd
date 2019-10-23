@@ -121,9 +121,10 @@ const (
 	Variant = Either | Or
 
 	//// COLLECTIONS
-	ProdTypes    = List | Vector | Enum
-	SumTypes     = Set | Record | Tuple
-	Traversables = SumTypes | ProdTypes
+	ProdTypes = List | Vector | Enum
+	SumTypes  = Set | Record | Tuple
+	Sequences = ProdTypes | SumTypes
+	Functors  = Sequences
 
 	Number = Natural | Integer | Real | Ratio
 	String = Letter | Text
@@ -198,8 +199,8 @@ func (t TyFnc) TypeName() string {
 			return "SumTypes"
 		case ProdTypes:
 			return "ProductTypes"
-		case Traversables:
-			return "Collections"
+		case Functors:
+			return "Funtors"
 		}
 		var delim = "|"
 		var str string
@@ -645,7 +646,7 @@ func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Tail() Traversable {
+func (p TyComp) Tail() Continuation {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -662,7 +663,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Traverse() (Expression, Traversable) { return p.Head(), p.Tail() }
+func (p TyComp) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -795,9 +796,9 @@ func (p TyComp) IsList() bool {
 	}
 	return false
 }
-func (p TyComp) IsCollection() bool {
+func (p TyComp) IsFunctor() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Traversables)
+		return p.Elements()[0].Match(Functors)
 	}
 	return false
 }

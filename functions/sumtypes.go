@@ -31,33 +31,34 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Expression                    { return n }
-func (n NoneVal) Tail() Traversable                   { return n }
-func (n NoneVal) Cons(...Expression) Sequential       { return n }
-func (n NoneVal) Prepend(...Expression) Sequential    { return n }
-func (n NoneVal) Append(...Expression) Sequential     { return n }
-func (n NoneVal) Len() int                            { return 0 }
-func (n NoneVal) Compare(...Expression) int           { return -1 }
-func (n NoneVal) String() string                      { return "⊥" }
-func (n NoneVal) Call(...Expression) Expression       { return nil }
-func (n NoneVal) Key() Expression                     { return nil }
-func (n NoneVal) Index() Expression                   { return nil }
-func (n NoneVal) Left() Expression                    { return nil }
-func (n NoneVal) Right() Expression                   { return nil }
-func (n NoneVal) Both() Expression                    { return nil }
-func (n NoneVal) Value() Expression                   { return nil }
-func (n NoneVal) Empty() bool                         { return true }
-func (n NoneVal) Test(...Expression) bool             { return false }
-func (n NoneVal) TypeFnc() TyFnc                      { return None }
-func (n NoneVal) TypeNat() d.TyNat                    { return d.Nil }
-func (n NoneVal) Type() TyComp                        { return Def(None) }
-func (n NoneVal) TypeElem() TyComp                    { return Def(None) }
-func (n NoneVal) TypeName() string                    { return n.String() }
-func (n NoneVal) Slice() []Expression                 { return []Expression{} }
-func (n NoneVal) Flag() d.BitFlag                     { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val                { return Kind_Fnc.U() }
-func (n NoneVal) Traverse() (Expression, Traversable) { return NewNone(), NewNone() }
-func (n NoneVal) Consume() (Expression, Sequential)   { return NewNone(), NewNone() }
+func (n NoneVal) Head() Expression                     { return n }
+func (n NoneVal) Tail() Continuation                   { return n }
+func (n NoneVal) Cons(...Expression) Sequential        { return n }
+func (n NoneVal) Concat(...Expression) Sequential      { return n }
+func (n NoneVal) Prepend(...Expression) Sequential     { return n }
+func (n NoneVal) Append(...Expression) Sequential      { return n }
+func (n NoneVal) Len() int                             { return 0 }
+func (n NoneVal) Compare(...Expression) int            { return -1 }
+func (n NoneVal) String() string                       { return "⊥" }
+func (n NoneVal) Call(...Expression) Expression        { return nil }
+func (n NoneVal) Key() Expression                      { return nil }
+func (n NoneVal) Index() Expression                    { return nil }
+func (n NoneVal) Left() Expression                     { return nil }
+func (n NoneVal) Right() Expression                    { return nil }
+func (n NoneVal) Both() Expression                     { return nil }
+func (n NoneVal) Value() Expression                    { return nil }
+func (n NoneVal) Empty() bool                          { return true }
+func (n NoneVal) Test(...Expression) bool              { return false }
+func (n NoneVal) TypeFnc() TyFnc                       { return None }
+func (n NoneVal) TypeNat() d.TyNat                     { return d.Nil }
+func (n NoneVal) Type() TyComp                         { return Def(None) }
+func (n NoneVal) TypeElem() TyComp                     { return Def(None) }
+func (n NoneVal) TypeName() string                     { return n.String() }
+func (n NoneVal) Slice() []Expression                  { return []Expression{} }
+func (n NoneVal) Flag() d.BitFlag                      { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val                 { return Kind_Fnc.U() }
+func (n NoneVal) Continue() (Expression, Continuation) { return NewNone(), NewNone() }
+func (n NoneVal) Consume() (Expression, Sequential)    { return NewNone(), NewNone() }
 
 //// GENERIC CONSTANT DEFINITION
 ///

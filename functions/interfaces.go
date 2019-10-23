@@ -106,30 +106,32 @@ type Mapped interface {
 // same values in a loop, thereby implementing a functional trampolin to
 // flatten recursive calls.
 // execution is performed lazily and infinite lists can be handled.
-type Traversable interface {
+type Continuation interface {
 	Expression
 	Empty() bool
+	TypeElem() TyComp
 	Head() Expression
-	Tail() Traversable
-	Traverse() (Expression, Traversable)
+	Tail() Continuation
+	Continue() (Expression, Continuation)
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
 // this is even true for infinite lists, since appending is performed lazily,
 // which in the case of appending to an infinite list, may as well be never.
 type Sequential interface {
-	Traversable
-	TypeElem() TyComp
+	Continuation
 	Cons(...Expression) Sequential // default op, list = front, vector = back
-	Consume() (Expression, Sequential)
+	Concat(...Expression) Sequential
+}
+type Filtered interface {
+	Filter(Testable) Sequential
+	Pass(Testable) Sequential
 }
 
-type Monoidal interface {
-	Sequential
-	Concat(Sequential) Sequential
-	Map(Expression) Monoidal
-	MapX(Expression) Monoidal
-	Fold(Expression, func(...Expression) Expression) Monoidal
+type Functorial interface {
+	Continuation
+	MapF(Expression) Functorial
+	FoldL(Expression, Expression) Functorial
 }
 type Ordered interface {
 	Sequential

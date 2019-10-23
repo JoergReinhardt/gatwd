@@ -50,9 +50,10 @@ func (g GenVal) Call(args ...Expression) Expression {
 	}
 	return NewPair(g.Expr(), g.Generator())
 }
-func (g GenVal) TypeFnc() TyFnc { return Generator }
-func (g GenVal) Type() TyComp   { return Def(Generator, g.Head().Type()) }
-func (g GenVal) String() string { return g.Head().String() }
+func (g GenVal) TypeFnc() TyFnc   { return Generator }
+func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
+func (g GenVal) String() string   { return g.Head().String() }
 
 func (g GenVal) Empty() bool {
 	if !g.Tail().Empty() || !g.Head().Type().Match(None) {
@@ -60,9 +61,9 @@ func (g GenVal) Empty() bool {
 	}
 	return true
 }
-func (g GenVal) Traverse() (Expression, Traversable) { return g() }
-func (g GenVal) Head() Expression                    { return g.Expr() }
-func (g GenVal) Tail() Traversable                   { return g.Generator() }
+func (g GenVal) Continue() (Expression, Continuation) { return g() }
+func (g GenVal) Head() Expression                     { return g.Expr() }
+func (g GenVal) Tail() Continuation                   { return g.Generator() }
 
 //// ACCUMULATOR
 ///
@@ -110,9 +111,10 @@ func (a AccVal) Empty() bool {
 	}
 	return true
 }
-func (g AccVal) Head() Expression                    { return g.Result() }
-func (g AccVal) Tail() Traversable                   { return g.Accumulator() }
-func (g AccVal) Traverse() (Expression, Traversable) { return g() }
+func (g AccVal) Head() Expression                     { return g.Result() }
+func (g AccVal) TypeElem() TyComp                     { return g.Head().Type() }
+func (g AccVal) Tail() Continuation                   { return g.Accumulator() }
+func (g AccVal) Continue() (Expression, Continuation) { return g() }
 
 //// ENUM TYPE
 ///
@@ -140,7 +142,7 @@ func (e EnumDef) Call(args ...Expression) Expression {
 		if len(args) > 1 {
 			var vec = NewVector()
 			for _, arg := range args {
-				vec = vec.ConsVec(e.Call(arg))
+				vec = vec.Cons(e.Call(arg)).(VecVal)
 			}
 			return vec
 		}
@@ -202,366 +204,220 @@ func (e EnumVal) Call(args ...Expression) Expression {
 //// SEQUENCE TYPE
 ///
 // generic sequential type
-func NewSequence(seq Sequential) SeqVal {
+func NewSequence(val Continuation) SeqVal {
 	var (
 		head Expression
-		tail Sequential
+		tail Continuation
 	)
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			seq = seq.Cons(args...)
+			head, tail = val.Continue()
+			return head.Call(args...), NewSequence(tail)
 		}
-		head, tail = seq.Consume()
-		if head.Type().Match(None) {
-			tail = NewSequence(seq)
-		}
+		head, tail = val.Continue()
 		return head, NewSequence(tail)
 	})
 }
+
 func (s SeqVal) Head() Expression {
 	var expr, _ = s()
 	return expr
 }
-func (s SeqVal) Tail() Traversable {
+func (s SeqVal) Tail() Continuation {
 	var _, seq = s()
 	return seq
 }
-func (s SeqVal) TailSeq() SeqVal { return s.Tail().(SeqVal) }
-func (s SeqVal) ConsumeSeq() (Expression, SeqVal) {
-	return s.Head(), s.TailSeq()
-}
-func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
-func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
-func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
-func (s SeqVal) Cons(elems ...Expression) Sequential {
-	if len(elems) > 0 {
-		if len(elems) == 1 {
-			return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-				if len(args) > 0 {
-					var head, tail = s.Cons(
-						append(elems, args...)...,
-					).(SeqVal)()
-					return head, NewSequence(tail)
-				}
-				return elems[0], s
-			})
-		}
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				var head, tail = s.Cons(
-					append(elems, args...)...,
-				).(SeqVal)()
-				return head, NewSequence(tail)
-			}
-			return elems[0], NewSequence(s.Cons(elems[1:]...))
-		})
-	}
-	return s
-}
+func (s SeqVal) Continue() (Expression, Continuation) { return s() }
+
 func (s SeqVal) Call(args ...Expression) Expression {
-	var head, tail = s()
+	var (
+		head Expression
+		tail SeqVal
+	)
+	if len(args) > 0 {
+		head, tail = s(args...)
+		return NewPair(head, tail)
+	}
+	head, tail = s()
 	return NewPair(head, tail)
 }
+
+func (s SeqVal) Concat(elems ...Expression) Sequential { return s.ConcatSeq() }
+
+func (s SeqVal) ConcatSeq(elems ...Expression) SeqVal {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var head, tail = s.Continue()
+		if tail.Empty() {
+			if len(args) > 0 {
+				return head.Call(args...), tail.(SeqVal).Concat(elems...).(SeqVal)
+			}
+			return head, tail.(SeqVal).Concat(elems...).(SeqVal)
+		}
+		return head, NewSequence(NewVector(elems...))
+	})
+}
+
+func (s SeqVal) Cons(elems ...Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(elems) > 0 {
+			var head = elems[len(elems)-1]
+			if len(elems) > 1 {
+				var tail = elems[1:]
+				if len(args) > 0 {
+					return head.Call(args...), s.Cons(tail...).(SeqVal)
+				}
+				return head, s.Cons(tail...).(SeqVal)
+			}
+			if len(args) > 0 {
+				return head.Call(args...), s
+			}
+			return head, s
+		}
+		return s()
+	})
+}
+func (s SeqVal) TailSeq() SeqVal                   { return s.Tail().(SeqVal) }
+func (s SeqVal) TraverseSeq() (Expression, SeqVal) { return s.Head(), s.TailSeq() }
+func (s SeqVal) TypeElem() TyComp                  { return s.Head().Type() }
+func (s SeqVal) TypeFnc() TyFnc                    { return Sequence }
+func (s SeqVal) Type() TyComp                      { return Def(Sequence, s.TypeElem()) }
 func (s SeqVal) Empty() bool {
-	if !s.Tail().Empty() || !s.Head().Type().Match(None) {
+	if !s.Tail().Empty() && !s.Head().Type().Match(None) {
 		return false
 	}
 	return true
 }
-func (s SeqVal) Traverse() (Expression, Traversable) { return s() }
-func (s SeqVal) Consume() (Expression, Sequential)   { return s() }
+
 func (s SeqVal) String() string {
 	var (
 		hstr, tstr string
 		head, tail = s()
 	)
 	for !head.Type().Match(None) {
-		hstr = hstr + "[ " + head.String() + " "
-		tstr = tstr + "]"
+		hstr = hstr + "( " + head.String() + " "
+		tstr = tstr + ")"
 		head, tail = tail()
 	}
 	return hstr + tstr
 }
 
-func (s SeqVal) Concat(right Sequential) Sequential {
+func (s SeqVal) Mapf(mapf Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(SeqVal)
-		}
-		var head, tail = s.Consume()
-		if tail.Empty() {
-			tail = right
-		}
-		return head, NewSequence(tail)
-	})
-}
-
-func (s SeqVal) Map(mapf Expression) Monoidal {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(SeqVal)
-		}
-		var head, tail = s.Consume()
-		if !head.Type().Match(None) {
-			var result = mapf.Call(head)
-			// skip function applications yielding none
-			for result.Type().Match(None) {
-				head, tail = tail.Consume()
-				result = mapf.Call(head)
-			}
-			return result, NewSequence(tail).Map(mapf).(SeqVal)
-		}
-		return head, NewSequence(tail).Map(mapf).(SeqVal)
-	})
-}
-
-func (s SeqVal) MapX(mapx Expression) Monoidal {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(SeqVal)
-		}
-		var head, tail = s.Consume()
-		if !head.Type().Match(None) {
-			if head.Type().Match(Traversables) {
-				head, tail = head.(Monoidal).Map(mapx).Concat(tail).Consume()
-			}
-			var result = mapx.Call(head)
-			// skip function applications yielding none
-			for result.Type().Match(None) {
-				head, tail = tail.Consume()
-				result = mapx.Call(head)
-			}
-			return result, NewSequence(tail).MapX(mapx).(SeqVal)
-		}
-		return head, NewSequence(tail).MapX(mapx).(SeqVal)
-	})
-}
-
-func (s SeqVal) Fold(acc Expression, fold func(...Expression) Expression) Monoidal {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(SeqVal)
-		}
-		var head, tail = s.Traverse()
-		if !head.Type().Match(None) {
-			var result = acc.Call(fold(head))
-			for result.Type().Match(None) {
-				head, tail = tail.Traverse()
-				result = acc.Call(fold(head))
-			}
-			return result, tail.(SeqVal).Fold(result, fold).(SeqVal)
-		}
-		return acc, NewSequence(NewList())
-	})
-}
-
-func (s SeqVal) Apply(apply func(...Expression) Expression) AppVal { return NewApplicative(s, apply) }
-
-func Curry(f, g FuncDef) FuncDef {
-	if f.TypeArguments().Match(g.TypeReturn()) {
-		return Define(GenericFunc(
-			func(args ...Expression) Expression {
-				if len(args) > 0 {
-					return f.Call(g.Call(args...))
-				}
-				return f.Call(g.Call())
-			}),
-			Def(
-				f.TypeIdent(),
-				g.TypeIdent()),
-			f.TypeReturn(),
-			f.TypeArguments(),
+		var (
+			head, tail = s()
+			lst        Expression
 		)
-	}
-	return Define(NewNone(), None, None)
-}
-
-//// APPLICATIVE MONOID
-func NewApplicative(s Sequential, apply func(...Expression) Expression) AppVal {
-	return func(args ...Expression) (Expression, AppVal) {
 		if len(args) > 0 {
-			var head, tail = s.Cons(args...).Consume()
-			return head, NewApplicative(tail, apply)
-		}
-		var head, tail = s.Consume()
-		return head, NewApplicative(tail, apply)
-	}
-}
-func (s AppVal) TypeElem() TyComp { return s.Head().Type() }
-func (s AppVal) TypeFnc() TyFnc   { return Applicative }
-func (s AppVal) Type() TyComp     { return Def(Applicative, s.TypeElem()) }
-func (a AppVal) Empty() bool {
-	if !a.Tail().Empty() || !a.Head().Type().Match(None) {
-		return false
-	}
-	return true
-}
-func (s AppVal) Cons(elems ...Expression) Sequential {
-	if len(elems) > 0 {
-		if len(elems) == 1 {
-			return AppVal(func(args ...Expression) (Expression, AppVal) {
-				if len(args) > 0 {
-					var head, tail = s(append(elems, args...)...)
-					return head, tail
+			lst = args[len(args)-1]
+			// cross product, if last argument is a functor
+			if lst.Type().Match(Functors) {
+				if arg, ok := lst.(Functorial); ok {
+					// λ to apply mapf to current head and
+					// every element of the seqeuntial set
+					// of arguments once.
+					var lfn = GenericFunc(func(args ...Expression) Expression {
+						if len(args) > 0 {
+							return mapf.Call(head.Call(args...))
+						} // should not be reachable
+						return mapf.Call(head)
+					})
+					if len(args) > 1 {
+						// return result of mapping λ
+						// to functor argument, and
+						// tail mapped to fmap,
+						// extended by proceeding
+						// arguments
+						return arg.MapF(lfn),
+							tail.Mapf(mapf).Cons(
+								args[:len(args)-1]...,
+							).(SeqVal)
+					}
+					// no further arguments
+					return arg.MapF(lfn), tail.Mapf(mapf).(SeqVal)
 				}
-				return elems[0], s
-			})
-		}
-		return AppVal(func(args ...Expression) (Expression, AppVal) {
-			if len(args) > 0 {
-				var head, tail = s(append(elems, args...)...)
-				return head, tail
 			}
-			return s(elems...)
-		})
-	}
-	return s
-}
-func (s AppVal) Call(args ...Expression) Expression {
-	var head Expression
-	if len(args) > 0 {
-		head, _ = s(args...)
-		return head
-	}
-	head, _ = s()
-	return head
-}
-func (s AppVal) Traverse() (Expression, Traversable) { return s() }
-func (s AppVal) Consume() (Expression, Sequential)   { return s() }
-func (s AppVal) Head() Expression {
-	var expr, _ = s()
-	return expr
-}
-func (s AppVal) Tail() Traversable {
-	var _, seq = s()
-	return seq
-}
-func (s AppVal) TailApp() AppVal { return s.Tail().(AppVal) }
-func (s AppVal) ConsumeApp() (Expression, AppVal) {
-	return s.Head(), s.TailApp()
-}
-func (s AppVal) String() string {
-	var head, tail = s()
-	return tail.Cons(head).String()
-}
-func (s AppVal) Concat(right Sequential) Sequential {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(AppVal)
+			// dot product, since last argument is not a functor
+			return mapf.Call(head.Call(args...)), tail.Mapf(mapf).(SeqVal)
 		}
-		var head, tail = s.Consume()
-		if tail.Empty() {
-			tail = right
-		}
-		return head, tail.(AppVal)
+		// no arguments given
+		return mapf.Call(head), tail.Mapf(mapf).(SeqVal)
 	})
 }
 
-func (s AppVal) Map(mapf Expression) Monoidal {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(AppVal)
-		}
-		var head, tail = s()
-		if !head.Type().Match(None) {
-		}
-		return head, tail.Map(mapf).(AppVal)
-	})
-}
-
-func (s AppVal) MapX(mapx Expression) Monoidal {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(AppVal)
-		}
-		var head, tail = s.Consume()
-		if !head.Type().Match(None) {
-			if head.Type().Match(Traversables) {
-				head, tail = head.(Monoidal).Map(mapx).Concat(tail).Consume()
-			}
-			var result = mapx.Call(head)
-			// skip function applications yielding none
-			for result.Type().Match(None) {
-				head, tail = tail.Consume()
-				result = mapx.Call(head)
-			}
-			return result, tail.(Monoidal).MapX(mapx).(AppVal)
-		}
-		return head, tail.(Monoidal).MapX(mapx).(AppVal)
-	})
-}
-
-func (s AppVal) Fold(acc Expression, fold func(...Expression) Expression) Monoidal {
-	return AppVal(func(args ...Expression) (Expression, AppVal) {
-		if len(args) > 0 {
-			s = s.Cons(args...).(AppVal)
-		}
-		var head, tail = s.Traverse()
-		if !head.Type().Match(None) {
-			var result = acc.Call(fold(head))
-			for result.Type().Match(None) {
-				head, tail = tail.Traverse()
-				result = acc.Call(fold(head))
-			}
-			return result, tail.(Monoidal).Fold(result, fold).(AppVal)
-		}
-		return acc, tail.(AppVal)
-	})
-}
-
-//// MONAD TYPE
-///
-// sequence of computations
-func NewMonad(expr Expression) MonVal {
-	return MonVal(func(args ...Expression) (Expression, MonVal) {
-		if len(args) > 0 {
-			expr = expr.Call(args...)
-			return expr, NewMonad(expr)
-		}
-		expr = expr.Call()
-		return expr, NewMonad(expr)
-	})
-}
-
-func (s MonVal) Type() TyComp     { return Def(Monad, s.Current().Type()) }
-func (s MonVal) TypeElem() TyComp { return s.Current().Type() }
-func (s MonVal) TypeFnc() TyFnc   { return s.Current().TypeFnc() }
-func (s MonVal) String() string   { return s.Current().String() }
-
-func (s MonVal) Step(args ...Expression) (Expression, Monadic) { return s(args...) }
-func (s MonVal) Call(args ...Expression) Expression {
-	var (
-		expr Expression
-		mon  MonVal
-	)
-	if len(args) > 0 {
-		expr, mon = s(args...)
-		return NewPair(expr, mon)
-	}
-	expr, mon = s()
-	return NewPair(expr, mon)
-}
-func (s MonVal) Current() Expression {
-	var cur, _ = s()
-	return cur
-}
-func (s MonVal) Monad() Monadic {
-	var _, mon = s()
-	return mon
-}
-func (s MonVal) Sequence() Sequential {
-	var (
-		expr Expression
-		mon  Monadic
-	)
+func (s SeqVal) FoldL(acc Expression, fold func(...Expression) Expression) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var (
+			result     Expression
+			head, tail = s()
+		)
+		// try to yield accumulate from applying head
+		// to arguments and folding the result‥.
 		if len(args) > 0 {
-			expr, mon = s(args...)
-			return expr, mon.Sequence().(SeqVal)
+			result = fold(head.Call(args...))
+		} else {
+			result = fold(head)
 		}
-		expr, mon = s()
-		return expr, mon.Sequence().(SeqVal)
+		// skip result, if it is none
+		for result.Type().Match(None) {
+			// when parent list ist empty → return
+			// final result and mapped list
+			if head.Type().Match(None) && tail.Empty() {
+				return acc, s.FoldL(acc, fold).(SeqVal)
+			}
+			// yield next head/tail
+			head, tail = tail()
+			// compute next result
+			result = fold(head.Call(args...))
+		}
+		// result is not none → return result and folded tail
+		return result, tail.FoldL(result, fold).(SeqVal)
 	})
+}
+func (s SeqVal) Flatten() SeqVal {
+	var head, tail = s()
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if head.Type().Match(Sequences) {
+			if seq, ok := head.(Sequential); ok {
+				seq = seq.Concat(tail)
+				return seq.Head(), NewSequence(seq.Tail())
+			}
+		}
+		return head, tail
+	})
+}
+
+func (s SeqVal) Filter(test Testable) Sequential {
+	var (
+		list   = NewList()
+		filter = CaseDef(func(args ...Expression) Expression {
+			if test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		})
+	)
+	return s.FoldL(list, filter)
+}
+
+func (s SeqVal) Pass(test Testable) Sequential {
+	var (
+		list   = NewList()
+		filter = CaseDef(func(args ...Expression) Expression {
+			if !test.Test(args...) {
+				return NewNone()
+			}
+			if len(args) > 1 {
+				return NewVector(args...)
+			}
+			return args[0]
+
+		})
+	)
+	return s.FoldL(list, filter)
 }
 
 //// DATA STATE
@@ -673,37 +529,21 @@ func (s StateE) Call(args ...Expression) Expression {
 //// COMPOSITION PRIMITIVES
 ///
 // define the curryed function
-
-func Filter(s Monoidal, test Testable) Sequential {
-	var (
-		acc    = NewVector()
-		filter = CaseDef(func(args ...Expression) Expression {
-			if test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-
-		})
-	)
-	return s.Fold(acc, filter)
-}
-
-func Pass(s Monoidal, test Testable) Sequential {
-	var (
-		acc    = NewVector()
-		filter = CaseDef(func(args ...Expression) Expression {
-			if !test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-
-		})
-	)
-	return s.Fold(acc, filter)
+func Curry(f, g FuncDef) FuncDef {
+	if f.TypeArguments().Match(g.TypeReturn()) {
+		return Define(GenericFunc(
+			func(args ...Expression) Expression {
+				if len(args) > 0 {
+					return f.Call(g.Call(args...))
+				}
+				return f.Call(g.Call())
+			}),
+			Def(
+				f.TypeIdent(),
+				g.TypeIdent()),
+			f.TypeReturn(),
+			f.TypeArguments(),
+		)
+	}
+	return Define(NewNone(), None, None)
 }

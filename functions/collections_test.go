@@ -15,8 +15,8 @@ var listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
 func conList(args ...Expression) Sequential {
 	return NewList(args...)
 }
-func printCons(cons Traversable) {
-	var head, tail = cons.Traverse()
+func printCons(cons Continuation) {
+	var head, tail = cons.Continue()
 	//if !head.Type().Match(None) {
 	if !head.Type().Match(None) {
 		fmt.Println(head)
@@ -58,29 +58,31 @@ func TestList(t *testing.T) {
 func TestConList(t *testing.T) {
 
 	var alist = NewList(listA()...)
+	var tail Continuation
 	var head Expression
 
 	for i := 0; i < 5; i++ {
-		head, alist = alist.ConsumeList()
+		head, tail = alist.Continue()
 		fmt.Println("for loop: " + head.String())
 	}
 
-	alist = alist.Cons(listB()...).(ListVal)
+	tail = tail.(StackVal).Cons(listB()...)
 
-	printCons(alist)
+	printCons(tail)
 }
 
 func TestPushList(t *testing.T) {
 
 	var alist = NewList(listA()...)
+	var tail Continuation
 	var head Expression
 
 	for i := 0; i < 5; i++ {
-		head, alist = alist.ConsumeList()
+		head, tail = alist.Continue()
 		fmt.Println("for loop: " + head.String())
 	}
 
-	printCons(alist)
+	printCons(tail)
 }
 
 func TestVector(t *testing.T) {
@@ -92,10 +94,10 @@ func TestVector(t *testing.T) {
 	fmt.Printf("vector after cons list-B: %s\n", vec)
 	fmt.Printf("vector first: %s last: %s\n", vec.First(), vec.Last())
 
-	var head, tail = vec.Consume()
+	var head, tail = vec.Continue()
 	for !head.Type().Match(None) {
 		fmt.Printf("head: %s\n", head)
-		head, tail = tail.Consume()
+		head, tail = tail.Continue()
 	}
 }
 
