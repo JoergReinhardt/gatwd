@@ -227,7 +227,7 @@ func (p IndexPair) Swap() (Expression, Expression) {
 	return Box(d.New(r)), l
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
-func (a IndexPair) End() bool           { return a.End() }
+func (a IndexPair) End() bool           { return a.Empty() }
 func (a IndexPair) Empty() bool {
 	if a.Index() >= 0 && a.Value() != nil && a.Value().TypeFnc() != None {
 		return true
@@ -347,10 +347,10 @@ func (v VecVal) Call(args ...Expression) Expression {
 }
 
 func (v VecVal) End() bool {
-	if v.Len() != 0 || !v.Step().Type().Match(None) {
-		return false
+	if v.Len() == 0 {
+		return true
 	}
-	return true
+	return false
 }
 func (v VecVal) String() string {
 	var strs = []string{}
@@ -498,10 +498,10 @@ func (l StackVal) Call(args ...Expression) Expression {
 }
 
 func (l StackVal) End() bool {
-	if l.Len() != 0 || !l.Step().Type().Match(None) {
-		return false
+	if l.Len() == 0 {
+		return true
 	}
-	return true
+	return false
 }
 func (l StackVal) String() string {
 	var (

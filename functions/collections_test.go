@@ -224,8 +224,8 @@ func TestSequence(t *testing.T) {
 func TestMapSequential(t *testing.T) {
 	var (
 		a, b   Expression
-		la     = NewContiSeq(listA)
-		lb     = NewContiSeq(listB)
+		la     = NewSeqCont(listA)
+		lb     = NewSeqCont(listB)
 		mapped = la.MapF(NewLambda(func(args ...Expression) Expression {
 			a, la = la()
 			b, lb = lb()
@@ -236,13 +236,25 @@ func TestMapSequential(t *testing.T) {
 }
 
 func TestConcatSequences(t *testing.T) {
-	var lc = NewSequence(listA).ConcatSeq(NewSequence(listB))
+	var lc = NewSeqCont(listA)
+	fmt.Printf("new sequence from continuation list a: %s\n", lc)
+
+	var step, next = lc.Continue()
+	for !step.Type().Match(None) {
+		fmt.Printf("loop til next end: %s %s\n", step, next)
+		step, next = next.Continue()
+	}
+	fmt.Printf("head & tail after loop to end: %s %s\n", step, next)
+	fmt.Printf("next step, next next: %s %s\n", next.Step(), next.Next())
+
+	lc = lc.ConcatSeq(listB)
+	fmt.Printf("list b concatenated to list-a continuation: %s\n", lc)
 	fmt.Printf("concated lists a-/ & b: %s\n", lc)
 }
 
 func TestMapSequentialProduct(t *testing.T) {
 	var (
-		ll   = NewContiSeq(NewStack(listA, listB, listA, listB))
+		ll   = NewSequence(listA, listB, listA, listB)
 		mapf = NewLambda(func(args ...Expression) Expression {
 			if len(args) > 0 {
 				if len(args) > 1 {
@@ -261,6 +273,20 @@ func TestMapSequentialProduct(t *testing.T) {
 }
 
 func TestFoldSequential(t *testing.T) {
+	var (
+		fold = func(acc, head Expression) Expression {
+			if acc.Type().Match(None) || head.Type().Match(None) {
+				fmt.Printf("acc: %s & head: %s\n", acc, head)
+				var x, y = acc.(NatEval).Eval().(d.IntVal),
+					acc.(NatEval).Eval().(d.IntVal)
+				return Box(x + y)
+			}
+			return NewNone()
+		}
+		acc    = Dat(0)
+		folded = NewSeqCont(listA).FoldL(acc, fold)
+	)
+	fmt.Printf("folded: %s\n", folded)
 }
 
 func TestFilterSequential(t *testing.T) {

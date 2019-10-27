@@ -50,12 +50,11 @@ func (g GenVal) TypeFnc() TyFnc   { return Generator }
 func (g GenVal) Type() TyComp     { return Def(Generator, g.Step().Type()) }
 func (g GenVal) TypeElem() TyComp { return g.Step().Type() }
 func (g GenVal) String() string   { return g.Step().String() }
-
 func (g GenVal) End() bool {
-	if !g.Next().End() || !g.Step().Type().Match(None) {
-		return false
+	if g.Step().Type().Match(None) {
+		return true
 	}
-	return true
+	return false
 }
 func (g GenVal) Continue() (Expression, Continuation) { return g() }
 func (g GenVal) Step() Expression                     { return g.Expr() }
@@ -102,10 +101,10 @@ func (g AccVal) Type() TyComp {
 func (g AccVal) String() string { return g.Step().String() }
 
 func (a AccVal) End() bool {
-	if !a.Next().End() || !a.Step().Type().Match(None) {
-		return false
+	if a.Step().Type().Match(None) {
+		return true
 	}
-	return true
+	return false
 }
 func (g AccVal) Step() Expression                     { return g.Result() }
 func (g AccVal) TypeElem() TyComp                     { return g.Step().Type() }
@@ -218,18 +217,13 @@ func NewSequence(elems ...Expression) SeqVal {
 	})
 }
 
-func NewContiSeq(val Continuation) SeqVal {
-	var (
-		head Expression
-		tail Continuation
-	)
+func NewSeqCont(cont Continuation) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var head, tail = cont.Continue()
 		if len(args) > 0 {
-			head, tail = val.Continue()
-			return head.Call(args...), NewContiSeq(tail)
+			return head.Call(args...), NewSeqCont(tail)
 		}
-		head, tail = val.Continue()
-		return head, NewContiSeq(tail)
+		return head, NewSeqCont(tail)
 	})
 }
 
@@ -249,23 +243,50 @@ func (s SeqVal) Next() Continuation {
 	var _, seq = s()
 	return seq
 }
+func (s SeqVal) TypeElem() TyComp { return s.Step().Type() }
+func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
+func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
+func (s SeqVal) End() bool {
+	if s.Step().Type().Match(None) {
+		return true
+	}
+	return false
+}
+
+func (s SeqVal) String() string {
+	var (
+		hstr, tstr string
+		head, tail = s()
+	)
+	for !head.Type().Match(None) {
+		hstr = hstr + "( " + head.String() + " "
+		tstr = tstr + ")"
+		head, tail = tail()
+	}
+	return hstr + tstr
+}
+
 func (s SeqVal) Concat(elems ...Expression) Sequential {
 	return s.ConcatSeq(NewSequence(elems...))
 }
+
 func (s SeqVal) ConcatSeq(seq Sequential) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		var head, tail = s.Continue()
-		if !tail.Type().Match(None) {
+		var head, tail = s()
+		if tail.End() {
 			if len(args) > 0 {
-				return head.Call(args...), tail.(SeqVal).ConcatSeq(seq)
+				return head.Call(args...), NewSeqCont(seq)
 			}
-			return head, tail.(SeqVal).ConcatSeq(seq)
+			return head, NewSeqCont(seq)
 		}
-		return head, seq.(SeqVal)
+		if len(args) > 0 {
+			return head.Call(args...), tail.ConcatSeq(seq)
+		}
+		return head, tail.ConcatSeq(seq)
 	})
 }
 
-func (s SeqVal) Cons(elems ...Expression) Sequential { return s.ConsSeq() }
+func (s SeqVal) Cons(elems ...Expression) Sequential { return s.ConsSeq(NewSequence(elems...)) }
 func (s SeqVal) ConsSeq(elems ...Expression) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(elems) > 0 {
@@ -284,28 +305,6 @@ func (s SeqVal) ConsSeq(elems ...Expression) SeqVal {
 		}
 		return s()
 	})
-}
-func (s SeqVal) TypeElem() TyComp { return s.Step().Type() }
-func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
-func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
-func (s SeqVal) End() bool {
-	if s.Step().Type().Match(None) && s.Next().Type().Match(None) {
-		return true
-	}
-	return false
-}
-
-func (s SeqVal) String() string {
-	var (
-		hstr, tstr string
-		head, tail = s()
-	)
-	for !head.Type().Match(None) {
-		hstr = hstr + "( " + head.String() + " "
-		tstr = tstr + ")"
-		head, tail = tail()
-	}
-	return hstr + tstr
 }
 
 func (s SeqVal) MapF(mapf Expression) Sequential {
@@ -355,8 +354,8 @@ func (s SeqVal) Flatten() SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if head.Type().Match(Sequences) {
 			if seq, ok := head.(Sequential); ok {
-				seq = seq.Concat(tail)
-				return seq.Step(), NewContiSeq(seq.Next())
+				seq = NewSeqCont(seq).Flatten().ConcatSeq(tail.Flatten())
+				return seq.Step(), NewSeqCont(seq.Next())
 			}
 		}
 		return head, tail
@@ -372,21 +371,23 @@ func (s SeqVal) FoldL(acc Expression, fold func(...Expression) Expression) Seque
 		// try to yield accumulate from applying head
 		// to arguments and folding the result‥.
 		if len(args) > 0 {
-			result = fold(head.Call(args...))
+			result = fold(append(
+				[]Expression{acc, head},
+				args...)...)
 		} else {
-			result = fold(head)
+			result = fold(acc, head)
 		}
 		// skip result, if it is none
 		for result.Type().Match(None) {
 			// when parent list ist empty → return
 			// final result and mapped list
-			if head.Type().Match(None) && tail.End() {
+			if head.Type().Match(None) {
 				return acc, s.FoldL(acc, fold).(SeqVal)
 			}
 			// yield next head/tail
 			head, tail = tail()
 			// compute next result
-			result = fold(head.Call(args...))
+			result = fold(append([]Expression{acc, head}, args...)...)
 		}
 		// result is not none → return result and folded tail
 		return result, tail.FoldL(result, fold).(SeqVal)
@@ -404,7 +405,6 @@ func (s SeqVal) Filter(test Testable) Sequential {
 				return NewVector(args...)
 			}
 			return args[0]
-
 		})
 	)
 	return s.FoldL(list, filter)
@@ -439,10 +439,10 @@ func (s SeqVal) Apply(
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			var result, seq = apply(s, args...)
-			return result, NewContiSeq(seq)
+			return result, NewSeqCont(seq)
 		}
 		var result, seq = apply(s)
-		return result, NewContiSeq(seq)
+		return result, NewSeqCont(seq)
 	})
 }
 
