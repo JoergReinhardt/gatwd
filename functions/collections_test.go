@@ -45,7 +45,7 @@ var (
 
 // helper functions
 func conList(args ...Expression) Sequential {
-	return NewStack(args...)
+	return NewVector(args...)
 }
 
 func printCons(cons Continuation) {
@@ -58,11 +58,11 @@ func printCons(cons Continuation) {
 }
 
 func TestEmptyList(t *testing.T) {
-	var list = NewStack()
+	var list = NewVector()
 	fmt.Printf("empty list pattern length: %d\n",
-		list.Type().Len())
-	fmt.Printf("empty list patterns: %d\n",
-		list.Type().Pattern())
+		list.Len())
+	fmt.Printf("empty list patterns: %s\n",
+		list.Type().TypeName())
 	fmt.Printf("empty list arg types: %s\n",
 		list.Type().TypeArguments())
 	fmt.Printf("empty list ident types: %s\n",
@@ -73,7 +73,7 @@ func TestEmptyList(t *testing.T) {
 		list.Type())
 }
 func TestList(t *testing.T) {
-	var list = NewStack(listA()...)
+	var list = NewVector(listA()...)
 	fmt.Printf("list pattern length: %d\n",
 		list.Type().Len())
 	fmt.Printf("list patterns: %d\n",
@@ -91,7 +91,7 @@ func TestList(t *testing.T) {
 
 func TestConList(t *testing.T) {
 
-	var alist = NewStack(listA()...)
+	var alist = NewVector(listA()...)
 	var tail Continuation
 	var head Expression
 
@@ -100,14 +100,14 @@ func TestConList(t *testing.T) {
 		fmt.Println("for loop: " + head.String())
 	}
 
-	tail = tail.(StackVal).Cons(listB()...)
+	tail = tail.(VecVal).Cons(listB()...)
 
 	printCons(tail)
 }
 
 func TestPushList(t *testing.T) {
 
-	var alist = NewStack(listA()...)
+	var alist = NewVector(listA()...)
 	var tail Continuation
 	var head Expression
 
@@ -218,7 +218,7 @@ func TestSequence(t *testing.T) {
 	}
 	fmt.Printf("sequence: %s\n", seq)
 	fmt.Printf("seq head: %s, tail: %s type: %s\n",
-		seq.Step(), seq.Next(), seq.TypeFnc())
+		seq.Current(), seq.Next(), seq.TypeFnc())
 }
 
 func TestMapSequential(t *testing.T) {
@@ -226,7 +226,7 @@ func TestMapSequential(t *testing.T) {
 		a, b   Expression
 		la     = NewSeqCont(listA)
 		lb     = NewSeqCont(listB)
-		mapped = la.MapF(NewLambda(func(args ...Expression) Expression {
+		mapped = la.Map(NewLambda(func(args ...Expression) Expression {
 			a, la = la()
 			b, lb = lb()
 			return mapAddInt(a, b)
@@ -245,7 +245,7 @@ func TestConcatSequences(t *testing.T) {
 		step, next = next.Continue()
 	}
 	fmt.Printf("head & tail after loop to end: %s %s\n", step, next)
-	fmt.Printf("next step, next next: %s %s\n", next.Step(), next.Next())
+	fmt.Printf("next step, next next: %s %s\n", next.Current(), next.Next())
 
 	lc = lc.ConcatSeq(listB)
 	fmt.Printf("list b concatenated to list-a continuation: %s\n", lc)
@@ -264,7 +264,7 @@ func TestMapSequentialProduct(t *testing.T) {
 			}
 			return NewNone()
 		})
-		mapped = ll.MapF(mapf)
+		mapped = ll.Map(mapf)
 	)
 	fmt.Printf("mapped sequences: %s\n", mapped)
 
@@ -273,19 +273,28 @@ func TestMapSequentialProduct(t *testing.T) {
 }
 
 func TestFoldSequential(t *testing.T) {
+	var queue = NewVector()
+	fmt.Printf("empty queue: %s\n", queue)
 	var (
-		fold = func(acc, head Expression) Expression {
-			if acc.Type().Match(None) || head.Type().Match(None) {
-				fmt.Printf("acc: %s & head: %s\n", acc, head)
-				var x, y = acc.(NatEval).Eval().(d.IntVal),
-					acc.(NatEval).Eval().(d.IntVal)
-				return Box(x + y)
+		acc  = NewVector()
+		fold = func(args ...Expression) Expression {
+			if len(args) > 1 {
+				var head, tail = args[0], args[1:]
+				if acc, ok := head.(VecVal); ok {
+					acc = acc.ConcatVector(tail...)
+				}
 			}
-			return NewNone()
+			return acc
 		}
-		acc    = Dat(0)
-		folded = NewSeqCont(listA).FoldL(acc, fold)
+		folded = NewSeqCont(listA).Fold(acc, fold)
 	)
+	fmt.Printf("list A: %s\n", listA)
+	fmt.Printf("accumulator: %s\n", acc)
+	var head, tail = folded.Continue()
+	for !head.TypeFnc().Match(None) {
+		fmt.Printf("folded head: %s\n", head)
+		head, tail = tail.Continue()
+	}
 	fmt.Printf("folded: %s\n", folded)
 }
 

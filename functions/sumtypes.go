@@ -31,7 +31,7 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Step() Expression                     { return n }
+func (n NoneVal) Current() Expression                  { return n }
 func (n NoneVal) Next() Continuation                   { return n }
 func (n NoneVal) Cons(...Expression) Sequential        { return n }
 func (n NoneVal) Concat(...Expression) Sequential      { return n }

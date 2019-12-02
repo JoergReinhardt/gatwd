@@ -16,9 +16,8 @@ type (
 	IndexPair func(...Expression) (Expression, int)
 
 	//// COLLECTIONS
-	VecVal   func(...Expression) []Expression
-	StackVal func(...Expression) []Expression
-	MapVal   func(...Expression) map[string]Expression
+	VecVal func(...Expression) []Expression
+	MapVal func(...Expression) map[string]Expression
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,9 +96,9 @@ func (p ValPair) String() string {
 func (p ValPair) Call(args ...Expression) Expression {
 	return NewPair(p.Key(), p.Value().Call(args...))
 }
-func (p ValPair) Step() Expression                     { return p.Left() }
+func (p ValPair) Current() Expression                  { return p.Left() }
 func (p ValPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p ValPair) Continue() (Expression, Continuation) { return p.Step(), p.Next() }
+func (p ValPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
 
 //// NATIVE VALUE KEY PAIR
 ///
@@ -317,11 +316,11 @@ func NewVector(elems ...Expression) VecVal {
 }
 
 // default list operation prepends at the beginning of the list
-func (v VecVal) Cons(args ...Expression) Sequential   { return NewVector(append(args, v()...)...) }
-func (v VecVal) Concat(args ...Expression) Sequential { return NewVector(v(args...)...) }
-func (v VecVal) ConcatVec(args ...Expression) VecVal  { return NewVector(v(args...)...) }
-func (v VecVal) Len() int                             { return len(v()) }
-func (v VecVal) Step() Expression {
+func (v VecVal) Cons(args ...Expression) Sequential     { return NewVector(append(args, v()...)...) }
+func (v VecVal) Concat(args ...Expression) Sequential   { return NewVector(v(args...)...) }
+func (v VecVal) ConcatVector(args ...Expression) VecVal { return NewVector(v(args...)...) }
+func (v VecVal) Len() int                               { return len(v()) }
+func (v VecVal) Current() Expression {
 	if v.Len() > 0 {
 		return v()[0]
 	}
@@ -333,17 +332,17 @@ func (v VecVal) Next() Continuation {
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Continuation) { return v.Step(), v.Next() }
+func (v VecVal) Continue() (Expression, Continuation) { return v.Current(), v.Next() }
 func (v VecVal) Null() VecVal                         { return NewVector() }
 func (v VecVal) TypeFnc() TyFnc                       { return Vector }
-func (v VecVal) TypeElem() TyComp                     { return v.Step().Type() }
+func (v VecVal) TypeElem() TyComp                     { return v.Current().Type() }
 func (v VecVal) Type() TyComp                         { return Def(Vector, v.TypeElem()) }
 func (v VecVal) Slice() []Expression                  { return v() }
 func (v VecVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return NewPair(v.Step().Call(args...), v.Next())
+		return NewPair(v.Current().Call(args...), v.Next())
 	}
-	return NewPair(v.Step(), v.Next())
+	return NewPair(v.Current(), v.Next())
 }
 
 func (v VecVal) End() bool {
@@ -360,7 +359,7 @@ func (v VecVal) String() string {
 	return "[" + strings.Join(strs, ", ") + "]"
 }
 
-func (v VecVal) First() Expression { return v.Step() }
+func (v VecVal) First() Expression { return v.Current() }
 
 func (v VecVal) Last() Expression {
 	if v.Len() > 0 {
@@ -416,140 +415,10 @@ func (v VecVal) SearchAll(by By, match Match) VecVal {
 	sort.Sort(s)
 	for _, elem := range s.Slice {
 		if match(elem) {
-			vec = vec.ConcatVec(elem)
+			vec = vec.ConcatVector(elem)
 		}
 	}
 	return vec
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//// RECURSIVE LIST OF VALUES
-///
-// lazy implementation of recursively linked list. backed by slice. returns
-// last element put in as head. prepends arguments when called to become new
-// head of list, one at a time, thereby reversing argument order.
-func NewStack(elems ...Expression) StackVal {
-	if len(elems) == 0 {
-		return StackVal(func(args ...Expression) []Expression {
-			if len(args) > 0 {
-				return NewVector(args...)()
-			}
-			return []Expression{}
-		})
-	}
-	var match = func(args []Expression) bool {
-		for _, arg := range args {
-			if !elems[0].Type().Match(arg.Type()) {
-				return false
-			}
-		}
-		return true
-	}
-	return func(args ...Expression) []Expression {
-		if len(args) > 0 {
-			if match(args) {
-				return append(elems, args...)
-			}
-		}
-		return elems
-	}
-}
-
-// default list operation prepends at the beginning of the list
-func (l StackVal) Cons(args ...Expression) Sequential      { return NewStack(l(args...)...) }
-func (l StackVal) ConsStack(args ...Expression) StackVal   { return NewStack(l(args...)...) }
-func (l StackVal) Concat(args ...Expression) Sequential    { return NewStack(append(l(), args...)...) }
-func (l StackVal) ConcatStack(args ...Expression) StackVal { return NewStack(append(l(), args...)...) }
-func (l StackVal) Len() int                                { return len(l()) }
-func (l StackVal) Step() Expression {
-	if l.Len() > 0 {
-		return l()[l.Len()-1]
-	}
-	return NewNone()
-}
-func (l StackVal) Next() Continuation {
-	if l.Len() > 1 {
-		return NewStack(l()[:l.Len()-1]...)
-	}
-	return NewStack()
-}
-func (l StackVal) Continue() (Expression, Continuation) { return l.Step(), l.Next() }
-func (l StackVal) Null() StackVal                       { return NewStack() }
-func (l StackVal) TypeFnc() TyFnc                       { return List }
-func (l StackVal) TypeElem() TyComp                     { return l.Step().Type() }
-func (l StackVal) Type() TyComp                         { return Def(List, l.TypeElem()) }
-func (l StackVal) Slice() []Expression                  { return l() }
-func (l StackVal) Sequence() Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		var head, tail = l.Continue()
-		if len(args) > 0 {
-			return head, NewStack(
-				tail.(StackVal)(args...)...,
-			).Sequence().(SeqVal)
-		}
-		return head, tail.(StackVal).Sequence().(SeqVal)
-	})
-}
-func (l StackVal) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return NewPair(l.Step().Call(args...), l.Next())
-	}
-	return NewPair(l.Step(), l.Next())
-}
-
-func (l StackVal) End() bool {
-	if l.Len() == 0 {
-		return true
-	}
-	return false
-}
-func (l StackVal) String() string {
-	var (
-		args       = []string{}
-		head, list = l.Continue()
-	)
-	for list != nil {
-		args = append(args, head.String())
-		head, list = list.Continue()
-	}
-	return "(" + strings.Join(args, ", ") + ")"
-}
-
-func (v StackVal) Get(i int) (Expression, bool) {
-	if i < v.Len() {
-		return v()[i], true
-	}
-	return NewNone(), false
-}
-func (v StackVal) Sort(by By) Sequential {
-	var s = newSorter(v(), by)
-	sort.Sort(s)
-	return NewStack(s.Slice...)
-}
-
-func (v StackVal) Search(by By, match Match) Expression {
-	var s = newSorter(v(), by)
-	sort.Sort(s)
-	for _, elem := range s.Slice {
-		if match(elem) {
-			return elem
-		}
-	}
-	return NewNone()
-}
-
-func (v StackVal) SearchAll(by By, match Match) StackVal {
-	var (
-		s     = newSorter(v(), by)
-		stack = NewStack()
-	)
-	sort.Sort(s)
-	for _, elem := range s.Slice {
-		if match(elem) {
-			stack = stack.ConsStack(elem)
-		}
-	}
-	return stack
 }
 
 ///////////////////////////////////////////////////////////////////////////////

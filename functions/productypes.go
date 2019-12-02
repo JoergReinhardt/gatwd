@@ -29,8 +29,8 @@ type (
 	// should reference its type constructor and sibling types.
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	PolyDef func(...Expression) (Expression, []FuncDef, int)
-	PolyVal func(...Expression) (Expression, PolyDef)
+	Polymorph func(...Expression) (Expression, []FuncDef, int)
+	Variant   func(...Expression) (Expression, Polymorph)
 )
 
 /// TRUTH TEST
@@ -280,7 +280,7 @@ func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 ///
 //
 // declare new polymorphic named type from cases
-func NewPolyType(name string, cases ...FuncDef) PolyDef {
+func NewPolyType(name string, cases ...FuncDef) Polymorph {
 	var (
 		patterns = make([]d.Typed, 0, len(cases))
 		pat      TyComp
@@ -294,7 +294,7 @@ func NewPolyType(name string, cases ...FuncDef) PolyDef {
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pat TyComp, idx int, cases ...FuncDef) PolyDef {
+func createPolyType(pat TyComp, idx int, cases ...FuncDef) Polymorph {
 	var length = len(cases)
 	return func(args ...Expression) (Expression, []FuncDef, int) {
 		if len(args) > 0 { // arguments where passed
@@ -318,7 +318,7 @@ func createPolyType(pat TyComp, idx int, cases ...FuncDef) PolyDef {
 				}
 				// if arguments matched case, return result as
 				// instance of polymorphic sub type instance
-				return PolyVal(func(args ...Expression) (Expression, PolyDef) {
+				return Variant(func(args ...Expression) (Expression, Polymorph) {
 					if len(args) > 0 {
 						return expr.Call(args...), createPolyType(pat, idx, cases...)
 					}
@@ -334,7 +334,7 @@ func createPolyType(pat TyComp, idx int, cases ...FuncDef) PolyDef {
 
 // loops over all cases with a set of passed arguments and returns either
 // result, or none
-func (p PolyDef) Call(args ...Expression) Expression {
+func (p Polymorph) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var r, _, i = p(args...)
 		for i > 0 {
@@ -348,11 +348,11 @@ func (p PolyDef) Call(args ...Expression) Expression {
 }
 
 // function type is polymorph
-func (p PolyDef) TypeFnc() TyFnc { return Polymorph }
+func (p Polymorph) TypeFnc() TyFnc { return Parametric }
 
 // type is the sum of all argument set and return value types, identity is
 // defined by passed name
-func (p PolyDef) Type() TyComp {
+func (p Polymorph) Type() TyComp {
 	var (
 		t, _, _  = p()
 		pat      = t.(TyComp)
@@ -368,17 +368,17 @@ func (p PolyDef) Type() TyComp {
 }
 
 // returns set of all sub-type defining cases
-func (p PolyDef) Cases() []FuncDef {
+func (p Polymorph) Cases() []FuncDef {
 	var _, c, _ = p()
 	return c
 }
 
 // returns set index of last evaluated case
-func (p PolyDef) Index() int {
+func (p Polymorph) Index() int {
 	var _, _, i = p()
 	return i
 }
-func (p PolyDef) String() string {
+func (p Polymorph) String() string {
 	var (
 		cases              = p.Cases()
 		length             = len(cases)
@@ -409,25 +409,25 @@ func (p PolyDef) String() string {
 //// POLYMORPHIC SUBTYPE INSTANCE VALUE
 ///
 //
-func (p PolyVal) Expr() Expression {
+func (p Variant) Expr() Expression {
 	var e, _ = p()
 	return e
 }
-func (p PolyVal) PolyType() PolyDef {
+func (p Variant) PolyType() Polymorph {
 	var _, t = p()
 	return t
 }
-func (p PolyVal) String() string { return p.Expr().String() }
-func (p PolyVal) TypeFnc() TyFnc { return Polymorph }
-func (p PolyVal) Type() TyComp {
+func (p Variant) String() string { return p.Expr().String() }
+func (p Variant) TypeFnc() TyFnc { return Parametric }
+func (p Variant) Type() TyComp {
 	return Def(Def(
-		Polymorph,
+		Parametric,
 		DefValNat(d.IntVal(p.PolyType().Index())),
 	),
 		p.Expr().Type(),
 	)
 }
-func (p PolyVal) Call(args ...Expression) Expression {
+func (p Variant) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return p.Expr().Call(args...)
 	}

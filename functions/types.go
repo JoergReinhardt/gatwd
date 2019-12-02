@@ -76,8 +76,7 @@ const (
 	Case
 	Just
 	None
-	Option
-	Polymorph
+	Parametric
 	Either
 	Or
 	/// CLASSES
@@ -105,8 +104,6 @@ const (
 	Monad
 	State
 	IO
-	/// HIGHER ORDER TYPE
-	Parametric
 
 	//// TRUTH & COMPARE
 	Truth   = True | False
@@ -117,8 +114,8 @@ const (
 	Bound = Min | Max
 
 	//// OPTIONALS
-	Maybe   = Just | None
-	Variant = Either | Or
+	Maybe  = Just | None
+	Option = Either | Or
 
 	//// COLLECTIONS
 	ProdTypes = List | Vector | Enum
@@ -191,8 +188,6 @@ func (t TyFnc) TypeName() string {
 			return "Compare"
 		case Maybe:
 			return "Maybe"
-		case Variant:
-			return "Option"
 		case Bound:
 			return "Bound"
 		case SumTypes:
@@ -633,7 +628,7 @@ func (p TyComp) Get(idx int) TyComp {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyComp) Step() Expression {
+func (p TyComp) Current() Expression {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -642,7 +637,7 @@ func (p TyComp) Step() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyComp) HeadPattern() TyComp { return p.Step().(TyComp) }
+func (p TyComp) HeadPattern() TyComp { return p.Current().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
@@ -663,7 +658,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Continuation) { return p.Step(), p.Next() }
+func (p TyComp) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -874,9 +869,9 @@ func (p TyComp) IsMaybe() bool {
 	}
 	return false
 }
-func (p TyComp) IsAlternative() bool {
+func (p TyComp) IsOption() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Variant)
+		return p.Elements()[1].Match(Option)
 	}
 	return false
 }
@@ -904,7 +899,7 @@ func (p TyComp) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
 func (p TyComp) HasCompare() bool     { return p.MatchAnyType(Compare) }
 func (p TyComp) HasBound() bool       { return p.MatchAnyType(Min, Max) }
 func (p TyComp) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
-func (p TyComp) HasAlternative() bool { return p.MatchAnyType(Variant) }
+func (p TyComp) HasAlternative() bool { return p.MatchAnyType(Option) }
 func (p TyComp) HasNumber() bool      { return p.MatchAnyType(Number) }
 func (p TyComp) HasString() bool      { return p.MatchAnyType(String) }
 func (p TyComp) HasBytes() bool       { return p.MatchAnyType(Bytes) }

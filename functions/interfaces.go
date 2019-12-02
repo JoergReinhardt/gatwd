@@ -110,7 +110,7 @@ type Continuation interface {
 	Expression
 	End() bool
 	TypeElem() TyComp
-	Step() Expression
+	Current() Expression
 	Next() Continuation
 	Continue() (Expression, Continuation)
 }
@@ -130,26 +130,26 @@ type Filtered interface {
 	Pass(Testable) Sequential
 }
 
-type Functoric interface {
+type Functorial interface {
 	Continuation
-	MapF(Expression) Sequential
-	FoldL(Expression, Expression) Sequential
+	Map(fn Expression) Sequential
+	Fold(acc Expression, fn func(...Expression) Expression) Sequential
 	Flatten() Sequential
 }
 
 type Zipped interface {
-	Functoric
+	Functorial
 	Split() (l, r Sequential)
 }
 type Zippable interface {
-	Functoric
+	Functorial
 	ZipWith(
 		zipf func(l, r Continuation) Sequential,
 		with Continuation,
 	) Sequential
 }
 type Applicable interface {
-	Functoric
+	Functorial
 	Apply(func(
 		Sequential,
 		...Expression,
@@ -161,7 +161,7 @@ type Applicable interface {
 
 type Monoidal interface {
 	Applicable
-	Bind(Expression, Functoric) Sequential
+	Bind(Expression, Functorial) Sequential
 }
 
 type Ordered interface {
