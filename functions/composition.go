@@ -364,7 +364,7 @@ func (s SeqVal) Flatten() SeqVal {
 
 func (s SeqVal) Fold(
 	acc Expression,
-	fold func(...Expression) Expression,
+	fold func(acc, head Expression) Expression,
 ) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		var (
@@ -384,35 +384,30 @@ func (s SeqVal) Fold(
 
 func (s SeqVal) Filter(test Testable) Sequential {
 	var (
-		list   = NewSequence()
-		filter = CaseDef(func(args ...Expression) Expression {
-			if test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-		})
+		seq        = NewSequence()
+		head, tail = s()
 	)
-	return s.Fold(list, filter)
+	if head.TypeFnc().Match(None) {
+		return NewSequence()
+	}
+	if !test.Test(head) {
+		return seq.Concat(head).(SeqVal).ConcatSeq(tail.Filter(test))
+	}
+	return seq.ConcatSeq(tail.Filter(test))
 }
 
 func (s SeqVal) Pass(test Testable) Sequential {
 	var (
-		list   = NewSequence()
-		filter = CaseDef(func(args ...Expression) Expression {
-			if !test.Test(args...) {
-				return NewNone()
-			}
-			if len(args) > 1 {
-				return NewVector(args...)
-			}
-			return args[0]
-
-		})
+		seq        = NewSequence()
+		head, tail = s()
 	)
-	return s.Fold(list, filter)
+	if head.TypeFnc().Match(None) {
+		return NewSequence()
+	}
+	if test.Test(head) {
+		return seq.Concat(head).Concat(tail.Filter(test))
+	}
+	return seq.Concat(tail.Filter(test))
 }
 
 // application of boxed arguments to boxed functions

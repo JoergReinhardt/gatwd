@@ -276,15 +276,13 @@ func TestFoldSequential(t *testing.T) {
 	var queue = NewVector()
 	fmt.Printf("empty queue: %s\n", queue)
 	var (
+		vec  VecVal
 		acc  = NewVector()
-		fold = func(args ...Expression) Expression {
-			if len(args) > 1 {
-				var head, tail = args[0], args[1:]
-				if acc, ok := head.(VecVal); ok {
-					acc = acc.ConcatVector(tail...)
-				}
+		fold = func(acc, head Expression) Expression {
+			if vec, ok := acc.(VecVal); ok {
+				vec = vec.ConcatVector(head)
 			}
-			return acc
+			return vec
 		}
 		folded = NewSeqCont(listA).Fold(acc, fold)
 	)
@@ -299,4 +297,22 @@ func TestFoldSequential(t *testing.T) {
 }
 
 func TestFilterSequential(t *testing.T) {
+	var (
+		seq  = NewSeqCont(listA)
+		test = TestFunc(func(args ...Expression) bool {
+			if len(args) > 0 {
+				if dat, ok := args[0].(NatEval); ok {
+					if num, ok := dat.Eval().(d.Integer); ok {
+						if num.Int()%2 == 0 {
+							fmt.Printf("even: %s\n", num)
+							return true
+						}
+					}
+				}
+			}
+			return false
+		})
+		filtered = seq.Filter(test)
+	)
+	fmt.Printf("filtered: %s\n", filtered)
 }
