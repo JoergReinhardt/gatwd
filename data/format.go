@@ -46,14 +46,14 @@ func (p PairVal) String() string {
 }
 
 //// SETS ////
-func (v SetVal) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
+func (v MapVal) String() string { return StringSlice(", ", "[", "]", v.Slice()...) }
 
 //// NATIVE SETS /////
-func (s SetInt) String() string    { return StringSlice(", ", "[", "]", s.Slice()...) }
-func (s SetUint) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
-func (s SetFloat) String() string  { return StringSlice(", ", "[", "]", s.Slice()...) }
-func (s SetFlag) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
-func (s SetString) String() string { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s MapInt) String() string    { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s MapUint) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s MapFloat) String() string  { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s MapFlag) String() string   { return StringSlice(", ", "[", "]", s.Slice()...) }
+func (s MapString) String() string { return StringSlice(", ", "[", "]", s.Slice()...) }
 
 // string nullables
 func (NilVal) String() string      { return Nil.String() }
@@ -89,7 +89,7 @@ func (v Imag64Val) String() string {
 	return strconv.FormatFloat(float64(real(v)), 'G', -1, 32) + " + " +
 		strconv.FormatFloat(float64(imag(v)), 'G', -1, 32) + "i"
 }
-func (v FuncVal) String() string { return v().String() }
+func (v Expression) String() string { return v().String() }
 
 // serializes bitflag to a string representation of the bitwise OR
 // operation on a list of principle flags, that yielded this flag

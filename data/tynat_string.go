@@ -4,47 +4,7 @@ package data
 
 import "strconv"
 
-func _() {
-	// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-run the stringer command to generate them again.
-	var x [1]struct{}
-	_ = x[Nil-1]
-	_ = x[Bool-2]
-	_ = x[Int8-4]
-	_ = x[Int16-8]
-	_ = x[Int32-16]
-	_ = x[Int-32]
-	_ = x[BigInt-64]
-	_ = x[Uint8-128]
-	_ = x[Uint16-256]
-	_ = x[Uint32-512]
-	_ = x[Uint-1024]
-	_ = x[BigUint-2048]
-	_ = x[Flt32-4096]
-	_ = x[Float-8192]
-	_ = x[BigFlt-16384]
-	_ = x[Ratio-32768]
-	_ = x[Imag64-65536]
-	_ = x[Imag-131072]
-	_ = x[Time-262144]
-	_ = x[Duration-524288]
-	_ = x[Byte-1048576]
-	_ = x[Rune-2097152]
-	_ = x[Bytes-4194304]
-	_ = x[String-8388608]
-	_ = x[Flag-16777216]
-	_ = x[Error-33554432]
-	_ = x[Pair-67108864]
-	_ = x[Slice-134217728]
-	_ = x[Unboxed-268435456]
-	_ = x[Map-536870912]
-	_ = x[Function-1073741824]
-	_ = x[Literal-2147483648]
-	_ = x[Type-4294967296]
-	_ = x[MASK-18446744073709551615]
-}
-
-const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintBigUintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneBytesStringFlagErrorPairSliceUnboxedMapFunctionLiteralTypeMASK"
+const _TyNat_name = "NilBoolInt8Int16Int32IntBigIntUint8Uint16Uint32UintFlt32FloatBigFltRatioImag64ImagTimeDurationByteRuneFlagStringBytesErrorPairSliceUnboxedMapFunctionLiteralTypeMASK"
 
 var _TyNat_map = map[TyNat]string{
 	1:                    _TyNat_name[0:3],
@@ -58,29 +18,28 @@ var _TyNat_map = map[TyNat]string{
 	256:                  _TyNat_name[35:41],
 	512:                  _TyNat_name[41:47],
 	1024:                 _TyNat_name[47:51],
-	2048:                 _TyNat_name[51:58],
-	4096:                 _TyNat_name[58:63],
-	8192:                 _TyNat_name[63:68],
-	16384:                _TyNat_name[68:74],
-	32768:                _TyNat_name[74:79],
-	65536:                _TyNat_name[79:85],
-	131072:               _TyNat_name[85:89],
-	262144:               _TyNat_name[89:93],
-	524288:               _TyNat_name[93:101],
-	1048576:              _TyNat_name[101:105],
-	2097152:              _TyNat_name[105:109],
-	4194304:              _TyNat_name[109:114],
-	8388608:              _TyNat_name[114:120],
-	16777216:             _TyNat_name[120:124],
-	33554432:             _TyNat_name[124:129],
-	67108864:             _TyNat_name[129:133],
-	134217728:            _TyNat_name[133:138],
-	268435456:            _TyNat_name[138:145],
-	536870912:            _TyNat_name[145:148],
-	1073741824:           _TyNat_name[148:156],
-	2147483648:           _TyNat_name[156:163],
-	4294967296:           _TyNat_name[163:167],
-	18446744073709551615: _TyNat_name[167:171],
+	2048:                 _TyNat_name[51:56],
+	4096:                 _TyNat_name[56:61],
+	8192:                 _TyNat_name[61:67],
+	16384:                _TyNat_name[67:72],
+	32768:                _TyNat_name[72:78],
+	65536:                _TyNat_name[78:82],
+	131072:               _TyNat_name[82:86],
+	262144:               _TyNat_name[86:94],
+	524288:               _TyNat_name[94:98],
+	1048576:              _TyNat_name[98:102],
+	2097152:              _TyNat_name[102:106],
+	4194304:              _TyNat_name[106:112],
+	8388608:              _TyNat_name[112:117],
+	16777216:             _TyNat_name[117:122],
+	33554432:             _TyNat_name[122:126],
+	67108864:             _TyNat_name[126:131],
+	134217728:            _TyNat_name[131:138],
+	268435456:            _TyNat_name[138:141],
+	536870912:            _TyNat_name[141:149],
+	1073741824:           _TyNat_name[149:156],
+	2147483648:           _TyNat_name[156:160],
+	18446744073709551615: _TyNat_name[160:164],
 }
 
 func (i TyNat) String() string {

@@ -21,7 +21,7 @@ func TestPattern(t *testing.T) {
 	}
 	fmt.Printf("pat matches Numbers, Numbers, Vector, List: %t\n",
 		pat.MatchTypes(d.Numbers, d.Numbers, Vector, List))
-	if !pat.MatchTypes(d.Numbers, d.Numbers, Vector, List) {
+	if pat.MatchTypes(d.Numbers, d.Numbers, Vector, List) {
 		t.Fail()
 	}
 	fmt.Printf("pat matches Boolean, Numbers, Vector, List: %t\n",

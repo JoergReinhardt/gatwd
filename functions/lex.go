@@ -12,8 +12,8 @@ type TyLex d.BitFlag
 
 func (t TyLex) TypeFnc() TyFnc                { return Lexical }
 func (t TyLex) TypeNat() d.TyNat              { return d.Type }
-func (t TyLex) Type() TyPattern               { return Def(t) }
-func (t TyLex) FlagType() d.Uint8Val          { return Flag_Lex.U() }
+func (t TyLex) Type() TyComp                  { return Def(t) }
+func (t TyLex) Kind() d.Uint8Val              { return Kind_Lex.U() }
 func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyLex) Utf8() string                  { return mapUtf8[t] }
 func (t TyLex) Ascii() string                 { return mapAscii[t] }
@@ -384,20 +384,20 @@ func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
 type TyKeyWord d.BitFlag
 
-func (t TyKeyWord) Type() TyPattern               { return Def(t) }
-func (t TyKeyWord) FlagType() d.Uint8Val          { return Flag_KeyWord.U() }
+func (t TyKeyWord) Type() TyComp                  { return Def(t) }
+func (t TyKeyWord) Kind() d.Uint8Val              { return Kind_Key.U() }
 func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
 func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
 func (t TyKeyWord) Flag() d.BitFlag               { return d.BitFlag(t) }
 func (t TyKeyWord) KeyWord() string               { return mapKeyWords[t] }
-func (t TyKeyWord) MatchKeyWord(arg string) bool  { return t.KeyWord() == arg }
-func (t TyKeyWord) Match(arg d.Typed) bool        { return t == arg }
 func (t TyKeyWord) TypeName() string              { return mapKeyWords[t] }
 func (t TyKeyWord) Call(...Expression) Expression { return t }
 func (t TyKeyWord) Find(arg string) (TyKeyWord, bool) {
 	var kw, ok = mapKeyWordsText[arg]
 	return kw, ok
 }
+func (t TyKeyWord) MatchKeyWord(arg string) bool { return t.KeyWord() == arg }
+func (t TyKeyWord) Match(arg d.Typed) bool       { return t.KeyWord() == arg.String() }
 
 //go:generate stringer -type=TyKeyWord
 const (
