@@ -316,10 +316,6 @@ func NewVector(elems ...Expression) VecVal {
 }
 
 // default list operation prepends at the beginning of the list
-func (v VecVal) Cons(args ...Expression) Sequential     { return NewVector(append(args, v()...)...) }
-func (v VecVal) Concat(args ...Expression) Sequential   { return NewVector(v(args...)...) }
-func (v VecVal) ConcatVector(args ...Expression) VecVal { return NewVector(v(args...)...) }
-func (v VecVal) Len() int                               { return len(v()) }
 func (v VecVal) Current() Expression {
 	if v.Len() > 0 {
 		return v()[0]
@@ -332,12 +328,18 @@ func (v VecVal) Next() Continuation {
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Continuation) { return v.Current(), v.Next() }
-func (v VecVal) Null() VecVal                         { return NewVector() }
-func (v VecVal) TypeFnc() TyFnc                       { return Vector }
-func (v VecVal) TypeElem() TyComp                     { return v.Current().Type() }
-func (v VecVal) Type() TyComp                         { return Def(Vector, v.TypeElem()) }
-func (v VecVal) Slice() []Expression                  { return v() }
+func (v VecVal) Continue() (Expression, Continuation) {
+	return v.Current(), v.Next()
+}
+func (v VecVal) Cons(args ...Expression) Sequential     { return NewVector(append(args, v()...)...) }
+func (v VecVal) Concat(args ...Expression) Sequential   { return NewVector(v(args...)...) }
+func (v VecVal) ConcatVector(args ...Expression) VecVal { return NewVector(v(args...)...) }
+func (v VecVal) Len() int                               { return len(v()) }
+func (v VecVal) Null() VecVal                           { return NewVector() }
+func (v VecVal) TypeFnc() TyFnc                         { return Vector }
+func (v VecVal) TypeElem() TyComp                       { return v.Current().Type() }
+func (v VecVal) Type() TyComp                           { return Def(Vector, v.TypeElem()) }
+func (v VecVal) Slice() []Expression                    { return v() }
 func (v VecVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return NewPair(v.Current().Call(args...), v.Next())

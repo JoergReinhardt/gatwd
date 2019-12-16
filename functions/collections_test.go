@@ -276,20 +276,20 @@ func TestFoldSequential(t *testing.T) {
 	var queue = NewVector()
 	fmt.Printf("empty queue: %s\n", queue)
 	var (
-		vec  VecVal
 		acc  = NewVector()
 		fold = func(acc, head Expression) Expression {
 			if vec, ok := acc.(VecVal); ok {
-				vec = vec.ConcatVector(head)
+				return vec.ConcatVector(head)
 			}
-			return vec
+			return acc
 		}
 		folded = NewSeqCont(listA).Fold(acc, fold)
 	)
 	fmt.Printf("list A: %s\n", listA)
 	fmt.Printf("accumulator: %s\n", acc)
+	fmt.Printf("folded: %s\n", folded)
 	var head, tail = folded.Continue()
-	for !head.TypeFnc().Match(None) {
+	for !tail.End() {
 		fmt.Printf("folded head: %s\n", head)
 		head, tail = tail.Continue()
 	}

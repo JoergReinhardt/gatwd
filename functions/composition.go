@@ -15,11 +15,30 @@ type (
 
 	//// SEQUENCE
 	SeqVal func(...Expression) (Expression, SeqVal)
-
-	//// STATE MONADS
-	StateD func(args ...d.Native) (d.Native, StateD)
-	StateE func(args ...Expression) (Expression, StateE)
 )
+
+///////////////////////////////////////////////////////////////////////////////
+//// COMPOSITION PRIMITIVES
+///
+// define the curryed function
+func Curry(f, g FuncDef) FuncDef {
+	if f.TypeArguments().Match(g.TypeReturn()) {
+		return Define(Lambda(
+			func(args ...Expression) Expression {
+				if len(args) > 0 {
+					return f.Call(g.Call(args...))
+				}
+				return f.Call(g.Call())
+			}),
+			Def(
+				f.TypeIdent(),
+				g.TypeIdent()),
+			f.TypeReturn(),
+			f.TypeArguments(),
+		)
+	}
+	return Define(NewNone(), None, None)
+}
 
 //// GENERATOR
 ///
@@ -319,10 +338,10 @@ func (s SeqVal) Map(mapf Expression) Sequential {
 			if lst.Type().Match(Functors) {
 				if arg, ok := lst.(Functorial); ok {
 					if len(args) > 1 {
-						return s.MapSeq(head.Call(args...),
+						return s.MapX(head.Call(args...),
 							mapf, arg), tail.Map(mapf).(SeqVal)
 					}
-					return s.MapSeq(head, mapf, arg), tail.Map(mapf).(SeqVal)
+					return s.MapX(head, mapf, arg), tail.Map(mapf).(SeqVal)
 				}
 			}
 			// dot product, since last argument is not a functor
@@ -333,7 +352,7 @@ func (s SeqVal) Map(mapf Expression) Sequential {
 	})
 }
 
-func (s SeqVal) MapSeq(head, mapf Expression, arg Continuation) Sequential {
+func (s SeqVal) MapX(head, mapf Expression, arg Continuation) Sequential {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		// check if current head of parent list is none
 		// yield step & next continuation from argument
@@ -343,7 +362,7 @@ func (s SeqVal) MapSeq(head, mapf Expression, arg Continuation) Sequential {
 			// arguments passed during call to get step.
 			// s-map tail of sequential argument
 			return mapf.Call(head, step.Call(args...)),
-				s.MapSeq(head, mapf, next).(SeqVal)
+				s.MapX(head, mapf, next).(SeqVal)
 		}
 		return mapf.Call(head, step), NewSequence()
 	})
@@ -365,20 +384,20 @@ func (s SeqVal) Flatten() SeqVal {
 func (s SeqVal) Fold(
 	acc Expression,
 	fold func(acc, head Expression) Expression,
-) Sequential {
+) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		var (
+			result     Expression
 			head, tail = s()
 		)
 		if head.TypeFnc().Match(None) {
-			return head, tail
+			return acc, tail
 		}
+		result = fold(acc, head)
 		if len(args) > 0 {
-			acc = fold(acc, head.Call(args...))
-		} else {
-			acc = fold(acc, head)
+			return result.Call(args...), tail.Fold(result, fold)
 		}
-		return acc, tail.Fold(acc, fold).(SeqVal)
+		return result, tail.Fold(result, fold)
 	})
 }
 
@@ -511,132 +530,4 @@ func (s SeqVal) Split() (Sequential, Sequential) {
 	}
 	// head is a none value
 	return NewSequence(), NewSequence()
-}
-
-//// DATA STATE
-///
-// monad enclosing over stateful native data
-func NewStatefulData(
-	state d.Native,
-	trans func(state d.Native, args ...d.Native) d.Native,
-) StateD {
-	return func(args ...d.Native) (d.Native, StateD) {
-		if len(args) > 0 {
-			return trans(state, args...), NewStatefulData(state, trans)
-		}
-		return state, NewStatefulData(state, trans)
-	}
-}
-func (s StateD) Monad() Monadic { var _, m = s(); return m }
-func (s StateD) Step(args ...Expression) (Expression, Monadic) {
-	var r = s.Call(args...)
-	s = s.Call().(StateD)
-	return r, s
-}
-func (s StateD) Current() Expression {
-	var c, _ = s()
-	return Box(c)
-}
-func (s StateD) Sequence() Sequential {
-	var (
-		data  d.Native
-		state StateD
-		pair  Paired
-	)
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			pair = s.Call(args...).(Paired)
-			return pair.Left(), pair.Right().(StateD).Sequence().(SeqVal)
-		}
-		data, state = s()
-		return Box(data), state.Sequence().(SeqVal)
-	})
-}
-func (s StateD) String() string { return s.Monad().String() }
-func (s StateD) Type() TyComp   { return Def(Monad, s.Current().Type()) }
-func (s StateD) TypeFnc() TyFnc { return Data | State }
-func (s StateD) Call(args ...Expression) Expression {
-	var (
-		n d.Native
-		m Monadic
-	)
-	if len(args) > 0 {
-		var nats = make([]d.Native, 0, len(args))
-		for _, arg := range args {
-			if arg.Type().Match(Data) {
-				if dat, ok := arg.(NatEval); ok {
-					nats = append(nats, dat.Eval())
-				}
-			}
-		}
-		n, m = s(nats...)
-		return NewPair(Box(n), m)
-	}
-	n, m = s()
-	return NewPair(Box(n), m)
-}
-
-//// EXPRESSION STATE
-///
-// monad enclosing over stateful expressions
-func NewStatefulExpression(
-	state Expression, trans func(state Expression, args ...Expression) Expression) StateE {
-	return func(args ...Expression) (Expression, StateE) {
-		if len(args) > 0 {
-			return trans(state, args...), NewStatefulExpression(state, trans)
-		}
-		return state, NewStatefulExpression(state, trans)
-	}
-}
-func (s StateE) Step(args ...Expression) (Expression, Monadic) { return s(args...) }
-func (s StateE) Current() Expression                           { var c, _ = s(); return c }
-func (s StateE) Monad() Monadic                                { var _, m = s(); return m }
-func (s StateE) String() string                                { return s.Monad().String() }
-func (s StateE) Type() TyComp                                  { return Def(Monad, s.Current().Type()) }
-func (s StateE) TypeFnc() TyFnc                                { return State | s.Monad().TypeFnc() }
-func (s StateE) Sequence() Sequential {
-	var (
-		expr  Expression
-		state StateE
-	)
-
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			expr, state = s(args...)
-			return expr, state.Sequence().(SeqVal)
-		}
-		expr, state = s()
-		return expr, state.Sequence().(SeqVal)
-	})
-}
-func (s StateE) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		var e, m = s(args...)
-		return NewPair(e, m)
-	}
-	var e, m = s()
-	return NewPair(e, m)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//// COMPOSITION PRIMITIVES
-///
-// define the curryed function
-func Curry(f, g FuncDef) FuncDef {
-	if f.TypeArguments().Match(g.TypeReturn()) {
-		return Define(Lambda(
-			func(args ...Expression) Expression {
-				if len(args) > 0 {
-					return f.Call(g.Call(args...))
-				}
-				return f.Call(g.Call())
-			}),
-			Def(
-				f.TypeIdent(),
-				g.TypeIdent()),
-			f.TypeReturn(),
-			f.TypeArguments(),
-		)
-	}
-	return Define(NewNone(), None, None)
 }
