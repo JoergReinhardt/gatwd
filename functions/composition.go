@@ -84,13 +84,13 @@ func (g GenVal) Next() Continuation                   { return g.Generator() }
 // accumulator expects an expression as input, that returns itself unboxed,
 // when called empty and returns a new accumulator accumulating its value and
 // arguments to create a new accumulator, if arguments where passed.
-func NewAccumulator(init, acc Expression) AccVal {
+func NewAccumulator(acc, fnc Expression) AccVal {
 	return AccVal(func(args ...Expression) (Expression, AccVal) {
 		if len(args) > 0 {
-			init = acc.Call(append([]Expression{init}, args...)...)
-			return init, NewAccumulator(init, acc)
+			acc = fnc.Call(append([]Expression{acc}, args...)...)
+			return acc, NewAccumulator(acc, fnc)
 		}
-		return init, NewAccumulator(init, acc)
+		return acc, NewAccumulator(acc, fnc)
 	})
 }
 

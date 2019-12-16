@@ -328,9 +328,7 @@ func (v VecVal) Next() Continuation {
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Continuation) {
-	return v.Current(), v.Next()
-}
+func (v VecVal) Continue() (Expression, Continuation)   { return v.Current(), v.Next() }
 func (v VecVal) Cons(args ...Expression) Sequential     { return NewVector(append(args, v()...)...) }
 func (v VecVal) Concat(args ...Expression) Sequential   { return NewVector(v(args...)...) }
 func (v VecVal) ConcatVector(args ...Expression) VecVal { return NewVector(v(args...)...) }
