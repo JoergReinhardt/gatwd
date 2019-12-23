@@ -276,18 +276,18 @@ func (t TupVal) Type() TyComp {
 //// RECORD TYPE
 ///
 //
-func NewRecord(types ...KeyPair) RecDef {
+func NewRecord(fields ...KeyPair) RecDef {
 	return func(args ...Expression) RecVal {
 		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
 			for n, arg := range args {
-				if len(types) > n && arg.Type().Match(Key|Pair) {
+				if len(fields) > n && arg.Type().Match(Key|Pair) {
 					if kp, ok := arg.(KeyPair); ok {
 						if strings.Compare(
 							string(kp.KeyStr()),
-							string(types[n].KeyStr()),
+							string(fields[n].KeyStr()),
 						) == 0 &&
-							types[n].Value().Type().Match(
+							fields[n].Value().Type().Match(
 								kp.Value().Type(),
 							) {
 							rec = append(rec, kp)
@@ -295,6 +295,9 @@ func NewRecord(types ...KeyPair) RecDef {
 					}
 				}
 			}
+		}
+		if len(rec) == 0 {
+			return fields
 		}
 		return rec
 	}
