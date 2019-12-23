@@ -14,6 +14,11 @@ var addInts = Define(Dat(func(args ...d.Native) d.Native {
 
 func TestExpression(t *testing.T) {
 
+	fmt.Printf("add ints expression definition type: %s\n"+
+		"type-ident: %s\ntype-args: %s\nreturn type: %s\n",
+		addInts.Type(), addInts.TypeIdent(),
+		addInts.TypeArguments(), addInts.TypeReturn())
+
 	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
 		addInts,
 		addInts.Type().TypeArguments(),
@@ -84,7 +89,7 @@ func TestExpression(t *testing.T) {
 }
 
 func TestTuple(t *testing.T) {
-	var con = NewTuple(
+	var con = NewTupleType(
 		Def(Def(Data, Constant), d.Int),
 		Def(Def(Data, Constant), d.Float),
 		Def(Def(Data, Constant), d.Bool),
@@ -128,7 +133,7 @@ func TestTuple(t *testing.T) {
 }
 
 var (
-	recfield = NewRecord(
+	recfield = NewRecordType(
 		NewKeyPair("zero int", Dat(0).Type()),
 		NewKeyPair("one uint", Dat(uint(0)).Type()),
 		NewKeyPair("two float", Dat(float64(0.0)).Type()),

@@ -1,4 +1,4 @@
-package hotypes
+package buildin
 
 import (
 	"encoding/xml"

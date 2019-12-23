@@ -211,7 +211,7 @@ func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 // tuple type constructor expects a slice of field types and possibly a symbol
 // type flag, to define the types name, otherwise 'tuple' is the type name and
 // the sequence of field types is shown instead
-func NewTuple(types ...d.Typed) TupDef {
+func NewTupleType(types ...d.Typed) TupDef {
 	return func(args ...Expression) TupVal {
 		var tup = make(TupVal, 0, len(args))
 		if Def(types...).MatchArgs(args...) {
@@ -276,7 +276,7 @@ func (t TupVal) Type() TyComp {
 //// RECORD TYPE
 ///
 //
-func NewRecord(fields ...KeyPair) RecDef {
+func NewRecordType(fields ...KeyPair) RecDef {
 	return func(args ...Expression) RecVal {
 		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
@@ -322,18 +322,18 @@ func (t RecDef) String() string { return t.Type().String() }
 // constructor validated according to its type pattern.
 func (t RecVal) TypeFnc() TyFnc { return Record }
 func (t RecVal) Call(args ...Expression) Expression {
-	var exprs = make([]Expression, 0, len(t)+len(args))
-	for _, elem := range t {
-		exprs = append(exprs, elem)
+	var fields = make([]Expression, 0, len(t)+len(args))
+	for _, field := range t {
+		fields = append(fields, field)
 	}
 	for _, arg := range args {
 		if arg.Type().Match(Pair | Key) {
 			if kp, ok := arg.(KeyPair); ok {
-				exprs = append(exprs, kp)
+				fields = append(fields, kp)
 			}
 		}
 	}
-	return NewVector(exprs...)
+	return NewVector(fields...)
 }
 func (t RecVal) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t))
