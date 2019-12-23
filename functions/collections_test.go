@@ -2,7 +2,6 @@ package functions
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	d "github.com/joergreinhardt/gatwd/data"
@@ -135,37 +134,37 @@ func TestVector(t *testing.T) {
 	}
 }
 
-func TestSortVector(t *testing.T) {
-	var vec = NewVector(Dat(13), Dat(7), Dat(3), Dat(23), Dat(42))
-	fmt.Printf("unsorted list: %s\n", vec)
-
-	var sorted = vec.Sort(func(i, j int) bool {
-		if vec.Len() > i && vec.Len() > j {
-			return vec()[i].(NatEval).Eval().(d.IntVal) <
-				vec()[j].(NatEval).Eval().(d.IntVal)
-		}
-		return false
-	})
-	fmt.Printf("sorted list: %s\n", sorted)
-}
-func TestSearchVector(t *testing.T) {
-	var vec = NewVector(Dat("one"), Dat("two"), Dat("three"), Dat("four"), Dat("five"))
-	fmt.Printf("unsorted list: %s\n", vec)
-
-	var sorted = vec.Search(
-		func(i, j int) bool {
-			if vec.Len() > i && vec.Len() > j {
-				return strings.Compare(
-					vec()[i].(NatEval).Eval().String(),
-					vec()[j].(NatEval).Eval().String()) < 0
-			}
-			return false
-		},
-		func(arg Expression) bool {
-			return strings.Compare(arg.String(), "one") == 0
-		})
-	fmt.Printf("found element one: %s\n", sorted)
-}
+//func TestSortVector(t *testing.T) {
+//	var vec = NewVector(Dat(13), Dat(7), Dat(3), Dat(23), Dat(42))
+//	fmt.Printf("unsorted list: %s\n", vec)
+//
+//	var sorted = vec.Sort(func(i, j int) bool {
+//		if vec.Len() > i && vec.Len() > j {
+//			return vec()[i].(NatEval).Eval().(d.IntVal) <
+//				vec()[j].(NatEval).Eval().(d.IntVal)
+//		}
+//		return false
+//	})
+//	fmt.Printf("sorted list: %s\n", sorted)
+//}
+//func TestSearchVector(t *testing.T) {
+//	var vec = NewVector(Dat("one"), Dat("two"), Dat("three"), Dat("four"), Dat("five"))
+//	fmt.Printf("unsorted list: %s\n", vec)
+//
+//	var sorted = vec.Search(
+//		func(i, j int) bool {
+//			if vec.Len() > i && vec.Len() > j {
+//				return strings.Compare(
+//					vec()[i].(NatEval).Eval().String(),
+//					vec()[j].(NatEval).Eval().String()) < 0
+//			}
+//			return false
+//		},
+//		func(arg Expression) bool {
+//			return strings.Compare(arg.String(), "one") == 0
+//		})
+//	fmt.Printf("found element one: %s\n", sorted)
+//}
 
 func TestPairVal(t *testing.T) {
 	var pair = NewPair(NewNone(), NewNone())
@@ -299,14 +298,12 @@ func TestFoldSequential(t *testing.T) {
 func TestFilterSequential(t *testing.T) {
 	var (
 		seq  = NewSeqCont(listA)
-		test = TestFunc(func(args ...Expression) bool {
-			if len(args) > 0 {
-				if dat, ok := args[0].(NatEval); ok {
-					if num, ok := dat.Eval().(d.Integer); ok {
-						if num.Int()%2 == 0 {
-							fmt.Printf("even: %s\n", num)
-							return true
-						}
+		test = TestFunc(func(arg Expression) bool {
+			if dat, ok := arg.(NatEval); ok {
+				if num, ok := dat.Eval().(d.Integer); ok {
+					if num.Int()%2 == 0 {
+						fmt.Printf("even: %s\n", num)
+						return true
 					}
 				}
 			}

@@ -219,6 +219,14 @@ func NewTuple(types ...d.Typed) TupDef {
 				tup = append(tup, arg)
 			}
 		}
+		if len(tup) == 0 {
+			for _, t := range types {
+				if Kind_Comp.Match(t.Kind()) {
+					tup = append(tup, t.(TyComp))
+				}
+				tup = append(tup, Def(t))
+			}
+		}
 		return tup
 	}
 }
@@ -228,8 +236,12 @@ func (t TupDef) TypeFnc() TyFnc                     { return Tuple | Constructor
 func (t TupDef) String() string                     { return t.Type().String() }
 func (t TupDef) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
-	for _, tup := range t() {
-		types = append(types, tup.Type())
+	for _, c := range t() {
+		if Kind_Comp.Match(c.Type().Kind()) {
+			types = append(types, c.(TyComp))
+			continue
+		}
+		types = append(types, c.Type())
 	}
 	return Def(Tuple, Def(types...))
 }

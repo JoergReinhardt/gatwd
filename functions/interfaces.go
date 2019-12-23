@@ -87,16 +87,6 @@ type Expression interface {
 ///////////////////////////////////////////////////////////////////////////////
 //// COLLECTION INTERFACES
 ///
-// mapped interface is implementet by all key accessable data types
-type Mapped interface {
-	Len() int
-	Keys() []string
-	Values() []Expression
-	Fields() []KeyPair
-	Get(string) (Expression, bool)
-	//d.Mapped
-}
-
 // consumeable is shared by all collections, continuations, side effects, etc‥.
 // it returns the current head of a collection, last result, or input in a
 // series of computations, data i/o operations, etc‥.
@@ -113,6 +103,16 @@ type Continuation interface {
 	Current() Expression
 	Next() Continuation
 	Continue() (Expression, Continuation)
+}
+
+// mapped interface is implementet by all key accessable data types
+type Mapped interface {
+	Len() int
+	Keys() []string
+	Values() []Expression
+	Fields() []KeyPair
+	Get(string) (Expression, bool)
+	//d.Mapped
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
@@ -166,20 +166,22 @@ type Monoidal interface {
 
 type Ordered interface {
 	Sequential
-	Sort(By) Sequential
-	Search(By, func(Expression) bool) Expression
+	Lesser(Ordered) bool
+	Greater(Ordered) bool
+	Equal(Ordered) bool
 }
 
+///////////////////////////////////////////////////////////////////////////////
 // interface to implement by all conditional types
 type Testable interface {
 	Expression
-	Test(...Expression) bool
+	Test(Expression) bool
 }
 
 // interface to implement by ordered, sort-/ & searchable types
 type Compareable interface {
 	Expression
-	Compare(...Expression) int
+	Compare(Expression) int
 }
 
 // types with known number of elements ,or known length

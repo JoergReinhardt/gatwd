@@ -8,12 +8,12 @@ import (
 
 type (
 	// TESTS AND COMPARE
-	TestFunc    func(...Expression) bool
-	TrinaryFunc func(...Expression) int
-	CompareFunc func(...Expression) int
+	TestFunc    func(Expression) bool
+	TrinaryFunc func(Expression) int
+	CompareFunc func(Expression) int
 
 	// CASE & SWITCH
-	CaseDef   func(...Expression) Expression
+	CaseDef   func(...Expression) Expression // needs to be variadic since overloaded
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
 	// MAYBE (JUST | NONE)
@@ -36,52 +36,58 @@ type (
 /// TRUTH TEST
 //
 // create a new test, scrutinizing its arguments and revealing true, or false
-func NewTest(test func(...Expression) bool) TestFunc {
-	return func(args ...Expression) bool { return test(args...) }
+func NewTest(test func(Expression) bool) TestFunc {
+	return func(arg Expression) bool { return test(arg) }
 }
-func (t TestFunc) TypeFnc() TyFnc               { return Truth }
-func (t TestFunc) Type() TyComp                 { return Def(True | False) }
-func (t TestFunc) String() string               { return t.TypeFnc().TypeName() }
-func (t TestFunc) Test(args ...Expression) bool { return t(args...) }
-func (t TestFunc) Compare(args ...Expression) int {
-	if t(args...) {
+func (t TestFunc) TypeFnc() TyFnc           { return Truth }
+func (t TestFunc) Type() TyComp             { return Def(True | False) }
+func (t TestFunc) String() string           { return t.TypeFnc().TypeName() }
+func (t TestFunc) Test(arg Expression) bool { return t(arg) }
+func (t TestFunc) Compare(arg Expression) int {
+	if t(arg) {
 		return 0
 	}
 	return -1
 }
 func (t TestFunc) Call(args ...Expression) Expression {
-	return Box(d.BoolVal(t(args...)))
+	if len(args) == 1 {
+		return Box(d.BoolVal(t(args[0])))
+	}
+	if len(args) > 1 {
+		return Box(d.BoolVal(t(NewVector(args...))))
+	}
+	return Box(d.BoolVal(false))
 }
 
 /// TRINARY TEST
 //
 // create a trinary test, that can yield true, false, or undecided, computed by
 // scrutinizing its arguments
-func NewTrinary(test func(...Expression) int) TrinaryFunc {
-	return func(args ...Expression) int { return test(args...) }
+func NewTrinary(test func(Expression) int) TrinaryFunc {
+	return func(arg Expression) int { return test(arg) }
 }
-func (t TrinaryFunc) TypeFnc() TyFnc                     { return Trinary }
-func (t TrinaryFunc) Type() TyComp                       { return Def(True | False | Undecided) }
-func (t TrinaryFunc) Call(args ...Expression) Expression { return Box(d.IntVal(t(args...))) }
-func (t TrinaryFunc) String() string                     { return t.TypeFnc().TypeName() }
-func (t TrinaryFunc) Test(args ...Expression) bool       { return t(args...) == 0 }
-func (t TrinaryFunc) Compare(args ...Expression) int     { return t(args...) }
+func (t TrinaryFunc) TypeFnc() TyFnc                 { return Trinary }
+func (t TrinaryFunc) Type() TyComp                   { return Def(True | False | Undecided) }
+func (t TrinaryFunc) Call(arg Expression) Expression { return Box(d.IntVal(t(arg))) }
+func (t TrinaryFunc) String() string                 { return t.TypeFnc().TypeName() }
+func (t TrinaryFunc) Test(arg Expression) bool       { return t(arg) == 0 }
+func (t TrinaryFunc) Compare(arg Expression) int     { return t(arg) }
 
 /// COMPARATOR
 //
 // create a comparator expression that yields minus one in case the argument is
 // lesser, zero in case its equal and plus one in case it is greater than the
 // enclosed value to compare against.
-func NewComparator(comp func(...Expression) int) CompareFunc {
-	return func(args ...Expression) int { return comp(args...) }
+func NewComparator(comp func(Expression) int) CompareFunc {
+	return func(arg Expression) int { return comp(arg) }
 }
-func (t CompareFunc) TypeFnc() TyFnc                     { return Compare }
-func (t CompareFunc) Type() TyComp                       { return Def(Lesser | Greater | Equal) }
-func (t CompareFunc) Call(args ...Expression) Expression { return Box(d.IntVal(t(args...))) }
-func (t CompareFunc) String() string                     { return t.Type().TypeName() }
-func (t CompareFunc) Test(args ...Expression) bool       { return t(args...) == 0 }
-func (t CompareFunc) Less(args ...Expression) bool       { return t(args...) < 0 }
-func (t CompareFunc) Compare(args ...Expression) int     { return t(args...) }
+func (t CompareFunc) TypeFnc() TyFnc                 { return Compare }
+func (t CompareFunc) Type() TyComp                   { return Def(Lesser | Greater | Equal) }
+func (t CompareFunc) Call(arg Expression) Expression { return Box(d.IntVal(t(arg))) }
+func (t CompareFunc) String() string                 { return t.Type().TypeName() }
+func (t CompareFunc) Test(arg Expression) bool       { return t(arg) == 0 }
+func (t CompareFunc) Less(arg Expression) bool       { return t(arg) < 0 }
+func (t CompareFunc) Compare(arg Expression) int     { return t(arg) }
 
 /// CASE
 //
@@ -93,8 +99,13 @@ func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
 	var pattern = Def(Def(Case, test.Type()), retype, argtype)
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
-			if test.Test(args...) {
-				return expr.Call(args...)
+			if len(args) > 1 {
+				if test.Test(NewVector(args...)) {
+					return expr.Call(NewVector(args...))
+				}
+			}
+			if test.Test(args[0]) {
+				return expr.Call(args[0])
 			}
 			return NewNone()
 		}
@@ -153,18 +164,17 @@ func NewSwitch(cases ...CaseDef) SwitchDef {
 		return pattern, cases
 	}
 }
-
-func (t SwitchDef) reload() SwitchDef { return NewSwitch(t.Cases()...) }
-func (t SwitchDef) String() string    { return t.Type().TypeName() }
-func (t SwitchDef) TypeFnc() TyFnc    { return Switch }
-func (t SwitchDef) Type() TyComp {
-	var pat, _ = t()
-	return pat.(TyComp)
-}
 func (t SwitchDef) Cases() []CaseDef {
 	var _, cases = t()
 	return cases
 }
+func (t SwitchDef) Type() TyComp {
+	var pat, _ = t()
+	return pat.(TyComp)
+}
+func (t SwitchDef) reload() SwitchDef { return NewSwitch(t.Cases()...) }
+func (t SwitchDef) String() string    { return t.Type().TypeName() }
+func (t SwitchDef) TypeFnc() TyFnc    { return Switch }
 func (t SwitchDef) Call(args ...Expression) Expression {
 	var (
 		remains = t.Cases()
@@ -250,7 +260,12 @@ func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
 
 	return EitherOrDef(func(args ...Expression) Expression {
 		if len(args) > 0 {
-			if test.Test(args...) {
+			if len(args) > 1 {
+				if test.Test(NewVector(args...)) {
+					return EitherVal(either.Call)
+				}
+			}
+			if test.Test(args[0]) {
 				return EitherVal(either.Call)
 			}
 			return OrVal(or.Call)

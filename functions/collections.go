@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"sort"
 	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
@@ -240,51 +239,9 @@ func (p IndexPair) Step() Expression                     { return p.Left() }
 func (p IndexPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
 func (p IndexPair) Continue() (Expression, Continuation) { return p.Step(), p.Next() }
 
-////////////////////////////////////////////////////////////////////////////////
-//// SORTER
-///
-// function of type 'match'
-type Match func(arg Expression) bool
-
-// function of type 'by' of a parameterized sort & search function.
-type By func(a, b int) bool
-
-func (by By) Sort(slice []Expression) []Expression {
-	var sorter = newSorter(slice, by)
-	sort.Sort(sorter)
-	return sorter.Slice
-}
-
-// sorter is a helper struct to sort vector elements inline
-type sorter struct {
-	Slice []Expression
-	By
-}
-
-func newSorter(slice []Expression, by By) *sorter {
-	return &sorter{slice, by}
-}
-
-func (t *sorter) Swap(i, j int)     { (*t).Slice[j], (*t).Slice[i] = (*t).Slice[i], (*t).Slice[j] }
-func (t sorter) Less(i, j int) bool { return t.By(i, j) }
-func (t sorter) Len() int           { return len(t.Slice) }
-
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
 ///
-// helper function to reverse argument sets
-func reverse(args []Expression) (rev []Expression) {
-	if len(args) > 1 {
-		var l = len(args)
-		rev = make([]Expression, l, l)
-		for i, arg := range args {
-			rev[l-1-i] = arg
-		}
-		return rev
-	}
-	return args
-}
-
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
 // called
@@ -390,35 +347,27 @@ func (v VecVal) Get(i int) (Expression, bool) {
 	}
 	return NewNone(), false
 }
-func (v VecVal) Sort(by By) Sequential {
-	var s = newSorter(v(), by)
-	sort.Sort(s)
-	return NewVector(s.Slice...)
-}
 
-func (v VecVal) Search(by By, match Match) Expression {
-	var s = newSorter(v(), by)
-	sort.Sort(s)
-	for _, elem := range s.Slice {
-		if match(elem) {
-			return elem
-		}
-	}
-	return NewNone()
-}
+//func (v VecVal) Sort() Sequential {
+//}
+//func (v VecVal) Search() Expression {
+//}
+//func (v VecVal) SearchAll() VecVal {
+//}
+//func (v VecVal) SearchKey() Expression {
+//}
 
-func (v VecVal) SearchAll(by By, match Match) VecVal {
-	var (
-		s   = newSorter(v(), by)
-		vec = NewVector()
-	)
-	sort.Sort(s)
-	for _, elem := range s.Slice {
-		if match(elem) {
-			vec = vec.ConcatVector(elem)
+// helper function to reverse argument sets
+func reverse(args []Expression) (rev []Expression) {
+	if len(args) > 1 {
+		var l = len(args)
+		rev = make([]Expression, l, l)
+		for i, arg := range args {
+			rev[l-1-i] = arg
 		}
+		return rev
 	}
-	return vec
+	return args
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -483,6 +432,9 @@ func (m MapVal) Call(args ...Expression) Expression {
 				result = append(result, found)
 				continue
 			}
+		}
+		if len(result) == 1 {
+			return result[0]
 		}
 		return NewVector(result...)
 	}
