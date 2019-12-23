@@ -226,8 +226,8 @@ func NewMaybe(cas CaseDef) MaybeDef {
 
 func (t MaybeDef) TypeFnc() TyFnc                     { return Maybe }
 func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
-func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArguments() }
-func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeReturn() }
+func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArgs() }
+func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeRet() }
 func (t MaybeDef) String() string                     { return t().String() }
 func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
 
@@ -245,16 +245,16 @@ func (t JustVal) Type() TyComp                       { return t().Type() }
 func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
 	var pattern = Def(
 		Def(
-			Def(Either, either.Type().TypeIdent()),
-			Def(Or, or.Type().TypeIdent()),
+			Def(Either, either.Type().TypeId()),
+			Def(Or, or.Type().TypeId()),
 		),
 		Def(
-			Def(Either, either.Type().TypeReturn()),
-			Def(Or, or.Type().TypeReturn()),
+			Def(Either, either.Type().TypeRet()),
+			Def(Or, or.Type().TypeRet()),
 		),
 		Def(
-			Def(Either, either.Type().TypeArguments()),
-			Def(Or, or.Type().TypeArguments()),
+			Def(Either, either.Type().TypeArgs()),
+			Def(Or, or.Type().TypeArgs()),
 		),
 	)
 
@@ -376,8 +376,8 @@ func (p Polymorph) Type() TyComp {
 		retypes  = make([]d.Typed, 0, len(pat.Pattern()))
 	)
 	for _, pat := range pat.Pattern()[1:] {
-		argtypes = append(argtypes, Def(pat.TypeArguments()...))
-		retypes = append(retypes, pat.TypeReturn())
+		argtypes = append(argtypes, Def(pat.TypeArgs()...))
+		retypes = append(retypes, pat.TypeRet())
 	}
 	return Def(identype, Def(retypes...), Def(argtypes...))
 }
@@ -401,7 +401,7 @@ func (p Polymorph) String() string {
 	)
 	for _, c := range cases {
 		var (
-			args   = c.Type().TypeArguments()
+			args   = c.Type().TypeArgs()
 			argstr string
 		)
 		if len(args) > 0 {
@@ -414,7 +414,7 @@ func (p Polymorph) String() string {
 			argstr = args[0].TypeName()
 		}
 		arguments = append(arguments, argstr)
-		returns = append(returns, c.Type().TypeReturn().TypeName())
+		returns = append(returns, c.Type().TypeRet().TypeName())
 	}
 	return "(" + strings.Join(arguments, " | ") + ")" +
 		" → " + p.Type().Pattern()[0].TypeName() +

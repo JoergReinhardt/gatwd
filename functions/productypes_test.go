@@ -129,7 +129,7 @@ func TestMaybe(t *testing.T) {
 	}
 	var none = maybeString(Dat(true))
 	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
-	if !none.Type().TypeReturn().Match(None) {
+	if !none.Type().TypeRet().Match(None) {
 		t.Fail()
 	}
 

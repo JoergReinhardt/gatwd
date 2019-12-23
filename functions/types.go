@@ -360,21 +360,21 @@ func Def(types ...d.Typed) TyComp {
 	return types
 }
 
-func (p TyComp) TypeIdent() TyComp {
+func (p TyComp) TypeId() TyComp {
 	if p.Len() > 0 {
 		return p.Pattern()[0]
 	}
 	return Def(None)
 }
 
-func (p TyComp) TypeReturn() TyComp {
+func (p TyComp) TypeRet() TyComp {
 	if p.Len() > 1 {
 		return p.Pattern()[1]
 	}
 	return Def(None)
 }
 
-func (p TyComp) TypeArguments() TyComp {
+func (p TyComp) TypeArgs() TyComp {
 	if p.Len() > 2 {
 		return p.Pattern()[2]
 	}
@@ -516,67 +516,67 @@ func (p TyComp) Fields() []TyComp {
 }
 
 func (p TyComp) ArgumentsName() string {
-	if p.TypeArguments().Len() > 0 {
-		if !p.TypeArguments().Match(None) {
-			if p.TypeArguments().Len() > 1 {
+	if p.TypeArgs().Len() > 0 {
+		if !p.TypeArgs().Match(None) {
+			if p.TypeArgs().Len() > 1 {
 				var ldelim, sep, rdelim = "", " → ", ""
-				return p.TypeArguments().Print(
+				return p.TypeArgs().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeArguments().Print("", " ", "")
+			return p.TypeArgs().Print("", " ", "")
 		}
 	}
 	return ""
 }
 func (p TyComp) IdentName() string {
-	if p.TypeIdent().Len() > 0 {
-		if !p.TypeIdent().Match(None) {
-			if p.TypeIdent().Len() > 1 {
+	if p.TypeId().Len() > 0 {
+		if !p.TypeId().Match(None) {
+			if p.TypeId().Len() > 1 {
 				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
-				case p.TypeIdent().Match(List | Vector):
+				case p.TypeId().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
-				case p.TypeIdent().Match(Set):
+				case p.TypeId().Match(Set):
 					ldelim, sep, rdelim = "{", " ", "}"
-				case p.TypeIdent().Match(Record):
+				case p.TypeId().Match(Record):
 					ldelim, sep, rdelim = "{", " ∷ ", "}"
-				case p.TypeIdent().Match(Tuple):
+				case p.TypeId().Match(Tuple):
 					ldelim, sep, rdelim = "(", " | ", ")"
-				case p.TypeIdent().Match(Enum):
+				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeIdent().Print(
+				return p.TypeId().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeIdent().Print("", " ", "")
+			return p.TypeId().Print("", " ", "")
 		}
 	}
 	return ""
 }
 func (p TyComp) ReturnName() string {
-	if p.TypeReturn().Len() > 0 {
-		if !p.TypeReturn().Match(None) {
-			if p.TypeReturn().Len() > 1 {
+	if p.TypeRet().Len() > 0 {
+		if !p.TypeRet().Match(None) {
+			if p.TypeRet().Len() > 1 {
 				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
-				case p.TypeIdent().Match(List | Vector):
+				case p.TypeId().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
-				case p.TypeIdent().Match(Set):
+				case p.TypeId().Match(Set):
 					ldelim, sep, rdelim = "{", " ", "}"
-				case p.TypeIdent().Match(Record):
+				case p.TypeId().Match(Record):
 					ldelim, sep, rdelim = "{", " ∷ ", "}"
-				case p.TypeIdent().Match(Tuple):
+				case p.TypeId().Match(Tuple):
 					ldelim, sep, rdelim = "(", " | ", ")"
-				case p.TypeIdent().Match(Enum):
+				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeReturn().Print(
+				return p.TypeRet().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeReturn().Print("", " ", "")
+			return p.TypeRet().Print("", " ", "")
 		}
 	}
 	return ""
@@ -584,20 +584,20 @@ func (p TyComp) ReturnName() string {
 
 func (p TyComp) TypeName() string {
 	var strs = []string{}
-	if !p.TypeArguments().Match(None) {
+	if !p.TypeArgs().Match(None) {
 		strs = append(strs, p.ArgumentsName())
 	}
-	if !p.TypeIdent().Match(None) {
+	if !p.TypeId().Match(None) {
 		strs = append(strs, p.IdentName())
 	}
-	if !p.TypeReturn().Match(None) {
+	if !p.TypeRet().Match(None) {
 		strs = append(strs, p.ReturnName())
 	}
 	return strings.Join(strs, " → ")
 }
 
 // type-elem yields the first elements typed
-func (p TyComp) TypeElem() TyComp { return p.TypeIdent() }
+func (p TyComp) TypeElem() TyComp { return p.TypeId() }
 
 // elems yields all elements contained in the pattern
 func (p TyComp) Type() TyComp                  { return p }

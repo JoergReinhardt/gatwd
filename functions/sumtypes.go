@@ -66,8 +66,8 @@ func (n NoneVal) Consume() (Expression, Sequential)    { return NewNone(), NewNo
 func NewConstant(constant func() Expression) Const { return constant }
 
 func (c Const) Type() TyComp                  { return Def(Constant, c().Type(), None) }
-func (c Const) TypeIdent() TyComp             { return c().Type().TypeIdent() }
-func (c Const) TypeReturn() TyComp            { return c().Type().TypeReturn() }
+func (c Const) TypeIdent() TyComp             { return c().Type().TypeId() }
+func (c Const) TypeReturn() TyComp            { return c().Type().TypeRet() }
 func (c Const) TypeArguments() TyComp         { return Def(None) }
 func (c Const) TypeFnc() TyFnc                { return Constant }
 func (c Const) String() string                { return c().String() }
@@ -94,9 +94,9 @@ func (c Lambda) Call(args ...Expression) Expression {
 func (c Lambda) String() string        { return c().String() }
 func (c Lambda) TypeFnc() TyFnc        { return c().TypeFnc() }
 func (c Lambda) Type() TyComp          { return c().Type() }
-func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeIdent() }
-func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeReturn() }
-func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArguments() }
+func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeId() }
+func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeRet() }
+func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
@@ -113,14 +113,14 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 		if Kind_Sym.Match(types[0].Kind()) {
 			return Def(types...)
 		} else { // ‥.otherwise use the expressions ident type
-			return Def(append([]d.Typed{expr.Type().TypeIdent()}, types...)...)
+			return Def(append([]d.Typed{expr.Type().TypeId()}, types...)...)
 		}
 	}
 	// ‥.otherwise define by expressions identity entirely in terms of the
 	// passed expression type
-	return Def(expr.Type().TypeIdent(),
-		expr.Type().TypeReturn(),
-		expr.Type().TypeArguments())
+	return Def(expr.Type().TypeId(),
+		expr.Type().TypeRet(),
+		expr.Type().TypeArgs())
 
 }
 func Define(
@@ -129,13 +129,13 @@ func Define(
 ) FuncDef {
 	var (
 		ct     = createFuncType(expr, types...)
-		arglen = ct.TypeArguments().Len()
+		arglen = ct.TypeArgs().Len()
 	)
 	// return partialy applicable function
 	return func(args ...Expression) Expression {
 		var length = len(args)
 		if length > 0 {
-			if ct.TypeArguments().MatchArgs(args...) {
+			if ct.TypeArgs().MatchArgs(args...) {
 				switch {
 				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
 				case length == arglen:
@@ -145,10 +145,10 @@ func Define(
 				case length < arglen:
 					// safe types of arguments remaining to be filled
 					var (
-						remains = ct.TypeArguments().Types()[length:]
+						remains = ct.TypeArgs().Types()[length:]
 						newpat  = Def(
-							ct.TypeIdent(),
-							ct.TypeReturn(),
+							ct.TypeId(),
+							ct.TypeRet(),
 							Def(remains...))
 					)
 					// define new function from remaining
@@ -199,10 +199,10 @@ func Define(
 }
 func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
 func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeIdent() TyComp                  { return e.Type().TypeIdent() }
-func (e FuncDef) TypeArguments() TyComp              { return e.Type().TypeArguments() }
-func (e FuncDef) TypeReturn() TyComp                 { return e.Type().TypeReturn() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
+func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
 func (e FuncDef) String() string                     { return e().String() }
 func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 

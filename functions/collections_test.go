@@ -63,11 +63,11 @@ func TestEmptyList(t *testing.T) {
 	fmt.Printf("empty list patterns: %s\n",
 		list.Type().TypeName())
 	fmt.Printf("empty list arg types: %s\n",
-		list.Type().TypeArguments())
+		list.Type().TypeArgs())
 	fmt.Printf("empty list ident types: %s\n",
-		list.Type().TypeIdent())
+		list.Type().TypeId())
 	fmt.Printf("empty list return types: %s\n",
-		list.Type().TypeReturn())
+		list.Type().TypeRet())
 	fmt.Printf("empty list type name: %s\n",
 		list.Type())
 }
@@ -174,9 +174,9 @@ func TestPairVal(t *testing.T) {
 	fmt.Printf("name of (int,string) pair: %s\n",
 		pair.Type())
 	fmt.Printf("name of (int,string) pair args: %s\n",
-		pair.Type().TypeArguments())
+		pair.Type().TypeArgs())
 	fmt.Printf("name of (int,string) pair return: %s\n",
-		pair.Type().TypeReturn())
+		pair.Type().TypeRet())
 }
 
 func TestGenerator(t *testing.T) {

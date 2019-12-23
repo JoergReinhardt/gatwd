@@ -10,20 +10,36 @@ import (
 var addInts = Define(Dat(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
-}), DefSym("AddInts"), Def(Dat(0).Type()), Def(Dat(0).Type(), Dat(0).Type()))
+}),
+	DefSym("AddInts"),
+	Def(Dat(0).Type()),
+	Def(Dat(0).Type(), Dat(0).Type()),
+)
 
 func TestExpression(t *testing.T) {
+	fmt.Printf(`
+ defines expression to perform addition on integers of type data/Native.
 
+ - should not take any arguments except d.IntVal
+   - first argument is a symbol definition expressing the name
+   - second argument is the return type (derived from instance)
+   - third argument is the arguments types (derived from instances) wrapped
+     by a composed type
+ - should return a partial, when only one argument is passed
+ - should return atomic integer result, when two args are passed
+ - should return a vector of resulting integers‥.
+ - ‥.where the last element might be a partialy applyed addition, if an odd
+   number of arguments has been passed` + "\n\n")
 	fmt.Printf("add ints expression definition type: %s\n"+
 		"type-ident: %s\ntype-args: %s\nreturn type: %s\n",
-		addInts.Type(), addInts.TypeIdent(),
-		addInts.TypeArguments(), addInts.TypeReturn())
+		addInts.Type(), addInts.TypeId(),
+		addInts.TypeArgs(), addInts.TypeRet())
 
 	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
 		addInts,
-		addInts.Type().TypeArguments(),
-		addInts.Type().TypeIdent(),
-		addInts.Type().TypeReturn())
+		addInts.Type().TypeArgs(),
+		addInts.Type().TypeId(),
+		addInts.Type().TypeRet())
 
 	var wrong = addInts.Call(Dat("string one"), Dat(true))
 	fmt.Printf("called with argument of wrong type: %s\n", wrong)
@@ -34,10 +50,10 @@ func TestExpression(t *testing.T) {
 	var partial = addInts.Call(Dat(23))
 	fmt.Printf("partial: %s argtype : %s identype: %s, retype: %s\n",
 		partial,
-		partial.Type().TypeArguments(),
-		partial.Type().TypeIdent(),
-		partial.Type().TypeReturn())
-	if !partial.Type().TypeIdent().Match(DefSym("AddInts")) {
+		partial.Type().TypeArgs(),
+		partial.Type().TypeId(),
+		partial.Type().TypeRet())
+	if !partial.Type().TypeId().Match(DefSym("AddInts")) {
 		t.Fail()
 	}
 
@@ -59,9 +75,9 @@ func TestExpression(t *testing.T) {
 
 	var result2 = addInts.Call(Dat(23), Dat(42))
 	fmt.Printf("result2: %s argtype : %s identype: %s, retype: %s\n",
-		result2, result2.Type().TypeArguments(),
-		result2.Type().TypeIdent(),
-		result2.Type().TypeReturn())
+		result2, result2.Type().TypeArgs(),
+		result2.Type().TypeId(),
+		result2.Type().TypeRet())
 	fmt.Printf("result2: %s\n", result2)
 	if vec, ok := result2.(VecVal); ok {
 		if vec.Len() != 2 {
@@ -115,7 +131,7 @@ func TestTuple(t *testing.T) {
 
 	var partial = con.Call(Dat(23))
 	fmt.Printf("partial0: %s partial0 type-fnc: %s\n", partial, partial.TypeFnc().TypeName())
-	fmt.Printf("partial0 type: %s ident: %s\n", partial.Type(), partial.Type().TypeIdent())
+	fmt.Printf("partial0 type: %s ident: %s\n", partial.Type(), partial.Type().TypeId())
 
 	var partial1 = partial.Call(Dat(42.23), Dat(true), Dat(false))
 	fmt.Printf("partial1: %s partial1 type-fnc: %s\n", partial1, partial1.TypeFnc().TypeName())

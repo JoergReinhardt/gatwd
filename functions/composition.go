@@ -22,7 +22,7 @@ type (
 ///
 // define the curryed function
 func Curry(f, g FuncDef) FuncDef {
-	if f.TypeArguments().Match(g.TypeReturn()) {
+	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 			func(args ...Expression) Expression {
 				if len(args) > 0 {
@@ -31,10 +31,10 @@ func Curry(f, g FuncDef) FuncDef {
 				return f.Call(g.Call())
 			}),
 			Def(
-				f.TypeIdent(),
-				g.TypeIdent()),
-			f.TypeReturn(),
-			f.TypeArguments(),
+				f.TypeId(),
+				g.TypeId()),
+			f.TypeRet(),
+			f.TypeArgs(),
 		)
 	}
 	return Define(NewNone(), None, None)
@@ -113,8 +113,8 @@ func (g AccVal) TypeFnc() TyFnc { return Accumulator }
 func (g AccVal) Type() TyComp {
 	return Def(
 		Accumulator,
-		g.Current().Type().TypeReturn(),
-		g.Current().Type().TypeArguments(),
+		g.Current().Type().TypeRet(),
+		g.Current().Type().TypeArgs(),
 	)
 }
 func (g AccVal) String() string { return g.Current().String() }
@@ -147,7 +147,7 @@ func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
 func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
 func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
 func (e EnumDef) Type() TyComp {
-	return Def(Enum, e.Expr().Type().TypeReturn())
+	return Def(Enum, e.Expr().Type().TypeRet())
 }
 func (e EnumDef) TypeFnc() TyFnc { return Enum }
 func (e EnumDef) String() string { return e.Type().TypeName() }
