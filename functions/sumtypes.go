@@ -16,11 +16,11 @@ type (
 	FuncDef func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
-	TupDef func(...Expression) TupVal
+	TupCon func(...Expression) TupVal
 	TupVal []Expression
 
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecDef func(...Expression) RecVal
+	RecCon func(...Expression) RecVal
 	RecVal []KeyPair
 )
 
@@ -211,7 +211,7 @@ func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 // tuple type constructor expects a slice of field types and possibly a symbol
 // type flag, to define the types name, otherwise 'tuple' is the type name and
 // the sequence of field types is shown instead
-func NewTupleType(types ...d.Typed) TupDef {
+func NewTupleType(types ...d.Typed) TupCon {
 	return func(args ...Expression) TupVal {
 		var tup = make(TupVal, 0, len(args))
 		if Def(types...).MatchArgs(args...) {
@@ -231,10 +231,10 @@ func NewTupleType(types ...d.Typed) TupDef {
 	}
 }
 
-func (t TupDef) Call(args ...Expression) Expression { return t(args...) }
-func (t TupDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupDef) String() string                     { return t.Type().String() }
-func (t TupDef) Type() TyComp {
+func (t TupCon) Call(args ...Expression) Expression { return t(args...) }
+func (t TupCon) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupCon) String() string                     { return t.Type().String() }
+func (t TupCon) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
 	for _, c := range t() {
 		if Kind_Comp.Match(c.Type().Kind()) {
@@ -276,7 +276,7 @@ func (t TupVal) Type() TyComp {
 //// RECORD TYPE
 ///
 //
-func NewRecordType(fields ...KeyPair) RecDef {
+func NewRecordType(fields ...KeyPair) RecCon {
 	return func(args ...Expression) RecVal {
 		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
@@ -303,9 +303,9 @@ func NewRecordType(fields ...KeyPair) RecDef {
 	}
 }
 
-func (t RecDef) Call(args ...Expression) Expression { return t(args...) }
-func (t RecDef) TypeFnc() TyFnc                     { return Record | Constructor }
-func (t RecDef) Type() TyComp {
+func (t RecCon) Call(args ...Expression) Expression { return t(args...) }
+func (t RecCon) TypeFnc() TyFnc                     { return Record | Constructor }
+func (t RecCon) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
 	for _, field := range t() {
 		types = append(types, Def(
@@ -315,7 +315,7 @@ func (t RecDef) Type() TyComp {
 	}
 	return Def(Record, Def(types...))
 }
-func (t RecDef) String() string { return t.Type().String() }
+func (t RecCon) String() string { return t.Type().String() }
 
 /// RECORD VALUE
 // tuple value is a slice of expressions, constructed by a tuple type
