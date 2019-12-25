@@ -4,7 +4,63 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordSequenceFunctorApplicativeMonadStateIOParametricALL"
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Type-1]
+	_ = x[Data-2]
+	_ = x[Value-4]
+	_ = x[Constant-8]
+	_ = x[Generator-16]
+	_ = x[Accumulator-32]
+	_ = x[Constructor-64]
+	_ = x[Property-128]
+	_ = x[Argument-256]
+	_ = x[Lexical-512]
+	_ = x[Symbol-1024]
+	_ = x[Index-2048]
+	_ = x[Key-4096]
+	_ = x[True-8192]
+	_ = x[False-16384]
+	_ = x[Undecided-32768]
+	_ = x[Equal-65536]
+	_ = x[Lesser-131072]
+	_ = x[Greater-262144]
+	_ = x[Min-524288]
+	_ = x[Max-1048576]
+	_ = x[Switch-2097152]
+	_ = x[Case-4194304]
+	_ = x[Just-8388608]
+	_ = x[None-16777216]
+	_ = x[Parametric-33554432]
+	_ = x[Either-67108864]
+	_ = x[Or-134217728]
+	_ = x[Natural-268435456]
+	_ = x[Integer-536870912]
+	_ = x[Real-1073741824]
+	_ = x[Ratio-2147483648]
+	_ = x[Letter-4294967296]
+	_ = x[Text-8589934592]
+	_ = x[Bytes-17179869184]
+	_ = x[Vector-34359738368]
+	_ = x[List-68719476736]
+	_ = x[Set-137438953472]
+	_ = x[HashMap-274877906944]
+	_ = x[Pair-549755813888]
+	_ = x[Enum-1099511627776]
+	_ = x[Tuple-2199023255552]
+	_ = x[Record-4398046511104]
+	_ = x[Sequence-8796093022208]
+	_ = x[Functor-17592186044416]
+	_ = x[Applicative-35184372088832]
+	_ = x[Monad-70368744177664]
+	_ = x[State-140737488355328]
+	_ = x[IO-281474976710656]
+	_ = x[ALL-18446744073709551615]
+}
+
+const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneParametricEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordSequenceFunctorApplicativeMonadStateIOALL"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
@@ -32,33 +88,31 @@ var _TyFnc_map = map[TyFnc]string{
 	4194304:              _TyFnc_name[137:141],
 	8388608:              _TyFnc_name[141:145],
 	16777216:             _TyFnc_name[145:149],
-	33554432:             _TyFnc_name[149:155],
-	67108864:             _TyFnc_name[155:164],
-	134217728:            _TyFnc_name[164:170],
-	268435456:            _TyFnc_name[170:172],
-	536870912:            _TyFnc_name[172:179],
-	1073741824:           _TyFnc_name[179:186],
-	2147483648:           _TyFnc_name[186:190],
-	4294967296:           _TyFnc_name[190:195],
-	8589934592:           _TyFnc_name[195:201],
-	17179869184:          _TyFnc_name[201:205],
-	34359738368:          _TyFnc_name[205:210],
-	68719476736:          _TyFnc_name[210:216],
-	137438953472:         _TyFnc_name[216:220],
-	274877906944:         _TyFnc_name[220:223],
-	549755813888:         _TyFnc_name[223:230],
-	1099511627776:        _TyFnc_name[230:234],
-	2199023255552:        _TyFnc_name[234:238],
-	4398046511104:        _TyFnc_name[238:243],
-	8796093022208:        _TyFnc_name[243:249],
-	17592186044416:       _TyFnc_name[249:257],
-	35184372088832:       _TyFnc_name[257:264],
-	70368744177664:       _TyFnc_name[264:275],
+	33554432:             _TyFnc_name[149:159],
+	67108864:             _TyFnc_name[159:165],
+	134217728:            _TyFnc_name[165:167],
+	268435456:            _TyFnc_name[167:174],
+	536870912:            _TyFnc_name[174:181],
+	1073741824:           _TyFnc_name[181:185],
+	2147483648:           _TyFnc_name[185:190],
+	4294967296:           _TyFnc_name[190:196],
+	8589934592:           _TyFnc_name[196:200],
+	17179869184:          _TyFnc_name[200:205],
+	34359738368:          _TyFnc_name[205:211],
+	68719476736:          _TyFnc_name[211:215],
+	137438953472:         _TyFnc_name[215:218],
+	274877906944:         _TyFnc_name[218:225],
+	549755813888:         _TyFnc_name[225:229],
+	1099511627776:        _TyFnc_name[229:233],
+	2199023255552:        _TyFnc_name[233:238],
+	4398046511104:        _TyFnc_name[238:244],
+	8796093022208:        _TyFnc_name[244:252],
+	17592186044416:       _TyFnc_name[252:259],
+	35184372088832:       _TyFnc_name[259:270],
+	70368744177664:       _TyFnc_name[270:275],
 	140737488355328:      _TyFnc_name[275:280],
-	281474976710656:      _TyFnc_name[280:285],
-	562949953421312:      _TyFnc_name[285:287],
-	1125899906842624:     _TyFnc_name[287:297],
-	18446744073709551615: _TyFnc_name[297:300],
+	281474976710656:      _TyFnc_name[280:282],
+	18446744073709551615: _TyFnc_name[282:285],
 }
 
 func (i TyFnc) String() string {

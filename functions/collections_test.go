@@ -15,17 +15,18 @@ var (
 	listB = NewVector(Dat(10), Dat(11), Dat(12), Dat(13),
 		Dat(14), Dat(15), Dat(16), Dat(17), Dat(18), Dat(19))
 
-	mapAddInt = Define(Lambda(func(args ...Expression) Expression {
-		if args[0].Type().Match(Data) &&
-			args[1].Type().Match(Data) {
-			if inta, ok := args[0].(NatEval).Eval().(d.Integer); ok {
-				if intb, ok := args[1].(NatEval).Eval().(d.Integer); ok {
-					return Box(inta.Int() + intb.Int())
+	mapAddInt = Define(
+		Lambda(func(args ...Expression) Expression {
+			if args[0].Type().Match(Data) &&
+				args[1].Type().Match(Data) {
+				if inta, ok := args[0].(NatEval).Eval().(d.Integer); ok {
+					if intb, ok := args[1].(NatEval).Eval().(d.Integer); ok {
+						return Box(inta.Int() + intb.Int())
+					}
 				}
 			}
-		}
-		return NewNone()
-	}),
+			return NewNone()
+		}),
 		DefSym("+"),
 		Def(Def(Data, Constant), d.Int),
 		Def(
@@ -246,7 +247,7 @@ func TestConcatSequences(t *testing.T) {
 	fmt.Printf("head & tail after loop to end: %s %s\n", step, next)
 	fmt.Printf("next step, next next: %s %s\n", next.Current(), next.Next())
 
-	lc = lc.ConcatSeq(listB)
+	lc = lc.Concat(listB()...).(SeqVal)
 	fmt.Printf("list b concatenated to list-a continuation: %s\n", lc)
 	fmt.Printf("concated lists a-/ & b: %s\n", lc)
 }
@@ -278,7 +279,7 @@ func TestFoldSequential(t *testing.T) {
 		acc  = NewVector()
 		fold = func(acc, head Expression) Expression {
 			if vec, ok := acc.(VecVal); ok {
-				return vec.ConcatVector(head)
+				return vec.ConcatVal(head)
 			}
 			return acc
 		}

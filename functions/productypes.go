@@ -295,29 +295,29 @@ func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 ///
 //
 // declare new polymorphic named type from cases
-func NewPolyType(name string, cases ...FuncDef) Polymorph {
+func NewPolyType(name string, defs ...FuncDef) Polymorph {
 	var (
-		patterns = make([]d.Typed, 0, len(cases))
-		pat      TyComp
+		types   = make([]d.Typed, 0, len(defs))
+		pattern TyComp
 	)
-	for _, c := range cases {
-		patterns = append(patterns, c.Type())
+	for _, def := range defs {
+		types = append(types, def.Type())
 	}
-	pat = Def(DefSym(name), Def(patterns...))
-	return createPolyType(pat, 0, cases...)
+	pattern = Def(DefSym(name), Def(types...))
+	return createPolyType(pattern, 0, defs...)
 }
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pat TyComp, idx int, cases ...FuncDef) Polymorph {
-	var length = len(cases)
+func createPolyType(pattern TyComp, idx int, defs ...FuncDef) Polymorph {
+	var length = len(defs)
 	return func(args ...Expression) (Expression, []FuncDef, int) {
 		if len(args) > 0 { // arguments where passed
 			if idx < length { // not all cases scrutinized yet
-				// scrutinize arguments, retrieve expr, or none
-				var expr = cases[idx](args...)
+				// scrutinize arguments, retrieve fnc, or none
+				var fnc = defs[idx](args...)
 				// if none‥.
-				if expr.Type().Match(None) {
+				if fnc.Type().Match(None) {
 					// either increment count, or reset to
 					// zero, if all cases have been
 					// scrutinized
@@ -329,25 +329,28 @@ func createPolyType(pat TyComp, idx int, cases ...FuncDef) Polymorph {
 					// return poly type instance pointing
 					// to next case for testing it's
 					// arguments
-					return createPolyType(pat, idx, cases...), cases, idx
+					return createPolyType(
+							pattern, idx, defs...),
+						defs, idx
 				}
-				// if arguments matched case, return result as
-				// instance of polymorphic sub type instance
+				// argument is not none if it matched case,
+				// return result as variant of polymorphic type
 				return Variant(func(args ...Expression) (Expression, Polymorph) {
 					if len(args) > 0 {
-						return expr.Call(args...), createPolyType(pat, idx, cases...)
+						return fnc.Call(args...), createPolyType(
+							pattern, idx, defs...)
 					}
-					return expr.Call(), createPolyType(pat, idx, cases...)
-				}), cases, idx
+					return fnc.Call(), createPolyType(
+						pattern, idx, defs...)
+				}), defs, idx
 			}
 		}
-		// return reset poly type instance, slice of cases and minus
-		// one to indicate end of cases list
-		return createPolyType(pat, 0, cases...), cases, 0
+		// return poly type instance with index set to zero
+		return createPolyType(pattern, 0, defs...), defs, 0
 	}
 }
 
-// loops over all cases with a set of passed arguments and returns either
+// call loops over all cases with a passed set of arguments and returns either
 // result, or none
 func (p Polymorph) Call(args ...Expression) Expression {
 	if len(args) > 0 {
