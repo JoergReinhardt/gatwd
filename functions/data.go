@@ -220,6 +220,13 @@ func (n DatPair) SubType() d.Typed                   { return n().Type() }
 func (n DatPair) String() string                     { return n().String() }
 func (n DatPair) LeftExpr() Expression               { return Box(n().Left()) }
 func (n DatPair) RightExpr() Expression              { return Box(n().Right()) }
+func (n DatPair) Empty() bool {
+	if n.Left().Type().Match(d.Nil) &&
+		n.Right().Type().Match(d.Nil) {
+		return true
+	}
+	return false
+}
 func (n DatPair) BothExpr() (l, r Expression) {
 	return Box(n().Left()),
 		Box(n().Right())

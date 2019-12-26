@@ -121,7 +121,7 @@ const (
 	ProdTypes = List | Vector | Enum
 	SumTypes  = Set | Record | Tuple
 	Sequences = ProdTypes | SumTypes
-	Functors  = Sequences
+	Continues = Sequences | Pair
 
 	Number = Natural | Integer | Real | Ratio
 	String = Letter | Text
@@ -194,7 +194,7 @@ func (t TyFnc) TypeName() string {
 			return "SumTypes"
 		case ProdTypes:
 			return "ProductTypes"
-		case Functors:
+		case Continues:
 			return "Funtors"
 		}
 		var delim = "|"
@@ -604,7 +604,7 @@ func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) Types() []d.Typed              { return p }
 func (p TyComp) Call(...Expression) Expression { return p } // ← TODO: match arg instances
 func (p TyComp) Len() int                      { return len(p.Types()) }
-func (p TyComp) End() bool                     { return p.Len() == 0 }
+func (p TyComp) Empty() bool                   { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
@@ -628,7 +628,7 @@ func (p TyComp) Get(idx int) TyComp {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyComp) Current() Expression {
+func (p TyComp) Head() Expression {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -637,11 +637,11 @@ func (p TyComp) Current() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyComp) HeadPattern() TyComp { return p.Current().(TyComp) }
+func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Next() Continuation {
+func (p TyComp) Tail() Continuation {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -658,7 +658,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+func (p TyComp) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -793,7 +793,7 @@ func (p TyComp) IsList() bool {
 }
 func (p TyComp) IsFunctor() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Functors)
+		return p.Elements()[0].Match(Continues)
 	}
 	return false
 }

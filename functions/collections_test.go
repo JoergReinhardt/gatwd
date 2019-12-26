@@ -204,7 +204,7 @@ func TestSequence(t *testing.T) {
 	}
 	fmt.Printf("sequence: %s\n", seq)
 	fmt.Printf("seq head: %s, tail: %s type: %s\n",
-		seq.Current(), seq.Next(), seq.TypeFnc())
+		seq.Head(), seq.Tail(), seq.TypeFnc())
 }
 
 //func TestMapSequential(t *testing.T) {

@@ -29,8 +29,12 @@ type (
 	// should reference its type constructor and sibling types.
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	Polymorph func(...Expression) (Expression, []FuncDef, int)
+	Polymorph func(...Expression) (Expression, []FuncDecl, int)
 	Variant   func(...Expression) (Expression, Polymorph)
+
+	//// ENUMERABLE
+	EnumDef func(d.Numeral) EnumVal
+	EnumVal func(...Expression) (Expression, d.Numeral, EnumDef)
 )
 
 /// TRUTH TEST
@@ -295,7 +299,7 @@ func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 ///
 //
 // declare new polymorphic named type from cases
-func NewPolyType(name string, defs ...FuncDef) Polymorph {
+func NewPolyType(name string, defs ...FuncDecl) Polymorph {
 	var (
 		types   = make([]d.Typed, 0, len(defs))
 		pattern TyComp
@@ -309,9 +313,9 @@ func NewPolyType(name string, defs ...FuncDef) Polymorph {
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pattern TyComp, idx int, defs ...FuncDef) Polymorph {
+func createPolyType(pattern TyComp, idx int, defs ...FuncDecl) Polymorph {
 	var length = len(defs)
-	return func(args ...Expression) (Expression, []FuncDef, int) {
+	return func(args ...Expression) (Expression, []FuncDecl, int) {
 		if len(args) > 0 { // arguments where passed
 			if idx < length { // not all cases scrutinized yet
 				// scrutinize arguments, retrieve fnc, or none
@@ -386,7 +390,7 @@ func (p Polymorph) Type() TyComp {
 }
 
 // returns set of all sub-type defining cases
-func (p Polymorph) Cases() []FuncDef {
+func (p Polymorph) Cases() []FuncDecl {
 	var _, c, _ = p()
 	return c
 }
@@ -450,4 +454,89 @@ func (p Variant) Call(args ...Expression) Expression {
 		return p.Expr().Call(args...)
 	}
 	return p.Expr()
+}
+
+//// ENUM TYPE
+///
+// declares an enumerable type returning instances from the set of enumerables
+// defined by the passed function
+func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
+	return func(idx d.Numeral) EnumVal {
+		return func(args ...Expression) (Expression, d.Numeral, EnumDef) {
+			if len(args) > 0 {
+				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
+			}
+			return fnc(idx), idx, NewEnumType(fnc)
+		}
+	}
+}
+func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
+func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
+func (e EnumDef) Type() TyComp {
+	return Def(Enum, e.Expr().Type().TypeRet())
+}
+func (e EnumDef) TypeFnc() TyFnc { return Enum }
+func (e EnumDef) String() string { return e.Type().TypeName() }
+func (e EnumDef) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vec = NewVector()
+			for _, arg := range args {
+				vec = vec.Cons(e.Call(arg)).(VecVal)
+			}
+			return vec
+		}
+		var arg = args[0]
+		if arg.Type().Match(Data) {
+			if nat, ok := arg.(NatEval); ok {
+				if i, ok := nat.Eval().(d.Numeral); ok {
+					return e(i)
+				}
+			}
+		}
+	}
+	return e
+}
+
+//// ENUM VALUE
+///
+//
+func (e EnumVal) Expr() Expression {
+	var expr, _, _ = e()
+	return expr
+}
+func (e EnumVal) Index() d.Numeral {
+	var _, idx, _ = e()
+	return idx
+}
+func (e EnumVal) EnumType() EnumDef {
+	var _, _, et = e()
+	return et
+}
+func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
+func (e EnumVal) Next() EnumVal {
+	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
+	return result
+}
+func (e EnumVal) Previous() EnumVal {
+	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
+	return result
+}
+func (e EnumVal) String() string { return e.Expr().String() }
+func (e EnumVal) Type() TyComp {
+	var (
+		nat d.Native
+		idx = e.Index()
+	)
+	if idx.Type().Match(d.BigInt) {
+		nat = idx.BigInt()
+	} else {
+		nat = idx.Int()
+	}
+	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
+}
+func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
+func (e EnumVal) Call(args ...Expression) Expression {
+	var r, _, _ = e(args...)
+	return r
 }

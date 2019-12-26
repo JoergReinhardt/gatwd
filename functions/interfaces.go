@@ -98,10 +98,10 @@ type Expression interface {
 // execution is performed lazily and infinite lists can be handled.
 type Continuation interface {
 	Expression
-	End() bool
+	Empty() bool
 	TypeElem() TyComp
-	Next() Continuation
-	Current() Expression
+	Head() Expression
+	Tail() Continuation
 	Continue() (Expression, Continuation)
 }
 

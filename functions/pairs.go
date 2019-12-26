@@ -72,7 +72,6 @@ func (p ValPair) TypeValue() d.Typed {
 func (p ValPair) Type() TyComp {
 	return Def(Pair, Def(p.TypeKey(), p.TypeValue()))
 }
-func (p ValPair) End() bool { return p.Empty() }
 func (p ValPair) Empty() bool {
 	if p.Left() == nil || (!p.Left().Type().Match(None) &&
 		(p.Right() == nil || (!p.Right().Type().Match(None)))) {
@@ -86,9 +85,9 @@ func (p ValPair) String() string {
 func (p ValPair) Call(args ...Expression) Expression {
 	return NewPair(p.Key(), p.Value().Call(args...))
 }
-func (p ValPair) Current() Expression                  { return p.Left() }
-func (p ValPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p ValPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+func (p ValPair) Head() Expression                     { return p.Left() }
+func (p ValPair) Tail() Continuation                   { return NewPair(p.Right(), NewNone()) }
+func (p ValPair) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
 
 //// NATIVE VALUE KEY PAIR
 ///
@@ -118,7 +117,6 @@ func (p NatPair) Swap() (Expression, Expression) {
 }
 func (p NatPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
-func (a NatPair) End() bool { return a.Empty() }
 func (a NatPair) Empty() bool {
 	if a.Key() != nil && a.Value() != nil && a.Value().TypeFnc() != None {
 		return false
@@ -163,7 +161,6 @@ func (p KeyPair) Swap() (Expression, Expression) {
 }
 func (p KeyPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
 
-func (a KeyPair) End() bool { return a.Empty() }
 func (a KeyPair) Empty() bool {
 	if a.Key() != nil && a.Value() != nil && a.Value().TypeFnc() != None {
 		return false
@@ -203,7 +200,6 @@ func (p IndexPair) Swap() (Expression, Expression) {
 	return Box(d.New(l)), r
 }
 func (p IndexPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
-func (a IndexPair) End() bool           { return a.Empty() }
 func (a IndexPair) Empty() bool {
 	if a.Index() >= 0 && a.Value() != nil && a.Value().TypeFnc() != None {
 		return true
@@ -243,7 +239,6 @@ func (p RealPair) Swap() (Expression, Expression) {
 	return Box(d.New(l)), r
 }
 func (p RealPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
-func (a RealPair) End() bool           { return a.Empty() }
 func (a RealPair) Empty() bool {
 	if a.Real() >= 0 && a.Value() != nil && a.Value().TypeFnc() != None {
 		return true

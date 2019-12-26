@@ -10,7 +10,7 @@ type (
 //// COMPOSITION PRIMITIVES
 ///
 // define the curryed function
-func Curry(f, g FuncDef) FuncDef {
+func Curry(f, g FuncDecl) FuncDecl {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 			func(args ...Expression) Expression {
@@ -55,18 +55,18 @@ func (g GenVal) Call(args ...Expression) Expression {
 	return NewPair(g.Expr(), g.Generator())
 }
 func (g GenVal) TypeFnc() TyFnc   { return Generator }
-func (g GenVal) Type() TyComp     { return Def(Generator, g.Current().Type()) }
-func (g GenVal) TypeElem() TyComp { return g.Current().Type() }
-func (g GenVal) String() string   { return g.Current().String() }
-func (g GenVal) End() bool {
-	if g.Current().Type().Match(None) {
+func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
+func (g GenVal) String() string   { return g.Head().String() }
+func (g GenVal) Empty() bool {
+	if g.Head().Type().Match(None) {
 		return true
 	}
 	return false
 }
 func (g GenVal) Continue() (Expression, Continuation) { return g() }
-func (g GenVal) Current() Expression                  { return g.Expr() }
-func (g GenVal) Next() Continuation                   { return g.Generator() }
+func (g GenVal) Head() Expression                     { return g.Expr() }
+func (g GenVal) Tail() Continuation                   { return g.Generator() }
 
 //// ACCUMULATOR
 ///
@@ -102,27 +102,59 @@ func (g AccVal) TypeFnc() TyFnc { return Accumulator }
 func (g AccVal) Type() TyComp {
 	return Def(
 		Accumulator,
-		g.Current().Type().TypeRet(),
-		g.Current().Type().TypeArgs(),
+		g.Head().Type().TypeRet(),
+		g.Head().Type().TypeArgs(),
 	)
 }
-func (g AccVal) String() string { return g.Current().String() }
+func (g AccVal) String() string { return g.Head().String() }
 
-func (a AccVal) End() bool {
-	if a.Current().Type().Match(None) {
+func (a AccVal) Empty() bool {
+	if a.Head().Type().Match(None) {
 		return true
 	}
 	return false
 }
-func (g AccVal) Current() Expression                  { return g.Result() }
-func (g AccVal) TypeElem() TyComp                     { return g.Current().Type() }
-func (g AccVal) Next() Continuation                   { return g.Accumulator() }
+func (g AccVal) Head() Expression                     { return g.Result() }
+func (g AccVal) TypeElem() TyComp                     { return g.Head().Type() }
+func (g AccVal) Tail() Continuation                   { return g.Accumulator() }
 func (g AccVal) Continue() (Expression, Continuation) { return g() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// CONTINUATION COMPOSITION
 ///
 //
+func Map(
+	con Continuation,
+	mapf func(...Expression) Expression,
+) Continuation {
+	if con.Empty() {
+		return Map(con, mapf)
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			con = con.Call(args...).(Continuation)
+		}
+		var head, tail = con.Continue()
+		return mapf(head), Map(tail, mapf).(SeqVal)
+	})
+}
+
+func Apply(
+	con Continuation,
+	apply func(...Expression) Expression,
+) Continuation {
+	if con.Empty() {
+		return Apply(con, apply)
+	}
+	var head, tail = con.Continue()
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			return apply(append(args, head)...),
+				Apply(tail, apply).(SeqVal)
+		}
+		return apply(head), Apply(tail, apply).(SeqVal)
+	})
+}
 
 //func (s SeqVal) Map(mapf Expression) Sequential {
 //	return SeqVal(func(args ...Expression) (Expression, SeqVal) {

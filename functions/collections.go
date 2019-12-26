@@ -37,30 +37,38 @@ func NewVector(elems ...Expression) VecVal {
 	}
 }
 
-func (v VecVal) Continue() (Expression, Continuation) { return v.Current(), v.Next() }
-func (v VecVal) Current() Expression {
+func (v VecVal) Continue() (Expression, Continuation) { return v.Head(), v.Tail() }
+func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[v.Len()-1]
 	}
 	return NewNone()
 }
-func (v VecVal) Next() Continuation {
+func (v VecVal) Tail() Continuation {
 	if v.Len() > 1 {
 		return NewVector(v()[:v.Len()-1]...)
 	}
 	return NewVector()
 }
-func (v VecVal) Len() int                                 { return len(v()) }
-func (v VecVal) Null() VecVal                             { return NewVector() }
-func (v VecVal) Type() TyComp                             { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc                           { return Vector }
-func (v VecVal) TypeElem() TyComp                         { return v.Current().Type() }
-func (v VecVal) ConsVec(args ...Expression) VecVal        { return NewVector(v(args...)...) }
-func (v VecVal) Cons(appendix ...Expression) Sequential   { return v.ConsVec(appendix...) }
-func (v VecVal) Call(appendix ...Expression) Expression   { return v.ConsVec(appendix...) }
+func (v VecVal) Len() int                               { return len(v()) }
+func (v VecVal) Null() VecVal                           { return NewVector() }
+func (v VecVal) Type() TyComp                           { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc                         { return Vector }
+func (v VecVal) TypeElem() TyComp                       { return v.Head().Type() }
+func (v VecVal) ConsVec(args ...Expression) VecVal      { return NewVector(v(args...)...) }
+func (v VecVal) Cons(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
+func (v VecVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return v.Cons(args...)
+	}
+	if v.Tail().Empty() {
+		return v.Head()
+	}
+	return v
+}
 func (v VecVal) Append(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
 func (v VecVal) AppendVec(appendix VecVal) VecVal         { return v.Append(appendix()...).(VecVal) }
-func (v VecVal) Pull() (Expression, Sequential)           { return v.Current(), v.Next().(Sequential) }
+func (v VecVal) Pull() (Expression, Sequential)           { return v.Head(), v.Tail().(Sequential) }
 func (v VecVal) Push(suffix ...Expression) Sequential     { return NewVector(append(suffix, v()...)...) }
 func (v VecVal) Pop() (Expression, Sequential) {
 	if v.Len() == 0 {
@@ -95,7 +103,7 @@ func (v VecVal) Get(i int) (Expression, bool) {
 func (v VecVal) Reverse() VecVal {
 	return NewVector(reverse(v())...)
 }
-func (v VecVal) End() bool {
+func (v VecVal) Empty() bool {
 	if v.Len() == 0 {
 		return true
 	}
@@ -257,15 +265,15 @@ func NewSequence(elems ...Expression) SeqVal {
 	}
 }
 func (s SeqVal) Continue() (Expression, Continuation) { return s() }
-func (s SeqVal) Current() Expression {
+func (s SeqVal) Head() Expression {
 	var cur, _ = s()
 	return cur
 }
-func (s SeqVal) Next() Continuation {
+func (s SeqVal) Tail() Continuation {
 	var _, tail = s()
 	return tail
 }
-func (s SeqVal) End() bool {
+func (s SeqVal) Empty() bool {
 	if head, tail := s(); tail == nil && head.Type().Match(None) {
 		return true
 	}
@@ -303,7 +311,7 @@ func (s SeqVal) Cons(suffix ...Expression) Sequential {
 func (s SeqVal) ConsSeq(suffix SeqVal) SeqVal {
 	var head, tail = suffix()
 	// if tail is empty‥.
-	if tail.End() {
+	if tail.Empty() {
 		// if head is none, return original s
 		if head.Type().Match(None) {
 			return s
@@ -343,7 +351,7 @@ func (s SeqVal) Append(appendix ...Expression) Sequential {
 	var head, tail = s()
 
 	// if tail is empty
-	if tail.End() {
+	if tail.Empty() {
 		// if head matches none‥.
 		if head.Type().Match(None) {
 			// ‥.assign first element of appendix as head‥.
@@ -388,7 +396,7 @@ func (s SeqVal) Append(appendix ...Expression) Sequential {
 }
 func (s SeqVal) AppendSeq(appendix SeqVal) SeqVal {
 	var head, tail = s()
-	if tail.End() {
+	if tail.Empty() {
 		if head.Type().Match(None) {
 			return appendix
 		}
@@ -416,7 +424,7 @@ func (s SeqVal) Pull() (Expression, Sequential) {
 		acc        = []Expression{}
 		head, tail = s()
 	)
-	for !tail.End() {
+	for !tail.Empty() {
 		acc = append(acc, head)
 		head, tail = tail()
 	}
@@ -424,21 +432,24 @@ func (s SeqVal) Pull() (Expression, Sequential) {
 }
 
 func (s SeqVal) Null() SeqVal     { return NewSequence() }
-func (s SeqVal) TypeElem() TyComp { return s.Current().Type() }
+func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
 func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
 func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
 func (s SeqVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return NewPair(s.Cons(args...).Continue())
+		return s.Cons(args...)
 	}
-	return NewPair(s.Continue())
+	if s.Tail().Empty() {
+		return s.Head()
+	}
+	return s
 }
 func (s SeqVal) Slice() []Expression {
 	var (
 		slice      []Expression
 		head, tail = s()
 	)
-	for !head.Type().Match(None) && !tail.End() {
+	for !head.Type().Match(None) && !tail.Empty() {
 		slice = append(slice, head)
 		head, tail = tail()
 	}
@@ -451,7 +462,7 @@ func (s SeqVal) String() string {
 		hstr, tstr string
 		head, tail = s()
 	)
-	for !tail.End() {
+	for !tail.Empty() {
 		hstr = hstr + "( " + head.String() + " "
 		tstr = tstr + ")"
 		head, tail = tail()

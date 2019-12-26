@@ -13,7 +13,7 @@ type (
 	Lambda  func(...Expression) Expression
 
 	//// DECLARED EXPRESSION
-	FuncDef func(...Expression) Expression
+	FuncDecl func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
 	TupCon func(...Expression) TupVal
@@ -22,10 +22,6 @@ type (
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
 	RecCon func(...Expression) RecVal
 	RecVal []KeyPair
-
-	//// ENUMERABLE
-	EnumDef func(d.Numeral) EnumVal
-	EnumVal func(...Expression) (Expression, d.Numeral, EnumDef)
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -35,8 +31,8 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Current() Expression                  { return n }
-func (n NoneVal) Next() Continuation                   { return n }
+func (n NoneVal) Head() Expression                     { return n }
+func (n NoneVal) Tail() Continuation                   { return n }
 func (n NoneVal) Cons(...Expression) Sequential        { return n }
 func (n NoneVal) Concat(...Expression) Sequential      { return n }
 func (n NoneVal) Prepend(...Expression) Sequential     { return n }
@@ -51,7 +47,7 @@ func (n NoneVal) Left() Expression                     { return nil }
 func (n NoneVal) Right() Expression                    { return nil }
 func (n NoneVal) Both() Expression                     { return nil }
 func (n NoneVal) Value() Expression                    { return nil }
-func (n NoneVal) End() bool                            { return true }
+func (n NoneVal) Empty() bool                          { return true }
 func (n NoneVal) Test(...Expression) bool              { return false }
 func (n NoneVal) TypeFnc() TyFnc                       { return None }
 func (n NoneVal) TypeNat() d.TyNat                     { return d.Nil }
@@ -130,7 +126,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) FuncDef {
+) FuncDecl {
 	var (
 		ct     = createFuncType(expr, types...)
 		arglen = ct.TypeArgs().Len()
@@ -201,14 +197,14 @@ func Define(
 		return ct
 	}
 }
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncDecl) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncDecl) Type() TyComp                       { return e().(TyComp) }
+func (e FuncDecl) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncDecl) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncDecl) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncDecl) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e FuncDecl) String() string                     { return e().String() }
+func (e FuncDecl) Call(args ...Expression) Expression { return e(args...) }
 
 //// TUPLE TYPE
 ///
@@ -354,89 +350,4 @@ func (t RecVal) String() string {
 			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
 	}
 	return "{" + strings.Join(strs, " ") + "}"
-}
-
-//// ENUM TYPE
-///
-// declares an enumerable type returning instances from the set of enumerables
-// defined by the passed function
-func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
-	return func(idx d.Numeral) EnumVal {
-		return func(args ...Expression) (Expression, d.Numeral, EnumDef) {
-			if len(args) > 0 {
-				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
-			}
-			return fnc(idx), idx, NewEnumType(fnc)
-		}
-	}
-}
-func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
-func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
-func (e EnumDef) Type() TyComp {
-	return Def(Enum, e.Expr().Type().TypeRet())
-}
-func (e EnumDef) TypeFnc() TyFnc { return Enum }
-func (e EnumDef) String() string { return e.Type().TypeName() }
-func (e EnumDef) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		if len(args) > 1 {
-			var vec = NewVector()
-			for _, arg := range args {
-				vec = vec.Cons(e.Call(arg)).(VecVal)
-			}
-			return vec
-		}
-		var arg = args[0]
-		if arg.Type().Match(Data) {
-			if nat, ok := arg.(NatEval); ok {
-				if i, ok := nat.Eval().(d.Numeral); ok {
-					return e(i)
-				}
-			}
-		}
-	}
-	return e
-}
-
-//// ENUM VALUE
-///
-//
-func (e EnumVal) Expr() Expression {
-	var expr, _, _ = e()
-	return expr
-}
-func (e EnumVal) Index() d.Numeral {
-	var _, idx, _ = e()
-	return idx
-}
-func (e EnumVal) EnumType() EnumDef {
-	var _, _, et = e()
-	return et
-}
-func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
-func (e EnumVal) Next() EnumVal {
-	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
-	return result
-}
-func (e EnumVal) Previous() EnumVal {
-	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
-	return result
-}
-func (e EnumVal) String() string { return e.Expr().String() }
-func (e EnumVal) Type() TyComp {
-	var (
-		nat d.Native
-		idx = e.Index()
-	)
-	if idx.Type().Match(d.BigInt) {
-		nat = idx.BigInt()
-	} else {
-		nat = idx.Int()
-	}
-	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
-}
-func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
-func (e EnumVal) Call(args ...Expression) Expression {
-	var r, _, _ = e(args...)
-	return r
 }
