@@ -123,6 +123,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 		expr.Type().TypeArgs())
 
 }
+
 func Define(
 	expr Expression,
 	types ...d.Typed,
@@ -147,7 +148,7 @@ func Define(
 					var (
 						remains = ct.TypeArgs().Types()[length:]
 						newpat  = Def(
-							ct.TypeId(),
+							Def(Partial, ct.TypeId()),
 							ct.TypeRet(),
 							Def(remains...))
 					)

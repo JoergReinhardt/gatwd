@@ -40,13 +40,16 @@ func NewVector(elems ...Expression) VecVal {
 func (v VecVal) Continue() (Expression, Continuation) { return v.Head(), v.Tail() }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
-		return v()[v.Len()-1]
+		return v()[0]
 	}
 	return NewNone()
 }
 func (v VecVal) Tail() Continuation {
+	if v.Len() <= 1 {
+		return NewVector()
+	}
 	if v.Len() > 1 {
-		return NewVector(v()[:v.Len()-1]...)
+		return NewVector(v()[1:]...)
 	}
 	return NewVector()
 }
@@ -68,16 +71,16 @@ func (v VecVal) Call(args ...Expression) Expression {
 }
 func (v VecVal) Append(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
 func (v VecVal) AppendVec(appendix VecVal) VecVal         { return v.Append(appendix()...).(VecVal) }
-func (v VecVal) Pull() (Expression, Sequential)           { return v.Head(), v.Tail().(Sequential) }
 func (v VecVal) Push(suffix ...Expression) Sequential     { return NewVector(append(suffix, v()...)...) }
+func (v VecVal) Pull() (Expression, Sequential)           { return v.Head(), v.Tail().(Sequential) }
 func (v VecVal) Pop() (Expression, Sequential) {
 	if v.Len() == 0 {
 		return NewNone(), NewVector()
 	}
 	if v.Len() == 1 {
-		return v()[0], NewVector()
+		return v()[v.Len()-1], NewVector()
 	}
-	return v()[0], NewVector(v()[1:]...)
+	return v()[v.Len()-1], NewVector(v()[:1]...)
 }
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) First() Expression {
@@ -110,6 +113,9 @@ func (v VecVal) Empty() bool {
 	return false
 }
 func (v VecVal) String() string {
+	if v.Empty() {
+		return "[]"
+	}
 	var strs = []string{}
 	for _, str := range v() {
 		strs = append(strs, str.String())
@@ -271,6 +277,9 @@ func (s SeqVal) Head() Expression {
 }
 func (s SeqVal) Tail() Continuation {
 	var _, tail = s()
+	if tail == nil {
+		return NewSequence()
+	}
 	return tail
 }
 func (s SeqVal) Empty() bool {
@@ -458,16 +467,19 @@ func (s SeqVal) Slice() []Expression {
 func (s SeqVal) Vector() VecVal { return NewVector(s.Slice()...) }
 
 func (s SeqVal) String() string {
+	if s.Empty() {
+		return "()"
+	}
 	var (
 		hstr, tstr string
 		head, tail = s()
 	)
 	for !tail.Empty() {
-		hstr = hstr + "( " + head.String() + " "
+		hstr = hstr + "(" + head.String() + " "
 		tstr = tstr + ")"
 		head, tail = tail()
 	}
-	hstr = hstr + "( " + head.String() + " "
+	hstr = hstr + "(" + head.String()
 	tstr = tstr + ")"
 	return hstr + tstr
 }

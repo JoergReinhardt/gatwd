@@ -53,7 +53,7 @@ func TestExpression(t *testing.T) {
 		partial.Type().TypeArgs(),
 		partial.Type().TypeId(),
 		partial.Type().TypeRet())
-	if !partial.Type().TypeId().Match(DefSym("AddInts")) {
+	if !partial.Type().TypeId().Match(Def(Partial, DefSym("AddInts"))) {
 		t.Fail()
 	}
 
@@ -92,12 +92,19 @@ func TestExpression(t *testing.T) {
 		result3.Type().TypeRet(),
 		result3.Type().TypeArgs(),
 	)
+
 	fmt.Printf("result3: %s\n", result3)
 	fmt.Printf("result3 element 0 type: %s\n", result3.(VecVal)()[0].Type())
 	if vec, ok := result3.(VecVal); ok {
 		if !vec()[0].Type().Match(Data) {
 			t.Fail()
 		}
+	}
+
+	complete = result3.(VecVal)()[1].Call(Dat(42))
+	fmt.Printf("completed result3[1] partial: %s\n", complete)
+	if complete.(DatAtom).Eval().(d.Numeral).Int() != 65 {
+		t.Fail()
 	}
 
 	var result4 = addInts.Call(

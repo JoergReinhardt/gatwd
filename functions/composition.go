@@ -122,7 +122,7 @@ func (g AccVal) Continue() (Expression, Continuation) { return g() }
 ///////////////////////////////////////////////////////////////////////////////
 //// CONTINUATION COMPOSITION
 ///
-//
+// map returns a continuation calling the map function for every element
 func Map(
 	con Continuation,
 	mapf func(Expression) Expression,
@@ -139,6 +139,9 @@ func Map(
 	})
 }
 
+// apply returns a continuation called on every element of the continuation.
+// when continuation is called pssing arguments those, are passed to apply
+// alongside the current element
 func Apply(
 	con Continuation,
 	apply func(Expression, ...Expression) Expression,
@@ -156,6 +159,10 @@ func Apply(
 	})
 }
 
+// fold takes a continuation, an initial expression and a fold function. the
+// fold function is called for every element of the continuation and passed the
+// current element and init expression and returns a possbly altered init
+// element to pass to next call
 func Fold(
 	con Continuation,
 	init Expression,
@@ -180,6 +187,7 @@ func Fold(
 	})
 }
 
+// continuation of elements not matched by test
 func Filter(
 	con Continuation,
 	filter Testable,
@@ -191,7 +199,7 @@ func Filter(
 		init = NewSequence()
 		fold = func(init, head Expression) Expression {
 			if filter.Test(head) {
-				return init
+				return NewNone()
 			}
 			return init.(SeqVal).Cons(head)
 		}
@@ -199,6 +207,7 @@ func Filter(
 	return Fold(con, init, fold)
 }
 
+// continuation of elements matched by test
 func Pass(
 	con Continuation,
 	pass Testable,
@@ -212,19 +221,21 @@ func Pass(
 			if pass.Test(head) {
 				return init.(SeqVal).Cons(head)
 			}
-			return init
+			return NewNone()
 		}
 	)
 	return Fold(con, init, fold)
 }
 
+// take-n is a variation of fold that takes an initial continuation cuts and
+// returns it as continuation of vector instances of length n
 func TakeN(con Continuation, n int) SeqVal {
 	if con.Empty() {
 		return TakeN(con, n)
 	}
 	var (
 		init = NewPair(NewVector(), NewVector())
-		fold = func(init, head Expression) Expression {
+		take = func(init, head Expression) Expression {
 			var (
 				pair = init.(Paired)
 				vec  = pair.Left().(VecVal)
@@ -241,9 +252,25 @@ func TakeN(con Continuation, n int) SeqVal {
 			)
 		}
 	)
-	return Fold(con, init, fold)
+	// takeN returns a pair with the current accumulator as left and the
+	// continuation of completed accumulations as right element for each
+	// element of the initial continuation. to only return complete tokens
+	// as left elements, initial output needs to be filtered by testing for
+	// correct length of the left element
+	return Filter( // filter out incomplete tokens
+		Fold(con, init, take), // returns possibly incomplete element per call
+		NewTest(func(arg Expression) bool { // tests if current element is complete
+			var vec = arg.(Paired).Left().(VecVal)
+			if vec.Len() < n {
+				return true
+			}
+			return false
+		}))
 }
 
+// split is a variation of fold that splits either a continuation of pairs, or
+// takes two arguments at a time and splits those into continuation of left and
+// right values and returns those as elements of a pair
 func Split(con Continuation) SeqVal {
 	var (
 		init  = NewPair(NewVector(), NewVector())
@@ -260,250 +287,47 @@ func Split(con Continuation) SeqVal {
 			)
 		}
 	)
+	// split function expects a list of pairs‥.
 	if con.TypeElem().Match(Pair) {
 		return Fold(con, init, split)
 	}
-	con = Map(
-		TakeN(con, 2),
-		func(arg Expression) Expression {
-			var slice = arg.(VecVal)()
-			return NewPair(slice[0], slice[1])
-		},
-	)
-	return Fold(con, init, split)
+	// ‥.which is created by mapping take2 to a function that converts the
+	// resulting slices of length two into pairs
+	return Fold(
+		Map(TakeN(con, 2), func(arg Expression) Expression {
+			var vec = arg.(VecVal)()
+			return NewPair(vec[0], vec[1])
+		}), init, split)
 }
 
+// bind creates a list of results from calling the bind function and passing
+// the head elements of both lists.
 func Bind(
-	m, n Continuation,
+	left, right Continuation,
 	bind func(f, g Expression) Expression,
 ) SeqVal {
-	if m.Empty() || n.Empty() {
-		return Bind(m, n, bind)
+	if left.Empty() || right.Empty() {
+		return Bind(left, right, bind)
 	}
 	var (
-		mh, mt = m.Continue()
-		nh, nt = n.Continue()
-		head   = bind(nh, mh)
-		bound  = Bind(mt, nt, bind)
+		lhead, ltail = left.Continue()
+		rhead, rtail = right.Continue()
+		current      = bind(rhead, lhead)
+		next         = Bind(ltail, rtail, bind)
 	)
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			return head.Call(args...), bound
+			return current.Call(args...), next
 		}
-		return head, bound
+		return current, next
 	})
 }
 
+// zip is a variation of bind, that creates a list of pairs with left and right
+// element taken from the respective lists.
 func Zip(
 	left, right Continuation,
 	zip func(l, r Expression) Expression,
 ) SeqVal {
 	return Bind(left, right, zip)
 }
-
-//func (s SeqVal) Map(mapf Expression) Sequential {
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		var (
-//			head, tail = s()
-//			lst        Expression
-//		)
-//		if len(args) > 0 {
-//			lst = args[len(args)-1]
-//			// cross product, if last argument is a functor
-//			if lst.Type().Match(Functors) {
-//				if arg, ok := lst.(Functorial); ok {
-//					if len(args) > 1 {
-//						return s.MapX(head.Call(args...),
-//							mapf, arg), tail.Map(mapf).(SeqVal)
-//					}
-//					return s.MapX(head, mapf, arg), tail.Map(mapf).(SeqVal)
-//				}
-//			}
-//			// dot product, since last argument is not a functor
-//			return mapf.Call(head.Call(args...)), tail.Map(mapf).(SeqVal)
-//		}
-//		// no arguments given
-//		return mapf.Call(head), tail.Map(mapf).(SeqVal)
-//	})
-//}
-//
-//func (s SeqVal) MapX(head, mapf Expression, arg Continuation) Sequential {
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		// check if current head of parent list is none
-//		// yield step & next continuation from argument
-//		var step, next = arg.Continue()
-//		if len(args) > 0 { // if args have been passed
-//			// call mapf with current parent lists head &
-//			// arguments passed during call to get step.
-//			// s-map tail of sequential argument
-//			return mapf.Call(head, step.Call(args...)),
-//				s.MapX(head, mapf, next).(SeqVal)
-//		}
-//		return mapf.Call(head, step), NewSequence()
-//	})
-//}
-
-//func (s SeqVal) Flatten() SeqVal {
-//	var head, tail = s()
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		if head.Type().Match(Sequences) {
-//			if seq, ok := head.(Sequential); ok {
-//				seq = NewSeqCont(seq).Flatten().ConcatVal(tail.Flatten())
-//				return seq.Current(), NewSeqCont(seq.Next())
-//			}
-//		}
-//		return head, tail
-//	})
-//}
-//
-//func (s SeqVal) Fold(
-//	acc Expression,
-//	fold func(acc, head Expression) Expression,
-//) SeqVal {
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		var (
-//			result     Expression
-//			head, tail = s()
-//		)
-//		if head.TypeFnc().Match(None) {
-//			return acc, tail
-//		}
-//		result = fold(acc, head)
-//		if len(args) > 0 {
-//			return result.Call(args...), tail.Fold(result, fold)
-//		}
-//		return result, tail.Fold(result, fold)
-//	})
-//}
-//
-//func (s SeqVal) Filter(test Testable) Sequential {
-//	var (
-//		seq        = NewSequence()
-//		head, tail = s()
-//	)
-//	if head.TypeFnc().Match(None) {
-//		return NewSequence()
-//	}
-//	if !test.Test(head) {
-//		return seq.Concat(head).(SeqVal).ConcatVal(tail.Filter(test).(SeqVal))
-//	}
-//	return seq.ConcatVal(tail.Filter(test).(SeqVal))
-//}
-//
-//func (s SeqVal) Pass(test Testable) Sequential {
-//	var (
-//		seq        = NewSequence()
-//		head, tail = s()
-//	)
-//	if head.TypeFnc().Match(None) {
-//		return NewSequence()
-//	}
-//	if test.Test(head) {
-//		return seq.Cons(head).Cons(tail.Filter(test))
-//	}
-//	return seq.Concat(tail.Filter(test))
-//}
-//
-//// application of boxed arguments to boxed functions
-//func (s SeqVal) Apply(
-//	apply func(
-//		seq Sequential,
-//		args ...Expression,
-//	) (
-//		Expression,
-//		Continuation,
-//	)) Sequential {
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		if len(args) > 0 {
-//			var result, seq = apply(s, args...)
-//			return result, NewSeqCont(seq)
-//		}
-//		var result, seq = apply(s)
-//		return result, NewSeqCont(seq)
-//	})
-//}
-//
-//// sequential composition of function application
-//func (s SeqVal) Bind(bind Expression, cont Continuation) Sequential {
-//	var step, next = s()
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		if len(args) > 0 {
-//			return step.Call(cont.Current().Call(args...)),
-//				next.Bind(bind, cont.Next()).(SeqVal)
-//		}
-//		return step.Call(cont.Current()),
-//			next.Bind(bind, cont.Next()).(SeqVal)
-//	})
-//}
-//
-//func (s SeqVal) ZipWith(
-//	zipf func(l, r Continuation) Sequential,
-//	cont Continuation,
-//) SeqVal {
-//	var (
-//		leftStep, left   = s()
-//		rightStep, right = cont.Continue()
-//	)
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		if leftStep.Type().Match(None) || rightStep.Type().Match(None) {
-//			return NewNone(), NewSequence()
-//		}
-//		if len(args) > 0 {
-//			return NewPair(leftStep, rightStep).Call(args...),
-//				left.ZipWith(zipf, right)
-//		}
-//		return NewPair(leftStep, rightStep),
-//			left.ZipWith(zipf, right)
-//	})
-//}
-//
-//func (s SeqVal) Split() (Sequential, Sequential) {
-//	var (
-//		head, tail  = s.Continue()
-//		left, right = tail.(Zipped).Split()
-//	)
-//	if head.Type().Match(Pair) { // list of pairs gets zipped into keys & values
-//		if pair, ok := head.(Paired); ok {
-//			return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//					if len(args) > 0 {
-//						return pair.Left().Call(args...), left.(SeqVal)
-//					}
-//					return pair.Left(), left.(SeqVal)
-//				}),
-//				SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//					if len(args) > 0 {
-//						return pair.Right().Call(args...), right.(SeqVal)
-//					}
-//					return pair.Right(), right.(SeqVal)
-//				})
-//		}
-//	}
-//	if !head.Type().Match(None) { // flat lists are split two elements at a step
-//		var resl, resr Sequential
-//		if !head.Type().Match(None) {
-//			resl = SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//				if len(args) > 0 {
-//					return head.Call(args...), left.(SeqVal)
-//				}
-//				return head, left.(SeqVal)
-//			})
-//		} else {
-//			resl = NewSequence()
-//		}
-//		head, tail = tail.Continue()
-//		if !head.Type().Match(None) {
-//			resr = SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//				if len(args) > 0 {
-//					return head.Call(args...), right.(SeqVal)
-//				}
-//				return head, right.(SeqVal)
-//			})
-//		} else {
-//			resr = NewSequence()
-//		}
-//		return resl, resr
-//	}
-//	// head is a none value
-//	return NewSequence(), NewSequence()
-//}
-//

@@ -49,6 +49,7 @@ const (
 	/// EXPRESSION TYPES
 	Data
 	Value
+	Partial
 	Constant
 	Generator
 	Accumulator
@@ -85,8 +86,8 @@ const (
 	Real
 	Ratio
 	Letter
-	Text
-	Bytes
+	String
+	Byte
 	/// PRODUCT
 	Vector
 	List
@@ -124,7 +125,7 @@ const (
 	Continues = Sequences | Pair
 
 	Number = Natural | Integer | Real | Ratio
-	String = Letter | Text
+	Text   = Letter | String
 
 	ALL TyFnc = 0xFFFFFFFFFFFFFFFF
 )
@@ -839,9 +840,9 @@ func (p TyComp) IsString() bool {
 	}
 	return false
 }
-func (p TyComp) IsBytes() bool {
+func (p TyComp) IsByte() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Bytes)
+		return p.Elements()[0].Match(Byte)
 	}
 	return false
 }
@@ -902,7 +903,7 @@ func (p TyComp) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
 func (p TyComp) HasAlternative() bool { return p.MatchAnyType(Option) }
 func (p TyComp) HasNumber() bool      { return p.MatchAnyType(Number) }
 func (p TyComp) HasString() bool      { return p.MatchAnyType(String) }
-func (p TyComp) HasBytes() bool       { return p.MatchAnyType(Bytes) }
+func (p TyComp) HasByte() bool        { return p.MatchAnyType(Byte) }
 func (p TyComp) HasCollection() bool {
 	return p.MatchAnyType(
 		List, Vector, Tuple, Enum, Record)
