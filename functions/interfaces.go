@@ -96,6 +96,10 @@ type Expression interface {
 // same values in a loop, thereby implementing a functional trampolin to
 // flatten recursive calls.
 // execution is performed lazily and infinite lists can be handled.
+//
+// CAVEAT: a continuations call method has to return a continuation, when
+// called without arguments, in order to satisfy map, apply, fold, bind
+// constraints
 type Continuation interface {
 	Expression
 	Empty() bool

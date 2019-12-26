@@ -198,7 +198,7 @@ func TestSequence(t *testing.T) {
 	seq = NewSequence(listA()...)
 	var head, tail = seq()
 	fmt.Printf("head: %s tail: %s\n", head, tail)
-	for !tail.End() {
+	for !tail.Empty() {
 		head, tail = tail()
 		fmt.Printf("head iteration: %s\n", head)
 	}
@@ -275,7 +275,7 @@ func TestSequence(t *testing.T) {
 //	fmt.Printf("accumulator: %s\n", acc)
 //	fmt.Printf("folded: %s\n", folded)
 //	var head, tail = folded.Continue()
-//	for !tail.End() {
+//	for !tail.Empty() {
 //		fmt.Printf("folded head: %s\n", head)
 //		head, tail = tail.Continue()
 //	}

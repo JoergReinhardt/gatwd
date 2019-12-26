@@ -125,8 +125,8 @@ func (g AccVal) Continue() (Expression, Continuation) { return g() }
 //
 func Map(
 	con Continuation,
-	mapf func(...Expression) Expression,
-) Continuation {
+	mapf func(Expression) Expression,
+) SeqVal {
 	if con.Empty() {
 		return Map(con, mapf)
 	}
@@ -135,25 +135,170 @@ func Map(
 			con = con.Call(args...).(Continuation)
 		}
 		var head, tail = con.Continue()
-		return mapf(head), Map(tail, mapf).(SeqVal)
+		return mapf(head), Map(tail, mapf)
 	})
 }
 
 func Apply(
 	con Continuation,
-	apply func(...Expression) Expression,
-) Continuation {
+	apply func(Expression, ...Expression) Expression,
+) SeqVal {
 	if con.Empty() {
 		return Apply(con, apply)
 	}
 	var head, tail = con.Continue()
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			return apply(append(args, head)...),
-				Apply(tail, apply).(SeqVal)
+			return apply(head, args...),
+				Apply(tail, apply)
 		}
-		return apply(head), Apply(tail, apply).(SeqVal)
+		return apply(head), Apply(tail, apply)
 	})
+}
+
+func Fold(
+	con Continuation,
+	init Expression,
+	fold func(init, head Expression) Expression,
+) SeqVal {
+	if con.Empty() {
+		return Fold(con, init, fold)
+	}
+	var head, tail = con.Continue()
+	if head.Type().Match(None) {
+		if !tail.Empty() {
+			return Fold(tail, init, fold)
+		}
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		init = fold(init, head)
+		if len(args) > 0 {
+			init = fold(init, head).Call(args...)
+			return init, Fold(tail, init, fold)
+		}
+		return init, Fold(tail, init, fold)
+	})
+}
+
+func Filter(
+	con Continuation,
+	filter Testable,
+) SeqVal {
+	if con.Empty() {
+		return Filter(con, filter)
+	}
+	var (
+		init = NewSequence()
+		fold = func(init, head Expression) Expression {
+			if filter.Test(head) {
+				return init
+			}
+			return init.(SeqVal).Cons(head)
+		}
+	)
+	return Fold(con, init, fold)
+}
+
+func Pass(
+	con Continuation,
+	pass Testable,
+) SeqVal {
+	if con.Empty() {
+		return Pass(con, pass)
+	}
+	var (
+		init = NewSequence()
+		fold = func(init, head Expression) Expression {
+			if pass.Test(head) {
+				return init.(SeqVal).Cons(head)
+			}
+			return init
+		}
+	)
+	return Fold(con, init, fold)
+}
+
+func TakeN(con Continuation, n int) SeqVal {
+	if con.Empty() {
+		return TakeN(con, n)
+	}
+	var (
+		init = NewPair(NewVector(), NewVector())
+		fold = func(init, head Expression) Expression {
+			var (
+				pair = init.(Paired)
+				vec  = pair.Left().(VecVal)
+			)
+			if vec.Len() < n {
+				return NewPair(
+					vec.Cons(head),
+					pair.Right(),
+				)
+			}
+			return NewPair(
+				NewVector(head),
+				pair.Right().(VecVal).Cons(pair.Left()),
+			)
+		}
+	)
+	return Fold(con, init, fold)
+}
+
+func Split(con Continuation) SeqVal {
+	var (
+		init  = NewPair(NewVector(), NewVector())
+		split = func(init, head Expression) Expression {
+			var (
+				pair = head.(Paired)
+				pl   = init.(Paired)
+				vl   = pl.Left().(VecVal)
+				vr   = pl.Right().(VecVal)
+			)
+			return NewPair(
+				vl.Cons(pair.Left()),
+				vr.Cons(pair.Right()),
+			)
+		}
+	)
+	if con.TypeElem().Match(Pair) {
+		return Fold(con, init, split)
+	}
+	con = Map(
+		TakeN(con, 2),
+		func(arg Expression) Expression {
+			var slice = arg.(VecVal)()
+			return NewPair(slice[0], slice[1])
+		},
+	)
+	return Fold(con, init, split)
+}
+
+func Bind(
+	m, n Continuation,
+	bind func(f, g Expression) Expression,
+) SeqVal {
+	if m.Empty() || n.Empty() {
+		return Bind(m, n, bind)
+	}
+	var (
+		mh, mt = m.Continue()
+		nh, nt = n.Continue()
+		head   = bind(nh, mh)
+		bound  = Bind(mt, nt, bind)
+	)
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			return head.Call(args...), bound
+		}
+		return head, bound
+	})
+}
+
+func Zip(
+	left, right Continuation,
+	zip func(l, r Expression) Expression,
+) SeqVal {
+	return Bind(left, right, zip)
 }
 
 //func (s SeqVal) Map(mapf Expression) Sequential {
