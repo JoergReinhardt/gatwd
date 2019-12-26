@@ -211,3 +211,211 @@ func (e EnumVal) Call(args ...Expression) Expression {
 	var r, _, _ = e(args...)
 	return r
 }
+
+///////////////////////////////////////////////////////////////////////////////
+func (s SeqVal) Map(mapf Expression) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var (
+			head, tail = s()
+			lst        Expression
+		)
+		if len(args) > 0 {
+			lst = args[len(args)-1]
+			// cross product, if last argument is a functor
+			if lst.Type().Match(Functors) {
+				if arg, ok := lst.(Functorial); ok {
+					if len(args) > 1 {
+						return s.MapX(head.Call(args...),
+							mapf, arg), tail.Map(mapf).(SeqVal)
+					}
+					return s.MapX(head, mapf, arg), tail.Map(mapf).(SeqVal)
+				}
+			}
+			// dot product, since last argument is not a functor
+			return mapf.Call(head.Call(args...)), tail.Map(mapf).(SeqVal)
+		}
+		// no arguments given
+		return mapf.Call(head), tail.Map(mapf).(SeqVal)
+	})
+}
+
+func (s SeqVal) MapX(head, mapf Expression, arg Continuation) Sequential {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		// check if current head of parent list is none
+		// yield step & next continuation from argument
+		var step, next = arg.Continue()
+		if len(args) > 0 { // if args have been passed
+			// call mapf with current parent lists head &
+			// arguments passed during call to get step.
+			// s-map tail of sequential argument
+			return mapf.Call(head, step.Call(args...)),
+				s.MapX(head, mapf, next).(SeqVal)
+		}
+		return mapf.Call(head, step), NewSequence()
+	})
+}
+
+//func (s SeqVal) Flatten() SeqVal {
+//	var head, tail = s()
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		if head.Type().Match(Sequences) {
+//			if seq, ok := head.(Sequential); ok {
+//				seq = NewSeqCont(seq).Flatten().ConcatVal(tail.Flatten())
+//				return seq.Current(), NewSeqCont(seq.Next())
+//			}
+//		}
+//		return head, tail
+//	})
+//}
+//
+//func (s SeqVal) Fold(
+//	acc Expression,
+//	fold func(acc, head Expression) Expression,
+//) SeqVal {
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		var (
+//			result     Expression
+//			head, tail = s()
+//		)
+//		if head.TypeFnc().Match(None) {
+//			return acc, tail
+//		}
+//		result = fold(acc, head)
+//		if len(args) > 0 {
+//			return result.Call(args...), tail.Fold(result, fold)
+//		}
+//		return result, tail.Fold(result, fold)
+//	})
+//}
+//
+//func (s SeqVal) Filter(test Testable) Sequential {
+//	var (
+//		seq        = NewSequence()
+//		head, tail = s()
+//	)
+//	if head.TypeFnc().Match(None) {
+//		return NewSequence()
+//	}
+//	if !test.Test(head) {
+//		return seq.Concat(head).(SeqVal).ConcatVal(tail.Filter(test).(SeqVal))
+//	}
+//	return seq.ConcatVal(tail.Filter(test).(SeqVal))
+//}
+//
+//func (s SeqVal) Pass(test Testable) Sequential {
+//	var (
+//		seq        = NewSequence()
+//		head, tail = s()
+//	)
+//	if head.TypeFnc().Match(None) {
+//		return NewSequence()
+//	}
+//	if test.Test(head) {
+//		return seq.Cons(head).Cons(tail.Filter(test))
+//	}
+//	return seq.Concat(tail.Filter(test))
+//}
+//
+//// application of boxed arguments to boxed functions
+//func (s SeqVal) Apply(
+//	apply func(
+//		seq Sequential,
+//		args ...Expression,
+//	) (
+//		Expression,
+//		Continuation,
+//	)) Sequential {
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		if len(args) > 0 {
+//			var result, seq = apply(s, args...)
+//			return result, NewSeqCont(seq)
+//		}
+//		var result, seq = apply(s)
+//		return result, NewSeqCont(seq)
+//	})
+//}
+//
+//// sequential composition of function application
+//func (s SeqVal) Bind(bind Expression, cont Continuation) Sequential {
+//	var step, next = s()
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		if len(args) > 0 {
+//			return step.Call(cont.Current().Call(args...)),
+//				next.Bind(bind, cont.Next()).(SeqVal)
+//		}
+//		return step.Call(cont.Current()),
+//			next.Bind(bind, cont.Next()).(SeqVal)
+//	})
+//}
+//
+//func (s SeqVal) ZipWith(
+//	zipf func(l, r Continuation) Sequential,
+//	cont Continuation,
+//) SeqVal {
+//	var (
+//		leftStep, left   = s()
+//		rightStep, right = cont.Continue()
+//	)
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		if leftStep.Type().Match(None) || rightStep.Type().Match(None) {
+//			return NewNone(), NewSequence()
+//		}
+//		if len(args) > 0 {
+//			return NewPair(leftStep, rightStep).Call(args...),
+//				left.ZipWith(zipf, right)
+//		}
+//		return NewPair(leftStep, rightStep),
+//			left.ZipWith(zipf, right)
+//	})
+//}
+//
+//func (s SeqVal) Split() (Sequential, Sequential) {
+//	var (
+//		head, tail  = s.Continue()
+//		left, right = tail.(Zipped).Split()
+//	)
+//	if head.Type().Match(Pair) { // list of pairs gets zipped into keys & values
+//		if pair, ok := head.(Paired); ok {
+//			return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//					if len(args) > 0 {
+//						return pair.Left().Call(args...), left.(SeqVal)
+//					}
+//					return pair.Left(), left.(SeqVal)
+//				}),
+//				SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//					if len(args) > 0 {
+//						return pair.Right().Call(args...), right.(SeqVal)
+//					}
+//					return pair.Right(), right.(SeqVal)
+//				})
+//		}
+//	}
+//	if !head.Type().Match(None) { // flat lists are split two elements at a step
+//		var resl, resr Sequential
+//		if !head.Type().Match(None) {
+//			resl = SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//				if len(args) > 0 {
+//					return head.Call(args...), left.(SeqVal)
+//				}
+//				return head, left.(SeqVal)
+//			})
+//		} else {
+//			resl = NewSequence()
+//		}
+//		head, tail = tail.Continue()
+//		if !head.Type().Match(None) {
+//			resr = SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//				if len(args) > 0 {
+//					return head.Call(args...), right.(SeqVal)
+//				}
+//				return head, right.(SeqVal)
+//			})
+//		} else {
+//			resr = NewSequence()
+//		}
+//		return resl, resr
+//	}
+//	// head is a none value
+//	return NewSequence(), NewSequence()
+//}
+//

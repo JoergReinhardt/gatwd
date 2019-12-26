@@ -86,9 +86,16 @@ func TestExpression(t *testing.T) {
 	}
 
 	var result3 = addInts.Call(Dat(23), Dat(42), Dat(23))
+	fmt.Printf("result3 type: %s type-ident: %s type-return: %s type-arguments: %s\n",
+		result3.Type().String(),
+		result3.Type().TypeId(),
+		result3.Type().TypeRet(),
+		result3.Type().TypeArgs(),
+	)
 	fmt.Printf("result3: %s\n", result3)
+	fmt.Printf("result3 element 0 type: %s\n", result3.(VecVal)()[0].Type())
 	if vec, ok := result3.(VecVal); ok {
-		if !vec()[0].Type().Match(DefSym("AddInts")) {
+		if !vec()[0].Type().Match(Data) {
 			t.Fail()
 		}
 	}
@@ -139,7 +146,7 @@ func TestTuple(t *testing.T) {
 
 	tup = partial1.Call(Dat(true), Dat(false))
 	fmt.Printf("result: %s\n", tup)
-	if tup.(ValPair).Value().(NatEval).Eval() != d.IntVal(23) {
+	if tup.(VecVal)()[0].(NatEval).Eval() != d.IntVal(23) {
 		if tup.(ValPair).Value().(NatEval).Eval() != d.FltVal(42.23) {
 			if tup.(ValPair).Value().(NatEval).Eval() != d.BoolVal(true) {
 				t.Fail()

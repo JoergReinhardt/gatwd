@@ -120,8 +120,26 @@ type Mapped interface {
 // which in the case of appending to an infinite list, may as well be never.
 type Sequential interface {
 	Continuation
-	Cons(...Expression) Sequential // default op, list = front, vector = back
-	Concat(...Expression) Sequential
+	Cons(...Expression) Sequential
+}
+
+// stacks pushes new elements as first element to the sequence & pops the last
+// element added to it from the front of the sequence
+type Stack interface {
+	Sequential
+	Pop() (Expression, Sequential)
+	Push(...Expression) Sequential
+}
+
+// queues pull elements from the end of the sequence
+type Queue interface {
+	Sequential
+	Pull() (Expression, Sequential)
+	Append(...Expression) Sequential
+}
+type LiFo interface {
+	Push(...Expression) Sequential
+	Pull() (Expression, Sequential)
 }
 
 type Filtered interface {

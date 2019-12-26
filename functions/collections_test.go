@@ -205,112 +205,111 @@ func TestAccumulator(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	var seq = NewSequence(listA)
+	var seq = NewSequence(listA()...)
 	fmt.Printf("fresh sequence: %s\n", seq)
-	seq = NewSequence(listA)
 	fmt.Printf("sequence second print: %s\n", seq)
-	seq = NewSequence(listA)
+	seq = NewSequence(listA()...)
 	var head, tail = seq()
 	fmt.Printf("head: %s tail: %s\n", head, tail)
-	for !head.Type().Match(None) {
-		fmt.Printf("head iteration: %s\n", head)
+	for !tail.End() {
 		head, tail = tail()
+		fmt.Printf("head iteration: %s\n", head)
 	}
 	fmt.Printf("sequence: %s\n", seq)
 	fmt.Printf("seq head: %s, tail: %s type: %s\n",
 		seq.Current(), seq.Next(), seq.TypeFnc())
 }
 
-func TestMapSequential(t *testing.T) {
-	var (
-		a, b   Expression
-		la     = NewSeqCont(listA)
-		lb     = NewSeqCont(listB)
-		mapped = la.Map(NewLambda(func(args ...Expression) Expression {
-			a, la = la()
-			b, lb = lb()
-			return mapAddInt(a, b)
-		}))
-	)
-	fmt.Printf("mapped: %s\n", mapped)
-}
+//func TestMapSequential(t *testing.T) {
+//	var (
+//		a, b   Expression
+//		la     = NewSeqCont(listA)
+//		lb     = NewSeqCont(listB)
+//		mapped = la.Map(NewLambda(func(args ...Expression) Expression {
+//			a, la = la()
+//			b, lb = lb()
+//			return mapAddInt(a, b)
+//		}))
+//	)
+//	fmt.Printf("mapped: %s\n", mapped)
+//}
 
-func TestConcatSequences(t *testing.T) {
-	var lc = NewSeqCont(listA)
-	fmt.Printf("new sequence from continuation list a: %s\n", lc)
-
-	var step, next = lc.Continue()
-	for !step.Type().Match(None) {
-		fmt.Printf("loop til next end: %s %s\n", step, next)
-		step, next = next.Continue()
-	}
-	fmt.Printf("head & tail after loop to end: %s %s\n", step, next)
-	fmt.Printf("next step, next next: %s %s\n", next.Current(), next.Next())
-
-	lc = lc.Concat(listB()...).(SeqVal)
-	fmt.Printf("list b concatenated to list-a continuation: %s\n", lc)
-	fmt.Printf("concated lists a-/ & b: %s\n", lc)
-}
-
-func TestMapSequentialProduct(t *testing.T) {
-	var (
-		ll   = NewSequence(listA, listB, listA, listB)
-		mapf = NewLambda(func(args ...Expression) Expression {
-			if len(args) > 0 {
-				if len(args) > 1 {
-					return NewSequence(args...)
-				}
-				return args[0]
-			}
-			return NewNone()
-		})
-		mapped = ll.Map(mapf)
-	)
-	fmt.Printf("mapped sequences: %s\n", mapped)
-
-	var flattened = mapped.(SeqVal).Flatten()
-	fmt.Printf("flattened sequences: %s\n", flattened)
-}
-
-func TestFoldSequential(t *testing.T) {
-	var queue = NewVector()
-	fmt.Printf("empty queue: %s\n", queue)
-	var (
-		acc  = NewVector()
-		fold = func(acc, head Expression) Expression {
-			if vec, ok := acc.(VecVal); ok {
-				return vec.ConcatVal(head)
-			}
-			return acc
-		}
-		folded = NewSeqCont(listA).Fold(acc, fold)
-	)
-	fmt.Printf("list A: %s\n", listA)
-	fmt.Printf("accumulator: %s\n", acc)
-	fmt.Printf("folded: %s\n", folded)
-	var head, tail = folded.Continue()
-	for !tail.End() {
-		fmt.Printf("folded head: %s\n", head)
-		head, tail = tail.Continue()
-	}
-	fmt.Printf("folded: %s\n", folded)
-}
-
-func TestFilterSequential(t *testing.T) {
-	var (
-		seq  = NewSeqCont(listA)
-		test = TestFunc(func(arg Expression) bool {
-			if dat, ok := arg.(NatEval); ok {
-				if num, ok := dat.Eval().(d.Integer); ok {
-					if num.Int()%2 == 0 {
-						fmt.Printf("even: %s\n", num)
-						return true
-					}
-				}
-			}
-			return false
-		})
-		filtered = seq.Filter(test)
-	)
-	fmt.Printf("filtered: %s\n", filtered)
-}
+//func TestConcatSequences(t *testing.T) {
+//	var lc = NewSeqCont(listA)
+//	fmt.Printf("new sequence from continuation list a: %s\n", lc)
+//
+//	var step, next = lc.Continue()
+//	for !step.Type().Match(None) {
+//		fmt.Printf("loop til next end: %s %s\n", step, next)
+//		step, next = next.Continue()
+//	}
+//	fmt.Printf("head & tail after loop to end: %s %s\n", step, next)
+//	fmt.Printf("next step, next next: %s %s\n", next.Current(), next.Next())
+//
+//	lc = lc.Concat(listB()...).(SeqVal)
+//	fmt.Printf("list b concatenated to list-a continuation: %s\n", lc)
+//	fmt.Printf("concated lists a-/ & b: %s\n", lc)
+//}
+//
+//func TestMapSequentialProduct(t *testing.T) {
+//	var (
+//		ll   = NewSequence(listA, listB, listA, listB)
+//		mapf = NewLambda(func(args ...Expression) Expression {
+//			if len(args) > 0 {
+//				if len(args) > 1 {
+//					return NewSequence(args...)
+//				}
+//				return args[0]
+//			}
+//			return NewNone()
+//		})
+//		mapped = ll.Map(mapf)
+//	)
+//	fmt.Printf("mapped sequences: %s\n", mapped)
+//
+//	var flattened = mapped.(SeqVal).Flatten()
+//	fmt.Printf("flattened sequences: %s\n", flattened)
+//}
+//
+//func TestFoldSequential(t *testing.T) {
+//	var queue = NewVector()
+//	fmt.Printf("empty queue: %s\n", queue)
+//	var (
+//		acc  = NewVector()
+//		fold = func(acc, head Expression) Expression {
+//			if vec, ok := acc.(VecVal); ok {
+//				return vec.ConsVec(head)
+//			}
+//			return acc
+//		}
+//		folded = NewSeqCont(listA).Fold(acc, fold)
+//	)
+//	fmt.Printf("list A: %s\n", listA)
+//	fmt.Printf("accumulator: %s\n", acc)
+//	fmt.Printf("folded: %s\n", folded)
+//	var head, tail = folded.Continue()
+//	for !tail.End() {
+//		fmt.Printf("folded head: %s\n", head)
+//		head, tail = tail.Continue()
+//	}
+//	fmt.Printf("folded: %s\n", folded)
+//}
+//
+//func TestFilterSequential(t *testing.T) {
+//	var (
+//		seq  = NewSeqCont(listA)
+//		test = TestFunc(func(arg Expression) bool {
+//			if dat, ok := arg.(NatEval); ok {
+//				if num, ok := dat.Eval().(d.Integer); ok {
+//					if num.Int()%2 == 0 {
+//						fmt.Printf("even: %s\n", num)
+//						return true
+//					}
+//				}
+//			}
+//			return false
+//		})
+//		filtered = seq.Filter(test)
+//	)
+//	fmt.Printf("filtered: %s\n", filtered)
+//}
