@@ -100,19 +100,18 @@ type Continuation interface {
 	Expression
 	End() bool
 	TypeElem() TyComp
-	Current() Expression
 	Next() Continuation
+	Current() Expression
 	Continue() (Expression, Continuation)
 }
 
 // mapped interface is implementet by all key accessable data types
 type Mapped interface {
 	Len() int
-	Keys() []string
+	Keys() []Expression
 	Values() []Expression
-	Fields() []KeyPair
-	Get(string) (Expression, bool)
-	//d.Mapped
+	Fields() []Paired
+	Get(Expression) (Expression, bool)
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
@@ -276,7 +275,6 @@ type Keyed interface {
 
 // pairs associated by key
 type KeyPaired interface {
-	Keyed
 	Paired
 }
 

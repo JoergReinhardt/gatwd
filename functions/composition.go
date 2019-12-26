@@ -213,47 +213,51 @@ func (e EnumVal) Call(args ...Expression) Expression {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-func (s SeqVal) Map(mapf Expression) Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		var (
-			head, tail = s()
-			lst        Expression
-		)
-		if len(args) > 0 {
-			lst = args[len(args)-1]
-			// cross product, if last argument is a functor
-			if lst.Type().Match(Functors) {
-				if arg, ok := lst.(Functorial); ok {
-					if len(args) > 1 {
-						return s.MapX(head.Call(args...),
-							mapf, arg), tail.Map(mapf).(SeqVal)
-					}
-					return s.MapX(head, mapf, arg), tail.Map(mapf).(SeqVal)
-				}
-			}
-			// dot product, since last argument is not a functor
-			return mapf.Call(head.Call(args...)), tail.Map(mapf).(SeqVal)
-		}
-		// no arguments given
-		return mapf.Call(head), tail.Map(mapf).(SeqVal)
-	})
-}
+//// CONTINUATION COMPOSITION
+///
+//
 
-func (s SeqVal) MapX(head, mapf Expression, arg Continuation) Sequential {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		// check if current head of parent list is none
-		// yield step & next continuation from argument
-		var step, next = arg.Continue()
-		if len(args) > 0 { // if args have been passed
-			// call mapf with current parent lists head &
-			// arguments passed during call to get step.
-			// s-map tail of sequential argument
-			return mapf.Call(head, step.Call(args...)),
-				s.MapX(head, mapf, next).(SeqVal)
-		}
-		return mapf.Call(head, step), NewSequence()
-	})
-}
+//func (s SeqVal) Map(mapf Expression) Sequential {
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		var (
+//			head, tail = s()
+//			lst        Expression
+//		)
+//		if len(args) > 0 {
+//			lst = args[len(args)-1]
+//			// cross product, if last argument is a functor
+//			if lst.Type().Match(Functors) {
+//				if arg, ok := lst.(Functorial); ok {
+//					if len(args) > 1 {
+//						return s.MapX(head.Call(args...),
+//							mapf, arg), tail.Map(mapf).(SeqVal)
+//					}
+//					return s.MapX(head, mapf, arg), tail.Map(mapf).(SeqVal)
+//				}
+//			}
+//			// dot product, since last argument is not a functor
+//			return mapf.Call(head.Call(args...)), tail.Map(mapf).(SeqVal)
+//		}
+//		// no arguments given
+//		return mapf.Call(head), tail.Map(mapf).(SeqVal)
+//	})
+//}
+//
+//func (s SeqVal) MapX(head, mapf Expression, arg Continuation) Sequential {
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		// check if current head of parent list is none
+//		// yield step & next continuation from argument
+//		var step, next = arg.Continue()
+//		if len(args) > 0 { // if args have been passed
+//			// call mapf with current parent lists head &
+//			// arguments passed during call to get step.
+//			// s-map tail of sequential argument
+//			return mapf.Call(head, step.Call(args...)),
+//				s.MapX(head, mapf, next).(SeqVal)
+//		}
+//		return mapf.Call(head, step), NewSequence()
+//	})
+//}
 
 //func (s SeqVal) Flatten() SeqVal {
 //	var head, tail = s()
