@@ -50,18 +50,18 @@ func (v VecVal) Next() Continuation {
 	}
 	return NewVector()
 }
-func (v VecVal) Len() int                             { return len(v()) }
-func (v VecVal) Null() VecVal                         { return NewVector() }
-func (v VecVal) Type() TyComp                         { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc                       { return Vector }
-func (v VecVal) TypeElem() TyComp                     { return v.Current().Type() }
-func (v VecVal) ConsVec(args ...Expression) VecVal    { return NewVector(v(args...)...) }
-func (v VecVal) Cons(args ...Expression) Sequential   { return v.ConsVec(args...) }
-func (v VecVal) Call(args ...Expression) Expression   { return v.ConsVec(args...) }
-func (v VecVal) Append(args ...Expression) Sequential { return v.ConsVec(args...) }
-func (v VecVal) AppendVec(vec VecVal) VecVal          { return v.Append(vec()...).(VecVal) }
-func (v VecVal) Pull() (Expression, Sequential)       { return v.Current(), v.Next().(Sequential) }
-func (v VecVal) Push(args ...Expression) Sequential   { return NewVector(append(args, v()...)...) }
+func (v VecVal) Len() int                                 { return len(v()) }
+func (v VecVal) Null() VecVal                             { return NewVector() }
+func (v VecVal) Type() TyComp                             { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc                           { return Vector }
+func (v VecVal) TypeElem() TyComp                         { return v.Current().Type() }
+func (v VecVal) ConsVec(args ...Expression) VecVal        { return NewVector(v(args...)...) }
+func (v VecVal) Cons(appendix ...Expression) Sequential   { return v.ConsVec(appendix...) }
+func (v VecVal) Call(appendix ...Expression) Expression   { return v.ConsVec(appendix...) }
+func (v VecVal) Append(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
+func (v VecVal) AppendVec(appendix VecVal) VecVal         { return v.Append(appendix()...).(VecVal) }
+func (v VecVal) Pull() (Expression, Sequential)           { return v.Current(), v.Next().(Sequential) }
+func (v VecVal) Push(suffix ...Expression) Sequential     { return NewVector(append(suffix, v()...)...) }
 func (v VecVal) Pop() (Expression, Sequential) {
 	if v.Len() == 0 {
 		return NewNone(), NewVector()
@@ -272,36 +272,36 @@ func (s SeqVal) End() bool {
 	return false
 }
 
-func (s SeqVal) Cons(args ...Expression) Sequential {
-	if len(args) == 0 {
+func (s SeqVal) Cons(suffix ...Expression) Sequential {
+	if len(suffix) == 0 {
 		return s
 	}
-	if len(args) == 1 {
+	if len(suffix) == 1 {
 		return SeqVal(func(late ...Expression) (Expression, SeqVal) {
 			if len(late) > 0 {
 				if len(late) > 1 {
 					return late[0],
-						s.Cons(append(late[1:], args[0])...).(SeqVal)
+						s.Cons(append(late[1:], suffix[0])...).(SeqVal)
 				}
-				return late[0], s.Cons(args[0]).(SeqVal)
+				return late[0], s.Cons(suffix[0]).(SeqVal)
 			}
-			return args[0], s
+			return suffix[0], s
 		})
 	}
 	return SeqVal(func(late ...Expression) (Expression, SeqVal) {
 		if len(late) > 0 {
 			if len(late) > 1 {
 				return late[0],
-					s.Cons(append(late[1:], args...)...).(SeqVal)
+					s.Cons(append(late[1:], suffix...)...).(SeqVal)
 			}
-			return late[0], s.Cons(args...).(SeqVal)
+			return late[0], s.Cons(suffix...).(SeqVal)
 		}
-		return args[0], s.Cons(args[1:]...).(SeqVal)
+		return suffix[0], s.Cons(suffix[1:]...).(SeqVal)
 	})
 
 }
-func (s SeqVal) ConSeqVal(prefix SeqVal) SeqVal {
-	var head, tail = prefix()
+func (s SeqVal) ConsSeq(suffix SeqVal) SeqVal {
+	var head, tail = suffix()
 	// if tail is empty‥.
 	if tail.End() {
 		// if head is none, return original s
@@ -313,8 +313,8 @@ func (s SeqVal) ConSeqVal(prefix SeqVal) SeqVal {
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
 				if len(args) > 1 {
-					head, tail = prefix(args...)
-					return head, s.ConSeqVal(tail)
+					head, tail = suffix(args...)
+					return head, s.ConsSeq(tail)
 				}
 			}
 			return head, s
@@ -324,10 +324,10 @@ func (s SeqVal) ConSeqVal(prefix SeqVal) SeqVal {
 	// followed by remaining tail consed to s recursively
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			head, tail = prefix(args...)
-			return head, s.ConSeqVal(tail)
+			head, tail = suffix(args...)
+			return head, s.ConsSeq(tail)
 		}
-		return head, s.ConSeqVal(tail)
+		return head, s.ConsSeq(tail)
 	})
 
 }
@@ -386,16 +386,16 @@ func (s SeqVal) Append(appendix ...Expression) Sequential {
 	})
 
 }
-func (s SeqVal) AppendSeqVal(seq SeqVal) SeqVal {
+func (s SeqVal) AppendSeq(appendix SeqVal) SeqVal {
 	var head, tail = s()
 	if tail.End() {
 		if head.Type().Match(None) {
-			return seq
+			return appendix
 		}
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
 				head, tail = s(args...)
-				return head, tail.AppendSeqVal(seq)
+				return head, tail.AppendSeq(appendix)
 			}
 			return head, s
 		})
@@ -403,14 +403,14 @@ func (s SeqVal) AppendSeqVal(seq SeqVal) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			head, tail = s(args...)
-			return head, tail.AppendSeqVal(seq)
+			return head, tail.AppendSeq(appendix)
 		}
-		return head, tail.AppendSeqVal(seq)
+		return head, tail.AppendSeq(appendix)
 	})
 }
 
-func (s SeqVal) Pop() (Expression, Sequential)      { return s() }
-func (s SeqVal) Push(args ...Expression) Sequential { return s.Cons(args...) }
+func (s SeqVal) Pop() (Expression, Sequential)        { return s() }
+func (s SeqVal) Push(suffix ...Expression) Sequential { return s.Cons(suffix...) }
 func (s SeqVal) Pull() (Expression, Sequential) {
 	var (
 		acc        = []Expression{}
@@ -433,6 +433,18 @@ func (s SeqVal) Call(args ...Expression) Expression {
 	}
 	return NewPair(s.Continue())
 }
+func (s SeqVal) Slice() []Expression {
+	var (
+		slice      []Expression
+		head, tail = s()
+	)
+	for !head.Type().Match(None) && !tail.End() {
+		slice = append(slice, head)
+		head, tail = tail()
+	}
+	return slice
+}
+func (s SeqVal) Vector() VecVal { return NewVector(s.Slice()...) }
 
 func (s SeqVal) String() string {
 	var (

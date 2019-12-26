@@ -22,6 +22,10 @@ type (
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
 	RecCon func(...Expression) RecVal
 	RecVal []KeyPair
+
+	//// ENUMERABLE
+	EnumDef func(d.Numeral) EnumVal
+	EnumVal func(...Expression) (Expression, d.Numeral, EnumDef)
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -350,4 +354,89 @@ func (t RecVal) String() string {
 			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
 	}
 	return "{" + strings.Join(strs, " ") + "}"
+}
+
+//// ENUM TYPE
+///
+// declares an enumerable type returning instances from the set of enumerables
+// defined by the passed function
+func NewEnumType(fnc func(d.Numeral) Expression) EnumDef {
+	return func(idx d.Numeral) EnumVal {
+		return func(args ...Expression) (Expression, d.Numeral, EnumDef) {
+			if len(args) > 0 {
+				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
+			}
+			return fnc(idx), idx, NewEnumType(fnc)
+		}
+	}
+}
+func (e EnumDef) Expr() Expression            { return e(d.IntVal(0)) }
+func (e EnumDef) Alloc(idx d.Numeral) EnumVal { return e(idx) }
+func (e EnumDef) Type() TyComp {
+	return Def(Enum, e.Expr().Type().TypeRet())
+}
+func (e EnumDef) TypeFnc() TyFnc { return Enum }
+func (e EnumDef) String() string { return e.Type().TypeName() }
+func (e EnumDef) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vec = NewVector()
+			for _, arg := range args {
+				vec = vec.Cons(e.Call(arg)).(VecVal)
+			}
+			return vec
+		}
+		var arg = args[0]
+		if arg.Type().Match(Data) {
+			if nat, ok := arg.(NatEval); ok {
+				if i, ok := nat.Eval().(d.Numeral); ok {
+					return e(i)
+				}
+			}
+		}
+	}
+	return e
+}
+
+//// ENUM VALUE
+///
+//
+func (e EnumVal) Expr() Expression {
+	var expr, _, _ = e()
+	return expr
+}
+func (e EnumVal) Index() d.Numeral {
+	var _, idx, _ = e()
+	return idx
+}
+func (e EnumVal) EnumType() EnumDef {
+	var _, _, et = e()
+	return et
+}
+func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
+func (e EnumVal) Next() EnumVal {
+	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
+	return result
+}
+func (e EnumVal) Previous() EnumVal {
+	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
+	return result
+}
+func (e EnumVal) String() string { return e.Expr().String() }
+func (e EnumVal) Type() TyComp {
+	var (
+		nat d.Native
+		idx = e.Index()
+	)
+	if idx.Type().Match(d.BigInt) {
+		nat = idx.BigInt()
+	} else {
+		nat = idx.Int()
+	}
+	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
+}
+func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
+func (e EnumVal) Call(args ...Expression) Expression {
+	var r, _, _ = e(args...)
+	return r
 }
