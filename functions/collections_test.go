@@ -308,10 +308,12 @@ func TestApplySequence(t *testing.T) {
 	if m.Call().(Paired).Left().Call(Dat(13)).(DatConst)().(d.IntVal) != 13 {
 		t.Fail()
 	}
-	var head Expression
-	var pair Paired
-	var tail = m
 
+	var (
+		head Expression
+		pair Paired
+		tail = m
+	)
 	for !tail.Empty() {
 		pair = tail.Call().(Paired)
 		head, tail = pair.Left().Call(Dat(13)), pair.Right().(SeqVal)
@@ -332,4 +334,14 @@ func TestFoldSequence(t *testing.T) {
 	if head.(DatConst)().(d.IntVal) != 36 {
 		t.Fail()
 	}
+}
+func TestFilterPassSequence(t *testing.T) {
+	var (
+		isEven = func(arg Expression) bool {
+			return arg.(DatConst)().(d.IntVal)%2 == 0
+		}
+		even = Pass(intsA, isEven)
+		odd  = Filter(intsA, isEven)
+	)
+	fmt.Printf("odd: %s\neven: %s\n", odd, even)
 }

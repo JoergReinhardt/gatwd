@@ -144,7 +144,10 @@ func Map(
 	if con.Empty() {
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
-				con = con.Call(args...).(Sequential)
+				var head, tail = Map(
+					NewSequence(args...), mapf,
+				).Continue()
+				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
 		})
@@ -173,8 +176,8 @@ func Apply(
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
 				var head, tail = Apply(
-					NewSequence(args...),
-					apply).Continue()
+					NewSequence(args...), apply,
+				).Continue()
 				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
@@ -213,19 +216,22 @@ func Fold(
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
 				var head, tail = Fold(
-					NewSequence(args...),
-					init, fold).Continue()
+					NewSequence(args...), init, fold,
+				).Continue()
 				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
 		})
 	}
-	var head, tail = con.Continue()
-	init = fold(init, head)
+	var (
+		head, tail = con.Continue()
+		result     = fold(init, head)
+	)
 	// skip none instances, when tail has further elements
-	if head.Type().Match(None) && !tail.Empty() {
+	if result.Type().Match(None) && !tail.Empty() {
 		return Fold(tail, init, fold)
 	}
+	init = result
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			return init.Call(args...), Fold(tail, init, fold)
@@ -237,14 +243,14 @@ func Fold(
 // continuation of elements not matched by test
 func Filter(
 	con Continuation,
-	filter Testable,
+	filter func(Expression) bool,
 ) SeqVal {
 	if con.Empty() {
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
 				var head, tail = Filter(
-					NewSequence(args...),
-					filter).Continue()
+					NewSequence(args...), filter,
+				).Continue()
 				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
@@ -253,7 +259,7 @@ func Filter(
 	var (
 		init = NewSequence()
 		fold = func(init, head Expression) Expression {
-			if filter.Test(head) {
+			if filter(head) {
 				return NewNone()
 			}
 			return init.(SeqVal).Cons(head)
@@ -265,12 +271,14 @@ func Filter(
 // continuation of elements matched by test
 func Pass(
 	con Continuation,
-	pass Testable,
+	pass func(Expression) bool,
 ) SeqVal {
 	if con.Empty() {
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
-				var head, tail = Pass(NewSequence(args...), pass).Continue()
+				var head, tail = Pass(
+					NewSequence(args...), pass,
+				).Continue()
 				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
@@ -279,7 +287,7 @@ func Pass(
 	var (
 		init = NewSequence()
 		fold = func(init, head Expression) Expression {
-			if pass.Test(head) {
+			if pass(head) {
 				return init.(SeqVal).Cons(head)
 			}
 			return NewNone()

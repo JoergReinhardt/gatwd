@@ -153,7 +153,7 @@ func TestTuple(t *testing.T) {
 
 	tup = partial1.Call(Dat(true), Dat(false))
 	fmt.Printf("result: %s\n", tup)
-	if tup.(VecVal)()[0].(NatEval).Eval() != d.IntVal(23) {
+	if tup.(Paired).Left().(DatConst)().(d.IntVal) != d.IntVal(23) {
 		if tup.(ValPair).Value().(NatEval).Eval() != d.FltVal(42.23) {
 			if tup.(ValPair).Value().(NatEval).Eval() != d.BoolVal(true) {
 				t.Fail()
