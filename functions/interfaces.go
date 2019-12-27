@@ -124,6 +124,7 @@ type Mapped interface {
 type Sequential interface {
 	Continuation
 	Cons(...Expression) Sequential
+	ConsContinue(Continuation) Sequential
 }
 
 // stacks pushes new elements as first element to the sequence & pops the last

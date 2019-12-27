@@ -29,7 +29,7 @@ type (
 	// should reference its type constructor and sibling types.
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	Polymorph func(...Expression) (Expression, []FuncDecl, int)
+	Polymorph func(...Expression) (Expression, []FuncVal, int)
 	Variant   func(...Expression) (Expression, Polymorph)
 
 	//// ENUMERABLE
@@ -299,7 +299,7 @@ func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 ///
 //
 // declare new polymorphic named type from cases
-func NewPolyType(name string, defs ...FuncDecl) Polymorph {
+func NewPolyType(name string, defs ...FuncVal) Polymorph {
 	var (
 		types   = make([]d.Typed, 0, len(defs))
 		pattern TyComp
@@ -313,9 +313,9 @@ func NewPolyType(name string, defs ...FuncDecl) Polymorph {
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pattern TyComp, idx int, defs ...FuncDecl) Polymorph {
+func createPolyType(pattern TyComp, idx int, defs ...FuncVal) Polymorph {
 	var length = len(defs)
-	return func(args ...Expression) (Expression, []FuncDecl, int) {
+	return func(args ...Expression) (Expression, []FuncVal, int) {
 		if len(args) > 0 { // arguments where passed
 			if idx < length { // not all cases scrutinized yet
 				// scrutinize arguments, retrieve fnc, or none
@@ -390,7 +390,7 @@ func (p Polymorph) Type() TyComp {
 }
 
 // returns set of all sub-type defining cases
-func (p Polymorph) Cases() []FuncDecl {
+func (p Polymorph) Cases() []FuncVal {
 	var _, c, _ = p()
 	return c
 }

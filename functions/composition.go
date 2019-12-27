@@ -10,7 +10,7 @@ type (
 //// COMPOSITION PRIMITIVES
 ///
 // define the curryed function
-func Curry(f, g FuncDecl) FuncDecl {
+func Curry(f, g FuncVal) FuncVal {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 			func(args ...Expression) Expression {
@@ -122,6 +122,20 @@ func (g AccVal) Continue() (Expression, Continuation) { return g() }
 ///////////////////////////////////////////////////////////////////////////////
 //// CONTINUATION COMPOSITION
 ///
+// flatten flattens sequences of sequences to one dimension
+//func Flatten(con Continuation) SeqVal {
+//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+//		if len(args) > 0 {
+//			con = con.Call(args...).(Continuation)
+//		}
+//		var head, tail = con.Continue()
+//		if head.Type().Match(Sequences) {
+//			head, tail = head.(Sequential).ConsSeq(tail).Continue()
+//			return head, tail.(SeqVal)
+//		}
+//	})
+//}
+
 // map returns a continuation calling the map function for every element
 func Map(
 	con Continuation,
@@ -135,6 +149,10 @@ func Map(
 			con = con.Call(args...).(Continuation)
 		}
 		var head, tail = con.Continue()
+		// skip none instances, when tail has further elements
+		if head.Type().Match(None) && !tail.Empty() {
+			return Map(tail, mapf)()
+		}
 		return mapf(head), Map(tail, mapf)
 	})
 }
@@ -152,10 +170,20 @@ func Apply(
 	var head, tail = con.Continue()
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			return apply(head, args...),
+			var head, tail = apply(head, args...),
 				Apply(tail, apply)
+				// skip none
+			if head.Type().Match(None) && !tail.Empty() {
+				return Apply(tail, apply)()
+			}
+
 		}
-		return apply(head), Apply(tail, apply)
+		var head, tail = apply(head), Apply(tail, apply)
+		// skip none
+		if head.Type().Match(None) && !tail.Empty() {
+			return Apply(tail, apply)()
+		}
+		return head, tail
 	})
 }
 
@@ -172,10 +200,9 @@ func Fold(
 		return Fold(con, init, fold)
 	}
 	var head, tail = con.Continue()
-	if head.Type().Match(None) {
-		if !tail.Empty() {
-			return Fold(tail, init, fold)
-		}
+	// skip none instances, when tail has further elements
+	if head.Type().Match(None) && !tail.Empty() {
+		return Fold(tail, init, fold)
 	}
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		init = fold(init, head)
@@ -315,6 +342,11 @@ func Bind(
 		current      = bind(rhead, lhead)
 		next         = Bind(ltail, rtail, bind)
 	)
+	// skip none heads, when both continuations still have elements
+	if (lhead.Type().Match(None) || rhead.Type().Match(None)) &&
+		(!ltail.Empty() && !rtail.Empty()) {
+		return Bind(ltail, rtail, bind)
+	}
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			return current.Call(args...), next

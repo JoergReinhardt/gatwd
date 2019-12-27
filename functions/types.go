@@ -119,9 +119,9 @@ const (
 	Option = Either | Or
 
 	//// COLLECTIONS
-	ProdTypes = List | Vector | Enum
+	Sequences = List | Vector
+	ProdTypes = Sequences | Enum
 	SumTypes  = Set | Record | Tuple
-	Sequences = ProdTypes | SumTypes
 	Continues = Sequences | Pair
 
 	Number = Natural | Integer | Real | Ratio

@@ -251,31 +251,31 @@ func TestVectorConsAppend(t *testing.T) {
 	fmt.Printf("empty vecuence: %s\n", vec)
 
 	vec = vec.Cons(Dat(8)).(VecVal)
-	fmt.Printf("vector with one element (8):\n%s\n", vec)
+	fmt.Printf("vector with one element [8]:\n%s\n", vec)
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(9)).(VecVal)
-	fmt.Printf("vector with two elements (8, 9):\n%s\n", vec)
+	fmt.Printf("vector with two elements [8, 9]:\n%s\n", vec)
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(10), Dat(11), Dat(12)).(VecVal)
-	fmt.Printf("vector with five elements (8, 9, 10, 11, 12):\n%s\n", vec)
+	fmt.Printf("vector with five elements [8, 9, 10, 11, 12]:\n%s\n", vec)
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(6), Dat(7)).(VecVal)
-	fmt.Printf("vector with two elements pushed (6, 7, 8, 9, 10, 11, 12):\n%s\n", vec)
+	fmt.Printf("vector with two elements pushed [6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 6 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
-	fmt.Printf("vector with five elements (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):\n%s\n", vec)
+	fmt.Printf("vector with five elements [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
 	}

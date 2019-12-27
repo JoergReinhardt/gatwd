@@ -13,7 +13,7 @@ type (
 	Lambda  func(...Expression) Expression
 
 	//// DECLARED EXPRESSION
-	FuncDecl func(...Expression) Expression
+	FuncVal func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
 	TupCon func(...Expression) TupVal
@@ -34,6 +34,7 @@ func NewNone() NoneVal { return func() {} }
 func (n NoneVal) Head() Expression                     { return n }
 func (n NoneVal) Tail() Continuation                   { return n }
 func (n NoneVal) Cons(...Expression) Sequential        { return n }
+func (n NoneVal) ConsContinue(Continuation) Sequential { return n }
 func (n NoneVal) Concat(...Expression) Sequential      { return n }
 func (n NoneVal) Prepend(...Expression) Sequential     { return n }
 func (n NoneVal) Append(...Expression) Sequential      { return n }
@@ -127,7 +128,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) FuncDecl {
+) FuncVal {
 	var (
 		ct     = createFuncType(expr, types...)
 		arglen = ct.TypeArgs().Len()
@@ -198,14 +199,14 @@ func Define(
 		return ct
 	}
 }
-func (e FuncDecl) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDecl) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDecl) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncDecl) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncDecl) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncDecl) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncDecl) String() string                     { return e().String() }
-func (e FuncDecl) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncVal) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncVal) Type() TyComp                       { return e().(TyComp) }
+func (e FuncVal) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncVal) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncVal) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncVal) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e FuncVal) String() string                     { return e().String() }
+func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
 
 //// TUPLE TYPE
 ///
