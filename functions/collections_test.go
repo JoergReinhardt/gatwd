@@ -289,10 +289,29 @@ func TestMapSequence(t *testing.T) {
 
 	fmt.Printf("list-a mutated?: %s\n", m)
 
-	var n = Map(m, func(arg Expression) Expression {
+	m = Map(m, func(arg Expression) Expression {
 		var result = arg.Call(Dat(10))
 		return result
 	})
 
-	fmt.Printf("mapped list-a mapped to add-10: %s\n", n)
+	fmt.Printf("mapped list-a mapped to add-10: %s\n", m)
+}
+
+func TestApplySequence(t *testing.T) {
+
+	var m = Apply(intsA, func(head Expression, args ...Expression) Expression {
+		return addInts(append([]Expression{head}, args...)...)
+	})
+
+	fmt.Printf("add-ints applyed to list-a: %s\n", m)
+
+	var head Expression
+	var pair Paired
+	var tail = m
+
+	for !tail.Empty() {
+		pair = tail.Call().(Paired)
+		head, tail = pair.Left().Call(Dat(13)), pair.Right().(SeqVal)
+		fmt.Printf("list called with 13: %s\n", head)
+	}
 }

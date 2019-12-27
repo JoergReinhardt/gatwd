@@ -79,12 +79,11 @@ func (v VecVal) ConsContinue(appendix Continuation) Sequential {
 }
 func (v VecVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return v.Cons(args...)
+		var head, tail = NewVector(v(args...)...).Continue()
+		return NewPair(head, tail)
 	}
-	if v.Tail().Empty() {
-		return v.Head()
-	}
-	return v
+	var head, tail = NewVector(v()...).Continue()
+	return NewPair(head, tail)
 }
 func (v VecVal) Append(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
 func (v VecVal) AppendVec(appendix VecVal) VecVal         { return v.Append(appendix()...).(VecVal) }
@@ -526,12 +525,11 @@ func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
 func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
 func (s SeqVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return s.Cons(args...)
+		var head, tail = s(args...)
+		return NewPair(head, tail)
 	}
-	if s.Tail().Empty() {
-		return s.Head()
-	}
-	return s
+	var head, tail = s()
+	return NewPair(head, tail)
 }
 func (s SeqVal) Slice() []Expression {
 	var (

@@ -170,7 +170,15 @@ func Apply(
 	apply func(Expression, ...Expression) Expression,
 ) SeqVal {
 	if con.Empty() {
-		return Apply(con, apply)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = Apply(
+					NewSequence(args...),
+					apply).Continue()
+				return head, tail.(SeqVal)
+			}
+			return NewNone(), nil
+		})
 	}
 	var head, tail = con.Continue()
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
@@ -202,7 +210,15 @@ func Fold(
 	fold func(init, head Expression) Expression,
 ) SeqVal {
 	if con.Empty() {
-		return Fold(con, init, fold)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = Fold(
+					NewSequence(args...),
+					init, fold).Continue()
+				return head, tail.(SeqVal)
+			}
+			return NewNone(), nil
+		})
 	}
 	var head, tail = con.Continue()
 	// skip none instances, when tail has further elements
@@ -225,7 +241,15 @@ func Filter(
 	filter Testable,
 ) SeqVal {
 	if con.Empty() {
-		return Filter(con, filter)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = Filter(
+					NewSequence(args...),
+					filter).Continue()
+				return head, tail.(SeqVal)
+			}
+			return NewNone(), nil
+		})
 	}
 	var (
 		init = NewSequence()
@@ -245,7 +269,13 @@ func Pass(
 	pass Testable,
 ) SeqVal {
 	if con.Empty() {
-		return Pass(con, pass)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = Pass(NewSequence(args...), pass).Continue()
+				return head, tail.(SeqVal)
+			}
+			return NewNone(), nil
+		})
 	}
 	var (
 		init = NewSequence()
@@ -263,7 +293,13 @@ func Pass(
 // returns it as continuation of vector instances of length n
 func TakeN(con Continuation, n int) SeqVal {
 	if con.Empty() {
-		return TakeN(con, n)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = TakeN(NewSequence(args...), n).Continue()
+				return head, tail.(SeqVal)
+			}
+			return NewNone(), nil
+		})
 	}
 	var (
 		init = NewPair(NewVector(), NewVector())
@@ -339,7 +375,12 @@ func Bind(
 	bind func(f, g Expression) Expression,
 ) SeqVal {
 	if left.Empty() || right.Empty() {
-		return Bind(left, right, bind)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				NewSequence()
+			}
+			return NewNone(), nil
+		})
 	}
 	var (
 		lhead, ltail = left.Continue()
@@ -350,7 +391,12 @@ func Bind(
 	// skip none heads, when both continuations still have elements
 	if (lhead.Type().Match(None) || rhead.Type().Match(None)) &&
 		(!ltail.Empty() && !rtail.Empty()) {
-		return Bind(ltail, rtail, bind)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				NewSequence()
+			}
+			return NewNone(), nil
+		})
 	}
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
