@@ -209,31 +209,31 @@ func TestSequenceConsAppend(t *testing.T) {
 
 	seq = seq.Cons(Dat(9)).(SeqVal)
 	fmt.Printf("equence with one element (9):\n%s\n", seq)
-	if seq.Head().(DatAtom).Eval().(d.Numeral).Int() != 9 {
+	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 9 {
 		t.Fail()
 	}
 
 	seq = seq.Cons(Dat(8)).(SeqVal)
 	fmt.Printf("equence with two elements (8, 9):\n%s\n", seq)
-	if seq.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
+	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	seq = seq.Cons(Dat(5), Dat(6), Dat(7)).(SeqVal)
 	fmt.Printf("equence with five elements (5, 6, 7, 8, 9):\n%s\n", seq)
-	if seq.Head().(DatAtom).Eval().(d.Numeral).Int() != 5 {
+	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
 	seq = seq.Append(Dat(10), Dat(11)).(SeqVal)
 	fmt.Printf("equence with two elements appended (5, 6, 7, 8, 9, 10, 11):\n%s\n", seq)
-	if seq.Head().(DatAtom).Eval().(d.Numeral).Int() != 5 {
+	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
 	seq = seq.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).(SeqVal)
 	fmt.Printf("equence with five elements (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):\n%s\n", seq)
-	if seq.Head().(DatAtom).Eval().(d.Numeral).Int() != 0 {
+	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
 	}
 }
@@ -244,31 +244,31 @@ func TestVectorConsAppend(t *testing.T) {
 
 	vec = vec.Cons(Dat(8)).(VecVal)
 	fmt.Printf("vector with one element [8]:\n%s\n", vec)
-	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(9)).(VecVal)
 	fmt.Printf("vector with two elements [8, 9]:\n%s\n", vec)
-	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(10), Dat(11), Dat(12)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(6), Dat(7)).(VecVal)
 	fmt.Printf("vector with two elements pushed [6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 6 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 6 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
 	fmt.Printf("vector with five elements [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 0 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
 	}
 }
@@ -305,6 +305,9 @@ func TestApplySequence(t *testing.T) {
 
 	fmt.Printf("add-ints applyed to list-a: %s\n", m)
 
+	if m.Call().(Paired).Left().Call(Dat(13)).(DatConst)().(d.IntVal) != 13 {
+		t.Fail()
+	}
 	var head Expression
 	var pair Paired
 	var tail = m
@@ -313,5 +316,20 @@ func TestApplySequence(t *testing.T) {
 		pair = tail.Call().(Paired)
 		head, tail = pair.Left().Call(Dat(13)), pair.Right().(SeqVal)
 		fmt.Printf("list called with 13: %s\n", head)
+	}
+}
+
+func TestFoldSequence(t *testing.T) {
+	var f = Fold(intsA, Dat(0), func(init, head Expression) Expression {
+		return addInts(init, head)
+	})
+	fmt.Printf("folded list: %s\n", f)
+
+	var head, tail = f.Continue()
+	for i := 0; i < 8; i++ {
+		head, tail = tail.Continue()
+	}
+	if head.(DatConst)().(d.IntVal) != 36 {
+		t.Fail()
 	}
 }

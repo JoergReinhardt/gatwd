@@ -221,15 +221,14 @@ func Fold(
 		})
 	}
 	var head, tail = con.Continue()
+	init = fold(init, head)
 	// skip none instances, when tail has further elements
 	if head.Type().Match(None) && !tail.Empty() {
 		return Fold(tail, init, fold)
 	}
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		init = fold(init, head)
 		if len(args) > 0 {
-			init = fold(init, head).Call(args...)
-			return init, Fold(tail, init, fold)
+			return init.Call(args...), Fold(tail, init, fold)
 		}
 		return init, Fold(tail, init, fold)
 	})
