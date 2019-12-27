@@ -142,7 +142,12 @@ func Map(
 	mapf func(Expression) Expression,
 ) SeqVal {
 	if con.Empty() {
-		return Map(con, mapf)
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				con = con.Call(args...).(Sequential)
+			}
+			return NewNone(), nil
+		})
 	}
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {

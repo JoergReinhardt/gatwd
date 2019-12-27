@@ -236,13 +236,22 @@ func reverse(args []Expression) (rev []Expression) {
 //// SEQUENCE TYPE
 ///
 // generic sequential type
+func NewSeqFromCon(con Continuation) SeqVal {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var head, tail = con.Continue()
+		if len(args) > 0 {
+			head = head.Call(args...)
+		}
+		return head, NewSeqFromCon(tail)
+	})
+}
 func NewSeqFromSeq(seq Sequential) SeqVal {
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
 			seq = seq.Cons(args...)
 		}
 		var head, tail = seq.Continue()
-		return head, NewSeqFromSeq(tail.(Sequential))
+		return head, NewSeqFromCon(tail)
 	})
 }
 func NewSequence(elems ...Expression) SeqVal {

@@ -33,10 +33,10 @@ var (
 			return NewNone()
 		}),
 		DefSym("+"),
-		Def(Def(Data, Constant), d.Int),
+		Dat(0).Type(),
 		Def(
-			Def(Def(Data, Constant), d.Int),
-			Def(Def(Data, Constant), d.Int),
+			Dat(0).Type(),
+			Dat(0).Type(),
 		))
 
 	generator = NewGenerator(Dat(0), Lambda(func(args ...Expression) Expression {
@@ -279,4 +279,28 @@ func TestVectorConsAppend(t *testing.T) {
 	if vec.Head().(DatAtom).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
 	}
+}
+
+func TestMapSequence(t *testing.T) {
+
+	var m = Map(intsA, func(arg Expression) Expression {
+		return addInts(arg)
+	})
+
+	fmt.Printf("list-a mapped to add-ints: %s\n", m)
+
+	var head, tail = m.Continue()
+	for !tail.Empty() {
+		fmt.Printf("expression called on 10: %s\n", head.Call(Dat(10)))
+		head, tail = tail.Continue()
+	}
+
+	fmt.Printf("list-a mutated?: %s\n", m)
+
+	var n = Map(m, func(arg Expression) Expression {
+		var result = arg.Call(Dat(10))
+		return result
+	})
+
+	fmt.Printf("mapped list-a mapped to add-10: %s\n", n)
 }

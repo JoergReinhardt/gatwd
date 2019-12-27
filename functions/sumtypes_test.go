@@ -11,7 +11,7 @@ var addInts = Define(Dat(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
 }),
-	DefSym("AddInts"),
+	DefSym("+"),
 	Def(Dat(0).Type()),
 	Def(Dat(0).Type(), Dat(0).Type()),
 )
