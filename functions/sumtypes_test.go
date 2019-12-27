@@ -53,7 +53,7 @@ func TestExpression(t *testing.T) {
 		partial.Type().TypeArgs(),
 		partial.Type().TypeId(),
 		partial.Type().TypeRet())
-	if !partial.Type().TypeId().Match(Def(Partial, DefSym("AddInts"))) {
+	if !partial.Type().TypeId().Match(Def(Partial, DefSym("+"))) {
 		t.Fail()
 	}
 

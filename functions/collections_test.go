@@ -20,18 +20,10 @@ var (
 		Dat("m"), Dat("n"), Dat("o"), Dat("p"), Dat("q"), Dat("r"), Dat("s"),
 		Dat("t"), Dat("u"), Dat("v"), Dat("w"), Dat("x"), Dat("y"), Dat("z"))
 
-	mapAddInt = Define(
-		Lambda(func(args ...Expression) Expression {
-			if args[0].Type().Match(Data) &&
-				args[1].Type().Match(Data) {
-				if inta, ok := args[0].(NatEval).Eval().(d.Integer); ok {
-					if intb, ok := args[1].(NatEval).Eval().(d.Integer); ok {
-						return Box(inta.Int() + intb.Int())
-					}
-				}
-			}
-			return NewNone()
-		}),
+	mapAddInt = Define(Dat(func(args ...d.Native) d.Native {
+		var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
+		return a + b
+	}),
 		DefSym("+"),
 		Dat(0).Type(),
 		Def(
