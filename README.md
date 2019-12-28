@@ -1,6 +1,6 @@
 # Gophers All The Way Down
 
-![Gphers All The Way Down Logo](https://github.com/JoergReinhardt/gatwd/doc/pic/gopher-logo.png) Gophers all the way down is a library embracing functional programming, written in Go.
+![Gphers All The Way Down Logo](https://github.com/JoergReinhardt/gatwd/blob/master/doc/pic/gopher-logo.png) Gophers all the way down is a library embracing functional programming, written in Go.
 
 ## Purpose
 
