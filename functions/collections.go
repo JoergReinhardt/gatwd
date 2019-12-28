@@ -85,18 +85,21 @@ func (v VecVal) Call(args ...Expression) Expression {
 	var head, tail = NewVector(v()...).Continue()
 	return NewPair(head, tail)
 }
-func (v VecVal) Append(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
-func (v VecVal) AppendVec(appendix VecVal) VecVal         { return v.Append(appendix()...).(VecVal) }
-func (v VecVal) Push(suffix ...Expression) Sequential     { return NewVector(append(suffix, v()...)...) }
-func (v VecVal) Pull() (Expression, Sequential)           { return v.Head(), v.Tail().(Sequential) }
-func (v VecVal) Pop() (Expression, Sequential) {
+func (v VecVal) AppendVec(appendix VecVal) VecVal    { return v.Append(appendix()...).(VecVal) }
+func (v VecVal) Append(appendix ...Expression) Queue { return v.ConsVec(appendix...) }
+func (v VecVal) Pull() (Expression, Queue)           { return v.Head(), v.Tail().(Queue) }
+func (v VecVal) Push(args ...Expression) Stack       { return NewVector(append(args, v()...)...) }
+func (v VecVal) Pop() (Expression, Stack) {
+	var tail VecVal
 	if v.Len() == 0 {
 		return NewNone(), NewVector()
 	}
-	if v.Len() == 1 {
-		return v()[v.Len()-1], NewVector()
+	if v.Len() > 1 {
+		tail = NewVector(v()[1:]...)
+	} else {
+		tail = NewVector()
 	}
-	return v()[v.Len()-1], NewVector(v()[:1]...)
+	return v()[0], tail
 }
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) First() Expression {
@@ -304,16 +307,15 @@ func NewSequence(elems ...Expression) SeqVal {
 
 	}
 }
-func (s SeqVal) Continue() (Expression, Continuation) { return s() }
+func (s SeqVal) Continue() (Expression, Continuation) {
+	return s.Head(), s.Tail()
+}
 func (s SeqVal) Head() Expression {
 	var cur, _ = s()
 	return cur
 }
 func (s SeqVal) Tail() Continuation {
 	var _, tail = s()
-	if tail == nil {
-		return NewSequence()
-	}
 	return tail
 }
 func (s SeqVal) Empty() bool {
@@ -387,7 +389,7 @@ func (s SeqVal) ConsContinue(suffix Continuation) Sequential {
 }
 func (s SeqVal) ConsSeq(seq SeqVal) Sequential { return s.ConsContinue(seq) }
 
-func (s SeqVal) Append(appendix ...Expression) Sequential {
+func (s SeqVal) Append(appendix ...Expression) Queue {
 
 	// return imediately, if no elements where given to append
 	if len(appendix) == 0 {
@@ -473,9 +475,9 @@ func (s SeqVal) AppendSeq(appendix Sequential) Sequential {
 	}))
 }
 
-func (s SeqVal) Pop() (Expression, Sequential)        { return s() }
-func (s SeqVal) Push(suffix ...Expression) Sequential { return s.Cons(suffix...) }
-func (s SeqVal) Pull() (Expression, Sequential) {
+func (s SeqVal) Pop() (Expression, Stack)        { return s() }
+func (s SeqVal) Push(suffix ...Expression) Stack { return s.Cons(suffix...).(Stack) }
+func (s SeqVal) Pull() (Expression, Queue) {
 	var (
 		acc        = []Expression{}
 		head, tail = s()

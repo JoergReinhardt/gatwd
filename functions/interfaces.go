@@ -131,15 +131,15 @@ type Sequential interface {
 // element added to it from the front of the sequence
 type Stack interface {
 	Sequential
-	Pop() (Expression, Sequential)
-	Push(...Expression) Sequential
+	Pop() (Expression, Stack)
+	Push(...Expression) Stack
 }
 
 // queues pull elements from the end of the sequence
 type Queue interface {
 	Sequential
-	Pull() (Expression, Sequential)
-	Append(...Expression) Sequential
+	Pull() (Expression, Queue)
+	Append(...Expression) Queue
 }
 type LiFo interface {
 	Push(...Expression) Sequential
