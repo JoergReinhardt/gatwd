@@ -302,45 +302,13 @@ func TakeN(con Continuation, n int) SeqVal {
 	if con.Empty() {
 		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 			if len(args) > 0 {
-				var head, tail = TakeN(NewSequence(args...), n).Continue()
+				var head, tail = TakeN(NewVector(args...), n).Continue()
 				return head, tail.(SeqVal)
 			}
 			return NewNone(), nil
 		})
 	}
-	var (
-		init = NewPair(NewVector(), NewVector())
-		take = func(init, head Expression) Expression {
-			var (
-				pair = init.(Paired)
-				vec  = pair.Left().(VecVal)
-			)
-			if vec.Len() < n {
-				return NewPair(
-					vec.Cons(head),
-					pair.Right(),
-				)
-			}
-			return NewPair(
-				NewVector(head),
-				pair.Right().(VecVal).Cons(pair.Left()),
-			)
-		}
-	)
-	// takeN returns a pair with the current accumulator as left and the
-	// continuation of completed accumulations as right element for each
-	// element of the initial continuation. to only return complete tokens
-	// as left elements, initial output needs to be filtered by testing for
-	// correct length of the left element
-	return Filter( // filter out incomplete tokens
-		Fold(con, init, take), // returns possibly incomplete element per call
-		NewTest(func(arg Expression) bool { // tests if current element is complete
-			var vec = arg.(Paired).Left().(VecVal)
-			if vec.Len() < n {
-				return true
-			}
-			return false
-		}))
+	return Fold(con, init, takeN)
 }
 
 // split is a variation of fold that splits either a continuation of pairs, or

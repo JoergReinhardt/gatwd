@@ -340,8 +340,30 @@ func TestFilterPassSequence(t *testing.T) {
 		isEven = func(arg Expression) bool {
 			return arg.(DatConst)().(d.IntVal)%2 == 0
 		}
-		even = Pass(intsA, isEven)
 		odd  = Filter(intsA, isEven)
+		even = Pass(intsA, isEven)
 	)
 	fmt.Printf("odd: %s\neven: %s\n", odd, even)
+	var ohead, otail = odd.Continue()
+	var ehead, etail = even.Continue()
+	for i := 0; i < 3; i++ {
+		ohead, otail = otail.Continue()
+		ehead, etail = etail.Continue()
+		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
+	}
+	if ohead.(SeqVal).Head().(DatConst)().(d.IntVal) != 7 ||
+		ehead.(SeqVal).Head().(DatConst)().(d.IntVal) != 6 {
+		t.Fail()
+	}
+}
+
+func TestTakeNSequence(t *testing.T) {
+	var token = TakeN(intsA, 2)
+	fmt.Printf("take two: %s\n", token)
+	var head, tail = token.Continue()
+	fmt.Printf("token type: %s\n", token.Type())
+	for !tail.Empty() {
+		head, tail = tail.Continue()
+		fmt.Printf("head: %s\n", head.(VecVal).Head())
+	}
 }
