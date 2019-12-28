@@ -166,6 +166,9 @@ func TestSearchVector(t *testing.T) {
 		return strings.Compare(a.String(), b.String())
 	})
 	fmt.Println(elem)
+	if elem.String() != "k" {
+		t.Fail()
+	}
 }
 
 func TestGenerator(t *testing.T) {
@@ -254,25 +257,25 @@ func TestVectorConsAppend(t *testing.T) {
 
 	vec = vec.Cons(Dat(9)).(VecVal)
 	fmt.Printf("vector with two elements [8, 9]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 9 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(10), Dat(11), Dat(12)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 12 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(6), Dat(7)).(VecVal)
-	fmt.Printf("vector with two elements pushed [6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 6 {
+	fmt.Printf("vector with two elements pushed [8, 9, 10, 11, 12, 6, 7]:\n%s\n", vec)
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 7 {
 		t.Fail()
 	}
 
 	vec = vec.Push(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
-	fmt.Printf("vector with five elements [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
+	fmt.Printf("vector with five elements [8, 9, 10, 11, 12, 6, 7, 0, 1, 2, 3, 4, 5]:\n%s\n", vec)
+	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 }
@@ -318,7 +321,7 @@ func TestStackVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pops: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(DatConst)().(d.IntVal) != 5 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -329,7 +332,7 @@ func TestStackVector(t *testing.T) {
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
 	fmt.Printf("head after pushing 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 0 {
+	if head.(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }
@@ -347,7 +350,7 @@ func TestQueueSequence(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pulls: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 3 {
+	if head.(DatConst)().(d.IntVal) != 5 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -357,7 +360,7 @@ func TestQueueSequence(t *testing.T) {
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)
 	fmt.Printf("head after appending 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 3 {
+	if head.(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }
@@ -375,7 +378,7 @@ func TestQueueVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pulls: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(DatConst)().(d.IntVal) != 5 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -385,7 +388,7 @@ func TestQueueVector(t *testing.T) {
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)
 	fmt.Printf("head after appending 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }
@@ -422,7 +425,7 @@ func TestApplySequence(t *testing.T) {
 
 	fmt.Printf("add-ints applyed to list-a: %s\n", m)
 
-	if m.Call().(Paired).Left().Call(Dat(13)).(DatConst)().(d.IntVal) != 13 {
+	if m.Call().(Paired).Left().Call(Dat(13)).(DatConst)().(d.IntVal) != 22 {
 		t.Fail()
 	}
 
@@ -448,7 +451,8 @@ func TestFoldSequence(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		head, tail = tail.Continue()
 	}
-	if head.(DatConst)().(d.IntVal) != 36 {
+	fmt.Printf("head after eight continuations: %s\n", head)
+	if head.(DatConst)().(d.IntVal) != 45 {
 		t.Fail()
 	}
 }
@@ -469,19 +473,13 @@ func TestFilterPassSequence(t *testing.T) {
 		ehead, etail = etail.Continue()
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
-	if ohead.(SeqVal).Head().(DatConst)().(d.IntVal) != 7 ||
-		ehead.(SeqVal).Head().(DatConst)().(d.IntVal) != 6 {
+	if ohead.(SeqVal).Head().(DatConst)().(d.IntVal) != 3 ||
+		ehead.(SeqVal).Head().(DatConst)().(d.IntVal) != 2 {
 		t.Fail()
 	}
 }
 
-//func TestTakeNSequence(t *testing.T) {
-//	var token = TakeN(intsA, 2)
-//	fmt.Printf("take two: %s\n", token)
-//	var head, tail = token.Continue()
-//	fmt.Printf("token type: %s\n", token.Type())
-//	for !head.TypeFnc().Match(None) {
-//		head, tail = tail.Continue()
-//		fmt.Printf("head: %s\n", head.(VecVal).Head())
-//	}
-//}
+func TestTakeNSequence(t *testing.T) {
+	var token = TakeN(intsA, 2)
+	fmt.Printf("take two: %s\n", token)
+}

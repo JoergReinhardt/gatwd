@@ -311,23 +311,23 @@ func TakeN(con Continuation, n int) SeqVal {
 		})
 	}
 	var (
-		acc   = NewVector(NewVector())
-		takeN = func(acc, arg Expression) Expression {
+		queue Queue = NewVector()
+		stack Stack = NewSequence(queue)
+		takeN       = func(init Expression, arg Expression) Expression {
 			var (
-				head, tail = acc.(Stack).Pop()
-				stack      = tail.(Stack)
-				current    = head.(VecVal)
+				head   Expression
+				vector VecVal
 			)
-			if current.Len() == n {
-				stack = stack.Push(
-					NewVector(current()...)).(VecVal)
-				current = NewVector()
+			head, stack = init.(Stack).Pop()
+			vector = head.(VecVal)
+			if vector.Len() == n {
+				stack = stack.Push(vector)
+				vector = NewVector()
 			}
-			current = current.Append(arg).(VecVal)
-			return stack.(Stack).Push(current).(VecVal)
+			return stack.Push(vector.Put(arg))
 		}
 	)
-	return Fold(con, acc, takeN)
+	return Fold(con, stack, takeN)
 }
 
 // split is a variation of fold that splits either a continuation of pairs, or

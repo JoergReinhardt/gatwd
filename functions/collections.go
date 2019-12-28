@@ -39,18 +39,52 @@ func NewVector(elems ...Expression) VecVal {
 
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
-		return v()[0]
+		return v()[v.Len()-1]
 	}
 	return NewNone()
 }
 func (v VecVal) Tail() Continuation {
 	if v.Len() > 1 {
-		return NewVector(v()[1:]...)
+		return NewVector(v()[:v.Len()-1]...)
 	}
 	return NewVector()
 }
 func (v VecVal) Continue() (Expression, Continuation) {
 	return v.Head(), v.Tail()
+}
+func (v VecVal) Push(args ...Expression) Stack { return NewVector(v(args...)...) }
+func (v VecVal) Put(args ...Expression) Stack  { return NewVector(append(args, v()...)...) }
+func (v VecVal) Pop() (Expression, Stack)      { return v.Head(), v.Tail().(Stack) }
+func (v VecVal) Pull() (Expression, Queue) {
+	var tail VecVal
+	if v.Len() == 0 {
+		return NewNone(), NewVector()
+	}
+	if v.Len() > 1 {
+		tail = NewVector(v()[:v.Len()-1]...)
+	} else {
+		tail = NewVector()
+	}
+	return v()[v.Len()-1], tail
+}
+func (v VecVal) Slice() []Expression { return v() }
+func (v VecVal) First() Expression {
+	if v.Len() > 0 {
+		return v()[0]
+	}
+	return NewNone()
+}
+func (v VecVal) Last() Expression {
+	if v.Len() > 0 {
+		return v()[v.Len()-1]
+	}
+	return NewNone()
+}
+func (v VecVal) Predecessors() VecVal {
+	if v.Len() > 1 {
+		return NewVector(v()[:v.Len()-1]...)
+	}
+	return NewVector()
 }
 func (v VecVal) Len() int                               { return len(v()) }
 func (v VecVal) Null() VecVal                           { return NewVector() }
@@ -86,33 +120,6 @@ func (v VecVal) Call(args ...Expression) Expression {
 }
 func (v VecVal) AppendVec(appendix VecVal) VecVal    { return v.Append(appendix()...).(VecVal) }
 func (v VecVal) Append(appendix ...Expression) Queue { return v.ConsVec(appendix...) }
-func (v VecVal) Pull() (Expression, Queue)           { return v.Head(), v.Tail().(Queue) }
-func (v VecVal) Push(args ...Expression) Stack       { return NewVector(append(args, v()...)...) }
-func (v VecVal) Pop() (Expression, Stack) {
-	var tail VecVal
-	if v.Len() == 0 {
-		return NewNone(), NewVector()
-	}
-	if v.Len() > 1 {
-		tail = NewVector(v()[1:]...)
-	} else {
-		tail = NewVector()
-	}
-	return v()[0], tail
-}
-func (v VecVal) Slice() []Expression { return v() }
-func (v VecVal) First() Expression {
-	if v.Len() > 0 {
-		return v()[0]
-	}
-	return NewNone()
-}
-func (v VecVal) Last() Expression {
-	if v.Len() > 0 {
-		return v()[v.Len()-1]
-	}
-	return NewNone()
-}
 
 func (v VecVal) Get(i int) (Expression, bool) {
 	if i < v.Len() {
@@ -478,8 +485,8 @@ func (s SeqVal) AppendSeq(appendix Sequential) Sequential {
 	}))
 }
 
-func (s SeqVal) Pop() (Expression, Stack)        { return s() }
-func (s SeqVal) Push(suffix ...Expression) Stack { return s.Cons(suffix...).(Stack) }
+func (s SeqVal) Pop() (Expression, Stack)      { return s() }
+func (s SeqVal) Push(args ...Expression) Stack { return s.Cons(args...).(Stack) }
 func (s SeqVal) Pull() (Expression, Queue) {
 	var (
 		acc        = []Expression{}
