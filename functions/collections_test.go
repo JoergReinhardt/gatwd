@@ -483,11 +483,17 @@ func TestTakeNSequence(t *testing.T) {
 	var token = TakeN(intsA, 2)
 	fmt.Printf("take two: %s\n", token)
 	var head, tail = token.Continue()
-	if head.(SeqVal).Head().(VecVal).First().(DatConst)().(d.IntVal) != 0 {
-		t.Fail()
-	}
+	fmt.Printf("head: %s\n", head)
 	for !tail.Empty() {
 		head, tail = tail.Continue()
 	}
-	fmt.Printf("last: %s\n", head)
+	fmt.Printf("last element: %s\n", head)
+	head, tail = head.(SeqVal)()
+	for !tail.Empty() {
+		head, tail = tail.(SeqVal)()
+	}
+	fmt.Printf("last elements head: %s\n", head.(VecVal).Head())
+	if head.(VecVal).Head().(DatConst)().(d.IntVal) != 9 {
+		t.Fail()
+	}
 }
