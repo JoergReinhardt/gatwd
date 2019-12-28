@@ -37,7 +37,6 @@ func NewVector(elems ...Expression) VecVal {
 	}
 }
 
-func (v VecVal) Continue() (Expression, Continuation) { return v.Head(), v.Tail() }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
@@ -45,13 +44,13 @@ func (v VecVal) Head() Expression {
 	return NewNone()
 }
 func (v VecVal) Tail() Continuation {
-	if v.Len() <= 1 {
-		return NewVector()
-	}
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewVector()
+}
+func (v VecVal) Continue() (Expression, Continuation) {
+	return v.Head(), v.Tail()
 }
 func (v VecVal) Len() int                               { return len(v()) }
 func (v VecVal) Null() VecVal                           { return NewVector() }
@@ -151,25 +150,14 @@ func (v VecVal) Sort(
 		func(slice []Expression, a, b int) bool {
 			return less(slice[a], slice[b])
 		},
-	)
-	return NewVector(s.Sort()...)
+	).Sort()
+	return NewVector(s...)
 }
 func (v VecVal) Search(
-	less func(a, b Expression) bool,
-	match func(Expression) bool,
+	match Expression,
+	compare func(a, b Expression) int,
 ) Expression {
-	var s = newSearcher(
-		newSorter(
-			v(),
-			func(slice []Expression, a, b int) bool {
-				return less(slice[a], slice[b])
-			},
-		),
-		func(i int, slice []Expression) bool {
-			return match(slice[i])
-		},
-	)
-	return (*s).Search()
+	return newSearcher(v(), match, compare).Search()
 }
 
 type sorter struct {
@@ -194,31 +182,46 @@ func (s *sorter) Swap(a, b int) {
 	(*s).slice[b], (*s).slice[a] = (*s).slice[a], (*s).slice[b]
 }
 func (s *sorter) Sort() []Expression {
-	var sorted = *s
-	sort.Sort(&sorted)
-	return sorted.slice
+	sort.Sort(s)
+	return s.slice
 }
 
 type searcher struct {
-	*sorter
-	match func(int, []Expression) bool
+	slice   []Expression
+	match   Expression
+	compare func(a, b Expression) int
+	lesser  func(slice []Expression, a, b int) bool
+	search  func([]Expression) func(int) bool
 }
 
 func newSearcher(
-	s *sorter,
-	m func(int, []Expression) bool,
+	slice []Expression,
+	match Expression,
+	compare func(a, b Expression) int,
 ) *searcher {
-	return &searcher{s, m}
+	return &searcher{
+		slice:   slice,
+		match:   match,
+		compare: compare,
+		lesser: func(slice []Expression, a, b int) bool {
+			return compare(slice[a], slice[b]) < 0
+		},
+		search: func(slice []Expression) func(int) bool {
+			return func(idx int) bool {
+				return compare(slice[idx], match) >= 0
+			}
+		},
+	}
 }
 func (s *searcher) Search() Expression {
-	var so = *s
-	(&so).Sort()
-	if idx := sort.Search(
-		s.Len(),
-		func(i int) bool {
-			return s.match(i, s.slice)
-		}); idx >= 0 {
-		return s.slice[idx]
+	var idx = sort.Search(len(s.slice),
+		s.search(newSorter(
+			s.slice, s.lesser,
+		).Sort()))
+	if idx >= 0 && idx < len(s.slice) {
+		if s.compare(s.slice[idx], s.match) == 0 {
+			return s.slice[idx]
+		}
 	}
 	return NewNone()
 }

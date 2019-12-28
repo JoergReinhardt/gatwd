@@ -2,6 +2,8 @@ package functions
 
 import (
 	"fmt"
+	"math/rand"
+	"strings"
 	"testing"
 
 	d "github.com/joergreinhardt/gatwd/data"
@@ -52,6 +54,16 @@ func printCons(cons Continuation) {
 		fmt.Println(head)
 		printCons(tail)
 	}
+}
+func randInt() DatConst {
+	return Dat(rand.Intn(100)).(DatConst)
+}
+func randInts(n int) []Expression {
+	var slice = make([]Expression, 0, n)
+	for i := 0; i < n; i++ {
+		slice = append(slice, randInt())
+	}
+	return slice
 }
 
 func TestEmptyList(t *testing.T) {
@@ -132,37 +144,29 @@ func TestVector(t *testing.T) {
 	}
 }
 
-//func TestSortVector(t *testing.T) {
-//	var vec = NewVector(Dat(13), Dat(7), Dat(3), Dat(23), Dat(42))
-//	fmt.Printf("unsorted list: %s\n", vec)
-//
-//	var sorted = vec.Sort(func(i, j int) bool {
-//		if vec.Len() > i && vec.Len() > j {
-//			return vec()[i].(NatEval).Eval().(d.IntVal) <
-//				vec()[j].(NatEval).Eval().(d.IntVal)
-//		}
-//		return false
-//	})
-//	fmt.Printf("sorted list: %s\n", sorted)
-//}
-//func TestSearchVector(t *testing.T) {
-//	var vec = NewVector(Dat("one"), Dat("two"), Dat("three"), Dat("four"), Dat("five"))
-//	fmt.Printf("unsorted list: %s\n", vec)
-//
-//	var sorted = vec.Search(
-//		func(i, j int) bool {
-//			if vec.Len() > i && vec.Len() > j {
-//				return strings.Compare(
-//					vec()[i].(NatEval).Eval().String(),
-//					vec()[j].(NatEval).Eval().String()) < 0
-//			}
-//			return false
-//		},
-//		func(arg Expression) bool {
-//			return strings.Compare(arg.String(), "one") == 0
-//		})
-//	fmt.Printf("found element one: %s\n", sorted)
-//}
+func TestSortVector(t *testing.T) {
+	var (
+		v    = NewVector(randInts(10)...)
+		sort = func(a, b Expression) bool {
+			return a.(DatConst)().(d.IntVal) < b.(DatConst)().(d.IntVal)
+		}
+	)
+	fmt.Printf("random: %s\n", v)
+	fmt.Printf("sorted: %s\n", v.Sort(sort))
+	var tmp Expression = Dat(0)
+	for _, elem := range v() {
+		if elem.(DatConst)().(d.IntVal) < tmp.(DatConst)().(d.IntVal) {
+			t.Fail()
+		}
+		tmp = elem
+	}
+}
+func TestSearchVector(t *testing.T) {
+	var elem = abc.Search(Dat("k"), func(a, b Expression) int {
+		return strings.Compare(a.String(), b.String())
+	})
+	fmt.Println(elem)
+}
 
 func TestGenerator(t *testing.T) {
 	fmt.Printf("generator: %s\n", generator)
@@ -448,6 +452,7 @@ func TestFoldSequence(t *testing.T) {
 		t.Fail()
 	}
 }
+
 func TestFilterPassSequence(t *testing.T) {
 	var (
 		isEven = func(arg Expression) bool {
@@ -470,13 +475,13 @@ func TestFilterPassSequence(t *testing.T) {
 	}
 }
 
-func TestTakeNSequence(t *testing.T) {
-	var token = TakeN(intsA, 2)
-	fmt.Printf("take two: %s\n", token)
-	var head, tail = token.Continue()
-	fmt.Printf("token type: %s\n", token.Type())
-	for !head.TypeFnc().Match(None) {
-		head, tail = tail.Continue()
-		fmt.Printf("head: %s\n", head.(VecVal).Head())
-	}
-}
+//func TestTakeNSequence(t *testing.T) {
+//	var token = TakeN(intsA, 2)
+//	fmt.Printf("take two: %s\n", token)
+//	var head, tail = token.Continue()
+//	fmt.Printf("token type: %s\n", token.Type())
+//	for !head.TypeFnc().Match(None) {
+//		head, tail = tail.Continue()
+//		fmt.Printf("head: %s\n", head.(VecVal).Head())
+//	}
+//}
