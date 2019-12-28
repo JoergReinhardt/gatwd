@@ -482,4 +482,12 @@ func TestFilterPassSequence(t *testing.T) {
 func TestTakeNSequence(t *testing.T) {
 	var token = TakeN(intsA, 2)
 	fmt.Printf("take two: %s\n", token)
+	var head, tail = token.Continue()
+	if head.(SeqVal).Head().(VecVal).First().(DatConst)().(d.IntVal) != 0 {
+		t.Fail()
+	}
+	for !tail.Empty() {
+		head, tail = tail.Continue()
+	}
+	fmt.Printf("last: %s\n", head)
 }

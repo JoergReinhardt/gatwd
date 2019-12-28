@@ -311,8 +311,7 @@ func TakeN(con Continuation, n int) SeqVal {
 		})
 	}
 	var (
-		queue Queue = NewVector()
-		stack Stack = NewSequence(queue)
+		stack Stack = NewSequence(NewVector())
 		takeN       = func(init Expression, arg Expression) Expression {
 			var (
 				head   Expression
