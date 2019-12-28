@@ -492,8 +492,8 @@ func TestTakeNSequence(t *testing.T) {
 	for !tail.Empty() {
 		head, tail = tail.(SeqVal)()
 	}
-	fmt.Printf("last elements head: %s\n", head.(VecVal).Head())
-	if head.(VecVal).Head().(DatConst)().(d.IntVal) != 9 {
+	fmt.Printf("last elements head: %s\n", head.(SeqVal).Head())
+	if head.(SeqVal).Head().(VecVal).Head().(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }

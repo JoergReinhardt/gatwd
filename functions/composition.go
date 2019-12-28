@@ -326,7 +326,9 @@ func TakeN(con Continuation, n int) SeqVal {
 			return stack.Push(vector.Put(arg))
 		}
 	)
-	return Fold(con, stack, takeN)
+	return Filter(Fold(con, stack, takeN), func(arg Expression) bool {
+		return arg.(SeqVal).Head().(VecVal).Len() < n
+	})
 }
 
 // split is a variation of fold that splits either a continuation of pairs, or
