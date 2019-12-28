@@ -19,7 +19,7 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS
-	DatAtom    func() d.Native
+	DatConst   func() d.Native
 	DatSlice   func() d.DataSlice
 	DatGoSlice func() d.Sliceable
 	DatPair    func() d.PairVal
@@ -86,7 +86,7 @@ func Box(args ...d.Native) Native {
 	}
 	// if instance is neither of type function, nor a collection,
 	// instanciate a native atomic constant.
-	return DatAtom(func() d.Native { return nat })
+	return DatConst(func() d.Native { return nat })
 }
 
 // helper to generate type identifying pattern from native types
@@ -139,12 +139,12 @@ func (n DatFunc) Call(args ...Expression) Expression {
 }
 
 // NATIVE ATOMIC CONSTANT
-func (n DatAtom) Eval(...d.Native) d.Native     { return n() }
-func (n DatAtom) TypeFnc() TyFnc                { return Data }
-func (n DatAtom) TypeNat() d.TyNat              { return n().Type() }
-func (n DatAtom) String() string                { return n().String() }
-func (n DatAtom) Call(...Expression) Expression { return Box(n()) }
-func (n DatAtom) Type() TyComp {
+func (n DatConst) Eval(...d.Native) d.Native     { return n() }
+func (n DatConst) TypeFnc() TyFnc                { return Data }
+func (n DatConst) TypeNat() d.TyNat              { return n().Type() }
+func (n DatConst) String() string                { return n().String() }
+func (n DatConst) Call(...Expression) Expression { return Box(n()) }
+func (n DatConst) Type() TyComp {
 	return Def(Def(Data, Constant), patternFromNative(n()))
 }
 
@@ -220,6 +220,13 @@ func (n DatPair) SubType() d.Typed                   { return n().Type() }
 func (n DatPair) String() string                     { return n().String() }
 func (n DatPair) LeftExpr() Expression               { return Box(n().Left()) }
 func (n DatPair) RightExpr() Expression              { return Box(n().Right()) }
+func (n DatPair) Empty() bool {
+	if n.Left().Type().Match(d.Nil) &&
+		n.Right().Type().Match(d.Nil) {
+		return true
+	}
+	return false
+}
 func (n DatPair) BothExpr() (l, r Expression) {
 	return Box(n().Left()),
 		Box(n().Right())

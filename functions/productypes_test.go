@@ -7,11 +7,9 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var testIsZero = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.(NatEval).Eval().(d.Numeral).GoInt() != 0 {
-			return false
-		}
+var testIsZero = NewTest(func(arg Expression) bool {
+	if arg.(NatEval).Eval().(d.Numeral).GoInt() != 0 {
+		return false
 	}
 	return true
 })
@@ -29,16 +27,10 @@ func TestTestable(t *testing.T) {
 	if testIsZero(Dat(1)) {
 		t.Fail()
 	}
-
-	fmt.Printf("test three zeros are zero (true): %t\n",
-		testIsZero(Dat(0), Dat(0), Dat(0)))
-	if !testIsZero(Dat(0), Dat(0), Dat(0)) {
-		t.Fail()
-	}
 }
 
-var compZero = NewComparator(func(args ...Expression) int {
-	switch args[0].(NatEval).Eval().(d.Numeral).GoInt() {
+var compZero = NewComparator(func(arg Expression) int {
+	switch arg.(NatEval).Eval().(d.Numeral).GoInt() {
 	case -1:
 		return -1
 	case 0:
@@ -78,29 +70,23 @@ func TestCase(t *testing.T) {
 	}
 }
 
-var isInteger = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Int)
-		}
+var isInteger = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Int)
 	}
 	return false
 })
 var caseInteger = NewCase(isInteger, Dat("this is an int"), d.Int, d.String)
-var isUint = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Uint)
-		}
+var isUint = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Uint)
 	}
 	return false
 })
 var caseUint = NewCase(isUint, Dat("this is a uint"), d.Uint, d.String)
-var isFloat = NewTest(func(args ...Expression) bool {
-	for _, arg := range args {
-		if arg.TypeFnc().Match(Data) {
-			return arg.(Native).TypeNat().Match(d.Float)
-		}
+var isFloat = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Float)
 	}
 	return false
 })
@@ -143,7 +129,7 @@ func TestMaybe(t *testing.T) {
 	}
 	var none = maybeString(Dat(true))
 	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
-	if !none.Type().TypeReturn().Match(None) {
+	if !none.Type().TypeRet().Match(None) {
 		t.Fail()
 	}
 

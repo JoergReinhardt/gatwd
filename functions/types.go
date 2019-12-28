@@ -49,6 +49,7 @@ const (
 	/// EXPRESSION TYPES
 	Data
 	Value
+	Partial
 	Constant
 	Generator
 	Accumulator
@@ -85,8 +86,8 @@ const (
 	Real
 	Ratio
 	Letter
-	Text
-	Bytes
+	String
+	Byte
 	/// PRODUCT
 	Vector
 	List
@@ -118,13 +119,13 @@ const (
 	Option = Either | Or
 
 	//// COLLECTIONS
-	ProdTypes = List | Vector | Enum
+	Sequences = List | Vector
+	ProdTypes = Sequences | Enum
 	SumTypes  = Set | Record | Tuple
-	Sequences = ProdTypes | SumTypes
-	Functors  = Sequences
+	Continues = Sequences | Pair
 
 	Number = Natural | Integer | Real | Ratio
-	String = Letter | Text
+	Text   = Letter | String
 
 	ALL TyFnc = 0xFFFFFFFFFFFFFFFF
 )
@@ -194,7 +195,7 @@ func (t TyFnc) TypeName() string {
 			return "SumTypes"
 		case ProdTypes:
 			return "ProductTypes"
-		case Functors:
+		case Continues:
 			return "Funtors"
 		}
 		var delim = "|"
@@ -360,21 +361,21 @@ func Def(types ...d.Typed) TyComp {
 	return types
 }
 
-func (p TyComp) TypeIdent() TyComp {
+func (p TyComp) TypeId() TyComp {
 	if p.Len() > 0 {
 		return p.Pattern()[0]
 	}
 	return Def(None)
 }
 
-func (p TyComp) TypeReturn() TyComp {
+func (p TyComp) TypeRet() TyComp {
 	if p.Len() > 1 {
 		return p.Pattern()[1]
 	}
 	return Def(None)
 }
 
-func (p TyComp) TypeArguments() TyComp {
+func (p TyComp) TypeArgs() TyComp {
 	if p.Len() > 2 {
 		return p.Pattern()[2]
 	}
@@ -516,67 +517,67 @@ func (p TyComp) Fields() []TyComp {
 }
 
 func (p TyComp) ArgumentsName() string {
-	if p.TypeArguments().Len() > 0 {
-		if !p.TypeArguments().Match(None) {
-			if p.TypeArguments().Len() > 1 {
+	if p.TypeArgs().Len() > 0 {
+		if !p.TypeArgs().Match(None) {
+			if p.TypeArgs().Len() > 1 {
 				var ldelim, sep, rdelim = "", " → ", ""
-				return p.TypeArguments().Print(
+				return p.TypeArgs().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeArguments().Print("", " ", "")
+			return p.TypeArgs().Print("", " ", "")
 		}
 	}
 	return ""
 }
 func (p TyComp) IdentName() string {
-	if p.TypeIdent().Len() > 0 {
-		if !p.TypeIdent().Match(None) {
-			if p.TypeIdent().Len() > 1 {
+	if p.TypeId().Len() > 0 {
+		if !p.TypeId().Match(None) {
+			if p.TypeId().Len() > 1 {
 				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
-				case p.TypeIdent().Match(List | Vector):
+				case p.TypeId().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
-				case p.TypeIdent().Match(Set):
+				case p.TypeId().Match(Set):
 					ldelim, sep, rdelim = "{", " ", "}"
-				case p.TypeIdent().Match(Record):
+				case p.TypeId().Match(Record):
 					ldelim, sep, rdelim = "{", " ∷ ", "}"
-				case p.TypeIdent().Match(Tuple):
+				case p.TypeId().Match(Tuple):
 					ldelim, sep, rdelim = "(", " | ", ")"
-				case p.TypeIdent().Match(Enum):
+				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeIdent().Print(
+				return p.TypeId().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeIdent().Print("", " ", "")
+			return p.TypeId().Print("", " ", "")
 		}
 	}
 	return ""
 }
 func (p TyComp) ReturnName() string {
-	if p.TypeReturn().Len() > 0 {
-		if !p.TypeReturn().Match(None) {
-			if p.TypeReturn().Len() > 1 {
+	if p.TypeRet().Len() > 0 {
+		if !p.TypeRet().Match(None) {
+			if p.TypeRet().Len() > 1 {
 				var ldelim, sep, rdelim = "(", " ", ")"
 				switch {
-				case p.TypeIdent().Match(List | Vector):
+				case p.TypeId().Match(List | Vector):
 					ldelim, sep, rdelim = "[", " ", "]"
-				case p.TypeIdent().Match(Set):
+				case p.TypeId().Match(Set):
 					ldelim, sep, rdelim = "{", " ", "}"
-				case p.TypeIdent().Match(Record):
+				case p.TypeId().Match(Record):
 					ldelim, sep, rdelim = "{", " ∷ ", "}"
-				case p.TypeIdent().Match(Tuple):
+				case p.TypeId().Match(Tuple):
 					ldelim, sep, rdelim = "(", " | ", ")"
-				case p.TypeIdent().Match(Enum):
+				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeReturn().Print(
+				return p.TypeRet().Print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeReturn().Print("", " ", "")
+			return p.TypeRet().Print("", " ", "")
 		}
 	}
 	return ""
@@ -584,27 +585,27 @@ func (p TyComp) ReturnName() string {
 
 func (p TyComp) TypeName() string {
 	var strs = []string{}
-	if !p.TypeArguments().Match(None) {
+	if !p.TypeArgs().Match(None) {
 		strs = append(strs, p.ArgumentsName())
 	}
-	if !p.TypeIdent().Match(None) {
+	if !p.TypeId().Match(None) {
 		strs = append(strs, p.IdentName())
 	}
-	if !p.TypeReturn().Match(None) {
+	if !p.TypeRet().Match(None) {
 		strs = append(strs, p.ReturnName())
 	}
 	return strings.Join(strs, " → ")
 }
 
 // type-elem yields the first elements typed
-func (p TyComp) TypeElem() TyComp { return p.TypeIdent() }
+func (p TyComp) TypeElem() TyComp { return p.TypeId() }
 
 // elems yields all elements contained in the pattern
 func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) Types() []d.Typed              { return p }
 func (p TyComp) Call(...Expression) Expression { return p } // ← TODO: match arg instances
 func (p TyComp) Len() int                      { return len(p.Types()) }
-func (p TyComp) End() bool                     { return p.Len() == 0 }
+func (p TyComp) Empty() bool                   { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
@@ -628,7 +629,7 @@ func (p TyComp) Get(idx int) TyComp {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyComp) Current() Expression {
+func (p TyComp) Head() Expression {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -637,11 +638,11 @@ func (p TyComp) Current() Expression {
 }
 
 // type-head yields first pattern element as typed
-func (p TyComp) HeadPattern() TyComp { return p.Current().(TyComp) }
+func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Next() Continuation {
+func (p TyComp) Tail() Continuation {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -658,7 +659,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+func (p TyComp) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -793,7 +794,7 @@ func (p TyComp) IsList() bool {
 }
 func (p TyComp) IsFunctor() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Functors)
+		return p.Elements()[0].Match(Continues)
 	}
 	return false
 }
@@ -839,9 +840,9 @@ func (p TyComp) IsString() bool {
 	}
 	return false
 }
-func (p TyComp) IsBytes() bool {
+func (p TyComp) IsByte() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Bytes)
+		return p.Elements()[0].Match(Byte)
 	}
 	return false
 }
@@ -902,7 +903,7 @@ func (p TyComp) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
 func (p TyComp) HasAlternative() bool { return p.MatchAnyType(Option) }
 func (p TyComp) HasNumber() bool      { return p.MatchAnyType(Number) }
 func (p TyComp) HasString() bool      { return p.MatchAnyType(String) }
-func (p TyComp) HasBytes() bool       { return p.MatchAnyType(Bytes) }
+func (p TyComp) HasByte() bool        { return p.MatchAnyType(Byte) }
 func (p TyComp) HasCollection() bool {
 	return p.MatchAnyType(
 		List, Vector, Tuple, Enum, Record)

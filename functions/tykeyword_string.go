@@ -4,6 +4,26 @@ package functions
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Word_Do-0]
+	_ = x[Word_In-1]
+	_ = x[Word_Of-2]
+	_ = x[Word_Con-3]
+	_ = x[Word_Let-4]
+	_ = x[Word_If-5]
+	_ = x[Word_Then-6]
+	_ = x[Word_Else-7]
+	_ = x[Word_Case-8]
+	_ = x[Word_Where-9]
+	_ = x[Word_Data-10]
+	_ = x[Word_Type-11]
+	_ = x[Word_Mutable-12]
+	_ = x[Word_Otherwise-13]
+}
+
 const _TyKeyWord_name = "Word_DoWord_InWord_OfWord_ConWord_LetWord_IfWord_ThenWord_ElseWord_CaseWord_WhereWord_DataWord_TypeWord_MutableWord_Otherwise"
 
 var _TyKeyWord_index = [...]uint8{0, 7, 14, 21, 29, 37, 44, 53, 62, 71, 81, 90, 99, 111, 125}

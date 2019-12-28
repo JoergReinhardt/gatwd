@@ -4,6 +4,21 @@ package functions
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Kind_BitFlag-0]
+	_ = x[Kind_Nat-1]
+	_ = x[Kind_Fnc-2]
+	_ = x[Kind_Key-3]
+	_ = x[Kind_Sym-4]
+	_ = x[Kind_Expr-5]
+	_ = x[Kind_Prop-6]
+	_ = x[Kind_Lex-7]
+	_ = x[Kind_Comp-255]
+}
+
 const (
 	_TyKind_name_0 = "Kind_BitFlagKind_NatKind_FncKind_KeyKind_SymKind_ExprKind_PropKind_Lex"
 	_TyKind_name_1 = "Kind_Comp"

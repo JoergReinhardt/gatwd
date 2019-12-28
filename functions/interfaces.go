@@ -87,16 +87,6 @@ type Expression interface {
 ///////////////////////////////////////////////////////////////////////////////
 //// COLLECTION INTERFACES
 ///
-// mapped interface is implementet by all key accessable data types
-type Mapped interface {
-	Len() int
-	Keys() []string
-	Values() []Expression
-	Fields() []KeyPair
-	Get(string) (Expression, bool)
-	//d.Mapped
-}
-
 // consumeable is shared by all collections, continuations, side effects, etc‥.
 // it returns the current head of a collection, last result, or input in a
 // series of computations, data i/o operations, etc‥.
@@ -106,13 +96,26 @@ type Mapped interface {
 // same values in a loop, thereby implementing a functional trampolin to
 // flatten recursive calls.
 // execution is performed lazily and infinite lists can be handled.
+//
+// CAVEAT: a continuations call method has to return a continuation, when
+// called without arguments, in order to satisfy map, apply, fold, bind
+// constraints
 type Continuation interface {
 	Expression
-	End() bool
+	Empty() bool
 	TypeElem() TyComp
-	Current() Expression
-	Next() Continuation
+	Head() Expression
+	Tail() Continuation
 	Continue() (Expression, Continuation)
+}
+
+// mapped interface is implementet by all key accessable data types
+type Mapped interface {
+	Len() int
+	Keys() []Expression
+	Values() []Expression
+	Fields() []Paired
+	Get(Expression) (Expression, bool)
 }
 
 // new elements can be pre-/ and appended to at the front and end of sequences.
@@ -120,8 +123,27 @@ type Continuation interface {
 // which in the case of appending to an infinite list, may as well be never.
 type Sequential interface {
 	Continuation
-	Cons(...Expression) Sequential // default op, list = front, vector = back
-	Concat(...Expression) Sequential
+	Cons(...Expression) Sequential
+	ConsContinue(Continuation) Sequential
+}
+
+// stacks pushes new elements as first element to the sequence & pops the last
+// element added to it from the front of the sequence
+type Stack interface {
+	Sequential
+	Pop() (Expression, Sequential)
+	Push(...Expression) Sequential
+}
+
+// queues pull elements from the end of the sequence
+type Queue interface {
+	Sequential
+	Pull() (Expression, Sequential)
+	Append(...Expression) Sequential
+}
+type LiFo interface {
+	Push(...Expression) Sequential
+	Pull() (Expression, Sequential)
 }
 
 type Filtered interface {
@@ -166,20 +188,22 @@ type Monoidal interface {
 
 type Ordered interface {
 	Sequential
-	Sort(By) Sequential
-	Search(By, func(Expression) bool) Expression
+	Lesser(Ordered) bool
+	Greater(Ordered) bool
+	Equal(Ordered) bool
 }
 
+///////////////////////////////////////////////////////////////////////////////
 // interface to implement by all conditional types
 type Testable interface {
 	Expression
-	Test(...Expression) bool
+	Test(Expression) bool
 }
 
 // interface to implement by ordered, sort-/ & searchable types
 type Compareable interface {
 	Expression
-	Compare(...Expression) int
+	Compare(Expression) int
 }
 
 // types with known number of elements ,or known length
@@ -256,7 +280,6 @@ type Keyed interface {
 
 // pairs associated by key
 type KeyPaired interface {
-	Keyed
 	Paired
 }
 

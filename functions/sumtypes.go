@@ -13,14 +13,14 @@ type (
 	Lambda  func(...Expression) Expression
 
 	//// DECLARED EXPRESSION
-	FuncDef func(...Expression) Expression
+	FuncVal func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
-	TupDef func(...Expression) TupVal
+	TupCon func(...Expression) TupVal
 	TupVal []Expression
 
 	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecDef func(...Expression) RecVal
+	RecCon func(...Expression) RecVal
 	RecVal []KeyPair
 )
 
@@ -31,9 +31,10 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Current() Expression                  { return n }
-func (n NoneVal) Next() Continuation                   { return n }
+func (n NoneVal) Head() Expression                     { return n }
+func (n NoneVal) Tail() Continuation                   { return n }
 func (n NoneVal) Cons(...Expression) Sequential        { return n }
+func (n NoneVal) ConsContinue(Continuation) Sequential { return n }
 func (n NoneVal) Concat(...Expression) Sequential      { return n }
 func (n NoneVal) Prepend(...Expression) Sequential     { return n }
 func (n NoneVal) Append(...Expression) Sequential      { return n }
@@ -47,7 +48,7 @@ func (n NoneVal) Left() Expression                     { return nil }
 func (n NoneVal) Right() Expression                    { return nil }
 func (n NoneVal) Both() Expression                     { return nil }
 func (n NoneVal) Value() Expression                    { return nil }
-func (n NoneVal) End() bool                            { return true }
+func (n NoneVal) Empty() bool                          { return true }
 func (n NoneVal) Test(...Expression) bool              { return false }
 func (n NoneVal) TypeFnc() TyFnc                       { return None }
 func (n NoneVal) TypeNat() d.TyNat                     { return d.Nil }
@@ -66,8 +67,8 @@ func (n NoneVal) Consume() (Expression, Sequential)    { return NewNone(), NewNo
 func NewConstant(constant func() Expression) Const { return constant }
 
 func (c Const) Type() TyComp                  { return Def(Constant, c().Type(), None) }
-func (c Const) TypeIdent() TyComp             { return c().Type().TypeIdent() }
-func (c Const) TypeReturn() TyComp            { return c().Type().TypeReturn() }
+func (c Const) TypeIdent() TyComp             { return c().Type().TypeId() }
+func (c Const) TypeReturn() TyComp            { return c().Type().TypeRet() }
 func (c Const) TypeArguments() TyComp         { return Def(None) }
 func (c Const) TypeFnc() TyFnc                { return Constant }
 func (c Const) String() string                { return c().String() }
@@ -94,9 +95,9 @@ func (c Lambda) Call(args ...Expression) Expression {
 func (c Lambda) String() string        { return c().String() }
 func (c Lambda) TypeFnc() TyFnc        { return c().TypeFnc() }
 func (c Lambda) Type() TyComp          { return c().Type() }
-func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeIdent() }
-func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeReturn() }
-func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArguments() }
+func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeId() }
+func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeRet() }
+func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
@@ -113,29 +114,30 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 		if Kind_Sym.Match(types[0].Kind()) {
 			return Def(types...)
 		} else { // ‥.otherwise use the expressions ident type
-			return Def(append([]d.Typed{expr.Type().TypeIdent()}, types...)...)
+			return Def(append([]d.Typed{expr.Type().TypeId()}, types...)...)
 		}
 	}
 	// ‥.otherwise define by expressions identity entirely in terms of the
 	// passed expression type
-	return Def(expr.Type().TypeIdent(),
-		expr.Type().TypeReturn(),
-		expr.Type().TypeArguments())
+	return Def(expr.Type().TypeId(),
+		expr.Type().TypeRet(),
+		expr.Type().TypeArgs())
 
 }
+
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) FuncDef {
+) FuncVal {
 	var (
 		ct     = createFuncType(expr, types...)
-		arglen = ct.TypeArguments().Len()
+		arglen = ct.TypeArgs().Len()
 	)
 	// return partialy applicable function
 	return func(args ...Expression) Expression {
 		var length = len(args)
 		if length > 0 {
-			if ct.TypeArguments().MatchArgs(args...) {
+			if ct.TypeArgs().MatchArgs(args...) {
 				switch {
 				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
 				case length == arglen:
@@ -145,10 +147,10 @@ func Define(
 				case length < arglen:
 					// safe types of arguments remaining to be filled
 					var (
-						remains = ct.TypeArguments().Types()[length:]
+						remains = ct.TypeArgs().Types()[length:]
 						newpat  = Def(
-							ct.TypeIdent(),
-							ct.TypeReturn(),
+							Def(Partial, ct.TypeId()),
+							ct.TypeRet(),
 							Def(remains...))
 					)
 					// define new function from remaining
@@ -197,21 +199,21 @@ func Define(
 		return ct
 	}
 }
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeIdent() TyComp                  { return e.Type().TypeIdent() }
-func (e FuncDef) TypeArguments() TyComp              { return e.Type().TypeArguments() }
-func (e FuncDef) TypeReturn() TyComp                 { return e.Type().TypeReturn() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArguments().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncVal) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncVal) Type() TyComp                       { return e().(TyComp) }
+func (e FuncVal) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncVal) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncVal) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncVal) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e FuncVal) String() string                     { return e().String() }
+func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
 
 //// TUPLE TYPE
 ///
 // tuple type constructor expects a slice of field types and possibly a symbol
 // type flag, to define the types name, otherwise 'tuple' is the type name and
 // the sequence of field types is shown instead
-func NewTuple(types ...d.Typed) TupDef {
+func NewTupleType(types ...d.Typed) TupCon {
 	return func(args ...Expression) TupVal {
 		var tup = make(TupVal, 0, len(args))
 		if Def(types...).MatchArgs(args...) {
@@ -219,17 +221,29 @@ func NewTuple(types ...d.Typed) TupDef {
 				tup = append(tup, arg)
 			}
 		}
+		if len(tup) == 0 {
+			for _, t := range types {
+				if Kind_Comp.Match(t.Kind()) {
+					tup = append(tup, t.(TyComp))
+				}
+				tup = append(tup, Def(t))
+			}
+		}
 		return tup
 	}
 }
 
-func (t TupDef) Call(args ...Expression) Expression { return t(args...) }
-func (t TupDef) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupDef) String() string                     { return t.Type().String() }
-func (t TupDef) Type() TyComp {
+func (t TupCon) Call(args ...Expression) Expression { return t(args...) }
+func (t TupCon) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupCon) String() string                     { return t.Type().String() }
+func (t TupCon) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
-	for _, tup := range t() {
-		types = append(types, tup.Type())
+	for _, c := range t() {
+		if Kind_Comp.Match(c.Type().Kind()) {
+			types = append(types, c.(TyComp))
+			continue
+		}
+		types = append(types, c.Type())
 	}
 	return Def(Tuple, Def(types...))
 }
@@ -264,18 +278,18 @@ func (t TupVal) Type() TyComp {
 //// RECORD TYPE
 ///
 //
-func NewRecord(types ...KeyPair) RecDef {
+func NewRecordType(fields ...KeyPair) RecCon {
 	return func(args ...Expression) RecVal {
 		var rec = make(RecVal, 0, len(args))
 		if len(args) > 0 {
 			for n, arg := range args {
-				if len(types) > n && arg.Type().Match(Key|Pair) {
+				if len(fields) > n && arg.Type().Match(Key|Pair) {
 					if kp, ok := arg.(KeyPair); ok {
 						if strings.Compare(
 							string(kp.KeyStr()),
-							string(types[n].KeyStr()),
+							string(fields[n].KeyStr()),
 						) == 0 &&
-							types[n].Value().Type().Match(
+							fields[n].Value().Type().Match(
 								kp.Value().Type(),
 							) {
 							rec = append(rec, kp)
@@ -284,13 +298,16 @@ func NewRecord(types ...KeyPair) RecDef {
 				}
 			}
 		}
+		if len(rec) == 0 {
+			return fields
+		}
 		return rec
 	}
 }
 
-func (t RecDef) Call(args ...Expression) Expression { return t(args...) }
-func (t RecDef) TypeFnc() TyFnc                     { return Record | Constructor }
-func (t RecDef) Type() TyComp {
+func (t RecCon) Call(args ...Expression) Expression { return t(args...) }
+func (t RecCon) TypeFnc() TyFnc                     { return Record | Constructor }
+func (t RecCon) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t()))
 	for _, field := range t() {
 		types = append(types, Def(
@@ -300,25 +317,25 @@ func (t RecDef) Type() TyComp {
 	}
 	return Def(Record, Def(types...))
 }
-func (t RecDef) String() string { return t.Type().String() }
+func (t RecCon) String() string { return t.Type().String() }
 
 /// RECORD VALUE
 // tuple value is a slice of expressions, constructed by a tuple type
 // constructor validated according to its type pattern.
 func (t RecVal) TypeFnc() TyFnc { return Record }
 func (t RecVal) Call(args ...Expression) Expression {
-	var exprs = make([]Expression, 0, len(t)+len(args))
-	for _, elem := range t {
-		exprs = append(exprs, elem)
+	var fields = make([]Expression, 0, len(t)+len(args))
+	for _, field := range t {
+		fields = append(fields, field)
 	}
 	for _, arg := range args {
 		if arg.Type().Match(Pair | Key) {
 			if kp, ok := arg.(KeyPair); ok {
-				exprs = append(exprs, kp)
+				fields = append(fields, kp)
 			}
 		}
 	}
-	return NewVector(exprs...)
+	return NewVector(fields...)
 }
 func (t RecVal) Type() TyComp {
 	var types = make([]d.Typed, 0, len(t))

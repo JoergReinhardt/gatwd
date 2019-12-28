@@ -4,61 +4,117 @@ package functions
 
 import "strconv"
 
-const _TyFnc_name = "TypeDataValueConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneOptionPolymorphEitherOrNaturalIntegerRealRatioLetterTextBytesVectorListSetHashMapPairEnumTupleRecordSequenceFunctorApplicativeMonadStateIOParametricALL"
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Type-1]
+	_ = x[Data-2]
+	_ = x[Value-4]
+	_ = x[Partial-8]
+	_ = x[Constant-16]
+	_ = x[Generator-32]
+	_ = x[Accumulator-64]
+	_ = x[Constructor-128]
+	_ = x[Property-256]
+	_ = x[Argument-512]
+	_ = x[Lexical-1024]
+	_ = x[Symbol-2048]
+	_ = x[Index-4096]
+	_ = x[Key-8192]
+	_ = x[True-16384]
+	_ = x[False-32768]
+	_ = x[Undecided-65536]
+	_ = x[Equal-131072]
+	_ = x[Lesser-262144]
+	_ = x[Greater-524288]
+	_ = x[Min-1048576]
+	_ = x[Max-2097152]
+	_ = x[Switch-4194304]
+	_ = x[Case-8388608]
+	_ = x[Just-16777216]
+	_ = x[None-33554432]
+	_ = x[Parametric-67108864]
+	_ = x[Either-134217728]
+	_ = x[Or-268435456]
+	_ = x[Natural-536870912]
+	_ = x[Integer-1073741824]
+	_ = x[Real-2147483648]
+	_ = x[Ratio-4294967296]
+	_ = x[Letter-8589934592]
+	_ = x[String-17179869184]
+	_ = x[Byte-34359738368]
+	_ = x[Vector-68719476736]
+	_ = x[List-137438953472]
+	_ = x[Set-274877906944]
+	_ = x[HashMap-549755813888]
+	_ = x[Pair-1099511627776]
+	_ = x[Enum-2199023255552]
+	_ = x[Tuple-4398046511104]
+	_ = x[Record-8796093022208]
+	_ = x[Sequence-17592186044416]
+	_ = x[Functor-35184372088832]
+	_ = x[Applicative-70368744177664]
+	_ = x[Monad-140737488355328]
+	_ = x[State-281474976710656]
+	_ = x[IO-562949953421312]
+	_ = x[ALL-18446744073709551615]
+}
+
+const _TyFnc_name = "TypeDataValuePartialConstantGeneratorAccumulatorConstructorPropertyArgumentLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxSwitchCaseJustNoneParametricEitherOrNaturalIntegerRealRatioLetterStringByteVectorListSetHashMapPairEnumTupleRecordSequenceFunctorApplicativeMonadStateIOALL"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
 	2:                    _TyFnc_name[4:8],
 	4:                    _TyFnc_name[8:13],
-	8:                    _TyFnc_name[13:21],
-	16:                   _TyFnc_name[21:30],
-	32:                   _TyFnc_name[30:41],
-	64:                   _TyFnc_name[41:52],
-	128:                  _TyFnc_name[52:60],
-	256:                  _TyFnc_name[60:68],
-	512:                  _TyFnc_name[68:75],
-	1024:                 _TyFnc_name[75:81],
-	2048:                 _TyFnc_name[81:86],
-	4096:                 _TyFnc_name[86:89],
-	8192:                 _TyFnc_name[89:93],
-	16384:                _TyFnc_name[93:98],
-	32768:                _TyFnc_name[98:107],
-	65536:                _TyFnc_name[107:112],
-	131072:               _TyFnc_name[112:118],
-	262144:               _TyFnc_name[118:125],
-	524288:               _TyFnc_name[125:128],
-	1048576:              _TyFnc_name[128:131],
-	2097152:              _TyFnc_name[131:137],
-	4194304:              _TyFnc_name[137:141],
-	8388608:              _TyFnc_name[141:145],
-	16777216:             _TyFnc_name[145:149],
-	33554432:             _TyFnc_name[149:155],
-	67108864:             _TyFnc_name[155:164],
-	134217728:            _TyFnc_name[164:170],
-	268435456:            _TyFnc_name[170:172],
-	536870912:            _TyFnc_name[172:179],
-	1073741824:           _TyFnc_name[179:186],
-	2147483648:           _TyFnc_name[186:190],
-	4294967296:           _TyFnc_name[190:195],
-	8589934592:           _TyFnc_name[195:201],
-	17179869184:          _TyFnc_name[201:205],
-	34359738368:          _TyFnc_name[205:210],
-	68719476736:          _TyFnc_name[210:216],
-	137438953472:         _TyFnc_name[216:220],
-	274877906944:         _TyFnc_name[220:223],
-	549755813888:         _TyFnc_name[223:230],
-	1099511627776:        _TyFnc_name[230:234],
-	2199023255552:        _TyFnc_name[234:238],
-	4398046511104:        _TyFnc_name[238:243],
-	8796093022208:        _TyFnc_name[243:249],
-	17592186044416:       _TyFnc_name[249:257],
-	35184372088832:       _TyFnc_name[257:264],
-	70368744177664:       _TyFnc_name[264:275],
-	140737488355328:      _TyFnc_name[275:280],
-	281474976710656:      _TyFnc_name[280:285],
-	562949953421312:      _TyFnc_name[285:287],
-	1125899906842624:     _TyFnc_name[287:297],
-	18446744073709551615: _TyFnc_name[297:300],
+	8:                    _TyFnc_name[13:20],
+	16:                   _TyFnc_name[20:28],
+	32:                   _TyFnc_name[28:37],
+	64:                   _TyFnc_name[37:48],
+	128:                  _TyFnc_name[48:59],
+	256:                  _TyFnc_name[59:67],
+	512:                  _TyFnc_name[67:75],
+	1024:                 _TyFnc_name[75:82],
+	2048:                 _TyFnc_name[82:88],
+	4096:                 _TyFnc_name[88:93],
+	8192:                 _TyFnc_name[93:96],
+	16384:                _TyFnc_name[96:100],
+	32768:                _TyFnc_name[100:105],
+	65536:                _TyFnc_name[105:114],
+	131072:               _TyFnc_name[114:119],
+	262144:               _TyFnc_name[119:125],
+	524288:               _TyFnc_name[125:132],
+	1048576:              _TyFnc_name[132:135],
+	2097152:              _TyFnc_name[135:138],
+	4194304:              _TyFnc_name[138:144],
+	8388608:              _TyFnc_name[144:148],
+	16777216:             _TyFnc_name[148:152],
+	33554432:             _TyFnc_name[152:156],
+	67108864:             _TyFnc_name[156:166],
+	134217728:            _TyFnc_name[166:172],
+	268435456:            _TyFnc_name[172:174],
+	536870912:            _TyFnc_name[174:181],
+	1073741824:           _TyFnc_name[181:188],
+	2147483648:           _TyFnc_name[188:192],
+	4294967296:           _TyFnc_name[192:197],
+	8589934592:           _TyFnc_name[197:203],
+	17179869184:          _TyFnc_name[203:209],
+	34359738368:          _TyFnc_name[209:213],
+	68719476736:          _TyFnc_name[213:219],
+	137438953472:         _TyFnc_name[219:223],
+	274877906944:         _TyFnc_name[223:226],
+	549755813888:         _TyFnc_name[226:233],
+	1099511627776:        _TyFnc_name[233:237],
+	2199023255552:        _TyFnc_name[237:241],
+	4398046511104:        _TyFnc_name[241:246],
+	8796093022208:        _TyFnc_name[246:252],
+	17592186044416:       _TyFnc_name[252:260],
+	35184372088832:       _TyFnc_name[260:267],
+	70368744177664:       _TyFnc_name[267:278],
+	140737488355328:      _TyFnc_name[278:283],
+	281474976710656:      _TyFnc_name[283:288],
+	562949953421312:      _TyFnc_name[288:290],
+	18446744073709551615: _TyFnc_name[290:293],
 }
 
 func (i TyFnc) String() string {
