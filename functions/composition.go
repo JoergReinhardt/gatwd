@@ -326,41 +326,41 @@ func TakeN(con Continuation, n int) SeqVal {
 			return stack.Push(vector.Put(arg))
 		}
 	)
-	return Filter(Fold(con, stack, takeN), func(arg Expression) bool {
-		return arg.(SeqVal).Head().(VecVal).Len() < n
-	})
+	return Filter(Fold(con, stack, takeN),
+		func(arg Expression) bool {
+			return arg.(SeqVal).Head().(VecVal).Len() < n
+		})
 }
 
 // split is a variation of fold that splits either a continuation of pairs, or
 // takes two arguments at a time and splits those into continuation of left and
 // right values and returns those as elements of a pair
-func Split(con Continuation) SeqVal {
+func Split(
+	con Continuation,
+	left func(arg Expression) bool,
+	right func(arg Expression) bool,
+) SeqVal {
 	var (
-		init  = NewPair(NewVector(), NewVector())
-		split = func(init, head Expression) Expression {
+		pair  = NewPair(NewSequence(), NewSequence())
+		split = func(init, arg Expression) Expression {
 			var (
-				pair = head.(Paired)
-				pl   = init.(Paired)
-				vl   = pl.Left().(VecVal)
-				vr   = pl.Right().(VecVal)
+				sleft  = init.(ValPair).Left().(SeqVal)
+				sright = init.(ValPair).Right().(SeqVal)
 			)
-			return NewPair(
-				vl.Cons(pair.Left()),
-				vr.Cons(pair.Right()),
-			)
+			var matchL, matchR = left(arg), right(arg)
+			if !matchL && !matchR {
+				return NewNone()
+			}
+			if matchL {
+				sleft = sleft.Cons(arg).(SeqVal)
+			}
+			if matchR {
+				sright = sright.Cons(arg).(SeqVal)
+			}
+			return NewPair(sleft, sright)
 		}
 	)
-	// split function expects a list of pairs‥.
-	if con.TypeElem().Match(Pair) {
-		return Fold(con, init, split)
-	}
-	// ‥.which is created by mapping take2 to a function that converts the
-	// resulting slices of length two into pairs
-	return Fold(
-		Map(TakeN(con, 2), func(arg Expression) Expression {
-			var vec = arg.(VecVal)()
-			return NewPair(vec[0], vec[1])
-		}), init, split)
+	return Fold(con, pair, split)
 }
 
 // bind creates a list of results from calling the bind function and passing
