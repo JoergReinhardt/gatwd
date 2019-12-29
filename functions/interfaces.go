@@ -229,12 +229,17 @@ type SwapablePaired interface {
 
 // interface implementet by types sortable by some praedicate
 type Sortable interface {
-	Sort(Expression)
+	Sort(
+		lesser func(a, b Expression) bool,
+	) Sequential
 }
 
 // interface implementet by types searchable by some praedicate
 type Searchable interface {
-	Search(Expression) int
+	Search(
+		match Expression,
+		compare func(a, b Expression) int,
+	) Expression
 }
 
 //// INDEX ASSOCIATIONS
@@ -259,10 +264,14 @@ type IndexPaired interface {
 // interface to accumulate propertys of a vector
 type Vectorized interface {
 	IndexAssociated
-	//Searchable
+	Searchable
 	Sliceable
-	//Sortable
+	Sortable
 	Countable
+	Prefix() VecVal
+	Suffix() VecVal
+	First() Expression
+	Last() Expression
 }
 
 //// KEY ASSOCIATIONS

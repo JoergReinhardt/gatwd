@@ -5,21 +5,29 @@ type ()
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSITION OF DEFINED FUNCTIONS
 ///
-// define the curryed function
+// define the curryed function, so that it accepts the argument types of the g
+// function passed as second argument to the constructor and the return type of
+// the g function passed as its second argument.
 func Curry(f, g FuncDef) FuncDef {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
+
 			func(args ...Expression) Expression {
+
+				// call f with the result of calling g applying
+				// the arguments if any are given
 				if len(args) > 0 {
 					return f.Call(g.Call(args...))
 				}
 				return f.Call(g.Call())
 			}),
-			Def(
-				f.TypeId(),
-				g.TypeId()),
-			f.TypeRet(),
-			f.TypeArgs(),
+
+			// define a function by composing both type ids with
+			// the argument type of g passed as second argument and
+			// the return type of f passed as first argument
+			Def(g.TypeId(), Def(f.TypeId())),
+			f.TypeRet(),  // ‥.return type of g &
+			g.TypeArgs(), //‥.argument type of f
 		)
 	}
 	return Define(NewNone(), None, None)
@@ -29,18 +37,21 @@ func Curry(f, g FuncDef) FuncDef {
 //// CONTINUATION COMPOSITION
 ///
 // flatten flattens sequences of sequences to one dimension
-//func Flatten(con Continuation) SeqVal {
-//	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-//		if len(args) > 0 {
-//			con = con.Call(args...).(Continuation)
-//		}
-//		var head, tail = con.Continue()
-//		if head.Type().Match(Sequences) {
-//			head, tail = head.(Sequential).ConsSeq(tail).Continue()
-//			return head, tail.(SeqVal)
-//		}
-//	})
-//}
+func Flatten(con Continuation) VecVal {
+	return VecVal(func(args ...Expression) []Expression {
+		if len(args) > 0 {
+			con = Flatten(con.Call(args...).(Sequential))
+		}
+		var head, tail = con.Continue()
+		if head.Type().Match(Sequences) {
+			return append(
+				Flatten(head.(Sequential))(),
+				Flatten(tail.(Sequential))()...)
+		}
+		return append([]Expression{head},
+			Flatten(tail.(Sequential))()...)
+	})
+}
 
 // map returns a continuation calling the map function for every element
 func Map(

@@ -39,7 +39,7 @@ type (
 	CompareFunc func(Expression) int
 
 	// CASE & SWITCH
-	CaseDef   func(...Expression) Expression // needs to be variadic since overloaded
+	CaseDef   func(...Expression) Expression // needs to be variadic to type overload
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
 	// MAYBE (JUST | NONE)
@@ -47,12 +47,9 @@ type (
 	JustVal  func(...Expression) Expression
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
-	EitherOrDef func(...Expression) Expression
-	EitherVal   func(...Expression) Expression
-	OrVal       func(...Expression) Expression
-
-	// TODO: either poly-/ or option type (homolog)‥. also option value
-	// should reference its type constructor and sibling types.
+	AlternateDef func(...Expression) Expression
+	EitherVal    func(...Expression) Expression
+	OrVal        func(...Expression) Expression
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
 	Polymorph func(...Expression) (Expression, []FuncDef, int)
@@ -268,7 +265,7 @@ func (t JustVal) Type() TyComp                       { return t().Type() }
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches. if none of the cases match, a none instance will be returned
-func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
+func NewEitherOr(test Testable, either, or Expression) AlternateDef {
 	var pattern = Def(
 		Def(
 			Def(Either, either.Type().TypeId()),
@@ -284,7 +281,7 @@ func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
 		),
 	)
 
-	return EitherOrDef(func(args ...Expression) Expression {
+	return AlternateDef(func(args ...Expression) Expression {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				if test.Test(NewVector(args...)) {
@@ -299,10 +296,10 @@ func NewEitherOr(test Testable, either, or Expression) EitherOrDef {
 		return pattern
 	})
 }
-func (o EitherOrDef) TypeFnc() TyFnc                     { return Option }
-func (o EitherOrDef) Type() TyComp                       { return o().Type() }
-func (o EitherOrDef) String() string                     { return o().String() }
-func (o EitherOrDef) Call(args ...Expression) Expression { return o(args...) }
+func (o AlternateDef) TypeFnc() TyFnc                     { return Option }
+func (o AlternateDef) Type() TyComp                       { return o().Type() }
+func (o AlternateDef) String() string                     { return o().String() }
+func (o AlternateDef) Call(args ...Expression) Expression { return o(args...) }
 
 //// ALTERNATIVE VALUE
 ///
