@@ -229,7 +229,10 @@ func Fold(
 	)
 	// skip none instances, when tail has further elements
 	if result.Type().Match(None) && !tail.Empty() {
-		return Fold(tail, init, fold)
+		for result.Type().Match(None) && !tail.Empty() {
+			head, tail = tail.Continue()
+			result = fold(init, head)
+		}
 	}
 	init = result
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
@@ -311,24 +314,20 @@ func TakeN(con Continuation, n int) SeqVal {
 		})
 	}
 	var (
-		stack Stack = NewSequence(NewVector())
-		takeN       = func(init Expression, arg Expression) Expression {
+		init  = NewVector()
+		takeN = func(init Expression, arg Expression) Expression {
 			var (
-				head   Expression
-				vector VecVal
+				vector = init.(VecVal)
 			)
-			head, stack = init.(Stack).Pop()
-			vector = head.(VecVal)
 			if vector.Len() == n {
-				stack = stack.Push(vector)
-				vector = NewVector()
+				return NewVector(arg)
 			}
-			return stack.Push(vector.Put(arg))
+			return vector.Put(arg)
 		}
 	)
-	return Filter(Fold(con, stack, takeN),
+	return Filter(Fold(con, init, takeN),
 		func(arg Expression) bool {
-			return arg.(SeqVal).Head().(VecVal).Len() < n
+			return arg.(VecVal).Len() < n
 		})
 }
 
