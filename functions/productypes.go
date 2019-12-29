@@ -18,7 +18,7 @@ examples for productypes
       function type
     - a function types argument & return types are analog to record, or tuples
       element types
-  - polymorphic function types
+  - polymorphic function type
     - polymorph types are a set of possibly different signature types
     - every distinct set of signature types is a unique sub type of the
       polymorph type
