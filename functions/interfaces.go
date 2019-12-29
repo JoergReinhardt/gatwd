@@ -55,14 +55,13 @@ type FunctionTyped interface {
 // native interface implements data native, provides assigability of
 // functionale instances implementing it to native data structures using the
 // 'data/Function' type.
-// flag.
 type Native interface {
 	Expression
 	TypeNat() d.TyNat
 }
 
 // extends the data/native interface with an eval method that takes arguments
-// and returns a value of type data/native. funtional types implementing this
+// and returns a value of type data/native.  funtional types implementing this
 // use unboxed instances of native values
 type NatEval interface {
 	Native
@@ -91,7 +90,7 @@ type Expression interface {
 // it returns the current head of a collection, last result, or input in a
 // series of computations, data i/o operations, etc‥.
 // a given instance will always return the same head and tail, the returned
-// tail when consumed, will return the next step and so on. return values can
+// tail when consumed, will return the next step and so on.  return values can
 // either be passed on recurively as continuations, or be reassigned to the
 // same values in a loop, thereby implementing a functional trampolin to
 // flatten recursive calls.

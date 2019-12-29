@@ -21,7 +21,7 @@ type (
 ///
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
-// called
+// called.
 func NewVector(elems ...Expression) VecVal {
 	// returns empty slice of expressions when no elements are given
 	if len(elems) == 0 {
@@ -66,10 +66,8 @@ func (v VecVal) Prefix() VecVal {
 	}
 	return NewVector()
 }
-func (v VecVal) Suffix() VecVal { return v.Tail().(VecVal) }
-func (v VecVal) Continue() (Expression, Continuation) {
-	return v.First(), v.Suffix()
-}
+func (v VecVal) Suffix() VecVal                         { return v.Tail().(VecVal) }
+func (v VecVal) Continue() (Expression, Continuation)   { return v.First(), v.Suffix() }
 func (v VecVal) Push(args ...Expression) Stack          { return NewVector(append(v(), args...)...) }
 func (v VecVal) Put(args ...Expression) Stack           { return NewVector(append(args, v()...)...) }
 func (v VecVal) Pop() (Expression, Stack)               { return v.Last(), v.Prefix() }

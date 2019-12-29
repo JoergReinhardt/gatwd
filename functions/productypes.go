@@ -39,7 +39,7 @@ type (
 	CompareFunc func(Expression) int
 
 	// CASE & SWITCH
-	CaseDef   func(...Expression) Expression // needs to be variadic to type overload
+	CaseDef   func(...Expression) Expression // variadic to enable type overload
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
 	// MAYBE (JUST | NONE)
@@ -116,7 +116,7 @@ func (t CompareFunc) Compare(arg Expression) int     { return t(arg) }
 //
 // case constructor takes a test and an expression, in order for the resulting
 // case instance to test its arguments and yield the result of applying those
-// arguments to the expression, in case the test yielded true. otherwise the
+// arguments to the expression, in case the test yielded true.  otherwise the
 // case will yield none.
 func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
 	var pattern = Def(Def(Case, test.Type()), retype, argtype)
@@ -149,7 +149,7 @@ func (t CaseDef) Call(args ...Expression) Expression { return t(args...) }
 //
 // switch takes a slice of cases and evaluates them against its arguments to
 // yield either a none value, or the result of the case application and a
-// switch enclosing the remaining cases. id all cases are depleted, a none
+// switch enclosing the remaining cases.  id all cases are depleted, a none
 // instance will be returned as result and nil will be yielded instead of the
 // switch value
 //
@@ -264,7 +264,7 @@ func (t JustVal) Type() TyComp                       { return t().Type() }
 ///
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
-// matches. if none of the cases match, a none instance will be returned
+// matches.  if none of the cases match, a none instance will be returned
 func NewEitherOr(test Testable, either, or Expression) AlternateDef {
 	var pattern = Def(
 		Def(

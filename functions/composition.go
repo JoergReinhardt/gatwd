@@ -1,7 +1,5 @@
 package functions
 
-type ()
-
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSITION OF DEFINED FUNCTIONS
 ///
@@ -120,7 +118,7 @@ func Apply(
 	})
 }
 
-// fold takes a continuation, an initial expression and a fold function. the
+// fold takes a continuation, an initial expression and a fold function.  the
 // fold function is called for every element of the continuation and passed the
 // current element and init expression and returns a possbly altered init
 // element to pass to next call
@@ -239,7 +237,7 @@ func TakeN(con Continuation, n int) SeqVal {
 			if vector.Len() == n {
 				return NewVector(arg)
 			}
-			return vector.Put(arg)
+			return vector.Cons(arg)
 		}
 	)
 	return Filter(Fold(con, init, takeN),
@@ -280,7 +278,7 @@ func Split(
 
 // zip expects two continuations and a function to create a list of resulting
 // elements each created from the two current continuation heads, using the
-// passed zip function. if arguments are passed calling the lists call method,
+// passed zip function.  if arguments are passed calling the lists call method,
 // the results call method is called after heads have been zipped, passing on
 // those arguemnts.
 func Zip(
@@ -308,7 +306,9 @@ func Zip(
 
 // bind works similar to zip, but the bind function takes additional arguments
 // passed to the bound list when calling the call method with arguments
-// directly (instead of passing on to results call method, analog to map/apply)
+// directly (instead of passing on to results call method, analog to
+// map/apply).  when both functions are curryed and the arguments are passed to
+// the resulting function, bind behaves like the '.' operator in haskell.
 func Bind(
 	f, g Continuation,
 	bind func(l, r Expression, args ...Expression) Expression,

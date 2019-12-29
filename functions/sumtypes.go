@@ -46,7 +46,7 @@ type (
 
 //// NONE VALUE CONSTRUCTOR
 ///
-// none represens the abscence of a value of any type. implements countable,
+// none represens the abscence of a value of any type.  implements countable,
 // sliceable, consumeable, testable, compareable, key-, index- and generic pair
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
@@ -121,9 +121,9 @@ func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
-// defines typesafe partialy applicable expression. if the set of optional type
+// defines typesafe partialy applicable expression.  if the set of optional type
 // argument(s) starts with a symbol, that will be assumed to be the types
-// identity. otherwise the identity is derived from the passed expression,
+// identity.  otherwise the identity is derived from the passed expression,
 // types first field will be the return type, its second field the (set of)
 // argument type(s), additional arguments are considered propertys.
 func createFuncType(expr Expression, types ...d.Typed) TyComp {
