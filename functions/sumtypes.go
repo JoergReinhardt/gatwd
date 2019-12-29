@@ -42,6 +42,21 @@ type (
 	CaseDef   func(...Expression) Expression // variadic to enable type overload
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
+	//// DECLARED EXPRESSION
+	FuncDef func(...Expression) Expression
+
+	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
+	Polymorph func(...Expression) (Expression, []FuncDef, int)
+	Variant   func(...Expression) (Expression, Polymorph)
+
+	// TUPLE (TYPE[0]...TYPE[N])
+	TupCon func(...Expression) TupVal
+	TupVal []Expression
+
+	//// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
+	RecCon func(...Expression) RecVal
+	RecVal []KeyPair
+
 	// MAYBE (JUST | NONE)
 	MaybeDef func(...Expression) Expression
 	JustVal  func(...Expression) Expression
@@ -50,10 +65,6 @@ type (
 	AlternateDef func(...Expression) Expression
 	EitherVal    func(...Expression) Expression
 	OrVal        func(...Expression) Expression
-
-	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	Polymorph func(...Expression) (Expression, []FuncDef, int)
-	Variant   func(...Expression) (Expression, Polymorph)
 )
 
 /// TRUTH TEST
@@ -212,107 +223,114 @@ func (t SwitchDef) Call(args ...Expression) Expression {
 	return NewNone()
 }
 
-/// MAYBE VALUE
+/// PARTIAL APPLYABLE EXPRESSION VALUE
 //
-// the constructor takes a case expression, expected to return a result, if the
-// case matches the arguments and either returns the resulting none instance,
-// or creates a just instance enclosing the resulting value.
-func NewMaybe(cas CaseDef) MaybeDef {
-	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
-	for _, arg := range cas.TypeArguments() {
-		argtypes = append(argtypes, arg)
-	}
-	var (
-		pattern = Def(Def(Just|None), Def(cas.TypeReturn()), Def(argtypes...))
-	)
-	return func(args ...Expression) Expression {
-		if len(args) > 0 {
-			// pass arguments to case, check if result is none‥.
-			if result := cas.Call(args...); !result.Type().Match(None) {
-				// ‥.otherwise return a maybe just
-				return JustVal(func(args ...Expression) Expression {
-					if len(args) > 0 {
-						// return result from passing
-						// args to result of initial
-						// call
-						return result.Call(args...)
-					}
-					return result.Call()
-				})
-			}
-			// no matching arguments where passed, return none
-			return NewNone()
+// defines typesafe partialy applicable expression.  if the set of optional type
+// argument(s) starts with a symbol, that will be assumed to be the types
+// identity.  otherwise the identity is derived from the passed expression,
+// types first field will be the return type, its second field the (set of)
+// argument type(s), additional arguments are considered propertys.
+func createFuncType(expr Expression, types ...d.Typed) TyComp {
+	// if type arguments have been passed, build the type based on them‥.
+	if len(types) > 0 {
+		// if the first element in pattern is a symbol to be used as
+		// ident, just define type from type arguments‥.
+		if Kind_Sym.Match(types[0].Kind()) {
+			return Def(types...)
+		} else { // ‥.otherwise use the expressions ident type
+			return Def(append([]d.Typed{expr.Type().TypeId()}, types...)...)
 		}
-		return pattern
 	}
+	// ‥.otherwise define by expressions identity entirely in terms of the
+	// passed expression type
+	return Def(expr.Type().TypeId(),
+		expr.Type().TypeRet(),
+		expr.Type().TypeArgs())
+
 }
 
-func (t MaybeDef) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
-func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArgs() }
-func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeRet() }
-func (t MaybeDef) String() string                     { return t().String() }
-func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
-
-// maybe values methods
-func (t JustVal) TypeFnc() TyFnc                     { return Just }
-func (t JustVal) Call(args ...Expression) Expression { return t(args...) }
-func (t JustVal) String() string                     { return t().String() }
-func (t JustVal) Type() TyComp                       { return t().Type() }
-
-//// OPTIONAL VALUE
-///
-// constructor takes two case expressions, first one expected to return the
-// either result, second one expected to return the or result if the case
-// matches.  if none of the cases match, a none instance will be returned
-func NewEitherOr(test Testable, either, or Expression) AlternateDef {
-	var pattern = Def(
-		Def(
-			Def(Either, either.Type().TypeId()),
-			Def(Or, or.Type().TypeId()),
-		),
-		Def(
-			Def(Either, either.Type().TypeRet()),
-			Def(Or, or.Type().TypeRet()),
-		),
-		Def(
-			Def(Either, either.Type().TypeArgs()),
-			Def(Or, or.Type().TypeArgs()),
-		),
+func Define(
+	expr Expression,
+	types ...d.Typed,
+) FuncDef {
+	var (
+		ct     = createFuncType(expr, types...)
+		arglen = ct.TypeArgs().Len()
 	)
+	// return partialy applicable function
+	return func(args ...Expression) Expression {
+		var length = len(args)
+		if length > 0 {
+			if ct.TypeArgs().MatchArgs(args...) {
+				switch {
+				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
+				case length == arglen:
+					return expr.Call(args...)
 
-	return AlternateDef(func(args ...Expression) Expression {
-		if len(args) > 0 {
-			if len(args) > 1 {
-				if test.Test(NewVector(args...)) {
-					return EitherVal(either.Call)
+				// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
+				case length < arglen:
+					// safe types of arguments remaining to be filled
+					var (
+						remains = ct.TypeArgs().Types()[length:]
+						newpat  = Def(
+							Def(Partial, ct.TypeId()),
+							ct.TypeRet(),
+							Def(remains...))
+					)
+					// define new function from remaining
+					// set of argument types, enclosing the
+					// current arguments & appending its
+					// own aruments to them, when called.
+					return Define(Lambda(func(lateargs ...Expression) Expression {
+						// will return result, or
+						// another partial, when called
+						// with arguments
+						if len(lateargs) > 0 {
+							return expr.Call(append(
+								args, lateargs...,
+							)...)
+						}
+						// if no arguments where
+						// passed, return the reduced
+						// type ct
+						return newpat
+					}), newpat.Types()...)
+
+				// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
+				case length > arglen:
+					// allocate vector to hold multiple instances
+					var vector = NewVector()
+					// iterate over arguments, allocate an instance per satisfying set
+					for len(args) > arglen {
+						vector = vector.Cons(
+							expr.Call(args[:arglen]...)).(VecVal)
+						args = args[arglen:]
+					}
+					if length > 0 { // number of leftover arguments is insufficient
+						// add a partial expression as vectors last element
+						vector = vector.Cons(Define(
+							expr, ct.Types()...,
+						).Call(args...)).(VecVal)
+					}
+					// return vector of instances
+					return vector
 				}
 			}
-			if test.Test(args[0]) {
-				return EitherVal(either.Call)
-			}
-			return OrVal(or.Call)
+			// passed argument(s) didn't match the expected type(s)
+			return None
 		}
-		return pattern
-	})
+		// no arguments where passed, return the expression type
+		return ct
+	}
 }
-func (o AlternateDef) TypeFnc() TyFnc                     { return Option }
-func (o AlternateDef) Type() TyComp                       { return o().Type() }
-func (o AlternateDef) String() string                     { return o().String() }
-func (o AlternateDef) Call(args ...Expression) Expression { return o(args...) }
-
-//// ALTERNATIVE VALUE
-///
-func (o EitherVal) TypeFnc() TyFnc                     { return Either }
-func (o EitherVal) Type() TyComp                       { return o().Type() }
-func (o EitherVal) String() string                     { return o().String() }
-func (o EitherVal) Call(args ...Expression) Expression { return o.Call(args...) }
-
-///
-func (o OrVal) TypeFnc() TyFnc                     { return Or }
-func (o OrVal) Type() TyComp                       { return o().Type() }
-func (o OrVal) String() string                     { return o().String() }
-func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
+func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
+func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e FuncDef) String() string                     { return e().String() }
+func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 
 //// POLYMORPHIC TYPE
 ///
@@ -474,3 +492,251 @@ func (p Variant) Call(args ...Expression) Expression {
 	}
 	return p.Expr()
 }
+
+//// TUPLE TYPE
+///
+// tuple type constructor expects a slice of field types and possibly a symbol
+// type flag, to define the types name, otherwise 'tuple' is the type name and
+// the sequence of field types is shown instead
+func NewTupleType(types ...d.Typed) TupCon {
+	return func(args ...Expression) TupVal {
+		var tup = make(TupVal, 0, len(args))
+		if Def(types...).MatchArgs(args...) {
+			for _, arg := range args {
+				tup = append(tup, arg)
+			}
+		}
+		if len(tup) == 0 {
+			for _, t := range types {
+				if Kind_Comp.Match(t.Kind()) {
+					tup = append(tup, t.(TyComp))
+				}
+				tup = append(tup, Def(t))
+			}
+		}
+		return tup
+	}
+}
+
+func (t TupCon) Call(args ...Expression) Expression { return t(args...) }
+func (t TupCon) TypeFnc() TyFnc                     { return Tuple | Constructor }
+func (t TupCon) String() string                     { return t.Type().String() }
+func (t TupCon) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t()))
+	for _, c := range t() {
+		if Kind_Comp.Match(c.Type().Kind()) {
+			types = append(types, c.(TyComp))
+			continue
+		}
+		types = append(types, c.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+
+/// TUPLE VALUE
+// tuple value is a slice of expressions, constructed by a tuple type
+// constructor validated according to its type pattern.
+func (t TupVal) Len() int { return len(t) }
+func (t TupVal) String() string {
+	var strs = make([]string, 0, t.Len())
+	for _, val := range t {
+		strs = append(strs, val.String())
+	}
+	return "[" + strings.Join(strs, ", ") + "]"
+}
+func (t TupVal) Get(idx int) Expression {
+	if idx < t.Len() {
+		return t[idx]
+	}
+	return NewNone()
+}
+func (t TupVal) TypeFnc() TyFnc                     { return Tuple }
+func (t TupVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
+func (t TupVal) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t))
+	for _, tup := range t {
+		types = append(types, tup.Type())
+	}
+	return Def(Tuple, Def(types...))
+}
+
+//// RECORD TYPE
+///
+//
+func NewRecordType(fields ...KeyPair) RecCon {
+	return func(args ...Expression) RecVal {
+		var rec = make(RecVal, 0, len(args))
+		if len(args) > 0 {
+			for n, arg := range args {
+				if len(fields) > n && arg.Type().Match(Key|Pair) {
+					if kp, ok := arg.(KeyPair); ok {
+						if strings.Compare(
+							string(kp.KeyStr()),
+							string(fields[n].KeyStr()),
+						) == 0 &&
+							fields[n].Value().Type().Match(
+								kp.Value().Type(),
+							) {
+							rec = append(rec, kp)
+						}
+					}
+				}
+			}
+		}
+		if len(rec) == 0 {
+			return fields
+		}
+		return rec
+	}
+}
+
+func (t RecCon) Call(args ...Expression) Expression { return t(args...) }
+func (t RecCon) TypeFnc() TyFnc                     { return Record | Constructor }
+func (t RecCon) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t()))
+	for _, field := range t() {
+		types = append(types, Def(
+			DefSym(field.KeyStr()),
+			Def(field.Value().Type()),
+		))
+	}
+	return Def(Record, Def(types...))
+}
+func (t RecCon) String() string { return t.Type().String() }
+
+/// RECORD VALUE
+// tuple value is a slice of expressions, constructed by a tuple type
+// constructor validated according to its type pattern.
+func (t RecVal) TypeFnc() TyFnc { return Record }
+func (t RecVal) Call(args ...Expression) Expression {
+	var fields = make([]Expression, 0, len(t)+len(args))
+	for _, field := range t {
+		fields = append(fields, field)
+	}
+	for _, arg := range args {
+		if arg.Type().Match(Pair | Key) {
+			if kp, ok := arg.(KeyPair); ok {
+				fields = append(fields, kp)
+			}
+		}
+	}
+	return NewVector(fields...)
+}
+func (t RecVal) Type() TyComp {
+	var types = make([]d.Typed, 0, len(t))
+	for _, tup := range t {
+		types = append(types, tup.Type())
+	}
+	return Def(Record, Def(types...))
+}
+func (t RecVal) Len() int { return len(t) }
+func (t RecVal) String() string {
+	var strs = make([]string, 0, t.Len())
+	for _, field := range t {
+		strs = append(strs,
+			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
+	}
+	return "{" + strings.Join(strs, " ") + "}"
+}
+
+/// MAYBE VALUE
+//
+// the constructor takes a case expression, expected to return a result, if the
+// case matches the arguments and either returns the resulting none instance,
+// or creates a just instance enclosing the resulting value.
+func NewMaybe(cas CaseDef) MaybeDef {
+	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
+	for _, arg := range cas.TypeArguments() {
+		argtypes = append(argtypes, arg)
+	}
+	var (
+		pattern = Def(Def(Just|None), Def(cas.TypeReturn()), Def(argtypes...))
+	)
+	return func(args ...Expression) Expression {
+		if len(args) > 0 {
+			// pass arguments to case, check if result is none‥.
+			if result := cas.Call(args...); !result.Type().Match(None) {
+				// ‥.otherwise return a maybe just
+				return JustVal(func(args ...Expression) Expression {
+					if len(args) > 0 {
+						// return result from passing
+						// args to result of initial
+						// call
+						return result.Call(args...)
+					}
+					return result.Call()
+				})
+			}
+			// no matching arguments where passed, return none
+			return NewNone()
+		}
+		return pattern
+	}
+}
+
+func (t MaybeDef) TypeFnc() TyFnc                     { return Maybe }
+func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
+func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArgs() }
+func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeRet() }
+func (t MaybeDef) String() string                     { return t().String() }
+func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
+
+// maybe values methods
+func (t JustVal) TypeFnc() TyFnc                     { return Just }
+func (t JustVal) Call(args ...Expression) Expression { return t(args...) }
+func (t JustVal) String() string                     { return t().String() }
+func (t JustVal) Type() TyComp                       { return t().Type() }
+
+//// OPTIONAL VALUE
+///
+// constructor takes two case expressions, first one expected to return the
+// either result, second one expected to return the or result if the case
+// matches.  if none of the cases match, a none instance will be returned
+func NewEitherOr(test Testable, either, or Expression) AlternateDef {
+	var pattern = Def(
+		Def(
+			Def(Either, either.Type().TypeId()),
+			Def(Or, or.Type().TypeId()),
+		),
+		Def(
+			Def(Either, either.Type().TypeRet()),
+			Def(Or, or.Type().TypeRet()),
+		),
+		Def(
+			Def(Either, either.Type().TypeArgs()),
+			Def(Or, or.Type().TypeArgs()),
+		),
+	)
+
+	return AlternateDef(func(args ...Expression) Expression {
+		if len(args) > 0 {
+			if len(args) > 1 {
+				if test.Test(NewVector(args...)) {
+					return EitherVal(either.Call)
+				}
+			}
+			if test.Test(args[0]) {
+				return EitherVal(either.Call)
+			}
+			return OrVal(or.Call)
+		}
+		return pattern
+	})
+}
+func (o AlternateDef) TypeFnc() TyFnc                     { return Option }
+func (o AlternateDef) Type() TyComp                       { return o().Type() }
+func (o AlternateDef) String() string                     { return o().String() }
+func (o AlternateDef) Call(args ...Expression) Expression { return o(args...) }
+
+//// ALTERNATIVE VALUE
+///
+func (o EitherVal) TypeFnc() TyFnc                     { return Either }
+func (o EitherVal) Type() TyComp                       { return o().Type() }
+func (o EitherVal) String() string                     { return o().String() }
+func (o EitherVal) Call(args ...Expression) Expression { return o.Call(args...) }
+
+///
+func (o OrVal) TypeFnc() TyFnc                     { return Or }
+func (o OrVal) Type() TyComp                       { return o().Type() }
+func (o OrVal) String() string                     { return o().String() }
+func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }

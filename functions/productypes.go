@@ -13,8 +13,6 @@ of integers‥.
 package functions
 
 import (
-	"strings"
-
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -24,16 +22,9 @@ type (
 	Const   func() Expression
 	Lambda  func(...Expression) Expression
 
-	//// DECLARED EXPRESSION
-	FuncDef func(...Expression) Expression
-
-	// TUPLE (TYPE[0]...TYPE[N])
-	TupCon func(...Expression) TupVal
-	TupVal []Expression
-
-	//// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecCon func(...Expression) RecVal
-	RecVal []KeyPair
+	//// GENERATOR | ACCUMULATOR
+	GenVal func() (Expression, GenVal)
+	AccVal func(...Expression) (Expression, AccVal)
 
 	//// ENUMERABLE
 	///
@@ -119,260 +110,95 @@ func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeId() }
 func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeRet() }
 func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
 
-/// PARTIAL APPLYABLE EXPRESSION VALUE
-//
-// defines typesafe partialy applicable expression.  if the set of optional type
-// argument(s) starts with a symbol, that will be assumed to be the types
-// identity.  otherwise the identity is derived from the passed expression,
-// types first field will be the return type, its second field the (set of)
-// argument type(s), additional arguments are considered propertys.
-func createFuncType(expr Expression, types ...d.Typed) TyComp {
-	// if type arguments have been passed, build the type based on them‥.
-	if len(types) > 0 {
-		// if the first element in pattern is a symbol to be used as
-		// ident, just define type from type arguments‥.
-		if Kind_Sym.Match(types[0].Kind()) {
-			return Def(types...)
-		} else { // ‥.otherwise use the expressions ident type
-			return Def(append([]d.Typed{expr.Type().TypeId()}, types...)...)
-		}
-	}
-	// ‥.otherwise define by expressions identity entirely in terms of the
-	// passed expression type
-	return Def(expr.Type().TypeId(),
-		expr.Type().TypeRet(),
-		expr.Type().TypeArgs())
-
-}
-
-func Define(
-	expr Expression,
-	types ...d.Typed,
-) FuncDef {
-	var (
-		ct     = createFuncType(expr, types...)
-		arglen = ct.TypeArgs().Len()
-	)
-	// return partialy applicable function
-	return func(args ...Expression) Expression {
-		var length = len(args)
-		if length > 0 {
-			if ct.TypeArgs().MatchArgs(args...) {
-				switch {
-				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
-				case length == arglen:
-					return expr.Call(args...)
-
-				// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
-				case length < arglen:
-					// safe types of arguments remaining to be filled
-					var (
-						remains = ct.TypeArgs().Types()[length:]
-						newpat  = Def(
-							Def(Partial, ct.TypeId()),
-							ct.TypeRet(),
-							Def(remains...))
-					)
-					// define new function from remaining
-					// set of argument types, enclosing the
-					// current arguments & appending its
-					// own aruments to them, when called.
-					return Define(Lambda(func(lateargs ...Expression) Expression {
-						// will return result, or
-						// another partial, when called
-						// with arguments
-						if len(lateargs) > 0 {
-							return expr.Call(append(
-								args, lateargs...,
-							)...)
-						}
-						// if no arguments where
-						// passed, return the reduced
-						// type ct
-						return newpat
-					}), newpat.Types()...)
-
-				// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
-				case length > arglen:
-					// allocate vector to hold multiple instances
-					var vector = NewVector()
-					// iterate over arguments, allocate an instance per satisfying set
-					for len(args) > arglen {
-						vector = vector.Cons(
-							expr.Call(args[:arglen]...)).(VecVal)
-						args = args[arglen:]
-					}
-					if length > 0 { // number of leftover arguments is insufficient
-						// add a partial expression as vectors last element
-						vector = vector.Cons(Define(
-							expr, ct.Types()...,
-						).Call(args...)).(VecVal)
-					}
-					// return vector of instances
-					return vector
-				}
-			}
-			// passed argument(s) didn't match the expected type(s)
-			return None
-		}
-		// no arguments where passed, return the expression type
-		return ct
-	}
-}
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
-
-//// TUPLE TYPE
+//// GENERATOR
 ///
-// tuple type constructor expects a slice of field types and possibly a symbol
-// type flag, to define the types name, otherwise 'tuple' is the type name and
-// the sequence of field types is shown instead
-func NewTupleType(types ...d.Typed) TupCon {
-	return func(args ...Expression) TupVal {
-		var tup = make(TupVal, 0, len(args))
-		if Def(types...).MatchArgs(args...) {
-			for _, arg := range args {
-				tup = append(tup, arg)
-			}
-		}
-		if len(tup) == 0 {
-			for _, t := range types {
-				if Kind_Comp.Match(t.Kind()) {
-					tup = append(tup, t.(TyComp))
-				}
-				tup = append(tup, Def(t))
-			}
-		}
-		return tup
+// expects an expression that returns an unboxed value, when called empty and
+// some notion of 'next' value, relative to its arguments, if arguments where
+// passed.
+func NewGenerator(init, generate Expression) GenVal {
+	return func() (Expression, GenVal) {
+		var next = generate.Call(init)
+		return init, NewGenerator(next, generate)
 	}
 }
+func (g GenVal) Expr() Expression {
+	var expr, _ = g()
+	return expr
+}
+func (g GenVal) Generator() GenVal {
+	var _, gen = g()
+	return gen
+}
+func (g GenVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewPair(g.Expr().Call(args...), g.Generator())
+	}
+	return NewPair(g.Expr(), g.Generator())
+}
+func (g GenVal) TypeFnc() TyFnc   { return Generator }
+func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
+func (g GenVal) String() string   { return g.Head().String() }
+func (g GenVal) Empty() bool {
+	if g.Head().Type().Match(None) {
+		return true
+	}
+	return false
+}
+func (g GenVal) Continue() (Expression, Continuation) { return g() }
+func (g GenVal) Head() Expression                     { return g.Expr() }
+func (g GenVal) Tail() Continuation                   { return g.Generator() }
 
-func (t TupCon) Call(args ...Expression) Expression { return t(args...) }
-func (t TupCon) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupCon) String() string                     { return t.Type().String() }
-func (t TupCon) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t()))
-	for _, c := range t() {
-		if Kind_Comp.Match(c.Type().Kind()) {
-			types = append(types, c.(TyComp))
-			continue
-		}
-		types = append(types, c.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
-
-/// TUPLE VALUE
-// tuple value is a slice of expressions, constructed by a tuple type
-// constructor validated according to its type pattern.
-func (t TupVal) Len() int { return len(t) }
-func (t TupVal) String() string {
-	var strs = make([]string, 0, t.Len())
-	for _, val := range t {
-		strs = append(strs, val.String())
-	}
-	return "[" + strings.Join(strs, ", ") + "]"
-}
-func (t TupVal) Get(idx int) Expression {
-	if idx < t.Len() {
-		return t[idx]
-	}
-	return NewNone()
-}
-func (t TupVal) TypeFnc() TyFnc                     { return Tuple }
-func (t TupVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
-func (t TupVal) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t))
-	for _, tup := range t {
-		types = append(types, tup.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
-
-//// RECORD TYPE
+//// ACCUMULATOR
 ///
-//
-func NewRecordType(fields ...KeyPair) RecCon {
-	return func(args ...Expression) RecVal {
-		var rec = make(RecVal, 0, len(args))
+// accumulator expects an expression as input, that returns itself unboxed,
+// when called empty and returns a new accumulator accumulating its value and
+// arguments to create a new accumulator, if arguments where passed.
+func NewAccumulator(acc, fnc Expression) AccVal {
+	return AccVal(func(args ...Expression) (Expression, AccVal) {
 		if len(args) > 0 {
-			for n, arg := range args {
-				if len(fields) > n && arg.Type().Match(Key|Pair) {
-					if kp, ok := arg.(KeyPair); ok {
-						if strings.Compare(
-							string(kp.KeyStr()),
-							string(fields[n].KeyStr()),
-						) == 0 &&
-							fields[n].Value().Type().Match(
-								kp.Value().Type(),
-							) {
-							rec = append(rec, kp)
-						}
-					}
-				}
-			}
+			acc = fnc.Call(append([]Expression{acc}, args...)...)
+			return acc, NewAccumulator(acc, fnc)
 		}
-		if len(rec) == 0 {
-			return fields
-		}
-		return rec
-	}
+		return acc, NewAccumulator(acc, fnc)
+	})
 }
 
-func (t RecCon) Call(args ...Expression) Expression { return t(args...) }
-func (t RecCon) TypeFnc() TyFnc                     { return Record | Constructor }
-func (t RecCon) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t()))
-	for _, field := range t() {
-		types = append(types, Def(
-			DefSym(field.KeyStr()),
-			Def(field.Value().Type()),
-		))
-	}
-	return Def(Record, Def(types...))
+func (g AccVal) Result() Expression {
+	var res, _ = g()
+	return res
 }
-func (t RecCon) String() string { return t.Type().String() }
+func (g AccVal) Accumulator() AccVal {
+	var _, acc = g()
+	return acc
+}
+func (g AccVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var res, acc = g(args...)
+		return NewPair(res, acc)
+	}
+	return g.Result()
+}
+func (g AccVal) TypeFnc() TyFnc { return Accumulator }
+func (g AccVal) Type() TyComp {
+	return Def(
+		Accumulator,
+		g.Head().Type().TypeRet(),
+		g.Head().Type().TypeArgs(),
+	)
+}
+func (g AccVal) String() string { return g.Head().String() }
 
-/// RECORD VALUE
-// tuple value is a slice of expressions, constructed by a tuple type
-// constructor validated according to its type pattern.
-func (t RecVal) TypeFnc() TyFnc { return Record }
-func (t RecVal) Call(args ...Expression) Expression {
-	var fields = make([]Expression, 0, len(t)+len(args))
-	for _, field := range t {
-		fields = append(fields, field)
+func (a AccVal) Empty() bool {
+	if a.Head().Type().Match(None) {
+		return true
 	}
-	for _, arg := range args {
-		if arg.Type().Match(Pair | Key) {
-			if kp, ok := arg.(KeyPair); ok {
-				fields = append(fields, kp)
-			}
-		}
-	}
-	return NewVector(fields...)
+	return false
 }
-func (t RecVal) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t))
-	for _, tup := range t {
-		types = append(types, tup.Type())
-	}
-	return Def(Record, Def(types...))
-}
-func (t RecVal) Len() int { return len(t) }
-func (t RecVal) String() string {
-	var strs = make([]string, 0, t.Len())
-	for _, field := range t {
-		strs = append(strs,
-			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
-	}
-	return "{" + strings.Join(strs, " ") + "}"
-}
+func (g AccVal) Head() Expression                     { return g.Result() }
+func (g AccVal) TypeElem() TyComp                     { return g.Head().Type() }
+func (g AccVal) Tail() Continuation                   { return g.Accumulator() }
+func (g AccVal) Continue() (Expression, Continuation) { return g() }
 
 //// ENUM TYPE
 ///
