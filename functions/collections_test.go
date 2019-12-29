@@ -458,6 +458,7 @@ func TestFoldSequence(t *testing.T) {
 }
 
 func TestFilterPassSequence(t *testing.T) {
+
 	var (
 		isEven = func(arg Expression) bool {
 			return arg.(DatConst)().(d.IntVal)%2 == 0
@@ -466,6 +467,7 @@ func TestFilterPassSequence(t *testing.T) {
 		even = Pass(intsA, isEven)
 	)
 	fmt.Printf("odd: %s\neven: %s\n", odd, even)
+
 	var ohead, otail = odd.Continue()
 	var ehead, etail = even.Continue()
 	for i := 0; i < 3; i++ {
@@ -473,6 +475,7 @@ func TestFilterPassSequence(t *testing.T) {
 		ehead, etail = etail.Continue()
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
+
 	if ohead.(SeqVal).Head().(DatConst)().(d.IntVal) != 3 ||
 		ehead.(SeqVal).Head().(DatConst)().(d.IntVal) != 2 {
 		t.Fail()
@@ -480,20 +483,34 @@ func TestFilterPassSequence(t *testing.T) {
 }
 
 func TestTakeNSequence(t *testing.T) {
+
 	var token = TakeN(intsA, 2)
 	fmt.Printf("take two: %s\n", token)
+
 	var head, tail = token.Continue()
 	fmt.Printf("head: %s\n", head)
+
 	for !tail.Empty() {
 		head, tail = tail.Continue()
 	}
 	fmt.Printf("last element: %s\n", head)
+
 	head, tail = head.(SeqVal).Continue()
 	for !tail.Empty() {
 		head, tail = tail.(SeqVal).Continue()
 	}
+
 	fmt.Printf("last elements head: %s\n", head.(VecVal).Head())
 	if head.(VecVal).Head().(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
+
+	token = TakeN(intsA, 5)
+	fmt.Printf("take five: %s\n", token)
+}
+
+func TestZipSequence(t *testing.T) {
+}
+
+func TestBindSequence(t *testing.T) {
 }

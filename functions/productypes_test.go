@@ -167,7 +167,7 @@ func TestOption(t *testing.T) {
 }
 
 func TestEnum(t *testing.T) {
-	var enumtype EnumDef
+	var enumtype EnumCon
 	var weekdays = NewVector(
 		Dat("Monday"),
 		Dat("Tuesday"),

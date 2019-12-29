@@ -334,7 +334,7 @@ type Enumerable interface {
 	Expression
 	Next() EnumVal
 	Prev() EnumVal
-	EnumType() EnumDef
+	EnumType() EnumCon
 	Alloc(d.Numeral) EnumVal
 }
 

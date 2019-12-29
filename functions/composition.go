@@ -1,16 +1,12 @@
 package functions
 
-type (
-	//// GENERATOR | ACCUMULATOR
-	GenVal func() (Expression, GenVal)
-	AccVal func(...Expression) (Expression, AccVal)
-)
+type ()
 
 ///////////////////////////////////////////////////////////////////////////////
-//// COMPOSITION PRIMITIVES
+//// COMPOSITION OF DEFINED FUNCTIONS
 ///
 // define the curryed function
-func Curry(f, g FuncVal) FuncVal {
+func Curry(f, g FuncDef) FuncDef {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 			func(args ...Expression) Expression {
@@ -28,96 +24,6 @@ func Curry(f, g FuncVal) FuncVal {
 	}
 	return Define(NewNone(), None, None)
 }
-
-//// GENERATOR
-///
-// expects an expression that returns an unboxed value, when called empty and
-// some notion of 'next' value, relative to its arguments, if arguments where
-// passed.
-func NewGenerator(init, generate Expression) GenVal {
-	return func() (Expression, GenVal) {
-		var next = generate.Call(init)
-		return init, NewGenerator(next, generate)
-	}
-}
-func (g GenVal) Expr() Expression {
-	var expr, _ = g()
-	return expr
-}
-func (g GenVal) Generator() GenVal {
-	var _, gen = g()
-	return gen
-}
-func (g GenVal) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		return NewPair(g.Expr().Call(args...), g.Generator())
-	}
-	return NewPair(g.Expr(), g.Generator())
-}
-func (g GenVal) TypeFnc() TyFnc   { return Generator }
-func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
-func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
-func (g GenVal) String() string   { return g.Head().String() }
-func (g GenVal) Empty() bool {
-	if g.Head().Type().Match(None) {
-		return true
-	}
-	return false
-}
-func (g GenVal) Continue() (Expression, Continuation) { return g() }
-func (g GenVal) Head() Expression                     { return g.Expr() }
-func (g GenVal) Tail() Continuation                   { return g.Generator() }
-
-//// ACCUMULATOR
-///
-// accumulator expects an expression as input, that returns itself unboxed,
-// when called empty and returns a new accumulator accumulating its value and
-// arguments to create a new accumulator, if arguments where passed.
-func NewAccumulator(acc, fnc Expression) AccVal {
-	return AccVal(func(args ...Expression) (Expression, AccVal) {
-		if len(args) > 0 {
-			acc = fnc.Call(append([]Expression{acc}, args...)...)
-			return acc, NewAccumulator(acc, fnc)
-		}
-		return acc, NewAccumulator(acc, fnc)
-	})
-}
-
-func (g AccVal) Result() Expression {
-	var res, _ = g()
-	return res
-}
-func (g AccVal) Accumulator() AccVal {
-	var _, acc = g()
-	return acc
-}
-func (g AccVal) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		var res, acc = g(args...)
-		return NewPair(res, acc)
-	}
-	return g.Result()
-}
-func (g AccVal) TypeFnc() TyFnc { return Accumulator }
-func (g AccVal) Type() TyComp {
-	return Def(
-		Accumulator,
-		g.Head().Type().TypeRet(),
-		g.Head().Type().TypeArgs(),
-	)
-}
-func (g AccVal) String() string { return g.Head().String() }
-
-func (a AccVal) Empty() bool {
-	if a.Head().Type().Match(None) {
-		return true
-	}
-	return false
-}
-func (g AccVal) Head() Expression                     { return g.Result() }
-func (g AccVal) TypeElem() TyComp                     { return g.Head().Type() }
-func (g AccVal) Tail() Continuation                   { return g.Accumulator() }
-func (g AccVal) Continue() (Expression, Continuation) { return g() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// CONTINUATION COMPOSITION
@@ -336,8 +242,7 @@ func TakeN(con Continuation, n int) SeqVal {
 // right values and returns those as elements of a pair
 func Split(
 	con Continuation,
-	left func(arg Expression) bool,
-	right func(arg Expression) bool,
+	left, right func(arg Expression) bool,
 ) SeqVal {
 	var (
 		pair  = NewPair(NewSequence(), NewSequence())
@@ -362,49 +267,56 @@ func Split(
 	return Fold(con, pair, split)
 }
 
-// bind creates a list of results from calling the bind function and passing
-// the head elements of both lists.
-func Bind(
-	left, right Continuation,
-	bind func(f, g Expression) Expression,
-) SeqVal {
-	if left.Empty() || right.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				NewSequence()
-			}
-			return NewNone(), nil
-		})
-	}
-	var (
-		lhead, ltail = left.Continue()
-		rhead, rtail = right.Continue()
-		current      = bind(rhead, lhead)
-		next         = Bind(ltail, rtail, bind)
-	)
-	// skip none heads, when both continuations still have elements
-	if (lhead.Type().Match(None) || rhead.Type().Match(None)) &&
-		(!ltail.Empty() && !rtail.Empty()) {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				NewSequence()
-			}
-			return NewNone(), nil
-		})
-	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			return current.Call(args...), next
-		}
-		return current, next
-	})
-}
-
-// zip is a variation of bind, that creates a list of pairs with left and right
-// element taken from the respective lists.
+// zip expects two continuations and a function to create a list of resulting
+// elements each created from the two current continuation heads, using the
+// passed zip function. if arguments are passed calling the lists call method,
+// the results call method is called after heads have been zipped, passing on
+// those arguemnts.
 func Zip(
 	left, right Continuation,
 	zip func(l, r Expression) Expression,
 ) SeqVal {
-	return Bind(left, right, zip)
+	if left.Empty() && right.Empty() {
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			return NewNone(), nil
+		})
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var (
+			gh, gt = left.Continue()
+			fh, ft = right.Continue()
+		)
+		if len(args) > 0 {
+			// pass arguments to results call method
+			return zip(gh, fh).Call(args...),
+				Zip(gt, ft, zip)
+		}
+		return zip(gh, fh), Zip(gt, ft, zip)
+	})
+}
+
+// bind works similar to zip, but the bind function takes additional arguments
+// passed to the bound list when calling the call method with arguments
+// directly (instead of passing on to results call method, analog to map/apply)
+func Bind(
+	f, g Continuation,
+	bind func(l, r Expression, args ...Expression) Expression,
+) SeqVal {
+	if f.Empty() && g.Empty() {
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			return NewNone(), nil
+		})
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		var (
+			gh, gt = f.Continue()
+			fh, ft = g.Continue()
+		)
+		if len(args) > 0 {
+			// pass arguments on to bind
+			return bind(gh, fh, args...),
+				Bind(gt, ft, bind)
+		}
+		return bind(gh, fh), Bind(gt, ft, bind)
+	})
 }

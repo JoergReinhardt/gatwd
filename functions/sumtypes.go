@@ -1,3 +1,15 @@
+/*
+
+SUM TYPES
+---------
+
+sumtypes are parametric types, that generate a subtype for every type of
+argument. all elements of a sum type are of the same type.
+
+examples for sumtypes are would be all collection types, enumerables, the set
+of integers‥.
+
+*/
 package functions
 
 import (
@@ -7,21 +19,29 @@ import (
 )
 
 type (
-	// GENERIC EXPRESSIONS
+	//// GENERIC EXPRESSIONS
 	NoneVal func()
 	Const   func() Expression
 	Lambda  func(...Expression) Expression
 
 	//// DECLARED EXPRESSION
-	FuncVal func(...Expression) Expression
+	FuncDef func(...Expression) Expression
 
 	// TUPLE (TYPE[0]...TYPE[N])
 	TupCon func(...Expression) TupVal
 	TupVal []Expression
 
-	// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
+	//// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
 	RecCon func(...Expression) RecVal
 	RecVal []KeyPair
+
+	//// ENUMERABLE
+	///
+	// enumerable value returns its index position within set of
+	// enumerables and its data constructor to enable previous, next
+	// methods
+	EnumCon func(d.Numeral) EnumVal
+	EnumVal func(...Expression) (Expression, d.Numeral, EnumCon)
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -128,7 +148,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) FuncVal {
+) FuncDef {
 	var (
 		ct     = createFuncType(expr, types...)
 		arglen = ct.TypeArgs().Len()
@@ -199,14 +219,14 @@ func Define(
 		return ct
 	}
 }
-func (e FuncVal) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncVal) Type() TyComp                       { return e().(TyComp) }
-func (e FuncVal) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncVal) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncVal) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncVal) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncVal) String() string                     { return e().String() }
-func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
+func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e FuncDef) String() string                     { return e().String() }
+func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 
 //// TUPLE TYPE
 ///
@@ -352,4 +372,89 @@ func (t RecVal) String() string {
 			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
 	}
 	return "{" + strings.Join(strs, " ") + "}"
+}
+
+//// ENUM TYPE
+///
+// declares an enumerable type returning instances from the set of enumerables
+// defined by the passed function
+func NewEnumType(fnc func(d.Numeral) Expression) EnumCon {
+	return func(idx d.Numeral) EnumVal {
+		return func(args ...Expression) (Expression, d.Numeral, EnumCon) {
+			if len(args) > 0 {
+				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
+			}
+			return fnc(idx), idx, NewEnumType(fnc)
+		}
+	}
+}
+func (e EnumCon) Expr() Expression            { return e(d.IntVal(0)) }
+func (e EnumCon) Alloc(idx d.Numeral) EnumVal { return e(idx) }
+func (e EnumCon) Type() TyComp {
+	return Def(Enum, e.Expr().Type().TypeRet())
+}
+func (e EnumCon) TypeFnc() TyFnc { return Enum }
+func (e EnumCon) String() string { return e.Type().TypeName() }
+func (e EnumCon) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			var vec = NewVector()
+			for _, arg := range args {
+				vec = vec.Cons(e.Call(arg)).(VecVal)
+			}
+			return vec
+		}
+		var arg = args[0]
+		if arg.Type().Match(Data) {
+			if nat, ok := arg.(NatEval); ok {
+				if i, ok := nat.Eval().(d.Numeral); ok {
+					return e(i)
+				}
+			}
+		}
+	}
+	return e
+}
+
+//// ENUM VALUE
+///
+//
+func (e EnumVal) Expr() Expression {
+	var expr, _, _ = e()
+	return expr
+}
+func (e EnumVal) Index() d.Numeral {
+	var _, idx, _ = e()
+	return idx
+}
+func (e EnumVal) EnumType() EnumCon {
+	var _, _, et = e()
+	return et
+}
+func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
+func (e EnumVal) Next() EnumVal {
+	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
+	return result
+}
+func (e EnumVal) Previous() EnumVal {
+	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
+	return result
+}
+func (e EnumVal) String() string { return e.Expr().String() }
+func (e EnumVal) Type() TyComp {
+	var (
+		nat d.Native
+		idx = e.Index()
+	)
+	if idx.Type().Match(d.BigInt) {
+		nat = idx.BigInt()
+	} else {
+		nat = idx.Int()
+	}
+	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
+}
+func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
+func (e EnumVal) Call(args ...Expression) Expression {
+	var r, _, _ = e(args...)
+	return r
 }

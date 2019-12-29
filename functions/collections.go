@@ -10,6 +10,10 @@ type (
 	//// COLLECTIONS
 	VecVal func(...Expression) []Expression
 	SeqVal func(...Expression) (Expression, SeqVal)
+
+	//// GENERATOR | ACCUMULATOR
+	GenVal func() (Expression, GenVal)
+	AccVal func(...Expression) (Expression, AccVal)
 )
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -573,3 +577,93 @@ func (s SeqVal) String() string {
 	tstr = tstr + ")"
 	return hstr + tstr
 }
+
+//// GENERATOR
+///
+// expects an expression that returns an unboxed value, when called empty and
+// some notion of 'next' value, relative to its arguments, if arguments where
+// passed.
+func NewGenerator(init, generate Expression) GenVal {
+	return func() (Expression, GenVal) {
+		var next = generate.Call(init)
+		return init, NewGenerator(next, generate)
+	}
+}
+func (g GenVal) Expr() Expression {
+	var expr, _ = g()
+	return expr
+}
+func (g GenVal) Generator() GenVal {
+	var _, gen = g()
+	return gen
+}
+func (g GenVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewPair(g.Expr().Call(args...), g.Generator())
+	}
+	return NewPair(g.Expr(), g.Generator())
+}
+func (g GenVal) TypeFnc() TyFnc   { return Generator }
+func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
+func (g GenVal) String() string   { return g.Head().String() }
+func (g GenVal) Empty() bool {
+	if g.Head().Type().Match(None) {
+		return true
+	}
+	return false
+}
+func (g GenVal) Continue() (Expression, Continuation) { return g() }
+func (g GenVal) Head() Expression                     { return g.Expr() }
+func (g GenVal) Tail() Continuation                   { return g.Generator() }
+
+//// ACCUMULATOR
+///
+// accumulator expects an expression as input, that returns itself unboxed,
+// when called empty and returns a new accumulator accumulating its value and
+// arguments to create a new accumulator, if arguments where passed.
+func NewAccumulator(acc, fnc Expression) AccVal {
+	return AccVal(func(args ...Expression) (Expression, AccVal) {
+		if len(args) > 0 {
+			acc = fnc.Call(append([]Expression{acc}, args...)...)
+			return acc, NewAccumulator(acc, fnc)
+		}
+		return acc, NewAccumulator(acc, fnc)
+	})
+}
+
+func (g AccVal) Result() Expression {
+	var res, _ = g()
+	return res
+}
+func (g AccVal) Accumulator() AccVal {
+	var _, acc = g()
+	return acc
+}
+func (g AccVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var res, acc = g(args...)
+		return NewPair(res, acc)
+	}
+	return g.Result()
+}
+func (g AccVal) TypeFnc() TyFnc { return Accumulator }
+func (g AccVal) Type() TyComp {
+	return Def(
+		Accumulator,
+		g.Head().Type().TypeRet(),
+		g.Head().Type().TypeArgs(),
+	)
+}
+func (g AccVal) String() string { return g.Head().String() }
+
+func (a AccVal) Empty() bool {
+	if a.Head().Type().Match(None) {
+		return true
+	}
+	return false
+}
+func (g AccVal) Head() Expression                     { return g.Result() }
+func (g AccVal) TypeElem() TyComp                     { return g.Head().Type() }
+func (g AccVal) Tail() Continuation                   { return g.Accumulator() }
+func (g AccVal) Continue() (Expression, Continuation) { return g() }
