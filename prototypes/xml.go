@@ -1,4 +1,4 @@
-package buildin
+package prototypes
 
 import (
 	"encoding/xml"
