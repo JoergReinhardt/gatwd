@@ -7,200 +7,189 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var addInts = Define(Dat(func(args ...d.Native) d.Native {
-	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
-	return a + b
-}),
-	DefSym("+"),
-	Def(Dat(0).Type()),
-	Def(Dat(0).Type(), Dat(0).Type()),
+var testIsZero = NewTest(func(arg Expression) bool {
+	if arg.(NatEval).Eval().(d.Numeral).GoInt() != 0 {
+		return false
+	}
+	return true
+})
+
+func TestTestable(t *testing.T) {
+
+	fmt.Printf("test: %s\n", testIsZero)
+
+	fmt.Printf("test zero is zero (true): %t\n", testIsZero(Dat(0)))
+	if !testIsZero(Dat(0)) {
+		t.Fail()
+	}
+
+	fmt.Printf("test one is zero (false): %t\n", testIsZero(Dat(1)))
+	if testIsZero(Dat(1)) {
+		t.Fail()
+	}
+}
+
+var compZero = NewComparator(func(arg Expression) int {
+	switch arg.(NatEval).Eval().(d.Numeral).GoInt() {
+	case -1:
+		return -1
+	case 0:
+		return 0
+	}
+	return 1
+})
+
+func TestCompareable(t *testing.T) {
+	fmt.Printf("compareable: %s\n", compZero)
+	fmt.Printf("zero equals zero (0): %d\n", compZero(Dat(0)))
+	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(Dat(-1)))
+	fmt.Printf("one greater zero (1): %d\n", compZero(Dat(1)))
+}
+
+var caseZero = NewCase(
+	testIsZero,
+	Dat("this is indeed zero"),
+	d.Numbers,
+	d.String,
 )
 
-func TestExpression(t *testing.T) {
-	fmt.Printf(`
- defines expression to perform addition on integers of type data/Native.
+func TestCase(t *testing.T) {
+	fmt.Printf("case: %s\n", caseZero)
 
- - should not take any arguments except d.IntVal
-   - first argument is a symbol definition expressing the name
-   - second argument is the return type (derived from instance)
-   - third argument is the arguments types (derived from instances) wrapped
-     by a composed type
- - should return a partial, when only one argument is passed
- - should return atomic integer result, when two args are passed
- - should return a vector of resulting integers‥.
- - ‥.where the last element might be a partialy applyed addition, if an odd
-   number of arguments has been passed` + "\n\n")
-	fmt.Printf("add ints expression definition type: %s\n"+
-		"type-ident: %s\ntype-args: %s\nreturn type: %s\n",
-		addInts.Type(), addInts.TypeId(),
-		addInts.TypeArgs(), addInts.TypeRet())
-
-	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
-		addInts,
-		addInts.Type().TypeArgs(),
-		addInts.Type().TypeId(),
-		addInts.Type().TypeRet())
-
-	var wrong = addInts.Call(Dat("string one"), Dat(true))
-	fmt.Printf("called with argument of wrong type: %s\n", wrong)
-	if !wrong.Type().Match(None) {
+	var result = caseZero.Call(Dat(0))
+	fmt.Printf("case zero: %s\n", result)
+	if result.String() != "this is indeed zero" {
 		t.Fail()
 	}
 
-	var partial = addInts.Call(Dat(23))
-	fmt.Printf("partial: %s argtype : %s identype: %s, retype: %s\n",
-		partial,
-		partial.Type().TypeArgs(),
-		partial.Type().TypeId(),
-		partial.Type().TypeRet())
-	if !partial.Type().TypeId().Match(Def(Partial, DefSym("+"))) {
+	result = caseZero.Call(Dat(1))
+	fmt.Printf("case none zero: %s none zero type: %s\n",
+		result, result.Type())
+	if !result.Type().Match(None) {
 		t.Fail()
-	}
-
-	var wrongpart = partial.Call(Dat("string"))
-	fmt.Printf("partial called with argument of wrong type: %s\n", wrongpart)
-	if !wrongpart.Type().Match(None) {
-		t.Fail()
-	}
-
-	var complete = partial.Call(Dat(42))
-	fmt.Printf("complete: %s\n", complete)
-	if data, ok := complete.(NatEval); ok {
-		if num, ok := data.Eval().(d.IntVal); ok {
-			if num.Int() != 65 {
-				t.Fail()
-			}
-		}
-	}
-
-	var result2 = addInts.Call(Dat(23), Dat(42))
-	fmt.Printf("result2: %s argtype : %s identype: %s, retype: %s\n",
-		result2, result2.Type().TypeArgs(),
-		result2.Type().TypeId(),
-		result2.Type().TypeRet())
-	fmt.Printf("result2: %s\n", result2)
-	if vec, ok := result2.(VecVal); ok {
-		if vec.Len() != 2 {
-			t.Fail()
-		}
-	}
-
-	var result3 = addInts.Call(Dat(23), Dat(42), Dat(23))
-	fmt.Printf("result3 type: %s type-ident: %s type-return: %s type-arguments: %s\n",
-		result3.Type().String(),
-		result3.Type().TypeId(),
-		result3.Type().TypeRet(),
-		result3.Type().TypeArgs(),
-	)
-
-	fmt.Printf("result3: %s\n", result3)
-	fmt.Printf("result3 element 0 type: %s\n", result3.(VecVal)()[0].Type())
-	if vec, ok := result3.(VecVal); ok {
-		if !vec()[0].Type().Match(Data) {
-			t.Fail()
-		}
-	}
-
-	complete = result3.(VecVal)()[1].Call(Dat(42))
-	fmt.Printf("completed result3[1] partial: %s\n", complete)
-	if complete.(DatConst).Eval().(d.Numeral).Int() != 65 {
-		t.Fail()
-	}
-
-	var result4 = addInts.Call(
-		Dat(23), Dat(42), Dat(23), Dat(42),
-	)
-	fmt.Printf("result4: %s\n", result4)
-	if vec, ok := result4.(VecVal); ok {
-		if !vec()[0].Type().Match(Dat(0).Type()) {
-			t.Fail()
-		}
 	}
 }
 
-func TestTuple(t *testing.T) {
-	var con = NewTupleType(
-		Def(Def(Data, Constant), d.Int),
-		Def(Def(Data, Constant), d.Float),
-		Def(Def(Data, Constant), d.Bool),
-		Def(Def(Data, Constant), d.Bool),
-	)
-	fmt.Printf("tuple constructor %s\n", con)
+var isInteger = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Int)
+	}
+	return false
+})
+var caseInteger = NewCase(isInteger, Dat("this is an int"), d.Int, d.String)
+var isUint = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Uint)
+	}
+	return false
+})
+var caseUint = NewCase(isUint, Dat("this is a uint"), d.Uint, d.String)
+var isFloat = NewTest(func(arg Expression) bool {
+	if arg.TypeFnc().Match(Data) {
+		return arg.(Native).TypeNat().Match(d.Float)
+	}
+	return false
+})
+var caseFloat = NewCase(isFloat, Dat("this is a float"), d.Float, d.String)
+var swi = NewSwitch(caseFloat, caseUint, caseInteger)
 
-	var tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
-	fmt.Printf("tuple %s\n", tup)
-	if tup.(TupVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+func TestSwitch(t *testing.T) {
+
+	var result = swi.Call(Dat(42))
+	fmt.Printf("result: %s\n", result)
+	if !result.Type().Match(Dat("").Type()) {
 		t.Fail()
 	}
 
-	tup = con.Call(Dat(23), Dat(42.23), Dat(true), Dat(false))
-	fmt.Printf("tuple second call %s\n", tup)
-	if tup.(TupVal)[0].(NatEval).Eval() != d.IntVal(23) ||
-		tup.(TupVal)[1].(NatEval).Eval() != d.FltVal(42.23) ||
-		tup.(TupVal)[2].(NatEval).Eval() != d.BoolVal(true) {
+	result = swi.Call(Dat(uint(42)))
+	fmt.Printf("result from calling switch on uint 42: %s\n", result)
+	if !result.Type().Match(Dat("").Type()) {
 		t.Fail()
 	}
 
-	var partial = con.Call(Dat(23))
-	fmt.Printf("partial0: %s partial0 type-fnc: %s\n", partial, partial.TypeFnc().TypeName())
-	fmt.Printf("partial0 type: %s ident: %s\n", partial.Type(), partial.Type().TypeId())
+	result = swi.Call(Dat(42.23))
+	fmt.Printf("result from calling switch on float 42.23: %s\n", result)
+	if !result.Type().Match(Dat("").Type()) {
+		t.Fail()
+	}
 
-	var partial1 = partial.Call(Dat(42.23), Dat(true), Dat(false))
-	fmt.Printf("partial1: %s partial1 type-fnc: %s\n", partial1, partial1.TypeFnc().TypeName())
-	fmt.Printf("partial1 type: %s\n", partial1.Type())
-
+	result = swi.Call(Dat(true))
+	if !result.Type().Match(None) {
+		t.Fail()
+	}
 }
 
-var (
-	recfield = NewRecordType(
-		NewKeyPair("zero int", Dat(0).Type()),
-		NewKeyPair("one uint", Dat(uint(0)).Type()),
-		NewKeyPair("two float", Dat(float64(0.0)).Type()),
-		NewKeyPair("three bool", Dat(bool(false)).Type()),
-	)
+func TestMaybe(t *testing.T) {
+	var maybeString = NewMaybe(caseInteger)
+	var str = maybeString(Dat(42))
+	fmt.Printf("str type: %s fnctype: %s\n", str.Type(), str.TypeFnc())
+	fmt.Printf("string: %s\n", str)
+	if !str.TypeFnc().Match(Just) {
+		t.Fail()
+	}
+	var none = maybeString(Dat(true))
+	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
+	if !none.Type().TypeRet().Match(None) {
+		t.Fail()
+	}
 
-	rec = recfield(
-		NewKeyPair("zero int", Dat(1)),
-		NewKeyPair("one uint", Dat(uint(2))),
-		NewKeyPair("two float", Dat(float64(3.0))),
-		NewKeyPair("three bool", Dat(bool(true))),
-	)
-)
-
-func TestRecord(t *testing.T) {
-	fmt.Printf("record definition:%s \n", recfield)
-	fmt.Printf("record def type:%s \n", recfield.Type())
-
-	var rec = recfield(
-		NewKeyPair("zero int", Dat(1)),
-		NewKeyPair("one uint", Dat(uint(2))),
-		NewKeyPair("two float", Dat(float64(3.0))),
-		NewKeyPair("three bool", Dat(bool(true))),
-	)
-	fmt.Printf("record value APPLYED CORRECTLY:%s \n", rec)
-	fmt.Printf("record val type:%s \n", rec.Type())
-	fmt.Printf("record val length:%d \n", rec.Len())
-
-	rec = recfield(
-		NewKeyPair("zero int", Dat(1)),
-		NewKeyPair("one uint", Dat(uint(2))),
-		NewKeyPair("two float", Dat(float64(3.0))),
-		NewKeyPair("three bool", Dat(bool(true))),
-	)
-	fmt.Printf("record value CALLED CORRECTLY:%s \n", rec)
-	fmt.Printf("record val type:%s \n", rec.Type())
-
-	rec = recfield(
-		NewKeyPair("zero int", Dat(1)),
-		NewKeyPair("one uint", Dat(int(2))),
-		NewKeyPair("two float", Dat(float64(3.0))),
-		NewKeyPair("three bool", Dat(bool(true))),
-	)
-	fmt.Printf("record value applyed INCORRECTLY:%s \n", rec)
-	fmt.Printf("record val type:%s \n", rec.Type())
+	fmt.Printf("maybe string: %s, type: %s\n", maybeString, maybeString.Type())
+	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
 }
 
-func TestRecordGet(t *testing.T) {
+func TestOption(t *testing.T) {
+	var (
+		option   = NewEitherOr(isInteger, Dat("EITHER this IS an integer"), Dat("OR this is NOT an integer"))
+		intStr   = option(Dat(23))
+		fltStr   = option(Dat(42.23))
+		boolNone = option(Dat(true))
+	)
+	fmt.Printf("option: %s, option type: %s\n",
+		option, option.Type())
+
+	fmt.Printf("intStr: %s, fltStr: %s, boolNone: %s\n",
+		intStr, fltStr, boolNone)
+	fmt.Printf("intStr type: %s, fltStr type: %s, boolNone type: %s\n",
+		intStr.TypeFnc(), fltStr.TypeFnc(), boolNone.TypeFnc())
+
+	fmt.Printf("type of intStr: %s, fltStr: %s, boolNone: %s\n",
+		intStr.Type(), fltStr.Type(), boolNone.Type())
+
+	if !intStr.TypeFnc().Match(Either) {
+		t.Fail()
+	}
+	if !fltStr.TypeFnc().Match(Or) {
+		t.Fail()
+	}
+	if !boolNone.TypeFnc().Match(Or) {
+		t.Fail()
+	}
+}
+
+func TestEnum(t *testing.T) {
+	var enumtype EnumCon
+	var weekdays = NewVector(
+		Dat("Monday"),
+		Dat("Tuesday"),
+		Dat("Wednesday"),
+		Dat("Thursday"),
+		Dat("Friday"),
+		Dat("Saturday"),
+		Dat("Sunday"),
+	)
+	enumtype = NewEnumType(func(day d.Numeral) Expression {
+		var idx = day.GoInt()
+		if idx > 6 {
+			idx = idx%6 - 1
+		}
+		return weekdays()[idx]
+	})
+
+	fmt.Printf("enum type days of the week: %s type: %s\n", enumtype, enumtype.Type().TypeName())
+	var enum = enumtype(d.IntVal(8))
+	fmt.Printf("wednesday eum: %s\n", enum)
+	fmt.Printf("eum expr: %s\n", enum.Type())
+	var val, idx, _ = enum()
+	fmt.Printf("enum value val %s, index: %s\n",
+		val, idx)
 }

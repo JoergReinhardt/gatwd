@@ -123,6 +123,9 @@ func TestTakeNSequence(t *testing.T) {
 	fmt.Printf("take five: %s\n", token)
 }
 
+func TestSplitSequence(t *testing.T) {
+}
+
 func TestZipSequence(t *testing.T) {
 }
 
