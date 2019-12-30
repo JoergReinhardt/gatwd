@@ -55,26 +55,26 @@ func Flatten(con Continuation) VecVal {
 func Map(
 	con Continuation,
 	mapf func(Expression) Expression,
-) SeqVal {
+) Sequential {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = Map(
 					NewSequence(args...), mapf,
 				).Continue()
-				return head, tail.(SeqVal)
+				return head, tail.(Sequential)
 			}
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			con = con.Call(args...).(Continuation)
 		}
 		var head, tail = con.Continue()
 		// skip none instances, when tail has further elements
 		if head.Type().Match(None) && !tail.Empty() {
-			return Map(tail, mapf)()
+			return Map(tail, mapf).Continue()
 		}
 		return mapf(head), Map(tail, mapf)
 	})
@@ -88,7 +88,7 @@ func Apply(
 	apply func(Expression, ...Expression) Expression,
 ) SeqVal {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = Apply(
 					NewSequence(args...), apply,
@@ -99,7 +99,7 @@ func Apply(
 		})
 	}
 	var head, tail = con.Continue()
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			var head, tail = apply(head, args...),
 				Apply(tail, apply)
@@ -128,7 +128,7 @@ func Fold(
 	fold func(init, head Expression) Expression,
 ) SeqVal {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = Fold(
 					NewSequence(args...), init, fold,
@@ -150,7 +150,7 @@ func Fold(
 		}
 	}
 	init = result
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, Sequential) {
 		if len(args) > 0 {
 			return init.Call(args...), Fold(tail, init, fold)
 		}
@@ -164,7 +164,7 @@ func Filter(
 	filter func(Expression) bool,
 ) SeqVal {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = Filter(
 					NewSequence(args...), filter,
@@ -190,9 +190,9 @@ func Filter(
 func Pass(
 	con Continuation,
 	pass func(Expression) bool,
-) SeqVal {
+) Sequential {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = Pass(
 					NewSequence(args...), pass,
@@ -216,9 +216,9 @@ func Pass(
 
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
-func TakeN(con Continuation, n int) SeqVal {
+func TakeN(con Continuation, n int) Sequential {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			if len(args) > 0 {
 				var head, tail = TakeN(
 					NewSequence(NewVector(args...)), n,
@@ -246,36 +246,6 @@ func TakeN(con Continuation, n int) SeqVal {
 		})
 }
 
-// split is a variation of fold that splits either a continuation of pairs, or
-// takes two arguments at a time and splits those into continuation of left and
-// right values and returns those as elements of a pair
-func Split(
-	con Continuation,
-	left, right func(arg Expression) bool,
-) SeqVal {
-	var (
-		pair  = NewPair(NewSequence(), NewSequence())
-		split = func(init, arg Expression) Expression {
-			var (
-				sleft  = init.(ValPair).Left().(SeqVal)
-				sright = init.(ValPair).Right().(SeqVal)
-			)
-			var matchL, matchR = left(arg), right(arg)
-			if !matchL && !matchR {
-				return NewNone()
-			}
-			if matchL {
-				sleft = sleft.Cons(arg).(SeqVal)
-			}
-			if matchR {
-				sright = sright.Cons(arg).(SeqVal)
-			}
-			return NewPair(sleft, sright)
-		}
-	)
-	return Fold(con, pair, split)
-}
-
 // zip expects two continuations and a function to create a list of resulting
 // elements each created from the two current continuation heads, using the
 // passed zip function.  if arguments are passed calling the lists call method,
@@ -286,11 +256,11 @@ func Zip(
 	zip func(l, r Expression) Expression,
 ) SeqVal {
 	if left.Empty() && right.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, Sequential) {
 		var (
 			gh, gt = left.Continue()
 			fh, ft = right.Continue()
@@ -304,6 +274,20 @@ func Zip(
 	})
 }
 
+// split is a variation of fold that splits either a continuation of pairs, or
+// takes two arguments at a time and splits those into continuation of left and
+// right values and returns those as elements of a pair
+func Split(
+	con Continuation,
+	pair Paired,
+	split func(Paired, Expression) Paired,
+) SeqVal {
+	return Fold(con, pair, func(init, head Expression) Expression {
+		var pair = init.(Paired)
+		return split(pair, head)
+	})
+}
+
 // bind works similar to zip, but the bind function takes additional arguments
 // passed to the bound list when calling the call method with arguments
 // directly (instead of passing on to results call method, analog to
@@ -314,11 +298,11 @@ func Bind(
 	bind func(l, r Expression, args ...Expression) Expression,
 ) SeqVal {
 	if f.Empty() && g.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return SeqVal(func(args ...Expression) (Expression, Sequential) {
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return SeqVal(func(args ...Expression) (Expression, Sequential) {
 		var (
 			gh, gt = f.Continue()
 			fh, ft = g.Continue()

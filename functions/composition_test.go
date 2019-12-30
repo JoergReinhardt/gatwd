@@ -123,10 +123,40 @@ func TestTakeNSequence(t *testing.T) {
 	fmt.Printf("take five: %s\n", token)
 }
 
-func TestSplitSequence(t *testing.T) {
-}
+var zipped Sequential = Zip(abc, intsA, func(l, r Expression) Expression {
+	return NewKeyPair(string(l.(DatConst)().(d.StrVal)), r)
+})
 
 func TestZipSequence(t *testing.T) {
+	fmt.Printf("zipped: %s\nhead: %s\n", zipped, zipped.Head())
+	if zipped.Head().(Paired).Key().String() != "a" {
+		t.Fail()
+	}
+	for i := 0; i < 25; i++ {
+		zipped = zipped.Tail().(Sequential)
+	}
+	if zipped.Head().(Paired).Key().String() != "z" {
+		t.Fail()
+	}
+}
+
+func TestSplitSequence(t *testing.T) {
+	var splitted = Split(zipped, NewPair(NewVector(), NewVector()),
+		func(pair Paired, head Expression) Paired {
+			var (
+				left  = pair.Left().(VecVal)
+				right = pair.Right().(VecVal)
+				key   = head.(KeyPair).Key()
+				val   = head.(KeyPair).Value()
+			)
+			left = left.Cons(key).(VecVal)
+			right = right.Cons(val).(VecVal)
+			return NewPair(left, right)
+		})
+	fmt.Printf("splitted: %s\n", splitted)
+	if splitted.Head().(Paired).Left().(VecVal).Head().String() != "z" {
+		t.Fail()
+	}
 }
 
 func TestBindSequence(t *testing.T) {

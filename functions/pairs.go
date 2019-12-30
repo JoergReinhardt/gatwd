@@ -80,14 +80,22 @@ func (p ValPair) Empty() bool {
 	return false
 }
 func (p ValPair) String() string {
-	return "(" + p.Left().String() + ", " + p.Right().String() + ")"
+	return "(" + p.Key().String() + ", " + p.Value().String() + ")"
 }
 func (p ValPair) Call(args ...Expression) Expression {
 	return NewPair(p.Key(), p.Value().Call(args...))
 }
-func (p ValPair) Head() Expression                     { return p.Left() }
-func (p ValPair) Tail() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p ValPair) Continue() (Expression, Continuation) { return p.Head(), p.Tail() }
+func (p ValPair) Cons(args ...Expression) Expression {
+	return NewVector(Map(TakeN(NewVector(args...), 2),
+		func(arg Expression) Expression {
+			return NewPair(arg.(Sequential).Continue())
+		}))
+}
+func (p ValPair) Continue() (Expression, Sequential) {
+	return p.Key(), NewSequence(p.Value())
+}
+func (p ValPair) Head() Expression { return p.Key() }
+func (p ValPair) Tail() Sequential { return NewSequence(p.Value()) }
 
 //// NATIVE VALUE KEY PAIR
 ///
@@ -126,9 +134,29 @@ func (a NatPair) Empty() bool {
 func (a NatPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
-func (p NatPair) Current() Expression                  { return p.Left() }
-func (p NatPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p NatPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+
+func (p NatPair) Cons(args ...Expression) Expression {
+	return NewVector(Map(TakeN(NewVector(args...), 2),
+		func(arg Expression) Expression {
+			var (
+				left       d.Native
+				right      Expression
+				head, tail = arg.(Sequential).Continue()
+			)
+			if head.Type().Match(Data) {
+				left = head.(NatEval).Eval()
+			} else {
+				left = Nat(head.String())
+			}
+			right, tail = tail.Continue()
+			return NewNatPair(left, right)
+		}))
+}
+func (p NatPair) Continue() (Expression, Sequential) {
+	return p.Key(), NewSequence(p.Value())
+}
+func (p NatPair) Head() Expression { return p.Key() }
+func (p NatPair) Tail() Sequential { return NewSequence(p.Value()) }
 
 //// STRING KEY PAIR
 ///
@@ -168,11 +196,20 @@ func (a KeyPair) Empty() bool {
 	return true
 }
 func (a KeyPair) String() string {
-	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
+	return "(" + a.KeyStr() + " : " + a.Value().String() + ")"
 }
-func (p KeyPair) Current() Expression                  { return p.Value() }
-func (p KeyPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p KeyPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+func (p KeyPair) Cons(args ...Expression) Expression {
+	return NewVector(Map(TakeN(NewVector(args...), 2),
+		func(arg Expression) Expression {
+			var left, tail = arg.(Sequential).Continue()
+			return NewKeyPair(left.String(), tail)
+		}))
+}
+func (p KeyPair) Continue() (Expression, Sequential) {
+	return p.Key(), NewSequence(p.Value())
+}
+func (p KeyPair) Head() Expression { return p.Key() }
+func (p KeyPair) Tail() Sequential { return NewSequence(p.Value()) }
 
 //// INDEX PAIR
 ///
@@ -207,11 +244,30 @@ func (a IndexPair) Empty() bool {
 	return false
 }
 func (a IndexPair) String() string {
-	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
+	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
-func (p IndexPair) Current() Expression                  { return p.Left() }
-func (p IndexPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p IndexPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+
+func (p IndexPair) Cons(args ...Expression) Expression {
+	return NewVector(Map(TakeN(NewVector(args...), 2),
+		func(arg Expression) Expression {
+			var (
+				idx        = 0
+				head, tail = arg.(Sequential).Continue()
+			)
+			if head.Type().Match(Data) {
+				var nat = head.(NatEval).Eval()
+				if nat.Type().Match(d.Numbers) {
+					idx = int(nat.(d.Numeral).Int())
+				}
+			}
+			return NewIndexPair(idx, tail)
+		}))
+}
+func (p IndexPair) Continue() (Expression, Sequential) {
+	return p.Key(), NewSequence(p.Value())
+}
+func (p IndexPair) Head() Expression { return p.Key() }
+func (p IndexPair) Tail() Sequential { return NewSequence(p.Value()) }
 
 //// FLOATING PAIR
 ///
@@ -246,8 +302,26 @@ func (a RealPair) Empty() bool {
 	return false
 }
 func (a RealPair) String() string {
-	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
+	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
-func (p RealPair) Current() Expression                  { return p.Left() }
-func (p RealPair) Next() Continuation                   { return NewPair(p.Right(), NewNone()) }
-func (p RealPair) Continue() (Expression, Continuation) { return p.Current(), p.Next() }
+func (p RealPair) Cons(args ...Expression) Expression {
+	return NewVector(Map(TakeN(NewVector(args...), 2),
+		func(arg Expression) Expression {
+			var (
+				idx        = 0.0
+				head, tail = arg.(Sequential).Continue()
+			)
+			if head.Type().Match(Data) {
+				var nat = head.(NatEval).Eval()
+				if nat.Type().Match(d.Numbers) {
+					idx = float64(nat.(d.Numeral).Float())
+				}
+			}
+			return NewRealPair(idx, tail)
+		}))
+}
+func (p RealPair) Continue() (Expression, Sequential) {
+	return p.Key(), NewSequence(p.Value())
+}
+func (p RealPair) Head() Expression { return p.Key() }
+func (p RealPair) Tail() Sequential { return NewSequence(p.Value()) }

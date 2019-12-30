@@ -202,7 +202,7 @@ func TestSequence(t *testing.T) {
 	var head, tail = seq()
 	fmt.Printf("head: %s tail: %s\n", head, tail)
 	for !tail.Empty() {
-		head, tail = tail()
+		head, tail = tail.Continue()
 		fmt.Printf("head iteration: %s\n", head)
 	}
 	fmt.Printf("sequence: %s\n", seq)

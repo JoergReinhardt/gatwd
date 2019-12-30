@@ -104,8 +104,8 @@ type Continuation interface {
 	Empty() bool
 	TypeElem() TyComp
 	Head() Expression
-	Tail() Continuation
-	Continue() (Expression, Continuation)
+	Tail() Sequential
+	Continue() (Expression, Sequential)
 }
 
 // mapped interface is implementet by all key accessable data types
@@ -123,7 +123,7 @@ type Mapped interface {
 type Sequential interface {
 	Continuation
 	Cons(...Expression) Sequential
-	ConsContinue(Continuation) Sequential
+	ConsContinue(Continuation) Continuation
 }
 
 // stacks pushes new elements as first element to the sequence & pops the last
