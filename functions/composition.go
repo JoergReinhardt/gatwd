@@ -1,5 +1,314 @@
 package functions
 
+import "fmt"
+
+type (
+
+	//// COLLECTIONS
+	SeqVal func(...Expression) (Expression, SeqVal)
+)
+
+///////////////////////////////////////////////////////////////////////////////
+//// SEQUENCE TYPE
+///
+// generic sequential type
+func NewSeqFromGroup(grp Group) SeqVal {
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			grp = grp.Cons(args...)
+		}
+		var head, tail = grp.Continue()
+		return head, NewSeqFromGroup(tail)
+	})
+}
+func NewSequence(elems ...Expression) SeqVal {
+
+	// return empty list able to be extended by cons, when no initial
+	// elements are given/left
+	if len(elems) == 0 {
+		return func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					return args[0], NewSequence(args[1:]...)
+				}
+				return args[0], NewSequence()
+			}
+			// return instance of none as head and a nil pointer as
+			// tail, if neither elements nor arguments where passed
+			return NewNone(), nil
+		}
+	}
+
+	// at least one of the initial elements is left‥.
+	return func(args ...Expression) (Expression, SeqVal) {
+
+		// if arguments are passed, prepend those and return first
+		// argument as head‥.
+		if len(args) > 0 {
+			// ‥.put arguments up front of preceeding elements
+			if len(args) > 1 {
+				return args[0], NewSequence(
+					append(
+						args,
+						elems...,
+					)...)
+			}
+			// use single argument as new head of sequence and
+			// preceeding elements as tail
+			return args[0],
+				NewSequence(elems...)
+		}
+
+		// no arguments given, but more than one element left → return
+		// first element as head, and remaining elements as tail of
+		// sequence
+		if len(elems) > 1 {
+			return elems[0],
+				NewSequence(elems[1:]...)
+		}
+		// return last element and empty sequence
+		return elems[0], NewSequence()
+
+	}
+}
+func (s SeqVal) Head() Expression {
+	var cur, _ = s()
+	return cur
+}
+func (s SeqVal) Tail() Group {
+	var _, tail = s()
+	return tail
+}
+func (s SeqVal) Continue() (Expression, Group) {
+	return s.Head(), s.Tail()
+}
+func (s SeqVal) Cons(suffix ...Expression) Group {
+	if len(suffix) == 0 {
+		return s
+	}
+	if len(suffix) == 1 {
+		return SeqVal(func(late ...Expression) (Expression, SeqVal) {
+			if len(late) > 0 {
+				if len(late) > 1 {
+					return late[0],
+						s.Cons(append(late[1:], suffix[0])...).(SeqVal)
+				}
+				return late[0], s.Cons(suffix[0]).(SeqVal)
+			}
+			return suffix[0], s
+		})
+	}
+	return SeqVal(func(late ...Expression) (Expression, SeqVal) {
+		if len(late) > 0 {
+			if len(late) > 1 {
+				return late[0],
+					s.Cons(append(late[1:], suffix...)...).(SeqVal)
+			}
+			return late[0], s.Cons(suffix...).(SeqVal)
+		}
+		return suffix[0], s.Cons(suffix[1:]...).(SeqVal)
+	})
+
+}
+
+func (s SeqVal) ConsGroup(suffix Group) Group {
+	var head, tail = suffix.Continue()
+	// if tail is empty‥.
+	if tail.Empty() {
+		// if head is none, return original s
+		if head.Type().Match(None) {
+			return s
+		}
+		// return a sequence starting with head yielded by prepended
+		// seqval, followed by s as its tail
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					head, tail = suffix.Call(args...,
+					).(Continuation).Continue()
+					return head, s.ConsGroup(tail).(SeqVal)
+				}
+			}
+			return head, s
+		})
+	}
+	// tail is not empty yet, return a sequence starting with yielded head
+	// followed by remaining tail consed to s recursively
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			head, tail = suffix.Call(args...,
+			).(Continuation).Continue()
+			return head, s.ConsGroup(tail).(SeqVal)
+		}
+		return head, s.ConsGroup(tail).(SeqVal)
+	})
+
+}
+func (s SeqVal) ConsSeqVal(seq SeqVal) Group { return s.ConsGroup(seq).(Group) }
+func (s SeqVal) Concat(grp Continuation) Group {
+	if !s.Empty() {
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				var head, tail = s.Cons(args...).Continue()
+				return head, tail.Concat(grp).(SeqVal)
+			}
+			var head, tail = s.Continue()
+			return head, tail.Concat(grp).(SeqVal)
+		})
+	}
+	return grp.(Group)
+}
+
+func (s SeqVal) Pop() (Expression, Stack)      { return s.Head(), s.Tail().(SeqVal) }
+func (s SeqVal) Push(args ...Expression) Stack { return s.Cons(args...).(Stack) }
+func (s SeqVal) First() Expression             { return s.Head() }
+func (s SeqVal) Suffix() Directional           { return s.Tail().(SeqVal) }
+
+func (s SeqVal) Prepend(dir Group) Directional {
+	if dir.Empty() {
+		return s
+	}
+	var head, tail = dir.Continue()
+	if tail.Empty() {
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				return s.Prepend(NewSequence(
+					append([]Expression{head}, args...,
+					)...)).(SeqVal)()
+			}
+			return head, s
+		})
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			return s.Prepend(dir.Cons(args...)).(SeqVal)()
+		}
+		return head, s.Prepend(tail).(SeqVal)
+	})
+}
+func (s SeqVal) PrependArgs(args ...Expression) Directional {
+	if len(args) == 0 {
+		return s
+	}
+	return NewSequence(args...).AppendSeq(s)
+}
+func (s SeqVal) AppendSeq(appendix SeqVal) SeqVal {
+	if s.Empty() {
+		return appendix
+	}
+	var head, tail = s()
+	if tail.Empty() {
+		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+			if len(args) > 0 {
+				head, tail = s(args...)
+				return head, tail.AppendSeq(appendix)
+			}
+			return head, appendix
+		})
+	}
+	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			head, tail = s(args...)
+			return head, tail.AppendSeq(appendix)
+		}
+		return head, tail.AppendSeq(appendix)
+	})
+}
+func (s SeqVal) AppendArgs(args ...Expression) Directional {
+	return s.Append(NewSequence(args...))
+}
+func (s SeqVal) Append(appendix Group) Directional {
+	return s.AppendSeq(SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		if len(args) > 0 {
+			appendix = appendix.Cons(args...).(SeqVal)
+		}
+		var head, tail = appendix.Continue()
+		return head, NewSeqFromGroup(tail.(Group))
+	}))
+}
+
+func (s SeqVal) Empty() bool {
+	if head, tail := s(); tail == nil && head.Type().Match(None) {
+		return true
+	}
+	return false
+}
+
+// sort takes a compare function to return a negative value, when a is lesser
+// then b, zero when they are equal and a positive value, when a is greater
+// then b and generates a sequence of sorted elements implementing quick sort
+// by lazy list comprehension (split elements lesser & greater pivot).
+func (s SeqVal) Sort(compare func(a, b Expression) int) Group {
+	// if list is empty, or has a single element, just return it
+	if s.Empty() || s.Tail().Empty() {
+		return s
+	}
+	var ( // use head as pivot & tail to filter lesser & greater from
+		pivot, list = s()
+		lesser      = NewTest(
+			func(arg Expression) bool {
+				if compare(pivot, arg) < 0 {
+					return true
+				}
+				return false
+			})
+		greater = NewTest(
+			func(arg Expression) bool {
+				if compare(pivot, arg) >= 0 {
+					return true
+				}
+				return false
+			})
+	)
+	// lazy list comprehension quick sort
+	return Pass(list, lesser).(SeqVal).Sort(compare).
+		Cons(pivot).ConsGroup(
+		Pass(list, greater).(SeqVal).Sort(compare)).(Group)
+}
+
+func (s SeqVal) Null() SeqVal     { return NewSequence() }
+func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
+func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
+func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
+func (s SeqVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		var head, tail = s(args...)
+		return NewPair(head, tail)
+	}
+	var head, tail = s()
+	return NewPair(head, tail)
+}
+func (s SeqVal) Slice() []Expression {
+	var (
+		slice      []Expression
+		head, tail = s()
+	)
+	for !head.Type().Match(None) && !tail.Empty() {
+		slice = append(slice, head)
+		head, tail = tail()
+	}
+	return slice
+}
+func (s SeqVal) Vector() VecVal { return NewVector(s.Slice()...) }
+
+func (s SeqVal) String() string {
+	if s.Empty() {
+		return "()"
+	}
+	var (
+		hstr, tstr string
+		head, tail = s()
+	)
+	for !tail.Empty() {
+		hstr = hstr + "(" + head.String() + " "
+		tstr = tstr + ")"
+		head, tail = tail()
+	}
+	hstr = hstr + "(" + head.String()
+	tstr = tstr + ")"
+	return hstr + tstr
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSITION OF DEFINED FUNCTIONS
 ///
@@ -35,13 +344,13 @@ func Curry(f, g FuncDef) FuncDef {
 //// CONTINUATION COMPOSITION
 ///
 // flatten flattens sequences of sequences to one dimension
-func Flatten(grp Group) Group {
+func Flatten(grp Continuation) Continuation {
 	if grp.Empty() {
 		return NewSequence()
 	}
 	if grp.Head().Type().Match(Sequences) {
 		return Flatten(
-			grp.Head().(Group),
+			grp.Head().(Continuation),
 		).Concat(
 			Flatten(grp.Tail()))
 	}
@@ -219,7 +528,7 @@ func Pass(
 
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
-func TakeN(grp Group, n int) Group {
+func TakeN(grp Continuation, n int) Continuation {
 	if grp.Empty() {
 		return grp
 	}
@@ -309,4 +618,41 @@ func Bind(
 		}
 		return bind(gh, fh), Bind(gt, ft, bind)
 	})
+}
+
+// lazy quick sort implementation expects a continuation and a less function
+// that returns true, if its right element is lesser (not equal!) compared to
+// the left one, as its arguments.
+//
+// sort picks continuations current head as pivot, and defines a split function
+// enclosing it, returning elements divided by the less function with pivot as
+// first and current element as second argument to compare against.
+//
+// should the list of lesser elements turn out to be empty, current pivot is
+// returned as head of sorted list and the sorted list of greater elements as
+// its tail.
+//
+// otherwise the list resulting from concatenating the sorted list of greater
+// and equal elements (will include pivot) to the sorted list of lesser
+// elements, is returned.
+//
+// sort calls itself recursively on progressively shorter subsets of the list.
+// computations are evaluated *until* the smallest element of current calls
+// subset is found →
+//
+//  - lazy quicksort type divide & conquer algorithm
+//  - only part of the list lesser current element needs to be sorted
+//  - infinite lists can be sorted (returns a sorted list of all results until
+//    current computation, with every call)
+//
+func Sort(
+	grp Group,
+	less func(l, r Expression) bool,
+) SeqVal {
+	if grp.Empty() {
+		return NewSequence()
+	}
+	var (
+		pivot = grp.Head()
+	)
 }

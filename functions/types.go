@@ -697,7 +697,7 @@ func (p TyComp) Cons(args ...Expression) Group {
 	return Def(types...)
 }
 
-func (p TyComp) Concat(grp Group) Group {
+func (p TyComp) Concat(grp Continuation) Group {
 	var slice = make([]Expression, 0, len(p))
 	for _, t := range p {
 		slice = append(slice, t.(TyComp))

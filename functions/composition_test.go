@@ -130,6 +130,15 @@ func TestFlatttenSequence(t *testing.T) {
 	fmt.Printf("take two: %s\n", token)
 	var flat = Flatten(token)
 	fmt.Printf("flattened list of lists: %s\n", flat)
+	var head, tail = flat.Continue()
+	if head.(DatConst)().(d.IntVal) != 0 {
+		t.Fail()
+	}
+	for head, tail = tail.Continue(); tail.Empty(); {
+	}
+	if head.(DatConst)().(d.IntVal) != 1 {
+		t.Fail()
+	}
 }
 
 var zipped Group = Zip(abc, intsA, func(l, r Expression) Expression {
@@ -197,4 +206,18 @@ func TestBindSequence(t *testing.T) {
 	if bound.Head().(DatConst)().(d.IntVal) != 20 {
 		t.Fail()
 	}
+}
+
+func TestSortSequence(t *testing.T) {
+	var rndm = NewVector(randInts(20)...)
+	fmt.Printf("random: %s\n", rndm)
+
+	var sorted = Sort(rndm,
+		func(l, r Expression) bool {
+			return l.(DatConst)().(d.IntVal) <
+				r.(DatConst)().(d.IntVal)
+		})
+	fmt.Printf("sorted: %s\n", sorted)
+	fmt.Printf("concat a & b: %s\n", NewSequence(intsA()...).Concat(NewSequence(intsB()...)))
+
 }

@@ -105,11 +105,12 @@ type Expression interface {
 type Continuation interface {
 	// Call(...Expression) <Continuation>
 	Expression
-	Empty() bool
-	TypeElem() TyComp
+	Continue() (Expression, Group)
+	Concat(Continuation) Group
 	Head() Expression
 	Tail() Group
-	Continue() (Expression, Group)
+	Empty() bool
+	TypeElem() TyComp
 }
 
 // a group has elemets with a binary operation (takes two arguments which have
@@ -126,7 +127,6 @@ type Group interface {
 	Continuation
 	Cons(...Expression) Group
 	ConsGroup(Group) Group
-	Concat(Group) Group
 }
 
 type Directional interface {
