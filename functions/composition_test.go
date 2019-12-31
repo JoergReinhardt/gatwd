@@ -122,13 +122,15 @@ func TestTakeNSequence(t *testing.T) {
 
 	token = TakeN(intsA, 5)
 	fmt.Printf("take five: %s\n", token)
+	fmt.Printf("take five type: %s\n", token.Type())
+	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Sequences))
 }
 
-//func TestFlatttenSequence(t *testing.T) {
-//	fmt.Printf("take two: %s\n", token)
-//	var flat = Flatten(token)
-//	fmt.Printf("flattened list of lists: %s\n", flat)
-//}
+func TestFlatttenSequence(t *testing.T) {
+	fmt.Printf("take two: %s\n", token)
+	var flat = Flatten(token)
+	fmt.Printf("flattened list of lists: %s\n", flat)
+}
 
 var zipped Group = Zip(abc, intsA, func(l, r Expression) Expression {
 	return NewKeyPair(string(l.(DatConst)().(d.StrVal)), r)

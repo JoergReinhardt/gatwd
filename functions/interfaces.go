@@ -126,18 +126,21 @@ type Group interface {
 	Continuation
 	Cons(...Expression) Group
 	ConsGroup(Group) Group
+	Concat(Group) Group
 }
 
 type Directional interface {
 	Group
-	Suffix() Group
-	Append(Group) Group
 	First() Expression
+	Suffix() Directional
+	Append(Group) Directional
+	Prepend(Group) Directional
+	AppendArgs(...Expression) Directional
+	PrependArgs(...Expression) Directional
 }
 type BiDirectional interface {
-	Prefix() Group
-	Prepend(Group) Group
 	Last() Expression
+	Prefix() BiDirectional
 }
 
 // stack pushes new elements as first element to the group & pops the last

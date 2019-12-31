@@ -119,7 +119,7 @@ const (
 	Option = Either | Or
 
 	//// COLLECTIONS
-	Sequences = List | Vector
+	Sequences = List | Vector | Sequence
 	ProdTypes = Sequences | Enum
 	SumTypes  = Set | Record | Tuple
 	Continues = Sequences | Pair
@@ -697,6 +697,13 @@ func (p TyComp) Cons(args ...Expression) Group {
 	return Def(types...)
 }
 
+func (p TyComp) Concat(grp Group) Group {
+	var slice = make([]Expression, 0, len(p))
+	for _, t := range p {
+		slice = append(slice, t.(TyComp))
+	}
+	return NewSequence(slice...).Concat(grp)
+}
 func (p TyComp) Append(args ...Expression) Group {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {

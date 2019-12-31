@@ -199,7 +199,7 @@ func TestSequence(t *testing.T) {
 	var seq = NewSequence(intsA()...)
 	fmt.Printf("fresh sequence: %s\n", seq)
 	fmt.Printf("sequence second print: %s\n", seq)
-	var head, tail = seq()
+	var head, tail = seq.Continue()
 	fmt.Printf("head: %s tail: %s\n", head, tail)
 	for !tail.Empty() {
 		head, tail = tail.Continue()

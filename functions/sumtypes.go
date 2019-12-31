@@ -46,7 +46,7 @@ func (n NoneVal) Head() Expression              { return n }
 func (n NoneVal) Tail() Group                   { return n }
 func (n NoneVal) Cons(...Expression) Group      { return n }
 func (n NoneVal) ConsGroup(Group) Group         { return n }
-func (n NoneVal) Concat(...Expression) Group    { return n }
+func (n NoneVal) Concat(Group) Group            { return n }
 func (n NoneVal) Prepend(...Expression) Group   { return n }
 func (n NoneVal) Append(...Expression) Group    { return n }
 func (n NoneVal) Len() int                      { return 0 }
@@ -147,6 +147,7 @@ func (g GenVal) Empty() bool {
 	}
 	return false
 }
+func (g GenVal) Concat(grp Group) Group        { return NewSeqFromGroup(g).Concat(grp) }
 func (g GenVal) Continue() (Expression, Group) { return g() }
 func (g GenVal) Head() Expression              { return g.Expr() }
 func (g GenVal) Tail() Group                   { return g.Generator() }
@@ -166,6 +167,9 @@ func NewAccumulator(acc, fnc Expression) AccVal {
 	})
 }
 
+func (g AccVal) Concat(grp Group) Group {
+	return NewSeqFromGroup(g).Concat(grp)
+}
 func (g AccVal) ConsGroup(con Group) Group {
 	var args = []Expression{}
 	for head, con := con.Continue(); !con.Empty(); {
