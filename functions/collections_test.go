@@ -43,7 +43,7 @@ var (
 )
 
 // helper functions
-func conList(args ...Expression) Sequential {
+func conList(args ...Expression) Group {
 	return NewVector(args...)
 }
 
@@ -232,7 +232,7 @@ func TestSequenceConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	seq = seq.Append(Dat(10), Dat(11)).(SeqVal)
+	seq = seq.AppendArgs(Dat(10), Dat(11)).(SeqVal)
 	fmt.Printf("equence with two elements appended (5, 6, 7, 8, 9, 10, 11):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
@@ -284,8 +284,8 @@ func TestStackSequence(t *testing.T) {
 	var (
 		head  Expression
 		tail  Continuation
-		list  Sequential = NewSequence()
-		stack Stack      = NewSequence(intsA()...)
+		list  Group = NewSequence()
+		stack Stack = NewSequence(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
 	for i := 0; i < 5; i++ {
@@ -298,7 +298,7 @@ func TestStackSequence(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Sequential)
+		list = tail.(Group)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
@@ -312,8 +312,8 @@ func TestStackVector(t *testing.T) {
 	var (
 		head  Expression
 		tail  Continuation
-		list  Sequential = NewSequence()
-		stack Stack      = NewVector(intsA()...)
+		list  Group = NewSequence()
+		stack Stack = NewVector(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
 	for i := 0; i < 5; i++ {
@@ -321,46 +321,18 @@ func TestStackVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pops: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 5 {
+	if head.(DatConst)().(d.IntVal) != 4 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
 		fmt.Printf("head from within push loop: %s\n", head)
-		list = tail.(Sequential)
+		list = tail.(Group)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
 	fmt.Printf("head after pushing 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 9 {
-		t.Fail()
-	}
-}
-
-func TestQueueSequence(t *testing.T) {
-	var (
-		head  Expression
-		tail  Continuation
-		list  Sequential = NewVector()
-		queue Queue      = NewSequence(intsA()...)
-	)
-	fmt.Printf("queue: %s\n", queue)
-	for i := 0; i < 5; i++ {
-		head, queue = queue.Pull()
-		list = list.Cons(head)
-	}
-	fmt.Printf("head after 5 pulls: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 3 {
-		t.Fail()
-	}
-	for i := 0; i < 5; i++ {
-		head, tail = list.Continue()
-		list = tail.(Sequential)
-		queue = queue.Append(head)
-	}
-	fmt.Printf("stack after appending 5 pulled elements back on again: %s\n", queue)
-	fmt.Printf("head after appending 5 pulled elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 3 {
+	if head.(DatConst)().(d.IntVal) != 0 {
 		t.Fail()
 	}
 }
@@ -369,8 +341,8 @@ func TestQueueVector(t *testing.T) {
 	var (
 		head  Expression
 		tail  Continuation
-		list  Sequential = NewVector()
-		queue Queue      = NewVector(intsA()...)
+		list  Group = NewVector()
+		queue Queue = NewVector(intsA()...)
 	)
 	fmt.Printf("queue: %s\n", queue)
 	for i := 0; i < 5; i++ {
@@ -383,8 +355,8 @@ func TestQueueVector(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Sequential)
-		queue = queue.Append(head)
+		list = tail.(Group)
+		queue = queue.Put(head)
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)
 	fmt.Printf("head after appending 5 popped elements back on again: %s\n", head)

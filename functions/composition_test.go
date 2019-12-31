@@ -96,9 +96,10 @@ func TestFilterPassSequence(t *testing.T) {
 	}
 }
 
+var token = TakeN(intsA, 2)
+
 func TestTakeNSequence(t *testing.T) {
 
-	var token = TakeN(intsA, 2)
 	fmt.Printf("take two: %s\n", token)
 
 	var head, tail = token.Continue()
@@ -123,7 +124,13 @@ func TestTakeNSequence(t *testing.T) {
 	fmt.Printf("take five: %s\n", token)
 }
 
-var zipped Sequential = Zip(abc, intsA, func(l, r Expression) Expression {
+//func TestFlatttenSequence(t *testing.T) {
+//	fmt.Printf("take two: %s\n", token)
+//	var flat = Flatten(token)
+//	fmt.Printf("flattened list of lists: %s\n", flat)
+//}
+
+var zipped Group = Zip(abc, intsA, func(l, r Expression) Expression {
 	return NewKeyPair(string(l.(DatConst)().(d.StrVal)), r)
 })
 
@@ -133,7 +140,7 @@ func TestZipSequence(t *testing.T) {
 		t.Fail()
 	}
 	for i := 0; i < 25; i++ {
-		zipped = zipped.Tail().(Sequential)
+		zipped = zipped.Tail().(Group)
 	}
 	if zipped.Head().(Paired).Key().String() != "z" {
 		t.Fail()
@@ -144,10 +151,10 @@ func TestSplitSequence(t *testing.T) {
 	var splitted = Split(zipped, NewPair(NewVector(), NewVector()),
 		func(pair Paired, head Expression) Paired {
 			var (
-				left  = pair.Left().(VecVal)
 				right = pair.Right().(VecVal)
-				key   = head.(KeyPair).Key()
+				left  = pair.Left().(VecVal)
 				val   = head.(KeyPair).Value()
+				key   = head.(KeyPair).Key()
 			)
 			left = left.Cons(key).(VecVal)
 			right = right.Cons(val).(VecVal)
@@ -160,4 +167,32 @@ func TestSplitSequence(t *testing.T) {
 }
 
 func TestBindSequence(t *testing.T) {
+
+	var bound = Bind(intsA, intsB, func(l, r Expression, args ...Expression) Expression {
+		if len(args) > 0 {
+			return addInts(append([]Expression{
+				addInts(l, r),
+			}, args...)...)
+		}
+		return addInts(l, r)
+	})
+	fmt.Printf("bound without passing arguments: %s\n", bound)
+
+	if bound.Head().(DatConst)().(d.IntVal) != 10 {
+		t.Fail()
+	}
+
+	bound = Bind(bound, intsB, func(l, r Expression, args ...Expression) Expression {
+		if len(args) > 0 {
+			return addInts(append([]Expression{
+				addInts(l, r),
+			}, args...)...)
+		}
+		return addInts(l, r)
+	})
+	fmt.Printf("bound after binding ints-b again: %s\n", bound)
+
+	if bound.Head().(DatConst)().(d.IntVal) != 20 {
+		t.Fail()
+	}
 }

@@ -86,26 +86,87 @@ type Expression interface {
 ///////////////////////////////////////////////////////////////////////////////
 //// COLLECTION INTERFACES
 ///
-// consumeable is shared by all collections, continuations, side effects, etc‥.
-// it returns the current head of a collection, last result, or input in a
-// series of computations, data i/o operations, etc‥.
-// a given instance will always return the same head and tail, the returned
-// tail when consumed, will return the next step and so on.  return values can
-// either be passed on recurively as continuations, or be reassigned to the
-// same values in a loop, thereby implementing a functional trampolin to
-// flatten recursive calls.
-// execution is performed lazily and infinite lists can be handled.
+// continuation is shared by all collections, generators, monads, side effects,
+// etc‥., it returns the current state of computation, io operation, current
+// elemet in collection‥., as head element and a group of computations to
+// continue on as its tail.  a given instance will always return the same head
+// and tail when called without, or with identical arguments.
 //
-// CAVEAT: a continuations call method has to return a continuation, when
-// called without arguments, in order to satisfy map, apply, fold, bind
-// constraints
+// continuations are not necessarily collections of elements, but they do
+// always return tails of the sequential type, since there may be more than one
+// 'computation' necessary to evaluate the continuation .
+//
+// execution is performed lazily and infinite lists may be handled.
+//
+// CAVEAT: a continuations 'call' method always has to return a continuation,
+// when called, in order to satisfy constraints for map, apply, fold, bind
+//
+// C.Call(args...).(Continuation) ← has to work!
 type Continuation interface {
+	// Call(...Expression) <Continuation>
 	Expression
 	Empty() bool
 	TypeElem() TyComp
 	Head() Expression
-	Tail() Sequential
-	Continue() (Expression, Sequential)
+	Tail() Group
+	Continue() (Expression, Group)
+}
+
+// a group has elemets with a binary operation (takes two arguments which have
+// to be members of the set, returns a set membe) defined up on.  for numeric
+// types that might be a arithmetic operation, concatenation for strings, etc‥.
+//
+// groups expose a cons operation to instanciate a new element from the group
+// an apply itself and the new instance to the binary operation to return a new
+// instance of an element from the group.  for collections that pre-, or
+// appends an element. continuations take those arguments to either apply them
+// to the current state and return the result, or create and add new
+// computations to continue on.
+type Group interface {
+	Continuation
+	Cons(...Expression) Group
+	ConsGroup(Group) Group
+}
+
+type Directional interface {
+	Group
+	Suffix() Group
+	Append(Group) Group
+	First() Expression
+}
+type BiDirectional interface {
+	Prefix() Group
+	Prepend(Group) Group
+	Last() Expression
+}
+
+// stack pushes new elements as first element to the group & pops the last
+// element that has been added from the sequence
+type Stack interface {
+	Group
+	Pop() (Expression, Stack)
+	Push(...Expression) Stack
+}
+
+// queues pull elements from the end of the group and put elements at its
+// start
+type Queue interface {
+	Group
+	Pull() (Expression, Queue)
+	Put(...Expression) Queue
+}
+
+type Filtered interface {
+	Continuation
+	Filter(Testable) Group
+	Pass(Testable) Group
+}
+
+type Functorial interface {
+	Continuation
+	Map(fn Expression) Group
+	Fold(acc Expression, fn func(...Expression) Expression) Group
+	Flatten() Group
 }
 
 // mapped interface is implementet by all key accessable data types
@@ -117,76 +178,33 @@ type Mapped interface {
 	Get(Expression) (Expression, bool)
 }
 
-// new elements can be pre-/ and appended to at the front and end of sequences.
-// this is even true for infinite lists, since appending is performed lazily,
-// which in the case of appending to an infinite list, may as well be never.
-type Sequential interface {
-	Continuation
-	Cons(...Expression) Sequential
-	ConsContinue(Continuation) Continuation
-}
-
-// stacks pushes new elements as first element to the sequence & pops the last
-// element added to it from the front of the sequence
-type Stack interface {
-	Sequential
-	Pop() (Expression, Stack)
-	Push(...Expression) Stack
-}
-
-// queues pull elements from the end of the sequence
-type Queue interface {
-	Sequential
-	Pull() (Expression, Queue)
-	Append(...Expression) Queue
-}
-type LiFo interface {
-	Push(...Expression) Sequential
-	Pull() (Expression, Sequential)
-}
-
-type Filtered interface {
-	Continuation
-	Filter(Testable) Sequential
-	Pass(Testable) Sequential
-}
-
-type Functorial interface {
-	Continuation
-	Map(fn Expression) Sequential
-	Fold(acc Expression, fn func(...Expression) Expression) Sequential
-	Flatten() Sequential
-}
-
 type Zipped interface {
 	Functorial
-	Split() (l, r Sequential)
+	Split() (l, r Group)
 }
 type Zippable interface {
 	Functorial
 	ZipWith(
-		zipf func(l, r Continuation) Sequential,
-		with Continuation,
-	) Sequential
+		zipf func(l, r Continuation) Group, with Continuation,
+	) Group
 }
 type Applicable interface {
 	Functorial
 	Apply(func(
-		Sequential,
-		...Expression,
+		Group, ...Expression,
 	) (
 		Expression,
 		Continuation,
-	)) Sequential
+	)) Group
 }
 
 type Monoidal interface {
 	Applicable
-	Bind(Expression, Functorial) Sequential
+	Bind(Expression, Functorial) Group
 }
 
 type Ordered interface {
-	Sequential
+	Group
 	Lesser(Ordered) bool
 	Greater(Ordered) bool
 	Equal(Ordered) bool
@@ -230,7 +248,7 @@ type SwapablePaired interface {
 type Sortable interface {
 	Sort(
 		lesser func(a, b Expression) bool,
-	) Sequential
+	) Group
 }
 
 // interface implementet by types searchable by some praedicate
@@ -324,13 +342,13 @@ type Paired interface {
 // access
 type AssociativeCollected interface {
 	KeyAssociated
-	Sequential
+	Group
 	Associative
 }
 
 // extends the consumeable interface to work with collections of pairs
 type ConsumeablePaired interface {
-	Sequential
+	Group
 	Associative
 	HeadPair() Paired
 	TailPairs() ConsumeablePaired
@@ -352,7 +370,7 @@ type Enumerable interface {
 type Monadic interface {
 	Expression
 	Current() Expression
-	Sequence() Sequential
+	Sequence() Group
 }
 
 // interface to implement by dynamicly declared and defined types

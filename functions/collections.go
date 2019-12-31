@@ -9,7 +9,7 @@ type (
 
 	//// COLLECTIONS
 	VecVal func(...Expression) []Expression
-	SeqVal func(...Expression) (Expression, Sequential)
+	SeqVal func(...Expression) (Expression, Group)
 )
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -43,44 +43,49 @@ func (v VecVal) Head() Expression {
 	}
 	return NewNone()
 }
+func (v VecVal) Tail() Group {
+	if v.Len() > 1 {
+		return NewVector(v()[1:]...)
+	}
+	return NewVector()
+}
+func (v VecVal) Suffix() Group {
+	if v.Len() > 1 {
+		return NewVector(v()[1:]...)
+	}
+	return NewVector()
+}
+func (v VecVal) Prefix() Group {
+	if v.Len() > 1 {
+		return NewVector(v()[:v.Len()-1]...)
+	}
+	return NewVector()
+}
 func (v VecVal) Last() Expression {
 	if v.Len() > 0 {
 		return v()[v.Len()-1]
 	}
 	return NewNone()
 }
-func (v VecVal) First() Expression { return v.Head() }
-func (v VecVal) Tail() Sequential {
-	if v.Len() > 1 {
-		return NewVector(v()[1:]...)
-	}
-	return NewVector()
-}
-func (v VecVal) Prefix() VecVal {
-	if v.Len() > 1 {
-		return NewVector(v()[:v.Len()-1]...)
-	}
-	return NewVector()
-}
-func (v VecVal) Suffix() VecVal                         { return v.Tail().(VecVal) }
-func (v VecVal) Continue() (Expression, Sequential)     { return v.First(), v.Suffix() }
-func (v VecVal) Push(args ...Expression) Stack          { return NewVector(append(v(), args...)...) }
-func (v VecVal) Put(args ...Expression) Stack           { return NewVector(append(args, v()...)...) }
-func (v VecVal) Pop() (Expression, Stack)               { return v.Last(), v.Prefix() }
-func (v VecVal) Pull() (Expression, Queue)              { return v.Head(), v.Suffix() }
-func (v VecVal) Slice() []Expression                    { return v() }
-func (v VecVal) Len() int                               { return len(v()) }
-func (v VecVal) Null() VecVal                           { return NewVector() }
-func (v VecVal) Type() TyComp                           { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc                         { return Vector }
-func (v VecVal) TypeElem() TyComp                       { return v.Head().Type() }
-func (v VecVal) ConsVec(args ...Expression) VecVal      { return NewVector(v(args...)...) }
-func (v VecVal) Cons(appendix ...Expression) Sequential { return v.ConsVec(appendix...) }
-func (v VecVal) ConsContinue(appendix Continuation) Continuation {
+func (v VecVal) First() Expression                 { return v.Head() }
+func (v VecVal) Continue() (Expression, Group)     { return v.Head(), v.Tail() }
+func (v VecVal) Pop() (Expression, Stack)          { return v.Head(), v.Tail().(Stack) }
+func (v VecVal) Push(args ...Expression) Stack     { return NewVector(append(v(), args...)...) }
+func (v VecVal) Pull() (Expression, Queue)         { return v.First(), v.Suffix().(Queue) }
+func (v VecVal) Put(args ...Expression) Queue      { return NewVector(append(v(), args...)...) }
+func (v VecVal) Slice() []Expression               { return v() }
+func (v VecVal) Len() int                          { return len(v()) }
+func (v VecVal) Null() VecVal                      { return NewVector() }
+func (v VecVal) Type() TyComp                      { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc                    { return Vector }
+func (v VecVal) TypeElem() TyComp                  { return v.Head().Type() }
+func (v VecVal) ConsVec(args ...Expression) VecVal { return NewVector(v(args...)...) }
+func (v VecVal) Cons(appendix ...Expression) Group { return v.ConsVec(appendix...) }
+func (v VecVal) ConsGroup(appendix Group) Group {
 	if v.Len() == 0 {
-		return NewSequence().ConsContinue(appendix)
+		return NewSequence().ConsGroup(appendix)
 	}
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
+	return SeqVal(func(args ...Expression) (Expression, Group) {
 		var (
 			head Expression
 			tail Continuation
@@ -90,7 +95,7 @@ func (v VecVal) ConsContinue(appendix Continuation) Continuation {
 				append(v(), args...)...,
 			).Continue()
 		}
-		return head, tail.(SeqVal).ConsContinue(appendix).(SeqVal)
+		return head, tail.(SeqVal).ConsGroup(appendix).(SeqVal)
 	})
 }
 func (v VecVal) Call(args ...Expression) Expression {
@@ -101,8 +106,29 @@ func (v VecVal) Call(args ...Expression) Expression {
 	var head, tail = NewVector(v()...).Continue()
 	return NewPair(head, tail)
 }
-func (v VecVal) AppendVec(appendix VecVal) VecVal    { return v.Append(appendix()...).(VecVal) }
-func (v VecVal) Append(appendix ...Expression) Queue { return v.ConsVec(appendix...) }
+func (v VecVal) Append(apendix Group) VecVal {
+	if apendix.Empty() {
+		return v
+	}
+	var (
+		slice      = []Expression{}
+		head, tail = apendix.Continue()
+	)
+	for head, tail = tail.Continue(); !tail.Empty(); {
+		slice = append(slice, head)
+	}
+	slice = append(v(), slice...)
+	return VecVal(func(args ...Expression) []Expression {
+		if len(args) > 0 {
+			return append(slice, args...)
+		}
+		return slice
+	})
+}
+func (v VecVal) AppendVec(vec VecVal) VecVal { return v.AppendArgs(vec()...) }
+func (v VecVal) AppendArgs(args ...Expression) VecVal {
+	return NewVector(append(v(), args...)...)
+}
 
 func (v VecVal) Get(i int) (Expression, bool) {
 	if i < v.Len() {
@@ -134,7 +160,7 @@ func (v VecVal) Clear() VecVal    { return NewVector(v()[:0]...) }
 func (v VecVal) Sequence() SeqVal { return NewSequence(v()...) }
 func (v VecVal) Sort(
 	less func(a, b Expression) bool,
-) Sequential {
+) Group {
 	var s = newSorter(
 		v(),
 		func(slice []Expression, a, b int) bool {
@@ -232,7 +258,7 @@ func reverse(args []Expression) (rev []Expression) {
 ///
 // generic sequential type
 func NewSeqFromCon(con Continuation) SeqVal {
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
+	return SeqVal(func(args ...Expression) (Expression, Group) {
 		var head, tail = con.Continue()
 		if len(args) > 0 {
 			head = head.Call(args...)
@@ -240,8 +266,8 @@ func NewSeqFromCon(con Continuation) SeqVal {
 		return head, NewSeqFromCon(tail)
 	})
 }
-func NewSeqFromSeq(seq Sequential) SeqVal {
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
+func NewSeqFromSeq(seq Group) SeqVal {
+	return SeqVal(func(args ...Expression) (Expression, Group) {
 		if len(args) > 0 {
 			seq = seq.Cons(args...)
 		}
@@ -254,7 +280,7 @@ func NewSequence(elems ...Expression) SeqVal {
 	// return empty list able to be extended by cons, when no initial
 	// elements are given/left
 	if len(elems) == 0 {
-		return func(args ...Expression) (Expression, Sequential) {
+		return func(args ...Expression) (Expression, Group) {
 			if len(args) > 0 {
 				if len(args) > 1 {
 					return args[0], NewSequence(args[1:]...)
@@ -268,7 +294,7 @@ func NewSequence(elems ...Expression) SeqVal {
 	}
 
 	// at least one of the initial elements is left‥.
-	return func(args ...Expression) (Expression, Sequential) {
+	return func(args ...Expression) (Expression, Group) {
 
 		// if arguments are passed, prepend those and return first
 		// argument as head‥.
@@ -300,30 +326,23 @@ func NewSequence(elems ...Expression) SeqVal {
 
 	}
 }
-func (s SeqVal) Continue() (Expression, Sequential) {
-	return s.Head(), s.Tail()
-}
 func (s SeqVal) Head() Expression {
 	var cur, _ = s()
 	return cur
 }
-func (s SeqVal) Tail() Sequential {
+func (s SeqVal) Tail() Group {
 	var _, tail = s()
 	return tail
 }
-func (s SeqVal) Empty() bool {
-	if head, tail := s(); tail == nil && head.Type().Match(None) {
-		return true
-	}
-	return false
+func (s SeqVal) Continue() (Expression, Group) {
+	return s.Head(), s.Tail()
 }
-
-func (s SeqVal) Cons(suffix ...Expression) Sequential {
+func (s SeqVal) Cons(suffix ...Expression) Group {
 	if len(suffix) == 0 {
 		return s
 	}
 	if len(suffix) == 1 {
-		return SeqVal(func(late ...Expression) (Expression, Sequential) {
+		return SeqVal(func(late ...Expression) (Expression, Group) {
 			if len(late) > 0 {
 				if len(late) > 1 {
 					return late[0],
@@ -334,7 +353,7 @@ func (s SeqVal) Cons(suffix ...Expression) Sequential {
 			return suffix[0], s
 		})
 	}
-	return SeqVal(func(late ...Expression) (Expression, Sequential) {
+	return SeqVal(func(late ...Expression) (Expression, Group) {
 		if len(late) > 0 {
 			if len(late) > 1 {
 				return late[0],
@@ -347,7 +366,7 @@ func (s SeqVal) Cons(suffix ...Expression) Sequential {
 
 }
 
-func (s SeqVal) ConsContinue(suffix Continuation) Continuation {
+func (s SeqVal) ConsGroup(suffix Group) Group {
 	var head, tail = suffix.Continue()
 	// if tail is empty‥.
 	if tail.Empty() {
@@ -357,12 +376,12 @@ func (s SeqVal) ConsContinue(suffix Continuation) Continuation {
 		}
 		// return a sequence starting with head yielded by prepended
 		// seqval, followed by s as its tail
-		return SeqVal(func(args ...Expression) (Expression, Sequential) {
+		return SeqVal(func(args ...Expression) (Expression, Group) {
 			if len(args) > 0 {
 				if len(args) > 1 {
 					head, tail = suffix.Call(args...,
 					).(Continuation).Continue()
-					return head, s.ConsContinue(tail).(SeqVal)
+					return head, s.ConsGroup(tail).(SeqVal)
 				}
 			}
 			return head, s
@@ -370,123 +389,70 @@ func (s SeqVal) ConsContinue(suffix Continuation) Continuation {
 	}
 	// tail is not empty yet, return a sequence starting with yielded head
 	// followed by remaining tail consed to s recursively
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
+	return SeqVal(func(args ...Expression) (Expression, Group) {
 		if len(args) > 0 {
 			head, tail = suffix.Call(args...,
 			).(Continuation).Continue()
-			return head, s.ConsContinue(tail).(SeqVal)
+			return head, s.ConsGroup(tail).(SeqVal)
 		}
-		return head, s.ConsContinue(tail).(SeqVal)
+		return head, s.ConsGroup(tail).(SeqVal)
 	})
 
 }
-func (s SeqVal) ConsSeq(seq SeqVal) Sequential { return s.ConsContinue(seq).(Sequential) }
+func (s SeqVal) ConsSeqVal(seq SeqVal) Group { return s.ConsGroup(seq).(Group) }
 
-func (s SeqVal) Append(appendix ...Expression) Queue {
+func (s SeqVal) Pop() (Expression, Stack)      { return s.Head(), s.Tail().(SeqVal) }
+func (s SeqVal) Push(args ...Expression) Stack { return s.Cons(args...).(Stack) }
+func (s SeqVal) First() Expression             { return s.Head() }
+func (s SeqVal) Suffix() Expression            { return s.Tail() }
 
-	// return imediately, if no elements where given to append
-	if len(appendix) == 0 {
-		return s
-	}
-
-	// yield head & tail
-	var head, tail = s()
-
-	// if tail is empty
-	if tail.Empty() {
-		// if head matches none‥.
-		if head.Type().Match(None) {
-			// ‥.assign first element of appendix as head‥.
-			head = appendix[0]
-			// ‥.reassign remaining appendix, when more elements remain
-			if len(appendix) > 1 {
-				appendix = appendix[1:]
-			} else { // ‥.or clear appendix
-				appendix = appendix[:0]
-			}
-		}
-		// return a sequence, that returns the appendix as its tail,
-		// which might be empty, if its first element was assigned as
-		// head, and there are no further appending alements
-		return SeqVal(func(args ...Expression) (Expression, Sequential) {
-			if len(args) > 0 { // passed arguments are prepended
-				if len(args) > 1 {
-					return args[0],
-						NewSequence(append(args[1:], appendix...)...)
-				}
-				return args[0], NewSequence(appendix...)
-			}
-			return head, NewSequence(appendix...)
-		})
-	}
-	// length of appendix might be zero, since first element of appendix
-	// might have been taken as head, so check‥.
-	if len(appendix) > 0 {
-		// return a sequence that uses the head that was yielded by
-		// sequence, or the first element of the appendix and append
-		// the appending elements to it's tail
-		return SeqVal(func(args ...Expression) (Expression, Sequential) {
-			return head, tail.(SeqVal).Append(appendix...).(SeqVal)
-		})
-	}
-	// first element of appending elements was assigned to head, no further
-	// appending elements are left, tail is most likely empty
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
-		return head, tail.(SeqVal)
-	})
-
-}
-func (s SeqVal) AppendSeqVal(appendix SeqVal) SeqVal {
+func (s SeqVal) AppendSeq(appendix SeqVal) SeqVal {
 	var head, tail = s()
 	if tail.Empty() {
 		if head.Type().Match(None) {
 			return appendix
 		}
-		return SeqVal(func(args ...Expression) (Expression, Sequential) {
+		return SeqVal(func(args ...Expression) (Expression, Group) {
 			if len(args) > 0 {
 				head, tail = s(args...)
-				return head, tail.(SeqVal).AppendSeqVal(appendix)
+				return head, tail.(SeqVal).AppendSeq(appendix)
 			}
-			return head, s
+			return head, appendix
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, Sequential) {
+	return SeqVal(func(args ...Expression) (Expression, Group) {
 		if len(args) > 0 {
 			head, tail = s(args...)
-			return head, tail.(SeqVal).AppendSeqVal(appendix)
+			return head, tail.(SeqVal).AppendSeq(appendix)
 		}
-		return head, tail.(SeqVal).AppendSeqVal(appendix)
+		return head, tail.(SeqVal).AppendSeq(appendix)
 	})
 }
-func (s SeqVal) AppendSeq(appendix Sequential) Sequential {
-	return s.AppendSeqVal(SeqVal(func(args ...Expression) (Expression, Sequential) {
+func (s SeqVal) AppendArgs(args ...Expression) Group {
+	return s.Append(NewSequence(args...))
+}
+func (s SeqVal) Append(appendix Group) Group {
+	return s.AppendSeq(SeqVal(func(args ...Expression) (Expression, Group) {
 		if len(args) > 0 {
 			appendix = appendix.Cons(args...)
 		}
 		var head, tail = appendix.Continue()
-		return head, NewSeqFromSeq(tail.(Sequential))
+		return head, NewSeqFromSeq(tail.(Group))
 	}))
 }
 
-func (s SeqVal) Pop() (Expression, Stack)      { return s.Head(), s.Tail().(SeqVal) }
-func (s SeqVal) Push(args ...Expression) Stack { return s.Cons(args...).(Stack) }
-func (s SeqVal) Pull() (Expression, Queue) {
-	var (
-		acc        = []Expression{}
-		head, tail = s()
-	)
-	for !tail.Empty() {
-		acc = append(acc, head)
-		head, tail = tail.(SeqVal)()
+func (s SeqVal) Empty() bool {
+	if head, tail := s(); tail == nil && head.Type().Match(None) {
+		return true
 	}
-	return head, NewVector(acc...)
+	return false
 }
 
 // sort takes a compare function to return a negative value, when a is lesser
 // then b, zero when they are equal and a positive value, when a is greater
 // then b and generates a sequence of sorted elements implementing quick sort
 // by lazy list comprehension (split elements lesser & greater pivot).
-func (s SeqVal) Sort(compare func(a, b Expression) int) Sequential {
+func (s SeqVal) Sort(compare func(a, b Expression) int) Group {
 	// if list is empty, or has a single element, just return it
 	if s.Empty() || s.Tail().Empty() {
 		return s
@@ -510,8 +476,8 @@ func (s SeqVal) Sort(compare func(a, b Expression) int) Sequential {
 	)
 	// lazy list comprehension quick sort
 	return Pass(list, lesser).(SeqVal).Sort(compare).
-		Cons(pivot).ConsContinue(
-		Pass(list, greater).(SeqVal).Sort(compare)).(Sequential)
+		Cons(pivot).ConsGroup(
+		Pass(list, greater).(SeqVal).Sort(compare)).(Group)
 }
 
 func (s SeqVal) Null() SeqVal     { return NewSequence() }

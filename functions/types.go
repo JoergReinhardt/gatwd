@@ -642,7 +642,7 @@ func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Tail() Sequential {
+func (p TyComp) Tail() Group {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -659,7 +659,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Sequential) { return p.Head(), p.Tail() }
+func (p TyComp) Continue() (Expression, Group) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -667,7 +667,7 @@ func (p TyComp) ConsumePattern() (TyComp, TyComp) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyComp) ConsContinue(con Continuation) Continuation {
+func (p TyComp) ConsGroup(con Group) Group {
 	var types = make([]d.Typed, 0, p.Len())
 	for head, cons := con.Continue(); !cons.Empty(); {
 		if Kind_Comp.Match(head.Type().Kind()) {
@@ -678,7 +678,7 @@ func (p TyComp) ConsContinue(con Continuation) Continuation {
 	}
 	return Def(types...)
 }
-func (p TyComp) Cons(args ...Expression) Sequential {
+func (p TyComp) Cons(args ...Expression) Group {
 	if len(args) > 0 {
 		var types = make([]d.Typed, 0, len(args))
 		for _, arg := range args {
@@ -697,7 +697,7 @@ func (p TyComp) Cons(args ...Expression) Sequential {
 	return Def(types...)
 }
 
-func (p TyComp) Append(args ...Expression) Sequential {
+func (p TyComp) Append(args ...Expression) Group {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyComp))
