@@ -51,6 +51,12 @@ func NewVector(elems ...Expression) VecVal {
 		return elems
 	}
 }
+func (v VecVal) Cons(appendix ...Expression) Group {
+	return v.ConsVec(appendix...)
+}
+func (v VecVal) ConsVec(args ...Expression) VecVal {
+	return NewVector(v(args...)...)
+}
 
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
@@ -91,19 +97,17 @@ func (v VecVal) Last() Expression {
 	}
 	return NewNone()
 }
-func (v VecVal) First() Expression                 { return v.Head() }
-func (v VecVal) Pop() (Expression, Stack)          { return v.Head(), v.Tail().(Stack) }
-func (v VecVal) Push(args ...Expression) Stack     { return NewVector(append(v(), args...)...) }
-func (v VecVal) Pull() (Expression, Queue)         { return v.First(), v.Suffix().(Queue) }
-func (v VecVal) Put(args ...Expression) Queue      { return NewVector(append(v(), args...)...) }
-func (v VecVal) Slice() []Expression               { return v() }
-func (v VecVal) Len() int                          { return len(v()) }
-func (v VecVal) Null() VecVal                      { return NewVector() }
-func (v VecVal) Type() TyComp                      { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc                    { return Vector }
-func (v VecVal) TypeElem() TyComp                  { return v.Head().Type() }
-func (v VecVal) ConsVec(args ...Expression) VecVal { return NewVector(v(args...)...) }
-func (v VecVal) Cons(appendix ...Expression) Group { return v.ConsVec(appendix...) }
+func (v VecVal) First() Expression             { return v.Head() }
+func (v VecVal) Pop() (Expression, Stack)      { return v.Head(), v.Tail().(Stack) }
+func (v VecVal) Push(args ...Expression) Stack { return NewVector(append(v(), args...)...) }
+func (v VecVal) Pull() (Expression, Queue)     { return v.First(), v.Suffix().(Queue) }
+func (v VecVal) Put(args ...Expression) Queue  { return NewVector(append(v(), args...)...) }
+func (v VecVal) Slice() []Expression           { return v() }
+func (v VecVal) Len() int                      { return len(v()) }
+func (v VecVal) Null() VecVal                  { return NewVector() }
+func (v VecVal) Type() TyComp                  { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc                { return Vector }
+func (v VecVal) TypeElem() TyComp              { return v.Head().Type() }
 func (v VecVal) ConsGroup(appendix Group) Group {
 	if v.Len() == 0 {
 		return NewSequence().ConsGroup(appendix)

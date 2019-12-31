@@ -1,7 +1,5 @@
 package functions
 
-import "fmt"
-
 type (
 
 	//// COLLECTIONS
