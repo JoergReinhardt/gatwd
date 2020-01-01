@@ -208,16 +208,16 @@ func TestBindSequence(t *testing.T) {
 	}
 }
 
-func TestSortSequence(t *testing.T) {
-	var rndm = NewVector(randInts(20)...)
-	fmt.Printf("random: %s\n", rndm)
-
-	var sorted = Sort(rndm,
-		func(l, r Expression) bool {
-			return l.(DatConst)().(d.IntVal) <
-				r.(DatConst)().(d.IntVal)
-		})
-	fmt.Printf("sorted: %s\n", sorted)
-	fmt.Printf("concat a & b: %s\n", NewSequence(intsA()...).Concat(NewSequence(intsB()...)))
-
-}
+//func TestSortSequence(t *testing.T) {
+//	var rndm = NewVector(randInts(20)...)
+//	fmt.Printf("random: %s\n", rndm)
+//
+//	var sorted = Sort(rndm,
+//		func(l, r Expression) bool {
+//			return l.(DatConst)().(d.IntVal) <
+//				r.(DatConst)().(d.IntVal)
+//		})
+//	fmt.Printf("sorted: %s\n", sorted)
+//	fmt.Printf("concat a & b: %s\n", NewSequence(intsA()...).Concat(NewSequence(intsB()...)))
+//
+//}

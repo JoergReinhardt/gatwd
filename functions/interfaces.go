@@ -132,31 +132,24 @@ type Group interface {
 type Directional interface {
 	Group
 	First() Expression
-	Suffix() Directional
-	Append(Group) Directional
-	Prepend(Group) Directional
-	AppendArgs(...Expression) Directional
-	PrependArgs(...Expression) Directional
 }
 type BiDirectional interface {
+	Directional
 	Last() Expression
-	Prefix() BiDirectional
-}
-
-// stack pushes new elements as first element to the group & pops the last
-// element that has been added from the sequence
-type Stack interface {
-	Group
-	Pop() (Expression, Stack)
-	Push(...Expression) Stack
 }
 
 // queues pull elements from the end of the group and put elements at its
 // start
 type Queue interface {
 	Group
+	Put(Expression) Queue
 	Pull() (Expression, Queue)
-	Put(...Expression) Queue
+	Append(...Expression) Queue
+}
+type Stack interface {
+	Group
+	Push(Expression) Stack
+	Pop() (Expression, Stack)
 }
 
 type Filtered interface {

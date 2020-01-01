@@ -79,35 +79,32 @@ func (v VecVal) Concat(grp Continuation) Group {
 	}
 	return NewSequence(v()...).Concat(grp)
 }
-func (v VecVal) Suffix() Directional {
-	if v.Len() > 1 {
-		return NewVector(v()[1:]...)
-	}
-	return NewVector()
-}
-func (v VecVal) Prefix() BiDirectional {
-	if v.Len() > 1 {
-		return NewVector(v()[:v.Len()-1]...)
-	}
-	return NewVector()
-}
 func (v VecVal) Last() Expression {
 	if v.Len() > 0 {
 		return v()[v.Len()-1]
 	}
 	return NewNone()
 }
-func (v VecVal) First() Expression             { return v.Head() }
-func (v VecVal) Pop() (Expression, Stack)      { return v.Head(), v.Tail().(Stack) }
-func (v VecVal) Push(args ...Expression) Stack { return NewVector(append(v(), args...)...) }
-func (v VecVal) Pull() (Expression, Queue)     { return v.First(), v.Suffix().(Queue) }
-func (v VecVal) Put(args ...Expression) Queue  { return NewVector(append(v(), args...)...) }
-func (v VecVal) Slice() []Expression           { return v() }
-func (v VecVal) Len() int                      { return len(v()) }
-func (v VecVal) Null() VecVal                  { return NewVector() }
-func (v VecVal) Type() TyComp                  { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc                { return Vector }
-func (v VecVal) TypeElem() TyComp              { return v.Head().Type() }
+func (v VecVal) First() Expression               { return v.Head() }
+func (v VecVal) Append(args ...Expression) Queue { return NewVector(append(v(), args...)...) }
+func (v VecVal) Push(arg Expression) Stack       { return v.Cons(arg).(VecVal) }
+func (v VecVal) Pop() (Expression, Stack) {
+	var head, tail = v.Continue()
+	return head, tail.(VecVal)
+}
+func (v VecVal) Put(arg Expression) Queue { return NewVector(append(v(), arg)...) }
+func (v VecVal) Pull() (Expression, Queue) {
+	if v.Len() > 1 {
+		return v()[0], NewVector(v()[1:]...)
+	}
+	return v()[0], NewVector()
+}
+func (v VecVal) Slice() []Expression { return v() }
+func (v VecVal) Len() int            { return len(v()) }
+func (v VecVal) Null() VecVal        { return NewVector() }
+func (v VecVal) Type() TyComp        { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc      { return Vector }
+func (v VecVal) TypeElem() TyComp    { return v.Head().Type() }
 func (v VecVal) ConsGroup(appendix Group) Group {
 	if v.Len() == 0 {
 		return NewSequence().ConsGroup(appendix)
@@ -132,45 +129,6 @@ func (v VecVal) Call(args ...Expression) Expression {
 	}
 	var head, tail = NewVector(v()...).Continue()
 	return NewPair(head, tail)
-}
-func (v VecVal) Prepend(dir Group) Directional {
-	var (
-		slice      = []Expression{}
-		head, tail = dir.Continue()
-	)
-	slice = append(slice, head)
-	for head, tail = tail.Continue(); !tail.Empty(); {
-		slice = append(slice, head)
-	}
-	return NewVector(append(slice, v()...)...)
-}
-func (v VecVal) PrependArgs(args ...Expression) Directional {
-	return NewVector(append(args, v()...)...)
-}
-func (v VecVal) Append(apendix Group) Directional {
-	if apendix.Empty() {
-		return v
-	}
-	var (
-		slice      = []Expression{}
-		head, tail = apendix.Continue()
-	)
-	for head, tail = tail.Continue(); !tail.Empty(); {
-		slice = append(slice, head)
-	}
-	slice = append(v(), slice...)
-	return VecVal(func(args ...Expression) []Expression {
-		if len(args) > 0 {
-			return append(slice, args...)
-		}
-		return slice
-	})
-}
-func (v VecVal) AppendVec(vec VecVal) VecVal {
-	return NewVector(append(v(), vec()...)...)
-}
-func (v VecVal) AppendArgs(args ...Expression) Directional {
-	return NewVector(append(v(), args...)...)
 }
 
 func (v VecVal) Get(i int) (Expression, bool) {

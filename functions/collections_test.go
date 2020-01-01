@@ -232,7 +232,7 @@ func TestSequenceConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	seq = seq.AppendArgs(Dat(10), Dat(11)).(SeqVal)
+	seq = seq.Concat(NewVector(Dat(10), Dat(11))).(SeqVal)
 	fmt.Printf("equence with two elements appended (5, 6, 7, 8, 9, 10, 11):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
@@ -267,13 +267,13 @@ func TestVectorConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	vec = vec.Push(Dat(6), Dat(7)).(VecVal)
+	vec = vec.Cons(Dat(6), Dat(7)).(VecVal)
 	fmt.Printf("vector with two elements pushed [8, 9, 10, 11, 12, 6, 7]:\n%s\n", vec)
 	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
-	vec = vec.Push(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
+	vec = vec.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12, 6, 7, 0, 1, 2, 3, 4, 5]:\n%s\n", vec)
 	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()

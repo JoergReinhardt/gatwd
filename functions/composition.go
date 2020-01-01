@@ -156,74 +156,10 @@ func (s SeqVal) Concat(grp Continuation) Group {
 	}
 	return grp.(Group)
 }
+func (v SeqVal) Push(arg Expression) Stack { return v.Cons(arg).(SeqVal) }
+func (v SeqVal) Pop() (Expression, Stack)  { return v() }
 
-func (s SeqVal) Pop() (Expression, Stack)      { return s.Head(), s.Tail().(SeqVal) }
-func (s SeqVal) Push(args ...Expression) Stack { return s.Cons(args...).(Stack) }
-func (s SeqVal) First() Expression             { return s.Head() }
-func (s SeqVal) Suffix() Directional           { return s.Tail().(SeqVal) }
-
-func (s SeqVal) Prepend(dir Group) Directional {
-	if dir.Empty() {
-		return s
-	}
-	var head, tail = dir.Continue()
-	if tail.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				return s.Prepend(NewSequence(
-					append([]Expression{head}, args...,
-					)...)).(SeqVal)()
-			}
-			return head, s
-		})
-	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			return s.Prepend(dir.Cons(args...)).(SeqVal)()
-		}
-		return head, s.Prepend(tail).(SeqVal)
-	})
-}
-func (s SeqVal) PrependArgs(args ...Expression) Directional {
-	if len(args) == 0 {
-		return s
-	}
-	return NewSequence(args...).AppendSeq(s)
-}
-func (s SeqVal) AppendSeq(appendix SeqVal) SeqVal {
-	if s.Empty() {
-		return appendix
-	}
-	var head, tail = s()
-	if tail.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				head, tail = s(args...)
-				return head, tail.AppendSeq(appendix)
-			}
-			return head, appendix
-		})
-	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			head, tail = s(args...)
-			return head, tail.AppendSeq(appendix)
-		}
-		return head, tail.AppendSeq(appendix)
-	})
-}
-func (s SeqVal) AppendArgs(args ...Expression) Directional {
-	return s.Append(NewSequence(args...))
-}
-func (s SeqVal) Append(appendix Group) Directional {
-	return s.AppendSeq(SeqVal(func(args ...Expression) (Expression, SeqVal) {
-		if len(args) > 0 {
-			appendix = appendix.Cons(args...).(SeqVal)
-		}
-		var head, tail = appendix.Continue()
-		return head, NewSeqFromGroup(tail.(Group))
-	}))
-}
+func (s SeqVal) First() Expression { return s.Head() }
 
 func (s SeqVal) Empty() bool {
 	if head, tail := s(); tail == nil && head.Type().Match(None) {
@@ -643,14 +579,14 @@ func Bind(
 //  - infinite lists can be sorted (returns a sorted list of all results until
 //    current computation, with every call)
 //
-func Sort(
-	grp Group,
-	less func(l, r Expression) bool,
-) SeqVal {
-	if grp.Empty() {
-		return NewSequence()
-	}
-	var (
-		pivot = grp.Head()
-	)
-}
+//func Sort(
+//	grp Group,
+//	less func(l, r Expression) bool,
+//) SeqVal {
+//	if grp.Empty() {
+//		return NewSequence()
+//	}
+//	var (
+//		pivot = grp.Head()
+//	)
+//}
