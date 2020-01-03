@@ -23,7 +23,7 @@ func NewEmptyPair() ValPair {
 			if len(args) > 1 {
 				if len(args) > 2 {
 					return NewPair(args[0], args[1]),
-						NewSequence(args[2:]...)
+						NewList(args[2:]...)
 
 				}
 				return args[0], args[1]
@@ -41,7 +41,7 @@ func NewPair(l, r Expression) ValPair {
 			if len(args) > 1 {
 				if len(args) > 2 {
 					return NewPair(args[0], args[1]),
-						NewSequence(args[2:]...)
+						NewList(args[2:]...)
 				}
 				return args[0], args[1]
 			}
@@ -51,7 +51,7 @@ func NewPair(l, r Expression) ValPair {
 	}
 }
 
-func (p ValPair) Cons(args ...Expression) Group {
+func (p ValPair) Cons(args ...Expression) Grouped {
 	if len(args) > 0 {
 		if len(args) > 1 {
 			if p.Empty() {
@@ -81,20 +81,20 @@ func (p ValPair) Cons(args ...Expression) Group {
 	}
 	return p
 }
-func (p ValPair) Continue() (Expression, Group) {
+func (p ValPair) Continue() (Expression, Grouped) {
 	var l, r = p()
 	if !l.Type().Match(None) {
 		if !r.Type().Match(None) {
-			if r.Type().Match(Continues) {
-				return l, r.(Group)
+			if r.Type().Match(Groups) {
+				return l, r.(Grouped)
 			}
 		}
 	}
 	return NewNone(), NewEmptyPair()
 }
-func (p ValPair) Head() Expression            { return p.Key() }
-func (p ValPair) Tail() Group                 { return NewSequence(p.Value()) }
-func (p ValPair) Concat(c Continuation) Group { return NewSequence(p, c) }
+func (p ValPair) Head() Expression           { return p.Key() }
+func (p ValPair) Tail() Grouped              { return NewList(p.Value()) }
+func (p ValPair) Concat(c Continued) Grouped { return NewList(p, c) }
 
 func (p ValPair) Pair() Paired                   { return p }
 func (p ValPair) Both() (Expression, Expression) { return p() }
@@ -188,7 +188,7 @@ func (p NatPair) Cons(args ...Expression) Expression {
 			var (
 				left       d.Native
 				right      Expression
-				head, tail = arg.(Group).Continue()
+				head, tail = arg.(Grouped).Continue()
 			)
 			if head.Type().Match(Data) {
 				left = head.(NatEval).Eval()
@@ -199,11 +199,11 @@ func (p NatPair) Cons(args ...Expression) Expression {
 			return NewNatPair(left, right)
 		}))
 }
-func (p NatPair) Continue() (Expression, Group) {
-	return p.Key(), NewSequence(p.Value())
+func (p NatPair) Continue() (Expression, Grouped) {
+	return p.Key(), NewList(p.Value())
 }
 func (p NatPair) Head() Expression { return p.Key() }
-func (p NatPair) Tail() Group      { return NewSequence(p.Value()) }
+func (p NatPair) Tail() Grouped    { return NewList(p.Value()) }
 
 //// STRING KEY PAIR
 ///
@@ -248,15 +248,15 @@ func (a KeyPair) String() string {
 func (p KeyPair) Cons(args ...Expression) Expression {
 	return NewVector(Map(TakeN(NewVector(args...), 2),
 		func(arg Expression) Expression {
-			var left, tail = arg.(Group).Continue()
+			var left, tail = arg.(Grouped).Continue()
 			return NewKeyPair(left.String(), tail)
 		}))
 }
-func (p KeyPair) Continue() (Expression, Group) {
-	return p.Key(), NewSequence(p.Value())
+func (p KeyPair) Continue() (Expression, Grouped) {
+	return p.Key(), NewList(p.Value())
 }
 func (p KeyPair) Head() Expression { return p.Key() }
-func (p KeyPair) Tail() Group      { return NewSequence(p.Value()) }
+func (p KeyPair) Tail() Grouped    { return NewList(p.Value()) }
 
 //// INDEX PAIR
 ///
@@ -299,7 +299,7 @@ func (p IndexPair) Cons(args ...Expression) Expression {
 		func(arg Expression) Expression {
 			var (
 				idx        = 0
-				head, tail = arg.(Group).Continue()
+				head, tail = arg.(Grouped).Continue()
 			)
 			if head.Type().Match(Data) {
 				var nat = head.(NatEval).Eval()
@@ -310,11 +310,11 @@ func (p IndexPair) Cons(args ...Expression) Expression {
 			return NewIndexPair(idx, tail)
 		}))
 }
-func (p IndexPair) Continue() (Expression, Group) {
-	return p.Key(), NewSequence(p.Value())
+func (p IndexPair) Continue() (Expression, Grouped) {
+	return p.Key(), NewList(p.Value())
 }
 func (p IndexPair) Head() Expression { return p.Key() }
-func (p IndexPair) Tail() Group      { return NewSequence(p.Value()) }
+func (p IndexPair) Tail() Grouped    { return NewList(p.Value()) }
 
 //// FLOATING PAIR
 ///
@@ -356,7 +356,7 @@ func (p RealPair) Cons(args ...Expression) Expression {
 		func(arg Expression) Expression {
 			var (
 				idx        = 0.0
-				head, tail = arg.(Group).Continue()
+				head, tail = arg.(Grouped).Continue()
 			)
 			if head.Type().Match(Data) {
 				var nat = head.(NatEval).Eval()
@@ -367,8 +367,8 @@ func (p RealPair) Cons(args ...Expression) Expression {
 			return NewRealPair(idx, tail)
 		}))
 }
-func (p RealPair) Continue() (Expression, Group) {
-	return p.Key(), NewSequence(p.Value())
+func (p RealPair) Continue() (Expression, Grouped) {
+	return p.Key(), NewList(p.Value())
 }
 func (p RealPair) Head() Expression { return p.Key() }
-func (p RealPair) Tail() Group      { return NewSequence(p.Value()) }
+func (p RealPair) Tail() Grouped    { return NewList(p.Value()) }

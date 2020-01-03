@@ -5,33 +5,150 @@ import ()
 type (
 
 	//// COLLECTIONS
-	SeqVal func(...Expression) (Expression, SeqVal)
+	GroupVal func(...Expression) (Expression, Grouped) // interface type
+	ListVal  func(...Expression) (Expression, ListVal) // instance type
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-//// SEQUENCE TYPE
+//// GENERIC SEQUENCE TYPE
 ///
 // generic sequential type
-func NewSeqFromGroup(grp Group) SeqVal {
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+func NewGroupFromContinuation(con Continued) Grouped {
+	return GroupVal(func(args ...Expression) (Expression, Grouped) {
+		var (
+			head Expression
+			tail Grouped
+		)
+		if len(args) > 0 {
+			head, tail = con.Call(
+				args...,
+			).(Continued).Continue()
+			return head, NewGroup(tail)
+		}
+		head, tail = con.Continue()
+		return head, NewGroup(tail)
+	})
+}
+
+func NewGroup(args ...Expression) Grouped {
+	return GroupVal(func(args ...Expression) (Expression, Grouped) {
+		var (
+			head Expression
+			tail Grouped
+		)
+		if len(args) > 0 {
+			head, tail = NewList(args...).Continue()
+			return head, NewGroup(tail)
+		}
+		head, tail = NewList(args...).Continue()
+		return head, NewGroup(tail)
+	})
+}
+
+func (g GroupVal) Continue() (Expression, Grouped) { return g() }
+func (g GroupVal) Head() Expression                { var head, _ = g(); return head }
+func (g GroupVal) Tail() Grouped                   { var _, tail = g(); return tail }
+func (g GroupVal) Cons(args ...Expression) Grouped {
+	if len(args) == 0 {
+		return g
+	}
+	if len(args) == 1 {
+		return GroupVal(func(late ...Expression) (Expression, Grouped) {
+			if len(late) > 0 {
+				if len(late) > 1 {
+					return late[0],
+						g.Cons(append(late[1:], args[0])...).(ListVal)
+				}
+				return late[0], g.Cons(args[0]).(GroupVal)
+			}
+			return args[0], g
+		})
+	}
+	return GroupVal(func(late ...Expression) (Expression, Grouped) {
+		if len(late) > 0 {
+			if len(late) > 1 {
+				return late[0],
+					g.Cons(append(late[1:], args...)...).(GroupVal)
+			}
+			return late[0], g.Cons(args...).(GroupVal)
+		}
+		return args[0], g.Cons(args[1:]...).(GroupVal)
+	})
+
+}
+func (s GroupVal) Concat(grp Continued) Grouped {
+	if !s.Empty() {
+		return GroupVal(func(args ...Expression) (Expression, Grouped) {
+			if len(args) > 0 {
+				var head, tail = s.Cons(args...).Continue()
+				return head, tail.Concat(grp).(GroupVal)
+			}
+			var head, tail = s.Continue()
+			return head, tail.Concat(grp).(GroupVal)
+		})
+	}
+	return grp.(Grouped)
+}
+func (g GroupVal) Call(args ...Expression) Expression {
+	var (
+		head Expression
+		tail Grouped
+	)
+	if len(args) > 0 {
+		head, tail = g(args...)
+		return NewPair(head, tail)
+	}
+	return NewPair(g())
+}
+func (g GroupVal) Empty() bool {
+	var head, tail = g()
+	return head.Type().Match(None) && tail == nil
+}
+func (g GroupVal) String() string {
+	if g.Empty() {
+		return "()"
+	}
+	var (
+		hstr, tstr string
+		head, tail = g()
+	)
+	for !tail.Empty() {
+		hstr = hstr + "(" + head.String() + " "
+		tstr = tstr + ")"
+		head, tail = tail.Continue()
+	}
+	hstr = hstr + "(" + head.String()
+	tstr = tstr + ")"
+	return hstr + tstr
+}
+func (g GroupVal) TypeFnc() TyFnc   { return Group }
+func (g GroupVal) TypeElem() TyComp { return g.Head().Type() }
+func (g GroupVal) Type() TyComp     { return Def(Group, g.TypeElem(), g.TypeElem()) }
+
+///////////////////////////////////////////////////////////////////////////////
+//// LINKED LIST TYPE
+///
+// linked list type implementing sequential
+func NewListFromGroup(grp Grouped) ListVal {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			grp = grp.Cons(args...)
 		}
 		var head, tail = grp.Continue()
-		return head, NewSeqFromGroup(tail)
+		return head, NewListFromGroup(tail)
 	})
 }
-func NewSequence(elems ...Expression) SeqVal {
+func NewList(elems ...Expression) ListVal {
 
 	// return empty list able to be extended by cons, when no initial
 	// elements are given/left
 	if len(elems) == 0 {
-		return func(args ...Expression) (Expression, SeqVal) {
+		return func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				if len(args) > 1 {
-					return args[0], NewSequence(args[1:]...)
+					return args[0], NewList(args[1:]...)
 				}
-				return args[0], NewSequence()
+				return args[0], NewList()
 			}
 			// return instance of none as head and a nil pointer as
 			// tail, if neither elements nor arguments where passed
@@ -40,14 +157,14 @@ func NewSequence(elems ...Expression) SeqVal {
 	}
 
 	// at least one of the initial elements is left‥.
-	return func(args ...Expression) (Expression, SeqVal) {
+	return func(args ...Expression) (Expression, ListVal) {
 
 		// if arguments are passed, prepend those and return first
 		// argument as head‥.
 		if len(args) > 0 {
 			// ‥.put arguments up front of preceeding elements
 			if len(args) > 1 {
-				return args[0], NewSequence(
+				return args[0], NewList(
 					append(
 						args,
 						elems...,
@@ -56,7 +173,7 @@ func NewSequence(elems ...Expression) SeqVal {
 			// use single argument as new head of sequence and
 			// preceeding elements as tail
 			return args[0],
-				NewSequence(elems...)
+				NewList(elems...)
 		}
 
 		// no arguments given, but more than one element left → return
@@ -64,54 +181,54 @@ func NewSequence(elems ...Expression) SeqVal {
 		// sequence
 		if len(elems) > 1 {
 			return elems[0],
-				NewSequence(elems[1:]...)
+				NewList(elems[1:]...)
 		}
 		// return last element and empty sequence
-		return elems[0], NewSequence()
+		return elems[0], NewList()
 
 	}
 }
-func (s SeqVal) Head() Expression {
+func (s ListVal) Head() Expression {
 	var cur, _ = s()
 	return cur
 }
-func (s SeqVal) Tail() Group {
+func (s ListVal) Tail() Grouped {
 	var _, tail = s()
 	return tail
 }
-func (s SeqVal) Continue() (Expression, Group) {
+func (s ListVal) Continue() (Expression, Grouped) {
 	return s.Head(), s.Tail()
 }
-func (s SeqVal) Cons(suffix ...Expression) Group {
+func (s ListVal) Cons(suffix ...Expression) Grouped {
 	if len(suffix) == 0 {
 		return s
 	}
 	if len(suffix) == 1 {
-		return SeqVal(func(late ...Expression) (Expression, SeqVal) {
+		return ListVal(func(late ...Expression) (Expression, ListVal) {
 			if len(late) > 0 {
 				if len(late) > 1 {
 					return late[0],
-						s.Cons(append(late[1:], suffix[0])...).(SeqVal)
+						s.Cons(append(late[1:], suffix[0])...).(ListVal)
 				}
-				return late[0], s.Cons(suffix[0]).(SeqVal)
+				return late[0], s.Cons(suffix[0]).(ListVal)
 			}
 			return suffix[0], s
 		})
 	}
-	return SeqVal(func(late ...Expression) (Expression, SeqVal) {
+	return ListVal(func(late ...Expression) (Expression, ListVal) {
 		if len(late) > 0 {
 			if len(late) > 1 {
 				return late[0],
-					s.Cons(append(late[1:], suffix...)...).(SeqVal)
+					s.Cons(append(late[1:], suffix...)...).(ListVal)
 			}
-			return late[0], s.Cons(suffix...).(SeqVal)
+			return late[0], s.Cons(suffix...).(ListVal)
 		}
-		return suffix[0], s.Cons(suffix[1:]...).(SeqVal)
+		return suffix[0], s.Cons(suffix[1:]...).(ListVal)
 	})
 
 }
 
-func (s SeqVal) ConsGroup(suffix Group) Group {
+func (s ListVal) ConsGroup(suffix Grouped) Grouped {
 	var head, tail = suffix.Continue()
 	// if tail is empty‥.
 	if tail.Empty() {
@@ -121,12 +238,12 @@ func (s SeqVal) ConsGroup(suffix Group) Group {
 		}
 		// return a sequence starting with head yielded by prepended
 		// seqval, followed by s as its tail
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				if len(args) > 1 {
 					head, tail = suffix.Call(args...,
-					).(Continuation).Continue()
-					return head, s.ConsGroup(tail).(SeqVal)
+					).(Continued).Continue()
+					return head, s.ConsGroup(tail).(ListVal)
 				}
 			}
 			return head, s
@@ -134,47 +251,45 @@ func (s SeqVal) ConsGroup(suffix Group) Group {
 	}
 	// tail is not empty yet, return a sequence starting with yielded head
 	// followed by remaining tail consed to s recursively
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			head, tail = suffix.Call(args...,
-			).(Continuation).Continue()
-			return head, s.ConsGroup(tail).(SeqVal)
+			).(Continued).Continue()
+			return head, s.ConsGroup(tail).(ListVal)
 		}
-		return head, s.ConsGroup(tail).(SeqVal)
+		return head, s.ConsGroup(tail).(ListVal)
 	})
 
 }
-func (s SeqVal) ConsSeqVal(seq SeqVal) Group { return s.ConsGroup(seq).(Group) }
-func (s SeqVal) Concat(grp Continuation) Group {
+func (s ListVal) ConsSeqVal(seq ListVal) Grouped { return s.ConsGroup(seq).(Grouped) }
+func (s ListVal) Concat(grp Continued) Grouped {
 	if !s.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				var head, tail = s.Cons(args...).Continue()
-				return head, tail.Concat(grp).(SeqVal)
+				return head, tail.Concat(grp).(ListVal)
 			}
 			var head, tail = s.Continue()
-			return head, tail.Concat(grp).(SeqVal)
+			return head, tail.Concat(grp).(ListVal)
 		})
 	}
-	return grp.(Group)
+	return grp.(Grouped)
 }
-func (v SeqVal) Push(arg Expression) Stack { return v.Cons(arg).(SeqVal) }
-func (v SeqVal) Pop() (Expression, Stack)  { return v() }
+func (v ListVal) Push(arg Expression) Stack { return v.Cons(arg).(ListVal) }
+func (v ListVal) Pop() (Expression, Stack)  { return v() }
 
-func (s SeqVal) First() Expression { return s.Head() }
+func (s ListVal) First() Expression { return s.Head() }
 
-func (s SeqVal) Empty() bool {
-	if head, tail := s(); tail == nil && head.Type().Match(None) {
-		return true
-	}
-	return false
+func (s ListVal) Empty() bool {
+	var head, tail = s()
+	return head.Type().Match(None) && tail == nil
 }
 
-func (s SeqVal) Null() SeqVal     { return NewSequence() }
-func (s SeqVal) TypeElem() TyComp { return s.Head().Type() }
-func (s SeqVal) TypeFnc() TyFnc   { return Sequence }
-func (s SeqVal) Type() TyComp     { return Def(Sequence, s.TypeElem()) }
-func (s SeqVal) Call(args ...Expression) Expression {
+func (s ListVal) Null() ListVal    { return NewList() }
+func (s ListVal) TypeElem() TyComp { return s.Head().Type() }
+func (s ListVal) TypeFnc() TyFnc   { return Group }
+func (s ListVal) Type() TyComp     { return Def(Group, s.TypeElem()) }
+func (s ListVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		var head, tail = s(args...)
 		return NewPair(head, tail)
@@ -182,7 +297,7 @@ func (s SeqVal) Call(args ...Expression) Expression {
 	var head, tail = s()
 	return NewPair(head, tail)
 }
-func (s SeqVal) Slice() []Expression {
+func (s ListVal) Slice() []Expression {
 	var (
 		slice      []Expression
 		head, tail = s()
@@ -193,9 +308,9 @@ func (s SeqVal) Slice() []Expression {
 	}
 	return slice
 }
-func (s SeqVal) Vector() VecVal { return NewVector(s.Slice()...) }
+func (s ListVal) Vector() VecVal { return NewVector(s.Slice()...) }
 
-func (s SeqVal) String() string {
+func (s ListVal) String() string {
 	if s.Empty() {
 		return "()"
 	}
@@ -248,51 +363,51 @@ func Curry(f, g FuncDef) FuncDef {
 //// CONTINUATION COMPOSITION
 ///
 // flatten flattens sequences of sequences to one dimension
-func Flatten(grp Continuation) Continuation {
+func Flatten(grp Continued) Continued {
 	if grp.Empty() {
-		return NewSequence()
+		return NewList()
 	}
 	if grp.Head().Type().Match(Sequences) {
 		return Flatten(
-			grp.Head().(Continuation),
+			grp.Head().(Continued),
 		).Concat(
 			Flatten(grp.Tail()))
 	}
 	var head, tail = grp.Continue()
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
-			return head, Flatten(tail.Cons(args...)).(SeqVal)
+			return head, Flatten(tail.Cons(args...)).(ListVal)
 		}
-		return head, Flatten(tail).(SeqVal)
+		return head, Flatten(tail).(ListVal)
 	})
 }
 
 // map returns a continuation calling the map function for every element
 func Map(
-	con Continuation,
+	con Continued,
 	mapf func(Expression) Expression,
-) Group {
+) Grouped {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Map(
-					NewSequence(args...), mapf,
+					NewList(args...), mapf,
 				).Continue()
-				return head, tail.(SeqVal)
+				return head, tail.(ListVal)
 			}
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
-			con = con.Call(args...).(Continuation)
+			con = con.Call(args...).(Continued)
 		}
 		var head, tail = con.Continue()
 		// skip none instances, when tail has further elements
 		if head.Type().Match(None) && !tail.Empty() {
-			return Map(tail, mapf).(SeqVal)()
+			return Map(tail, mapf).(ListVal)()
 		}
-		return mapf(head), Map(tail, mapf).(SeqVal)
+		return mapf(head), Map(tail, mapf).(ListVal)
 	})
 }
 
@@ -300,22 +415,22 @@ func Map(
 // when continuation is called pssing arguments those, are passed to apply
 // alongside the current element
 func Apply(
-	con Continuation,
+	con Continued,
 	apply func(Expression, ...Expression) Expression,
-) SeqVal {
+) ListVal {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Apply(
-					NewSequence(args...), apply,
+					NewList(args...), apply,
 				).Continue()
-				return head, tail.(SeqVal)
+				return head, tail.(ListVal)
 			}
 			return NewNone(), nil
 		})
 	}
 	var head, tail = con.Continue()
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			var head, tail = apply(head, args...),
 				Apply(tail, apply)
@@ -339,7 +454,7 @@ func Apply(
 // current element and init expression and returns a possbly altered init
 // element to pass to next call
 func Fold(
-	con Continuation,
+	con Continued,
 	init Expression,
 	fold func(init, head Expression) Expression,
 ) Expression {
@@ -368,19 +483,19 @@ func Fold(
 			result = fold(init, head)
 		}
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
-			return result.Call(args...), Fold(tail, result, fold).(SeqVal)
+			return result.Call(args...), Fold(tail, result, fold).(ListVal)
 		}
-		return result, Fold(tail, result, fold).(SeqVal)
+		return result, Fold(tail, result, fold).(ListVal)
 	})
 }
 
 // continuation of elements not matched by test
 func Filter(
-	con Continuation,
+	con Continued,
 	filter func(Expression) bool,
-) SeqVal {
+) ListVal {
 	//	if con.Empty() {
 	//		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 	//			if len(args) > 0 {
@@ -393,48 +508,48 @@ func Filter(
 	//		})
 	//	}
 	var (
-		init = NewSequence()
+		init = NewList()
 		fold = func(init, head Expression) Expression {
 			if filter(head) {
 				return NewNone()
 			}
-			return init.(SeqVal).Cons(head)
+			return init.(ListVal).Cons(head)
 		}
 	)
-	return Fold(con, init, fold).(SeqVal)
+	return Fold(con, init, fold).(ListVal)
 }
 
 // continuation of elements matched by test
 func Pass(
-	con Continuation,
+	con Continued,
 	pass func(Expression) bool,
-) Group {
+) Grouped {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Pass(
-					NewSequence(args...), pass,
+					NewList(args...), pass,
 				).Continue()
-				return head, tail.(SeqVal)
+				return head, tail.(ListVal)
 			}
 			return NewNone(), nil
 		})
 	}
 	var (
-		init = NewSequence()
+		init = NewList()
 		fold = func(init, head Expression) Expression {
 			if pass(head) {
-				return init.(SeqVal).Cons(head)
+				return init.(ListVal).Cons(head)
 			}
 			return NewNone()
 		}
 	)
-	return Fold(con, init, fold).(SeqVal)
+	return Fold(con, init, fold).(ListVal)
 }
 
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
-func TakeN(grp Continuation, n int) Continuation {
+func TakeN(grp Continued, n int) Continued {
 	if grp.Empty() {
 		return grp
 	}
@@ -450,7 +565,7 @@ func TakeN(grp Continuation, n int) Continuation {
 			return vector.Cons(arg)
 		}
 	)
-	return Filter(Fold(grp, init, takeN).(Continuation),
+	return Filter(Fold(grp, init, takeN).(Continued),
 		func(arg Expression) bool {
 			return arg.(VecVal).Len() < n
 		})
@@ -462,15 +577,15 @@ func TakeN(grp Continuation, n int) Continuation {
 // the results call method is called after heads have been zipped, passing on
 // those arguemnts.
 func Zip(
-	left, right Continuation,
+	left, right Continued,
 	zip func(l, r Expression) Expression,
-) SeqVal {
+) ListVal {
 	if left.Empty() && right.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		var (
 			gh, gt = left.Continue()
 			fh, ft = right.Continue()
@@ -488,14 +603,14 @@ func Zip(
 // takes two arguments at a time and splits those into continuation of left and
 // right values and returns those as elements of a pair
 func Split(
-	con Continuation,
+	con Continued,
 	pair Paired,
 	split func(Paired, Expression) Paired,
-) SeqVal {
+) ListVal {
 	return Fold(con, pair, func(init, head Expression) Expression {
 		var pair = init.(Paired)
 		return split(pair, head)
-	}).(SeqVal)
+	}).(ListVal)
 }
 
 // bind works similar to zip, but the bind function takes additional arguments
@@ -504,15 +619,15 @@ func Split(
 // map/apply).  when both functions are curryed and the arguments are passed to
 // the resulting function, bind behaves like the '.' operator in haskell.
 func Bind(
-	f, g Continuation,
+	f, g Continued,
 	bind func(l, r Expression, args ...Expression) Expression,
-) SeqVal {
+) ListVal {
 	if f.Empty() || g.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			return NewNone(), nil
 		})
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		var (
 			gh, gt = g.Continue()
 			fh, ft = f.Continue()
@@ -552,9 +667,8 @@ func Bind(
 //    current computation, with every call)
 //
 func Sort(
-	grp Group,
-	less func(l, r Expression) bool,
-) Group {
+	grp Grouped, less func(l, r Expression) bool,
+) Grouped {
 	if grp.Empty() {
 		return Sort(grp, less)
 	}

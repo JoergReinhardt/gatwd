@@ -50,15 +50,16 @@ func TestApplySequence(t *testing.T) {
 	)
 	for !tail.Empty() {
 		pair = tail.Call().(Paired)
-		head, tail = pair.Left().Call(Dat(13)), pair.Right().(SeqVal)
+		head, tail = pair.Left().Call(Dat(13)), pair.Right().(ListVal)
 		fmt.Printf("list called with 13: %s\n", head)
 	}
 }
 
 func TestFoldSequence(t *testing.T) {
-	var f = Fold(intsA, Dat(0), func(init, head Expression) Expression {
-		return addInts(init, head)
-	}).(SeqVal)
+	var f = Fold(intsA, Dat(0),
+		func(init, head Expression) Expression {
+			return addInts(init, head)
+		}).(ListVal)
 	fmt.Printf("folded list: %s\n", f)
 
 	var head, tail = f.Continue()
@@ -90,8 +91,8 @@ func TestFilterPassSequence(t *testing.T) {
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
 
-	if ohead.(SeqVal).Head().(DatConst)().(d.IntVal) != 7 ||
-		ehead.(SeqVal).Head().(DatConst)().(d.IntVal) != 6 {
+	if ohead.(ListVal).Head().(DatConst)().(d.IntVal) != 7 ||
+		ehead.(ListVal).Head().(DatConst)().(d.IntVal) != 6 {
 		t.Fail()
 	}
 }
@@ -110,9 +111,9 @@ func TestTakeNSequence(t *testing.T) {
 	}
 	fmt.Printf("last element: %s\n", head)
 
-	head, tail = head.(SeqVal).Continue()
+	head, tail = head.(ListVal).Continue()
 	for !tail.Empty() {
-		head, tail = tail.(SeqVal).Continue()
+		head, tail = tail.(ListVal).Continue()
 	}
 
 	fmt.Printf("last elements head: %s\n", head.(VecVal).Head())
@@ -141,7 +142,7 @@ func TestFlatttenSequence(t *testing.T) {
 	}
 }
 
-var zipped Group = Zip(abc, intsA, func(l, r Expression) Expression {
+var zipped Grouped = Zip(abc, intsA, func(l, r Expression) Expression {
 	return NewKeyPair(string(l.(DatConst)().(d.StrVal)), r)
 })
 
@@ -151,7 +152,7 @@ func TestZipSequence(t *testing.T) {
 		t.Fail()
 	}
 	for i := 0; i < 25; i++ {
-		zipped = zipped.Tail().(Group)
+		zipped = zipped.Tail().(Grouped)
 	}
 	if zipped.Head().(Paired).Key().String() != "z" {
 		t.Fail()
@@ -218,6 +219,6 @@ func TestSortSequence(t *testing.T) {
 				r.(DatConst)().(d.IntVal)
 		})
 	fmt.Printf("sorted: %s\n", sorted)
-	fmt.Printf("concat a & b: %s\n", NewSequence(intsA()...).Concat(NewSequence(intsB()...)))
+	fmt.Printf("concat a & b: %s\n", NewList(intsA()...).Concat(NewList(intsB()...)))
 
 }

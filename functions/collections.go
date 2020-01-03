@@ -17,7 +17,7 @@ type (
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
 // called.
-func NewVecFormGroup(grp Group) VecVal {
+func NewVecFormGroup(grp Grouped) VecVal {
 	if grp.Type().Match(Vector) {
 		if vec, ok := grp.(VecVal); ok {
 			return vec
@@ -51,7 +51,7 @@ func NewVector(elems ...Expression) VecVal {
 		return elems
 	}
 }
-func (v VecVal) Cons(appendix ...Expression) Group {
+func (v VecVal) Cons(appendix ...Expression) Grouped {
 	return v.ConsVec(appendix...)
 }
 func (v VecVal) ConsVec(args ...Expression) VecVal {
@@ -64,20 +64,20 @@ func (v VecVal) Head() Expression {
 	}
 	return NewNone()
 }
-func (v VecVal) Tail() Group {
+func (v VecVal) Tail() Grouped {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Group) {
+func (v VecVal) Continue() (Expression, Grouped) {
 	return v.Head(), v.Tail()
 }
-func (v VecVal) Concat(grp Continuation) Group {
+func (v VecVal) Concat(grp Continued) Grouped {
 	if grp.Empty() {
 		return v
 	}
-	return NewSequence(v()...).Concat(grp)
+	return NewList(v()...).Concat(grp)
 }
 func (v VecVal) Last() Expression {
 	if v.Len() > 0 {
@@ -105,21 +105,21 @@ func (v VecVal) Null() VecVal        { return NewVector() }
 func (v VecVal) Type() TyComp        { return Def(Vector, v.TypeElem()) }
 func (v VecVal) TypeFnc() TyFnc      { return Vector }
 func (v VecVal) TypeElem() TyComp    { return v.Head().Type() }
-func (v VecVal) ConsGroup(appendix Group) Group {
+func (v VecVal) ConsGroup(appendix Grouped) Grouped {
 	if v.Len() == 0 {
-		return NewSequence().ConsGroup(appendix)
+		return NewList().ConsGroup(appendix)
 	}
-	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		var (
 			head Expression
-			tail Continuation
+			tail Continued
 		)
 		if len(args) > 0 {
-			head, tail = NewSequence(
+			head, tail = NewList(
 				append(v(), args...)...,
 			).Continue()
 		}
-		return head, tail.(SeqVal).ConsGroup(appendix).(SeqVal)
+		return head, tail.(ListVal).ConsGroup(appendix).(ListVal)
 	})
 }
 func (v VecVal) Call(args ...Expression) Expression {
@@ -154,11 +154,11 @@ func (v VecVal) String() string {
 	}
 	return "[" + strings.Join(strs, ", ") + "]"
 }
-func (v VecVal) Clear() VecVal    { return NewVector(v()[:0]...) }
-func (v VecVal) Sequence() SeqVal { return NewSequence(v()...) }
+func (v VecVal) Clear() VecVal     { return NewVector(v()[:0]...) }
+func (v VecVal) Sequence() ListVal { return NewList(v()...) }
 func (v VecVal) Sort(
 	less func(a, b Expression) bool,
-) Group {
+) Grouped {
 	var s = newSorter(
 		v(),
 		func(slice []Expression, a, b int) bool {

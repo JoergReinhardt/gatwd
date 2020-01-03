@@ -99,7 +99,7 @@ const (
 	Tuple
 	Record
 	/// COMPOUND
-	Sequence
+	Group
 	Functor
 	Applicative
 	Monad
@@ -119,16 +119,18 @@ const (
 	Option = Either | Or
 
 	//// COLLECTIONS
-	Sequences = List | Vector | Sequence
+	Sequences = List | Vector | Group
 	ProdTypes = Sequences | Enum
 	SumTypes  = Set | Record | Tuple
-	Continues = Sequences | Pair
+	Groups    = Sequences | Pair
 
 	Number = Natural | Integer | Real | Ratio
 	Text   = Letter | String
 
 	ALL TyFnc = 0xFFFFFFFFFFFFFFFF
 )
+
+//func (t TyFnc) String() string { return "standin string func" }
 
 // helper functions, to convert between slices of data/typed & ty-pattern
 // instances
@@ -195,7 +197,7 @@ func (t TyFnc) TypeName() string {
 			return "SumTypes"
 		case ProdTypes:
 			return "ProductTypes"
-		case Continues:
+		case Groups:
 			return "Funtors"
 		}
 		var delim = "|"
@@ -642,7 +644,7 @@ func (p TyComp) HeadPattern() TyComp { return p.Head().(TyComp) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyComp) Tail() Group {
+func (p TyComp) Tail() Grouped {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -659,7 +661,7 @@ func (p TyComp) TailPattern() TyComp {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyComp) Continue() (Expression, Group) { return p.Head(), p.Tail() }
+func (p TyComp) Continue() (Expression, Grouped) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -667,7 +669,7 @@ func (p TyComp) ConsumePattern() (TyComp, TyComp) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyComp) ConsGroup(con Group) Group {
+func (p TyComp) ConsGroup(con Grouped) Grouped {
 	var types = make([]d.Typed, 0, p.Len())
 	for head, cons := con.Continue(); !cons.Empty(); {
 		if Kind_Comp.Match(head.Type().Kind()) {
@@ -678,7 +680,7 @@ func (p TyComp) ConsGroup(con Group) Group {
 	}
 	return Def(types...)
 }
-func (p TyComp) Cons(args ...Expression) Group {
+func (p TyComp) Cons(args ...Expression) Grouped {
 	if len(args) > 0 {
 		var types = make([]d.Typed, 0, len(args))
 		for _, arg := range args {
@@ -697,14 +699,14 @@ func (p TyComp) Cons(args ...Expression) Group {
 	return Def(types...)
 }
 
-func (p TyComp) Concat(grp Continuation) Group {
+func (p TyComp) Concat(grp Continued) Grouped {
 	var slice = make([]Expression, 0, len(p))
 	for _, t := range p {
 		slice = append(slice, t.(TyComp))
 	}
-	return NewSequence(slice...).Concat(grp)
+	return NewList(slice...).Concat(grp)
 }
-func (p TyComp) Append(args ...Expression) Group {
+func (p TyComp) Append(args ...Expression) Grouped {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyComp))
@@ -823,7 +825,7 @@ func (p TyComp) IsList() bool {
 }
 func (p TyComp) IsFunctor() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Continues)
+		return p.Elements()[0].Match(Groups)
 	}
 	return false
 }

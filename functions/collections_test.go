@@ -43,11 +43,11 @@ var (
 )
 
 // helper functions
-func conList(args ...Expression) Group {
+func conList(args ...Expression) Grouped {
 	return NewVector(args...)
 }
 
-func printCons(cons Continuation) {
+func printCons(cons Continued) {
 	var head, tail = cons.Continue()
 	//if !head.Type().Match(None) {
 	if !head.Type().Match(None) {
@@ -101,7 +101,7 @@ func TestList(t *testing.T) {
 func TestConList(t *testing.T) {
 
 	var alist = NewVector(intsA()...)
-	var tail Continuation
+	var tail Continued
 	var head Expression
 
 	for i := 0; i < 5; i++ {
@@ -117,7 +117,7 @@ func TestConList(t *testing.T) {
 func TestPushList(t *testing.T) {
 
 	var alist = NewVector(intsA()...)
-	var tail Continuation
+	var tail Continued
 	var head Expression
 
 	for i := 0; i < 5; i++ {
@@ -196,7 +196,7 @@ func TestAccumulator(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	var seq = NewSequence(intsA()...)
+	var seq = NewList(intsA()...)
 	fmt.Printf("fresh sequence: %s\n", seq)
 	fmt.Printf("sequence second print: %s\n", seq)
 	var head, tail = seq.Continue()
@@ -211,34 +211,34 @@ func TestSequence(t *testing.T) {
 }
 
 func TestSequenceConsAppend(t *testing.T) {
-	var seq = NewSequence()
+	var seq = NewList()
 	fmt.Printf("empty sequence: %s\n", seq)
 
-	seq = seq.Cons(Dat(9)).(SeqVal)
+	seq = seq.Cons(Dat(9)).(ListVal)
 	fmt.Printf("equence with one element (9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 9 {
 		t.Fail()
 	}
 
-	seq = seq.Cons(Dat(8)).(SeqVal)
+	seq = seq.Cons(Dat(8)).(ListVal)
 	fmt.Printf("equence with two elements (8, 9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
-	seq = seq.Cons(Dat(5), Dat(6), Dat(7)).(SeqVal)
+	seq = seq.Cons(Dat(5), Dat(6), Dat(7)).(ListVal)
 	fmt.Printf("equence with five elements (5, 6, 7, 8, 9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
-	seq = seq.Concat(NewVector(Dat(10), Dat(11))).(SeqVal)
+	seq = seq.Concat(NewVector(Dat(10), Dat(11))).(ListVal)
 	fmt.Printf("equence with two elements appended (5, 6, 7, 8, 9, 10, 11):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
-	seq = seq.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).(SeqVal)
+	seq = seq.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).(ListVal)
 	fmt.Printf("equence with five elements (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
@@ -283,9 +283,9 @@ func TestVectorConsAppend(t *testing.T) {
 func TestStackSequence(t *testing.T) {
 	var (
 		head  Expression
-		tail  Continuation
-		list  Group = NewSequence()
-		stack Stack = NewSequence(intsA()...)
+		tail  Continued
+		list  Grouped = NewList()
+		stack Stack   = NewList(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
 	for i := 0; i < 5; i++ {
@@ -298,7 +298,7 @@ func TestStackSequence(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Group)
+		list = tail.(Grouped)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
@@ -311,9 +311,9 @@ func TestStackSequence(t *testing.T) {
 func TestStackVector(t *testing.T) {
 	var (
 		head  Expression
-		tail  Continuation
-		list  Group = NewSequence()
-		stack Stack = NewVector(intsA()...)
+		tail  Continued
+		list  Grouped = NewList()
+		stack Stack   = NewVector(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
 	for i := 0; i < 5; i++ {
@@ -327,7 +327,7 @@ func TestStackVector(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
 		fmt.Printf("head from within push loop: %s\n", head)
-		list = tail.(Group)
+		list = tail.(Grouped)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
@@ -340,9 +340,9 @@ func TestStackVector(t *testing.T) {
 func TestQueueVector(t *testing.T) {
 	var (
 		head  Expression
-		tail  Continuation
-		list  Group = NewVector()
-		queue Queue = NewVector(intsA()...)
+		tail  Continued
+		list  Grouped = NewVector()
+		queue Queue   = NewVector(intsA()...)
 	)
 	fmt.Printf("queue: %s\n", queue)
 	for i := 0; i < 5; i++ {
@@ -355,7 +355,7 @@ func TestQueueVector(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Group)
+		list = tail.(Grouped)
 		queue = queue.Put(head)
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)

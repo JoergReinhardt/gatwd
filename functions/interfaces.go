@@ -101,14 +101,14 @@ type Expression interface {
 // CAVEAT: a continuations 'call' method always has to return a continuation,
 // when called, in order to satisfy constraints for map, apply, fold, bind
 //
-// C.Call(args...).(Continuation) ← has to work!
-type Continuation interface {
+// C.Call(args...).(Continued) ← has to work!
+type Continued interface {
 	// Call(...Expression) <Continuation>
 	Expression
-	Continue() (Expression, Group)
-	Concat(Continuation) Group
+	Continue() (Expression, Grouped)
+	Concat(Continued) Grouped
 	Head() Expression
-	Tail() Group
+	Tail() Grouped
 	Empty() bool
 	TypeElem() TyComp
 }
@@ -123,13 +123,13 @@ type Continuation interface {
 // appends an element. continuations take those arguments to either apply them
 // to the current state and return the result, or create and add new
 // computations to continue on.
-type Group interface {
-	Continuation
-	Cons(...Expression) Group
+type Grouped interface {
+	Continued
+	Cons(...Expression) Grouped
 }
 
 type Directional interface {
-	Group
+	Grouped
 	First() Expression
 }
 type BiDirectional interface {
@@ -140,28 +140,28 @@ type BiDirectional interface {
 // queues pull elements from the end of the group and put elements at its
 // start
 type Queue interface {
-	Group
+	Grouped
 	Put(Expression) Queue
 	Pull() (Expression, Queue)
 	Append(...Expression) Queue
 }
 type Stack interface {
-	Group
+	Grouped
 	Push(Expression) Stack
 	Pop() (Expression, Stack)
 }
 
 type Filtered interface {
-	Continuation
-	Filter(Testable) Group
-	Pass(Testable) Group
+	Continued
+	Filter(Testable) Grouped
+	Pass(Testable) Grouped
 }
 
 type Functorial interface {
-	Continuation
-	Map(fn Expression) Group
-	Fold(acc Expression, fn func(...Expression) Expression) Group
-	Flatten() Group
+	Continued
+	Map(fn Expression) Grouped
+	Fold(acc Expression, fn func(...Expression) Expression) Grouped
+	Flatten() Grouped
 }
 
 // mapped interface is implementet by all key accessable data types
@@ -175,31 +175,31 @@ type Mapped interface {
 
 type Zipped interface {
 	Functorial
-	Split() (l, r Group)
+	Split() (l, r Grouped)
 }
 type Zippable interface {
 	Functorial
 	ZipWith(
-		zipf func(l, r Continuation) Group, with Continuation,
-	) Group
+		zipf func(l, r Continued) Grouped, with Continued,
+	) Grouped
 }
 type Applicable interface {
 	Functorial
 	Apply(func(
-		Group, ...Expression,
+		Grouped, ...Expression,
 	) (
 		Expression,
-		Continuation,
-	)) Group
+		Continued,
+	)) Grouped
 }
 
 type Monoidal interface {
 	Applicable
-	Bind(Expression, Functorial) Group
+	Bind(Expression, Functorial) Grouped
 }
 
 type Ordered interface {
-	Group
+	Grouped
 	Lesser(Ordered) bool
 	Greater(Ordered) bool
 	Equal(Ordered) bool
@@ -243,7 +243,7 @@ type SwapablePaired interface {
 type Sortable interface {
 	Sort(
 		lesser func(a, b Expression) bool,
-	) Group
+	) Grouped
 }
 
 // interface implementet by types searchable by some praedicate
@@ -337,13 +337,13 @@ type Paired interface {
 // access
 type AssociativeCollected interface {
 	KeyAssociated
-	Group
+	Grouped
 	Associative
 }
 
 // extends the consumeable interface to work with collections of pairs
 type ConsumeablePaired interface {
-	Group
+	Grouped
 	Associative
 	HeadPair() Paired
 	TailPairs() ConsumeablePaired
@@ -365,7 +365,7 @@ type Enumerable interface {
 type Monadic interface {
 	Expression
 	Current() Expression
-	Sequence() Group
+	Sequence() Grouped
 }
 
 // interface to implement by dynamicly declared and defined types
