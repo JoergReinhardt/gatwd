@@ -126,7 +126,6 @@ type Continuation interface {
 type Group interface {
 	Continuation
 	Cons(...Expression) Group
-	ConsGroup(Group) Group
 }
 
 type Directional interface {

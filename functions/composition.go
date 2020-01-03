@@ -1,5 +1,7 @@
 package functions
 
+import ()
+
 type (
 
 	//// COLLECTIONS
@@ -166,38 +168,6 @@ func (s SeqVal) Empty() bool {
 		return true
 	}
 	return false
-}
-
-// sort takes a compare function to return a negative value, when a is lesser
-// then b, zero when they are equal and a positive value, when a is greater
-// then b and generates a sequence of sorted elements implementing quick sort
-// by lazy list comprehension (split elements lesser & greater pivot).
-func (s SeqVal) Sort(compare func(a, b Expression) int) Group {
-	// if list is empty, or has a single element, just return it
-	if s.Empty() || s.Tail().Empty() {
-		return s
-	}
-	var ( // use head as pivot & tail to filter lesser & greater from
-		pivot, list = s()
-		lesser      = NewTest(
-			func(arg Expression) bool {
-				if compare(pivot, arg) < 0 {
-					return true
-				}
-				return false
-			})
-		greater = NewTest(
-			func(arg Expression) bool {
-				if compare(pivot, arg) >= 0 {
-					return true
-				}
-				return false
-			})
-	)
-	// lazy list comprehension quick sort
-	return Pass(list, lesser).(SeqVal).Sort(compare).
-		Cons(pivot).ConsGroup(
-		Pass(list, greater).(SeqVal).Sort(compare)).(Group)
 }
 
 func (s SeqVal) Null() SeqVal     { return NewSequence() }
@@ -372,35 +342,37 @@ func Fold(
 	con Continuation,
 	init Expression,
 	fold func(init, head Expression) Expression,
-) SeqVal {
+) Expression {
 	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				var head, tail = Fold(
-					NewSequence(args...), init, fold,
-				).Continue()
-				return head, tail.(SeqVal)
-			}
-			return NewNone(), nil
-		})
+		return init
 	}
+	//	if con.Empty() {
+	//		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	//			if len(args) > 0 {
+	//				var head, tail = Fold(
+	//					NewSequence(args...), init, fold,
+	//				).Continue()
+	//				return head, tail.(SeqVal)
+	//			}
+	//			return NewNone(), nil
+	//		})
+	//	}
 	var (
 		head, tail = con.Continue()
 		result     = fold(init, head)
 	)
 	// skip none instances, when tail has further elements
-	if result.Type().Match(None) && !tail.Empty() {
+	if result.Type().Match(None) || !tail.Empty() {
 		for result.Type().Match(None) && !tail.Empty() {
 			head, tail = tail.Continue()
 			result = fold(init, head)
 		}
 	}
-	init = result
 	return SeqVal(func(args ...Expression) (Expression, SeqVal) {
 		if len(args) > 0 {
-			return init.Call(args...), Fold(tail, init, fold)
+			return result.Call(args...), Fold(tail, result, fold).(SeqVal)
 		}
-		return init, Fold(tail, init, fold)
+		return result, Fold(tail, result, fold).(SeqVal)
 	})
 }
 
@@ -409,17 +381,17 @@ func Filter(
 	con Continuation,
 	filter func(Expression) bool,
 ) SeqVal {
-	if con.Empty() {
-		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
-			if len(args) > 0 {
-				var head, tail = Filter(
-					NewSequence(args...), filter,
-				).Continue()
-				return head, tail.(SeqVal)
-			}
-			return NewNone(), nil
-		})
-	}
+	//	if con.Empty() {
+	//		return SeqVal(func(args ...Expression) (Expression, SeqVal) {
+	//			if len(args) > 0 {
+	//				var head, tail = Filter(
+	//					NewSequence(args...), filter,
+	//				).Continue()
+	//				return head, tail.(SeqVal)
+	//			}
+	//			return NewNone(), nil
+	//		})
+	//	}
 	var (
 		init = NewSequence()
 		fold = func(init, head Expression) Expression {
@@ -429,7 +401,7 @@ func Filter(
 			return init.(SeqVal).Cons(head)
 		}
 	)
-	return Fold(con, init, fold)
+	return Fold(con, init, fold).(SeqVal)
 }
 
 // continuation of elements matched by test
@@ -457,7 +429,7 @@ func Pass(
 			return NewNone()
 		}
 	)
-	return Fold(con, init, fold)
+	return Fold(con, init, fold).(SeqVal)
 }
 
 // take-n is a variation of fold that takes an initial continuation cuts and
@@ -478,7 +450,7 @@ func TakeN(grp Continuation, n int) Continuation {
 			return vector.Cons(arg)
 		}
 	)
-	return Filter(Fold(grp, init, takeN),
+	return Filter(Fold(grp, init, takeN).(Continuation),
 		func(arg Expression) bool {
 			return arg.(VecVal).Len() < n
 		})
@@ -523,7 +495,7 @@ func Split(
 	return Fold(con, pair, func(init, head Expression) Expression {
 		var pair = init.(Paired)
 		return split(pair, head)
-	})
+	}).(SeqVal)
 }
 
 // bind works similar to zip, but the bind function takes additional arguments
@@ -579,14 +551,22 @@ func Bind(
 //  - infinite lists can be sorted (returns a sorted list of all results until
 //    current computation, with every call)
 //
-//func Sort(
-//	grp Group,
-//	less func(l, r Expression) bool,
-//) SeqVal {
-//	if grp.Empty() {
-//		return NewSequence()
-//	}
-//	var (
-//		pivot = grp.Head()
-//	)
-//}
+func Sort(
+	grp Group,
+	less func(l, r Expression) bool,
+) Group {
+	if grp.Empty() {
+		return Sort(grp, less)
+	}
+	var (
+		pivot, tail = grp.Continue()
+		lt          = func(arg Expression) bool { return less(arg, pivot) }
+		gteq        = func(arg Expression) bool { return less(pivot, arg) }
+		lesser      = Filter(tail, lt)
+		greater     = Filter(tail, gteq)
+	)
+	if lesser.Empty() {
+		return Sort(greater, less).Cons(pivot)
+	}
+	return Sort(lesser, less).Concat(Sort(greater, less).Cons(pivot))
+}

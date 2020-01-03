@@ -21,6 +21,11 @@ func NewEmptyPair() ValPair {
 	return func(args ...Expression) (a, b Expression) {
 		if len(args) > 0 {
 			if len(args) > 1 {
+				if len(args) > 2 {
+					return NewPair(args[0], args[1]),
+						NewSequence(args[2:]...)
+
+				}
 				return args[0], args[1]
 			}
 			return args[0], NewNone()
@@ -34,6 +39,10 @@ func NewPair(l, r Expression) ValPair {
 	return func(args ...Expression) (Expression, Expression) {
 		if len(args) > 0 {
 			if len(args) > 1 {
+				if len(args) > 2 {
+					return NewPair(args[0], args[1]),
+						NewSequence(args[2:]...)
+				}
 				return args[0], args[1]
 			}
 			return args[0], r
@@ -41,6 +50,52 @@ func NewPair(l, r Expression) ValPair {
 		return l, r
 	}
 }
+
+func (p ValPair) Cons(args ...Expression) Group {
+	if len(args) > 0 {
+		if len(args) > 1 {
+			if p.Empty() {
+				if len(args) > 2 {
+					return NewPair(args[0],
+						args[1]).Cons(args...)
+				}
+				return NewPair(args[0], args[1])
+			}
+			if p.Right().Type().Match(None) {
+				return NewPair(p.Left(),
+					args[0]).Cons(args...)
+			}
+			return NewPair(p,
+				NewPair(args[0], args[1]))
+		}
+		if p.Empty() {
+			return NewPair(args[0], NewNone())
+		}
+		if p.Right().Type().Match(None) {
+			return NewPair(p.Left(), args[0])
+		}
+		if p.Left().Type().Match(None) {
+			return NewPair(args[0], p.Right())
+		}
+		return NewPair(p, args[0])
+	}
+	return p
+}
+func (p ValPair) Continue() (Expression, Group) {
+	var l, r = p()
+	if !l.Type().Match(None) {
+		if !r.Type().Match(None) {
+			if r.Type().Match(Continues) {
+				return l, r.(Group)
+			}
+		}
+	}
+	return NewNone(), NewEmptyPair()
+}
+func (p ValPair) Head() Expression            { return p.Key() }
+func (p ValPair) Tail() Group                 { return NewSequence(p.Value()) }
+func (p ValPair) Concat(c Continuation) Group { return NewSequence(p, c) }
+
 func (p ValPair) Pair() Paired                   { return p }
 func (p ValPair) Both() (Expression, Expression) { return p() }
 func (p ValPair) Swap() (Expression, Expression) { l, r := p(); return r, l }
@@ -83,19 +138,11 @@ func (p ValPair) String() string {
 	return "(" + p.Key().String() + ", " + p.Value().String() + ")"
 }
 func (p ValPair) Call(args ...Expression) Expression {
-	return NewPair(p.Key(), p.Value().Call(args...))
+	if len(args) > 0 {
+		return p.Cons(args...)
+	}
+	return p
 }
-func (p ValPair) Cons(args ...Expression) Expression {
-	return NewVector(Map(TakeN(NewVector(args...), 2),
-		func(arg Expression) Expression {
-			return NewPair(arg.(Group).Continue())
-		}))
-}
-func (p ValPair) Continue() (Expression, Group) {
-	return p.Key(), NewSequence(p.Value())
-}
-func (p ValPair) Head() Expression { return p.Key() }
-func (p ValPair) Tail() Group      { return NewSequence(p.Value()) }
 
 //// NATIVE VALUE KEY PAIR
 ///
