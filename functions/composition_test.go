@@ -50,7 +50,7 @@ func TestApplySequence(t *testing.T) {
 	)
 	for !tail.Empty() {
 		pair = tail.Call().(Paired)
-		head, tail = pair.Left().Call(Dat(13)), pair.Right().(Grouped)
+		head, tail = pair.Left().Call(Dat(13)), pair.Right().(ListVal)
 		fmt.Printf("list called with 13: %s\n", head)
 	}
 }
@@ -63,7 +63,7 @@ func TestFoldSequence(t *testing.T) {
 		})
 	fmt.Printf("folded list: %s\n", f)
 
-	var head, tail = f.(Grouped).Continue()
+	var head, tail = f.Continue()
 	for i := 0; i < 8; i++ {
 		head, tail = tail.Continue()
 	}
@@ -153,31 +153,22 @@ func TestZipSequence(t *testing.T) {
 	if zipped.Head().(Paired).Key().String() != "a" {
 		t.Fail()
 	}
-	for i := 0; i < 25; i++ {
-		zipped = zipped.Tail().(Grouped)
+	var head, tail = zipped.Continue()
+	for !tail.Empty() {
+		head, tail = tail.Continue()
 	}
-	if zipped.Head().(Paired).Key().String() != "z" {
+	fmt.Printf("tail: %s\nhead: %s\n", tail, head)
+	if head.(Paired).Key().String() != "z" {
 		t.Fail()
 	}
 }
 
 func TestSplitSequence(t *testing.T) {
-	var splitted = Split(zipped, NewPair(NewVector(), NewVector()),
-		func(pair Paired, head Expression) Paired {
-			var (
-				right = pair.Right().(VecVal)
-				left  = pair.Left().(VecVal)
-				val   = head.(KeyPair).Value()
-				key   = head.(KeyPair).Key()
-			)
-			left = left.Cons(key).(VecVal)
-			right = right.Cons(val).(VecVal)
-			return NewPair(left, right)
-		})
+	fmt.Printf("zipped: %s\n", zipped)
+	var splitted = Split(zipped, func(arg Expression) Paired {
+		return arg.(Paired)
+	})
 	fmt.Printf("splitted: %s\n", splitted)
-	if splitted.Head().(Paired).Left().(VecVal).Head().String() != "z" {
-		t.Fail()
-	}
 }
 
 func TestBindSequence(t *testing.T) {

@@ -172,7 +172,7 @@ func (n DatSlice) Eval(args ...d.Native) d.Native {
 	return d.SliceAppend(n(), args...)
 }
 func (n DatSlice) SliceExpr() []Expression {
-	var slice = pool.Get()
+	var slice = slices.Get()
 	for _, nat := range n.Slice() {
 		slice = append(slice, Box(nat))
 	}
@@ -199,7 +199,7 @@ func (n DatGoSlice) Type() TyComp {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
 func (n DatGoSlice) SliceExpr() []Expression {
-	var slice = pool.Get()
+	var slice = slices.Get()
 	for _, nat := range n.Slice() {
 		slice = append(slice, Box(nat))
 	}
@@ -265,21 +265,21 @@ func (n DatMap) ValType() d.Typed                     { return n().TypeValue() }
 func (n DatMap) SubType() d.Typed                     { return n().Type() }
 func (n DatMap) String() string                       { return n().String() }
 func (n DatMap) KeysExpr() []Expression {
-	var exprs = pool.Get()
+	var exprs = slices.Get()
 	for _, key := range n().Keys() {
 		exprs = append(exprs, Box(key))
 	}
 	return exprs
 }
 func (n DatMap) DataExpr() []Expression {
-	var exprs = pool.Get()
+	var exprs = slices.Get()
 	for _, val := range n().Data() {
 		exprs = append(exprs, Box(val))
 	}
 	return exprs
 }
 func (n DatMap) SliceExpr() []Expression {
-	var slice = pool.Get()
+	var slice = slices.Get()
 	for _, nat := range n.Fields() {
 		slice = append(slice, Box(nat))
 	}

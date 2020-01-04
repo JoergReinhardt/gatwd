@@ -501,7 +501,7 @@ func (p Variant) Call(args ...Expression) Expression {
 // the sequence of field types is shown instead
 func NewTupleType(types ...d.Typed) TupCon {
 	return func(args ...Expression) TupVal {
-		var tup TupVal = TupVal(pool.Get())
+		var tup TupVal = TupVal(slices.Get())
 		if Def(types...).MatchArgs(args...) {
 			for _, arg := range args {
 				tup = append(tup, arg)
@@ -610,7 +610,7 @@ func (t RecCon) String() string { return t.Type().String() }
 // constructor validated according to its type pattern.
 func (t RecVal) TypeFnc() TyFnc { return Record }
 func (t RecVal) Call(args ...Expression) Expression {
-	var fields = pool.Get()
+	var fields = slices.Get()
 	for _, field := range t {
 		fields = append(fields, field)
 	}

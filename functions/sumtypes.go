@@ -66,7 +66,7 @@ func (n NoneVal) TypeNat() d.TyNat                { return d.Nil }
 func (n NoneVal) Type() TyComp                    { return Def(None) }
 func (n NoneVal) TypeElem() TyComp                { return Def(None) }
 func (n NoneVal) TypeName() string                { return n.String() }
-func (n NoneVal) Slice() []Expression             { return pool.Get() }
+func (n NoneVal) Slice() []Expression             { return slices.Get() }
 func (n NoneVal) Flag() d.BitFlag                 { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val            { return Kind_Fnc.U() }
 func (n NoneVal) Continue() (Expression, Grouped) { return NewNone(), NewNone() }
@@ -157,12 +157,16 @@ func (g GenVal) Tail() Grouped                   { return g.Generator() }
 // accumulator expects an expression as input, that returns itself unboxed,
 // when called empty and returns a new accumulator accumulating its value and
 // arguments to create a new accumulator, if arguments where passed.
-func NewAccumulator(acc, fnc Expression) AccVal {
+func NewAccumulator(
+	acc Expression,
+	fnc func(acc Expression, args ...Expression) Expression,
+) AccVal {
 	return AccVal(func(args ...Expression) (Expression, AccVal) {
 		if len(args) > 0 {
-			acc = fnc.Call(append(pool.Init(acc), args...)...)
+			acc = fnc(acc, args...)
 			return acc, NewAccumulator(acc, fnc)
 		}
+		acc = fnc(acc)
 		return acc, NewAccumulator(acc, fnc)
 	})
 }
@@ -171,7 +175,7 @@ func (g AccVal) Concat(grp Continued) Grouped {
 	return NewListFromGroup(g).Concat(grp)
 }
 func (g AccVal) ConsGroup(con Grouped) Grouped {
-	var args = pool.Get()
+	var args = slices.Get()
 	for head, con := con.Continue(); !con.Empty(); {
 		args = append(args, head)
 	}

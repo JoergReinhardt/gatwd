@@ -37,9 +37,10 @@ var (
 		return mapAddInt.Call(args[0], Dat(10))
 	}))
 
-	accumulator = NewAccumulator(Dat(0), Lambda(func(args ...Expression) Expression {
-		return mapAddInt.Call(args[0], Dat(10))
-	}))
+	accumulator = NewAccumulator(
+		Dat(0), func(acc Expression, args ...Expression) Expression {
+			return addInts.Call(acc, Dat(10))
+		})
 )
 
 // helper functions
@@ -188,9 +189,9 @@ func TestAccumulator(t *testing.T) {
 	var res Expression
 	for i := 0; i < 10; i++ {
 		res, accumulator = accumulator(Dat(10))
-		fmt.Printf("result: %s accumulator called on argument: %s\n", res, accumulator)
+		fmt.Printf("result: %s accumulator called on argument: %s\n", res, accumulator.Tail())
 	}
-	if res.(NatEval).Eval().(d.IntVal) != d.IntVal(100) {
+	if accumulator.Head().(NatEval).Eval().(d.IntVal) != d.IntVal(220) {
 		t.Fail()
 	}
 }

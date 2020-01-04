@@ -58,7 +58,7 @@ func Flatten(grp Continued) Continued {
 func Map(
 	con Continued,
 	mapf func(Expression) Expression,
-) Grouped {
+) ListVal {
 	if con.Empty() {
 		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
@@ -77,9 +77,9 @@ func Map(
 		var head, tail = con.Continue()
 		// skip none instances, when tail has further elements
 		if head.Type().Match(None) && !tail.Empty() {
-			return Map(tail, mapf).(ListVal)()
+			return Map(tail, mapf)()
 		}
-		return mapf(head), Map(tail, mapf).(ListVal)
+		return mapf(head), Map(tail, mapf)
 	})
 }
 
@@ -89,7 +89,7 @@ func Map(
 func Apply(
 	con Continued,
 	apply func(Expression, ...Expression) Expression,
-) Grouped {
+) ListVal {
 	if con.Empty() {
 		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
@@ -108,16 +108,16 @@ func Apply(
 				Apply(tail, apply)
 				// skip none
 			if head.Type().Match(None) && !tail.Empty() {
-				return Apply(tail, apply).(ListVal)()
+				return Apply(tail, apply)()
 			}
 
 		}
 		var head, tail = apply(head), Apply(tail, apply)
 		// skip none
 		if head.Type().Match(None) && !tail.Empty() {
-			return Apply(tail, apply).(ListVal)()
+			return Apply(tail, apply)()
 		}
-		return head, tail.(ListVal)
+		return head, tail
 	})
 }
 
@@ -129,31 +129,28 @@ func Fold(
 	con Continued,
 	init Expression,
 	fold func(init, head Expression) Expression,
-) Grouped {
-	if con.Empty() {
-		return NewList(init)
+) ListVal {
+
+	if con.Empty() { // return accumulated result, when empty
+		return NewList()
 	}
 	var (
-		head, tail = con.Continue()
-		result     = fold(init, head)
+		head, tail = con.Continue()   // pop current head & list
+		result     = fold(init, head) // calculate temporary result
 	)
-	// skip none instances, when tail has further elements
-	if result.Type().Match(None) && !tail.Empty() {
-		for result.Type().Match(None) && !tail.Empty() {
-			head, tail = tail.Continue()
-			result = fold(init, head)
+	if IsNone(result) { // if computation yields none‥.
+		// ‥.as long as list is not empty‥.
+		for IsNone(result) && !tail.Empty() { // ‥.and results are none‥.
+			head, tail = tail.Continue() // ‥.pop heads‥.
+			result = fold(init, head)    // ‥.and calculate results‥.
+		}
+		if IsNone(result) { // result still none →  tail depleted‥.
+			// cons accumulated result to empty tail
+			return NewList(init)
 		}
 	}
-	if result.Type().Match(None) {
-		return NewList(init)
-	}
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		if len(args) > 0 {
-			return result.Call(args...),
-				Fold(tail, result, fold).(ListVal)
-		}
-		return result, Fold(tail, result, fold).(ListVal)
-	})
+	// result is not empty, list has further elements‥.
+	return NewList(result).Concat(Fold(tail, result, fold)).(ListVal)
 }
 
 // continuation of elements not matched by test
@@ -173,12 +170,12 @@ func Filter(
 		})
 	}
 	var (
-		init = NewList()
+		init = NewVector()
 		fold = func(init, head Expression) Expression {
 			if filter(head) {
 				return NewNone()
 			}
-			return init.(ListVal).Cons(head)
+			return init.(VecVal).Cons(head)
 		}
 	)
 	return Fold(con, init, fold)
@@ -201,10 +198,10 @@ func Pass(
 		})
 	}
 	var (
-		init = NewList()
+		init = NewVector()
 		fold = func(init, head Expression) Expression {
 			if pass(head) {
-				return init.(ListVal).Cons(head)
+				return init.(VecVal).Cons(head)
 			}
 			return NewNone()
 		}
@@ -228,7 +225,7 @@ func TakeN(grp Continued, n int) Continued {
 			return vector.Cons(arg).(VecVal)
 		}
 	)
-	return Filter(Fold(grp, vec, takeN).(Grouped),
+	return Filter(Fold(grp, vec, takeN),
 		func(arg Expression) bool {
 			return arg.(VecVal).Len() < n
 		})
@@ -267,13 +264,17 @@ func Zip(
 // right values and returns those as elements of a pair
 func Split(
 	con Continued,
-	pair Paired,
-	split func(Paired, Expression) Paired,
+	split func(Expression) Paired,
 ) ListVal {
+	var pair = NewPair(NewVector(), NewVector())
 	return Fold(con, pair, func(init, head Expression) Expression {
-		var pair = init.(Paired)
-		return split(pair, head)
-	}).(ListVal)
+		var (
+			pair  = split(head)
+			left  = init.(Paired).Left().(VecVal).Cons(pair.Left())
+			right = init.(Paired).Right().(VecVal).Cons(pair.Right())
+		)
+		return NewPair(left, right)
+	})
 }
 
 // bind works similar to zip, but the bind function takes additional arguments
