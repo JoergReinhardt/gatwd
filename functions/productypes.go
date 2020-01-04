@@ -441,7 +441,8 @@ func (p Polymorph) String() string {
 	var (
 		cases              = p.Cases()
 		length             = len(cases)
-		arguments, returns = make([]string, 0, length), make([]string, 0, length)
+		arguments, returns = make([]string, 0, length),
+			make([]string, 0, length)
 	)
 	for _, c := range cases {
 		var (
@@ -500,7 +501,7 @@ func (p Variant) Call(args ...Expression) Expression {
 // the sequence of field types is shown instead
 func NewTupleType(types ...d.Typed) TupCon {
 	return func(args ...Expression) TupVal {
-		var tup = make(TupVal, 0, len(args))
+		var tup TupVal = TupVal(pool.Get())
 		if Def(types...).MatchArgs(args...) {
 			for _, arg := range args {
 				tup = append(tup, arg)
@@ -609,7 +610,7 @@ func (t RecCon) String() string { return t.Type().String() }
 // constructor validated according to its type pattern.
 func (t RecVal) TypeFnc() TyFnc { return Record }
 func (t RecVal) Call(args ...Expression) Expression {
-	var fields = make([]Expression, 0, len(t)+len(args))
+	var fields = pool.Get()
 	for _, field := range t {
 		fields = append(fields, field)
 	}

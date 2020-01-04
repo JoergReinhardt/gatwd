@@ -50,7 +50,7 @@ func TestApplySequence(t *testing.T) {
 	)
 	for !tail.Empty() {
 		pair = tail.Call().(Paired)
-		head, tail = pair.Left().Call(Dat(13)), pair.Right().(ListVal)
+		head, tail = pair.Left().Call(Dat(13)), pair.Right().(Grouped)
 		fmt.Printf("list called with 13: %s\n", head)
 	}
 }
@@ -58,11 +58,12 @@ func TestApplySequence(t *testing.T) {
 func TestFoldSequence(t *testing.T) {
 	var f = Fold(intsA, Dat(0),
 		func(init, head Expression) Expression {
+			fmt.Printf("init: %s. head: %s\n", init, head)
 			return addInts(init, head)
-		}).(ListVal)
+		})
 	fmt.Printf("folded list: %s\n", f)
 
-	var head, tail = f.Continue()
+	var head, tail = f.(Grouped).Continue()
 	for i := 0; i < 8; i++ {
 		head, tail = tail.Continue()
 	}
@@ -81,18 +82,19 @@ func TestFilterPassSequence(t *testing.T) {
 		odd  = Filter(intsA, isEven)
 		even = Pass(intsA, isEven)
 	)
-	fmt.Printf("odd: %s\neven: %s\n", odd, even)
 
 	var ohead, otail = odd.Continue()
 	var ehead, etail = even.Continue()
+	fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
+	fmt.Printf("odd tail: %s\neven tail: %s\n", otail, etail)
 	for i := 0; i < 3; i++ {
 		ohead, otail = otail.Continue()
 		ehead, etail = etail.Continue()
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
 
-	if ohead.(ListVal).Head().(DatConst)().(d.IntVal) != 7 ||
-		ehead.(ListVal).Head().(DatConst)().(d.IntVal) != 6 {
+	if ohead.(Grouped).Head().(DatConst)().(d.IntVal) != 7 ||
+		ehead.(Grouped).Head().(DatConst)().(d.IntVal) != 6 {
 		t.Fail()
 	}
 }
@@ -111,20 +113,20 @@ func TestTakeNSequence(t *testing.T) {
 	}
 	fmt.Printf("last element: %s\n", head)
 
-	head, tail = head.(ListVal).Continue()
+	head, tail = head.(Grouped).Continue()
 	for !tail.Empty() {
-		head, tail = tail.(ListVal).Continue()
+		head, tail = tail.(Grouped).Continue()
 	}
 
-	fmt.Printf("last elements head: %s\n", head.(VecVal).Head())
-	if head.(VecVal).Head().(DatConst)().(d.IntVal) != 0 {
+	fmt.Printf("last elements head: %s\n", head.(Grouped).Head())
+	if head.(Grouped).Head().(DatConst)().(d.IntVal) != 0 {
 		t.Fail()
 	}
 
 	token = TakeN(intsA, 5)
 	fmt.Printf("take five: %s\n", token)
 	fmt.Printf("take five type: %s\n", token.Type())
-	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Sequences))
+	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Collections))
 }
 
 func TestFlatttenSequence(t *testing.T) {

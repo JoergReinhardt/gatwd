@@ -125,7 +125,7 @@ type Continued interface {
 // computations to continue on.
 type Grouped interface {
 	Continued
-	Cons(...Expression) Grouped
+	Cons(Expression) Grouped
 }
 
 type Directional interface {

@@ -51,41 +51,24 @@ func NewPair(l, r Expression) ValPair {
 	}
 }
 
-func (p ValPair) Cons(args ...Expression) Grouped {
-	if len(args) > 0 {
-		if len(args) > 1 {
-			if p.Empty() {
-				if len(args) > 2 {
-					return NewPair(args[0],
-						args[1]).Cons(args...)
-				}
-				return NewPair(args[0], args[1])
-			}
-			if p.Right().Type().Match(None) {
-				return NewPair(p.Left(),
-					args[0]).Cons(args...)
-			}
-			return NewPair(p,
-				NewPair(args[0], args[1]))
-		}
-		if p.Empty() {
-			return NewPair(args[0], NewNone())
-		}
-		if p.Right().Type().Match(None) {
-			return NewPair(p.Left(), args[0])
-		}
-		if p.Left().Type().Match(None) {
-			return NewPair(args[0], p.Right())
-		}
-		return NewPair(p, args[0])
+func (p ValPair) Cons(arg Expression) Grouped {
+	if p.Empty() {
+		return NewPair(arg, NewNone())
 	}
+	if p.Right().Type().Match(None) {
+		return NewPair(p.Left(), arg)
+	}
+	if p.Left().Type().Match(None) {
+		return NewPair(arg, p.Right())
+	}
+	return NewPair(p, arg)
 	return p
 }
 func (p ValPair) Continue() (Expression, Grouped) {
 	var l, r = p()
 	if !l.Type().Match(None) {
 		if !r.Type().Match(None) {
-			if r.Type().Match(Groups) {
+			if r.Type().Match(Continua) {
 				return l, r.(Grouped)
 			}
 		}
@@ -102,10 +85,12 @@ func (p ValPair) Swap() (Expression, Expression) { l, r := p(); return r, l }
 func (p ValPair) Left() Expression               { l, _ := p(); return l }
 func (p ValPair) Right() Expression              { _, r := p(); return r }
 func (p ValPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
-func (p ValPair) Slice() []Expression            { return []Expression{p.Left(), p.Right()} }
-func (p ValPair) Key() Expression                { return p.Left() }
-func (p ValPair) Value() Expression              { return p.Right() }
-func (p ValPair) TypeFnc() TyFnc                 { return Pair }
+func (p ValPair) Slice() []Expression {
+	return pool.Init(p.Left(), p.Right())
+}
+func (p ValPair) Key() Expression   { return p.Left() }
+func (p ValPair) Value() Expression { return p.Right() }
+func (p ValPair) TypeFnc() TyFnc    { return Pair }
 func (p ValPair) TypeElem() TyComp {
 	if p.Right() != nil {
 		return p.Right().Type()
@@ -139,9 +124,9 @@ func (p ValPair) String() string {
 }
 func (p ValPair) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return p.Cons(args...)
+		return p.Value().Call(args...)
 	}
-	return p
+	return p.Value().Call()
 }
 
 //// NATIVE VALUE KEY PAIR

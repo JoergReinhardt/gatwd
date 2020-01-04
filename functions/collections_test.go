@@ -109,7 +109,7 @@ func TestConList(t *testing.T) {
 		fmt.Println("for loop: " + head.String())
 	}
 
-	tail = tail.(VecVal).Cons(intsB()...)
+	tail = tail.(VecVal).Append(intsB()...)
 
 	printCons(tail)
 }
@@ -133,7 +133,7 @@ func TestVector(t *testing.T) {
 	var vec = NewVector(intsA.Slice()...)
 	fmt.Printf("vector: %s\n", vec)
 
-	vec = vec.Cons(intsB.Slice()...).(VecVal)
+	vec = vec.Append(intsB.Slice()...).(VecVal)
 	fmt.Printf("vector after cons list-B: %s\n", vec)
 	fmt.Printf("vector first: %s last: %s\n", vec.First(), vec.Last())
 
@@ -226,7 +226,7 @@ func TestSequenceConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	seq = seq.Cons(Dat(5), Dat(6), Dat(7)).(ListVal)
+	seq = NewList(Dat(5), Dat(6), Dat(7)).Concat(seq).(ListVal)
 	fmt.Printf("equence with five elements (5, 6, 7, 8, 9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
@@ -238,7 +238,7 @@ func TestSequenceConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	seq = seq.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).(ListVal)
+	seq = NewList(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).Concat(seq).(ListVal)
 	fmt.Printf("equence with five elements (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):\n%s\n", seq)
 	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
@@ -261,19 +261,19 @@ func TestVectorConsAppend(t *testing.T) {
 		t.Fail()
 	}
 
-	vec = vec.Cons(Dat(10), Dat(11), Dat(12)).(VecVal)
+	vec = vec.Append(Dat(10), Dat(11), Dat(12)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12]:\n%s\n", vec)
 	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
-	vec = vec.Cons(Dat(6), Dat(7)).(VecVal)
+	vec = vec.Append(Dat(6), Dat(7)).(VecVal)
 	fmt.Printf("vector with two elements pushed [8, 9, 10, 11, 12, 6, 7]:\n%s\n", vec)
 	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
-	vec = vec.Cons(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
+	vec = vec.Append(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12, 6, 7, 0, 1, 2, 3, 4, 5]:\n%s\n", vec)
 	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()

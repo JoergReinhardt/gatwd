@@ -3,13 +3,228 @@ package functions
 import (
 	"sort"
 	"strings"
+	"sync"
+
+	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
 
-	//// COLLECTIONS
-	VecVal func(...Expression) []Expression
+	//// COLLECTION TYPES
+	Params  []Expression
+	VecVal  func(...Expression) []Expression
+	ListVal func(...Expression) (Expression, ListVal) // instance type
+
+	//// INTERNAL HELPER TYPES
+	slices sync.Pool
+	sorter struct {
+		Params
+		less func(s Params, a, b int) bool
+	}
+	searcher struct {
+		*sorter
+		match   Expression
+		compare func(a, b Expression) int
+		search  func(Params) func(int) bool
+	}
 )
+
+///////////////////////////////////////////////////////////////////////////////
+//// TYPED SYNC POOL TO REUSE SLICES OF PARAMETERS
+func (p *slices) Get() Params                    { return (*sync.Pool)(p).Get().(Params) }
+func (p *slices) Put(parms []Expression)         { (*sync.Pool)(p).Put(Params(parms[:0])) }
+func (p *slices) Init(args ...Expression) Params { return append(p.Get(), args...) }
+
+var pool = (*slices)(&sync.Pool{New: func() interface{} { return Params{} }})
+
+///////////////////////////////////////////////////////////////////////////////
+//// HELPER FUNCTIONS
+///
+// SLICE
+func NewTypeParams(types ...d.Typed) Params {
+	var parameters Params = pool.Get()
+	for _, t := range types {
+		switch {
+		case Kind_Key.Match(t.Kind()):
+			parameters = append(parameters, t.(TyComp))
+		case Kind_Fnc.Match(t.Kind()):
+			parameters = append(parameters, t.(TyFnc))
+		case Kind_Nat.Match(t.Kind()):
+			parameters = append(parameters, Def(t.(d.TyNat)))
+		case Kind_Sym.Match(t.Kind()):
+			parameters = append(parameters, t.(TySym))
+		case Kind_Expr.Match(t.Kind()):
+			parameters = append(parameters, t.(TyExp))
+		case Kind_Prop.Match(t.Kind()):
+			parameters = append(parameters, t.(TyProp))
+		case Kind_Lex.Match(t.Kind()):
+			parameters = append(parameters, t.(TyLex))
+		}
+		parameters = append(parameters, Def(t))
+	}
+	return parameters
+}
+func NewParms(args []Expression) Params { return args }
+func FilterParms(args []Expression) Params {
+	for i, arg := range args {
+		if IsNone(arg) { // filter none instances‥.
+			// just return, if its the last element anyway
+			if i == len(args)-1 {
+				return args[:len(args)-1]
+			}
+			// cut none element from slice
+			args = append(args[:i], args[i+1:]...)
+			// reset index, to recheck new current element
+			if i > 0 {
+				i = i - 1
+			}
+		}
+	}
+	return args
+}
+func (p Params) Type() TyComp     { return Def(p.TypeFnc()) }
+func (p Params) TypeFnc() TyFnc   { return Parameter }
+func (p Params) TypeSig() TyComp  { return Def(p.Types()...) }
+func (p Params) TypeElem() TyComp { return p.TypeSig() }
+func (p Params) Types() []d.Typed {
+	var types = make([]d.Typed, 0, len(p))
+	for _, arg := range p {
+		if IsType(arg) {
+			types = append(types, arg.(d.Typed))
+			continue
+		}
+		types = append(types, arg.Type())
+	}
+	return types
+}
+
+func (p Params) Len() int                      { return len(p) }
+func (p Params) Empty() bool                   { return len(p) == 0 }
+func (p Params) Apply(e Expression) Expression { return e.Call(p...) }
+func (p Params) ApplyList(l ListVal) ListVal {
+	var head, tail = l(p...)
+	return tail.Cons(head).(ListVal)
+}
+func (p Params) ApplyGroup(g Grouped) Grouped { return g.Call(p...).(Grouped) }
+func (p Params) ApplyVector(v VecVal) VecVal  { return NewVector(v(p...)...) }
+func (p Params) List() ListVal                { return NewList(p...) }
+func (p Params) Group() Grouped               { return NewList(p...) }
+func (p Params) Vector() VecVal               { return NewVector(p...) }
+func (p Params) TupleCon() TupCon             { return NewTupleType(p.Types()...) }
+func (p Params) TupleVal() TupVal             { return p.TupleCon()(p...) }
+func (p Params) Discard()                     { pool.Put(p) }
+func (p Params) Reverse() Params {
+	defer pool.Put(p)
+	var rev = pool.Get()
+	for i := p.Len() - 1; i > 0; i-- {
+		rev = append(rev, p[i])
+	}
+	return rev
+}
+
+func (p Params) Head() Expression {
+	if !p.Empty() {
+		return p[0]
+	}
+	return NewNone()
+}
+func (p Params) Tail() Grouped {
+	if p.Len() > 1 {
+		return p[1:]
+	}
+	return pool.Get()
+}
+func (p Params) Continue() (Expression, Grouped) {
+	return p.Head(), p.Tail()
+}
+func (p Params) Concat(con Continued) Grouped {
+	return p.Group().Concat(con)
+}
+func (p Params) Cons(arg Expression) Grouped {
+	return p.Call(arg).(Params)
+}
+
+func (p Params) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewParms(append(p, args...))
+	}
+	return p
+}
+func (p Params) String() string {
+	if len(p) == 0 {
+		return "[]"
+	}
+	var str string
+	for i, parm := range p {
+		str = str + parm.String()
+		if i < len(p)-1 {
+			str = str + ", "
+		}
+	}
+	return str
+}
+
+// SORTER
+func newSorter(
+	s Params,
+	l func(s Params, a, b int) bool,
+) *sorter {
+	return &sorter{s, l}
+}
+func (s sorter) Slice() Params      { return s.Params }
+func (s sorter) Len() int           { return len(s.Params) }
+func (s sorter) Less(a, b int) bool { return s.less(s.Params, a, b) }
+func (s *sorter) Swap(a, b int) {
+	(*s).Params[b], (*s).Params[a] =
+		(*s).Params[a], (*s).Params[b]
+}
+func (s *sorter) Sort() []Expression {
+	sort.Sort(s)
+	return s.Params
+}
+
+// SEARCHER
+func newSearcher(
+	s Params,
+	match Expression,
+	compare func(a, b Expression) int,
+) *searcher {
+	return &searcher{
+		sorter: newSorter(s, func(s Params, a, b int) bool {
+			return compare(s[a], s[b]) < 0
+		}),
+		match:   match,
+		compare: compare,
+		search: func(s Params) func(int) bool {
+			return func(idx int) bool {
+				return compare(s[idx], match) >= 0
+			}
+		}}
+}
+func (s *searcher) Search() Expression {
+
+	var idx int
+
+	if sort.IsSorted(s) {
+		idx = sort.Search(len(s.Params),
+			s.search(newSorter(
+				s.Params, s.less,
+			).Params))
+	} else {
+		idx = sort.Search(len(s.Params),
+			s.search(newSorter(
+				s.Params, s.less,
+			).Sort()))
+	}
+
+	if idx >= 0 && idx < len(s.Params) {
+		if s.compare(s.Params[idx], s.match) == 0 {
+			return s.Params[idx]
+		}
+	}
+
+	return NewNone()
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //// VECTORS (SLICES) OF VALUES
@@ -22,42 +237,35 @@ func NewVecFormGroup(grp Grouped) VecVal {
 		if vec, ok := grp.(VecVal); ok {
 			return vec
 		}
-		return NewVector(grp.(Vectorized).Slice()...)
+		return NewVector(NewParms(grp.(Vectorized).Slice())...)
 	}
 	var (
-		vec        = []Expression{}
+		vec        = pool.Get()
 		head, tail = grp.Continue()
 	)
 	for head, tail = tail.Continue(); !tail.Empty(); {
-		vec = append(vec, head)
+		if !IsNone(head) {
+			vec = append(vec, head)
+		}
 	}
 	return NewVector(vec...)
 }
 func NewVector(elems ...Expression) VecVal {
-	// returns empty slice of expressions when no elements are given
-	if len(elems) == 0 {
-		return VecVal(func(args ...Expression) []Expression {
-			if len(args) > 0 {
-				return NewVector(args...)()
-			}
-			return []Expression{}
-		})
-	}
 	// return slice of elements, when not empty
 	return func(args ...Expression) []Expression {
 		if len(args) > 0 {
-			return append(elems, args...)
+			return append(elems, NewParms(args)...)
 		}
 		return elems
 	}
 }
-func (v VecVal) Cons(appendix ...Expression) Grouped {
-	return v.ConsVec(appendix...)
+func (v VecVal) Cons(arg Expression) Grouped {
+	return v.ConsVec(arg)
 }
 func (v VecVal) ConsVec(args ...Expression) VecVal {
-	return NewVector(v(args...)...)
+	return NewVector(v(NewParms(args)...)...)
 }
-
+func (v VecVal) Discard() { defer pool.Put(v()) }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
@@ -85,14 +293,26 @@ func (v VecVal) Last() Expression {
 	}
 	return NewNone()
 }
-func (v VecVal) First() Expression               { return v.Head() }
-func (v VecVal) Append(args ...Expression) Queue { return NewVector(append(v(), args...)...) }
-func (v VecVal) Push(arg Expression) Stack       { return v.Cons(arg).(VecVal) }
+func (v VecVal) First() Expression { return v.Head() }
+func (v VecVal) Append(args ...Expression) Queue {
+	return NewVector(append(v(), NewParms(args)...)...)
+}
+func (v VecVal) Push(arg Expression) Stack {
+	if !IsNone(arg) {
+		return v.Cons(arg).(VecVal)
+	}
+	return v
+}
 func (v VecVal) Pop() (Expression, Stack) {
 	var head, tail = v.Continue()
 	return head, tail.(VecVal)
 }
-func (v VecVal) Put(arg Expression) Queue { return NewVector(append(v(), arg)...) }
+func (v VecVal) Put(arg Expression) Queue {
+	if !IsNone(arg) {
+		return NewVector(append(v(), arg)...)
+	}
+	return v
+}
 func (v VecVal) Pull() (Expression, Queue) {
 	if v.Len() > 1 {
 		return v()[0], NewVector(v()[1:]...)
@@ -105,9 +325,9 @@ func (v VecVal) Null() VecVal        { return NewVector() }
 func (v VecVal) Type() TyComp        { return Def(Vector, v.TypeElem()) }
 func (v VecVal) TypeFnc() TyFnc      { return Vector }
 func (v VecVal) TypeElem() TyComp    { return v.Head().Type() }
-func (v VecVal) ConsGroup(appendix Grouped) Grouped {
+func (v VecVal) ConsGroup(grp Grouped) Grouped {
 	if v.Len() == 0 {
-		return NewList().ConsGroup(appendix)
+		return NewList().ConsGroup(grp)
 	}
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		var (
@@ -116,15 +336,15 @@ func (v VecVal) ConsGroup(appendix Grouped) Grouped {
 		)
 		if len(args) > 0 {
 			head, tail = NewList(
-				append(v(), args...)...,
+				append(v(), NewParms(args)...)...,
 			).Continue()
 		}
-		return head, tail.(ListVal).ConsGroup(appendix).(ListVal)
+		return head, tail.(ListVal).ConsGroup(grp).(ListVal)
 	})
 }
 func (v VecVal) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		var head, tail = NewVector(v(args...)...).Continue()
+		var head, tail = NewVector(v(NewParms(args)...)...).Continue()
 		return NewPair(head, tail)
 	}
 	var head, tail = NewVector(v()...).Continue()
@@ -161,8 +381,8 @@ func (v VecVal) Sort(
 ) Grouped {
 	var s = newSorter(
 		v(),
-		func(slice []Expression, a, b int) bool {
-			return less(slice[a], slice[b])
+		func(s Params, a, b int) bool {
+			return less(s[a], s[b])
 		},
 	).Sort()
 	return NewVector(s...)
@@ -174,68 +394,194 @@ func (v VecVal) Search(
 	return newSearcher(v(), match, compare).Search()
 }
 
-type sorter struct {
-	slice []Expression
-	less  func(
-		slice []Expression,
-		a, b int,
-	) bool
-}
-
-/// vector helper functions
-func newSorter(
-	s []Expression,
-	l func(slice []Expression, a, b int) bool,
-) *sorter {
-	return &sorter{s, l}
-}
-func (s sorter) Slice() []Expression { return s.slice }
-func (s sorter) Len() int            { return len(s.slice) }
-func (s sorter) Less(a, b int) bool  { return s.less(s.slice, a, b) }
-func (s *sorter) Swap(a, b int) {
-	(*s).slice[b], (*s).slice[a] = (*s).slice[a], (*s).slice[b]
-}
-func (s *sorter) Sort() []Expression {
-	sort.Sort(s)
-	return s.slice
-}
-
-type searcher struct {
-	slice   []Expression
-	match   Expression
-	compare func(a, b Expression) int
-	lesser  func(slice []Expression, a, b int) bool
-	search  func([]Expression) func(int) bool
-}
-
-func newSearcher(
-	slice []Expression,
-	match Expression,
-	compare func(a, b Expression) int,
-) *searcher {
-	return &searcher{
-		slice:   slice,
-		match:   match,
-		compare: compare,
-		lesser: func(slice []Expression, a, b int) bool {
-			return compare(slice[a], slice[b]) < 0
-		},
-		search: func(slice []Expression) func(int) bool {
-			return func(idx int) bool {
-				return compare(slice[idx], match) >= 0
+///////////////////////////////////////////////////////////////////////////////
+//// LINKED LIST TYPE
+///
+// linked list type implementing sequential
+func NewListFromGroup(grp Grouped) ListVal {
+	return ListVal(func(args ...Expression) (Expression, ListVal) {
+		if len(args) > 0 {
+			if len(args) > 1 {
+				var head, tail = grp.Concat(
+					NewList(args...)).Continue()
+				return head, NewListFromGroup(tail)
 			}
-		},
-	}
+			var head, tail = NewListFromGroup(
+				grp.Cons(args[0])).Continue()
+			return head, NewListFromGroup(tail)
+		}
+		var head, tail = grp.Continue()
+		return head, NewListFromGroup(tail)
+	})
 }
-func (s *searcher) Search() Expression {
-	var idx = sort.Search(len(s.slice),
-		s.search(newSorter(
-			s.slice, s.lesser,
-		).Sort()))
-	if idx >= 0 && idx < len(s.slice) {
-		if s.compare(s.slice[idx], s.match) == 0 {
-			return s.slice[idx]
+func NewList(elems ...Expression) ListVal {
+	elems = NewParms(elems)
+	// return empty list able to be extended by cons, when no initial
+	// elements are given/left
+	if len(elems) == 0 {
+		defer pool.Put(elems)
+		return func(args ...Expression) (Expression, ListVal) {
+			if len(args) > 0 {
+				if len(args) > 1 {
+					return args[0], NewList(args[1:]...)
+				}
+				return args[0], NewList()
+			}
+			// return instance of none as head and a nil pointer as
+			// tail, if neither elements nor arguments where passed
+			return NewNone(), nil
 		}
 	}
-	return NewNone()
+
+	// at least one of the initial elements is left‥.
+	return func(args ...Expression) (Expression, ListVal) {
+		// if arguments are passed, prepend those and return first
+		// argument as head‥.
+		if len(args) > 0 {
+			// ‥.put arguments up front of preceeding elements
+			if len(args) > 1 {
+				return args[0], NewList(
+					append(args, elems...)...)
+			}
+			// use single argument as new head of sequence and
+			// preceeding elements as tail
+			return args[0], NewList(elems...)
+		}
+
+		// no arguments given, but more than one element left → return
+		// first element as head, and remaining elements as tail of
+		// sequence
+		if len(elems) > 1 {
+			return elems[0], NewList(elems[1:]...)
+		}
+		// return last element and empty sequence
+		return elems[0], NewList()
+
+	}
+}
+
+func (s ListVal) Cons(arg Expression) Grouped {
+	return ListVal(func(late ...Expression) (Expression, ListVal) {
+		if len(late) > 0 {
+			return s.Cons(arg).(ListVal)(late...)
+		}
+		return arg, s
+	})
+}
+
+func (s ListVal) ConsGroup(grp Grouped) Grouped {
+	var head, tail = grp.Continue()
+	// if tail is empty‥.
+	if tail.Empty() {
+		// if head is none, return original s
+		if head.Type().Match(None) {
+			return s
+		}
+		// return a sequence starting with head yielded by prepended
+		// seqval, followed by s as its tail
+		return ListVal(func(late ...Expression) (Expression, ListVal) {
+			late = NewParms(late)
+			if len(late) > 0 {
+				if len(late) > 1 {
+					head, tail = grp.Call(late...,
+					).(Continued).Continue()
+					return head, s.ConsGroup(tail).(ListVal)
+				}
+			}
+			return head, s
+		})
+	}
+	// tail is not empty yet, return a sequence starting with yielded head
+	// followed by remaining tail consed to s recursively
+	return ListVal(func(late ...Expression) (Expression, ListVal) {
+		late = NewParms(late)
+		if len(late) > 0 {
+			head, tail = grp.Call(late...,
+			).(Continued).Continue()
+			return head, s.ConsGroup(tail).(ListVal)
+		}
+		return head, s.ConsGroup(tail).(ListVal)
+	})
+}
+
+func (s ListVal) Concat(grp Continued) Grouped {
+	if !s.Empty() {
+		return ListVal(func(args ...Expression) (Expression, ListVal) {
+			args = NewParms(args)
+			if len(args) > 0 {
+				var head, tail = s(args...)
+				return head, tail.Concat(grp).(ListVal)
+			}
+			var head, tail = s.Continue()
+			return head, tail.Concat(grp).(ListVal)
+		})
+	}
+	return grp.(Grouped)
+}
+
+func (s ListVal) Head() Expression {
+	var cur, _ = s()
+	return cur
+}
+func (s ListVal) Tail() Grouped {
+	var _, tail = s()
+	if tail != nil {
+		return tail
+	}
+	return NewList()
+}
+func (s ListVal) Continue() (Expression, Grouped) {
+	return s.Head(), s.Tail()
+}
+
+func (s ListVal) ConsSeqVal(seq ListVal) Grouped { return s.ConsGroup(seq).(Grouped) }
+func (s ListVal) Vector() VecVal                 { return NewVector(s.Slice()...) }
+func (v ListVal) Push(arg Expression) Stack      { return v.Cons(arg).(ListVal) }
+func (v ListVal) Pop() (Expression, Stack)       { return v() }
+func (s ListVal) First() Expression              { return s.Head() }
+func (s ListVal) Null() ListVal                  { return NewList() }
+func (s ListVal) TypeElem() TyComp               { return s.Head().Type() }
+func (s ListVal) TypeFnc() TyFnc                 { return Group }
+func (s ListVal) Type() TyComp                   { return Def(Group, s.TypeElem()) }
+func (s ListVal) Empty() bool {
+	var _, tail = s()
+	return tail == nil
+}
+func (s ListVal) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		args = NewParms(args)
+		var head, tail = s(args...)
+		return NewPair(head, tail)
+	}
+	var head, tail = s()
+	return NewPair(head, tail)
+}
+func (s ListVal) Slice() []Expression {
+	var (
+		slice      []Expression
+		head, tail = s()
+	)
+	for !head.Type().Match(None) && !tail.Empty() {
+		slice = append(slice, head)
+		head, tail = tail()
+	}
+	return slice
+}
+
+func (s ListVal) String() string {
+	if s.Empty() {
+		return "()"
+	}
+	var (
+		hstr, tstr string
+		head, tail = s()
+	)
+	for !tail.Empty() {
+		hstr = hstr + "(" + head.String() + " "
+		tstr = tstr + ")"
+		head, tail = tail()
+	}
+	hstr = hstr + "(" + head.String()
+	tstr = tstr + ")"
+	return hstr + tstr
 }

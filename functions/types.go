@@ -9,10 +9,10 @@ import (
 
 type (
 	// FLAG TYPES
+	//TyNat d.BitFlag ← defined in data
 	TyKind d.Uint8Val // kind of type flag
 	TyFnc  d.BitFlag  // functional primitive type
 	TyProp d.Int8Val  // call property types
-	//TyNat d.BitFlag ← defined in data
 
 	// TYPE PATTERN
 	TySym  string
@@ -55,8 +55,8 @@ const (
 	Accumulator
 	Constructor
 	/// PARAMETER
+	Parameter
 	Property
-	Argument
 	Lexical
 	Symbol
 	Index
@@ -73,11 +73,11 @@ const (
 	Min
 	Max
 	/// OPTIONS
+	Parametric
 	Switch
 	Case
 	Just
 	None
-	Parametric
 	Either
 	Or
 	/// CLASSES
@@ -88,13 +88,13 @@ const (
 	Letter
 	String
 	Byte
-	/// PRODUCT
+	/// SUM
 	Vector
 	List
 	Set
 	HashMap
+	/// PRODUCT
 	Pair
-	/// SUM
 	Enum
 	Tuple
 	Record
@@ -115,22 +115,48 @@ const (
 	Bound = Min | Max
 
 	//// OPTIONALS
-	Maybe  = Just | None
-	Option = Either | Or
+	Maybe    = Just | None
+	Option   = Either | Or
+	Variants = Maybe | Option
 
 	//// COLLECTIONS
-	Sequences = List | Vector | Group
-	ProdTypes = Sequences | Enum
-	SumTypes  = Set | Record | Tuple
-	Groups    = Sequences | Pair
+	Collections = List | Set | HashMap | Vector
+	Products    = Pair | Enum | Tuple | Record
 
-	Number = Natural | Integer | Real | Ratio
-	Text   = Letter | String
+	//// TOPOLOGYS (maps between categorys)
+	Topologys = Functor | Applicative | Monad |
+		State | IO | Group
+
+	Continua = Collections | Products | Topologys
+	Numbers  = Natural | Integer | Real | Ratio
+	Symbolic = Letter | String | Byte | Truth |
+		Trinary | Compare
 
 	ALL TyFnc = 0xFFFFFFFFFFFFFFFF
 )
 
-//func (t TyFnc) String() string { return "standin string func" }
+// WHEN GO GENERATED FILE IS WRITE PROTECTED AND NEEDS TO BE REGENERATED
+// OUTCOMMENT THIS:
+// func (t TyFnc) String() string { return "standin string func" }
+
+//// MATCHER
+func IsOfType(t d.Typed, arg Expression) bool { return arg.Type().Match(None) }
+func IsNone(arg Expression) bool              { return arg.Type().Match(None) }
+func IsComp(arg Expression) bool              { return arg.Type().Match(Compare) }
+func IsBound(arg Expression) bool             { return arg.Type().Match(Bound) }
+func IsTruth(arg Expression) bool             { return arg.Type().Match(Truth) }
+func IsTrinary(arg Expression) bool           { return arg.Type().Match(Trinary) }
+func IsJust(arg Expression) bool              { return arg.Type().Match(Just) }
+func IsEither(arg Expression) bool            { return arg.Type().Match(Either) }
+func IsOr(arg Expression) bool                { return arg.Type().Match(Or) }
+func IsVariant(arg Expression) bool           { return arg.Type().Match(Variants) }
+func IsVect(arg Expression) bool              { return arg.Type().Match(Vector) }
+func IsList(arg Expression) bool              { return arg.Type().Match(List) }
+func IsType(arg Expression) bool              { return arg.Type().Match(Type) }
+func IsProdT(arg Expression) bool             { return arg.Type().Match(Products) }
+func IsContin(arg Expression) bool            { return arg.Type().Match(Continua) }
+func IsText(arg Expression) bool              { return arg.Type().Match(Symbolic) }
+func IsNumber(arg Expression) bool            { return arg.Type().Match(Numbers) }
 
 // helper functions, to convert between slices of data/typed & ty-pattern
 // instances
@@ -193,12 +219,16 @@ func (t TyFnc) TypeName() string {
 			return "Maybe"
 		case Bound:
 			return "Bound"
-		case SumTypes:
-			return "SumTypes"
-		case ProdTypes:
-			return "ProductTypes"
-		case Groups:
-			return "Funtors"
+		case Products:
+			return "Products"
+		case Continua:
+			return "Continua"
+		case Variants:
+			return "Variants"
+		case Collections:
+			return "Collections"
+		case Symbolic:
+			return "Symbolic"
 		}
 		var delim = "|"
 		var str string
@@ -603,7 +633,6 @@ func (p TyComp) TypeName() string {
 func (p TyComp) TypeElem() TyComp { return p.TypeId() }
 
 // elems yields all elements contained in the pattern
-func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) Types() []d.Typed              { return p }
 func (p TyComp) Call(...Expression) Expression { return p } // ← TODO: match arg instances
 func (p TyComp) Len() int                      { return len(p.Types()) }
@@ -611,6 +640,7 @@ func (p TyComp) Empty() bool                   { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
+func (p TyComp) Type() TyComp                  { return Def(p.TypeFnc()) }
 func (p TyComp) TypeFnc() TyFnc                { return Type }
 
 // length of elements excluding fields set to none
@@ -680,23 +710,11 @@ func (p TyComp) ConsGroup(con Grouped) Grouped {
 	}
 	return Def(types...)
 }
-func (p TyComp) Cons(args ...Expression) Grouped {
-	if len(args) > 0 {
-		var types = make([]d.Typed, 0, len(args))
-		for _, arg := range args {
-			if Kind_Comp.Match(arg.Type().Kind()) {
-				types = append(types, arg.(TyComp))
-				continue
-			}
-			types = append(types, arg.Type())
-		}
-		return Def(types...)
+func (p TyComp) Cons(arg Expression) Grouped {
+	if IsType(arg) {
+		return Def(p, arg.(d.Typed))
 	}
-	var types = make([]d.Typed, 0, p.Len())
-	for _, pat := range p {
-		types = append(types, pat.(TyComp))
-	}
-	return Def(types...)
+	return Def(p, arg.Type())
 }
 
 func (p TyComp) Concat(grp Continued) Grouped {
@@ -825,7 +843,7 @@ func (p TyComp) IsList() bool {
 }
 func (p TyComp) IsFunctor() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Groups)
+		return p.Elements()[0].Match(Continua)
 	}
 	return false
 }
@@ -861,7 +879,7 @@ func (p TyComp) IsSwitch() bool {
 }
 func (p TyComp) IsNumber() bool {
 	if p.Count() == 2 {
-		return p.Elements()[0].Match(Number)
+		return p.Elements()[0].Match(Numbers)
 	}
 	return false
 }
@@ -932,7 +950,7 @@ func (p TyComp) HasCompare() bool     { return p.MatchAnyType(Compare) }
 func (p TyComp) HasBound() bool       { return p.MatchAnyType(Min, Max) }
 func (p TyComp) HasMaybe() bool       { return p.MatchAnyType(Maybe) }
 func (p TyComp) HasAlternative() bool { return p.MatchAnyType(Option) }
-func (p TyComp) HasNumber() bool      { return p.MatchAnyType(Number) }
+func (p TyComp) HasNumber() bool      { return p.MatchAnyType(Numbers) }
 func (p TyComp) HasString() bool      { return p.MatchAnyType(String) }
 func (p TyComp) HasByte() bool        { return p.MatchAnyType(Byte) }
 func (p TyComp) HasCollection() bool {

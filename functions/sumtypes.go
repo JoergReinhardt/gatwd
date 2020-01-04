@@ -44,7 +44,7 @@ func NewNone() NoneVal { return func() {} }
 
 func (n NoneVal) Head() Expression                { return n }
 func (n NoneVal) Tail() Grouped                   { return n }
-func (n NoneVal) Cons(...Expression) Grouped      { return n }
+func (n NoneVal) Cons(Expression) Grouped         { return n }
 func (n NoneVal) ConsGroup(Grouped) Grouped       { return n }
 func (n NoneVal) Concat(Continued) Grouped        { return n }
 func (n NoneVal) Prepend(...Expression) Grouped   { return n }
@@ -66,7 +66,7 @@ func (n NoneVal) TypeNat() d.TyNat                { return d.Nil }
 func (n NoneVal) Type() TyComp                    { return Def(None) }
 func (n NoneVal) TypeElem() TyComp                { return Def(None) }
 func (n NoneVal) TypeName() string                { return n.String() }
-func (n NoneVal) Slice() []Expression             { return []Expression{} }
+func (n NoneVal) Slice() []Expression             { return pool.Get() }
 func (n NoneVal) Flag() d.BitFlag                 { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val            { return Kind_Fnc.U() }
 func (n NoneVal) Continue() (Expression, Grouped) { return NewNone(), NewNone() }
@@ -121,8 +121,8 @@ func NewGenerator(init, generate Expression) GenVal {
 		return init, NewGenerator(next, generate)
 	}
 }
-func (g GenVal) Cons(...Expression) Grouped { return NewNone() }
-func (g GenVal) ConsGroup(Grouped) Grouped  { return NewNone() }
+func (g GenVal) Cons(Expression) Grouped   { return g }
+func (g GenVal) ConsGroup(Grouped) Grouped { return g }
 func (g GenVal) Expr() Expression {
 	var expr, _ = g()
 	return expr
@@ -160,7 +160,7 @@ func (g GenVal) Tail() Grouped                   { return g.Generator() }
 func NewAccumulator(acc, fnc Expression) AccVal {
 	return AccVal(func(args ...Expression) (Expression, AccVal) {
 		if len(args) > 0 {
-			acc = fnc.Call(append([]Expression{acc}, args...)...)
+			acc = fnc.Call(append(pool.Init(acc), args...)...)
 			return acc, NewAccumulator(acc, fnc)
 		}
 		return acc, NewAccumulator(acc, fnc)
@@ -171,13 +171,13 @@ func (g AccVal) Concat(grp Continued) Grouped {
 	return NewListFromGroup(g).Concat(grp)
 }
 func (g AccVal) ConsGroup(con Grouped) Grouped {
-	var args = []Expression{}
+	var args = pool.Get()
 	for head, con := con.Continue(); !con.Empty(); {
 		args = append(args, head)
 	}
 	return NewList(g(args...))
 }
-func (g AccVal) Cons(args ...Expression) Grouped { return NewList(g(args...)) }
+func (g AccVal) Cons(arg Expression) Grouped { return NewList(g(arg)) }
 func (g AccVal) Result() Expression {
 	var res, _ = g()
 	return res
