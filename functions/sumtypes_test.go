@@ -53,7 +53,9 @@ func TestExpression(t *testing.T) {
 		partial.Type().TypeArgs(),
 		partial.Type().TypeId(),
 		partial.Type().TypeRet())
-	if !partial.Type().TypeId().Match(Def(Partial, DefSym("+"))) {
+
+	fmt.Printf("manno ey: %s\n", partial.Type())
+	if !partial.Type().Match(Def(Partial, DefSym("+"))) {
 		t.Fail()
 	}
 

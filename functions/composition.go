@@ -31,29 +31,27 @@ func Curry(f, g FuncDef) FuncDef {
 	return Define(NewNone(), None, None)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//// CONTINUATION COMPOSITION
-///
-// flatten flattens sequences of sequences to one dimension
-func Flatten(grp Continued) Continued {
+/// FLATTEN
+// flattens sequences of sequences to one dimension
+func Flatten(grp Continued) ListVal {
 	if grp.Empty() {
 		return NewList()
 	}
 	if grp.Head().Type().Match(Collections) {
 		return Flatten(
 			grp.Head().(Continued),
-		).Concat(
-			Flatten(grp.Tail()))
+		).Concat(Flatten(grp.Tail())).(ListVal)
 	}
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			grp = grp.Call(args...).(Continued)
 		}
 		var head, tail = grp.Continue()
-		return head, Flatten(tail).(ListVal)
+		return head, Flatten(tail)
 	})
 }
 
+/// MAP
 // map returns a continuation calling the map function for every element
 func Map(
 	con Continued,
@@ -83,6 +81,7 @@ func Map(
 	})
 }
 
+/// APPLY
 // apply returns a continuation called on every element of the continuation.
 // when continuation is called pssing arguments those, are passed to apply
 // alongside the current element
@@ -121,6 +120,7 @@ func Apply(
 	})
 }
 
+/// FOLD
 // fold takes a continuation, an initial expression and a fold function.  the
 // fold function is called for every element of the continuation and passed the
 // current element and init expression and returns a possbly altered init
@@ -153,6 +153,7 @@ func Fold(
 	return NewList(result).Concat(Fold(tail, result, fold)).(ListVal)
 }
 
+/// FILTER
 // continuation of elements not matched by test
 func Filter(
 	con Continued,
@@ -181,6 +182,7 @@ func Filter(
 	return Fold(con, init, fold)
 }
 
+/// PASS
 // continuation of elements matched by test
 func Pass(
 	con Continued,
@@ -209,6 +211,7 @@ func Pass(
 	return Fold(con, init, fold)
 }
 
+/// TAKE-N
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
 func TakeN(grp Continued, n int) Continued {
@@ -225,12 +228,13 @@ func TakeN(grp Continued, n int) Continued {
 			return vector.Cons(arg).(VecVal)
 		}
 	)
-	return Filter(Fold(grp, vec, takeN),
+	return Pass(Fold(grp, vec, takeN),
 		func(arg Expression) bool {
-			return arg.(VecVal).Len() < n
+			return arg.(VecVal).Len() == n
 		})
 }
 
+/// ZIP
 // zip expects two continuations and a function to create a list of resulting
 // elements each created from the two current continuation heads, using the
 // passed zip function.  if arguments are passed calling the lists call method,
@@ -259,6 +263,7 @@ func Zip(
 	})
 }
 
+/// SPLIT
 // split is a variation of fold that splits either a continuation of pairs, or
 // takes two arguments at a time and splits those into continuation of left and
 // right values and returns those as elements of a pair
@@ -277,6 +282,7 @@ func Split(
 	})
 }
 
+/// BIND
 // bind works similar to zip, but the bind function takes additional arguments
 // during runtime and passes them with the heads of both lists passed to the
 // call method (instead of passing on to results call method, analog to
@@ -284,67 +290,93 @@ func Split(
 // the resulting function, bind behaves like the '.' operator in haskell.
 func Bind(
 	f, g Continued,
-	bind func(l, r Expression, args ...Expression) Expression,
+	bind func(f, g Continued) (
+		Expression, Continued, Continued,
+	),
 ) ListVal {
-	if f.Empty() || g.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
-			return NewNone(), nil
-		})
+	if f.Empty() && g.Empty() {
+		return NewList()
 	}
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		var (
-			gh, gt = g.Continue()
-			fh, ft = f.Continue()
-		)
+		var head Expression
+		head, f, g = bind(f, g)
 		if len(args) > 0 {
-			// pass arguments on to bind
-			return bind(gh, fh, args...),
-				Bind(gt, ft, bind)
+			head = head.Call(args...)
 		}
-		return bind(gh, fh), Bind(gt, ft, bind)
+		return head, Bind(f, g, bind)
 	})
 }
 
-// lazy quick sort implementation expects a continuation and a less function
-// that returns true, if its right element is lesser (not equal!) compared to
-// the left one, as its arguments.
-//
-// sort picks continuations current head as pivot, and defines a split function
-// enclosing it, returning elements divided by the less function with pivot as
-// first and current element as second argument to compare against.
-//
-// should the list of lesser elements turn out to be empty, current pivot is
-// returned as head of sorted list and the sorted list of greater elements as
-// its tail.
-//
-// otherwise the list resulting from concatenating the sorted list of greater
-// and equal elements (will include pivot) to the sorted list of lesser
-// elements, is returned.
-//
-// sort calls itself recursively on progressively shorter subsets of the list.
-// computations are evaluated *until* the smallest element of current calls
-// subset is found →
-//
-//  - lazy quicksort type divide & conquer algorithm
-//  - only part of the list lesser current element needs to be sorted
-//  - infinite lists can be sorted (returns a sorted list of all results until
-//    current computation, with every call)
-//
+/// SORT
 func Sort(
-	grp Grouped, less func(l, r Expression) bool,
-) Grouped {
-	if grp.Empty() {
-		return Sort(grp, less)
-	}
-	var (
-		pivot, tail = grp.Continue()
-		lt          = func(arg Expression) bool { return less(arg, pivot) }
-		gteq        = func(arg Expression) bool { return less(pivot, arg) }
-		lesser      = Filter(tail, lt)
-		greater     = Filter(tail, gteq)
-	)
-	if lesser.Empty() {
-		return Sort(greater, less).Cons(pivot)
-	}
-	return Sort(lesser, less).Concat(Sort(greater, less).Cons(pivot))
+	con Continued,
+	less func(l, r Expression) bool,
+) Continued {
+	return con
 }
+
+//	var (
+//		// split into sequence of ascending sequences
+//		cut = func(init, head Expression) Expression {
+//			var vec = init.(VecVal)
+//			if vec.Len() == 0 {
+//				return vec.Cons(NewVector(head))
+//			}
+//			if less(vec.Last().(VecVal).Last(), head) {
+//				var (
+//					last, vec = vec.Pop()
+//					stack     = last.(VecVal)
+//				)
+//				return vec.Cons(stack.Cons(head))
+//			}
+//			return vec.Cons(NewVector(head))
+//		}
+//		mrg = func(l, r Continued) (Expression, Continued, Continued) {
+//			if l.Empty() && r.Empty() {
+//				return NewNone(), NewList(), NewList()
+//			}
+//			var (
+//				head Expression
+//				tail Continued
+//			)
+//			if l.Empty() {
+//				head, tail = r.Continue()
+//				return head, l, tail
+//			}
+//			if r.Empty() || less(l.Head(), r.Head()) {
+//				head, tail = l.Continue()
+//				return head, tail, r
+//			}
+//			head, tail = r.Continue()
+//			return head, l, tail
+//
+//		}
+//		merge = func(acc, asc Expression) Expression {
+//			fmt.Printf("from merge acc: %s\nasc %s\n\n", acc, asc)
+//			var l = asc.(Continued)
+//			if l.Empty() {
+//				return NewNone()
+//			}
+//			if IsNone(acc) {
+//				return NewVector()
+//			}
+//			return Bind(acc.(Continued), l, mrg)
+//		}
+//		conc = func(l, r Continued) (Expression, Continued, Continued) {
+//			var (
+//				head Expression
+//				ascs = l.(Continued)
+//				acc  = r.(Continued)
+//			)
+//			head, ascs = ascs.Continue()
+//			if acc.Empty() {
+//				acc = head.(Continued)
+//				return acc, acc, ascs
+//			}
+//			acc = Bind(head.(Continued), acc, mrg)
+//			return acc, acc, ascs
+//		}
+//		ascs  = Fold(con, NewVector(), cut)
+//		concs = Bind(ascs, NewVector(), conc)
+//	)
+//  return Fold(ascs, concs, merge)

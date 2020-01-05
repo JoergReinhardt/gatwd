@@ -140,23 +140,26 @@ const (
 // func (t TyFnc) String() string { return "standin string func" }
 
 //// MATCHER
-func IsOfType(t d.Typed, arg Expression) bool { return arg.Type().Match(None) }
-func IsNone(arg Expression) bool              { return arg.Type().Match(None) }
-func IsComp(arg Expression) bool              { return arg.Type().Match(Compare) }
-func IsBound(arg Expression) bool             { return arg.Type().Match(Bound) }
-func IsTruth(arg Expression) bool             { return arg.Type().Match(Truth) }
-func IsTrinary(arg Expression) bool           { return arg.Type().Match(Trinary) }
-func IsJust(arg Expression) bool              { return arg.Type().Match(Just) }
-func IsEither(arg Expression) bool            { return arg.Type().Match(Either) }
-func IsOr(arg Expression) bool                { return arg.Type().Match(Or) }
-func IsVariant(arg Expression) bool           { return arg.Type().Match(Variants) }
-func IsVect(arg Expression) bool              { return arg.Type().Match(Vector) }
-func IsList(arg Expression) bool              { return arg.Type().Match(List) }
-func IsType(arg Expression) bool              { return arg.Type().Match(Type) }
-func IsProdT(arg Expression) bool             { return arg.Type().Match(Products) }
-func IsContin(arg Expression) bool            { return arg.Type().Match(Continua) }
-func IsText(arg Expression) bool              { return arg.Type().Match(Symbolic) }
-func IsNumber(arg Expression) bool            { return arg.Type().Match(Numbers) }
+func IsOf(typ d.Typed, arg Expression) bool { return arg.Type().Match(typ) }
+func IsNone(arg Expression) bool            { return arg.Type().Match(None) }
+func IsData(arg Expression) bool            { return arg.Type().Match(Data) }
+func IsCons(arg Expression) bool            { return arg.Type().Match(Constant) }
+func IsComp(arg Expression) bool            { return arg.Type().Match(Compare) }
+func IsBound(arg Expression) bool           { return arg.Type().Match(Bound) }
+func IsTruth(arg Expression) bool           { return arg.Type().Match(Truth) }
+func IsTrinary(arg Expression) bool         { return arg.Type().Match(Trinary) }
+func IsJust(arg Expression) bool            { return arg.Type().Match(Just) }
+func IsEither(arg Expression) bool          { return arg.Type().Match(Either) }
+func IsOr(arg Expression) bool              { return arg.Type().Match(Or) }
+func IsVariant(arg Expression) bool         { return arg.Type().Match(Variants) }
+func IsVect(arg Expression) bool            { return arg.Type().Match(Vector) }
+func IsList(arg Expression) bool            { return arg.Type().Match(List) }
+func IsPair(arg Expression) bool            { return arg.Type().Match(Pair) }
+func IsType(arg Expression) bool            { return arg.Type().Match(Type) }
+func IsProdT(arg Expression) bool           { return arg.Type().Match(Products) }
+func IsContin(arg Expression) bool          { return arg.Type().Match(Continua) }
+func IsText(arg Expression) bool            { return arg.Type().Match(Symbolic) }
+func IsNumber(arg Expression) bool          { return arg.Type().Match(Numbers) }
 
 // helper functions, to convert between slices of data/typed & ty-pattern
 // instances

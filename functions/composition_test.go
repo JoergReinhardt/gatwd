@@ -93,8 +93,8 @@ func TestFilterPassSequence(t *testing.T) {
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
 
-	if ohead.(Grouped).Head().(DatConst)().(d.IntVal) != 7 ||
-		ehead.(Grouped).Head().(DatConst)().(d.IntVal) != 6 {
+	if ohead.(VecVal).Last().(DatConst)().(d.IntVal) != 7 ||
+		ehead.(VecVal).Last().(DatConst)().(d.IntVal) != 6 {
 		t.Fail()
 	}
 }
@@ -119,7 +119,7 @@ func TestTakeNSequence(t *testing.T) {
 	}
 
 	fmt.Printf("last elements head: %s\n", head.(Grouped).Head())
-	if head.(Grouped).Head().(DatConst)().(d.IntVal) != 0 {
+	if head.(Grouped).Head().(DatConst)().(d.IntVal) != 8 {
 		t.Fail()
 	}
 
@@ -127,6 +127,9 @@ func TestTakeNSequence(t *testing.T) {
 	fmt.Printf("take five: %s\n", token)
 	fmt.Printf("take five type: %s\n", token.Type())
 	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Collections))
+
+	token = TakeN(intsA, 4)
+	fmt.Printf("take four: %s\n", token)
 }
 
 func TestFlatttenSequence(t *testing.T) {
@@ -172,46 +175,31 @@ func TestSplitSequence(t *testing.T) {
 }
 
 func TestBindSequence(t *testing.T) {
-
-	var bound = Bind(intsA, intsB, func(l, r Expression, args ...Expression) Expression {
-		if len(args) > 0 {
-			return addInts(append([]Expression{
-				addInts(l, r),
-			}, args...)...)
+	var (
+		rndm = NewVector(randInts(17)...)
+		less = func(l, r Expression) bool {
+			return l.(DatConst)().(d.IntVal) <= r.(DatConst)().(d.IntVal)
 		}
-		return addInts(l, r)
-	})
-	fmt.Printf("bound without passing arguments: %s\n", bound)
-
-	if bound.Head().(DatConst)().(d.IntVal) != 10 {
-		t.Fail()
-	}
-
-	bound = Bind(bound, intsB, func(l, r Expression, args ...Expression) Expression {
-		if len(args) > 0 {
-			return addInts(append([]Expression{
-				addInts(l, r),
-			}, args...)...)
+		cut = func(init, head Expression) Expression {
+			var vec = init.(VecVal)
+			if vec.Empty() {
+				return vec.Cons(NewVector(head))
+			}
+			if less(vec.Last().(VecVal).Last(), head) {
+				var (
+					last, vec = vec.Pop()
+					acc       = last.(VecVal)
+				)
+				return vec.Push(acc.Cons(head))
+			}
+			return vec.Push(NewVector(head))
 		}
-		return addInts(l, r)
-	})
-	fmt.Printf("bound after binding ints-b again: %s\n", bound)
-
-	if bound.Head().(DatConst)().(d.IntVal) != 20 {
-		t.Fail()
-	}
+		tpls = Fold(rndm, NewVector(), cut)
+	)
+	fmt.Printf("tuples: %s\n", tpls.Slice()[len(tpls.Slice())-1])
+	fmt.Printf("randoms: %s\n", rndm)
+	fmt.Printf("slice: %s\n", tpls.Slice())
 }
 
 func TestSortSequence(t *testing.T) {
-	var rndm = NewVector(randInts(20)...)
-	fmt.Printf("random: %s\n", rndm)
-
-	var sorted = Sort(rndm,
-		func(l, r Expression) bool {
-			return l.(DatConst)().(d.IntVal) <
-				r.(DatConst)().(d.IntVal)
-		})
-	fmt.Printf("sorted: %s\n", sorted)
-	fmt.Printf("concat a & b: %s\n", NewList(intsA()...).Concat(NewList(intsB()...)))
-
 }

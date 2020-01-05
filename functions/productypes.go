@@ -272,8 +272,7 @@ func Define(
 					// safe types of arguments remaining to be filled
 					var (
 						remains = ct.TypeArgs().Types()[length:]
-						newpat  = Def(
-							Def(Partial, ct.TypeId()),
+						newpat  = Def(Def(Partial, ct.TypeId()),
 							ct.TypeRet(),
 							Def(remains...))
 					)

@@ -124,9 +124,9 @@ func (p ValPair) String() string {
 }
 func (p ValPair) Call(args ...Expression) Expression {
 	if len(args) > 0 {
-		return p.Value().Call(args...)
+		return NewPair(p.Key(), p.Value().Call(args...))
 	}
-	return p.Value().Call()
+	return p
 }
 
 //// NATIVE VALUE KEY PAIR
@@ -136,19 +136,24 @@ func NewNatPair(key d.Native, val Expression) NatPair {
 	return func(...Expression) (d.Native, Expression) { return key, val }
 }
 
-func (a NatPair) KeyNat() d.Native                   { key, _ := a(); return key }
-func (a NatPair) Value() Expression                  { _, val := a(); return val }
-func (a NatPair) Left() Expression                   { return Box(a.KeyNat()) }
-func (a NatPair) Right() Expression                  { return a.Value() }
-func (a NatPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a NatPair) Pair() Paired                       { return NewPair(a.Both()) }
-func (a NatPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a NatPair) Key() Expression                    { return a.Left() }
-func (a NatPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a NatPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a NatPair) TypeKey() d.Typed                   { return a.KeyNat().Type() }
-func (a NatPair) TypeFnc() TyFnc                     { return Data | Pair }
-func (p NatPair) Type() TyComp                       { return Def(Pair, Def(Key, p.TypeValue())) }
+func (a NatPair) KeyNat() d.Native               { key, _ := a(); return key }
+func (a NatPair) Value() Expression              { _, val := a(); return val }
+func (a NatPair) Left() Expression               { return Box(a.KeyNat()) }
+func (a NatPair) Right() Expression              { return a.Value() }
+func (a NatPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
+func (a NatPair) Pair() Paired                   { return NewPair(a.Both()) }
+func (a NatPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
+func (a NatPair) Key() Expression                { return a.Left() }
+func (a NatPair) TypeValue() d.Typed             { return a.Value().Type() }
+func (a NatPair) TypeKey() d.Typed               { return a.KeyNat().Type() }
+func (a NatPair) TypeFnc() TyFnc                 { return Data | Pair }
+func (p NatPair) Type() TyComp                   { return Def(Pair, Def(Key, p.TypeValue())) }
+func (p NatPair) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewNatPair(p.KeyNat(), p.Value().Call(args...))
+	}
+	return p
+}
 
 // implement swappable
 func (p NatPair) Swap() (Expression, Expression) {
@@ -197,19 +202,24 @@ func NewKeyPair(key string, val Expression) KeyPair {
 	return func(...Expression) (string, Expression) { return key, val }
 }
 
-func (a KeyPair) KeyStr() string                     { key, _ := a(); return key }
-func (a KeyPair) Value() Expression                  { _, val := a(); return val }
-func (a KeyPair) Left() Expression                   { return Box(d.StrVal(a.KeyStr())) }
-func (a KeyPair) Right() Expression                  { return a.Value() }
-func (a KeyPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a KeyPair) Pair() Paired                       { return NewPair(a.Both()) }
-func (a KeyPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a KeyPair) Key() Expression                    { return a.Left() }
-func (a KeyPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a KeyPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a KeyPair) TypeElem() d.Typed                  { return a.Value().Type() }
-func (a KeyPair) TypeKey() d.Typed                   { return Key }
-func (a KeyPair) TypeFnc() TyFnc                     { return Key | Pair }
+func (a KeyPair) KeyStr() string                 { key, _ := a(); return key }
+func (a KeyPair) Value() Expression              { _, val := a(); return val }
+func (a KeyPair) Left() Expression               { return Box(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Right() Expression              { return a.Value() }
+func (a KeyPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
+func (a KeyPair) Pair() Paired                   { return NewPair(a.Both()) }
+func (a KeyPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
+func (a KeyPair) Key() Expression                { return a.Left() }
+func (a KeyPair) TypeValue() d.Typed             { return a.Value().Type() }
+func (a KeyPair) TypeElem() d.Typed              { return a.Value().Type() }
+func (a KeyPair) TypeKey() d.Typed               { return Key }
+func (a KeyPair) TypeFnc() TyFnc                 { return Key | Pair }
+func (p KeyPair) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewKeyPair(p.KeyStr(), p.Value().Call(args...))
+	}
+	return p
+}
 func (p KeyPair) Type() TyComp {
 	return Def(Key|Pair, Def(p.TypeKey(), p.TypeValue()))
 }
@@ -249,19 +259,25 @@ func (p KeyPair) Tail() Grouped    { return NewList(p.Value()) }
 func NewIndexPair(idx int, val Expression) IndexPair {
 	return func(...Expression) (int, Expression) { return idx, val }
 }
-func (a IndexPair) Index() int                         { idx, _ := a(); return idx }
-func (a IndexPair) Value() Expression                  { _, val := a(); return val }
-func (a IndexPair) Left() Expression                   { return Box(d.IntVal(a.Index())) }
-func (a IndexPair) Right() Expression                  { return a.Value() }
-func (a IndexPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a IndexPair) Pair() Paired                       { return a }
-func (a IndexPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a IndexPair) Key() Expression                    { return a.Left() }
-func (a IndexPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a IndexPair) TypeFnc() TyFnc                     { return Index | Pair }
-func (a IndexPair) TypeKey() d.Typed                   { return Index }
-func (a IndexPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a IndexPair) Type() TyComp                       { return Def(Pair, Def(Index, a.TypeValue())) }
+func (a IndexPair) Value() Expression              { _, val := a(); return val }
+func (a IndexPair) Index() int                     { idx, _ := a(); return idx }
+func (a IndexPair) KeyIdx() int                    { return a.Index() }
+func (a IndexPair) Left() Expression               { return Box(d.IntVal(a.Index())) }
+func (a IndexPair) Right() Expression              { return a.Value() }
+func (a IndexPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
+func (a IndexPair) Pair() Paired                   { return a }
+func (a IndexPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
+func (a IndexPair) Key() Expression                { return a.Left() }
+func (a IndexPair) TypeFnc() TyFnc                 { return Index | Pair }
+func (a IndexPair) TypeKey() d.Typed               { return Index }
+func (a IndexPair) TypeValue() d.Typed             { return a.Value().Type() }
+func (a IndexPair) Type() TyComp                   { return Def(Pair, Def(Index, a.TypeValue())) }
+func (p IndexPair) Call(args ...Expression) Expression {
+	if len(args) > 0 {
+		return NewIndexPair(p.Index(), p.Value().Call(args...))
+	}
+	return p
+}
 
 // implement swappable
 func (p IndexPair) Swap() (Expression, Expression) {

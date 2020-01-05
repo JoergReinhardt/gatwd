@@ -257,7 +257,7 @@ func NewVector(elems ...Expression) VecVal {
 	// return slice of elements, when not empty
 	return func(args ...Expression) []Expression {
 		if len(args) > 0 {
-			return append(elems, NewParms(args)...)
+			return append(elems, args...)
 		}
 		return elems
 	}
@@ -269,7 +269,7 @@ func (v VecVal) Cons(arg Expression) Grouped {
 	return v.ConsVec(arg)
 }
 func (v VecVal) ConsVec(args ...Expression) VecVal {
-	return NewVector(v(NewParms(args)...)...)
+	return NewVector(v(args...)...)
 }
 func (v VecVal) Discard() { defer slices.Put(v()) }
 func (v VecVal) Head() Expression {
@@ -310,8 +310,16 @@ func (v VecVal) Push(arg Expression) Stack {
 	return v
 }
 func (v VecVal) Pop() (Expression, Stack) {
-	var head, tail = v.Continue()
-	return head, tail.(VecVal)
+	var (
+		head = v.Last()
+		tail Stack
+	)
+	if v.Len() > 1 {
+		tail = NewVector(v()[:v.Len()-1]...)
+	} else {
+		tail = NewVector()
+	}
+	return head, tail
 }
 func (v VecVal) Put(arg Expression) Queue {
 	if !IsNone(arg) {
@@ -357,11 +365,10 @@ func (v VecVal) Accumulator() AccVal {
 	}
 }
 func (v VecVal) Call(args ...Expression) Expression {
+	var head, tail = v.Continue()
 	if len(args) > 0 {
-		var head, tail = NewVector(v(NewParms(args)...)...).Continue()
-		return NewPair(head, tail)
+		return NewPair(head.Call(args...), tail)
 	}
-	var head, tail = NewVector(v()...).Continue()
 	return NewPair(head, tail)
 }
 
@@ -529,12 +536,10 @@ func (s ListVal) Empty() bool {
 	return tail == nil
 }
 func (s ListVal) Call(args ...Expression) Expression {
+	var head, tail = s.Continue()
 	if len(args) > 0 {
-		args = NewParms(args)
-		var head, tail = s(args...)
-		return NewPair(head, tail)
+		return NewPair(head.Call(args...), tail)
 	}
-	var head, tail = s()
 	return NewPair(head, tail)
 }
 func (s ListVal) Flatten() ListVal {
