@@ -178,27 +178,79 @@ func TestBindSequence(t *testing.T) {
 	var (
 		rndm = NewVector(randInts(17)...)
 		less = func(l, r Expression) bool {
-			return l.(DatConst)().(d.IntVal) <= r.(DatConst)().(d.IntVal)
+			if IsData(l) && IsData(r) {
+				return l.(DatConst)().(d.IntVal) <
+					r.(DatConst)().(d.IntVal)
+			}
+			return false
 		}
-		cut = func(init, head Expression) Expression {
+		cut = func(init, num Expression) Expression {
+			if IsNone(init) {
+				return NewVector(num)
+			}
 			var vec = init.(VecVal)
-			if vec.Empty() {
-				return vec.Cons(NewVector(head))
+			if less(vec.Last(), num) {
+				return vec.Cons(num)
 			}
-			if less(vec.Last().(VecVal).Last(), head) {
-				var (
-					last, vec = vec.Pop()
-					acc       = last.(VecVal)
-				)
-				return vec.Push(acc.Cons(head))
-			}
-			return vec.Push(NewVector(head))
+			return NewNone()
 		}
-		tpls = Fold(rndm, NewVector(), cut)
+		tpls  = Fold(rndm, NewNone(), cut)
+		merge = func(left, right Continued) (Expression, Continued, Continued) {
+			var head Expression
+			if left.Empty() && right.Empty() {
+				return NewNone(), left, right
+			}
+			if left.Empty() {
+				head, right = right.Continue()
+				return head, left, right
+			}
+			if right.Empty() {
+				head, left = left.Continue()
+				return head, left, right
+			}
+			if less(left.Head(), right.Head()) {
+				head, left = left.Continue()
+				return head, left, right
+			}
+			head, right = right.Continue()
+			return head, left, right
+		}
+		bind = func(seqs, acc Continued) (Expression, Continued, Continued) {
+			var (
+				head Expression
+				seq  Continued
+			)
+			if seqs.Empty() {
+				head, acc = acc.Continue()
+				return head, seqs, acc
+			}
+			head, seqs = acc.Continue()
+			seq = head.(Continued)
+			if acc.Empty() { // current sequence replaces accumulator
+				return seq, seqs, seq
+			}
+			// accumulate merge of current sequence and accumulator
+			var merged = Bind(acc, seq, merge)
+			return merged, seqs, merged
+		}
+		bound = Bind(tpls, NewVector(), bind)
 	)
-	fmt.Printf("tuples: %s\n", tpls.Slice()[len(tpls.Slice())-1])
 	fmt.Printf("randoms: %s\n", rndm)
-	fmt.Printf("slice: %s\n", tpls.Slice())
+	fmt.Printf("bound: %s\n", bound)
+	fmt.Printf("tuples: %s\n", tpls)
+	var merged = Bind(
+		NewVector(randInts(20)[:9]...),
+		NewVector(randInts(20)[9:]...),
+		merge)
+	fmt.Printf("merged: %s\n", merged)
+	var head, left, right = merge(
+		NewVector(randInts(20)[:9]...),
+		NewVector(randInts(20)[9:]...))
+	for !(left.Empty() && right.Empty()) {
+		fmt.Printf("head: %s\nleft: %s\nright: %s\n\n", head, left, right)
+		head, left, right = merge(left, right)
+	}
+	fmt.Printf("head: %s\nleft: %s\nright: %s\n\n", head, left, right)
 }
 
 func TestSortSequence(t *testing.T) {

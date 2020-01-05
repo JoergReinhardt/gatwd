@@ -305,7 +305,7 @@ func (v VecVal) Append(args ...Expression) Queue {
 }
 func (v VecVal) Push(arg Expression) Stack {
 	if !IsNone(arg) {
-		return v.Cons(arg).(VecVal)
+		return NewVector(append(v(), arg)...)
 	}
 	return v
 }
@@ -571,6 +571,7 @@ func (s ListVal) Slice() []Expression {
 		slice = append(slice, head)
 		head, tail = tail()
 	}
+	slice = append(slice, head)
 	return slice
 }
 
