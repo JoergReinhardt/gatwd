@@ -195,7 +195,8 @@ func TestBindSequence(t *testing.T) {
 			return NewNone()
 		}
 		tpls  = Fold(rndm, NewNone(), cut)
-		merge = func(left, right Continued) (Expression, Continued, Continued) {
+		merge = func(left, right Continued, args ...Expression) (
+			Expression, Continued, Continued) {
 			var head Expression
 			if left.Empty() && right.Empty() {
 				return NewNone(), left, right
@@ -215,26 +216,44 @@ func TestBindSequence(t *testing.T) {
 			head, right = right.Continue()
 			return head, left, right
 		}
-		bind = func(seqs, acc Continued) (Expression, Continued, Continued) {
+		bind = func(seqs, acc Continued, args ...Expression) (
+			Expression, Continued, Continued) {
 			var (
 				head Expression
-				seq  Continued
+				cur  Continued
 			)
 			if seqs.Empty() {
-				head, acc = acc.Continue()
-				return head, seqs, acc
 			}
 			head, seqs = acc.Continue()
-			seq = head.(Continued)
+			cur = head.(Continued)
 			if acc.Empty() { // current sequence replaces accumulator
-				return seq, seqs, seq
+				return NewNone(), seqs, cur
 			}
 			// accumulate merge of current sequence and accumulator
-			var merged = Bind(acc, seq, merge)
+			var merged = Bind(acc, cur, merge)
 			return merged, seqs, merged
+		}
+		cutasc = func(elems, acc Continued, args ...Expression) (
+			Expression, Continued, Continued,
+		) {
+			if elems.Empty() {
+				return NewNone(), NewList(), NewList()
+			}
+			var (
+				head Expression
+				vec  = acc.(VecVal)
+			)
+			head, elems = elems.Continue()
+			if less(head, vec.Last()) {
+				vec = vec.Cons(head).(VecVal)
+				return NewNone(), elems, vec
+			}
+			return vec, elems, NewVector(head)
 		}
 		bound = Bind(tpls, NewVector(), bind)
 	)
+	fmt.Printf("randoms bound to cutasc %s\n",
+		Bind(NewVector(randInts(29)...), NewVector(), cutasc))
 	fmt.Printf("randoms: %s\n", rndm)
 	fmt.Printf("bound: %s\n", bound)
 	fmt.Printf("tuples: %s\n", tpls)

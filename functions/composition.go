@@ -283,14 +283,9 @@ func Split(
 }
 
 /// BIND
-// bind works similar to zip, but the bind function takes additional arguments
-// during runtime and passes them with the heads of both lists passed to the
-// call method (instead of passing on to results call method, analog to
-// map/apply).  when both functions are curryed and the arguments are passed to
-// the resulting function, bind behaves like the '.' operator in haskell.
 func Bind(
 	f, g Continued,
-	bind func(f, g Continued) (
+	bind func(f, g Continued, args ...Expression) (
 		Expression, Continued, Continued,
 	),
 ) ListVal {
@@ -298,12 +293,24 @@ func Bind(
 		return NewList()
 	}
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
-		var head Expression
-		head, f, g = bind(f, g)
+		var result Expression
 		if len(args) > 0 {
-			head = head.Call(args...)
+			result, f, g = bind(f, g, args...)
+		} else {
+			result, f, g = bind(f, g)
 		}
-		return head, Bind(f, g, bind)
+		// progress computing continuations and skip none values yielded in the process‥.
+		if IsNone(result) { // if computation yields no Result‥.
+			// ‥.as long as continuations are not depleted‥.
+			for IsNone(result) && !(g.Empty() && f.Empty()) { // ‥.and no result is yielded‥.
+				result, f, g = bind(f, g) // ‥.re-calculate the result‥.
+			}
+			if IsNone(result) { //  continua depleted, result still none →
+				return result, nil // RETURN FINAL RESULT
+			}
+		}
+		// return result yielded by bind operation
+		return result, Bind(f, g, bind)
 	})
 }
 
