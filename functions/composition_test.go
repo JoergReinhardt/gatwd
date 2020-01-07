@@ -176,79 +176,58 @@ func TestSplitSequence(t *testing.T) {
 
 func TestBindSequence(t *testing.T) {
 	var (
-		//		tpls  = Bind(rndm, NewVector(), cutasc)
-		//		merge = func(left, right Continued, args ...Expression) (
-		//			Expression, Continued, Continued) {
-		//			var head Expression
-		//			if left.Empty() && right.Empty() {
-		//				return NewNone(), left, right
-		//			}
-		//			if left.Empty() {
-		//				head, right = right.Continue()
-		//				return head, left, right
-		//			}
-		//			if right.Empty() {
-		//				head, left = left.Continue()
-		//				return head, left, right
-		//			}
-		//			if less(left.Head(), right.Head()) {
-		//				head, left = left.Continue()
-		//				return head, left, right
-		//			}
-		//			head, right = right.Continue()
-		//			return head, left, right
-		//		}
-		rndm = NewVector(randInts(20)...)
-		less = func(l, r Expression) bool {
-			if IsData(l) && IsData(r) {
-				return l.(DatConst)().(d.IntVal) <=
-					r.(DatConst)().(d.IntVal)
-			}
-			return true
-		}
-		cutasc = func(elems, acc Grouped, args ...Expression) (
-			Expression, Grouped, Grouped,
-		) {
-			if elems.Empty() {
-				return NewNone(), NewVector(), NewVector()
-			}
-
-			var head Expression
-			head, elems = elems.Continue()
-
-			if acc.(VecVal).Len() == 0 {
-				if !elems.Empty() {
-					return head, elems, acc
-				}
-				return NewNone(), elems, acc.Cons(head)
-			}
-			if less(acc.(VecVal).Last(), head) {
-				return NewNone(), elems, acc.Cons(head)
-			}
-			return acc, elems, NewVector(head)
-		}
-	)
-
-	fmt.Printf("random sequence %s\n", rndm)
-	fmt.Printf("randoms bound to cutasc %s\n",
-		Bind(rndm, NewVector(), cutasc))
-
-	//	var (
-	//		head, result Expression
-	//		list         Grouped = Bind(rndm, NewVector(), cutasc)
-	//		vec          Grouped = NewVector()
-	//	)
-	//	for head, list = list.Continue(); !list.Empty(); {
-	//		//		fmt.Printf("inner loop head: %s\t", head)
-	//	}
+	//		tpls  = Bind(rndm, NewVector(), cutasc)
+	//		merge = func(left, right Continued, args ...Expression) (
+	//			Expression, Continued, Continued) {
+	//			var head Expression
+	//			if left.Empty() && right.Empty() {
+	//				return NewNone(), left, right
+	//			}
+	//			if left.Empty() {
+	//				head, right = right.Continue()
+	//				return head, left, right
+	//			}
+	//			if right.Empty() {
+	//				head, left = left.Continue()
+	//				return head, left, right
+	//			}
+	//			if less(left.Head(), right.Head()) {
+	//				head, left = left.Continue()
+	//				return head, left, right
+	//			}
+	//			head, right = right.Continue()
+	//			return head, left, right
+	//		}
+	//		rndm = NewVector(randInts(19)...)
+	//		less = func(l, r Expression) bool {
+	//			if IsData(l) && IsData(r) {
+	//				return l.(DatConst)().(d.IntVal) <=
+	//					r.(DatConst)().(d.IntVal)
+	//			}
+	//			return true
+	//		}
+	//		cutasc = func(elems, acc Grouped, args ...Expression) (
+	//			Expression, Grouped, Grouped,
+	//		) {
+	//			//			if elems.Empty() && acc.Empty() {
+	//			//				return NewNone(), NewVector(), NewVector()
+	//			//			}
 	//
-	//	list = rndm
-	//	for !(list.Empty() && vec.Empty()) {
-	//		head, list = list.Continue()
-	//		result, list, vec = cutasc(list, vec)
-	//		//	fmt.Printf("result: %s\taccumulator: %s\n", result, vec)
-	//	}
-	//	fmt.Printf("result: %s\thead: %s\n", result, head)
+	//			var head Expression
+	//			head, elems = elems.Continue()
+	//			if IsNone(head) && elems.Empty() {
+	//				return NewNone(), NewVector(), NewVector()
+	//			}
+	//			if acc.(VecVal).Len() == 0 {
+	//				return head, elems, acc
+	//				return NewNone(), elems, acc.Cons(head)
+	//			}
+	//			if less(acc.(VecVal).Last(), head) {
+	//				return NewNone(), elems, acc.Cons(head)
+	//			}
+	//			return acc, elems, NewVector(head)
+	//		}
+	)
 }
 
 func TestSortSequence(t *testing.T) {

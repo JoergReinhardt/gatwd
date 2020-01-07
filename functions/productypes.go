@@ -254,72 +254,72 @@ func Define(
 	types ...d.Typed,
 ) FuncDef {
 	var (
-		ct     = createFuncType(expr, types...)
-		arglen = ct.TypeArgs().Len()
+		ft     = createFuncType(expr, types...)
+		arglen = ft.TypeArgs().Len()
 	)
 	// return partialy applicable function
 	return func(args ...Expression) Expression {
 		var length = len(args)
-		if length > 0 {
-			if ct.TypeArgs().MatchArgs(args...) {
-				switch {
-				// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
-				case length == arglen:
-					return expr.Call(args...)
-
-				// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
-				case length < arglen:
-					// safe types of arguments remaining to be filled
-					var (
-						remains = ct.TypeArgs().Types()[length:]
-						newpat  = Def(Def(Partial, ct.TypeId()),
-							ct.TypeRet(),
-							Def(remains...))
-					)
-					// define new function from remaining
-					// set of argument types, enclosing the
-					// current arguments & appending its
-					// own aruments to them, when called.
-					return Define(Lambda(func(lateargs ...Expression) Expression {
-						// will return result, or
-						// another partial, when called
-						// with arguments
-						if len(lateargs) > 0 {
-							return expr.Call(append(
-								args, lateargs...,
-							)...)
-						}
-						// if no arguments where
-						// passed, return the reduced
-						// type ct
-						return newpat
-					}), newpat.Types()...)
-
-				// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
-				case length > arglen:
-					// allocate vector to hold multiple instances
-					var vector = NewVector()
-					// iterate over arguments, allocate an instance per satisfying set
-					for len(args) > arglen {
-						vector = vector.Cons(
-							expr.Call(args[:arglen]...)).(VecVal)
-						args = args[arglen:]
-					}
-					if length > 0 { // number of leftover arguments is insufficient
-						// add a partial expression as vectors last element
-						vector = vector.Cons(Define(
-							expr, ct.Types()...,
-						).Call(args...)).(VecVal)
-					}
-					// return vector of instances
-					return vector
-				}
-			}
-			// passed argument(s) didn't match the expected type(s)
-			return None
+		if length == 0 {
+			// no arguments where passed, return the expression type
+			return ft
 		}
-		// no arguments where passed, return the expression type
-		return ct
+		if ft.TypeArgs().MatchArgs(args...) {
+			switch {
+			// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
+			case length == arglen:
+				return expr.Call(args...)
+
+			// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
+			case length < arglen:
+				// safe types of arguments remaining to be filled
+				var (
+					remains = ft.TypeArgs().Types()[length:]
+					newpat  = Def(Def(Partial, ft.TypeId()),
+						ft.TypeRet(),
+						Def(remains...))
+				)
+				// define new function from remaining
+				// set of argument types, enclosing the
+				// current arguments & appending its
+				// own aruments to them, when called.
+				return Define(Lambda(func(lateargs ...Expression) Expression {
+					// will return result, or
+					// another partial, when called
+					// with arguments
+					if len(lateargs) > 0 {
+						return expr.Call(append(
+							args, lateargs...,
+						)...)
+					}
+					// if no arguments where
+					// passed, return the reduced
+					// type ct
+					return newpat
+				}), newpat.Types()...)
+
+			// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
+			case length > arglen:
+				// allocate vector to hold multiple instances
+				var vector = NewVector()
+				// iterate over arguments, allocate an instance per satisfying set
+				for len(args) > arglen {
+					vector = vector.Cons(
+						expr.Call(args[:arglen]...)).(VecVal)
+					args = args[arglen:]
+				}
+				if length > 0 { // number of leftover arguments is insufficient
+					// add a partial expression as vectors last element
+					vector = vector.Cons(Define(
+						expr, ft.Types()...,
+					).Call(args...)).(VecVal)
+				}
+				// return vector of instances
+				return vector
+			}
+		}
+		// passed argument(s) didn't match the expected type(s)
+		return None
 	}
 }
 func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }

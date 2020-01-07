@@ -296,22 +296,18 @@ func Bind(
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 
 		var result Expression
-		//		if len(args) > 0 {
-		result, f, g = bind(f, g, args...)
-		//		} else {
-		//			result, f, g = bind(f, g)
-		//		}
+		if len(args) > 0 {
+			result, f, g = bind(f, g, args...)
+		} else {
+			result, f, g = bind(f, g)
+		}
 		// ‥.as long as continuations are not depleted‥.
 		for IsNone(result) { // ‥.and no result is yielded‥.
 			result, f, g = bind(f, g) // ‥.re-calculate the result‥.
 			if f.Empty() && g.Empty() {
-				break
+				return result, NewList() // RETURN FINAL RESULT
 			}
 		}
-		if IsNone(result) {
-			return result, NewList() // RETURN FINAL RESULT
-		}
-
 		fmt.Printf("result: %s\tnone?: %t\tf-empty?: %t\tg-empty?: %t\n\n",
 			result, IsNone(result), f.Empty(), g.Empty())
 
