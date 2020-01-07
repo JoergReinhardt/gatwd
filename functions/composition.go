@@ -1,7 +1,5 @@
 package functions
 
-import "fmt"
-
 type (
 
 	//// COLLECTIONS
@@ -652,7 +650,6 @@ func Sort(
 	if grp.Empty() {
 		return NewSequence()
 	}
-	var (
-		pivot = grp.Head()
-	)
+	var ()
+	return NewSequence()
 }
