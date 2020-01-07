@@ -1,5 +1,7 @@
 package functions
 
+import "fmt"
+
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSITION OF DEFINED FUNCTIONS
 ///
@@ -74,7 +76,7 @@ func Map(
 		}
 		var head, tail = con.Continue()
 		// skip none instances, when tail has further elements
-		if head.Type().Match(None) && !tail.Empty() {
+		if IsNone(head) && !tail.Empty() {
 			return Map(tail, mapf)()
 		}
 		return mapf(head), Map(tail, mapf)
@@ -100,20 +102,22 @@ func Apply(
 			return NewNone(), nil
 		})
 	}
+
 	var head, tail = con.Continue()
+
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
-			var head, tail = apply(head, args...),
+			head, tail = apply(head, args...),
 				Apply(tail, apply)
 				// skip none
-			if head.Type().Match(None) && !tail.Empty() {
+			if IsNone(head) && !tail.Empty() {
 				return Apply(tail, apply)()
 			}
 
 		}
 		var head, tail = apply(head), Apply(tail, apply)
 		// skip none
-		if head.Type().Match(None) && !tail.Empty() {
+		if IsNone(head) && !tail.Empty() {
 			return Apply(tail, apply)()
 		}
 		return head, tail
@@ -284,31 +288,33 @@ func Split(
 
 /// BIND
 func Bind(
-	f, g Continued,
-	bind func(f, g Continued, args ...Expression) (
-		Expression, Continued, Continued,
+	f, g Grouped,
+	bind func(f, g Grouped, args ...Expression) (
+		Expression, Grouped, Grouped,
 	),
 ) ListVal {
-	if f.Empty() && g.Empty() {
-		return NewList()
-	}
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
+
 		var result Expression
-		if len(args) > 0 {
-			result, f, g = bind(f, g, args...)
-		} else {
-			result, f, g = bind(f, g)
-		}
-		// progress computing continuations and skip none values yielded in the process‥.
-		if IsNone(result) { // if computation yields no Result‥.
-			// ‥.as long as continuations are not depleted‥.
-			for IsNone(result) && !(g.Empty() && f.Empty()) { // ‥.and no result is yielded‥.
-				result, f, g = bind(f, g) // ‥.re-calculate the result‥.
-			}
-			if IsNone(result) { //  continua depleted, result still none →
-				return result, nil // RETURN FINAL RESULT
+		//		if len(args) > 0 {
+		result, f, g = bind(f, g, args...)
+		//		} else {
+		//			result, f, g = bind(f, g)
+		//		}
+		// ‥.as long as continuations are not depleted‥.
+		for IsNone(result) { // ‥.and no result is yielded‥.
+			result, f, g = bind(f, g) // ‥.re-calculate the result‥.
+			if f.Empty() && g.Empty() {
+				break
 			}
 		}
+		if IsNone(result) {
+			return result, NewList() // RETURN FINAL RESULT
+		}
+
+		fmt.Printf("result: %s\tnone?: %t\tf-empty?: %t\tg-empty?: %t\n\n",
+			result, IsNone(result), f.Empty(), g.Empty())
+
 		// return result yielded by bind operation
 		return result, Bind(f, g, bind)
 	})

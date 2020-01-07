@@ -262,14 +262,14 @@ func NewVector(elems ...Expression) VecVal {
 		return elems
 	}
 }
+func (v VecVal) ConsVec(args ...Expression) VecVal {
+	return NewVector(v(args...)...)
+}
 func (v VecVal) Cons(arg Expression) Grouped {
 	if IsNone(arg) {
 		return v
 	}
 	return v.ConsVec(arg)
-}
-func (v VecVal) ConsVec(args ...Expression) VecVal {
-	return NewVector(v(args...)...)
 }
 func (v VecVal) Discard() { defer slices.Put(v()) }
 func (v VecVal) Head() Expression {

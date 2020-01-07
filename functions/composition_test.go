@@ -176,100 +176,79 @@ func TestSplitSequence(t *testing.T) {
 
 func TestBindSequence(t *testing.T) {
 	var (
-		rndm = NewVector(randInts(17)...)
+		//		tpls  = Bind(rndm, NewVector(), cutasc)
+		//		merge = func(left, right Continued, args ...Expression) (
+		//			Expression, Continued, Continued) {
+		//			var head Expression
+		//			if left.Empty() && right.Empty() {
+		//				return NewNone(), left, right
+		//			}
+		//			if left.Empty() {
+		//				head, right = right.Continue()
+		//				return head, left, right
+		//			}
+		//			if right.Empty() {
+		//				head, left = left.Continue()
+		//				return head, left, right
+		//			}
+		//			if less(left.Head(), right.Head()) {
+		//				head, left = left.Continue()
+		//				return head, left, right
+		//			}
+		//			head, right = right.Continue()
+		//			return head, left, right
+		//		}
+		rndm = NewVector(randInts(20)...)
 		less = func(l, r Expression) bool {
 			if IsData(l) && IsData(r) {
-				return l.(DatConst)().(d.IntVal) <
+				return l.(DatConst)().(d.IntVal) <=
 					r.(DatConst)().(d.IntVal)
 			}
-			return false
+			return true
 		}
-		cut = func(init, num Expression) Expression {
-			if IsNone(init) {
-				return NewVector(num)
-			}
-			var vec = init.(VecVal)
-			if less(vec.Last(), num) {
-				return vec.Cons(num)
-			}
-			return NewNone()
-		}
-		tpls  = Fold(rndm, NewNone(), cut)
-		merge = func(left, right Continued, args ...Expression) (
-			Expression, Continued, Continued) {
-			var head Expression
-			if left.Empty() && right.Empty() {
-				return NewNone(), left, right
-			}
-			if left.Empty() {
-				head, right = right.Continue()
-				return head, left, right
-			}
-			if right.Empty() {
-				head, left = left.Continue()
-				return head, left, right
-			}
-			if less(left.Head(), right.Head()) {
-				head, left = left.Continue()
-				return head, left, right
-			}
-			head, right = right.Continue()
-			return head, left, right
-		}
-		bind = func(seqs, acc Continued, args ...Expression) (
-			Expression, Continued, Continued) {
-			var (
-				head Expression
-				cur  Continued
-			)
-			if seqs.Empty() {
-			}
-			head, seqs = acc.Continue()
-			cur = head.(Continued)
-			if acc.Empty() { // current sequence replaces accumulator
-				return NewNone(), seqs, cur
-			}
-			// accumulate merge of current sequence and accumulator
-			var merged = Bind(acc, cur, merge)
-			return merged, seqs, merged
-		}
-		cutasc = func(elems, acc Continued, args ...Expression) (
-			Expression, Continued, Continued,
+		cutasc = func(elems, acc Grouped, args ...Expression) (
+			Expression, Grouped, Grouped,
 		) {
 			if elems.Empty() {
-				return NewNone(), NewList(), NewList()
+				return NewNone(), NewVector(), NewVector()
 			}
-			var (
-				head Expression
-				vec  = acc.(VecVal)
-			)
+
+			var head Expression
 			head, elems = elems.Continue()
-			if less(head, vec.Last()) {
-				vec = vec.Cons(head).(VecVal)
-				return NewNone(), elems, vec
+
+			if acc.(VecVal).Len() == 0 {
+				if !elems.Empty() {
+					return head, elems, acc
+				}
+				return NewNone(), elems, acc.Cons(head)
 			}
-			return vec, elems, NewVector(head)
+			if less(acc.(VecVal).Last(), head) {
+				return NewNone(), elems, acc.Cons(head)
+			}
+			return acc, elems, NewVector(head)
 		}
-		bound = Bind(tpls, NewVector(), bind)
 	)
+
+	fmt.Printf("random sequence %s\n", rndm)
 	fmt.Printf("randoms bound to cutasc %s\n",
-		Bind(NewVector(randInts(29)...), NewVector(), cutasc))
-	fmt.Printf("randoms: %s\n", rndm)
-	fmt.Printf("bound: %s\n", bound)
-	fmt.Printf("tuples: %s\n", tpls)
-	var merged = Bind(
-		NewVector(randInts(20)[:9]...),
-		NewVector(randInts(20)[9:]...),
-		merge)
-	fmt.Printf("merged: %s\n", merged)
-	var head, left, right = merge(
-		NewVector(randInts(20)[:9]...),
-		NewVector(randInts(20)[9:]...))
-	for !(left.Empty() && right.Empty()) {
-		fmt.Printf("head: %s\nleft: %s\nright: %s\n\n", head, left, right)
-		head, left, right = merge(left, right)
-	}
-	fmt.Printf("head: %s\nleft: %s\nright: %s\n\n", head, left, right)
+		Bind(rndm, NewVector(), cutasc))
+
+	//	var (
+	//		head, result Expression
+	//		list         Grouped = Bind(rndm, NewVector(), cutasc)
+	//		vec          Grouped = NewVector()
+	//	)
+	//	for head, list = list.Continue(); !list.Empty(); {
+	//		//		fmt.Printf("inner loop head: %s\t", head)
+	//	}
+	//
+	//	list = rndm
+	//	for !(list.Empty() && vec.Empty()) {
+	//		head, list = list.Continue()
+	//		result, list, vec = cutasc(list, vec)
+	//		//	fmt.Printf("result: %s\taccumulator: %s\n", result, vec)
+	//	}
+	//	fmt.Printf("result: %s\thead: %s\n", result, head)
 }
 
 func TestSortSequence(t *testing.T) {
