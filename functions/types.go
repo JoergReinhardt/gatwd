@@ -305,7 +305,7 @@ func (p TyProp) Parametric() bool { return !p.Flag().Match(Primitive.Flag()) }
 //// TYPE SYMBOL
 ///
 // type flag representing pattern elements that define symbols
-func DefSym(name string) TySym   { return TySym(name) }
+func DefSym(symbol string) TySym { return TySym(symbol) }
 func (n TySym) Kind() d.Uint8Val { return Kind_Sym.U() }
 func (n TySym) Flag() d.BitFlag  { return Symbol.Flag() }
 func (n TySym) Type() TyComp     { return Def(n) }
@@ -514,8 +514,8 @@ func (p TyComp) ConsumeTyped() (d.Typed, TyComp) {
 	return p.HeadTyped(), p.TailTyped()
 }
 
-// pattern yields a slice of type patterns, with all none & nil elements
-// filtered out
+// elements returns the instnces of d.Typed initially passed to the
+// constructor.
 func (p TyComp) Elements() []d.Typed {
 	var elems = make([]d.Typed, 0, p.Count())
 	for _, elem := range p {
@@ -531,6 +531,9 @@ func (p TyComp) Elements() []d.Typed {
 	}
 	return elems
 }
+
+// fields returns each element as instance of composed-type, either casting the
+// element as such, or instanciating one from the d.Typed interface isntance
 func (p TyComp) Fields() []TyComp {
 	var elems = make([]TyComp, 0, p.Count())
 	for _, elem := range p.Elements() {
@@ -551,16 +554,28 @@ func (p TyComp) Fields() []TyComp {
 	return elems
 }
 
+// print returns a string representation of a pattern, seperating the elements
+// with a seperator and putting sub patterns in delimiters. seperator and
+// delimiters are passed to the method. sub patterns are printed recursively.
+func (p TyComp) print(ldelim, sep, rdelim string) string {
+	var names = make([]string, 0, p.Len())
+	for _, typ := range p.Types() {
+		names = append(names, typ.TypeName())
+	}
+	// print elements wrapped in delimiters, seperated by seperator
+	return ldelim + strings.Join(names, sep) + rdelim
+}
+
 func (p TyComp) ArgumentsName() string {
 	if p.TypeArgs().Len() > 0 {
 		if !p.TypeArgs().Match(None) {
 			if p.TypeArgs().Len() > 1 {
 				var ldelim, sep, rdelim = "", " → ", ""
-				return p.TypeArgs().Print(
+				return p.TypeArgs().print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeArgs().Print("", " ", "")
+			return p.TypeArgs().print("", " ", "")
 		}
 	}
 	return ""
@@ -582,11 +597,11 @@ func (p TyComp) IdentName() string {
 				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeId().Print(
+				return p.TypeId().print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeId().Print("", " ", "")
+			return p.TypeId().print("", " ", "")
 		}
 	}
 	return ""
@@ -608,11 +623,11 @@ func (p TyComp) ReturnName() string {
 				case p.TypeId().Match(Enum):
 					ldelim, sep, rdelim = "[", " | ", "]"
 				}
-				return p.TypeRet().Print(
+				return p.TypeRet().print(
 					ldelim, sep, rdelim,
 				)
 			}
-			return p.TypeRet().Print("", " ", "")
+			return p.TypeRet().print("", " ", "")
 		}
 	}
 	return ""
@@ -747,26 +762,6 @@ func (p TyComp) Pattern() []TyComp {
 		pattern = append(pattern, Def(typ))
 	}
 	return pattern
-}
-
-// print converts pattern to string, seperating the elements with a seperator
-// and putting sub patterns in delimiters. seperator and delimiters are passed
-// to the method. sub patterns are printed recursively.
-func (p TyComp) Print(ldelim, sep, rdelim string) string {
-	var names = make([]string, 0, p.Len())
-	for _, typ := range p.Types() {
-		// element is instance of data/typed → print type-name
-		if !Kind_Comp.Match(typ.Kind()) {
-			names = append(names, typ.TypeName())
-			continue
-		}
-		// element is a type pattern
-		var pat = typ.(TyComp)
-		// print type pattern with delimiters and separator
-		names = append(names, pat.Print(ldelim, sep, rdelim))
-	}
-	// print elements wrapped in delimiters, seperated by seperator
-	return ldelim + strings.Join(names, sep) + rdelim
 }
 
 // bool methods

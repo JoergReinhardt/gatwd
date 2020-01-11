@@ -176,56 +176,34 @@ func TestSplitSequence(t *testing.T) {
 
 func TestBindSequence(t *testing.T) {
 	var (
-	//		tpls  = Bind(rndm, NewVector(), cutasc)
-	//		merge = func(left, right Continued, args ...Expression) (
-	//			Expression, Continued, Continued) {
-	//			var head Expression
-	//			if left.Empty() && right.Empty() {
-	//				return NewNone(), left, right
+	//		cut = func(pair Paired, arg Expression) (Expression, ValPair) {
+	//			if IsNone(pair.Left()) {
+	//				return NewNone(), pair.(ValPair)
 	//			}
-	//			if left.Empty() {
-	//				head, right = right.Continue()
-	//				return head, left, right
+	//			if IsNone(pair.Right()) {
+	//				pair = NewPair(pair.Left(), NewVector())
 	//			}
-	//			if right.Empty() {
-	//				head, left = left.Continue()
-	//				return head, left, right
+	//			var (
+	//				head Expression
+	//				seq  = pair.Left().(Continued)
+	//				acc  = pair.Right().(VecVal)
+	//			)
+	//			head, seq = seq.Continue()
+	//			if IsNone(head) { // on list depletion return empty pair
+	//				return acc, NewPair(NewNone(), NewNone())
 	//			}
-	//			if less(left.Head(), right.Head()) {
-	//				head, left = left.Continue()
-	//				return head, left, right
+	//			// if current head is lesser than last accumulted
+	//			// element, return none, accumulate head and return
+	//			// shortened sequence and accumulator as pair.
+	//			if head.(DatConst)().(d.IntVal) <
+	//				acc.Last().(DatConst)().(d.IntVal) {
+	//				acc = acc.Cons(head).(VecVal)
+	//				return NewNone(), NewPair(seq, acc)
 	//			}
-	//			head, right = right.Continue()
-	//			return head, left, right
-	//		}
-	//		rndm = NewVector(randInts(19)...)
-	//		less = func(l, r Expression) bool {
-	//			if IsData(l) && IsData(r) {
-	//				return l.(DatConst)().(d.IntVal) <=
-	//					r.(DatConst)().(d.IntVal)
-	//			}
-	//			return true
-	//		}
-	//		cutasc = func(elems, acc Grouped, args ...Expression) (
-	//			Expression, Grouped, Grouped,
-	//		) {
-	//			//			if elems.Empty() && acc.Empty() {
-	//			//				return NewNone(), NewVector(), NewVector()
-	//			//			}
-	//
-	//			var head Expression
-	//			head, elems = elems.Continue()
-	//			if IsNone(head) && elems.Empty() {
-	//				return NewNone(), NewVector(), NewVector()
-	//			}
-	//			if acc.(VecVal).Len() == 0 {
-	//				return head, elems, acc
-	//				return NewNone(), elems, acc.Cons(head)
-	//			}
-	//			if less(acc.(VecVal).Last(), head) {
-	//				return NewNone(), elems, acc.Cons(head)
-	//			}
-	//			return acc, elems, NewVector(head)
+	//			// if current head is greater last element, return
+	//			// current accumulator and allocate a new one with
+	//			// current head as its first element
+	//			return acc, NewPair(seq, NewVector(head))
 	//		}
 	)
 }

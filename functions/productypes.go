@@ -42,9 +42,6 @@ type (
 	CaseDef   func(...Expression) Expression // variadic to enable type overload
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
-	//// DECLARED EXPRESSION
-	FuncDef func(...Expression) Expression
-
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
 	Polymorph func(...Expression) (Expression, []FuncDef, int)
 	Variant   func(...Expression) (Expression, Polymorph)
@@ -222,114 +219,6 @@ func (t SwitchDef) Call(args ...Expression) Expression {
 	}
 	return NewNone()
 }
-
-/// PARTIAL APPLYABLE EXPRESSION VALUE
-//
-// defines typesafe partialy applicable expression.  if the set of optional type
-// argument(s) starts with a symbol, that will be assumed to be the types
-// identity.  otherwise the identity is derived from the passed expression,
-// types first field will be the return type, its second field the (set of)
-// argument type(s), additional arguments are considered propertys.
-func createFuncType(expr Expression, types ...d.Typed) TyComp {
-	// if type arguments have been passed, build the type based on them‥.
-	if len(types) > 0 {
-		// if the first element in pattern is a symbol to be used as
-		// ident, just define type from type arguments‥.
-		if Kind_Sym.Match(types[0].Kind()) {
-			return Def(types...)
-		} else { // ‥.otherwise use the expressions ident type
-			return Def(append([]d.Typed{expr.Type().TypeId()}, types...)...)
-		}
-	}
-	// ‥.otherwise define by expressions identity entirely in terms of the
-	// passed expression type
-	return Def(expr.Type().TypeId(),
-		expr.Type().TypeRet(),
-		expr.Type().TypeArgs())
-
-}
-
-func Define(
-	expr Expression,
-	types ...d.Typed,
-) FuncDef {
-	var (
-		ft     = createFuncType(expr, types...)
-		arglen = ft.TypeArgs().Len()
-	)
-	// return partialy applicable function
-	return func(args ...Expression) Expression {
-		var length = len(args)
-		if length == 0 {
-			// no arguments where passed, return the expression type
-			return ft
-		}
-		if ft.TypeArgs().MatchArgs(args...) {
-			switch {
-			// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
-			case length == arglen:
-				return expr.Call(args...)
-
-			// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
-			case length < arglen:
-				// safe types of arguments remaining to be filled
-				var (
-					remains = ft.TypeArgs().Types()[length:]
-					newpat  = Def(Def(Partial, ft.TypeId()),
-						ft.TypeRet(),
-						Def(remains...))
-				)
-				// define new function from remaining
-				// set of argument types, enclosing the
-				// current arguments & appending its
-				// own aruments to them, when called.
-				return Define(Lambda(func(lateargs ...Expression) Expression {
-					// will return result, or
-					// another partial, when called
-					// with arguments
-					if len(lateargs) > 0 {
-						return expr.Call(append(
-							args, lateargs...,
-						)...)
-					}
-					// if no arguments where
-					// passed, return the reduced
-					// type ct
-					return newpat
-				}), newpat.Types()...)
-
-			// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
-			case length > arglen:
-				// allocate vector to hold multiple instances
-				var vector = NewVector()
-				// iterate over arguments, allocate an instance per satisfying set
-				for len(args) > arglen {
-					vector = vector.Cons(
-						expr.Call(args[:arglen]...)).(VecVal)
-					args = args[arglen:]
-				}
-				if length > 0 { // number of leftover arguments is insufficient
-					// add a partial expression as vectors last element
-					vector = vector.Cons(Define(
-						expr, ft.Types()...,
-					).Call(args...)).(VecVal)
-				}
-				// return vector of instances
-				return vector
-			}
-		}
-		// passed argument(s) didn't match the expected type(s)
-		return None
-	}
-}
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
 
 //// POLYMORPHIC TYPE
 ///
