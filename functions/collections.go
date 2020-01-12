@@ -110,8 +110,6 @@ func (p Params) ApplyVector(v VecVal) VecVal  { return NewVector(v(p...)...) }
 func (p Params) List() ListVal                { return NewList(p...) }
 func (p Params) Group() Grouped               { return NewList(p...) }
 func (p Params) Vector() VecVal               { return NewVector(p...) }
-func (p Params) TupleCon() TupCon             { return NewTupleType(p.Types()...) }
-func (p Params) TupleVal() TupVal             { return p.TupleCon()(p...) }
 func (p Params) Discard()                     { slices.Put(p) }
 func (p Params) Reverse() Params {
 	defer slices.Put(p)

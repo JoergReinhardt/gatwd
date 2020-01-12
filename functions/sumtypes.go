@@ -35,7 +35,7 @@ type (
 	EnumVal func(...Expression) (Expression, d.Numeral, EnumCon)
 
 	//// FUNCTION DEFINITION
-	FuncDef func(...Expression) Expression
+	Definition func(...Expression) Expression
 )
 
 //// NONE VALUE CONSTRUCTOR
@@ -82,8 +82,8 @@ func NewConstant(constant func() Expression) Const { return constant }
 
 func (c Const) Type() TyComp                  { return Def(Constant, c().Type(), None) }
 func (c Const) TypeIdent() TyComp             { return c().Type().TypeId() }
-func (c Const) TypeReturn() TyComp            { return c().Type().TypeRet() }
-func (c Const) TypeArguments() TyComp         { return Def(None) }
+func (c Const) TypeRet() TyComp               { return c().Type().TypeRet() }
+func (c Const) TypeArgs() TyComp              { return Def(None) }
 func (c Const) TypeFnc() TyFnc                { return Constant }
 func (c Const) String() string                { return c().String() }
 func (c Const) Call(...Expression) Expression { return c() }
@@ -308,125 +308,178 @@ func (e EnumVal) Call(args ...Expression) Expression {
 
 /// PARTIAL APPLYABLE EXPRESSION VALUE
 //
-// defines typesafe partialy applicable expression.  if the set of optional type
-// argument(s) starts with a symbol, that will be assumed to be the types
-// identity.  otherwise the identity is derived from the passed expression,
-// types first field will be the return type, its second field the (set of)
-// argument type(s), additional arguments are considered propertys.
+// helper function to create function type definition:
+//  - identity:
+//    - first typearg if its a type-symbol
+//    - first typeargs type-id, if instance of comp-type
+//    - first typeargs type-name, if instance of d.typed
+//    - create from expressions type signature, (argtypes → idtype →
+//      returntype), if no typeargs where passed
+//  - return & argument types are carried over from expression
 func createFuncType(expr Expression, types ...d.Typed) TyComp {
-	// if type arguments have been passed, build the type based on them‥.
 	if len(types) > 0 {
-		// if the first element in pattern is a symbol to be used as
-		// ident, just define type from type arguments‥.
+		// if first types argument is a symbol, use it as identity
 		if Kind_Sym.Match(types[0].Kind()) {
 			return Def(types...)
-		} else { // ‥.otherwise use the expressions ident type
-			var name string
-			if len(types) == 1 {
+		} else {
+			var (
+				name  string
+				ident TySym
+			)
+			// if first types argument is a composed type
+			if Kind_Comp.Match(types[0].Kind()) {
+				// return composed types identity
+				name = types[0].(TyComp).TypeId().TypeName()
+			} else {
+				// return flat types name
 				name = types[0].TypeName()
 			}
+			// create type identity from name
+			ident = DefSym(name)
+			// if more types arguments where passed‥.
 			if len(types) > 1 {
-				name = "(" + types[1].TypeName() +
-					" → " + types[2].TypeName() + ")"
+				// return ident followed by remaining types
+				// arguments forreturn and argument types
+				return Def(append(
+					[]d.Typed{ident},
+					types[1:]...)...)
 			}
-			var ident = DefSym(name)
-			return Def(append([]d.Typed{ident}, types...)...)
 		}
 	}
-	// ‥.otherwise define functions identity from enclosed expressions
-	// argument & return types
+	// no types arguments where passed, compose type identity from
+	// expressions identity, return & argument types
 	var (
 		name = "(" +
 			expr.Type().TypeArgs().TypeName() +
+			" → " +
+			expr.Type().TypeId().TypeName() +
 			" → " +
 			expr.Type().TypeRet().TypeName() +
 			")"
 		ident = DefSym(name)
 	)
-	return Def(ident, //expr.Type(),
+	// return type identity, take return & argument types from expression.
+	return Def(ident,
 		expr.Type().TypeRet(),
 		expr.Type().TypeArgs())
 
 }
 
+// define creates and returns a tagged and type-safe data constructor, or
+// function definition & signature (function type).
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) FuncDef {
+) Definition {
+
+	// create the function type definition and take the number of expexted
+	// arguments
 	var (
 		ft     = createFuncType(expr, types...)
 		arglen = ft.TypeArgs().Len()
 	)
-	// return partialy applicable function
+
+	// return partialy applable function
 	return func(args ...Expression) Expression {
+
+		// take number of passed arguments
 		var length = len(args)
+
+		/////////////////////////
+		// NO ARGUMENTS PASSED →
 		if length == 0 {
-			// no arguments where passed, return the expression type
 			return ft
 		}
+
+		// test if arguments passed match argument types
 		if ft.TypeArgs().MatchArgs(args...) {
+
+			// switch based on number of passed arguments relative
+			// to number of arguments expected by the type
+			// definition
 			switch {
+			////////////////////////////////////////////////
 			// NUMBER OF PASSED ARGUMENTS MATCHES EXACTLY →
 			case length == arglen:
+				// return result of calling the enclosed
+				// expression passing the arguments
 				return expr.Call(args...)
 
-			// NUMBER OF PASSED ARGUMENTS IS INSUFFICIENT →
+			/////////////////////////////////////////////
+			// NUMBER OF PASSED ARGUMENTS INSUFFICIENT →
 			case length < arglen:
-				// safe types of arguments remaining to be filled
+
+				// safe types of arguments remaining to be
+				// filled
 				var (
 					remains = ft.TypeArgs().Types()[length:]
 					newpat  = Def(Def(Partial, ft.TypeId()),
 						ft.TypeRet(),
 						Def(remains...))
 				)
-				// define new function from remaining
-				// set of argument types, enclosing the
-				// current arguments & appending its
-				// own aruments to them, when called.
+
+				// define partial function from remaining set
+				// of argument types, that encloses all
+				// arguments that have been passed and
+				// validated so far, appends arguments passed
+				// in later calls and returns the result from
+				// applying them to the enclosed function.
 				return Define(Lambda(func(lateargs ...Expression) Expression {
-					// will return result, or
-					// another partial, when called
-					// with arguments
+					// will return result, or yet another
+					// partial, depending on arguments
 					if len(lateargs) > 0 {
 						return expr.Call(append(
 							args, lateargs...,
 						)...)
 					}
-					// if no arguments where
-					// passed, return the reduced
-					// type ct
+					// if no arguments where passed, return
+					// the redefined partial type
 					return newpat
 				}), newpat.Types()...)
 
-			// NUMBER OF PASSED ARGUMENTS OVERSATISFYING →
+			//////////////////////////////////////////////
+			// NUMBER OF PASSED ARGUMENTS OVERSATURATED →
 			case length > arglen:
-				// allocate vector to hold multiple instances
+
+				// allocate a vector to hold multiple instances
+				// of return type
 				var vector = NewVector()
-				// iterate over arguments, allocate an instance per satisfying set
+
+				// iterate over passed arguments, allocate one
+				// instance of defined type per satisfying set
+				// of arguments
 				for len(args) > arglen {
 					vector = vector.Cons(
 						expr.Call(args[:arglen]...)).(VecVal)
 					args = args[arglen:]
 				}
-				if length > 0 { // number of leftover arguments is insufficient
-					// add a partial expression as vectors last element
+
+				// check for leftover arguments that don't
+				// satisfy the definition, and possibly create
+				// and return a partial as last element in the
+				// slice of return values, when such exist.
+				if length > 0 {
+					// add a partial expression as vectors
+					// last element
 					vector = vector.Cons(Define(
 						expr, ft.Types()...,
 					).Call(args...)).(VecVal)
 				}
+
 				// return vector of instances
 				return vector
 			}
 		}
-		// passed argument(s) didn't match the expected type(s)
+		////////////////////////////////////////////
+		// ARGUMENT TYPES DO NOT MATCH DEFINITION →
 		return None
 	}
 }
-func (e FuncDef) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e FuncDef) Type() TyComp                       { return e().(TyComp) }
-func (e FuncDef) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e FuncDef) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e FuncDef) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e FuncDef) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e FuncDef) String() string                     { return e().String() }
-func (e FuncDef) Call(args ...Expression) Expression { return e(args...) }
+func (e Definition) TypeFnc() TyFnc                     { return Constructor | Value }
+func (e Definition) Type() TyComp                       { return e().(TyComp) }
+func (e Definition) TypeId() TyComp                     { return e.Type().TypeId() }
+func (e Definition) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
+func (e Definition) TypeRet() TyComp                    { return e.Type().TypeRet() }
+func (e Definition) ArgCount() int                      { return e.Type().TypeArgs().Count() }
+func (e Definition) String() string                     { return e().String() }
+func (e Definition) Call(args ...Expression) Expression { return e(args...) }

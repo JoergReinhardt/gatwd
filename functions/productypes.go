@@ -33,6 +33,7 @@ import (
 )
 
 type (
+
 	// TESTS AND COMPARE
 	TestFunc    func(Expression) bool
 	TrinaryFunc func(Expression) int
@@ -43,20 +44,12 @@ type (
 	SwitchDef func(...Expression) (Expression, []CaseDef)
 
 	//// POLYMORPHIC EXPRESSION (INSTANCE OF CASE-SWITCH)
-	Polymorph func(...Expression) (Expression, []FuncDef, int)
+	Polymorph func(...Expression) (Expression, []Definition, int)
 	Variant   func(...Expression) (Expression, Polymorph)
 
-	// TUPLE (TYPE[0]...TYPE[N])
-	TupCon func(...Expression) TupVal
-	TupVal []Expression
-
-	//// RECORD (PAIR(KEY, VAL)[0]...PAIR(KEY, VAL)[N])
-	RecCon func(...Expression) RecVal
-	RecVal []KeyPair
-
 	// MAYBE (JUST | NONE)
-	MaybeDef func(...Expression) Expression
-	JustVal  func(...Expression) Expression
+	MaybeType func(...Expression) Expression
+	JustVal   func(...Expression) Expression
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
 	AlternateDef func(...Expression) Expression
@@ -126,7 +119,11 @@ func (t CompareFunc) Compare(arg Expression) int     { return t(arg) }
 // case instance to test its arguments and yield the result of applying those
 // arguments to the expression, in case the test yielded true.  otherwise the
 // case will yield none.
-func NewCase(test Testable, expr Expression, argtype, retype d.Typed) CaseDef {
+func NewCase(
+	test Testable,
+	expr Expression,
+	argtype, retype d.Typed,
+) CaseDef {
 	var pattern = Def(Def(Case, test.Type()), retype, argtype)
 	return func(args ...Expression) Expression {
 		if len(args) > 0 {
@@ -224,7 +221,7 @@ func (t SwitchDef) Call(args ...Expression) Expression {
 ///
 //
 // declare new polymorphic named type from cases
-func NewPolyType(name string, defs ...FuncDef) Polymorph {
+func NewPolyType(name string, defs ...Definition) Polymorph {
 	var (
 		types   = make([]d.Typed, 0, len(defs))
 		pattern TyComp
@@ -238,9 +235,9 @@ func NewPolyType(name string, defs ...FuncDef) Polymorph {
 
 // type constructor to construct type instances holding execution state during
 // recursion
-func createPolyType(pattern TyComp, idx int, defs ...FuncDef) Polymorph {
+func createPolyType(pattern TyComp, idx int, defs ...Definition) Polymorph {
 	var length = len(defs)
-	return func(args ...Expression) (Expression, []FuncDef, int) {
+	return func(args ...Expression) (Expression, []Definition, int) {
 		if len(args) > 0 { // arguments where passed
 			if idx < length { // not all cases scrutinized yet
 				// scrutinize arguments, retrieve fnc, or none
@@ -315,7 +312,7 @@ func (p Polymorph) Type() TyComp {
 }
 
 // returns set of all sub-type defining cases
-func (p Polymorph) Cases() []FuncDef {
+func (p Polymorph) Cases() []Definition {
 	var _, c, _ = p()
 	return c
 }
@@ -382,166 +379,21 @@ func (p Variant) Call(args ...Expression) Expression {
 	return p.Expr()
 }
 
-//// TUPLE TYPE
-///
-// tuple type constructor expects a slice of field types and possibly a symbol
-// type flag, to define the types name, otherwise 'tuple' is the type name and
-// the sequence of field types is shown instead
-func NewTupleType(types ...d.Typed) TupCon {
-	return func(args ...Expression) TupVal {
-		var tup TupVal = TupVal(slices.Get())
-		if Def(types...).MatchArgs(args...) {
-			for _, arg := range args {
-				tup = append(tup, arg)
-			}
-		}
-		if len(tup) == 0 {
-			for _, t := range types {
-				if Kind_Comp.Match(t.Kind()) {
-					tup = append(tup, t.(TyComp))
-				}
-				tup = append(tup, Def(t))
-			}
-		}
-		return tup
-	}
-}
-
-func (t TupCon) Call(args ...Expression) Expression { return t(args...) }
-func (t TupCon) TypeFnc() TyFnc                     { return Tuple | Constructor }
-func (t TupCon) String() string                     { return t.Type().String() }
-func (t TupCon) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t()))
-	for _, c := range t() {
-		if Kind_Comp.Match(c.Type().Kind()) {
-			types = append(types, c.(TyComp))
-			continue
-		}
-		types = append(types, c.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
-
-/// TUPLE VALUE
-// tuple value is a slice of expressions, constructed by a tuple type
-// constructor validated according to its type pattern.
-func (t TupVal) Len() int { return len(t) }
-func (t TupVal) String() string {
-	var strs = make([]string, 0, t.Len())
-	for _, val := range t {
-		strs = append(strs, val.String())
-	}
-	return "[" + strings.Join(strs, ", ") + "]"
-}
-func (t TupVal) Get(idx int) Expression {
-	if idx < t.Len() {
-		return t[idx]
-	}
-	return NewNone()
-}
-func (t TupVal) TypeFnc() TyFnc                     { return Tuple }
-func (t TupVal) Call(args ...Expression) Expression { return NewVector(append(t, args...)...) }
-func (t TupVal) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t))
-	for _, tup := range t {
-		types = append(types, tup.Type())
-	}
-	return Def(Tuple, Def(types...))
-}
-
-//// RECORD TYPE
-///
-//
-func NewRecordType(fields ...KeyPair) RecCon {
-	return func(args ...Expression) RecVal {
-		var rec = make(RecVal, 0, len(args))
-		if len(args) > 0 {
-			for n, arg := range args {
-				if len(fields) > n && arg.Type().Match(Key|Pair) {
-					if kp, ok := arg.(KeyPair); ok {
-						if strings.Compare(
-							string(kp.KeyStr()),
-							string(fields[n].KeyStr()),
-						) == 0 &&
-							fields[n].Value().Type().Match(
-								kp.Value().Type(),
-							) {
-							rec = append(rec, kp)
-						}
-					}
-				}
-			}
-		}
-		if len(rec) == 0 {
-			return fields
-		}
-		return rec
-	}
-}
-
-func (t RecCon) Call(args ...Expression) Expression { return t(args...) }
-func (t RecCon) TypeFnc() TyFnc                     { return Record | Constructor }
-func (t RecCon) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t()))
-	for _, field := range t() {
-		types = append(types, Def(
-			DefSym(field.KeyStr()),
-			Def(field.Value().Type()),
-		))
-	}
-	return Def(Record, Def(types...))
-}
-func (t RecCon) String() string { return t.Type().String() }
-
-/// RECORD VALUE
-// tuple value is a slice of expressions, constructed by a tuple type
-// constructor validated according to its type pattern.
-func (t RecVal) TypeFnc() TyFnc { return Record }
-func (t RecVal) Call(args ...Expression) Expression {
-	var fields = slices.Get()
-	for _, field := range t {
-		fields = append(fields, field)
-	}
-	for _, arg := range args {
-		if arg.Type().Match(Pair | Key) {
-			if kp, ok := arg.(KeyPair); ok {
-				fields = append(fields, kp)
-			}
-		}
-	}
-	return NewVector(fields...)
-}
-func (t RecVal) Type() TyComp {
-	var types = make([]d.Typed, 0, len(t))
-	for _, tup := range t {
-		types = append(types, tup.Type())
-	}
-	return Def(Record, Def(types...))
-}
-func (t RecVal) Len() int { return len(t) }
-func (t RecVal) String() string {
-	var strs = make([]string, 0, t.Len())
-	for _, field := range t {
-		strs = append(strs,
-			`"`+field.Key().String()+`"`+" ∷ "+field.Value().String())
-	}
-	return "{" + strings.Join(strs, " ") + "}"
-}
-
 /// MAYBE VALUE
 //
 // the constructor takes a case expression, expected to return a result, if the
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
-func NewMaybe(cas CaseDef) MaybeDef {
+func NewMaybe(cas CaseDef) MaybeType {
 	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
 	for _, arg := range cas.TypeArguments() {
 		argtypes = append(argtypes, arg)
 	}
 	var (
-		pattern = Def(Def(Just|None), Def(cas.TypeReturn()), Def(argtypes...))
+		//		pattern = Def(Def(Just|None), Def(cas.TypeReturn()), Def(argtypes...))
+		pattern = Def(Maybe, Def(Def(Just, cas.TypeReturn()), None), Def(argtypes...))
 	)
-	return func(args ...Expression) Expression {
+	return MaybeType(func(args ...Expression) Expression {
 		if len(args) > 0 {
 			// pass arguments to case, check if result is none‥.
 			if result := cas.Call(args...); !result.Type().Match(None) {
@@ -560,21 +412,21 @@ func NewMaybe(cas CaseDef) MaybeDef {
 			return NewNone()
 		}
 		return pattern
-	}
+	})
 }
 
-func (t MaybeDef) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeDef) Type() TyComp                       { return t().(TyComp) }
-func (t MaybeDef) TypeArguments() TyComp              { return t().Type().TypeArgs() }
-func (t MaybeDef) TypeReturn() TyComp                 { return t().Type().TypeRet() }
-func (t MaybeDef) String() string                     { return t().String() }
-func (t MaybeDef) Call(args ...Expression) Expression { return t.Call(args...) }
+func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
+func (t MaybeType) Type() TyComp                       { return t().(TyComp) }
+func (t MaybeType) TypeArguments() TyComp              { return t().Type().TypeArgs() }
+func (t MaybeType) TypeReturn() TyComp                 { return t().Type().TypeRet() }
+func (t MaybeType) String() string                     { return t().String() }
+func (t MaybeType) Call(args ...Expression) Expression { return t.Call(args...) }
 
 // maybe values methods
-func (t JustVal) TypeFnc() TyFnc                     { return Just }
 func (t JustVal) Call(args ...Expression) Expression { return t(args...) }
 func (t JustVal) String() string                     { return t().String() }
 func (t JustVal) Type() TyComp                       { return t().Type() }
+func (t JustVal) TypeFnc() TyFnc                     { return Just | t().TypeFnc() }
 
 //// OPTIONAL VALUE
 ///

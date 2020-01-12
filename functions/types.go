@@ -658,7 +658,7 @@ func (p TyComp) Empty() bool                   { return p.Len() == 0 }
 func (p TyComp) String() string                { return p.TypeName() }
 func (p TyComp) Kind() d.Uint8Val              { return Kind_Comp.U() }
 func (p TyComp) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
-func (p TyComp) Type() TyComp                  { return Def(p.TypeFnc()) }
+func (p TyComp) Type() TyComp                  { return p }
 func (p TyComp) TypeFnc() TyFnc                { return Type }
 
 // length of elements excluding fields set to none

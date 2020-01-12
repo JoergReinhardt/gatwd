@@ -221,7 +221,7 @@ func (p KeyPair) Call(args ...Expression) Expression {
 	return p
 }
 func (p KeyPair) Type() TyComp {
-	return Def(Key|Pair, Def(p.TypeKey(), p.TypeValue()))
+	return Def(Key|Pair, Def(Key, p.TypeValue()))
 }
 
 // implement swappable
