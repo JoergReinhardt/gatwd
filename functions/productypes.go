@@ -2,27 +2,6 @@
 
 PRODUCT TYPES
 -------------
-
-productypes are parametric types, that generate a subtype for every possible
-combination of its arguments. product types are defined as the union of unions
-of its elements types. different elements of a product type product may be of
-various type.
-
-examples for productypes
-  - records & tuples since their elements can vary in type
-  - maybe → just|none
-  - either|or
-  - the function signature type
-    - a signatures type is always function
-    - varying argument & return types define different sub types of the
-      function type
-    - a function types argument & return types are analog to record, or tuples
-      element types
-  - polymorphic function type
-    - polymorph types are a set of possibly different signature types
-    - every distinct set of signature types is a unique sub type of the
-      polymorph type
-
 */
 package functions
 
@@ -182,14 +161,17 @@ func (t CaseDef) Type() TyComp {
 func (t CaseDef) Test() TestFunc {
 	return t().(Paired).Right().(TestFunc)
 }
-func (t CaseDef) TypeIdent() TyComp {
+func (t CaseDef) TypeId() TyComp {
 	return t.Type().Pattern()[0]
 }
-func (t CaseDef) TypeReturn() TyComp {
+func (t CaseDef) TypeRet() TyComp {
 	return t.Type().Pattern()[1]
 }
-func (t CaseDef) TypeArguments() TyComp {
+func (t CaseDef) TypeArgs() TyComp {
 	return t.Type().Pattern()[2]
+}
+func (t CaseDef) TypeName() string {
+	return t.Type().TypeName()
 }
 func (t CaseDef) String() string {
 	return t.TypeFnc().TypeName()
@@ -274,13 +256,13 @@ func (t SwitchDef) Call(args ...Expression) Expression {
 // case matches the arguments and either returns the resulting none instance,
 // or creates a just instance enclosing the resulting value.
 func NewMaybe(cas CaseDef) MaybeType {
-	var argtypes = make([]d.Typed, 0, len(cas.TypeArguments()))
-	for _, arg := range cas.TypeArguments() {
+	var argtypes = make([]d.Typed, 0, len(cas.TypeArgs()))
+	for _, arg := range cas.TypeArgs() {
 		argtypes = append(argtypes, arg)
 	}
 	var (
 		pattern = Def(Maybe, Def(Def(
-			Just, cas.TypeReturn()),
+			Just, cas.TypeRet()),
 			None), Def(argtypes...))
 	)
 	return MaybeType(func(args ...Expression) Expression {

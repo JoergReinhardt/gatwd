@@ -16,21 +16,22 @@ func _() {
 	_ = x[Kind_Expr-5]
 	_ = x[Kind_Prop-6]
 	_ = x[Kind_Lex-7]
+	_ = x[Kind_Opt-8]
 	_ = x[Kind_Comp-255]
 }
 
 const (
-	_TyKind_name_0 = "Kind_BitFlagKind_NatKind_FncKind_KeyKind_SymKind_ExprKind_PropKind_Lex"
+	_TyKind_name_0 = "Kind_BitFlagKind_NatKind_FncKind_KeyKind_SymKind_ExprKind_PropKind_LexKind_Opt"
 	_TyKind_name_1 = "Kind_Comp"
 )
 
 var (
-	_TyKind_index_0 = [...]uint8{0, 12, 20, 28, 36, 44, 53, 62, 70}
+	_TyKind_index_0 = [...]uint8{0, 12, 20, 28, 36, 44, 53, 62, 70, 78}
 )
 
 func (i TyKind) String() string {
 	switch {
-	case 0 <= i && i <= 7:
+	case 0 <= i && i <= 8:
 		return _TyKind_name_0[_TyKind_index_0[i]:_TyKind_index_0[i+1]]
 	case i == 255:
 		return _TyKind_name_1

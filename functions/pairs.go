@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"fmt"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -11,6 +13,10 @@ type (
 	KeyPair   func(...Expression) (string, Expression)
 	IndexPair func(...Expression) (int, Expression)
 	RealPair  func(...Expression) (float64, Expression)
+
+	//// COLLECTIONS OF VALUE PAIRS
+	KeyMap  map[string]Expression
+	RealMap map[float64]Expression
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -373,3 +379,85 @@ func (p RealPair) Continue() (Expression, Grouped) {
 }
 func (p RealPair) Head() Expression { return p.Key() }
 func (p RealPair) Tail() Grouped    { return NewList(p.Value()) }
+
+///////////////////////////////////////////////////////////////////////////////
+//// KEY MAP
+///
+func NewKeyMap(pairs ...KeyPair) KeyMap {
+	var m = map[string]Expression{}
+	for _, pair := range pairs {
+		m[pair.KeyStr()] = pair.Value()
+	}
+	return m
+}
+func (k KeyMap) Type() TyComp                       { return Def(Key, HashMap) }
+func (k KeyMap) TypeFnc() TyFnc                     { return Key | HashMap }
+func (k KeyMap) Call(args ...Expression) Expression { return k }
+func (k KeyMap) String() string {
+	var str = "{\n}"
+	for k, v := range k {
+		str = str + k + " ∷ " + v.String() + "\n"
+	}
+	str = str + "}"
+	return str
+}
+func (k KeyMap) Get(key string) Expression {
+	if val, ok := k[key]; ok {
+		return val
+	}
+	return NewNone()
+}
+func (k KeyMap) GetPair(key string) KeyPair {
+	if val, ok := k[key]; ok {
+		return NewKeyPair(key, val)
+	}
+	return NewKeyPair("", NewNone())
+}
+func (k KeyMap) Pairs() []KeyPair {
+	var pairs = make([]KeyPair, 0, len(k))
+	for k, v := range k {
+		pairs = append(pairs, NewKeyPair(k, v))
+	}
+	return pairs
+}
+
+//// REAL MAP
+///
+func NewRealMap(pairs ...RealPair) RealMap {
+	var m = map[float64]Expression{}
+	for _, pair := range pairs {
+		m[pair.Real()] = pair.Value()
+	}
+	return m
+}
+func (k RealMap) Type() TyComp                       { return Def(Real, HashMap) }
+func (k RealMap) TypeFnc() TyFnc                     { return Real | HashMap }
+func (k RealMap) Call(args ...Expression) Expression { return k }
+func (k RealMap) String() string {
+	var str = "{\n}"
+	for k, v := range k {
+		str = str + fmt.Sprintf("%f", k) + " ∷ " +
+			v.String() + "\n"
+	}
+	str = str + "}"
+	return str
+}
+func (k RealMap) Get(key float64) Expression {
+	if val, ok := k[key]; ok {
+		return val
+	}
+	return NewNone()
+}
+func (k RealMap) GetPair(key float64) RealPair {
+	if val, ok := k[key]; ok {
+		return NewRealPair(key, val)
+	}
+	return NewRealPair(0.0, NewNone())
+}
+func (k RealMap) Pairs() []RealPair {
+	var pairs = make([]RealPair, 0, len(k))
+	for k, v := range k {
+		pairs = append(pairs, NewRealPair(k, v))
+	}
+	return pairs
+}

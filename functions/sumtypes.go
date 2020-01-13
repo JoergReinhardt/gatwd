@@ -62,6 +62,10 @@ type (
 
 	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
 	FuncVal func(...Expression) Expression
+
+	//// Generic
+	/// funtions return type depends on argument type(s)
+	PolyVal SwitchDef
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -433,3 +437,24 @@ func (e FuncVal) TypeRet() TyComp  { return e.Type().TypeRet() }
 func (e FuncVal) TypeName() string { return e.Type().TypeName() }
 func (e FuncVal) ArgCount() int    { return e.Type().TypeArgs().Count() }
 func (e FuncVal) String() string   { return e().String() }
+
+//// GENERIC FUNCTION VALUE
+///
+//   generic functions return values of different types depending on
+//   argument VALUE(S)
+func NewGeneric(cases ...CaseDef) PolyVal {
+	return PolyVal(NewSwitch(cases...))
+}
+
+//// POLYMORPHIC FUNCTION VALUE
+///
+//  polymorphic functions return values of different types depending on
+//  arguments TYPE(S).  function definitions behave like case definitions and can
+//  be cast as such, which makes polymorphic values a special case of generics
+func NewPolymorph(variants ...FuncVal) PolyVal {
+	var cases = make([]CaseDef, 0, len(variants))
+	for _, v := range variants {
+		cases = append(cases, CaseDef(v))
+	}
+	return NewGeneric(cases...)
+}

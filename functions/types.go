@@ -16,6 +16,7 @@ type (
 
 	// TYPE PATTERN
 	TySym  string
+	TyOpt  TyComp
 	TyComp []d.Typed
 	TyExp  func(...Expression) Expression
 )
@@ -30,6 +31,7 @@ const (
 	Kind_Expr
 	Kind_Prop
 	Kind_Lex
+	Kind_Opt
 
 	Kind_Comp TyKind = 255
 )
@@ -327,6 +329,48 @@ func (n TySym) Call(args ...Expression) Expression {
 }
 func (n TySym) Match(typ d.Typed) bool {
 	return s.Compare(string(n), typ.TypeName()) == 0
+}
+
+//// TYPE XOR
+///
+// type flag representing pattern elements that define symbols
+func DefOR(types ...d.Typed) TyOpt { return TyOpt(Def(types...)) }
+func (n TyOpt) TypeFnc() TyFnc     { return Or }
+func (n TyOpt) Flag() d.BitFlag    { return Or.Flag() }
+func (n TyOpt) Type() TyComp       { return TyComp(n) }
+func (n TyOpt) Kind() d.Uint8Val   { return Kind_Opt.U() }
+func (n TyOpt) String() string     { return n.TypeName() }
+func (n TyOpt) TypeName() string {
+	var str string // = "["
+	for i, t := range n {
+		str = str + t.TypeName()
+		if i < len(n)-1 {
+			str = str + "|"
+		}
+	}
+	return str //+ "]"
+}
+
+// matches when any of its members matches the arguments type
+func (n TyOpt) Match(arg d.Typed) bool {
+	for _, typ := range n {
+		if typ.Match(arg) {
+			return true
+		}
+	}
+	return false
+}
+
+// call method lifts arguments types and applys them to match method one by
+// one.  returns true, if all passed arguements are in the set of optional
+// types.
+func (n TyOpt) Call(args ...Expression) Expression {
+	for _, arg := range args {
+		if !n.Match(arg.Type()) {
+			return Box(d.BoolVal(false))
+		}
+	}
+	return Box(d.BoolVal(true))
 }
 
 //// TYPE EXPRESSION
