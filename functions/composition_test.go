@@ -175,38 +175,4 @@ func TestSplitSequence(t *testing.T) {
 }
 
 func TestBindSequence(t *testing.T) {
-	var (
-	//		cut = func(pair Paired, arg Expression) (Expression, ValPair) {
-	//			if IsNone(pair.Left()) {
-	//				return NewNone(), pair.(ValPair)
-	//			}
-	//			if IsNone(pair.Right()) {
-	//				pair = NewPair(pair.Left(), NewVector())
-	//			}
-	//			var (
-	//				head Expression
-	//				seq  = pair.Left().(Continued)
-	//				acc  = pair.Right().(VecVal)
-	//			)
-	//			head, seq = seq.Continue()
-	//			if IsNone(head) { // on list depletion return empty pair
-	//				return acc, NewPair(NewNone(), NewNone())
-	//			}
-	//			// if current head is lesser than last accumulted
-	//			// element, return none, accumulate head and return
-	//			// shortened sequence and accumulator as pair.
-	//			if head.(DatConst)().(d.IntVal) <
-	//				acc.Last().(DatConst)().(d.IntVal) {
-	//				acc = acc.Cons(head).(VecVal)
-	//				return NewNone(), NewPair(seq, acc)
-	//			}
-	//			// if current head is greater last element, return
-	//			// current accumulator and allocate a new one with
-	//			// current head as its first element
-	//			return acc, NewPair(seq, NewVector(head))
-	//		}
-	)
-}
-
-func TestSortSequence(t *testing.T) {
 }
