@@ -80,7 +80,7 @@ type Expression interface {
 	FunctionTyped
 	Evaluable
 	Stringer
-	Type() TyComp
+	Type() TyDef
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -110,7 +110,7 @@ type Continued interface {
 	Head() Expression
 	Tail() Grouped
 	Empty() bool
-	TypeElem() TyComp
+	TypeElem() TyDef
 }
 
 // a group has elemets with a binary operation (takes two arguments which have

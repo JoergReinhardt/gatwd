@@ -62,10 +62,6 @@ type (
 
 	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
 	FuncVal func(...Expression) Expression
-
-	//// Generic
-	/// funtions return type depends on argument type(s)
-	PolyVal SwitchDef
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,8 +93,8 @@ func (n NoneVal) Empty() bool                     { return true }
 func (n NoneVal) Test(...Expression) bool         { return false }
 func (n NoneVal) TypeFnc() TyFnc                  { return None }
 func (n NoneVal) TypeNat() d.TyNat                { return d.Nil }
-func (n NoneVal) Type() TyComp                    { return Def(None) }
-func (n NoneVal) TypeElem() TyComp                { return Def(None) }
+func (n NoneVal) Type() TyDef                     { return Def(None) }
+func (n NoneVal) TypeElem() TyDef                 { return Def(None) }
 func (n NoneVal) TypeName() string                { return n.String() }
 func (n NoneVal) Slice() []Expression             { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                 { return d.BitFlag(None) }
@@ -112,10 +108,10 @@ func (n NoneVal) Consume() (Expression, Grouped)  { return NewNone(), NewNone() 
 // declares a constant value
 func NewConstant(constant func() Expression) ConsVal { return constant }
 
-func (c ConsVal) Type() TyComp                  { return Def(Constant, c().Type(), None) }
-func (c ConsVal) TypeIdent() TyComp             { return c().Type().TypeId() }
-func (c ConsVal) TypeRet() TyComp               { return c().Type().TypeRet() }
-func (c ConsVal) TypeArgs() TyComp              { return Def(None) }
+func (c ConsVal) Type() TyDef                   { return Def(Constant, c().Type(), None) }
+func (c ConsVal) TypeIdent() TyDef              { return c().Type().TypeId() }
+func (c ConsVal) TypeRet() TyDef                { return c().Type().TypeRet() }
+func (c ConsVal) TypeArgs() TyDef               { return Def(None) }
 func (c ConsVal) TypeFnc() TyFnc                { return Constant }
 func (c ConsVal) String() string                { return c().String() }
 func (c ConsVal) Call(...Expression) Expression { return c() }
@@ -138,12 +134,12 @@ func (c Lambda) Call(args ...Expression) Expression {
 	}
 	return c()
 }
-func (c Lambda) String() string        { return c().String() }
-func (c Lambda) TypeFnc() TyFnc        { return c().TypeFnc() }
-func (c Lambda) Type() TyComp          { return c().Type() }
-func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeId() }
-func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeRet() }
-func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
+func (c Lambda) String() string       { return c().String() }
+func (c Lambda) TypeFnc() TyFnc       { return c().TypeFnc() }
+func (c Lambda) Type() TyDef          { return c().Type() }
+func (c Lambda) TypeIdent() TyDef     { return c().Type().TypeId() }
+func (c Lambda) TypeReturn() TyDef    { return c().Type().TypeRet() }
+func (c Lambda) TypeArguments() TyDef { return c().Type().TypeArgs() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// GENERATOR
@@ -173,10 +169,10 @@ func (g GenVal) Call(args ...Expression) Expression {
 	}
 	return NewPair(g.Expr(), g.Generator())
 }
-func (g GenVal) TypeFnc() TyFnc   { return Generator }
-func (g GenVal) Type() TyComp     { return Def(Generator, g.Head().Type()) }
-func (g GenVal) TypeElem() TyComp { return g.Head().Type() }
-func (g GenVal) String() string   { return g.Head().String() }
+func (g GenVal) TypeFnc() TyFnc  { return Generator }
+func (g GenVal) Type() TyDef     { return Def(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() TyDef { return g.Head().Type() }
+func (g GenVal) String() string  { return g.Head().String() }
 func (g GenVal) Empty() bool {
 	if g.Head().Type().Match(None) {
 		return true
@@ -235,7 +231,7 @@ func (g AccVal) Call(args ...Expression) Expression {
 	return g.Result()
 }
 func (g AccVal) TypeFnc() TyFnc { return Accumulator }
-func (g AccVal) Type() TyComp {
+func (g AccVal) Type() TyDef {
 	return Def(
 		Accumulator,
 		g.Head().Type().TypeRet(),
@@ -251,7 +247,7 @@ func (a AccVal) Empty() bool {
 	return false
 }
 func (g AccVal) Head() Expression                { return g.Result() }
-func (g AccVal) TypeElem() TyComp                { return g.Head().Type() }
+func (g AccVal) TypeElem() TyDef                 { return g.Head().Type() }
 func (g AccVal) Tail() Grouped                   { return g.Accumulator() }
 func (g AccVal) Continue() (Expression, Grouped) { return g() }
 
@@ -266,7 +262,7 @@ func (g AccVal) Continue() (Expression, Grouped) { return g() }
 //    - create from expressions type signature, (argtypes → idtype →
 //      returntype), if no typeargs where passed
 //  - return & argument types are carried over from expression
-func createFuncType(expr Expression, types ...d.Typed) TyComp {
+func createFuncType(expr Expression, types ...d.Typed) TyDef {
 	if len(types) > 0 {
 		// if first types argument is a symbol, use it as identity
 		if Kind_Sym.Match(types[0].Kind()) {
@@ -279,7 +275,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 			// if first types argument is a composed type
 			if Kind_Comp.Match(types[0].Kind()) {
 				// return composed types identity
-				name = types[0].(TyComp).
+				name = types[0].(TyDef).
 					TypeId().TypeName()
 			} else {
 				// return flat types name
@@ -429,32 +425,11 @@ func Define(
 
 func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
 
-func (e FuncVal) TypeFnc() TyFnc   { return Constructor | Value }
-func (e FuncVal) Type() TyComp     { return e().(TyComp) }
-func (e FuncVal) TypeId() TyComp   { return e.Type().TypeId() }
-func (e FuncVal) TypeArgs() TyComp { return e.Type().TypeArgs() }
-func (e FuncVal) TypeRet() TyComp  { return e.Type().TypeRet() }
+func (e FuncVal) TypeFnc() TyFnc   { return Value }
+func (e FuncVal) Type() TyDef      { return e().(TyDef) }
+func (e FuncVal) TypeId() TyDef    { return e.Type().TypeId() }
+func (e FuncVal) TypeArgs() TyDef  { return e.Type().TypeArgs() }
+func (e FuncVal) TypeRet() TyDef   { return e.Type().TypeRet() }
 func (e FuncVal) TypeName() string { return e.Type().TypeName() }
 func (e FuncVal) ArgCount() int    { return e.Type().TypeArgs().Count() }
 func (e FuncVal) String() string   { return e().String() }
-
-//// GENERIC FUNCTION VALUE
-///
-//   generic functions return values of different types depending on
-//   argument VALUE(S)
-func NewGeneric(cases ...CaseDef) PolyVal {
-	return PolyVal(NewSwitch(cases...))
-}
-
-//// POLYMORPHIC FUNCTION VALUE
-///
-//  polymorphic functions return values of different types depending on
-//  arguments TYPE(S).  function definitions behave like case definitions and can
-//  be cast as such, which makes polymorphic values a special case of generics
-func NewPolymorph(variants ...FuncVal) PolyVal {
-	var cases = make([]CaseDef, 0, len(variants))
-	for _, v := range variants {
-		cases = append(cases, CaseDef(v))
-	}
-	return NewGeneric(cases...)
-}

@@ -97,7 +97,7 @@ func (p ValPair) Slice() []Expression {
 func (p ValPair) Key() Expression   { return p.Left() }
 func (p ValPair) Value() Expression { return p.Right() }
 func (p ValPair) TypeFnc() TyFnc    { return Pair }
-func (p ValPair) TypeElem() TyComp {
+func (p ValPair) TypeElem() TyDef {
 	if p.Right() != nil {
 		return p.Right().Type()
 	}
@@ -115,7 +115,7 @@ func (p ValPair) TypeValue() d.Typed {
 	}
 	return None
 }
-func (p ValPair) Type() TyComp {
+func (p ValPair) Type() TyDef {
 	return Def(Pair, Def(p.TypeKey(), p.TypeValue()))
 }
 func (p ValPair) Empty() bool {
@@ -153,7 +153,7 @@ func (a NatPair) Key() Expression                { return a.Left() }
 func (a NatPair) TypeValue() d.Typed             { return a.Value().Type() }
 func (a NatPair) TypeKey() d.Typed               { return a.KeyNat().Type() }
 func (a NatPair) TypeFnc() TyFnc                 { return Data | Pair }
-func (p NatPair) Type() TyComp                   { return Def(Pair, Def(Key, p.TypeValue())) }
+func (p NatPair) Type() TyDef                    { return Def(Pair, Def(Key, p.TypeValue())) }
 func (p NatPair) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return NewNatPair(p.KeyNat(), p.Value().Call(args...))
@@ -226,7 +226,7 @@ func (p KeyPair) Call(args ...Expression) Expression {
 	}
 	return p
 }
-func (p KeyPair) Type() TyComp {
+func (p KeyPair) Type() TyDef {
 	return Def(Key|Pair, Def(Key, p.TypeValue()))
 }
 
@@ -277,7 +277,7 @@ func (a IndexPair) Key() Expression                { return a.Left() }
 func (a IndexPair) TypeFnc() TyFnc                 { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed               { return Index }
 func (a IndexPair) TypeValue() d.Typed             { return a.Value().Type() }
-func (a IndexPair) Type() TyComp                   { return Def(Pair, Def(Index, a.TypeValue())) }
+func (a IndexPair) Type() TyDef                    { return Def(Pair, Def(Index, a.TypeValue())) }
 func (p IndexPair) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return NewIndexPair(p.Index(), p.Value().Call(args...))
@@ -341,7 +341,7 @@ func (a RealPair) Call(args ...Expression) Expression { return a.Value().Call(ar
 func (a RealPair) TypeFnc() TyFnc                     { return Real | Pair }
 func (a RealPair) TypeKey() d.Typed                   { return Real }
 func (a RealPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a RealPair) Type() TyComp                       { return Def(Pair, Def(Real, a.TypeValue())) }
+func (a RealPair) Type() TyDef                        { return Def(Pair, Def(Real, a.TypeValue())) }
 
 // implement swappable
 func (p RealPair) Swap() (Expression, Expression) {
@@ -390,7 +390,7 @@ func NewKeyMap(pairs ...KeyPair) KeyMap {
 	}
 	return m
 }
-func (k KeyMap) Type() TyComp                       { return Def(Key, HashMap) }
+func (k KeyMap) Type() TyDef                        { return Def(Key, HashMap) }
 func (k KeyMap) TypeFnc() TyFnc                     { return Key | HashMap }
 func (k KeyMap) Call(args ...Expression) Expression { return k }
 func (k KeyMap) String() string {
@@ -430,7 +430,7 @@ func NewRealMap(pairs ...RealPair) RealMap {
 	}
 	return m
 }
-func (k RealMap) Type() TyComp                       { return Def(Real, HashMap) }
+func (k RealMap) Type() TyDef                        { return Def(Real, HashMap) }
 func (k RealMap) TypeFnc() TyFnc                     { return Real | HashMap }
 func (k RealMap) Call(args ...Expression) Expression { return k }
 func (k RealMap) String() string {

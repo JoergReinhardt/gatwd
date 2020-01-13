@@ -193,9 +193,9 @@ func (v VecVal) Pull() (Expression, Queue) {
 }
 func (v VecVal) Len() int            { return len(v()) }
 func (v VecVal) Null() VecVal        { return NewVector() }
-func (v VecVal) Type() TyComp        { return Def(Vector, v.TypeElem()) }
+func (v VecVal) Type() TyDef         { return Def(Vector, v.TypeElem()) }
 func (v VecVal) TypeFnc() TyFnc      { return Vector }
-func (v VecVal) TypeElem() TyComp    { return v.Head().Type() }
+func (v VecVal) TypeElem() TyDef     { return v.Head().Type() }
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) Flatten() VecVal {
 	var elems = make([]Expression, 0, v.Len())
@@ -383,9 +383,9 @@ func (v ListVal) Push(arg Expression) Stack { return v.Cons(arg).(ListVal) }
 func (v ListVal) Pop() (Expression, Stack)  { return v() }
 func (s ListVal) First() Expression         { return s.Head() }
 func (s ListVal) Null() ListVal             { return NewList() }
-func (s ListVal) TypeElem() TyComp          { return s.Head().Type() }
+func (s ListVal) TypeElem() TyDef           { return s.Head().Type() }
 func (s ListVal) TypeFnc() TyFnc            { return Group }
-func (s ListVal) Type() TyComp              { return Def(Group, s.TypeElem()) }
+func (s ListVal) Type() TyDef               { return Def(Group, s.TypeElem()) }
 func (s ListVal) Empty() bool {
 	var _, tail = s()
 	return tail == nil

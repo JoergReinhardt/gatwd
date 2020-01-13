@@ -29,6 +29,10 @@ type (
 	AlternateDef func(...Expression) Expression
 	EitherVal    func(...Expression) Expression
 	OrVal        func(...Expression) Expression
+
+	//// Generic
+	/// funtions return type depends on argument type(s)
+	PolyVal SwitchDef
 )
 
 /// TRUTH TEST
@@ -40,7 +44,7 @@ func NewTest(test func(Expression) bool) TestFunc {
 func (t TestFunc) TypeFnc() TyFnc {
 	return Truth
 }
-func (t TestFunc) Type() TyComp {
+func (t TestFunc) Type() TyDef {
 	return Def(True | False)
 }
 func (t TestFunc) String() string {
@@ -75,7 +79,7 @@ func NewTrinary(test func(Expression) int) TrinaryFunc {
 func (t TrinaryFunc) TypeFnc() TyFnc {
 	return Trinary
 }
-func (t TrinaryFunc) Type() TyComp {
+func (t TrinaryFunc) Type() TyDef {
 	return Def(True | False | Undecided)
 }
 func (t TrinaryFunc) Call(arg Expression) Expression {
@@ -102,7 +106,7 @@ func NewComparator(comp func(Expression) int) CompareFunc {
 func (t CompareFunc) TypeFnc() TyFnc {
 	return Compare
 }
-func (t CompareFunc) Type() TyComp {
+func (t CompareFunc) Type() TyDef {
 	return Def(Lesser | Greater | Equal)
 }
 func (t CompareFunc) Call(arg Expression) Expression {
@@ -155,19 +159,19 @@ func NewCase(
 }
 
 func (t CaseDef) TypeFnc() TyFnc { return Case }
-func (t CaseDef) Type() TyComp {
-	return t().(Paired).Left().(TyComp)
+func (t CaseDef) Type() TyDef {
+	return t().(Paired).Left().(TyDef)
 }
 func (t CaseDef) Test() TestFunc {
 	return t().(Paired).Right().(TestFunc)
 }
-func (t CaseDef) TypeId() TyComp {
+func (t CaseDef) TypeId() TyDef {
 	return t.Type().Pattern()[0]
 }
-func (t CaseDef) TypeRet() TyComp {
+func (t CaseDef) TypeRet() TyDef {
 	return t.Type().Pattern()[1]
 }
-func (t CaseDef) TypeArgs() TyComp {
+func (t CaseDef) TypeArgs() TyDef {
 	return t.Type().Pattern()[2]
 }
 func (t CaseDef) TypeName() string {
@@ -226,9 +230,9 @@ func (t SwitchDef) Cases() []CaseDef {
 	var _, cases = t()
 	return cases
 }
-func (t SwitchDef) Type() TyComp {
+func (t SwitchDef) Type() TyDef {
 	var pat, _ = t()
-	return pat.(TyComp)
+	return pat.(TyDef)
 }
 func (t SwitchDef) String() string {
 	return t.Type().TypeName()
@@ -286,16 +290,16 @@ func NewMaybe(cas CaseDef) MaybeType {
 }
 
 func (t MaybeType) TypeFnc() TyFnc                     { return Maybe }
-func (t MaybeType) Type() TyComp                       { return t().(TyComp) }
-func (t MaybeType) TypeArguments() TyComp              { return t().Type().TypeArgs() }
-func (t MaybeType) TypeReturn() TyComp                 { return t().Type().TypeRet() }
+func (t MaybeType) Type() TyDef                        { return t().(TyDef) }
+func (t MaybeType) TypeArguments() TyDef               { return t().Type().TypeArgs() }
+func (t MaybeType) TypeReturn() TyDef                  { return t().Type().TypeRet() }
 func (t MaybeType) String() string                     { return t().String() }
 func (t MaybeType) Call(args ...Expression) Expression { return t.Call(args...) }
 
 // maybe values methods
 func (t JustVal) Call(args ...Expression) Expression { return t(args...) }
 func (t JustVal) String() string                     { return t().String() }
-func (t JustVal) Type() TyComp                       { return t().Type() }
+func (t JustVal) Type() TyDef                        { return t().Type() }
 func (t JustVal) TypeFnc() TyFnc                     { return Just | t().TypeFnc() }
 
 //// OPTIONAL VALUE
@@ -335,18 +339,43 @@ func NewEitherOr(test Testable, either, or Expression) AlternateDef {
 	})
 }
 func (o AlternateDef) TypeFnc() TyFnc                     { return Option }
-func (o AlternateDef) Type() TyComp                       { return o().Type() }
+func (o AlternateDef) Type() TyDef                        { return o().Type() }
 func (o AlternateDef) String() string                     { return o().String() }
 func (o AlternateDef) Call(args ...Expression) Expression { return o(args...) }
 
 /// EITHER VALUE
 func (o EitherVal) TypeFnc() TyFnc                     { return Either }
-func (o EitherVal) Type() TyComp                       { return o().Type() }
+func (o EitherVal) Type() TyDef                        { return o().Type() }
 func (o EitherVal) String() string                     { return o().String() }
 func (o EitherVal) Call(args ...Expression) Expression { return o.Call(args...) }
 
 /// OR VALUE
 func (o OrVal) TypeFnc() TyFnc                     { return Or }
-func (o OrVal) Type() TyComp                       { return o().Type() }
+func (o OrVal) Type() TyDef                        { return o().Type() }
 func (o OrVal) String() string                     { return o().String() }
 func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
+
+//// GENERIC FUNCTION VALUE
+///
+//   generic functions return values of different types depending on
+//   argument VALUE(S)
+func NewGeneric(cases ...CaseDef) PolyVal {
+	return PolyVal(NewSwitch(cases...))
+}
+
+//// POLYMORPHIC FUNCTION VALUE
+///
+//  polymorphic functions return values of different types depending on
+//  arguments TYPE(S).  function definitions behave like case definitions and can
+//  be cast as such, which makes polymorphic values a special case of generics
+func NewPolymorph(variants ...FuncVal) PolyVal {
+	var cases = make([]CaseDef, 0, len(variants))
+	for _, v := range variants {
+		cases = append(cases, CaseDef(v))
+	}
+	return NewGeneric(cases...)
+}
+func (p PolyVal) Call(args ...Expression) Expression {
+	return SwitchDef(p).Call(args...)
+}
+func (p PolyVal) TypeFnc() TyFnc { return Polymorph }

@@ -6,6 +6,6 @@ import (
 )
 
 type (
-	TypeCons func(types ...d.Typed) (f.TyComp, []DataCons)
+	TypeCons func(types ...d.Typed) (f.TyDef, []DataCons)
 	DataCons func(args ...f.Expression) f.FuncVal
 )

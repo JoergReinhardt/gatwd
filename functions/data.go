@@ -119,7 +119,7 @@ func (n DatFunc) TypeFnc() TyFnc                 { return Data }
 func (n DatFunc) TypeNat() d.TyNat               { return n().Type() }
 func (n DatFunc) String() string                 { return n().String() }
 func (n DatFunc) Eval(args ...d.Native) d.Native { return n(args...) }
-func (n DatFunc) Type() TyComp {
+func (n DatFunc) Type() TyDef {
 	return Def(Def(Data, Value), patternFromNative(n()))
 }
 func (n DatFunc) Call(args ...Expression) Expression {
@@ -144,7 +144,7 @@ func (n DatConst) TypeFnc() TyFnc                { return Data }
 func (n DatConst) TypeNat() d.TyNat              { return n().Type() }
 func (n DatConst) String() string                { return n().String() }
 func (n DatConst) Call(...Expression) Expression { return Box(n()) }
-func (n DatConst) Type() TyComp {
+func (n DatConst) Type() TyDef {
 	return Def(Def(Data, Constant), patternFromNative(n()))
 }
 
@@ -165,7 +165,7 @@ func (n DatSlice) Copy() d.Native                     { return n().Copy() }
 func (n DatSlice) ElemType() d.Typed                  { return n().TypeElem() }
 func (n DatSlice) String() string                     { return n().String() }
 func (n DatSlice) Slice() []d.Native                  { return n().Slice() }
-func (n DatSlice) Type() TyComp {
+func (n DatSlice) Type() TyDef {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
 func (n DatSlice) Eval(args ...d.Native) d.Native {
@@ -195,7 +195,7 @@ func (n DatGoSlice) Empty() bool                { return n().Empty() }
 func (n DatGoSlice) Slice() []d.Native          { return n().Slice() }
 func (n DatGoSlice) ElemType() d.Typed          { return n().TypeElem() }
 func (n DatGoSlice) String() string             { return n().String() }
-func (n DatGoSlice) Type() TyComp {
+func (n DatGoSlice) Type() TyDef {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
 func (n DatGoSlice) SliceExpr() []Expression {
@@ -236,7 +236,7 @@ func (n DatPair) Pair() Paired {
 		Box(n().Left()),
 		Box(n().Right()))
 }
-func (n DatPair) Type() TyComp {
+func (n DatPair) Type() TyDef {
 	return Def(Def(
 		Data,
 		Pair,
@@ -295,7 +295,7 @@ func (n DatMap) Pairs() []Paired {
 	}
 	return pairs
 }
-func (n DatMap) Type() TyComp {
+func (n DatMap) Type() TyDef {
 	if n().Len() > 0 {
 		return Def(
 			Def(
