@@ -62,7 +62,7 @@ func (n NoneVal) TypeNat() d.TyNat                { return d.Nil }
 func (n NoneVal) Type() TyComp                    { return Def(None) }
 func (n NoneVal) TypeElem() TyComp                { return Def(None) }
 func (n NoneVal) TypeName() string                { return n.String() }
-func (n NoneVal) Slice() []Expression             { return slices.Get() }
+func (n NoneVal) Slice() []Expression             { return []Expression{} }
 func (n NoneVal) Flag() d.BitFlag                 { return d.BitFlag(None) }
 func (n NoneVal) FlagType() d.Uint8Val            { return Kind_Fnc.U() }
 func (n NoneVal) Continue() (Expression, Grouped) { return NewNone(), NewNone() }
@@ -174,7 +174,7 @@ func (g AccVal) Concat(grp Continued) Grouped {
 	return NewListFromGroup(g).Concat(grp)
 }
 func (g AccVal) ConsGroup(con Grouped) Grouped {
-	var args = slices.Get()
+	var args = []Expression{}
 	for head, con := con.Continue(); !con.Empty(); {
 		args = append(args, head)
 	}

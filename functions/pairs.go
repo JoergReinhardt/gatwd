@@ -86,7 +86,7 @@ func (p ValPair) Left() Expression               { l, _ := p(); return l }
 func (p ValPair) Right() Expression              { _, r := p(); return r }
 func (p ValPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
 func (p ValPair) Slice() []Expression {
-	return slices.Init(p.Left(), p.Right())
+	return []Expression{p.Left(), p.Right()}
 }
 func (p ValPair) Key() Expression   { return p.Left() }
 func (p ValPair) Value() Expression { return p.Right() }

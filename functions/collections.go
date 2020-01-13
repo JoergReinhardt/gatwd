@@ -9,64 +9,55 @@ import (
 type (
 
 	//// COLLECTION TYPES
-	Params  []Expression
 	VecVal  func(...Expression) []Expression
 	ListVal func(...Expression) (Expression, ListVal) // instance type
 
 	//// INTERNAL HELPER TYPES
 	pool   sync.Pool
 	sorter struct {
-		Params
-		less func(s Params, a, b int) bool
+		parms []Expression
+		less  func(s []Expression, a, b int) bool
 	}
 	searcher struct {
 		*sorter
 		match   Expression
 		compare func(a, b Expression) int
-		search  func(Params) func(int) bool
+		search  func([]Expression) func(int) bool
 	}
 )
 
-///////////////////////////////////////////////////////////////////////////////
-//// TYPED SYNC POOL TO REUSE SLICES OF PARAMETERS
-func (p *pool) Get() Params                    { return (*sync.Pool)(p).Get().(Params) }
-func (p *pool) Put(parms []Expression)         { (*sync.Pool)(p).Put(Params(parms[:0])) }
-func (p *pool) Init(args ...Expression) Params { return append(p.Get(), args...) }
-
-var slices = (*pool)(&sync.Pool{New: func() interface{} { return Params{} }})
-
 // SORTER
 func newSorter(
-	s Params,
-	l func(s Params, a, b int) bool,
+	s []Expression,
+	l func(s []Expression, a, b int) bool,
 ) *sorter {
 	return &sorter{s, l}
 }
-func (s sorter) Slice() Params      { return s.Params }
-func (s sorter) Len() int           { return len(s.Params) }
-func (s sorter) Less(a, b int) bool { return s.less(s.Params, a, b) }
+func (s sorter) Slice() []Expression { return s.parms }
+func (s sorter) Len() int            { return len(s.parms) }
+func (s sorter) Less(a, b int) bool  { return s.less(s.parms, a, b) }
 func (s *sorter) Swap(a, b int) {
-	(*s).Params[b], (*s).Params[a] =
-		(*s).Params[a], (*s).Params[b]
+	(*s).parms[b], (*s).parms[a] =
+		(*s).parms[a], (*s).parms[b]
 }
 func (s *sorter) Sort() []Expression {
 	sort.Sort(s)
-	return s.Params
+	return s.parms
 }
 
 // SEARCHER
 func newSearcher(
-	s Params,
+	s []Expression,
 	match Expression,
 	compare func(a, b Expression) int,
 ) *searcher {
 	return &searcher{
-		sorter: newSorter(s, func(s Params, a, b int) bool {
+		sorter: newSorter(s, func(s []Expression, a, b int) bool {
 			return compare(s[a], s[b]) < 0
 		}),
 		match:   match,
 		compare: compare,
-		search: func(s Params) func(int) bool {
+		search: func(s []Expression) func(int) bool {
 			return func(idx int) bool {
 				return compare(s[idx], match) >= 0
 			}
@@ -77,20 +68,20 @@ func (s *searcher) Search() Expression {
 	var idx int
 
 	if sort.IsSorted(s) {
-		idx = sort.Search(len(s.Params),
+		idx = sort.Search(len(s.parms),
 			s.search(newSorter(
-				s.Params, s.less,
-			).Params))
+				s.parms, s.less,
+			).parms))
 	} else {
-		idx = sort.Search(len(s.Params),
+		idx = sort.Search(len(s.parms),
 			s.search(newSorter(
-				s.Params, s.less,
+				s.parms, s.less,
 			).Sort()))
 	}
 
-	if idx >= 0 && idx < len(s.Params) {
-		if s.compare(s.Params[idx], s.match) == 0 {
-			return s.Params[idx]
+	if idx >= 0 && idx < len(s.parms) {
+		if s.compare(s.parms[idx], s.match) == 0 {
+			return s.parms[idx]
 		}
 	}
 
@@ -111,7 +102,7 @@ func NewVecFormGroup(grp Grouped) VecVal {
 		return NewVector(grp.(Vectorized).Slice()...)
 	}
 	var (
-		vec        = slices.Get()
+		vec        = []Expression{}
 		head, tail = grp.Continue()
 	)
 	for head, tail = tail.Continue(); !tail.Empty(); {
@@ -139,7 +130,6 @@ func (v VecVal) Cons(arg Expression) Grouped {
 	}
 	return v.ConsVec(arg)
 }
-func (v VecVal) Discard() { defer slices.Put(v()) }
 func (v VecVal) Head() Expression {
 	if v.Len() > 0 {
 		return v()[0]
@@ -208,7 +198,7 @@ func (v VecVal) TypeFnc() TyFnc      { return Vector }
 func (v VecVal) TypeElem() TyComp    { return v.Head().Type() }
 func (v VecVal) Slice() []Expression { return v() }
 func (v VecVal) Flatten() VecVal {
-	var elems = slices.Get()
+	var elems = make([]Expression, 0, v.Len())
 	for _, elem := range v() {
 		if IsVect(elem) {
 			if vec, ok := elem.(VecVal); ok {
@@ -270,7 +260,7 @@ func (v VecVal) Sort(
 ) Grouped {
 	var s = newSorter(
 		v(),
-		func(s Params, a, b int) bool {
+		func(s []Expression, a, b int) bool {
 			return less(s[a], s[b])
 		},
 	).Sort()
@@ -307,7 +297,6 @@ func NewList(elems ...Expression) ListVal {
 	// return empty list able to be extended by cons, when no initial
 	// elements are given/left
 	if len(elems) == 0 {
-		defer slices.Put(elems)
 		return func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
 				if len(args) > 1 {
