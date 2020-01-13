@@ -8,7 +8,7 @@ import "fmt"
 // define the curryed function, so that it accepts the argument types of the g
 // function passed as second argument to the constructor and the return type of
 // the g function passed as its second argument.
-func Curry(f, g Definition) Definition {
+func Curry(f, g FuncVal) FuncVal {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 

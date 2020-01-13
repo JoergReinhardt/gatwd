@@ -2,13 +2,47 @@
 
 SUM TYPES
 ---------
+sum types are defined as collection of zero or more elements of the same
+type.
 
-sumtypes are parametric types, that generate a subtype for every type of
-argument. all elements of a sum type are of the same type.
+that includes signature types (flat function definitions), since their
+arguments & return values are allways instances of the same type(s).
+polymorphic & parametric functions on the other hand are to be
+considered product types, since their return value type depends either
+on the type(s) of argument(s) that are/is passed, or on argument values.
 
-examples for sumtypes are would be all collection types, enumerables, the set
-of integers‥.
+NONE values implement the group & collected interfaces (among others) to
+be suitable as stand in for empty collections, depleted continuations,
+functors, monads and the like.  none values mark the end of
+continuations, and are returned whenever computational steps don't
+return a proper value.  the call methods of continuations as well as any
+enclosing main function, implement functional trampolin devices, by
+iterating over the return values of calling each continuation and
+re-assigning the resulting continuation as the next continuation to
+call.  tail recursion optimization is implemented by passing on enclosed
+state from call to call, while returning none values as results.  map,
+fold, apply and bind omit none values.  the last call to a continuation
+then consequently yields the final result, without having to pop
+recursive stack frames while passing the result on from caller to
+caller.
 
+CONSTANT values don't have arguments and are defined by their return
+types.
+
+LAMBDA is a wrapper type to instanciate arbitrary functions that match
+the expression signature as instance of the expression interface.  it
+implements the bare minimum methods neccessary to do so, based solely on
+the enclosed functions return values.  argument type of a lambda is
+undefined, the enclosed expression has to be able to deal with every
+possible argument types combination.
+
+GENERATOR & ACCUMULATOR wrap functions with appropriate signature, to
+implement the expression-, generator- and accumulator interfaces.
+
+FUNCTION VALUES are type-safe function definitions with properly defined
+return and argument(s) types.  function value identity is either derived from
+enclosed expression, argument- and return types, or passed in as instance of
+type-symbol.
 */
 package functions
 
@@ -17,17 +51,17 @@ import (
 )
 
 type (
-	//// GENERIC EXPRESSIONS
+	//// NONE, CONSTANT & LAMBDA
 	NoneVal func()
-	Const   func() Expression
+	ConsVal func() Expression
 	Lambda  func(...Expression) Expression
 
 	//// GENERATOR | ACCUMULATOR
 	GenVal func() (Expression, GenVal)
 	AccVal func(...Expression) (Expression, AccVal)
 
-	//// SIGNED TYPE SAFE FUNCTION DEFINITION
-	Definition func(...Expression) Expression
+	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
+	FuncVal func(...Expression) Expression
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,15 +106,15 @@ func (n NoneVal) Consume() (Expression, Grouped)  { return NewNone(), NewNone() 
 //// GENERIC CONSTANT DEFINITION
 ///
 // declares a constant value
-func NewConstant(constant func() Expression) Const { return constant }
+func NewConstant(constant func() Expression) ConsVal { return constant }
 
-func (c Const) Type() TyComp                  { return Def(Constant, c().Type(), None) }
-func (c Const) TypeIdent() TyComp             { return c().Type().TypeId() }
-func (c Const) TypeRet() TyComp               { return c().Type().TypeRet() }
-func (c Const) TypeArgs() TyComp              { return Def(None) }
-func (c Const) TypeFnc() TyFnc                { return Constant }
-func (c Const) String() string                { return c().String() }
-func (c Const) Call(...Expression) Expression { return c() }
+func (c ConsVal) Type() TyComp                  { return Def(Constant, c().Type(), None) }
+func (c ConsVal) TypeIdent() TyComp             { return c().Type().TypeId() }
+func (c ConsVal) TypeRet() TyComp               { return c().Type().TypeRet() }
+func (c ConsVal) TypeArgs() TyComp              { return Def(None) }
+func (c ConsVal) TypeFnc() TyFnc                { return Constant }
+func (c ConsVal) String() string                { return c().String() }
+func (c ConsVal) Call(...Expression) Expression { return c() }
 
 //// GENERIC FUNCTION DEFINITION
 ///
@@ -283,7 +317,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 func Define(
 	expr Expression,
 	types ...d.Typed,
-) Definition {
+) FuncVal {
 
 	// create the function type definition and take the number of expexted
 	// arguments
@@ -389,13 +423,13 @@ func Define(
 	}
 }
 
-func (e Definition) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
 
-func (e Definition) TypeFnc() TyFnc   { return Constructor | Value }
-func (e Definition) Type() TyComp     { return e().(TyComp) }
-func (e Definition) TypeId() TyComp   { return e.Type().TypeId() }
-func (e Definition) TypeArgs() TyComp { return e.Type().TypeArgs() }
-func (e Definition) TypeRet() TyComp  { return e.Type().TypeRet() }
-func (e Definition) TypeName() string { return e.Type().TypeName() }
-func (e Definition) ArgCount() int    { return e.Type().TypeArgs().Count() }
-func (e Definition) String() string   { return e().String() }
+func (e FuncVal) TypeFnc() TyFnc   { return Constructor | Value }
+func (e FuncVal) Type() TyComp     { return e().(TyComp) }
+func (e FuncVal) TypeId() TyComp   { return e.Type().TypeId() }
+func (e FuncVal) TypeArgs() TyComp { return e.Type().TypeArgs() }
+func (e FuncVal) TypeRet() TyComp  { return e.Type().TypeRet() }
+func (e FuncVal) TypeName() string { return e.Type().TypeName() }
+func (e FuncVal) ArgCount() int    { return e.Type().TypeArgs().Count() }
+func (e FuncVal) String() string   { return e().String() }
