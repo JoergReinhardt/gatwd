@@ -44,10 +44,10 @@ func _() {
 	_ = x[Letter-8589934592]
 	_ = x[String-17179869184]
 	_ = x[Byte-34359738368]
-	_ = x[Vector-68719476736]
-	_ = x[List-137438953472]
-	_ = x[Set-274877906944]
-	_ = x[HashMap-549755813888]
+	_ = x[HashMap-68719476736]
+	_ = x[Vector-137438953472]
+	_ = x[List-274877906944]
+	_ = x[Set-549755813888]
 	_ = x[Pair-1099511627776]
 	_ = x[Enum-2199023255552]
 	_ = x[Tuple-4398046511104]
@@ -61,7 +61,7 @@ func _() {
 	_ = x[T-18446744073709551615]
 }
 
-const _TyFnc_name = "TypeDataValuePartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxPolymorphSwitchCaseJustNoneEitherOrNaturalIntegerRealRatioLetterStringByteVectorListSetHashMapPairEnumTupleRecordGroupFunctorApplicativeMonadStateIOT"
+const _TyFnc_name = "TypeDataValuePartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxPolymorphSwitchCaseJustNoneEitherOrNaturalIntegerRealRatioLetterStringByteHashMapVectorListSetPairEnumTupleRecordGroupFunctorApplicativeMonadStateIOT"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
@@ -100,10 +100,10 @@ var _TyFnc_map = map[TyFnc]string{
 	8589934592:           _TyFnc_name[197:203],
 	17179869184:          _TyFnc_name[203:209],
 	34359738368:          _TyFnc_name[209:213],
-	68719476736:          _TyFnc_name[213:219],
-	137438953472:         _TyFnc_name[219:223],
-	274877906944:         _TyFnc_name[223:226],
-	549755813888:         _TyFnc_name[226:233],
+	68719476736:          _TyFnc_name[213:220],
+	137438953472:         _TyFnc_name[220:226],
+	274877906944:         _TyFnc_name[226:230],
+	549755813888:         _TyFnc_name[230:233],
 	1099511627776:        _TyFnc_name[233:237],
 	2199023255552:        _TyFnc_name[237:241],
 	4398046511104:        _TyFnc_name[241:246],

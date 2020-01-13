@@ -6,6 +6,8 @@ PRODUCT TYPES
 package functions
 
 import (
+	"strings"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
@@ -30,7 +32,7 @@ type (
 	EitherVal    func(...Expression) Expression
 	OrVal        func(...Expression) Expression
 
-	//// Generic
+	//// Parametric
 	/// funtions return type depends on argument type(s)
 	PolyVal SwitchDef
 )
@@ -359,7 +361,7 @@ func (o OrVal) Call(args ...Expression) Expression { return o.Call(args...) }
 ///
 //   generic functions return values of different types depending on
 //   argument VALUE(S)
-func NewGeneric(cases ...CaseDef) PolyVal {
+func NewParametric(cases ...CaseDef) PolyVal {
 	return PolyVal(NewSwitch(cases...))
 }
 
@@ -373,9 +375,70 @@ func NewPolymorph(variants ...FuncVal) PolyVal {
 	for _, v := range variants {
 		cases = append(cases, CaseDef(v))
 	}
-	return NewGeneric(cases...)
+	return NewParametric(cases...)
 }
 func (p PolyVal) Call(args ...Expression) Expression {
 	return SwitchDef(p).Call(args...)
 }
-func (p PolyVal) TypeFnc() TyFnc { return Polymorph }
+func (p PolyVal) Cases() []CaseDef { return SwitchDef(p).Cases() }
+func (p PolyVal) Len() int         { return len(p.Cases()) }
+func (p PolyVal) TypeFnc() TyFnc   { return Polymorph }
+func (p PolyVal) String() string   { return p.TypeName() }
+func (p PolyVal) TypeArgs() TyDef  { return p.Type().TypeArgs() }
+func (p PolyVal) TypeRet() TyDef   { return p.Type().TypeRet() }
+func (p PolyVal) TypeId() TyDef    { return p.Type().TypeId() }
+func (p PolyVal) Type() TyDef {
+	var (
+		args = make([]d.Typed, 0, p.Len())
+		rets = make([]d.Typed, 0, p.Len())
+		ids  = make([]d.Typed, 0, p.Len())
+	)
+	for _, c := range p.Cases() {
+		args = append(args, c.TypeArgs())
+		rets = append(rets, c.TypeRet())
+		ids = append(ids, c.TypeId())
+	}
+	return Def(
+		Def(Polymorph, DefAlt(ids...)),
+		DefAlt(rets...),
+		DefAlt(args...),
+	)
+}
+
+// returns generic type definition as first line and case identity follwed by
+// signature for each case in a consequtive line
+func (p PolyVal) TypeName() string {
+	var (
+		str    = "Τ :: * → *" // parametric function
+		sigs   = p.Signatures()
+		idents = p.TypeId()[1].(TyDef)
+	)
+	for n, id := range idents {
+		str = str + "\n" + id.TypeName() + " " + sigs[n]
+	}
+	return str
+}
+
+// ["argtypes...( → seperated) = retypes ...( | seperated)"]
+func (p PolyVal) Signatures() []string {
+
+	var strs = make([]string, 0, p.Len())
+
+	for _, c := range p.Cases() {
+		var (
+			args = make([]string, 0, c.TypeArgs().Len())
+			rets = make([]string, 0, c.TypeRet().Len())
+		)
+		for _, arg := range c.TypeArgs() {
+			args = append(args, arg.TypeName())
+		}
+		for _, ret := range c.TypeRet() {
+			rets = append(rets, ret.TypeName())
+		}
+		strs = append(strs, strings.Join([]string{
+			strings.Join(args, " → "),
+			strings.Join(rets, " | "),
+		}, " ＝ "))
+	}
+	return strs
+}

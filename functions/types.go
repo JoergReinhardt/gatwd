@@ -91,10 +91,10 @@ const (
 	String
 	Byte
 	/// SUM
+	HashMap
 	Vector
 	List
 	Set
-	HashMap
 	/// PRODUCT
 	Pair
 	Enum
