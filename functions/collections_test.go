@@ -56,8 +56,8 @@ func printCons(cons Continued) {
 		printCons(tail)
 	}
 }
-func randInt() DatConst {
-	return Dat(rand.Intn(100)).(DatConst)
+func randInt() AtomVal {
+	return Dat(rand.Intn(100)).(AtomVal)
 }
 func randInts(n int) []Expression {
 	var slice = make([]Expression, 0, n)
@@ -149,14 +149,14 @@ func TestSortVector(t *testing.T) {
 	var (
 		v    = NewVector(randInts(10)...)
 		sort = func(a, b Expression) bool {
-			return a.(DatConst)().(d.IntVal) < b.(DatConst)().(d.IntVal)
+			return a.(AtomVal)().(d.IntVal) < b.(AtomVal)().(d.IntVal)
 		}
 	)
 	fmt.Printf("random: %s\n", v)
 	fmt.Printf("sorted: %s\n", v.Sort(sort))
 	var tmp Expression = Dat(0)
 	for _, elem := range v() {
-		if elem.(DatConst)().(d.IntVal) < tmp.(DatConst)().(d.IntVal) {
+		if elem.(AtomVal)().(d.IntVal) < tmp.(AtomVal)().(d.IntVal) {
 			t.Fail()
 		}
 		tmp = elem
@@ -217,31 +217,31 @@ func TestSequenceConsAppend(t *testing.T) {
 
 	seq = seq.Cons(Dat(9)).(ListVal)
 	fmt.Printf("equence with one element (9):\n%s\n", seq)
-	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 9 {
+	if seq.Head().(AtomVal).Eval().(d.Numeral).Int() != 9 {
 		t.Fail()
 	}
 
 	seq = seq.Cons(Dat(8)).(ListVal)
 	fmt.Printf("equence with two elements (8, 9):\n%s\n", seq)
-	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if seq.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	seq = NewList(Dat(5), Dat(6), Dat(7)).Concat(seq).(ListVal)
 	fmt.Printf("equence with five elements (5, 6, 7, 8, 9):\n%s\n", seq)
-	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
+	if seq.Head().(AtomVal).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
 	seq = seq.Concat(NewVector(Dat(10), Dat(11))).(ListVal)
 	fmt.Printf("equence with two elements appended (5, 6, 7, 8, 9, 10, 11):\n%s\n", seq)
-	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 5 {
+	if seq.Head().(AtomVal).Eval().(d.Numeral).Int() != 5 {
 		t.Fail()
 	}
 
 	seq = NewList(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4)).Concat(seq).(ListVal)
 	fmt.Printf("equence with five elements (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):\n%s\n", seq)
-	if seq.Head().(DatConst).Eval().(d.Numeral).Int() != 0 {
+	if seq.Head().(AtomVal).Eval().(d.Numeral).Int() != 0 {
 		t.Fail()
 	}
 }
@@ -252,31 +252,31 @@ func TestVectorConsAppend(t *testing.T) {
 
 	vec = vec.Cons(Dat(8)).(VecVal)
 	fmt.Printf("vector with one element [8]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Cons(Dat(9)).(VecVal)
 	fmt.Printf("vector with two elements [8, 9]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Append(Dat(10), Dat(11), Dat(12)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Append(Dat(6), Dat(7)).(VecVal)
 	fmt.Printf("vector with two elements pushed [8, 9, 10, 11, 12, 6, 7]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 
 	vec = vec.Append(Dat(0), Dat(1), Dat(2), Dat(3), Dat(4), Dat(5)).(VecVal)
 	fmt.Printf("vector with five elements [8, 9, 10, 11, 12, 6, 7, 0, 1, 2, 3, 4, 5]:\n%s\n", vec)
-	if vec.Head().(DatConst).Eval().(d.Numeral).Int() != 8 {
+	if vec.Head().(AtomVal).Eval().(d.Numeral).Int() != 8 {
 		t.Fail()
 	}
 }
@@ -294,7 +294,7 @@ func TestStackSequence(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pops: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(AtomVal)().(d.IntVal) != 4 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -304,7 +304,7 @@ func TestStackSequence(t *testing.T) {
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
 	fmt.Printf("head after pushing 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 0 {
+	if head.(AtomVal)().(d.IntVal) != 0 {
 		t.Fail()
 	}
 }
@@ -322,7 +322,7 @@ func TestStackVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pops: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 5 {
+	if head.(AtomVal)().(d.IntVal) != 5 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -333,7 +333,7 @@ func TestStackVector(t *testing.T) {
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
 	fmt.Printf("head after pushing 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 9 {
+	if head.(AtomVal)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }
@@ -351,7 +351,7 @@ func TestQueueVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pulls: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(AtomVal)().(d.IntVal) != 4 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -361,7 +361,7 @@ func TestQueueVector(t *testing.T) {
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)
 	fmt.Printf("head after appending 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(AtomVal)().(d.IntVal) != 4 {
 		t.Fail()
 	}
 }

@@ -91,15 +91,15 @@ const (
 	String
 	Byte
 	/// SUM
-	HashMap
 	Vector
 	List
+	Enum
 	Set
 	/// PRODUCT
 	Pair
-	Enum
 	Tuple
 	Record
+	HashMap
 	/// COMPOUND
 	Group
 	Functor
@@ -117,22 +117,30 @@ const (
 	Bound = Min | Max
 
 	//// OPTIONALS
-	Optional    = Just | None
-	Alternative = Either | Or
+	Optionals    = Just | None
+	Alternatives = Either | Or
 
 	//// COLLECTIONS
-	Collections = List | Set | HashMap | Vector
-	Products    = Pair | Enum | Tuple | Record
+	Collections = List | Vector | Enum | Set
+	Products    = Pair | Tuple | Record | HashMap
 
 	//// TOPOLOGYS (maps between categorys)
 	Topologys = Functor | Applicative | Monad |
 		State | IO | Group
 
+	//// CONTINUA
 	Continua = Collections | Products | Topologys
-	Numbers  = Natural | Integer | Real | Ratio
-	Symbols  = Letter | String | Byte | Truth |
+
+	//// ATOMIC
+	Numbers = Natural | Integer | Real | Ratio
+	Symbols = Letter | String | Byte | Truth |
 		Trinary | Compare | Bound
 
+	//// MANIFOLDS (PARAMETRIC &| POLYMORPHIC)
+	Manifolds = Optionals | Alternatives |
+		Topologys | Products
+
+	// set of all TYPES
 	T TyFnc = 0xFFFFFFFFFFFFFFFF
 )
 
@@ -220,7 +228,7 @@ func (t TyFnc) TypeName() string {
 			return "Compare"
 		case Bound:
 			return "Bound"
-		case Optional:
+		case Optionals:
 			return "Optional"
 		case Collections:
 			return "Collections"
@@ -957,13 +965,13 @@ func (p TyDef) IsCase() bool {
 }
 func (p TyDef) IsMaybe() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Optional)
+		return p.Elements()[1].Match(Optionals)
 	}
 	return false
 }
 func (p TyDef) IsOption() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Alternative)
+		return p.Elements()[1].Match(Alternatives)
 	}
 	return false
 }
@@ -990,8 +998,8 @@ func (p TyDef) HasTruth() bool       { return p.MatchAnyType(Truth) }
 func (p TyDef) HasTrinary() bool     { return p.MatchAnyType(Trinary) }
 func (p TyDef) HasCompare() bool     { return p.MatchAnyType(Compare) }
 func (p TyDef) HasBound() bool       { return p.MatchAnyType(Min, Max) }
-func (p TyDef) HasMaybe() bool       { return p.MatchAnyType(Optional) }
-func (p TyDef) HasAlternative() bool { return p.MatchAnyType(Alternative) }
+func (p TyDef) HasMaybe() bool       { return p.MatchAnyType(Optionals) }
+func (p TyDef) HasAlternative() bool { return p.MatchAnyType(Alternatives) }
 func (p TyDef) HasNumber() bool      { return p.MatchAnyType(Numbers) }
 func (p TyDef) HasString() bool      { return p.MatchAnyType(String) }
 func (p TyDef) HasByte() bool        { return p.MatchAnyType(Byte) }

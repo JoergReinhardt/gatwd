@@ -44,14 +44,14 @@ func _() {
 	_ = x[Letter-8589934592]
 	_ = x[String-17179869184]
 	_ = x[Byte-34359738368]
-	_ = x[HashMap-68719476736]
-	_ = x[Vector-137438953472]
-	_ = x[List-274877906944]
+	_ = x[Vector-68719476736]
+	_ = x[List-137438953472]
+	_ = x[Enum-274877906944]
 	_ = x[Set-549755813888]
 	_ = x[Pair-1099511627776]
-	_ = x[Enum-2199023255552]
-	_ = x[Tuple-4398046511104]
-	_ = x[Record-8796093022208]
+	_ = x[Tuple-2199023255552]
+	_ = x[Record-4398046511104]
+	_ = x[HashMap-8796093022208]
 	_ = x[Group-17592186044416]
 	_ = x[Functor-35184372088832]
 	_ = x[Applicative-70368744177664]
@@ -61,7 +61,7 @@ func _() {
 	_ = x[T-18446744073709551615]
 }
 
-const _TyFnc_name = "TypeDataValuePartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxPolymorphSwitchCaseJustNoneEitherOrNaturalIntegerRealRatioLetterStringByteHashMapVectorListSetPairEnumTupleRecordGroupFunctorApplicativeMonadStateIOT"
+const _TyFnc_name = "TypeDataValuePartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseUndecidedEqualLesserGreaterMinMaxPolymorphSwitchCaseJustNoneEitherOrNaturalIntegerRealRatioLetterStringByteVectorListEnumSetPairTupleRecordHashMapGroupFunctorApplicativeMonadStateIOT"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
@@ -100,14 +100,14 @@ var _TyFnc_map = map[TyFnc]string{
 	8589934592:           _TyFnc_name[197:203],
 	17179869184:          _TyFnc_name[203:209],
 	34359738368:          _TyFnc_name[209:213],
-	68719476736:          _TyFnc_name[213:220],
-	137438953472:         _TyFnc_name[220:226],
-	274877906944:         _TyFnc_name[226:230],
-	549755813888:         _TyFnc_name[230:233],
-	1099511627776:        _TyFnc_name[233:237],
-	2199023255552:        _TyFnc_name[237:241],
-	4398046511104:        _TyFnc_name[241:246],
-	8796093022208:        _TyFnc_name[246:252],
+	68719476736:          _TyFnc_name[213:219],
+	137438953472:         _TyFnc_name[219:223],
+	274877906944:         _TyFnc_name[223:227],
+	549755813888:         _TyFnc_name[227:230],
+	1099511627776:        _TyFnc_name[230:234],
+	2199023255552:        _TyFnc_name[234:239],
+	4398046511104:        _TyFnc_name[239:245],
+	8796093022208:        _TyFnc_name[245:252],
 	17592186044416:       _TyFnc_name[252:257],
 	35184372088832:       _TyFnc_name[257:264],
 	70368744177664:       _TyFnc_name[264:275],

@@ -267,7 +267,7 @@ func NewMaybe(cas CaseDef) OptionalDef {
 		argtypes = append(argtypes, arg)
 	}
 	var (
-		pattern = Def(Optional, Def(Def(
+		pattern = Def(Optionals, Def(Def(
 			Just, cas.TypeRet()),
 			None), Def(argtypes...))
 	)
@@ -291,7 +291,7 @@ func NewMaybe(cas CaseDef) OptionalDef {
 	})
 }
 
-func (t OptionalDef) TypeFnc() TyFnc                     { return Optional }
+func (t OptionalDef) TypeFnc() TyFnc                     { return Optionals }
 func (t OptionalDef) Type() TyDef                        { return t().(TyDef) }
 func (t OptionalDef) TypeArguments() TyDef               { return t().Type().TypeArgs() }
 func (t OptionalDef) TypeReturn() TyDef                  { return t().Type().TypeRet() }
@@ -340,7 +340,7 @@ func NewEitherOr(test Testable, either, or Expression) AlternateDef {
 		return pattern
 	})
 }
-func (o AlternateDef) TypeFnc() TyFnc                     { return Alternative }
+func (o AlternateDef) TypeFnc() TyFnc                     { return Alternatives }
 func (o AlternateDef) Type() TyDef                        { return o().Type() }
 func (o AlternateDef) String() string                     { return o().String() }
 func (o AlternateDef) Call(args ...Expression) Expression { return o(args...) }

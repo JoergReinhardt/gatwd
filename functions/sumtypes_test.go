@@ -105,7 +105,7 @@ func TestExpression(t *testing.T) {
 
 	complete = result3.(VecVal)()[1].Call(Dat(42))
 	fmt.Printf("completed result3[1] partial: %s\n", complete)
-	if complete.(DatConst).Eval().(d.Numeral).Int() != 65 {
+	if complete.(AtomVal).Eval().(d.Numeral).Int() != 65 {
 		t.Fail()
 	}
 

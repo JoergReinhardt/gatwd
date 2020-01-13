@@ -10,7 +10,7 @@ type (
 
 	//// COLLECTION TYPES
 	VecVal  func(...Expression) []Expression
-	ListVal func(...Expression) (Expression, ListVal) // instance type
+	ListVal func(...Expression) (Expression, ListVal)
 
 	//// INTERNAL HELPER TYPES
 	pool   sync.Pool

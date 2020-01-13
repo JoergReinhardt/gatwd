@@ -15,8 +15,9 @@ type (
 	RealPair  func(...Expression) (float64, Expression)
 
 	//// COLLECTIONS OF VALUE PAIRS
-	KeyMap  map[string]Expression
-	RealMap map[float64]Expression
+	KeyIndex []KeyPair
+	KeyMap   map[string]Expression
+	RealMap  map[float64]Expression
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -379,6 +380,44 @@ func (p RealPair) Continue() (Expression, Grouped) {
 }
 func (p RealPair) Head() Expression { return p.Key() }
 func (p RealPair) Tail() Grouped    { return NewList(p.Value()) }
+
+///////////////////////////////////////////////////////////////////////////////
+//// KEY INDEX
+///  key index keeps index position of key/value pairs stored in a hash map in
+//   order.
+func NewKeyIndex(pairs ...KeyPair) KeyIndex { return pairs }
+func (i KeyIndex) Slice() []Expression {
+	var slice = make([]Expression, 0, i.Len())
+	for _, p := range i {
+		slice = append(slice, p)
+	}
+	return slice
+}
+func (i KeyIndex) Vector() VecVal { return NewVector(i.Slice()...) }
+func (i KeyIndex) TypeFnc() TyFnc { return Key | Pair | Vector }
+func (i KeyIndex) Len() int       { return len(i) }
+func (i KeyIndex) InvertPairs() KeyMap {
+	var m = map[string]Expression{}
+	for n := 0; n < i.Len(); n++ {
+		m[i[n].KeyStr()] = NewIndexPair(n, i[n])
+	}
+	return m
+}
+func (i KeyIndex) InvertVals() KeyMap {
+	var m = map[string]Expression{}
+	for _, v := range i {
+		m[v.KeyStr()] = v
+	}
+	return m
+}
+func (i KeyIndex) InvertIdx() KeyMap {
+	var m = map[string]Expression{}
+	for n, v := range i {
+		m[v.KeyStr()] = Box(d.IntVal(n))
+		n -= 1
+	}
+	return m
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //// KEY MAP

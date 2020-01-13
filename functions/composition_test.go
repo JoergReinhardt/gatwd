@@ -39,7 +39,7 @@ func TestApplySequence(t *testing.T) {
 
 	fmt.Printf("add-ints applyed to list-a: %s\n", m)
 
-	if m.Call().(Paired).Left().Call(Dat(13)).(DatConst)().(d.IntVal) != 13 {
+	if m.Call().(Paired).Left().Call(Dat(13)).(AtomVal)().(d.IntVal) != 13 {
 		t.Fail()
 	}
 
@@ -68,7 +68,7 @@ func TestFoldSequence(t *testing.T) {
 		head, tail = tail.Continue()
 	}
 	fmt.Printf("head after eight continuations: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 36 {
+	if head.(AtomVal)().(d.IntVal) != 36 {
 		t.Fail()
 	}
 }
@@ -77,7 +77,7 @@ func TestFilterPassSequence(t *testing.T) {
 
 	var (
 		isEven = func(arg Expression) bool {
-			return arg.(DatConst)().(d.IntVal)%2 == 0
+			return arg.(AtomVal)().(d.IntVal)%2 == 0
 		}
 		odd  = Filter(intsA, isEven)
 		even = Pass(intsA, isEven)
@@ -93,8 +93,8 @@ func TestFilterPassSequence(t *testing.T) {
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
 
-	if ohead.(VecVal).Last().(DatConst)().(d.IntVal) != 7 ||
-		ehead.(VecVal).Last().(DatConst)().(d.IntVal) != 6 {
+	if ohead.(VecVal).Last().(AtomVal)().(d.IntVal) != 7 ||
+		ehead.(VecVal).Last().(AtomVal)().(d.IntVal) != 6 {
 		t.Fail()
 	}
 }
@@ -119,7 +119,7 @@ func TestTakeNSequence(t *testing.T) {
 	}
 
 	fmt.Printf("last elements head: %s\n", head.(Grouped).Head())
-	if head.(Grouped).Head().(DatConst)().(d.IntVal) != 8 {
+	if head.(Grouped).Head().(AtomVal)().(d.IntVal) != 8 {
 		t.Fail()
 	}
 
@@ -137,18 +137,18 @@ func TestFlatttenSequence(t *testing.T) {
 	var flat = Flatten(token)
 	fmt.Printf("flattened list of lists: %s\n", flat)
 	var head, tail = flat.Continue()
-	if head.(DatConst)().(d.IntVal) != 0 {
+	if head.(AtomVal)().(d.IntVal) != 0 {
 		t.Fail()
 	}
 	for head, tail = tail.Continue(); tail.Empty(); {
 	}
-	if head.(DatConst)().(d.IntVal) != 1 {
+	if head.(AtomVal)().(d.IntVal) != 1 {
 		t.Fail()
 	}
 }
 
 var zipped Grouped = Zip(abc, intsA, func(l, r Expression) Expression {
-	return NewKeyPair(string(l.(DatConst)().(d.StrVal)), r)
+	return NewKeyPair(string(l.(AtomVal)().(d.StrVal)), r)
 })
 
 func TestZipSequence(t *testing.T) {
