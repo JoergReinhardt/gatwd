@@ -166,30 +166,30 @@ func TestOption(t *testing.T) {
 	}
 }
 
-func TestEnum(t *testing.T) {
-	var enumtype EnumCon
-	var weekdays = NewVector(
-		Dat("Monday"),
-		Dat("Tuesday"),
-		Dat("Wednesday"),
-		Dat("Thursday"),
-		Dat("Friday"),
-		Dat("Saturday"),
-		Dat("Sunday"),
-	)
-	enumtype = NewEnumType(func(day d.Numeral) Expression {
-		var idx = day.GoInt()
-		if idx > 6 {
-			idx = idx%6 - 1
-		}
-		return weekdays()[idx]
-	})
-
-	fmt.Printf("enum type days of the week: %s type: %s\n", enumtype, enumtype.Type().TypeName())
-	var enum = enumtype(d.IntVal(8))
-	fmt.Printf("wednesday eum: %s\n", enum)
-	fmt.Printf("eum expr: %s\n", enum.Type())
-	var val, idx, _ = enum()
-	fmt.Printf("enum value val %s, index: %s\n",
-		val, idx)
-}
+//func TestEnum(t *testing.T) {
+//	var enumtype EnumCon
+//	var weekdays = NewVector(
+//		Dat("Monday"),
+//		Dat("Tuesday"),
+//		Dat("Wednesday"),
+//		Dat("Thursday"),
+//		Dat("Friday"),
+//		Dat("Saturday"),
+//		Dat("Sunday"),
+//	)
+//	enumtype = NewEnumType(func(day d.Numeral) Expression {
+//		var idx = day.GoInt()
+//		if idx > 6 {
+//			idx = idx%6 - 1
+//		}
+//		return weekdays()[idx]
+//	})
+//
+//	fmt.Printf("enum type days of the week: %s type: %s\n", enumtype, enumtype.Type().TypeName())
+//	var enum = enumtype(d.IntVal(8))
+//	fmt.Printf("wednesday eum: %s\n", enum)
+//	fmt.Printf("eum expr: %s\n", enum.Type())
+//	var val, idx, _ = enum()
+//	fmt.Printf("enum value val %s, index: %s\n",
+//		val, idx)
+//}

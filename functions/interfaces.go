@@ -353,10 +353,9 @@ type ConsumeablePaired interface {
 // interface to be implementet by enumerable types
 type Enumerable interface {
 	Expression
-	Next() EnumVal
-	Prev() EnumVal
-	EnumType() EnumCon
-	Alloc(d.Numeral) EnumVal
+	Next() Enumerable
+	Prev() Enumerable
+	Create(d.Numeral) Enumerable
 }
 
 // monadic interface generalizes step wise sequential progress of computations

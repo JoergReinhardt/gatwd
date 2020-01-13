@@ -322,7 +322,7 @@ func TestStackVector(t *testing.T) {
 		list = list.Cons(head)
 	}
 	fmt.Printf("head after 5 pops: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 4 {
+	if head.(DatConst)().(d.IntVal) != 5 {
 		t.Fail()
 	}
 	for i := 0; i < 5; i++ {
@@ -333,7 +333,7 @@ func TestStackVector(t *testing.T) {
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
 	fmt.Printf("head after pushing 5 popped elements back on again: %s\n", head)
-	if head.(DatConst)().(d.IntVal) != 0 {
+	if head.(DatConst)().(d.IntVal) != 9 {
 		t.Fail()
 	}
 }

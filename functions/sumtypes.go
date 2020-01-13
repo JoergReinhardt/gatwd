@@ -26,18 +26,11 @@ type (
 	GenVal func() (Expression, GenVal)
 	AccVal func(...Expression) (Expression, AccVal)
 
-	//// ENUMERABLE
-	///
-	// enumerable value returns its index position within set of
-	// enumerables and its data constructor to enable previous, next
-	// methods
-	EnumCon func(d.Numeral) EnumVal
-	EnumVal func(...Expression) (Expression, d.Numeral, EnumCon)
-
-	//// FUNCTION DEFINITION
+	//// SIGNED TYPE SAFE FUNCTION DEFINITION
 	Definition func(...Expression) Expression
 )
 
+///////////////////////////////////////////////////////////////////////////////
 //// NONE VALUE CONSTRUCTOR
 ///
 // none represens the abscence of a value of any type.  implements countable,
@@ -75,6 +68,7 @@ func (n NoneVal) FlagType() d.Uint8Val            { return Kind_Fnc.U() }
 func (n NoneVal) Continue() (Expression, Grouped) { return NewNone(), NewNone() }
 func (n NoneVal) Consume() (Expression, Grouped)  { return NewNone(), NewNone() }
 
+///////////////////////////////////////////////////////////////////////////////
 //// GENERIC CONSTANT DEFINITION
 ///
 // declares a constant value
@@ -113,6 +107,7 @@ func (c Lambda) TypeIdent() TyComp     { return c().Type().TypeId() }
 func (c Lambda) TypeReturn() TyComp    { return c().Type().TypeRet() }
 func (c Lambda) TypeArguments() TyComp { return c().Type().TypeArgs() }
 
+///////////////////////////////////////////////////////////////////////////////
 //// GENERATOR
 ///
 // expects an expression that returns an unboxed value, when called empty and
@@ -155,6 +150,7 @@ func (g GenVal) Continue() (Expression, Grouped) { return g() }
 func (g GenVal) Head() Expression                { return g.Expr() }
 func (g GenVal) Tail() Grouped                   { return g.Generator() }
 
+///////////////////////////////////////////////////////////////////////////////
 //// ACCUMULATOR
 ///
 // accumulator expects an expression as input, that returns itself unboxed,
@@ -221,93 +217,9 @@ func (g AccVal) TypeElem() TyComp                { return g.Head().Type() }
 func (g AccVal) Tail() Grouped                   { return g.Accumulator() }
 func (g AccVal) Continue() (Expression, Grouped) { return g() }
 
-//// ENUM TYPE
+///////////////////////////////////////////////////////////////////////////////
+//// TAGGED, TYPE-SAFE, PARTIAL APPLYABLE FUNCTION
 ///
-// declares an enumerable type returning instances from the set of enumerables
-// defined by the passed function
-func NewEnumType(fnc func(d.Numeral) Expression) EnumCon {
-	return func(idx d.Numeral) EnumVal {
-		return func(args ...Expression) (Expression, d.Numeral, EnumCon) {
-			if len(args) > 0 {
-				return fnc(idx).Call(args...), idx, NewEnumType(fnc)
-			}
-			return fnc(idx), idx, NewEnumType(fnc)
-		}
-	}
-}
-func (e EnumCon) Expr() Expression            { return e(d.IntVal(0)) }
-func (e EnumCon) Alloc(idx d.Numeral) EnumVal { return e(idx) }
-func (e EnumCon) Type() TyComp {
-	return Def(Enum, e.Expr().Type().TypeRet())
-}
-func (e EnumCon) TypeFnc() TyFnc { return Enum }
-func (e EnumCon) String() string { return e.Type().TypeName() }
-func (e EnumCon) Call(args ...Expression) Expression {
-	if len(args) > 0 {
-		if len(args) > 1 {
-			var vec = NewVector()
-			for _, arg := range args {
-				vec = vec.Cons(e.Call(arg)).(VecVal)
-			}
-			return vec
-		}
-		var arg = args[0]
-		if arg.Type().Match(Data) {
-			if nat, ok := arg.(NatEval); ok {
-				if i, ok := nat.Eval().(d.Numeral); ok {
-					return e(i)
-				}
-			}
-		}
-	}
-	return e
-}
-
-//// ENUM VALUE
-///
-//
-func (e EnumVal) Expr() Expression {
-	var expr, _, _ = e()
-	return expr
-}
-func (e EnumVal) Index() d.Numeral {
-	var _, idx, _ = e()
-	return idx
-}
-func (e EnumVal) EnumType() EnumCon {
-	var _, _, et = e()
-	return et
-}
-func (e EnumVal) Alloc(idx d.Numeral) EnumVal { return e.EnumType().Alloc(idx) }
-func (e EnumVal) Next() EnumVal {
-	var result = e.EnumType()(e.Index().Int() + d.IntVal(1))
-	return result
-}
-func (e EnumVal) Previous() EnumVal {
-	var result = e.EnumType()(e.Index().Int() - d.IntVal(1))
-	return result
-}
-func (e EnumVal) String() string { return e.Expr().String() }
-func (e EnumVal) Type() TyComp {
-	var (
-		nat d.Native
-		idx = e.Index()
-	)
-	if idx.Type().Match(d.BigInt) {
-		nat = idx.BigInt()
-	} else {
-		nat = idx.Int()
-	}
-	return Def(Def(Enum, DefValNat(nat)), e.Expr().Type())
-}
-func (e EnumVal) TypeFnc() TyFnc { return Enum | e.Expr().TypeFnc() }
-func (e EnumVal) Call(args ...Expression) Expression {
-	var r, _, _ = e(args...)
-	return r
-}
-
-/// PARTIAL APPLYABLE EXPRESSION VALUE
-//
 // helper function to create function type definition:
 //  - identity:
 //    - first typearg if its a type-symbol
@@ -329,7 +241,8 @@ func createFuncType(expr Expression, types ...d.Typed) TyComp {
 			// if first types argument is a composed type
 			if Kind_Comp.Match(types[0].Kind()) {
 				// return composed types identity
-				name = types[0].(TyComp).TypeId().TypeName()
+				name = types[0].(TyComp).
+					TypeId().TypeName()
 			} else {
 				// return flat types name
 				name = types[0].TypeName()
@@ -449,8 +362,8 @@ func Define(
 				// instance of defined type per satisfying set
 				// of arguments
 				for len(args) > arglen {
-					vector = vector.Cons(
-						expr.Call(args[:arglen]...)).(VecVal)
+					vector = vector.Cons(expr.Call(
+						args[:arglen]...)).(VecVal)
 					args = args[arglen:]
 				}
 
@@ -475,11 +388,14 @@ func Define(
 		return None
 	}
 }
-func (e Definition) TypeFnc() TyFnc                     { return Constructor | Value }
-func (e Definition) Type() TyComp                       { return e().(TyComp) }
-func (e Definition) TypeId() TyComp                     { return e.Type().TypeId() }
-func (e Definition) TypeArgs() TyComp                   { return e.Type().TypeArgs() }
-func (e Definition) TypeRet() TyComp                    { return e.Type().TypeRet() }
-func (e Definition) ArgCount() int                      { return e.Type().TypeArgs().Count() }
-func (e Definition) String() string                     { return e().String() }
+
 func (e Definition) Call(args ...Expression) Expression { return e(args...) }
+
+func (e Definition) TypeFnc() TyFnc   { return Constructor | Value }
+func (e Definition) Type() TyComp     { return e().(TyComp) }
+func (e Definition) TypeId() TyComp   { return e.Type().TypeId() }
+func (e Definition) TypeArgs() TyComp { return e.Type().TypeArgs() }
+func (e Definition) TypeRet() TyComp  { return e.Type().TypeRet() }
+func (e Definition) TypeName() string { return e.Type().TypeName() }
+func (e Definition) ArgCount() int    { return e.Type().TypeArgs().Count() }
+func (e Definition) String() string   { return e().String() }
