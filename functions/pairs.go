@@ -63,9 +63,19 @@ func NewPair(l, r Expression) ValPair {
 func (p ValPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
 func (p ValPair) Concat(c Continuous) Topological { return NewPair(p, c) }
 func (p ValPair) Continue() (Expression, Topological) {
-	var k, v = p()
-	if v.TypeFnc().Match(Topologys) {
-		return k, v.(Topological)
+	var (
+		head Expression
+		tail Continuous
+		k, v = p()
+	)
+	if k.TypeFnc().Match(Continua) {
+		head, tail = k.(Continuous).Continue()
+		if v.TypeFnc().Match(Continua) {
+			return head, tail.Concat(v.(Continuous))
+		}
+	}
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Continuous))
 	}
 	return k, NewPair(v, NewNone())
 }
@@ -173,11 +183,15 @@ func (a NatPair) String() string {
 
 func (p NatPair) Cons(arg Expression) Expression { return NewPair(arg, p) }
 func (p NatPair) Continue() (Expression, Topological) {
-	var k, v = p.Key(), p.Value()
-	if v.Type().Match(Continua) {
-		return k, NewPair(k, v.(Continuous))
+	var (
+		head Expression
+		tail Continuous
+		k, v = p()
+	)
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Continuous))
 	}
-	return k, NewPair(v, NewNone())
+	return Box(k), NewPair(v, NewNone())
 }
 func (p NatPair) Head() Expression {
 	var h, _ = p.Continue()
@@ -236,13 +250,15 @@ func (a KeyPair) String() string {
 func (p KeyPair) Cons(arg Expression) Topological    { return NewPair(arg, p) }
 func (p KeyPair) Concat(cons Continuous) Topological { return NewPair(p, cons) }
 func (p KeyPair) Continue() (Expression, Topological) {
-	var k, v = p.Key(), p.Value()
-	if v.Type().Match(Continua) {
-		if v.Type().Match(Continua) {
-			return k, NewPair(k, v.(Continuous))
-		}
+	var (
+		head Expression
+		tail Continuous
+		k, v = p()
+	)
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Continuous))
 	}
-	return k, NewPair(v, NewNone())
+	return Box(d.StrVal(k)), NewPair(v, NewNone())
 }
 func (p KeyPair) Head() Expression {
 	var h, _ = p.Continue()
@@ -299,15 +315,15 @@ func (a IndexPair) String() string {
 func (p IndexPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
 func (p IndexPair) Concat(c Continuous) Topological { return NewPair(p, c) }
 func (p IndexPair) Continue() (Expression, Topological) {
-	var k, v = p.Index(), p.Value()
-	if v.Type().Match(Continua) {
-		if v.Type().Match(Continua) {
-			return Box(d.IntVal(k)),
-				NewIndexPair(k, v.(Continuous))
-		}
+	var (
+		head Expression
+		tail Continuous
+		k, v = p()
+	)
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Continuous))
 	}
-	return Box(d.IntVal(k)),
-		NewPair(v, NewNone())
+	return Box(d.IntVal(k)), NewPair(v, NewNone())
 }
 func (p IndexPair) Head() Expression {
 	var h, _ = p.Continue()
@@ -359,15 +375,15 @@ func (p RealPair) TypeElem() TyDef { return p.Value().Type() }
 func (p RealPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
 func (p RealPair) Concat(c Continuous) Topological { return NewPair(p, c) }
 func (p RealPair) Continue() (Expression, Topological) {
-	var k, v = p.Real(), p.Value()
-	if v.Type().Match(Continua) {
-		if v.Type().Match(Continua) {
-			return Box(d.FltVal(k)),
-				NewRealPair(k, v.(Continuous))
-		}
+	var (
+		head Expression
+		tail Continuous
+		k, v = p()
+	)
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Continuous))
 	}
-	return Box(d.FltVal(k)),
-		NewPair(v, NewNone())
+	return Box(d.FltVal(k)), NewPair(v, NewNone())
 }
 func (p RealPair) Head() Expression {
 	var h, _ = p.Continue()
