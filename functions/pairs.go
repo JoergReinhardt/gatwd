@@ -2,6 +2,8 @@ package functions
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	d "github.com/joergreinhardt/gatwd/data"
 )
@@ -58,43 +60,33 @@ func NewPair(l, r Expression) ValPair {
 	}
 }
 
-func (p ValPair) Cons(arg Expression) Grouped {
-	if p.Empty() {
-		return NewPair(arg, NewNone())
+func (p ValPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
+func (p ValPair) Concat(c Continuous) Topological { return NewPair(p, c) }
+func (p ValPair) Continue() (Expression, Topological) {
+	var k, v = p()
+	if v.TypeFnc().Match(Topologys) {
+		return k, v.(Topological)
 	}
-	if p.Right().Type().Match(None) {
-		return NewPair(p.Left(), arg)
-	}
-	if p.Left().Type().Match(None) {
-		return NewPair(arg, p.Right())
-	}
-	return NewPair(p, arg)
-	return p
+	return k, NewPair(v, NewNone())
 }
-func (p ValPair) Continue() (Expression, Grouped) {
-	var l, r = p()
-	if !l.Type().Match(None) {
-		if !r.Type().Match(None) {
-			if r.Type().Match(Continua) {
-				return l, r.(Grouped)
-			}
-		}
-	}
-	return NewNone(), NewEmptyPair()
+func (p ValPair) Head() Expression {
+	var h, _ = p.Continue()
+	return h
 }
-func (p ValPair) Head() Expression           { return p.Key() }
-func (p ValPair) Tail() Grouped              { return NewList(p.Value()) }
-func (p ValPair) Concat(c Continued) Grouped { return NewList(p, c) }
+func (p ValPair) Tail() Topological {
+	var _, t = p.Continue()
+	return t
+}
 
-func (p ValPair) Pair() Paired                   { return p }
 func (p ValPair) Both() (Expression, Expression) { return p() }
 func (p ValPair) Swap() (Expression, Expression) { l, r := p(); return r, l }
 func (p ValPair) Left() Expression               { l, _ := p(); return l }
 func (p ValPair) Right() Expression              { _, r := p(); return r }
-func (p ValPair) SwappedPair() Paired            { return NewPair(p.Right(), p.Left()) }
-func (p ValPair) Slice() []Expression {
-	return []Expression{p.Left(), p.Right()}
-}
+
+func (p ValPair) Pair() Paired        { return p }
+func (p ValPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
+func (p ValPair) Slice() []Expression { return []Expression{p.Left(), p.Right()} }
+
 func (p ValPair) Key() Expression   { return p.Left() }
 func (p ValPair) Value() Expression { return p.Right() }
 func (p ValPair) TypeFnc() TyFnc    { return Pair }
@@ -179,28 +171,22 @@ func (a NatPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
-func (p NatPair) Cons(args ...Expression) Expression {
-	return NewVector(Map(TakeN(NewVector(args...), 2),
-		func(arg Expression) Expression {
-			var (
-				left       d.Native
-				right      Expression
-				head, tail = arg.(Grouped).Continue()
-			)
-			if head.Type().Match(Data) {
-				left = head.(NatEval).Eval()
-			} else {
-				left = Nat(head.String())
-			}
-			right, tail = tail.Continue()
-			return NewNatPair(left, right)
-		}))
+func (p NatPair) Cons(arg Expression) Expression { return NewPair(arg, p) }
+func (p NatPair) Continue() (Expression, Topological) {
+	var k, v = p.Key(), p.Value()
+	if v.Type().Match(Continua) {
+		return k, NewPair(k, v.(Continuous))
+	}
+	return k, NewPair(v, NewNone())
 }
-func (p NatPair) Continue() (Expression, Grouped) {
-	return p.Key(), NewList(p.Value())
+func (p NatPair) Head() Expression {
+	var h, _ = p.Continue()
+	return h
 }
-func (p NatPair) Head() Expression { return p.Key() }
-func (p NatPair) Tail() Grouped    { return NewList(p.Value()) }
+func (p NatPair) Tail() Topological {
+	var _, t = p.Continue()
+	return t
+}
 
 //// STRING KEY PAIR
 ///
@@ -247,18 +233,25 @@ func (a KeyPair) Empty() bool {
 func (a KeyPair) String() string {
 	return "(" + a.KeyStr() + " : " + a.Value().String() + ")"
 }
-func (p KeyPair) Cons(args ...Expression) Expression {
-	return NewVector(Map(TakeN(NewVector(args...), 2),
-		func(arg Expression) Expression {
-			var left, tail = arg.(Grouped).Continue()
-			return NewKeyPair(left.String(), tail)
-		}))
+func (p KeyPair) Cons(arg Expression) Topological    { return NewPair(arg, p) }
+func (p KeyPair) Concat(cons Continuous) Topological { return NewPair(p, cons) }
+func (p KeyPair) Continue() (Expression, Topological) {
+	var k, v = p.Key(), p.Value()
+	if v.Type().Match(Continua) {
+		if v.Type().Match(Continua) {
+			return k, NewPair(k, v.(Continuous))
+		}
+	}
+	return k, NewPair(v, NewNone())
 }
-func (p KeyPair) Continue() (Expression, Grouped) {
-	return p.Key(), NewList(p.Value())
+func (p KeyPair) Head() Expression {
+	var h, _ = p.Continue()
+	return h
 }
-func (p KeyPair) Head() Expression { return p.Key() }
-func (p KeyPair) Tail() Grouped    { return NewList(p.Value()) }
+func (p KeyPair) Tail() Topological {
+	var _, t = p.Continue()
+	return t
+}
 
 //// INDEX PAIR
 ///
@@ -279,6 +272,7 @@ func (a IndexPair) TypeFnc() TyFnc                 { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed               { return Index }
 func (a IndexPair) TypeValue() d.Typed             { return a.Value().Type() }
 func (a IndexPair) Type() TyDef                    { return Def(Pair, Def(Index, a.TypeValue())) }
+func (p IndexPair) TypeElem() TyDef                { return p.Value().Type() }
 func (p IndexPair) Call(args ...Expression) Expression {
 	if len(args) > 0 {
 		return NewIndexPair(p.Index(), p.Value().Call(args...))
@@ -302,27 +296,27 @@ func (a IndexPair) String() string {
 	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
 
-func (p IndexPair) Cons(args ...Expression) Expression {
-	return NewVector(Map(TakeN(NewVector(args...), 2),
-		func(arg Expression) Expression {
-			var (
-				idx        = 0
-				head, tail = arg.(Grouped).Continue()
-			)
-			if head.Type().Match(Data) {
-				var nat = head.(NatEval).Eval()
-				if nat.Type().Match(d.Numbers) {
-					idx = int(nat.(d.Numeral).Int())
-				}
-			}
-			return NewIndexPair(idx, tail)
-		}))
+func (p IndexPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
+func (p IndexPair) Concat(c Continuous) Topological { return NewPair(p, c) }
+func (p IndexPair) Continue() (Expression, Topological) {
+	var k, v = p.Index(), p.Value()
+	if v.Type().Match(Continua) {
+		if v.Type().Match(Continua) {
+			return Box(d.IntVal(k)),
+				NewIndexPair(k, v.(Continuous))
+		}
+	}
+	return Box(d.IntVal(k)),
+		NewPair(v, NewNone())
 }
-func (p IndexPair) Continue() (Expression, Grouped) {
-	return p.Key(), NewList(p.Value())
+func (p IndexPair) Head() Expression {
+	var h, _ = p.Continue()
+	return h
 }
-func (p IndexPair) Head() Expression { return p.Key() }
-func (p IndexPair) Tail() Grouped    { return NewList(p.Value()) }
+func (p IndexPair) Tail() Topological {
+	var _, t = p.Continue()
+	return t
+}
 
 //// FLOATING PAIR
 ///
@@ -359,33 +353,68 @@ func (a RealPair) Empty() bool {
 func (a RealPair) String() string {
 	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
-func (p RealPair) Cons(args ...Expression) Expression {
-	return NewVector(Map(TakeN(NewVector(args...), 2),
-		func(arg Expression) Expression {
-			var (
-				idx        = 0.0
-				head, tail = arg.(Grouped).Continue()
-			)
-			if head.Type().Match(Data) {
-				var nat = head.(NatEval).Eval()
-				if nat.Type().Match(d.Numbers) {
-					idx = float64(nat.(d.Numeral).Float())
-				}
-			}
-			return NewRealPair(idx, tail)
-		}))
+func (p RealPair) TypeElem() TyDef { return p.Value().Type() }
+
+//
+func (p RealPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
+func (p RealPair) Concat(c Continuous) Topological { return NewPair(p, c) }
+func (p RealPair) Continue() (Expression, Topological) {
+	var k, v = p.Real(), p.Value()
+	if v.Type().Match(Continua) {
+		if v.Type().Match(Continua) {
+			return Box(d.FltVal(k)),
+				NewRealPair(k, v.(Continuous))
+		}
+	}
+	return Box(d.FltVal(k)),
+		NewPair(v, NewNone())
 }
-func (p RealPair) Continue() (Expression, Grouped) {
-	return p.Key(), NewList(p.Value())
+func (p RealPair) Head() Expression {
+	var h, _ = p.Continue()
+	return h
 }
-func (p RealPair) Head() Expression { return p.Key() }
-func (p RealPair) Tail() Grouped    { return NewList(p.Value()) }
+func (p RealPair) Tail() Topological {
+	var _, t = p.Continue()
+	return t
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //// KEY INDEX
 ///  key index keeps index position of key/value pairs stored in a hash map in
 //   order.
 func NewKeyIndex(pairs ...KeyPair) KeyIndex { return pairs }
+
+func (i KeyIndex) Call(...Expression) Expression { return i }
+
+func (i KeyIndex) Len() int       { return len(i) }
+func (i KeyIndex) Vector() VecVal { return NewVector(i.Slice()...) }
+func (i KeyIndex) TypeFnc() TyFnc { return Key | Pair | Vector }
+func (i KeyIndex) Type() TyDef {
+	return Def(Vector, Def(Pair, Def(String, T)))
+}
+func (i KeyIndex) GetByKey(key string) Expression {
+	var s = newSearcher(
+		i.Slice(), Box(d.StrVal(key)),
+		func(key, arg Expression) int {
+			return strings.Compare(
+				key.String(), arg.String())
+		})
+	return s.Search()
+}
+func (i KeyIndex) GetByIdx(idx int) Expression {
+	if idx < i.Len() {
+		return i[idx]
+	}
+	return NewNone()
+}
+func (i KeyIndex) String() string {
+	var str string
+	for i, p := range i {
+		str = str + strconv.Itoa(i) +
+			"\t:\t" + p.KeyStr() + "\n"
+	}
+	return str
+}
 func (i KeyIndex) Slice() []Expression {
 	var slice = make([]Expression, 0, i.Len())
 	for _, p := range i {
@@ -393,9 +422,20 @@ func (i KeyIndex) Slice() []Expression {
 	}
 	return slice
 }
-func (i KeyIndex) Vector() VecVal { return NewVector(i.Slice()...) }
-func (i KeyIndex) TypeFnc() TyFnc { return Key | Pair | Vector }
-func (i KeyIndex) Len() int       { return len(i) }
+func (i KeyIndex) Keys() []string {
+	var strs = make([]string, 0, i.Len())
+	for _, p := range i {
+		strs = append(strs, p.KeyStr())
+	}
+	return strs
+}
+func (i KeyIndex) Values() []Expression {
+	var vals = make([]Expression, 0, i.Len())
+	for _, p := range i {
+		vals = append(vals, p.Value())
+	}
+	return vals
+}
 func (i KeyIndex) InvertPairs() KeyMap {
 	var m = map[string]Expression{}
 	for n := 0; n < i.Len(); n++ {

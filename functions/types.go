@@ -108,33 +108,48 @@ const (
 	State
 	IO
 
+	//// ATOMIC
+	Numbers = Natural | Integer | Real | Ratio
+	Symbols = Letter | String | Byte | Truth |
+		Trinary | Compare | Bound
+
 	//// TRUTH & COMPARE
 	Truth   = True | False
 	Trinary = Truth | Undecided
 	Compare = Lesser | Greater | Equal
 
+	//// PREDICATES
+	///  are true|false|(equal|undecided)
+	Predicates = Truth | Trinary | Compare
+
 	//// BOUNDS
+	///  argument values are restricted to bounds
 	Bound = Min | Max
 
 	//// OPTIONALS
+	///  return values of a certain type may, or may not be returned
+	//   a value of alternative type, or nothing is returned instead
 	Optionals    = Just | None
 	Alternatives = Either | Or
 
-	//// COLLECTIONS
-	Collections = List | Vector | Enum | Set
-	Products    = Pair | Tuple | Record | HashMap
+	//// ADDITIVE COLLECTIONS
+	///  contain zero or more elements of common type
+	Additives = List | Vector | Enum | Set | HashMap
 
-	//// TOPOLOGYS (maps between categorys)
-	Topologys = Functor | Applicative | Monad |
-		State | IO | Group
+	//// MULTIPLICATIVE COLLECTIONS
+	///  contain zero or more elements of instances of optional, or
+	//   alternative types
+	Products = Pair | Tuple | Record
 
 	//// CONTINUA
-	Continua = Collections | Products | Topologys
+	///  return a continuation for each call until depletion
+	Continua = Additives | Products
 
-	//// ATOMIC
-	Numbers = Natural | Integer | Real | Ratio
-	Symbols = Letter | String | Byte | Truth |
-		Trinary | Compare | Bound
+	//// TOPOLOGYS (maps between categorys)
+	///  continua that enclose side effects like state, mutability, io‥.
+	//   in order to be evaluated in return value continuation creation
+	Topologys = Continua | Functor | Applicative |
+		Monad | State | IO | Group
 
 	//// MANIFOLDS (PARAMETRIC &| POLYMORPHIC)
 	Manifolds = Optionals | Alternatives |
@@ -226,18 +241,24 @@ func (t TyFnc) TypeName() string {
 			return "Trinary"
 		case Compare:
 			return "Compare"
+		case Predicates:
+			return "Praedicates"
 		case Bound:
 			return "Bound"
 		case Optionals:
-			return "Optional"
-		case Collections:
-			return "Collections"
+			return "Optionals"
+		case Alternatives:
+			return "Alternatives"
+		case Additives:
+			return "Additives"
 		case Products:
 			return "Products"
-		case Topologys:
-			return "Topologys"
 		case Continua:
 			return "Continua"
+		case Topologys:
+			return "Topologys"
+		case Manifolds:
+			return "Manifolds"
 		case Numbers:
 			return "Numbers"
 		case Symbols:
@@ -744,7 +765,7 @@ func (p TyDef) HeadPattern() TyDef { return p.Head().(TyDef) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyDef) Tail() Grouped {
+func (p TyDef) Tail() Topological {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -761,7 +782,7 @@ func (p TyDef) TailPattern() TyDef {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyDef) Continue() (Expression, Grouped) { return p.Head(), p.Tail() }
+func (p TyDef) Continue() (Expression, Topological) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -769,7 +790,7 @@ func (p TyDef) ConsumePattern() (TyDef, TyDef) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyDef) ConsGroup(con Grouped) Grouped {
+func (p TyDef) ConsGroup(con Topological) Topological {
 	var types = make([]d.Typed, 0, p.Len())
 	for head, cons := con.Continue(); !cons.Empty(); {
 		if Kind_Comp.Match(head.Type().Kind()) {
@@ -780,21 +801,21 @@ func (p TyDef) ConsGroup(con Grouped) Grouped {
 	}
 	return Def(types...)
 }
-func (p TyDef) Cons(arg Expression) Grouped {
+func (p TyDef) Cons(arg Expression) Topological {
 	if IsType(arg) {
 		return Def(p, arg.(d.Typed))
 	}
 	return Def(p, arg.Type())
 }
 
-func (p TyDef) Concat(grp Continued) Grouped {
+func (p TyDef) Concat(grp Continuous) Topological {
 	var slice = make([]Expression, 0, len(p))
 	for _, t := range p {
 		slice = append(slice, t.(TyDef))
 	}
 	return NewList(slice...).Concat(grp)
 }
-func (p TyDef) Append(args ...Expression) Grouped {
+func (p TyDef) Append(args ...Expression) Topological {
 	var types = make([]Expression, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyDef))

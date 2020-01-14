@@ -19,12 +19,12 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS
-	AtomVal    func() d.Native
-	DatSlice   func() d.DataSlice
-	DatGoSlice func() d.Sliceable
-	DatPair    func() d.PairVal
-	DatMap     func() d.Mapped
-	DatFunc    func(...d.Native) d.Native
+	DatFunc  func(...d.Native) d.Native
+	DatAtom  func() d.Native
+	DatSlice func() d.DataSlice
+	GoSlice  func() d.Sliceable
+	DatPair  func() d.PairVal
+	DatMap   func() d.Mapped
 )
 
 //// DATA CONSTRUCTOR
@@ -67,7 +67,7 @@ func Box(args ...d.Native) Native {
 		}
 	case match(d.Unboxed):
 		if unboxed, ok := nat.(d.Sliceable); ok {
-			return DatGoSlice(func() d.Sliceable {
+			return GoSlice(func() d.Sliceable {
 				return unboxed
 			})
 		}
@@ -86,7 +86,7 @@ func Box(args ...d.Native) Native {
 	}
 	// if instance is neither of type function, nor a collection,
 	// instanciate a native atomic constant.
-	return AtomVal(func() d.Native { return nat })
+	return DatAtom(func() d.Native { return nat })
 }
 
 // helper to generate type identifying pattern from native types
@@ -139,12 +139,12 @@ func (n DatFunc) Call(args ...Expression) Expression {
 }
 
 // NATIVE ATOMIC CONSTANT
-func (n AtomVal) Eval(...d.Native) d.Native     { return n() }
-func (n AtomVal) TypeFnc() TyFnc                { return Data }
-func (n AtomVal) TypeNat() d.TyNat              { return n().Type() }
-func (n AtomVal) String() string                { return n().String() }
-func (n AtomVal) Call(...Expression) Expression { return Box(n()) }
-func (n AtomVal) Type() TyDef {
+func (n DatAtom) Eval(...d.Native) d.Native     { return n() }
+func (n DatAtom) TypeFnc() TyFnc                { return Data }
+func (n DatAtom) TypeNat() d.TyNat              { return n().Type() }
+func (n DatAtom) String() string                { return n().String() }
+func (n DatAtom) Call(...Expression) Expression { return Box(n()) }
+func (n DatAtom) Type() TyDef {
 	return Def(Def(Data, Constant), patternFromNative(n()))
 }
 
@@ -180,25 +180,25 @@ func (n DatSlice) SliceExpr() []Expression {
 }
 
 // SLICES OF NATIVE VALUES
-func (n DatGoSlice) Call(args ...Expression) Expression { return n }
-func (n DatGoSlice) Eval(args ...d.Native) d.Native {
+func (n GoSlice) Call(args ...Expression) Expression { return n }
+func (n GoSlice) Eval(args ...d.Native) d.Native {
 	return d.NewSlice(append(n.Slice(), args...)...)
 }
-func (n DatGoSlice) TypeFnc() TyFnc             { return Data }
-func (n DatGoSlice) TypeNat() d.TyNat           { return n().Type() }
-func (n DatGoSlice) Len() int                   { return n().Len() }
-func (n DatGoSlice) Get(key d.Native) d.Native  { return n().Get(key) }
-func (n DatGoSlice) GetInt(idx int) d.Native    { return n().GetInt(idx) }
-func (n DatGoSlice) Range(s, e int) d.Sliceable { return n().Range(s, e) }
-func (n DatGoSlice) Copy() d.Native             { return n().Copy() }
-func (n DatGoSlice) Empty() bool                { return n().Empty() }
-func (n DatGoSlice) Slice() []d.Native          { return n().Slice() }
-func (n DatGoSlice) ElemType() d.Typed          { return n().TypeElem() }
-func (n DatGoSlice) String() string             { return n().String() }
-func (n DatGoSlice) Type() TyDef {
+func (n GoSlice) TypeFnc() TyFnc             { return Data }
+func (n GoSlice) TypeNat() d.TyNat           { return n().Type() }
+func (n GoSlice) Len() int                   { return n().Len() }
+func (n GoSlice) Get(key d.Native) d.Native  { return n().Get(key) }
+func (n GoSlice) GetInt(idx int) d.Native    { return n().GetInt(idx) }
+func (n GoSlice) Range(s, e int) d.Sliceable { return n().Range(s, e) }
+func (n GoSlice) Copy() d.Native             { return n().Copy() }
+func (n GoSlice) Empty() bool                { return n().Empty() }
+func (n GoSlice) Slice() []d.Native          { return n().Slice() }
+func (n GoSlice) ElemType() d.Typed          { return n().TypeElem() }
+func (n GoSlice) String() string             { return n().String() }
+func (n GoSlice) Type() TyDef {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
-func (n DatGoSlice) SliceExpr() []Expression {
+func (n GoSlice) SliceExpr() []Expression {
 	var slice = make([]Expression, 0, n().Len())
 	for _, nat := range n.Slice() {
 		slice = append(slice, Box(nat))

@@ -14,9 +14,9 @@ import (
 type (
 
 	// TESTS AND COMPARE
-	Praedicate   func(Expression) bool
-	PraedTrinary func(Expression) int
-	PraedCompare func(Expression) int
+	Predicate   func(Expression) bool
+	PredTrinary func(Expression) int
+	PredCompare func(Expression) int
 
 	// CASE & SWITCH
 	// needs to be variadic in orderto enable type overload
@@ -40,28 +40,28 @@ type (
 /// TRUTH TEST
 //
 // create a new test, scrutinizing its arguments and revealing true, or false
-func NewTest(test func(Expression) bool) Praedicate {
+func NewTest(test func(Expression) bool) Predicate {
 	return func(arg Expression) bool { return test(arg) }
 }
-func (t Praedicate) TypeFnc() TyFnc {
+func (t Predicate) TypeFnc() TyFnc {
 	return Truth
 }
-func (t Praedicate) Type() TyDef {
+func (t Predicate) Type() TyDef {
 	return Def(True | False)
 }
-func (t Praedicate) String() string {
+func (t Predicate) String() string {
 	return t.TypeFnc().TypeName()
 }
-func (t Praedicate) Test(arg Expression) bool {
+func (t Predicate) Test(arg Expression) bool {
 	return t(arg)
 }
-func (t Praedicate) Compare(arg Expression) int {
+func (t Predicate) Compare(arg Expression) int {
 	if t(arg) {
 		return 0
 	}
 	return -1
 }
-func (t Praedicate) Call(args ...Expression) Expression {
+func (t Predicate) Call(args ...Expression) Expression {
 	if len(args) == 1 {
 		return Box(d.BoolVal(t(args[0])))
 	}
@@ -75,25 +75,25 @@ func (t Praedicate) Call(args ...Expression) Expression {
 //
 // create a trinary test, that can yield true, false, or undecided, computed by
 // scrutinizing its arguments
-func NewTrinary(test func(Expression) int) PraedTrinary {
+func NewTrinary(test func(Expression) int) PredTrinary {
 	return func(arg Expression) int { return test(arg) }
 }
-func (t PraedTrinary) TypeFnc() TyFnc {
+func (t PredTrinary) TypeFnc() TyFnc {
 	return Trinary
 }
-func (t PraedTrinary) Type() TyDef {
+func (t PredTrinary) Type() TyDef {
 	return Def(True | False | Undecided)
 }
-func (t PraedTrinary) Call(arg Expression) Expression {
+func (t PredTrinary) Call(arg Expression) Expression {
 	return Box(d.IntVal(t(arg)))
 }
-func (t PraedTrinary) String() string {
+func (t PredTrinary) String() string {
 	return t.TypeFnc().TypeName()
 }
-func (t PraedTrinary) Test(arg Expression) bool {
+func (t PredTrinary) Test(arg Expression) bool {
 	return t(arg) == 0
 }
-func (t PraedTrinary) Compare(arg Expression) int {
+func (t PredTrinary) Compare(arg Expression) int {
 	return t(arg)
 }
 
@@ -102,28 +102,28 @@ func (t PraedTrinary) Compare(arg Expression) int {
 // create a comparator expression that yields minus one in case the argument is
 // lesser, zero in case its equal and plus one in case it is greater than the
 // enclosed value to compare against.
-func NewComparator(comp func(Expression) int) PraedCompare {
+func NewComparator(comp func(Expression) int) PredCompare {
 	return func(arg Expression) int { return comp(arg) }
 }
-func (t PraedCompare) TypeFnc() TyFnc {
+func (t PredCompare) TypeFnc() TyFnc {
 	return Compare
 }
-func (t PraedCompare) Type() TyDef {
+func (t PredCompare) Type() TyDef {
 	return Def(Lesser | Greater | Equal)
 }
-func (t PraedCompare) Call(arg Expression) Expression {
+func (t PredCompare) Call(arg Expression) Expression {
 	return Box(d.IntVal(t(arg)))
 }
-func (t PraedCompare) String() string {
+func (t PredCompare) String() string {
 	return t.Type().TypeName()
 }
-func (t PraedCompare) Test(arg Expression) bool {
+func (t PredCompare) Test(arg Expression) bool {
 	return t(arg) == 0
 }
-func (t PraedCompare) Less(arg Expression) bool {
+func (t PredCompare) Less(arg Expression) bool {
 	return t(arg) < 0
 }
-func (t PraedCompare) Compare(arg Expression) int {
+func (t PredCompare) Compare(arg Expression) int {
 	return t(arg)
 }
 
@@ -164,8 +164,8 @@ func (t CaseDef) TypeFnc() TyFnc { return Case }
 func (t CaseDef) Type() TyDef {
 	return t().(Paired).Left().(TyDef)
 }
-func (t CaseDef) Test() Praedicate {
-	return t().(Paired).Right().(Praedicate)
+func (t CaseDef) Test() Predicate {
+	return t().(Paired).Right().(Predicate)
 }
 func (t CaseDef) TypeId() TyDef {
 	return t.Type().Pattern()[0]

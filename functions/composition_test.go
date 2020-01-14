@@ -39,7 +39,7 @@ func TestApplySequence(t *testing.T) {
 
 	fmt.Printf("add-ints applyed to list-a: %s\n", m)
 
-	if m.Call().(Paired).Left().Call(Dat(13)).(AtomVal)().(d.IntVal) != 13 {
+	if m.Call().(Paired).Left().Call(Dat(13)).(DatAtom)().(d.IntVal) != 13 {
 		t.Fail()
 	}
 
@@ -68,7 +68,7 @@ func TestFoldSequence(t *testing.T) {
 		head, tail = tail.Continue()
 	}
 	fmt.Printf("head after eight continuations: %s\n", head)
-	if head.(AtomVal)().(d.IntVal) != 36 {
+	if head.(DatAtom)().(d.IntVal) != 36 {
 		t.Fail()
 	}
 }
@@ -77,7 +77,7 @@ func TestFilterPassSequence(t *testing.T) {
 
 	var (
 		isEven = func(arg Expression) bool {
-			return arg.(AtomVal)().(d.IntVal)%2 == 0
+			return arg.(DatAtom)().(d.IntVal)%2 == 0
 		}
 		odd  = Filter(intsA, isEven)
 		even = Pass(intsA, isEven)
@@ -93,8 +93,8 @@ func TestFilterPassSequence(t *testing.T) {
 		fmt.Printf("odd head: %s\neven head: %s\n", ohead, ehead)
 	}
 
-	if ohead.(VecVal).Last().(AtomVal)().(d.IntVal) != 7 ||
-		ehead.(VecVal).Last().(AtomVal)().(d.IntVal) != 6 {
+	if ohead.(VecVal).Last().(DatAtom)().(d.IntVal) != 7 ||
+		ehead.(VecVal).Last().(DatAtom)().(d.IntVal) != 6 {
 		t.Fail()
 	}
 }
@@ -113,20 +113,20 @@ func TestTakeNSequence(t *testing.T) {
 	}
 	fmt.Printf("last element: %s\n", head)
 
-	head, tail = head.(Grouped).Continue()
+	head, tail = head.(Topological).Continue()
 	for !tail.Empty() {
-		head, tail = tail.(Grouped).Continue()
+		head, tail = tail.(Topological).Continue()
 	}
 
-	fmt.Printf("last elements head: %s\n", head.(Grouped).Head())
-	if head.(Grouped).Head().(AtomVal)().(d.IntVal) != 8 {
+	fmt.Printf("last elements head: %s\n", head.(Topological).Head())
+	if head.(Topological).Head().(DatAtom)().(d.IntVal) != 8 {
 		t.Fail()
 	}
 
 	token = TakeN(intsA, 5)
 	fmt.Printf("take five: %s\n", token)
 	fmt.Printf("take five type: %s\n", token.Type())
-	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Collections))
+	fmt.Printf("take five matches sequences: %t\n", token.Type().Match(Additives))
 
 	token = TakeN(intsA, 4)
 	fmt.Printf("take four: %s\n", token)
@@ -137,18 +137,18 @@ func TestFlatttenSequence(t *testing.T) {
 	var flat = Flatten(token)
 	fmt.Printf("flattened list of lists: %s\n", flat)
 	var head, tail = flat.Continue()
-	if head.(AtomVal)().(d.IntVal) != 0 {
+	if head.(DatAtom)().(d.IntVal) != 0 {
 		t.Fail()
 	}
 	for head, tail = tail.Continue(); tail.Empty(); {
 	}
-	if head.(AtomVal)().(d.IntVal) != 1 {
+	if head.(DatAtom)().(d.IntVal) != 1 {
 		t.Fail()
 	}
 }
 
-var zipped Grouped = Zip(abc, intsA, func(l, r Expression) Expression {
-	return NewKeyPair(string(l.(AtomVal)().(d.StrVal)), r)
+var zipped Topological = Zip(abc, intsA, func(l, r Expression) Expression {
+	return NewKeyPair(string(l.(DatAtom)().(d.StrVal)), r)
 })
 
 func TestZipSequence(t *testing.T) {

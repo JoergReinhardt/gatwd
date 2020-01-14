@@ -72,35 +72,35 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Expression                { return n }
-func (n NoneVal) Tail() Grouped                   { return n }
-func (n NoneVal) Cons(Expression) Grouped         { return n }
-func (n NoneVal) ConsGroup(Grouped) Grouped       { return n }
-func (n NoneVal) Concat(Continued) Grouped        { return n }
-func (n NoneVal) Prepend(...Expression) Grouped   { return n }
-func (n NoneVal) Append(...Expression) Grouped    { return n }
-func (n NoneVal) Len() int                        { return 0 }
-func (n NoneVal) Compare(...Expression) int       { return -1 }
-func (n NoneVal) String() string                  { return "⊥" }
-func (n NoneVal) Call(...Expression) Expression   { return nil }
-func (n NoneVal) Key() Expression                 { return nil }
-func (n NoneVal) Index() Expression               { return nil }
-func (n NoneVal) Left() Expression                { return nil }
-func (n NoneVal) Right() Expression               { return nil }
-func (n NoneVal) Both() Expression                { return nil }
-func (n NoneVal) Value() Expression               { return nil }
-func (n NoneVal) Empty() bool                     { return true }
-func (n NoneVal) Test(...Expression) bool         { return false }
-func (n NoneVal) TypeFnc() TyFnc                  { return None }
-func (n NoneVal) TypeNat() d.TyNat                { return d.Nil }
-func (n NoneVal) Type() TyDef                     { return Def(None) }
-func (n NoneVal) TypeElem() TyDef                 { return Def(None) }
-func (n NoneVal) TypeName() string                { return n.String() }
-func (n NoneVal) Slice() []Expression             { return []Expression{} }
-func (n NoneVal) Flag() d.BitFlag                 { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val            { return Kind_Fnc.U() }
-func (n NoneVal) Continue() (Expression, Grouped) { return NewNone(), NewNone() }
-func (n NoneVal) Consume() (Expression, Grouped)  { return NewNone(), NewNone() }
+func (n NoneVal) Head() Expression                    { return n }
+func (n NoneVal) Tail() Topological                   { return n }
+func (n NoneVal) Cons(Expression) Topological         { return n }
+func (n NoneVal) ConsGroup(Topological) Topological   { return n }
+func (n NoneVal) Concat(Continuous) Topological       { return n }
+func (n NoneVal) Prepend(...Expression) Topological   { return n }
+func (n NoneVal) Append(...Expression) Topological    { return n }
+func (n NoneVal) Len() int                            { return 0 }
+func (n NoneVal) Compare(...Expression) int           { return -1 }
+func (n NoneVal) String() string                      { return "⊥" }
+func (n NoneVal) Call(...Expression) Expression       { return nil }
+func (n NoneVal) Key() Expression                     { return nil }
+func (n NoneVal) Index() Expression                   { return nil }
+func (n NoneVal) Left() Expression                    { return nil }
+func (n NoneVal) Right() Expression                   { return nil }
+func (n NoneVal) Both() Expression                    { return nil }
+func (n NoneVal) Value() Expression                   { return nil }
+func (n NoneVal) Empty() bool                         { return true }
+func (n NoneVal) Test(...Expression) bool             { return false }
+func (n NoneVal) TypeFnc() TyFnc                      { return None }
+func (n NoneVal) TypeNat() d.TyNat                    { return d.Nil }
+func (n NoneVal) Type() TyDef                         { return Def(None) }
+func (n NoneVal) TypeElem() TyDef                     { return Def(None) }
+func (n NoneVal) TypeName() string                    { return n.String() }
+func (n NoneVal) Slice() []Expression                 { return []Expression{} }
+func (n NoneVal) Flag() d.BitFlag                     { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val                { return Kind_Fnc.U() }
+func (n NoneVal) Continue() (Expression, Topological) { return NewNone(), NewNone() }
+func (n NoneVal) Consume() (Expression, Topological)  { return NewNone(), NewNone() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// GENERIC CONSTANT DEFINITION
@@ -153,8 +153,8 @@ func NewGenerator(init, generate Expression) GenVal {
 		return init, NewGenerator(next, generate)
 	}
 }
-func (g GenVal) Cons(Expression) Grouped   { return g }
-func (g GenVal) ConsGroup(Grouped) Grouped { return g }
+func (g GenVal) Cons(Expression) Topological       { return g }
+func (g GenVal) ConsGroup(Topological) Topological { return g }
 func (g GenVal) Expr() Expression {
 	var expr, _ = g()
 	return expr
@@ -179,10 +179,10 @@ func (g GenVal) Empty() bool {
 	}
 	return false
 }
-func (g GenVal) Concat(grp Continued) Grouped    { return NewListFromGroup(g).Concat(grp) }
-func (g GenVal) Continue() (Expression, Grouped) { return g() }
-func (g GenVal) Head() Expression                { return g.Expr() }
-func (g GenVal) Tail() Grouped                   { return g.Generator() }
+func (g GenVal) Concat(grp Continuous) Topological   { return NewListFromGroup(g).Concat(grp) }
+func (g GenVal) Continue() (Expression, Topological) { return g() }
+func (g GenVal) Head() Expression                    { return g.Expr() }
+func (g GenVal) Tail() Topological                   { return g.Generator() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// ACCUMULATOR
@@ -204,17 +204,17 @@ func NewAccumulator(
 	})
 }
 
-func (g AccVal) Concat(grp Continued) Grouped {
+func (g AccVal) Concat(grp Continuous) Topological {
 	return NewListFromGroup(g).Concat(grp)
 }
-func (g AccVal) ConsGroup(con Grouped) Grouped {
+func (g AccVal) ConsGroup(con Topological) Topological {
 	var args = []Expression{}
 	for head, con := con.Continue(); !con.Empty(); {
 		args = append(args, head)
 	}
 	return NewList(g(args...))
 }
-func (g AccVal) Cons(arg Expression) Grouped { return NewList(g(arg)) }
+func (g AccVal) Cons(arg Expression) Topological { return NewList(g(arg)) }
 func (g AccVal) Result() Expression {
 	var res, _ = g()
 	return res
@@ -246,10 +246,10 @@ func (a AccVal) Empty() bool {
 	}
 	return false
 }
-func (g AccVal) Head() Expression                { return g.Result() }
-func (g AccVal) TypeElem() TyDef                 { return g.Head().Type() }
-func (g AccVal) Tail() Grouped                   { return g.Accumulator() }
-func (g AccVal) Continue() (Expression, Grouped) { return g() }
+func (g AccVal) Head() Expression                    { return g.Result() }
+func (g AccVal) TypeElem() TyDef                     { return g.Head().Type() }
+func (g AccVal) Tail() Topological                   { return g.Accumulator() }
+func (g AccVal) Continue() (Expression, Topological) { return g() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// TAGGED, TYPE-SAFE, PARTIAL APPLYABLE FUNCTION

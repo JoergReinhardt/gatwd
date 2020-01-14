@@ -3,7 +3,6 @@ package functions
 import (
 	"sort"
 	"strings"
-	"sync"
 )
 
 type (
@@ -13,7 +12,6 @@ type (
 	ListVal func(...Expression) (Expression, ListVal)
 
 	//// INTERNAL HELPER TYPES
-	pool   sync.Pool
 	sorter struct {
 		parms []Expression
 		less  func(s []Expression, a, b int) bool
@@ -63,21 +61,24 @@ func newSearcher(
 			}
 		}}
 }
-func (s *searcher) Search() Expression {
-
-	var idx int
+func (s *searcher) Index() int {
 
 	if sort.IsSorted(s) {
-		idx = sort.Search(len(s.parms),
+		return sort.Search(len(s.parms),
 			s.search(newSorter(
 				s.parms, s.less,
 			).parms))
-	} else {
-		idx = sort.Search(len(s.parms),
-			s.search(newSorter(
-				s.parms, s.less,
-			).Sort()))
 	}
+
+	return sort.Search(len(s.parms),
+		s.search(newSorter(
+			s.parms, s.less,
+		).Sort()))
+}
+
+func (s *searcher) Search() Expression {
+
+	var idx = s.Index()
 
 	if idx >= 0 && idx < len(s.parms) {
 		if s.compare(s.parms[idx], s.match) == 0 {
@@ -94,7 +95,7 @@ func (s *searcher) Search() Expression {
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
 // called.
-func NewVecFormGroup(grp Grouped) VecVal {
+func NewVecFormGroup(grp Topological) VecVal {
 	if grp.Type().Match(Vector) {
 		if vec, ok := grp.(VecVal); ok {
 			return vec
@@ -124,7 +125,7 @@ func NewVector(elems ...Expression) VecVal {
 func (v VecVal) ConsVec(args ...Expression) VecVal {
 	return NewVector(v(args...)...)
 }
-func (v VecVal) Cons(arg Expression) Grouped {
+func (v VecVal) Cons(arg Expression) Topological {
 	if IsNone(arg) {
 		return v
 	}
@@ -136,16 +137,16 @@ func (v VecVal) Head() Expression {
 	}
 	return NewNone()
 }
-func (v VecVal) Tail() Grouped {
+func (v VecVal) Tail() Topological {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Grouped) {
+func (v VecVal) Continue() (Expression, Topological) {
 	return v.Head(), v.Tail()
 }
-func (v VecVal) Concat(grp Continued) Grouped {
+func (v VecVal) Concat(grp Continuous) Topological {
 	if grp.Empty() {
 		return v
 	}
@@ -158,19 +159,19 @@ func (v VecVal) Last() Expression {
 	return NewNone()
 }
 func (v VecVal) First() Expression { return v.Head() }
-func (v VecVal) Append(args ...Expression) Queue {
+func (v VecVal) Append(args ...Expression) Queued {
 	return NewVector(append(v(), args...)...)
 }
-func (v VecVal) Push(arg Expression) Stack {
+func (v VecVal) Push(arg Expression) Stacked {
 	if !IsNone(arg) {
 		return NewVector(append(v(), arg)...)
 	}
 	return v
 }
-func (v VecVal) Pop() (Expression, Stack) {
+func (v VecVal) Pop() (Expression, Stacked) {
 	var (
 		head = v.Last()
-		tail Stack
+		tail Stacked
 	)
 	if v.Len() > 1 {
 		tail = NewVector(v()[:v.Len()-1]...)
@@ -179,13 +180,13 @@ func (v VecVal) Pop() (Expression, Stack) {
 	}
 	return head, tail
 }
-func (v VecVal) Put(arg Expression) Queue {
+func (v VecVal) Put(arg Expression) Queued {
 	if !IsNone(arg) {
 		return NewVector(append(v(), arg)...)
 	}
 	return v
 }
-func (v VecVal) Pull() (Expression, Queue) {
+func (v VecVal) Pull() (Expression, Queued) {
 	if v.Len() > 1 {
 		return v()[0], NewVector(v()[1:]...)
 	}
@@ -257,7 +258,7 @@ func (v VecVal) Clear() VecVal     { return NewVector(v()[:0]...) }
 func (v VecVal) Sequence() ListVal { return NewList(v()...) }
 func (v VecVal) Sort(
 	less func(a, b Expression) bool,
-) Grouped {
+) Topological {
 	var s = newSorter(
 		v(),
 		func(s []Expression, a, b int) bool {
@@ -277,7 +278,7 @@ func (v VecVal) Search(
 //// LINKED LIST TYPE
 ///
 // linked list type implementing sequential
-func NewListFromGroup(grp Grouped) ListVal {
+func NewListFromGroup(grp Topological) ListVal {
 	return ListVal(func(args ...Expression) (Expression, ListVal) {
 		if len(args) > 0 {
 			if len(args) > 1 {
@@ -337,7 +338,7 @@ func NewList(elems ...Expression) ListVal {
 	}
 }
 
-func (s ListVal) Cons(arg Expression) Grouped {
+func (s ListVal) Cons(arg Expression) Topological {
 	if IsNone(arg) {
 		return s
 	}
@@ -349,7 +350,7 @@ func (s ListVal) Cons(arg Expression) Grouped {
 	})
 }
 
-func (s ListVal) Concat(grp Continued) Grouped {
+func (s ListVal) Concat(grp Continuous) Topological {
 	if !s.Empty() {
 		return ListVal(func(args ...Expression) (Expression, ListVal) {
 			if len(args) > 0 {
@@ -360,32 +361,32 @@ func (s ListVal) Concat(grp Continued) Grouped {
 			return head, tail.Concat(grp).(ListVal)
 		})
 	}
-	return grp.(Grouped)
+	return grp.(Topological)
 }
 
 func (s ListVal) Head() Expression {
 	var cur, _ = s()
 	return cur
 }
-func (s ListVal) Tail() Grouped {
+func (s ListVal) Tail() Topological {
 	var _, tail = s()
 	if tail != nil {
 		return tail
 	}
 	return NewList()
 }
-func (s ListVal) Continue() (Expression, Grouped) {
+func (s ListVal) Continue() (Expression, Topological) {
 	return s.Head(), s.Tail()
 }
 
-func (s ListVal) Vector() VecVal            { return NewVector(s.Slice()...) }
-func (v ListVal) Push(arg Expression) Stack { return v.Cons(arg).(ListVal) }
-func (v ListVal) Pop() (Expression, Stack)  { return v() }
-func (s ListVal) First() Expression         { return s.Head() }
-func (s ListVal) Null() ListVal             { return NewList() }
-func (s ListVal) TypeElem() TyDef           { return s.Head().Type() }
-func (s ListVal) TypeFnc() TyFnc            { return Group }
-func (s ListVal) Type() TyDef               { return Def(Group, s.TypeElem()) }
+func (s ListVal) Vector() VecVal              { return NewVector(s.Slice()...) }
+func (v ListVal) Push(arg Expression) Stacked { return v.Cons(arg).(ListVal) }
+func (v ListVal) Pop() (Expression, Stacked)  { return v() }
+func (s ListVal) First() Expression           { return s.Head() }
+func (s ListVal) Null() ListVal               { return NewList() }
+func (s ListVal) TypeElem() TyDef             { return s.Head().Type() }
+func (s ListVal) TypeFnc() TyFnc              { return Group }
+func (s ListVal) Type() TyDef                 { return Def(Group, s.TypeElem()) }
 func (s ListVal) Empty() bool {
 	var _, tail = s()
 	return tail == nil

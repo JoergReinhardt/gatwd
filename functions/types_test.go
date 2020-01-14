@@ -7,16 +7,16 @@ import (
 )
 
 func TestPattern(t *testing.T) {
-	var pat = Def(d.Int, d.Float, Vector, Collections)
+	var pat = Def(d.Int, d.Float, Vector, Additives)
 	fmt.Printf("pat: %s\n", pat)
 	fmt.Printf("pat matches Int, Float, Vector, Consumeables: %t\n",
-		pat.MatchTypes(d.Int, d.Float, Vector, Collections))
-	if !pat.MatchTypes(d.Int, d.Float, Vector, Collections) {
+		pat.MatchTypes(d.Int, d.Float, Vector, Additives))
+	if !pat.MatchTypes(d.Int, d.Float, Vector, Additives) {
 		t.Fail()
 	}
 	fmt.Printf("pat matches Numbers, Float, Vector, Consumeables: %t\n",
-		pat.MatchTypes(d.Numbers, d.Float, Vector, Collections))
-	if !pat.MatchTypes(d.Numbers, d.Float, Vector, Collections) {
+		pat.MatchTypes(d.Numbers, d.Float, Vector, Additives))
+	if !pat.MatchTypes(d.Numbers, d.Float, Vector, Additives) {
 		t.Fail()
 	}
 	fmt.Printf("pat matches Numbers, Numbers, Vector, List: %t\n",
