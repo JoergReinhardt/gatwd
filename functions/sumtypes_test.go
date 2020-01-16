@@ -67,7 +67,7 @@ func TestExpression(t *testing.T) {
 
 	var complete = partial.Call(Dat(42))
 	fmt.Printf("complete: %s\n", complete)
-	if data, ok := complete.(NatEval); ok {
+	if data, ok := complete.(Evaluable); ok {
 		if num, ok := data.Eval().(d.IntVal); ok {
 			if num.Int() != 65 {
 				t.Fail()

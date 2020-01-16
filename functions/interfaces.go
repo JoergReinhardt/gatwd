@@ -21,6 +21,11 @@ type Matched interface {
 	Match(d.Typed) bool
 }
 
+// flag to mark kind of type
+type KindOfType interface {
+	Kind() d.Uint8Val
+}
+
 // typed mirrors the data/typed interface and provides
 //
 // - type name, which is another string representation that might be different
@@ -37,11 +42,6 @@ type Typed interface {
 	// Stringer
 }
 
-// flag to mark kind of type
-type KindOfType interface {
-	Kind() d.Uint8Val
-}
-
 // marks all types defined in data
 type NativeTyped interface {
 	TypeNat() d.TyNat
@@ -52,154 +52,132 @@ type FunctionTyped interface {
 	TypeFnc() TyFnc
 }
 
+/// NATIVE (ALIASED)
 // native interface implements data native, provides assigability of
 // functionale instances implementing it to native data structures using the
 // 'data/Function' type.
 type Native interface {
-	Expression
+	Functor
 	TypeNat() d.TyNat
 }
 
+/// EVALUABLE
 // extends the data/native interface with an eval method that takes arguments
 // and returns a value of type data/native.  funtional types implementing this
 // use unboxed instances of native values
-type NatEval interface {
+type Evaluable interface {
 	Native
 	Eval(...d.Native) d.Native
 }
 
+/// CALLABLE
 // the functor interface takes n arguments of the expression type and returns a
 // value of the expression type.
-type Evaluable interface {
-	Call(...Expression) Expression
+type Expression interface {
+	Call(...Functor) Functor
 }
 
-// the expression interface is the least common denominator of all functional
-// type primitives.
-type Expression interface {
+/// FUNCTOR
+// the functor interface implements all it takes for a type to be the applied
+// expression, argument, or return value in some map operation.  map calls
+// functors 'call' method internaly and consults the type tags returned by its
+// methods, in order to check argument types in function application, or
+// control program flow based on argument values, and|or type.
+type Functor interface {
 	FunctionTyped
-	Evaluable
+	Expression
 	Stringer
 	Type() TyDef
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//// COLLECTION INTERFACES
-///
-// continuation is shared by all collections, generators, monads, side effects,
-// etc‥., it returns the current state of computation, io operation, current
-// elemet in collection‥., as head element and a group of computations to
-// continue on as its tail.  a given instance will always return the same head
-// and tail when called without, or with identical arguments.
-//
-// continuations are not necessarily collections of elements, but they do
-// always return tails of the sequential type, since there may be more than one
-// 'computation' necessary to evaluate the continuation .
-//
-// execution is performed lazily and infinite lists may be handled.
-//
-// CAVEAT: a continuations 'call' method always has to return a continuation,
-// when called, in order to satisfy constraints for map, apply, fold, bind
-//
-// C.Call(args...).(Continuous) ← has to work!
-type Continuous interface {
+/// APPLICATIVE (FUNCTOR)
+// applicative functors are defined by a method that takes its argument, boxes,
+// encloses, manipulates, or useses it in a computation, to return a new
+// instance of the applicatives type.
+type Applicative interface {
+	Sequential
+	Cons(Functor) Applicative
+}
+
+type Monoid interface {
+}
+
+/// SEQUENTIAL
+type Sequential interface {
 	// Call(...Expression) <Continuation>
-	Expression
-	Continue() (Expression, Topological)
-	Concat(Continuous) Topological
-	Head() Expression
-	Tail() Topological
+	Functor
+	Continue() (Functor, Applicative)
+	Concat(Sequential) Applicative
+	Head() Functor
+	Tail() Applicative
 	Empty() bool
 	TypeElem() TyDef
 }
 
-// a group has elemets with a binary operation (takes two arguments which have
-// to be members of the set, returns a set membe) defined up on.  for numeric
-// types that might be a arithmetic operation, concatenation for strings, etc‥.
-//
-// groups expose a cons operation to instanciate a new element from the group
-// an apply itself and the new instance to the binary operation to return a new
-// instance of an element from the group.  for collections that pre-, or
-// appends an element. continuations take those arguments to either apply them
-// to the current state and return the result, or create and add new
-// computations to continue on.
-type Topological interface {
-	Continuous
-	Cons(Expression) Topological
+type Ascending interface {
+	Applicative
+	First() Functor
 }
-
-type Sequential interface {
-	Topological
-	First() Expression
-}
-type Reversible interface {
-	Sequential
-	Last() Expression
+type Descending interface {
+	Ascending
+	Last() Functor
 }
 
 // queues pull elements from the end of the group and put elements at its
 // start
 type Queued interface {
-	Topological
-	Put(Expression) Queued
-	Pull() (Expression, Queued)
-	Append(...Expression) Queued
+	Applicative
+	Put(Functor) Queued
+	Pull() (Functor, Queued)
+	Append(...Functor) Queued
 }
 type Stacked interface {
-	Topological
-	Push(Expression) Stacked
-	Pop() (Expression, Stacked)
+	Applicative
+	Push(Functor) Stacked
+	Pop() (Functor, Stacked)
 }
 
 type Filtered interface {
-	Continuous
-	Filter(Testable) Topological
-	Pass(Testable) Topological
+	Sequential
+	Filter(Testable) Applicative
+	Pass(Testable) Applicative
 }
 
-type Functorial interface {
-	Continuous
-	Map(fn Expression) Topological
-	Fold(acc Expression, fn func(...Expression) Expression) Topological
-	Flatten() Topological
+type Mappable interface {
+	Map(fn Functor) Applicative
+}
+type Foldable interface {
+	Fold(acc Functor, fn func(...Functor) Functor) Applicative
+}
+type Flatable interface {
+	Sequential
+	Foldable
+	Mappable
+	Flatten() Applicative
 }
 
 // mapped interface is implementet by all key accessable data types
-type Hashed interface {
+type Hashable interface {
 	Len() int
-	Keys() []Expression
-	Values() []Expression
+	Keys() []Functor
+	Values() []Functor
 	Fields() []Paired
-	Get(Expression) (Expression, bool)
+	Get(Functor) (Functor, bool)
 }
 
 type Zipped interface {
-	Functorial
-	Split() (l, r Topological)
+	Flatable
+	Split() (l, r Applicative)
 }
 type Zippable interface {
-	Functorial
+	Flatable
 	ZipWith(
-		zipf func(l, r Continuous) Topological, with Continuous,
-	) Topological
-}
-type Applicable interface {
-	Functorial
-	Apply(func(
-		Topological, ...Expression,
-	) (
-		Expression,
-		Continuous,
-	)) Topological
-}
-
-type Monoidal interface {
-	Applicable
-	Bind(Expression, Functorial) Topological
+		zipf func(l, r Sequential) Applicative, with Sequential,
+	) Applicative
 }
 
 type Ordered interface {
-	Topological
+	Applicative
 	Lesser(Ordered) bool
 	Greater(Ordered) bool
 	Equal(Ordered) bool
@@ -208,14 +186,14 @@ type Ordered interface {
 ///////////////////////////////////////////////////////////////////////////////
 // interface to implement by all conditional types
 type Testable interface {
-	Expression
-	Test(Expression) bool
+	Functor
+	Test(Functor) bool
 }
 
 // interface to implement by ordered, sort-/ & searchable types
 type Compareable interface {
-	Expression
-	Compare(Expression) int
+	Functor
+	Compare(Functor) int
 }
 
 // types with known number of elements ,or known length
@@ -225,12 +203,12 @@ type Countable interface {
 
 // interface provides indexable representation of elements
 type Sliceable interface {
-	Slice() []Expression
+	Slice() []Functor
 }
 
 // swapping two elements in (pair-) position, or index
 type Swapable interface {
-	Swap() (Expression, Expression)
+	Swap() (Functor, Functor)
 }
 
 // fields in pairs can be swapped
@@ -242,16 +220,16 @@ type SwapablePaired interface {
 // interface implementet by types sortable by some praedicate
 type Sortable interface {
 	Sort(
-		lesser func(a, b Expression) bool,
-	) Topological
+		lesser func(a, b Functor) bool,
+	) Applicative
 }
 
 // interface implementet by types searchable by some praedicate
 type Searchable interface {
 	Search(
-		match Expression,
-		compare func(a, b Expression) int,
-	) Expression
+		match Functor,
+		compare func(a, b Functor) int,
+	) Functor
 }
 
 //// INDEX ASSOCIATIONS
@@ -262,9 +240,9 @@ type Indexed interface {
 }
 
 // interface implementet by types associating their elements with an index
-type IndexAssociated interface {
-	Get(int) (Expression, bool)
-	Set(int, Expression) (Vectorized, bool)
+type Selectable interface {
+	Get(int) (Functor, bool)
+	Set(int, Functor) (Vectorized, bool)
 }
 
 // index value pair
@@ -275,23 +253,23 @@ type IndexPaired interface {
 
 // interface to accumulate propertys of a vector
 type Vectorized interface {
-	IndexAssociated
+	Selectable
 	Searchable
 	Sliceable
 	Sortable
 	Countable
 	Prefix() VecVal
 	Suffix() VecVal
-	First() Expression
-	Last() Expression
+	First() Functor
+	Last() Functor
 }
 
 //// KEY ASSOCIATIONS
 ///
 // implementet by value types that are accessed in a collection by a key
 type Associated interface {
-	Key() Expression
-	Value() Expression
+	Key() Functor
+	Value() Functor
 }
 
 // implemented by keyed values, where the key is of type string
@@ -315,35 +293,35 @@ type Associative interface {
 // on keys
 type KeyAssociated interface {
 	Pairs() []Paired
-	GetVal(Expression) (Expression, bool)
-	SetVal(Expression, Expression) (AssociativeCollected, bool)
+	GetVal(Functor) (Functor, bool)
+	SetVal(Functor, Functor) (AssociativeCollected, bool)
 }
 
 // COMPOSED TYPES
 // interface to be implemented by all pairs
 type Paired interface {
 	Swapable
-	Expression
+	Functor
 	Associated
 	Associative
 	Empty() bool
 	Pair() Paired
-	Left() Expression
-	Right() Expression
-	Both() (Expression, Expression)
+	Left() Functor
+	Right() Functor
+	Both() (Functor, Functor)
 }
 
 // interface to be implemented by all collections providing random element
 // access
 type AssociativeCollected interface {
 	KeyAssociated
-	Topological
+	Applicative
 	Associative
 }
 
 // extends the consumeable interface to work with collections of pairs
 type ConsumeablePaired interface {
-	Topological
+	Applicative
 	Associative
 	HeadPair() Paired
 	TailPairs() ConsumeablePaired
@@ -352,7 +330,7 @@ type ConsumeablePaired interface {
 
 // interface to be implementet by enumerable types
 type Enumerable interface {
-	Expression
+	Functor
 	Next() Enumerable
 	Prev() Enumerable
 	Create(d.Numeral) Enumerable
@@ -362,17 +340,17 @@ type Enumerable interface {
 // like i/o operations, evaluation of lists of commands, batch processing of
 // files line by line, etc‥.
 type Monadic interface {
-	Expression
-	Current() Expression
-	Sequence() Topological
+	Functor
+	Current() Functor
+	Sequence() Applicative
 }
 
 // interface to implement by dynamicly declared and defined types
 type ProtoTyped interface {
-	Expression
+	Functor
 	Name() string
 	Methods() []string
-	CallM(string, ...Expression) Expression
+	CallM(string, ...Functor) Functor
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -391,7 +369,7 @@ type DoubleLinked interface {
 
 type Nodular interface {
 	Linked
-	Expression
+	Functor
 	Root() Nodular
 }
 
@@ -402,7 +380,7 @@ type Branched interface {
 
 type Leaved interface {
 	Nodular
-	Value() Expression
+	Value() Functor
 }
 
 type Edged interface {

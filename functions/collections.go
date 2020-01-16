@@ -8,54 +8,54 @@ import (
 type (
 
 	//// COLLECTION TYPES
-	VecVal  func(...Expression) []Expression
-	ListVal func(...Expression) (Expression, ListVal)
+	VecVal  func(...Functor) []Functor
+	ListVal func(...Functor) (Functor, ListVal)
 
 	//// INTERNAL HELPER TYPES
 	sorter struct {
-		parms []Expression
-		less  func(s []Expression, a, b int) bool
+		parms []Functor
+		less  func(s []Functor, a, b int) bool
 	}
 	searcher struct {
 		*sorter
-		match   Expression
-		compare func(a, b Expression) int
-		search  func([]Expression) func(int) bool
+		match   Functor
+		compare func(a, b Functor) int
+		search  func([]Functor) func(int) bool
 	}
 )
 
 // SORTER
 func newSorter(
-	s []Expression,
-	l func(s []Expression, a, b int) bool,
+	s []Functor,
+	l func(s []Functor, a, b int) bool,
 ) *sorter {
 	return &sorter{s, l}
 }
-func (s sorter) Slice() []Expression { return s.parms }
-func (s sorter) Len() int            { return len(s.parms) }
-func (s sorter) Less(a, b int) bool  { return s.less(s.parms, a, b) }
+func (s sorter) Slice() []Functor   { return s.parms }
+func (s sorter) Len() int           { return len(s.parms) }
+func (s sorter) Less(a, b int) bool { return s.less(s.parms, a, b) }
 func (s *sorter) Swap(a, b int) {
 	(*s).parms[b], (*s).parms[a] =
 		(*s).parms[a], (*s).parms[b]
 }
-func (s *sorter) Sort() []Expression {
+func (s *sorter) Sort() []Functor {
 	sort.Sort(s)
 	return s.parms
 }
 
 // SEARCHER
 func newSearcher(
-	s []Expression,
-	match Expression,
-	compare func(a, b Expression) int,
+	s []Functor,
+	match Functor,
+	compare func(a, b Functor) int,
 ) *searcher {
 	return &searcher{
-		sorter: newSorter(s, func(s []Expression, a, b int) bool {
+		sorter: newSorter(s, func(s []Functor, a, b int) bool {
 			return compare(s[a], s[b]) < 0
 		}),
 		match:   match,
 		compare: compare,
-		search: func(s []Expression) func(int) bool {
+		search: func(s []Functor) func(int) bool {
 			return func(idx int) bool {
 				return compare(s[idx], match) >= 0
 			}
@@ -76,7 +76,7 @@ func (s *searcher) Index() int {
 		).Sort()))
 }
 
-func (s *searcher) Search() Expression {
+func (s *searcher) Search() Functor {
 
 	var idx = s.Index()
 
@@ -95,7 +95,7 @@ func (s *searcher) Search() Expression {
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
 // called.
-func NewVecFormGroup(grp Topological) VecVal {
+func NewVecFormGroup(grp Applicative) VecVal {
 	if grp.Type().Match(Vector) {
 		if vec, ok := grp.(VecVal); ok {
 			return vec
@@ -103,7 +103,7 @@ func NewVecFormGroup(grp Topological) VecVal {
 		return NewVector(grp.(Vectorized).Slice()...)
 	}
 	var (
-		vec        = []Expression{}
+		vec        = []Functor{}
 		head, tail = grp.Continue()
 	)
 	for head, tail = tail.Continue(); !tail.Empty(); {
@@ -113,62 +113,62 @@ func NewVecFormGroup(grp Topological) VecVal {
 	}
 	return NewVector(vec...)
 }
-func NewVector(elems ...Expression) VecVal {
+func NewVector(elems ...Functor) VecVal {
 	// return slice of elements, when not empty
-	return func(args ...Expression) []Expression {
+	return func(args ...Functor) []Functor {
 		if len(args) > 0 {
 			return append(elems, args...)
 		}
 		return elems
 	}
 }
-func (v VecVal) ConsVec(args ...Expression) VecVal {
+func (v VecVal) ConsVec(args ...Functor) VecVal {
 	return NewVector(v(args...)...)
 }
-func (v VecVal) Cons(arg Expression) Topological {
+func (v VecVal) Cons(arg Functor) Applicative {
 	if IsNone(arg) {
 		return v
 	}
 	return v.ConsVec(arg)
 }
-func (v VecVal) Head() Expression {
+func (v VecVal) Head() Functor {
 	if v.Len() > 0 {
 		return v()[0]
 	}
 	return NewNone()
 }
-func (v VecVal) Tail() Topological {
+func (v VecVal) Tail() Applicative {
 	if v.Len() > 1 {
 		return NewVector(v()[1:]...)
 	}
 	return NewVector()
 }
-func (v VecVal) Continue() (Expression, Topological) {
+func (v VecVal) Continue() (Functor, Applicative) {
 	return v.Head(), v.Tail()
 }
-func (v VecVal) Concat(grp Continuous) Topological {
+func (v VecVal) Concat(grp Sequential) Applicative {
 	if grp.Empty() {
 		return v
 	}
 	return NewList(v()...).Concat(grp)
 }
-func (v VecVal) Last() Expression {
+func (v VecVal) Last() Functor {
 	if v.Len() > 0 {
 		return v()[v.Len()-1]
 	}
 	return NewNone()
 }
-func (v VecVal) First() Expression { return v.Head() }
-func (v VecVal) Append(args ...Expression) Queued {
+func (v VecVal) First() Functor { return v.Head() }
+func (v VecVal) Append(args ...Functor) Queued {
 	return NewVector(append(v(), args...)...)
 }
-func (v VecVal) Push(arg Expression) Stacked {
+func (v VecVal) Push(arg Functor) Stacked {
 	if !IsNone(arg) {
 		return NewVector(append(v(), arg)...)
 	}
 	return v
 }
-func (v VecVal) Pop() (Expression, Stacked) {
+func (v VecVal) Pop() (Functor, Stacked) {
 	var (
 		head = v.Last()
 		tail Stacked
@@ -180,26 +180,26 @@ func (v VecVal) Pop() (Expression, Stacked) {
 	}
 	return head, tail
 }
-func (v VecVal) Put(arg Expression) Queued {
+func (v VecVal) Put(arg Functor) Queued {
 	if !IsNone(arg) {
 		return NewVector(append(v(), arg)...)
 	}
 	return v
 }
-func (v VecVal) Pull() (Expression, Queued) {
+func (v VecVal) Pull() (Functor, Queued) {
 	if v.Len() > 1 {
 		return v()[0], NewVector(v()[1:]...)
 	}
 	return v()[0], NewVector()
 }
-func (v VecVal) Len() int            { return len(v()) }
-func (v VecVal) Null() VecVal        { return NewVector() }
-func (v VecVal) Type() TyDef         { return Def(Vector, v.TypeElem()) }
-func (v VecVal) TypeFnc() TyFnc      { return Vector }
-func (v VecVal) TypeElem() TyDef     { return v.Head().Type() }
-func (v VecVal) Slice() []Expression { return v() }
+func (v VecVal) Len() int         { return len(v()) }
+func (v VecVal) Null() VecVal     { return NewVector() }
+func (v VecVal) Type() TyDef      { return Def(Vector, v.TypeElem()) }
+func (v VecVal) TypeFnc() TyFnc   { return Vector }
+func (v VecVal) TypeElem() TyDef  { return v.Head().Type() }
+func (v VecVal) Slice() []Functor { return v() }
 func (v VecVal) Flatten() VecVal {
-	var elems = make([]Expression, 0, v.Len())
+	var elems = make([]Functor, 0, v.Len())
 	for _, elem := range v() {
 		if IsVect(elem) {
 			if vec, ok := elem.(VecVal); ok {
@@ -211,19 +211,19 @@ func (v VecVal) Flatten() VecVal {
 	return NewVector(elems...)
 }
 func (v VecVal) Generator() GenVal {
-	return func() (Expression, GenVal) {
+	return func() (Functor, GenVal) {
 		return v.Head(), v.Tail().(VecVal).Generator()
 	}
 }
 func (v VecVal) Accumulator() AccVal {
-	return func(args ...Expression) (Expression, AccVal) {
+	return func(args ...Functor) (Functor, AccVal) {
 		if len(args) > 0 {
 			v = NewVector(v(args...)...)
 		}
 		return v.Head(), v.Tail().(VecVal).Accumulator()
 	}
 }
-func (v VecVal) Call(args ...Expression) Expression {
+func (v VecVal) Call(args ...Functor) Functor {
 	var head, tail = v.Continue()
 	if len(args) > 0 {
 		return NewPair(head.Call(args...), tail)
@@ -231,7 +231,7 @@ func (v VecVal) Call(args ...Expression) Expression {
 	return NewPair(head, tail)
 }
 
-func (v VecVal) Get(i int) (Expression, bool) {
+func (v VecVal) Get(i int) (Functor, bool) {
 	if i < v.Len() {
 		return v()[i], true
 	}
@@ -257,20 +257,20 @@ func (v VecVal) String() string {
 func (v VecVal) Clear() VecVal     { return NewVector(v()[:0]...) }
 func (v VecVal) Sequence() ListVal { return NewList(v()...) }
 func (v VecVal) Sort(
-	less func(a, b Expression) bool,
-) Topological {
+	less func(a, b Functor) bool,
+) Applicative {
 	var s = newSorter(
 		v(),
-		func(s []Expression, a, b int) bool {
+		func(s []Functor, a, b int) bool {
 			return less(s[a], s[b])
 		},
 	).Sort()
 	return NewVector(s...)
 }
 func (v VecVal) Search(
-	match Expression,
-	compare func(a, b Expression) int,
-) Expression {
+	match Functor,
+	compare func(a, b Functor) int,
+) Functor {
 	return newSearcher(v(), match, compare).Search()
 }
 
@@ -278,8 +278,8 @@ func (v VecVal) Search(
 //// LINKED LIST TYPE
 ///
 // linked list type implementing sequential
-func NewListFromGroup(grp Topological) ListVal {
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+func NewListFromGroup(grp Applicative) ListVal {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				var head, tail = grp.Concat(
@@ -294,11 +294,11 @@ func NewListFromGroup(grp Topological) ListVal {
 		return head, NewListFromGroup(tail)
 	})
 }
-func NewList(elems ...Expression) ListVal {
+func NewList(elems ...Functor) ListVal {
 	// return empty list able to be extended by cons, when no initial
 	// elements are given/left
 	if len(elems) == 0 {
-		return func(args ...Expression) (Expression, ListVal) {
+		return func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				if len(args) > 1 {
 					return args[0], NewList(args[1:]...)
@@ -312,7 +312,7 @@ func NewList(elems ...Expression) ListVal {
 	}
 
 	// at least one of the initial elements is left‥.
-	return func(args ...Expression) (Expression, ListVal) {
+	return func(args ...Functor) (Functor, ListVal) {
 		// if arguments are passed, prepend those and return first
 		// argument as head‥.
 		if len(args) > 0 {
@@ -338,11 +338,11 @@ func NewList(elems ...Expression) ListVal {
 	}
 }
 
-func (s ListVal) Cons(arg Expression) Topological {
+func (s ListVal) Cons(arg Functor) Applicative {
 	if IsNone(arg) {
 		return s
 	}
-	return ListVal(func(late ...Expression) (Expression, ListVal) {
+	return ListVal(func(late ...Functor) (Functor, ListVal) {
 		if len(late) > 0 {
 			return s.Cons(arg).(ListVal)(late...)
 		}
@@ -350,9 +350,9 @@ func (s ListVal) Cons(arg Expression) Topological {
 	})
 }
 
-func (s ListVal) Concat(grp Continuous) Topological {
+func (s ListVal) Concat(grp Sequential) Applicative {
 	if !s.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = s(args...)
 				return head, tail.Concat(grp).(ListVal)
@@ -361,37 +361,37 @@ func (s ListVal) Concat(grp Continuous) Topological {
 			return head, tail.Concat(grp).(ListVal)
 		})
 	}
-	return grp.(Topological)
+	return grp.(Applicative)
 }
 
-func (s ListVal) Head() Expression {
+func (s ListVal) Head() Functor {
 	var cur, _ = s()
 	return cur
 }
-func (s ListVal) Tail() Topological {
+func (s ListVal) Tail() Applicative {
 	var _, tail = s()
 	if tail != nil {
 		return tail
 	}
 	return NewList()
 }
-func (s ListVal) Continue() (Expression, Topological) {
+func (s ListVal) Continue() (Functor, Applicative) {
 	return s.Head(), s.Tail()
 }
 
-func (s ListVal) Vector() VecVal              { return NewVector(s.Slice()...) }
-func (v ListVal) Push(arg Expression) Stacked { return v.Cons(arg).(ListVal) }
-func (v ListVal) Pop() (Expression, Stacked)  { return v() }
-func (s ListVal) First() Expression           { return s.Head() }
-func (s ListVal) Null() ListVal               { return NewList() }
-func (s ListVal) TypeElem() TyDef             { return s.Head().Type() }
-func (s ListVal) TypeFnc() TyFnc              { return Group }
-func (s ListVal) Type() TyDef                 { return Def(Group, s.TypeElem()) }
+func (s ListVal) Vector() VecVal           { return NewVector(s.Slice()...) }
+func (v ListVal) Push(arg Functor) Stacked { return v.Cons(arg).(ListVal) }
+func (v ListVal) Pop() (Functor, Stacked)  { return v() }
+func (s ListVal) First() Functor           { return s.Head() }
+func (s ListVal) Null() ListVal            { return NewList() }
+func (s ListVal) TypeElem() TyDef          { return s.Head().Type() }
+func (s ListVal) TypeFnc() TyFnc           { return Group }
+func (s ListVal) Type() TyDef              { return Def(Group, s.TypeElem()) }
 func (s ListVal) Empty() bool {
 	var _, tail = s()
 	return tail == nil
 }
-func (s ListVal) Call(args ...Expression) Expression {
+func (s ListVal) Call(args ...Functor) Functor {
 	var head, tail = s.Continue()
 	if len(args) > 0 {
 		return NewPair(head.Call(args...), tail)
@@ -399,9 +399,9 @@ func (s ListVal) Call(args ...Expression) Expression {
 	return NewPair(head, tail)
 }
 func (s ListVal) Flatten() ListVal {
-	return func(args ...Expression) (Expression, ListVal) {
+	return func(args ...Functor) (Functor, ListVal) {
 		var (
-			head Expression
+			head Functor
 			tail ListVal
 		)
 		if len(args) > 0 {
@@ -418,9 +418,9 @@ func (s ListVal) Flatten() ListVal {
 		return head, tail.Flatten()
 	}
 }
-func (s ListVal) Slice() []Expression {
+func (s ListVal) Slice() []Functor {
 	var (
-		slice      []Expression
+		slice      []Functor
 		head, tail = s()
 	)
 	for !head.Type().Match(None) && !tail.Empty() {

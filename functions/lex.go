@@ -10,18 +10,18 @@ import (
 ///// SYNTAX DEFINITION /////
 type TyLex d.BitFlag
 
-func (t TyLex) TypeFnc() TyFnc                { return Lexical }
-func (t TyLex) TypeNat() d.TyNat              { return d.Type }
-func (t TyLex) Type() TyDef                   { return Def(t) }
-func (t TyLex) Kind() d.Uint8Val              { return Kind_Lex.U() }
-func (t TyLex) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t TyLex) Utf8() string                  { return mapUtf8[t] }
-func (t TyLex) Ascii() string                 { return mapAscii[t] }
-func (t TyLex) MatchUtf8(arg string) bool     { return t.Utf8() == arg }
-func (t TyLex) MatchAscii(arg string) bool    { return t.Ascii() == arg }
-func (t TyLex) TypeName() string              { return mapUtf8[t] }
-func (t TyLex) Call(...Expression) Expression { return t }
-func (t TyLex) Match(arg d.Typed) bool        { return t.Flag().Match(arg) }
+func (t TyLex) TypeFnc() TyFnc             { return Lexical }
+func (t TyLex) TypeNat() d.TyNat           { return d.Type }
+func (t TyLex) Type() TyDef                { return Def(t) }
+func (t TyLex) Kind() d.Uint8Val           { return Kind_Lex.U() }
+func (t TyLex) Flag() d.BitFlag            { return d.BitFlag(t) }
+func (t TyLex) Utf8() string               { return mapUtf8[t] }
+func (t TyLex) Ascii() string              { return mapAscii[t] }
+func (t TyLex) MatchUtf8(arg string) bool  { return t.Utf8() == arg }
+func (t TyLex) MatchAscii(arg string) bool { return t.Ascii() == arg }
+func (t TyLex) TypeName() string           { return mapUtf8[t] }
+func (t TyLex) Call(...Functor) Functor    { return t }
+func (t TyLex) Match(arg d.Typed) bool     { return t.Flag().Match(arg) }
 func FindUtf8(arg string) (TyLex, bool) {
 	var lex, ok = mapUtf8Text[arg]
 	return lex, ok
@@ -384,14 +384,14 @@ func (k keyLengthSorter) Swap(i, j int)      { k[i], k[j] = k[j], k[i] }
 
 type TyKeyWord d.BitFlag
 
-func (t TyKeyWord) Type() TyDef                   { return Def(t) }
-func (t TyKeyWord) Kind() d.Uint8Val              { return Kind_Key.U() }
-func (t TyKeyWord) TypeFnc() TyFnc                { return Type }
-func (t TyKeyWord) TypeNat() d.TyNat              { return d.Type }
-func (t TyKeyWord) Flag() d.BitFlag               { return d.BitFlag(t) }
-func (t TyKeyWord) KeyWord() string               { return mapKeyWords[t] }
-func (t TyKeyWord) TypeName() string              { return mapKeyWords[t] }
-func (t TyKeyWord) Call(...Expression) Expression { return t }
+func (t TyKeyWord) Type() TyDef             { return Def(t) }
+func (t TyKeyWord) Kind() d.Uint8Val        { return Kind_Key.U() }
+func (t TyKeyWord) TypeFnc() TyFnc          { return Type }
+func (t TyKeyWord) TypeNat() d.TyNat        { return d.Type }
+func (t TyKeyWord) Flag() d.BitFlag         { return d.BitFlag(t) }
+func (t TyKeyWord) KeyWord() string         { return mapKeyWords[t] }
+func (t TyKeyWord) TypeName() string        { return mapKeyWords[t] }
+func (t TyKeyWord) Call(...Functor) Functor { return t }
 func (t TyKeyWord) Find(arg string) (TyKeyWord, bool) {
 	var kw, ok = mapKeyWordsText[arg]
 	return kw, ok

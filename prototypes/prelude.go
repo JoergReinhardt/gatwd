@@ -7,5 +7,5 @@ import (
 
 type (
 	TypeCons func(types ...d.Typed) (f.TyDef, []DataCons)
-	DataCons func(args ...f.Expression) f.FuncVal
+	DataCons func(args ...f.Functor) f.FuncVal
 )

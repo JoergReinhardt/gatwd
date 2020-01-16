@@ -53,15 +53,15 @@ import (
 type (
 	//// NONE, CONSTANT & LAMBDA
 	NoneVal func()
-	ConsVal func() Expression
-	Lambda  func(...Expression) Expression
+	ConsVal func() Functor
+	Lambda  func(...Functor) Functor
 
 	//// GENERATOR | ACCUMULATOR
-	GenVal func() (Expression, GenVal)
-	AccVal func(...Expression) (Expression, AccVal)
+	GenVal func() (Functor, GenVal)
+	AccVal func(...Functor) (Functor, AccVal)
 
 	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
-	FuncVal func(...Expression) Expression
+	FuncVal func(...Functor) Functor
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,55 +72,55 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Expression                    { return n }
-func (n NoneVal) Tail() Topological                   { return n }
-func (n NoneVal) Cons(Expression) Topological         { return n }
-func (n NoneVal) ConsGroup(Topological) Topological   { return n }
-func (n NoneVal) Concat(Continuous) Topological       { return n }
-func (n NoneVal) Prepend(...Expression) Topological   { return n }
-func (n NoneVal) Append(...Expression) Topological    { return n }
-func (n NoneVal) Len() int                            { return 0 }
-func (n NoneVal) Compare(...Expression) int           { return -1 }
-func (n NoneVal) String() string                      { return "⊥" }
-func (n NoneVal) Call(...Expression) Expression       { return nil }
-func (n NoneVal) Key() Expression                     { return nil }
-func (n NoneVal) Index() Expression                   { return nil }
-func (n NoneVal) Left() Expression                    { return nil }
-func (n NoneVal) Right() Expression                   { return nil }
-func (n NoneVal) Both() Expression                    { return nil }
-func (n NoneVal) Value() Expression                   { return nil }
-func (n NoneVal) Empty() bool                         { return true }
-func (n NoneVal) Test(...Expression) bool             { return false }
-func (n NoneVal) TypeFnc() TyFnc                      { return None }
-func (n NoneVal) TypeNat() d.TyNat                    { return d.Nil }
-func (n NoneVal) Type() TyDef                         { return Def(None) }
-func (n NoneVal) TypeElem() TyDef                     { return Def(None) }
-func (n NoneVal) TypeName() string                    { return n.String() }
-func (n NoneVal) Slice() []Expression                 { return []Expression{} }
-func (n NoneVal) Flag() d.BitFlag                     { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val                { return Kind_Fnc.U() }
-func (n NoneVal) Continue() (Expression, Topological) { return NewNone(), NewNone() }
-func (n NoneVal) Consume() (Expression, Topological)  { return NewNone(), NewNone() }
+func (n NoneVal) Head() Functor                     { return n }
+func (n NoneVal) Tail() Applicative                 { return n }
+func (n NoneVal) Cons(Functor) Applicative          { return n }
+func (n NoneVal) ConsGroup(Applicative) Applicative { return n }
+func (n NoneVal) Concat(Sequential) Applicative     { return n }
+func (n NoneVal) Prepend(...Functor) Applicative    { return n }
+func (n NoneVal) Append(...Functor) Applicative     { return n }
+func (n NoneVal) Len() int                          { return 0 }
+func (n NoneVal) Compare(...Functor) int            { return -1 }
+func (n NoneVal) String() string                    { return "⊥" }
+func (n NoneVal) Call(...Functor) Functor           { return nil }
+func (n NoneVal) Key() Functor                      { return nil }
+func (n NoneVal) Index() Functor                    { return nil }
+func (n NoneVal) Left() Functor                     { return nil }
+func (n NoneVal) Right() Functor                    { return nil }
+func (n NoneVal) Both() Functor                     { return nil }
+func (n NoneVal) Value() Functor                    { return nil }
+func (n NoneVal) Empty() bool                       { return true }
+func (n NoneVal) Test(...Functor) bool              { return false }
+func (n NoneVal) TypeFnc() TyFnc                    { return None }
+func (n NoneVal) TypeNat() d.TyNat                  { return d.Nil }
+func (n NoneVal) Type() TyDef                       { return Def(None) }
+func (n NoneVal) TypeElem() TyDef                   { return Def(None) }
+func (n NoneVal) TypeName() string                  { return n.String() }
+func (n NoneVal) Slice() []Functor                  { return []Functor{} }
+func (n NoneVal) Flag() d.BitFlag                   { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val              { return Kind_Fnc.U() }
+func (n NoneVal) Continue() (Functor, Applicative)  { return NewNone(), NewNone() }
+func (n NoneVal) Consume() (Functor, Applicative)   { return NewNone(), NewNone() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// GENERIC CONSTANT DEFINITION
 ///
 // declares a constant value
-func NewConstant(constant func() Expression) ConsVal { return constant }
+func NewConstant(constant func() Functor) ConsVal { return constant }
 
-func (c ConsVal) Type() TyDef                   { return Def(Constant, c().Type(), None) }
-func (c ConsVal) TypeIdent() TyDef              { return c().Type().TypeId() }
-func (c ConsVal) TypeRet() TyDef                { return c().Type().TypeRet() }
-func (c ConsVal) TypeArgs() TyDef               { return Def(None) }
-func (c ConsVal) TypeFnc() TyFnc                { return Constant }
-func (c ConsVal) String() string                { return c().String() }
-func (c ConsVal) Call(...Expression) Expression { return c() }
+func (c ConsVal) Type() TyDef             { return Def(Constant, c().Type(), None) }
+func (c ConsVal) TypeIdent() TyDef        { return c().Type().TypeId() }
+func (c ConsVal) TypeRet() TyDef          { return c().Type().TypeRet() }
+func (c ConsVal) TypeArgs() TyDef         { return Def(None) }
+func (c ConsVal) TypeFnc() TyFnc          { return Constant }
+func (c ConsVal) String() string          { return c().String() }
+func (c ConsVal) Call(...Functor) Functor { return c() }
 
 //// GENERIC FUNCTION DEFINITION
 ///
 // declares a constant value
-func NewLambda(fnc func(...Expression) Expression) Lambda {
-	return func(args ...Expression) Expression {
+func NewLambda(fnc func(...Functor) Functor) Lambda {
+	return func(args ...Functor) Functor {
 		if len(args) > 0 {
 			return fnc(args...)
 		}
@@ -128,7 +128,7 @@ func NewLambda(fnc func(...Expression) Expression) Lambda {
 	}
 }
 
-func (c Lambda) Call(args ...Expression) Expression {
+func (c Lambda) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return c(args...)
 	}
@@ -147,15 +147,15 @@ func (c Lambda) TypeArguments() TyDef { return c().Type().TypeArgs() }
 // expects an expression that returns an unboxed value, when called empty and
 // some notion of 'next' value, relative to its arguments, if arguments where
 // passed.
-func NewGenerator(init, generate Expression) GenVal {
-	return func() (Expression, GenVal) {
+func NewGenerator(init, generate Functor) GenVal {
+	return func() (Functor, GenVal) {
 		var next = generate.Call(init)
 		return init, NewGenerator(next, generate)
 	}
 }
-func (g GenVal) Cons(Expression) Topological       { return g }
-func (g GenVal) ConsGroup(Topological) Topological { return g }
-func (g GenVal) Expr() Expression {
+func (g GenVal) Cons(Functor) Applicative          { return g }
+func (g GenVal) ConsGroup(Applicative) Applicative { return g }
+func (g GenVal) Expr() Functor {
 	var expr, _ = g()
 	return expr
 }
@@ -163,7 +163,7 @@ func (g GenVal) Generator() GenVal {
 	var _, gen = g()
 	return gen
 }
-func (g GenVal) Call(args ...Expression) Expression {
+func (g GenVal) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewPair(g.Expr().Call(args...), g.Generator())
 	}
@@ -179,10 +179,10 @@ func (g GenVal) Empty() bool {
 	}
 	return false
 }
-func (g GenVal) Concat(grp Continuous) Topological   { return NewListFromGroup(g).Concat(grp) }
-func (g GenVal) Continue() (Expression, Topological) { return g() }
-func (g GenVal) Head() Expression                    { return g.Expr() }
-func (g GenVal) Tail() Topological                   { return g.Generator() }
+func (g GenVal) Concat(grp Sequential) Applicative { return NewListFromGroup(g).Concat(grp) }
+func (g GenVal) Continue() (Functor, Applicative)  { return g() }
+func (g GenVal) Head() Functor                     { return g.Expr() }
+func (g GenVal) Tail() Applicative                 { return g.Generator() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// ACCUMULATOR
@@ -191,10 +191,10 @@ func (g GenVal) Tail() Topological                   { return g.Generator() }
 // when called empty and returns a new accumulator accumulating its value and
 // arguments to create a new accumulator, if arguments where passed.
 func NewAccumulator(
-	acc Expression,
-	fnc func(acc Expression, args ...Expression) Expression,
+	acc Functor,
+	fnc func(acc Functor, args ...Functor) Functor,
 ) AccVal {
-	return AccVal(func(args ...Expression) (Expression, AccVal) {
+	return AccVal(func(args ...Functor) (Functor, AccVal) {
 		if len(args) > 0 {
 			acc = fnc(acc, args...)
 			return acc, NewAccumulator(acc, fnc)
@@ -204,18 +204,18 @@ func NewAccumulator(
 	})
 }
 
-func (g AccVal) Concat(grp Continuous) Topological {
+func (g AccVal) Concat(grp Sequential) Applicative {
 	return NewListFromGroup(g).Concat(grp)
 }
-func (g AccVal) ConsGroup(con Topological) Topological {
-	var args = []Expression{}
+func (g AccVal) ConsGroup(con Applicative) Applicative {
+	var args = []Functor{}
 	for head, con := con.Continue(); !con.Empty(); {
 		args = append(args, head)
 	}
 	return NewList(g(args...))
 }
-func (g AccVal) Cons(arg Expression) Topological { return NewList(g(arg)) }
-func (g AccVal) Result() Expression {
+func (g AccVal) Cons(arg Functor) Applicative { return NewList(g(arg)) }
+func (g AccVal) Result() Functor {
 	var res, _ = g()
 	return res
 }
@@ -223,7 +223,7 @@ func (g AccVal) Accumulator() AccVal {
 	var _, acc = g()
 	return acc
 }
-func (g AccVal) Call(args ...Expression) Expression {
+func (g AccVal) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		var res, acc = g(args...)
 		return NewPair(res, acc)
@@ -246,10 +246,10 @@ func (a AccVal) Empty() bool {
 	}
 	return false
 }
-func (g AccVal) Head() Expression                    { return g.Result() }
-func (g AccVal) TypeElem() TyDef                     { return g.Head().Type() }
-func (g AccVal) Tail() Topological                   { return g.Accumulator() }
-func (g AccVal) Continue() (Expression, Topological) { return g() }
+func (g AccVal) Head() Functor                    { return g.Result() }
+func (g AccVal) TypeElem() TyDef                  { return g.Head().Type() }
+func (g AccVal) Tail() Applicative                { return g.Accumulator() }
+func (g AccVal) Continue() (Functor, Applicative) { return g() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// TAGGED, TYPE-SAFE, PARTIAL APPLYABLE FUNCTION
@@ -262,7 +262,7 @@ func (g AccVal) Continue() (Expression, Topological) { return g() }
 //    - create from expressions type signature, (argtypes → idtype →
 //      returntype), if no typeargs where passed
 //  - return & argument types are carried over from expression
-func createFuncType(expr Expression, types ...d.Typed) TyDef {
+func createFuncType(expr Functor, types ...d.Typed) TyDef {
 	if len(types) > 0 {
 		// if first types argument is a symbol, use it as identity
 		if Kind_Sym.Match(types[0].Kind()) {
@@ -315,7 +315,7 @@ func createFuncType(expr Expression, types ...d.Typed) TyDef {
 // define creates and returns a tagged and type-safe data constructor, or
 // function definition & signature (function type).
 func Define(
-	expr Expression,
+	expr Functor,
 	types ...d.Typed,
 ) FuncVal {
 
@@ -327,7 +327,7 @@ func Define(
 	)
 
 	// return partialy applable function
-	return func(args ...Expression) Expression {
+	return func(args ...Functor) Functor {
 
 		// take number of passed arguments
 		var length = len(args)
@@ -371,7 +371,7 @@ func Define(
 				// validated so far, appends arguments passed
 				// in later calls and returns the result from
 				// applying them to the enclosed function.
-				return Define(Lambda(func(lateargs ...Expression) Expression {
+				return Define(Lambda(func(lateargs ...Functor) Functor {
 					// will return result, or yet another
 					// partial, depending on arguments
 					if len(lateargs) > 0 {
@@ -423,7 +423,7 @@ func Define(
 	}
 }
 
-func (e FuncVal) Call(args ...Expression) Expression { return e(args...) }
+func (e FuncVal) Call(args ...Functor) Functor { return e(args...) }
 
 func (e FuncVal) TypeFnc() TyFnc   { return Value }
 func (e FuncVal) Type() TyDef      { return e().(TyDef) }

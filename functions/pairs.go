@@ -10,16 +10,16 @@ import (
 
 type (
 	//// VALUE PAIRS
-	ValPair   func(...Expression) (Expression, Expression)
-	NatPair   func(...Expression) (d.Native, Expression)
-	KeyPair   func(...Expression) (string, Expression)
-	IndexPair func(...Expression) (int, Expression)
-	RealPair  func(...Expression) (float64, Expression)
+	ValPair   func(...Functor) (Functor, Functor)
+	NatPair   func(...Functor) (d.Native, Functor)
+	KeyPair   func(...Functor) (string, Functor)
+	IndexPair func(...Functor) (int, Functor)
+	RealPair  func(...Functor) (float64, Functor)
 
 	//// COLLECTIONS OF VALUE PAIRS
 	KeyIndex []KeyPair
-	KeyMap   map[string]Expression
-	RealMap  map[float64]Expression
+	KeyMap   map[string]Functor
+	RealMap  map[float64]Functor
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -27,7 +27,7 @@ type (
 ///
 // pairs can be created empty, key & value may be constructed later
 func NewEmptyPair() ValPair {
-	return func(args ...Expression) (a, b Expression) {
+	return func(args ...Functor) (a, b Functor) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				if len(args) > 2 {
@@ -44,8 +44,8 @@ func NewEmptyPair() ValPair {
 }
 
 // new pair from two callable instances
-func NewPair(l, r Expression) ValPair {
-	return func(args ...Expression) (Expression, Expression) {
+func NewPair(l, r Functor) ValPair {
+	return func(args ...Functor) (Functor, Functor) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				if len(args) > 2 {
@@ -60,46 +60,46 @@ func NewPair(l, r Expression) ValPair {
 	}
 }
 
-func (p ValPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
-func (p ValPair) Concat(c Continuous) Topological { return NewPair(p, c) }
-func (p ValPair) Continue() (Expression, Topological) {
+func (p ValPair) Cons(arg Functor) Applicative    { return NewPair(arg, p) }
+func (p ValPair) Concat(c Sequential) Applicative { return NewPair(p, c) }
+func (p ValPair) Continue() (Functor, Applicative) {
 	var (
-		head Expression
-		tail Continuous
+		head Functor
+		tail Sequential
 		k, v = p()
 	)
 	if k.TypeFnc().Match(Continua) {
-		head, tail = k.(Continuous).Continue()
+		head, tail = k.(Sequential).Continue()
 		if v.TypeFnc().Match(Continua) {
-			return head, tail.Concat(v.(Continuous))
+			return head, tail.Concat(v.(Sequential))
 		}
 	}
 	if v.TypeFnc().Match(Continua) {
-		return head, tail.Concat(v.(Continuous))
+		return head, tail.Concat(v.(Sequential))
 	}
 	return k, NewPair(v, NewNone())
 }
-func (p ValPair) Head() Expression {
+func (p ValPair) Head() Functor {
 	var h, _ = p.Continue()
 	return h
 }
-func (p ValPair) Tail() Topological {
+func (p ValPair) Tail() Applicative {
 	var _, t = p.Continue()
 	return t
 }
 
-func (p ValPair) Both() (Expression, Expression) { return p() }
-func (p ValPair) Swap() (Expression, Expression) { l, r := p(); return r, l }
-func (p ValPair) Left() Expression               { l, _ := p(); return l }
-func (p ValPair) Right() Expression              { _, r := p(); return r }
+func (p ValPair) Both() (Functor, Functor) { return p() }
+func (p ValPair) Swap() (Functor, Functor) { l, r := p(); return r, l }
+func (p ValPair) Left() Functor            { l, _ := p(); return l }
+func (p ValPair) Right() Functor           { _, r := p(); return r }
 
 func (p ValPair) Pair() Paired        { return p }
 func (p ValPair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
-func (p ValPair) Slice() []Expression { return []Expression{p.Left(), p.Right()} }
+func (p ValPair) Slice() []Functor    { return []Functor{p.Left(), p.Right()} }
 
-func (p ValPair) Key() Expression   { return p.Left() }
-func (p ValPair) Value() Expression { return p.Right() }
-func (p ValPair) TypeFnc() TyFnc    { return Pair }
+func (p ValPair) Key() Functor   { return p.Left() }
+func (p ValPair) Value() Functor { return p.Right() }
+func (p ValPair) TypeFnc() TyFnc { return Pair }
 func (p ValPair) TypeElem() TyDef {
 	if p.Right() != nil {
 		return p.Right().Type()
@@ -131,7 +131,7 @@ func (p ValPair) Empty() bool {
 func (p ValPair) String() string {
 	return "(" + p.Key().String() + ", " + p.Value().String() + ")"
 }
-func (p ValPair) Call(args ...Expression) Expression {
+func (p ValPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewPair(p.Key(), p.Value().Call(args...))
 	}
@@ -141,23 +141,23 @@ func (p ValPair) Call(args ...Expression) Expression {
 //// NATIVE VALUE KEY PAIR
 ///
 //
-func NewNatPair(key d.Native, val Expression) NatPair {
-	return func(...Expression) (d.Native, Expression) { return key, val }
+func NewNatPair(key d.Native, val Functor) NatPair {
+	return func(...Functor) (d.Native, Functor) { return key, val }
 }
 
-func (a NatPair) KeyNat() d.Native               { key, _ := a(); return key }
-func (a NatPair) Value() Expression              { _, val := a(); return val }
-func (a NatPair) Left() Expression               { return Box(a.KeyNat()) }
-func (a NatPair) Right() Expression              { return a.Value() }
-func (a NatPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
-func (a NatPair) Pair() Paired                   { return NewPair(a.Both()) }
-func (a NatPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
-func (a NatPair) Key() Expression                { return a.Left() }
-func (a NatPair) TypeValue() d.Typed             { return a.Value().Type() }
-func (a NatPair) TypeKey() d.Typed               { return a.KeyNat().Type() }
-func (a NatPair) TypeFnc() TyFnc                 { return Data | Pair }
-func (p NatPair) Type() TyDef                    { return Def(Pair, Def(Key, p.TypeValue())) }
-func (p NatPair) Call(args ...Expression) Expression {
+func (a NatPair) KeyNat() d.Native         { key, _ := a(); return key }
+func (a NatPair) Value() Functor           { _, val := a(); return val }
+func (a NatPair) Left() Functor            { return Box(a.KeyNat()) }
+func (a NatPair) Right() Functor           { return a.Value() }
+func (a NatPair) Both() (Functor, Functor) { return a.Left(), a.Right() }
+func (a NatPair) Pair() Paired             { return NewPair(a.Both()) }
+func (a NatPair) Pairs() []Paired          { return []Paired{NewPair(a.Both())} }
+func (a NatPair) Key() Functor             { return a.Left() }
+func (a NatPair) TypeValue() d.Typed       { return a.Value().Type() }
+func (a NatPair) TypeKey() d.Typed         { return a.KeyNat().Type() }
+func (a NatPair) TypeFnc() TyFnc           { return Data | Pair }
+func (p NatPair) Type() TyDef              { return Def(Pair, Def(Key, p.TypeValue())) }
+func (p NatPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewNatPair(p.KeyNat(), p.Value().Call(args...))
 	}
@@ -165,7 +165,7 @@ func (p NatPair) Call(args ...Expression) Expression {
 }
 
 // implement swappable
-func (p NatPair) Swap() (Expression, Expression) {
+func (p NatPair) Swap() (Functor, Functor) {
 	l, r := p()
 	return Box(l), r
 }
@@ -181,23 +181,23 @@ func (a NatPair) String() string {
 	return "(" + a.Right().String() + " : " + a.Left().String() + ")"
 }
 
-func (p NatPair) Cons(arg Expression) Expression { return NewPair(arg, p) }
-func (p NatPair) Continue() (Expression, Topological) {
+func (p NatPair) Cons(arg Functor) Functor { return NewPair(arg, p) }
+func (p NatPair) Continue() (Functor, Applicative) {
 	var (
-		head Expression
-		tail Continuous
+		head Functor
+		tail Sequential
 		k, v = p()
 	)
 	if v.TypeFnc().Match(Continua) {
-		return head, tail.Concat(v.(Continuous))
+		return head, tail.Concat(v.(Sequential))
 	}
 	return Box(k), NewPair(v, NewNone())
 }
-func (p NatPair) Head() Expression {
+func (p NatPair) Head() Functor {
 	var h, _ = p.Continue()
 	return h
 }
-func (p NatPair) Tail() Topological {
+func (p NatPair) Tail() Applicative {
 	var _, t = p.Continue()
 	return t
 }
@@ -205,23 +205,23 @@ func (p NatPair) Tail() Topological {
 //// STRING KEY PAIR
 ///
 // pair composed of a string key and a functional value
-func NewKeyPair(key string, val Expression) KeyPair {
-	return func(...Expression) (string, Expression) { return key, val }
+func NewKeyPair(key string, val Functor) KeyPair {
+	return func(...Functor) (string, Functor) { return key, val }
 }
 
-func (a KeyPair) KeyStr() string                 { key, _ := a(); return key }
-func (a KeyPair) Value() Expression              { _, val := a(); return val }
-func (a KeyPair) Left() Expression               { return Box(d.StrVal(a.KeyStr())) }
-func (a KeyPair) Right() Expression              { return a.Value() }
-func (a KeyPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
-func (a KeyPair) Pair() Paired                   { return NewPair(a.Both()) }
-func (a KeyPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
-func (a KeyPair) Key() Expression                { return a.Left() }
-func (a KeyPair) TypeValue() d.Typed             { return a.Value().Type() }
-func (a KeyPair) TypeElem() d.Typed              { return a.Value().Type() }
-func (a KeyPair) TypeKey() d.Typed               { return Key }
-func (a KeyPair) TypeFnc() TyFnc                 { return Key | Pair }
-func (p KeyPair) Call(args ...Expression) Expression {
+func (a KeyPair) KeyStr() string           { key, _ := a(); return key }
+func (a KeyPair) Value() Functor           { _, val := a(); return val }
+func (a KeyPair) Left() Functor            { return Box(d.StrVal(a.KeyStr())) }
+func (a KeyPair) Right() Functor           { return a.Value() }
+func (a KeyPair) Both() (Functor, Functor) { return a.Left(), a.Right() }
+func (a KeyPair) Pair() Paired             { return NewPair(a.Both()) }
+func (a KeyPair) Pairs() []Paired          { return []Paired{NewPair(a.Both())} }
+func (a KeyPair) Key() Functor             { return a.Left() }
+func (a KeyPair) TypeValue() d.Typed       { return a.Value().Type() }
+func (a KeyPair) TypeElem() d.Typed        { return a.Value().Type() }
+func (a KeyPair) TypeKey() d.Typed         { return Key }
+func (a KeyPair) TypeFnc() TyFnc           { return Key | Pair }
+func (p KeyPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewKeyPair(p.KeyStr(), p.Value().Call(args...))
 	}
@@ -232,7 +232,7 @@ func (p KeyPair) Type() TyDef {
 }
 
 // implement swappable
-func (p KeyPair) Swap() (Expression, Expression) {
+func (p KeyPair) Swap() (Functor, Functor) {
 	l, r := p()
 	return Box(d.StrVal(l)), r
 }
@@ -247,24 +247,24 @@ func (a KeyPair) Empty() bool {
 func (a KeyPair) String() string {
 	return "(" + a.KeyStr() + " : " + a.Value().String() + ")"
 }
-func (p KeyPair) Cons(arg Expression) Topological    { return NewPair(arg, p) }
-func (p KeyPair) Concat(cons Continuous) Topological { return NewPair(p, cons) }
-func (p KeyPair) Continue() (Expression, Topological) {
+func (p KeyPair) Cons(arg Functor) Applicative       { return NewPair(arg, p) }
+func (p KeyPair) Concat(cons Sequential) Applicative { return NewPair(p, cons) }
+func (p KeyPair) Continue() (Functor, Applicative) {
 	var (
-		head Expression
-		tail Continuous
+		head Functor
+		tail Sequential
 		k, v = p()
 	)
 	if v.TypeFnc().Match(Continua) {
-		return head, tail.Concat(v.(Continuous))
+		return head, tail.Concat(v.(Sequential))
 	}
 	return Box(d.StrVal(k)), NewPair(v, NewNone())
 }
-func (p KeyPair) Head() Expression {
+func (p KeyPair) Head() Functor {
 	var h, _ = p.Continue()
 	return h
 }
-func (p KeyPair) Tail() Topological {
+func (p KeyPair) Tail() Applicative {
 	var _, t = p.Continue()
 	return t
 }
@@ -272,24 +272,24 @@ func (p KeyPair) Tail() Topological {
 //// INDEX PAIR
 ///
 // pair composed of an integer and a functional value
-func NewIndexPair(idx int, val Expression) IndexPair {
-	return func(...Expression) (int, Expression) { return idx, val }
+func NewIndexPair(idx int, val Functor) IndexPair {
+	return func(...Functor) (int, Functor) { return idx, val }
 }
-func (a IndexPair) Value() Expression              { _, val := a(); return val }
-func (a IndexPair) Index() int                     { idx, _ := a(); return idx }
-func (a IndexPair) KeyIdx() int                    { return a.Index() }
-func (a IndexPair) Left() Expression               { return Box(d.IntVal(a.Index())) }
-func (a IndexPair) Right() Expression              { return a.Value() }
-func (a IndexPair) Both() (Expression, Expression) { return a.Left(), a.Right() }
-func (a IndexPair) Pair() Paired                   { return a }
-func (a IndexPair) Pairs() []Paired                { return []Paired{NewPair(a.Both())} }
-func (a IndexPair) Key() Expression                { return a.Left() }
-func (a IndexPair) TypeFnc() TyFnc                 { return Index | Pair }
-func (a IndexPair) TypeKey() d.Typed               { return Index }
-func (a IndexPair) TypeValue() d.Typed             { return a.Value().Type() }
-func (a IndexPair) Type() TyDef                    { return Def(Pair, Def(Index, a.TypeValue())) }
-func (p IndexPair) TypeElem() TyDef                { return p.Value().Type() }
-func (p IndexPair) Call(args ...Expression) Expression {
+func (a IndexPair) Value() Functor           { _, val := a(); return val }
+func (a IndexPair) Index() int               { idx, _ := a(); return idx }
+func (a IndexPair) KeyIdx() int              { return a.Index() }
+func (a IndexPair) Left() Functor            { return Box(d.IntVal(a.Index())) }
+func (a IndexPair) Right() Functor           { return a.Value() }
+func (a IndexPair) Both() (Functor, Functor) { return a.Left(), a.Right() }
+func (a IndexPair) Pair() Paired             { return a }
+func (a IndexPair) Pairs() []Paired          { return []Paired{NewPair(a.Both())} }
+func (a IndexPair) Key() Functor             { return a.Left() }
+func (a IndexPair) TypeFnc() TyFnc           { return Index | Pair }
+func (a IndexPair) TypeKey() d.Typed         { return Index }
+func (a IndexPair) TypeValue() d.Typed       { return a.Value().Type() }
+func (a IndexPair) Type() TyDef              { return Def(Pair, Def(Index, a.TypeValue())) }
+func (p IndexPair) TypeElem() TyDef          { return p.Value().Type() }
+func (p IndexPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewIndexPair(p.Index(), p.Value().Call(args...))
 	}
@@ -297,7 +297,7 @@ func (p IndexPair) Call(args ...Expression) Expression {
 }
 
 // implement swappable
-func (p IndexPair) Swap() (Expression, Expression) {
+func (p IndexPair) Swap() (Functor, Functor) {
 	l, r := p()
 	return Box(d.New(l)), r
 }
@@ -312,24 +312,24 @@ func (a IndexPair) String() string {
 	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
 
-func (p IndexPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
-func (p IndexPair) Concat(c Continuous) Topological { return NewPair(p, c) }
-func (p IndexPair) Continue() (Expression, Topological) {
+func (p IndexPair) Cons(arg Functor) Applicative    { return NewPair(arg, p) }
+func (p IndexPair) Concat(c Sequential) Applicative { return NewPair(p, c) }
+func (p IndexPair) Continue() (Functor, Applicative) {
 	var (
-		head Expression
-		tail Continuous
+		head Functor
+		tail Sequential
 		k, v = p()
 	)
 	if v.TypeFnc().Match(Continua) {
-		return head, tail.Concat(v.(Continuous))
+		return head, tail.Concat(v.(Sequential))
 	}
 	return Box(d.IntVal(k)), NewPair(v, NewNone())
 }
-func (p IndexPair) Head() Expression {
+func (p IndexPair) Head() Functor {
 	var h, _ = p.Continue()
 	return h
 }
-func (p IndexPair) Tail() Topological {
+func (p IndexPair) Tail() Applicative {
 	var _, t = p.Continue()
 	return t
 }
@@ -337,25 +337,25 @@ func (p IndexPair) Tail() Topological {
 //// FLOATING PAIR
 ///
 // pair composed of an integer and a functional value
-func NewRealPair(flt float64, val Expression) RealPair {
-	return func(...Expression) (float64, Expression) { return flt, val }
+func NewRealPair(flt float64, val Functor) RealPair {
+	return func(...Functor) (float64, Functor) { return flt, val }
 }
-func (a RealPair) Real() float64                      { flt, _ := a(); return flt }
-func (a RealPair) Value() Expression                  { _, val := a(); return val }
-func (a RealPair) Left() Expression                   { return Box(d.IntVal(a.Real())) }
-func (a RealPair) Right() Expression                  { return a.Value() }
-func (a RealPair) Both() (Expression, Expression)     { return a.Left(), a.Right() }
-func (a RealPair) Pair() Paired                       { return a }
-func (a RealPair) Pairs() []Paired                    { return []Paired{NewPair(a.Both())} }
-func (a RealPair) Key() Expression                    { return a.Left() }
-func (a RealPair) Call(args ...Expression) Expression { return a.Value().Call(args...) }
-func (a RealPair) TypeFnc() TyFnc                     { return Real | Pair }
-func (a RealPair) TypeKey() d.Typed                   { return Real }
-func (a RealPair) TypeValue() d.Typed                 { return a.Value().Type() }
-func (a RealPair) Type() TyDef                        { return Def(Pair, Def(Real, a.TypeValue())) }
+func (a RealPair) Real() float64                { flt, _ := a(); return flt }
+func (a RealPair) Value() Functor               { _, val := a(); return val }
+func (a RealPair) Left() Functor                { return Box(d.IntVal(a.Real())) }
+func (a RealPair) Right() Functor               { return a.Value() }
+func (a RealPair) Both() (Functor, Functor)     { return a.Left(), a.Right() }
+func (a RealPair) Pair() Paired                 { return a }
+func (a RealPair) Pairs() []Paired              { return []Paired{NewPair(a.Both())} }
+func (a RealPair) Key() Functor                 { return a.Left() }
+func (a RealPair) Call(args ...Functor) Functor { return a.Value().Call(args...) }
+func (a RealPair) TypeFnc() TyFnc               { return Real | Pair }
+func (a RealPair) TypeKey() d.Typed             { return Real }
+func (a RealPair) TypeValue() d.Typed           { return a.Value().Type() }
+func (a RealPair) Type() TyDef                  { return Def(Pair, Def(Real, a.TypeValue())) }
 
 // implement swappable
-func (p RealPair) Swap() (Expression, Expression) {
+func (p RealPair) Swap() (Functor, Functor) {
 	l, r := p()
 	return Box(d.New(l)), r
 }
@@ -372,24 +372,24 @@ func (a RealPair) String() string {
 func (p RealPair) TypeElem() TyDef { return p.Value().Type() }
 
 //
-func (p RealPair) Cons(arg Expression) Topological { return NewPair(arg, p) }
-func (p RealPair) Concat(c Continuous) Topological { return NewPair(p, c) }
-func (p RealPair) Continue() (Expression, Topological) {
+func (p RealPair) Cons(arg Functor) Applicative    { return NewPair(arg, p) }
+func (p RealPair) Concat(c Sequential) Applicative { return NewPair(p, c) }
+func (p RealPair) Continue() (Functor, Applicative) {
 	var (
-		head Expression
-		tail Continuous
+		head Functor
+		tail Sequential
 		k, v = p()
 	)
 	if v.TypeFnc().Match(Continua) {
-		return head, tail.Concat(v.(Continuous))
+		return head, tail.Concat(v.(Sequential))
 	}
 	return Box(d.FltVal(k)), NewPair(v, NewNone())
 }
-func (p RealPair) Head() Expression {
+func (p RealPair) Head() Functor {
 	var h, _ = p.Continue()
 	return h
 }
-func (p RealPair) Tail() Topological {
+func (p RealPair) Tail() Applicative {
 	var _, t = p.Continue()
 	return t
 }
@@ -400,7 +400,7 @@ func (p RealPair) Tail() Topological {
 //   order.
 func NewKeyIndex(pairs ...KeyPair) KeyIndex { return pairs }
 
-func (i KeyIndex) Call(...Expression) Expression { return i }
+func (i KeyIndex) Call(...Functor) Functor { return i }
 
 func (i KeyIndex) Len() int       { return len(i) }
 func (i KeyIndex) Vector() VecVal { return NewVector(i.Slice()...) }
@@ -408,16 +408,16 @@ func (i KeyIndex) TypeFnc() TyFnc { return Key | Pair | Vector }
 func (i KeyIndex) Type() TyDef {
 	return Def(Vector, Def(Pair, Def(String, T)))
 }
-func (i KeyIndex) GetByKey(key string) Expression {
+func (i KeyIndex) GetByKey(key string) Functor {
 	var s = newSearcher(
 		i.Slice(), Box(d.StrVal(key)),
-		func(key, arg Expression) int {
+		func(key, arg Functor) int {
 			return strings.Compare(
 				key.String(), arg.String())
 		})
 	return s.Search()
 }
-func (i KeyIndex) GetByIdx(idx int) Expression {
+func (i KeyIndex) GetByIdx(idx int) Functor {
 	if idx < i.Len() {
 		return i[idx]
 	}
@@ -431,8 +431,8 @@ func (i KeyIndex) String() string {
 	}
 	return str
 }
-func (i KeyIndex) Slice() []Expression {
-	var slice = make([]Expression, 0, i.Len())
+func (i KeyIndex) Slice() []Functor {
+	var slice = make([]Functor, 0, i.Len())
 	for _, p := range i {
 		slice = append(slice, p)
 	}
@@ -445,29 +445,29 @@ func (i KeyIndex) Keys() []string {
 	}
 	return strs
 }
-func (i KeyIndex) Values() []Expression {
-	var vals = make([]Expression, 0, i.Len())
+func (i KeyIndex) Values() []Functor {
+	var vals = make([]Functor, 0, i.Len())
 	for _, p := range i {
 		vals = append(vals, p.Value())
 	}
 	return vals
 }
 func (i KeyIndex) InvertPairs() KeyMap {
-	var m = map[string]Expression{}
+	var m = map[string]Functor{}
 	for n := 0; n < i.Len(); n++ {
 		m[i[n].KeyStr()] = NewIndexPair(n, i[n])
 	}
 	return m
 }
 func (i KeyIndex) InvertVals() KeyMap {
-	var m = map[string]Expression{}
+	var m = map[string]Functor{}
 	for _, v := range i {
 		m[v.KeyStr()] = v
 	}
 	return m
 }
 func (i KeyIndex) InvertIdx() KeyMap {
-	var m = map[string]Expression{}
+	var m = map[string]Functor{}
 	for n, v := range i {
 		m[v.KeyStr()] = Box(d.IntVal(n))
 		n -= 1
@@ -479,15 +479,15 @@ func (i KeyIndex) InvertIdx() KeyMap {
 //// KEY MAP
 ///
 func NewKeyMap(pairs ...KeyPair) KeyMap {
-	var m = map[string]Expression{}
+	var m = map[string]Functor{}
 	for _, pair := range pairs {
 		m[pair.KeyStr()] = pair.Value()
 	}
 	return m
 }
-func (k KeyMap) Type() TyDef                        { return Def(Key, HashMap) }
-func (k KeyMap) TypeFnc() TyFnc                     { return Key | HashMap }
-func (k KeyMap) Call(args ...Expression) Expression { return k }
+func (k KeyMap) Type() TyDef                  { return Def(Key, HashMap) }
+func (k KeyMap) TypeFnc() TyFnc               { return Key | HashMap }
+func (k KeyMap) Call(args ...Functor) Functor { return k }
 func (k KeyMap) String() string {
 	var str = "{\n}"
 	for k, v := range k {
@@ -496,7 +496,7 @@ func (k KeyMap) String() string {
 	str = str + "}"
 	return str
 }
-func (k KeyMap) Get(key string) Expression {
+func (k KeyMap) Get(key string) Functor {
 	if val, ok := k[key]; ok {
 		return val
 	}
@@ -519,15 +519,15 @@ func (k KeyMap) Pairs() []KeyPair {
 //// REAL MAP
 ///
 func NewRealMap(pairs ...RealPair) RealMap {
-	var m = map[float64]Expression{}
+	var m = map[float64]Functor{}
 	for _, pair := range pairs {
 		m[pair.Real()] = pair.Value()
 	}
 	return m
 }
-func (k RealMap) Type() TyDef                        { return Def(Real, HashMap) }
-func (k RealMap) TypeFnc() TyFnc                     { return Real | HashMap }
-func (k RealMap) Call(args ...Expression) Expression { return k }
+func (k RealMap) Type() TyDef                  { return Def(Real, HashMap) }
+func (k RealMap) TypeFnc() TyFnc               { return Real | HashMap }
+func (k RealMap) Call(args ...Functor) Functor { return k }
 func (k RealMap) String() string {
 	var str = "{\n}"
 	for k, v := range k {
@@ -537,7 +537,7 @@ func (k RealMap) String() string {
 	str = str + "}"
 	return str
 }
-func (k RealMap) Get(key float64) Expression {
+func (k RealMap) Get(key float64) Functor {
 	if val, ok := k[key]; ok {
 		return val
 	}

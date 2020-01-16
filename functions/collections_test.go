@@ -33,22 +33,22 @@ var (
 			Dat(0).Type(),
 		))
 
-	generator = NewGenerator(Dat(0), Lambda(func(args ...Expression) Expression {
+	generator = NewGenerator(Dat(0), Lambda(func(args ...Functor) Functor {
 		return mapAddInt.Call(args[0], Dat(10))
 	}))
 
 	accumulator = NewAccumulator(
-		Dat(0), func(acc Expression, args ...Expression) Expression {
+		Dat(0), func(acc Functor, args ...Functor) Functor {
 			return addInts.Call(acc, Dat(10))
 		})
 )
 
 // helper functions
-func conList(args ...Expression) Topological {
+func conList(args ...Functor) Applicative {
 	return NewVector(args...)
 }
 
-func printCons(cons Continuous) {
+func printCons(cons Sequential) {
 	var head, tail = cons.Continue()
 	//if !head.Type().Match(None) {
 	if !head.Type().Match(None) {
@@ -59,8 +59,8 @@ func printCons(cons Continuous) {
 func randInt() DatAtom {
 	return Dat(rand.Intn(100)).(DatAtom)
 }
-func randInts(n int) []Expression {
-	var slice = make([]Expression, 0, n)
+func randInts(n int) []Functor {
+	var slice = make([]Functor, 0, n)
 	for i := 0; i < n; i++ {
 		slice = append(slice, randInt())
 	}
@@ -102,8 +102,8 @@ func TestList(t *testing.T) {
 func TestConList(t *testing.T) {
 
 	var alist = NewVector(intsA()...)
-	var tail Continuous
-	var head Expression
+	var tail Sequential
+	var head Functor
 
 	for i := 0; i < 5; i++ {
 		head, tail = alist.Continue()
@@ -118,8 +118,8 @@ func TestConList(t *testing.T) {
 func TestPushList(t *testing.T) {
 
 	var alist = NewVector(intsA()...)
-	var tail Continuous
-	var head Expression
+	var tail Sequential
+	var head Functor
 
 	for i := 0; i < 5; i++ {
 		head, tail = alist.Continue()
@@ -148,13 +148,13 @@ func TestVector(t *testing.T) {
 func TestSortVector(t *testing.T) {
 	var (
 		v    = NewVector(randInts(10)...)
-		sort = func(a, b Expression) bool {
+		sort = func(a, b Functor) bool {
 			return a.(DatAtom)().(d.IntVal) < b.(DatAtom)().(d.IntVal)
 		}
 	)
 	fmt.Printf("random: %s\n", v)
 	fmt.Printf("sorted: %s\n", v.Sort(sort))
-	var tmp Expression = Dat(0)
+	var tmp Functor = Dat(0)
 	for _, elem := range v() {
 		if elem.(DatAtom)().(d.IntVal) < tmp.(DatAtom)().(d.IntVal) {
 			t.Fail()
@@ -163,7 +163,7 @@ func TestSortVector(t *testing.T) {
 	}
 }
 func TestSearchVector(t *testing.T) {
-	var elem = abc.Search(Dat("k"), func(a, b Expression) int {
+	var elem = abc.Search(Dat("k"), func(a, b Functor) int {
 		return strings.Compare(a.String(), b.String())
 	})
 	fmt.Println(elem)
@@ -174,24 +174,24 @@ func TestSearchVector(t *testing.T) {
 
 func TestGenerator(t *testing.T) {
 	fmt.Printf("generator: %s\n", generator)
-	var answ Expression
+	var answ Functor
 	for i := 0; i < 10; i++ {
 		answ, generator = generator()
 		fmt.Printf("answer: %s generator: %s\n", answ, generator)
 	}
-	if answ.(NatEval).Eval().(d.IntVal) != d.IntVal(90) {
+	if answ.(Evaluable).Eval().(d.IntVal) != d.IntVal(90) {
 		t.Fail()
 	}
 }
 
 func TestAccumulator(t *testing.T) {
 	fmt.Printf("accumulator: %s \n", accumulator)
-	var res Expression
+	var res Functor
 	for i := 0; i < 10; i++ {
 		res, accumulator = accumulator(Dat(10))
 		fmt.Printf("result: %s accumulator called on argument: %s\n", res, accumulator.Tail())
 	}
-	if accumulator.Head().(NatEval).Eval().(d.IntVal) != d.IntVal(220) {
+	if accumulator.Head().(Evaluable).Eval().(d.IntVal) != d.IntVal(220) {
 		t.Fail()
 	}
 }
@@ -283,9 +283,9 @@ func TestVectorConsAppend(t *testing.T) {
 
 func TestStackSequence(t *testing.T) {
 	var (
-		head  Expression
-		tail  Continuous
-		list  Topological = NewList()
+		head  Functor
+		tail  Sequential
+		list  Applicative = NewList()
 		stack Stacked     = NewList(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
@@ -299,7 +299,7 @@ func TestStackSequence(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Topological)
+		list = tail.(Applicative)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
@@ -311,9 +311,9 @@ func TestStackSequence(t *testing.T) {
 
 func TestStackVector(t *testing.T) {
 	var (
-		head  Expression
-		tail  Continuous
-		list  Topological = NewList()
+		head  Functor
+		tail  Sequential
+		list  Applicative = NewList()
 		stack Stacked     = NewVector(intsA()...)
 	)
 	fmt.Printf("stack: %s\n", stack)
@@ -328,7 +328,7 @@ func TestStackVector(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
 		fmt.Printf("head from within push loop: %s\n", head)
-		list = tail.(Topological)
+		list = tail.(Applicative)
 		stack = stack.Push(head)
 	}
 	fmt.Printf("stack after pushing 5 popped elements back on again: %s\n", stack)
@@ -340,9 +340,9 @@ func TestStackVector(t *testing.T) {
 
 func TestQueueVector(t *testing.T) {
 	var (
-		head  Expression
-		tail  Continuous
-		list  Topological = NewVector()
+		head  Functor
+		tail  Sequential
+		list  Applicative = NewVector()
 		queue Queued      = NewVector(intsA()...)
 	)
 	fmt.Printf("queue: %s\n", queue)
@@ -356,7 +356,7 @@ func TestQueueVector(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		head, tail = list.Continue()
-		list = tail.(Topological)
+		list = tail.(Applicative)
 		queue = queue.Put(head)
 	}
 	fmt.Printf("stack after appending 5 popped elements back on again: %s\n", queue)

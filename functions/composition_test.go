@@ -9,7 +9,7 @@ import (
 
 func TestMapSequence(t *testing.T) {
 
-	var m = Map(intsA, func(arg Expression) Expression {
+	var m = Map(intsA, func(arg Functor) Functor {
 		return addInts(arg)
 	})
 
@@ -23,7 +23,7 @@ func TestMapSequence(t *testing.T) {
 
 	fmt.Printf("list-a mutated?: %s\n", m)
 
-	m = Map(m, func(arg Expression) Expression {
+	m = Map(m, func(arg Functor) Functor {
 		var result = arg.Call(Dat(10))
 		return result
 	})
@@ -33,8 +33,8 @@ func TestMapSequence(t *testing.T) {
 
 func TestApplySequence(t *testing.T) {
 
-	var m = Apply(intsA, func(head Expression, args ...Expression) Expression {
-		return addInts(append([]Expression{head}, args...)...)
+	var m = Apply(intsA, func(head Functor, args ...Functor) Functor {
+		return addInts(append([]Functor{head}, args...)...)
 	})
 
 	fmt.Printf("add-ints applyed to list-a: %s\n", m)
@@ -44,7 +44,7 @@ func TestApplySequence(t *testing.T) {
 	}
 
 	var (
-		head Expression
+		head Functor
 		pair Paired
 		tail = m
 	)
@@ -57,7 +57,7 @@ func TestApplySequence(t *testing.T) {
 
 func TestFoldSequence(t *testing.T) {
 	var f = Fold(intsA, Dat(0),
-		func(init, head Expression) Expression {
+		func(init, head Functor) Functor {
 			fmt.Printf("init: %s. head: %s\n", init, head)
 			return addInts(init, head)
 		})
@@ -76,7 +76,7 @@ func TestFoldSequence(t *testing.T) {
 func TestFilterPassSequence(t *testing.T) {
 
 	var (
-		isEven = func(arg Expression) bool {
+		isEven = func(arg Functor) bool {
 			return arg.(DatAtom)().(d.IntVal)%2 == 0
 		}
 		odd  = Filter(intsA, isEven)
@@ -113,13 +113,13 @@ func TestTakeNSequence(t *testing.T) {
 	}
 	fmt.Printf("last element: %s\n", head)
 
-	head, tail = head.(Topological).Continue()
+	head, tail = head.(Applicative).Continue()
 	for !tail.Empty() {
-		head, tail = tail.(Topological).Continue()
+		head, tail = tail.(Applicative).Continue()
 	}
 
-	fmt.Printf("last elements head: %s\n", head.(Topological).Head())
-	if head.(Topological).Head().(DatAtom)().(d.IntVal) != 8 {
+	fmt.Printf("last elements head: %s\n", head.(Applicative).Head())
+	if head.(Applicative).Head().(DatAtom)().(d.IntVal) != 8 {
 		t.Fail()
 	}
 
@@ -147,7 +147,7 @@ func TestFlatttenSequence(t *testing.T) {
 	}
 }
 
-var zipped Topological = Zip(abc, intsA, func(l, r Expression) Expression {
+var zipped Applicative = Zip(abc, intsA, func(l, r Functor) Functor {
 	return NewKeyPair(string(l.(DatAtom)().(d.StrVal)), r)
 })
 
@@ -168,7 +168,7 @@ func TestZipSequence(t *testing.T) {
 
 func TestSplitSequence(t *testing.T) {
 	fmt.Printf("zipped: %s\n", zipped)
-	var splitted = Split(zipped, func(arg Expression) Paired {
+	var splitted = Split(zipped, func(arg Functor) Paired {
 		return arg.(Paired)
 	})
 	fmt.Printf("splitted: %s\n", splitted)

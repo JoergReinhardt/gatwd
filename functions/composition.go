@@ -12,7 +12,7 @@ func Curry(f, g FuncVal) FuncVal {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 
-			func(args ...Expression) Expression {
+			func(args ...Functor) Functor {
 
 				// call f with the result of calling g applying
 				// the arguments if any are given
@@ -35,18 +35,18 @@ func Curry(f, g FuncVal) FuncVal {
 
 /// FLATTEN
 // flattens sequences of sequences to one dimension
-func Flatten(grp Continuous) ListVal {
+func Flatten(grp Sequential) ListVal {
 	if grp.Empty() {
 		return NewList()
 	}
 	if grp.Head().Type().Match(Additives) {
 		return Flatten(
-			grp.Head().(Continuous),
+			grp.Head().(Sequential),
 		).Concat(Flatten(grp.Tail())).(ListVal)
 	}
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		if len(args) > 0 {
-			grp = grp.Call(args...).(Continuous)
+			grp = grp.Call(args...).(Sequential)
 		}
 		var head, tail = grp.Continue()
 		return head, Flatten(tail)
@@ -56,11 +56,11 @@ func Flatten(grp Continuous) ListVal {
 /// MAP
 // map returns a continuation calling the map function for every element
 func Map(
-	con Continuous,
-	mapf func(Expression) Expression,
+	con Sequential,
+	mapf func(Functor) Functor,
 ) ListVal {
 	if con.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Map(
 					NewList(args...), mapf,
@@ -70,9 +70,9 @@ func Map(
 			return NewNone(), nil
 		})
 	}
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		if len(args) > 0 {
-			con = con.Call(args...).(Continuous)
+			con = con.Call(args...).(Sequential)
 		}
 		var head, tail = con.Continue()
 		// skip none instances, when tail has further elements
@@ -88,11 +88,11 @@ func Map(
 // when continuation is called pssing arguments those, are passed to apply
 // alongside the current element
 func Apply(
-	con Continuous,
-	apply func(Expression, ...Expression) Expression,
+	con Sequential,
+	apply func(Functor, ...Functor) Functor,
 ) ListVal {
 	if con.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Apply(
 					NewList(args...), apply,
@@ -105,7 +105,7 @@ func Apply(
 
 	var head, tail = con.Continue()
 
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		if len(args) > 0 {
 			head, tail = apply(head, args...),
 				Apply(tail, apply)
@@ -130,9 +130,9 @@ func Apply(
 // current element and init expression and returns a possbly altered init
 // element to pass to next call
 func Fold(
-	con Continuous,
-	init Expression,
-	fold func(init, head Expression) Expression,
+	con Sequential,
+	init Functor,
+	fold func(init, head Functor) Functor,
 ) ListVal {
 
 	if con.Empty() { // return accumulated result, when empty
@@ -160,11 +160,11 @@ func Fold(
 /// FILTER
 // continuation of elements not matched by test
 func Filter(
-	con Continuous,
-	filter func(Expression) bool,
-) Topological {
+	con Sequential,
+	filter func(Functor) bool,
+) Applicative {
 	if con.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Pass(
 					NewList(args...), filter,
@@ -176,7 +176,7 @@ func Filter(
 	}
 	var (
 		init = NewVector()
-		fold = func(init, head Expression) Expression {
+		fold = func(init, head Functor) Functor {
 			if filter(head) {
 				return NewNone()
 			}
@@ -189,11 +189,11 @@ func Filter(
 /// PASS
 // continuation of elements matched by test
 func Pass(
-	con Continuous,
-	pass func(Expression) bool,
-) Topological {
+	con Sequential,
+	pass func(Functor) bool,
+) Applicative {
 	if con.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Pass(
 					NewList(args...), pass,
@@ -205,7 +205,7 @@ func Pass(
 	}
 	var (
 		init = NewVector()
-		fold = func(init, head Expression) Expression {
+		fold = func(init, head Functor) Functor {
 			if pass(head) {
 				return init.(VecVal).Cons(head)
 			}
@@ -218,13 +218,13 @@ func Pass(
 /// TAKE-N
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
-func TakeN(grp Continuous, n int) Continuous {
+func TakeN(grp Sequential, n int) Sequential {
 	if grp.Empty() {
 		return grp
 	}
 	var (
 		vec   = NewVector()
-		takeN = func(init Expression, arg Expression) Expression {
+		takeN = func(init Functor, arg Functor) Functor {
 			var vector = init.(VecVal)
 			if vector.Len() == n {
 				return NewVector(arg)
@@ -233,7 +233,7 @@ func TakeN(grp Continuous, n int) Continuous {
 		}
 	)
 	return Pass(Fold(grp, vec, takeN),
-		func(arg Expression) bool {
+		func(arg Functor) bool {
 			return arg.(VecVal).Len() == n
 		})
 }
@@ -245,15 +245,15 @@ func TakeN(grp Continuous, n int) Continuous {
 // the results call method is called after heads have been zipped, passing on
 // those arguemnts.
 func Zip(
-	left, right Continuous,
-	zip func(l, r Expression) Expression,
+	left, right Sequential,
+	zip func(l, r Functor) Functor,
 ) ListVal {
 	if left.Empty() && right.Empty() {
-		return ListVal(func(args ...Expression) (Expression, ListVal) {
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			return NewNone(), nil
 		})
 	}
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		var (
 			gh, gt = left.Continue()
 			fh, ft = right.Continue()
@@ -272,11 +272,11 @@ func Zip(
 // takes two arguments at a time and splits those into continuation of left and
 // right values and returns those as elements of a pair
 func Split(
-	con Continuous,
-	split func(Expression) Paired,
+	con Sequential,
+	split func(Functor) Paired,
 ) ListVal {
 	var pair = NewPair(NewVector(), NewVector())
-	return Fold(con, pair, func(init, head Expression) Expression {
+	return Fold(con, pair, func(init, head Functor) Functor {
 		var (
 			pair  = split(head)
 			left  = init.(Paired).Left().(VecVal).Cons(pair.Left())
@@ -288,12 +288,12 @@ func Split(
 
 /// BIND
 func Bind(
-	f, g Topological, bind func(f, g Topological, args ...Expression) (
-		Expression, Topological, Topological),
+	f, g Applicative, bind func(f, g Applicative, args ...Functor) (
+		Functor, Applicative, Applicative),
 ) ListVal {
-	return ListVal(func(args ...Expression) (Expression, ListVal) {
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
 
-		var result Expression
+		var result Functor
 		if len(args) > 0 {
 			result, f, g = bind(f, g, args...)
 		} else {

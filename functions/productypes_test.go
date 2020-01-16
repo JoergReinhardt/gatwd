@@ -7,8 +7,8 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var testIsZero = NewTest(func(arg Expression) bool {
-	if arg.(NatEval).Eval().(d.Numeral).GoInt() != 0 {
+var testIsZero = NewTest(func(arg Functor) bool {
+	if arg.(Evaluable).Eval().(d.Numeral).GoInt() != 0 {
 		return false
 	}
 	return true
@@ -29,8 +29,8 @@ func TestTestable(t *testing.T) {
 	}
 }
 
-var compZero = NewComparator(func(arg Expression) int {
-	switch arg.(NatEval).Eval().(d.Numeral).GoInt() {
+var compZero = NewComparator(func(arg Functor) int {
+	switch arg.(Evaluable).Eval().(d.Numeral).GoInt() {
 	case -1:
 		return -1
 	case 0:
@@ -70,21 +70,21 @@ func TestCase(t *testing.T) {
 	}
 }
 
-var isInteger = NewTest(func(arg Expression) bool {
+var isInteger = NewTest(func(arg Functor) bool {
 	if arg.TypeFnc().Match(Data) {
 		return arg.(Native).TypeNat().Match(d.Int)
 	}
 	return false
 })
 var caseInteger = NewCase(isInteger, Dat("this is an int"), d.Int, d.String)
-var isUint = NewTest(func(arg Expression) bool {
+var isUint = NewTest(func(arg Functor) bool {
 	if arg.TypeFnc().Match(Data) {
 		return arg.(Native).TypeNat().Match(d.Uint)
 	}
 	return false
 })
 var caseUint = NewCase(isUint, Dat("this is a uint"), d.Uint, d.String)
-var isFloat = NewTest(func(arg Expression) bool {
+var isFloat = NewTest(func(arg Functor) bool {
 	if arg.TypeFnc().Match(Data) {
 		return arg.(Native).TypeNat().Match(d.Float)
 	}

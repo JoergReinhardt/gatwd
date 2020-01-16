@@ -122,12 +122,12 @@ func (n DatFunc) Eval(args ...d.Native) d.Native { return n(args...) }
 func (n DatFunc) Type() TyDef {
 	return Def(Def(Data, Value), patternFromNative(n()))
 }
-func (n DatFunc) Call(args ...Expression) Expression {
+func (n DatFunc) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		var nats = make([]d.Native, 0, len(args))
 		for _, arg := range args {
 			if arg.TypeFnc().Match(Data) {
-				if data, ok := arg.(NatEval); ok {
+				if data, ok := arg.(Evaluable); ok {
 					var eval = data.Eval()
 					nats = append(nats, eval)
 				}
@@ -139,40 +139,40 @@ func (n DatFunc) Call(args ...Expression) Expression {
 }
 
 // NATIVE ATOMIC CONSTANT
-func (n DatAtom) Eval(...d.Native) d.Native     { return n() }
-func (n DatAtom) TypeFnc() TyFnc                { return Data }
-func (n DatAtom) TypeNat() d.TyNat              { return n().Type() }
-func (n DatAtom) String() string                { return n().String() }
-func (n DatAtom) Call(...Expression) Expression { return Box(n()) }
+func (n DatAtom) Eval(...d.Native) d.Native { return n() }
+func (n DatAtom) TypeFnc() TyFnc            { return Data }
+func (n DatAtom) TypeNat() d.TyNat          { return n().Type() }
+func (n DatAtom) String() string            { return n().String() }
+func (n DatAtom) Call(...Functor) Functor   { return Box(n()) }
 func (n DatAtom) Type() TyDef {
 	return Def(Def(Data, Constant), patternFromNative(n()))
 }
 
 // NATIVE SLICE VALUE
-func (n DatSlice) Call(args ...Expression) Expression { return n }
-func (n DatSlice) TypeFnc() TyFnc                     { return Data }
-func (n DatSlice) TypeNat() d.TyNat                   { return n().Type() }
-func (n DatSlice) Len() int                           { return n().Len() }
-func (n DatSlice) Head() d.Native                     { return n().Head() }
-func (n DatSlice) Tail() d.Sequential                 { return n().Tail() }
-func (n DatSlice) Shift() (d.Native, d.DataSlice)     { return n().Shift() }
-func (n DatSlice) SliceNat() []d.Native               { return n().Slice() }
-func (n DatSlice) Get(key d.Native) d.Native          { return n().Get(key) }
-func (n DatSlice) GetInt(idx int) d.Native            { return n().GetInt(idx) }
-func (n DatSlice) Range(s, e int) d.Sliceable         { return n().Range(s, e) }
-func (n DatSlice) Empty() bool                        { return n().Empty() }
-func (n DatSlice) Copy() d.Native                     { return n().Copy() }
-func (n DatSlice) ElemType() d.Typed                  { return n().TypeElem() }
-func (n DatSlice) String() string                     { return n().String() }
-func (n DatSlice) Slice() []d.Native                  { return n().Slice() }
+func (n DatSlice) Call(args ...Functor) Functor   { return n }
+func (n DatSlice) TypeFnc() TyFnc                 { return Data }
+func (n DatSlice) TypeNat() d.TyNat               { return n().Type() }
+func (n DatSlice) Len() int                       { return n().Len() }
+func (n DatSlice) Head() d.Native                 { return n().Head() }
+func (n DatSlice) Tail() d.Sequential             { return n().Tail() }
+func (n DatSlice) Shift() (d.Native, d.DataSlice) { return n().Shift() }
+func (n DatSlice) SliceNat() []d.Native           { return n().Slice() }
+func (n DatSlice) Get(key d.Native) d.Native      { return n().Get(key) }
+func (n DatSlice) GetInt(idx int) d.Native        { return n().GetInt(idx) }
+func (n DatSlice) Range(s, e int) d.Sliceable     { return n().Range(s, e) }
+func (n DatSlice) Empty() bool                    { return n().Empty() }
+func (n DatSlice) Copy() d.Native                 { return n().Copy() }
+func (n DatSlice) ElemType() d.Typed              { return n().TypeElem() }
+func (n DatSlice) String() string                 { return n().String() }
+func (n DatSlice) Slice() []d.Native              { return n().Slice() }
 func (n DatSlice) Type() TyDef {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
 func (n DatSlice) Eval(args ...d.Native) d.Native {
 	return d.SliceAppend(n(), args...)
 }
-func (n DatSlice) SliceExpr() []Expression {
-	var slice = []Expression{}
+func (n DatSlice) SliceExpr() []Functor {
+	var slice = []Functor{}
 	for _, nat := range n.Slice() {
 		slice = append(slice, Box(nat))
 	}
@@ -180,7 +180,7 @@ func (n DatSlice) SliceExpr() []Expression {
 }
 
 // SLICES OF NATIVE VALUES
-func (n GoSlice) Call(args ...Expression) Expression { return n }
+func (n GoSlice) Call(args ...Functor) Functor { return n }
 func (n GoSlice) Eval(args ...d.Native) d.Native {
 	return d.NewSlice(append(n.Slice(), args...)...)
 }
@@ -198,8 +198,8 @@ func (n GoSlice) String() string             { return n().String() }
 func (n GoSlice) Type() TyDef {
 	return Def(Def(Data, Vector), patternFromNative(n()))
 }
-func (n GoSlice) SliceExpr() []Expression {
-	var slice = make([]Expression, 0, n().Len())
+func (n GoSlice) SliceExpr() []Functor {
+	var slice = make([]Functor, 0, n().Len())
 	for _, nat := range n.Slice() {
 		slice = append(slice, Box(nat))
 	}
@@ -207,19 +207,19 @@ func (n GoSlice) SliceExpr() []Expression {
 }
 
 // NATIVE PAIR VALUE CONSTRUCTOR
-func (n DatPair) Call(args ...Expression) Expression { return n }
-func (n DatPair) Eval(...d.Native) d.Native          { return n() }
-func (n DatPair) TypeFnc() TyFnc                     { return Data }
-func (n DatPair) TypeNat() d.TyNat                   { return n().Type() }
-func (n DatPair) Left() d.Native                     { return n().Left() }
-func (n DatPair) Right() d.Native                    { return n().Right() }
-func (n DatPair) Both() (l, r d.Native)              { return n().Both() }
-func (n DatPair) LeftType() d.TyNat                  { return n().TypeKey() }
-func (n DatPair) RightType() d.TyNat                 { return n().TypeValue() }
-func (n DatPair) SubType() d.Typed                   { return n().Type() }
-func (n DatPair) String() string                     { return n().String() }
-func (n DatPair) LeftExpr() Expression               { return Box(n().Left()) }
-func (n DatPair) RightExpr() Expression              { return Box(n().Right()) }
+func (n DatPair) Call(args ...Functor) Functor { return n }
+func (n DatPair) Eval(...d.Native) d.Native    { return n() }
+func (n DatPair) TypeFnc() TyFnc               { return Data }
+func (n DatPair) TypeNat() d.TyNat             { return n().Type() }
+func (n DatPair) Left() d.Native               { return n().Left() }
+func (n DatPair) Right() d.Native              { return n().Right() }
+func (n DatPair) Both() (l, r d.Native)        { return n().Both() }
+func (n DatPair) LeftType() d.TyNat            { return n().TypeKey() }
+func (n DatPair) RightType() d.TyNat           { return n().TypeValue() }
+func (n DatPair) SubType() d.Typed             { return n().Type() }
+func (n DatPair) String() string               { return n().String() }
+func (n DatPair) LeftExpr() Functor            { return Box(n().Left()) }
+func (n DatPair) RightExpr() Functor           { return Box(n().Right()) }
 func (n DatPair) Empty() bool {
 	if n.Left().Type().Match(d.Nil) &&
 		n.Right().Type().Match(d.Nil) {
@@ -227,7 +227,7 @@ func (n DatPair) Empty() bool {
 	}
 	return false
 }
-func (n DatPair) BothExpr() (l, r Expression) {
+func (n DatPair) BothExpr() (l, r Functor) {
 	return Box(n().Left()),
 		Box(n().Right())
 }
@@ -246,7 +246,7 @@ func (n DatPair) Type() TyDef {
 }
 
 // NATIVE MAP OF VALUES
-func (n DatMap) Call(args ...Expression) Expression   { return n }
+func (n DatMap) Call(args ...Functor) Functor         { return n }
 func (n DatMap) Eval(...d.Native) d.Native            { return n() }
 func (n DatMap) TypeFnc() TyFnc                       { return Data }
 func (n DatMap) TypeNat() d.TyNat                     { return n().Type() }
@@ -264,22 +264,22 @@ func (n DatMap) KeyType() d.Typed                     { return n().TypeKey() }
 func (n DatMap) ValType() d.Typed                     { return n().TypeValue() }
 func (n DatMap) SubType() d.Typed                     { return n().Type() }
 func (n DatMap) String() string                       { return n().String() }
-func (n DatMap) KeysExpr() []Expression {
-	var exprs = make([]Expression, 0, n.Len())
+func (n DatMap) KeysExpr() []Functor {
+	var exprs = make([]Functor, 0, n.Len())
 	for _, key := range n().Keys() {
 		exprs = append(exprs, Box(key))
 	}
 	return exprs
 }
-func (n DatMap) DataExpr() []Expression {
-	var exprs = make([]Expression, 0, n.Len())
+func (n DatMap) DataExpr() []Functor {
+	var exprs = make([]Functor, 0, n.Len())
 	for _, val := range n().Data() {
 		exprs = append(exprs, Box(val))
 	}
 	return exprs
 }
-func (n DatMap) SliceExpr() []Expression {
-	var slice = make([]Expression, 0, n.Len())
+func (n DatMap) SliceExpr() []Functor {
+	var slice = make([]Functor, 0, n.Len())
 	for _, nat := range n.Fields() {
 		slice = append(slice, Box(nat))
 	}

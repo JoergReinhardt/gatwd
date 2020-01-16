@@ -15,7 +15,7 @@ type (
 	TyProp d.Int8Val  // call property types
 
 	// TYPE TAGS
-	TyExp func(...Expression) Expression
+	TyExp func(...Functor) Functor
 	TySym string
 	TyAlt TyDef
 	TyDef []d.Typed
@@ -102,8 +102,6 @@ const (
 	HashMap
 	/// COMPOUND
 	Group
-	Functor
-	Applicative
 	Monad
 	State
 	IO
@@ -148,7 +146,7 @@ const (
 	//// TOPOLOGYS (maps between categorys)
 	///  continua that enclose side effects like state, mutability, io‥.
 	//   in order to be evaluated in return value continuation creation
-	Topologys = Continua | Functor | Applicative |
+	Topologys = Continua |
 		Monad | State | IO | Group
 
 	//// MANIFOLDS (PARAMETRIC &| POLYMORPHIC)
@@ -164,25 +162,25 @@ const (
 //func (t TyFnc) String() string { return "standin string func" }
 
 //// MATCHER
-func IsOf(typ d.Typed, arg Expression) bool { return arg.Type().Match(typ) }
-func IsNone(arg Expression) bool            { return arg.Type().Match(None) }
-func IsData(arg Expression) bool            { return arg.Type().Match(Data) }
-func IsCons(arg Expression) bool            { return arg.Type().Match(Constant) }
-func IsComp(arg Expression) bool            { return arg.Type().Match(Compare) }
-func IsBound(arg Expression) bool           { return arg.Type().Match(Bound) }
-func IsTruth(arg Expression) bool           { return arg.Type().Match(Truth) }
-func IsTrinary(arg Expression) bool         { return arg.Type().Match(Trinary) }
-func IsJust(arg Expression) bool            { return arg.Type().Match(Just) }
-func IsEither(arg Expression) bool          { return arg.Type().Match(Either) }
-func IsOr(arg Expression) bool              { return arg.Type().Match(Or) }
-func IsVect(arg Expression) bool            { return arg.Type().Match(Vector) }
-func IsList(arg Expression) bool            { return arg.Type().Match(List) }
-func IsPair(arg Expression) bool            { return arg.Type().Match(Pair) }
-func IsType(arg Expression) bool            { return arg.Type().Match(Type) }
-func IsProdT(arg Expression) bool           { return arg.Type().Match(Products) }
-func IsContin(arg Expression) bool          { return arg.Type().Match(Continua) }
-func IsText(arg Expression) bool            { return arg.Type().Match(Symbols) }
-func IsNumber(arg Expression) bool          { return arg.Type().Match(Numbers) }
+func IsOf(typ d.Typed, arg Functor) bool { return arg.Type().Match(typ) }
+func IsNone(arg Functor) bool            { return arg.Type().Match(None) }
+func IsData(arg Functor) bool            { return arg.Type().Match(Data) }
+func IsCons(arg Functor) bool            { return arg.Type().Match(Constant) }
+func IsComp(arg Functor) bool            { return arg.Type().Match(Compare) }
+func IsBound(arg Functor) bool           { return arg.Type().Match(Bound) }
+func IsTruth(arg Functor) bool           { return arg.Type().Match(Truth) }
+func IsTrinary(arg Functor) bool         { return arg.Type().Match(Trinary) }
+func IsJust(arg Functor) bool            { return arg.Type().Match(Just) }
+func IsEither(arg Functor) bool          { return arg.Type().Match(Either) }
+func IsOr(arg Functor) bool              { return arg.Type().Match(Or) }
+func IsVect(arg Functor) bool            { return arg.Type().Match(Vector) }
+func IsList(arg Functor) bool            { return arg.Type().Match(List) }
+func IsPair(arg Functor) bool            { return arg.Type().Match(Pair) }
+func IsType(arg Functor) bool            { return arg.Type().Match(Type) }
+func IsProdT(arg Functor) bool           { return arg.Type().Match(Products) }
+func IsContin(arg Functor) bool          { return arg.Type().Match(Continua) }
+func IsText(arg Functor) bool            { return arg.Type().Match(Symbols) }
+func IsNumber(arg Functor) bool          { return arg.Type().Match(Numbers) }
 
 // helper functions, to convert between slices of data/typed & ty-pattern
 // instances
@@ -197,8 +195,8 @@ func typedToComp(typ []d.Typed) []TyDef {
 	}
 	return pat
 }
-func typedToExpr(typ []d.Typed) []Expression {
-	var elems = make([]Expression, 0, len(typ))
+func typedToExpr(typ []d.Typed) []Functor {
+	var elems = make([]Functor, 0, len(typ))
 	for _, comp := range typedToComp(typ) {
 		elems = append(elems, comp)
 	}
@@ -211,8 +209,8 @@ func compToTyped(pat []TyDef) []d.Typed {
 	}
 	return typ
 }
-func compToExpr(comps []TyDef) []Expression {
-	var elems = make([]Expression, 0, len(comps))
+func compToExpr(comps []TyDef) []Functor {
+	var elems = make([]Functor, 0, len(comps))
 	for _, comp := range comps {
 		elems = append(elems, comp)
 	}
@@ -220,14 +218,14 @@ func compToExpr(comps []TyDef) []Expression {
 }
 
 // functional type flag expresses the type of a functional value
-func (t TyFnc) TypeFnc() TyFnc                     { return Type }
-func (t TyFnc) TypeNat() d.TyNat                   { return d.Type }
-func (t TyFnc) Flag() d.BitFlag                    { return d.BitFlag(t) }
-func (t TyFnc) Uint() d.UintVal                    { return d.BitFlag(t).Uint() }
-func (t TyFnc) Kind() d.Uint8Val                   { return Kind_Fnc.U() }
-func (t TyFnc) Call(args ...Expression) Expression { return t.TypeFnc() }
-func (t TyFnc) Type() TyDef                        { return Def(t) }
-func (t TyFnc) Match(arg d.Typed) bool             { return t.Flag().Match(arg) }
+func (t TyFnc) TypeFnc() TyFnc               { return Type }
+func (t TyFnc) TypeNat() d.TyNat             { return d.Type }
+func (t TyFnc) Flag() d.BitFlag              { return d.BitFlag(t) }
+func (t TyFnc) Uint() d.UintVal              { return d.BitFlag(t).Uint() }
+func (t TyFnc) Kind() d.Uint8Val             { return Kind_Fnc.U() }
+func (t TyFnc) Call(args ...Functor) Functor { return t.TypeFnc() }
+func (t TyFnc) Type() TyDef                  { return Def(t) }
+func (t TyFnc) Match(arg d.Typed) bool       { return t.Flag().Match(arg) }
 func (t TyFnc) TypeName() string {
 	var count = t.Flag().Count()
 	// loop to print concatenated type classes correcty
@@ -309,14 +307,14 @@ func (p TyProp) MatchProperty(arg TyProp) bool {
 // PROPERTY CONVIENIENCE METHODS
 func flagToProp(flag d.BitFlag) TyProp { return TyProp(flag.Uint()) }
 
-func (p TyProp) Flag() d.BitFlag                    { return d.BitFlag(uint64(p)) }
-func (p TyProp) Kind() d.Uint8Val                   { return Kind_Prop.U() }
-func (p TyProp) Type() TyDef                        { return Def(p) }
-func (p TyProp) TypeFnc() TyFnc                     { return Property }
-func (p TyProp) TypeNat() d.TyNat                   { return d.Type }
-func (p TyProp) TypeName() string                   { return "Propertys" }
-func (p TyProp) Match(flag d.Typed) bool            { return p.Flag().Match(flag) }
-func (p TyProp) Call(args ...Expression) Expression { return p }
+func (p TyProp) Flag() d.BitFlag              { return d.BitFlag(uint64(p)) }
+func (p TyProp) Kind() d.Uint8Val             { return Kind_Prop.U() }
+func (p TyProp) Type() TyDef                  { return Def(p) }
+func (p TyProp) TypeFnc() TyFnc               { return Property }
+func (p TyProp) TypeNat() d.TyNat             { return d.Type }
+func (p TyProp) TypeName() string             { return "Propertys" }
+func (p TyProp) Match(flag d.Typed) bool      { return p.Flag().Match(flag) }
+func (p TyProp) Call(args ...Functor) Functor { return p }
 
 func (p TyProp) PostFix() bool    { return p.Flag().Match(PostFix.Flag()) }
 func (p TyProp) InFix() bool      { return !p.Flag().Match(PostFix.Flag()) }
@@ -348,7 +346,7 @@ func (n TySym) TypeName() string {
 	}
 	return string(n)
 }
-func (n TySym) Call(args ...Expression) Expression {
+func (n TySym) Call(args ...Functor) Functor {
 	for _, arg := range args {
 		if s.Compare(arg.Type().TypeName(), string(n)) != 0 {
 			return Box(d.BoolVal(false))
@@ -393,7 +391,7 @@ func (n TyAlt) Match(arg d.Typed) bool {
 // call method lifts arguments types and applys them to match method one by
 // one.  returns true, if all passed arguements are in the set of optional
 // types.
-func (n TyAlt) Call(args ...Expression) Expression {
+func (n TyAlt) Call(args ...Functor) Functor {
 	for _, arg := range args {
 		if !n.Match(arg.Type()) {
 			return Box(d.BoolVal(false))
@@ -407,27 +405,27 @@ func (n TyAlt) Call(args ...Expression) Expression {
 // type flag representing a parametric element in a type pattern by a value, or
 // type-expression, expecting and returning typeflags as its values.
 func DefValGo(val interface{}) TyExp {
-	return TyExp(func(...Expression) Expression { return Dat(val) })
+	return TyExp(func(...Functor) Functor { return Dat(val) })
 }
 func DefValNat(nat d.Native) TyExp {
-	return TyExp(func(...Expression) Expression { return Box(nat) })
+	return TyExp(func(...Functor) Functor { return Box(nat) })
 }
-func DefExpr(expr Expression) TyExp {
-	return func(args ...Expression) Expression {
+func DefExpr(expr Functor) TyExp {
+	return func(args ...Functor) Functor {
 		if len(args) > 0 {
 			return expr.Call(args...)
 		}
 		return expr.Call()
 	}
 }
-func (n TyExp) Kind() d.Uint8Val                   { return Kind_Expr.U() }
-func (n TyExp) Flag() d.BitFlag                    { return Value.Flag() }
-func (n TyExp) Type() TyDef                        { return Def(n) }
-func (n TyExp) TypeFnc() TyFnc                     { return Value }
-func (n TyExp) String() string                     { return n().String() }
-func (n TyExp) TypeName() string                   { return n().Type().TypeName() }
-func (n TyExp) Value() Expression                  { return n() }
-func (n TyExp) Call(args ...Expression) Expression { return n(args...) }
+func (n TyExp) Kind() d.Uint8Val             { return Kind_Expr.U() }
+func (n TyExp) Flag() d.BitFlag              { return Value.Flag() }
+func (n TyExp) Type() TyDef                  { return Def(n) }
+func (n TyExp) TypeFnc() TyFnc               { return Value }
+func (n TyExp) String() string               { return n().String() }
+func (n TyExp) TypeName() string             { return n().Type().TypeName() }
+func (n TyExp) Value() Functor               { return n() }
+func (n TyExp) Call(args ...Functor) Functor { return n(args...) }
 
 func (n TyExp) Match(typ d.Typed) bool {
 	if Kind_Expr.Match(typ.Kind()) {
@@ -506,7 +504,7 @@ func (p TyDef) Match(typ d.Typed) bool {
 
 // match-args takes multiple expression arguments and matches their types
 // against the elements of the pattern.
-func (p TyDef) MatchArgs(args ...Expression) bool {
+func (p TyDef) MatchArgs(args ...Functor) bool {
 	var head, tail = p.ConsumeTyped()
 	for _, arg := range args {
 		if head == nil {
@@ -549,7 +547,7 @@ func (p TyDef) MatchAnyType(args ...d.Typed) bool {
 }
 
 // returns true if the arguments type matches any of the patterns types
-func (p TyDef) MatchAnyArg(args ...Expression) bool {
+func (p TyDef) MatchAnyArg(args ...Functor) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
 		types = append(types, arg.Type())
@@ -724,15 +722,15 @@ func (p TyDef) TypeName() string {
 func (p TyDef) TypeElem() TyDef { return p.TypeId() }
 
 // elems yields all elements contained in the pattern
-func (p TyDef) Types() []d.Typed              { return p }
-func (p TyDef) Call(...Expression) Expression { return p } // ← TODO: match arg instances
-func (p TyDef) Len() int                      { return len(p.Types()) }
-func (p TyDef) Empty() bool                   { return p.Len() == 0 }
-func (p TyDef) String() string                { return p.TypeName() }
-func (p TyDef) Kind() d.Uint8Val              { return Kind_Comp.U() }
-func (p TyDef) Flag() d.BitFlag               { return p.TypeFnc().Flag() }
-func (p TyDef) Type() TyDef                   { return p }
-func (p TyDef) TypeFnc() TyFnc                { return Type }
+func (p TyDef) Types() []d.Typed        { return p }
+func (p TyDef) Call(...Functor) Functor { return p } // ← TODO: match arg instances
+func (p TyDef) Len() int                { return len(p.Types()) }
+func (p TyDef) Empty() bool             { return p.Len() == 0 }
+func (p TyDef) String() string          { return p.TypeName() }
+func (p TyDef) Kind() d.Uint8Val        { return Kind_Comp.U() }
+func (p TyDef) Flag() d.BitFlag         { return p.TypeFnc().Flag() }
+func (p TyDef) Type() TyDef             { return p }
+func (p TyDef) TypeFnc() TyFnc          { return Type }
 
 // length of elements excluding fields set to none
 func (p TyDef) Count() int {
@@ -752,7 +750,7 @@ func (p TyDef) Get(idx int) TyDef {
 }
 
 // head yields the first pattern element cast as expression
-func (p TyDef) Head() Expression {
+func (p TyDef) Head() Functor {
 	if p.Len() > 0 {
 		var head = p.Pattern()[0]
 		return head
@@ -765,7 +763,7 @@ func (p TyDef) HeadPattern() TyDef { return p.Head().(TyDef) }
 
 // tail yields a consumeable consisting all pattern elements but the first one
 // cast as slice of expressions
-func (p TyDef) Tail() Topological {
+func (p TyDef) Tail() Applicative {
 	if p.Len() > 1 {
 		return Def(p.Types()[1:]...)
 	}
@@ -782,7 +780,7 @@ func (p TyDef) TailPattern() TyDef {
 }
 
 // consume uses head & tail to implement consumeable
-func (p TyDef) Continue() (Expression, Topological) { return p.Head(), p.Tail() }
+func (p TyDef) Continue() (Functor, Applicative) { return p.Head(), p.Tail() }
 
 // pattern-consume works like type consume, but yields the head converted to,
 // or cast as type pattern
@@ -790,7 +788,7 @@ func (p TyDef) ConsumePattern() (TyDef, TyDef) {
 	return p.HeadPattern(), p.TailPattern()
 }
 
-func (p TyDef) ConsGroup(con Topological) Topological {
+func (p TyDef) ConsGroup(con Applicative) Applicative {
 	var types = make([]d.Typed, 0, p.Len())
 	for head, cons := con.Continue(); !cons.Empty(); {
 		if Kind_Comp.Match(head.Type().Kind()) {
@@ -801,22 +799,22 @@ func (p TyDef) ConsGroup(con Topological) Topological {
 	}
 	return Def(types...)
 }
-func (p TyDef) Cons(arg Expression) Topological {
+func (p TyDef) Cons(arg Functor) Applicative {
 	if IsType(arg) {
 		return Def(p, arg.(d.Typed))
 	}
 	return Def(p, arg.Type())
 }
 
-func (p TyDef) Concat(grp Continuous) Topological {
-	var slice = make([]Expression, 0, len(p))
+func (p TyDef) Concat(grp Sequential) Applicative {
+	var slice = make([]Functor, 0, len(p))
 	for _, t := range p {
 		slice = append(slice, t.(TyDef))
 	}
 	return NewList(slice...).Concat(grp)
 }
-func (p TyDef) Append(args ...Expression) Topological {
-	var types = make([]Expression, 0, p.Len())
+func (p TyDef) Append(args ...Functor) Applicative {
+	var types = make([]Functor, 0, p.Len())
 	for _, pat := range p {
 		types = append(types, pat.(TyDef))
 	}
