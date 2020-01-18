@@ -262,14 +262,16 @@ func (g AccVal) Continue() (Functor, Applicative) { return g() }
 //  - return & argument types are carried over from expression
 func createFuncType(expr Functor, types ...d.Typed) Decl {
 	if len(types) > 0 {
-		// if first types argument is a symbol, use it as identity
+		var (
+			name  string
+			ident TySym
+		)
+		// if first types argument is a symbol, use it as
+		// identity & name, otherwise derive from type name
 		if Kind_Symb.Match(types[0].Kind()) {
-			return Declare(types...)
+			ident = types[0].(TySym)
+			name = ident.String()
 		} else {
-			var (
-				name  string
-				ident TySym
-			)
 			// if first types argument is a composed type
 			if Kind_Decl.Match(types[0].Kind()) {
 				// return composed types identity
@@ -281,15 +283,16 @@ func createFuncType(expr Functor, types ...d.Typed) Decl {
 			}
 			// create type identity from name
 			ident = DecSym(name)
-			// if more types arguments where passed‥.
-			if len(types) > 1 {
-				// return ident followed by remaining types
-				// arguments forreturn and argument types
-				return Declare(append(
-					[]d.Typed{ident},
-					types[1:]...)...)
-			}
 		}
+		// declare type identity and return type, optionaly declare
+		// argument type(s)
+		if len(types) > 1 {
+			types = append([]d.Typed{ident}, types[1:]...)
+		} else {
+			types = append([]d.Typed{ident})
+		}
+		return Declare(types...)
+
 	}
 	// no types arguments where passed, compose type identity from
 	// expressions identity, return & argument types
@@ -333,7 +336,7 @@ func Define(
 		/////////////////////////
 		// NO ARGUMENTS PASSED →
 		if length == 0 {
-			return ft
+			return NewPair(ft, expr)
 		}
 
 		// test if arguments passed match argument types
@@ -423,11 +426,27 @@ func Define(
 
 func (e Def) Call(args ...Functor) Functor { return e(args...) }
 
-func (e Def) TypeFnc() TyFnc   { return Value }
-func (e Def) Type() Decl       { return e().(Decl) }
-func (e Def) TypeId() Decl     { return e.Type().TypeId() }
-func (e Def) TypeArgs() Decl   { return e.Type().TypeArgs() }
-func (e Def) TypeRet() Decl    { return e.Type().TypeRet() }
-func (e Def) TypeName() string { return e.Type().TypeName() }
-func (e Def) ArgCount() int    { return e.Type().TypeArgs().Count() }
-func (e Def) String() string   { return e().String() }
+func (e Def) Unbox() Functor { return e().(ValPair).Right() }
+func (e Def) t() Decl        { return e().(ValPair).Left().(Decl) }
+func (e Def) Type() Decl {
+	if e.ArgCount() > 1 {
+		return Declare(
+			Alternative, Declare(
+				e().(ValPair).Left().(Decl),
+				Partial,
+			))
+	}
+	return e().(ValPair).Left().(Decl)
+}
+func (e Def) TypeFnc() TyFnc {
+	if e.ArgCount() > 0 {
+		return Partial | Value
+	}
+	return Value
+}
+func (e Def) TypeId() Decl     { return e.t().TypeId() }
+func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
+func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
+func (e Def) TypeName() string { return e.t().TypeName() }
+func (e Def) ArgCount() int    { return e.t().TypeArgs().Count() }
+func (e Def) String() string   { return e.Unbox().String() }

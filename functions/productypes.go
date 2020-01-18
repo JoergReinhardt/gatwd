@@ -19,7 +19,7 @@ type (
 
 	// MAYBE (JUST | NONE)
 	Maybe    func(...Functor) JustNone
-	JustNone Def
+	JustNone func(...Functor) Functor
 
 	// TESTS AND COMPARE
 	Test    func(args ...Functor) Functor
@@ -68,7 +68,7 @@ func (b Bool) String() string {
 func NewMaybe(def Def) Maybe {
 	return func(args ...Functor) JustNone {
 		if len(args) > 0 {
-			return JustNone(def.Call(args...).(Def))
+			return JustNone(def.Call(args...).(Lambda))
 		}
 		return JustNone(def)
 	}
