@@ -87,7 +87,7 @@ type Functor interface {
 	FunctionTyped
 	Expression
 	Stringer
-	Type() TyDef
+	Type() Decl
 }
 
 /// APPLICATIVE (FUNCTOR)
@@ -100,18 +100,19 @@ type Applicative interface {
 }
 
 type Monoid interface {
+	Applicative
+	Bind(f, g Functor) Monadic
 }
 
 /// SEQUENTIAL
 type Sequential interface {
-	// Call(...Expression) <Continuation>
-	Functor
+	Functor // → Call(...Expression) Functor.(Continuation)
 	Continue() (Functor, Applicative)
 	Concat(Sequential) Applicative
 	Head() Functor
 	Tail() Applicative
 	Empty() bool
-	TypeElem() TyDef
+	TypeElem() Decl
 }
 
 type Ascending interface {
@@ -187,7 +188,7 @@ type Ordered interface {
 // interface to implement by all conditional types
 type Testable interface {
 	Functor
-	Test(Functor) bool
+	Test(a, b Functor) bool
 }
 
 // interface to implement by ordered, sort-/ & searchable types
@@ -242,7 +243,7 @@ type Indexed interface {
 // interface implementet by types associating their elements with an index
 type Selectable interface {
 	Get(int) (Functor, bool)
-	Set(int, Functor) (Vectorized, bool)
+	Set(int, Functor) (RandomAcc, bool)
 }
 
 // index value pair
@@ -252,7 +253,7 @@ type IndexPaired interface {
 }
 
 // interface to accumulate propertys of a vector
-type Vectorized interface {
+type RandomAcc interface {
 	Selectable
 	Searchable
 	Sliceable

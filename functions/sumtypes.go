@@ -61,7 +61,7 @@ type (
 	AccVal func(...Functor) (Functor, AccVal)
 
 	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
-	FuncVal func(...Functor) Functor
+	Def func(...Functor) Functor
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,35 +72,35 @@ type (
 // interfaces to be able to stand in as return value for such expressions.
 func NewNone() NoneVal { return func() {} }
 
-func (n NoneVal) Head() Functor                     { return n }
-func (n NoneVal) Tail() Applicative                 { return n }
-func (n NoneVal) Cons(Functor) Applicative          { return n }
-func (n NoneVal) ConsGroup(Applicative) Applicative { return n }
-func (n NoneVal) Concat(Sequential) Applicative     { return n }
-func (n NoneVal) Prepend(...Functor) Applicative    { return n }
-func (n NoneVal) Append(...Functor) Applicative     { return n }
-func (n NoneVal) Len() int                          { return 0 }
-func (n NoneVal) Compare(...Functor) int            { return -1 }
-func (n NoneVal) String() string                    { return "⊥" }
-func (n NoneVal) Call(...Functor) Functor           { return nil }
-func (n NoneVal) Key() Functor                      { return nil }
-func (n NoneVal) Index() Functor                    { return nil }
-func (n NoneVal) Left() Functor                     { return nil }
-func (n NoneVal) Right() Functor                    { return nil }
-func (n NoneVal) Both() Functor                     { return nil }
-func (n NoneVal) Value() Functor                    { return nil }
-func (n NoneVal) Empty() bool                       { return true }
-func (n NoneVal) Test(...Functor) bool              { return false }
-func (n NoneVal) TypeFnc() TyFnc                    { return None }
-func (n NoneVal) TypeNat() d.TyNat                  { return d.Nil }
-func (n NoneVal) Type() TyDef                       { return Def(None) }
-func (n NoneVal) TypeElem() TyDef                   { return Def(None) }
-func (n NoneVal) TypeName() string                  { return n.String() }
-func (n NoneVal) Slice() []Functor                  { return []Functor{} }
-func (n NoneVal) Flag() d.BitFlag                   { return d.BitFlag(None) }
-func (n NoneVal) FlagType() d.Uint8Val              { return Kind_Fnc.U() }
-func (n NoneVal) Continue() (Functor, Applicative)  { return NewNone(), NewNone() }
-func (n NoneVal) Consume() (Functor, Applicative)   { return NewNone(), NewNone() }
+func (n NoneVal) Head() Functor                    { return n }
+func (n NoneVal) Tail() Applicative                { return n }
+func (n NoneVal) Cons(Functor) Applicative         { return n }
+func (n NoneVal) ConsApp(Applicative) Applicative  { return n }
+func (n NoneVal) Concat(Sequential) Applicative    { return n }
+func (n NoneVal) Prepend(...Functor) Applicative   { return n }
+func (n NoneVal) Append(...Functor) Applicative    { return n }
+func (n NoneVal) Len() int                         { return 0 }
+func (n NoneVal) Compare(...Functor) int           { return -1 }
+func (n NoneVal) String() string                   { return "⊥" }
+func (n NoneVal) Call(...Functor) Functor          { return nil }
+func (n NoneVal) Key() Functor                     { return nil }
+func (n NoneVal) Index() Functor                   { return nil }
+func (n NoneVal) Left() Functor                    { return nil }
+func (n NoneVal) Right() Functor                   { return nil }
+func (n NoneVal) Both() Functor                    { return nil }
+func (n NoneVal) Value() Functor                   { return nil }
+func (n NoneVal) Empty() bool                      { return true }
+func (n NoneVal) Test(...Functor) bool             { return false }
+func (n NoneVal) TypeFnc() TyFnc                   { return None }
+func (n NoneVal) TypeNat() d.TyNat                 { return d.Nil }
+func (n NoneVal) Type() Decl                       { return Declare(None) }
+func (n NoneVal) TypeElem() Decl                   { return Declare(None) }
+func (n NoneVal) TypeName() string                 { return n.String() }
+func (n NoneVal) Slice() []Functor                 { return []Functor{} }
+func (n NoneVal) Flag() d.BitFlag                  { return d.BitFlag(None) }
+func (n NoneVal) FlagType() d.Uint8Val             { return Kind_Fnc.U() }
+func (n NoneVal) Continue() (Functor, Applicative) { return NewNone(), NewNone() }
+func (n NoneVal) Consume() (Functor, Applicative)  { return NewNone(), NewNone() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// GENERIC CONSTANT DEFINITION
@@ -108,10 +108,10 @@ func (n NoneVal) Consume() (Functor, Applicative)   { return NewNone(), NewNone(
 // declares a constant value
 func NewConstant(constant func() Functor) ConsVal { return constant }
 
-func (c ConsVal) Type() TyDef             { return Def(Constant, c().Type(), None) }
-func (c ConsVal) TypeIdent() TyDef        { return c().Type().TypeId() }
-func (c ConsVal) TypeRet() TyDef          { return c().Type().TypeRet() }
-func (c ConsVal) TypeArgs() TyDef         { return Def(None) }
+func (c ConsVal) Type() Decl              { return Declare(Constant, c().Type(), None) }
+func (c ConsVal) TypeIdent() Decl         { return c().Type().TypeId() }
+func (c ConsVal) TypeRet() Decl           { return c().Type().TypeRet() }
+func (c ConsVal) TypeArgs() Decl          { return Declare(None) }
 func (c ConsVal) TypeFnc() TyFnc          { return Constant }
 func (c ConsVal) String() string          { return c().String() }
 func (c ConsVal) Call(...Functor) Functor { return c() }
@@ -134,12 +134,12 @@ func (c Lambda) Call(args ...Functor) Functor {
 	}
 	return c()
 }
-func (c Lambda) String() string       { return c().String() }
-func (c Lambda) TypeFnc() TyFnc       { return c().TypeFnc() }
-func (c Lambda) Type() TyDef          { return c().Type() }
-func (c Lambda) TypeIdent() TyDef     { return c().Type().TypeId() }
-func (c Lambda) TypeReturn() TyDef    { return c().Type().TypeRet() }
-func (c Lambda) TypeArguments() TyDef { return c().Type().TypeArgs() }
+func (c Lambda) String() string      { return c().String() }
+func (c Lambda) TypeFnc() TyFnc      { return c().TypeFnc() }
+func (c Lambda) Type() Decl          { return c().Type() }
+func (c Lambda) TypeIdent() Decl     { return c().Type().TypeId() }
+func (c Lambda) TypeReturn() Decl    { return c().Type().TypeRet() }
+func (c Lambda) TypeArguments() Decl { return c().Type().TypeArgs() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// GENERATOR
@@ -153,8 +153,8 @@ func NewGenerator(init, generate Functor) GenVal {
 		return init, NewGenerator(next, generate)
 	}
 }
-func (g GenVal) Cons(Functor) Applicative          { return g }
-func (g GenVal) ConsGroup(Applicative) Applicative { return g }
+func (g GenVal) Cons(Functor) Applicative        { return g }
+func (g GenVal) ConsApp(Applicative) Applicative { return g }
 func (g GenVal) Expr() Functor {
 	var expr, _ = g()
 	return expr
@@ -169,17 +169,17 @@ func (g GenVal) Call(args ...Functor) Functor {
 	}
 	return NewPair(g.Expr(), g.Generator())
 }
-func (g GenVal) TypeFnc() TyFnc  { return Generator }
-func (g GenVal) Type() TyDef     { return Def(Generator, g.Head().Type()) }
-func (g GenVal) TypeElem() TyDef { return g.Head().Type() }
-func (g GenVal) String() string  { return g.Head().String() }
+func (g GenVal) TypeFnc() TyFnc { return Generator }
+func (g GenVal) Type() Decl     { return Declare(Generator, g.Head().Type()) }
+func (g GenVal) TypeElem() Decl { return g.Head().Type() }
+func (g GenVal) String() string { return g.Head().String() }
 func (g GenVal) Empty() bool {
 	if g.Head().Type().Match(None) {
 		return true
 	}
 	return false
 }
-func (g GenVal) Concat(grp Sequential) Applicative { return NewListFromGroup(g).Concat(grp) }
+func (g GenVal) Concat(grp Sequential) Applicative { return NewListFromApp(g).Concat(grp) }
 func (g GenVal) Continue() (Functor, Applicative)  { return g() }
 func (g GenVal) Head() Functor                     { return g.Expr() }
 func (g GenVal) Tail() Applicative                 { return g.Generator() }
@@ -203,18 +203,16 @@ func NewAccumulator(
 		return acc, NewAccumulator(acc, fnc)
 	})
 }
+func (g AccVal) Cons(arg Functor) Applicative {
+	return NewListFromApp(g).Cons(arg)
+}
 
 func (g AccVal) Concat(grp Sequential) Applicative {
-	return NewListFromGroup(g).Concat(grp)
+	return NewListFromApp(g).Concat(grp)
 }
-func (g AccVal) ConsGroup(con Applicative) Applicative {
-	var args = []Functor{}
-	for head, con := con.Continue(); !con.Empty(); {
-		args = append(args, head)
-	}
-	return NewList(g(args...))
+func (g AccVal) ConsApp(con Applicative) Applicative {
+	return NewListFromApp(g).Concat(con)
 }
-func (g AccVal) Cons(arg Functor) Applicative { return NewList(g(arg)) }
 func (g AccVal) Result() Functor {
 	var res, _ = g()
 	return res
@@ -231,8 +229,8 @@ func (g AccVal) Call(args ...Functor) Functor {
 	return g.Result()
 }
 func (g AccVal) TypeFnc() TyFnc { return Accumulator }
-func (g AccVal) Type() TyDef {
-	return Def(
+func (g AccVal) Type() Decl {
+	return Declare(
 		Accumulator,
 		g.Head().Type().TypeRet(),
 		g.Head().Type().TypeArgs(),
@@ -247,7 +245,7 @@ func (a AccVal) Empty() bool {
 	return false
 }
 func (g AccVal) Head() Functor                    { return g.Result() }
-func (g AccVal) TypeElem() TyDef                  { return g.Head().Type() }
+func (g AccVal) TypeElem() Decl                   { return g.Head().Type() }
 func (g AccVal) Tail() Applicative                { return g.Accumulator() }
 func (g AccVal) Continue() (Functor, Applicative) { return g() }
 
@@ -262,32 +260,32 @@ func (g AccVal) Continue() (Functor, Applicative) { return g() }
 //    - create from expressions type signature, (argtypes → idtype →
 //      returntype), if no typeargs where passed
 //  - return & argument types are carried over from expression
-func createFuncType(expr Functor, types ...d.Typed) TyDef {
+func createFuncType(expr Functor, types ...d.Typed) Decl {
 	if len(types) > 0 {
 		// if first types argument is a symbol, use it as identity
-		if Kind_Sym.Match(types[0].Kind()) {
-			return Def(types...)
+		if Kind_Symb.Match(types[0].Kind()) {
+			return Declare(types...)
 		} else {
 			var (
 				name  string
 				ident TySym
 			)
 			// if first types argument is a composed type
-			if Kind_Comp.Match(types[0].Kind()) {
+			if Kind_Decl.Match(types[0].Kind()) {
 				// return composed types identity
-				name = types[0].(TyDef).
+				name = types[0].(Decl).
 					TypeId().TypeName()
 			} else {
 				// return flat types name
 				name = types[0].TypeName()
 			}
 			// create type identity from name
-			ident = DefSym(name)
+			ident = DecSym(name)
 			// if more types arguments where passed‥.
 			if len(types) > 1 {
 				// return ident followed by remaining types
 				// arguments forreturn and argument types
-				return Def(append(
+				return Declare(append(
 					[]d.Typed{ident},
 					types[1:]...)...)
 			}
@@ -303,10 +301,10 @@ func createFuncType(expr Functor, types ...d.Typed) TyDef {
 			" → " +
 			expr.Type().TypeRet().TypeName() +
 			")"
-		ident = DefSym(name)
+		ident = DecSym(name)
 	)
 	// return type identity, take return & argument types from expression.
-	return Def(ident,
+	return Declare(ident,
 		expr.Type().TypeRet(),
 		expr.Type().TypeArgs())
 
@@ -317,7 +315,7 @@ func createFuncType(expr Functor, types ...d.Typed) TyDef {
 func Define(
 	expr Functor,
 	types ...d.Typed,
-) FuncVal {
+) Def {
 
 	// create the function type definition and take the number of expexted
 	// arguments
@@ -360,9 +358,9 @@ func Define(
 				// filled
 				var (
 					remains = ft.TypeArgs().Types()[length:]
-					newpat  = Def(Def(Partial, ft.TypeId()),
+					newpat  = Declare(Declare(Partial, ft.TypeId()),
 						ft.TypeRet(),
-						Def(remains...))
+						Declare(remains...))
 				)
 
 				// define partial function from remaining set
@@ -423,13 +421,13 @@ func Define(
 	}
 }
 
-func (e FuncVal) Call(args ...Functor) Functor { return e(args...) }
+func (e Def) Call(args ...Functor) Functor { return e(args...) }
 
-func (e FuncVal) TypeFnc() TyFnc   { return Value }
-func (e FuncVal) Type() TyDef      { return e().(TyDef) }
-func (e FuncVal) TypeId() TyDef    { return e.Type().TypeId() }
-func (e FuncVal) TypeArgs() TyDef  { return e.Type().TypeArgs() }
-func (e FuncVal) TypeRet() TyDef   { return e.Type().TypeRet() }
-func (e FuncVal) TypeName() string { return e.Type().TypeName() }
-func (e FuncVal) ArgCount() int    { return e.Type().TypeArgs().Count() }
-func (e FuncVal) String() string   { return e().String() }
+func (e Def) TypeFnc() TyFnc   { return Value }
+func (e Def) Type() Decl       { return e().(Decl) }
+func (e Def) TypeId() Decl     { return e.Type().TypeId() }
+func (e Def) TypeArgs() Decl   { return e.Type().TypeArgs() }
+func (e Def) TypeRet() Decl    { return e.Type().TypeRet() }
+func (e Def) TypeName() string { return e.Type().TypeName() }
+func (e Def) ArgCount() int    { return e.Type().TypeArgs().Count() }
+func (e Def) String() string   { return e().String() }

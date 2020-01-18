@@ -7,30 +7,27 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var testIsZero = NewTest(func(arg Functor) bool {
-	if arg.(Evaluable).Eval().(d.Numeral).GoInt() != 0 {
-		return false
-	}
-	return true
+var intEq = NewTest(d.Int, func(a, b Functor) bool {
+	return a.(Evaluable).Eval().(d.IntVal) == b.(Evaluable).Eval().(d.IntVal)
 })
 
 func TestTestable(t *testing.T) {
 
-	fmt.Printf("test: %s\n", testIsZero)
+	fmt.Printf("test: %s\n", intEq)
 
-	fmt.Printf("test zero is zero (true): %t\n", testIsZero(Dat(0)))
-	if !testIsZero(Dat(0)) {
+	fmt.Printf("test zero is zero (true): %t\n", intEq.Test(Dat(0), Dat(0)))
+	if !intEq.Test(Dat(0), Dat(0)) {
 		t.Fail()
 	}
 
-	fmt.Printf("test one is zero (false): %t\n", testIsZero(Dat(1)))
-	if testIsZero(Dat(1)) {
+	fmt.Printf("test one is zero (false): %t\n", intEq.Test(Dat(1), Dat(0)))
+	if intEq.Test(Dat(1), Dat(0)) {
 		t.Fail()
 	}
 }
 
-var compZero = NewComparator(func(arg Functor) int {
-	switch arg.(Evaluable).Eval().(d.Numeral).GoInt() {
+var compZero = NewComparator(d.Int, func(a, b Functor) int {
+	switch a.(Evaluable).Eval().(d.Numeral).GoInt() {
 	case -1:
 		return -1
 	case 0:
@@ -41,13 +38,13 @@ var compZero = NewComparator(func(arg Functor) int {
 
 func TestCompareable(t *testing.T) {
 	fmt.Printf("compareable: %s\n", compZero)
-	fmt.Printf("zero equals zero (0): %d\n", compZero(Dat(0)))
-	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(Dat(-1)))
-	fmt.Printf("one greater zero (1): %d\n", compZero(Dat(1)))
+	fmt.Printf("zero equals zero (0): %d\n", compZero(Dat(0), Dat(0)))
+	fmt.Printf("minus one lesser zero (-1): %d\n", compZero(Dat(-1), Dat(0)))
+	fmt.Printf("one greater zero (1): %d\n", compZero(Dat(1), Dat(0)))
 }
 
 var caseZero = NewCase(
-	testIsZero,
+	intEq,
 	Dat("this is indeed zero"),
 	d.Numbers,
 	d.String,
@@ -70,23 +67,23 @@ func TestCase(t *testing.T) {
 	}
 }
 
-var isInteger = NewTest(func(arg Functor) bool {
-	if arg.TypeFnc().Match(Data) {
-		return arg.(Native).TypeNat().Match(d.Int)
+var isInteger = NewTest(d.Int, func(a, b Functor) bool {
+	if a.TypeFnc().Match(b.TypeFnc()) {
+		return a.(Native).TypeNat().Match(b.(Native).TypeNat())
 	}
 	return false
 })
 var caseInteger = NewCase(isInteger, Dat("this is an int"), d.Int, d.String)
-var isUint = NewTest(func(arg Functor) bool {
-	if arg.TypeFnc().Match(Data) {
-		return arg.(Native).TypeNat().Match(d.Uint)
+var isUint = NewTest(d.Int, func(a, b Functor) bool {
+	if a.TypeFnc().Match(b.Type()) {
+		return a.(Native).TypeNat().Match(b.(Native).TypeNat())
 	}
 	return false
 })
 var caseUint = NewCase(isUint, Dat("this is a uint"), d.Uint, d.String)
-var isFloat = NewTest(func(arg Functor) bool {
-	if arg.TypeFnc().Match(Data) {
-		return arg.(Native).TypeNat().Match(d.Float)
+var isFloat = NewTest(d.Int, func(a, b Functor) bool {
+	if a.TypeFnc().Match(b.Type()) {
+		return a.(Native).TypeNat().Match(b.(Native).TypeNat())
 	}
 	return false
 })
@@ -119,23 +116,24 @@ func TestSwitch(t *testing.T) {
 	}
 }
 
-func TestMaybe(t *testing.T) {
-	var maybeString = NewMaybe(caseInteger)
-	var str = maybeString(Dat(42))
-	fmt.Printf("str type: %s fnctype: %s\n", str.Type(), str.TypeFnc())
-	fmt.Printf("string: %s\n", str)
-	if !str.TypeFnc().Match(Just) {
-		t.Fail()
-	}
-	var none = maybeString(Dat(true))
-	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
-	if !none.Type().TypeRet().Match(None) {
-		t.Fail()
-	}
-
-	fmt.Printf("maybe string: %s, type: %s\n", maybeString, maybeString.Type())
-	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
-}
+//
+//func TestMaybe(t *testing.T) {
+//	var maybeString = NewMaybe(caseInteger)
+//	var str = maybeString(Dat(42))
+//	fmt.Printf("str type: %s fnctype: %s\n", str.Type(), str.TypeFnc())
+//	fmt.Printf("string: %s\n", str)
+//	if !str.TypeFnc().Match(Just) {
+//		t.Fail()
+//	}
+//	var none = maybeString(Dat(true))
+//	fmt.Printf("none type: %s fnctype: %s\n", none.Type(), none.TypeFnc())
+//	if !none.Type().TypeRet().Match(None) {
+//		t.Fail()
+//	}
+//
+//	fmt.Printf("maybe string: %s, type: %s\n", maybeString, maybeString.Type())
+//	fmt.Printf("str: %s str-type: %s, none: %s\n", str, str.Type(), none)
+//}
 
 func TestOption(t *testing.T) {
 	var (

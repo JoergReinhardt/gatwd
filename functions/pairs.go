@@ -10,16 +10,18 @@ import (
 
 type (
 	//// VALUE PAIRS
+	TypePair  func(...Functor) (d.Typed, Functor)
+	RealPair  func(...Functor) (float64, Functor)
+	IndexPair func(...Functor) (int, Functor)
+	KeyPair   func(...Functor) (string, Functor)
 	ValPair   func(...Functor) (Functor, Functor)
 	NatPair   func(...Functor) (d.Native, Functor)
-	KeyPair   func(...Functor) (string, Functor)
-	IndexPair func(...Functor) (int, Functor)
-	RealPair  func(...Functor) (float64, Functor)
 
 	//// COLLECTIONS OF VALUE PAIRS
 	KeyIndex []KeyPair
 	KeyMap   map[string]Functor
 	RealMap  map[float64]Functor
+	TypeMap  map[d.BitFlag]Functor
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,11 +102,11 @@ func (p ValPair) Slice() []Functor    { return []Functor{p.Left(), p.Right()} }
 func (p ValPair) Key() Functor   { return p.Left() }
 func (p ValPair) Value() Functor { return p.Right() }
 func (p ValPair) TypeFnc() TyFnc { return Pair }
-func (p ValPair) TypeElem() TyDef {
+func (p ValPair) TypeElem() Decl {
 	if p.Right() != nil {
 		return p.Right().Type()
 	}
-	return Def(None, Pair, None)
+	return Declare(None, Pair, None)
 }
 func (p ValPair) TypeKey() d.Typed {
 	if p.Left() != nil {
@@ -118,8 +120,8 @@ func (p ValPair) TypeValue() d.Typed {
 	}
 	return None
 }
-func (p ValPair) Type() TyDef {
-	return Def(Pair, Def(p.TypeKey(), p.TypeValue()))
+func (p ValPair) Type() Decl {
+	return Declare(Pair, Declare(p.TypeKey(), p.TypeValue()))
 }
 func (p ValPair) Empty() bool {
 	if p.Left() == nil || (!p.Left().Type().Match(None) &&
@@ -156,7 +158,7 @@ func (a NatPair) Key() Functor             { return a.Left() }
 func (a NatPair) TypeValue() d.Typed       { return a.Value().Type() }
 func (a NatPair) TypeKey() d.Typed         { return a.KeyNat().Type() }
 func (a NatPair) TypeFnc() TyFnc           { return Data | Pair }
-func (p NatPair) Type() TyDef              { return Def(Pair, Def(Key, p.TypeValue())) }
+func (p NatPair) Type() Decl               { return Declare(Pair, Declare(Key, p.TypeValue())) }
 func (p NatPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewNatPair(p.KeyNat(), p.Value().Call(args...))
@@ -227,8 +229,8 @@ func (p KeyPair) Call(args ...Functor) Functor {
 	}
 	return p
 }
-func (p KeyPair) Type() TyDef {
-	return Def(Key|Pair, Def(Key, p.TypeValue()))
+func (p KeyPair) Type() Decl {
+	return Declare(Key|Pair, Declare(Key, p.TypeValue()))
 }
 
 // implement swappable
@@ -287,8 +289,8 @@ func (a IndexPair) Key() Functor             { return a.Left() }
 func (a IndexPair) TypeFnc() TyFnc           { return Index | Pair }
 func (a IndexPair) TypeKey() d.Typed         { return Index }
 func (a IndexPair) TypeValue() d.Typed       { return a.Value().Type() }
-func (a IndexPair) Type() TyDef              { return Def(Pair, Def(Index, a.TypeValue())) }
-func (p IndexPair) TypeElem() TyDef          { return p.Value().Type() }
+func (a IndexPair) Type() Decl               { return Declare(Pair, Declare(Index, a.TypeValue())) }
+func (p IndexPair) TypeElem() Decl           { return p.Value().Type() }
 func (p IndexPair) Call(args ...Functor) Functor {
 	if len(args) > 0 {
 		return NewIndexPair(p.Index(), p.Value().Call(args...))
@@ -352,7 +354,7 @@ func (a RealPair) Call(args ...Functor) Functor { return a.Value().Call(args...)
 func (a RealPair) TypeFnc() TyFnc               { return Real | Pair }
 func (a RealPair) TypeKey() d.Typed             { return Real }
 func (a RealPair) TypeValue() d.Typed           { return a.Value().Type() }
-func (a RealPair) Type() TyDef                  { return Def(Pair, Def(Real, a.TypeValue())) }
+func (a RealPair) Type() Decl                   { return Declare(Pair, Declare(Real, a.TypeValue())) }
 
 // implement swappable
 func (p RealPair) Swap() (Functor, Functor) {
@@ -369,9 +371,8 @@ func (a RealPair) Empty() bool {
 func (a RealPair) String() string {
 	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
 }
-func (p RealPair) TypeElem() TyDef { return p.Value().Type() }
+func (p RealPair) TypeElem() Decl { return p.Value().Type() }
 
-//
 func (p RealPair) Cons(arg Functor) Applicative    { return NewPair(arg, p) }
 func (p RealPair) Concat(c Sequential) Applicative { return NewPair(p, c) }
 func (p RealPair) Continue() (Functor, Applicative) {
@@ -394,6 +395,74 @@ func (p RealPair) Tail() Applicative {
 	return t
 }
 
+//// TYPE PAIR
+///
+// pair composed of a type flag and a functional value
+func NewTypePair(typ d.Typed, val Functor) TypePair {
+	return func(...Functor) (d.Typed, Functor) { return typ, val }
+}
+func (a TypePair) Value() Functor { _, val := a(); return val }
+func (a TypePair) KeyTyped() d.Typed {
+	var t, _ = a.Key().(d.Typed)
+	return t
+}
+func (a TypePair) KeyDef() Decl {
+	if Kind_Decl.Match(a.KeyTyped().Kind()) {
+		return a.Key().(Decl)
+	}
+	return Declare(a.KeyTyped())
+}
+func (a TypePair) Key() Functor                 { return a.KeyDef() }
+func (a TypePair) Left() Functor                { return a.KeyDef() }
+func (a TypePair) Right() Functor               { return a.Value() }
+func (a TypePair) Both() (Functor, Functor)     { return a.Left(), a.Right() }
+func (a TypePair) Pair() Paired                 { return a }
+func (a TypePair) Pairs() []Paired              { return []Paired{NewPair(a.Both())} }
+func (a TypePair) Call(args ...Functor) Functor { return a.Value().Call(args...) }
+func (a TypePair) TypeFnc() TyFnc               { return Type | Pair }
+func (a TypePair) TypeKey() d.Typed             { return Type }
+func (a TypePair) TypeValue() d.Typed           { return a.Value().Type() }
+func (a TypePair) Type() Decl                   { return Declare(Pair, Declare(Type, a.TypeValue())) }
+
+// implement swappable
+func (p TypePair) Swap() (Functor, Functor) {
+	l, r := p()
+	return Box(d.New(l)), r
+}
+func (p TypePair) SwappedPair() Paired { return NewPair(p.Right(), p.Left()) }
+func (a TypePair) Empty() bool {
+	if a.KeyDef().Match(None) && a.Right().Type().Match(None) {
+		return true
+	}
+	return false
+}
+func (a TypePair) String() string {
+	return "(" + a.Key().String() + " : " + a.Value().String() + ")"
+}
+func (p TypePair) TypeElem() Decl { return p.Value().Type() }
+
+func (p TypePair) Cons(arg Functor) Applicative    { return NewPair(arg, p) }
+func (p TypePair) Concat(c Sequential) Applicative { return NewPair(p, c) }
+func (p TypePair) Continue() (Functor, Applicative) {
+	var (
+		head Functor
+		tail Sequential
+		k, v = p.KeyDef(), p.Value()
+	)
+	if v.TypeFnc().Match(Continua) {
+		return head, tail.Concat(v.(Sequential))
+	}
+	return k, NewPair(v, NewNone())
+}
+func (p TypePair) Head() Functor {
+	var h, _ = p.Continue()
+	return h
+}
+func (p TypePair) Tail() Applicative {
+	var _, t = p.Continue()
+	return t
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //// KEY INDEX
 ///  key index keeps index position of key/value pairs stored in a hash map in
@@ -405,17 +474,17 @@ func (i KeyIndex) Call(...Functor) Functor { return i }
 func (i KeyIndex) Len() int       { return len(i) }
 func (i KeyIndex) Vector() VecVal { return NewVector(i.Slice()...) }
 func (i KeyIndex) TypeFnc() TyFnc { return Key | Pair | Vector }
-func (i KeyIndex) Type() TyDef {
-	return Def(Vector, Def(Pair, Def(String, T)))
+func (i KeyIndex) Type() Decl {
+	return Declare(Vector, Declare(Pair, Declare(String, T)))
 }
 func (i KeyIndex) GetByKey(key string) Functor {
 	var s = newSearcher(
-		i.Slice(), Box(d.StrVal(key)),
+		i.Slice(),
 		func(key, arg Functor) int {
 			return strings.Compare(
 				key.String(), arg.String())
 		})
-	return s.Search()
+	return s.Search(Box(d.StrVal(key)))
 }
 func (i KeyIndex) GetByIdx(idx int) Functor {
 	if idx < i.Len() {
@@ -485,7 +554,7 @@ func NewKeyMap(pairs ...KeyPair) KeyMap {
 	}
 	return m
 }
-func (k KeyMap) Type() TyDef                  { return Def(Key, HashMap) }
+func (k KeyMap) Type() Decl                   { return Declare(Key, HashMap) }
 func (k KeyMap) TypeFnc() TyFnc               { return Key | HashMap }
 func (k KeyMap) Call(args ...Functor) Functor { return k }
 func (k KeyMap) String() string {
@@ -525,7 +594,7 @@ func NewRealMap(pairs ...RealPair) RealMap {
 	}
 	return m
 }
-func (k RealMap) Type() TyDef                  { return Def(Real, HashMap) }
+func (k RealMap) Type() Decl                   { return Declare(Real, HashMap) }
 func (k RealMap) TypeFnc() TyFnc               { return Real | HashMap }
 func (k RealMap) Call(args ...Functor) Functor { return k }
 func (k RealMap) String() string {
@@ -553,6 +622,46 @@ func (k RealMap) Pairs() []RealPair {
 	var pairs = make([]RealPair, 0, len(k))
 	for k, v := range k {
 		pairs = append(pairs, NewRealPair(k, v))
+	}
+	return pairs
+}
+
+//// KEY MAP
+///
+func NewTypeMap(pairs ...TypePair) TypeMap {
+	var m = map[d.BitFlag]Functor{}
+	for _, pair := range pairs {
+		m[pair.KeyTyped().Flag()] = pair.Value()
+	}
+	return m
+}
+func (k TypeMap) Type() Decl                   { return Declare(Type, HashMap) }
+func (k TypeMap) TypeFnc() TyFnc               { return Type | HashMap }
+func (k TypeMap) Call(args ...Functor) Functor { return k }
+func (k TypeMap) String() string {
+	var str = "{\n}"
+	for k, v := range k {
+		str = str + d.Typed(k).TypeName() + " ∷ " + v.String() + "\n"
+	}
+	str = str + "}"
+	return str
+}
+func (k TypeMap) Get(key d.Typed) Functor {
+	if val, ok := k[key.Flag()]; ok {
+		return val
+	}
+	return NewNone()
+}
+func (k TypeMap) GetPair(key d.Typed) TypePair {
+	if val, ok := k[key.Flag()]; ok {
+		return NewTypePair(key, val)
+	}
+	return NewTypePair(None, NewNone())
+}
+func (k TypeMap) Pairs() []TypePair {
+	var pairs = make([]TypePair, 0, len(k))
+	for k, v := range k {
+		pairs = append(pairs, NewTypePair(k, v))
 	}
 	return pairs
 }

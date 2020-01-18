@@ -7,7 +7,7 @@ import (
 )
 
 func TestPattern(t *testing.T) {
-	var pat = Def(d.Int, d.Float, Vector, Additives)
+	var pat = Declare(d.Int, d.Float, Vector, Additives)
 	fmt.Printf("pat: %s\n", pat)
 	fmt.Printf("pat matches Int, Float, Vector, Consumeables: %t\n",
 		pat.MatchTypes(d.Int, d.Float, Vector, Additives))

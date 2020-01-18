@@ -6,11 +6,6 @@ import (
 )
 
 type (
-
-	//// COLLECTION TYPES
-	VecVal  func(...Functor) []Functor
-	ListVal func(...Functor) (Functor, ListVal)
-
 	//// INTERNAL HELPER TYPES
 	sorter struct {
 		parms []Functor
@@ -18,10 +13,12 @@ type (
 	}
 	searcher struct {
 		*sorter
-		match   Functor
 		compare func(a, b Functor) int
-		search  func([]Functor) func(int) bool
+		search  func([]Functor, Functor) func(int) bool
 	}
+	//// COLLECTION TYPES
+	VecVal  func(...Functor) []Functor
+	ListVal func(...Functor) (Functor, ListVal)
 )
 
 // SORTER
@@ -46,42 +43,40 @@ func (s *sorter) Sort() []Functor {
 // SEARCHER
 func newSearcher(
 	s []Functor,
-	match Functor,
 	compare func(a, b Functor) int,
 ) *searcher {
 	return &searcher{
 		sorter: newSorter(s, func(s []Functor, a, b int) bool {
 			return compare(s[a], s[b]) < 0
 		}),
-		match:   match,
 		compare: compare,
-		search: func(s []Functor) func(int) bool {
+		search: func(s []Functor, match Functor) func(int) bool {
 			return func(idx int) bool {
 				return compare(s[idx], match) >= 0
 			}
 		}}
 }
-func (s *searcher) Index() int {
+func (s *searcher) Index(match Functor) int {
 
 	if sort.IsSorted(s) {
 		return sort.Search(len(s.parms),
 			s.search(newSorter(
 				s.parms, s.less,
-			).parms))
+			).parms, match))
 	}
 
 	return sort.Search(len(s.parms),
 		s.search(newSorter(
 			s.parms, s.less,
-		).Sort()))
+		).Sort(), match))
 }
 
-func (s *searcher) Search() Functor {
+func (s *searcher) Search(match Functor) Functor {
 
-	var idx = s.Index()
+	var idx = s.Index(match)
 
 	if idx >= 0 && idx < len(s.parms) {
-		if s.compare(s.parms[idx], s.match) == 0 {
+		if s.compare(s.parms[idx], match) == 0 {
 			return s.parms[idx]
 		}
 	}
@@ -95,12 +90,12 @@ func (s *searcher) Search() Functor {
 // sequential vector provides random access to sequential data. appends
 // arguments in the order they where passed in, at the end of slice, when
 // called.
-func NewVecFormGroup(grp Applicative) VecVal {
+func NewVecFromApp(grp Applicative) VecVal {
 	if grp.Type().Match(Vector) {
 		if vec, ok := grp.(VecVal); ok {
 			return vec
 		}
-		return NewVector(grp.(Vectorized).Slice()...)
+		return NewVector(grp.(RandomAcc).Slice()...)
 	}
 	var (
 		vec        = []Functor{}
@@ -194,9 +189,9 @@ func (v VecVal) Pull() (Functor, Queued) {
 }
 func (v VecVal) Len() int         { return len(v()) }
 func (v VecVal) Null() VecVal     { return NewVector() }
-func (v VecVal) Type() TyDef      { return Def(Vector, v.TypeElem()) }
+func (v VecVal) Type() Decl       { return Declare(Vector, v.TypeElem()) }
 func (v VecVal) TypeFnc() TyFnc   { return Vector }
-func (v VecVal) TypeElem() TyDef  { return v.Head().Type() }
+func (v VecVal) TypeElem() Decl   { return v.Head().Type() }
 func (v VecVal) Slice() []Functor { return v() }
 func (v VecVal) Flatten() VecVal {
 	var elems = make([]Functor, 0, v.Len())
@@ -271,30 +266,40 @@ func (v VecVal) Search(
 	match Functor,
 	compare func(a, b Functor) int,
 ) Functor {
-	return newSearcher(v(), match, compare).Search()
+	return newSearcher(v(), compare).Search(match)
+}
+func (v VecVal) SearchIdx(
+	match Functor,
+	compare func(a, b Functor) int,
+) int {
+	return newSearcher(v(), compare).Index(match)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// LINKED LIST TYPE
 ///
 // linked list type implementing sequential
-func NewListFromGroup(grp Applicative) ListVal {
+// wrap arbitrary applicative in a list
+func NewListFromApp(grp Applicative) ListVal {
 	return ListVal(func(args ...Functor) (Functor, ListVal) {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				var head, tail = grp.Concat(
 					NewList(args...)).Continue()
-				return head, NewListFromGroup(tail)
+				return head, NewListFromApp(tail)
 			}
-			var head, tail = NewListFromGroup(
+			var head, tail = NewListFromApp(
 				grp.Cons(args[0])).Continue()
-			return head, NewListFromGroup(tail)
+			return head, NewListFromApp(tail)
 		}
 		var head, tail = grp.Continue()
-		return head, NewListFromGroup(tail)
+		return head, NewListFromApp(tail)
 	})
 }
+
+// new list with, or without content
 func NewList(elems ...Functor) ListVal {
+
 	// return empty list able to be extended by cons, when no initial
 	// elements are given/left
 	if len(elems) == 0 {
@@ -379,14 +384,14 @@ func (s ListVal) Continue() (Functor, Applicative) {
 	return s.Head(), s.Tail()
 }
 
-func (s ListVal) Vector() VecVal           { return NewVector(s.Slice()...) }
 func (v ListVal) Push(arg Functor) Stacked { return v.Cons(arg).(ListVal) }
 func (v ListVal) Pop() (Functor, Stacked)  { return v() }
 func (s ListVal) First() Functor           { return s.Head() }
 func (s ListVal) Null() ListVal            { return NewList() }
-func (s ListVal) TypeElem() TyDef          { return s.Head().Type() }
+func (s ListVal) TypeElem() Decl           { return s.Head().Type() }
 func (s ListVal) TypeFnc() TyFnc           { return Group }
-func (s ListVal) Type() TyDef              { return Def(Group, s.TypeElem()) }
+func (s ListVal) Type() Decl               { return Declare(Group, s.TypeElem()) }
+func (s ListVal) Vector() VecVal           { return NewVector(s.Slice()...) }
 func (s ListVal) Empty() bool {
 	var _, tail = s()
 	return tail == nil

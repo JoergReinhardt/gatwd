@@ -11,9 +11,9 @@ var addInts = Define(Dat(func(args ...d.Native) d.Native {
 	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
 	return a + b
 }),
-	DefSym("+"),
-	Def(Dat(0).Type()),
-	Def(Dat(0).Type(), Dat(0).Type()),
+	DecSym("+"),
+	Declare(Dat(0).Type()),
+	Declare(Dat(0).Type(), Dat(0).Type()),
 )
 
 func TestExpression(t *testing.T) {
@@ -105,7 +105,7 @@ func TestExpression(t *testing.T) {
 
 	complete = result3.(VecVal)()[1].Call(Dat(42))
 	fmt.Printf("completed result3[1] partial: %s\n", complete)
-	if complete.(DatAtom).Eval().(d.Numeral).Int() != 65 {
+	if complete.(Atom).Eval().(d.Numeral).Int() != 65 {
 		t.Fail()
 	}
 

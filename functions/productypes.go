@@ -12,119 +12,170 @@ import (
 )
 
 type (
+	//// BOOLEAN ALGEBRA
+	///
+	// BOOL TYPE
+	Bool bool
+
+	// MAYBE (JUST | NONE)
+	Maybe    func(...Functor) JustNone
+	JustNone Def
 
 	// TESTS AND COMPARE
-	Predicate   func(Functor) bool
-	PredTrinary func(Functor) int
-	PredCompare func(Functor) int
+	Test    func(args ...Functor) Functor
+	Compare func(args ...Functor) Functor
 
 	// CASE & SWITCH
 	// needs to be variadic in orderto enable type overload
-	SwitchDef func(...Functor) (Functor, []CaseDef)
-	CaseDef   func(...Functor) Functor
-
-	// MAYBE (JUST | NONE)
-	OptionalDef func(...Functor) Functor
-	JustVal     func(...Functor) Functor
+	Switch func(...Functor) (Functor, []Case)
+	Case   func(...Functor) Functor
 
 	// ALTERNATETIVES TYPE (EITHER | OR)
-	AlternateDef func(...Functor) Functor
-	EitherVal    func(...Functor) Functor
-	OrVal        func(...Functor) Functor
+	EitherOr  func(...Functor) Functor
+	EitherBox func(...Functor) Functor
+	OrBox     func(...Functor) Functor
 
 	//// Parametric
 	/// funtions return type depends on argument type(s)
-	PolyDef SwitchDef
+	PolyDef Switch
 )
+
+// method set of bool alias type
+func (b Bool) TypeFnc() TyFnc {
+	if b {
+		return True
+	}
+	return False
+}
+func (b Bool) Type() Decl {
+	return Declare(b.TypeFnc())
+}
+func (b Bool) Call(...Functor) Functor {
+	return Box(d.BoolVal(b))
+}
+func (b Bool) String() string {
+	if b {
+		return "True"
+	}
+	return "False"
+}
+
+//// MAYBE VALUE
+///
+// wraps a function definition to cast the result of applying arguments to it
+// as instance of just/none.  the empty call is overloaded to return the
+// unboxed definition.
+func NewMaybe(def Def) Maybe {
+	return func(args ...Functor) JustNone {
+		if len(args) > 0 {
+			return JustNone(def.Call(args...).(Def))
+		}
+		return JustNone(def)
+	}
+}
+
+func (t Maybe) Call(args ...Functor) Functor { return t(args...) }
+func (t Maybe) Unbox() Def                   { return Def(t()) }
+func (t Maybe) String() string               { return t.Unbox().String() }
+func (t Maybe) TypeArguments() Decl          { return t.Unbox().Type().TypeArgs() }
+func (t Maybe) TypeReturn() Decl             { return t.Unbox().Type().TypeRet() }
+func (t Maybe) TypeFnc() TyFnc               { return Option }
+func (t Maybe) Type() Decl {
+	return Declare(
+		Option, Declare(Declare(
+			Boxed, t.Unbox().Type(),
+		), None))
+}
+
+// maybe values methods
+func (t JustNone) Call(args ...Functor) Functor { return t.Call(args...) }
+func (t JustNone) String() string               { return t().String() }
+func (t JustNone) Type() Decl                   { return t().Type() }
+func (t JustNone) TypeFnc() TyFnc               { return T | t().TypeFnc() }
 
 /// TRUTH TEST
 //
 // create a new test, scrutinizing its arguments and revealing true, or false
-func NewTest(test func(Functor) bool) Predicate {
-	return func(arg Functor) bool { return test(arg) }
+func NewTest(
+	argtype d.Typed,
+	test func(a, b Functor) bool,
+) Test {
+	return Test(Define(Lambda(func(args ...Functor) Functor {
+		if len(args) == 0 { // return argument type, when called empty
+			if Kind_Decl.Match(argtype.Kind()) {
+				return argtype.(Decl)
+			}
+			return Declare(argtype)
+		}
+		// type & bounds check provided by function definition
+		return Box(d.BoolVal(test(args[0], args[1])))
+	}), Truth, Boolean, argtype, argtype))
 }
-func (t Predicate) TypeFnc() TyFnc {
+func (t Test) TypeFnc() TyFnc {
 	return Truth
 }
-func (t Predicate) Type() TyDef {
-	return Def(True | False)
+func (t Test) Type() Decl {
+	return Declare(True | False)
 }
-func (t Predicate) String() string {
+func (t Test) String() string {
 	return t.TypeFnc().TypeName()
 }
-func (t Predicate) Test(arg Functor) bool {
-	return t(arg)
+func (t Test) Test(a, b Functor) bool {
+	var result = t(a, b)
+	if result.Type().Match(d.Bool) {
+		return bool(result.(Atom)().(d.BoolVal))
+	}
+	return false
 }
-func (t Predicate) Compare(arg Functor) int {
-	if t(arg) {
+func (t Test) Compare(a, b Functor) int {
+	if t.Test(a, b) {
 		return 0
 	}
 	return -1
 }
-func (t Predicate) Call(args ...Functor) Functor {
-	if len(args) == 1 {
-		return Box(d.BoolVal(t(args[0])))
-	}
-	if len(args) > 1 {
-		return Box(d.BoolVal(t(NewVector(args...))))
-	}
-	return Box(d.BoolVal(false))
-}
-
-/// TRINARY TEST
-//
-// create a trinary test, that can yield true, false, or undecided, computed by
-// scrutinizing its arguments
-func NewTrinary(test func(Functor) int) PredTrinary {
-	return func(arg Functor) int { return test(arg) }
-}
-func (t PredTrinary) TypeFnc() TyFnc {
-	return Trinary
-}
-func (t PredTrinary) Type() TyDef {
-	return Def(True | False | Undecided)
-}
-func (t PredTrinary) Call(arg Functor) Functor {
-	return Box(d.IntVal(t(arg)))
-}
-func (t PredTrinary) String() string {
-	return t.TypeFnc().TypeName()
-}
-func (t PredTrinary) Test(arg Functor) bool {
-	return t(arg) == 0
-}
-func (t PredTrinary) Compare(arg Functor) int {
-	return t(arg)
-}
+func (t Test) Call(args ...Functor) Functor { return t(args...) }
 
 /// COMPARATOR
 //
 // create a comparator expression that yields minus one in case the argument is
 // lesser, zero in case its equal and plus one in case it is greater than the
 // enclosed value to compare against.
-func NewComparator(comp func(Functor) int) PredCompare {
-	return func(arg Functor) int { return comp(arg) }
+func NewComparator(
+	argtype d.Typed,
+	comp func(a, b Functor) int,
+) Compare {
+	return Compare(Define(Lambda(func(args ...Functor) Functor {
+		if len(args) == 0 { // return argument type, when called empty
+			if Kind_Decl.Match(argtype.Kind()) {
+				return argtype.(Decl)
+			}
+			return Declare(argtype)
+		}
+		return Box(d.IntVal(comp(args[0], args[1])))
+	}), Comparator, Integer, argtype))
 }
-func (t PredCompare) TypeFnc() TyFnc {
-	return Compare
+func (t Compare) TypeFnc() TyFnc {
+	return Comparator
 }
-func (t PredCompare) Type() TyDef {
-	return Def(Lesser | Greater | Equal)
+func (t Compare) Type() Decl {
+	return Declare(Lesser | Greater | Equal)
 }
-func (t PredCompare) Call(arg Functor) Functor {
-	return Box(d.IntVal(t(arg)))
-}
-func (t PredCompare) String() string {
+func (t Compare) Call(a, b Functor) Functor { return t(a, b) }
+func (t Compare) String() string {
 	return t.Type().TypeName()
 }
-func (t PredCompare) Test(arg Functor) bool {
-	return t(arg) == 0
+func (t Compare) Compare(a, b Functor) int {
+	var result = t(a, b)
+	if !result.Type().Match(None) {
+		return int(result.(Atom)().(d.IntVal))
+	}
+	return -2
 }
-func (t PredCompare) Less(arg Functor) bool {
-	return t(arg) < 0
+func (t Compare) Test(a, b Functor) bool {
+	return t.Compare(a, b) == 0
 }
-func (t PredCompare) Compare(arg Functor) int {
-	return t(arg)
+func (t Compare) Less(a, b Functor) bool {
+	return t.Compare(a, b) < 0
 }
 
 /// CASE
@@ -137,22 +188,18 @@ func NewCase(
 	test Testable,
 	expr Functor,
 	argtype, retype d.Typed,
-) CaseDef {
+) Case {
 
-	var pattern = Def(Def(Case, test.Type()), retype, argtype)
+	var pattern = Declare(Declare(Option, test.Type()), retype, argtype)
 
 	return func(args ...Functor) Functor {
 		if len(args) > 0 {
 			if len(args) > 1 {
 				if test.Test(
-					NewVector(args...),
+					args[0], args[1],
 				) {
-					return expr.Call(NewVector(
-						args...))
+					return expr.Call(args...)
 				}
-			}
-			if test.Test(args[0]) {
-				return expr.Call(args[0])
 			}
 			return NewNone()
 		}
@@ -160,29 +207,29 @@ func NewCase(
 	}
 }
 
-func (t CaseDef) TypeFnc() TyFnc { return Case }
-func (t CaseDef) Type() TyDef {
-	return t().(Paired).Left().(TyDef)
+func (t Case) TypeFnc() TyFnc { return Option }
+func (t Case) Type() Decl {
+	return t().(Paired).Left().(Decl)
 }
-func (t CaseDef) Test() Predicate {
-	return t().(Paired).Right().(Predicate)
+func (t Case) Test() Test {
+	return t().(Paired).Right().(Test)
 }
-func (t CaseDef) TypeId() TyDef {
+func (t Case) TypeId() Decl {
 	return t.Type().Pattern()[0]
 }
-func (t CaseDef) TypeRet() TyDef {
+func (t Case) TypeRet() Decl {
 	return t.Type().Pattern()[1]
 }
-func (t CaseDef) TypeArgs() TyDef {
+func (t Case) TypeArgs() Decl {
 	return t.Type().Pattern()[2]
 }
-func (t CaseDef) TypeName() string {
+func (t Case) TypeName() string {
 	return t.Type().TypeName()
 }
-func (t CaseDef) String() string {
+func (t Case) String() string {
 	return t.TypeFnc().TypeName()
 }
-func (t CaseDef) Call(args ...Functor) Functor {
+func (t Case) Call(args ...Functor) Functor {
 	return t(args...)
 }
 
@@ -196,17 +243,17 @@ func (t CaseDef) Call(args ...Functor) Functor {
 //
 // when called, a switch evaluates all it's cases until it yields either
 // results from applying the first case that matched the arguments, or none.
-func NewSwitch(cases ...CaseDef) SwitchDef {
+func NewSwitch(cases ...Case) Switch {
 	var types = make([]d.Typed, 0, len(cases))
 	for _, c := range cases {
 		types = append(types, c.Type())
 	}
 	var (
-		current CaseDef
+		current Case
 		remains = cases
-		pattern = Def(Switch, Def(types...))
+		pattern = Declare(Choice, Declare(types...))
 	)
-	return func(args ...Functor) (Functor, []CaseDef) {
+	return func(args ...Functor) (Functor, []Case) {
 		if len(args) > 0 {
 			if remains != nil {
 				current = remains[0]
@@ -228,27 +275,34 @@ func NewSwitch(cases ...CaseDef) SwitchDef {
 		return pattern, cases
 	}
 }
-func (t SwitchDef) Cases() []CaseDef {
+func (t Switch) Cases() []Case {
 	var _, cases = t()
 	return cases
 }
-func (t SwitchDef) Type() TyDef {
+func (t Switch) Type() Decl {
 	var pat, _ = t()
-	return pat.(TyDef)
+	return pat.(Decl)
 }
-func (t SwitchDef) String() string {
+func (t Switch) String() string {
 	return t.Type().TypeName()
 }
-func (t SwitchDef) TypeFnc() TyFnc {
-	return Switch
+func (t Switch) TypeFnc() TyFnc {
+	return Choice
 }
-func (t SwitchDef) Call(args ...Functor) Functor {
+func (t Switch) Call(args ...Functor) Functor {
 	var (
-		remains = t.Cases()
+		cases   = t.Cases()
+		current Case
 		result  Functor
 	)
-	for len(remains) > 0 {
-		result, remains = t(args...)
+	for len(cases) > 0 {
+		current = cases[0]
+		if len(cases) > 1 {
+			cases = cases[1:]
+		} else {
+			cases = cases[:0]
+		}
+		result = current(args...)
 		if !result.TypeFnc().Match(None) {
 			return result
 		}
@@ -256,106 +310,55 @@ func (t SwitchDef) Call(args ...Functor) Functor {
 	return NewNone()
 }
 
-/// MAYBE VALUE
-//
-// the constructor takes a case expression, expected to return a result, if the
-// case matches the arguments and either returns the resulting none instance,
-// or creates a just instance enclosing the resulting value.
-func NewMaybe(cas CaseDef) OptionalDef {
-	var argtypes = make([]d.Typed, 0, len(cas.TypeArgs()))
-	for _, arg := range cas.TypeArgs() {
-		argtypes = append(argtypes, arg)
-	}
-	var (
-		pattern = Def(Optionals, Def(Def(
-			Just, cas.TypeRet()),
-			None), Def(argtypes...))
-	)
-	return OptionalDef(func(args ...Functor) Functor {
-		if len(args) > 0 {
-			// pass arguments to case, check if result is none‥.
-			if result := cas.Call(args...); !result.
-				Type().Match(None) {
-				// ‥.otherwise return a maybe just
-				return JustVal(func(args ...Functor) Functor {
-					if len(args) > 0 {
-						return result.Call(args...)
-					}
-					return result.Call()
-				})
-			}
-			// no matching arguments where passed, return none
-			return NewNone()
-		}
-		return pattern
-	})
-}
-
-func (t OptionalDef) TypeFnc() TyFnc               { return Optionals }
-func (t OptionalDef) Type() TyDef                  { return t().(TyDef) }
-func (t OptionalDef) TypeArguments() TyDef         { return t().Type().TypeArgs() }
-func (t OptionalDef) TypeReturn() TyDef            { return t().Type().TypeRet() }
-func (t OptionalDef) String() string               { return t().String() }
-func (t OptionalDef) Call(args ...Functor) Functor { return t.Call(args...) }
-
-// maybe values methods
-func (t JustVal) Call(args ...Functor) Functor { return t(args...) }
-func (t JustVal) String() string               { return t().String() }
-func (t JustVal) Type() TyDef                  { return t().Type() }
-func (t JustVal) TypeFnc() TyFnc               { return Just | t().TypeFnc() }
-
 //// OPTIONAL VALUE
 ///
 // constructor takes two case expressions, first one expected to return the
 // either result, second one expected to return the or result if the case
 // matches.  if none of the cases match, a none instance will be returned
-func NewEitherOr(test Testable, either, or Functor) AlternateDef {
-	var pattern = Def(
-		Def(
-			Def(Either, either.Type().TypeId()),
-			Def(Or, or.Type().TypeId()),
+func NewEitherOr(test Testable, either, or Functor) EitherOr {
+	var pattern = Declare(
+		Declare(
+			Declare(Either, either.Type().TypeId()),
+			Declare(Or, or.Type().TypeId()),
 		),
-		Def(
-			Def(Either, either.Type().TypeRet()),
-			Def(Or, or.Type().TypeRet()),
+		Declare(
+			Declare(Either, either.Type().TypeRet()),
+			Declare(Or, or.Type().TypeRet()),
 		),
-		Def(
-			Def(Either, either.Type().TypeArgs()),
-			Def(Or, or.Type().TypeArgs()),
+		Declare(
+			Declare(Either, either.Type().TypeArgs()),
+			Declare(Or, or.Type().TypeArgs()),
 		),
 	)
 
-	return AlternateDef(func(args ...Functor) Functor {
+	return EitherOr(func(args ...Functor) Functor {
 		if len(args) > 0 {
 			if len(args) > 1 {
-				if test.Test(NewVector(args...)) {
-					return EitherVal(either.Call)
+				if test.Test(args[0], args[1]) {
+					return EitherBox(either.Call)
 				}
 			}
-			if test.Test(args[0]) {
-				return EitherVal(either.Call)
-			}
-			return OrVal(or.Call)
+			return OrBox(or.Call)
 		}
 		return pattern
 	})
 }
-func (o AlternateDef) TypeFnc() TyFnc               { return Alternatives }
-func (o AlternateDef) Type() TyDef                  { return o().Type() }
-func (o AlternateDef) String() string               { return o().String() }
-func (o AlternateDef) Call(args ...Functor) Functor { return o(args...) }
+func (o EitherOr) TypeFnc() TyFnc               { return Alternative }
+func (o EitherOr) Type() Decl                   { return o().Type() }
+func (o EitherOr) String() string               { return o().String() }
+func (o EitherOr) Call(args ...Functor) Functor { return o(args...) }
 
 /// EITHER VALUE
-func (o EitherVal) TypeFnc() TyFnc               { return Either }
-func (o EitherVal) Type() TyDef                  { return o().Type() }
-func (o EitherVal) String() string               { return o().String() }
-func (o EitherVal) Call(args ...Functor) Functor { return o.Call(args...) }
+func (o EitherBox) TypeFnc() TyFnc               { return Either }
+func (o EitherBox) Type() Decl                   { return o().Type() }
+func (o EitherBox) String() string               { return o().String() }
+func (o EitherBox) Call(args ...Functor) Functor { return o.Call(args...) }
 
 /// OR VALUE
-func (o OrVal) TypeFnc() TyFnc               { return Or }
-func (o OrVal) Type() TyDef                  { return o().Type() }
-func (o OrVal) String() string               { return o().String() }
-func (o OrVal) Call(args ...Functor) Functor { return o.Call(args...) }
+func (o OrBox) TypeFnc() TyFnc               { return Or }
+func (o OrBox) Type() Decl                   { return o().Type() }
+func (o OrBox) String() string               { return o().String() }
+func (o OrBox) Call(args ...Functor) Functor { return o.Call(args...) }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// POLYMORPHIC FUNCTION VALUE
@@ -363,10 +366,10 @@ func (o OrVal) Call(args ...Functor) Functor { return o.Call(args...) }
 // polymorphic functions returns values of different type depending on
 // !_ARGUMENT_TYPE_!  function definitions behave just like case definitions
 // and cast as such, which makes polymorphic values a special case of generics
-func NewPolymorph(variants ...FuncVal) PolyDef {
-	var cases = make([]CaseDef, 0, len(variants))
+func NewPolymorph(variants ...Def) PolyDef {
+	var cases = make([]Case, 0, len(variants))
 	for _, v := range variants {
-		cases = append(cases, CaseDef(v))
+		cases = append(cases, Case(v))
 	}
 	return NewParametric(cases...)
 }
@@ -374,20 +377,20 @@ func NewPolymorph(variants ...FuncVal) PolyDef {
 /// GENERIC FUNCTION VALUE
 //   generic functions return values of different types depending on
 //   !_ARGUMENT_VALUE_!
-func NewParametric(cases ...CaseDef) PolyDef {
+func NewParametric(cases ...Case) PolyDef {
 	return PolyDef(NewSwitch(cases...))
 }
 func (p PolyDef) Call(args ...Functor) Functor {
-	return SwitchDef(p).Call(args...)
+	return Switch(p).Call(args...)
 }
-func (p PolyDef) Len() int         { return len(p.Cases()) }
-func (p PolyDef) Cases() []CaseDef { return SwitchDef(p).Cases() }
-func (p PolyDef) TypeFnc() TyFnc   { return Polymorph }
-func (p PolyDef) String() string   { return p.TypeName() }
-func (p PolyDef) TypeArgs() TyDef  { return p.Type().TypeArgs() }
-func (p PolyDef) TypeRet() TyDef   { return p.Type().TypeRet() }
-func (p PolyDef) TypeId() TyDef    { return p.Type().TypeId() }
-func (p PolyDef) Type() TyDef {
+func (p PolyDef) Len() int       { return len(p.Cases()) }
+func (p PolyDef) Cases() []Case  { return Switch(p).Cases() }
+func (p PolyDef) TypeFnc() TyFnc { return Polymorph }
+func (p PolyDef) String() string { return p.TypeName() }
+func (p PolyDef) TypeArgs() Decl { return p.Type().TypeArgs() }
+func (p PolyDef) TypeRet() Decl  { return p.Type().TypeRet() }
+func (p PolyDef) TypeId() Decl   { return p.Type().TypeId() }
+func (p PolyDef) Type() Decl {
 	var (
 		args = make([]d.Typed, 0, p.Len())
 		rets = make([]d.Typed, 0, p.Len())
@@ -395,13 +398,13 @@ func (p PolyDef) Type() TyDef {
 	)
 	for _, c := range p.Cases() {
 		args = append(args, c.TypeArgs())
-		rets = append(rets, DefAlt(c.TypeRet()))
+		rets = append(rets, DecAlt(c.TypeRet()))
 		ids = append(ids, c.TypeId())
 	}
-	return Def(
-		Def(Polymorph, DefAlt(ids...)),
-		DefAlt(rets...),
-		DefAlt(args...),
+	return Declare(
+		Declare(Polymorph, DecAlt(ids...)),
+		DecAlt(rets...),
+		DecAlt(args...),
 	)
 }
 
@@ -434,7 +437,7 @@ func (p PolyDef) Signatures() []string {
 func (p PolyDef) TypeName() string {
 	var str = "Τ :: * → *" // generic parametric type
 	// range over case type identitys
-	for n, id := range p.TypeId()[1].(TyDef) {
+	for n, id := range p.TypeId()[1].(Decl) {
 		// concat case type ident with corresponding signature
 		str = str + "\n" + id.TypeName() +
 			" " + p.Signatures()[n]

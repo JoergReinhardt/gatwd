@@ -19,8 +19,8 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS
+	Atom     func() d.Native
 	DatFunc  func(...d.Native) d.Native
-	DatAtom  func() d.Native
 	DatSlice func() d.DataSlice
 	GoSlice  func() d.Sliceable
 	DatPair  func() d.PairVal
@@ -86,7 +86,7 @@ func Box(args ...d.Native) Native {
 	}
 	// if instance is neither of type function, nor a collection,
 	// instanciate a native atomic constant.
-	return DatAtom(func() d.Native { return nat })
+	return Atom(func() d.Native { return nat })
 }
 
 // helper to generate type identifying pattern from native types
@@ -94,16 +94,16 @@ func patternFromNative(nat d.Native) (typed d.Typed) {
 	switch {
 	case nat.Type().Match(d.Pair):
 		var p = nat.(d.PairVal)
-		typed = Def(p.TypeKey(), p.TypeValue())
+		typed = Declare(p.TypeKey(), p.TypeValue())
 	case nat.Type().Match(d.Unboxed):
 		var u = nat.(d.Sliceable)
-		typed = Def(u.Type(), u.TypeElem())
+		typed = Declare(u.Type(), u.TypeElem())
 	case nat.Type().Match(d.Slice):
 		var s = nat.(d.Sliceable)
-		typed = Def(s.Type(), s.TypeElem())
+		typed = Declare(s.Type(), s.TypeElem())
 	case nat.Type().Match(d.Map):
 		var m = nat.(d.Mapped)
-		typed = Def(m.Type(), m.TypeKey(), m.TypeValue())
+		typed = Declare(m.Type(), m.TypeKey(), m.TypeValue())
 	default:
 		typed = nat.Type()
 	}
@@ -119,8 +119,8 @@ func (n DatFunc) TypeFnc() TyFnc                 { return Data }
 func (n DatFunc) TypeNat() d.TyNat               { return n().Type() }
 func (n DatFunc) String() string                 { return n().String() }
 func (n DatFunc) Eval(args ...d.Native) d.Native { return n(args...) }
-func (n DatFunc) Type() TyDef {
-	return Def(Def(Data, Value), patternFromNative(n()))
+func (n DatFunc) Type() Decl {
+	return Declare(Declare(Data, Value), patternFromNative(n()))
 }
 func (n DatFunc) Call(args ...Functor) Functor {
 	if len(args) > 0 {
@@ -139,13 +139,13 @@ func (n DatFunc) Call(args ...Functor) Functor {
 }
 
 // NATIVE ATOMIC CONSTANT
-func (n DatAtom) Eval(...d.Native) d.Native { return n() }
-func (n DatAtom) TypeFnc() TyFnc            { return Data }
-func (n DatAtom) TypeNat() d.TyNat          { return n().Type() }
-func (n DatAtom) String() string            { return n().String() }
-func (n DatAtom) Call(...Functor) Functor   { return Box(n()) }
-func (n DatAtom) Type() TyDef {
-	return Def(Def(Data, Constant), patternFromNative(n()))
+func (n Atom) Eval(...d.Native) d.Native { return n() }
+func (n Atom) TypeFnc() TyFnc            { return Data }
+func (n Atom) TypeNat() d.TyNat          { return n().Type() }
+func (n Atom) String() string            { return n().String() }
+func (n Atom) Call(...Functor) Functor   { return Box(n()) }
+func (n Atom) Type() Decl {
+	return Declare(Declare(Data, Constant), patternFromNative(n()))
 }
 
 // NATIVE SLICE VALUE
@@ -165,8 +165,8 @@ func (n DatSlice) Copy() d.Native                 { return n().Copy() }
 func (n DatSlice) ElemType() d.Typed              { return n().TypeElem() }
 func (n DatSlice) String() string                 { return n().String() }
 func (n DatSlice) Slice() []d.Native              { return n().Slice() }
-func (n DatSlice) Type() TyDef {
-	return Def(Def(Data, Vector), patternFromNative(n()))
+func (n DatSlice) Type() Decl {
+	return Declare(Declare(Data, Vector), patternFromNative(n()))
 }
 func (n DatSlice) Eval(args ...d.Native) d.Native {
 	return d.SliceAppend(n(), args...)
@@ -195,8 +195,8 @@ func (n GoSlice) Empty() bool                { return n().Empty() }
 func (n GoSlice) Slice() []d.Native          { return n().Slice() }
 func (n GoSlice) ElemType() d.Typed          { return n().TypeElem() }
 func (n GoSlice) String() string             { return n().String() }
-func (n GoSlice) Type() TyDef {
-	return Def(Def(Data, Vector), patternFromNative(n()))
+func (n GoSlice) Type() Decl {
+	return Declare(Declare(Data, Vector), patternFromNative(n()))
 }
 func (n GoSlice) SliceExpr() []Functor {
 	var slice = make([]Functor, 0, n().Len())
@@ -236,11 +236,11 @@ func (n DatPair) Pair() Paired {
 		Box(n().Left()),
 		Box(n().Right()))
 }
-func (n DatPair) Type() TyDef {
-	return Def(Def(
+func (n DatPair) Type() Decl {
+	return Declare(Declare(
 		Data,
 		Pair,
-	), Def(
+	), Declare(
 		patternFromNative(n().Left()),
 		patternFromNative(n().Right())))
 }
@@ -295,15 +295,15 @@ func (n DatMap) Pairs() []Paired {
 	}
 	return pairs
 }
-func (n DatMap) Type() TyDef {
+func (n DatMap) Type() Decl {
 	if n().Len() > 0 {
-		return Def(
-			Def(
+		return Declare(
+			Declare(
 				Data,
 				Pair,
-			), Def(
+			), Declare(
 				patternFromNative(n().First().Left()),
 				patternFromNative(n().First().Right())))
 	}
-	return Def(Def(Data, Pair), Def(None, None))
+	return Declare(Declare(Data, Pair), Declare(None, None))
 }

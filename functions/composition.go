@@ -1,14 +1,12 @@
 package functions
 
-import "fmt"
-
 ///////////////////////////////////////////////////////////////////////////////
 //// COMPOSITION OF DEFINED FUNCTIONS
 ///
 // define the curryed function, so that it accepts the argument types of the g
 // function passed as second argument to the constructor and the return type of
 // the g function passed as its second argument.
-func Curry(f, g FuncVal) FuncVal {
+func Curry(f, g Def) Def {
 	if f.TypeArgs().Match(g.TypeRet()) {
 		return Define(Lambda(
 
@@ -25,7 +23,7 @@ func Curry(f, g FuncVal) FuncVal {
 			// define a function by composing both type ids with
 			// the argument type of g passed as second argument and
 			// the return type of f passed as first argument
-			Def(g.TypeId(), Def(f.TypeId())),
+			Declare(g.TypeId(), Declare(f.TypeId())),
 			f.TypeRet(),  // ‥.return type of g &
 			g.TypeArgs(), //‥.argument type of f
 		)
@@ -287,29 +285,9 @@ func Split(
 }
 
 /// BIND
-func Bind(
-	f, g Applicative, bind func(f, g Applicative, args ...Functor) (
-		Functor, Applicative, Applicative),
-) ListVal {
-	return ListVal(func(args ...Functor) (Functor, ListVal) {
-
-		var result Functor
-		if len(args) > 0 {
-			result, f, g = bind(f, g, args...)
-		} else {
-			result, f, g = bind(f, g)
-		}
-		// ‥.as long as continuations are not depleted‥.
-		for IsNone(result) { // ‥.and no result is yielded‥.
-			result, f, g = bind(f, g) // ‥.re-calculate the result‥.
-			if f.Empty() && g.Empty() {
-				return result, NewList() // RETURN FINAL RESULT
-			}
-		}
-		fmt.Printf("result: %s\tnone?: %t\tf-empty?: %t\tg-empty?: %t\n\n",
-			result, IsNone(result), f.Empty(), g.Empty())
-
-		// return result yielded by bind operation
-		return result, Bind(f, g, bind)
-	})
-}
+//func Bind(
+//	seq Sequential,
+//	f func(...Functor) Functor,
+//	g func(...Functor) Functor,
+//) ListVal {
+//}

@@ -8,25 +8,25 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Kind_BitFlag-0]
+	_ = x[Kind_Flag-0]
 	_ = x[Kind_Nat-1]
 	_ = x[Kind_Fnc-2]
 	_ = x[Kind_Key-3]
-	_ = x[Kind_Sym-4]
+	_ = x[Kind_Symb-4]
 	_ = x[Kind_Expr-5]
 	_ = x[Kind_Prop-6]
 	_ = x[Kind_Lex-7]
 	_ = x[Kind_Opt-8]
-	_ = x[Kind_Comp-255]
+	_ = x[Kind_Decl-255]
 }
 
 const (
-	_TyKind_name_0 = "Kind_BitFlagKind_NatKind_FncKind_KeyKind_SymKind_ExprKind_PropKind_LexKind_Opt"
-	_TyKind_name_1 = "Kind_Comp"
+	_TyKind_name_0 = "Kind_FlagKind_NatKind_FncKind_KeyKind_SymbKind_ExprKind_PropKind_LexKind_Opt"
+	_TyKind_name_1 = "Kind_Decl"
 )
 
 var (
-	_TyKind_index_0 = [...]uint8{0, 12, 20, 28, 36, 44, 53, 62, 70, 78}
+	_TyKind_index_0 = [...]uint8{0, 9, 17, 25, 33, 42, 51, 60, 68, 76}
 )
 
 func (i TyKind) String() string {
