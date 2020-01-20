@@ -31,8 +31,43 @@ func Curry(f, g Def) Def {
 	return Define(NewNone(), None, None)
 }
 
+/// MAP
+// map returns a continuation calling the map function for every element
+func Map(
+	con Sequential,
+	mapf func(Functor) Functor,
+) ListVal {
+
+	// return when list is depleted
+	if con.Empty() {
+		// preserve map function in returned empty list
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
+			if len(args) > 0 {
+				var head, tail = Map(
+					NewList(args...), mapf,
+				).Continue()
+				return head, tail.(ListVal)
+			}
+			return NewNone(), nil
+		})
+	}
+
+	// return next continuation
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
+		if len(args) > 0 {
+			con = con.Call(args...).(Sequential)
+		}
+		var head, tail = con.Continue()
+		// skip none instances, when tail has further elements
+		if IsNone(head) && !tail.Empty() {
+			return Map(tail, mapf)()
+		}
+		return mapf(head), Map(tail, mapf)
+	})
+}
+
 /// FLATTEN
-// flattens sequences of sequences to one dimension
+// flattens sequences of sequences to one dimension recursively (cps)
 func Flatten(grp Sequential) ListVal {
 	if grp.Empty() {
 		return NewList()
@@ -51,36 +86,6 @@ func Flatten(grp Sequential) ListVal {
 	})
 }
 
-/// MAP
-// map returns a continuation calling the map function for every element
-func Map(
-	con Sequential,
-	mapf func(Functor) Functor,
-) ListVal {
-	if con.Empty() {
-		return ListVal(func(args ...Functor) (Functor, ListVal) {
-			if len(args) > 0 {
-				var head, tail = Map(
-					NewList(args...), mapf,
-				).Continue()
-				return head, tail.(ListVal)
-			}
-			return NewNone(), nil
-		})
-	}
-	return ListVal(func(args ...Functor) (Functor, ListVal) {
-		if len(args) > 0 {
-			con = con.Call(args...).(Sequential)
-		}
-		var head, tail = con.Continue()
-		// skip none instances, when tail has further elements
-		if IsNone(head) && !tail.Empty() {
-			return Map(tail, mapf)()
-		}
-		return mapf(head), Map(tail, mapf)
-	})
-}
-
 /// APPLY
 // apply returns a continuation called on every element of the continuation.
 // when continuation is called pssing arguments those, are passed to apply
@@ -89,7 +94,10 @@ func Apply(
 	con Sequential,
 	apply func(Functor, ...Functor) Functor,
 ) ListVal {
+
+	// return if list is depleted
 	if con.Empty() {
+		// preserve apply function in returned empty list
 		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
 				var head, tail = Apply(
@@ -101,13 +109,18 @@ func Apply(
 		})
 	}
 
+	// compute continuation first, to yield current head
 	var head, tail = con.Continue()
 
+	// return next continuation
 	return ListVal(func(args ...Functor) (Functor, ListVal) {
+
+		// apply passed arguments and current head to apply function
 		if len(args) > 0 {
 			head, tail = apply(head, args...),
 				Apply(tail, apply)
-				// skip none
+
+			// skip none instnaces
 			if IsNone(head) && !tail.Empty() {
 				return Apply(tail, apply)()
 			}
@@ -122,24 +135,36 @@ func Apply(
 	})
 }
 
-/// FOLD
+//// FOLD
+///
 // fold takes a continuation, an initial expression and a fold function.  the
 // fold function is called for every element of the continuation and passed the
-// current element and init expression and returns a possbly altered init
-// element to pass to next call
+// current element and init expression as arguments.  it returns an instance of
+// the init elements type (usually some sort of aggregation over all elements
+// seen so far), to pass on as argument for the next call to fold.  fold
+// reduces the returned list, by only returning values that aren't instances of
+// none. none instances will be skipped in a loop.  that way sequences can be
+// folded over lists, that take a variadic number of arguments before they
+// return any value,
 func Fold(
 	con Sequential,
 	init Functor,
 	fold func(init, head Functor) Functor,
 ) ListVal {
 
-	if con.Empty() { // return accumulated result, when empty
-		return NewList()
+	// return initial element wrapped in a list
+	if con.Empty() {
+		if init.TypeFnc().Match(List) {
+			return init.(ListVal)
+		}
+		return NewList(init)
 	}
-	var (
+	var ( // yield result of current step
 		head, tail = con.Continue()   // pop current head & list
 		result     = fold(init, head) // calculate temporary result
 	)
+
+	// filter out none instances from returned list
 	if IsNone(result) { // if computation yields none‥.
 		// ‥.as long as list is not empty‥.
 		for IsNone(result) && !tail.Empty() { // ‥.and results are none‥.
@@ -151,6 +176,7 @@ func Fold(
 			return NewList(init)
 		}
 	}
+
 	// result is not empty, list has further elements‥.
 	return NewList(result).Concat(Fold(tail, result, fold)).(ListVal)
 }
@@ -160,7 +186,7 @@ func Fold(
 func Filter(
 	con Sequential,
 	filter func(Functor) bool,
-) Applicative {
+) ListVal {
 	if con.Empty() {
 		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
@@ -184,12 +210,30 @@ func Filter(
 	return Fold(con, init, fold)
 }
 
+// predefined filter to strip all instances of none from a sequence
+func StripNone(seq Sequential) ListVal {
+	return Filter(seq, func(arg Functor) bool {
+		return IsNone(arg)
+	})
+}
+
+// predefined filter to strip all instances of partials from a sequence
+func StripPartial(seq Sequential) ListVal {
+	return Filter(seq, func(arg Functor) bool {
+		return IsPart(arg)
+	})
+}
+
+// reduce a list composition to its normalform (final resulting state, after
+// all elements & operations have been applyed)
+func Reduce(seq Sequential) ListVal { return StripNone(StripPartial(seq)) }
+
 /// PASS
 // continuation of elements matched by test
 func Pass(
 	con Sequential,
 	pass func(Functor) bool,
-) Applicative {
+) ListVal {
 	if con.Empty() {
 		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
@@ -216,9 +260,9 @@ func Pass(
 /// TAKE-N
 // take-n is a variation of fold that takes an initial continuation cuts and
 // returns it as continuation of vector instances of length n
-func TakeN(grp Sequential, n int) Sequential {
+func TakeN(grp Sequential, n int) ListVal {
 	if grp.Empty() {
-		return grp
+		return grp.(ListVal)
 	}
 	var (
 		vec   = NewVector()
@@ -284,10 +328,40 @@ func Split(
 	})
 }
 
-/// BIND
-//func Bind(
-//	seq Sequential,
-//	f func(...Functor) Functor,
-//	g func(...Functor) Functor,
-//) ListVal {
-//}
+//// BIND
+///
+// applys a sequence of arguments to f, and returns the sequence of results
+// from applying its results to g.  to deal with expressions that take a fixed,
+// or variadic number of arguments equal, or greater than zero, partial return
+// values will be stripped from temporary, as well as final results.  the
+// stripping is implemented as filter, which internaly folds, so that partial
+// result will be progressed by a for loop through all invocations neccesary to
+// yield either none, or some instance of the result type.
+//
+// EXAMPLE: the function 'ascending' takes a sequence of ascending elements
+// from a randomized initial list.  the number of arguments it needs to take in
+// order to return an ascending sequence and start the next one, varies from
+// list to list.  'ascending' needs to be called once per element in the
+// initial list and it needs to get the initial element returned from and
+// modified at the last call passed, together with the current element. in
+// order to extract the complete sequence of ascending subsequences from the
+// initial list.  if 'ascending' is the 'f' function in a bind composal, 'g' is
+// only supposed to be called once per return value of 'f', and not for every
+// temporal result returned by an partialy applyed 'f'.
+//
+// this works both ways of course, when 'f' returns multiple results per
+// element of the initial list, 'g' will be called and passed every single
+// return value once at a time.  that way bind can fan out, permutate over
+// products of sets, map/reduce‥.
+func Bind(
+	seq Sequential,
+	f func(...Functor) Functor,
+	g func(...Functor) Functor,
+) ListVal {
+	return StripPartial(Fold(StripPartial(Fold(
+		seq, NewVector(), func(init, head Functor) Functor {
+			return f(init, head)
+		})), NewVector(), func(init, head Functor) Functor {
+		return g(init, head)
+	}))
+}

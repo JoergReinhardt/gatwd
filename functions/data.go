@@ -145,7 +145,7 @@ func (n Atom) TypeNat() d.TyNat          { return n().Type() }
 func (n Atom) String() string            { return n().String() }
 func (n Atom) Call(...Functor) Functor   { return Box(n()) }
 func (n Atom) Type() Decl {
-	return Declare(Declare(Data, Constant), patternFromNative(n()))
+	return Declare(Declare(Data, Atomic), patternFromNative(n()))
 }
 
 // NATIVE SLICE VALUE

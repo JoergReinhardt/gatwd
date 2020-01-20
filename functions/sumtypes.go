@@ -284,12 +284,13 @@ func createFuncType(expr Functor, types ...d.Typed) Decl {
 			// create type identity from name
 			ident = DecSym(name)
 		}
+		types = types[1:]
 		// declare type identity and return type, optionaly declare
 		// argument type(s)
 		if len(types) > 1 {
-			types = append([]d.Typed{ident}, types[1:]...)
+			types = append([]d.Typed{ident}, types...)
 		} else {
-			types = append([]d.Typed{ident})
+			types = []d.Typed{ident}
 		}
 		return Declare(types...)
 
@@ -440,13 +441,13 @@ func (e Def) Type() Decl {
 }
 func (e Def) TypeFnc() TyFnc {
 	if e.ArgCount() > 0 {
-		return Partial | Value
+		return Partial | e.Unbox().TypeFnc()
 	}
-	return Value
+	return e.Unbox().TypeFnc()
 }
 func (e Def) TypeId() Decl     { return e.t().TypeId() }
 func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
 func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
 func (e Def) TypeName() string { return e.t().TypeName() }
 func (e Def) ArgCount() int    { return e.t().TypeArgs().Count() }
-func (e Def) String() string   { return e.Unbox().String() }
+func (e Def) String() string   { return e.t().String() }

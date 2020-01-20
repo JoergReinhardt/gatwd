@@ -35,11 +35,13 @@ func TestExpression(t *testing.T) {
 		addInts.Type(), addInts.TypeId(),
 		addInts.TypeArgs(), addInts.TypeRet())
 
-	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s\n",
+	fmt.Printf("addInts: %s argtype : %s identype: %s, retype: %s fnctype: %s\n",
 		addInts,
 		addInts.Type().TypeArgs(),
 		addInts.Type().TypeId(),
-		addInts.Type().TypeRet())
+		addInts.Type().TypeRet(),
+		addInts.Type().TypeFnc(),
+	)
 
 	var wrong = addInts.Call(Dat("string one"), Dat(true))
 	fmt.Printf("called with argument of wrong type: %s\n", wrong)

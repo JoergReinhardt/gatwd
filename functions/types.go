@@ -17,7 +17,8 @@ type (
 	// TYPE TAGS
 	TyExp func(...Functor) Functor
 	TySym string
-	TyAlt Decl
+	TyAll Decl
+	TyAny Decl
 	Decl  []d.Typed
 )
 
@@ -52,7 +53,7 @@ const (
 	None
 	Data
 	Value
-	Boxed
+	Just
 	Partial
 	Constant
 	Generator
@@ -108,7 +109,7 @@ const (
 	//// ATOMIC
 	Numbers = Natural | Integer | Real | Ratio
 	Symbols = Letter | String | Byte | Truth |
-		Comparator | Bound
+		Comparison | Bound
 
 	//// BOUNDS
 	///  argument values are restricted to bounds
@@ -116,16 +117,16 @@ const (
 
 	//// TRUTH & COMPARE
 	Truth      = True | False
-	Comparator = Lesser | Greater | Equal
+	Comparison = Lesser | Greater | Equal
 
 	//// PREDICATES
 	///  are true|false|(equal|undecided)
-	Predicate = Truth | Comparator
+	Predicate = Truth | Comparison
 
 	//// OPTIONALS
 	///  return values of a certain type may, or may not be returned
 	//   a value of alternative type, or nothing is returned instead
-	Option      = Boxed | None
+	Option      = Just | None
 	Alternative = Either | Or
 	Selection   = Option | Alternative | Choice
 
@@ -162,22 +163,28 @@ const (
 
 //// MATCHER
 func IsOf(typ d.Typed, arg Functor) bool { return arg.Type().Match(typ) }
-func IsNone(arg Functor) bool            { return arg.Type().Match(None) }
-func IsData(arg Functor) bool            { return arg.Type().Match(Data) }
-func IsCons(arg Functor) bool            { return arg.Type().Match(Constant) }
-func IsComp(arg Functor) bool            { return arg.Type().Match(Comparator) }
-func IsBound(arg Functor) bool           { return arg.Type().Match(Bound) }
-func IsTruth(arg Functor) bool           { return arg.Type().Match(Truth) }
-func IsEither(arg Functor) bool          { return arg.Type().Match(Either) }
-func IsOr(arg Functor) bool              { return arg.Type().Match(Or) }
-func IsVect(arg Functor) bool            { return arg.Type().Match(Vector) }
-func IsList(arg Functor) bool            { return arg.Type().Match(List) }
-func IsPair(arg Functor) bool            { return arg.Type().Match(Pair) }
-func IsType(arg Functor) bool            { return arg.Type().Match(Type) }
-func IsProdT(arg Functor) bool           { return arg.Type().Match(Products) }
-func IsContin(arg Functor) bool          { return arg.Type().Match(Continua) }
-func IsText(arg Functor) bool            { return arg.Type().Match(Symbols) }
-func IsNumber(arg Functor) bool          { return arg.Type().Match(Numbers) }
+
+//
+func IsNone(arg Functor) bool { return arg.Type().Match(None) }
+func IsAtom(arg Functor) bool { return arg.TypeFnc().Match(Atomic) }
+func IsPart(arg Functor) bool { return arg.TypeFnc().Match(Partial) }
+func IsData(arg Functor) bool { return arg.TypeFnc().Match(Data) }
+func IsCons(arg Functor) bool { return arg.TypeFnc().Match(Constant) }
+func IsComp(arg Functor) bool { return arg.TypeFnc().Match(Comparison) }
+func IsVect(arg Functor) bool { return arg.TypeFnc().Match(Vector) }
+func IsList(arg Functor) bool { return arg.TypeFnc().Match(List) }
+func IsPair(arg Functor) bool { return arg.TypeFnc().Match(Pair) }
+
+//
+func IsBound(arg Functor) bool  { return arg.Type().Match(Bound) }
+func IsTruth(arg Functor) bool  { return arg.Type().Match(Truth) }
+func IsEither(arg Functor) bool { return arg.Type().Match(Either) }
+func IsOr(arg Functor) bool     { return arg.Type().Match(Or) }
+func IsType(arg Functor) bool   { return arg.Type().Match(Type) }
+func IsProdT(arg Functor) bool  { return arg.Type().Match(Products) }
+func IsContin(arg Functor) bool { return arg.Type().Match(Continua) }
+func IsText(arg Functor) bool   { return arg.Type().Match(Symbols) }
+func IsNumber(arg Functor) bool { return arg.Type().Match(Numbers) }
 
 // helper functions, to convert between slices of data/typed & ty-pattern
 // instances
@@ -230,10 +237,6 @@ func (t TyFnc) TypeName() string {
 		switch t {
 		case T:
 			return "✱"
-		case Truth:
-			return "Truth"
-		case Comparator:
-			return "Compare"
 		case Predicate:
 			return "Praedicates"
 		case Bound:
@@ -351,16 +354,16 @@ func (n TySym) Match(typ d.Typed) bool {
 	return s.Compare(string(n), typ.TypeName()) == 0
 }
 
-//// SET OF ALTERNATIVE TYPES
+//// SET OF TYPES OF A SCALAR TYPE (TUPLE, RECORD‥.)
 ///
 // type flag representing pattern elements that define symbols
-func DecAlt(types ...d.Typed) TyAlt { return TyAlt(Declare(types...)) }
-func (n TyAlt) TypeFnc() TyFnc      { return Or }
-func (n TyAlt) Flag() d.BitFlag     { return Or.Flag() }
-func (n TyAlt) Type() Decl          { return Decl(n) }
-func (n TyAlt) Kind() d.Uint8Val    { return Kind_Opt.U() }
-func (n TyAlt) String() string      { return n.TypeName() }
-func (n TyAlt) TypeName() string {
+func DecScal(types ...d.Typed) TyAll { return TyAll(Declare(types...)) }
+func (n TyAll) TypeFnc() TyFnc       { return Or }
+func (n TyAll) Flag() d.BitFlag      { return Or.Flag() }
+func (n TyAll) Type() Decl           { return Decl(n) }
+func (n TyAll) Kind() d.Uint8Val     { return Kind_Opt.U() }
+func (n TyAll) String() string       { return n.TypeName() }
+func (n TyAll) TypeName() string {
 	var str string // = "["
 	for i, t := range n {
 		str = str + t.TypeName()
@@ -372,7 +375,7 @@ func (n TyAlt) TypeName() string {
 }
 
 // matches when any of its members matches the arguments type
-func (n TyAlt) Match(arg d.Typed) bool {
+func (n TyAll) Match(arg d.Typed) bool {
 	for _, typ := range n {
 		if typ.Match(arg) {
 			return true
@@ -384,13 +387,55 @@ func (n TyAlt) Match(arg d.Typed) bool {
 // call method lifts arguments types and applys them to match method one by
 // one.  returns true, if all passed arguements are in the set of optional
 // types.
-func (n TyAlt) Call(args ...Functor) Functor {
+func (n TyAll) Call(args ...Functor) Functor {
 	for _, arg := range args {
 		if !n.Match(arg.Type()) {
 			return Box(d.BoolVal(false))
 		}
 	}
 	return Box(d.BoolVal(true))
+}
+
+//// SET OF mutual exclusive OPTIONS
+///
+// type flag representing pattern elements that define symbols
+func DecSum(types ...d.Typed) TyAny { return TyAny(Declare(types...)) }
+func (n TyAny) TypeFnc() TyFnc      { return Or }
+func (n TyAny) Flag() d.BitFlag     { return Or.Flag() }
+func (n TyAny) Type() Decl          { return Decl(n) }
+func (n TyAny) Kind() d.Uint8Val    { return Kind_Opt.U() }
+func (n TyAny) String() string      { return n.TypeName() }
+func (n TyAny) TypeName() string {
+	var str string // = "["
+	for i, t := range n {
+		str = str + t.TypeName()
+		if i < len(n)-1 {
+			str = str + " "
+		}
+	}
+	return str //+ "]"
+}
+
+// matches when any of its members matches the arguments type
+func (n TyAny) Match(arg d.Typed) bool {
+	for _, typ := range n {
+		if typ.Match(arg) {
+			return true
+		}
+	}
+	return false
+}
+
+// call method lifts arguments types and applys them to match method one by
+// one.  returns true, if any of the passed arguements is in the set of
+// optional types.
+func (n TyAny) Call(args ...Functor) Functor {
+	for _, arg := range args {
+		if n.Match(arg.Type()) {
+			return Box(d.BoolVal(true))
+		}
+	}
+	return Box(d.BoolVal(false))
 }
 
 //// TYPE EXPRESSION
@@ -869,7 +914,7 @@ func (p Decl) IsTruth() bool {
 }
 func (p Decl) IsCompare() bool {
 	if p.Count() == 1 {
-		return p.Elements()[0].Match(Comparator)
+		return p.Elements()[0].Match(Comparison)
 	}
 	return false
 }
@@ -1001,7 +1046,7 @@ func (p Decl) HasEnum() bool        { return p.MatchAnyType(Enum) }
 func (p Decl) HasTuple() bool       { return p.MatchAnyType(Tuple) }
 func (p Decl) HasRecord() bool      { return p.MatchAnyType(Record) }
 func (p Decl) HasTruth() bool       { return p.MatchAnyType(Truth) }
-func (p Decl) HasCompare() bool     { return p.MatchAnyType(Comparator) }
+func (p Decl) HasCompare() bool     { return p.MatchAnyType(Comparison) }
 func (p Decl) HasBound() bool       { return p.MatchAnyType(Min, Max) }
 func (p Decl) HasMaybe() bool       { return p.MatchAnyType(Option) }
 func (p Decl) HasAlternative() bool { return p.MatchAnyType(Alternative) }
