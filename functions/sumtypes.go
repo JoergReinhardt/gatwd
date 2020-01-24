@@ -427,8 +427,14 @@ func Define(
 
 func (e Def) Call(args ...Functor) Functor { return e(args...) }
 
-func (e Def) Unbox() Functor { return e().(ValPair).Right() }
-func (e Def) t() Decl        { return e().(ValPair).Left().(Decl) }
+func (e Def) Unbox() Functor   { return e().(ValPair).Right() }
+func (e Def) t() Decl          { return e().(ValPair).Left().(Decl) }
+func (e Def) ArgCount() int    { return e.t().TypeArgs().Count() }
+func (e Def) String() string   { return e.t().String() }
+func (e Def) TypeId() Decl     { return e.t().TypeId() }
+func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
+func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
+func (e Def) TypeName() string { return e.t().TypeName() }
 func (e Def) Type() Decl {
 	if e.ArgCount() > 1 {
 		return Declare(
@@ -445,9 +451,3 @@ func (e Def) TypeFnc() TyFnc {
 	}
 	return e.Unbox().TypeFnc()
 }
-func (e Def) TypeId() Decl     { return e.t().TypeId() }
-func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
-func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
-func (e Def) TypeName() string { return e.t().TypeName() }
-func (e Def) ArgCount() int    { return e.t().TypeArgs().Count() }
-func (e Def) String() string   { return e.t().String() }

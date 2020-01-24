@@ -91,47 +91,13 @@ func Flatten(grp Sequential) ListVal {
 // when continuation is called pssing arguments those, are passed to apply
 // alongside the current element
 func Apply(
-	con Sequential,
+	seq Sequential,
 	apply func(Functor, ...Functor) Functor,
-) ListVal {
-
-	// return if list is depleted
-	if con.Empty() {
-		// preserve apply function in returned empty list
-		return ListVal(func(args ...Functor) (Functor, ListVal) {
-			if len(args) > 0 {
-				var head, tail = Apply(
-					NewList(args...), apply,
-				).Continue()
-				return head, tail.(ListVal)
-			}
-			return NewNone(), nil
+) Applicative {
+	return Map(seq, func(head Functor) Functor {
+		return Lambda(func(args ...Functor) Functor {
+			return apply(head, args...)
 		})
-	}
-
-	// compute continuation first, to yield current head
-	var head, tail = con.Continue()
-
-	// return next continuation
-	return ListVal(func(args ...Functor) (Functor, ListVal) {
-
-		// apply passed arguments and current head to apply function
-		if len(args) > 0 {
-			head, tail = apply(head, args...),
-				Apply(tail, apply)
-
-			// skip none instnaces
-			if IsNone(head) && !tail.Empty() {
-				return Apply(tail, apply)()
-			}
-
-		}
-		var head, tail = apply(head), Apply(tail, apply)
-		// skip none
-		if IsNone(head) && !tail.Empty() {
-			return Apply(tail, apply)()
-		}
-		return head, tail
 	})
 }
 
@@ -154,10 +120,12 @@ func Fold(
 
 	// return initial element wrapped in a list
 	if con.Empty() {
-		if init.TypeFnc().Match(List) {
-			return init.(ListVal)
-		}
-		return NewList(init)
+		return ListVal(func(args ...Functor) (Functor, ListVal) {
+			if len(args) > 0 {
+				return Fold(NewList(args...), init, fold)()
+			}
+			return NewNone(), nil
+		})
 	}
 	var ( // yield result of current step
 		head, tail = con.Continue()   // pop current head & list
@@ -171,14 +139,15 @@ func Fold(
 			head, tail = tail.Continue() // ‥.pop heads‥.
 			result = fold(init, head)    // ‥.and calculate results‥.
 		}
-		if IsNone(result) { // result still none →  tail depleted‥.
-			// cons accumulated result to empty tail
-			return NewList(init)
-		}
 	}
-
 	// result is not empty, list has further elements‥.
-	return NewList(result).Concat(Fold(tail, result, fold)).(ListVal)
+	// return NewList(result).Concat(Fold(tail, result, fold)).(ListVal)
+	return ListVal(func(args ...Functor) (Functor, ListVal) {
+		if len(args) > 0 {
+			return tail.Cons(head).(ListVal)(args...)
+		}
+		return result, Fold(tail, result, fold)
+	})
 }
 
 /// FILTER
@@ -190,10 +159,7 @@ func Filter(
 	if con.Empty() {
 		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
-				var head, tail = Pass(
-					NewList(args...), filter,
-				).Continue()
-				return head, tail.(ListVal)
+				return Filter(NewList(args...), filter)()
 			}
 			return NewNone(), nil
 		})
@@ -237,10 +203,7 @@ func Pass(
 	if con.Empty() {
 		return ListVal(func(args ...Functor) (Functor, ListVal) {
 			if len(args) > 0 {
-				var head, tail = Pass(
-					NewList(args...), pass,
-				).Continue()
-				return head, tail.(ListVal)
+				return Pass(NewList(args...), pass)()
 			}
 			return NewNone(), nil
 		})
@@ -365,3 +328,14 @@ func Bind(
 		return g(init, head)
 	}))
 }
+
+//func Sort(
+//	seq Sequential,
+//	comp Compare,
+//) ListVal {
+//	var (
+//		init      = NewVector()
+//		ascending = Define(func(init, arg Functor) Functor {
+//		}, DecSym("ascending"), Declare(Vector, T), T)
+//	)
+//}

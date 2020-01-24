@@ -308,7 +308,7 @@ func NewList(elems ...Functor) ListVal {
 				if len(args) > 1 {
 					return args[0], NewList(args[1:]...)
 				}
-				return args[0], NewList()
+				return args[0], nil
 			}
 			// return instance of none as head and a nil pointer as
 			// tail, if neither elements nor arguments where passed
@@ -338,7 +338,7 @@ func NewList(elems ...Functor) ListVal {
 			return elems[0], NewList(elems[1:]...)
 		}
 		// return last element and empty sequence
-		return elems[0], NewList()
+		return elems[0], nil
 
 	}
 }

@@ -18,6 +18,7 @@ type (
 	// TEST & COMPARE
 	Test    Def
 	Compare Def
+	Guarded Def
 
 	// BOOL OPERATORS
 	NOT Def
@@ -137,29 +138,23 @@ func (t Compare) Call(args ...Functor) Functor { return t(args...) }
 func (t Compare) Compare(a, b Functor) int {
 	return int(t.Unbox().Call(a, b).(Atom)().(d.IntVal))
 }
-func (t Compare) Equal() Def {
-	return Define(Lambda(func(args ...Functor) Functor {
-		return Bool(t.Call(args...).(Atom)().(d.IntVal) == 0)
-	}), Equal, Truth, t.TypeArgs())
+func (t Compare) Equal(a, b Functor) bool {
+	return t.Compare(a, b) == 0
 }
-func (t Compare) Lesser() Def {
-	return Define(Lambda(func(args ...Functor) Functor {
-		return Bool(t.Call(args...).(Atom)().(d.IntVal) < 0)
-	}), Lesser, Truth, t.TypeArgs())
+func (t Compare) Lesser(a, b Functor) bool {
+	return t.Compare(a, b) < 0
 }
-func (t Compare) Greater() Def {
-	return Define(Lambda(func(args ...Functor) Functor {
-		return Bool(t.Call(args...).(Atom)().(d.IntVal) > 0)
-	}), Greater, Truth, t.TypeArgs())
+func (t Compare) Greater(a, b Functor) bool {
+	return t.Compare(a, b) > 0
 }
 
 //// MAYBE VALUE
 ///
-// Definitions may have an implicit return type T|⊥  when there is a case where
-// the passed arguments do not match the declared argument types.  the maybe
-// constructor boxes definitions by redefining them with a return type
-// expressing that optionality (maybe → T|⊥) of the return type explicitly by
-// returning a boxed value with return type 'Just T|⊥' as declared result type.
+// Definitions may have an implicit return type T|⊥  whenever the passed
+// arguments do not match the declared argument types.  the maybe constructor
+// boxes definitions by redefining them with a return type expressing that
+// optionality (maybe → T|⊥) of the return type explicitly by returning a boxed
+// value with return type 'Just T|⊥' as declared result type.
 func NewMaybe(expr Def) Maybe {
 
 	return Maybe(Define(Lambda(func(args ...Functor) Functor {
@@ -187,6 +182,76 @@ func (t Maybe) TypeRet() Decl                { return Def(t).TypeRet() }
 func (t Maybe) Type() Decl                   { return Def(t).Type() }
 func (t Maybe) TypeFnc() TyFnc               { return Option }
 
+// defines a maybe based on a guarding test, that scrutinizes the arguments
+// before they are applyed.
+func NewGuarded(def Def, guard func(...Functor) bool) Maybe {
+	return NewMaybe(Define(Lambda(func(args ...Functor) Functor {
+		if guard(args...) {
+			return def.Call(args...)
+		}
+		return NewNone()
+	}), def.TypeId(), def.TypeRet(), def.TypeArgs()))
+}
+
+// new switch takes a sequence of functors expected to return either a
+// resulting instance of some type, or none, if the argument types don't match
+// the function definition, argument values failed to be scrutinized by the
+// guarding function, etc‥.
+func NewSwitch(cases ...Functor) Switch { return Switch(NewList(cases...)) }
+
+// switches call method folds its sequence of cases over a function applying
+// the arguments passed to call on to each element of the sequence until a none
+// value is yielded.  first none value encountered by switch will be returned
+// as final and only result of switch evaluation.
+func (s Switch) Call(args ...Functor) Functor {
+	var head, _ = Fold(
+		ListVal(s), NewNone(), func(init, head Functor) Functor {
+			return head.Call(args...)
+		}).Continue()
+	return head
+}
+func (s Switch) Cons(arg Functor) Applicative { return ListVal(s).Cons(arg) }
+func (s Switch) Continue() (Functor, Applicative) {
+	var head, tail = ListVal(s)()
+	return head, Switch(tail)
+}
+func (s Switch) Empty() bool    { return ListVal(s).Empty() }
+func (s Switch) TypeFnc() TyFnc { return Choice }
+func (s Switch) TypeElem() Decl { return ListVal(s).TypeElem() }
+func (s Switch) Type() Decl {
+	var (
+		head, tail = ListVal(s)()
+		types      = []d.Typed{}
+	)
+	for !tail.Empty() {
+		types = append(types, head.Type())
+		head, tail = tail()
+	}
+	return Declare(Choice, DecAny(types...))
+}
+func (s Switch) Head() Functor {
+	var head, _ = s.Continue()
+	return head
+}
+func (s Switch) Tail() Applicative {
+	var _, tail = s.Continue()
+	return tail
+}
+func (s Switch) Concat(seq Sequential) Applicative {
+	return ListVal(s).Concat(seq)
+}
+func (s Switch) String() string {
+	var (
+		str        = "case x\n"
+		head, tail = s()
+	)
+	for !tail.Empty() {
+		str = str + "| " + head.String() + "\n"
+		head, tail = tail()
+	}
+	return str
+}
+
 /// SWITCH
 //
 // switch takes a slice of cases and evaluates them against its arguments to
@@ -209,6 +274,7 @@ func (t Maybe) TypeFnc() TyFnc               { return Option }
 //	)
 //	return func(args ...Functor) (Functor, []Def) {
 //		if len(args) > 0 {
+//
 //			if remains != nil {
 //				current = remains[0]
 //				if len(remains) > 1 {
