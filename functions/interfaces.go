@@ -90,6 +90,17 @@ type Functor interface {
 	Type() Decl
 }
 
+/// SEQUENTIAL
+type Sequential interface {
+	Functor // → Call(...Expression) Functor.(Continuation)
+	Continue() (Functor, Applicative)
+	Concat(Sequential) Applicative
+	Head() Functor
+	Tail() Applicative
+	Empty() bool
+	TypeElem() Decl
+}
+
 /// APPLICATIVE (FUNCTOR)
 // applicative functors are defined by a method that takes its argument, boxes,
 // encloses, manipulates, or useses it in a computation, to return a new
@@ -102,17 +113,6 @@ type Applicative interface {
 type Monoid interface {
 	Applicative
 	Bind(f, g Functor) Monadic
-}
-
-/// SEQUENTIAL
-type Sequential interface {
-	Functor // → Call(...Expression) Functor.(Continuation)
-	Continue() (Functor, Applicative)
-	Concat(Sequential) Applicative
-	Head() Functor
-	Tail() Applicative
-	Empty() bool
-	TypeElem() Decl
 }
 
 type Ascending interface {

@@ -14,9 +14,9 @@ type (
 	///
 	// BOOL VALUE TYPE
 	Bool      bool
-	BoolUnOp  func(Bool) Bool
-	BoolBinOp func(a, b Bool) Bool
-	Bools     d.BitFlag
+	BoolOp    Def
+	Bitwise   d.BitFlag
+	BitwiseOp Def
 
 	// TEST & COMPARE
 	Test    Def
@@ -37,28 +37,57 @@ func (b Bool) TypeFnc() TyFnc {
 	}
 	return False
 }
-func (b Bool) Type() Decl {
-	return Declare(b.TypeFnc())
-}
-func (b Bool) Or(x Bool) Bool  { return b || x }
-func (b Bool) Xor(x Bool) Bool { return b != x }
-func (b Bool) And(x Bool) Bool { return b && x }
-func (b Bool) Not() Bool       { return !b }
-func (b Bool) Call(...Functor) Functor {
-	return Box(d.BoolVal(b))
-}
+func (b Bool) Type() Decl                   { return Declare(b.TypeFnc()) }
+func (b Bool) Or(x Bool) Bool               { return b || x }
+func (b Bool) Xor(x Bool) Bool              { return b != x }
+func (b Bool) And(x Bool) Bool              { return b && x }
+func (b Bool) Not() Bool                    { return !b }
+func (b Bool) Call(args ...Functor) Functor { return b.Call(args...) }
 func (b Bool) String() string {
 	if b {
 		return "True"
 	}
 	return "False"
 }
+func (b Bool) Continue() (Functor, Applicative) { return b, NewNone() }
+func (b Bool) Concat(seq Sequential) Applicative {
+	if seq.TypeElem().Match(Truth) {
+		return NewList(b).Concat(seq)
+	}
+	if seq.TypeElem().Match(Truth) {
+		if b {
+			return NewList(Bitwise(0)).Concat(seq)
+		}
+		return NewList(Bitwise(1)).Concat(seq)
+	}
+	return NewNone()
+}
+
+func (b Bitwise) String() string               { return d.BitFlag(b).String() }
+func (b Bitwise) TypeFnc() TyFnc               { return Truth | Byte }
+func (b Bitwise) Type() Decl                   { return Declare(Truth, Byte) }
+func (b Bitwise) Match(t d.Typed) bool         { return d.BitFlag(b).Match(t) }
+func (b Bitwise) InSet(bit Bitwise) bool       { return d.BitFlag(b).Match(d.BitFlag(bit)) }
+func (b Bitwise) Uint() d.UintVal              { return d.BitFlag(b).Uint() }
+func (b Bitwise) Not() Bitwise                 { return Bitwise(b.Uint() ^ T.Uint()) }
+func (b Bitwise) And(x Bitwise) Bitwise        { return Bitwise(b.Uint() & x.Uint()) }
+func (b Bitwise) Or(x Bitwise) Bitwise         { return Bitwise(b.Uint() | x.Uint()) }
+func (b Bitwise) Xor(x Bitwise) Bitwise        { return Bitwise(b.Uint() ^ x.Uint()) }
+func (b Bitwise) Call(args ...Functor) Functor { return b }
 
 var (
-	OR  = BoolBinOp(func(x, y Bool) Bool { return x || y })
-	XOR = BoolBinOp(func(x, y Bool) Bool { return x != y })
-	AND = BoolBinOp(func(x, y Bool) Bool { return x && y })
-	NOT = BoolUnOp(func(x Bool) Bool { return !x })
+	OR = Define(Lambda(func(args ...Functor) Functor {
+		return Bool(args[0].(Bool) || args[1].(Bool))
+	}), Truth, Truth, DecAll(Truth, Truth))
+	XOR = Define(Lambda(func(args ...Functor) Functor {
+		return Bool(args[0].(Bool) != args[1].(Bool))
+	}), Truth, Truth, DecAll(Truth, Truth))
+	AND = Define(Lambda(func(args ...Functor) Functor {
+		return Bool(args[0].(Bool) && args[1].(Bool))
+	}), Truth, Truth, DecAll(Truth, Truth))
+	NOT = Define(Lambda(func(args ...Functor) Functor {
+		return Bool(!args[0].(Bool))
+	}), Truth, Truth, Truth)
 )
 
 //// TEST

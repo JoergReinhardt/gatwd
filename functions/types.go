@@ -61,6 +61,7 @@ const (
 	Constructor
 	/// PARAMETER
 	Parameter
+	Operation
 	Property
 	Lexical
 	Symbol
