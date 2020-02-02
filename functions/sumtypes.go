@@ -456,25 +456,19 @@ func (e Def) TypeFnc() TyFnc {
 // those arguments, in case they match the signature, or none, in case they
 // dont, or an instance of a partialy applied expression, in case an
 // insufficient number of matching arguments has been passed.
-func DefineTuple(types ...d.Typed) TupDef {
-	var sym d.Typed
-	if len(types) > 0 {
-		if Kind_Symb.Match(types[0].Kind()) {
-			sym = types[0].(TySym)
-			if len(types) > 1 {
-				types = types[1:]
-			} else {
-				types = types[:0]
-			}
-		} else {
-			sym = Tuple
+func DefTuple(types ...d.Typed) TupDef {
+	var argtypes = make([]Functor, 0, len(types))
+	for _, t := range types {
+		if Kind_Nat.Match(t.Kind()) {
+			argtypes = append(argtypes, Declare(t))
 		}
+		argtypes = append(argtypes, t.(Functor))
 	}
-	// tuple constructor with argument types & return type composition
 	return TupDef(Define(Lambda(func(args ...Functor) Functor {
-		// tuple constant instance with identity and return type
-		return Define(NewVector(args...), sym, DecAll(types...))
-	}), sym, Declare(sym, DecAll(types...)), DecAll(types...)))
+		return NewVector(args...)
+	}),
+		Tuple, Declare(Tuple, DecAll(types...)),
+		Declare(types...)))
 }
 func (t TupDef) Unbox() Functor               { return Def(t).Unbox() }
 func (t TupDef) Vector() VecVal               { return t.Unbox().(VecVal) }

@@ -140,14 +140,42 @@ func TestExpression(t *testing.T) {
 	}
 }
 func TestTuple(t *testing.T) {
-	var tup = DefineTuple(DecSym("Int Uint Float"), Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
+	var tup = DefTuple(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
 	fmt.Printf("tuple constructor: %s\n", tup)
 
 	var app = tup.Call(Dat(1), Dat(uint(1)), Dat(0.1))
 	fmt.Printf("applied tuple: %s\n", app)
+	var vec = app.(VecVal)()
+	if vec[0].(Atom)().(d.IntVal) != 1 &&
+		vec[0].(Atom)().(d.UintVal) != 1 &&
+		vec[0].(Atom)().(d.FltVal) != 0.1 {
+		t.Fail()
+	}
 
-	var dec = DecAll(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
-	fmt.Printf("declare all matches argument types: %s\n", dec.Call(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type()))
+	app = tup.Call(Dat(1))
+	fmt.Printf("partialy applied to tuple: %s\n", app)
+	if !app.TypeFnc().Match(Partial) {
+		t.Fail()
+	}
+
+	app = app.Call(Dat(uint(1)))
+	fmt.Printf("partialy applied to tuple: %s\n", app)
+	if !app.TypeFnc().Match(Partial) {
+		t.Fail()
+	}
+
+	app = app.Call(Dat(1.1))
+	fmt.Printf("partialy applied to tuple: %s\n", app)
+	if !app.TypeFnc().Match(Vector) {
+		t.Fail()
+	}
+
+	app = tup.Call(Dat(1.1), Dat(true), Dat("string"))
+	fmt.Printf("wrong args applied to tuple: %s\n", app)
+	if !app.TypeFnc().Match(None) {
+		t.Fail()
+	}
+
 }
 func TestRecord(t *testing.T) {
 }
