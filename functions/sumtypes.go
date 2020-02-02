@@ -62,6 +62,12 @@ type (
 
 	//// TYPE SAFE FUNCTION DEFINITION (SIGNATURE TYPE)
 	Def func(...Functor) Functor
+
+	//// TUPLE TYPE CONSTRUCTOR
+	TupDef Def
+
+	//// RECORD TYPE CONSTRUCTOR
+	RecDef Def
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -324,8 +330,8 @@ func Define(
 	// create the function type definition and take the number of expexted
 	// arguments
 	var (
-		ft     = createFuncType(expr, types...)
-		arglen = ft.TypeArgs().Len()
+		sig    = createFuncType(expr, types...)
+		arglen = sig.TypeArgs().Len()
 	)
 
 	// return partialy applable function
@@ -337,11 +343,11 @@ func Define(
 		/////////////////////////
 		// NO ARGUMENTS PASSED →
 		if length == 0 {
-			return NewPair(ft, expr)
+			return NewPair(sig, expr)
 		}
 
 		// test if arguments passed match argument types
-		if ft.TypeArgs().MatchArgs(args...) {
+		if sig.TypeArgs().MatchArgs(args...) {
 
 			// switch based on number of passed arguments relative
 			// to number of arguments expected by the type
@@ -361,10 +367,9 @@ func Define(
 				// safe types of arguments remaining to be
 				// filled
 				var (
-					remains = ft.TypeArgs().Types()[length:]
-					newpat  = Declare(Declare(Partial, ft.TypeId()),
-						ft.TypeRet(),
-						Declare(remains...))
+					remains = sig.TypeArgs().Types()[length:]
+					sigpart = Declare(Declare(Partial, sig.TypeId()),
+						sig.TypeRet(), Declare(remains...))
 				)
 
 				// define partial function from remaining set
@@ -383,8 +388,8 @@ func Define(
 					}
 					// if no arguments where passed, return
 					// the redefined partial type
-					return newpat
-				}), newpat.Types()...)
+					return sigpart
+				}), sigpart.Types()...)
 
 			//////////////////////////////////////////////
 			// NUMBER OF PASSED ARGUMENTS OVERSATURATED →
@@ -411,7 +416,7 @@ func Define(
 					// add a partial expression as vectors
 					// last element
 					vector = vector.Cons(Define(
-						expr, ft.Types()...,
+						expr, sig.Types()...,
 					).Call(args...)).(VecVal)
 				}
 
@@ -427,27 +432,60 @@ func Define(
 
 func (e Def) Call(args ...Functor) Functor { return e(args...) }
 
-func (e Def) Unbox() Functor   { return e().(ValPair).Right() }
 func (e Def) t() Decl          { return e().(ValPair).Left().(Decl) }
-func (e Def) ArgCount() int    { return e.t().TypeArgs().Count() }
-func (e Def) String() string   { return e.t().String() }
+func (e Def) Unbox() Functor   { return e().(ValPair).Right() }
 func (e Def) TypeId() Decl     { return e.t().TypeId() }
-func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
 func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
+func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
 func (e Def) TypeName() string { return e.t().TypeName() }
-func (e Def) Type() Decl {
-	if e.ArgCount() > 1 {
-		return Declare(
-			Alternative, Declare(
-				e().(ValPair).Left().(Decl),
-				Partial,
-			))
-	}
-	return e().(ValPair).Left().(Decl)
-}
+func (e Def) String() string   { return e.Unbox().String() }
+func (e Def) Len() int         { return e.t().TypeArgs().Count() }
+func (e Def) Type() Decl       { return e.t() }
 func (e Def) TypeFnc() TyFnc {
-	if e.ArgCount() > 0 {
+	if e.Len() > 0 {
 		return Partial | e.Unbox().TypeFnc()
 	}
 	return e.Unbox().TypeFnc()
+}
+
+//// DEFINE TUPLE TYPE CONSTRUCTOR
+///
+// defines a constructor to take arguments matching the tuple signature and
+// return an instanciated tuple constant in accordance with the definition.
+// the tuple value is an instance of an alias type of vector, created from
+// those arguments, in case they match the signature, or none, in case they
+// dont, or an instance of a partialy applied expression, in case an
+// insufficient number of matching arguments has been passed.
+func DefineTuple(types ...d.Typed) TupDef {
+	var sym d.Typed
+	if len(types) > 0 {
+		if Kind_Symb.Match(types[0].Kind()) {
+			sym = types[0].(TySym)
+			if len(types) > 1 {
+				types = types[1:]
+			} else {
+				types = types[:0]
+			}
+		} else {
+			sym = Tuple
+		}
+	}
+	// tuple constructor with argument types & composed return type
+	return TupDef(Define(Lambda(func(args ...Functor) Functor {
+		// tuple constant with an identity and return type
+		return Define(NewVector(args...), sym, DecAll(types...))
+	}), sym, DecAll(types...), Declare(sym, DecAll(types...))))
+}
+func (t TupDef) Vector() VecVal { return t.Unbox().(VecVal) }
+func (t TupDef) Unbox() Functor { return Def(t).Unbox() }
+func (t TupDef) TypeId() Decl   { return Def(t).TypeId() }
+func (t TupDef) TypeRet() Decl  { return Def(t).TypeRet() }
+func (t TupDef) TypeArgs() Decl { return Def(t).TypeArgs() }
+func (t TupDef) TypeFnc() TyFnc { return Def(t).TypeFnc() }
+func (t TupDef) String() string { return t.TypeName() }
+func (t TupDef) TypeName() string {
+	return t.TypeArgs().TypeName() + " → " +
+		t.TypeId().TypeName() + " → " +
+		t.TypeRet().TypeName()
+
 }

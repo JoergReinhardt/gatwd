@@ -52,8 +52,8 @@ const (
 	/// EXPRESSION TYPES
 	None
 	Data
-	Value
 	Just
+	Value
 	Partial
 	Constant
 	Generator
@@ -165,15 +165,15 @@ const (
 func IsOf(typ d.Typed, arg Functor) bool { return arg.Type().Match(typ) }
 
 //
-func IsNone(arg Functor) bool { return arg.Type().Match(None) }
-func IsAtom(arg Functor) bool { return arg.TypeFnc().Match(Atomic) }
-func IsPart(arg Functor) bool { return arg.TypeFnc().Match(Partial) }
-func IsData(arg Functor) bool { return arg.TypeFnc().Match(Data) }
-func IsCons(arg Functor) bool { return arg.TypeFnc().Match(Constant) }
-func IsComp(arg Functor) bool { return arg.TypeFnc().Match(Comparison) }
-func IsVect(arg Functor) bool { return arg.TypeFnc().Match(Vector) }
-func IsList(arg Functor) bool { return arg.TypeFnc().Match(List) }
-func IsPair(arg Functor) bool { return arg.TypeFnc().Match(Pair) }
+func IsNone(arg Functor) bool    { return arg.Type().Match(None) }
+func IsAtom(arg Functor) bool    { return arg.TypeFnc().Match(Atomic) }
+func IsPartial(arg Functor) bool { return arg.TypeFnc().Match(Partial) }
+func IsData(arg Functor) bool    { return arg.TypeFnc().Match(Data) }
+func IsCons(arg Functor) bool    { return arg.TypeFnc().Match(Constant) }
+func IsComp(arg Functor) bool    { return arg.TypeFnc().Match(Comparison) }
+func IsVect(arg Functor) bool    { return arg.TypeFnc().Match(Vector) }
+func IsList(arg Functor) bool    { return arg.TypeFnc().Match(List) }
+func IsPair(arg Functor) bool    { return arg.TypeFnc().Match(Pair) }
 
 //
 func IsBound(arg Functor) bool  { return arg.Type().Match(Bound) }
@@ -361,17 +361,19 @@ func DecAll(types ...d.Typed) TyAll { return TyAll(Declare(types...)) }
 func (n TyAll) TypeFnc() TyFnc      { return Or }
 func (n TyAll) Flag() d.BitFlag     { return Or.Flag() }
 func (n TyAll) Type() Decl          { return Decl(n) }
+func (n TyAll) Elements() []d.Typed { return Decl(n).Elements() }
+func (n TyAll) Len() int            { return len(Decl(n).Elements()) }
 func (n TyAll) Kind() d.Uint8Val    { return Kind_Opt.U() }
 func (n TyAll) String() string      { return n.TypeName() }
 func (n TyAll) TypeName() string {
-	var str string // = "["
+	var str string = "("
 	for i, t := range n {
 		str = str + t.TypeName()
 		if i < len(n)-1 {
-			str = str + "|"
+			str = str + " "
 		}
 	}
-	return str //+ "]"
+	return str + "("
 }
 
 // matches when any of its members matches the arguments type
@@ -403,17 +405,19 @@ func DecAny(types ...d.Typed) TyAny { return TyAny(Declare(types...)) }
 func (n TyAny) TypeFnc() TyFnc      { return Or }
 func (n TyAny) Flag() d.BitFlag     { return Or.Flag() }
 func (n TyAny) Type() Decl          { return Decl(n) }
+func (n TyAny) Elements() []d.Typed { return Decl(n).Elements() }
+func (n TyAny) Len() int            { return len(Decl(n).Elements()) }
 func (n TyAny) Kind() d.Uint8Val    { return Kind_Opt.U() }
 func (n TyAny) String() string      { return n.TypeName() }
 func (n TyAny) TypeName() string {
-	var str string = "("
+	var str string = "["
 	for i, t := range n {
 		str = str + t.TypeName()
 		if i < len(n)-1 {
-			str = str + " "
+			str = str + "|"
 		}
 	}
-	return str + ")"
+	return str + "]"
 }
 
 // matches when any of its members matches the arguments type

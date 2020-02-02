@@ -26,14 +26,8 @@ type (
 	XOR Def
 	OR  Def
 
-	// MAYBE (JUST | NONE)
-	Maybe Def
-
-	// CASE & SWITCH
-	Switch ListVal
-
-	// ALTERNATETIVES TYPE (EITHER | OR)
-	EitherOr Switch
+	// POLYMORPHIC DEFINITION
+	PolyDef Def
 )
 
 //// TRUTH VALUE
@@ -118,12 +112,12 @@ func NewComparator(
 				Declare(argtype, argtype))
 		}
 		if comp(args[0], args[1]) < 0 {
-			return Declare(Lesser)
+			return Lesser
 		}
 		if comp(args[0], args[1]) > 0 {
-			return Declare(Greater)
+			return Greater
 		}
-		return Declare(Equal)
+		return Equal
 	}), DecSym("Compare"),
 		Declare(Lesser|Greater|Equal),
 		Declare(argtype, argtype)))
@@ -135,197 +129,97 @@ func (t Compare) TypeArgs() Decl               { return Def(t).TypeArgs() }
 func (t Compare) String() string               { return Def(t).TypeName() }
 func (t Compare) TypeFnc() TyFnc               { return Comparison }
 func (t Compare) Call(args ...Functor) Functor { return t(args...) }
-func (t Compare) Compare(a, b Functor) int {
-	return int(t.Unbox().Call(a, b).(Atom)().(d.IntVal))
-}
-func (t Compare) Equal(a, b Functor) bool {
-	return t.Compare(a, b) == 0
-}
-func (t Compare) Lesser(a, b Functor) bool {
-	return t.Compare(a, b) < 0
-}
-func (t Compare) Greater(a, b Functor) bool {
-	return t.Compare(a, b) > 0
-}
+func (t Compare) Compare(a, b Functor) TyFnc   { return Def(t).Call(a, b).(TyFnc) }
+func (t Compare) Equal(a, b Functor) bool      { return t.Compare(a, b).Match(Equal) }
+func (t Compare) Lesser(a, b Functor) bool     { return t.Compare(a, b).Match(Lesser) }
+func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Greater) }
 
-//// MAYBE VALUE
+//// DEFINE PARAMETRIC FUNCTION
 ///
-// Definitions may have an implicit return type T|⊥  whenever the passed
-// arguments do not match the declared argument types.  the maybe constructor
-// boxes definitions by redefining them with a return type expressing that
-// optionality (maybe → T|⊥) of the return type explicitly by returning a boxed
-// value with return type 'Just T|⊥' as declared result type.
-func NewMaybe(expr Def) Maybe {
+// a parametric definition is a vector of function definitions sharing a common
+// symbol.  when called with arguments, they will be folded over every
+// definition in that vector to return return none, or either an instance, of a
+// partial, or final value.  as long as the fold operation continues to return
+// instances of partial value, without returning a final value, another
+// parametric definition will be returned, defined by all remaining partial
+// instances, to be applied to succeeding arguments recursively.
+func DefinePolymorph(defs []Def, symbols ...d.Typed) PolyDef {
 
-	return Maybe(Define(Lambda(func(args ...Functor) Functor {
-		if len(args) > 0 {
-			var result = expr.Call(args...)
-			if result.Type().Match(None) {
-				return result
+	var (
+		parms = NewVector()
+		ats   = make([]d.Typed, 0, len(defs))
+		rts   = make([]d.Typed, 0, len(defs))
+		name  string
+	)
+
+	for n, def := range defs {
+		parms = parms.ConsVec(def)
+		ats = append(ats, def.TypeArgs())
+		rts = append(ats, def.TypeRet())
+		name = name + def.TypeId().TypeName()
+		if n < len(defs)-1 {
+			name = name + "|"
+		}
+	}
+
+	if len(symbols) > 0 {
+		for n, t := range symbols {
+			name = name + t.TypeName()
+			if n < len(symbols)-1 {
+				name = name + "|"
 			}
-			return Define(result,
-				Declare(Just, result.Type().TypeRet()),
-				result.Type().TypeRet(), expr.Type().TypeArgs())
 		}
-		return expr
-	}),
-		Declare(DecSym("Maybe"), expr.Type()),
-		Declare(Option, Declare(Just, expr.TypeRet()), None),
-		expr.TypeArgs()))
-}
-
-func (t Maybe) Call(args ...Functor) Functor { return t(args...) }
-func (t Maybe) Unbox() Functor               { return Def(t).Unbox() }
-func (t Maybe) String() string               { return Def(t).String() }
-func (t Maybe) TypeArgs() Decl               { return Def(t).TypeArgs() }
-func (t Maybe) TypeRet() Decl                { return Def(t).TypeRet() }
-func (t Maybe) Type() Decl                   { return Def(t).Type() }
-func (t Maybe) TypeFnc() TyFnc               { return Option }
-
-// defines a maybe based on a guarding test, that scrutinizes the arguments
-// before they are applyed.
-func NewGuarded(def Def, guard func(...Functor) bool) Maybe {
-	return NewMaybe(Define(Lambda(func(args ...Functor) Functor {
-		if guard(args...) {
-			return def.Call(args...)
-		}
-		return NewNone()
-	}), def.TypeId(), def.TypeRet(), def.TypeArgs()))
-}
-
-// new switch takes a sequence of functors expected to return either a
-// resulting instance of some type, or none, if the argument types don't match
-// the function definition, argument values failed to be scrutinized by the
-// guarding function, etc‥.
-func NewSwitch(cases ...Functor) Switch { return Switch(NewList(cases...)) }
-
-// switches call method folds its sequence of cases over a function applying
-// the arguments passed to call on to each element of the sequence until a none
-// value is yielded.  first none value encountered by switch will be returned
-// as final and only result of switch evaluation.
-func (s Switch) Call(args ...Functor) Functor {
-	var head, _ = Fold(
-		ListVal(s), NewNone(), func(init, head Functor) Functor {
-			return head.Call(args...)
-		}).Continue()
-	return head
-}
-func (s Switch) Cons(arg Functor) Applicative { return ListVal(s).Cons(arg) }
-func (s Switch) Continue() (Functor, Applicative) {
-	var head, tail = ListVal(s)()
-	return head, Switch(tail)
-}
-func (s Switch) Empty() bool    { return ListVal(s).Empty() }
-func (s Switch) TypeFnc() TyFnc { return Choice }
-func (s Switch) TypeElem() Decl { return ListVal(s).TypeElem() }
-func (s Switch) Type() Decl {
-	var (
-		head, tail = ListVal(s)()
-		types      = []d.Typed{}
-	)
-	for !tail.Empty() {
-		types = append(types, head.Type())
-		head, tail = tail()
 	}
-	return Declare(Choice, DecAny(types...))
+
+	return PolyDef(Define(parms, DecSym(name),
+		DecAny(ats...), DecAny(rts...)))
 }
-func (s Switch) Head() Functor {
-	var head, _ = s.Continue()
-	return head
-}
-func (s Switch) Tail() Applicative {
-	var _, tail = s.Continue()
-	return tail
-}
-func (s Switch) Concat(seq Sequential) Applicative {
-	return ListVal(s).Concat(seq)
-}
-func (s Switch) String() string {
-	var (
-		str        = "case x\n"
-		head, tail = s()
-	)
-	for !tail.Empty() {
-		str = str + "| " + head.String() + "\n"
-		head, tail = tail()
+func (p PolyDef) Vector() VecVal { return p.Unbox().(VecVal) }
+func (p PolyDef) Unbox() Functor { return Def(p).Unbox() }
+func (p PolyDef) Type() Decl     { return Def(p).Type() }
+func (p PolyDef) TypeId() Decl   { return Def(p).TypeId() }
+func (p PolyDef) TypeRet() Decl  { return Def(p).TypeRet() }
+func (p PolyDef) TypeArgs() Decl { return Def(p).TypeArgs() }
+func (p PolyDef) String() string { return Def(p).TypeName() }
+func (p PolyDef) TypeFnc() TyFnc {
+	if IsPartial(p.Vector().Head()) {
+		return Partial | Polymorph
 	}
+	return Polymorph
+}
+func (p PolyDef) TypeName() string {
+	//var str = "case x in\n"
+	var str = p.TypeId().TypeName() + " ∷\n"
+
+	for _, f := range p.Vector()() {
+		var def = f.(Def)
+		str = str + "\t" + def.TypeArgs().TypeName() +
+			" ＝ " + def.TypeId().TypeName() +
+			" → " + def.TypeRet().TypeName() + "\n"
+	}
+
 	return str
 }
+func (p PolyDef) Call(args ...Functor) Functor {
 
-/// SWITCH
-//
-// switch takes a slice of cases and evaluates them against its arguments to
-// yield either a none value, or the result of the case application and a
-// switch enclosing the remaining cases.  id all cases are depleted, a none
-// instance will be returned as result and nil will be yielded instead of the
-// switch value
-//
-// when called, a switch evaluates all it's cases until it yields either
-// results from applying the first case that matched the arguments, or none.
-//func NewSwitch(cases ...Def) Switch {
-//	var types = make([]d.Typed, 0, len(cases))
-//	for _, c := range cases {
-//		types = append(types, c.Type())
-//	}
-//	var (
-//		current Def
-//		remains = cases
-//		pattern = Declare(Choice, Declare(types...))
-//	)
-//	return func(args ...Functor) (Functor, []Def) {
-//		if len(args) > 0 {
-//
-//			if remains != nil {
-//				current = remains[0]
-//				if len(remains) > 1 {
-//					remains = remains[1:]
-//				} else {
-//					remains = remains[:0]
-//				}
-//				var result = current(args...)
-//				if result.Type().Match(None) {
-//					return result, remains
-//				}
-//				remains = cases
-//				return result, cases
-//			}
-//			remains = cases
-//			return NewNone(), cases
-//		}
-//		return pattern, cases
-//	}
-//}
-//func (t Switch) Cases() []Def {
-//	var _, cases = t()
-//	return cases
-//}
-//func (t Switch) Type() Decl {
-//	var pat, _ = t()
-//	return pat.(Decl)
-//}
-//func (t Switch) String() string {
-//	return t.Type().TypeName()
-//}
-//func (t Switch) TypeFnc() TyFnc {
-//	return Choice
-//}
-//func (t Switch) Call(args ...Functor) Functor {
-//	var (
-//		cases   = t.Cases()
-//		current Def
-//		result  Functor
-//	)
-//	for len(cases) > 0 {
-//		current = cases[0]
-//		if len(cases) > 1 {
-//			cases = cases[1:]
-//		} else {
-//			cases = cases[:0]
-//		}
-//		result = current(args...)
-//		if !result.TypeFnc().Match(None) {
-//			return result
-//		}
-//	}
-//	return NewNone()
-//}
+	var partials = []Def{}
+
+	for _, def := range p.Vector()() {
+		var result = def.Call(args...)
+		if !IsNone(result) {
+			if !IsPartial(result) {
+				return result
+			}
+			partials = append(partials, result.(Def))
+		}
+	}
+
+	if len(partials) > 0 {
+		if len(partials) > 1 {
+			return DefinePolymorph(
+				partials, p.TypeId())
+		}
+		return partials[0]
+	}
+	return NewNone()
+}

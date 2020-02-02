@@ -11,8 +11,8 @@ func _() {
 	_ = x[Type-1]
 	_ = x[None-2]
 	_ = x[Data-4]
-	_ = x[Value-8]
-	_ = x[Just-16]
+	_ = x[Just-8]
+	_ = x[Value-16]
 	_ = x[Partial-32]
 	_ = x[Constant-64]
 	_ = x[Generator-128]
@@ -58,14 +58,14 @@ func _() {
 	_ = x[T-18446744073709551615]
 }
 
-const _TyFnc_name = "TypeNoneDataValueJustPartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseEqualLesserGreaterMinMaxPolymorphChoiceEitherOrNaturalBooleanIntegerRealRatioLetterStringByteVectorListEnumSetPairTupleRecordHashMapGroupMonadStateIOT"
+const _TyFnc_name = "TypeNoneDataJustValuePartialConstantGeneratorAccumulatorConstructorParameterPropertyLexicalSymbolIndexKeyTrueFalseEqualLesserGreaterMinMaxPolymorphChoiceEitherOrNaturalBooleanIntegerRealRatioLetterStringByteVectorListEnumSetPairTupleRecordHashMapGroupMonadStateIOT"
 
 var _TyFnc_map = map[TyFnc]string{
 	1:                    _TyFnc_name[0:4],
 	2:                    _TyFnc_name[4:8],
 	4:                    _TyFnc_name[8:12],
-	8:                    _TyFnc_name[12:17],
-	16:                   _TyFnc_name[17:21],
+	8:                    _TyFnc_name[12:16],
+	16:                   _TyFnc_name[16:21],
 	32:                   _TyFnc_name[21:28],
 	64:                   _TyFnc_name[28:36],
 	128:                  _TyFnc_name[36:45],
