@@ -140,6 +140,14 @@ func TestExpression(t *testing.T) {
 	}
 }
 func TestTuple(t *testing.T) {
+	var tup = DefineTuple(DecSym("Int Uint Float"), Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
+	fmt.Printf("tuple constructor: %s\n", tup)
+
+	var app = tup.Call(Dat(1), Dat(uint(1)), Dat(0.1))
+	fmt.Printf("applied tuple: %s\n", app)
+
+	var dec = DecAll(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
+	fmt.Printf("declare all matches argument types: %s\n", dec.Call(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type()))
 }
 func TestRecord(t *testing.T) {
 }

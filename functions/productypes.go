@@ -10,12 +10,12 @@ import (
 )
 
 type (
-	//// BOOLEAN ALGEBRA
-	///
-	// BOOL VALUE TYPE
-	Bool      bool
+	// BOOL VALUE TYPES
+	Bool    bool
+	Bitwise d.BitFlag
+
+	// BOOLEAN ALGEBRA
 	BoolOp    Def
-	Bitwise   d.BitFlag
 	BitwiseOp Def
 
 	// TEST & COMPARE
@@ -75,19 +75,49 @@ func (b Bitwise) Or(x Bitwise) Bitwise         { return Bitwise(b.Uint() | x.Uin
 func (b Bitwise) Xor(x Bitwise) Bitwise        { return Bitwise(b.Uint() ^ x.Uint()) }
 func (b Bitwise) Call(args ...Functor) Functor { return b }
 
+//// BOOLEAN ALGEBRA FOR BOOL & BITWISE INSTANCES
 var (
-	OR = Define(Lambda(func(args ...Functor) Functor {
-		return Bool(args[0].(Bool) || args[1].(Bool))
-	}), Truth, Truth, DecAll(Truth, Truth))
-	XOR = Define(Lambda(func(args ...Functor) Functor {
-		return Bool(args[0].(Bool) != args[1].(Bool))
-	}), Truth, Truth, DecAll(Truth, Truth))
-	AND = Define(Lambda(func(args ...Functor) Functor {
-		return Bool(args[0].(Bool) && args[1].(Bool))
-	}), Truth, Truth, DecAll(Truth, Truth))
-	NOT = Define(Lambda(func(args ...Functor) Functor {
-		return Bool(!args[0].(Bool))
-	}), Truth, Truth, Truth)
+	OR = DefinePolymorph("|",
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bool(args[0].(Bool) || args[1].(Bool))
+		}),
+			Truth, Truth, DecAll(Truth, Truth)),
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bitwise(args[0].(Bitwise) | args[1].(Bitwise))
+		}),
+			Declare(Truth|Byte), Truth,
+			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
+	)
+	XOR = DefinePolymorph("⊻",
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bool(args[0].(Bool) != args[1].(Bool))
+		}), Truth, Truth, DecAll(Truth, Truth)),
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bitwise(args[0].(Bitwise) ^ args[1].(Bitwise))
+		}),
+			Declare(Truth|Byte), Truth,
+			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
+	)
+	AND = DefinePolymorph("&",
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bool(args[0].(Bool) && args[1].(Bool))
+		}), Truth, Truth, DecAll(Truth, Truth)),
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bitwise(args[0].(Bitwise) & args[1].(Bitwise))
+		}),
+			Declare(Truth|Byte), Truth,
+			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
+	)
+	NOT = DefinePolymorph("¬",
+		Define(Lambda(func(args ...Functor) Functor {
+			return Bool(!args[0].(Bool))
+		}), Truth, Truth, Truth),
+		Define(Lambda(func(args ...Functor) Functor {
+			return args[0].(Bitwise).Not()
+		}),
+			Declare(Truth|Byte), Truth,
+			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
+	)
 )
 
 //// TEST

@@ -32,7 +32,8 @@ const (
 	Kind_Expr
 	Kind_Prop
 	Kind_Lex
-	Kind_Opt
+	Kind_Any
+	Kind_All
 
 	Kind_Decl TyKind = 255
 )
@@ -364,7 +365,7 @@ func (n TyAll) Flag() d.BitFlag     { return Or.Flag() }
 func (n TyAll) Type() Decl          { return Decl(n) }
 func (n TyAll) Elements() []d.Typed { return Decl(n).Elements() }
 func (n TyAll) Len() int            { return len(Decl(n).Elements()) }
-func (n TyAll) Kind() d.Uint8Val    { return Kind_Opt.U() }
+func (n TyAll) Kind() d.Uint8Val    { return Kind_All.U() }
 func (n TyAll) String() string      { return n.TypeName() }
 func (n TyAll) TypeName() string {
 	var str string = "("
@@ -374,17 +375,42 @@ func (n TyAll) TypeName() string {
 			str = str + " "
 		}
 	}
-	return str + "("
+	return str + ")"
 }
 
 // matches when any of its members matches the arguments type
 func (n TyAll) Match(arg d.Typed) bool {
-	for _, typ := range n {
-		if typ.Match(arg) {
+
+	if Kind_Nat.Match(arg.Kind()) ||
+		Kind_Fnc.Match(arg.Kind()) {
+		if types := arg.Flag().Decompose(); len(types) > 0 {
+			for _, t := range types {
+				if !n.Match(t) {
+					return false
+				}
+			}
 			return true
 		}
 	}
-	return false
+
+	if Kind_Any.Match(arg.Kind()) ||
+		Kind_All.Match(arg.Kind()) ||
+		Kind_Decl.Match(arg.Kind()) {
+		for _, t := range arg.(DynamicTyped).Elements() {
+			if !n.Match(t) {
+				return false
+			}
+		}
+		return true
+	}
+
+	for _, t := range n.Elements() {
+		if !t.Match(arg) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // call method lifts arguments types and applys them to match method one by
@@ -408,7 +434,7 @@ func (n TyAny) Flag() d.BitFlag     { return Or.Flag() }
 func (n TyAny) Type() Decl          { return Decl(n) }
 func (n TyAny) Elements() []d.Typed { return Decl(n).Elements() }
 func (n TyAny) Len() int            { return len(Decl(n).Elements()) }
-func (n TyAny) Kind() d.Uint8Val    { return Kind_Opt.U() }
+func (n TyAny) Kind() d.Uint8Val    { return Kind_Any.U() }
 func (n TyAny) String() string      { return n.TypeName() }
 func (n TyAny) TypeName() string {
 	var str string = "["
@@ -423,11 +449,36 @@ func (n TyAny) TypeName() string {
 
 // matches when any of its members matches the arguments type
 func (n TyAny) Match(arg d.Typed) bool {
-	for _, typ := range n {
-		if typ.Match(arg) {
+
+	if Kind_Nat.Match(arg.Kind()) ||
+		Kind_Fnc.Match(arg.Kind()) {
+		if types := arg.Flag().Decompose(); len(types) > 0 {
+			for _, t := range types {
+				if n.Match(t) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	if Kind_Any.Match(arg.Kind()) ||
+		Kind_All.Match(arg.Kind()) ||
+		Kind_Decl.Match(arg.Kind()) {
+		for _, t := range arg.(DynamicTyped).Elements() {
+			if n.Match(t) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, t := range n.Elements() {
+		if t.Match(arg) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -774,6 +825,7 @@ func (p Decl) Kind() d.Uint8Val        { return Kind_Decl.U() }
 func (p Decl) Flag() d.BitFlag         { return p.TypeFnc().Flag() }
 func (p Decl) Type() Decl              { return p }
 func (p Decl) TypeFnc() TyFnc          { return Type }
+func (p Decl) TypeNat() d.TyNat        { return d.Flag }
 
 // length of elements excluding fields set to none
 func (p Decl) Count() int {

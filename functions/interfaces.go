@@ -52,6 +52,13 @@ type FunctionTyped interface {
 	TypeFnc() TyFnc
 }
 
+type DynamicTyped interface {
+	FunctionTyped
+	NativeTyped
+	Len() int
+	Elements() []d.Typed
+}
+
 /// NATIVE (ALIASED)
 // native interface implements data native, provides assigability of
 // functionale instances implementing it to native data structures using the

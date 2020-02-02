@@ -470,19 +470,22 @@ func DefineTuple(types ...d.Typed) TupDef {
 			sym = Tuple
 		}
 	}
-	// tuple constructor with argument types & composed return type
+	// tuple constructor with argument types & return type composition
 	return TupDef(Define(Lambda(func(args ...Functor) Functor {
-		// tuple constant with an identity and return type
+		// tuple constant instance with identity and return type
 		return Define(NewVector(args...), sym, DecAll(types...))
-	}), sym, DecAll(types...), Declare(sym, DecAll(types...))))
+	}), sym, Declare(sym, DecAll(types...)), DecAll(types...)))
 }
-func (t TupDef) Vector() VecVal { return t.Unbox().(VecVal) }
-func (t TupDef) Unbox() Functor { return Def(t).Unbox() }
-func (t TupDef) TypeId() Decl   { return Def(t).TypeId() }
-func (t TupDef) TypeRet() Decl  { return Def(t).TypeRet() }
-func (t TupDef) TypeArgs() Decl { return Def(t).TypeArgs() }
-func (t TupDef) TypeFnc() TyFnc { return Def(t).TypeFnc() }
-func (t TupDef) String() string { return t.TypeName() }
+func (t TupDef) Unbox() Functor               { return Def(t).Unbox() }
+func (t TupDef) Vector() VecVal               { return t.Unbox().(VecVal) }
+func (t TupDef) Get(idx int) (Functor, bool)  { return t.Vector().Get(idx) }
+func (t TupDef) TypeFnc() TyFnc               { return Tuple }
+func (t TupDef) Type() Decl                   { return Def(t).Type() }
+func (t TupDef) TypeId() Decl                 { return Def(t).TypeId() }
+func (t TupDef) TypeRet() Decl                { return Def(t).TypeRet() }
+func (t TupDef) TypeArgs() Decl               { return Def(t).TypeArgs() }
+func (t TupDef) Call(args ...Functor) Functor { return Def(t).Call(args...) }
+func (t TupDef) String() string               { return t.TypeName() }
 func (t TupDef) TypeName() string {
 	return t.TypeArgs().TypeName() + " → " +
 		t.TypeId().TypeName() + " → " +
