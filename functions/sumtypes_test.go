@@ -7,13 +7,31 @@ import (
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
-var addInts = Define(Dat(func(args ...d.Native) d.Native {
-	var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
-	return a + b
-}),
-	DecSym("+"),
-	Declare(Dat(0).Type()),
-	Declare(Dat(0).Type(), Dat(0).Type()),
+var (
+	addInts = Define(Dat(func(args ...d.Native) d.Native {
+		var a, b = args[0].(d.IntVal), args[1].(d.IntVal)
+		return a + b
+	}),
+		DecSym("+"),
+		Declare(Dat(0).Type()),
+		Declare(Dat(0).Type(), Dat(0).Type()),
+	)
+	addUints = Define(Dat(func(args ...d.Native) d.Native {
+		var a, b = args[0].(d.UintVal), args[1].(d.UintVal)
+		return a + b
+	}),
+		DecSym("+"),
+		Declare(Dat(uint(0)).Type()),
+		Declare(Dat(uint(0)).Type(), Dat(uint(0)).Type()),
+	)
+	addFloats = Define(Dat(func(args ...d.Native) d.Native {
+		var a, b = args[0].(d.FltVal), args[1].(d.FltVal)
+		return a + b
+	}),
+		DecSym("+"),
+		Declare(Dat(0.0).Type()),
+		Declare(Dat(0.0).Type(), Dat(0.0).Type()),
+	)
 )
 
 func TestExpression(t *testing.T) {

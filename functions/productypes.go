@@ -143,29 +143,21 @@ func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Gr
 // instances of partial value, without returning a final value, another
 // parametric definition will be returned, defined by all remaining partial
 // instances, to be applied to succeeding arguments recursively.
-func DefinePolymorph(defs []Def, symbols ...d.Typed) PolyDef {
+func DefinePolymorph(name string, defs ...Def) PolyDef {
 
 	var (
 		parms = NewVector()
 		ats   = make([]d.Typed, 0, len(defs))
 		rts   = make([]d.Typed, 0, len(defs))
-		name  string
 	)
 
 	for n, def := range defs {
 		parms = parms.ConsVec(def)
 		ats = append(ats, def.TypeArgs())
 		rts = append(ats, def.TypeRet())
-		name = name + def.TypeId().TypeName()
-		if n < len(defs)-1 {
-			name = name + "|"
-		}
-	}
-
-	if len(symbols) > 0 {
-		for n, t := range symbols {
-			name = name + t.TypeName()
-			if n < len(symbols)-1 {
+		if name == "" {
+			name = name + def.TypeId().TypeName()
+			if n < len(defs)-1 {
 				name = name + "|"
 			}
 		}
@@ -216,8 +208,7 @@ func (p PolyDef) Call(args ...Functor) Functor {
 
 	if len(partials) > 0 {
 		if len(partials) > 1 {
-			return DefinePolymorph(
-				partials, p.TypeId())
+			return DefinePolymorph(p.TypeId().TypeName(), partials...)
 		}
 		return partials[0]
 	}

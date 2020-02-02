@@ -92,3 +92,43 @@ func TestCompareable(t *testing.T) {
 	}
 
 }
+
+func TestPolymorph(t *testing.T) {
+	var poly = DefinePolymorph("+", addInts, addUints, addFloats)
+	fmt.Printf("polymorh definition: %s\n", poly)
+	fmt.Printf("polymorh adding ints 11 + 22: %s\n", poly.Call(Dat(11), Dat(22)))
+	if poly.Call(Dat(11), Dat(22)).(Atom)().(d.IntVal) != 33 {
+		t.Fail()
+	}
+	fmt.Printf("polymorh adding uints 11 + 22: %s\n", poly.Call(Dat(uint(11)), Dat(uint(22))))
+	if poly.Call(Dat(uint(11)), Dat(uint(22))).(Atom)().(d.UintVal) !=
+		Dat(uint(33)).(Atom)().(d.UintVal) {
+		t.Fail()
+	}
+	fmt.Printf("polymorh adding floats 1.1 + 2.2: %s\n", poly.Call(Dat(1.1), Dat(2.2)))
+	if poly.Call(Dat(1.1), Dat(2.2)).(Atom)().(d.FltVal) != 3.3000000000000003 {
+		t.Fail()
+	}
+
+	var part = poly.Call(Dat(11))
+	fmt.Printf("partialy applyed polymorph: %s\n", part)
+	fmt.Printf("partialy applyed polymorphs type: %s\n", part.Type())
+	fmt.Printf("partialy applyed polymorphs type function: %s\n", part.TypeFnc().TypeName())
+	if !part.TypeFnc().Match(Type | Partial) {
+		t.Fail()
+	}
+
+	part = part.Call(Dat(22))
+	fmt.Printf("fully applyed polymorph: %s\n", part)
+	fmt.Printf("fully applyed polymorphs type: %s\n", part.Type())
+	fmt.Printf("fully applyed polymorphs type function: %s\n", part.TypeFnc())
+	if !part.TypeFnc().Match(Data) {
+		t.Fail()
+	}
+
+	var wrong = poly.Call(Dat(10), Dat(1.1))
+	fmt.Printf("apply incompatible args int 10 + float 1.1: %s\n", wrong)
+	if !poly.Call(Dat(10), Dat(1.1)).Type().Match(None) {
+		t.Fail()
+	}
+}
