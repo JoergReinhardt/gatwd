@@ -65,6 +65,7 @@ type (
 
 	//// TUPLE TYPE CONSTRUCTOR
 	TupDef Def
+	TupVal Def
 
 	//// RECORD TYPE CONSTRUCTOR
 	RecDef Def
@@ -430,7 +431,12 @@ func Define(
 	}
 }
 
-func (e Def) Call(args ...Functor) Functor { return e(args...) }
+func (e Def) Call(args ...Functor) Functor {
+	if len(args) > 0 {
+		return e(args...)
+	}
+	return e().(ValPair).Right().Call()
+}
 
 func (e Def) t() Decl          { return e().(ValPair).Left().(Decl) }
 func (e Def) Unbox() Functor   { return e().(ValPair).Right() }
@@ -456,6 +462,56 @@ func (e Def) TypeFnc() TyFnc {
 // those arguments, in case they match the signature, or none, in case they
 // dont, or an instance of a partialy applied expression, in case an
 // insufficient number of matching arguments has been passed.
+func (t TupVal) Vector() VecVal { return Def(t)().(ValPair).Right().(VecVal) }
+func (t TupVal) Get(idx int) Functor {
+	if elem, ok := t.Vector().Get(idx); ok {
+		return elem
+	}
+	return NewNone()
+}
+func (t TupVal) String() string                   { return t.Vector().String() }
+func (t TupVal) Type() Decl                       { return Def(t).Type() }
+func (t TupVal) TypeId() Decl                     { return Def(t).TypeId() }
+func (t TupVal) TypeRet() Decl                    { return Def(t).TypeRet() }
+func (t TupVal) TypeFnc() TyFnc                   { return Tuple }
+func (t TupVal) TypeElem() Decl                   { return t.TypeRet() }
+func (t TupVal) Continue() (Functor, Applicative) { return t.Vector().Continue() }
+func (t TupVal) Head() Functor                    { return t.Vector().Head() }
+func (t TupVal) Tail() Applicative                { return t.Vector().Tail() }
+func (t TupVal) Empty() bool                      { return t.Vector().Empty() }
+func (t TupVal) Call(args ...Functor) Functor {
+	if len(args) > 0 { // assume arguments are index cell accessors
+		if len(args) > 1 { // retrieve sequence of cells
+			var (
+				elems = make([]Functor, 0, len(args))
+				types = make([]d.Typed, 0, len(args))
+			)
+			for _, arg := range args {
+				if !arg.Type().Match(None) {
+					elems = append(elems, t.Call(arg))
+					types = append(types, arg.Type())
+				}
+			}
+			return TupVal(Define( // return tuple of chosen cells
+				NewVector(elems...), Tuple,
+				DecAll(types...)))
+		}
+		if args[0].TypeFnc().Match(Atomic) {
+			if eve, ok := args[0].(Evaluable); ok {
+				if ok := eve.Eval().
+					Type().Match(d.Int); ok {
+					if elem, ok := t.Call().(VecVal).Get(
+						eve.Eval().(d.Integer).GoInt(),
+					); ok {
+						return elem
+					}
+				}
+			}
+		}
+	}
+	return t.Vector()
+}
+
 func DefTuple(types ...d.Typed) TupDef {
 	var argtypes = make([]Functor, 0, len(types))
 	for _, t := range types {
@@ -465,14 +521,23 @@ func DefTuple(types ...d.Typed) TupDef {
 		argtypes = append(argtypes, t.(Functor))
 	}
 	return TupDef(Define(Lambda(func(args ...Functor) Functor {
-		return NewVector(args...)
+		if len(args) > 0 {
+			return TupVal(Define(
+				NewVector(args...),
+				Tuple, DecAll(types...)))
+		}
+		return NewVector(argtypes...)
 	}),
 		Tuple, Declare(Tuple, DecAll(types...)),
 		Declare(types...)))
 }
-func (t TupDef) Unbox() Functor               { return Def(t).Unbox() }
-func (t TupDef) Vector() VecVal               { return t.Unbox().(VecVal) }
-func (t TupDef) Get(idx int) (Functor, bool)  { return t.Vector().Get(idx) }
+func (t TupDef) Unbox() Functor { return Def(t).Unbox() }
+func (t TupDef) GetCellType(idx int) d.Typed {
+	if elem, ok := t.Unbox().Call().(VecVal).Get(idx); ok {
+		return elem.Type()
+	}
+	return None
+}
 func (t TupDef) TypeFnc() TyFnc               { return Tuple }
 func (t TupDef) Type() Decl                   { return Def(t).Type() }
 func (t TupDef) TypeId() Decl                 { return Def(t).TypeId() }

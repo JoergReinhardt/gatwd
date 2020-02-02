@@ -145,10 +145,29 @@ func TestTuple(t *testing.T) {
 
 	var app = tup.Call(Dat(1), Dat(uint(1)), Dat(0.1))
 	fmt.Printf("applied tuple: %s\n", app)
-	var vec = app.(VecVal)()
-	if vec[0].(Atom)().(d.IntVal) != 1 &&
-		vec[0].(Atom)().(d.UintVal) != 1 &&
-		vec[0].(Atom)().(d.FltVal) != 0.1 {
+	var vec = app.(TupVal).Vector()
+	fmt.Printf("vector: %s\n", vec)
+	if vec()[0].(Atom)().(d.IntVal) != 1 &&
+		vec()[0].(Atom)().(d.UintVal) != 1 &&
+		vec()[0].(Atom)().(d.FltVal) != 0.1 {
+		t.Fail()
+	}
+
+	var celltype = tup.GetCellType(2)
+	fmt.Printf("type of cell₂ (expects float): %s\n", celltype)
+	if !celltype.Match(Dat(0.0).Type()) {
+		t.Fail()
+	}
+
+	var elem = app.(TupVal).Get(2)
+	fmt.Printf("tuple idx₂ == 0.1? %s\n", elem)
+	if elem.(Atom)().(d.FltVal) != 0.1 {
+		t.Fail()
+	}
+
+	var elems = app.Call(Dat(0), Dat(2))
+	fmt.Printf("tuple idx₀₂ == [1, 0.1]? %s\n", elems)
+	if elems.(TupVal).Vector()()[0].(Atom)().(d.IntVal) != 1 && elems.(TupVal).Vector()()[1].(Atom)().(d.FltVal) != 0.1 {
 		t.Fail()
 	}
 
@@ -165,8 +184,9 @@ func TestTuple(t *testing.T) {
 	}
 
 	app = app.Call(Dat(1.1))
-	fmt.Printf("partialy applied to tuple: %s\n", app)
-	if !app.TypeFnc().Match(Vector) {
+	fmt.Printf("completed tuple application: %s\n", app)
+	fmt.Printf("return type: %s\n", app.Type())
+	if !app.TypeFnc().Match(Tuple) {
 		t.Fail()
 	}
 

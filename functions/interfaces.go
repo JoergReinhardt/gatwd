@@ -97,15 +97,20 @@ type Functor interface {
 	Type() Decl
 }
 
+/// CONTINUATION
+type Continuous interface {
+	Continue() (Functor, Applicative)
+	Head() Functor
+	Tail() Applicative
+}
+
 /// SEQUENTIAL
 type Sequential interface {
 	Functor // → Call(...Expression) Functor.(Continuation)
-	Continue() (Functor, Applicative)
-	Concat(Sequential) Applicative
-	Head() Functor
-	Tail() Applicative
+	Continuous
 	Empty() bool
 	TypeElem() Decl
+	Concat(Sequential) Applicative
 }
 
 /// APPLICATIVE (FUNCTOR)
