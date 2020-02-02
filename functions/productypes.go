@@ -13,18 +13,15 @@ type (
 	//// BOOLEAN ALGEBRA
 	///
 	// BOOL VALUE TYPE
-	Bool bool
+	Bool      bool
+	BoolUnOp  func(Bool) Bool
+	BoolBinOp func(a, b Bool) Bool
+	Bools     d.BitFlag
 
 	// TEST & COMPARE
 	Test    Def
 	Compare Def
 	Guarded Def
-
-	// BOOL OPERATORS
-	NOT Def
-	AND Def
-	XOR Def
-	OR  Def
 
 	// POLYMORPHIC DEFINITION
 	PolyDef Def
@@ -43,6 +40,10 @@ func (b Bool) TypeFnc() TyFnc {
 func (b Bool) Type() Decl {
 	return Declare(b.TypeFnc())
 }
+func (b Bool) Or(x Bool) Bool  { return b || x }
+func (b Bool) Xor(x Bool) Bool { return b != x }
+func (b Bool) And(x Bool) Bool { return b && x }
+func (b Bool) Not() Bool       { return !b }
 func (b Bool) Call(...Functor) Functor {
 	return Box(d.BoolVal(b))
 }
@@ -52,6 +53,13 @@ func (b Bool) String() string {
 	}
 	return "False"
 }
+
+var (
+	OR  = BoolBinOp(func(x, y Bool) Bool { return x || y })
+	XOR = BoolBinOp(func(x, y Bool) Bool { return x != y })
+	AND = BoolBinOp(func(x, y Bool) Bool { return x && y })
+	NOT = BoolUnOp(func(x Bool) Bool { return !x })
+)
 
 //// TEST
 ///

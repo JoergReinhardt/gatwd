@@ -222,7 +222,7 @@ func compToExpr(comps []Decl) []Functor {
 }
 
 // functional type flag expresses the type of a functional value
-func (t TyFnc) TypeFnc() TyFnc               { return Type }
+func (t TyFnc) TypeFnc() TyFnc               { return t }
 func (t TyFnc) TypeNat() d.TyNat             { return d.Type }
 func (t TyFnc) Flag() d.BitFlag              { return d.BitFlag(t) }
 func (t TyFnc) Uint() d.UintVal              { return d.BitFlag(t).Uint() }

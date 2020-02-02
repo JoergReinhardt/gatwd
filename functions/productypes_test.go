@@ -131,4 +131,4 @@ func TestPolymorph(t *testing.T) {
 	if !poly.Call(Dat(10), Dat(1.1)).Type().Match(None) {
 		t.Fail()
 	}
-}
+}x

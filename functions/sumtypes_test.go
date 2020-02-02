@@ -139,8 +139,7 @@ func TestExpression(t *testing.T) {
 		}
 	}
 }
-
-var ()
-
-func TestRecordGet(t *testing.T) {
+func TestTuple(t *testing.T) {
+}
+func TestRecord(t *testing.T) {
 }
