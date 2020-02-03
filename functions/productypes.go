@@ -19,9 +19,8 @@ type (
 	BitwiseOp Def
 
 	// TEST & COMPARE
-	Test     Def
-	Compare  Def
-	Optional Def
+	Test    Def
+	Compare Def
 
 	// POLYMORPHIC EXPRESSION
 	PolyDef Def
@@ -170,8 +169,11 @@ func (t Test) Type() Decl {
 func (t Test) String() string {
 	return t.TypeFnc().TypeName()
 }
-func (t Test) Test(a, b Functor) bool {
-	return bool(Def(t).Unbox().Call(a, b).(Bool))
+func (t Test) Test(args ...Functor) bool {
+	if len(args) > 1 {
+		return bool(Def(t).Unbox().Call(args[0], args[1]).(Bool))
+	}
+	return false
 }
 func (t Test) Compare(a, b Functor) int {
 	if t.Test(a, b) {
@@ -225,36 +227,6 @@ func (t Compare) Compare(a, b Functor) TyFnc   { return Def(t).Call(a, b).(TyFnc
 func (t Compare) Equal(a, b Functor) bool      { return t.Compare(a, b).Match(Equal) }
 func (t Compare) Lesser(a, b Functor) bool     { return t.Compare(a, b).Match(Lesser) }
 func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Greater) }
-
-//// MAYBE DEFINITION
-///
-// expects a test and an expression to apply arguments to, if the test
-// (expected to take the first two arguments, of same argument type as the
-// definitions argument type) applied to those arguments yields true and
-// returns the resulting, or none.
-func DefOptional(test Test, def Def) Optional {
-	return Optional(Define(Lambda(func(args ...Functor) Functor {
-		// if test yields true‥.
-		if test.Test(args[0], args[1]) {
-			// ‥.return result of applying args to def
-			var res = def.Call(args...)
-			return Define(res, Declare(Just, res.Type()))
-		}
-		// ‥.else return nine
-		return NewNone()
-	}), def.TypeId(), def.TypeRet(), DecAll(def.TypeArgs(), def.TypeArgs())))
-}
-func (c Optional) TypeName() string {
-	return "Just " + c.TypeId().TypeName() + "|⊥"
-}
-func (c Optional) TypeFnc() TyFnc               { return Options }
-func (c Optional) Type() Decl                   { return Def(c).Type() }
-func (c Optional) TypeId() Decl                 { return Def(c).TypeId() }
-func (c Optional) TypeRet() Decl                { return Def(c).TypeRet() }
-func (c Optional) TypeArgs() Decl               { return Def(c).TypeArgs() }
-func (c Optional) Unbox() Functor               { return Def(c).Unbox() }
-func (c Optional) String() string               { return "Maybe" + c.TypeName() }
-func (c Optional) Call(args ...Functor) Functor { return c.Unbox().Call(args...) }
 
 //// DEFINE POLYMORPHIC TYPE
 ///
