@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	intEq = NewTest(d.Int, func(a, b Functor) bool {
-		return a.(Evaluable).Eval().(d.IntVal) == b.(Evaluable).Eval().(d.IntVal)
+	intEq = NewTest(d.Int, func(args ...Functor) bool {
+		return args[0].(Evaluable).Eval().(d.IntVal) ==
+			args[1].(Evaluable).Eval().(d.IntVal)
 	})
 	rndms = func() VecVal {
 		var rs = NewVector()

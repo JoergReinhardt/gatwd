@@ -52,7 +52,7 @@ import (
 
 type (
 	//// NONE, CONSTANT & LAMBDA
-	NoneVal func()
+	NoneVal TyFnc
 	ConsVal func() Functor
 	Lambda  func(...Functor) Functor
 
@@ -78,7 +78,7 @@ type (
 // none represens the abscence of a value of any type.  implements countable,
 // sliceable, consumeable, testable, compareable, key-, index- and generic pair
 // interfaces to be able to stand in as return value for such expressions.
-func NewNone() NoneVal { return func() {} }
+func NewNone() NoneVal { return NoneVal(None) }
 
 func (n NoneVal) Head() Functor                    { return n }
 func (n NoneVal) Tail() Applicative                { return n }
@@ -187,10 +187,12 @@ func (g GenVal) Empty() bool {
 	}
 	return false
 }
-func (g GenVal) Concat(grp Sequential) Applicative { return NewListFromApp(g).Concat(grp) }
-func (g GenVal) Continue() (Functor, Applicative)  { return g() }
-func (g GenVal) Head() Functor                     { return g.Expr() }
-func (g GenVal) Tail() Applicative                 { return g.Generator() }
+func (g GenVal) Concat(grp Sequential) Applicative {
+	return NewListFromApp(g).Concat(grp)
+}
+func (g GenVal) Continue() (Functor, Applicative) { return g() }
+func (g GenVal) Head() Functor                    { return g.Expr() }
+func (g GenVal) Tail() Applicative                { return g.Generator() }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// ACCUMULATOR
@@ -329,8 +331,7 @@ func Define(
 	types ...d.Typed,
 ) Def {
 
-	// create the function type definition and take the number of expexted
-	// arguments
+	// create the function type definition and count expexted arguments
 	var (
 		sig    = createFuncType(expr, types...)
 		arglen = sig.TypeArgs().Len()

@@ -19,11 +19,11 @@ type (
 	BitwiseOp Def
 
 	// TEST & COMPARE
-	Test    Def
-	Compare Def
-	Guarded Def
+	Test     Def
+	Compare  Def
+	Optional Def
 
-	// POLYMORPHIC DEFINITION
+	// POLYMORPHIC EXPRESSION
 	PolyDef Def
 )
 
@@ -75,6 +75,28 @@ func (b Bitwise) Or(x Bitwise) Bitwise         { return Bitwise(b.Uint() | x.Uin
 func (b Bitwise) Xor(x Bitwise) Bitwise        { return Bitwise(b.Uint() ^ x.Uint()) }
 func (b Bitwise) Call(args ...Functor) Functor { return b }
 
+//// BOOLEAN OPERATIONS
+///
+//
+func DefBoolOp(fnc func(args ...Functor) Bool) BoolOp {
+	return BoolOp(Define(Lambda(func(args ...Functor) Functor {
+		return fnc(args...)
+		// is a bool, returns bool, may take arguments of any type
+	}), Boolean, Boolean, T))
+}
+func (b BoolOp) Call(args ...Functor) Functor {
+	return b.Call(args...)
+}
+func (b BoolOp) Type() Decl {
+	return Declare(Truth, Truth, Truth)
+}
+func (b BoolOp) TypeFnc() TyFnc   { return Boolean }
+func (b BoolOp) TypeId() Decl     { return Declare(Truth) }
+func (b BoolOp) TypeRet() Decl    { return Declare(Truth) }
+func (b BoolOp) TypeArgs() Decl   { return Declare(Truth) }
+func (b BoolOp) TypeName() string { return Declare(Truth).TypeName() }
+func (b BoolOp) String() string   { return b.TypeName() }
+
 //// BOOLEAN ALGEBRA FOR BOOL & BITWISE INSTANCES
 var (
 	OR = DefinePolymorph("|",
@@ -88,6 +110,7 @@ var (
 			Declare(Truth|Byte), Truth,
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
+
 	XOR = DefinePolymorph("⊻",
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(args[0].(Bool) != args[1].(Bool))
@@ -98,6 +121,7 @@ var (
 			Declare(Truth|Byte), Truth,
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
+
 	AND = DefinePolymorph("&",
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(args[0].(Bool) && args[1].(Bool))
@@ -108,6 +132,7 @@ var (
 			Declare(Truth|Byte), Truth,
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
+
 	NOT = DefinePolymorph("¬",
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(!args[0].(Bool))
@@ -126,7 +151,7 @@ var (
 // boolean value to indicate test result.
 func NewTest(
 	atype d.Typed,
-	test func(a, b Functor) bool,
+	test func(args ...Functor) bool,
 ) Test {
 	return Test(Define(Lambda(func(args ...Functor) Functor {
 		return Bool(test(args[0], args[1]))
@@ -201,7 +226,37 @@ func (t Compare) Equal(a, b Functor) bool      { return t.Compare(a, b).Match(Eq
 func (t Compare) Lesser(a, b Functor) bool     { return t.Compare(a, b).Match(Lesser) }
 func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Greater) }
 
-//// DEFINE PARAMETRIC FUNCTION
+//// MAYBE DEFINITION
+///
+// expects a test and an expression to apply arguments to, if the test
+// (expected to take the first two arguments, of same argument type as the
+// definitions argument type) applied to those arguments yields true and
+// returns the resulting, or none.
+func DefOptional(test Test, def Def) Optional {
+	return Optional(Define(Lambda(func(args ...Functor) Functor {
+		// if test yields true‥.
+		if test.Test(args[0], args[1]) {
+			// ‥.return result of applying args to def
+			var res = def.Call(args...)
+			return Define(res, Declare(Just, res.Type()))
+		}
+		// ‥.else return nine
+		return NewNone()
+	}), def.TypeId(), def.TypeRet(), DecAll(def.TypeArgs(), def.TypeArgs())))
+}
+func (c Optional) TypeName() string {
+	return "Just " + c.TypeId().TypeName() + "|⊥"
+}
+func (c Optional) TypeFnc() TyFnc               { return Options }
+func (c Optional) Type() Decl                   { return Def(c).Type() }
+func (c Optional) TypeId() Decl                 { return Def(c).TypeId() }
+func (c Optional) TypeRet() Decl                { return Def(c).TypeRet() }
+func (c Optional) TypeArgs() Decl               { return Def(c).TypeArgs() }
+func (c Optional) Unbox() Functor               { return Def(c).Unbox() }
+func (c Optional) String() string               { return "Maybe" + c.TypeName() }
+func (c Optional) Call(args ...Functor) Functor { return c.Unbox().Call(args...) }
+
+//// DEFINE POLYMORPHIC TYPE
 ///
 // a parametric definition is a vector of function definitions sharing a common
 // symbol.  when called with arguments, they will be folded over every
@@ -269,13 +324,16 @@ func (p PolyDef) Call(args ...Functor) Functor {
 			if !IsPartial(result) {
 				return result
 			}
-			partials = append(partials, result.(Def))
+			partials = append(partials,
+				result.(Def))
 		}
 	}
 
 	if len(partials) > 0 {
 		if len(partials) > 1 {
-			return DefinePolymorph(p.TypeId().TypeName(), partials...)
+			return DefinePolymorph(
+				p.TypeId().TypeName(),
+				partials...)
 		}
 		return partials[0]
 	}

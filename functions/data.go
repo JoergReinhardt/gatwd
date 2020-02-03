@@ -19,6 +19,8 @@ import d "github.com/joergreinhardt/gatwd/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS
+	///
+	// atom has to be indirected by a function call, since interface type d.Native can not be aliased and extendet with further methods to define a
 	Atom     func() d.Native
 	DatFunc  func(...d.Native) d.Native
 	DatSlice func() d.DataSlice
@@ -138,14 +140,21 @@ func (n DatFunc) Call(args ...Functor) Functor {
 	return Box(n())
 }
 
-// NATIVE ATOMIC CONSTANT
+//// NATIVE ATOMIC CONSTANT
+///
+// functional indirection in order to allow for new set of methods indipendent
+// from interface return type as defined in data package.
+func (n Atom) Call(...Functor) Functor   { return n }
 func (n Atom) Eval(...d.Native) d.Native { return n() }
 func (n Atom) TypeFnc() TyFnc            { return Data }
 func (n Atom) TypeNat() d.TyNat          { return n().Type() }
 func (n Atom) String() string            { return n().String() }
-func (n Atom) Call(...Functor) Functor   { return Box(n()) }
 func (n Atom) Type() Decl {
-	return Declare(Declare(Data, Atomic), patternFromNative(n()))
+	return Declare(Declare(
+		Data, Atomic,
+	),
+		patternFromNative(n()),
+	)
 }
 
 // NATIVE SLICE VALUE

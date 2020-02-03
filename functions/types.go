@@ -128,9 +128,9 @@ const (
 	//// OPTIONALS
 	///  return values of a certain type may, or may not be returned
 	//   a value of alternative type, or nothing is returned instead
-	Option      = Just | None
-	Alternative = Either | Or
-	Selection   = Option | Alternative | Choice
+	Options      = Just | None
+	Alternatives = Either | Or
+	Selections   = Options | Alternatives | Choice
 
 	//// ADDITIVE COLLECTIONS
 	///  contain zero or more elements of common type
@@ -152,7 +152,7 @@ const (
 		Monad | State | IO | Group
 
 	//// MANIFOLDS (PARAMETRIC &| POLYMORPHIC)
-	Manifolds = Option | Alternative |
+	Manifolds = Options | Alternatives |
 		Topologys | Products
 
 	// set of all TYPES
@@ -243,7 +243,7 @@ func (t TyFnc) TypeName() string {
 			return "Praedicates"
 		case Bound:
 			return "Bound"
-		case Alternative:
+		case Alternatives:
 			return "Alternatives"
 		case Additives:
 			return "Additives"
@@ -1067,19 +1067,19 @@ func (p Decl) IsProductType() bool {
 }
 func (p Decl) IsCase() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Option)
+		return p.Elements()[1].Match(Options)
 	}
 	return false
 }
 func (p Decl) IsMaybe() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Option)
+		return p.Elements()[1].Match(Options)
 	}
 	return false
 }
 func (p Decl) IsOption() bool {
 	if p.Count() == 3 {
-		return p.Elements()[1].Match(Alternative)
+		return p.Elements()[1].Match(Alternatives)
 	}
 	return false
 }
@@ -1105,8 +1105,8 @@ func (p Decl) HasRecord() bool      { return p.MatchAnyType(Record) }
 func (p Decl) HasTruth() bool       { return p.MatchAnyType(Truth) }
 func (p Decl) HasCompare() bool     { return p.MatchAnyType(Comparison) }
 func (p Decl) HasBound() bool       { return p.MatchAnyType(Min, Max) }
-func (p Decl) HasMaybe() bool       { return p.MatchAnyType(Option) }
-func (p Decl) HasAlternative() bool { return p.MatchAnyType(Alternative) }
+func (p Decl) HasMaybe() bool       { return p.MatchAnyType(Options) }
+func (p Decl) HasAlternative() bool { return p.MatchAnyType(Alternatives) }
 func (p Decl) HasNumber() bool      { return p.MatchAnyType(Numbers) }
 func (p Decl) HasString() bool      { return p.MatchAnyType(String) }
 func (p Decl) HasByte() bool        { return p.MatchAnyType(Byte) }
