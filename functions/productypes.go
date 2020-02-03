@@ -22,8 +22,14 @@ type (
 	Test    Def
 	Compare Def
 
+	// OPTIONAL TYPE
+	Option Def
+
 	// POLYMORPHIC EXPRESSION
 	PolyDef Def
+
+	// ALTERNATIVE TYPE
+	Altern PolyDef
 )
 
 //// TRUTH VALUE
@@ -98,7 +104,7 @@ func (b BoolOp) String() string   { return b.TypeName() }
 
 //// BOOLEAN ALGEBRA FOR BOOL & BITWISE INSTANCES
 var (
-	OR = DefinePolymorph("|",
+	OR = DefinePolymorph(DecSym("|"),
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(args[0].(Bool) || args[1].(Bool))
 		}),
@@ -110,7 +116,7 @@ var (
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
 
-	XOR = DefinePolymorph("⊻",
+	XOR = DefinePolymorph(DecSym("⊻"),
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(args[0].(Bool) != args[1].(Bool))
 		}), Truth, Truth, DecAll(Truth, Truth)),
@@ -121,7 +127,7 @@ var (
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
 
-	AND = DefinePolymorph("&",
+	AND = DefinePolymorph(DecSym("&"),
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(args[0].(Bool) && args[1].(Bool))
 		}), Truth, Truth, DecAll(Truth, Truth)),
@@ -132,7 +138,7 @@ var (
 			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
 	)
 
-	NOT = DefinePolymorph("¬",
+	NOT = DefinePolymorph(DecSym("¬"),
 		Define(Lambda(func(args ...Functor) Functor {
 			return Bool(!args[0].(Bool))
 		}), Truth, Truth, Truth),
@@ -237,10 +243,11 @@ func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Gr
 // instances of partial value, without returning a final value, another
 // parametric definition will be returned, defined by all remaining partial
 // instances, to be applied to succeeding arguments recursively.
-func DefinePolymorph(name string, defs ...Def) PolyDef {
+func DefinePolymorph(symbol d.Typed, defs ...Def) PolyDef {
 
 	var (
 		parms = NewVector()
+		name  = symbol.TypeName()
 		ats   = make([]d.Typed, 0, len(defs))
 		rts   = make([]d.Typed, 0, len(defs))
 	)
@@ -304,10 +311,58 @@ func (p PolyDef) Call(args ...Functor) Functor {
 	if len(partials) > 0 {
 		if len(partials) > 1 {
 			return DefinePolymorph(
-				p.TypeId().TypeName(),
+				p.TypeId(),
 				partials...)
 		}
 		return partials[0]
 	}
 	return NewNone()
 }
+
+//// OPTIONAL TYPE DEFINITION
+///
+// when arguments are applied to function definitions either a value is
+// returned, or an instance of none, in the case where passed arguments fail to
+// match the functions signature for instance.  user defined functions may also
+// selectively return none, not depending on the on arguments types, but their
+// values instead, in reaction to encapsulated side effects, or as natural
+// result of the computation they where applied to.  the optional type exposes
+// that property explicitly by being defined with a return type of Just | None.
+func DefineOption(def Def) Option { return Option(def) }
+
+func (o Option) TypeFnc() TyFnc   { return Options }
+func (o Option) Type() Decl       { return Def(o).Type() }
+func (o Option) TypeId() Decl     { return Def(o).TypeId() }
+func (o Option) TypeArgs() Decl   { return Def(o).TypeArgs() }
+func (o Option) TypeName() string { return Def(o).TypeName() }
+func (o Option) String() string   { return o.TypeName() }
+func (o Option) TypeRet() Decl {
+	return Declare(Options, DecAny(Def(o).TypeRet(), None))
+}
+func (o Option) Unbox() Functor { return Def(o).Unbox() }
+func (o Option) Call(args ...Functor) Functor {
+	if len(args) > 0 {
+		return o.Unbox().Call(args...)
+	}
+	return o.Unbox().Call()
+}
+
+//// ALTERNATIVES
+///
+// alternatives returns a value of either the first, or second of the two
+// defined return type alternatives.
+func DefineAlternative(l, r Def) Altern {
+	return Altern(DefinePolymorph(Alternatives, l, r))
+}
+
+func (a Altern) TypeFnc() TyFnc { return Alternatives }
+func (a Altern) Unbox() Functor { return PolyDef(a).Unbox() }
+func (a Altern) Type() Decl     { return PolyDef(a).Type() }
+func (a Altern) TypeId() Decl   { return PolyDef(a).TypeId() }
+func (a Altern) TypeArgs() Decl { return PolyDef(a).TypeArgs() }
+func (a Altern) TypeRet() Decl {
+	return Declare(Alternatives, PolyDef(a).TypeRet())
+}
+func (a Altern) TypeName() string             { return PolyDef(a).TypeName() }
+func (a Altern) String() string               { return a.TypeName() }
+func (a Altern) Call(args ...Functor) Functor { return PolyDef(a).Call(args...) }

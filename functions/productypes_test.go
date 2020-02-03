@@ -95,7 +95,7 @@ func TestCompareable(t *testing.T) {
 }
 
 func TestPolymorph(t *testing.T) {
-	var poly = DefinePolymorph("+", addInts, addUints, addFloats)
+	var poly = DefinePolymorph(DecSym("+"), addInts, addUints, addFloats)
 	fmt.Printf("polymorh definition: %s\n", poly)
 	fmt.Printf("polymorh adding ints 11 + 22: %s\n", poly.Call(Dat(11), Dat(22)))
 	if poly.Call(Dat(11), Dat(22)).(Atom)().(d.IntVal) != 33 {

@@ -446,7 +446,7 @@ func (e Def) TypeId() Decl     { return e.t().TypeId() }
 func (e Def) TypeRet() Decl    { return e.t().TypeRet() }
 func (e Def) TypeArgs() Decl   { return e.t().TypeArgs() }
 func (e Def) TypeName() string { return e.t().TypeName() }
-func (e Def) String() string   { return e.Unbox().String() }
+func (e Def) String() string   { return e.t().String() }
 func (e Def) Len() int         { return e.t().TypeArgs().Count() }
 func (e Def) Type() Decl       { return e.t() }
 func (e Def) TypeFnc() TyFnc {
