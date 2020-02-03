@@ -64,11 +64,12 @@ type (
 	Def func(...Functor) Functor
 
 	//// TUPLE TYPE CONSTRUCTOR
-	TupDef Def
-	TupVal Def
+	TupCons Def
+	TupVal  Def
 
 	//// RECORD TYPE CONSTRUCTOR
-	RecDef Def
+	RecCons Def
+	RecVal  Def
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -462,7 +463,78 @@ func (e Def) TypeFnc() TyFnc {
 // those arguments, in case they match the signature, or none, in case they
 // dont, or an instance of a partialy applied expression, in case an
 // insufficient number of matching arguments has been passed.
-func (t TupVal) Vector() VecVal { return Def(t)().(ValPair).Right().(VecVal) }
+func DefTuple(types ...d.Typed) TupCons {
+
+	var (
+		sym      d.Typed
+		argtypes = make([]Functor, 0, len(types))
+	)
+
+	// extract name if symbol has been passed at first position,
+	// else use functional type tuple as type identity
+	if len(types) > 0 {
+		if Kind_Symb.Match(types[0].Kind()) {
+			sym = types[0].(TySym)
+			if len(types) > 1 {
+				types = types[1:]
+			} else {
+				types = types[:0]
+			}
+		} else {
+			sym = Tuple
+		}
+	}
+
+	// cast declaration cell types as functors, declare cell type
+	// first, if it is a flag type, and append to slice of elements
+	// later to return as vector, when constructor is called without
+	// arguments (parameter overload to return constructor definition)
+	for _, t := range types {
+		if Kind_Nat.Match(t.Kind()) {
+			argtypes = append(argtypes, Declare(t))
+		}
+		argtypes = append(argtypes, t.(Functor))
+	}
+
+	// data constructor for this particular tuple type
+	return TupCons(Define(Lambda(func(args ...Functor) Functor {
+		if len(args) > 0 {
+			// returns an instance of tuple value
+			return TupVal(Define(
+				NewVector(args...),
+				sym, DecAll(types...)))
+		}
+		return NewVector(argtypes...)
+	}),
+		Tuple, Declare(Tuple, DecAll(types...)),
+		Declare(types...)))
+}
+func (t TupCons) Unbox() Functor { return Def(t).Unbox() }
+func (t TupCons) GetCellType(idx int) d.Typed {
+	if elem, ok := t.Unbox().Call().(VecVal).Get(idx); ok {
+		return elem.Type()
+	}
+	return None
+}
+func (t TupCons) TypeFnc() TyFnc               { return Tuple }
+func (t TupCons) Type() Decl                   { return Def(t).Type() }
+func (t TupCons) TypeId() Decl                 { return Def(t).TypeId() }
+func (t TupCons) TypeRet() Decl                { return Def(t).TypeRet() }
+func (t TupCons) TypeArgs() Decl               { return Def(t).TypeArgs() }
+func (t TupCons) Call(args ...Functor) Functor { return Def(t).Call(args...) }
+func (t TupCons) String() string               { return t.TypeName() }
+func (t TupCons) TypeName() string {
+	return t.TypeArgs().TypeName() + " → " +
+		t.TypeId().TypeName() + " → " +
+		t.TypeRet().TypeName()
+
+}
+
+/// TUPLE VALUE
+// tuple values are created by applying appropriate arguments to the
+// associated tuple type definition/constructor.
+func (t TupVal) Unbox() Functor { return Def(t).Unbox() }
+func (t TupVal) Vector() VecVal { return t.Unbox().(VecVal) }
 func (t TupVal) Get(idx int) Functor {
 	if elem, ok := t.Vector().Get(idx); ok {
 		return elem
@@ -479,6 +551,11 @@ func (t TupVal) Continue() (Functor, Applicative) { return t.Vector().Continue()
 func (t TupVal) Head() Functor                    { return t.Vector().Head() }
 func (t TupVal) Tail() Applicative                { return t.Vector().Tail() }
 func (t TupVal) Empty() bool                      { return t.Vector().Empty() }
+
+// call envoced without arguments, returns all cell values wrapped in a vector
+// of mixed type elements. when arguments are passed, they are expected to be
+// integer index accessors, in which case (the) element(s) associated with the
+// passed index value(s) will be returned.
 func (t TupVal) Call(args ...Functor) Functor {
 	if len(args) > 0 { // assume arguments are index cell accessors
 		if len(args) > 1 { // retrieve sequence of cells
@@ -512,42 +589,39 @@ func (t TupVal) Call(args ...Functor) Functor {
 	return t.Vector()
 }
 
-func DefTuple(types ...d.Typed) TupDef {
-	var argtypes = make([]Functor, 0, len(types))
-	for _, t := range types {
-		if Kind_Nat.Match(t.Kind()) {
-			argtypes = append(argtypes, Declare(t))
-		}
-		argtypes = append(argtypes, t.(Functor))
+// create an anonymous ad-hoc tuple from a bunch of arguments
+func AllocTuple(args ...Functor) TupVal {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
 	}
-	return TupDef(Define(Lambda(func(args ...Functor) Functor {
-		if len(args) > 0 {
-			return TupVal(Define(
-				NewVector(args...),
-				Tuple, DecAll(types...)))
-		}
-		return NewVector(argtypes...)
-	}),
-		Tuple, Declare(Tuple, DecAll(types...)),
-		Declare(types...)))
+	return TupVal(Define( // return tuple of chosen cells
+		NewVector(args...), Tuple,
+		DecAll(types...)))
 }
-func (t TupDef) Unbox() Functor { return Def(t).Unbox() }
-func (t TupDef) GetCellType(idx int) d.Typed {
-	if elem, ok := t.Unbox().Call().(VecVal).Get(idx); ok {
-		return elem.Type()
-	}
-	return None
-}
-func (t TupDef) TypeFnc() TyFnc               { return Tuple }
-func (t TupDef) Type() Decl                   { return Def(t).Type() }
-func (t TupDef) TypeId() Decl                 { return Def(t).TypeId() }
-func (t TupDef) TypeRet() Decl                { return Def(t).TypeRet() }
-func (t TupDef) TypeArgs() Decl               { return Def(t).TypeArgs() }
-func (t TupDef) Call(args ...Functor) Functor { return Def(t).Call(args...) }
-func (t TupDef) String() string               { return t.TypeName() }
-func (t TupDef) TypeName() string {
-	return t.TypeArgs().TypeName() + " → " +
-		t.TypeId().TypeName() + " → " +
-		t.TypeRet().TypeName()
 
-}
+//// RECORD CONSTRUCTOR DEFINITION
+///
+// alloc-record expects key/value pairs as arguments to derive field
+// type names and define field type constructors and then applys the
+
+func (r RecCons) Call(args ...Functor) Functor { return Def(r).Call(args...) }
+func (r RecCons) Unbox() Functor               { return Def(r).Unbox() }
+func (r RecCons) Type() Decl                   { return Def(r).Type() }
+func (r RecCons) TypeId() Decl                 { return Def(r).TypeId() }
+func (r RecCons) TypeRet() Decl                { return Def(r).TypeRet() }
+func (r RecCons) TypeArgs() Decl               { return Def(r).TypeArgs() }
+func (r RecCons) TypeFnc() TyFnc               { return Record }
+func (r RecCons) String() string               { return r.TypeName() }
+func (r RecCons) TypeName() string             { return "" }
+
+func (r RecVal) Len() int                     { return Def(r).Len() }
+func (r RecVal) TypeFnc() TyFnc               { return Record }
+func (r RecVal) Type() Decl                   { return Def(r).Type() }
+func (r RecVal) TypeId() Decl                 { return Def(r).TypeId() }
+func (r RecVal) TypeRet() Decl                { return Def(r).TypeRet() }
+func (r RecVal) TypeArgs() Decl               { return Def(r).TypeArgs() }
+func (r RecVal) TypeName() string             { return Def(r).TypeName() }
+func (r RecVal) String() string               { return r.Unbox().String() }
+func (r RecVal) Unbox() Functor               { return Def(r).Unbox() }
+func (r RecVal) Call(args ...Functor) Functor { return r.Unbox().Call(args...) }

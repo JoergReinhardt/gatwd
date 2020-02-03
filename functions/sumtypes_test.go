@@ -198,4 +198,10 @@ func TestTuple(t *testing.T) {
 
 }
 func TestRecord(t *testing.T) {
+	var rec = DefRecord(
+		NewKeyPair("not", Dat(uint(0))),
+		NewKeyPair("one", Dat(1)),
+		NewKeyPair("two", Dat(2.1)),
+	)
+	fmt.Printf("record type constructor: %s\n", rec)
 }

@@ -95,7 +95,7 @@ func (s MapVal) Delete(acc Native) bool {
 
 // implements Mapped flagged Set
 
-func NewStringMap(acc ...Paired) Mapped {
+func NewStringMap(acc ...Paired) MapString {
 	var m = make(map[StrVal]Native)
 	for _, pair := range acc {
 		m[pair.Left().(StrVal)] = pair.Right()
@@ -179,7 +179,7 @@ func (s MapString) GetStr(key string) (Native, bool) {
 	}
 	return nil, false
 }
-func (s MapString) SetStr(key string, dat Native) Mapped {
+func (s MapString) SetStr(key string, dat Native) MapString {
 	s[StrVal(key)] = dat
 	return s
 }
