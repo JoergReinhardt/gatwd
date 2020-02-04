@@ -95,13 +95,15 @@ func (t TupCons) GetCellType(idx int) d.Typed {
 	}
 	return None
 }
-func (t TupCons) TypeFnc() TyFnc               { return Tuple }
-func (t TupCons) Type() Decl                   { return Def(t).Type() }
-func (t TupCons) TypeId() Decl                 { return Def(t).TypeId() }
-func (t TupCons) TypeRet() Decl                { return Def(t).TypeRet() }
-func (t TupCons) TypeArgs() Decl               { return Def(t).TypeArgs() }
-func (t TupCons) Call(args ...Functor) Functor { return Def(t).Call(args...) }
-func (t TupCons) String() string               { return t.TypeName() }
+func (t TupCons) TypeFnc() TyFnc { return Tuple }
+func (t TupCons) Type() Decl     { return Def(t).Type() }
+func (t TupCons) TypeId() Decl   { return Def(t).TypeId() }
+func (t TupCons) TypeRet() Decl  { return Def(t).TypeRet() }
+func (t TupCons) TypeArgs() Decl { return Def(t).TypeArgs() }
+func (t TupCons) String() string { return t.TypeName() }
+func (t TupCons) Call(args ...Functor) Functor {
+	return t(args...).(ValPair).Right()
+}
 func (t TupCons) TypeName() string {
 	return t.TypeArgs().TypeName() + " → " +
 		t.TypeId().TypeName() + " → " +
@@ -165,7 +167,7 @@ func (t TupVal) Call(args ...Functor) Functor {
 			}
 		}
 	}
-	return t.Vector()
+	return NewNone()
 }
 
 // create an anonymous ad-hoc tuple from a bunch of arguments

@@ -194,5 +194,5 @@ func TestAlternative(t *testing.T) {
 	fmt.Printf("alt called with 1: %s\n", a)
 
 	var rec = NewRecordCon(Define(alt), Define(opt))
-	fmt.Printf("record??? %s\n", rec.Call(Dat(10), Dat(11)))
+	fmt.Printf("record??? %s\n", rec.Call())
 }
