@@ -95,15 +95,13 @@ func (t TupCons) GetCellType(idx int) d.Typed {
 	}
 	return None
 }
-func (t TupCons) TypeFnc() TyFnc { return Tuple }
-func (t TupCons) Type() Decl     { return Def(t).Type() }
-func (t TupCons) TypeId() Decl   { return Def(t).TypeId() }
-func (t TupCons) TypeRet() Decl  { return Def(t).TypeRet() }
-func (t TupCons) TypeArgs() Decl { return Def(t).TypeArgs() }
-func (t TupCons) String() string { return t.TypeName() }
-func (t TupCons) Call(args ...Functor) Functor {
-	return t(args...).(ValPair).Right()
-}
+func (t TupCons) TypeFnc() TyFnc               { return Tuple }
+func (t TupCons) Type() Decl                   { return Def(t).Type() }
+func (t TupCons) TypeId() Decl                 { return Def(t).TypeId() }
+func (t TupCons) TypeRet() Decl                { return Def(t).TypeRet() }
+func (t TupCons) TypeArgs() Decl               { return Def(t).TypeArgs() }
+func (t TupCons) Call(args ...Functor) Functor { return Def(t).Call(args...) }
+func (t TupCons) String() string               { return t.TypeName() }
 func (t TupCons) TypeName() string {
 	return t.TypeArgs().TypeName() + " → " +
 		t.TypeId().TypeName() + " → " +
@@ -167,7 +165,7 @@ func (t TupVal) Call(args ...Functor) Functor {
 			}
 		}
 	}
-	return NewNone()
+	return t.Vector()
 }
 
 // create an anonymous ad-hoc tuple from a bunch of arguments
@@ -206,14 +204,14 @@ func NewRecordCon(defs ...Def) RecCons {
 
 	return RecCons(Define(Lambda(func(args ...Functor) Functor {
 
-		var tup = cons.Call(args...).(TupVal)
+		var tup = cons.Call(args...).(VecVal)
 
 		return RecVal(Define(Lambda(func(args ...Functor) Functor {
 			// element acess by index, org key
 			if len(args) > 0 {
 			}
 
-			return RecVal(tup)
+			return tup
 
 		}), Record, cons.TypeRet()))
 	}), Record, cons.TypeRet(), cons.TypeArgs()))
@@ -372,7 +370,7 @@ func (o Option) Call(args ...Functor) Functor {
 // alternatives returns a value of either the first, or second of the two
 // defined return type alternatives.
 func NewAlternative(l, r Def) Alter {
-	fmt.Printf("l: %s, r: %s\n", l, r)
+	fmt.Printf("a: %s, b: %s\n", l, r)
 	return Alter(NewPolyMorph(Declare(
 		Alternatives,
 		DecAny(
@@ -383,7 +381,7 @@ func NewAlternative(l, r Def) Alter {
 			l.TypeArgs(),
 			r.TypeArgs(),
 		),
-	), l, r))
+	)))
 }
 
 func (a Alter) TypeFnc() TyFnc { return Alternatives }

@@ -132,12 +132,16 @@ func Fold(
 		result     = fold(init, head) // calculate temporary result
 	)
 
-	// filter out none instances from returned list
-	if IsNone(result) { // if computation yields none‥.
-		// ‥.as long as list is not empty‥.
-		for IsNone(result) && !tail.Empty() { // ‥.and results are none‥.
-			head, tail = tail.Continue() // ‥.pop heads‥.
-			result = fold(init, head)    // ‥.and calculate results‥.
+	// when folding the initial element over current head return none, or
+	// partial, progress through continuations by folding each new head
+	// with return value of last fold until either list is depleted, or a
+	// result of some proper type is returned, first one of which will be
+	// returned as the final result.
+	if result.Type().Match(None) {
+		for !tail.Empty() && (result.Type().Match(None) ||
+			result.TypeFnc().Match(Partial)) {
+			head, tail = tail.Continue()
+			result = fold(init, head)
 		}
 	}
 	// result is not empty, list has further elements‥.

@@ -597,8 +597,8 @@ func (p Decl) Match(typ d.Typed) bool {
 		//‥.match against all its parts recursively
 		return p.MatchTypes(typ.(Decl).Types()...)
 	}
-	if Kind_Any.Match(typ.Kind()) || Kind_All.Match(typ.Kind()) {
-		return typ.Match(p)
+	if Kind_Any.Match(typ.Kind()) {
+		return typ.Match(p[0])
 	}
 	return p[0].Match(typ)
 }
