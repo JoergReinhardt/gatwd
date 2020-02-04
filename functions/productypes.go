@@ -6,234 +6,238 @@ PRODUCT TYPES
 package functions
 
 import (
+	"fmt"
+
 	d "github.com/joergreinhardt/gatwd/data"
 )
 
 type (
-	// BOOL VALUE TYPES
-	Bool    bool
-	Bitwise d.BitFlag
+	//// TUPLE
+	TupCons Def
+	TupVal  Def
 
-	// BOOLEAN ALGEBRA
-	BoolOp    Def
-	BitwiseOp Def
+	//// RECORD
+	RecCons Def
+	RecVal  TupVal
 
-	// TEST & COMPARE
-	Test    Def
-	Compare Def
+	// POLYMORPH
+	Poly Def
 
-	// OPTIONAL TYPE
+	// OPTIONAL
 	Option Def
 
-	// POLYMORPHIC EXPRESSION
-	PolyDef Def
+	// ALTERNATIVE
+	Alter Poly
 
-	// ALTERNATIVE TYPE
-	Altern PolyDef
+	// SWITCH
+	Switch Poly
 )
 
-//// TRUTH VALUE
+///////////////////////////////////////////////////////////////////////////////
+//// DEFINE TUPLE TYPE CONSTRUCTOR
 ///
-// truth value aliases the native bool type & returns its function type as
-// either 'True', or 'False' depending on the aliased instance
-func (b Bool) TypeFnc() TyFnc {
-	if b {
-		return True
-	}
-	return False
-}
-func (b Bool) Type() Decl                   { return Declare(b.TypeFnc()) }
-func (b Bool) Or(x Bool) Bool               { return b || x }
-func (b Bool) Xor(x Bool) Bool              { return b != x }
-func (b Bool) And(x Bool) Bool              { return b && x }
-func (b Bool) Not() Bool                    { return !b }
-func (b Bool) Call(args ...Functor) Functor { return b.Call(args...) }
-func (b Bool) String() string {
-	if b {
-		return "True"
-	}
-	return "False"
-}
-func (b Bool) Continue() (Functor, Applicative) { return b, NewNone() }
-func (b Bool) Concat(seq Sequential) Applicative {
-	if seq.TypeElem().Match(Truth) {
-		return NewList(b).Concat(seq)
-	}
-	if seq.TypeElem().Match(Truth) {
-		if b {
-			return NewList(Bitwise(0)).Concat(seq)
+// defines a constructor to take arguments matching the tuple signature and
+// return an instanciated tuple constant in accordance with the definition.
+// the tuple value is an instance of an alias type of vector, created from
+// those arguments, in case they match the signature, or none, in case they
+// dont, or an instance of a partialy applied expression, in case an
+// insufficient number of matching arguments has been passed.
+func NewTupleCons(types ...d.Typed) TupCons {
+
+	var (
+		sym      d.Typed
+		argtypes = make([]Functor, 0, len(types))
+	)
+
+	// extract name if symbol has been passed at first position,
+	// else use functional type tuple as type identity
+	if len(types) > 0 {
+		if Kind_Symb.Match(types[0].Kind()) {
+			sym = types[0].(TySym)
+			if len(types) > 1 {
+				types = types[1:]
+			} else {
+				types = types[:0]
+			}
+		} else {
+			sym = Tuple
 		}
-		return NewList(Bitwise(1)).Concat(seq)
+	}
+
+	// cast declaration cell types as functors, declare cell type
+	// first, if it is a flag type, and append to slice of elements
+	// later to return as vector, when constructor is called without
+	// arguments (parameter overload to return constructor definition)
+	for _, t := range types {
+		if Kind_Nat.Match(t.Kind()) {
+			argtypes = append(argtypes, Declare(t))
+		}
+		argtypes = append(argtypes, t.(Functor))
+	}
+
+	// data constructor for this particular tuple type
+	return TupCons(Define(Lambda(func(args ...Functor) Functor {
+		if len(args) > 0 {
+			// returns an instance of tuple value
+			return TupVal(Define(
+				NewVector(args...),
+				sym, DecAll(types...)))
+		}
+		return NewVector(argtypes...)
+	}),
+		Tuple, Declare(Tuple, DecAll(types...)),
+		Declare(types...)))
+}
+func (t TupCons) Unbox() Functor { return Def(t).Unbox() }
+func (t TupCons) GetCellType(idx int) d.Typed {
+	if elem, ok := t.Unbox().Call().(VecVal).Get(idx); ok {
+		return elem.Type()
+	}
+	return None
+}
+func (t TupCons) TypeFnc() TyFnc               { return Tuple }
+func (t TupCons) Type() Decl                   { return Def(t).Type() }
+func (t TupCons) TypeId() Decl                 { return Def(t).TypeId() }
+func (t TupCons) TypeRet() Decl                { return Def(t).TypeRet() }
+func (t TupCons) TypeArgs() Decl               { return Def(t).TypeArgs() }
+func (t TupCons) Call(args ...Functor) Functor { return Def(t).Call(args...) }
+func (t TupCons) String() string               { return t.TypeName() }
+func (t TupCons) TypeName() string {
+	return t.TypeArgs().TypeName() + " → " +
+		t.TypeId().TypeName() + " → " +
+		t.TypeRet().TypeName()
+
+}
+
+/// TUPLE VALUE
+// tuple values are created by applying appropriate arguments to the
+// associated tuple type definition/constructor.
+func (t TupVal) Unbox() Functor { return Def(t).Unbox() }
+func (t TupVal) Vector() VecVal { return t.Unbox().(VecVal) }
+func (t TupVal) Get(idx int) Functor {
+	if elem, ok := t.Vector().Get(idx); ok {
+		return elem
 	}
 	return NewNone()
 }
+func (t TupVal) String() string                   { return t.Vector().String() }
+func (t TupVal) Type() Decl                       { return Def(t).Type() }
+func (t TupVal) TypeId() Decl                     { return Def(t).TypeId() }
+func (t TupVal) TypeRet() Decl                    { return Def(t).TypeRet() }
+func (t TupVal) TypeFnc() TyFnc                   { return Tuple }
+func (t TupVal) TypeElem() Decl                   { return t.TypeRet() }
+func (t TupVal) Continue() (Functor, Applicative) { return t.Vector().Continue() }
+func (t TupVal) Head() Functor                    { return t.Vector().Head() }
+func (t TupVal) Tail() Applicative                { return t.Vector().Tail() }
+func (t TupVal) Empty() bool                      { return t.Vector().Empty() }
 
-func (b Bitwise) String() string               { return d.BitFlag(b).String() }
-func (b Bitwise) TypeFnc() TyFnc               { return Truth | Byte }
-func (b Bitwise) Type() Decl                   { return Declare(Truth, Byte) }
-func (b Bitwise) Match(t d.Typed) bool         { return d.BitFlag(b).Match(t) }
-func (b Bitwise) InSet(bit Bitwise) bool       { return d.BitFlag(b).Match(d.BitFlag(bit)) }
-func (b Bitwise) Uint() d.UintVal              { return d.BitFlag(b).Uint() }
-func (b Bitwise) Not() Bitwise                 { return Bitwise(b.Uint() ^ T.Uint()) }
-func (b Bitwise) And(x Bitwise) Bitwise        { return Bitwise(b.Uint() & x.Uint()) }
-func (b Bitwise) Or(x Bitwise) Bitwise         { return Bitwise(b.Uint() | x.Uint()) }
-func (b Bitwise) Xor(x Bitwise) Bitwise        { return Bitwise(b.Uint() ^ x.Uint()) }
-func (b Bitwise) Call(args ...Functor) Functor { return b }
-
-//// BOOLEAN OPERATIONS
-///
-//
-func DefBoolOp(fnc func(args ...Functor) Bool) BoolOp {
-	return BoolOp(Define(Lambda(func(args ...Functor) Functor {
-		return fnc(args...)
-		// is a bool, returns bool, may take arguments of any type
-	}), Boolean, Boolean, T))
-}
-func (b BoolOp) Call(args ...Functor) Functor {
-	return b.Call(args...)
-}
-func (b BoolOp) Type() Decl {
-	return Declare(Truth, Truth, Truth)
-}
-func (b BoolOp) TypeFnc() TyFnc   { return Boolean }
-func (b BoolOp) TypeId() Decl     { return Declare(Truth) }
-func (b BoolOp) TypeRet() Decl    { return Declare(Truth) }
-func (b BoolOp) TypeArgs() Decl   { return Declare(Truth) }
-func (b BoolOp) TypeName() string { return Declare(Truth).TypeName() }
-func (b BoolOp) String() string   { return b.TypeName() }
-
-//// BOOLEAN ALGEBRA FOR BOOL & BITWISE INSTANCES
-var (
-	OR = DefinePolymorph(DecSym("|"),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bool(args[0].(Bool) || args[1].(Bool))
-		}),
-			Truth, Truth, DecAll(Truth, Truth)),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bitwise(args[0].(Bitwise) | args[1].(Bitwise))
-		}),
-			Declare(Truth|Byte), Truth,
-			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
-	)
-
-	XOR = DefinePolymorph(DecSym("⊻"),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bool(args[0].(Bool) != args[1].(Bool))
-		}), Truth, Truth, DecAll(Truth, Truth)),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bitwise(args[0].(Bitwise) ^ args[1].(Bitwise))
-		}),
-			Declare(Truth|Byte), Truth,
-			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
-	)
-
-	AND = DefinePolymorph(DecSym("&"),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bool(args[0].(Bool) && args[1].(Bool))
-		}), Truth, Truth, DecAll(Truth, Truth)),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bitwise(args[0].(Bitwise) & args[1].(Bitwise))
-		}),
-			Declare(Truth|Byte), Truth,
-			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
-	)
-
-	NOT = DefinePolymorph(DecSym("¬"),
-		Define(Lambda(func(args ...Functor) Functor {
-			return Bool(!args[0].(Bool))
-		}), Truth, Truth, Truth),
-		Define(Lambda(func(args ...Functor) Functor {
-			return args[0].(Bitwise).Not()
-		}),
-			Declare(Truth|Byte), Truth,
-			DecAll(Declare(Truth|Byte), Declare(Truth|Byte))),
-	)
-)
-
-//// TEST
-///
-// test takes a function that takes two functors to scrutinize and returns a
-// boolean value to indicate test result.
-func NewTest(
-	atype d.Typed,
-	test func(args ...Functor) bool,
-) Test {
-	return Test(Define(Lambda(func(args ...Functor) Functor {
-		return Bool(test(args[0], args[1]))
-	}), DecSym("Test"), Truth, Declare(atype, atype)))
-}
-func (t Test) Unbox() Functor { return Def(t).Unbox() }
-func (t Test) TypeFnc() TyFnc {
-	return Truth
-}
-func (t Test) Type() Decl {
-	return Declare(
-		DecSym("Test"),
-		Def(t).TypeRet(),
-		Def(t).TypeArgs())
-}
-func (t Test) String() string {
-	return t.TypeFnc().TypeName()
-}
-func (t Test) Test(args ...Functor) bool {
-	if len(args) > 1 {
-		return bool(Def(t).Unbox().Call(args[0], args[1]).(Bool))
-	}
-	return false
-}
-func (t Test) Compare(a, b Functor) int {
-	if t.Test(a, b) {
-		return 0
-	}
-	return -1
-}
-func (t Test) Call(args ...Functor) Functor { return t(args...) }
-func (t Test) Equal() Def {
-	return Define(t.Unbox(), Equal, Truth, t.Type().TypeArgs())
-}
-
-//// COMPARATOR
-///
-// comparator takes two functors to compare and returns an integer to indicate
-// the result.  if both functors are considered equal by the passed comparing
-// expression, zero is retuned, a negative result, if the left argument is
-// lesser and a positive result, if its greater than the right argument.
-func NewComparator(
-	argtype d.Typed,
-	comp func(a, b Functor) int,
-) Compare {
-	return Compare(Define(Lambda(func(args ...Functor) Functor {
-		if len(args) == 0 { // return argument type, when called empty
-			if Kind_Decl.Match(argtype.Kind()) {
-				return argtype.(Decl)
+// call envoced without arguments, returns all cell values wrapped in a vector
+// of mixed type elements. when arguments are passed, they are expected to be
+// integer index accessors, in which case (the) element(s) associated with the
+// passed index value(s) will be returned.
+func (t TupVal) Call(args ...Functor) Functor {
+	if len(args) > 0 { // assume arguments are index cell accessors
+		if len(args) > 1 { // retrieve sequence of cells
+			var (
+				elems = make([]Functor, 0, len(args))
+				types = make([]d.Typed, 0, len(args))
+			)
+			for _, arg := range args {
+				if !arg.Type().Match(None) {
+					elems = append(elems, t.Call(arg))
+					types = append(types, arg.Type())
+				}
 			}
-			return Declare(Comparison,
-				Declare(Lesser|Greater|Equal),
-				Declare(argtype, argtype))
+			return TupVal(Define( // return tuple of chosen cells
+				NewVector(elems...), Tuple,
+				DecAll(types...)))
 		}
-		if comp(args[0], args[1]) < 0 {
-			return Lesser
+		if args[0].TypeFnc().Match(Atomic) {
+			if eve, ok := args[0].(Evaluable); ok {
+				if ok := eve.Eval().
+					Type().Match(d.Int); ok {
+					if elem, ok := t.Call().(VecVal).Get(
+						eve.Eval().(d.Integer).GoInt(),
+					); ok {
+						return elem
+					}
+				}
+			}
 		}
-		if comp(args[0], args[1]) > 0 {
-			return Greater
-		}
-		return Equal
-	}), DecSym("Compare"),
-		Declare(Lesser|Greater|Equal),
-		Declare(argtype, argtype)))
+	}
+	return t.Vector()
 }
-func (t Compare) Unbox() Functor               { return Def(t).Unbox() }
-func (t Compare) Type() Decl                   { return Def(t).Type() }
-func (t Compare) TypeRet() Decl                { return Def(t).TypeRet() }
-func (t Compare) TypeArgs() Decl               { return Def(t).TypeArgs() }
-func (t Compare) String() string               { return Def(t).TypeName() }
-func (t Compare) TypeFnc() TyFnc               { return Comparison }
-func (t Compare) Call(args ...Functor) Functor { return t(args...) }
-func (t Compare) Compare(a, b Functor) TyFnc   { return Def(t).Call(a, b).(TyFnc) }
-func (t Compare) Equal(a, b Functor) bool      { return t.Compare(a, b).Match(Equal) }
-func (t Compare) Lesser(a, b Functor) bool     { return t.Compare(a, b).Match(Lesser) }
-func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Greater) }
 
+// create an anonymous ad-hoc tuple from a bunch of arguments
+func AllocTuple(args ...Functor) TupVal {
+	var types = make([]d.Typed, 0, len(args))
+	for _, arg := range args {
+		types = append(types, arg.Type())
+	}
+	return TupVal(Define( // return tuple of chosen cells
+		NewVector(args...), Tuple,
+		DecAll(types...)))
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//// RECORD CONSTRUCTOR DEFINITION
+///
+// alloc-record expects key/value pairs as arguments to derive field
+// type names and define field type constructors and then applys the
+
+func NewRecordCon(defs ...Def) RecCons {
+	var (
+		cons  TupCons            // tuple constructor
+		names = d.NewStringMap() // name to index position map
+		types = make([]d.Typed, 0, len(defs))
+	)
+	// range defs to extract type ids & names
+	for pos, def := range defs {
+		types = append(types, def.TypeId())
+		names = names.Set(
+			d.StrVal(def.TypeId().TypeName()),
+			d.IntVal(pos),
+		).(d.MapString)
+	}
+
+	cons = NewTupleCons(types...)
+
+	return RecCons(Define(Lambda(func(args ...Functor) Functor {
+
+		var tup = cons.Call(args...).(TupVal)
+
+		return RecVal(Define(Lambda(func(args ...Functor) Functor {
+			// element acess by index, org key
+			if len(args) > 0 {
+			}
+
+			return RecVal(tup)
+
+		}), Record, cons.TypeRet()))
+	}), Record, cons.TypeRet(), cons.TypeArgs()))
+}
+func (r RecCons) Call(args ...Functor) Functor { return Def(r).Call(args...) }
+func (r RecCons) Unbox() Functor               { return Def(r).Unbox() }
+func (r RecCons) Type() Decl                   { return Def(r).Type() }
+func (r RecCons) TypeId() Decl                 { return Def(r).TypeId() }
+func (r RecCons) TypeRet() Decl                { return Def(r).TypeRet() }
+func (r RecCons) TypeArgs() Decl               { return Def(r).TypeArgs() }
+func (r RecCons) TypeFnc() TyFnc               { return Record }
+func (r RecCons) String() string               { return r.TypeName() }
+func (r RecCons) TypeName() string             { return "" }
+
+func (r RecVal) Len() int                     { return Def(r).Len() }
+func (r RecVal) TypeFnc() TyFnc               { return Record }
+func (r RecVal) Type() Decl                   { return Def(r).Type() }
+func (r RecVal) TypeId() Decl                 { return Def(r).TypeId() }
+func (r RecVal) TypeRet() Decl                { return Def(r).TypeRet() }
+func (r RecVal) TypeArgs() Decl               { return Def(r).TypeArgs() }
+func (r RecVal) TypeName() string             { return Def(r).TypeName() }
+func (r RecVal) String() string               { return r.Unbox().String() }
+func (r RecVal) Unbox() Functor               { return Def(r).Unbox() }
+func (r RecVal) Call(args ...Functor) Functor { return r.Unbox().Call(args...) }
+
+///////////////////////////////////////////////////////////////////////////////
 //// DEFINE POLYMORPHIC TYPE
 ///
 // a parametric definition is a vector of function definitions sharing a common
@@ -243,44 +247,52 @@ func (t Compare) Greater(a, b Functor) bool    { return t.Compare(a, b).Match(Gr
 // instances of partial value, without returning a final value, another
 // parametric definition will be returned, defined by all remaining partial
 // instances, to be applied to succeeding arguments recursively.
-func DefinePolymorph(symbol d.Typed, defs ...Def) PolyDef {
+func NewPolyMorph(symbol d.Typed, defs ...Def) Poly {
 
 	var (
-		parms = NewVector()
-		name  = symbol.TypeName()
-		ats   = make([]d.Typed, 0, len(defs))
-		rts   = make([]d.Typed, 0, len(defs))
+		parms = NewVector()       // vector to hold definitions
+		name  = symbol.TypeName() // string version of type symbol
+
+		ats = make([]d.Typed, 0, len(defs)) // slice of argument types
+		rts = make([]d.Typed, 0, len(defs)) // slice of return types
 	)
 
-	for n, def := range defs {
-		parms = parms.ConsVec(def)
+	for n, def := range defs { // range over definitions
+		parms = parms.ConsVec(def) // concatenate to vectors
 		ats = append(ats, def.TypeArgs())
 		rts = append(ats, def.TypeRet())
-		if name == "" {
+		if name == "" { // if the name has not been set‥.
+			// compose name from dot cocatenating of all subtype names
 			name = name + def.TypeId().TypeName()
 			if n < len(defs)-1 {
-				name = name + "|"
+				name = name + "."
 			}
 		}
 	}
 
-	return PolyDef(Define(parms, DecSym(name),
+	// define Polymorph from vector of parameters, declare name &
+	// concatenate return & argument types
+	return Poly(Define(parms, DecSym(name),
 		DecAny(ats...), DecAny(rts...)))
 }
-func (p PolyDef) Vector() VecVal { return p.Unbox().(VecVal) }
-func (p PolyDef) Unbox() Functor { return Def(p).Unbox() }
-func (p PolyDef) Type() Decl     { return Def(p).Type() }
-func (p PolyDef) TypeId() Decl   { return Def(p).TypeId() }
-func (p PolyDef) TypeRet() Decl  { return Def(p).TypeRet() }
-func (p PolyDef) TypeArgs() Decl { return Def(p).TypeArgs() }
-func (p PolyDef) String() string { return Def(p).TypeName() }
-func (p PolyDef) TypeFnc() TyFnc {
+
+// vector returns a vector of all (remaining) definitions
+func (p Poly) Unbox() Functor { return Def(p).Unbox() }
+func (p Poly) Vector() VecVal { return p.Unbox().(VecVal) }
+func (p Poly) Len() int       { return p.Vector().Len() }
+func (p Poly) Type() Decl     { return Def(p).Type() }
+func (p Poly) TypeId() Decl   { return Def(p).TypeId() }
+func (p Poly) TypeRet() Decl  { return Def(p).TypeRet() }
+func (p Poly) TypeArgs() Decl { return Def(p).TypeArgs() }
+func (p Poly) String() string { return Def(p).TypeName() }
+func (p Poly) TypeFnc() TyFnc {
+	// set function type to partial, if its the case
 	if IsPartial(p.Vector().Head()) {
 		return Partial | Polymorph
 	}
 	return Polymorph
 }
-func (p PolyDef) TypeName() string {
+func (p Poly) TypeName() string {
 	//var str = "case x in\n"
 	var str = p.TypeId().TypeName() + " ∷\n"
 
@@ -293,30 +305,36 @@ func (p PolyDef) TypeName() string {
 
 	return str
 }
-func (p PolyDef) Call(args ...Functor) Functor {
 
+// call evaluates application of arguments to each enclosed definition, as long
+// as partial results are yielded, until either a final result, or an instance
+// of none is returned
+func (p Poly) Call(args ...Functor) Functor {
+
+	// allocate slice to hold partialy applied return values
 	var partials = []Def{}
 
-	for _, def := range p.Vector()() {
-		var result = def.Call(args...)
-		if !IsNone(result) {
-			if !IsPartial(result) {
-				return result
-			}
+	for _, def := range p.Vector()() { // range over constructors
+		var result = def.Call(args...) // apply args
+		if !IsNone(result) {           // not none‥.
+			if !IsPartial(result) { // ‥.not partial‥.
+				return result // ‥.⇒ first & final result
+			} // else append to partials
 			partials = append(partials,
 				result.(Def))
 		}
 	}
 
-	if len(partials) > 0 {
-		if len(partials) > 1 {
-			return DefinePolymorph(
-				p.TypeId(),
-				partials...)
+	// as long as no final result has been yielded, but partial
+	// applications are returned, keep calm &carry on
+	if len(partials) > 0 { // if there are partials‥.
+		if len(partials) > 1 { //‥.if there is more than one‥.
+			return NewPolyMorph( //‥.define polymorphic‥.
+				p.TypeId(), partials...) //‥.from partials‥.
 		}
-		return partials[0]
+		return partials[0] //‥.⇒ single remaining partial
 	}
-	return NewNone()
+	return NewNone() //‥.⇒ none, when no args passed
 }
 
 //// OPTIONAL TYPE DEFINITION
@@ -328,7 +346,7 @@ func (p PolyDef) Call(args ...Functor) Functor {
 // values instead, in reaction to encapsulated side effects, or as natural
 // result of the computation they where applied to.  the optional type exposes
 // that property explicitly by being defined with a return type of Just | None.
-func DefineOption(def Def) Option { return Option(def) }
+func NewOption(def Def) Option { return Option(def) }
 
 func (o Option) TypeFnc() TyFnc   { return Options }
 func (o Option) Type() Decl       { return Def(o).Type() }
@@ -351,18 +369,49 @@ func (o Option) Call(args ...Functor) Functor {
 ///
 // alternatives returns a value of either the first, or second of the two
 // defined return type alternatives.
-func DefineAlternative(l, r Def) Altern {
-	return Altern(DefinePolymorph(Alternatives, l, r))
+func NewAlternative(l, r Def) Alter {
+	fmt.Printf("l: %s, r: %s\n", l, r)
+	return Alter(NewPolyMorph(Declare(
+		Alternatives,
+		DecAny(
+			DecAll(Either, l.TypeId()),
+			DecAll(Or, r.TypeId()),
+		),
+		DecAny(
+			l.TypeArgs(),
+			r.TypeArgs(),
+		),
+	), l, r))
 }
 
-func (a Altern) TypeFnc() TyFnc { return Alternatives }
-func (a Altern) Unbox() Functor { return PolyDef(a).Unbox() }
-func (a Altern) Type() Decl     { return PolyDef(a).Type() }
-func (a Altern) TypeId() Decl   { return PolyDef(a).TypeId() }
-func (a Altern) TypeArgs() Decl { return PolyDef(a).TypeArgs() }
-func (a Altern) TypeRet() Decl {
-	return Declare(Alternatives, PolyDef(a).TypeRet())
+func (a Alter) TypeFnc() TyFnc { return Alternatives }
+func (a Alter) Unbox() Functor { return Poly(a).Unbox() }
+func (a Alter) Type() Decl     { return Poly(a).Type() }
+func (a Alter) TypeId() Decl   { return Poly(a).TypeId() }
+func (a Alter) TypeArgs() Decl { return Poly(a).TypeArgs() }
+func (a Alter) TypeRet() Decl {
+	return Declare(Alternatives, Poly(a).TypeRet())
 }
-func (a Altern) TypeName() string             { return PolyDef(a).TypeName() }
-func (a Altern) String() string               { return a.TypeName() }
-func (a Altern) Call(args ...Functor) Functor { return PolyDef(a).Call(args...) }
+func (a Alter) TypeName() string             { return Poly(a).TypeName() }
+func (a Alter) String() string               { return a.TypeName() }
+func (a Alter) Call(args ...Functor) Functor { return Poly(a).Call(args...) }
+
+//// SWITCH
+///
+// alternatives returns a value of either the first, or second of the two
+// defined return type alternatives.
+func NewSwitch(args ...Def) Switch {
+	return Switch(NewPolyMorph(Choice, args...))
+}
+
+func (a Switch) TypeFnc() TyFnc { return Choice }
+func (a Switch) Unbox() Functor { return Poly(a).Unbox() }
+func (a Switch) Type() Decl     { return Poly(a).Type() }
+func (a Switch) TypeId() Decl   { return Poly(a).TypeId() }
+func (a Switch) TypeArgs() Decl { return Poly(a).TypeArgs() }
+func (a Switch) TypeRet() Decl {
+	return Declare(Choice, Poly(a).TypeRet())
+}
+func (a Switch) TypeName() string             { return Poly(a).TypeName() }
+func (a Switch) String() string               { return a.TypeName() }
+func (a Switch) Call(args ...Functor) Functor { return Poly(a).Call(args...) }

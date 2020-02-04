@@ -140,7 +140,7 @@ func TestExpression(t *testing.T) {
 	}
 }
 func TestTuple(t *testing.T) {
-	var tup = DefTuple(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
+	var tup = NewTupleCons(Dat(0).Type(), Dat(uint(0)).Type(), Dat(0.0).Type())
 	fmt.Printf("tuple constructor: %s\n", tup)
 
 	var app = tup.Call(Dat(1), Dat(uint(1)), Dat(0.1))

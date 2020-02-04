@@ -381,6 +381,7 @@ func (n TyAll) TypeName() string {
 // matches when any of its members matches the arguments type
 func (n TyAll) Match(arg d.Typed) bool {
 
+	// if function, or native type → decompose
 	if Kind_Nat.Match(arg.Kind()) ||
 		Kind_Fnc.Match(arg.Kind()) {
 		if types := arg.Flag().Decompose(); len(types) > 0 {
@@ -393,11 +394,12 @@ func (n TyAll) Match(arg d.Typed) bool {
 		}
 	}
 
+	// if declaration, any, or all type
 	if Kind_Any.Match(arg.Kind()) ||
 		Kind_All.Match(arg.Kind()) ||
 		Kind_Decl.Match(arg.Kind()) {
 		for _, t := range arg.(DynamicTyped).Elements() {
-			if !n.Match(t) {
+			if !t.Match(n) {
 				return false
 			}
 		}
@@ -590,10 +592,34 @@ func (p Decl) TypePropertys() []Decl {
 }
 
 func (p Decl) Match(typ d.Typed) bool {
+	// if argument is a type declaration‥.
 	if Kind_Decl.Match(typ.Kind()) {
+		//‥.match against all its parts recursively
 		return p.MatchTypes(typ.(Decl).Types()...)
 	}
+	if Kind_Any.Match(typ.Kind()) || Kind_All.Match(typ.Kind()) {
+		return typ.Match(p)
+	}
 	return p[0].Match(typ)
+}
+
+// match-types takes multiple types and matches them against an equal number of
+// pattern elements one at a time, starting with the first one. if the number
+// of arguments and elements differ, the shorter list will be evaluated.
+func (p Decl) MatchTypes(types ...d.Typed) bool {
+	// sort p's elements and the passed type arguments by length (swap is
+	// necessary)
+	var short, long = p.sortLength(types...)
+	// range about the shorter of both sequences
+	for n, elem := range short {
+		// match every of it's elements against the corresponding
+		// element from the longer sequence & return false on mismatch
+		if !elem.Match(long[n]) {
+			return false
+		}
+	}
+	// return true, when all elements of shorter sequence have been matched
+	return true
 }
 
 // match-args takes multiple expression arguments and matches their types
@@ -608,19 +634,6 @@ func (p Decl) MatchArgs(args ...Functor) bool {
 			return false
 		}
 		head, tail = tail.ConsumeTyped()
-	}
-	return true
-}
-
-// match-types takes multiple types and matches them against an equal number of
-// pattern elements one at a time, starting with the first one. if the number
-// of arguments and elements differ, the shorter list will be evaluated.
-func (p Decl) MatchTypes(types ...d.Typed) bool {
-	var short, long = p.sortLength(types...)
-	for n, elem := range short {
-		if !elem.Match(long[n]) {
-			return false
-		}
 	}
 	return true
 }
@@ -641,7 +654,7 @@ func (p Decl) MatchAnyType(args ...d.Typed) bool {
 }
 
 // returns true if the arguments type matches any of the patterns types
-func (p Decl) MatchAnyArg(args ...Functor) bool {
+func (p Decl) MatchAnyArgs(args ...Functor) bool {
 	var types = make([]d.Typed, 0, len(args))
 	for _, arg := range args {
 		types = append(types, arg.Type())
@@ -677,46 +690,6 @@ func (p Decl) TailTyped() Decl {
 }
 func (p Decl) ConsumeTyped() (d.Typed, Decl) {
 	return p.HeadTyped(), p.TailTyped()
-}
-
-// elements returns the instnces of d.Typed initially passed to the
-// constructor.
-func (p Decl) Elements() []d.Typed {
-	var elems = make([]d.Typed, 0, p.Count())
-	for _, elem := range p {
-		if Kind_Nat.Match(elem.Kind()) {
-			if elem.Match(d.Nil) {
-				continue
-			}
-		}
-		if elem.Match(None) {
-			continue
-		}
-		elems = append(elems, elem)
-	}
-	return elems
-}
-
-// fields returns each element as instance of composed-type, either casting the
-// element as such, or instanciating one from the d.Typed interface isntance
-func (p Decl) Fields() []Decl {
-	var elems = make([]Decl, 0, p.Count())
-	for _, elem := range p.Elements() {
-		if Kind_Nat.Match(elem.Kind()) {
-			if elem.Match(d.Nil) {
-				continue
-			}
-		}
-		if elem.Match(None) {
-			continue
-		}
-		if Kind_Decl.Match(elem.Kind()) {
-			elems = append(elems, elem.(Decl))
-			continue
-		}
-		elems = append(elems, Declare(elem))
-	}
-	return elems
 }
 
 // print returns a string representation of a pattern, seperating the elements
@@ -815,8 +788,11 @@ func (p Decl) TypeName() string {
 // type-elem yields the first elements typed
 func (p Decl) TypeElem() Decl { return p.TypeId() }
 
+// TODO: mergs those!
 // elems yields all elements contained in the pattern
-func (p Decl) Types() []d.Typed        { return p }
+func (p Decl) Elements() []d.Typed { return p }
+func (p Decl) Types() []d.Typed    { return p }
+
 func (p Decl) Call(...Functor) Functor { return p } // ← TODO: match arg instances
 func (p Decl) Len() int                { return len(p.Types()) }
 func (p Decl) Empty() bool             { return p.Len() == 0 }
@@ -916,6 +892,9 @@ func (p Decl) Append(args ...Functor) Applicative {
 	return NewVector(append(types, args...)...)
 }
 
+// TODO: merge that!
+func (p Decl) Declarations() []Decl { return p.Pattern() }
+
 // pattern yields a slice of type patterns, with all none & nil elements
 // filtered out
 func (p Decl) Pattern() []Decl {
@@ -928,201 +907,4 @@ func (p Decl) Pattern() []Decl {
 		pattern = append(pattern, Declare(typ))
 	}
 	return pattern
-}
-
-// bool methods
-func (p Decl) HasIdentity() bool {
-	if p.Count() > 0 {
-		return true
-	}
-	return false
-}
-func (p Decl) HasReturnType() bool {
-	if p.Count() > 1 {
-		return true
-	}
-	return false
-}
-func (p Decl) HasArguments() bool {
-	if p.Count() > 2 {
-		return true
-	}
-	return false
-}
-
-// one element pattern is a type identity
-func (p Decl) IsIdentity() bool {
-	if p.Count() == 1 {
-		return true
-	}
-	return false
-}
-func (p Decl) IsAtomic() bool {
-	if p.IsIdentity() {
-		return !strings.ContainsAny(p.Elements()[0].TypeName(), " |,:")
-	}
-	return false
-}
-func (p Decl) IsTruth() bool {
-	if p.Count() == 1 {
-		return p.Elements()[0].Match(Truth)
-	}
-	return false
-}
-func (p Decl) IsCompare() bool {
-	if p.Count() == 1 {
-		return p.Elements()[0].Match(Comparison)
-	}
-	return false
-}
-func (p Decl) IsData() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Data)
-	}
-	return false
-}
-func (p Decl) IsPair() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Pair)
-	}
-	return false
-}
-func (p Decl) IsVector() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Vector)
-	}
-	return false
-}
-func (p Decl) IsList() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(List)
-	}
-	return false
-}
-func (p Decl) IsFunctor() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Continua)
-	}
-	return false
-}
-func (p Decl) IsEnum() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Enum)
-	}
-	return false
-}
-func (p Decl) IsTuple() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Tuple)
-	}
-	return false
-}
-func (p Decl) IsRecord() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Record)
-	}
-	return false
-}
-func (p Decl) IsSet() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Set)
-	}
-	return false
-}
-func (p Decl) IsSwitch() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Choice)
-	}
-	return false
-}
-func (p Decl) IsNumber() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Numbers)
-	}
-	return false
-}
-func (p Decl) IsString() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(String)
-	}
-	return false
-}
-func (p Decl) IsByte() bool {
-	if p.Count() == 2 {
-		return p.Elements()[0].Match(Byte)
-	}
-	return false
-}
-func (p Decl) IsSumType() bool {
-	if p.Count() == 2 && (p.IsList() || p.IsVector() || p.IsEnum()) {
-		return true
-	}
-	return false
-}
-func (p Decl) IsProductType() bool {
-	if p.Count() == 2 && (p.IsTuple() || p.IsRecord() || p.IsPair() || p.IsSet()) {
-		return true
-	}
-	return false
-}
-func (p Decl) IsCase() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Options)
-	}
-	return false
-}
-func (p Decl) IsMaybe() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Options)
-	}
-	return false
-}
-func (p Decl) IsOption() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Alternatives)
-	}
-	return false
-}
-func (p Decl) IsFunction() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Value)
-	}
-	return false
-}
-func (p Decl) IsParametric() bool {
-	if p.Count() == 3 {
-		return p.Elements()[1].Match(Polymorph)
-	}
-	return false
-}
-
-// two element pattern is a constant type returning a value type
-func (p Decl) HasData() bool        { return p.MatchAnyType(Data) }
-func (p Decl) HasPair() bool        { return p.MatchAnyType(Pair) }
-func (p Decl) HasEnum() bool        { return p.MatchAnyType(Enum) }
-func (p Decl) HasTuple() bool       { return p.MatchAnyType(Tuple) }
-func (p Decl) HasRecord() bool      { return p.MatchAnyType(Record) }
-func (p Decl) HasTruth() bool       { return p.MatchAnyType(Truth) }
-func (p Decl) HasCompare() bool     { return p.MatchAnyType(Comparison) }
-func (p Decl) HasBound() bool       { return p.MatchAnyType(Min, Max) }
-func (p Decl) HasMaybe() bool       { return p.MatchAnyType(Options) }
-func (p Decl) HasAlternative() bool { return p.MatchAnyType(Alternatives) }
-func (p Decl) HasNumber() bool      { return p.MatchAnyType(Numbers) }
-func (p Decl) HasString() bool      { return p.MatchAnyType(String) }
-func (p Decl) HasByte() bool        { return p.MatchAnyType(Byte) }
-func (p Decl) HasCollection() bool {
-	return p.MatchAnyType(
-		List, Vector, Tuple, Enum, Record)
-}
-func (p Decl) HasReturn() bool {
-	if p.Count() >= 2 {
-		return true
-	}
-	return false
-}
-func (p Decl) HasArgs() bool {
-	if p.Count() >= 3 {
-		return true
-	}
-	return false
 }

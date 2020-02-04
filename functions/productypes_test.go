@@ -95,9 +95,18 @@ func TestCompareable(t *testing.T) {
 }
 
 func TestPolymorph(t *testing.T) {
-	var poly = DefinePolymorph(DecSym("+"), addInts, addUints, addFloats)
-	fmt.Printf("polymorh definition: %s\n", poly)
-	fmt.Printf("polymorh adding ints 11 + 22: %s\n", poly.Call(Dat(11), Dat(22)))
+	fmt.Printf("addFloats type: %s\n", addFloats.Type())
+	fmt.Printf("addFloats arg types: %s\n", addFloats.TypeArgs())
+	fmt.Printf("addFloats return types: %s\n", addFloats.TypeRet())
+
+	fmt.Printf("addInts type: %s\n", addInts.Type())
+	fmt.Printf("addInts arg types: %s\n", addInts.TypeArgs())
+	fmt.Printf("addInts return types: %s\n", addInts.TypeRet())
+
+	var poly = NewPolyMorph(DecSym("+"), addInts, addUints, addFloats)
+
+	fmt.Printf("polymorh definition:\n%s\n", poly.Type())
+	fmt.Printf("polymorh adding ints 10 + 22: %s\n", poly.Call(Dat(11), Dat(22)))
 	if poly.Call(Dat(11), Dat(22)).(Atom)().(d.IntVal) != 33 {
 		t.Fail()
 	}
@@ -132,4 +141,58 @@ func TestPolymorph(t *testing.T) {
 	if !poly.Call(Dat(10), Dat(1.1)).Type().Match(None) {
 		t.Fail()
 	}
+}
+
+var opt = NewOption(Define(Lambda(func(args ...Functor) Functor {
+	if args[0].(Atom)().(d.IntVal) > 0 {
+		return Box(d.StrVal("positive"))
+	}
+	return NewNone()
+}), DecSym("positiveOrNone"), Dat("").Type(), Dat(0).Type()))
+
+func TestOption(t *testing.T) {
+
+	//fmt.Printf("optional: %s\n", opt.TypeName())
+
+	var o = opt.Call(Dat(-1))
+	fmt.Printf("negative → none: %s\n", o)
+	if !o.Type().Match(None) {
+		t.Fail()
+	}
+
+	o = opt.Call(Dat(1))
+	fmt.Printf("positive → string: %s\n", o)
+	fmt.Printf("o type: %s\n", o.Type())
+	if !o.Type().Match(Dat("").Type()) {
+		t.Fail()
+	}
+}
+
+var alt = NewAlternative(
+	Define(Lambda(func(args ...Functor) Functor {
+		if args[0].(Atom)().(d.IntVal) > 0 {
+			return Box(d.StrVal("positive"))
+		}
+		return NewNone()
+	}), DecSym("positiveOrNone"), Dat("").Type(), Dat(0).Type()),
+	Define(Lambda(func(args ...Functor) Functor {
+		if args[0].(Atom)().(d.IntVal) < 0 {
+			return Box(d.StrVal("negative"))
+		}
+		return NewNone()
+	}), DecSym("negativeOrNone"), Dat("").Type(), Dat(0).Type()),
+)
+
+func TestAlternative(t *testing.T) {
+
+	fmt.Printf("alternative: %s\n", alt)
+
+	var a = alt.Call(Dat(-1))
+	fmt.Printf("alt called with -1: %s\n", a)
+
+	a = alt.Call(Dat(1))
+	fmt.Printf("alt called with 1: %s\n", a)
+
+	var rec = NewRecordCon(Define(alt), Define(opt))
+	fmt.Printf("record??? %s\n", rec.Call(Dat(10), Dat(11)))
 }
