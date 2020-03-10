@@ -20,7 +20,9 @@ import d "github.com/joergreinhardt/gatwd/data"
 type (
 	//// NATIVE VALUE CONSTRUCTORS
 	///
-	// atom has to be indirected by a function call, since interface type d.Native can not be aliased and extendet with further methods to define a
+	// atom has to be indirected by wrapping it in a function call, since
+	// d.Native is an interface type and therefore cant be aliased and/or
+	// extendet by further methods.
 	Atom     func() d.Native
 	DatFunc  func(...d.Native) d.Native
 	DatSlice func() d.DataSlice
