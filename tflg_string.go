@@ -23,44 +23,36 @@ func _() {
 	_ = x[Vector-4095]
 	_ = x[Tuple-8191]
 	_ = x[List-16383]
-	_ = x[Zero-32767]
-	_ = x[One-65535]
-	_ = x[Min-131071]
-	_ = x[Max-262143]
-	_ = x[Fnc-524287]
-	_ = x[Op-1048575]
-	_ = x[Just-2097151]
-	_ = x[Either-4194303]
-	_ = x[Or-8388607]
+	_ = x[Fnc-32767]
+	_ = x[Op-65535]
+	_ = x[Just-131071]
+	_ = x[Either-262143]
+	_ = x[Or-524287]
 }
 
-const _tflg_name = "NoneTruthUintIntFltImgTimeSpanByteRuneBytesStringVectorTupleListZeroOneMinMaxFncOpJustEitherOr"
+const _tflg_name = "NoneTruthUintIntFltImgTimeSpanByteRuneBytesStringVectorTupleListFncOpJustEitherOr"
 
 var _tflg_map = map[tflg]string{
-	0:       _tflg_name[0:4],
-	1:       _tflg_name[4:9],
-	3:       _tflg_name[9:13],
-	7:       _tflg_name[13:16],
-	15:      _tflg_name[16:19],
-	31:      _tflg_name[19:22],
-	63:      _tflg_name[22:26],
-	127:     _tflg_name[26:30],
-	255:     _tflg_name[30:34],
-	511:     _tflg_name[34:38],
-	1023:    _tflg_name[38:43],
-	2047:    _tflg_name[43:49],
-	4095:    _tflg_name[49:55],
-	8191:    _tflg_name[55:60],
-	16383:   _tflg_name[60:64],
-	32767:   _tflg_name[64:68],
-	65535:   _tflg_name[68:71],
-	131071:  _tflg_name[71:74],
-	262143:  _tflg_name[74:77],
-	524287:  _tflg_name[77:80],
-	1048575: _tflg_name[80:82],
-	2097151: _tflg_name[82:86],
-	4194303: _tflg_name[86:92],
-	8388607: _tflg_name[92:94],
+	0:      _tflg_name[0:4],
+	1:      _tflg_name[4:9],
+	3:      _tflg_name[9:13],
+	7:      _tflg_name[13:16],
+	15:     _tflg_name[16:19],
+	31:     _tflg_name[19:22],
+	63:     _tflg_name[22:26],
+	127:    _tflg_name[26:30],
+	255:    _tflg_name[30:34],
+	511:    _tflg_name[34:38],
+	1023:   _tflg_name[38:43],
+	2047:   _tflg_name[43:49],
+	4095:   _tflg_name[49:55],
+	8191:   _tflg_name[55:60],
+	16383:  _tflg_name[60:64],
+	32767:  _tflg_name[64:67],
+	65535:  _tflg_name[67:69],
+	131071: _tflg_name[69:73],
+	262143: _tflg_name[73:79],
+	524287: _tflg_name[79:81],
 }
 
 func (i tflg) String() string {
