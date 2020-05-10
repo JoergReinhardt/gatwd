@@ -86,7 +86,6 @@ package main
 
 import (
 	"math/bits"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -98,22 +97,6 @@ func isSet(f uint) bool           { return card(f) > 1 }
 func hasFlag(set, flag uint) bool { return set&flag != 0 }
 func card(f uint) int             { return bits.OnesCount(uint(f)) }
 func rank(f uint) int             { return bits.Len(uint(f)) }
-func splitKind(f tflg) []Flg {
-	var (
-		u   = uint(f)
-		l   = rank(u)
-		set = make([]Flg, 0, l)
-	)
-	if l > 1 {
-		for f != 0 {
-			var u = f
-			f = f & u
-			set = append(set, tflg(u))
-		}
-		set = append(set, tflg(u))
-	}
-	return set
-}
 func splitSet(f uint) []uint {
 	var set = make([]uint, 0, rank(f))
 	if rank(f) > 1 {
@@ -129,447 +112,66 @@ func splitSet(f uint) []uint {
 }
 
 type (
-	// STRINGER ∷ printable
-	Stringer interface {
-		String() string
-	}
-	// UID ∷ numeric id
-	Id interface {
+	// ID ∷ numeric id
+	// LABLE ∷ lable text
+	Lab interface {
 		Id() int
+		Lable() string
+	}
+	// FLAG ∷ labled bit flag
+	Flg interface {
+		Flg() uint
+		Lab
 	}
 	// IDENTITY ∷ unique instance of object
 	Ident interface {
 		Ident() Obj
 	}
-	// OBJECT ∷  unique identifyable instance
-	Obj interface {
-		Id
-		Ident
+	Relat interface {
+		Kind(...Obj) Cat
 		Cons(...Obj) Obj
 	}
-	// LABLE ∷ lable text
-	Lab interface {
-		Lable() string
+	// OBJECT ∷
+	// ⇒ kind _  →  Cₚₐᵣₑₙₜ  <|> !_ARGS_IGNORED_!_CONSTANT_! (PARENT)
+	// ⇒ O… <cons> O  →  O
+	Obj interface { // ← bits = 1 !
+		Ident // Ident() Obj
+		Relat // K(…O) C, C(…O) O
+		Lab   // Id int, L string
 	}
-	// FLAG ∷ labled bit flag
-	Flg interface {
-		Kind() Kind
-		Flg() uint
-		Lab
-	}
-	// SYMBOL ∷ object labled with name, bit flag, or other lable
-	Sym interface {
-		Lab // Flg | Lab
-		Obj
+	// CATEGORY ∷ C  →  [O]			   <|>  set of objects
+	// cons	    = ∅  →  C₀			   <|>  cons all sub categorys
+	// cons	C   = C  →  [C]			   <|>  cons parent category
+	// cons O…  = O… →  (O.Id()… → Cₙ) → Cₙ₊ₘ  <|>  cons new cat' from cat & objects
+	//					   <|>
+	// kind    = C  →  Cₙ…			   <|>  kind ∅ returns all kinds      → C…
+	// kind Cₙ = Cₙ →  (Cₙ → C₀) → Cₚₐᵣₑₙₜ	   <|>  kind C returns kind <of> O(C) → Cₚ
+	// kind Oₙ = Oₙ →  (id Oₙ → Cₙ) → C₍ₕᵢₗ₎   <|>  kind O returns kind <of> O₍   → Cₒ
+	// ⇒ (kind C →  Cₚₐᵣₑₙₜ| kind O →  C₍ₕᵢₗ₎)
+	// ⇒ O… <cons> C  →  C'
+	Cat interface { // ← bits > 1 !
+		Ident // Ident() Obj
+		Relat // K(…O) C, C(…O) O
+		Flg   // Id int, L string, F uint
 	}
 	// LINKED ∷ objects linked by name
 	Lnk interface {
 		Head() Obj
 		Tail() Obj
+		Ident
 	}
-	// TABLE ∷ object uid to name map
-	Tab interface {
-		Lookup(string) Sym
-	}
-	// CATEGORY ∷ set of objects of same kind of unit
-	Cat interface {
-		Tab        // member[0] = pi, cu ↑
-		Unit() Obj // cu
-		Zero() Cat
-	}
-	Type interface {
-		Cat
-		Type() (Flg, Cat)
-	}
-	// KIND
-	// 'kind' is the category of types
-	// Q: which kind of type are we talking about?
-	// A: the kind of type we are currently dealing with.
-	// Q: which unit does this type have?
-	// A: the kind of unit, all types of this kind have.
-	Kind interface {
-		Type
-		Kind() Kind
-	}
-
 	//Sum Obj // ∑ [Objₜ] = collection type of particular objects type
 	//Pro Obj // ∏ Obj₁|Obj₂|…|Objₙ = enum type composed of n subtype flags
 
-	Const func() Obj         // constant object
-	Pair  func() (Obj, Obj)  // pair of objects
-	Link  func() (Obj, Pair) // linked objects (list, tree, …)
-	Vect  []Obj              // sum of objects
+	Const func() Ident          // constant object
+	Pair  func() (Ident, Ident) // pair of objects
+	Link  func() (Ident, Pair)  // linked objects (list, tree, …)
+	Vect  []Ident               // sum of objects
 
-	UnaOp func(Obj) Obj      // unary operation
-	BinOp func(a, b Obj) Obj // binary operation
-	GenOp func(...Obj) Obj   // n-nary operation
+	UnaOp func(Ident) Ident      // unary operation
+	BinOp func(a, b Ident) Ident // binary operation
+	GenOp func(...Ident) Ident   // n-nary operation
 )
-
-func headArg(os []Obj) Obj {
-	if len(os) > 0 {
-		return os[0]
-	}
-	return None
-}
-func scndArg(os []Obj) Obj {
-	if len(os) > 1 {
-		return os[1]
-	}
-	return None
-}
-func tailArgs(os []Obj) Obj {
-	if len(os) > 1 {
-		return Vect(os[1:])
-	}
-	return None
-}
-func pairTail(os []Obj) Obj {
-	if len(os) > 2 {
-		return Vect(os[2:])
-	}
-	return None
-}
-func args(os []Obj) Obj {
-	if len(os) > 0 {
-		if len(os) > 1 {
-			var v = make(Vect, 0, len(os))
-			for _, o := range os {
-				v = append(v, o)
-			}
-			return v
-		}
-	}
-	return None
-}
-
-func (c Const) Ident() Obj         { return c }
-func (c Const) Unit() Obj          { return c() } // flag, symbol, instance…
-func (c Const) Id() int            { return c.Unit().Id() }
-func (c Const) Cons(os ...Obj) Obj { return args(os) }
-func consConst(o Obj) Const        { return func() Obj { return o } }
-
-func (p Pair) Ident() Obj         { return p }
-func (p Pair) Head() Obj          { l, _ := p(); return l }
-func (p Pair) Tail() Obj          { _, r := p(); return r }
-func (p Pair) Unit() Obj          { return p.Head() }
-func (p Pair) Id() int            { return p.Head().Id() }
-func (p Pair) Pid() int           { return p.Tail().Id() }
-func (p Pair) Cons(os ...Obj) Obj { return consPair(headArg(os), scndArg(os)) }
-func consPair(l, r Obj) Pair      { return func() (l, r Obj) { return l, r } }
-
-func (l Link) Ident() Obj { return l }
-func (l Link) Head() Obj  { h, _ := l(); return h }
-func (l Link) Tail() Obj  { _, t := l(); return t }
-func (l Link) Unit() Obj  { return l.Head() }
-func (l Link) Id() int    { return l.Head().Id() }
-func (l Link) Pid() int   { return l.Tail().Id() }
-func (l Link) Cons(os ...Obj) Obj {
-	return consLink(consPair(headArg(os), scndArg(os)), pairTail(os))
-}
-func consLink(p Pair, o Obj) Link { return func() (Obj, Pair) { return o, p } }
-
-func (v Vect) Ident() Obj     { return v }
-func (v Vect) Len() int       { return len(v) }
-func (v Vect) Empty() bool    { return v.Len() == 0 }
-func (v Vect) Single() bool   { return v.Len() == 1 }
-func (v Vect) Double() bool   { return v.Len() == 2 }
-func (v Vect) Multiple() bool { return v.Len() > 2 }
-func (Vect) Finite() bool     { return true }
-func (v Vect) Id() int {
-	if v.Empty() {
-		return 0
-	}
-	return v[0].Id()
-}
-func (v Vect) Head() Obj {
-	if !v.Empty() {
-		return consVect(v[0])
-	}
-	return None
-}
-func (v Vect) Tail() Obj {
-	if !v.Empty() {
-		return consVect(v[1:]...)
-	}
-	return None
-}
-func (v Vect) Unit() Obj { return v.Head() }
-func (v Vect) Cons(os ...Obj) Obj {
-	return v.Head()
-}
-func consVect(os ...Obj) Vect { return os }
-
-/// SYMBOL & SYMBOL TABLE
-// buildin and runtime defined operators, functions, named values, keywords…
-// all have compile time symbols stored in a dynamic symbol table.  a symbols
-// uid is its index position in its containing table.
-
-// SORT LABLES & FLAGS
-type lableSort []string
-
-func (n lableSort) Sort() []string {
-	var t = n
-	sort.Strings(t)
-	return t
-}
-func (n lableSort) Sorted() bool { return sort.StringsAreSorted(n) }
-
-type flagSort []Flg
-
-func (f flagSort) Len() int           { return len(f) }
-func (f flagSort) Less(i, j int) bool { return f[i].Flg() < f[j].Flg() }
-func (f flagSort) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
-func (f flagSort) Sorted() bool       { return sort.IsSorted(f) }
-func (f flagSort) Sort() []Flg {
-	if !f.Sorted() {
-		var s = f
-		sort.Sort(s)
-		return s
-	}
-	return f
-}
-
-type (
-	sym    func() (int, string)
-	labTab []string
-)
-
-func (s sym) Id() int       { var uid, _ = s(); return uid }
-func (s sym) Lable() string { var _, name = s(); return name }
-func (s sym) Ident() Obj    { return s }
-func (s sym) Sym() Sym      { return s }
-func (s sym) Cons(os ...Obj) Obj {
-	var (
-		id  int
-		lab = ""
-	)
-	if len(os) > 0 {
-		id = os[0].Id()
-		if len(os) > 1 {
-			if sym, ok := os[1].(Sym); ok {
-				lab = sym.Lable()
-			}
-			if str, ok := os[1].(Stringer); ok {
-				lab = str.String()
-			}
-			if sym, ok := os[0].(Sym); ok {
-				lab = sym.Lable()
-			}
-			if str, ok := os[0].(Stringer); ok {
-				lab = str.String()
-			}
-		}
-		return conSym(id, lab)
-	}
-	return None
-}
-
-func conSym(id int, lab string) sym { return func() (int, string) { return id, lab } }
-
-func (t labTab) Tab() Tab      { return t }
-func (t labTab) Lable() string { return t[0] }
-func (labTab) Finite() bool    { return true }
-func (t labTab) Len() int      { return len(t) }
-func (t labTab) empty() sym    { return conSym(0, "") }
-func (t labTab) Unit() Obj     { return t.empty() }
-
-func (t labTab) Member() []Sym {
-	var os = make([]Sym, 0, len(t))
-	for i, n := range t {
-		os = append(os, conSym(i, n))
-	}
-	return os
-}
-func (t labTab) Cons(uid Obj) Sym {
-	if oi, ok := uid.(consString); ok {
-		if i := oi.Id(); i < len(t) {
-			return conSym(i, t[i])
-		}
-	}
-	return t.empty()
-}
-
-func (t labTab) Lookup(name string) Sym {
-	for uid, sym := range t {
-		if sym == name {
-			return conSym(uid, t[uid])
-		}
-	}
-	return t.empty()
-}
-
-// SYMBOL TABLE CONSTRUCTOR
-func consLableTab(names ...string) labTab {
-	var t = make([]string, len(names))
-	for _, n := range names {
-		t = append(t, n)
-	}
-	return labTab(t)
-}
-
-/// FLAG SET
-type (
-	flg    func() (uint, Tab)
-	flgTab map[string]uint
-)
-
-func (f flg) set() flgTab { _, s := f(); return s.(flgTab) }
-func (f flg) uid() uint   { u, _ := f(); return u }
-
-func (f flg) Ident() Obj { return f }
-func (f flg) Zero() Cat  { return f }
-func (f flg) Sym() Sym   { return f }
-func (f flg) Unit() Obj  { return f.Tab().Lookup("") }
-func (f flg) Id() int    { return rank(f.Flg()) }
-func (f flg) Card() int  { return card(f.uid()) }
-
-func (f flg) Flg() uint             { return f.uid() }
-func (f flg) Tab() Tab              { return Tab(f.set()) }
-func (f flg) Lable() string         { return f.Sym().Lable() }
-func (f flg) Lookup(lab string) Sym { return f.Tab().Lookup(lab) }
-func (f flg) Cons(os ...Obj) Obj {
-	if len(os) > 0 {
-		for id, o := range os {
-			if id < f.Card() {
-				return consFlagTab(consFlg(1<<uint(id), flgTab{}))
-			}
-		}
-	}
-	return consFlagTab(consFlg(0, flgTab{}))
-}
-
-// FLAG CONSTRUCTOR
-func consFlg(u uint, s Tab) flg { return func() (uint, Tab) { return u, s } }
-
-func (s flgTab) empty() flg {
-	var m = make(map[string]uint)
-	m[""] = 0
-	return consFlg(0, flgTab(m))
-}
-func (s flgTab) Tab() Tab      { return s }
-func (s flgTab) Ident() Obj    { return s }
-func (s flgTab) Id() int       { return rank(s[""]) }
-func (s flgTab) Unit() Obj     { return s.empty() }
-func (s flgTab) Zero() Cat     { return s }
-func (s flgTab) Lable() string { return s.empty().Lable() }
-
-// dereference symbol by name
-func (s flgTab) Lookup(name string) Sym {
-	var (
-		u  uint
-		ok bool
-	)
-	// unknown name → ident as zero element
-	if u, ok = s[name]; !ok {
-		return s.empty()
-	}
-	// return uint mapped to name as flag
-	return consFlg(u, s)
-}
-
-// dereference symbol by rank (id)
-func (s flgTab) Cons(os ...Obj) Obj {
-	var (
-		ft = flgTab(make(map[string]uint))
-		fs uint
-	)
-	for i, o := range os {
-		if f, ok := o.(Flg); ok {
-			fs = fs | f.Flg()
-			ft[f.Lable()] = f.Flg()
-		} else {
-			f = tflg(1 << uint(i))
-			fs = fs | f.Flg()
-			ft[f.Lable()] = f.Flg()
-		}
-	}
-	ft["T"] = fs
-	return flgTab(ft)
-}
-
-/// FLAG SET CONSTRUCTOR
-// constructs flag sets dynamicly at runtime
-func consFlagTab(syms ...Sym) flgTab {
-
-	var (
-		l = len(syms)
-		m = make(map[string]uint, l)
-	)
-
-	// init empty flag set
-	if l == 0 {
-		m[""] = 0
-	}
-
-	// map lable to flag
-	for i := 0; i < l; i++ {
-		// map names to flags derived by rank
-		m[syms[i].Lable()] = 1 << uint(i)
-	}
-
-	// return map
-	return m
-}
-
-/// CATEGORY
-type cat func() (Sym, Tab)
-
-func (c cat) Kind() Kind { return None }
-func (c cat) Ident() Obj { return c }
-func (c cat) Sym() Sym   { s, _ := c(); return s }
-func (c cat) Tab() Tab   { _, t := c(); return t }
-
-// parental context
-func (c cat) Id() int       { return c.Sym().Id() }
-func (c cat) Lable() string { return c.Sym().Lable() }
-
-// categoric context
-func (c cat) ConsCat(t tflg) Sym      { return consClass(t) }
-func (c cat) Lookup(lable string) Sym { return c.Tab().Lookup(lable) }
-
-// unit & zero
-func (c cat) Zero() Cat { return None }
-func (c cat) Unit() Obj { return consClass(None) }
-func (c cat) Cons(os ...Obj) Obj {
-}
-
-// unit of each kind is the empty set of types of that kind
-func consClass(t Flg) Cat {
-	switch t.Kind() {
-	case Truth:
-		return cat(func() (Sym, Tab) { return Truth, consTruth(false) })
-	case Uint:
-		return cat(func() (Sym, Tab) { return Uint, consUint(0) })
-	case Int:
-		return cat(func() (Sym, Tab) { return Int, consInt(0) })
-	case Flt:
-		return cat(func() (Sym, Tab) { return Flt, consFloat(0.0) })
-	}
-	// define category during runtme, by user defined flag
-	var (
-		// create empty flag table, assign argument lable &
-		// ident to element zero, to set parent category id
-		tab      = flgTab{t.Lable(): t.Flg()}
-		flag flg = func() (uint, Tab) { return 0, tab }
-	)
-	// return category with argument symbol & empty member table
-	return flag
-}
-
-// unique id is id trace to root recursively
-func root(c Cat, ids ...int) []int {
-	if id := c.Id(); id != 0 { // for categorys not world
-		return root( // call fuid recursively on current categorys ident
-			c.Zero(),           // c[0] = ident of cat c
-			append(ids, id)..., // pass on all ids
-		)
-	}
-	// append world and return ancestry vector
-	return append(ids, 0)
-}
-
-// tflg is the base set of flags needed to express categorys and types there
-// of.
 type tflg uint32
 
 //go:generate stringer -type tflg
@@ -620,38 +222,22 @@ const (
 
 //// CONSTRUCTORS
 // a constant based flags uid is its rank amongst constants of the same type
-func (f tflg) Kind() Kind       { return T }
-func (f tflg) Ident() Obj       { return f }
-func (f tflg) Flg() uint        { return uint(f) }
-func (f tflg) Id() int          { return rank(f.Flg()) }
-func (f tflg) Lable() string    { return f.String() }
-func (f tflg) Type() (Flg, Cat) { return f, Kind(T) }
-func (f tflg) Unit() Obj        { return Unit }
-func (f tflg) Zero() Cat        { return None }
+func (f tflg) Ident() Obj    { return f }
+func (f tflg) Flg() uint     { return uint(f) }
+func (f tflg) Id() int       { return rank(f.Flg()) }
+func (f tflg) Lable() string { return f.String() }
+func (f tflg) Unit() Obj     { return Unit }
 func (f tflg) Cons(id ...Obj) Obj {
 	return tflg(1 << uint(id.Id()))
-}
-func (f tflg) Lookup(lab string) Sym {
-
-	var fs = splitKind(f)
-
-	for i, f := range fs {
-		if f.Lable() == lab {
-			return tflg(1 << uint(i))
-		}
-	}
-	return None
 }
 
 ///
 // TRUTH
 type consTruth bool
 
-func (consTruth) Kind() Kind   { return Truth }
 func (t consTruth) Ident() Obj { return t }
 func (t consTruth) Bool() bool { return bool(t) }
 func (t consTruth) Unit() Obj  { return consTruth(False) }
-func (t consTruth) Zero() Cat  { return None }
 func (t consTruth) Id() int {
 	if t.Bool() {
 		return 1
@@ -664,13 +250,13 @@ func (t consTruth) Lable() string {
 	}
 	return "False"
 }
-func (t consTruth) Cons(id int) Sym {
+func (t consTruth) Cons(os ...Obj) Obj {
 	if id > 0 {
 		return consTruth(true)
 	}
 	return consTruth(false)
 }
-func (t consTruth) Lookup(lab string) Sym {
+func (t consTruth) Lookup(lab string) Obj {
 	var (
 		trues  = []string{"true", "True", "has", "is"}
 		falses = []string{"false", "False", "has not", "is not"}
@@ -692,23 +278,22 @@ func (t consTruth) Float() float64 { return float64(t.Int()) }
 // NATURAL
 type consUint uint
 
-func (consUint) Kind() Kind        { return Uint }
-func (n consUint) Ident() Obj      { return n }
-func (n consUint) Id() int         { return n.Int() }
-func (n consUint) Unit() Obj       { return consUint(Unit) }
-func (n consUint) Zero() Cat       { return None }
-func (n consUint) Cons(id int) Sym { return consUint(id) }
-func (n consUint) Lable() string   { return strconv.Itoa(n.Id()) }
-func (n consUint) Uint() uint      { return uint(n) }
-func (n consUint) Int() int        { return int(n) }
-func (n consUint) Float() float64  { return float64(n) }
+func (n consUint) Ident() Obj         { return n }
+func (n consUint) Id() int            { return n.Int() }
+func (n consUint) Unit() Obj          { return consUint(Unit) }
+func (n consUint) Zero() Cat          { return None }
+func (n consUint) Cons(os ...Obj) Obj { return consUint(id) }
+func (n consUint) Lable() string      { return strconv.Itoa(n.Id()) }
+func (n consUint) Uint() uint         { return uint(n) }
+func (n consUint) Int() int           { return int(n) }
+func (n consUint) Float() float64     { return float64(n) }
 func (n consUint) Bool() bool {
 	if n > 0 {
 		return true
 	}
 	return false
 }
-func (n consUint) Lookup(lab string) Sym {
+func (n consUint) Lookup(lab string) Obj {
 	nn, err := strconv.Atoi(lab)
 	if err != nil {
 		return None
@@ -719,12 +304,11 @@ func (n consUint) Lookup(lab string) Sym {
 // INTEGER
 type consInt int
 
-func (consInt) Kind() Kind        { return Int }
 func (i consInt) Ident() Obj      { return i }
 func (i consInt) Id() int         { return i.Int() }
 func (i consInt) Unit() Obj       { return consInt(Unit) }
 func (i consInt) Zero() Cat       { return None }
-func (i consInt) Cons(id int) Sym { return consInt(id) }
+func (i consInt) Cons(id int) Obj { return consInt(id) }
 func (i consInt) Lable() string   { return strconv.Itoa(i.Int()) }
 func (i consInt) Uint() uint      { return uint(i) }
 func (i consInt) Int() int        { return int(i) }
@@ -735,7 +319,7 @@ func (i consInt) Bool() bool {
 	}
 	return false
 }
-func (i consInt) Lookup(lab string) Sym {
+func (i consInt) Lookup(lab string) Obj {
 	ii, err := strconv.Atoi(lab)
 	if err != nil {
 		return None
@@ -745,7 +329,6 @@ func (i consInt) Lookup(lab string) Sym {
 
 type consIntPos int
 
-func (consIntPos) Kind() Kind { return Int }
 func (i consIntPos) Ident() Obj {
 	if i >= 0 {
 		return i
@@ -787,13 +370,13 @@ func (i consIntPos) Float() float64 {
 	}
 	return 1.0
 }
-func (i consIntPos) Get(id int) Sym {
+func (i consIntPos) Get(id int) Obj {
 	if i >= 0 {
 		return consIntPos(id)
 	}
 	return None
 }
-func (i consIntPos) Lookup(lab string) Sym {
+func (i consIntPos) Lookup(lab string) Obj {
 	ii, err := strconv.Atoi(lab)
 	if err != nil {
 		return None
@@ -806,7 +389,6 @@ func (i consIntPos) Lookup(lab string) Sym {
 
 type consIntNeg int
 
-func (consIntNeg) Kind() Kind { return Int }
 func (i consIntNeg) Ident() Obj {
 	if i <= 0 {
 		return i
@@ -842,13 +424,13 @@ func (i consIntNeg) Float() float64 {
 	}
 	return -1.0
 }
-func (i consIntNeg) Get(id int) Sym {
+func (i consIntNeg) Get(id int) Obj {
 	if i < 0 {
 		return consIntNeg(id)
 	}
 	return None
 }
-func (i consIntNeg) Lookup(lab string) Sym {
+func (i consIntNeg) Lookup(lab string) Obj {
 	ii, err := strconv.Atoi(lab)
 	if err != nil {
 		return None
@@ -861,13 +443,12 @@ func (i consIntNeg) Lookup(lab string) Sym {
 
 type consFloat float64
 
-func (f consFloat) Kind() Kind      { return Flt }
 func (f consFloat) Ident() Obj      { return f }
 func (f consFloat) Int() int        { return int(f) }
 func (f consFloat) Id() int         { return f.Int() }
 func (f consFloat) Unit() Obj       { return consFloat(Unit) }
 func (f consFloat) Zero() Cat       { return None }
-func (f consFloat) Cons(id int) Sym { return consFloat(id) }
+func (f consFloat) Cons(id int) Obj { return consFloat(id) }
 func (f consFloat) Lable() string   { return strconv.FormatFloat(float64(f), 'E', -1, 64) }
 func (f consFloat) Uint() uint      { return uint(f) }
 func (f consFloat) Float() float64  { return float64(f) }
@@ -877,7 +458,7 @@ func (f consFloat) Bool() bool {
 	}
 	return false
 }
-func (f consFloat) Lookup(lab string) Sym {
+func (f consFloat) Lookup(lab string) Obj {
 	ff, err := strconv.ParseFloat(lab, 64)
 	if err != nil {
 		return None
@@ -887,7 +468,6 @@ func (f consFloat) Lookup(lab string) Sym {
 
 type consString string
 
-func (s consString) Kind() Kind     { return String }
 func (s consString) Ident() Obj     { return s }
 func (s consString) String() string { return string(s) }
 func (s consString) Id() int        { return rank(s.Kind()) }
