@@ -4,11 +4,11 @@ import (
 	"math/bits"
 )
 
-type Cat uint8
+type TC uint8
 
-//go:generate stringer -type Cat
+//go:generate stringer -type TC
 const (
-	N Cat = 1<<iota - 1
+	N TC = 1<<iota - 1
 	Type
 	Func
 	Symb
@@ -16,56 +16,62 @@ const (
 	C = N | Type | Func | Symb
 )
 
-func (c Cat) Uniq()      {}
-func (c Cat) uint() uint { return uint(c) }
-func (c Cat) Id() int    { return bits.Len8(uint8(c)) }
-func (c Cat) Flag() uint { return uint(c) }
-func (c Cat) Kind() Elem { return c }
+func (t TC) Ident() Elem { return t }
+func (t TC) uint() uint  { return uint(t) }
+func (t TC) Flag() uint  { return t.uint() }
+func (t TC) Id() int     { return bits.Len8(uint8(t)) }
 
-func iTf(e Elem) uint    { return uint(1 << uint(e.Id())) }
-func ofKind(e Elem) bool { return C.uint()&^iTf(e) != 0 }
+func Has(f Flg) bool { return uint(C)&^f() != 0 }
 
-// category monad initialization
-func initCat() Cons {
+func New(...Elem) (Unit, Let, Define) {
+	var ( // lacal values and cathegory operations are enclosed by cathegory
+		names Record // names of function definitions and values
+		cons  = []Obj{}
+		vals  = []Val{}
+		fncs  = []Define{}
 
-	var ( // enclosed values
-		econ, pcon Cons // sub type constructor
-		cat        = make([]Cons, 4, 4)
-		e          Elem
-	)
+		def = Define(func(
+			name string, expr Elem, args ...Elem,
+		) Definition {
+			var i = len(fncs)
+			return Definition(func() (Val, []Elem) {
+				return ConVal(name, ConObj(i, expr)), args
+			})
+		})
 
-	///////////////////////////////////
-	// define category type constructor
-	econ = func(es ...Elem) (Elem, Cons) {
-		if len(es) > 0 {
-			e = es[0]      // access head element…
-			if ofKind(e) { // …is an element of this category?
-				// if not yet initialized…
-
-				if pcon = cat[e.Id()]; pcon == nil {
-					// initialize category, return elem &
-					// type → recursive construction
-					if len(es) > 1 {
-						es = es[1:]
-					} else {
-						es = es[:0]
+		let = Let(func(name string, e Elem) Val {
+			var (
+				id        = len(cons)
+				o  ObjFnc = func() (int, Elem) {
+					// element exists → lookup
+					if o, ok := names[Name(name)]; ok {
+						return id, o
 					}
-					_, pcon = econ(es...)
-					cat[e.Id()] = pcon
-					return e, pcon
+					return 0, N
 				}
+			)
+			names[Name(name)] = o
+			var v = ConVal(name, o)
+			vals = append(vals, v)
+			return v
+		})
 
-				// construct elem and constructor from prior,
-				// ot along the way initialized categorys
-				return pcon(es...)
+		unit = func(e Elem) Val {
+			var (
+				f  Flg
+				ok bool
+			)
+			// element is a type flag
+			if f, ok = e.(Flg); ok {
+				// element exists → lookup
+				if len(cons) == f.Id()+1 {
+					var o = ConObj(f.Id(), e)
+					cons = append(cons, o)
+					return ConVal(f.String(), o)
+				}
 			}
+			return ConVal("⊥", N)
 		}
-		// return empty element & empty category, if no element has
-		// matched.
-		return N, econ
-	}
-
-	///////////////////////////
-	// return constructor monad
-	return econ
+	)
+	return unit, let, def
 }
