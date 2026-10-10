@@ -68,6 +68,11 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 	}
 	nodeColor := extractNodeColor(v)
 	if c, ok := opts.TypeColors[v.Type().Name()]; ok { nodeColor = c }
+	
+	if str, ok := val.(fmt.Stringer); ok {
+		val = str.String()
+		v = reflect.ValueOf(val)
+	}
 	colorAttr := ""
 	if nodeColor != "" { colorAttr = fmt.Sprintf(", fillcolor=\"%s\"", nodeColor) }
 
@@ -122,13 +127,21 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 	}
 	
 	nodeColor := extractNodeColor(v)
-	structName := ""
-	if v.Kind() == reflect.Struct { structName = v.Type().Name() }
-	if v.Kind() == reflect.Map { structName = "Record" }
-	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array { structName = "List" }
+	structName := v.Type().Name()
+	if structName == "" {
+		if v.Kind() == reflect.Struct { structName = "Struct" }
+		if v.Kind() == reflect.Map { structName = "Record" }
+		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array { structName = "List" }
+	}
 	
 	if nodeColor == "" && structName != "" {
 		if c, ok := opts.TypeColors[structName]; ok { nodeColor = c }
+	}
+	
+	// If it implements Stringer, convert it to a string primitive for rendering
+	if str, ok := val.(fmt.Stringer); ok {
+		val = str.String()
+		v = reflect.ValueOf(val)
 	}
 	
 	valStr := fmt.Sprintf("%v", val)
