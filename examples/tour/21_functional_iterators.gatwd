@@ -1,0 +1,8 @@
+type IntVal = Int
+
+-- 1. Implicit Mapping (Point-Free)
+spawn IntVal: 1 |> math_add 1 |> math_add 2 |> visualize --color-val=4:green
+
+-- 2. Explicit Lambdas mapping over Shell Strings
+-- We can map an OS adapter over the stream, embedding variables!
+spawn Node: A |> echo Node1 |> echo Node2 |> map (\x -> echo Processing %s) |> build_array |> visualize --color-type=List:cyan
