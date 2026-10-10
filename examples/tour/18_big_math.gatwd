@@ -1,0 +1,8 @@
+type Balance = BigInt
+type Score = Float
+
+-- 1. Using math/big.Int intrinsically mapped via DSL!
+spawn Balance: 999999999999999999999999999999 |> math_add 1
+
+-- 2. Floating point intrinsic casting
+spawn Score: 99.5 |> math_add 0.25

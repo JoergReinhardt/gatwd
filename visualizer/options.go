@@ -24,6 +24,7 @@ type Options struct {
 	Color           string
 	BgColor         string
 	Border          bool
+	AutoBorder      int
 }
 
 func DefaultOptions() Options {
@@ -40,6 +41,9 @@ func ParseOptions(args string) Options {
 		if p == "--collapse" { opts.CollapseScalars = true }
 		if p == "--dot" { opts.FormatDOT = true }
 		if p == "--border" { opts.Border = true }
+		if strings.HasPrefix(p, "--auto-border=") {
+			if d, err := strconv.Atoi(strings.TrimPrefix(p, "--auto-border=")); err == nil { opts.AutoBorder = d }
+		}
 		if strings.HasPrefix(p, "--depth=") {
 			if d, err := strconv.Atoi(strings.TrimPrefix(p, "--depth=")); err == nil { opts.MaxDepth = d }
 		}

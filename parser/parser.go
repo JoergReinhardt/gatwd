@@ -2,6 +2,8 @@ package parser
 
 import (
 	"strings"
+	"strconv"
+	"math/big"
 	"iter"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
@@ -9,18 +11,20 @@ import (
 
 type Parser struct {
 	typeRegistry map[string]dsltypes.BitFlag
+	typeFactories map[string]func(string) any
 	nextFlag     uint64
 }
 
 func NewParser() *Parser {
 	return &Parser{
 		typeRegistry: make(map[string]dsltypes.BitFlag),
+		typeFactories: make(map[string]func(string) any),
 		nextFlag:     1,
 	}
 }
 
-func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[string]] {
-	return func(yield func(dsltypes.ASTNode[string]) bool) {
+func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
+	return func(yield func(dsltypes.ASTNode[any]) bool) {
 		lines := strings.Split(script, "\n")
 		
 		for _, line := range lines {
@@ -40,7 +44,11 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[string]] {
 					
 					flag, exists := p.typeRegistry[typeName]
 					if exists {
-						node := dsltypes.NewASTNode(value, flag)
+						var parsedValue any = value
+						if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
+							parsedValue = factory(value)
+						}
+						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }
 					}
 				}
@@ -86,6 +94,23 @@ func (p *Parser) parseType(line string) {
 		p.typeRegistry[typeName] = composedFlag
 	} else {
 		// Base type
+		if definition == "BigInt" {
+			p.typeFactories[typeName] = func(s string) any {
+				n := new(big.Int)
+				n.SetString(s, 10)
+				return n
+			}
+		} else if definition == "Float" {
+			p.typeFactories[typeName] = func(s string) any {
+				f, _ := strconv.ParseFloat(s, 64)
+				return f
+			}
+		} else if definition == "Int" {
+			p.typeFactories[typeName] = func(s string) any {
+				i, _ := strconv.Atoi(s)
+				return i
+			}
+		}
 		p.registerOrGet(typeName)
 	}
 }

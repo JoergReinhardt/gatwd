@@ -3,6 +3,8 @@ package evaluator
 import (
 	"fmt"
 	"iter"
+	"math/big"
+	"strconv"
 	"github.com/joergreinhardt/gatwd/comonads"
 	"strings"
 
@@ -507,6 +509,40 @@ func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
 			}
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(rbt)), lastFlag)
 			yield(newNode)
+		}
+	}
+}
+
+func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() { if !yield(node) { return }; continue }
+				
+				val, _ := node.Value.UnwrapRight()
+				var newVal any
+				
+				switch v := val.(type) {
+				case *big.Int:
+					n := new(big.Int)
+					n.SetString(amount, 10)
+					res := new(big.Int).Add(v, n)
+					newVal = res
+				case int:
+					n, _ := strconv.Atoi(amount)
+					newVal = v + n
+				case float64:
+					n, _ := strconv.ParseFloat(amount, 64)
+					newVal = v + n
+				default:
+					errNode := InjectError[any](fmt.Errorf("math_add failed: unsupported type %T", val), node.DSLType)
+					if !yield(errNode) { return }
+					continue
+				}
+				
+				newNode := dsltypes.NewASTNode(functions.Right[error, any](newVal), node.DSLType)
+				if !yield(newNode) { return }
+			}
 		}
 	}
 }

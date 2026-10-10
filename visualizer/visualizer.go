@@ -35,7 +35,8 @@ func Format(val any, opts Options) string {
 	}
 
 	res := formatNode(val, "", "", true, opts, 0)
-	if opts.Border {
+	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
+	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
 		res = addBorder(res)
 	}
 	return applyColor(res, opts.Color, opts.BgColor)

@@ -1,0 +1,12 @@
+-- ==========================================================
+-- gatwd Tour: 19. Conditional Visualization Tomfoolery
+-- Run: ./gatwd examples/tour/19_conditional_viz.gatwd
+-- ==========================================================
+type Node = Server
+
+-- 1. Auto-Border: Only draws a border if the output exceeds 2 lines!
+-- The first output has 1 line (no border). 
+-- The second output has 3 lines (adds curved border automatically!)
+
+spawn Node: "Single Line Scalar" |> visualize --auto-border=2 --curved
+spawn Node: Kube |> echo Child_1 |> build_tree "Root" |> visualize --auto-border=2 --curved
