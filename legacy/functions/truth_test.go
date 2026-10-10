@@ -4,7 +4,7 @@ package functions
 //	"fmt"
 //	"testing"
 //
-//	d "github.com/joergreinhardt/gatwd/data"
+//	d "github.com/joergreinhardt/gatwd/legacy/data"
 //)
 
 //var truth = NewTestTruth("x = 0", func(args ...Expression) bool {

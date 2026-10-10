@@ -15,7 +15,7 @@
 */
 package functions
 
-import d "github.com/joergreinhardt/gatwd/data"
+import d "github.com/joergreinhardt/gatwd/legacy/data"
 
 type (
 	//// NATIVE VALUE CONSTRUCTORS

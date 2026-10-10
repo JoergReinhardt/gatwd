@@ -13,7 +13,7 @@ of integers‥.
 package functions
 
 import (
-	d "github.com/joergreinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/legacy/data"
 )
 
 type (

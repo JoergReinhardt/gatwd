@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	d "github.com/joergreinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/legacy/data"
 )
 
 var addInts = Define(Dat(func(args ...d.Native) d.Native {

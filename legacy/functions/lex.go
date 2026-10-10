@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	d "github.com/joergreinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/legacy/data"
 )
 
 ///// SYNTAX DEFINITION /////

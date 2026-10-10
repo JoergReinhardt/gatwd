@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	d "github.com/joergreinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/legacy/data"
 )
 
 // test data

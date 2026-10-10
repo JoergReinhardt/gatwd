@@ -1,7 +1,7 @@
 package functions
 
 import (
-	d "github.com/joergreinhardt/gatwd/data"
+	d "github.com/joergreinhardt/gatwd/legacy/data"
 )
 
 // stringer provides string representation
