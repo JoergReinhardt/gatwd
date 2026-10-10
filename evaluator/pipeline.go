@@ -546,3 +546,20 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepBuildArray aggregates a stream into a native Go slice
+func StepBuildArray() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var arr []any
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				arr = append(arr, val)
+				lastFlag = node.DSLType
+			}
+			yield(dsltypes.NewASTNode(functions.Right[error, any](any(arr)), lastFlag))
+		}
+	}
+}

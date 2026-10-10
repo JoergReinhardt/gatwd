@@ -167,6 +167,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			} else if strings.HasPrefix(stepStr, "math_add") {
 				amount := strings.TrimSpace(stepStr[9:])
 				pipeline = append(pipeline, evaluator.StepMathAdd(amount))
+			} else if stepStr == "build_array" {
+				pipeline = append(pipeline, evaluator.StepBuildArray())
 			} else if stepStr == "collect_list" {
 			pipeline = append(pipeline, evaluator.StepCollectList())
 		} else if strings.HasPrefix(stepStr, "build_tree") {

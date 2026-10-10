@@ -35,6 +35,7 @@ func Format(val any, opts Options) string {
 	}
 
 	res := formatNode(val, "", "", true, opts, 0)
+	
 	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
 	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
 		res = addBorder(res)
@@ -52,12 +53,11 @@ func extractNodeColor(v reflect.Value) string {
 	return ""
 }
 
+// ... omitted formatDotNode for brevity, will keep standard one
 func formatDotNode(val any, name string, id string, opts Options, depth int, lines *[]string) (string, *[]string) {
 	if g, ok := val.(Graphable); ok { val = g.Graph() }
-	
 	nodeLabel := name
 	if nodeLabel == "" { nodeLabel = "Node" }
-	
 	v := reflect.ValueOf(val)
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
@@ -66,8 +66,8 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 		}
 		v = v.Elem()
 	}
-
 	nodeColor := extractNodeColor(v)
+	if c, ok := opts.TypeColors[v.Type().Name()]; ok { nodeColor = c }
 	colorAttr := ""
 	if nodeColor != "" { colorAttr = fmt.Sprintf(", fillcolor=\"%s\"", nodeColor) }
 
@@ -89,7 +89,7 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 	case reflect.Struct:
 		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, v.Type().Name(), colorAttr))
 		for i := 0; i < v.NumField(); i++ {
-			if v.Type().Field(i).Name == "NodeColor" { continue } // Skip meta field
+			if v.Type().Field(i).Name == "NodeColor" { continue }
 			if v.Field(i).CanInterface() {
 				childId := fmt.Sprintf("%s_%d", id, i)
 				formatDotNode(v.Field(i).Interface(), v.Type().Field(i).Name, childId, opts, depth+1, lines)
@@ -98,6 +98,7 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 		}
 	default:
 		valStr := strings.ReplaceAll(fmt.Sprintf("%v", val), "\"", "\\\"")
+		if c, ok := opts.ValueColors[valStr]; ok { colorAttr = fmt.Sprintf(", fillcolor=\"%s\"", c) }
 		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s: %s\"%s];", id, nodeLabel, valStr, colorAttr))
 	}
 	return id, lines
@@ -111,44 +112,96 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 
 	v := reflect.ValueOf(val)
 	if v.Kind() == reflect.Ptr {
-		if v.IsNil() { return prefix + branch(isLast, opts.Style) + name + ": <nil>\n" }
+		if v.IsNil() {
+			nilColor := opts.ValueColors["<nil>"]
+			out := name + ": <nil>"
+			if nilColor != "" { out = applyColor(out, nilColor, "") }
+			return prefix + branch(isLast, opts.Style) + out + "\n"
+		}
 		v = v.Elem()
 	}
 	
 	nodeColor := extractNodeColor(v)
+	structName := ""
+	if v.Kind() == reflect.Struct { structName = v.Type().Name() }
+	if v.Kind() == reflect.Map { structName = "Record" }
+	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array { structName = "List" }
+	
+	if nodeColor == "" && structName != "" {
+		if c, ok := opts.TypeColors[structName]; ok { nodeColor = c }
+	}
+	
+	valStr := fmt.Sprintf("%v", val)
+	if nodeColor == "" {
+		if c, ok := opts.ValueColors[valStr]; ok { nodeColor = c }
+	}
+	
 	formatColoredName := func(name, val string) string {
 		out := name
 		if out != "" && val != "" { out += ": " + val } else if out == "" { out = val }
 		if nodeColor != "" { return applyColor(out, nodeColor, "") }
 		return out
 	}
+	
+	shouldBox := opts.BoxTypes["all"] || (structName != "" && opts.BoxTypes[structName])
+	var boxPrefix, boxTop, boxBot string
+	if shouldBox {
+		boxPrefix = opts.Style.BoxSide + "   "
+		boxTop = prefix + extend(isLast, opts.Style) + opts.Style.BoxTop + "\n"
+		boxBot = prefix + extend(isLast, opts.Style) + opts.Style.BoxBot + "\n"
+	}
 
 	switch v.Kind() {
 	case reflect.Map:
-		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, "Record") + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
+		if shouldBox { res += boxTop; newPrefix = prefix + extend(isLast, opts.Style) + boxPrefix }
+		
 		keys := v.MapKeys()
 		for i, k := range keys {
 			res += formatNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), newPrefix, i == len(keys)-1, opts, depth+1)
 		}
 		if len(keys) == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
+		if shouldBox { res += boxBot }
 		return res
+		
 	case reflect.Slice, reflect.Array:
-		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, "List") + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
-		for i := 0; i < v.Len(); i++ {
-			res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, i == v.Len()-1, opts, depth+1)
+		if shouldBox { res += boxTop; newPrefix = prefix + extend(isLast, opts.Style) + boxPrefix }
+		
+		length := v.Len()
+		var iterList []int
+		if opts.Head > 0 && opts.Tail > 0 && length > (opts.Head + opts.Tail) {
+			for i := 0; i < opts.Head; i++ { iterList = append(iterList, i) }
+			iterList = append(iterList, -1)
+			for i := length - opts.Tail; i < length; i++ { iterList = append(iterList, i) }
+		} else {
+			for i := 0; i < length; i++ { iterList = append(iterList, i) }
+		}
+		
+		for idx, i := range iterList {
+			if i == -1 {
+				omitted := length - (opts.Head + opts.Tail)
+				msg := fmt.Sprintf("... (%d items omitted) ...", omitted)
+				res += newPrefix + branch(idx == len(iterList)-1, opts.Style) + applyColor(msg, "yellow", "") + "\n"
+			} else {
+				res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, idx == len(iterList)-1, opts, depth+1)
+			}
 		}
 		if v.Len() == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
+		if shouldBox { res += boxBot }
 		return res
+		
 	case reflect.Struct:
-		structName := v.Type().Name()
 		if structName == "" { structName = "Struct" }
 		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
+		if shouldBox { res += boxTop; newPrefix = prefix + extend(isLast, opts.Style) + boxPrefix }
+		
 		fieldCount := v.NumField()
 		for i := 0; i < fieldCount; i++ {
-			if v.Type().Field(i).Name == "NodeColor" { continue } // Skip meta field
+			if v.Type().Field(i).Name == "NodeColor" { continue }
 			if v.Field(i).CanInterface() {
 				res += formatNode(v.Field(i).Interface(), v.Type().Field(i).Name, newPrefix, i == fieldCount-1, opts, depth+1)
 			} else {
@@ -156,9 +209,11 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 			}
 		}
 		if fieldCount == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
+		if shouldBox { res += boxBot }
 		return res
+		
 	default:
-		return prefix + branch(isLast, opts.Style) + formatColoredName(name, fmt.Sprintf("%v", val)) + "\n"
+		return prefix + branch(isLast, opts.Style) + formatColoredName(name, valStr) + "\n"
 	}
 }
 

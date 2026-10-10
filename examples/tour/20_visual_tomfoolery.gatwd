@@ -1,0 +1,18 @@
+-- ==========================================================
+-- gatwd Tour: 20. Advanced Blackjack and Hookers Visualizer
+-- Run: ./gatwd examples/tour/20_visual_tomfoolery.gatwd
+-- ==========================================================
+type GiantList = List(Int)
+type BoxedMap = Record
+
+-- 1. Slice Truncation (--head & --tail) with Conditional Type Coloring
+-- Watch how the List type gets colored Cyan, and the middle values are omitted!
+spawn GiantList: Init |> cat data5.txt |> build_array |> visualize --head=2 --tail=2 --color-type=List:cyan
+
+-- 2. Nested Sub-Boxes (--box) creating "flow-graph" style inline boundaries
+-- We draw nested UTF-8 boxes strictly around Record Types!
+spawn BoxedMap: mock |> echo "drwx root 100 Jan 1 A" |> parse_record Perms Owner Size Month Day Name |> visualize --box=Record --heavy
+
+-- 3. Value-based Conditional Coloring
+-- Watch the string "Root" turn Green based purely on its content!
+spawn Node: Kube |> echo Child_1 |> build_tree "Root" |> visualize --color-val=Root:green --curved
