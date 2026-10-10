@@ -87,3 +87,26 @@ Because the architecture strictly isolates side-effects (IO Monad) and uses immu
    - Expose parallel execution to the DSL user syntax (e.g., distinguishing between a sequential map `|>` and a parallel map `||>`).
 3. **Graph Crawler Performance**:
    - This allows the Infrastructure Graph Crawler to query 1,000 servers or parse 10,000 YAML files simultaneously while remaining mathematically pure and thread-safe.
+
+---
+
+# Advanced Functional Mechanics
+
+With the core mechanics of the engine in place (Phases 1-6), the following phases introduce advanced Category Theory concepts to push the graph crawler to the absolute cutting edge of purely functional interpreter design.
+
+## Phase 7: Optics and Deep Immutability (Lenses & Folds)
+Because the AST and configuration graphs are perfectly immutable `Tree`s and `List`s, modifying a deep value (e.g., updating a Pod's IP address) requires functional "setters" that return brand new trees.
+1. **Lenses**: Implement `Lens[S, A]` in a new `optics` package to allow focusing on, extracting, and modifying deep fields in the immutable AST structures without writing boilerplate copy code.
+2. **Prisms & Folds**: Implement Prisms to pattern match Sum Types functionally, and Optic Folds to extract multiple specific targets from a `Tree` (e.g., "Yield every IP address string found in this configuration graph").
+
+## Phase 8: Comonads and Contextual Navigation (Zippers)
+If Monads are about injecting values into a context to build a computation, Comonads are about extracting values from a context based on their surrounding environment.
+1. **Comonad Interfaces**: Implement `Extract` and `Extend` generic functions.
+2. **Tree Zippers**: Build a Comonadic Zipper for the `collections.Tree`. A Zipper acts as a cursor that can move `Up`, `Down`, `Left`, and `Right` through an immutable tree in O(1) time while remembering its context (breadcrumbs). This is essential for the DSL—it allows a user to write contextual rules like, "If this Database node has a LoadBalancer as a parent, apply this transformation."
+
+## Phase 9: High-Performance Iteration (Transducers)
+1. **Transducers**: Isolate transformation logic (`Map`, `Filter`) from iteration logic. By mathematically composing transducers, we can fuse massive pipelines of operations into a single pass. This prevents intermediate memory allocation when the graph crawler parses 100,000 YAML nodes.
+
+## Phase 10: Advanced Context and Composition (Arrows & Monad Transformers)
+1. **Arrows**: Formalize the IO Monad `Adapter` (`ASTNode -> iter.Seq[ASTNode]`) into a Kleisli Arrow. Implement combinatorial logic like Split (`***`) and Fan-out (`&&&`). This allows an AST Node to be routed to multiple different Adapters simultaneously and merged back together safely.
+2. **Monad Transformers**: Implement transformers like `EitherT` or `StateT`. This solves the nested Monad problem—allowing the evaluator to safely stack the Iterator Monad (`iter.Seq`), the Error Monad (`Either`), and the State Monad (tracking already-visited hosts) into a single, seamless pipeline.
