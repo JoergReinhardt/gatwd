@@ -40,6 +40,7 @@ spawn Balance: 999999999999999999 |> math_add 1 |> (audit_node &&& parse_access)
 * **[DSL Guide](docs/dsl_guide.md)**: A complete handbook on how to write `gatwd` scripts.
 * **[Formal Grammar](docs/grammar.md)**: The EBNF specification for the DSL.
 * **[Native Plugins & Go Types](docs/native_adapters.md)**: How to write pure Go functions and register third-party Types seamlessly.
+* **[Agentic Workflows & AI](docs/agentic_workflows.md)**: Harnessing the DSL for LLMs, autonomous agents, and K8s Operators.
 
 ## Interactive Tour
 
