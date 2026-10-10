@@ -13,7 +13,8 @@ FunctionDef    ::= "def " Identifier "=" Pipeline
 LetBinding     ::= "let " Identifier "=" Pipeline " in " Pipeline
 
 (* Type Definitions (Algebraic Data Types) *)
-TypeDef        ::= "type " Identifier "=" (SumType | RecordType | TupleType | CollectionType)
+TypeDef        ::= "type " Identifier "=" (SumType | RecordType | TupleType | CollectionType | NativeType)
+NativeType     ::= Identifier (* Maps to Go Primitives registered via Interpreter.RegisterTypeFactory *)
 SumType        ::= Identifier { "|" Identifier }
 RecordType     ::= "{" FieldDef { "," FieldDef } "}"
 TupleType      ::= "(" Identifier { "," Identifier } ")"
