@@ -1,0 +1,15 @@
+-- =====================================================================
+-- gatwd: Interactive System Information Crawler
+-- =====================================================================
+-- Run this script directly using:
+-- $ go run ./cmd/gatwd examples/scripts/interactive_sysinfo.gatwd
+-- =====================================================================
+
+type Machine = Server
+type Network = Interface
+
+-- 1. Spawning Root Nodes
+-- When the CLI hits these lines, it will pause and ask you for commands 
+-- (e.g., type 'uname -a' or 'ip addr')
+spawn Machine: localhost
+spawn Network: eth0
