@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"iter"
+	"github.com/joergreinhardt/gatwd/comonads"
 	"strings"
 
 	"github.com/joergreinhardt/gatwd/arrows"
@@ -311,6 +312,115 @@ func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipelin
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Split (***) failed: Node is not a Tuple"), node.DSLType)
 					if !yield(errNode) { return }
+				}
+			}
+		}
+	}
+}
+
+// StepCollectList aggregates the entire stream into a single collections.List
+func StepCollectList() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var elements []any
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				elements = append(elements, val)
+				lastFlag = node.DSLType
+			}
+			
+			// Build immutable list backwards
+			var list *collections.List[any] = collections.Nil[any]()
+			for i := len(elements) - 1; i >= 0; i-- {
+				list = collections.Cons(elements[i], list)
+			}
+			
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(list)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepBuildTree takes a stream (or a list) and builds a simple Tree with a Root node and the stream elements as children.
+func StepBuildTree(rootName string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var elements []any
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				elements = append(elements, val)
+				lastFlag = node.DSLType
+			}
+			
+			// Build children list
+			var children *collections.List[*collections.Tree[any]] = collections.Nil[*collections.Tree[any]]()
+			for i := len(elements) - 1; i >= 0; i-- {
+				childTree := collections.Leaf[any](elements[i])
+				children = collections.Cons(childTree, children)
+			}
+			
+			tree := collections.NewTree[any](any(rootName), children)
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(tree)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+
+// StepZipper converts a Tree into a Zipper, or extracts from a Zipper.
+func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				
+				val, _ := node.Value.UnwrapRight()
+				var zipper *comonads.TreeZipper[any]
+				
+				// Initialize Zipper if it's a Tree
+				if tree, ok := val.(*collections.Tree[any]); ok {
+					zipper = comonads.NewZipper(tree)
+				} else if z, ok := val.(*comonads.TreeZipper[any]); ok {
+					zipper = z
+				} else {
+					errNode := InjectError[any](fmt.Errorf("Zipper failed: Node is not a Tree or Zipper"), node.DSLType)
+					if !yield(errNode) { return }
+					continue
+				}
+				
+				// Apply Operation
+				if op == "into_zipper" {
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(zipper)), node.DSLType)
+					if !yield(newNode) { return }
+				} else if op == "down" {
+					nextZipper := zipper.Down()
+					if nextZipper != nil {
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+						if !yield(newNode) { return }
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Zipper failed: Cannot go down"), node.DSLType)
+						if !yield(errNode) { return }
+					}
+				} else if op == "up" {
+					nextZipper := zipper.Up()
+					if nextZipper != nil {
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+						if !yield(newNode) { return }
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Zipper failed: Cannot go up"), node.DSLType)
+						if !yield(errNode) { return }
+					}
+				} else if op == "extract" {
+					extracted := zipper.Extract()
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](extracted), node.DSLType)
+					if !yield(newNode) { return }
 				}
 			}
 		}

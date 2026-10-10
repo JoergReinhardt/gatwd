@@ -139,6 +139,13 @@ func main() {
 					rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(strings.TrimSpace(parts2[1]), 0))
 					pipeline = append(pipeline, evaluator.StepSplit(leftAdapter, rightAdapter))
 				}
+			} else if stepStr == "collect_list" {
+				pipeline = append(pipeline, evaluator.StepCollectList())
+			} else if strings.HasPrefix(stepStr, "build_tree") {
+				rootName := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
+				pipeline = append(pipeline, evaluator.StepBuildTree(rootName))
+			} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" {
+				pipeline = append(pipeline, evaluator.StepZipper(stepStr))
 			} else if strings.HasPrefix(stepStr, "parse_record") {
 				fieldsStr := strings.TrimSpace(stepStr[12:])
 				fields := strings.Fields(fieldsStr)
