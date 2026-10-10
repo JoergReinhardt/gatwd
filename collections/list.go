@@ -68,3 +68,15 @@ func (l *List[T]) Seq() iter.Seq[T] {
 		}
 	}
 }
+
+// Graph exposes the internal structure for generic UTF-8 Tree visualizations
+func (l *List[T]) Graph() any {
+	if l == nil || l.empty { return "<empty List>" }
+	return struct {
+		Head T
+		Tail *List[T]
+	}{
+		Head: l.head,
+		Tail: l.tail,
+	}
+}

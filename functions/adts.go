@@ -48,3 +48,12 @@ func BindMaybe[A, B any](m Maybe[A], f func(A) Maybe[B]) Maybe[B] {
 	val, _ := m.Unwrap()
 	return f(val)
 }
+
+// Graph exposes the internal structure for generic UTF-8 Tree visualizations
+func (m Maybe[T]) Graph() any {
+	if m.IsNothing() { return "<Nothing>" }
+	val, _ := m.Unwrap()
+	return struct {
+		Just T
+	}{ Just: val }
+}

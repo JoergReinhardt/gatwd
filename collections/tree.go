@@ -67,3 +67,15 @@ func (t *Tree[T]) WalkDepthFirst() iter.Seq[T] {
 		}
 	}
 }
+
+// Graph exposes the internal structure for generic UTF-8 Tree visualizations
+func (t *Tree[T]) Graph() any {
+	if t == nil { return "<nil Tree>" }
+	return struct {
+		Value    T
+		Children *List[*Tree[T]]
+	}{
+		Value:    t.value,
+		Children: t.children,
+	}
+}

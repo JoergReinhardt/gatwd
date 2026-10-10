@@ -14,6 +14,7 @@ import (
 	"github.com/joergreinhardt/gatwd/interactive"
 	"github.com/joergreinhardt/gatwd/parser"
 	"github.com/joergreinhardt/gatwd/pkg/plugins"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 type Interpreter struct {
@@ -153,7 +154,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			if len(args) >= 2 {
 				pipeline = append(pipeline, evaluator.StepUpdate(args[0], strings.Join(args[1:], " ")))
 			}
-		} else if stepStr == "route" {
+		} else if strings.HasPrefix(stepStr, "visualize") {
+				pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
+			} else if stepStr == "route" {
 				pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
 			} else if stepStr == "collect_list" {
 			pipeline = append(pipeline, evaluator.StepCollectList())
