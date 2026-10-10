@@ -3,6 +3,7 @@ package parser
 import (
 	"iter"
 	"strconv"
+	"strings"
 
 	"github.com/joergreinhardt/gatwd/functions"
 )
@@ -85,6 +86,52 @@ func ParseFanOut() Combinator[functions.Pair[string, string]] {
 					})
 				})
 			})
+		})
+	})
+}
+
+// StringLiteral parses a quoted string (e.g. "Security Violation")
+func StringLiteral() Combinator[string] {
+	return Bind(Token("\""), func(_ string) Combinator[string] {
+		return func(input string) iter.Seq[functions.Pair[string, string]] {
+			return func(yield func(functions.Pair[string, string]) bool) {
+				idx := strings.Index(input, "\"")
+				if idx != -1 {
+					yield(functions.Pair[string, string]{Fst: input[:idx], Snd: input[idx+1:]})
+				}
+			}
+		}
+	})
+}
+
+// ParseExpect parses the expect validation gate: expect "must_be_running" "Not Running!"
+func ParseExpect() Combinator[functions.Pair[string, string]] {
+	return Bind(Token("expect"), func(_ string) Combinator[functions.Pair[string, string]] {
+		return Bind(StringLiteral(), func(keyword string) Combinator[functions.Pair[string, string]] {
+			return Bind(Token(""), func(_ string) Combinator[functions.Pair[string, string]] { // space
+				return Bind(StringLiteral(), func(errMsg string) Combinator[functions.Pair[string, string]] {
+					return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
+						return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
+							yield(functions.Pair[functions.Pair[string, string], string]{
+								Fst: functions.Pair[string, string]{Fst: keyword, Snd: errMsg},
+								Snd: input,
+							})
+						}
+					}
+				})
+			})
+		})
+	})
+}
+
+// ParseZip parses "zip <AdapterName>"
+func ParseZip() Combinator[string] {
+	isAlpha := func(b byte) bool { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
+	wordParser := Map(Many(Satisfy(isAlpha)), func(b []byte) string { return string(b) })
+
+	return Bind(Token("zip"), func(_ string) Combinator[string] {
+		return Bind(WhiteSpace, func(_ []byte) Combinator[string] {
+			return wordParser
 		})
 	})
 }
