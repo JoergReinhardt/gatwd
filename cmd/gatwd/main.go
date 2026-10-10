@@ -19,9 +19,9 @@ func main() {
 	fmt.Println("UTF-8 Mathematical Aliases Enabled (e.g. ⊳, →, ∷)")
 
 	p := parser.NewParser()
-	engine := evaluator.NewEngine[functions.Either[error, string]]()
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
 
-	engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, string]] {
+	engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
 		fmt.Printf("\n[REPL] Encountered unknown node type %d. Enter CLI command: ", flag)
 		reader := bufio.NewReader(os.Stdin)
 		cmd, _ := reader.ReadString('\n')
@@ -48,33 +48,36 @@ func main() {
 		parts := strings.Split(line, "|>")
 		
 		stringStream := p.Parse(parts[0])
-		initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, string]]) bool) {
+		initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stringStream {
-				wrappedValue := functions.Right[error, string](node.Value)
+				wrappedValue := functions.Right[error, any](any(node.Value))
 				yield(dsltypes.NewASTNode(wrappedValue, node.DSLType))
 			}
 		}
 
-		var pipeline []evaluator.PipelineStep[functions.Either[error, string]]
+		var pipeline []evaluator.PipelineStep[functions.Either[error, any]]
 
 		for _, stepStr := range parts[1:] {
 			stepStr = strings.TrimSpace(stepStr)
 			
 			if strings.HasPrefix(stepStr, "take") {
 				for res := range parser.ParseTake()(stepStr) {
-					pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, string]](res.Fst))
+					pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, any]](res.Fst))
 					break
 				}
 			} else if strings.HasPrefix(stepStr, "drop") {
 				for res := range parser.ParseDrop()(stepStr) {
-					pipeline = append(pipeline, evaluator.StepDrop[functions.Either[error, string]](res.Fst))
+					pipeline = append(pipeline, evaluator.StepDrop[functions.Either[error, any]](res.Fst))
 					break
 				}
 			} else if strings.HasPrefix(stepStr, "expect") {
 				for res := range parser.ParseExpect()(stepStr) {
 					keyword := res.Fst.Fst
 					errMsg := res.Fst.Snd
-					predicate := func(val string) bool { return strings.Contains(val, keyword) }
+					predicate := func(val any) bool {
+						if strVal, ok := val.(string); ok { return strings.Contains(strVal, keyword) }
+						return false
+					}
 					pipeline = append(pipeline, evaluator.StepExpect(predicate, fmt.Errorf("%s", errMsg)))
 					break
 				}
@@ -92,6 +95,19 @@ func main() {
 					pipeline = append(pipeline, evaluator.StepFanOut(leftAdapter, rightAdapter))
 					break
 				}
+			} else if strings.HasPrefix(stepStr, "parse_record") {
+				fieldsStr := strings.TrimSpace(stepStr[12:])
+				fields := strings.Fields(fieldsStr)
+				adapter := evaluator.EitherT(interactive.ParseColumnsAdapter(fields, 0))
+				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			} else if strings.HasPrefix(stepStr, "focus") {
+				field := strings.TrimSpace(stepStr[5:])
+				pipeline = append(pipeline, evaluator.StepFocus(field))
+			} else if strings.HasPrefix(stepStr, "update") {
+				args := strings.Fields(strings.TrimSpace(stepStr[6:]))
+				if len(args) >= 2 {
+					pipeline = append(pipeline, evaluator.StepUpdate(args[0], strings.Join(args[1:], " ")))
+				}
 			} else {
 				adapter := evaluator.EitherT(interactive.GenericExecAdapter(stepStr, 0))
 				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
@@ -101,7 +117,6 @@ func main() {
 		terminalNodes := engine.EvaluatePipeline(initialStream, pipeline)
 		
 		if isParallel {
-			// Convert Pipeline sequence to ParEvaluate pool (10 workers)
 			terminalNodes = engine.ParEvaluate(terminalNodes, 10)
 		}
 
@@ -113,7 +128,7 @@ func main() {
 				fmt.Printf("∷ [ERROR] %v\n", err)
 			} else {
 				val, _ := node.Value.UnwrapRight()
-				fmt.Printf("∷ %s\n", val)
+				fmt.Printf("∷ %+v\n", val)
 			}
 		}
 		if count == 0 && !strings.HasPrefix(line, "type ") {

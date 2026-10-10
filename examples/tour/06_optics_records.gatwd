@@ -1,0 +1,13 @@
+-- ==========================================================
+-- gatwd Tour: 6. Optics (Lenses) on Records
+-- Run: ./gatwd examples/tour/06_optics_records.gatwd
+-- ==========================================================
+
+-- Define the types we will use to spawn the root nodes!
+type Directory = Folder
+
+-- 1. Focus: Extracts just the File Name
+spawn Directory: /etc |> ls -l %s |> parse_record Perms Links Owner Group Size Month Day Time Name |> focus Name |> drop 1 |> take 3
+
+-- 2. Update: Functionally mutates the Owner field immutably!
+spawn Directory: /etc |> ls -l %s |> parse_record Perms Links Owner Group Size Month Day Time Name |> update Owner "root_admin" |> focus Owner |> drop 1 |> take 3

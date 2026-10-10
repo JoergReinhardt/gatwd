@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"iter"
+	"fmt"
 
 	"github.com/joergreinhardt/gatwd/arrows"
 	"github.com/joergreinhardt/gatwd/dsltypes"
@@ -125,6 +126,63 @@ func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
 					if !yield(secNode) {
 						return
 					}
+				}
+			}
+		}
+	}
+}
+
+
+// StepFocus extracts a field from a map[string]any (Record).
+func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				
+				if record, ok := val.(map[string]any); ok {
+					if fieldVal, exists := record[field]; exists {
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](fieldVal), node.DSLType)
+						if !yield(newNode) { return }
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Field '%s' not found", field), node.DSLType)
+						if !yield(errNode) { return }
+					}
+				} else {
+					errNode := InjectError[any](fmt.Errorf("Focus failed: Node is not a Record"), node.DSLType)
+					if !yield(errNode) { return }
+				}
+			}
+		}
+	}
+}
+
+// StepUpdate sets a field in a map[string]any (Record), immutably!
+func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				
+				if record, ok := val.(map[string]any); ok {
+					// Immutably copy the map
+					newRecord := make(map[string]any)
+					for k, v := range record { newRecord[k] = v }
+					newRecord[field] = newValue
+					
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](newRecord), node.DSLType)
+					if !yield(newNode) { return }
+				} else {
+					errNode := InjectError[any](fmt.Errorf("Update failed: Node is not a Record"), node.DSLType)
+					if !yield(errNode) { return }
 				}
 			}
 		}

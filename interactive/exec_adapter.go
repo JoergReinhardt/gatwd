@@ -11,12 +11,14 @@ import (
 	"github.com/joergreinhardt/gatwd/evaluator"
 )
 
-func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) evaluator.Adapter[string] {
-	return func(node dsltypes.ASTNode[string]) iter.Seq[dsltypes.ASTNode[string]] {
-		return func(yield func(dsltypes.ASTNode[string]) bool) {
+func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) evaluator.Adapter[any] {
+	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
+		return func(yield func(dsltypes.ASTNode[any]) bool) {
+			strValue := "unknown"
+			if s, ok := node.Value.(string); ok { strValue = s }
 			cmdStr := commandTemplate
 			if strings.Contains(commandTemplate, "%s") {
-				cmdStr = fmt.Sprintf(commandTemplate, node.Value)
+				cmdStr = fmt.Sprintf(commandTemplate, strValue)
 			}
 			
 			parts := strings.Fields(cmdStr)
@@ -34,7 +36,7 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 			for scanner.Scan() {
 				text := strings.TrimSpace(scanner.Text())
 				if text != "" {
-					childNode := dsltypes.NewASTNode(text, yieldedFlag)
+					childNode := dsltypes.NewASTNode[any](text, yieldedFlag)
 					if !yield(childNode) {
 						cmd.Process.Kill()
 						return
@@ -42,6 +44,40 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 				}
 			}
 			cmd.Wait()
+		}
+	}
+}
+
+// ParseColumnsAdapter takes a string node (like a line from 'ls -l') 
+// and structurally transforms it into a Record (map[string]any).
+// It splits the string by whitespace and assigns them to the provided column names.
+func ParseColumnsAdapter(columns []string, flag dsltypes.BitFlag) evaluator.Adapter[any] {
+	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
+		return func(yield func(dsltypes.ASTNode[any]) bool) {
+			strVal, ok := node.Value.(string)
+			if !ok {
+				// Bypass if it's not a string
+				yield(node)
+				return
+			}
+			
+			parts := strings.Fields(strVal)
+			record := make(map[string]any)
+			
+			for i, colName := range columns {
+				if i < len(parts) {
+					record[colName] = parts[i]
+				} else {
+					record[colName] = ""
+				}
+			}
+			
+			// If there are leftover parts, stuff them in the last column
+			if len(parts) > len(columns) && len(columns) > 0 {
+				record[columns[len(columns)-1]] = strings.Join(parts[len(columns)-1:], " ")
+			}
+			
+			yield(dsltypes.NewASTNode[any](record, flag))
 		}
 	}
 }
