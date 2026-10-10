@@ -1,0 +1,16 @@
+-- ==========================================================
+-- gatwd Tour: 1. Basics & Types
+-- Run: ./gatwd examples/tour/01_basics.gatwd
+-- ==========================================================
+-- Welcome to Gophers All The Way Down! 
+-- This DSL natively embraces pure Functional Programming.
+
+-- 1. Algebraic Data Types
+-- Define dynamic Sum types on the fly. The engine allocates BitFlags instantly.
+type OS = Linux | Windows | Darwin
+type Device = Mobile | Desktop | Server
+
+-- 2. Spawning & The Trampoline
+-- We spawn a Node and pipe ( |> ) it to the 'echo' command.
+-- Because gatwd executes lazily via Trampolines, graphs can be infinite!
+spawn Device: localhost |> echo Hello from %s!

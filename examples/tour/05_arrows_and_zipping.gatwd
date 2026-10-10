@@ -1,0 +1,14 @@
+-- ==========================================================
+-- gatwd Tour: 5. Kleisli Arrows & Zipping
+-- Run: ./gatwd examples/tour/05_arrows_and_zipping.gatwd
+-- ==========================================================
+type User = Profile
+
+-- 1. Kleisli Fan-Out (&&&)
+-- Routes the single User Node into TWO independent adapters concurrently,
+-- and zips their results into pairs!
+spawn User: joerg |> (date &&& whoami)
+
+-- 2. Stream Zipping
+-- Joins the primary stream directly with a secondary adapter stream.
+spawn User: joerg |> echo Primary: %s |> zip date

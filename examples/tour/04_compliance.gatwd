@@ -1,0 +1,12 @@
+-- ==========================================================
+-- gatwd Tour: 4. Compliance Auditing (EitherT)
+-- Run: ./gatwd examples/tour/04_compliance.gatwd
+-- ==========================================================
+type Node = KubeNode
+
+-- The 'expect' keyword creates a Compliance Gate.
+-- The Engine uses the EitherT Monad Transformer under the hood. 
+-- If a node fails the expectation, it is safely transformed into an 
+-- explicit Either.Left Error Node!
+spawn Node: localhost |> uname -a |> expect "Linux" "CRITICAL: Node is not Linux!"
+spawn Node: localhost |> uname -a |> expect "Windows" "CRITICAL: Node is not Windows!"

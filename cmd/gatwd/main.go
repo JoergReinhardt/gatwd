@@ -19,23 +19,15 @@ func main() {
 	fmt.Println("UTF-8 Mathematical Aliases Enabled (e.g. ⊳, →, ∷)")
 
 	p := parser.NewParser()
-	
-	// Upgrade Engine to use EitherT for compliance auditing!
 	engine := evaluator.NewEngine[functions.Either[error, string]]()
 
 	engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, string]] {
-		fmt.Printf("\n[REPL] Encountered unknown node type %d. Enter CLI command (or enter to skip): ", flag)
+		fmt.Printf("\n[REPL] Encountered unknown node type %d. Enter CLI command: ", flag)
 		reader := bufio.NewReader(os.Stdin)
 		cmd, _ := reader.ReadString('\n')
 		cmd = strings.TrimSpace(cmd)
-		if cmd == "" {
-			return nil
-		}
-		
-		// Wrap the generic string adapter in EitherT so it handles Errors safely
-		genericAdapter := interactive.GenericExecAdapter(cmd, 0)
-		
-		return evaluator.EitherT(genericAdapter)
+		if cmd == "" { return nil }
+		return evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
 	}
 
 	interactiveMode := len(os.Args) == 1
@@ -51,10 +43,10 @@ func main() {
 	}
 
 	evaluateLine := func(line string) {
+		isParallel := strings.Contains(line, "||>")
+		line = strings.ReplaceAll(line, "||>", "|>")
 		parts := strings.Split(line, "|>")
 		
-		// Parse the Root Node (e.g., spawn Server)
-		// p.Parse returns iter.Seq[ASTNode[string]], we need to map it to Either
 		stringStream := p.Parse(parts[0])
 		initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, string]]) bool) {
 			for node := range stringStream {
@@ -82,34 +74,37 @@ func main() {
 				for res := range parser.ParseExpect()(stepStr) {
 					keyword := res.Fst.Fst
 					errMsg := res.Fst.Snd
-					
-					predicate := func(val string) bool {
-						return strings.Contains(val, keyword)
-					}
+					predicate := func(val string) bool { return strings.Contains(val, keyword) }
 					pipeline = append(pipeline, evaluator.StepExpect(predicate, fmt.Errorf("%s", errMsg)))
 					break
 				}
+			} else if strings.HasPrefix(stepStr, "zip") {
+				for res := range parser.ParseZip()(stepStr) {
+					cmd := res.Fst
+					secAdapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
+					pipeline = append(pipeline, evaluator.StepZip(secAdapter))
+					break
+				}
 			} else if strings.HasPrefix(stepStr, "(") {
-				// FanOut &&&
 				for res := range parser.ParseFanOut()(stepStr) {
-					// We'd look up the adapters dynamically, but for CLI let's use REPL
-					leftCmd := res.Fst.Fst
-					rightCmd := res.Fst.Snd
-					
-					leftAdapter := evaluator.EitherT(interactive.GenericExecAdapter(leftCmd, 0))
-					rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(rightCmd, 0))
-					
+					leftAdapter := evaluator.EitherT(interactive.GenericExecAdapter(res.Fst.Fst, 0))
+					rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(res.Fst.Snd, 0))
 					pipeline = append(pipeline, evaluator.StepFanOut(leftAdapter, rightAdapter))
 					break
 				}
 			} else {
-				// Normal Adapter via REPL fallback for demo
 				adapter := evaluator.EitherT(interactive.GenericExecAdapter(stepStr, 0))
 				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
 			}
 		}
 
 		terminalNodes := engine.EvaluatePipeline(initialStream, pipeline)
+		
+		if isParallel {
+			// Convert Pipeline sequence to ParEvaluate pool (10 workers)
+			terminalNodes = engine.ParEvaluate(terminalNodes, 10)
+		}
+
 		count := 0
 		for node := range terminalNodes {
 			count++
@@ -118,7 +113,7 @@ func main() {
 				fmt.Printf("∷ [ERROR] %v\n", err)
 			} else {
 				val, _ := node.Value.UnwrapRight()
-				fmt.Printf("∷ %s (Type: %d)\n", val, node.DSLType)
+				fmt.Printf("∷ %s\n", val)
 			}
 		}
 		if count == 0 && !strings.HasPrefix(line, "type ") {
@@ -142,13 +137,9 @@ func main() {
 	}
 
 	if scriptToLoad != "" {
-		if !interactiveMode {
-			fmt.Printf("Running Batch Mode: %s\n", scriptToLoad)
-		}
+		if !interactiveMode { fmt.Printf("Running Batch Mode: %s\n", scriptToLoad) }
 		loadScript(scriptToLoad)
-		if !interactiveMode {
-			return
-		}
+		if !interactiveMode { return }
 	}
 
 	fmt.Println("Running Interactive Mode. Type ':load <file>' to load a script, or 'exit' to quit.")
@@ -164,7 +155,6 @@ func main() {
 			loadScript(strings.TrimSpace(line[6:]))
 			continue
 		}
-
 		evaluateLine(line)
 	}
 }

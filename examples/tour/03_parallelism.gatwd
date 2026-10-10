@@ -1,0 +1,10 @@
+-- ==========================================================
+-- gatwd Tour: 3. Parallel Execution (ParBind)
+-- Run: ./gatwd examples/tour/03_parallelism.gatwd
+-- ==========================================================
+type Machine = Server
+
+-- The '||>' operator replaces the standard pipe.
+-- Instead of evaluating the stream sequentially, it automatically 
+-- fans-out execution across a goroutine worker pool!
+spawn Machine: localhost |> echo Simulated Work %s ||> sleep 1
