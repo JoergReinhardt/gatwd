@@ -1,0 +1,13 @@
+-- ==========================================================
+-- gatwd Script: Compliance Auditing (expect)
+-- Run: ./gatwd examples/scripts/02_compliance_auditing.gatwd
+-- ==========================================================
+type Machine = Server
+
+-- 1. We execute `uname -a`
+-- 2. We use 'expect' to audit the output.
+-- If the output does NOT contain the keyword "Linux", it becomes an explicit ERROR!
+spawn Machine: localhost |> uname -a |> expect "Linux" "CRITICAL: Server is not running Linux!"
+
+-- This one will fail to prove it works:
+spawn Machine: localhost |> uname -a |> expect "Windows" "CRITICAL: Server is not running Windows!"

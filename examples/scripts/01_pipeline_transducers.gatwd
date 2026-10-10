@@ -1,0 +1,10 @@
+-- ==========================================================
+-- gatwd Script: Transducers & Pipelines
+-- Run: ./gatwd examples/scripts/01_pipeline_transducers.gatwd
+-- ==========================================================
+type Network = Interface
+
+-- 1. We spawn a Network Interface. 
+-- 2. We route it through a generic REPL command (ip addr).
+-- 3. We use the 'take' transducer to bound the stream to exactly 2 lines!
+spawn Network: eth0 |> ip a |> take 2

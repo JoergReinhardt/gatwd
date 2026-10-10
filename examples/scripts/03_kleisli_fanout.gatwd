@@ -1,0 +1,9 @@
+-- ==========================================================
+-- gatwd Script: Kleisli Arrows Fan-Out (&&&)
+-- Run: ./gatwd examples/scripts/03_kleisli_fanout.gatwd
+-- ==========================================================
+type Machine = Server
+
+-- We spawn a server, and route it to TWO adapters concurrently!
+-- We run 'date' and 'whoami' on the server, and zip the output.
+spawn Machine: localhost |> (date &&& whoami)
