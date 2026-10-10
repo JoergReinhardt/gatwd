@@ -39,21 +39,13 @@ func NewInterpreter() *Interpreter {
 	return i
 }
 
-
 func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
 	subParts := strings.Split(subPipelineStr, "|>")
 	subPipeline := i.parsePipelineSteps(subParts)
-	fmt.Println("PIPELINETOADAPTER PARSED", len(subPipeline), "STEPS FOR:", subPipelineStr)
-	
+
 	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { yield(node) }
-		results := i.Engine.EvaluatePipeline(singleton, subPipeline)
-		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			for res := range results {
-				fmt.Println("PIPELINE_TO_ADAPTER YIELDED:", res.Value)
-				yield(res)
-			}
-		}
+		return i.Engine.EvaluatePipeline(singleton, subPipeline)
 	}
 }
 
@@ -62,14 +54,18 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 
 	for _, stepStr := range parts {
 		stepStr = strings.TrimSpace(stepStr)
-		if stepStr == "" { continue }
+		if stepStr == "" {
+			continue
+		}
 
 		// Variable Substitution
 		for k, v := range i.Variables {
 			// Naive word replacement for variables
 			words := strings.Split(stepStr, " ")
 			for idx, w := range words {
-				if w == k { words[idx] = v }
+				if w == k {
+					words[idx] = v
+				}
 			}
 			stepStr = strings.Join(words, " ")
 		}
@@ -94,7 +90,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "filter") {
 			keyword := strings.Trim(strings.TrimSpace(stepStr[6:]), "\"")
 			predicate := func(val any) bool {
-				if strVal, ok := val.(string); ok { return strings.Contains(strVal, keyword) }
+				if strVal, ok := val.(string); ok {
+					return strings.Contains(strVal, keyword)
+				}
 				return false
 			}
 			pipeline = append(pipeline, evaluator.StepFilter(predicate))
@@ -103,7 +101,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				keyword := res.Fst.Fst
 				errMsg := res.Fst.Snd
 				predicate := func(val any) bool {
-					if strVal, ok := val.(string); ok { return strings.Contains(strVal, keyword) }
+					if strVal, ok := val.(string); ok {
+						return strings.Contains(strVal, keyword)
+					}
 					return false
 				}
 				pipeline = append(pipeline, evaluator.StepExpect(predicate, fmt.Errorf("%s", errMsg)))
@@ -145,7 +145,6 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepFormatTuple(strings.Trim(formatStr, "\"")))
 		} else if strings.HasPrefix(stepStr, "(") && strings.Contains(stepStr, "&&&") {
 			for res := range parser.ParseFanOut()(stepStr) {
-					fmt.Println("PARSE_FANOUT SUCCEEDED:", res.Fst.Fst, "AND", res.Fst.Snd)
 				leftAdapter := i.pipelineToAdapter(res.Fst.Fst)
 				rightAdapter := i.pipelineToAdapter(res.Fst.Snd)
 				pipeline = append(pipeline, evaluator.StepFanOut(leftAdapter, rightAdapter))
@@ -175,21 +174,21 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, evaluator.StepUpdate(args[0], strings.Join(args[1:], " ")))
 			}
 		} else if strings.HasPrefix(stepStr, "visualize") {
-				pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
-			} else if stepStr == "route" {
-				pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
-			} else if stepStr == "build_bst" {
-				pipeline = append(pipeline, evaluator.StepBuildBST())
-			} else if stepStr == "build_btree" {
-				pipeline = append(pipeline, evaluator.StepBuildBTree())
-			} else if stepStr == "build_rbtree" {
-				pipeline = append(pipeline, evaluator.StepBuildRBTree())
-			} else if strings.HasPrefix(stepStr, "math_add") {
-				amount := strings.TrimSpace(stepStr[9:])
-				pipeline = append(pipeline, evaluator.StepMathAdd(amount))
-			} else if stepStr == "build_array" {
-				pipeline = append(pipeline, evaluator.StepBuildArray())
-			} else if stepStr == "collect_list" {
+			pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
+		} else if stepStr == "route" {
+			pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
+		} else if stepStr == "build_bst" {
+			pipeline = append(pipeline, evaluator.StepBuildBST())
+		} else if stepStr == "build_btree" {
+			pipeline = append(pipeline, evaluator.StepBuildBTree())
+		} else if stepStr == "build_rbtree" {
+			pipeline = append(pipeline, evaluator.StepBuildRBTree())
+		} else if strings.HasPrefix(stepStr, "math_add") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathAdd(amount))
+		} else if stepStr == "build_array" {
+			pipeline = append(pipeline, evaluator.StepBuildArray())
+		} else if stepStr == "collect_list" {
 			pipeline = append(pipeline, evaluator.StepCollectList())
 		} else if strings.HasPrefix(stepStr, "build_tree") {
 			rootName := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
@@ -200,7 +199,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := strings.Split(inner, "|")
 			cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
-			
+
 			for _, c := range casesStr {
 				parts2 := strings.SplitN(c, "->", 2)
 				if len(parts2) == 2 {
@@ -244,7 +243,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	isParallel := strings.Contains(line, "||>")
 	line = strings.ReplaceAll(line, "||>", "|>")
 	parts := strings.Split(line, "|>")
-	
+
 	stringStream := i.Parser.Parse(parts[0])
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
@@ -255,7 +254,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 
 	pipeline := i.parsePipelineSteps(parts[1:])
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
-	
+
 	if isParallel {
 		terminalNodes = i.Engine.ParEvaluate(terminalNodes, 10)
 	}
@@ -273,7 +272,6 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	return results
 }
 
-
 // RegisterType allows third-party Go code to register native constructors for DSL types.
 func (i *Interpreter) RegisterType(definition string, factory func(string) any) {
 	i.Parser.RegisterTypeFactory(definition, factory)
@@ -287,13 +285,13 @@ func (i *Interpreter) EvaluateLine(line string) {
 			if len(defParts) == 2 {
 				varName := strings.TrimSpace(defParts[0])
 				pipelineStr := strings.TrimSpace(defParts[1])
-				
+
 				// Evaluate the left side completely
 				res := i.evaluatePipelineStr(pipelineStr)
 				if len(res) > 0 {
 					i.Variables[varName] = res[0] // Bind to first result
 				}
-				
+
 				// Evaluate the right side
 				i.EvaluateLine(parts[1])
 			}
@@ -327,34 +325,36 @@ func (i *Interpreter) LoadScript(filename string) {
 		fmt.Printf("Error reading file '%s': %v\n", filename, err)
 		return
 	}
-	
+
 	dir := filepath.Dir(filename)
-	
+
 	lines := strings.Split(string(bytes), "\n")
 	var buffer string
-	
+
 	for _, rawLine := range lines {
 		line := strings.TrimSpace(rawLine)
-		if line == "" || strings.HasPrefix(line, "--") { continue }
-		
+		if line == "" || strings.HasPrefix(line, "--") {
+			continue
+		}
+
 		if buffer != "" {
 			buffer += " " + line
 		} else {
 			buffer = line
 		}
-		
+
 		// Check for multi-line continuation
-		if strings.HasSuffix(buffer, "=") || 
-		   strings.HasSuffix(buffer, "|>") || 
-		   strings.HasSuffix(buffer, "||>") || 
-		   strings.HasSuffix(buffer, " let") || 
-		   strings.HasSuffix(buffer, " in") || 
-		   strings.HasSuffix(buffer, "{") || 
-		   strings.HasSuffix(buffer, "(") || 
-		   strings.HasSuffix(buffer, "\\") {
+		if strings.HasSuffix(buffer, "=") ||
+			strings.HasSuffix(buffer, "|>") ||
+			strings.HasSuffix(buffer, "||>") ||
+			strings.HasSuffix(buffer, " let") ||
+			strings.HasSuffix(buffer, " in") ||
+			strings.HasSuffix(buffer, "{") ||
+			strings.HasSuffix(buffer, "(") ||
+			strings.HasSuffix(buffer, "\\") {
 			continue // Wait for next line
 		}
-		
+
 		// Module Imports
 		if strings.HasPrefix(buffer, "import ") {
 			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
@@ -395,37 +395,51 @@ func Run() {
 	}
 
 	if scriptToLoad != "" {
-		if !interactiveMode { fmt.Printf("Running Batch Mode: %s\n", scriptToLoad) }
+		if !interactiveMode {
+			fmt.Printf("Running Batch Mode: %s\n", scriptToLoad)
+		}
 		interpreter.LoadScript(scriptToLoad)
-		if !interactiveMode { return }
+		if !interactiveMode {
+			return
+		}
 	}
 
 	fmt.Println("Running Interactive Mode. Type ':load <file>' to load a script, or 'exit' to quit.")
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("gatwd ⊳ ")
-		if !scanner.Scan() { break }
+		if !scanner.Scan() {
+			break
+		}
 		line := strings.TrimSpace(scanner.Text())
-		if line == "exit" || line == "quit" { break }
-		if line == "" || strings.HasPrefix(line, "--") { continue }
+		if line == "exit" || line == "quit" {
+			break
+		}
+		if line == "" || strings.HasPrefix(line, "--") {
+			continue
+		}
 
 		if strings.HasPrefix(line, ":load ") {
 			interpreter.LoadScript(strings.TrimSpace(line[6:]))
 			continue
 		}
-		
+
 		// Handle REPL introspection commands
 		if line == ":macros" {
 			fmt.Println("Registered Macros:")
-			for k, v := range interpreter.Funcs { fmt.Printf("  %s = %s\n", k, v) }
+			for k, v := range interpreter.Funcs {
+				fmt.Printf("  %s = %s\n", k, v)
+			}
 			continue
 		}
 		if line == ":vars" {
 			fmt.Println("Registered Bindings (let):")
-			for k, v := range interpreter.Variables { fmt.Printf("  %s = %s\n", k, v) }
+			for k, v := range interpreter.Variables {
+				fmt.Printf("  %s = %s\n", k, v)
+			}
 			continue
 		}
-		
+
 		interpreter.EvaluateLine(line)
 	}
 }
