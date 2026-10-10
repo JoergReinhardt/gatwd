@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"iter"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -73,7 +74,17 @@ type KubePod = Pod
 
 		// The user creates a new generic Exec Adapter dynamically!
 		// Output lines will be tagged as "Unknown" (BitFlag 0) for simplicity.
-		return interactive.GenericExecAdapter(input, 0)
+		return func(node dsltypes.ASTNode[string]) iter.Seq[dsltypes.ASTNode[string]] {
+				return func(yield func(dsltypes.ASTNode[string]) bool) {
+					anyAdapter := interactive.GenericExecAdapter(input, 0)
+					anyNode := dsltypes.NewASTNode[any](node.Value, node.DSLType)
+					for res := range anyAdapter(anyNode) {
+						if s, ok := res.Value.(string); ok {
+							yield(dsltypes.NewASTNode(s, res.DSLType))
+						}
+					}
+				}
+			}
 	}
 
 	// 6. Provide the Root Node (Target Namespace) to begin the crawl

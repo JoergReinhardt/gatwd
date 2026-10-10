@@ -41,3 +41,10 @@ func (m Maybe[T]) Unwrap() (T, bool) {
 	var zero T
 	return zero, false
 }
+
+// BindMaybe applies a function returning a Maybe to the value inside a Maybe.
+func BindMaybe[A, B any](m Maybe[A], f func(A) Maybe[B]) Maybe[B] {
+	if m.IsNothing() { return Nothing[B]() }
+	val, _ := m.Unwrap()
+	return f(val)
+}
