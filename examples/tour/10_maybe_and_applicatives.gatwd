@@ -1,0 +1,14 @@
+-- ==========================================================
+-- gatwd Tour: 10. Maybe and Applicatives (Split ***)
+-- Run: ./gatwd examples/tour/10_maybe_and_applicatives.gatwd
+-- ==========================================================
+type Node = Server
+
+-- Applicative Functors apply multiple independent functions to multiple contexts.
+-- In Graph Theory, this is the Kleisli Split (***) operator.
+-- 1. FanOut (&&&) yields a Tuple (A, A)
+-- 2. Split [***] applies the Left adapter to the Left element, and Right to Right!
+-- 3. We format the final merged tuple.
+spawn Node: A |> (echo Fst_%s &&& echo Snd_%s) |> [echo LeftAppliesTo_%s *** echo RightAppliesTo_%s] |> format_tuple "(%s, %s)"
+
+-- Note how the Left function only touched the Left data, and Right to Right!

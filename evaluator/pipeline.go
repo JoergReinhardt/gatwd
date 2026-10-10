@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"iter"
+	"strings"
 
 	"github.com/joergreinhardt/gatwd/arrows"
 	"github.com/joergreinhardt/gatwd/collections"
@@ -189,6 +190,126 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 					if !yield(newNode) { return }
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Update failed: Node is not a Record"), node.DSLType)
+					if !yield(errNode) { return }
+				}
+			}
+		}
+	}
+}
+
+// StepFold collapses a stream of nodes into a single scalar value.
+// E.g., counting elements, summing values.
+func StepFold(operation string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			count := 0
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue } // Skip errors in fold
+				count++
+				lastFlag = node.DSLType
+			}
+			
+			if operation == "count" {
+				val := functions.Right[error, any](fmt.Sprintf("%d", count))
+				yield(dsltypes.NewASTNode(val, lastFlag))
+			} else {
+				errNode := InjectError[any](fmt.Errorf("Unknown fold operation: %s", operation), lastFlag)
+				yield(errNode)
+			}
+		}
+	}
+}
+
+// StepMatch routes a node to different adapters based on a regex/string match.
+// It acts like an exhaustive 'case ... of' in Haskell.
+func StepMatch(cases map[string]Adapter[functions.Either[error, any]], defaultAdapter Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				strVal := fmt.Sprintf("%v", val)
+				
+				matched := false
+				for pattern, adapter := range cases {
+					if strings.Contains(strVal, pattern) {
+						for res := range adapter(node) {
+							if !yield(res) { return }
+						}
+						matched = true
+						break
+					}
+				}
+				
+				if !matched && defaultAdapter != nil {
+					for res := range defaultAdapter(node) {
+						if !yield(res) { return }
+					}
+				} else if !matched {
+					// Discard if no match and no default
+				}
+			}
+		}
+	}
+}
+
+// StepFilter acts exactly like a MaybeT Monad Transformer in a graph.
+// If the predicate fails (yielding 'Nothing'), the node is silently dropped 
+// rather than being converted into an Either.Left Error.
+func StepFilter(predicate func(any) bool) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+
+				val, _ := node.Value.UnwrapRight()
+				if predicate(val) {
+					if !yield(node) { return }
+				}
+				// If it fails the predicate, it evaluates to Nothing and is silently dropped!
+			}
+		}
+	}
+}
+
+// StepSplit (***) routes the Left side of a Tuple to Adapter1, and the Right side to Adapter2 concurrently.
+// It acts as the Applicative Functor (<*>) over Product Types.
+func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		// For simplicity in the DSL engine wrapper, we evaluate sequentially or concurrently
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				
+				if tuple, ok := val.(functions.Pair[any, any]); ok {
+					// We mock the concurrent Applicative application here
+					leftNode := dsltypes.NewASTNode(functions.Right[error, any](tuple.Fst), node.DSLType)
+					rightNode := dsltypes.NewASTNode(functions.Right[error, any](tuple.Snd), node.DSLType)
+					
+					var res1, res2 any
+					for r1 := range adapter1(leftNode) {
+						if !r1.Value.IsLeft() { res1, _ = r1.Value.UnwrapRight(); break }
+					}
+					for r2 := range adapter2(rightNode) {
+						if !r2.Value.IsLeft() { res2, _ = r2.Value.UnwrapRight(); break }
+					}
+					
+					newTuple := functions.Pair[any, any]{Fst: res1, Snd: res2}
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newTuple)), node.DSLType)
+					if !yield(newNode) { return }
+				} else {
+					errNode := InjectError[any](fmt.Errorf("Split (***) failed: Node is not a Tuple"), node.DSLType)
 					if !yield(errNode) { return }
 				}
 			}

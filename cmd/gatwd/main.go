@@ -70,6 +70,13 @@ func main() {
 					pipeline = append(pipeline, evaluator.StepDrop[functions.Either[error, any]](res.Fst))
 					break
 				}
+			} else if strings.HasPrefix(stepStr, "filter") {
+				keyword := strings.Trim(strings.TrimSpace(stepStr[6:]), "\"")
+				predicate := func(val any) bool {
+					if strVal, ok := val.(string); ok { return strings.Contains(strVal, keyword) }
+					return false
+				}
+				pipeline = append(pipeline, evaluator.StepFilter(predicate))
 			} else if strings.HasPrefix(stepStr, "expect") {
 				for res := range parser.ParseExpect()(stepStr) {
 					keyword := res.Fst.Fst
@@ -100,6 +107,38 @@ func main() {
 			} else if strings.HasPrefix(stepStr, "format_tuple") {
 				formatStr := strings.TrimSpace(stepStr[12:])
 				pipeline = append(pipeline, evaluator.StepFormatTuple(strings.Trim(formatStr, "\"")))
+			} else if strings.HasPrefix(stepStr, "fold") {
+				op := strings.TrimSpace(stepStr[4:])
+				pipeline = append(pipeline, evaluator.StepFold(op))
+			} else if strings.HasPrefix(stepStr, "match") {
+				cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
+				block := strings.TrimSpace(stepStr[5:])
+				block = strings.TrimPrefix(block, "{")
+				block = strings.TrimSuffix(block, "}")
+				rules := strings.Split(block, "|")
+				for _, rule := range rules {
+					parts := strings.Split(rule, "->")
+					if len(parts) == 2 {
+						pattern := strings.TrimSpace(parts[0])
+						cmd := strings.TrimSpace(parts[1])
+						cases[pattern] = evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
+					}
+				}
+				pipeline = append(pipeline, evaluator.StepMatch(cases, nil))
+			} else if strings.HasPrefix(stepStr, "memoize") {
+				cmd := strings.TrimSpace(stepStr[7:])
+				adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
+				pipeline = append(pipeline, evaluator.StepMemoize(adapter))
+			} else if strings.HasPrefix(stepStr, "[") && strings.Contains(stepStr, "***") {
+				stepStr = strings.TrimSpace(stepStr)
+				stepStr = strings.TrimPrefix(stepStr, "[")
+				stepStr = strings.TrimSuffix(stepStr, "]")
+				parts2 := strings.Split(stepStr, "***")
+				if len(parts2) == 2 {
+					leftAdapter := evaluator.EitherT(interactive.GenericExecAdapter(strings.TrimSpace(parts2[0]), 0))
+					rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(strings.TrimSpace(parts2[1]), 0))
+					pipeline = append(pipeline, evaluator.StepSplit(leftAdapter, rightAdapter))
+				}
 			} else if strings.HasPrefix(stepStr, "parse_record") {
 				fieldsStr := strings.TrimSpace(stepStr[12:])
 				fields := strings.Fields(fieldsStr)
