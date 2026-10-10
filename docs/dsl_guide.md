@@ -1,69 +1,83 @@
 # gatwd DSL Guide
 
-`gatwd` is a purely functional Domain Specific Language (DSL) for declarative infrastructure crawling, evaluation, and mutation.
+`gatwd` is a purely functional, Turing-complete Scripting Language for declarative infrastructure crawling, evaluation, and mutation. It heavily borrows syntax and philosophy from Haskell, Elm, and F#.
 
-## 1. Algebraic Data Types (ADTs)
+## 1. Modules & Reusability
 
-You must define your types before spawning them.
+In `gatwd`, you don't write monolithic scripts. You define **Types** and **Functions** (`def`) in library modules, and bring them into your runtime using `import`.
+
+**types.gatwd**
 ```haskell
 -- Sum Types (Dynamic Enums)
 type OS = Linux | Windows | Darwin
 
--- Record Types (Structured Data)
-type File = { Name: String, Size: Int }
+-- Record & Collection Types
+type ServerConfig = { IP: String, Port: Int }
+type Cluster = Set(ServerConfig)
 ```
 
-## 2. Spawning & Pipelines
-
-Use `spawn` to create the initial root node. Use `|>` for lazy sequential evaluation, or `||>` (ParBind) to fan-out execution across a goroutine worker pool.
+**main.gatwd**
 ```haskell
-spawn OS: Linux |> uname -a
-spawn OS: Linux ||> sleep 5
+import "types.gatwd"
+
+-- Functions (Aliases) encapsulate pipeline logic
+def audit_linux = uname -a |> expect "Linux" "CRITICAL: Not Linux"
+def extract_ip = parse_record IP Port |> focus IP
+
+spawn OS: Linux |> audit_linux |> extract_ip
 ```
 
-## 3. Transducers & Streams
+## 2. Local State (`let ... in`)
 
-Because `gatwd` uses lazy `iter.Seq` trampolines, graphs can be infinite.
-* `take N`: Takes exactly N nodes, then short-circuits the pipeline.
-* `drop N`: Ignores the first N nodes.
-* `distinct`: Uses an immutable `Set` to drop duplicate nodes (critical for cyclic graphs).
-* `fold count`: Collapses the entire stream into a single scalar value.
+While pipelines (`|>`) flow data sequentially, you often need to store intermediate state. Use `let` bindings to capture terminal nodes and substitute them into subsequent branches.
 
 ```haskell
-spawn Node: dummy |> ls . . |> distinct |> fold count
+let master_ip = spawn Server: Master |> focus IP in
+spawn Server: Worker |> echo Routing to master_ip!
 ```
 
-## 4. Compliance Auditing (Transformers)
+## 3. Lambdas & Transducers
 
-* `expect "keyword" "ErrorMsg"`: Uses the `EitherT` Monad Transformer. If the keyword is missing, yields an explicit `Either.Left` Error Node.
-* `filter "keyword"`: Acts like the `MaybeT` Transformer. If the keyword is missing, it silently drops the node without panicking.
+`gatwd` utilizes lazy `iter.Seq` trampolines, meaning graphs can be infinite.
+* `take N` / `drop N`: Bounding infinite streams.
+* `distinct`: Drops duplicates (critical for cyclic graphs).
+* `fold count`: Catamorphism that collapses streams to a scalar.
+* `map (\x -> ...)`: Anonymous functions for inline mapping.
 
 ```haskell
-spawn OS: Linux |> uname -a |> expect "Linux" "CRITICAL: Not Linux"
+def list_files = ls -l
+def count_gatwd = filter "gatwd" |> fold count
+
+spawn Directory: . |> list_files |> map (\x -> echo Processing x...) |> count_gatwd
 ```
 
-## 5. Arrows & Zipping (Routing)
+## 4. Arrow Routing (Zipping & Splitting)
 
-* `(A &&& B)` (Kleisli FanOut): Routes a node into TWO independent adapters concurrently, yielding a Tuple `(Res1, Res2)`.
-* `[A *** B]` (Applicative Split): Takes a Tuple, and routes the Left side to Adapter A, and Right side to Adapter B concurrently.
-* `format_tuple`: Unpacks a Tuple into a string.
+You can mathematically route streams without breaking the functional pipeline:
+* `(A &&& B)` (Kleisli FanOut): Routes a node into TWO independent functions concurrently, yielding a Tuple `(Res1, Res2)`.
+* `[A *** B]` (Applicative Split): Takes a Tuple, and routes the Left side to Function A, and Right side to Function B concurrently.
 
 ```haskell
-spawn OS: Linux |> (date &&& whoami) |> [echo L_%s *** echo R_%s] |> format_tuple "(%s, %s)"
+def get_time = date
+def get_user = whoami
+
+spawn OS: Linux |> (get_time &&& get_user) |> [echo Time_%s *** echo User_%s] |> format_tuple "(%s, %s)"
 ```
 
-## 6. Optics & Records (Lenses)
+## 5. Optics (Lenses) & Zippers (Comonads)
 
-Convert unstructured OS output into rich Records, and use functional Lenses to immutably manipulate them.
+`gatwd` natively parses unstructured text into structural collections (Records, Trees), allowing you to manipulate them mathematically.
+
+**Optics (Records)**
 ```haskell
-spawn Folder: /etc |> ls -l |> parse_record Perms Links Owner Group Size Month Day Time Name |> update Owner "root" |> focus Name
+def parse_file = parse_record Perms Links Owner Name
+def secure_file = update Owner "root" |> focus Name
+
+spawn Directory: /etc |> ls -l |> parse_file |> secure_file
 ```
 
-## 7. Pattern Matching & Memoization
-
-* `match`: Destructures Sum Types and routes them dynamically.
-* `memoize`: Uses functional caching to prevent redundant adapter execution.
-
+**Zippers (Trees)**
 ```haskell
-spawn OS: Linux |> match { Linux -> runBash | Windows -> runPowershell }
+-- Build a Rose Tree from a stream, wrap it in a Zipper context, and navigate O(1)
+spawn Pod: Kube |> echo Child_1 |> echo Child_2 |> build_tree "Root" |> into_zipper |> down |> extract
 ```

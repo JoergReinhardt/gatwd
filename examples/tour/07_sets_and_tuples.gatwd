@@ -1,16 +1,15 @@
 -- ==========================================================
 -- gatwd Tour: 7. Sets & Tuples (Cyclic Graphs & Zipping)
--- Run: ./gatwd examples/tour/07_sets_and_tuples.gatwd
 -- ==========================================================
 type Node = Server
 
--- 1. Sets and Deduplication (distinct)
--- Let's list the same directory twice using 'ls'. This will emit 
--- every file twice. We pipe it into 'distinct' to drop all duplicates!
-spawn Node: dummy |> ls . . |> distinct |> take 3
+def get_all_duplicates = ls . .
+def get_unique_files = get_all_duplicates |> distinct
+def merge = format_tuple "(%s, %s)!"
 
+-- 1. Sets and Deduplication
+spawn Node: dummy |> get_unique_files |> take 3
 
 -- 2. Tuples and FanOut Formatting
--- Kleisli Arrow FanOut (&&&) mechanically yields a Tuple (Functions.Pair).
--- Now we can natively unpack and format those tuples using format_tuple!
-spawn Node: A |> (echo Left_%s &&& echo Right_%s) |> format_tuple "(%s, %s)!"
+-- (Note: &&& operators execute pure OS adapters directly)
+spawn Node: A |> (echo Left_%s &&& echo Right_%s) |> merge

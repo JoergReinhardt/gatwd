@@ -1,16 +1,14 @@
 -- ==========================================================
--- gatwd Tour: 11. Collections (Lists, Trees) & Zippers
--- Run: ./gatwd examples/tour/11_collections_and_zippers.gatwd
+-- gatwd Tour: 11. Collections & Zippers
 -- ==========================================================
 type Nodes = List(Server)
 type PodHierarchy = Tree(Pod)
 
+def stream_children = echo Child_1 |> echo Child_2
+def navigate_to_first = build_tree "Root_Pod" |> into_zipper |> down |> extract
+
 -- 1. Lists
--- The 'collect_list' transducer consumes the entire lazy stream
--- and builds a single immutable collections.List[any] node!
 spawn Nodes: Cluster |> echo Node1 |> echo Node2 |> echo Node3 |> collect_list
 
 -- 2. Trees and Zippers
--- We spawn some nodes, build a Tree with 'Root_Pod' as the head,
--- wrap it in a Zipper context, navigate down, and extract the child!
-spawn PodHierarchy: Kube |> echo Child_1 |> echo Child_2 |> build_tree "Root_Pod" |> into_zipper |> down |> extract
+spawn PodHierarchy: Kube |> stream_children |> navigate_to_first

@@ -1,13 +1,9 @@
 -- ==========================================================
--- gatwd Tour: 9. Pattern Matching (Exhaustive Case Routing)
--- Run: ./gatwd examples/tour/09_pattern_matching.gatwd
+-- gatwd Tour: 9. Pattern Matching
 -- ==========================================================
 type OS = Linux | Windows | Darwin
 
--- Pattern Matching safely destructures Sum Types and routes logic.
--- The node 'Linux' will perfectly match the first branch!
--- (Under the hood, this evaluates 'echo PENGUIN_%s')
-spawn OS: Linux |> match { Linux -> echo PENGUIN_%s | Windows -> echo WINDOW_%s }
+def route_os = match { Linux -> echo PENGUIN_%s | Windows -> echo WINDOW_%s }
 
--- And here, it routes to Windows!
-spawn OS: Windows |> match { Linux -> echo PENGUIN_%s | Windows -> echo WINDOW_%s }
+spawn OS: Linux |> route_os
+spawn OS: Windows |> route_os

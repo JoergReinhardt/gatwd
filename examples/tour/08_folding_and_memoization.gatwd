@@ -1,18 +1,14 @@
 -- ==========================================================
 -- gatwd Tour: 8. Folding, Filtering (MaybeT), and Memoization
--- Run: ./gatwd examples/tour/08_folding_and_memoization.gatwd
 -- ==========================================================
 type Node = Dummy
 
--- 1. Filtering (MaybeT) and Folding (Catamorphisms)
--- Unlike 'expect' which yields Either.Left Errors on failure,
--- 'filter' acts like the Maybe Monad, silently dropping 'Nothing' nodes.
--- We then 'fold count' to collapse the entire stream into a single integer!
-spawn Node: A |> ls . . |> filter "gatwd" |> fold count
+-- Define Reusable Catamorphisms
+def count_gatwd_files = ls . . |> filter "gatwd" |> fold count
+def heavy_computation = memoize echo Computed_%s
 
+-- 1. Filtering (MaybeT) and Folding
+spawn Node: A |> count_gatwd_files
 
 -- 2. Memoization (Functional Caching)
--- In pure FP, evaluating the same input twice should yield the same output.
--- We emit Node 'A' twice. The 'memoize' adapter executes the OS command 
--- for the first 'A', caches the stream, and instantly replays it for the second 'A'!
-spawn Node: A |> echo Node_%s |> echo Node_%s |> memoize echo Computed_%s
+spawn Node: A |> echo Node_%s |> echo Node_%s |> heavy_computation
