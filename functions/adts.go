@@ -75,3 +75,21 @@ func (e Either[L, R]) IsLeft() bool {
 func (e Either[L, R]) IsRight() bool {
 	return e.right != nil
 }
+
+// UnwrapLeft returns the left value and a boolean indicating its presence.
+func (e Either[L, R]) UnwrapLeft() (L, bool) {
+	if e.left != nil {
+		return *e.left, true
+	}
+	var zero L
+	return zero, false
+}
+
+// UnwrapRight returns the right value and a boolean indicating its presence.
+func (e Either[L, R]) UnwrapRight() (R, bool) {
+	if e.right != nil {
+		return *e.right, true
+	}
+	var zero R
+	return zero, false
+}
