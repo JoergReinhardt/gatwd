@@ -1,0 +1,2 @@
+type Node = Server
+spawn Node: A |> fetch_aws_ec2 |> echo Secure_%s
