@@ -71,7 +71,7 @@ func (p *Parser) parseType(line string) {
 		// Record Type: { Field: Type, Field: Type }
 		// Just register the base type for now (BitFlags can't inherently track struct shapes)
 		p.registerOrGet(typeName)
-	} else if (strings.HasPrefix(definition, "Set(") || strings.HasPrefix(definition, "List(") || strings.HasPrefix(definition, "Tree(") || strings.HasPrefix(definition, "BST(") || strings.HasPrefix(definition, "BTree(")) && strings.HasSuffix(definition, ")") {
+	} else if (strings.HasPrefix(definition, "Set(") || strings.HasPrefix(definition, "List(") || strings.HasPrefix(definition, "Tree(") || strings.HasPrefix(definition, "BST(") || strings.HasPrefix(definition, "BTree(") || strings.HasPrefix(definition, "RBTree(")) && strings.HasSuffix(definition, ")") {
 			p.registerOrGet(typeName)
 		} else if strings.HasPrefix(definition, "(") && strings.HasSuffix(definition, ")") {
 		// Tuple Type: (Type1, Type2)

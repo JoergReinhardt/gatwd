@@ -1,0 +1,12 @@
+-- ==========================================================
+-- gatwd Tour: 17. The Red-Black Tree Visualization Tomfoolery
+-- Run: ./gatwd examples/tour/17_rbtree_tomfoolery.gatwd
+-- ==========================================================
+type RB_Tree = RBTree(String)
+
+-- Watch carefully: The Red-Black Tree struct intrinsically knows its node colors.
+-- The generic UTF-8 Visualizer automatically detects `NodeColor() string`
+-- and injects ANSI coloring PER NODE while printing! 
+-- We also apply the gorgeous curved borders (--curved --border) for max tomfoolery.
+
+spawn RB_Tree: Init |> cat data4.txt |> build_rbtree |> visualize --curved --border

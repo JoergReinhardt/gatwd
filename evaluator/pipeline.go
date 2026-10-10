@@ -485,3 +485,28 @@ func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepBuildRBTree aggregates a stream into a Red-Black Tree
+func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var rbt *collections.RBTree[string]
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				strVal := fmt.Sprintf("%v", val)
+				lastFlag = node.DSLType
+				
+				cmp := func(a, b string) int { return strings.Compare(a, b) }
+				if rbt == nil {
+					rbt = collections.LeafRB(strVal)
+				} else {
+					rbt = rbt.Insert(strVal, cmp)
+				}
+			}
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(rbt)), lastFlag)
+			yield(newNode)
+		}
+	}
+}

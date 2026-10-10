@@ -13,6 +13,7 @@ type Style struct {
 }
 
 var UTF8Style = Style{ Vertical: "│   ", Cross: "├── ", Corner: "└── ", Empty: "    " }
+var CurvedStyle = Style{ Vertical: "│   ", Cross: "├─ ", Corner: "╰─ ", Empty: "    " }
 var ASCIIStyle = Style{ Vertical: "|   ", Cross: "+-- ", Corner: "`-- ", Empty: "    " }
 
 type Options struct {
@@ -35,6 +36,7 @@ func ParseOptions(args string) Options {
 	
 	for _, p := range parts {
 		if p == "--ascii" { opts.Style = ASCIIStyle }
+		if p == "--curved" { opts.Style = CurvedStyle }
 		if p == "--collapse" { opts.CollapseScalars = true }
 		if p == "--dot" { opts.FormatDOT = true }
 		if p == "--border" { opts.Border = true }

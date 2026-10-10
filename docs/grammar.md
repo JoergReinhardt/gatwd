@@ -17,7 +17,7 @@ TypeDef        ::= "type " Identifier "=" (SumType | RecordType | TupleType | Co
 SumType        ::= Identifier { "|" Identifier }
 RecordType     ::= "{" FieldDef { "," FieldDef } "}"
 TupleType      ::= "(" Identifier { "," Identifier } ")"
-CollectionType ::= ( "Set(" | "List(" | "Tree(" | "BST(" | "BTree(" ) Identifier ")"
+CollectionType ::= ( "Set(" | "List(" | "Tree(" | "BST(" | "BTree(" | "RBTree(" ) Identifier ")"
 FieldDef       ::= Identifier ":" Identifier
 
 (* Pipelines (Graph Traversal & Evaluation) *)

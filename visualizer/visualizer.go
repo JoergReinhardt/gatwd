@@ -6,12 +6,10 @@ import (
 	"strings"
 )
 
-// Graphable allows structs with unexported fields to expose a generic copy.
 type Graphable interface {
 	Graph() any
 }
 
-// Visualizer allows custom types to define their own graph traversal.
 type Visualizer interface {
 	Visualize(opts Options, prefix string, isLast bool, currentDepth int) string
 }
@@ -37,24 +35,20 @@ func Format(val any, opts Options) string {
 	}
 
 	res := formatNode(val, "", "", true, opts, 0)
-	
 	if opts.Border {
-		lines := strings.Split(strings.TrimSpace(res), "\n")
-		maxLen := 0
-		for _, l := range lines {
-			// naive length without color stripping
-			if len(l) > maxLen { maxLen = len(l) }
-		}
-		borderLine := "┌" + strings.Repeat("─", maxLen+2) + "┐\n"
-		bottomLine := "└" + strings.Repeat("─", maxLen+2) + "┘"
-		framed := borderLine
-		for _, l := range lines {
-			framed += fmt.Sprintf("│ %-*s │\n", maxLen, l)
-		}
-		res = framed + bottomLine
+		res = addBorder(res)
 	}
-	
 	return applyColor(res, opts.Color, opts.BgColor)
+}
+
+func extractNodeColor(v reflect.Value) string {
+	if v.Kind() == reflect.Struct {
+		f := v.FieldByName("NodeColor")
+		if f.IsValid() && f.Kind() == reflect.String {
+			return f.String()
+		}
+	}
+	return ""
 }
 
 func formatDotNode(val any, name string, id string, opts Options, depth int, lines *[]string) (string, *[]string) {
@@ -72,24 +66,29 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 		v = v.Elem()
 	}
 
+	nodeColor := extractNodeColor(v)
+	colorAttr := ""
+	if nodeColor != "" { colorAttr = fmt.Sprintf(", fillcolor=\"%s\"", nodeColor) }
+
 	switch v.Kind() {
 	case reflect.Map:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (Record)\"];", id, nodeLabel))
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (Record)\"%s];", id, nodeLabel, colorAttr))
 		for i, k := range v.MapKeys() {
 			childId := fmt.Sprintf("%s_%d", id, i)
 			formatDotNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), childId, opts, depth+1, lines)
 			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childId))
 		}
 	case reflect.Slice, reflect.Array:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (List)\"];", id, nodeLabel))
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (List)\"%s];", id, nodeLabel, colorAttr))
 		for i := 0; i < v.Len(); i++ {
 			childId := fmt.Sprintf("%s_%d", id, i)
 			formatDotNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), childId, opts, depth+1, lines)
 			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childId))
 		}
 	case reflect.Struct:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"];", id, nodeLabel, v.Type().Name()))
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, v.Type().Name(), colorAttr))
 		for i := 0; i < v.NumField(); i++ {
+			if v.Type().Field(i).Name == "NodeColor" { continue } // Skip meta field
 			if v.Field(i).CanInterface() {
 				childId := fmt.Sprintf("%s_%d", id, i)
 				formatDotNode(v.Field(i).Interface(), v.Type().Field(i).Name, childId, opts, depth+1, lines)
@@ -98,15 +97,14 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 		}
 	default:
 		valStr := strings.ReplaceAll(fmt.Sprintf("%v", val), "\"", "\\\"")
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s: %s\"];", id, nodeLabel, valStr))
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s: %s\"%s];", id, nodeLabel, valStr, colorAttr))
 	}
 	return id, lines
 }
 
 func formatNode(val any, name string, prefix string, isLast bool, opts Options, depth int) string {
-	if opts.MaxDepth > 0 && depth > opts.MaxDepth {
-		return prefix + branch(isLast, opts.Style) + name + " [...]\n"
-	}
+	if opts.MaxDepth > 0 && depth > opts.MaxDepth { return prefix + branch(isLast, opts.Style) + name + " [...]\n" }
+	
 	if g, ok := val.(Graphable); ok { val = g.Graph() }
 	if v, ok := val.(Visualizer); ok { return v.Visualize(opts, prefix, isLast, depth) }
 
@@ -115,10 +113,18 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		if v.IsNil() { return prefix + branch(isLast, opts.Style) + name + ": <nil>\n" }
 		v = v.Elem()
 	}
+	
+	nodeColor := extractNodeColor(v)
+	formatColoredName := func(name, val string) string {
+		out := name
+		if out != "" && val != "" { out += ": " + val } else if out == "" { out = val }
+		if nodeColor != "" { return applyColor(out, nodeColor, "") }
+		return out
+	}
 
 	switch v.Kind() {
 	case reflect.Map:
-		res := prefix + branch(isLast, opts.Style) + formatName(name, "Record") + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, "Record") + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
 		keys := v.MapKeys()
 		for i, k := range keys {
@@ -127,7 +133,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		if len(keys) == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
 		return res
 	case reflect.Slice, reflect.Array:
-		res := prefix + branch(isLast, opts.Style) + formatName(name, "List") + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, "List") + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
 		for i := 0; i < v.Len(); i++ {
 			res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, i == v.Len()-1, opts, depth+1)
@@ -135,19 +141,23 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		if v.Len() == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
 		return res
 	case reflect.Struct:
-		res := prefix + branch(isLast, opts.Style) + formatName(name, v.Type().Name()) + "\n"
+		structName := v.Type().Name()
+		if structName == "" { structName = "Struct" }
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
-		for i := 0; i < v.NumField(); i++ {
+		fieldCount := v.NumField()
+		for i := 0; i < fieldCount; i++ {
+			if v.Type().Field(i).Name == "NodeColor" { continue } // Skip meta field
 			if v.Field(i).CanInterface() {
-				res += formatNode(v.Field(i).Interface(), v.Type().Field(i).Name, newPrefix, i == v.NumField()-1, opts, depth+1)
+				res += formatNode(v.Field(i).Interface(), v.Type().Field(i).Name, newPrefix, i == fieldCount-1, opts, depth+1)
 			} else {
-				res += newPrefix + branch(i == v.NumField()-1, opts.Style) + formatName(v.Type().Field(i).Name, "<unexported>") + "\n"
+				res += newPrefix + branch(i == fieldCount-1, opts.Style) + formatColoredName(v.Type().Field(i).Name, "<unexported>") + "\n"
 			}
 		}
-		if v.NumField() == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
+		if fieldCount == 0 { res += newPrefix + opts.Style.Corner + "(empty)\n" }
 		return res
 	default:
-		return prefix + branch(isLast, opts.Style) + formatName(name, fmt.Sprintf("%v", val)) + "\n"
+		return prefix + branch(isLast, opts.Style) + formatColoredName(name, fmt.Sprintf("%v", val)) + "\n"
 	}
 }
 
@@ -158,8 +168,4 @@ func branch(isLast bool, style Style) string {
 func extend(isLast bool, style Style) string {
 	if isLast { return style.Empty }
 	return style.Vertical
-}
-func formatName(name, val string) string {
-	if name == "" { return val }
-	return name + ": " + val
 }
