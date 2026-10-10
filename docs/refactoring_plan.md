@@ -75,3 +75,15 @@ Once the engine is stable, implement the killer feature: a functional Infrastruc
    - It yields a "Need Input" pause state to the trampoline.
    - The user is prompted for a CLI command or API call for the new node.
    - The engine generates a new `BitFlag`, registers a generic `exec` Adapter for it based on the user's input, and resumes the `iter.Seq` trampoline to continue exploring the graph.
+
+## Phase 6: Parallel Execution (Functional Concurrency)
+
+Because the architecture strictly isolates side-effects (IO Monad) and uses immutable AST Nodes and BitFlags, parallel execution can be introduced trivially without the standard pitfalls of race conditions or deadlocks.
+
+1. **Host-Level `ParMap` (Parallel Map)**:
+   - Implement a generic `ParMap` and `ParFlatMap` function alongside the sequential versions.
+   - Under the hood, these functions take an `iter.Seq[T]`, spin up a worker pool of Go goroutines to process the nodes concurrently, and safely yield the results back into a single `iter.Seq[U]` stream.
+2. **DSL-Level Syntax**:
+   - Expose parallel execution to the DSL user syntax (e.g., distinguishing between a sequential map `|>` and a parallel map `||>`).
+3. **Graph Crawler Performance**:
+   - This allows the Infrastructure Graph Crawler to query 1,000 servers or parse 10,000 YAML files simultaneously while remaining mathematically pure and thread-safe.
