@@ -59,3 +59,19 @@ With the foundation solid, the final phase realizes the roadmap.
    - When the parser encounters a user defining a new type (e.g., `type Config = Server | Client`), the engine dynamically allocates a new composed `BitFlag` in the `dsltypes` registry.
 3. **Execution:**
    - The parsed script is converted into a lazy stream of `ASTNode`s and fed into the iterator-based evaluator, running functional side-effects and infinite state machines efficiently without stack overflows.
+
+## Phase 5: Domain Application - Interactive Graph Traversal
+
+Once the engine is stable, implement the killer feature: a functional Infrastructure-as-Code graph crawler capable of on-the-fly adapter registration.
+
+1. **The Adapter Registry (Type Classes)**:
+   - Build a global registry mapping `dsltypes.BitFlag`s to Adapters (functions taking an `ASTNode` and returning an `iter.Seq[ASTNode]`).
+   - Adapters act as Type Classes. If a node has the `HasSSH` BitFlag, it inherently gains access to the SSH adapter logic.
+2. **The IO Monad (Tool Agnosticity)**:
+   - Enforce that all Adapters return an `iter.Seq[ASTNode]` (the IO Monad format for the evaluator).
+   - This allows an adapter to be a native Go package (like `golang.org/x/crypto/ssh`) or an agnostic CLI wrapper executing `exec.Command("kubectl ...")` and mapping its `stdout` back into `ASTNode`s. The engine does not care which is used.
+3. **The Interactive REPL (Pause & Resume)**:
+   - When the graph crawler evaluator encounters a node type it lacks an adapter for, it does not throw a fatal error.
+   - It yields a "Need Input" pause state to the trampoline.
+   - The user is prompted for a CLI command or API call for the new node.
+   - The engine generates a new `BitFlag`, registers a generic `exec` Adapter for it based on the user's input, and resumes the `iter.Seq` trampoline to continue exploring the graph.

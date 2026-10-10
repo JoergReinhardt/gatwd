@@ -51,3 +51,11 @@ Lists and sequences are implemented as `Continuation`s. Instead of holding all e
 
 ### Pattern Matching
 Functions can define structural type bounds and use pattern matching to execute different cases based on the `BitFlag` signature of the arguments passed, allowing polymorphic behavior without empty interface checking.
+
+## 4. Domain Application: Interactive Graph Exploration
+
+The ultimate goal of this architecture is to serve as an **Infrastructure-as-Code Graph Explorer**, parsing and traversing massive configuration declarations (like Kubernetes YAMLs) or discovering live systems (via SSH).
+
+- **Adapters as Type Classes**: Behaviors (like the ability to execute an `ssh` command or query an API) are defined as **Adapters** bound to specific `BitFlag` quasi-types. If a node is parsed and assigned the `HasSSH` BitFlag, it automatically inherits the SSH adapter, acting as a functional Type Class.
+- **Tool Agnosticity (The IO Monad)**: Adapters are tool-agnostic. Whether an adapter uses a native Go SSH library or executes a raw binary via `exec.Command("kubectl ...")` and parses `stdout`, the execution is wrapped in an **IO Monad**. To the host engine, every adapter simply returns a lazy `iter.Seq[ASTNode]`, abstracting away the messy side-effects.
+- **On-the-Fly Interactive Definition**: Because graph traversal uses the lazy Continuation trampoline (`iter.Seq`), the engine can traverse infinitely deep graphs safely. More importantly, if the engine encounters an unknown node type without a registered adapter, it does not block the call stack. The iterator simply yields a "pause" state, prompting the user for a CLI command to handle the new node. The engine dynamically generates a new `BitFlag` for the node, compiles the user's `exec` string into a new adapter, and cleanly resumes the trampoline.
