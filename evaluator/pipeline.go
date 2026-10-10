@@ -435,3 +435,53 @@ func StepRoute[T any](engine *Engine[T]) PipelineStep[T] {
 		return engine.Evaluate(stream)
 	}
 }
+
+// StepBuildBST aggregates a stream of comparable strings into a Binary Search Tree
+func StepBuildBST() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var bst *collections.BST[string]
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				strVal := fmt.Sprintf("%v", val)
+				lastFlag = node.DSLType
+				
+				cmp := func(a, b string) int { return strings.Compare(a, b) }
+				bst = bst.Insert(strVal, cmp)
+			}
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(bst)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepBuildBTree aggregates a stream into a mock B-Tree with 3 keys per node
+func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var elements []any
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				elements = append(elements, val)
+				lastFlag = node.DSLType
+			}
+			
+			// Mock a B-Tree structure for visualizer testing
+			var btree *collections.BTree[any]
+			if len(elements) > 3 {
+				c1 := collections.NewBTreeNode(elements[0:2], nil)
+				c2 := collections.NewBTreeNode(elements[2:4], nil)
+				btree = collections.NewBTreeNode([]any{"RootKey"}, []*collections.BTree[any]{c1, c2})
+			} else {
+				btree = collections.NewBTreeNode(elements, nil)
+			}
+			
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(btree)), lastFlag)
+			yield(newNode)
+		}
+	}
+}

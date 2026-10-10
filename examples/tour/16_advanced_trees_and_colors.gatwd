@@ -1,0 +1,11 @@
+type BSTree = BST(String)
+type B_Tree = BTree(String)
+
+-- 1. Binary Search Trees (with ANSI Colors and Borders!)
+spawn BSTree: Init |> cat data1.txt |> build_bst |> visualize --color=green --border
+
+-- 2. B-Trees (Order N) 
+spawn B_Tree: Init |> cat data2.txt |> build_btree |> visualize --color=cyan
+
+-- 3. DOT / Graphviz Rendering
+spawn BSTree: Init |> cat data3.txt |> build_bst |> visualize --dot

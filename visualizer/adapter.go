@@ -2,8 +2,6 @@ package visualizer
 
 import (
 	"iter"
-	"strings"
-	"strconv"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
@@ -11,24 +9,6 @@ import (
 )
 
 // ParseOptions converts a string like "--ascii --collapse --depth=2" into Options.
-func ParseOptions(args string) Options {
-	opts := DefaultOptions()
-	parts := strings.Fields(args)
-	
-	for _, p := range parts {
-		if p == "--ascii" {
-			opts.Style = ASCIIStyle
-		} else if p == "--collapse" {
-			opts.CollapseScalars = true
-		} else if strings.HasPrefix(p, "--depth=") {
-			dStr := strings.TrimPrefix(p, "--depth=")
-			if d, err := strconv.Atoi(dStr); err == nil {
-				opts.MaxDepth = d
-			}
-		}
-	}
-	return opts
-}
 
 // StepVisualize is a pipeline step that transforms any complex structural Node 
 // into a pretty-printed UTF-8 string graph.
