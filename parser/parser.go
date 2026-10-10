@@ -101,3 +101,17 @@ func (p *Parser) parseType(line string) {
 		p.typeRegistry[typeName] = newFlag
 	}
 }
+
+// GetFlag retrieves the BitFlag for a given type name.
+// This is useful for the Go host engine to register adapters manually.
+func (p *Parser) GetFlag(typeName string) dsltypes.BitFlag {
+	flag, exists := p.typeRegistry[typeName]
+	if !exists {
+		// If not found, allocate a new one (or return 0 depending on strictness)
+		newFlag := dsltypes.BitFlag(p.nextFlag)
+		p.nextFlag <<= 1
+		p.typeRegistry[typeName] = newFlag
+		return newFlag
+	}
+	return flag
+}

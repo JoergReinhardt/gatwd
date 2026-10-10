@@ -1,6 +1,17 @@
 # Gophers All The Way Down
 
-![Gphers All The Way Down Logo](https://github.com/JoergReinhardt/gatwd/blob/master/doc/pic/gopher-logo.png) Gophers all the way down is a library embracing functional programming, written in Go.
+![Gphers All The Way Down Logo](https://github.com/JoergReinhardt/gatwd/blob/master/doc/pic/gopher-logo.png) Gophers all the way down is an experimental library embracing functional programming, written in Go.
+
+> [!IMPORTANT]
+> **V2 Modernization Complete (Go 1.23)**
+> 
+> The library has recently undergone a massive architectural overhaul to leverage modern Go Generics (Go 1.18+) and Iterators (Go 1.23+). The heavy empty-interface boxing of the old `data` package has been moved to a `legacy/` directory, while the core mathematical brilliance (the `BitFlag` type registry) has been extracted to power a blazing-fast, purely functional **Infrastructure Graph Crawler DSL**.
+>
+> 📚 **New Documentation & Guides:**
+> - [DSL Guide & Tutorial](docs/dsl_guide.md): Learn the syntax of the language, how the interactive REPL works, and see examples of crawling Kubernetes clusters!
+> - [Architecture Overview](docs/architecture.md): Understand the "Host Engine vs Guest DSL" paradigm driving the interpreter.
+> - [Refactoring Roadmap](docs/refactoring_plan.md): Read the step-by-step history of how the academic Category Theory concepts (Optics, Comonadic Zippers, Transducers) were mapped into modern Go.
+> - [Styleguide & Contribution](STYLEGUIDE.md): The golden rules of writing functional code and educational documentation in this repository.
 
 ## Purpose
 
@@ -23,77 +34,19 @@ Should this library reach the necessary stability and set of features, it should
 * partial application & curry
 * Hindley–Milner(esque) type system
 * monadic encapsulation of side effects 
-* generic/parametric collections (list, vector, set)
+* generic/parametric collections (list, vector, set, rose trees)
 * type classes providing methods, that can be derived from
 * fast (bitflag based) typechecking independent from reflect
 * lots of behaviour sharing interfaces, no 'empty interface' instances
-* unboxed alias types for all Go Natives and a couple of other useful native types
+* interactive IO Monads for tool-agnostic graph traversal
 
-## Implementation:
-
-* relies on variadic arguments and multiple return values
-* no empty interfaces
-* the data package provides:
-  * type aliases for all native types 
-  * alias types for slices of all native types
-  * alias types for sets of (interfaced) natives, for the most useful key types
-  * type aliases for math/big Int, Float and Rat
-  * the 'Native' interface shared by all alias types. 
-  * lots of other interfaces for groups of types that share behavior such as.
-    * numerals
-    * textuals (string, rune, byte, byte slice)
-    * binarys (byte, byte slice)
-
-  * a generic slice of (interfaced) natives, featuring helpful methods on slices
-  * type flags that make the type detectable without relying on reflection.
-  * poor mans implementation of 'type classes', by checking for membership of type flags in or concatenated sets of flags
-  * lots of type conversions implemented as methods on alias types.
-
-* the function package provides
-  * more interfaces for expressions that share common behaviour
-  * pattern matching
-
-  * user defined types:
-    * type constructor
-    * parametric, strongly typed expression
-    * type classes providing default methods to derive from
-    * parametric types that construct values of sub-types, based on argument type(s)
-
-  * type pattern with elements of types:
-    * fixed type flag 
-    * user defined symbol
-    * type variable
-    * lexical token
-
-  * generic implementations of:
-    * comparator
-    * test
-    * case
-    * case-switch
-    * sub type element
-    * conditional (if|then|else)
-    * maybe (just|none)
-    * option (either|or)
-    * enum
-    * tuple
-    * pair
-    * indexed pair (accessor of type 'int')
-    * keyed pair (accessor of type 'string')
-    * list
-    * list of pairs
-    * vector
-    * vector of pairs
-    * set
-    * operator
-    * generator
-    * accumulator
-    * number
-    * letter
-    * text
-    * binary data
-    * functor
-    * applicative
-    * monad
+## Advanced Functional Mechanics (Modern Implementation):
+* **Trampolines**: Infinite laziness safely achieved via `iter.Seq`.
+* **Zippers (Comonads)**: O(1) cursor navigation through immutable ASTs via `TreeZipper`.
+* **Optics**: Deep structural immutability through generic `Lens` and `Prism`.
+* **Transducers**: Fused `Map` and `Filter` pipelines for high-performance iteration.
+* **Kleisli Arrows**: Combinatorial logic (`***`, `&&&`) for IO Monad Adapters.
+* **Monad Transformers**: Stacking Monadic contexts safely (e.g., `EitherT`).
 
 ## Roadmap:
 
@@ -126,15 +79,15 @@ Should this library reach the necessary stability and set of features, it should
 
 * compiler to generate go native typed code, stripped of as much indirection as possible
 
-## Modernized Roadmap (Go 1.18+)
+## Modernized Roadmap (Go 1.23+)
 
-With the advent of Go Generics (Go 1.18) and Go Iterators (Go 1.23), the architectural goals of `gatwd` can be modernized while preserving its core ambition: building a runtime engine for an ML-like DSL with dynamic type definition and infinite lazy loops.
+With the advent of Go Generics (Go 1.18) and Go Iterators (Go 1.23), the architectural goals of `gatwd` have been modernized while preserving its core ambition: building a runtime engine for an ML-like DSL with dynamic type definition and infinite lazy loops.
 
 * **Preserve the Runtime Type Engine:** 
   The custom `BitFlag` type system remains strictly necessary for the DSL interpreter. Go Generics cannot generate new types dynamically at runtime. The BitFlag system allows the DSL to parse user definitions (e.g., `type Quasi = A | B`) and enforce them purely at runtime.
 * **Optimize AST Nodes via Generics:** 
-  Instead of genericizing the DSL types, use Go Generics to type-safe the AST nodes in the Go engine (e.g., `type Node[T any] struct { Value T; TypeInfo BitFlag }`). This removes the massive overhead of boxing everything into the `Expression` interface and type assertions.
+  Instead of genericizing the DSL types, we use Go Generics to type-safe the AST nodes in the Go engine (e.g., `type ASTNode[T any] struct { Value T; DSLType BitFlag }`). This removes the massive overhead of boxing everything into the `Expression` interface and type assertions.
 * **Modernize the Trampoline via Iterators:** 
-  The manual `for head, tail = tail.Continue()` trampoline logic (which allowed infinite recursion depth without stack limits) can be gracefully replaced by Go 1.23 native `iter.Seq`. This provides the exact same pull-based lazy evaluation (trampolining) for infinite sequences but in an idiomatic, high-performance way.
+  The manual `for head, tail = tail.Continue()` trampoline logic (which allowed infinite recursion depth without stack limits) has been gracefully replaced by Go 1.23 native `iter.Seq`. This provides the exact same pull-based lazy evaluation (trampolining) for infinite sequences but in an idiomatic, high-performance way.
 * **Pivot Focus:** 
-  Shift away from building a generic functional standard library for Go (which is largely solved natively now) and double down on building the AST parser, ML syntax interpreter, and jsonnet-style configuration engine using the modernized architecture.
+  Shift away from building a generic functional standard library for Go (which is largely solved natively now) and double down on building the AST parser, ML syntax interpreter, and interactive graph-exploration engine using the modernized architecture.
