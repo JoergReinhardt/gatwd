@@ -49,7 +49,13 @@ sampleNodes =
     |> filter (\n -> n.Status == "Active")
     |> take 5                        -- Prevents infinite loops!
 
--- 6. Parallel Execution (ParBind)
+-- 6. Compliance Auditing (The EitherT Monad)
+-- Use "expect" to create an auditing gate. If a node fails, it becomes an explicit Error node!
+auditCluster =
+    spawn KubeNode "prod"
+    |> expect "is_non_root" "Security Violation: Pod running as root!"
+
+-- 7. Parallel Execution (ParBind)
 -- The ||> operator invokes the ParBind worker pool
 auditServers =
     spawn Datacenter "eu-west"
@@ -94,7 +100,7 @@ Term            ::= Identifier | Literal | Lambda | "(" Expression ")"
 -- Advanced Category Theory Built-ins
 ZipperOp        ::= "up" | "down" | "left" | "right" | "extract"
 OpticOp         ::= "focus" Identifier | "update" RecordLiteral
-StreamOp        ::= "take" NumberLiteral | "drop" NumberLiteral | "zip"
+StreamOp        ::= "take" NumberLiteral | "drop" NumberLiteral | "zip" Identifier | "expect" StringLiteral StringLiteral
 
 -- Primitives
 Lambda          ::= "\\" Identifier "->" Expression
