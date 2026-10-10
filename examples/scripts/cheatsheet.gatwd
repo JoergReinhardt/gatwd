@@ -1,0 +1,127 @@
+-- =====================================================================
+-- gatwd DSL Comprehensive Cheatsheet
+-- =====================================================================
+-- This script demonstrates every datatype, operator, and Category Theory 
+-- construct available in the Gophers All The Way Down engine.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 1. Algebraic Data Types (Dynamic BitFlags)
+-- ---------------------------------------------------------------------
+
+-- Sum Types (OR)
+-- Defines quasi-types on the fly. The Engine allocates bitflags 
+-- automatically. No Go struct recompilation required!
+type OS = Linux | Windows | Darwin
+type Device = Mobile | Desktop | Server
+type Endpoint = Device | IoT
+
+-- Product Types (Records / AND)
+-- Defines strict schemas that can be targeted by Optics (Lenses).
+type NetworkConfig = { IP: String, Port: Int, Protocol: String }
+type KubePod = { Name: String, Namespace: String, Status: String }
+
+
+-- ---------------------------------------------------------------------
+-- 2. Spawning & The Trampoline Pipeline (|>)
+-- ---------------------------------------------------------------------
+
+-- 'spawn' creates the Root Node to begin graph traversal.
+-- The '|>' (Pipe) operator is the Monadic Bind. It passes the stream of 
+-- nodes to the next Adapter, which yields a new stream of nodes.
+basic_crawl =
+    spawn Datacenter "us-east-1"
+    |> getServers
+    |> filter (\s -> s.OS == "Linux")
+    |> getRunningContainers
+
+
+-- ---------------------------------------------------------------------
+-- 3. Parallel Execution (||>)
+-- ---------------------------------------------------------------------
+
+-- The '||>' operator utilizes the ParBind Worker Pool. 
+-- Instead of evaluating the stream sequentially, it fans out across 
+-- hundreds of goroutines concurrently!
+mass_audit =
+    spawn Datacenter "eu-central-1"
+    |> getServers
+    ||> runHeavySecurityScan
+
+
+-- ---------------------------------------------------------------------
+-- 4. Transducers (Stream Boundaries)
+-- ---------------------------------------------------------------------
+
+-- Because the pipeline is an infinite, lazy `iter.Seq` trampoline, 
+-- you can safely query infinite graphs by bounding them with 'take' or 'drop'.
+sample_logs =
+    spawn KubeCluster "prod"
+    |> getPods
+    |> getLogs          -- Adapter might return 1,000,000 log lines!
+    |> drop 100         -- Skip the first 100
+    |> take 5           -- Stop evaluating after finding 5. Prevents OOM!
+
+
+-- ---------------------------------------------------------------------
+-- 5. Arrows (Kleisli Split & Fan-Out)
+-- ---------------------------------------------------------------------
+
+-- The '&&&' operator routes a single incoming Node into TWO different 
+-- Adapters concurrently, returning a Pair/Tuple of both results.
+monitor_node =
+    spawn Server "db-primary"
+    |> (getSyslogs &&& getPrometheusMetrics)
+
+
+-- ---------------------------------------------------------------------
+-- 6. Zipping Streams
+-- ---------------------------------------------------------------------
+
+-- 'zip' joins the current stream with the results of a secondary adapter.
+paired_data =
+    spawn Server "web-01"
+    |> getProcesses
+    |> zip getNetworkSockets
+
+
+-- ---------------------------------------------------------------------
+-- 7. Zippers (Comonadic Navigation)
+-- ---------------------------------------------------------------------
+
+-- Zippers provide O(1) cursor movement across the AST graph. 
+-- Useful in the Interactive REPL to explore unknown JSON/YAML structures.
+explore_ast =
+    spawn KubePod "nginx"
+    |> down             -- Move cursor to child (e.g., Containers array)
+    |> right            -- Move cursor to next sibling
+    |> extract          -- Comonad Extract: Yield the focused value
+
+
+-- ---------------------------------------------------------------------
+-- 8. Optics (Lenses)
+-- ---------------------------------------------------------------------
+
+-- Optics provide deep structural immutability. 
+-- 'focus' acts as a Lens Get. 'update' acts as a Lens Set.
+read_ip =
+    spawn NetworkConfig "eth0"
+    |> focus IP
+
+patch_config =
+    spawn NetworkConfig "eth0"
+    |> update { NetworkConfig.Port: 8080 }  -- Yields a BRAND NEW immutable node
+
+
+-- ---------------------------------------------------------------------
+-- 9. Compliance Auditing (EitherT Monad Transformer)
+-- ---------------------------------------------------------------------
+
+-- 'expect' is an auditing gate. If a node fails the expectation, it is 
+-- transformed into an explicit `Either.Left` Error Node, safely bypassing 
+-- subsequent adapters but alerting the terminal.
+compliance_check =
+    spawn KubeCluster "prod-01"
+    |> getPods
+    |> expect "is_non_root" "CRITICAL: Pod is running as root!"
+    |> getLogs          -- The 'getLogs' adapter will automatically BYPASS the Error node!
