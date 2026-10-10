@@ -9,7 +9,7 @@
 >
 > 📚 **New Documentation & Guides:**
 > - [DSL Guide & Tutorial](docs/dsl_guide.md): Learn the syntax of the language, how the interactive REPL works, and see examples of crawling Kubernetes clusters!
-- [Native Adapters & Extendability](docs/native_adapters.md): Learn the "Closure Pattern" for building high-performance, native Go extensions.
+> - [Native Adapters & Extendability](docs/native_adapters.md): Learn the "Closure Pattern" for building high-performance, native Go extensions.
 > - [Architecture Overview](docs/architecture.md): Understand the "Host Engine vs Guest DSL" paradigm driving the interpreter.
 > - [Refactoring Roadmap](docs/refactoring_plan.md): Read the step-by-step history of how the academic Category Theory concepts (Optics, Comonadic Zippers, Transducers) were mapped into modern Go.
 > - [Styleguide & Contribution](STYLEGUIDE.md): The golden rules of writing functional code and educational documentation in this repository.
@@ -24,6 +24,23 @@ Former self educational projects had no other purpose but self education. There 
 
 Should this library reach the necessary stability and set of features, it should be possible to write a functional parser library on top, implementing ML like Syntax. Generating Domain specific languages could be one example of a useful application. Building a decent version of a jsonnet/ksonnet interpreter, able to deal with sets of multiple interconnected json/yaml declarations, without taking forever, or spilling the stack would be another. Last but not least, it provides 'kind of generics', at least for everyone willing, to write code in FP style. A far fetched goal would be the implementation of a compiler to strip all the layers of indirection, boxing and interface lookups, introduced by the library and generating strongly typed go code, relying on the go compiler for typesafety instead.
 
+## Advanced Functional Mechanics (Modern Implementation)
+* **Trampolines**: Infinite laziness safely achieved via `iter.Seq`.
+* **Zippers (Comonads)**: O(1) cursor navigation through immutable ASTs via `TreeZipper`.
+* **Optics**: Deep structural immutability through generic `Lens` and `Prism`.
+* **Transducers**: Fused `Map` and `Filter` pipelines for high-performance iteration.
+* **Kleisli Arrows**: Combinatorial logic (`***`, `&&&`) for IO Monad Adapters.
+* **Monad Transformers**: Stacking Monadic contexts safely (e.g., `EitherT`).
+
+---
+
+> [!WARNING]
+> **Legacy / Obsolete Documentation**
+> 
+> The sections below document the original Go 1.15 prototype. The implementation described here relied heavily on variadic arguments, empty interfaces, and heavy boxing (`IntVal`, `StrVal`). 
+> 
+> With the V2 modernization using Go Generics, **this approach is obsolete**. However, the original code remains fully intact and passes all tests inside the `legacy/` directory for historical reference and backward compatibility.
+
 ## Features:
 
 * lazy execution
@@ -35,19 +52,77 @@ Should this library reach the necessary stability and set of features, it should
 * partial application & curry
 * Hindley–Milner(esque) type system
 * monadic encapsulation of side effects 
-* generic/parametric collections (list, vector, set, rose trees)
+* generic/parametric collections (list, vector, set)
 * type classes providing methods, that can be derived from
 * fast (bitflag based) typechecking independent from reflect
 * lots of behaviour sharing interfaces, no 'empty interface' instances
-* interactive IO Monads for tool-agnostic graph traversal
+* unboxed alias types for all Go Natives and a couple of other useful native types
 
-## Advanced Functional Mechanics (Modern Implementation):
-* **Trampolines**: Infinite laziness safely achieved via `iter.Seq`.
-* **Zippers (Comonads)**: O(1) cursor navigation through immutable ASTs via `TreeZipper`.
-* **Optics**: Deep structural immutability through generic `Lens` and `Prism`.
-* **Transducers**: Fused `Map` and `Filter` pipelines for high-performance iteration.
-* **Kleisli Arrows**: Combinatorial logic (`***`, `&&&`) for IO Monad Adapters.
-* **Monad Transformers**: Stacking Monadic contexts safely (e.g., `EitherT`).
+## Implementation:
+
+* relies on variadic arguments and multiple return values
+* no empty interfaces
+* the data package provides:
+  * type aliases for all native types 
+  * alias types for slices of all native types
+  * alias types for sets of (interfaced) natives, for the most useful key types
+  * type aliases for math/big Int, Float and Rat
+  * the 'Native' interface shared by all alias types. 
+  * lots of other interfaces for groups of types that share behavior such as.
+    * numerals
+    * textuals (string, rune, byte, byte slice)
+    * binarys (byte, byte slice)
+
+  * a generic slice of (interfaced) natives, featuring helpful methods on slices
+  * type flags that make the type detectable without relying on reflection.
+  * poor mans implementation of 'type classes', by checking for membership of type flags in or concatenated sets of flags
+  * lots of type conversions implemented as methods on alias types.
+
+* the function package provides
+  * more interfaces for expressions that share common behaviour
+  * pattern matching
+
+  * user defined types:
+    * type constructor
+    * parametric, strongly typed expression
+    * type classes providing default methods to derive from
+    * parametric types that construct values of sub-types, based on argument type(s)
+
+  * type pattern with elements of types:
+    * fixed type flag 
+    * user defined symbol
+    * type variable
+    * lexical token
+
+  * generic implementations of:
+    * comparator
+    * test
+    * case
+    * case-switch
+    * sub type element
+    * conditional (if|then|else)
+    * maybe (just|none)
+    * option (either|or)
+    * enum
+    * tuple
+    * pair
+    * indexed pair (accessor of type 'int')
+    * keyed pair (accessor of type 'string')
+    * list
+    * list of pairs
+    * vector
+    * vector of pairs
+    * set
+    * operator
+    * generator
+    * accumulator
+    * number
+    * letter
+    * text
+    * binary data
+    * functor
+    * applicative
+    * monad
 
 ## Roadmap:
 
@@ -80,15 +155,15 @@ Should this library reach the necessary stability and set of features, it should
 
 * compiler to generate go native typed code, stripped of as much indirection as possible
 
-## Modernized Roadmap (Go 1.23+)
+## Modernized Roadmap (Go 1.18+)
 
-With the advent of Go Generics (Go 1.18) and Go Iterators (Go 1.23), the architectural goals of `gatwd` have been modernized while preserving its core ambition: building a runtime engine for an ML-like DSL with dynamic type definition and infinite lazy loops.
+With the advent of Go Generics (Go 1.18) and Go Iterators (Go 1.23), the architectural goals of `gatwd` can be modernized while preserving its core ambition: building a runtime engine for an ML-like DSL with dynamic type definition and infinite lazy loops.
 
 * **Preserve the Runtime Type Engine:** 
   The custom `BitFlag` type system remains strictly necessary for the DSL interpreter. Go Generics cannot generate new types dynamically at runtime. The BitFlag system allows the DSL to parse user definitions (e.g., `type Quasi = A | B`) and enforce them purely at runtime.
 * **Optimize AST Nodes via Generics:** 
-  Instead of genericizing the DSL types, we use Go Generics to type-safe the AST nodes in the Go engine (e.g., `type ASTNode[T any] struct { Value T; DSLType BitFlag }`). This removes the massive overhead of boxing everything into the `Expression` interface and type assertions.
+  Instead of genericizing the DSL types, use Go Generics to type-safe the AST nodes in the Go engine (e.g., `type Node[T any] struct { Value T; TypeInfo BitFlag }`). This removes the massive overhead of boxing everything into the `Expression` interface and type assertions.
 * **Modernize the Trampoline via Iterators:** 
-  The manual `for head, tail = tail.Continue()` trampoline logic (which allowed infinite recursion depth without stack limits) has been gracefully replaced by Go 1.23 native `iter.Seq`. This provides the exact same pull-based lazy evaluation (trampolining) for infinite sequences but in an idiomatic, high-performance way.
+  The manual `for head, tail = tail.Continue()` trampoline logic (which allowed infinite recursion depth without stack limits) can be gracefully replaced by Go 1.23 native `iter.Seq`. This provides the exact same pull-based lazy evaluation (trampolining) for infinite sequences but in an idiomatic, high-performance way.
 * **Pivot Focus:** 
-  Shift away from building a generic functional standard library for Go (which is largely solved natively now) and double down on building the AST parser, ML syntax interpreter, and interactive graph-exploration engine using the modernized architecture.
+  Shift away from building a generic functional standard library for Go (which is largely solved natively now) and double down on building the AST parser, ML syntax interpreter, and jsonnet-style configuration engine using the modernized architecture.
