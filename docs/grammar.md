@@ -8,9 +8,10 @@ Statement      ::= TypeDef | Pipeline | Comment
 Comment        ::= "--" { ANY_CHAR } "\n"
 
 (* Type Definitions (Algebraic Data Types) *)
-TypeDef        ::= "type " Identifier "=" (SumType | RecordType)
+TypeDef        ::= "type " Identifier "=" (SumType | RecordType | TupleType)
 SumType        ::= Identifier { "|" Identifier }
 RecordType     ::= "{" FieldDef { "," FieldDef } "}"
+TupleType      ::= "(" Identifier { "," Identifier } ")"
 FieldDef       ::= Identifier ":" Identifier
 
 (* Pipelines (Graph Traversal & Evaluation) *)
