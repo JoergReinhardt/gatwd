@@ -1,0 +1,15 @@
+-- ==========================================================
+-- gatwd Tour: 22. Structural Arrow Routing
+-- Run: ./gatwd examples/tour/22_structural_arrows.gatwd
+-- ==========================================================
+type IntVal = Int
+
+-- 1. Native Kleisli FanOut (&&&)
+-- Previously, (A &&& B) hardcoded OS execution. Now it compiles full native SubPipelines!
+-- This takes a single `1`, routes it into two concurrent mathematical additions,
+-- and yields a Tuple of the results!
+spawn IntVal: 1 |> (math_add 100 &&& math_add 200) |> visualize --color-type=Tuple:magenta
+
+-- 2. Native Pattern Matching (Catamorphisms)
+-- Match routers now also compile full sub-pipelines per branch!
+spawn IntVal: 99 |> match { IntVal -> math_add 1 |> math_add 2 } |> visualize --color-val=102:green

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"iter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,24 @@ func NewInterpreter() *Interpreter {
 		return evaluator.EitherT(interactive.GenericExecAdapter("", flag))
 	}
 	return i
+}
+
+
+func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
+	subParts := strings.Split(subPipelineStr, "|>")
+	subPipeline := i.parsePipelineSteps(subParts)
+	fmt.Println("PIPELINETOADAPTER PARSED", len(subPipeline), "STEPS FOR:", subPipelineStr)
+	
+	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { yield(node) }
+		results := i.Engine.EvaluatePipeline(singleton, subPipeline)
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for res := range results {
+				fmt.Println("PIPELINE_TO_ADAPTER YIELDED:", res.Value)
+				yield(res)
+			}
+		}
+	}
 }
 
 func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineStep[functions.Either[error, any]] {
@@ -126,8 +145,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepFormatTuple(strings.Trim(formatStr, "\"")))
 		} else if strings.HasPrefix(stepStr, "(") && strings.Contains(stepStr, "&&&") {
 			for res := range parser.ParseFanOut()(stepStr) {
-				leftAdapter := evaluator.EitherT(interactive.GenericExecAdapter(res.Fst.Fst, 0))
-				rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(res.Fst.Snd, 0))
+					fmt.Println("PARSE_FANOUT SUCCEEDED:", res.Fst.Fst, "AND", res.Fst.Snd)
+				leftAdapter := i.pipelineToAdapter(res.Fst.Fst)
+				rightAdapter := i.pipelineToAdapter(res.Fst.Snd)
 				pipeline = append(pipeline, evaluator.StepFanOut(leftAdapter, rightAdapter))
 				break
 			}
@@ -137,8 +157,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			stepStr = strings.TrimSuffix(stepStr, "]")
 			parts2 := strings.Split(stepStr, "***")
 			if len(parts2) == 2 {
-				leftAdapter := evaluator.EitherT(interactive.GenericExecAdapter(strings.TrimSpace(parts2[0]), 0))
-				rightAdapter := evaluator.EitherT(interactive.GenericExecAdapter(strings.TrimSpace(parts2[1]), 0))
+				leftAdapter := i.pipelineToAdapter(strings.TrimSpace(parts2[0]))
+				rightAdapter := i.pipelineToAdapter(strings.TrimSpace(parts2[1]))
 				pipeline = append(pipeline, evaluator.StepSplit(leftAdapter, rightAdapter))
 			}
 		} else if strings.HasPrefix(stepStr, "parse_record") {
@@ -176,6 +196,20 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepBuildTree(rootName))
 		} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" {
 			pipeline = append(pipeline, evaluator.StepZipper(stepStr))
+		} else if strings.HasPrefix(stepStr, "match {") && strings.HasSuffix(stepStr, "}") {
+			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
+			casesStr := strings.Split(inner, "|")
+			cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
+			
+			for _, c := range casesStr {
+				parts2 := strings.SplitN(c, "->", 2)
+				if len(parts2) == 2 {
+					pattern := strings.TrimSpace(parts2[0])
+					cmd := strings.TrimSpace(parts2[1])
+					cases[pattern] = i.pipelineToAdapter(cmd)
+				}
+			}
+			pipeline = append(pipeline, evaluator.StepMatch(cases, nil))
 		} else if strings.HasPrefix(stepStr, "map") {
 			// Lambda: map (\x -> x + 2)
 			// For OS evaluation, we just replace \x -> echo x with generic exec adapter
@@ -313,8 +347,8 @@ func (i *Interpreter) LoadScript(filename string) {
 		if strings.HasSuffix(buffer, "=") || 
 		   strings.HasSuffix(buffer, "|>") || 
 		   strings.HasSuffix(buffer, "||>") || 
-		   strings.HasSuffix(buffer, "let") || 
-		   strings.HasSuffix(buffer, "in") || 
+		   strings.HasSuffix(buffer, " let") || 
+		   strings.HasSuffix(buffer, " in") || 
 		   strings.HasSuffix(buffer, "{") || 
 		   strings.HasSuffix(buffer, "(") || 
 		   strings.HasSuffix(buffer, "\\") {
