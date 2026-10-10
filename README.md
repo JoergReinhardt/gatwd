@@ -125,3 +125,16 @@ Should this library reach the necessary stability and set of features, it should
   * ‥.
 
 * compiler to generate go native typed code, stripped of as much indirection as possible
+
+## Modernized Roadmap (Go 1.18+)
+
+With the advent of Go Generics (Go 1.18) and Go Iterators (Go 1.23), the architectural goals of `gatwd` can be modernized while preserving its core ambition: building a runtime engine for an ML-like DSL with dynamic type definition and infinite lazy loops.
+
+* **Preserve the Runtime Type Engine:** 
+  The custom `BitFlag` type system remains strictly necessary for the DSL interpreter. Go Generics cannot generate new types dynamically at runtime. The BitFlag system allows the DSL to parse user definitions (e.g., `type Quasi = A | B`) and enforce them purely at runtime.
+* **Optimize AST Nodes via Generics:** 
+  Instead of genericizing the DSL types, use Go Generics to type-safe the AST nodes in the Go engine (e.g., `type Node[T any] struct { Value T; TypeInfo BitFlag }`). This removes the massive overhead of boxing everything into the `Expression` interface and type assertions.
+* **Modernize the Trampoline via Iterators:** 
+  The manual `for head, tail = tail.Continue()` trampoline logic (which allowed infinite recursion depth without stack limits) can be gracefully replaced by Go 1.23 native `iter.Seq`. This provides the exact same pull-based lazy evaluation (trampolining) for infinite sequences but in an idiomatic, high-performance way.
+* **Pivot Focus:** 
+  Shift away from building a generic functional standard library for Go (which is largely solved natively now) and double down on building the AST parser, ML syntax interpreter, and jsonnet-style configuration engine using the modernized architecture.

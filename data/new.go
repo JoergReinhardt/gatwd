@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 )
 
@@ -14,7 +15,7 @@ func NewCompoundError(errs ...error) CompoundError {
 func (e CompoundError) Error() string {
 	var str string
 	for n, e := range e() {
-		str = str + string(n) + ": " + e.Error() + "\n"
+		str = str + strconv.Itoa(n) + ": " + e.Error() + "\n"
 	}
 	return str
 }
@@ -395,7 +396,7 @@ func NewEmpty(flag BitFlag) (val Native) {
 		value = BytesVal{}.Null()
 
 	case FlagMatch(flag, String.Type().Flag()):
-		value = StrVal(0).Null()
+		value = StrVal("").Null()
 
 	case FlagMatch(flag, BigInt.Type().Flag()):
 		value = BigIntVal{}.Null()

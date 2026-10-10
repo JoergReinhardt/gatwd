@@ -983,7 +983,7 @@ var TypeConversionTable = [][]func(arg Native) Native{
 		func(arg Native) Native { return arg.(BitFlag) },                               // 20 ← Byte
 		func(arg Native) Native { return RuneVal(rune(arg.(BitFlag))) },                // 21 ← Rune
 		func(arg Native) Native { return BitFlag(UintVal(arg.(BitFlag))) },             // 22 ← Flag
-		func(arg Native) Native { return StrVal(string(arg.(BitFlag))) },               // 23 ← String
+		func(arg Native) Native { return StrVal(fmt.Sprint(arg.(BitFlag))) },               // 23 ← String
 		func(arg Native) Native { return BytesVal([]byte{byte(rune(arg.(BitFlag)))}) }, // 24 ← Bytes
 		func(arg Native) Native {
 			if arg.(BoolVal).Bool() {
