@@ -297,21 +297,46 @@ func (i *Interpreter) LoadScript(filename string) {
 	dir := filepath.Dir(filename)
 	
 	lines := strings.Split(string(bytes), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
+	var buffer string
+	
+	for _, rawLine := range lines {
+		line := strings.TrimSpace(rawLine)
 		if line == "" || strings.HasPrefix(line, "--") { continue }
 		
+		if buffer != "" {
+			buffer += " " + line
+		} else {
+			buffer = line
+		}
+		
+		// Check for multi-line continuation
+		if strings.HasSuffix(buffer, "=") || 
+		   strings.HasSuffix(buffer, "|>") || 
+		   strings.HasSuffix(buffer, "||>") || 
+		   strings.HasSuffix(buffer, "let") || 
+		   strings.HasSuffix(buffer, "in") || 
+		   strings.HasSuffix(buffer, "{") || 
+		   strings.HasSuffix(buffer, "(") || 
+		   strings.HasSuffix(buffer, "\\") {
+			continue // Wait for next line
+		}
+		
 		// Module Imports
-		if strings.HasPrefix(line, "import ") {
-			importFile := strings.Trim(strings.TrimSpace(line[7:]), "\"")
+		if strings.HasPrefix(buffer, "import ") {
+			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
 			if !filepath.IsAbs(importFile) {
 				importFile = filepath.Join(dir, importFile)
 			}
 			i.LoadScript(importFile)
+			buffer = ""
 			continue
 		}
 
-		i.EvaluateLine(line)
+		i.EvaluateLine(buffer)
+		buffer = ""
+	}
+	if buffer != "" {
+		i.EvaluateLine(buffer)
 	}
 }
 
@@ -324,9 +349,11 @@ func Run() {
 	interactiveMode := len(os.Args) == 1
 	var scriptToLoad string
 	if len(os.Args) > 1 {
-		if os.Args[1] == "-i" && len(os.Args) > 2 {
+		if os.Args[1] == "-i" {
 			interactiveMode = true
-			scriptToLoad = os.Args[2]
+			if len(os.Args) > 2 {
+				scriptToLoad = os.Args[2]
+			}
 		} else {
 			interactiveMode = false
 			scriptToLoad = os.Args[1]
@@ -350,6 +377,18 @@ func Run() {
 
 		if strings.HasPrefix(line, ":load ") {
 			interpreter.LoadScript(strings.TrimSpace(line[6:]))
+			continue
+		}
+		
+		// Handle REPL introspection commands
+		if line == ":macros" {
+			fmt.Println("Registered Macros:")
+			for k, v := range interpreter.Funcs { fmt.Printf("  %s = %s\n", k, v) }
+			continue
+		}
+		if line == ":vars" {
+			fmt.Println("Registered Bindings (let):")
+			for k, v := range interpreter.Variables { fmt.Printf("  %s = %s\n", k, v) }
 			continue
 		}
 		
