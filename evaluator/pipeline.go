@@ -103,7 +103,7 @@ func StepFormatTuple(formatStr string) PipelineStep[functions.Either[error, any]
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(formatted)), node.DSLType)
 					if !yield(newNode) { return }
 				} else {
-					errNode := InjectError[any](fmt.Errorf("FormatTuple failed: type %T", val), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Type Error: format_tuple expected a Tuple (Pair), but received %T", val), node.DSLType)
 					if !yield(errNode) { return }
 				}
 			}
@@ -160,11 +160,11 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](fieldVal), node.DSLType)
 						if !yield(newNode) { return }
 					} else {
-						errNode := InjectError[any](fmt.Errorf("Field '%s' not found", field), node.DSLType)
+						errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus on field '%s' because it does not exist in this Record", field), node.DSLType)
 						if !yield(errNode) { return }
 					}
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Focus failed: Node is not a Record"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus because Node is not a Record (Map)"), node.DSLType)
 					if !yield(errNode) { return }
 				}
 			}
@@ -190,7 +190,7 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newRecord)), node.DSLType)
 					if !yield(newNode) { return }
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Update failed: Node is not a Record"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot update because Node is not a Record (Map)"), node.DSLType)
 					if !yield(errNode) { return }
 				}
 			}
@@ -310,7 +310,7 @@ func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipelin
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newTuple)), node.DSLType)
 					if !yield(newNode) { return }
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Split (***) failed: Node is not a Tuple"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Applicative Error: Split [***] expected a Tuple (Pair), but received a scalar value"), node.DSLType)
 					if !yield(errNode) { return }
 				}
 			}
@@ -390,7 +390,7 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 				} else if z, ok := val.(*comonads.TreeZipper[any]); ok {
 					zipper = z
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Zipper failed: Node is not a Tree or Zipper"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Comonad Error: Cannot navigate because Node is neither a Tree nor a Zipper Cursor"), node.DSLType)
 					if !yield(errNode) { return }
 					continue
 				}
@@ -405,7 +405,7 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
 						if !yield(newNode) { return }
 					} else {
-						errNode := InjectError[any](fmt.Errorf("Zipper failed: Cannot go down"), node.DSLType)
+						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper DOWN because the current Tree node has no children"), node.DSLType)
 						if !yield(errNode) { return }
 					}
 				} else if op == "up" {
@@ -414,7 +414,7 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
 						if !yield(newNode) { return }
 					} else {
-						errNode := InjectError[any](fmt.Errorf("Zipper failed: Cannot go up"), node.DSLType)
+						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper UP because the Cursor is already at the Root of the Tree"), node.DSLType)
 						if !yield(errNode) { return }
 					}
 				} else if op == "extract" {

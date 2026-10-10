@@ -1,0 +1,14 @@
+-- ==========================================================
+-- gatwd Tour: 13. Sensible Elm-Style Error Handling
+-- ==========================================================
+type Server = Node
+type Pod = Node
+
+-- 1. Lens Errors: Focusing on a non-existent field
+spawn Server: localhost |> parse_record IP |> focus Port
+
+-- 2. Applicative Errors: Using Split [***] on a String instead of a Tuple
+spawn Server: A |> [echo Left_%s *** echo Right_%s]
+
+-- 3. Cursor Errors: Going 'up' when you are already at the Root of a Tree
+spawn Pod: A |> build_tree "Root" |> into_zipper |> up
