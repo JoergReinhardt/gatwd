@@ -426,3 +426,12 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepRoute delegates evaluation to the Engine's internal Type-Based routing registry.
+// This allows the DSL to defer to natively registered Go adapters (e.g., engine.Register(Flag, Adapter))
+// based strictly on the ASTNode's Algebraic Type (BitFlag).
+func StepRoute[T any](engine *Engine[T]) PipelineStep[T] {
+	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
+		return engine.Evaluate(stream)
+	}
+}

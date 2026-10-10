@@ -152,7 +152,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			if len(args) >= 2 {
 				pipeline = append(pipeline, evaluator.StepUpdate(args[0], strings.Join(args[1:], " ")))
 			}
-		} else if stepStr == "collect_list" {
+		} else if stepStr == "route" {
+				pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
+			} else if stepStr == "collect_list" {
 			pipeline = append(pipeline, evaluator.StepCollectList())
 		} else if strings.HasPrefix(stepStr, "build_tree") {
 			rootName := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
