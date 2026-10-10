@@ -1,0 +1,6 @@
+-- This is a library module!
+type OS = Linux | Windows | Darwin
+type Network = Set(IP)
+
+-- We define a reusable function alias!
+def audit_linux = uname -a |> expect "Linux" "CRITICAL: Not Linux"

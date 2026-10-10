@@ -1,0 +1,23 @@
+-- ==========================================================
+-- gatwd Tour: 12. The Final Pillars (def, let, import, lambdas)
+-- Run: ./gatwd examples/tour/12_turing_complete.gatwd
+-- ==========================================================
+
+-- 1. Module Imports
+-- We import the types and aliases from the lib module!
+import "lib.gatwd"
+
+
+-- 2. Function Aliases
+-- We use the 'audit_linux' function alias we imported!
+spawn OS: Linux |> audit_linux
+
+
+-- 3. Lambdas (Anonymous Functions)
+-- We map a lambda over the stream mathematically!
+spawn OS: Linux |> map (\x -> echo Hello from x!)
+
+
+-- 4. Local State (Let Bindings)
+-- We store the result of an evaluation in 'x', and substitute it later!
+let x = spawn OS: Windows |> echo WINDOWS_HOST in spawn OS: Linux |> echo I am Linux, but I know about x

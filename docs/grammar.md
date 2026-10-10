@@ -4,8 +4,13 @@ This is the formal Extended Backus-Naur Form (EBNF) grammar for the `gatwd` Doma
 
 ```ebnf
 Program        ::= { Statement }
-Statement      ::= TypeDef | Pipeline | Comment
+Statement      ::= Import | TypeDef | FunctionDef | LetBinding | Pipeline | Comment
 Comment        ::= "--" { ANY_CHAR } "\n"
+
+(* Modularity & Reusability *)
+Import         ::= "import " StringLiteral
+FunctionDef    ::= "def " Identifier "=" Pipeline
+LetBinding     ::= "let " Identifier "=" Pipeline " in " Pipeline
 
 (* Type Definitions (Algebraic Data Types) *)
 TypeDef        ::= "type " Identifier "=" (SumType | RecordType | TupleType | CollectionType)
@@ -26,6 +31,9 @@ PipelineStep   ::= OSCommand
                  | "fold " ("count" | "sum")
                  | "distinct"
                  | "memoize " OSCommand
+                 | "map " Lambda
+
+Lambda         ::= "(" "\\" Identifier "->" PipelineStep ")"
 
 (* Error Handling & Compliance *)
                  | "expect " StringLiteral " " StringLiteral
