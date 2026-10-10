@@ -95,6 +95,11 @@ func main() {
 					pipeline = append(pipeline, evaluator.StepFanOut(leftAdapter, rightAdapter))
 					break
 				}
+			} else if stepStr == "distinct" {
+				pipeline = append(pipeline, evaluator.StepDistinct())
+			} else if strings.HasPrefix(stepStr, "format_tuple") {
+				formatStr := strings.TrimSpace(stepStr[12:])
+				pipeline = append(pipeline, evaluator.StepFormatTuple(strings.Trim(formatStr, "\"")))
 			} else if strings.HasPrefix(stepStr, "parse_record") {
 				fieldsStr := strings.TrimSpace(stepStr[12:])
 				fields := strings.Fields(fieldsStr)

@@ -14,9 +14,7 @@ func Number() Combinator[int] {
 	return Bind(Many(Satisfy(isDigit)), func(bytes []byte) Combinator[int] {
 		return func(input string) iter.Seq[functions.Pair[int, string]] {
 			return func(yield func(functions.Pair[int, string]) bool) {
-				if len(bytes) == 0 {
-					return
-				}
+				if len(bytes) == 0 { return }
 				val, err := strconv.Atoi(string(bytes))
 				if err == nil {
 					yield(functions.Pair[int, string]{Fst: val, Snd: input})
@@ -26,52 +24,38 @@ func Number() Combinator[int] {
 	})
 }
 
-// ParseTake parses "take <number>"
 func ParseTake() Combinator[int] {
 	return Bind(Token("take"), func(_ string) Combinator[int] {
-		return Bind(WhiteSpace, func(_ []byte) Combinator[int] {
-			return Number()
-		})
+		return Bind(WhiteSpace, func(_ []byte) Combinator[int] { return Number() })
 	})
 }
 
-// ParseDrop parses "drop <number>"
 func ParseDrop() Combinator[int] {
 	return Bind(Token("drop"), func(_ string) Combinator[int] {
-		return Bind(WhiteSpace, func(_ []byte) Combinator[int] {
-			return Number()
-		})
+		return Bind(WhiteSpace, func(_ []byte) Combinator[int] { return Number() })
 	})
 }
 
-// ParseZipperOp parses Comonadic movement commands
 func ParseZipperOp() Combinator[string] {
-	return Or(
-		Token("up"),
-		Or(
-			Token("down"),
-			Or(
-				Token("left"),
-				Or(
-					Token("right"),
-					Token("extract"),
-				),
-			),
-		),
-	)
+	return Or(Token("up"), Or(Token("down"), Or(Token("left"), Or(Token("right"), Token("extract")))))
 }
 
-// ParseFanOut parses the Kleisli arrow "&&&" between two identifiers
+// ParseFanOut parses the Kleisli arrow "(AdapterA &&& AdapterB)"
 func ParseFanOut() Combinator[functions.Pair[string, string]] {
-	isAlpha := func(b byte) bool { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
-	wordParser := Map(Many(Satisfy(isAlpha)), func(b []byte) string { return string(b) })
+	// Parse everything until &&&
+	isContentLeft := func(b byte) bool { return b != '&' }
+	wordParserLeft := Map(Many(Satisfy(isContentLeft)), func(b []byte) string { return strings.TrimSpace(string(b)) })
+	
+	// Parse everything until )
+	isContentRight := func(b byte) bool { return b != ')' }
+	wordParserRight := Map(Many(Satisfy(isContentRight)), func(b []byte) string { return strings.TrimSpace(string(b)) })
 
 	return Bind(Token("("), func(_ string) Combinator[functions.Pair[string, string]] {
 		return Bind(Token(""), func(_ string) Combinator[functions.Pair[string, string]] {
-			return Bind(wordParser, func(leftAdapter string) Combinator[functions.Pair[string, string]] {
+			return Bind(wordParserLeft, func(leftAdapter string) Combinator[functions.Pair[string, string]] {
 				return Bind(Token("&&&"), func(_ string) Combinator[functions.Pair[string, string]] {
 					return Bind(Token(""), func(_ string) Combinator[functions.Pair[string, string]] {
-						return Bind(wordParser, func(rightAdapter string) Combinator[functions.Pair[string, string]] {
+						return Bind(wordParserRight, func(rightAdapter string) Combinator[functions.Pair[string, string]] {
 							return Bind(Token(")"), func(_ string) Combinator[functions.Pair[string, string]] {
 								return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
 									return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
@@ -90,7 +74,6 @@ func ParseFanOut() Combinator[functions.Pair[string, string]] {
 	})
 }
 
-// StringLiteral parses a quoted string (e.g. "Security Violation")
 func StringLiteral() Combinator[string] {
 	return Bind(Token("\""), func(_ string) Combinator[string] {
 		return func(input string) iter.Seq[functions.Pair[string, string]] {
@@ -104,11 +87,10 @@ func StringLiteral() Combinator[string] {
 	})
 }
 
-// ParseExpect parses the expect validation gate: expect "must_be_running" "Not Running!"
 func ParseExpect() Combinator[functions.Pair[string, string]] {
 	return Bind(Token("expect"), func(_ string) Combinator[functions.Pair[string, string]] {
 		return Bind(StringLiteral(), func(keyword string) Combinator[functions.Pair[string, string]] {
-			return Bind(Token(""), func(_ string) Combinator[functions.Pair[string, string]] { // space
+			return Bind(Token(""), func(_ string) Combinator[functions.Pair[string, string]] {
 				return Bind(StringLiteral(), func(errMsg string) Combinator[functions.Pair[string, string]] {
 					return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
 						return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
@@ -124,7 +106,6 @@ func ParseExpect() Combinator[functions.Pair[string, string]] {
 	})
 }
 
-// ParseZip parses "zip <AdapterName>"
 func ParseZip() Combinator[string] {
 	isAlpha := func(b byte) bool { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
 	wordParser := Map(Many(Satisfy(isAlpha)), func(b []byte) string { return string(b) })
