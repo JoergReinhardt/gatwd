@@ -7,7 +7,7 @@ type BoxedMap = Record
 
 -- 1. Slice Truncation (--head & --tail) with Conditional Type Coloring
 -- Watch how the List type gets colored Cyan, and the middle values are omitted!
-spawn GiantList: Init |> cat data5.txt |> build_array |> visualize --head=2 --tail=2 --color-type=List:cyan
+spawn GiantList: Init |> cat examples/tour/data/data5.txt |> build_array |> visualize --head=2 --tail=2 --color-type=List:cyan
 
 -- 2. Nested Sub-Boxes (--box) creating "flow-graph" style inline boundaries
 -- We draw nested UTF-8 boxes strictly around Record Types!

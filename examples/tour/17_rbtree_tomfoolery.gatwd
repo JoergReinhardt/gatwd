@@ -9,4 +9,4 @@ type RB_Tree = RBTree(String)
 -- and injects ANSI coloring PER NODE while printing! 
 -- We also apply the gorgeous curved borders (--curved --border) for max tomfoolery.
 
-spawn RB_Tree: Init |> cat data4.txt |> build_rbtree |> visualize --curved --border
+spawn RB_Tree: Init |> cat examples/tour/data/data4.txt |> build_rbtree |> visualize --curved --border
