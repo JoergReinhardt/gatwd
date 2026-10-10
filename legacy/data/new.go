@@ -1,7 +1,7 @@
 package data
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"strconv"
 	"time"
@@ -32,7 +32,7 @@ func NewError(errs ...error) ErrorVal {
 	return ErrorVal{NewCompoundError(errs...)}
 }
 func NewErrorFromString(str string) ErrorVal {
-	return ErrorVal{fmt.Errorf(str)}
+	return ErrorVal{errors.New(str)}
 }
 
 // returns a null value according to the native type passed in. if the flag

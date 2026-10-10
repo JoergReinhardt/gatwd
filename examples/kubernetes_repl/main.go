@@ -61,7 +61,7 @@ type KubePod = Pod
 	// When the engine hits a Pod, it won't have an adapter. It will pause and ask the user!
 	engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[string] {
 		fmt.Printf("\n[REPL PAUSE] Discovered nodes of Type %d, but no adapter exists to drill down further.\n", flag)
-		fmt.Print("Enter a command to execute on these nodes (e.g. 'kubectl logs %s'): ")
+		fmt.Println("Enter a command to execute on these nodes (e.g. 'kubectl logs '): ")
 		
 		reader := bufio.NewReader(os.Stdin)
 		input, _ := reader.ReadString('\n')
@@ -93,7 +93,7 @@ type KubePod = Pod
 	targetNs, _ := reader.ReadString('\n')
 	targetNs = strings.TrimSpace(targetNs)
 
-	fmt.Printf("\n--- Spawning Graph Crawler on Namespace: %s ---\n", targetNs)
+	fmt.Println("\n--- Spawning Graph Crawler on Namespace:  ---\n", targetNs)
 	
 	initialStream := func(yield func(dsltypes.ASTNode[string]) bool) {
 		yield(dsltypes.NewASTNode(targetNs, namespaceFlag))
@@ -104,7 +104,7 @@ type KubePod = Pod
 	terminalStream := engine.Evaluate(initialStream)
 
 	for node := range terminalStream {
-		fmt.Printf("[Terminal Yield] -> %s\n", node.Value)
+		fmt.Println("[Terminal Yield] -> \n", node.Value)
 	}
 
 	fmt.Println("--- Graph Traversal Complete ---")

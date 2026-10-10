@@ -12,7 +12,7 @@ import (
 
 func main() {
 	fmt.Println("=== gatwd Programmatic Pipeline Example ===")
-	fmt.Println("Demonstrating EitherT Auditing, StepTake, and StepExpect\n")
+	fmt.Println("Demonstrating EitherT Auditing, StepTake, and StepExpect")
 
 	// 1. We instantiate an Engine capable of handling Errors (EitherT)
 	engine := evaluator.NewEngine[functions.Either[error, string]]()
