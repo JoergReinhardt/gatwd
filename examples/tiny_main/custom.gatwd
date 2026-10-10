@@ -1,0 +1,5 @@
+type Timestamp = GoTime
+type IPAddress = GoIP
+
+spawn IPAddress: 192.168.1.100 |> visualize --color-type=IP:magenta --curved
+spawn Timestamp: 2026-10-10T19:50:00Z |> visualize --color-type=Time:cyan --border

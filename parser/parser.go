@@ -37,7 +37,7 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 			}
 
 			if strings.HasPrefix(line, "spawn ") {
-				parts := strings.Split(line[6:], ":")
+				parts := strings.SplitN(line[6:], ":", 2)
 				if len(parts) == 2 {
 					typeName := strings.TrimSpace(parts[0])
 					value := strings.TrimSpace(parts[1])
@@ -47,6 +47,7 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 						var parsedValue any = value
 						if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
 							parsedValue = factory(value)
+						} else {
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }
@@ -94,7 +95,9 @@ func (p *Parser) parseType(line string) {
 		p.typeRegistry[typeName] = composedFlag
 	} else {
 		// Base type
-		if definition == "BigInt" {
+		if factory, ok := p.typeFactories[definition]; ok {
+			p.typeFactories[typeName] = factory
+		} else if definition == "BigInt" {
 			p.typeFactories[typeName] = func(s string) any {
 				n := new(big.Int)
 				n.SetString(s, 10)
@@ -115,6 +118,12 @@ func (p *Parser) parseType(line string) {
 	}
 }
 
+
+// RegisterTypeFactory allows third-party Go code to register native constructors for DSL types.
+// For example, RegisterTypeFactory("Time", func(s string) any { t, _ := time.Parse(time.RFC3339, s); return t })
+func (p *Parser) RegisterTypeFactory(definition string, factory func(string) any) {
+	p.typeFactories[definition] = factory
+}
 func (p *Parser) GetFlag(typeName string) dsltypes.BitFlag {
 	return p.registerOrGet(typeName)
 }

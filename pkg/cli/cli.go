@@ -239,6 +239,11 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	return results
 }
 
+
+// RegisterType allows third-party Go code to register native constructors for DSL types.
+func (i *Interpreter) RegisterType(definition string, factory func(string) any) {
+	i.Parser.RegisterTypeFactory(definition, factory)
+}
 func (i *Interpreter) EvaluateLine(line string) {
 	// Let Bindings: let x = ... in ...
 	if strings.HasPrefix(line, "let ") {
