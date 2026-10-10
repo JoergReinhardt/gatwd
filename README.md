@@ -9,6 +9,7 @@
 >
 > 📚 **New Documentation & Guides:**
 > - [DSL Guide & Tutorial](docs/dsl_guide.md): Learn the syntax of the language, how the interactive REPL works, and see examples of crawling Kubernetes clusters!
+- [Native Adapters & Extendability](docs/native_adapters.md): Learn the "Closure Pattern" for building high-performance, native Go extensions.
 > - [Architecture Overview](docs/architecture.md): Understand the "Host Engine vs Guest DSL" paradigm driving the interpreter.
 > - [Refactoring Roadmap](docs/refactoring_plan.md): Read the step-by-step history of how the academic Category Theory concepts (Optics, Comonadic Zippers, Transducers) were mapped into modern Go.
 > - [Styleguide & Contribution](STYLEGUIDE.md): The golden rules of writing functional code and educational documentation in this repository.
