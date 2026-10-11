@@ -4,6 +4,7 @@ import (
 	"iter"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
@@ -77,3 +78,42 @@ func TestBuiltins_HAMTAndSetAndChunk(t *testing.T) {
 		t.Fatalf("expected unchunk roundtrip to succeed, got %v", unchunkRes)
 	}
 }
+
+func TestEmbeddedScripts_EvaluateScriptAndFS(t *testing.T) {
+	interp := cli.NewInterpreter()
+
+	// 1. Test EvaluateScript with embedded multi-line script content (simulating //go:embed string)
+	embeddedDSL := `
+type Metric = Int
+const BASE = 50
+def bump = math_add 10
+spawn Metric: BASE |> bump |> assert 60
+`
+	interp.EvaluateScript(embeddedDSL)
+	val, ok := interp.Constants["BASE"]
+	if !ok || val != "50" {
+		t.Fatalf("expected constant 'BASE' to be set to '50', got %v", val)
+	}
+
+	// 2. Test LoadScriptFS with virtual filesystem (simulating //go:embed embed.FS)
+	mockFS := fstest.MapFS{
+		"scripts/operator_reconcile.gatwd": &fstest.MapFile{
+			Data: []byte(`
+type ClusterStatus = OK | DEGRADED
+const EXPECTED_STATE = OK
+spawn ClusterStatus: EXPECTED_STATE |> assert OK
+`),
+		},
+	}
+
+	err := interp.LoadScriptFS(mockFS, "scripts/operator_reconcile.gatwd")
+	if err != nil {
+		t.Fatalf("expected LoadScriptFS to succeed, got error: %v", err)
+	}
+
+	opState, ok := interp.Constants["EXPECTED_STATE"]
+	if !ok || opState != "OK" {
+		t.Fatalf("expected constant 'EXPECTED_STATE' to be 'OK', got %v", opState)
+	}
+}
+

@@ -168,26 +168,113 @@ The main Gatwd binary exposes the complete suite of Go standard library integrat
 ### Bare Interpreter (`cli.NewBareInterpreter()`)
 For embedded environments where a minimal footprint is desired, `cli.NewBareInterpreter()` provides only host language evaluation primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`).
 
-### Creating Custom Editions (Third-Party Integrations)
-Third-party Go packages (e.g., Kubernetes client-go, AWS SDK, Postgres drivers) are integrated by creating dedicated Custom Edition binaries rather than bloating the core engine:
+## 5. Extensibility & Release Architecture: CLIs, Servers & Kubernetes Operators
+
+Gatwd's extension mechanism and standalone release model support three primary deployment archetypes:
+1. **Specialized Command-Line Tools (CLIs)**: Domain utilities, ETL processors, or migration tools shipping with pre-compiled default scripts.
+2. **Long-Running Servers**: High-throughput HTTP, gRPC, or event streaming microservices evaluating category-theoretic pipelines.
+3. **Kubernetes Operators & Cloud Controllers**: Continuous reconcile loops that crawl cluster state via dynamic clients, detect drift, and enforce compliance policies.
+
+Each release can operate across **two execution tiers**:
+- **API-Level Execution (Pure Go Engine)**: Directly builds and evaluates pipelines using `evaluator.Engine`, `collections.HAMT`, `collections.Chunk`, transducers (`evaluator.PipelineStep`), and adapters (`adapters.NativeKubernetesAdapter`, `adapters.ScannerToSeq`). Delivers maximum performance (~7.3M items/sec) with zero DSL parsing overhead and full Go type safety.
+- **Embedded Gatwd DSL (`//go:embed`)**: Compiles `.gatwd` scripts directly into static binary releases using `embed.FS` and executes them via `interp.LoadScriptFS(...)` or `interp.EvaluateScript(...)`. Users can override embedded scripts at runtime via CLI arguments or Kubernetes ConfigMap volume mounts.
+
+---
+
+### Architectural Archetypes & Reference Patterns
+
+#### Archetype 1: Specialized CLI with Embedded Script
 ```go
 package main
 
 import (
+    "embed"
+    "os"
     "github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
+//go:embed scripts/default_audit.gatwd
+var embeddedFS embed.FS
+
 func main() {
-    // 1. Instantiate bare or full interpreter
     interp := cli.NewInterpreter()
-
-    // 2. Register third-party types and step transducers
-    interp.RegisterType("MyType", myFactory)
-    interp.RegisterStep(myCustomTransducerHandler)
-
-    // 3. Launch REPL or script runner
-    cli.RunWithInterpreter(interp)
+    
+    // Fall back to embedded script if no external file provided
+    if len(os.Args) > 1 {
+        interp.LoadScript(os.Args[1])
+    } else {
+        _ = interp.LoadScriptFS(embeddedFS, "scripts/default_audit.gatwd")
+    }
 }
 ```
-See `examples/custom_cli/main.go` for an executable reference implementation.
+
+#### Archetype 2: High-Throughput HTTP Streaming Server
+```go
+package main
+
+import (
+    "fmt"
+    "net/http"
+    "github.com/joergreinhardt/gatwd/evaluator"
+    "github.com/joergreinhardt/gatwd/dsltypes"
+)
+
+func streamHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "text/plain")
+    engine := evaluator.NewEngine[string]()
+    
+    // Inbound stream
+    source := func(yield func(dsltypes.ASTNode[string]) bool) {
+        for i := 0; i < 10000; i++ {
+            if !yield(dsltypes.NewASTNode(fmt.Sprintf("event_%d", i), 1)) {
+                return
+            }
+        }
+    }
+    
+    // Pure Go pipeline with batching chunk transducer
+    chunkStep := evaluator.StepChunk[string](250)
+    for chunkNode := range engine.EvaluatePipeline(source, []evaluator.PipelineStep[string]{chunkStep}) {
+        fmt.Fprintf(w, "Batch: %v\n", chunkNode.Value)
+    }
+}
+```
+
+#### Archetype 3: Kubernetes Operator Reconcile Loop
+```go
+package main
+
+import (
+    "context"
+    "embed"
+    "k8s.io/apimachinery/pkg/runtime/schema"
+    "k8s.io/client-go/dynamic"
+    "github.com/joergreinhardt/gatwd/adapters"
+    "github.com/joergreinhardt/gatwd/pkg/cli"
+)
+
+//go:embed reconcile_rules.gatwd
+var rulesFS embed.FS
+
+func reconcileNamespace(client dynamic.Interface, ns string) {
+    interp := cli.NewInterpreter()
+    
+    // Register native k8s adapter for dynamic resources
+    podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+    podFlag := interp.Parser.GetFlag("KubePod")
+    interp.Engine.Register(interp.Parser.GetFlag("KubeNamespace"), adapters.NativeKubernetesAdapter(client, podGVR, podFlag))
+    
+    // Run embedded reconciliation rules
+    _ = interp.LoadScriptFS(rulesFS, "reconcile_rules.gatwd")
+}
+```
+
+---
+
+### Release & Packaging Strategy
+
+- **Static Binary Releases**: Built with `CGO_ENABLED=0 go build -ldflags="-s -w"`, packaging all Go code and embedded `.gatwd` scripts into a single, zero-dependency executable.
+- **Distroless Container Images**: Deployed using `FROM gcr.io/distroless/static:nonroot` for secure, minimal attack-surface Kubernetes pods and server containers.
+- **ConfigMap Overrides**: Kubernetes Operator releases embed default reconciliation rules, while allowing live cluster administrators to mount custom `.gatwd` rulebooks over `/etc/gatwd/reconcile.gatwd` without rebuilding container images.
+
 

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"iter"
 	"os"
 	"path/filepath"
@@ -840,16 +840,15 @@ func (i *Interpreter) EvaluateLine(line string) {
 	}
 }
 
-func (i *Interpreter) LoadScript(filename string) {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fmt.Printf("Error reading file '%s': %v\n", filename, err)
-		return
-	}
+// EvaluateScript evaluates an entire multi-line script string, resolving comments,
+// multi-line expressions, macros, and pipeline definitions sequentially.
+func (i *Interpreter) EvaluateScript(script string) {
+	i.LoadScriptContent(script, ".")
+}
 
-	dir := filepath.Dir(filename)
-
-	lines := strings.Split(string(bytes), "\n")
+// LoadScriptContent parses and evaluates a script string with a base directory for resolving relative imports.
+func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
+	lines := strings.Split(content, "\n")
 	var buffer string
 
 	for _, rawLine := range lines {
@@ -874,13 +873,6 @@ func (i *Interpreter) LoadScript(filename string) {
 			strings.Count(buffer, "{") > strings.Count(buffer, "}") ||
 			strings.Count(buffer, "(") > strings.Count(buffer, ")") ||
 			strings.Count(buffer, "[") > strings.Count(buffer, "]") {
-
-
-
-
-
-
-
 			continue // Wait for next line
 		}
 
@@ -888,7 +880,7 @@ func (i *Interpreter) LoadScript(filename string) {
 		if strings.HasPrefix(buffer, "import ") {
 			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
 			if !filepath.IsAbs(importFile) {
-				importFile = filepath.Join(dir, importFile)
+				importFile = filepath.Join(baseDir, importFile)
 			}
 			i.LoadScript(importFile)
 			buffer = ""
@@ -901,6 +893,28 @@ func (i *Interpreter) LoadScript(filename string) {
 	if buffer != "" {
 		i.EvaluateLine(buffer)
 	}
+}
+
+// LoadScript reads a script from the filesystem and evaluates it.
+func (i *Interpreter) LoadScript(filename string) {
+	bytes, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Printf("Error reading file '%s': %v\n", filename, err)
+		return
+	}
+	i.LoadScriptContent(string(bytes), filepath.Dir(filename))
+}
+
+// LoadScriptFS reads a script from a virtual filesystem (such as embed.FS) and evaluates it.
+// This enables embedding Gatwd scripts directly into Go binaries for standalone releases,
+// CLI tools, servers, and Kubernetes operators.
+func (i *Interpreter) LoadScriptFS(fsys fs.FS, filename string) error {
+	bytes, err := fs.ReadFile(fsys, filename)
+	if err != nil {
+		return fmt.Errorf("failed to read embedded script '%s': %w", filename, err)
+	}
+	i.LoadScriptContent(string(bytes), filepath.Dir(filename))
+	return nil
 }
 
 // RunWithInterpreter executes batch script execution or interactive REPL using the supplied Interpreter.

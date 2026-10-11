@@ -56,12 +56,14 @@ When introducing support for Go standard library features or new transducers:
 3. **DSL Exhaustive Test:** Add an assertion test case to `tests/dsl_exhaustive_test.gatwd`.
 4. **Documentation Sync:** Document the new keyword in `docs/dsl_guide.md` and `docs/components.md`.
 
-## Building Custom Editions for Third-Party Libraries
-Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` module. Instead, author a **Custom Edition** binary:
-1. Create a `cmd/gatwd-<name>/main.go` file (or standalone repository).
-2. Import `github.com/joergreinhardt/gatwd/pkg/cli`.
-3. Instantiate either `cli.NewInterpreter()` (standard builtins) or `cli.NewBareInterpreter()` (lean runtime).
-4. Register domain types and custom step transducers using `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
-5. Call `cli.RunWithInterpreter(interp)`. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go) for a reference implementation.
+## Building Custom Editions, Servers & Kubernetes Operators
+Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` module. Instead, author a **Custom Edition** binary or release:
+1. **Choose Your Archetype**: Build a specialized CLI (`cmd/gatwd-<name>/main.go`), an HTTP/gRPC server daemon, or a Kubernetes controller/operator loop.
+2. **Import Engine & CLI Packages**: Import `github.com/joergreinhardt/gatwd/pkg/cli` and lower-layer packages (`evaluator`, `collections`, `adapters`).
+3. **Choose Runtime**: Instantiate `cli.NewInterpreter()` (standard builtins) or `cli.NewBareInterpreter()` (lean runtime).
+4. **Register Domain Types & Steps**: Expose third-party types and transducers via `interp.RegisterType(...)`, `interp.RegisterStep(...)`, and `interp.RegisterConstant(...)`.
+5. **Embed Gatwd Scripts (`//go:embed`)**: Use `//go:embed` with `interp.LoadScriptFS(fsys, path)` or `interp.EvaluateScript(content)` to ship self-contained logic without external file dependencies.
+6. **Package Releases**: Compile static binaries (`CGO_ENABLED=0 go build`) or distroless container images, supporting live script overrides via arguments or Kubernetes ConfigMaps. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go) and [`examples/kubernetes_repl/main.go`](examples/kubernetes_repl/main.go).
+
 
 

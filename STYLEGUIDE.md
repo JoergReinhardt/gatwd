@@ -80,9 +80,10 @@ Lower-layer abstractions (Layers 0–4) must never remain stranded in Go API spa
 - **Builtins**: Features derived from Go's standard library and Gatwd's core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`) are termed **builtins**. They are enabled by default in `cli.NewInterpreter()`.
 - **Bare Interpreter (`cli.NewBareInterpreter()`)**: A minimalist runtime providing only language evaluation primitives (variable substitution `let`, macro expansion `def`, constants `const`, pattern matching `match`, sequence composition `seq`, and core stream controls `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins can be selectively toggled or replaced.
 
-### Third-Party Library Integration: Custom Editions
-Third-party Go packages (e.g. cloud SDKs, web frameworks, database drivers) must not bloat the core `gatwd` repository. Instead, they are integrated via **Custom Editions** (or **Distributions**):
-- Developers create a dedicated CLI binary (e.g., `cmd/gatwd-cloud/main.go`).
-- The custom CLI imports `github.com/joergreinhardt/gatwd/pkg/cli` (either `NewBareInterpreter()` or `NewInterpreter()`).
-- Custom domain types and step handlers are registered via `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
-- Execution is triggered via `cli.RunWithInterpreter(interp)`.
+### Third-Party Library Integration: Custom Editions & Standalone Releases
+Third-party Go packages (e.g. cloud SDKs, web frameworks, Kubernetes `client-go`, database drivers) must not bloat the core `gatwd` repository. Instead, they are integrated via **Custom Editions** (or **Distributions**):
+- **Archetypes**: Custom Editions can be authored as standalone command-line tools (`cmd/gatwd-cloud`), long-running HTTP/gRPC servers, or Kubernetes operators/controllers.
+- **Dual Execution Tiers**: Editions can execute at the Go **API level** directly (`evaluator.Engine`, `collections.HAMT`, `StepChunk`) for maximum throughput, or embed `.gatwd` DSL code via `//go:embed` using `interp.LoadScriptFS(...)` and `interp.EvaluateScript(...)`.
+- **Custom Wiring**: Domain types and custom transducers are registered via `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
+- **Zero-Dependency Releases**: Releases compile to single static binaries or distroless container images with embedded scripts and optional live ConfigMap overrides.
+
