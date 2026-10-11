@@ -554,6 +554,16 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 				case float64:
 					n, _ := strconv.ParseFloat(amount, 64)
 					newVal = v + n
+				case string:
+					if iv, err := strconv.Atoi(v); err == nil {
+						n, _ := strconv.Atoi(amount)
+						newVal = iv + n
+					} else if fv, err := strconv.ParseFloat(v, 64); err == nil {
+						n, _ := strconv.ParseFloat(amount, 64)
+						newVal = fv + n
+					} else {
+						newVal = v + amount
+					}
 				default:
 					errNode := InjectError[any](fmt.Errorf("math_add failed: unsupported type %T", val), node.DSLType)
 					if !yield(errNode) { return }
@@ -690,6 +700,86 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepToHAMT folds key-value pairs (or "k:v" strings) from the stream into an immutable HAMT map.
+func StepToHAMT() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			hamt := collections.NewHAMT[string, any]()
+			var errs []dsltypes.ASTNode[functions.Either[error, any]]
+			var lastFlag dsltypes.BitFlag
+
+			for node := range stream {
+				if node.Value.IsLeft() {
+					errs = append(errs, node)
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				lastFlag = node.DSLType
+
+				// Check if val is a Pair
+				if p, ok := val.(functions.Pair[string, any]); ok {
+					hamt = hamt.Set(p.Fst, p.Snd)
+				} else if str, ok := val.(string); ok {
+					// Split on ":" or "="
+					var k, v string
+					if strings.Contains(str, ":") {
+						parts := strings.SplitN(str, ":", 2)
+						k, v = strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+					} else if strings.Contains(str, "=") {
+						parts := strings.SplitN(str, "=", 2)
+						k, v = strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+					} else {
+						k, v = str, str
+					}
+					hamt = hamt.Set(k, v)
+				} else {
+					hamt = hamt.Set(fmt.Sprintf("%v", val), val)
+				}
+			}
+
+			for _, errNode := range errs {
+				if !yield(errNode) { return }
+			}
+
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(hamt)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepHAMTGet extracts a value by key from a flowing HAMT or Map node.
+func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				if h, ok := val.(*collections.HAMT[string, any]); ok {
+					if res, found := h.Get(key); found {
+						yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
+					} else {
+						yield(InjectError[any](fmt.Errorf("key '%s' not found in HAMT", key), node.DSLType))
+					}
+					continue
+				}
+				if m, ok := val.(*collections.Map[string, any]); ok {
+					if res, found := m.Get(key); found {
+						yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
+					} else {
+						yield(InjectError[any](fmt.Errorf("key '%s' not found in Map", key), node.DSLType))
+					}
+					continue
+				}
+				// Pass through if not a HAMT/Map
+				yield(node)
+			}
+		}
+	}
+}
+
 // StepEmit emits a fixed set of string values sequentially into the stream.
 func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -720,7 +810,12 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 				}
 				
 				val, _ := node.Value.UnwrapRight()
-				actual := fmt.Sprintf("%v", val)
+				var actual string
+				if b, ok := val.([]byte); ok {
+					actual = string(b)
+				} else {
+					actual = fmt.Sprintf("%v", val)
+				}
 				
 				if actual != expected {
 					err := fmt.Errorf("Assertion failed: expected '%s', got '%s'", expected, actual)
@@ -750,6 +845,18 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 				case float64:
 					n, _ := strconv.ParseFloat(amount, 64)
 					newVal = v - n
+				case string:
+					if iv, err := strconv.Atoi(v); err == nil {
+						n, _ := strconv.Atoi(amount)
+						newVal = iv - n
+					} else if fv, err := strconv.ParseFloat(v, 64); err == nil {
+						n, _ := strconv.ParseFloat(amount, 64)
+						newVal = fv - n
+					} else {
+						errNode := InjectError[any](fmt.Errorf("math_sub failed: cannot subtract from non-numeric string %q", v), node.DSLType)
+						if !yield(errNode) { return }
+						continue
+					}
 				default:
 					errNode := InjectError[any](fmt.Errorf("math_sub failed: unsupported type %T", val), node.DSLType)
 					if !yield(errNode) { return }

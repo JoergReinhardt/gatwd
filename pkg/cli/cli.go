@@ -1,14 +1,18 @@
 package cli
 
 import (
-	"github.com/joergreinhardt/gatwd/collections"
 	"bufio"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"iter"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/joergreinhardt/gatwd/collections"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
@@ -262,6 +266,52 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepBuildTree(rootName))
 		} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" || stepStr == "left" || stepStr == "right" {
 			pipeline = append(pipeline, evaluator.StepZipper(stepStr))
+		} else if stepStr == "to_hamt" {
+			pipeline = append(pipeline, evaluator.StepToHAMT())
+		} else if strings.HasPrefix(stepStr, "hamt_get ") {
+			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
+			pipeline = append(pipeline, evaluator.StepHAMTGet(key))
+		} else if strings.HasPrefix(stepStr, "chunk ") {
+			sizeStr := strings.TrimSpace(stepStr[6:])
+			if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
+				pipeline = append(pipeline, evaluator.StepChunk(size))
+			}
+		} else if strings.HasPrefix(stepStr, "checkpoint ") {
+			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
+			id := "default"
+			var interval uint64 = 10
+			if len(args) > 0 { id = strings.Trim(args[0], "\"") }
+			if len(args) > 1 {
+				if iv, err := strconv.ParseUint(args[1], 10, 64); err == nil {
+					interval = iv
+				}
+			}
+			pipeline = append(pipeline, evaluator.StepCheckpoint(context.Background(), evaluator.NewMemoryCheckpointStore(), id, interval))
+		} else if stepStr == "telemetry" {
+			var count uint64
+			pipeline = append(pipeline, evaluator.StepTelemetry(&count))
+		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
+			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
+			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))
+		} else if strings.HasPrefix(stepStr, "scan_file ") {
+			filePath := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
+			file, err := os.Open(filePath)
+			if err == nil {
+				scanner := bufio.NewScanner(file)
+				adapter := adapters.ScannerAdapter(scanner)
+				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			} else {
+				errNode := evaluator.InjectError[any](err, 0)
+				pipeline = append(pipeline, evaluator.StepAdapter(func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						yield(errNode)
+					}
+				}))
+			}
+		} else if stepStr == "head" {
+			pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, any]](1))
+		} else if stepStr == "tail" {
+			pipeline = append(pipeline, evaluator.StepDrop[functions.Either[error, any]](1))
 		} else if strings.HasPrefix(stepStr, "seq {") && strings.HasSuffix(stepStr, "}") {
 			inner := strings.TrimSpace(stepStr[5 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner) // this splits by | which is fine, we can use |
@@ -564,7 +614,11 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 			results = append(results, fmt.Sprintf("[ERROR] %v", err))
 		} else {
 			val, _ := node.Value.UnwrapRight()
-			results = append(results, fmt.Sprintf("%+v", val))
+			if b, ok := val.([]byte); ok {
+				results = append(results, string(b))
+			} else {
+				results = append(results, fmt.Sprintf("%+v", val))
+			}
 		}
 	}
 	return results

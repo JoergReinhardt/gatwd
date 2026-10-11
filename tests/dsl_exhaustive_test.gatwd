@@ -54,3 +54,24 @@ const TAX_BASE = 50
 const SURCHARGE = 15
 spawn IntVal: TAX_BASE |> math_add SURCHARGE |> assert 65
 
+-- 13. Persistent HAMT Dictionary (to_hamt, hamt_get)
+spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_get role |> assert admin
+
+-- 14. Stream Head & Tail Operators
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> head |> assert 10
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> tail |> head |> assert 20
+
+-- 15. Stream Telemetry Transducer
+spawn IntVal: 10 |> telemetry |> math_add 5 |> assert 15
+
+-- 16. Eager Memory Chunks (chunking stream into bounded arrays)
+spawn IntVal: 0 |> emit 1, 2, 3, 4 |> drop 1 |> chunk 2 |> head |> assert [1 2]
+
+-- 17. Stream Checkpointing and Continuations
+spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> checkpoint job_dsl 2 |> math_add 10 |> head |> assert 11
+
+-- 18. File Scanner Adapter (generalized Scanner integration)
+spawn StrVal: Start |> scan_file examples/tour/data/data1.txt |> head |> assert M
+
+
+
