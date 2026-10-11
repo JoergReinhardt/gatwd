@@ -20,7 +20,7 @@ syntax match gatwdArrow /->\|<-\|→/
 syntax match gatwdArrowCombinator /&&&\|\*\*\*/
 
 " Infix Math & Logic
-syntax match gatwdOperator /\v(\+|\-|\*|\/|\/\/|\%|\+\+|==|!=|\<|\<=|\>|\>=|&&|\|\|)/
+syntax match gatwdOperator /==\|!=\|<=\|>=\|&&\|||\|++\|\/\/\|[+\-*/%<>]/
 
 " Comments
 syntax match gatwdComment /--.*$/

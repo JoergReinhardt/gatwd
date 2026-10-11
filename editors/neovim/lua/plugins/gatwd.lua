@@ -31,7 +31,7 @@ return {
             syntax match gatwdPipe /|>\|||>\|⊳/
             syntax match gatwdArrow /->\|<-\|→/
             syntax match gatwdArrowCombinator /&&&\|\*\*\*/
-            syntax match gatwdOperator /\v(\+|\-|\*|\/|\/\/|\%|\+\+|==|!=|\<|\<=|\>|\>=|&&|\|\|)/
+            syntax match gatwdOperator /==\|!=\|<=\|>=\|&&\|||\|++\|\/\/\|[+\-*/%<>]/
             syntax match gatwdComment /--.*$/
             syntax region gatwdString start=/"/ skip=/\\"/ end=/"/
             syntax match gatwdNumber /\v<[0-9]+(\.[0-9]+)?(i)?>/
