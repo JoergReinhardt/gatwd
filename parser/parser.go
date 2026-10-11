@@ -111,6 +111,11 @@ func (p *Parser) parseType(line string) {
 				n.SetString(s, 10)
 				return n
 			}
+		} else if definition == "BigFloat" {
+			p.typeFactories[typeName] = func(s string) any {
+				f, _, _ := new(big.Float).Parse(s, 10)
+				return f
+			}
 		} else if definition == "Float" {
 			p.typeFactories[typeName] = func(s string) any {
 				f, _ := strconv.ParseFloat(s, 64)
@@ -120,6 +125,16 @@ func (p *Parser) parseType(line string) {
 			p.typeFactories[typeName] = func(s string) any {
 				i, _ := strconv.Atoi(s)
 				return i
+			}
+		} else if definition == "Uint" {
+			p.typeFactories[typeName] = func(s string) any {
+				u, _ := strconv.ParseUint(s, 10, 64)
+				return u
+			}
+		} else if definition == "Complex" {
+			p.typeFactories[typeName] = func(s string) any {
+				c, _ := strconv.ParseComplex(s, 128)
+				return c
 			}
 		}
 		p.registerOrGet(typeName)

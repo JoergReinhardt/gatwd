@@ -874,6 +874,8 @@ func (i *Interpreter) EvaluateLine(line string) {
 				varName := strings.TrimSpace(defParts[0])
 				pipelineStr := strings.TrimSpace(defParts[1])
 
+				prevVal, hadPrev := i.Variables[varName]
+
 				// Evaluate the left side completely
 				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
 					res := i.evaluatePipelineStr(pipelineStr)
@@ -900,6 +902,13 @@ func (i *Interpreter) EvaluateLine(line string) {
 
 				// Evaluate the right side
 				i.EvaluateLine(parts[1])
+
+				// Restore previous variable value after right side completes
+				if hadPrev {
+					i.Variables[varName] = prevVal
+				} else {
+					delete(i.Variables, varName)
+				}
 			}
 		}
 		return

@@ -223,23 +223,31 @@ Gatwd supports full infix mathematical, relational, and boolean expressions with
 - **Boolean Logic**:
   - `&&`, `||`
 
-### Automatic Overflow Promotion to `BigInt`
-Gatwd protects numerical pipelines against arithmetic overflow: operations exceeding signed integer bounds (`math.MaxInt64` / `math.MinInt64`) are **automatically promoted to arbitrary-precision `*big.Int`**:
+### Automatic Overflow Promotion to `BigInt` & `BigFloat`
+Gatwd protects numerical pipelines against arithmetic overflow across all numeric types:
+- **Signed Integers (`Int`, `int64`)**: Operations exceeding `math.MaxInt64` / `math.MinInt64` automatically promote to arbitrary-precision `*big.Int`.
+- **Unsigned Integers (`Uint`, `uint64`)**: Addition or multiplication exceeding `math.MaxUint64` promotes to `*big.Int`; unsigned subtraction underflow promotes to negative signed `int64` / `*big.Int`.
+- **Floating Point (`Float`, `float64`)**: Operations that would overflow IEEE-754 limits into `+Inf`/`-Inf` automatically promote to arbitrary-precision `*big.Float`.
+- **Complex Numbers (`Complex`, `complex128`)**: Overloaded arithmetic over complex numbers (e.g. `1+2i + 3+4i == (4+6i)`), promoting component floats to `*big.Float` if infinite overflow occurs.
+
+### List Comprehensions (`[expr | var <- source, filter...]`)
+Gatwd provides native Haskell/Python-style list comprehensions over collections and ranges:
 
 ```haskell
--- MaxInt64 + 1 automatically promotes to BigInt
-spawn BigIntVal: 9223372036854775807 + 1 |> assert 9223372036854775808
+-- List comprehension with generator and filter predicate:
+spawn ListVal: [x * 2 | x <- [1, 2, 3, 4], x > 2] |> assert [6 8]
 
--- True division promotes integers to float
+-- True division promotes integers to float:
 spawn FloatVal: 7 / 2 |> assert 3.5
 
--- Precedence with parentheses
-spawn IntVal: (2 + 3) * 4 |> assert 20
+-- Automatic integer and unsigned overflow promotion:
+spawn BigIntVal: 9223372036854775807 + 1 |> assert 9223372036854775808
+spawn BigIntVal: 18446744073709551615 + 1 |> assert 18446744073709551616
 
--- Infix inside let bindings
-let calc = 100 / 4 + 5 in spawn FloatVal: calc |> assert 30
+-- Complex number arithmetic:
+spawn ComplexVal: 1+2i + 3+4i |> assert (4+6i)
 
--- Pipeline Operator Sections (Haskell-style)
+-- Pipeline Operator Sections:
 spawn IntVal: 10 |> * 5 |> / 2 |> assert 25
 ```
 

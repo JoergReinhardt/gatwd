@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -96,5 +97,17 @@ func TestInfixParser_VariableLookup(t *testing.T) {
 	}
 	if v, ok := val2.(float64); !ok || v != 150.0 {
 		t.Fatalf("expected 150.0, got %v (%T)", val2, val2)
+	}
+}
+
+func TestInfixParser_ListComprehensions(t *testing.T) {
+	// [x * 2 | x <- [1, 2, 3, 4], x > 2] should yield [6, 8]
+	val, err := parser.EvalInfixString("[x * 2 | x <- [1, 2, 3, 4], x > 2]", nil)
+	if err != nil {
+		t.Fatalf("comprehension failed: %v", err)
+	}
+	resStr := fmt.Sprintf("%v", val)
+	if resStr != "[6 8]" {
+		t.Fatalf("expected '[6 8]', got %v", resStr)
 	}
 }

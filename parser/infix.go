@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
@@ -20,6 +21,11 @@ const (
 	TokOp
 	TokLParen
 	TokRParen
+	TokLBracket
+	TokRBracket
+	TokComma
+	TokPipe
+	TokArrow
 )
 
 type TokenItem struct {
@@ -51,6 +57,21 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			i++
 			continue
 		}
+		if r == '[' {
+			tokens = append(tokens, TokenItem{Type: TokLBracket, Text: "["})
+			i++
+			continue
+		}
+		if r == ']' {
+			tokens = append(tokens, TokenItem{Type: TokRBracket, Text: "]"})
+			i++
+			continue
+		}
+		if r == ',' {
+			tokens = append(tokens, TokenItem{Type: TokComma, Text: ","})
+			i++
+			continue
+		}
 
 		// String literal: "..."
 		if r == '"' {
@@ -68,9 +89,14 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		}
 
 		// Multi-character or single-character operators
-		// ++, ==, !=, <=, >=, &&, ||, //
+		// <-, ->, ++, ==, !=, <=, >=, &&, ||, //
 		if i+1 < n {
 			two := string(runes[i : i+2])
+			if two == "<-" {
+				tokens = append(tokens, TokenItem{Type: TokArrow, Text: "<-"})
+				i += 2
+				continue
+			}
 			if two == "++" || two == "==" || two == "!=" || two == "<=" || two == ">=" || two == "&&" || two == "||" || two == "//" {
 				tokens = append(tokens, TokenItem{Type: TokOp, Text: two})
 				i += 2
@@ -78,11 +104,15 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			}
 		}
 
+		if r == '|' {
+			tokens = append(tokens, TokenItem{Type: TokPipe, Text: "|"})
+			i++
+			continue
+		}
+
 		// Single-character operators: +, -, *, /, %, <, >
 		if r == '+' || r == '-' || r == '*' || r == '/' || r == '%' || r == '<' || r == '>' {
-			// Check if '-' or '+' is a unary sign in front of a number:
-			// If previous token was an operator, lparen, or beginning of input, treat as signed number
-			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokLParen)
+			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokLParen || tokens[len(tokens)-1].Type == TokLBracket || tokens[len(tokens)-1].Type == TokComma || tokens[len(tokens)-1].Type == TokPipe || tokens[len(tokens)-1].Type == TokArrow)
 			if (r == '-' || r == '+') && isUnary && i+1 < n && (unicode.IsDigit(runes[i+1])) {
 				// Parse signed number below
 			} else {
@@ -92,13 +122,13 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			}
 		}
 
-		// Number (integer or float)
+		// Number (integer, float, or complex literal with 'i')
 		if unicode.IsDigit(r) || ((r == '-' || r == '+') && i+1 < n && unicode.IsDigit(runes[i+1])) {
 			start := i
 			if r == '-' || r == '+' {
 				i++
 			}
-			for i < n && (unicode.IsDigit(runes[i]) || runes[i] == '.') {
+			for i < n && (unicode.IsDigit(runes[i]) || runes[i] == '.' || runes[i] == 'i') {
 				i++
 			}
 			tokens = append(tokens, TokenItem{Type: TokNumber, Text: string(runes[start:i])})
@@ -145,7 +175,6 @@ func (e VarExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 			return val, nil
 		}
 	}
-	// Check standard boolean/literal constants
 	if e.Name == "true" {
 		return true, nil
 	}
@@ -171,6 +200,113 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		return nil, err
 	}
 	return functions.EvalBinaryOp(e.Op, l, r)
+}
+
+// ListLiteralExpr represents a list literal: [1, 2, 3]
+type ListLiteralExpr struct {
+	Elements []Expr
+}
+
+func (e ListLiteralExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	res := collections.Nil[any]()
+	// Cons prepends, so reverse to preserve order
+	for idx := len(e.Elements) - 1; idx >= 0; idx-- {
+		val, err := e.Elements[idx].Eval(lookup)
+		if err != nil {
+			return nil, err
+		}
+		res = collections.Cons(val, res)
+	}
+	return res, nil
+}
+
+// ListComprehensionExpr represents [expr | var <- source, filterExpr...]
+type ListComprehensionExpr struct {
+	YieldExpr Expr
+	VarName   string
+	Source    Expr
+	Filters   []Expr
+}
+
+func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	srcVal, err := e.Source.Eval(lookup)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []any
+	switch s := srcVal.(type) {
+	case *collections.List[any]:
+		for item := range s.Seq() {
+			items = append(items, item)
+		}
+	case *collections.List[int]:
+		for item := range s.Seq() {
+			items = append(items, item)
+		}
+	case *collections.List[string]:
+		for item := range s.Seq() {
+			items = append(items, item)
+		}
+	case []any:
+		items = append(items, s...)
+	case []int:
+		for _, x := range s {
+			items = append(items, x)
+		}
+	case []string:
+		for _, x := range s {
+			items = append(items, x)
+		}
+	case int:
+		// Range 0 .. s-1
+		for i := 0; i < s; i++ {
+			items = append(items, i)
+		}
+	default:
+		return nil, fmt.Errorf("list comprehension source must be a collection, got %T", srcVal)
+	}
+
+	var collected []any
+	for _, item := range items {
+		// Scoped lookup binding VarName
+		scopedLookup := func(k string) (any, bool) {
+			if k == e.VarName {
+				return item, true
+			}
+			if lookup != nil {
+				return lookup(k)
+			}
+			return nil, false
+		}
+
+		passed := true
+		for _, filt := range e.Filters {
+			fRes, err := filt.Eval(scopedLookup)
+			if err != nil {
+				return nil, err
+			}
+			b, ok := fRes.(bool)
+			if !ok || !b {
+				passed = false
+				break
+			}
+		}
+
+		if passed {
+			yVal, err := e.YieldExpr.Eval(scopedLookup)
+			if err != nil {
+				return nil, err
+			}
+			collected = append(collected, yVal)
+		}
+	}
+
+	resList := collections.Nil[any]()
+	for idx := len(collected) - 1; idx >= 0; idx-- {
+		resList = collections.Cons(collected[idx], resList)
+	}
+	return resList, nil
 }
 
 // InfixParser builds an Expr using precedence climbing.
@@ -255,6 +391,13 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 	tok := p.next()
 	switch tok.Type {
 	case TokNumber:
+		if strings.HasSuffix(tok.Text, "i") {
+			c, err := strconv.ParseComplex(tok.Text, 128)
+			if err != nil {
+				return nil, err
+			}
+			return LiteralExpr{Value: c}, nil
+		}
 		if strings.Contains(tok.Text, ".") {
 			f, err := strconv.ParseFloat(tok.Text, 64)
 			if err != nil {
@@ -288,6 +431,74 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			return nil, fmt.Errorf("expected closing parenthesis ')'")
 		}
 		return expr, nil
+
+	case TokLBracket:
+		// Check for empty list []
+		if p.peek().Type == TokRBracket {
+			p.next()
+			return ListLiteralExpr{Elements: nil}, nil
+		}
+
+		firstExpr, err := p.parsePrecedence(0)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check if this is a List Comprehension: [expr | var <- src, filter...]
+		if p.peek().Type == TokPipe {
+			p.next() // consume '|'
+			varTok := p.next()
+			if varTok.Type != TokIdent {
+				return nil, fmt.Errorf("expected generator variable name after '|'")
+			}
+			arrowTok := p.next()
+			if arrowTok.Type != TokArrow || arrowTok.Text != "<-" {
+				return nil, fmt.Errorf("expected '<-' in generator, got %s", arrowTok.Text)
+			}
+			sourceExpr, err := p.parsePrecedence(0)
+			if err != nil {
+				return nil, err
+			}
+
+			var filters []Expr
+			for p.peek().Type == TokComma {
+				p.next() // consume ','
+				filt, err := p.parsePrecedence(0)
+				if err != nil {
+					return nil, err
+				}
+				filters = append(filters, filt)
+			}
+
+			if p.next().Type != TokRBracket {
+				return nil, fmt.Errorf("expected closing bracket ']' after list comprehension")
+			}
+
+			return ListComprehensionExpr{
+				YieldExpr: firstExpr,
+				VarName:   varTok.Text,
+				Source:    sourceExpr,
+				Filters:   filters,
+			}, nil
+		}
+
+		// Standard List Literal: [elem1, elem2, ...] or [elem1 elem2 ...]
+		elements := []Expr{firstExpr}
+		for {
+			if p.peek().Type == TokRBracket {
+				p.next()
+				break
+			}
+			if p.peek().Type == TokComma {
+				p.next()
+			}
+			elem, err := p.parsePrecedence(0)
+			if err != nil {
+				return nil, err
+			}
+			elements = append(elements, elem)
+		}
+		return ListLiteralExpr{Elements: elements}, nil
 
 	default:
 		return nil, fmt.Errorf("unexpected token in expression: %s", tok.Text)

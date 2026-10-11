@@ -8,6 +8,9 @@ type IntVal = Int
 type StrVal = String
 type FloatVal = Float
 type BigIntVal = BigInt
+type UintVal = Uint
+type ComplexVal = Complex
+type ListVal = List(Int)
 
 -- 1. Primitive Type Spawning and Pure Math Adapters
 spawn IntVal: 10 |> math_add 5 |> assert 15
@@ -147,4 +150,13 @@ spawn StrVal: "Hello " ++ "Gatwd" |> assert Hello Gatwd
 
 -- 40. Boolean Logic Infix Evaluation
 spawn StrVal: (5 < 10 && 3 == 3) |> assert true
+
+-- 41. Uint Overflow Promotion to BigInt
+spawn BigIntVal: 18446744073709551615 + 1 |> assert 18446744073709551616
+
+-- 42. Complex Number Arithmetic with Infix Overloading
+spawn ComplexVal: 1+2i + 3+4i |> assert (4+6i)
+
+-- 43. List Comprehensions [expr | var <- source, filter...]
+spawn ListVal: [x * 2 | x <- [1, 2, 3, 4], x > 2] |> assert [6 8]
 
