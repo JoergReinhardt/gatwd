@@ -1,0 +1,93 @@
+{
+  "Canonical non-primitive recursive Ackermann function": {
+    "body": [
+      "def ackermann = match {",
+      "    [0, n] -\u003e n + 1",
+      "    | [m, 0] -\u003e [m - 1, 1] |\u003e ackermann",
+      "    | [m, n] -\u003e let res = [m, n - 1] |\u003e ackermann in [m - 1, res] |\u003e ackermann",
+      "}"
+    ],
+    "description": "Canonical non-primitive recursive Ackermann function",
+    "prefix": "ackermann"
+  },
+  "Declarative list comprehension": {
+    "body": [
+      "[${1:x} | ${1:x} \u003c- ${2:source}, ${3:condition}]"
+    ],
+    "description": "Declarative list comprehension",
+    "prefix": "comp"
+  },
+  "Declare a script constant": {
+    "body": [
+      "const ${1:NAME} = ${2:value}"
+    ],
+    "description": "Declare a script constant",
+    "prefix": "const"
+  },
+  "Declare an algebraic data type or record": {
+    "body": [
+      "type ${1:TypeName} = ${2:Definition}"
+    ],
+    "description": "Declare an algebraic data type or record",
+    "prefix": "type"
+  },
+  "Define a reusable Gatwd pipeline function": {
+    "body": [
+      "def ${1:function_name} = ${2:pipeline_body}"
+    ],
+    "description": "Define a reusable Gatwd pipeline function",
+    "prefix": "def"
+  },
+  "Pattern matching with 2-element tuple/list destructuring (Ackermann style)": {
+    "body": [
+      "match {",
+      "    [0, ${1:n}] -\u003e ${1:n} + 1",
+      "    | [${2:m}, 0] -\u003e [${2:m} - 1, 1] |\u003e ${3:func}",
+      "    | [${2:m}, ${1:n}] -\u003e let res = [${2:m}, ${1:n} - 1] |\u003e ${3:func} in [${2:m} - 1, res] |\u003e ${3:func}",
+      "}"
+    ],
+    "description": "Pattern matching with 2-element tuple/list destructuring (Ackermann style)",
+    "prefix": "match_tuple"
+  },
+  "Pattern matching with ADT head/tail list destructuring": {
+    "body": [
+      "match {",
+      "    [] -\u003e empty",
+      "    | [${1:pivot}, ...${2:rest}] -\u003e ${3:step}",
+      "}"
+    ],
+    "description": "Pattern matching with ADT head/tail list destructuring",
+    "prefix": "match"
+  },
+  "Persistent HAMT key-value pipeline": {
+    "body": [
+      "to_hamt |\u003e hamt_set \"${1:key}\" \"${2:value}\" |\u003e hamt_get \"${1:key}\""
+    ],
+    "description": "Persistent HAMT key-value pipeline",
+    "prefix": "hamt"
+  },
+  "Pure Turing-complete Quicksort using list comprehensions": {
+    "body": [
+      "def quicksort = match {",
+      "    [] -\u003e empty",
+      "    | [pivot, ...rest] -\u003e seq { [x | x \u003c- rest, x \u003c pivot] |\u003e quicksort | pivot | [x | x \u003c- rest, x \u003e= pivot] |\u003e quicksort }",
+      "}"
+    ],
+    "description": "Pure Turing-complete Quicksort using list comprehensions",
+    "prefix": "quicksort"
+  },
+  "Scoped let-binding expression": {
+    "body": [
+      "let ${1:variable} = ${2:expression} in ${3:body}"
+    ],
+    "description": "Scoped let-binding expression",
+    "prefix": "let"
+  },
+  "Spawn a typed AST stream pipeline": {
+    "body": [
+      "spawn ${1:Type}: ${2:initial_value} |\u003e ${3:step}"
+    ],
+    "description": "Spawn a typed AST stream pipeline",
+    "prefix": "spawn"
+  }
+}
