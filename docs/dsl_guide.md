@@ -99,12 +99,12 @@ spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 
 ## 7. ADT Pattern Matching & List Destructuring
 
-Pattern matching supports full list deconstruction (`[pivot, ...rest]`), enabling functional recursion like Quicksort:
+Pattern matching supports full list deconstruction (`[pivot, ...rest]`), enabling pure functional recursion like Quicksort using list comprehensions:
 
 ```haskell
 def quicksort = match {
     [] -> empty
-    | [pivot, ...rest] -> seq { rest |> filter_less pivot |> collect_list |> quicksort | pivot | rest |> filter_greater pivot |> collect_list |> quicksort }
+    | [pivot, ...rest] -> seq { [x | x <- rest, x < pivot] |> quicksort | pivot | [x | x <- rest, x >= pivot] |> quicksort }
 }
 
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]

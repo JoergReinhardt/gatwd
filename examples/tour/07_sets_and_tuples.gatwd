@@ -10,6 +10,9 @@ def merge = format_tuple "(%s, %s)!"
 -- 1. Sets and Deduplication
 spawn Node: dummy |> get_unique_files |> take 3
 
--- 2. Tuples and FanOut Formatting
--- (Note: &&& operators execute pure OS adapters directly)
+-- 2. Persistent HAMT-Backed Sets with Infix Testing
+spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains golang
+
+-- 3. Tuples and FanOut Formatting
 spawn Node: A |> (echo Left_%s &&& echo Right_%s) |> merge
+

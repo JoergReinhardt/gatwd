@@ -21,3 +21,11 @@ spawn OS: Linux |> map (\x -> echo Hello from x!)
 -- 4. Local State (Let Bindings)
 -- We store the result of an evaluation in 'x', and substitute it later!
 let x = spawn OS: Windows |> echo WINDOWS_HOST in spawn OS: Linux |> echo I am Linux, but I know about x
+
+-- 5. Turing-Complete Functional Quicksort (List Comprehensions & Infix Math)
+type IntList = List(Int)
+def quicksort = match {
+    [] -> empty
+    | [pivot, ...rest] -> seq { [x | x <- rest, x < pivot] |> quicksort | pivot | [x | x <- rest, x >= pivot] |> quicksort }
+}
+spawn IntList: [5, 2, 8, 1, 9, 3] |> quicksort |> collect_list

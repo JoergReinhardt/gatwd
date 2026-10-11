@@ -125,3 +125,34 @@ compliance_check =
     |> getPods
     |> expect "is_non_root" "CRITICAL: Pod is running as root!"
     |> getLogs          -- The 'getLogs' adapter will automatically BYPASS the Error node!
+
+
+-- ---------------------------------------------------------------------
+-- 10. Infix Arithmetic & Operator Sections
+-- ---------------------------------------------------------------------
+
+-- Full operator precedence, true division (/), BigInt overflow protection,
+-- and Haskell-style operator sections:
+math_pipeline =
+    spawn IntVal: 10
+    |> * 5
+    |> / 2              -- True division yields 25.0
+    |> + 10
+
+
+-- ---------------------------------------------------------------------
+-- 11. List Comprehensions & Functional Quicksort
+-- ---------------------------------------------------------------------
+
+-- Declarative Haskell-style list comprehensions over collections:
+type IntList = List(Int)
+def quicksort = match {
+    [] -> empty
+    | [pivot, ...rest] -> seq { [x | x <- rest, x < pivot] |> quicksort | pivot | [x | x <- rest, x >= pivot] |> quicksort }
+}
+
+sort_sample =
+    spawn IntList: [5, 2, 8, 1, 9, 3]
+    |> quicksort
+    |> collect_list
+

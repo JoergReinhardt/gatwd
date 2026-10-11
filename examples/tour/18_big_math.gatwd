@@ -1,8 +1,15 @@
 type Balance = BigInt
 type Score = Float
+type ComplexVal = Complex
 
--- 1. Using math/big.Int intrinsically mapped via DSL!
-spawn Balance: 999999999999999999999999999999 |> math_add 1
+-- 1. Using arbitrary-precision BigInt arithmetic with infix operators
+spawn Balance: 999999999999999999999999999999 + 1
 
--- 2. Floating point intrinsic casting
-spawn Score: 99.5 |> math_add 0.25
+-- 2. Floating point intrinsic promotion and true division
+spawn Score: 7 / 2
+
+-- 3. Automatic 64-bit integer overflow promotion directly to BigInt!
+spawn Balance: 9223372036854775807 + 1
+
+-- 4. Infix Complex number arithmetic
+spawn ComplexVal: 1+2i + 3+4i

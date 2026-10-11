@@ -3,8 +3,17 @@
 -- Run: ./gatwd examples/tour/02_transducers.gatwd
 -- ==========================================================
 type Network = Interface
+type IntVal = Int
 
 -- Transducers map/filter sequences without allocating arrays.
 -- Because OS commands like 'ip a' might return thousands of lines, 
 -- you can safely bound the infinite trampoline using 'take' or 'drop'.
+-- 1. Stream slicing with take and drop
 spawn Network: eth0 |> ip a |> drop 1 |> take 2
+
+-- 2. Performance Batching with Chunks (CPU Cache Locality)
+spawn IntVal: 0 |> emit 10, 20, 30, 40 |> drop 1 |> chunk 2 |> head
+
+-- 3. Transducer Infix Operator Sections
+spawn IntVal: 10 |> * 2 |> + 5
+

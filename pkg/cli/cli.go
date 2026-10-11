@@ -158,6 +158,39 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			continue
 		}
 
+		// List Comprehension or List Literal Yielding
+		if strings.HasPrefix(stepStr, "[") && strings.HasSuffix(stepStr, "]") && !strings.Contains(stepStr, " *** ") {
+			rawExpr := stepStr
+			listStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					lookup := func(k string) (any, bool) {
+						if rt, ok := i.RuntimeNodes[k]; ok {
+							if rt.Value.IsRight() {
+								val, _ := rt.Value.UnwrapRight()
+								return val, true
+							}
+						}
+						if v, ok := i.Variables[k]; ok {
+							return v, true
+						}
+						if v, ok := i.Constants[k]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if val, err := parser.EvalInfixString(rawExpr, lookup); err == nil {
+						wrapped := functions.Right[error, any](val)
+						flag := i.Parser.GetFlag("List")
+						if !yield(dsltypes.NewASTNode(wrapped, flag)) {
+							return
+						}
+					}
+				}
+			}
+			pipeline = append(pipeline, listStep)
+			continue
+		}
+
 		if strings.HasPrefix(stepStr, "take") {
 			for res := range parser.ParseTake()(stepStr) {
 				pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, any]](res.Fst))
