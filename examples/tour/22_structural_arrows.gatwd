@@ -12,4 +12,4 @@ spawn IntVal: 1 |> (math_add 100 &&& math_add 200) |> visualize --color-type=Tup
 
 -- 2. Native Pattern Matching (Catamorphisms)
 -- Match routers now also compile full sub-pipelines per branch!
-spawn IntVal: 99 |> match { IntVal -> math_add 1 |> math_add 2 } |> visualize --color-val=102:green
+spawn IntVal: 99 |> match { 99 -> math_add 1 |> math_add 2 } |> visualize --color-val=102:green
