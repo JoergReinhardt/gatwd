@@ -84,6 +84,7 @@ func DefaultSpec() GrammarSpec {
 			{Name: "RBTree", Description: "Self-balancing red-black tree"},
 			{Name: "Pair", Description: "Heterogeneous 2-element tuple product type"},
 			{Name: "Tuple", Description: "N-ary product type"},
+			{Name: "Grid", Description: "Immutable 2D spatial plane or comonadic torus grid"},
 		},
 		Builtins: []BuiltinDef{
 			// Transducers & Core
@@ -143,6 +144,9 @@ func DefaultSpec() GrammarSpec {
 			{Name: "telemetry", Category: "observability", Signature: "telemetry", Description: "Track and emit stream throughput telemetry"},
 			{Name: "checkpoint", Category: "reliability", Signature: "checkpoint <id> <interval>", Description: "Periodically persist pipeline state for recovery"},
 			{Name: "ebnf_parse", Category: "parser", Signature: "ebnf_parse <rule> <grammar>", Description: "Compile dynamic EBNF grammar and parse string stream into AST"},
+			{Name: "conway_step", Category: "automata", Signature: "conway_step", Description: "Advance 2D Comonadic Cellular Automaton grid by one generation"},
+			{Name: "conway_render", Category: "automata", Signature: "conway_render [mode] [color]", Description: "Render 2D Grid using sub-character UTF-8 resolution (braille, quadrant, halfblock, cell)"},
+			{Name: "parse_life", Category: "automata", Signature: "parse_life [width] [height]", Description: "Parse ASCII .life pattern string into comonadic Grid[bool]"},
 		},
 		Operators: []OperatorDef{
 			// Pipes

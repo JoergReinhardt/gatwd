@@ -162,3 +162,28 @@ func (g *Grid[T]) Extend(rule func(*GridZipper[T]) T) *Grid[T] {
 func StepConway(g *Grid[bool]) *Grid[bool] {
 	return Extend(g.ZipperAt(0, 0), ConwayRule)
 }
+
+// Population counts the number of living cells in the grid.
+func (g *Grid[T]) Population() int {
+	count := 0
+	for _, cell := range g.cells {
+		if b, ok := any(cell).(bool); ok && b {
+			count++
+		}
+	}
+	return count
+}
+
+// LiveCoordinates returns a slice of [x, y] coordinates for all live cells.
+func (g *Grid[T]) LiveCoordinates() [][2]int {
+	var res [][2]int
+	for y := 0; y < g.Height; y++ {
+		for x := 0; x < g.Width; x++ {
+			if b, ok := any(g.Get(x, y)).(bool); ok && b {
+				res = append(res, [2]int{x, y})
+			}
+		}
+	}
+	return res
+}
+

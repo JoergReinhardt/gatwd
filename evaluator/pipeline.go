@@ -1451,3 +1451,112 @@ func StepEBNFParse(startRule, ebnfText string) PipelineStep[functions.Either[err
 	}
 }
 
+// StepConway advances any incoming comonads.Grid[bool] by one discrete generation.
+func StepConway() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
+				val, _ := node.Value.UnwrapRight()
+				if grid, ok := val.(*comonads.Grid[bool]); ok {
+					nextGrid := comonads.StepConway(grid)
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextGrid)), node.DSLType)
+					if !yield(newNode) {
+						return
+					}
+				} else {
+					errNode := InjectError[any](fmt.Errorf("step conway expected *comonads.Grid[bool], got %T", val), node.DSLType)
+					if !yield(errNode) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// StepParseLife parses an ASCII .life string into an immutable comonads.Grid[bool].
+func StepParseLife(targetW, targetH int) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
+				val, _ := node.Value.UnwrapRight()
+				strVal := fmt.Sprintf("%v", val)
+
+				// Parse ASCII rows (ignoring # comments)
+				lines := strings.Split(strVal, "\n")
+				var cellRows [][]bool
+				maxW := 0
+				for _, line := range lines {
+					line = strings.TrimRight(line, "\r")
+					t := strings.TrimSpace(line)
+					if t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "!") {
+						continue
+					}
+					var row []bool
+					for _, ch := range line {
+						if ch == 'O' || ch == 'o' || ch == '*' || ch == '#' || ch == '1' {
+							row = append(row, true)
+						} else {
+							row = append(row, false)
+						}
+					}
+					if len(row) > maxW {
+						maxW = len(row)
+					}
+					cellRows = append(cellRows, row)
+				}
+
+				w := targetW
+				h := targetH
+				if w <= 0 {
+					w = maxW + 4
+					if w < 10 {
+						w = 10
+					}
+				}
+				if h <= 0 {
+					h = len(cellRows) + 4
+					if h < 10 {
+						h = 10
+					}
+				}
+
+				offsetX := (w - maxW) / 2
+				offsetY := (h - len(cellRows)) / 2
+
+				grid := comonads.NewGrid(w, h, true, func(x, y int) bool {
+					px := x - offsetX
+					py := y - offsetY
+					if py >= 0 && py < len(cellRows) {
+						row := cellRows[py]
+						if px >= 0 && px < len(row) {
+							return row[px]
+						}
+					}
+					return false
+				})
+
+				newNode := dsltypes.NewASTNode(functions.Right[error, any](any(grid)), node.DSLType)
+				if !yield(newNode) {
+					return
+				}
+			}
+		}
+	}
+}
+
+

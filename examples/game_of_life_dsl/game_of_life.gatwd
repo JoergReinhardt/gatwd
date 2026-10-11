@@ -1,0 +1,42 @@
+-- ==============================================================================
+-- Conway's Game of Life in Pure Gatwd DSL
+-- ==============================================================================
+-- This script implements Conway's Game of Life entirely using Gatwd DSL
+-- macros, stream pipelines, and UTF-8 sub-character visualization.
+--
+-- Supported patterns: Glider, Blinker, Toad, Beacon, Pulsar.
+-- ==============================================================================
+
+type LifeGrid = Grid(Bool)
+
+-- 1. Declare reusable macro pipelines
+-- A pipeline that parses an ASCII pattern into a Comonadic Grid, advances it, and renders it
+def step_and_render = conway_step |> conway_render braille cyan
+
+-- 2. Glider Pattern Definition (ASCII .life format)
+const GLIDER_ASCII = "
+#NAME Glider
+.O.
+..O
+OOO
+"
+
+-- 3. Blinker Oscillator Definition
+const BLINKER_ASCII = "
+#NAME Blinker
+...
+OOO
+...
+"
+
+-- 4. Execute Glider Generation 0 -> Render in Braille (2x4 sub-pixels)
+spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_render braille cyan
+
+-- 5. Advance Glider by 1 generation via conway_step |> conway_render
+spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_step |> conway_render braille cyan
+
+-- 6. Advance Glider by 4 full generations (completes one diagonal translation cycle!)
+spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_step |> conway_step |> conway_step |> conway_step |> conway_render braille cyan
+
+-- 7. Execute Blinker Period-2 Oscillator check
+spawn LifeGrid: BLINKER_ASCII |> parse_life 20 20 |> conway_step |> conway_render quadrant yellow

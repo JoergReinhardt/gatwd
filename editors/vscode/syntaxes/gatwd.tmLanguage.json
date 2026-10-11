@@ -25,11 +25,11 @@
       "name": "keyword.control.gatwd"
     },
     {
-      "match": "\\b(Int|String|Float|BigInt|BigFloat|Complex|Uint|Bool|List|Set|Tree|BST|BTree|RBTree|Pair|Tuple)\\b",
+      "match": "\\b(Int|String|Float|BigInt|BigFloat|Complex|Uint|Bool|List|Set|Tree|BST|BTree|RBTree|Pair|Tuple|Grid)\\b",
       "name": "entity.name.type.gatwd"
     },
     {
-      "match": "\\b(take|drop|head|tail|distinct|fold|memoize|map|filter|filter_less|filter_greater|sort|emit|chunk|unchunk|collect_list|to_hamt|hamt_get|hamt_set|hamt_del|hamt_keys|hamt_values|to_set|set_add|set_contains|set_remove|set_elements|parse_record|focus|update|build_tree|into_zipper|down|up|left|right|extract|zip|format_tuple|assert|expect|debug_print|visualize|telemetry|checkpoint|ebnf_parse)\\b",
+      "match": "\\b(take|drop|head|tail|distinct|fold|memoize|map|filter|filter_less|filter_greater|sort|emit|chunk|unchunk|collect_list|to_hamt|hamt_get|hamt_set|hamt_del|hamt_keys|hamt_values|to_set|set_add|set_contains|set_remove|set_elements|parse_record|focus|update|build_tree|into_zipper|down|up|left|right|extract|zip|format_tuple|assert|expect|debug_print|visualize|telemetry|checkpoint|ebnf_parse|conway_step|conway_render|parse_life)\\b",
       "name": "support.function.builtin.gatwd"
     },
     {

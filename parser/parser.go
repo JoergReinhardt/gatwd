@@ -54,6 +54,8 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 							}
 						} else if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
 							parsedValue = factory(value)
+						} else if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
+							parsedValue = value[1 : len(value)-1]
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }
@@ -87,7 +89,7 @@ func (p *Parser) parseType(line string) {
 		// Record Type: { Field: Type, Field: Type }
 		// Just register the base type for now (BitFlags can't inherently track struct shapes)
 		p.registerOrGet(typeName)
-	} else if (strings.HasPrefix(definition, "Set(") || strings.HasPrefix(definition, "List(") || strings.HasPrefix(definition, "Tree(") || strings.HasPrefix(definition, "BST(") || strings.HasPrefix(definition, "BTree(") || strings.HasPrefix(definition, "RBTree(")) && strings.HasSuffix(definition, ")") {
+	} else if (strings.HasPrefix(definition, "Set(") || strings.HasPrefix(definition, "List(") || strings.HasPrefix(definition, "Grid(") || strings.HasPrefix(definition, "Tree(") || strings.HasPrefix(definition, "BST(") || strings.HasPrefix(definition, "BTree(") || strings.HasPrefix(definition, "RBTree(")) && strings.HasSuffix(definition, ")") {
 			p.registerOrGet(typeName)
 		} else if strings.HasPrefix(definition, "(") && strings.HasSuffix(definition, ")") {
 		// Tuple Type: (Type1, Type2)
@@ -149,4 +151,9 @@ func (p *Parser) RegisterTypeFactory(definition string, factory func(string) any
 }
 func (p *Parser) GetFlag(typeName string) dsltypes.BitFlag {
 	return p.registerOrGet(typeName)
+}
+
+func (p *Parser) GetFactory(typeName string) (func(string) any, bool) {
+	f, ok := p.typeFactories[typeName]
+	return f, ok
 }

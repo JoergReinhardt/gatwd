@@ -649,6 +649,33 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				grammarText := strings.Trim(parts[1], "\"")
 				pipeline = append(pipeline, evaluator.StepEBNFParse(startRule, grammarText))
 			}
+		} else if stepStr == "conway_step" {
+			pipeline = append(pipeline, evaluator.StepConway())
+		} else if strings.HasPrefix(stepStr, "conway_render") {
+			parts := strings.Fields(stepStr)
+			mode := "braille"
+			color := "cyan"
+			if len(parts) > 1 {
+				mode = strings.Trim(parts[1], "\"")
+			}
+			if len(parts) > 2 {
+				color = strings.Trim(parts[2], "\"")
+			}
+			pipeline = append(pipeline, visualizer.StepConwayRender(mode, color))
+		} else if strings.HasPrefix(stepStr, "parse_life") {
+			parts := strings.Fields(stepStr)
+			w, h := 80, 40
+			if len(parts) > 1 {
+				if val, err := strconv.Atoi(parts[1]); err == nil {
+					w = val
+				}
+			}
+			if len(parts) > 2 {
+				if val, err := strconv.Atoi(parts[2]); err == nil {
+					h = val
+				}
+			}
+			pipeline = append(pipeline, evaluator.StepParseLife(w, h))
 		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
 			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))
@@ -996,6 +1023,30 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		}
 	}
 
+	if strings.HasPrefix(firstPart, "spawn ") {
+		colonIdx := strings.Index(firstPart, ":")
+		if colonIdx != -1 {
+			typeName := strings.TrimSpace(firstPart[6:colonIdx])
+			valStr := strings.TrimSpace(firstPart[colonIdx+1:])
+			var parsedValue any = valStr
+			if strings.ContainsAny(valStr, "+-*/%&|<>= ") {
+				if evaluated, err := parser.EvalInfixString(valStr, nil); err == nil {
+					parsedValue = evaluated
+				} else if factory, ok := i.Parser.GetFactory(typeName); ok {
+					parsedValue = factory(valStr)
+				}
+			} else if factory, ok := i.Parser.GetFactory(typeName); ok {
+				parsedValue = factory(valStr)
+			} else if strings.HasPrefix(valStr, "\"") && strings.HasSuffix(valStr, "\"") && len(valStr) >= 2 {
+				parsedValue = valStr[1 : len(valStr)-1]
+			}
+			flag := i.Parser.GetFlag(typeName)
+			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+				yield(dsltypes.NewASTNode(functions.Right[error, any](parsedValue), flag))
+			}
+		}
+	}
+
 	stringStream := i.Parser.Parse(firstPart)
 	return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
@@ -1066,13 +1117,22 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		firstPart = strings.Join(words, " ")
 	}
 	for k, v := range i.Constants {
-		words := strings.Split(firstPart, " ")
-		for idx, w := range words {
-			if w == k {
-				words[idx] = fmt.Sprintf("%v", v)
+		// Replace bare identifier in firstPart or after "spawn Type: IDENT"
+		colonParts := strings.SplitN(firstPart, ":", 2)
+		if len(colonParts) == 2 {
+			rhs := strings.TrimSpace(colonParts[1])
+			if rhs == k {
+				firstPart = colonParts[0] + ": " + fmt.Sprintf("%v", v)
 			}
+		} else {
+			words := strings.Split(firstPart, " ")
+			for idx, w := range words {
+				if w == k {
+					words[idx] = fmt.Sprintf("%v", v)
+				}
+			}
+			firstPart = strings.Join(words, " ")
 		}
-		firstPart = strings.Join(words, " ")
 	}
 
 	initialStream := i.buildInitialStream(firstPart)
@@ -1185,6 +1245,10 @@ func (i *Interpreter) EvaluateLine(line string) {
 			constName := strings.TrimSpace(parts[0])
 			valStr := strings.TrimSpace(parts[1])
 			valStr = strings.Trim(valStr, "\"")
+			if strings.Contains(valStr, "\n") {
+				i.Constants[constName] = valStr
+				return
+			}
 			lookup := func(k string) (any, bool) {
 				if v, ok := i.Constants[k]; ok {
 					return v, true
@@ -1243,7 +1307,11 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 		}
 
 		if buffer != "" {
-			buffer += " " + line
+			if strings.Count(buffer, "\"")%2 != 0 {
+				buffer += "\n" + rawLine
+			} else {
+				buffer += " " + line
+			}
 		} else {
 			buffer = line
 		}
@@ -1257,7 +1325,8 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 			strings.HasSuffix(buffer, "\\") ||
 			strings.Count(buffer, "{") > strings.Count(buffer, "}") ||
 			strings.Count(buffer, "(") > strings.Count(buffer, ")") ||
-			strings.Count(buffer, "[") > strings.Count(buffer, "]") {
+			strings.Count(buffer, "[") > strings.Count(buffer, "]") ||
+			strings.Count(buffer, "\"")%2 != 0 {
 			continue // Wait for next line
 		}
 

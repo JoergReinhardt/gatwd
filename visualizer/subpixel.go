@@ -199,3 +199,34 @@ func (c *SubpixelCanvas) Render(color string) string {
 
 	return sb.String()
 }
+
+// Visualize implements the Visualizer interface so SubpixelCanvas can be
+// formatted directly by visualizer.Format / StepVisualize.
+func (c *SubpixelCanvas) Visualize(opts Options, prefix string, isLast bool, currentDepth int) string {
+	rendered := c.Render(opts.Color)
+	lines := strings.Split(rendered, "\n")
+	var sb strings.Builder
+	for i, line := range lines {
+		if i == 0 {
+			sb.WriteString(prefix + branch(isLast, opts.Style) + line + "\n")
+		} else {
+			sb.WriteString(prefix + extend(isLast, opts.Style) + line + "\n")
+		}
+	}
+	return sb.String()
+}
+
+// RenderGridSubpixel renders a 2D boolean grid or slice of coordinates directly into UTF-8 sub-pixels.
+func RenderGridSubpixel(width, height int, isLive func(x, y int) bool, mode SubpixelMode, color string) string {
+	canvas := NewSubpixelCanvas(width, height, mode)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if isLive(x, y) {
+				canvas.Set(x, y, true)
+			}
+		}
+	}
+	return canvas.Render(color)
+}
+
+
