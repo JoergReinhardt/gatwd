@@ -1,6 +1,10 @@
 package collections
 
-import "iter"
+import (
+	"fmt"
+	"iter"
+	"strings"
+)
 
 // List represents an immutable, singly-linked list (a Cons list).
 //
@@ -79,4 +83,18 @@ func (l *List[T]) Graph() any {
 		Head: l.head,
 		Tail: l.tail,
 	}
+}
+
+func (l *List[T]) String() string {
+	if l.IsEmpty() {
+		return "[]"
+	}
+	var elements []string
+	current := l
+	for !current.IsEmpty() {
+		head, _ := current.Head()
+		elements = append(elements, fmt.Sprintf("%v", head))
+		current, _ = current.Tail()
+	}
+	return "[" + strings.Join(elements, " ") + "]"
 }

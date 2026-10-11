@@ -41,3 +41,10 @@ spawn IntVal: 5 |> add20 |> assert 25
 -- 10. Recursive Macros (Runtime lazy expansion)
 def countdown = match { 0 -> math_add 100 | _ -> math_sub 1 |> countdown }
 spawn IntVal: 5 |> countdown |> assert 100
+
+-- 11. Algebraic Data Type List Destructuring (Quicksort)
+def quicksort = match {
+    [] -> empty
+    | [pivot, ...rest] -> seq { rest |> filter_less pivot |> collect_list |> quicksort | pivot | rest |> filter_greater pivot |> collect_list |> quicksort }
+}
+spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]

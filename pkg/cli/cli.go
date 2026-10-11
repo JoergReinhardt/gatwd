@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/joergreinhardt/gatwd/collections"
 	"bufio"
 	"fmt"
 	"io/ioutil"
@@ -23,6 +24,7 @@ type Interpreter struct {
 	Engine    *evaluator.Engine[functions.Either[error, any]]
 	Parser    *parser.Parser
 	Funcs     map[string]string // Maps function name to pipeline string
+	RuntimeNodes map[string]dsltypes.ASTNode[functions.Either[error, any]]
 	Variables map[string]string // Maps local 'let' variables
 }
 
@@ -31,6 +33,7 @@ func NewInterpreter() *Interpreter {
 		Engine:    evaluator.NewEngine[functions.Either[error, any]](),
 		Parser:    parser.NewParser(),
 		Funcs:     make(map[string]string),
+		RuntimeNodes: make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
 		Variables: make(map[string]string),
 	}
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
@@ -59,6 +62,12 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			continue
 		}
 
+		// Runtime Variable Yielding
+		if rtNode, exists := i.RuntimeNodes[stepStr]; exists {
+			pipeline = append(pipeline, evaluator.StepYieldRuntimeNode(rtNode))
+			continue
+		}
+		
 		// Variable Substitution
 		for k, v := range i.Variables {
 			// Naive word replacement for variables
@@ -103,6 +112,16 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, evaluator.StepDrop[functions.Either[error, any]](res.Fst))
 				break
 			}
+		} else if strings.HasPrefix(stepStr, "filter_less ") {
+			varName := strings.TrimSpace(stepStr[12:])
+			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
+				pipeline = append(pipeline, evaluator.StepFilterLess(pivotNode))
+			}
+		} else if strings.HasPrefix(stepStr, "filter_greater ") {
+			varName := strings.TrimSpace(stepStr[15:])
+			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
+				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
+			}
 		} else if strings.HasPrefix(stepStr, "filter") {
 			keyword := strings.Trim(strings.TrimSpace(stepStr[6:]), "\"")
 			predicate := func(val any) bool {
@@ -125,6 +144,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, evaluator.StepExpect(predicate, fmt.Errorf("%s", errMsg)))
 				break
 			}
+		} else if stepStr == "empty" {
+			pipeline = append(pipeline, evaluator.StepEmpty())
 		} else if stepStr == "distinct" {
 			pipeline = append(pipeline, evaluator.StepDistinct())
 		} else if strings.HasPrefix(stepStr, "fold") {
@@ -228,26 +249,86 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepBuildTree(rootName))
 		} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" || stepStr == "left" || stepStr == "right" {
 			pipeline = append(pipeline, evaluator.StepZipper(stepStr))
+		} else if strings.HasPrefix(stepStr, "seq {") && strings.HasSuffix(stepStr, "}") {
+			inner := strings.TrimSpace(stepStr[5 : len(stepStr)-1])
+			casesStr := splitCasesAware(inner) // this splits by | which is fine, we can use |
+			var adapters []evaluator.Adapter[functions.Either[error, any]]
+			for _, c := range casesStr {
+				adapters = append(adapters, i.pipelineToAdapter(strings.TrimSpace(c)))
+			}
+			pipeline = append(pipeline, evaluator.StepSeq(adapters))
 		} else if strings.HasPrefix(stepStr, "match {") && strings.HasSuffix(stepStr, "}") {
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner)
-									cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
-
+			casesRaw := make(map[string]string)
 			for _, c := range casesStr {
 				parts2 := strings.SplitN(c, "->", 2)
 				if len(parts2) == 2 {
 					pattern := strings.TrimSpace(parts2[0])
 					cmd := strings.TrimSpace(parts2[1])
-					cases[pattern] = i.pipelineToAdapter(cmd)
+					casesRaw[pattern] = cmd
 				}
 			}
-				var defaultAdapter evaluator.Adapter[functions.Either[error, any]]
-				if def, ok := cases["_"]; ok {
-					defaultAdapter = def
-					delete(cases, "_")
+			
+			dynamicMatch := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					for node := range stream {
+						if node.Value.IsLeft() { if !yield(node) { return }; continue }
+						val, _ := node.Value.UnwrapRight()
+						strVal := fmt.Sprintf("%v", val)
+						
+						matched := false
+						for pattern, cmd := range casesRaw {
+							if strings.HasPrefix(pattern, "[") && strings.Contains(pattern, ", ...") && strings.HasSuffix(pattern, "]") {
+								if list, isList := val.(*collections.List[any]); isList {
+									if list.IsEmpty() { continue }
+									parts := strings.Split(pattern[1:len(pattern)-1], ", ...")
+									headVar := strings.TrimSpace(parts[0])
+									tailVar := strings.TrimSpace(parts[1])
+									
+									localInterp := NewInterpreter()
+									localInterp.Variables = i.Variables
+									localInterp.Funcs = i.Funcs
+									localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
+									for k, v := range i.RuntimeNodes { localInterp.RuntimeNodes[k] = v }
+									
+									headVal, _ := list.Head()
+									tailVal, _ := list.Tail()
+									localInterp.RuntimeNodes[headVar] = dsltypes.NewASTNode(functions.Right[error, any](headVal), node.DSLType)
+									localInterp.RuntimeNodes[tailVar] = dsltypes.NewASTNode(functions.Right[error, any](any(tailVal)), node.DSLType)
+									
+									adapter := localInterp.pipelineToAdapter(cmd)
+									for res := range adapter(node) { if !yield(res) { return } }
+									matched = true
+									break
+								}
+							}
+							if pattern == "[]" {
+								if list, isList := val.(*collections.List[any]); isList && list.IsEmpty() {
+									adapter := i.pipelineToAdapter(cmd)
+									for res := range adapter(node) { if !yield(res) { return } }
+									matched = true
+									break
+								}
+							}
+							if !strings.HasPrefix(pattern, "[") && strings.Contains(strVal, pattern) && pattern != "_" {
+								adapter := i.pipelineToAdapter(cmd)
+								for res := range adapter(node) { if !yield(res) { return } }
+								matched = true
+								break
+							}
+						}
+						
+						if !matched {
+							if defCmd, ok := casesRaw["_"]; ok {
+								adapter := i.pipelineToAdapter(defCmd)
+								for res := range adapter(node) { if !yield(res) { return } }
+							}
+						}
+					}
 				}
-				// fmt.Printf("DEBUG DEFAULT ADAPTER EXISTS: %v\n", defaultAdapter != nil)
-				pipeline = append(pipeline, evaluator.StepMatch(cases, defaultAdapter))
+			}
+			pipeline = append(pipeline, dynamicMatch)
 		} else if strings.HasPrefix(stepStr, "map") {
 			lambda := strings.TrimSpace(stepStr[3:])
 			lambda = strings.TrimPrefix(lambda, "(")
@@ -534,9 +615,17 @@ func (i *Interpreter) LoadScript(filename string) {
 			strings.HasSuffix(buffer, "||>") ||
 			strings.HasSuffix(buffer, " let") ||
 			strings.HasSuffix(buffer, " in") ||
-			strings.HasSuffix(buffer, "{") ||
-			strings.HasSuffix(buffer, "(") ||
-			strings.HasSuffix(buffer, "\\") {
+			strings.HasSuffix(buffer, "\\") ||
+			strings.Count(buffer, "{") > strings.Count(buffer, "}") ||
+			strings.Count(buffer, "(") > strings.Count(buffer, ")") ||
+			strings.Count(buffer, "[") > strings.Count(buffer, "]") {
+
+
+
+
+
+
+
 			continue // Wait for next line
 		}
 

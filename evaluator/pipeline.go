@@ -779,3 +779,125 @@ func StepDebugPrint(prefix string) PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			// Ignore the incoming stream, just yield the runtime node.
+			// But if it's a List, emit its contents!
+			if !node.Value.IsLeft() {
+				val, _ := node.Value.UnwrapRight()
+				if list, ok := val.(*collections.List[any]); ok {
+					current := list
+					for !current.IsEmpty() {
+						head, _ := current.Head()
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](head), node.DSLType)
+						if !yield(newNode) { return }
+						current, _ = current.Tail()
+					}
+					return
+				}
+			}
+			yield(node)
+		}
+	}
+}
+
+func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			if pivotNode.Value.IsLeft() { return }
+			pVal, _ := pivotNode.Value.UnwrapRight()
+			var pivotInt int
+			switch p := pVal.(type) {
+			case int: pivotInt = p
+			case string: pivotInt, _ = strconv.Atoi(p)
+			default: return
+			}
+			
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				var vInt int
+				switch v := val.(type) {
+				case int: vInt = v
+				case string: vInt, _ = strconv.Atoi(v)
+				default: continue
+				}
+				
+				if vInt < pivotInt {
+					if !yield(node) { return }
+				}
+			}
+		}
+	}
+}
+
+func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			if pivotNode.Value.IsLeft() { return }
+			pVal, _ := pivotNode.Value.UnwrapRight()
+			var pivotInt int
+			switch p := pVal.(type) {
+			case int: pivotInt = p
+			case string: pivotInt, _ = strconv.Atoi(p)
+			default: return
+			}
+			
+			for node := range stream {
+				if node.Value.IsLeft() { continue }
+				val, _ := node.Value.UnwrapRight()
+				var vInt int
+				switch v := val.(type) {
+				case int: vInt = v
+				case string: vInt, _ = strconv.Atoi(v)
+				default: continue
+				}
+				
+				if vInt >= pivotInt {
+					if !yield(node) { return }
+				}
+			}
+		}
+	}
+}
+
+func StepConcat(left, right Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				for r := range left(node) {
+					if !yield(r) { return }
+				}
+				for r := range right(node) {
+					if !yield(r) { return }
+				}
+			}
+		}
+	}
+}
+
+func StepSeq(adapters []Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				for _, adapter := range adapters {
+					for r := range adapter(node) {
+						if !yield(r) { return }
+					}
+				}
+			}
+		}
+	}
+}
+
+func StepEmpty() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for range stream {
+				// yield nothing
+			}
+		}
+	}
+}
