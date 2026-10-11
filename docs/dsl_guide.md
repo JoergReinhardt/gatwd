@@ -197,7 +197,21 @@ Gatwd's runtime model is categorized into four distinct concepts:
 
 * **Bare Runtime (`cli.NewBareInterpreter()`)**: A minimalist execution kernel providing only fundamental language primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`). It excludes heavy standard library adapters and transducers, ideal for sandboxed or footprint-constrained environments.
 * **Gatwd Builtins (`cli.NewInterpreter()`)**: The standard full distribution exposing Go's standard library capabilities directly to the DSL as built-in transducers (persistent collections `HAMT`, `Set`, `Chunk`, `List`, `Tree`; stream adapters `scan_file`, `dial_tcp`, `walk_fs`; testing & telemetry `example_test`, `assert_unordered`, `checkpoint`).
-* **Gatwd Editions (or Distributions)**: Tailored Go binary distributions (such as `cmd/gatwd-cloud` or `cmd/gatwd-k8s`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, bundling third-party Go packages, custom domain types (`interp.RegisterType`), and specialized transducers (`interp.RegisterStep`).
-* **Gatwd Appliances**: Self-contained, single-purpose releases (such as Kubernetes Operators, stream processing microservices, or compliance auditing CLIs) that bundle pre-compiled, embedded `.gatwd` DSL code (`//go:embed`) via `interp.LoadScriptFS(fsys, path)` or `interp.EvaluateScript(content)`. Appliances run out of the box without external script files, while allowing live overrides via command-line flags or Kubernetes ConfigMaps.
+* **Gatwd Editions (or Distributions)**: Tailored Go binary distributions (such as `cmd/gatwd-cloud` or `cmd/gatwd-k8s`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, bundling third-party Go packages, custom domain types, and specialized transducers using the fluent builder:
+  ```go
+  cli.NewEdition("gatwd-cloud").
+      WithType("Email", parseEmail).
+      WithStep(cli.MapStep("mask", maskSecret)).
+      Run()
+  ```
+* **Gatwd Appliances**: Self-contained, single-purpose releases (such as Kubernetes Operators, stream processing microservices, or compliance auditing CLIs) that bundle pre-compiled, embedded `.gatwd` DSL code (`//go:embed`) via `cli.NewAppliance`. Appliances run out of the box without external script files, while allowing live overrides via command-line flags or Kubernetes ConfigMaps with zero-downtime hot-reloading:
+  ```go
+  app, _ := cli.NewAppliance(
+      cli.WithEmbeddedScript(embeddedRules),
+      cli.WithConfigMapOverride("/etc/gatwd/rules.gatwd"),
+  )
+  res := app.Execute("spawn Status: OK |> check_rules")
+  ```
+
 
 

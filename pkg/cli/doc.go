@@ -9,6 +9,7 @@
 //   - Algebraic Data Type pattern matching and list destructuring ([pivot, ...rest]).
 //   - Gatwd Builtins: Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file.
 //   - Bare Runtime (NewBareInterpreter): Minimalist execution core without standard library builtins.
-//   - Gatwd Editions: Custom binary distributions extending the language via RegisterType and RegisterStep.
-//   - Gatwd Appliances: Self-contained releases (Kubernetes Operators, Servers, CLIs) executing embedded scripts via LoadScriptFS.
+//   - Gatwd Editions (NewEdition): Fluent builder for custom distributions with domain types and steps.
+//   - Gatwd Appliances (NewAppliance): Hot-reloadable releases with embedded scripts and live ConfigMap overrides.
+//   - Ergonomic Step Helpers: MapStep, FilterStep, ArgStep, SinkStep for boilerplate-free transducer creation.
 package cli

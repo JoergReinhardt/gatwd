@@ -51,6 +51,6 @@ Purely functional, persistent data structures with structural sharing (all imple
 ## 6. Layer 5: Language & Tooling
 - **`dsltypes/`**: `BitFlag` dynamic quasi-type system and `ASTNode[T]` host-guest bridge (implementing `fmt.Stringer`).
 - **`parser/`**: Monadic parser combinators and syntax analyzers.
-- **`pkg/cli/`**: The `Interpreter` combining the parser, engine, runtime scopes, macro expansions (`def`), local bindings (`let`), script constants (`const`), and host Go constant registrations (`RegisterConstant`). Provides `NewBareInterpreter()` (Bare Runtime), `NewInterpreter()` (Gatwd Builtins), `RegisterType` / `RegisterStep` (for building Gatwd Editions), and `LoadScriptFS` / `EvaluateScript` (for packaging Gatwd Appliances with embedded `.gatwd` code).
+- **`pkg/cli/`**: The `Interpreter` combining the parser, engine, runtime scopes, macro expansions (`def`), local bindings (`let`), script constants (`const`), and host Go constant registrations (`RegisterConstant`). Provides `NewBareInterpreter()` (Bare Runtime), `NewInterpreter()` (Gatwd Builtins), `NewEdition()` (fluent distribution builder), `NewAppliance()` (hot-reloadable appliance constructor with `atomic.Pointer`), and ergonomic step helpers (`MapStep`, `FilterStep`, `ArgStep`, `SinkStep`).
 
 > Note: Early pre-generics prototypes and non-generic interface wrappers have been cleanly separated into the `legacy/` directory and are not part of the active pipeline.

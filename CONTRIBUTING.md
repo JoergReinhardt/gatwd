@@ -60,10 +60,9 @@ When introducing support for Go standard library features or new transducers:
 Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` repository. Instead, author a **Gatwd Edition** (custom binary distribution) or a **Gatwd Appliance** (self-contained release):
 1. **Choose Your Role**: Build a **Gatwd Edition** (extending the language with third-party libraries for arbitrary user scripts) or a **Gatwd Appliance** (single-purpose CLI, server daemon, or Kubernetes Operator with embedded `.gatwd` rules).
 2. **Import Engine & CLI Packages**: Import `github.com/joergreinhardt/gatwd/pkg/cli` and lower-layer packages (`evaluator`, `collections`, `adapters`).
-3. **Choose Runtime**: Instantiate `cli.NewInterpreter()` (with Gatwd Builtins) or `cli.NewBareInterpreter()` (Bare Runtime).
-4. **Register Domain Types & Steps**: Expose third-party types and transducers via `interp.RegisterType(...)`, `interp.RegisterStep(...)`, and `interp.RegisterConstant(...)`.
-5. **Embed Gatwd Scripts (`//go:embed`)**: For Appliances, use `//go:embed` with `interp.LoadScriptFS(fsys, path)` or `interp.EvaluateScript(content)` to ship self-contained logic without external file dependencies.
-6. **Package Releases**: Compile static binaries (`CGO_ENABLED=0 go build`) or distroless container images, supporting live script overrides via arguments or Kubernetes ConfigMaps. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go) and [`examples/kubernetes_repl/main.go`](examples/kubernetes_repl/main.go).
+3. **Use Ergonomic Step Constructors**: Use `cli.MapStep(name, fn)`, `cli.FilterStep(name, pred)`, and `cli.ArgStep(prefix, fn)` instead of writing nested `iter.Seq` closures.
+4. **Use Fluent Builders**: Build distributions via `cli.NewEdition(name)` and hot-reloadable appliances via `cli.NewAppliance(cli.WithEmbeddedFS(...), cli.WithConfigMapOverride(...))`.
+5. **Package Releases**: Compile static binaries (`CGO_ENABLED=0 go build`) or distroless container images, supporting live script overrides via arguments or Kubernetes ConfigMaps. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go) and [`examples/hot_reload_appliance/main.go`](examples/hot_reload_appliance/main.go).
 
 
 

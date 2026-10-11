@@ -79,7 +79,18 @@ Lower-layer abstractions (Layers 0–4) must never remain stranded in Go API spa
 ### Official Architectural Nomenclature
 1. **Bare Runtime (`cli.NewBareInterpreter()`)**: A minimalist evaluation engine providing only host language primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins are disabled unless explicitly registered.
 2. **Gatwd Builtins (`cli.NewInterpreter()`)**: Features derived from Go's standard library and Gatwd core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`, `scanner`, `net`). Enabled by default in the full interpreter.
-3. **Gatwd Editions (or Distributions)**: Standalone binary distributions (e.g., `cmd/gatwd-cloud`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, bundling third-party Go packages, custom domain types (`interp.RegisterType`), and custom transducers (`interp.RegisterStep`).
-4. **Gatwd Appliances**: Single-purpose, self-contained release artifacts (Kubernetes Operators, HTTP/gRPC streaming servers, compliance daemons, diagnostic CLIs) that compile embedded `.gatwd` DSL rules (`//go:embed`) via `interp.LoadScriptFS(...)` or `interp.EvaluateScript(...)`. Appliances ship with embedded default rules and support live overrides via command-line flags or Kubernetes ConfigMaps.
+3. **Gatwd Editions (or Distributions)**: Standalone binary distributions (e.g., `cmd/gatwd-cloud`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, authored via the fluent `cli.NewEdition()` builder.
+4. **Gatwd Appliances**: Single-purpose, self-contained release artifacts (Kubernetes Operators, HTTP/gRPC streaming servers, compliance daemons, diagnostic CLIs) authored via `cli.NewAppliance()`, compiling embedded `.gatwd` DSL rules (`//go:embed`) and supporting live ConfigMap hot-reloading.
+
+### Ergonomic Extension Guidelines
+To prevent intimidating contributors with nested Category Theory closures (`iter.Seq`, `Either[error, any]`, `ASTNode`), extension code should prefer the high-level constructors:
+- Use **`cli.MapStep(name, fn)`** for mapping values directly.
+- Use **`cli.FilterStep(name, predicate)`** for stream predicate filtering.
+- Use **`cli.ArgStep(prefix, fn)`** for parameterized pipeline steps.
+- Use **`cli.SinkStep(name, fn)`** for non-mutating side-effects (logging, telemetry).
+- Use **`cli.NewEdition(name)`** for building custom CLI distributions.
+- Use **`cli.NewAppliance(...)`** for building production-grade services and operators.
+Raw `StepHandler` closures should only be authored when custom trampoline short-circuiting or multiplexing is explicitly required.
+
 
 
