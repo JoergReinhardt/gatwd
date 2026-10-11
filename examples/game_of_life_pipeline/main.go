@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"iter"
 
 	"github.com/joergreinhardt/gatwd/comonads"
 	"github.com/joergreinhardt/gatwd/dsltypes"
@@ -92,8 +93,28 @@ func main() {
 	// 2. Setup Evaluator Pipeline
 	// The entire generational cycle is handed to the Evaluator Pipeline:
 	// Initial Grid -> StepConway (Extend) -> Render via Visualizer
+	stepConway := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				if grid, ok := val.(*comonads.Grid[bool]); ok {
+					nextGrid := comonads.StepConway(grid)
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextGrid)), node.DSLType)
+					if !yield(newNode) {
+						return
+					}
+				}
+			}
+		}
+	}
 	steps := []evaluator.PipelineStep[functions.Either[error, any]]{
-		evaluator.StepConway(),
+		stepConway,
 	}
 
 	// Graceful terminal exit

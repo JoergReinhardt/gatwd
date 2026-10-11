@@ -649,33 +649,6 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				grammarText := strings.Trim(parts[1], "\"")
 				pipeline = append(pipeline, evaluator.StepEBNFParse(startRule, grammarText))
 			}
-		} else if stepStr == "conway_step" {
-			pipeline = append(pipeline, evaluator.StepConway())
-		} else if strings.HasPrefix(stepStr, "conway_render") {
-			parts := strings.Fields(stepStr)
-			mode := "braille"
-			color := "cyan"
-			if len(parts) > 1 {
-				mode = strings.Trim(parts[1], "\"")
-			}
-			if len(parts) > 2 {
-				color = strings.Trim(parts[2], "\"")
-			}
-			pipeline = append(pipeline, visualizer.StepConwayRender(mode, color))
-		} else if strings.HasPrefix(stepStr, "parse_life") {
-			parts := strings.Fields(stepStr)
-			w, h := 80, 40
-			if len(parts) > 1 {
-				if val, err := strconv.Atoi(parts[1]); err == nil {
-					w = val
-				}
-			}
-			if len(parts) > 2 {
-				if val, err := strconv.Atoi(parts[2]); err == nil {
-					h = val
-				}
-			}
-			pipeline = append(pipeline, evaluator.StepParseLife(w, h))
 		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
 			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))

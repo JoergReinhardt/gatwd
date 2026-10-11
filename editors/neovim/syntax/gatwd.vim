@@ -12,7 +12,7 @@ syntax keyword gatwdKeyword def spawn type const let in match seq import empty
 syntax keyword gatwdType Int String Float BigInt BigFloat Complex Uint Bool List Set Tree BST BTree RBTree Pair Tuple Grid
 
 " Built-in Transducers & Optics
-syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse conway_step conway_render parse_life
+syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse
 
 " Pipes, Arrows, and Combinators
 syntax match gatwdPipe /|>\|||>\|⊳/

@@ -99,9 +99,6 @@ var CanonicalBuiltins = map[string]BuiltinMetadata{
 	"telemetry": {Category: "observability", Signature: "telemetry", Description: "Track and emit stream throughput telemetry"},
 	"checkpoint": {Category: "reliability", Signature: "checkpoint <id> <interval>", Description: "Periodically persist pipeline state for recovery"},
 	"ebnf_parse": {Category: "parser", Signature: "ebnf_parse <rule> <grammar>", Description: "Compile dynamic EBNF grammar and parse string stream into AST"},
-	"conway_step": {Category: "automata", Signature: "conway_step", Description: "Advance 2D Comonadic Cellular Automaton grid by one generation"},
-	"conway_render": {Category: "automata", Signature: "conway_render [mode] [color]", Description: "Render 2D Grid using sub-character UTF-8 resolution (braille, quadrant, halfblock, cell)"},
-	"parse_life": {Category: "automata", Signature: "parse_life [width] [height]", Description: "Parse ASCII .life pattern string into comonadic Grid[bool]"},
 }
 
 // CanonicalOperators contains all operators, pipes, and arrows.

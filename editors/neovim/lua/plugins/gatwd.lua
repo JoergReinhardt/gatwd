@@ -27,7 +27,7 @@ return {
           vim.cmd([[
             syntax keyword gatwdKeyword def spawn type const let in match seq import empty
             syntax keyword gatwdType Int String Float BigInt BigFloat Complex Uint Bool List Set Tree BST BTree RBTree Pair Tuple Grid
-            syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse conway_step conway_render parse_life
+            syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse
             syntax match gatwdPipe /|>\|||>\|⊳/
             syntax match gatwdArrow /->\|<-\|→/
             syntax match gatwdArrowCombinator /&&&\|\*\*\*/
@@ -136,10 +136,7 @@ return {
             { label = "visualize", kind = 3, detail = "Render stream as pretty UTF-8 visual cards" },
             { label = "telemetry", kind = 3, detail = "Track and emit stream throughput telemetry" },
             { label = "checkpoint", kind = 3, detail = "Periodically persist pipeline state for recovery" },
-            { label = "ebnf_parse", kind = 3, detail = "Compile dynamic EBNF grammar and parse string stream into AST" },
-            { label = "conway_step", kind = 3, detail = "Advance 2D Comonadic Cellular Automaton grid by one generation" },
-            { label = "conway_render", kind = 3, detail = "Render 2D Grid using sub-character UTF-8 resolution (braille, quadrant, halfblock, cell)" },
-            { label = "parse_life", kind = 3, detail = "Parse ASCII .life pattern string into comonadic Grid[bool]" }
+            { label = "ebnf_parse", kind = 3, detail = "Compile dynamic EBNF grammar and parse string stream into AST" }
           }
           callback({ items = items, isIncomplete = false })
         end,
