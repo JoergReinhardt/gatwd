@@ -54,6 +54,14 @@ def quicksort = match {
 }
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
 
+-- 11b. Tuple/List Destructuring & Non-Primitive Recursion (Ackermann Function)
+def ackermann = match {
+    [0, n] -> n + 1
+    | [m, 0] -> [m - 1, 1] |> ackermann
+    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
+}
+[2, 2] |> ackermann |> assert 7
+
 -- 12. Script Constants (const declaration and pipeline substitution)
 const TAX_BASE = 50
 const SURCHARGE = 15

@@ -110,4 +110,23 @@ func TestStructuralPipelines(t *testing.T) {
 			tt.assert(t, results)
 		})
 	}
+
+	t.Run("Ackermann Non-Primitive Recursion", func(t *testing.T) {
+		interp := NewInterpreter()
+		interp.EvaluateLine("def ackermann = match { [0, n] -> n + 1 | [m, 0] -> [m - 1, 1] |> ackermann | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann }")
+		res := interp.EvaluateToValues("[2, 2] |> ackermann")
+		if len(res) != 1 {
+			t.Fatalf("Expected 1 result, got %d", len(res))
+		}
+		if fmt.Sprintf("%v", res[0]) != "7" {
+			t.Errorf("Expected 7 for A(2, 2), got %v", res[0])
+		}
+		res29 := interp.EvaluateToValues("[3, 2] |> ackermann")
+		if len(res29) != 1 {
+			t.Fatalf("Expected 1 result, got %d", len(res29))
+		}
+		if fmt.Sprintf("%v", res29[0]) != "29" {
+			t.Errorf("Expected 29 for A(3, 2), got %v", res29[0])
+		}
+	})
 }

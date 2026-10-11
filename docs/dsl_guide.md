@@ -97,17 +97,28 @@ const MAX_RETRIES = 5
 spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 ```
 
-## 7. ADT Pattern Matching & List Destructuring
+## 7. ADT Pattern Matching, List Destructuring & Non-Primitive Recursion
 
-Pattern matching supports full list deconstruction (`[pivot, ...rest]`), enabling pure functional recursion like Quicksort using list comprehensions:
+Pattern matching supports full list deconstruction (`[pivot, ...rest]`) as well as fixed-length tuple/list patterns (`[0, n]`, `[m, 0]`, `[m, n]`). This enables pure functional recursion like Quicksort using list comprehensions, as well as non-primitive recursive functions like Ackermann:
 
 ```haskell
+-- Turing-complete Quicksort with List Comprehensions
 def quicksort = match {
     [] -> empty
     | [pivot, ...rest] -> seq { [x | x <- rest, x < pivot] |> quicksort | pivot | [x | x <- rest, x >= pivot] |> quicksort }
 }
 
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
+
+-- Computability Theory: Non-Primitive Recursive Ackermann Function
+def ackermann = match {
+    [0, n] -> n + 1
+    | [m, 0] -> [m - 1, 1] |> ackermann
+    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
+}
+
+[2, 2] |> ackermann |> assert 7
+[3, 2] |> ackermann |> assert 29
 ```
 
 ## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_keys`, `hamt_values`)

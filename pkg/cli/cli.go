@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/joergreinhardt/gatwd/collections"
 
@@ -73,9 +74,83 @@ func (i *Interpreter) RegisterStep(handler StepHandler) {
 	i.CustomSteps = append(i.CustomSteps, handler)
 }
 
+func (i *Interpreter) fork() *Interpreter {
+	localInterp := NewBareInterpreter()
+	localInterp.EnableBuiltins = i.EnableBuiltins
+	localInterp.CustomSteps = i.CustomSteps
+	localInterp.Variables = make(map[string]string)
+	for k, v := range i.Variables {
+		localInterp.Variables[k] = v
+	}
+	localInterp.Funcs = i.Funcs
+	localInterp.Constants = i.Constants
+	localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
+	for k, v := range i.RuntimeNodes {
+		localInterp.RuntimeNodes[k] = v
+	}
+	return localInterp
+}
+
+func toListElements(val any) ([]any, bool) {
+	if list, ok := val.(*collections.List[any]); ok {
+		var elems []any
+		for item := range list.Seq() {
+			elems = append(elems, item)
+		}
+		return elems, true
+	}
+	if list, ok := val.(*collections.List[int]); ok {
+		var elems []any
+		for item := range list.Seq() {
+			elems = append(elems, item)
+		}
+		return elems, true
+	}
+	if list, ok := val.(*collections.List[string]); ok {
+		var elems []any
+		for item := range list.Seq() {
+			elems = append(elems, item)
+		}
+		return elems, true
+	}
+	if sl, ok := val.([]any); ok {
+		return sl, true
+	}
+	if sl, ok := val.([]int); ok {
+		var elems []any
+		for _, x := range sl {
+			elems = append(elems, x)
+		}
+		return elems, true
+	}
+	return nil, false
+}
+
+func isIdent(s string) bool {
+	if s == "" {
+		return false
+	}
+	runes := []rune(s)
+	if !unicode.IsLetter(runes[0]) && runes[0] != '_' {
+		return false
+	}
+	for _, ch := range runes {
+		if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) && ch != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
-	subParts, _ := splitPipelineAware(subPipelineStr)
-	subPipeline := i.parsePipelineSteps(subParts)
+	subPipelineStr = strings.TrimSpace(subPipelineStr)
+	var subPipeline []evaluator.PipelineStep[functions.Either[error, any]]
+	if strings.HasPrefix(subPipelineStr, "let ") || (strings.HasPrefix(subPipelineStr, "(") && strings.Contains(subPipelineStr, "let ")) {
+		subPipeline = i.parsePipelineSteps([]string{subPipelineStr})
+	} else {
+		subParts, _ := splitPipelineAware(subPipelineStr)
+		subPipeline = i.parsePipelineSteps(subParts)
+	}
 
 	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { yield(node) }
@@ -158,6 +233,56 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			continue
 		}
 
+		// Let Expression Binding as Pipeline Step: let x = ... in ... or (let x = ... in ...)
+		stepTrimmed := stepStr
+		if strings.HasPrefix(stepTrimmed, "(") && strings.HasSuffix(stepTrimmed, ")") {
+			innerP := strings.TrimSpace(stepTrimmed[1 : len(stepTrimmed)-1])
+			if strings.HasPrefix(innerP, "let ") {
+				stepTrimmed = innerP
+			}
+		}
+		if strings.HasPrefix(stepTrimmed, "let ") {
+			parts := strings.SplitN(stepTrimmed[4:], " in ", 2)
+			if len(parts) == 2 {
+				defParts := strings.SplitN(parts[0], "=", 2)
+				if len(defParts) == 2 {
+					varName := strings.TrimSpace(defParts[0])
+					bindingPipelineStr := strings.TrimSpace(defParts[1])
+					bodyPipelineStr := strings.TrimSpace(parts[1])
+
+					letStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+							for node := range stream {
+								localInterp := i.fork()
+								bindAdapter := localInterp.pipelineToAdapter(bindingPipelineStr)
+								var boundVal any
+								found := false
+								for bNode := range bindAdapter(node) {
+									if bNode.Value.IsRight() {
+										val, _ := bNode.Value.UnwrapRight()
+										boundVal = val
+										found = true
+										break
+									}
+								}
+								if found {
+									localInterp.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](boundVal), node.DSLType)
+								}
+								bodyAdapter := localInterp.pipelineToAdapter(bodyPipelineStr)
+								for res := range bodyAdapter(node) {
+									if !yield(res) {
+										return
+									}
+								}
+							}
+						}
+					}
+					pipeline = append(pipeline, letStep)
+					continue
+				}
+			}
+		}
+
 		// List Comprehension or List Literal Yielding
 		if strings.HasPrefix(stepStr, "[") && strings.HasSuffix(stepStr, "]") && !strings.Contains(stepStr, " *** ") {
 			rawExpr := stepStr
@@ -189,6 +314,42 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 			pipeline = append(pipeline, listStep)
 			continue
+		}
+
+		// Infix Arithmetic / Logic Expression Yielding
+		if !strings.HasPrefix(stepStr, "echo ") && !strings.HasPrefix(stepStr, "assert ") && !strings.HasPrefix(stepStr, "expect ") && !strings.HasPrefix(stepStr, "uname") && !strings.HasPrefix(stepStr, "ls") && !strings.HasPrefix(stepStr, "date") && !strings.HasPrefix(stepStr, "whoami") {
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					if rt.Value.IsRight() {
+						val, _ := rt.Value.UnwrapRight()
+						return val, true
+					}
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			if strings.ContainsAny(stepStr, "+-*/%&|<>= ") || (len(stepStr) > 0 && unicode.IsDigit(rune(stepStr[0]))) {
+				if _, err := parser.EvalInfixString(stepStr, lookup); err == nil {
+					rawStep := stepStr
+					infixStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+							v, err := parser.EvalInfixString(rawStep, lookup)
+							if err == nil {
+								wrapped := functions.Right[error, any](v)
+								flag := i.Parser.GetFlag("Int")
+								yield(dsltypes.NewASTNode(wrapped, flag))
+							}
+						}
+					}
+					pipeline = append(pipeline, infixStep)
+					continue
+				}
+			}
 		}
 
 		if strings.HasPrefix(stepStr, "take") {
@@ -519,11 +680,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "match {") && strings.HasSuffix(stepStr, "}") {
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner)
-			casesRaw := make(map[string]string)
+			type matchCase struct {
+				pattern string
+				cmd     string
+			}
+			var cases []matchCase
 			matchCaseParser := parser.ParseMatchCase()
 			for _, c := range casesStr {
+				c = strings.TrimSpace(c)
+				if c == "" {
+					continue
+				}
 				for res := range matchCaseParser(c) {
-					casesRaw[res.Fst.Fst] = res.Fst.Snd
+					cases = append(cases, matchCase{pattern: strings.TrimSpace(res.Fst.Fst), cmd: strings.TrimSpace(res.Fst.Snd)})
 					break
 				}
 			}
@@ -540,8 +709,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 						val, _ := node.Value.UnwrapRight()
 						strVal := fmt.Sprintf("%v", val)
 
-						matched := false
-						for pattern, cmd := range casesRaw {
+						for _, mc := range cases {
+							pattern := mc.pattern
+							cmd := mc.cmd
+
+							// 1. Head/Tail list pattern: [head, ...tail]
 							if strings.HasPrefix(pattern, "[") && strings.Contains(pattern, ", ...") && strings.HasSuffix(pattern, "]") {
 								if list, isList := val.(*collections.List[any]); isList {
 									if list.IsEmpty() {
@@ -551,17 +723,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 									headVar := strings.TrimSpace(parts[0])
 									tailVar := strings.TrimSpace(parts[1])
 
-									localInterp := NewBareInterpreter()
-									localInterp.EnableBuiltins = i.EnableBuiltins
-									localInterp.CustomSteps = i.CustomSteps
-									localInterp.Variables = i.Variables
-									localInterp.Funcs = i.Funcs
-									localInterp.Constants = i.Constants
-									localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
-									for k, v := range i.RuntimeNodes {
-										localInterp.RuntimeNodes[k] = v
-									}
-
+									localInterp := i.fork()
 									headVal, _ := list.Head()
 									tailVal, _ := list.Tail()
 									localInterp.RuntimeNodes[headVar] = dsltypes.NewASTNode(functions.Right[error, any](headVal), node.DSLType)
@@ -573,10 +735,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 											return
 										}
 									}
-									matched = true
 									break
 								}
 							}
+
+							// 2. Empty list pattern: []
 							if pattern == "[]" {
 								if list, isList := val.(*collections.List[any]); isList && list.IsEmpty() {
 									adapter := i.pipelineToAdapter(cmd)
@@ -585,30 +748,68 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 											return
 										}
 									}
-									matched = true
 									break
 								}
 							}
-							if !strings.HasPrefix(pattern, "[") && strings.Contains(strVal, pattern) && pattern != "_" {
+
+							// 3. Fixed-length list / tuple pattern: [p1, p2, ...] or (p1, p2, ...)
+							if (strings.HasPrefix(pattern, "[") && strings.HasSuffix(pattern, "]") && !strings.Contains(pattern, ", ...")) ||
+								(strings.HasPrefix(pattern, "(") && strings.HasSuffix(pattern, ")")) {
+								innerPat := pattern[1 : len(pattern)-1]
+								patParts := strings.Split(innerPat, ",")
+								var elemPats []string
+								for _, p := range patParts {
+									elemPats = append(elemPats, strings.TrimSpace(p))
+								}
+								if elems, ok := toListElements(val); ok && len(elems) == len(elemPats) {
+									matchedElems := true
+									localInterp := i.fork()
+									for idx, p := range elemPats {
+										elem := elems[idx]
+										if p == "_" {
+											continue
+										}
+										if isIdent(p) {
+											localInterp.RuntimeNodes[p] = dsltypes.NewASTNode(functions.Right[error, any](elem), node.DSLType)
+										} else {
+											if fmt.Sprintf("%v", elem) != p {
+												matchedElems = false
+												break
+											}
+										}
+									}
+									if matchedElems {
+										adapter := localInterp.pipelineToAdapter(cmd)
+										for res := range adapter(node) {
+											if !yield(res) {
+												return
+											}
+										}
+										break
+									}
+								}
+							}
+
+							// 4. Wildcard pattern: _
+							if pattern == "_" {
 								adapter := i.pipelineToAdapter(cmd)
 								for res := range adapter(node) {
 									if !yield(res) {
 										return
 									}
 								}
-								matched = true
 								break
 							}
-						}
 
-						if !matched {
-							if defCmd, ok := casesRaw["_"]; ok {
-								adapter := i.pipelineToAdapter(defCmd)
+							// 5. String/Value substring matching
+							if !strings.HasPrefix(pattern, "[") && !strings.HasPrefix(pattern, "(") && strings.Contains(strVal, pattern) {
+								adapter := i.pipelineToAdapter(cmd)
 								for res := range adapter(node) {
 									if !yield(res) {
 										return
 									}
 								}
+								break
 							}
 						}
 					}
@@ -762,6 +963,40 @@ func splitPipelineAware(line string) ([]string, bool) {
 	return parts, isParallel
 }
 
+func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+	if strings.HasPrefix(firstPart, "[") && strings.HasSuffix(firstPart, "]") && !strings.Contains(firstPart, " *** ") {
+		lookup := func(k string) (any, bool) {
+			if rt, ok := i.RuntimeNodes[k]; ok {
+				if rt.Value.IsRight() {
+					val, _ := rt.Value.UnwrapRight()
+					return val, true
+				}
+			}
+			if v, ok := i.Variables[k]; ok {
+				return v, true
+			}
+			if v, ok := i.Constants[k]; ok {
+				return v, true
+			}
+			return nil, false
+		}
+		if val, err := parser.EvalInfixString(firstPart, lookup); err == nil {
+			flag := i.Parser.GetFlag("List")
+			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+				yield(dsltypes.NewASTNode(functions.Right[error, any](val), flag))
+			}
+		}
+	}
+
+	stringStream := i.Parser.Parse(firstPart)
+	return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		for node := range stringStream {
+			wrappedValue := functions.Right[error, any](any(node.Value))
+			yield(dsltypes.NewASTNode(wrappedValue, node.DSLType))
+		}
+	}
+}
+
 func (i *Interpreter) EvaluateToValues(line string) []any {
 	isParallel := strings.Contains(line, "||>")
 	line = strings.ReplaceAll(line, "||>", "|>")
@@ -787,13 +1022,7 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 		firstPart = strings.Join(words, " ")
 	}
 
-	stringStream := i.Parser.Parse(firstPart)
-	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-		for node := range stringStream {
-			wrappedValue := functions.Right[error, any](any(node.Value))
-			yield(dsltypes.NewASTNode(wrappedValue, node.DSLType))
-		}
-	}
+	initialStream := i.buildInitialStream(firstPart)
 
 	pipeline := i.parsePipelineSteps(parts[1:])
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
@@ -838,13 +1067,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		firstPart = strings.Join(words, " ")
 	}
 
-	stringStream := i.Parser.Parse(firstPart)
-	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-		for node := range stringStream {
-			wrappedValue := functions.Right[error, any](any(node.Value))
-			yield(dsltypes.NewASTNode(wrappedValue, node.DSLType))
-		}
-	}
+	initialStream := i.buildInitialStream(firstPart)
 
 	pipeline := i.parsePipelineSteps(parts[1:])
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)

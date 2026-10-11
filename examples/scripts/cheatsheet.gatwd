@@ -156,3 +156,20 @@ sort_sample =
     |> quicksort
     |> collect_list
 
+
+-- ---------------------------------------------------------------------
+-- 12. Non-Primitive Recursion & Ackermann Function
+-- ---------------------------------------------------------------------
+
+-- Tuple/pair destructuring and nested let-expressions:
+def ackermann = match {
+    [0, n] -> n + 1
+    | [m, 0] -> [m - 1, 1] |> ackermann
+    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
+}
+
+ackermann_sample =
+    [2, 2]
+    |> ackermann
+
+
