@@ -48,13 +48,16 @@ All code must integrate seamlessly with Go's built-in documentation system:
 2. **Integration Chaining:** Build end-to-end integration tests chaining generators, filters, transforms, and sinks.
 3. **Performance & Mocking:** Use mocked data generators dogfooding our own engine to test high-throughput pipelines.
 4. **Testable Examples:** Write `Example*` functions with `// Output:` comments in `*_example_test.go` to provide simultaneously executable tests and documentation.
+5. **DSL Exhaustive Test Suite (`tests/dsl_exhaustive_test.gatwd`):** Every new keyword, transducer, or language feature exposed to the DSL must have an explicit, self-asserting test (`|> assert <expected>`) in `tests/dsl_exhaustive_test.gatwd`. Run via `./run_dsl_tests.sh`.
+6. **Visual & Pretty Output Testing:** Incorporate visualizer testing (`visualize`) to ensure output cards, ANSI color borders, and pretty formatting render correctly and deterministically. `evaluator.StepAssert` strips ANSI escape codes so formatted cards can be asserted cleanly without brittle color-code matching.
 
 ## The Multi-Layer Implementation Checklist ("All Layers Through")
 When introducing support for Go standard library features or new transducers:
 1. **Layer 0–4 Implementation:** Implement the pure Go abstraction with thorough unit tests and godoc.
 2. **Layer 5 Builtin Wiring:** Wire the abstraction into `pkg/cli/cli.go` as a builtin step or adapter.
-3. **DSL Exhaustive Test:** Add an assertion test case to `tests/dsl_exhaustive_test.gatwd`.
-4. **Documentation Sync:** Document the new keyword in `docs/dsl_guide.md` and `docs/components.md`.
+3. **DSL Exhaustive Test:** Add an assertion test case to `tests/dsl_exhaustive_test.gatwd` and verify `./run_dsl_tests.sh` passes 100%.
+4. **Visual Verification:** Include pretty visual printing or card formatting tests where applicable.
+5. **Documentation Sync:** Document the new keyword in `docs/dsl_guide.md`, `docs/components.md`, and `README.md`.
 
 ## Building Gatwd Editions & Appliances
 Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` repository. Instead, author a **Gatwd Edition** (custom binary distribution) or a **Gatwd Appliance** (self-contained release):

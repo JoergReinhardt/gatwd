@@ -166,9 +166,45 @@ spawn StrVal: "ping" |> dial_tcp "localhost:9090" |> assert "ECHO:ping"
 
 ```haskell
 spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains golang |> assert true
+spawn StrVal: Start |> emit a, b |> drop 1 |> to_set |> set_remove a |> set_contains a |> assert false
+spawn StrVal: Start |> emit x |> drop 1 |> to_set |> set_elements |> assert x
 ```
 
-## 12. Synthetic Mock Streams & Go Example Assertions
+## 12. Stream Transducers (`filter`, `distinct`, `fold`)
+
+* `filter <substring>`: Filters nodes whose string representation contains the target substring.
+* `distinct`: Deduplicates consecutive and recurring elements across the stream, maintaining order.
+* `fold <op>`: Catamorphism reducing the stream to a single summary value (e.g. `fold count` counts elements).
+
+```haskell
+-- Filter stream elements matching a substring
+spawn StrVal: Start |> emit alpha, beta, gamma |> drop 1 |> filter bet |> assert beta
+
+-- Deduplicate elements preserving stream order
+spawn IntVal: 0 |> emit 5, 10, 5, 10 |> drop 1 |> distinct |> collect_list |> assert [5 10]
+
+-- Fold catamorphism counting items
+spawn StrVal: Start |> emit x, y, z |> drop 1 |> fold count |> assert 3
+```
+
+## 13. First-Class Optics Lenses (`focus`, `update`)
+
+* `focus <field>`: Projects into a record or map, selecting the named field.
+* `update <field> <new_val>`: Immutably updates the named field on a record or map, yielding a new structure via structural sharing.
+
+```haskell
+spawn RecordVal: {Owner: guest, Role: viewer} |> update Owner admin |> focus Owner |> assert admin
+```
+
+## 14. Pipeline Visualization (`visualize`)
+
+* `visualize [flags...]`: Directly pipe any AST node, collection, tree, or record through the visual formatting engine. Formats the data structure into an ANSI card or box. Supported flags include `--curved`, `--heavy`, `--ascii`, `--border`, `--border-color=<color>`, `--bg-color=<color>`, `--color=<color>`, `--head=N`, `--tail=M`.
+
+```haskell
+spawn RecordVal: {Title: PipelineCard, Status: Active} |> visualize --curved --border --border-color=yellow
+```
+
+## 15. Synthetic Mock Streams & Go Example Assertions
 
 Gatwd brings Go standard library testing conventions (`testing.InternalExample`) directly into script pipelines:
 
@@ -191,7 +227,7 @@ spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PA
 spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
 ```
 
-## 13. Runtimes, Builtins, Editions & Appliances
+## 16. Runtimes, Builtins, Editions & Appliances
 
 Gatwd's runtime model is categorized into four distinct concepts:
 

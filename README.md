@@ -45,6 +45,20 @@ spawn Balance: 999999999999999999 |> math_add 1 |> (audit_node &&& parse_access)
 * **[Native Adapters, Editions & Appliances](docs/native_adapters.md)**: How to write pure Go adapters, register third-party types/steps, and package standalone appliances.
 * **[Agentic Workflows & AI](docs/agentic_workflows.md)**: Harnessing the DSL for LLMs, autonomous agents, and K8s Operators.
 
+## Testing & Verification
+
+gatwd maintains a 100% self-asserting native DSL test suite alongside standard Go tests:
+
+```bash
+# Run all Go package unit tests, benchmarks, and example tests:
+go test -v ./...
+
+# Run the exhaustive 34-step self-asserting DSL test suite with pretty visual reporting:
+./run_dsl_tests.sh
+```
+
+Every language construct, stream transducer, persistent collection (`HAMT`, `Set`, `Chunk`, `List`), comonad zipper, optics lens (`focus`, `update`), and visual card layout is verified end-to-end within [`tests/dsl_exhaustive_test.gatwd`](tests/dsl_exhaustive_test.gatwd).
+
 ## Interactive Tour
 
 Run the 20 interactive tutorials to learn both the language and functional programming!

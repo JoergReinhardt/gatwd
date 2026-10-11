@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"iter"
 	"math/big"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/joergreinhardt/gatwd/comonads"
-
 	"github.com/joergreinhardt/gatwd/arrows"
 	"github.com/joergreinhardt/gatwd/collections"
+	"github.com/joergreinhardt/gatwd/comonads"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/optics"
 )
+
+var ansiRegex = regexp.MustCompile("\033\\[[0-9;]*m")
 
 type PipelineStep[T any] func(iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]]
 
@@ -1158,7 +1160,12 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 					actual = fmt.Sprintf("%v", val)
 				}
 
-				if actual != expected {
+				expClean := strings.ReplaceAll(expected, `\n`, "\n")
+				expClean = strings.ReplaceAll(expClean, `\t`, "\t")
+				actualClean := ansiRegex.ReplaceAllString(actual, "")
+				expClean = ansiRegex.ReplaceAllString(expClean, "")
+
+				if strings.TrimSpace(actualClean) != strings.TrimSpace(expClean) {
 					err := fmt.Errorf("Assertion failed: expected '%s', got '%s'", expected, actual)
 					errNode := InjectError[any](err, node.DSLType)
 					if !yield(errNode) {

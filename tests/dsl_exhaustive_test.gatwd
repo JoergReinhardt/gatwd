@@ -99,3 +99,27 @@ spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> chunk 2 |> unchunk |> collect_li
 
 -- 27. Word-Level Scanner Adapter (bufio.ScanWords integration)
 spawn StrVal: Start |> scan_words examples/tour/data/data1.txt |> head |> assert M
+
+-- 28. Optics Lens (focus and update)
+spawn StrVal: Start |> echo "drwx root 4096 Jan 1 secret_file" |> parse_record Perms Owner Size Month Day Name |> update Owner admin |> focus Owner |> assert admin
+
+-- 29. HAMT Keys & Values
+spawn StrVal: Start |> emit k1:v1 |> drop 1 |> to_hamt |> hamt_keys |> assert k1
+spawn StrVal: Start |> emit k1:v1 |> drop 1 |> to_hamt |> hamt_values |> assert v1
+
+-- 30. Set Remove & Elements
+spawn StrVal: Start |> emit a, b |> drop 1 |> to_set |> set_remove a |> set_contains a |> assert false
+spawn StrVal: Start |> emit single_item |> drop 1 |> to_set |> set_elements |> assert single_item
+
+-- 31. Stream Fold (Catamorphism)
+spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> fold count |> assert 3
+
+-- 32. Stream Distinct (Deduplication)
+spawn IntVal: 0 |> emit 5, 5, 10, 10 |> drop 1 |> distinct |> collect_list |> assert [5 10]
+
+-- 33. Stream Filter Predicate
+spawn StrVal: Start |> emit alpha, beta, gamma |> drop 1 |> filter bet |> assert beta
+
+-- 34. Visualizer UTF-8 Card Pipeline Formatting
+spawn StrVal: Start |> echo "TestBox" |> visualize --curved --border --border-color=yellow |> assert ╭───────────────────────╮\n│ ╰─ Type(0): "TestBox" │\n╰───────────────────────╯
+
