@@ -18,12 +18,14 @@ func NewBTreeNode[T any](keys []T, children []*BTree[T]) *BTree[T] {
 
 // Graph implements Graphable for the Visualizer
 func (b *BTree[T]) Graph() any {
-	if b == nil { return "<nil BTree>" }
+	if b == nil {
+		return "<nil BTree>"
+	}
 	if len(b.children) == 0 {
-		return struct { Keys []T }{ Keys: b.keys }
+		return struct{ Keys []T }{Keys: b.keys}
 	}
 	return struct {
 		Keys     []T
 		Children []*BTree[T]
-	}{ Keys: b.keys, Children: b.children }
+	}{Keys: b.keys, Children: b.children}
 }

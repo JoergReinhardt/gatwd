@@ -17,11 +17,11 @@ import (
 // The engine will reuse this optimized client across potentially millions
 // of graph node evaluations.
 func NativeHTTPAdapter(client *http.Client, targetFlag dsltypes.BitFlag) evaluator.Adapter[string] {
-	
+
 	// Return the pure monadic function expected by the Evaluator
 	return func(node dsltypes.ASTNode[string]) iter.Seq[dsltypes.ASTNode[string]] {
 		return func(yield func(dsltypes.ASTNode[string]) bool) {
-			
+
 			// node.Value is assumed to be a URL for this specific adapter
 			resp, err := client.Get(node.Value)
 			if err != nil {
@@ -41,11 +41,11 @@ func NativeHTTPAdapter(client *http.Client, targetFlag dsltypes.BitFlag) evaluat
 				line := strings.TrimSpace(scanner.Text())
 				if line != "" {
 					childNode := dsltypes.NewASTNode(line, targetFlag)
-					
+
 					// Yield into the Trampoline
 					if !yield(childNode) {
 						// Safe short-circuit! If the evaluator stops reading
-						// (e.g. ParMap cancels context), we immediately close 
+						// (e.g. ParMap cancels context), we immediately close
 						// the response body via defer and exit.
 						return
 					}

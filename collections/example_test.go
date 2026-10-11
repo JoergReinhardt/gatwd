@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/joergreinhardt/gatwd/collections"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 func ExampleHAMT() {
@@ -56,4 +57,33 @@ func ExampleChunk() {
 	fmt.Printf("len: %d, cap: %d, [0]: %d, [1]: %d\n", chunk.Len(), chunk.Capacity(), v0, v1)
 	// Output:
 	// len: 2, cap: 4, [0]: 10, [1]: 20
+}
+
+func ExampleHAMT_visualized() {
+	hamt := collections.NewHAMT[string, int]().Set("workers", 8)
+
+	opts := visualizer.ParseOptions("--curved --border")
+	fmt.Print(visualizer.Format(hamt, opts))
+
+	// Output:
+	// ╭───────────────────╮
+	// │ ╰─ Record         │
+	// │     ╰─ workers: 8 │
+	// ╰───────────────────╯
+}
+
+func ExampleChunk_visualized() {
+	chunk := collections.NewChunk[string](2)
+	chunk.Append("cached_A")
+	chunk.Append("cached_B")
+
+	opts := visualizer.ParseOptions("--curved --border")
+	fmt.Print(visualizer.Format(chunk, opts))
+
+	// Output:
+	// ╭──────────────────────╮
+	// │ ╰─ List              │
+	// │     ├─ [0]: cached_A │
+	// │     ╰─ [1]: cached_B │
+	// ╰──────────────────────╯
 }

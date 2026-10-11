@@ -44,7 +44,7 @@ func (m *MemoryCheckpointStore) Load(ctx context.Context, id string) (uint64, er
 func StepCheckpoint(ctx context.Context, store CheckpointStore, id string, interval uint64) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			
+
 			// Try to resume from an existing checkpoint
 			resumeOffset, err := store.Load(ctx, id)
 			var currentOffset uint64 = 0
@@ -53,30 +53,30 @@ func StepCheckpoint(ctx context.Context, store CheckpointStore, id string, inter
 			}
 
 			var processed uint64 = 0
-			
+
 			for node := range stream {
 				// Fast-forward phase: if we are resuming, skip until we reach the offset
 				if currentOffset > 0 {
 					currentOffset--
 					continue
 				}
-				
+
 				// Normal execution
 				if !yield(node) {
 					// If the stream is terminated early, try to save exactly where we stopped
-					store.Save(ctx, id, processed + resumeOffset)
+					store.Save(ctx, id, processed+resumeOffset)
 					return
 				}
-				
+
 				processed++
-				
+
 				// Periodically checkpoint in the background or asynchronously to avoid degrading performance
 				// In a real high-throughput system, this would drop onto a non-blocking channel.
 				// For structural purity here, we save synchronously every N elements.
-				if processed % interval == 0 {
+				if processed%interval == 0 {
 					// Use atomic or direct save
-					store.Save(ctx, id, processed + resumeOffset)
-					
+					store.Save(ctx, id, processed+resumeOffset)
+
 					// Check for context cancellation (allows pausing the pipeline externally)
 					select {
 					case <-ctx.Done():
@@ -85,9 +85,9 @@ func StepCheckpoint(ctx context.Context, store CheckpointStore, id string, inter
 					}
 				}
 			}
-			
+
 			// Final checkpoint when the stream naturally depletes
-			store.Save(ctx, id, processed + resumeOffset)
+			store.Save(ctx, id, processed+resumeOffset)
 		}
 	}
 }

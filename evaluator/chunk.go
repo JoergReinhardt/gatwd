@@ -17,7 +17,7 @@ func StepChunk(size int) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			chunk := collections.NewChunk[dsltypes.ASTNode[functions.Either[error, any]]](size)
-			
+
 			for node := range stream {
 				if node.Value.IsLeft() {
 					// Yield any accumulated chunk before the error
@@ -86,4 +86,3 @@ func StepUnchunk() PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
-

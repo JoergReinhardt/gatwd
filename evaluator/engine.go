@@ -9,7 +9,7 @@ import (
 
 // Adapter is a monadic function that takes an ASTNode and yields a sequence of new ASTNodes.
 //
-// In our architecture, Adapters act as Type Classes. They encapsulate the IO Monad 
+// In our architecture, Adapters act as Type Classes. They encapsulate the IO Monad
 // (side effects like SSH, file parsing) safely away from the evaluation loop.
 type Adapter[T any] func(dsltypes.ASTNode[T]) iter.Seq[dsltypes.ASTNode[T]]
 
@@ -19,7 +19,7 @@ type Engine[T any] struct {
 
 	// OnMissingAdapter is called when a node matches no registered adapter.
 	// This fulfills Phase 5 (The Interactive REPL Pause & Resume).
-	// Because iterators pause the execution safely, this callback can block, 
+	// Because iterators pause the execution safely, this callback can block,
 	// prompt a user for input, dynamically construct a new Adapter, and return it.
 	OnMissingAdapter func(dsltypes.BitFlag) Adapter[T]
 }
@@ -53,7 +53,7 @@ func (e *Engine[T]) applyAdapter(node dsltypes.ASTNode[T]) iter.Seq[dsltypes.AST
 			return adapter(node)
 		}
 	}
-	
+
 	// Phase 5: REPL Pause concept.
 	// If a node has no adapter, check if we have an interactive callback.
 	if e.OnMissingAdapter != nil {

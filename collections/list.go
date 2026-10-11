@@ -8,8 +8,8 @@ import (
 
 // List represents an immutable, singly-linked list (a Cons list).
 //
-// In functional programming, lists are persistent. Adding an element 
-// (Cons) doesn't modify the existing list; it creates a new head that 
+// In functional programming, lists are persistent. Adding an element
+// (Cons) doesn't modify the existing list; it creates a new head that
 // points to the existing list as its tail. This guarantees thread safety
 // and eliminates side effects.
 type List[T any] struct {
@@ -59,7 +59,7 @@ func (l *List[T]) Tail() (*List[T], bool) {
 
 // Seq returns a lazy Go 1.23 iterator over the list.
 //
-// This bridges the gap between pure persistent functional structures 
+// This bridges the gap between pure persistent functional structures
 // and our modern iterator-based evaluator engine.
 func (l *List[T]) Seq() iter.Seq[T] {
 	return func(yield func(T) bool) {
@@ -75,7 +75,9 @@ func (l *List[T]) Seq() iter.Seq[T] {
 
 // Graph exposes the internal structure for generic UTF-8 Tree visualizations
 func (l *List[T]) Graph() any {
-	if l == nil || l.empty { return "<empty List>" }
+	if l == nil || l.empty {
+		return "<empty List>"
+	}
 	return struct {
 		Head T
 		Tail *List[T]

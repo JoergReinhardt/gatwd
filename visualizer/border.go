@@ -21,10 +21,10 @@ func addBorder(res string) string {
 			maxLen = visibleLen
 		}
 	}
-	
+
 	borderLine := "╭" + strings.Repeat("─", maxLen+2) + "╮\n"
 	bottomLine := "╰" + strings.Repeat("─", maxLen+2) + "╯"
-	
+
 	framed := borderLine
 	for _, l := range lines {
 		visibleLen := len([]rune(stripANSI(l)))

@@ -1,9 +1,9 @@
 package evaluator
 
 import (
-	"iter"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
+	"iter"
 )
 
 // MaybeT is a Monad Transformer that safely wraps an Adapter.
@@ -16,14 +16,16 @@ func MaybeT[T any](adapter Adapter[T]) Adapter[functions.Maybe[T]] {
 				// Silently bypass (yield nothing)
 				return
 			}
-			
+
 			val, _ := node.Value.Unwrap()
 			innerNode := dsltypes.NewASTNode(val, node.DSLType)
-			
+
 			for result := range adapter(innerNode) {
 				wrappedValue := functions.Just[T](result.Value)
 				wrappedNode := dsltypes.NewASTNode(wrappedValue, result.DSLType)
-				if !yield(wrappedNode) { return }
+				if !yield(wrappedNode) {
+					return
+				}
 			}
 		}
 	}

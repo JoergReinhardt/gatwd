@@ -7,7 +7,7 @@ import (
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
-// EitherT is a Monad Transformer that safely wraps a pure Adapter[T] 
+// EitherT is a Monad Transformer that safely wraps a pure Adapter[T]
 // into an error-aware Adapter[Either[error, T]].
 //
 // This allows the Evaluator Engine to gracefully handle network failures,
@@ -17,24 +17,24 @@ import (
 func EitherT[T any](adapter Adapter[T]) Adapter[functions.Either[error, T]] {
 	return func(node dsltypes.ASTNode[functions.Either[error, T]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, T]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, T]]) bool) {
-			
+
 			// 1. BYPASS: If the node contains an Error (Left), we do not run the adapter.
 			// We instantly yield the error node forward so the user sees the failure!
 			if node.Value.IsLeft() {
 				yield(node)
 				return
 			}
-			
+
 			// 2. UNWRAP: The node contains a valid value (Right).
 			val, _ := node.Value.UnwrapRight()
 			innerNode := dsltypes.NewASTNode(val, node.DSLType)
-			
+
 			// 3. EXECUTE: Run the pure underlying adapter.
 			for result := range adapter(innerNode) {
 				// 4. RE-WRAP: Package the pure result back into an Either[error, T]
 				wrappedValue := functions.Right[error, T](result.Value)
 				wrappedNode := dsltypes.NewASTNode(wrappedValue, result.DSLType)
-				
+
 				if !yield(wrappedNode) {
 					return
 				}

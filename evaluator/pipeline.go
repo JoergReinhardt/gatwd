@@ -49,17 +49,19 @@ func StepDrop[T any](n int) PipelineStep[T] {
 func StepFanOut(adapter1, adapter2 Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		fanOutArrow := arrows.FanOut(arrows.Kleisli[dsltypes.ASTNode[functions.Either[error, any]], dsltypes.ASTNode[functions.Either[error, any]]](adapter1), arrows.Kleisli[dsltypes.ASTNode[functions.Either[error, any]], dsltypes.ASTNode[functions.Either[error, any]]](adapter2))
-		
+
 		return functions.Bind(stream, func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 				for pair := range fanOutArrow(node) {
 					v1, _ := pair.Fst.Value.UnwrapRight()
 					v2, _ := pair.Snd.Value.UnwrapRight()
-					
+
 					// Package the results into a Tuple
 					tuple := functions.Pair[any, any]{Fst: v1, Snd: v2}
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(tuple)), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				}
 			}
 		})
@@ -73,19 +75,23 @@ func StepDistinct() PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			// Initialize the comonadic/functional state for deduplication
 			visited := collections.NewSet[string]()
-			
+
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
-				
+
 				val, _ := node.Value.UnwrapRight()
 				hash := fmt.Sprintf("%v", val)
-				
+
 				if !visited.Contains(hash) {
 					visited = visited.Add(hash) // Immutably create new Set
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 			}
 		}
@@ -98,17 +104,23 @@ func StepFormatTuple(formatStr string) PipelineStep[functions.Either[error, any]
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
 				if tuple, ok := val.(functions.Pair[any, any]); ok {
 					formatted := fmt.Sprintf(formatStr, tuple.Fst, tuple.Snd)
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(formatted)), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Type Error: format_tuple expected a Tuple (Pair), but received %T", val), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				}
 			}
 		}
@@ -120,16 +132,22 @@ func StepExpect[T any](predicate func(T) bool, err error) PipelineStep[functions
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, T]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 
 				val, _ := node.Value.UnwrapRight()
 				if !predicate(val) {
 					errNode := InjectError[T](err, node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				} else {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 			}
 		}
@@ -142,7 +160,9 @@ func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
 			for node := range stream {
 				secondaryStream := secondary(node)
 				for secNode := range secondaryStream {
-					if !yield(secNode) { return }
+					if !yield(secNode) {
+						return
+					}
 				}
 			}
 		}
@@ -154,22 +174,30 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				
+
 				if record, ok := val.(map[string]any); ok {
 					if fieldVal, exists := record[field]; exists {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](fieldVal), node.DSLType)
-						if !yield(newNode) { return }
+						if !yield(newNode) {
+							return
+						}
 					} else {
 						errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus on field '%s' because it does not exist in this Record", field), node.DSLType)
-						if !yield(errNode) { return }
+						if !yield(errNode) {
+							return
+						}
 					}
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus because Node is not a Record (Map)"), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				}
 			}
 		}
@@ -181,21 +209,29 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				
+
 				if record, ok := val.(map[string]any); ok {
 					newRecord := make(map[string]any)
-					for k, v := range record { newRecord[k] = v }
+					for k, v := range record {
+						newRecord[k] = v
+					}
 					newRecord[field] = newValue
-					
+
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newRecord)), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot update because Node is not a Record (Map)"), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				}
 			}
 		}
@@ -210,11 +246,13 @@ func StepFold(operation string) PipelineStep[functions.Either[error, any]] {
 			count := 0
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue } // Skip errors in fold
+				if node.Value.IsLeft() {
+					continue
+				} // Skip errors in fold
 				count++
 				lastFlag = node.DSLType
 			}
-			
+
 			if operation == "count" {
 				val := functions.Right[error, any](fmt.Sprintf("%d", count))
 				yield(dsltypes.NewASTNode(val, lastFlag))
@@ -233,26 +271,32 @@ func StepMatch(cases map[string]Adapter[functions.Either[error, any]], defaultAd
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
 				strVal := fmt.Sprintf("%v", val)
-				
+
 				matched := false
 				for pattern, adapter := range cases {
 					if strings.Contains(strVal, pattern) {
-								for res := range adapter(node) {
-									if !yield(res) { return }
+						for res := range adapter(node) {
+							if !yield(res) {
+								return
+							}
 						}
 						matched = true
 						break
 					}
 				}
-				
+
 				if !matched && defaultAdapter != nil {
 					for res := range defaultAdapter(node) {
-						if !yield(res) { return }
+						if !yield(res) {
+							return
+						}
 					}
 				} else if !matched {
 					// Discard if no match and no default
@@ -263,20 +307,24 @@ func StepMatch(cases map[string]Adapter[functions.Either[error, any]], defaultAd
 }
 
 // StepFilter acts exactly like a MaybeT Monad Transformer in a graph.
-// If the predicate fails (yielding 'Nothing'), the node is silently dropped 
+// If the predicate fails (yielding 'Nothing'), the node is silently dropped
 // rather than being converted into an Either.Left Error.
 func StepFilter(predicate func(any) bool) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 
 				val, _ := node.Value.UnwrapRight()
 				if predicate(val) {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 				// If it fails the predicate, it evaluates to Nothing and is silently dropped!
 			}
@@ -292,30 +340,42 @@ func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipelin
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				
+
 				if tuple, ok := val.(functions.Pair[any, any]); ok {
 					// We mock the concurrent Applicative application here
 					leftNode := dsltypes.NewASTNode(functions.Right[error, any](tuple.Fst), node.DSLType)
 					rightNode := dsltypes.NewASTNode(functions.Right[error, any](tuple.Snd), node.DSLType)
-					
+
 					var res1, res2 any
 					for r1 := range adapter1(leftNode) {
-						if !r1.Value.IsLeft() { res1, _ = r1.Value.UnwrapRight(); break }
+						if !r1.Value.IsLeft() {
+							res1, _ = r1.Value.UnwrapRight()
+							break
+						}
 					}
 					for r2 := range adapter2(rightNode) {
-						if !r2.Value.IsLeft() { res2, _ = r2.Value.UnwrapRight(); break }
+						if !r2.Value.IsLeft() {
+							res2, _ = r2.Value.UnwrapRight()
+							break
+						}
 					}
-					
+
 					newTuple := functions.Pair[any, any]{Fst: res1, Snd: res2}
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newTuple)), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Applicative Error: Split [***] expected a Tuple (Pair), but received a scalar value"), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				}
 			}
 		}
@@ -329,18 +389,20 @@ func StepCollectList() PipelineStep[functions.Either[error, any]] {
 			var elements []any
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				elements = append(elements, val)
 				lastFlag = node.DSLType
 			}
-			
+
 			// Build immutable list backwards
 			var list *collections.List[any] = collections.Nil[any]()
 			for i := len(elements) - 1; i >= 0; i-- {
 				list = collections.Cons(elements[i], list)
 			}
-			
+
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(list)), lastFlag)
 			yield(newNode)
 		}
@@ -354,19 +416,21 @@ func StepBuildTree(rootName string) PipelineStep[functions.Either[error, any]] {
 			var elements []any
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				elements = append(elements, val)
 				lastFlag = node.DSLType
 			}
-			
+
 			// Build children list
 			var children *collections.List[*collections.Tree[any]] = collections.Nil[*collections.Tree[any]]()
 			for i := len(elements) - 1; i >= 0; i-- {
 				childTree := collections.Leaf[any](elements[i])
 				children = collections.Cons(childTree, children)
 			}
-			
+
 			tree := collections.NewTree[any](any(rootName), children)
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(tree)), lastFlag)
 			yield(newNode)
@@ -374,20 +438,21 @@ func StepBuildTree(rootName string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
-
 // StepZipper converts a Tree into a Zipper, or extracts from a Zipper.
 func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
-				
+
 				val, _ := node.Value.UnwrapRight()
 				var zipper *comonads.TreeZipper[any]
-				
+
 				// Initialize Zipper if it's a Tree
 				if tree, ok := val.(*collections.Tree[any]); ok {
 					zipper = comonads.NewZipper(tree)
@@ -395,54 +460,76 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 					zipper = z
 				} else {
 					errNode := InjectError[any](fmt.Errorf("Comonad Error: Cannot navigate because Node is neither a Tree nor a Zipper Cursor"), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 					continue
 				}
-				
+
 				// Apply Operation
 				if op == "into_zipper" {
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(zipper)), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				} else if op == "down" {
 					nextZipper := zipper.Down()
 					if nextZipper != nil {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
-						if !yield(newNode) { return }
+						if !yield(newNode) {
+							return
+						}
 					} else {
 						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper DOWN because the current Tree node has no children"), node.DSLType)
-						if !yield(errNode) { return }
+						if !yield(errNode) {
+							return
+						}
 					}
 				} else if op == "right" {
-						nextZipper := zipper.Right()
-						if nextZipper != nil {
-							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
-							if !yield(newNode) { return }
-						} else {
-							errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper RIGHT because there is no sibling"), node.DSLType)
-							if !yield(errNode) { return }
+					nextZipper := zipper.Right()
+					if nextZipper != nil {
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+						if !yield(newNode) {
+							return
 						}
-					} else if op == "left" {
-						nextZipper := zipper.Left()
-						if nextZipper != nil {
-							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
-							if !yield(newNode) { return }
-						} else {
-							errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper LEFT because there is no sibling"), node.DSLType)
-							if !yield(errNode) { return }
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper RIGHT because there is no sibling"), node.DSLType)
+						if !yield(errNode) {
+							return
 						}
-					} else if op == "up" {
+					}
+				} else if op == "left" {
+					nextZipper := zipper.Left()
+					if nextZipper != nil {
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+						if !yield(newNode) {
+							return
+						}
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper LEFT because there is no sibling"), node.DSLType)
+						if !yield(errNode) {
+							return
+						}
+					}
+				} else if op == "up" {
 					nextZipper := zipper.Up()
 					if nextZipper != nil {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
-						if !yield(newNode) { return }
+						if !yield(newNode) {
+							return
+						}
 					} else {
 						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper UP because the Cursor is already at the Root of the Tree"), node.DSLType)
-						if !yield(errNode) { return }
+						if !yield(errNode) {
+							return
+						}
 					}
 				} else if op == "extract" {
 					extracted := zipper.Extract()
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](extracted), node.DSLType)
-					if !yield(newNode) { return }
+					if !yield(newNode) {
+						return
+					}
 				}
 			}
 		}
@@ -465,11 +552,13 @@ func StepBuildBST() PipelineStep[functions.Either[error, any]] {
 			var bst *collections.BST[string]
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				strVal := fmt.Sprintf("%v", val)
 				lastFlag = node.DSLType
-				
+
 				cmp := func(a, b string) int { return strings.Compare(a, b) }
 				bst = bst.Insert(strVal, cmp)
 			}
@@ -486,12 +575,14 @@ func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 			var elements []any
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				elements = append(elements, val)
 				lastFlag = node.DSLType
 			}
-			
+
 			// Mock a B-Tree structure for visualizer testing
 			var btree *collections.BTree[any]
 			if len(elements) > 3 {
@@ -501,7 +592,7 @@ func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 			} else {
 				btree = collections.NewBTreeNode(elements, nil)
 			}
-			
+
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(btree)), lastFlag)
 			yield(newNode)
 		}
@@ -515,11 +606,13 @@ func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
 			var rbt *collections.RBTree[string]
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				strVal := fmt.Sprintf("%v", val)
 				lastFlag = node.DSLType
-				
+
 				cmp := func(a, b string) int { return strings.Compare(a, b) }
 				if rbt == nil {
 					rbt = collections.LeafRB(strVal)
@@ -537,11 +630,16 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
-				if node.Value.IsLeft() { if !yield(node) { return }; continue }
-				
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
 				val, _ := node.Value.UnwrapRight()
 				var newVal any
-				
+
 				switch v := val.(type) {
 				case *big.Int:
 					n := new(big.Int)
@@ -566,12 +664,16 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 					}
 				default:
 					errNode := InjectError[any](fmt.Errorf("math_add failed: unsupported type %T", val), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 					continue
 				}
-				
+
 				newNode := dsltypes.NewASTNode(functions.Right[error, any](newVal), node.DSLType)
-				if !yield(newNode) { return }
+				if !yield(newNode) {
+					return
+				}
 			}
 		}
 	}
@@ -584,7 +686,9 @@ func StepBuildArray() PipelineStep[functions.Either[error, any]] {
 			var arr []any
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				arr = append(arr, val)
 				lastFlag = node.DSLType
@@ -599,29 +703,33 @@ func StepMap(subPipeline []PipelineStep[functions.Either[error, any]], engine *E
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
-				if node.Value.IsLeft() { 
-					if !yield(node) { return }
-					continue 
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
 				}
 
 				// Create a singleton stream for this node
 				singleton := func(subYield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 					subYield(node)
 				}
-				
+
 				// Evaluate the sub-pipeline over this single node
 				results := engine.EvaluatePipeline(singleton, subPipeline)
-				
+
 				// Yield all results from the sub-pipeline downstream
 				for resNode := range results {
-					if !yield(resNode) { return }
+					if !yield(resNode) {
+						return
+					}
 				}
 			}
 		}
 	}
 }
 
-// StepSort buffers the entire lazy sequence into a slice, sorts it using a provided comparator, 
+// StepSort buffers the entire lazy sequence into a slice, sorts it using a provided comparator,
 // and then yields it back as a lazy sequence. This represents a strict evaluation boundary.
 func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -640,7 +748,9 @@ func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any
 
 			// Yield errors immediately
 			for _, errNode := range errs {
-				if !yield(errNode) { return }
+				if !yield(errNode) {
+					return
+				}
 			}
 
 			// Sort the buffer
@@ -652,7 +762,9 @@ func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any
 
 			// Yield the sorted buffer lazily
 			for _, node := range buffer {
-				if !yield(node) { return }
+				if !yield(node) {
+					return
+				}
 			}
 		}
 	}
@@ -662,11 +774,17 @@ func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any
 func DefaultLess(a, b any) bool {
 	switch va := a.(type) {
 	case int:
-		if vb, ok := b.(int); ok { return va < vb }
+		if vb, ok := b.(int); ok {
+			return va < vb
+		}
 	case float64:
-		if vb, ok := b.(float64); ok { return va < vb }
+		if vb, ok := b.(float64); ok {
+			return va < vb
+		}
 	case string:
-		if vb, ok := b.(string); ok { return va < vb }
+		if vb, ok := b.(string); ok {
+			return va < vb
+		}
 	}
 	// Fallback to string comparison
 	return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
@@ -691,7 +809,9 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 			}
 
 			for _, errNode := range errs {
-				if !yield(errNode) { return }
+				if !yield(errNode) {
+					return
+				}
 			}
 
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(set)), lastFlag)
@@ -738,7 +858,9 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 			}
 
 			for _, errNode := range errs {
-				if !yield(errNode) { return }
+				if !yield(errNode) {
+					return
+				}
 			}
 
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(hamt)), lastFlag)
@@ -753,7 +875,9 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -786,7 +910,9 @@ func StepHAMTSet(key string, val any) PipelineStep[functions.Either[error, any]]
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -810,7 +936,9 @@ func StepHAMTDel(key string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -834,7 +962,9 @@ func StepHAMTKeys() PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -866,7 +996,9 @@ func StepHAMTValues() PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -898,7 +1030,9 @@ func StepSetContains(item string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -918,7 +1052,9 @@ func StepSetAdd(item string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -938,7 +1074,9 @@ func StepSetRemove(item string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -958,7 +1096,9 @@ func StepSetElements() PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
@@ -976,20 +1116,23 @@ func StepSetElements() PipelineStep[functions.Either[error, any]] {
 	}
 }
 
-
 // StepEmit emits a fixed set of string values sequentially into the stream.
 func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			// First, pass through upstream
 			for node := range stream {
-				if !yield(node) { return }
+				if !yield(node) {
+					return
+				}
 			}
-			
+
 			// Then emit our values
 			for _, v := range values {
 				node := dsltypes.NewASTNode(functions.Right[error, any](any(v)), 0)
-				if !yield(node) { return }
+				if !yield(node) {
+					return
+				}
 			}
 		}
 	}
@@ -1002,10 +1145,12 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 					continue
 				}
-				
+
 				val, _ := node.Value.UnwrapRight()
 				var actual string
 				if b, ok := val.([]byte); ok {
@@ -1013,13 +1158,17 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 				} else {
 					actual = fmt.Sprintf("%v", val)
 				}
-				
+
 				if actual != expected {
 					err := fmt.Errorf("Assertion failed: expected '%s', got '%s'", expected, actual)
 					errNode := InjectError[any](err, node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 				} else {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 			}
 		}
@@ -1030,11 +1179,16 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
-				if node.Value.IsLeft() { if !yield(node) { return }; continue }
-				
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
 				val, _ := node.Value.UnwrapRight()
 				var newVal any
-				
+
 				switch v := val.(type) {
 				case int:
 					n, _ := strconv.Atoi(amount)
@@ -1051,17 +1205,23 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 						newVal = fv - n
 					} else {
 						errNode := InjectError[any](fmt.Errorf("math_sub failed: cannot subtract from non-numeric string %q", v), node.DSLType)
-						if !yield(errNode) { return }
+						if !yield(errNode) {
+							return
+						}
 						continue
 					}
 				default:
 					errNode := InjectError[any](fmt.Errorf("math_sub failed: unsupported type %T", val), node.DSLType)
-					if !yield(errNode) { return }
+					if !yield(errNode) {
+						return
+					}
 					continue
 				}
-				
+
 				newNode := dsltypes.NewASTNode(functions.Right[error, any](newVal), node.DSLType)
-				if !yield(newNode) { return }
+				if !yield(newNode) {
+					return
+				}
 			}
 		}
 	}
@@ -1078,7 +1238,9 @@ func StepDebugPrint(prefix string) PipelineStep[functions.Either[error, any]] {
 					val, _ := node.Value.UnwrapRight()
 					fmt.Println(prefix, "RIGHT:", val)
 				}
-				if !yield(node) { return }
+				if !yield(node) {
+					return
+				}
 			}
 		}
 	}
@@ -1096,7 +1258,9 @@ func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) P
 					for !current.IsEmpty() {
 						head, _ := current.Head()
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](head), node.DSLType)
-						if !yield(newNode) { return }
+						if !yield(newNode) {
+							return
+						}
 						current, _ = current.Tail()
 					}
 					return
@@ -1110,27 +1274,39 @@ func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) P
 func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			if pivotNode.Value.IsLeft() { return }
+			if pivotNode.Value.IsLeft() {
+				return
+			}
 			pVal, _ := pivotNode.Value.UnwrapRight()
 			var pivotInt int
 			switch p := pVal.(type) {
-			case int: pivotInt = p
-			case string: pivotInt, _ = strconv.Atoi(p)
-			default: return
+			case int:
+				pivotInt = p
+			case string:
+				pivotInt, _ = strconv.Atoi(p)
+			default:
+				return
 			}
-			
+
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				var vInt int
 				switch v := val.(type) {
-				case int: vInt = v
-				case string: vInt, _ = strconv.Atoi(v)
-				default: continue
+				case int:
+					vInt = v
+				case string:
+					vInt, _ = strconv.Atoi(v)
+				default:
+					continue
 				}
-				
+
 				if vInt < pivotInt {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 			}
 		}
@@ -1140,27 +1316,39 @@ func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) Pi
 func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			if pivotNode.Value.IsLeft() { return }
+			if pivotNode.Value.IsLeft() {
+				return
+			}
 			pVal, _ := pivotNode.Value.UnwrapRight()
 			var pivotInt int
 			switch p := pVal.(type) {
-			case int: pivotInt = p
-			case string: pivotInt, _ = strconv.Atoi(p)
-			default: return
+			case int:
+				pivotInt = p
+			case string:
+				pivotInt, _ = strconv.Atoi(p)
+			default:
+				return
 			}
-			
+
 			for node := range stream {
-				if node.Value.IsLeft() { continue }
+				if node.Value.IsLeft() {
+					continue
+				}
 				val, _ := node.Value.UnwrapRight()
 				var vInt int
 				switch v := val.(type) {
-				case int: vInt = v
-				case string: vInt, _ = strconv.Atoi(v)
-				default: continue
+				case int:
+					vInt = v
+				case string:
+					vInt, _ = strconv.Atoi(v)
+				default:
+					continue
 				}
-				
+
 				if vInt >= pivotInt {
-					if !yield(node) { return }
+					if !yield(node) {
+						return
+					}
 				}
 			}
 		}
@@ -1172,10 +1360,14 @@ func StepConcat(left, right Adapter[functions.Either[error, any]]) PipelineStep[
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				for r := range left(node) {
-					if !yield(r) { return }
+					if !yield(r) {
+						return
+					}
 				}
 				for r := range right(node) {
-					if !yield(r) { return }
+					if !yield(r) {
+						return
+					}
 				}
 			}
 		}
@@ -1188,7 +1380,9 @@ func StepSeq(adapters []Adapter[functions.Either[error, any]]) PipelineStep[func
 			for node := range stream {
 				for _, adapter := range adapters {
 					for r := range adapter(node) {
-						if !yield(r) { return }
+						if !yield(r) {
+							return
+						}
 					}
 				}
 			}

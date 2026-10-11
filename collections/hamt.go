@@ -15,15 +15,15 @@ var defaultHAMTSeed = maphash.MakeSeed()
 type hamtNode[K comparable, V any] interface {
 	get(key K, hash uint64, shift uint) (V, bool)
 	set(key K, val V, hash uint64, shift uint) (hamtNode[K, V], bool) // returns new node, and whether size increased
-	delete(key K, hash uint64, shift uint) (hamtNode[K, V], bool)    // returns new node, and whether an element was removed
+	delete(key K, hash uint64, shift uint) (hamtNode[K, V], bool)     // returns new node, and whether an element was removed
 	iter(yield func(K, V) bool) bool
 }
 
 // leafNode represents a single key-value entry.
 type leafNode[K comparable, V any] struct {
-	key   K
-	val   V
-	hash  uint64
+	key  K
+	val  V
+	hash uint64
 }
 
 func (l *leafNode[K, V]) get(key K, hash uint64, shift uint) (V, bool) {

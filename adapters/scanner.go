@@ -105,4 +105,3 @@ func StepScanFile(path string, splitFunc bufio.SplitFunc) evaluator.PipelineStep
 		}
 	}
 }
-

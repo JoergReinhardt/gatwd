@@ -14,11 +14,11 @@ import (
 
 	"github.com/joergreinhardt/gatwd/collections"
 
+	"github.com/joergreinhardt/gatwd/adapters"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/interactive"
-	"github.com/joergreinhardt/gatwd/adapters"
 	"github.com/joergreinhardt/gatwd/parser"
 	"github.com/joergreinhardt/gatwd/pkg/plugins"
 	"github.com/joergreinhardt/gatwd/visualizer"
@@ -73,10 +73,9 @@ func (i *Interpreter) RegisterStep(handler StepHandler) {
 	i.CustomSteps = append(i.CustomSteps, handler)
 }
 
-
 func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
 	subParts, _ := splitPipelineAware(subPipelineStr)
-		subPipeline := i.parsePipelineSteps(subParts)
+	subPipeline := i.parsePipelineSteps(subParts)
 
 	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { yield(node) }
@@ -98,7 +97,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepYieldRuntimeNode(rtNode))
 			continue
 		}
-		
+
 		// Variable Substitution
 		for k, v := range i.Variables {
 			// Naive word replacement for variables
@@ -131,12 +130,14 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					funcPipeline := i.Funcs[funcName]
 					funcParts, _ := splitPipelineAware(funcPipeline)
 					compiledSteps := i.parsePipelineSteps(funcParts)
-					
+
 					// Evaluate the compiled pipeline over the incoming stream
 					eng := evaluator.NewEngine[functions.Either[error, any]]()
 					outStream := eng.EvaluatePipeline(stream, compiledSteps)
 					for node := range outStream {
-						if !yield(node) { return }
+						if !yield(node) {
+							return
+						}
 					}
 				}
 			}
@@ -210,7 +211,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			cmd := strings.TrimSpace(stepStr[7:])
 			adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
 			pipeline = append(pipeline, evaluator.StepMemoize(adapter))
-				} else if strings.HasPrefix(stepStr, "zip") {
+		} else if strings.HasPrefix(stepStr, "zip") {
 			for res := range parser.ParseZip()(stepStr) {
 				cmd := res.Fst
 				secAdapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
@@ -411,7 +412,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
 			id := "default"
 			var interval uint64 = 10
-			if len(args) > 0 { id = strings.Trim(args[0], "\"") }
+			if len(args) > 0 {
+				id = strings.Trim(args[0], "\"")
+			}
 			if len(args) > 1 {
 				if iv, err := strconv.ParseUint(args[1], 10, 64); err == nil {
 					interval = iv
@@ -428,9 +431,13 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
 			addr := "127.0.0.1:0"
 			maxConns := 1
-			if len(args) > 0 { addr = strings.Trim(args[0], "\"") }
+			if len(args) > 0 {
+				addr = strings.Trim(args[0], "\"")
+			}
 			if len(args) > 1 {
-				if mc, err := strconv.Atoi(args[1]); err == nil { maxConns = mc }
+				if mc, err := strconv.Atoi(args[1]); err == nil {
+					maxConns = mc
+				}
 			}
 			pipeline = append(pipeline, adapters.StepListenTCP("tcp", addr, maxConns))
 		} else if stepStr == "conn_lines" {
@@ -465,23 +472,30 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					casesRaw[pattern] = cmd
 				}
 			}
-			
+
 			dynamicMatch := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 					for node := range stream {
-						if node.Value.IsLeft() { if !yield(node) { return }; continue }
+						if node.Value.IsLeft() {
+							if !yield(node) {
+								return
+							}
+							continue
+						}
 						val, _ := node.Value.UnwrapRight()
 						strVal := fmt.Sprintf("%v", val)
-						
+
 						matched := false
 						for pattern, cmd := range casesRaw {
 							if strings.HasPrefix(pattern, "[") && strings.Contains(pattern, ", ...") && strings.HasSuffix(pattern, "]") {
 								if list, isList := val.(*collections.List[any]); isList {
-									if list.IsEmpty() { continue }
+									if list.IsEmpty() {
+										continue
+									}
 									parts := strings.Split(pattern[1:len(pattern)-1], ", ...")
 									headVar := strings.TrimSpace(parts[0])
 									tailVar := strings.TrimSpace(parts[1])
-									
+
 									localInterp := NewBareInterpreter()
 									localInterp.EnableBuiltins = i.EnableBuiltins
 									localInterp.CustomSteps = i.CustomSteps
@@ -489,15 +503,21 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 									localInterp.Funcs = i.Funcs
 									localInterp.Constants = i.Constants
 									localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
-									for k, v := range i.RuntimeNodes { localInterp.RuntimeNodes[k] = v }
-									
+									for k, v := range i.RuntimeNodes {
+										localInterp.RuntimeNodes[k] = v
+									}
+
 									headVal, _ := list.Head()
 									tailVal, _ := list.Tail()
 									localInterp.RuntimeNodes[headVar] = dsltypes.NewASTNode(functions.Right[error, any](headVal), node.DSLType)
 									localInterp.RuntimeNodes[tailVar] = dsltypes.NewASTNode(functions.Right[error, any](any(tailVal)), node.DSLType)
-									
+
 									adapter := localInterp.pipelineToAdapter(cmd)
-									for res := range adapter(node) { if !yield(res) { return } }
+									for res := range adapter(node) {
+										if !yield(res) {
+											return
+										}
+									}
 									matched = true
 									break
 								}
@@ -505,23 +525,35 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if pattern == "[]" {
 								if list, isList := val.(*collections.List[any]); isList && list.IsEmpty() {
 									adapter := i.pipelineToAdapter(cmd)
-									for res := range adapter(node) { if !yield(res) { return } }
+									for res := range adapter(node) {
+										if !yield(res) {
+											return
+										}
+									}
 									matched = true
 									break
 								}
 							}
 							if !strings.HasPrefix(pattern, "[") && strings.Contains(strVal, pattern) && pattern != "_" {
 								adapter := i.pipelineToAdapter(cmd)
-								for res := range adapter(node) { if !yield(res) { return } }
+								for res := range adapter(node) {
+									if !yield(res) {
+										return
+									}
+								}
 								matched = true
 								break
 							}
 						}
-						
+
 						if !matched {
 							if defCmd, ok := casesRaw["_"]; ok {
 								adapter := i.pipelineToAdapter(defCmd)
-								for res := range adapter(node) { if !yield(res) { return } }
+								for res := range adapter(node) {
+									if !yield(res) {
+										return
+									}
+								}
 							}
 						}
 					}
@@ -568,14 +600,26 @@ func splitCasesAware(line string) []string {
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
-		
-		if r == '(' { depthParen++ }
-		if r == ')' { depthParen-- }
-		if r == '{' { depthBrace++ }
-		if r == '}' { depthBrace-- }
-		if r == '[' { depthBracket++ }
-		if r == ']' { depthBracket-- }
-		
+
+		if r == '(' {
+			depthParen++
+		}
+		if r == ')' {
+			depthParen--
+		}
+		if r == '{' {
+			depthBrace++
+		}
+		if r == '}' {
+			depthBrace--
+		}
+		if r == '[' {
+			depthBracket++
+		}
+		if r == ']' {
+			depthBracket--
+		}
+
 		if depthParen == 0 && depthBrace == 0 && depthBracket == 0 {
 			if r == '|' {
 				// Make sure it's not |> or ||>
@@ -589,21 +633,21 @@ func splitCasesAware(line string) []string {
 					current.WriteRune(r)
 					continue
 				}
-				
+
 				// It's a genuine case separator!
 				parts = append(parts, strings.TrimSpace(current.String()))
 				current.Reset()
 				continue
 			}
 		}
-		
+
 		current.WriteRune(r)
 	}
-	
+
 	if current.Len() > 0 {
 		parts = append(parts, strings.TrimSpace(current.String()))
 	}
-	
+
 	return parts
 }
 
@@ -618,14 +662,26 @@ func splitPipelineAware(line string) ([]string, bool) {
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
-		
-		if r == '(' { depthParen++ }
-		if r == ')' { depthParen-- }
-		if r == '{' { depthBrace++ }
-		if r == '}' { depthBrace-- }
-		if r == '[' { depthBracket++ }
-		if r == ']' { depthBracket-- }
-		
+
+		if r == '(' {
+			depthParen++
+		}
+		if r == ')' {
+			depthParen--
+		}
+		if r == '{' {
+			depthBrace++
+		}
+		if r == '}' {
+			depthBrace--
+		}
+		if r == '[' {
+			depthBracket++
+		}
+		if r == ']' {
+			depthBracket--
+		}
+
 		if depthParen == 0 && depthBrace == 0 && depthBracket == 0 {
 			if r == '|' && i+1 < len(runes) && runes[i+1] == '>' {
 				parts = append(parts, strings.TrimSpace(current.String()))
@@ -640,14 +696,14 @@ func splitPipelineAware(line string) ([]string, bool) {
 				continue
 			}
 		}
-		
+
 		current.WriteRune(r)
 	}
-	
+
 	if current.Len() > 0 {
 		parts = append(parts, strings.TrimSpace(current.String()))
 	}
-	
+
 	return parts, isParallel
 }
 
@@ -706,7 +762,7 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 
 func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	parts, isParallel := splitPipelineAware(line)
-	
+
 	firstPart := parts[0]
 	for k, v := range i.Variables {
 		words := strings.Split(firstPart, " ")
@@ -726,7 +782,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		}
 		firstPart = strings.Join(words, " ")
 	}
-	
+
 	stringStream := i.Parser.Parse(firstPart)
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
@@ -991,4 +1047,3 @@ func RunWithInterpreter(interpreter *Interpreter) {
 func Run() {
 	RunWithInterpreter(NewInterpreter())
 }
-

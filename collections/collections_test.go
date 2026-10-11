@@ -37,15 +37,15 @@ func TestTree(t *testing.T) {
 	//    2     3
 	//   / \
 	//  4   5
-	
+
 	leaf4 := collections.Leaf(4)
 	leaf5 := collections.Leaf(5)
-	
+
 	childrenOf2 := collections.Cons(leaf4, collections.Cons(leaf5, collections.Nil[*collections.Tree[int]]()))
 	node2 := collections.NewTree(2, childrenOf2)
-	
+
 	node3 := collections.Leaf(3)
-	
+
 	childrenOf1 := collections.Cons(node2, collections.Cons(node3, collections.Nil[*collections.Tree[int]]()))
 	root := collections.NewTree(1, childrenOf1)
 

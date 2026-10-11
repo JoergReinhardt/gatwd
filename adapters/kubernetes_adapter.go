@@ -25,7 +25,7 @@ import (
 func NativeKubernetesAdapter(client dynamic.Interface, gvr schema.GroupVersionResource, targetFlag dsltypes.BitFlag) evaluator.Adapter[string] {
 	return func(node dsltypes.ASTNode[string]) iter.Seq[dsltypes.ASTNode[string]] {
 		return func(yield func(dsltypes.ASTNode[string]) bool) {
-			
+
 			namespace := node.Value
 
 			// Use the dynamic client to fetch ANY Kubernetes resource
@@ -40,7 +40,7 @@ func NativeKubernetesAdapter(client dynamic.Interface, gvr schema.GroupVersionRe
 				// or the unstructured.Unstructured object itself if we changed `T any`
 				// in the engine to support complex objects.
 				childNode := dsltypes.NewASTNode(item.GetName(), targetFlag)
-				
+
 				if !yield(childNode) {
 					return
 				}

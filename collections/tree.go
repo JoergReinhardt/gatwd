@@ -4,12 +4,12 @@ import "iter"
 
 // Tree represents an immutable, persistent Rose Tree.
 //
-// A Rose Tree is a tree where each node has a value and an ordered 
+// A Rose Tree is a tree where each node has a value and an ordered
 // collection of children (which can be any number, including zero).
 // It is the foundational data structure for parsing ASTs, representing
 // hierarchical scopes, or modeling infrastructure graphs.
 //
-// Because the children are stored in an immutable `List`, the entire 
+// Because the children are stored in an immutable `List`, the entire
 // Tree is thread-safe and can be safely passed across goroutines.
 type Tree[T any] struct {
 	value    T
@@ -47,8 +47,8 @@ func (t *Tree[T]) Children() *List[*Tree[T]] {
 
 // WalkDepthFirst returns a lazy iterator that traverses the tree in a depth-first manner.
 //
-// This is incredibly powerful for evaluating ASTs or crawling graphs. 
-// It flattens the multidimensional tree into a lazy 1D stream that our 
+// This is incredibly powerful for evaluating ASTs or crawling graphs.
+// It flattens the multidimensional tree into a lazy 1D stream that our
 // evaluator loop can process using `Bind`.
 func (t *Tree[T]) WalkDepthFirst() iter.Seq[T] {
 	return func(yield func(T) bool) {
@@ -56,7 +56,7 @@ func (t *Tree[T]) WalkDepthFirst() iter.Seq[T] {
 		if !yield(t.value) {
 			return
 		}
-		
+
 		// Recursively yield children
 		for child := range t.children.Seq() {
 			for v := range child.WalkDepthFirst() {
@@ -70,7 +70,9 @@ func (t *Tree[T]) WalkDepthFirst() iter.Seq[T] {
 
 // Graph exposes the internal structure for generic UTF-8 Tree visualizations
 func (t *Tree[T]) Graph() any {
-	if t == nil { return "<nil Tree>" }
+	if t == nil {
+		return "<nil Tree>"
+	}
 	return struct {
 		Value    T
 		Children *List[*Tree[T]]

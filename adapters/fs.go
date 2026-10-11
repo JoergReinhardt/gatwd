@@ -33,7 +33,7 @@ func BuildFSTree(fsys fs.FS, root string) (*collections.Tree[any], error) {
 			childTrees = append(childTrees, collections.Leaf[any](any(fullPath)))
 		}
 	}
-	
+
 	list := collections.Nil[*collections.Tree[any]]()
 	for i := len(childTrees) - 1; i >= 0; i-- {
 		list = collections.Cons(childTrees[i], list)
@@ -48,14 +48,14 @@ func WalkFSAdapter(root string) func(dsltypes.ASTNode[functions.Either[error, an
 	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			fsys := os.DirFS(".")
-			
+
 			tree, err := BuildFSTree(fsys, root)
 			if err != nil {
 				errNode := dsltypes.NewASTNode(functions.Left[error, any](err), node.DSLType)
 				yield(errNode)
 				return
 			}
-			
+
 			treeNode := dsltypes.NewASTNode(functions.Right[error, any](any(tree)), node.DSLType)
 			yield(treeNode)
 		}

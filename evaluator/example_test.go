@@ -8,6 +8,7 @@ import (
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 func ExampleEngine_EvaluatePipeline() {
@@ -98,6 +99,22 @@ func ExampleStepChunk() {
 	// chunk size 1
 }
 
+func ExampleStepChunk_visualized() {
+	chunk := collections.NewChunk[int](2)
+	chunk.Append(10)
+	chunk.Append(20)
+
+	opts := visualizer.ParseOptions("--curved --border")
+	fmt.Print(visualizer.Format(chunk, opts))
+
+	// Output:
+	// ╭────────────────╮
+	// │ ╰─ List        │
+	// │     ├─ [0]: 10 │
+	// │     ╰─ [1]: 20 │
+	// ╰────────────────╯
+}
+
 func ExampleGenerateMockUsers() {
 	engine := evaluator.NewEngine[functions.Either[error, any]]()
 	flag := dsltypes.BitFlag(1)
@@ -122,6 +139,29 @@ func ExampleGenerateMockUsers() {
 	// Output:
 	// User 0: admin_A (admin)
 	// User 2: viewer_C (viewer)
+}
+
+func ExampleGenerateMockUsers_visualized() {
+	flag := dsltypes.BitFlag(1)
+
+	// Stream 1 mock user and format into a visual card
+	stream := evaluator.GenerateMockUsers(1, flag)
+	opts := visualizer.ParseOptions("--curved --border")
+
+	for node := range stream {
+		val, _ := node.Value.UnwrapRight()
+		fmt.Print(visualizer.Format(val, opts))
+	}
+
+	// Output:
+	// ╭──────────────────────╮
+	// │ ╰─ MockUser          │
+	// │     ├─ ID: 0         │
+	// │     ├─ Name: admin_A │
+	// │     ├─ Role: admin   │
+	// │     ├─ Score: 0      │
+	// │     ╰─ Active: true  │
+	// ╰──────────────────────╯
 }
 
 func ExampleRunExample() {

@@ -17,7 +17,6 @@ func TestBareInterpreter_CoreAndExtension(t *testing.T) {
 	bare := cli.NewBareInterpreter()
 	bare.EvaluateLine("type IntVal = Int")
 
-
 	// Core primitive works
 	res := bare.EvaluateToValues("spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> head |> assert 1")
 	if len(res) == 0 || res[0] != "1" {
@@ -116,4 +115,3 @@ spawn ClusterStatus: EXPECTED_STATE |> assert OK
 		t.Fatalf("expected constant 'EXPECTED_STATE' to be 'OK', got %v", opState)
 	}
 }
-

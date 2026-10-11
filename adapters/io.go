@@ -62,7 +62,7 @@ func WriteFile(filename string, appendMode bool) func(dsltypes.ASTNode[functions
 
 			val, _ := node.Value.UnwrapRight()
 			strVal := fmt.Sprintf("%v\n", val)
-			
+
 			if _, err := file.WriteString(strVal); err != nil {
 				errNode := dsltypes.NewASTNode(functions.Left[error, any](err), node.DSLType)
 				yield(errNode)

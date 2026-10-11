@@ -46,7 +46,7 @@ func TestEngineEvaluation(t *testing.T) {
 
 	// 5. Evaluate Layer 1 (Hosts -> Databases)
 	dbStream := engine.Evaluate(initialStream)
-	
+
 	// 6. Evaluate Layer 2 (Databases -> Terminals)
 	dataStream := engine.Evaluate(dbStream)
 
@@ -59,7 +59,7 @@ func TestEngineEvaluation(t *testing.T) {
 	if len(results) != 4 {
 		t.Fatalf("Expected 4 terminal nodes, got %d", len(results))
 	}
-	
+
 	expected := map[string]bool{
 		"hostA_db1_data": true,
 		"hostA_db2_data": true,

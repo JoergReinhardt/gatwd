@@ -11,7 +11,7 @@ func (l *List[T]) MarshalJSON() ([]byte, error) {
 	if l == nil || l.IsEmpty() {
 		return []byte("[]"), nil
 	}
-	
+
 	var elements []T
 	current := l
 	for !current.IsEmpty() {
@@ -19,7 +19,7 @@ func (l *List[T]) MarshalJSON() ([]byte, error) {
 		elements = append(elements, head)
 		current, _ = current.Tail()
 	}
-	
+
 	return json.Marshal(elements)
 }
 
@@ -29,16 +29,16 @@ func (l *List[T]) UnmarshalJSON(text []byte) error {
 	if err := json.Unmarshal(text, &elements); err != nil {
 		return err
 	}
-	
+
 	var newList *List[T] = Nil[T]()
 	for i := len(elements) - 1; i >= 0; i-- {
 		newList = Cons(elements[i], newList)
 	}
-	
+
 	l.head = newList.head
 	l.tail = newList.tail
 	l.empty = newList.empty
-	
+
 	return nil
 }
 

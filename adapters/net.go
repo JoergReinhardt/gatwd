@@ -220,4 +220,3 @@ func StepListenTCP(network, address string, maxConns int) evaluator.PipelineStep
 		}
 	}
 }
-

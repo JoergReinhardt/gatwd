@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/joergreinhardt/gatwd/pkg/cli"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 // Example demonstrates basic evaluation of a Gatwd DSL pipeline using NewInterpreter.
@@ -39,6 +40,35 @@ func ExampleNewEdition() {
 
 	// Output:
 	// GATWD:hello!
+}
+
+// ExampleNewEdition_visualized demonstrates formatting custom Edition outputs with visualizer cards.
+func ExampleNewEdition_visualized() {
+	type Profile struct {
+		User string
+		Role string
+	}
+
+	edition := cli.NewEdition("gatwd-visual").
+		WithType("User", func(s string) any { return s }).
+		WithStep(cli.MapStep("make_profile", func(val any) any {
+			return Profile{User: fmt.Sprintf("%v", val), Role: "admin"}
+		}))
+
+	interp := edition.BuildInterpreter()
+	results := interp.EvaluateToValues("spawn User: alice |> make_profile")
+
+	opts := visualizer.ParseOptions("--curved --border")
+	for _, res := range results {
+		fmt.Print(visualizer.Format(res, opts))
+	}
+
+	// Output:
+	// ╭────────────────────╮
+	// │ ╰─ Profile         │
+	// │     ├─ User: alice │
+	// │     ╰─ Role: admin │
+	// ╰────────────────────╯
 }
 
 // ExampleMapStep demonstrates how MapStep easily transforms items in a pipeline.
@@ -151,4 +181,3 @@ const VAL = 200
 	// Initial: 100
 	// Reloaded: 200
 }
-

@@ -1,6 +1,7 @@
 package collections
 
 type Color bool
+
 const (
 	Red   Color = true
 	Black Color = false
@@ -48,8 +49,10 @@ func balance[T any](c Color, v T, l, r *RBTree[T]) *RBTree[T] {
 }
 
 func (t *RBTree[T]) insert(v T, cmp func(a, b T) int) *RBTree[T] {
-	if t == nil { return LeafRB(v) }
-	
+	if t == nil {
+		return LeafRB(v)
+	}
+
 	if cmp(v, t.value) < 0 {
 		return balance(t.color, t.value, t.left.insert(v, cmp), t.right)
 	} else if cmp(v, t.value) > 0 {
@@ -65,10 +68,14 @@ func (t *RBTree[T]) Insert(v T, cmp func(a, b T) int) *RBTree[T] {
 }
 
 func (t *RBTree[T]) Graph() any {
-	if t == nil { return "<nil RBTree>" }
+	if t == nil {
+		return "<nil RBTree>"
+	}
 	c := "white"
-	if t.color == Red { c = "red" }
-	return RBNodeGraph[T]{ Value: t.value, Left: t.left, Right: t.right, NodeColor: c }
+	if t.color == Red {
+		c = "red"
+	}
+	return RBNodeGraph[T]{Value: t.value, Left: t.left, Right: t.right, NodeColor: c}
 }
 
 type RBNodeGraph[T any] struct {
