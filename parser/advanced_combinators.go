@@ -116,3 +116,51 @@ func ParseZip() Combinator[string] {
 		})
 	})
 }
+
+// ParseMatchCase parses a match branch of the form "Pattern -> TargetPipeline".
+func ParseMatchCase() Combinator[functions.Pair[string, string]] {
+	isPatternChar := func(b byte) bool { return b != '-' && b != '\n' }
+	patternParser := Map(Many(Satisfy(isPatternChar)), func(b []byte) string { return strings.TrimSpace(string(b)) })
+
+	return Bind(patternParser, func(pattern string) Combinator[functions.Pair[string, string]] {
+		return Bind(Token("->"), func(_ string) Combinator[functions.Pair[string, string]] {
+			return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
+				return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
+					target := strings.TrimSpace(input)
+					yield(functions.Pair[functions.Pair[string, string], string]{
+						Fst: functions.Pair[string, string]{Fst: pattern, Snd: target},
+						Snd: "",
+					})
+				}
+			}
+		})
+	})
+}
+
+// ParseSplit parses the arrow split combinator "[ Left *** Right ]".
+func ParseSplit() Combinator[functions.Pair[string, string]] {
+	isLeftChar := func(b byte) bool { return b != '*' }
+	leftParser := Map(Many(Satisfy(isLeftChar)), func(b []byte) string { return strings.TrimSpace(string(b)) })
+
+	isRightChar := func(b byte) bool { return b != ']' }
+	rightParser := Map(Many(Satisfy(isRightChar)), func(b []byte) string { return strings.TrimSpace(string(b)) })
+
+	return Bind(Token("["), func(_ string) Combinator[functions.Pair[string, string]] {
+		return Bind(leftParser, func(left string) Combinator[functions.Pair[string, string]] {
+			return Bind(Token("***"), func(_ string) Combinator[functions.Pair[string, string]] {
+				return Bind(rightParser, func(right string) Combinator[functions.Pair[string, string]] {
+					return Bind(Token("]"), func(_ string) Combinator[functions.Pair[string, string]] {
+						return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
+							return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
+								yield(functions.Pair[functions.Pair[string, string], string]{
+									Fst: functions.Pair[string, string]{Fst: left, Snd: right},
+									Snd: input,
+								})
+							}
+						}
+					})
+				})
+			})
+		})
+	})
+}

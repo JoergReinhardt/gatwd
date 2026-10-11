@@ -229,14 +229,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				break
 			}
 		} else if strings.HasPrefix(stepStr, "[") && strings.Contains(stepStr, "***") {
-			stepStr = strings.TrimSpace(stepStr)
-			stepStr = strings.TrimPrefix(stepStr, "[")
-			stepStr = strings.TrimSuffix(stepStr, "]")
-			parts2 := strings.Split(stepStr, "***")
-			if len(parts2) == 2 {
-				leftAdapter := i.pipelineToAdapter(strings.TrimSpace(parts2[0]))
-				rightAdapter := i.pipelineToAdapter(strings.TrimSpace(parts2[1]))
+			for res := range parser.ParseSplit()(stepStr) {
+				leftAdapter := i.pipelineToAdapter(res.Fst.Fst)
+				rightAdapter := i.pipelineToAdapter(res.Fst.Snd)
 				pipeline = append(pipeline, evaluator.StepSplit(leftAdapter, rightAdapter))
+				break
 			}
 		} else if strings.HasPrefix(stepStr, "parse_record") {
 			fieldsStr := strings.TrimSpace(stepStr[12:])
@@ -464,12 +461,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner)
 			casesRaw := make(map[string]string)
+			matchCaseParser := parser.ParseMatchCase()
 			for _, c := range casesStr {
-				parts2 := strings.SplitN(c, "->", 2)
-				if len(parts2) == 2 {
-					pattern := strings.TrimSpace(parts2[0])
-					cmd := strings.TrimSpace(parts2[1])
-					casesRaw[pattern] = cmd
+				for res := range matchCaseParser(c) {
+					casesRaw[res.Fst.Fst] = res.Fst.Snd
+					break
 				}
 			}
 

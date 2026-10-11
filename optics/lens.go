@@ -31,3 +31,45 @@ func ComposeLenses[S, A, B any](l1 Lens[S, A], l2 Lens[A, B]) Lens[S, B] {
 		},
 	}
 }
+
+// RecordLens creates a pure functional Lens focusing on a specific field of a Record (map[string]any).
+// Setting a value returns a brand new shallow copy with the field updated, preserving immutability.
+func RecordLens(field string) Lens[map[string]any, any] {
+	return Lens[map[string]any, any]{
+		Get: func(m map[string]any) any {
+			if m == nil {
+				return nil
+			}
+			return m[field]
+		},
+		Set: func(m map[string]any, val any) map[string]any {
+			copied := make(map[string]any, len(m)+1)
+			for k, v := range m {
+				copied[k] = v
+			}
+			copied[field] = val
+			return copied
+		},
+	}
+}
+
+// MapLens creates a pure functional Lens focusing on a key K in a map[K]V.
+func MapLens[K comparable, V any](key K) Lens[map[K]V, V] {
+	return Lens[map[K]V, V]{
+		Get: func(m map[K]V) V {
+			if m == nil {
+				var zero V
+				return zero
+			}
+			return m[key]
+		},
+		Set: func(m map[K]V, val V) map[K]V {
+			copied := make(map[K]V, len(m)+1)
+			for k, v := range m {
+				copied[k] = v
+			}
+			copied[key] = val
+			return copied
+		},
+	}
+}

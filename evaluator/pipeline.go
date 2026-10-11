@@ -14,6 +14,7 @@ import (
 	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
+	"github.com/joergreinhardt/gatwd/optics"
 )
 
 type PipelineStep[T any] func(iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]]
@@ -170,6 +171,7 @@ func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
 }
 
 func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
+	lens := optics.RecordLens(field)
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -182,7 +184,8 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 				val, _ := node.Value.UnwrapRight()
 
 				if record, ok := val.(map[string]any); ok {
-					if fieldVal, exists := record[field]; exists {
+					if _, exists := record[field]; exists {
+						fieldVal := lens.Get(record)
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](fieldVal), node.DSLType)
 						if !yield(newNode) {
 							return
@@ -205,6 +208,7 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 }
 
 func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error, any]] {
+	lens := optics.RecordLens(field)
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -217,12 +221,7 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 				val, _ := node.Value.UnwrapRight()
 
 				if record, ok := val.(map[string]any); ok {
-					newRecord := make(map[string]any)
-					for k, v := range record {
-						newRecord[k] = v
-					}
-					newRecord[field] = newValue
-
+					newRecord := lens.Set(record, newValue)
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newRecord)), node.DSLType)
 					if !yield(newNode) {
 						return

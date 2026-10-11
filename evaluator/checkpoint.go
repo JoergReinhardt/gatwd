@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"sync"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
 )
@@ -16,22 +18,27 @@ type CheckpointStore interface {
 	Load(ctx context.Context, id string) (uint64, error)
 }
 
-// MemoryCheckpointStore is a fast, in-memory implementation for testing.
+// MemoryCheckpointStore is a fast, pure functional in-memory implementation backed by an immutable HAMT.
 type MemoryCheckpointStore struct {
-	store map[string]uint64
+	mu    sync.RWMutex
+	store *collections.HAMT[string, uint64]
 }
 
 func NewMemoryCheckpointStore() *MemoryCheckpointStore {
-	return &MemoryCheckpointStore{store: make(map[string]uint64)}
+	return &MemoryCheckpointStore{store: collections.NewHAMT[string, uint64]()}
 }
 
 func (m *MemoryCheckpointStore) Save(ctx context.Context, id string, offset uint64) error {
-	m.store[id] = offset
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.store = m.store.Set(id, offset)
 	return nil
 }
 
 func (m *MemoryCheckpointStore) Load(ctx context.Context, id string) (uint64, error) {
-	val, ok := m.store[id]
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	val, ok := m.store.Get(id)
 	if !ok {
 		return 0, fmt.Errorf("checkpoint not found: %s", id)
 	}

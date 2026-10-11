@@ -52,3 +52,37 @@ func TestLens(t *testing.T) {
 		t.Fatal("Lens failed to set the new value.")
 	}
 }
+
+func TestRecordLens(t *testing.T) {
+	orig := map[string]any{"user": "alice", "score": 42}
+	userLens := optics.RecordLens("user")
+
+	if userLens.Get(orig) != "alice" {
+		t.Fatalf("expected 'alice', got %v", userLens.Get(orig))
+	}
+
+	updated := userLens.Set(orig, "bob")
+	if updated["user"] != "bob" {
+		t.Fatalf("expected updated 'bob', got %v", updated["user"])
+	}
+	if orig["user"] != "alice" {
+		t.Fatalf("original map mutated! expected 'alice', got %v", orig["user"])
+	}
+}
+
+func TestMapLens(t *testing.T) {
+	orig := map[string]int{"alpha": 1, "beta": 2}
+	alphaLens := optics.MapLens[string, int]("alpha")
+
+	if alphaLens.Get(orig) != 1 {
+		t.Fatalf("expected 1, got %d", alphaLens.Get(orig))
+	}
+
+	updated := alphaLens.Set(orig, 100)
+	if updated["alpha"] != 100 {
+		t.Fatalf("expected 100, got %d", updated["alpha"])
+	}
+	if orig["alpha"] != 1 {
+		t.Fatalf("original map mutated! expected 1, got %d", orig["alpha"])
+	}
+}
