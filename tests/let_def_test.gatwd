@@ -1,0 +1,12 @@
+type IntVal = Int
+
+-- 1. Let binding
+let x = spawn IntVal: 5 |> math_add 5 in spawn IntVal: x |> math_add 10 |> assert 20
+
+-- 2. Def macro (alias)
+def add20 = math_add 10 |> math_add 10
+spawn IntVal: 5 |> add20 |> assert 25
+
+-- 3. Recursive Def (Countdown)
+def countdown = match { 0 -> math_add 100 | _ -> math_sub 1 |> countdown }
+spawn IntVal: 5 |> countdown |> assert 100

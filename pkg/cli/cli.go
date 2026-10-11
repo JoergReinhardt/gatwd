@@ -71,10 +71,25 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			stepStr = strings.Join(words, " ")
 		}
 
-		// Function Substitution (Macros)
-		if funcPipeline, exists := i.Funcs[stepStr]; exists {
-			funcParts, _ := splitPipelineAware(funcPipeline)
-			pipeline = append(pipeline, i.parsePipelineSteps(funcParts)...)
+		// Function Substitution (Lazy Call)
+		if _, exists := i.Funcs[stepStr]; exists {
+			funcName := stepStr
+			lazyStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					// Compile the function body lazily at runtime
+					funcPipeline := i.Funcs[funcName]
+					funcParts, _ := splitPipelineAware(funcPipeline)
+					compiledSteps := i.parsePipelineSteps(funcParts)
+					
+					// Evaluate the compiled pipeline over the incoming stream
+					eng := evaluator.NewEngine[functions.Either[error, any]]()
+					outStream := eng.EvaluatePipeline(stream, compiledSteps)
+					for node := range outStream {
+						if !yield(node) { return }
+					}
+				}
+			}
+			pipeline = append(pipeline, lazyStep)
 			continue
 		}
 
@@ -173,6 +188,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "assert ") {
 			expected := strings.TrimSpace(stepStr[7:])
 			pipeline = append(pipeline, evaluator.StepAssert(expected))
+		} else if strings.HasPrefix(stepStr, "debug_print ") {
+			prefix := strings.TrimSpace(stepStr[12:])
+			pipeline = append(pipeline, evaluator.StepDebugPrint(prefix))
 		} else if strings.HasPrefix(stepStr, "visualize") {
 			pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
 		} else if strings.HasPrefix(stepStr, "sort") {
@@ -198,6 +216,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "math_add") {
 			amount := strings.TrimSpace(stepStr[9:])
 			pipeline = append(pipeline, evaluator.StepMathAdd(amount))
+		} else if strings.HasPrefix(stepStr, "math_sub") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathSub(amount))
 		} else if stepStr == "build_array" {
 			pipeline = append(pipeline, evaluator.StepBuildArray())
 		} else if stepStr == "collect_list" {
@@ -220,7 +241,13 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					cases[pattern] = i.pipelineToAdapter(cmd)
 				}
 			}
-			pipeline = append(pipeline, evaluator.StepMatch(cases, nil))
+				var defaultAdapter evaluator.Adapter[functions.Either[error, any]]
+				if def, ok := cases["_"]; ok {
+					defaultAdapter = def
+					delete(cases, "_")
+				}
+				// fmt.Printf("DEBUG DEFAULT ADAPTER EXISTS: %v\n", defaultAdapter != nil)
+				pipeline = append(pipeline, evaluator.StepMatch(cases, defaultAdapter))
 		} else if strings.HasPrefix(stepStr, "map") {
 			lambda := strings.TrimSpace(stepStr[3:])
 			lambda = strings.TrimPrefix(lambda, "(")
@@ -349,7 +376,18 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	line = strings.ReplaceAll(line, "||>", "|>")
 	parts, _ := splitPipelineAware(line)
 
-	stringStream := i.Parser.Parse(parts[0])
+	firstPart := parts[0]
+	for k, v := range i.Variables {
+		words := strings.Split(firstPart, " ")
+		for idx, w := range words {
+			if w == k {
+				words[idx] = v
+			}
+		}
+		firstPart = strings.Join(words, " ")
+	}
+
+	stringStream := i.Parser.Parse(firstPart)
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
 			wrappedValue := functions.Right[error, any](any(node.Value))
@@ -380,7 +418,18 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	parts, isParallel := splitPipelineAware(line)
 	
-	stringStream := i.Parser.Parse(parts[0])
+	firstPart := parts[0]
+	for k, v := range i.Variables {
+		words := strings.Split(firstPart, " ")
+		for idx, w := range words {
+			if w == k {
+				words[idx] = v
+			}
+		}
+		firstPart = strings.Join(words, " ")
+	}
+	
+	stringStream := i.Parser.Parse(firstPart)
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
 			wrappedValue := functions.Right[error, any](any(node.Value))

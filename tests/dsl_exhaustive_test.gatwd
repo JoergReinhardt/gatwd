@@ -30,3 +30,14 @@ spawn StrVal: Start |> emit dup, unique, dup |> to_set |> assert Set
 -- `down` enters `examples/tour/01_basics.gatwd` (alphabetically first)
 spawn StrVal: Start |> walk_fs examples/tour |> into_zipper |> down |> extract |> assert examples/tour/01_basics.gatwd
 
+
+-- 8. Let Bindings (Variable substitution)
+let x = spawn IntVal: 5 |> math_add 5 in spawn IntVal: x |> math_add 10 |> assert 20
+
+-- 9. Def Macros (Compile-time expansion)
+def add20 = math_add 10 |> math_add 10
+spawn IntVal: 5 |> add20 |> assert 25
+
+-- 10. Recursive Macros (Runtime lazy expansion)
+def countdown = match { 0 -> math_add 100 | _ -> math_sub 1 |> countdown }
+spawn IntVal: 5 |> countdown |> assert 100
