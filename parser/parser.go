@@ -65,6 +65,7 @@ func (p *Parser) registerOrGet(name string) dsltypes.BitFlag {
 	newFlag := dsltypes.BitFlag(p.nextFlag)
 	p.nextFlag <<= 1
 	p.typeRegistry[name] = newFlag
+	dsltypes.RegisterTypeFlag(newFlag, name)
 	return newFlag
 }
 
@@ -93,6 +94,7 @@ func (p *Parser) parseType(line string) {
 			composedFlag = composedFlag.Concat(p.registerOrGet(strings.TrimSpace(sub)))
 		}
 		p.typeRegistry[typeName] = composedFlag
+		dsltypes.RegisterTypeFlag(composedFlag, typeName)
 	} else {
 		// Base type
 		if factory, ok := p.typeFactories[definition]; ok {

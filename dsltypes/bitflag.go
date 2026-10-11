@@ -4,7 +4,37 @@ import (
 	"fmt"
 	"math/bits"
 	"strings"
+	"sync"
 )
+
+var (
+	flagRegistryMu sync.RWMutex
+	flagNames      = make(map[BitFlag]string)
+)
+
+// RegisterTypeFlag registers a human-readable type name for a BitFlag.
+func RegisterTypeFlag(flag BitFlag, name string) {
+	flagRegistryMu.Lock()
+	defer flagRegistryMu.Unlock()
+	flagNames[flag] = name
+}
+
+// LookupTypeName returns the registered type name for a BitFlag if found.
+func LookupTypeName(flag BitFlag) (string, bool) {
+	flagRegistryMu.RLock()
+	defer flagRegistryMu.RUnlock()
+	name, ok := flagNames[flag]
+	return name, ok
+}
+
+// TypeName returns the registered type name for this BitFlag,
+// or falls back to its decomposed string representation.
+func (v BitFlag) TypeName() string {
+	if name, ok := LookupTypeName(v); ok {
+		return name
+	}
+	return v.String()
+}
 
 // BitFlag acts as the core of the dynamic type registry for the DSL.
 // It allows representing Algebraic Data Types without relying on Go's
@@ -55,12 +85,22 @@ func (v BitFlag) Decompose() []BitFlag {
 }
 
 func (v BitFlag) String() string {
+	if name, ok := LookupTypeName(v); ok {
+		return name
+	}
 	if v.Count() == 1 {
 		return fmt.Sprintf("Type(%d)", bits.TrailingZeros64(uint64(v)))
 	}
 	var names []string
 	for _, flag := range v.Decompose() {
-		names = append(names, fmt.Sprintf("Type(%d)", bits.TrailingZeros64(uint64(flag))))
+		if name, ok := LookupTypeName(flag); ok {
+			names = append(names, name)
+		} else {
+			names = append(names, fmt.Sprintf("Type(%d)", bits.TrailingZeros64(uint64(flag))))
+		}
+	}
+	if len(names) == 0 {
+		return "Type(0)"
 	}
 	return strings.Join(names, " | ")
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/joergreinhardt/gatwd/dsltypes"
 )
 
 type Graphable interface {
@@ -32,15 +34,54 @@ func applyColor(text, fg, bg string) string {
 	return text
 }
 
-func Format(val any, opts Options) string {
+// FormatAST formats an AST node value using its BitFlag DSL type rather than Go reflection.
+func FormatAST(flag dsltypes.BitFlag, val any, opts Options) string {
 	if opts.FormatDOT {
 		dot := "digraph G {\n  node [shape=box, style=filled, color=black, fillcolor=white];\n"
-		_, dotLines := formatDotNode(val, "root", "root", opts, 0, &[]string{})
+		_, dotLines := formatDotNode(val, "root", "root", opts, 0, &[]string{}, flag, true)
 		dot += strings.Join(*dotLines, "\n") + "\n}"
 		return dot
 	}
 
-	res := formatNode(val, "", "", true, opts, 0)
+	res := formatNode(val, "", "", true, opts, 0, flag, true)
+
+	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
+	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
+		res = addBorder(res)
+	}
+	return applyColor(res, opts.Color, opts.BgColor)
+}
+
+// Format renders any value into a pretty-printed UTF-8 string graph.
+// If val is a dsltypes.TypedNode (such as dsltypes.ASTNode), its type is determined
+// strictly from the node's BitFlag type tag rather than Go reflection.
+func Format(val any, opts Options) string {
+	if tn, ok := val.(dsltypes.TypedNode); ok {
+		flag := tn.TypeFlag()
+		inner := tn.NodeValue()
+		if either, ok := inner.(interface {
+			IsLeft() bool
+			UnwrapLeft() (error, bool)
+			UnwrapRight() (any, bool)
+		}); ok {
+			if either.IsLeft() {
+				err, _ := either.UnwrapLeft()
+				return FormatAST(flag, err, opts)
+			}
+			rightVal, _ := either.UnwrapRight()
+			return FormatAST(flag, rightVal, opts)
+		}
+		return FormatAST(flag, inner, opts)
+	}
+
+	if opts.FormatDOT {
+		dot := "digraph G {\n  node [shape=box, style=filled, color=black, fillcolor=white];\n"
+		_, dotLines := formatDotNode(val, "root", "root", opts, 0, &[]string{}, 0, false)
+		dot += strings.Join(*dotLines, "\n") + "\n}"
+		return dot
+	}
+
+	res := formatNode(val, "", "", true, opts, 0, 0, false)
 
 	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
 	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
@@ -59,8 +100,26 @@ func extractNodeColor(v reflect.Value) string {
 	return ""
 }
 
-// ... omitted formatDotNode for brevity, will keep standard one
-func formatDotNode(val any, name string, id string, opts Options, depth int, lines *[]string) (string, *[]string) {
+func formatDotNode(val any, name string, id string, opts Options, depth int, lines *[]string, flag dsltypes.BitFlag, hasFlag bool) (string, *[]string) {
+	if tn, ok := val.(dsltypes.TypedNode); ok {
+		flag = tn.TypeFlag()
+		hasFlag = true
+		val = tn.NodeValue()
+		if either, ok := val.(interface {
+			IsLeft() bool
+			UnwrapLeft() (error, bool)
+			UnwrapRight() (any, bool)
+		}); ok {
+			if either.IsLeft() {
+				err, _ := either.UnwrapLeft()
+				val = err
+			} else {
+				rightVal, _ := either.UnwrapRight()
+				val = rightVal
+			}
+		}
+	}
+
 	if g, ok := val.(Graphable); ok {
 		val = g.Graph()
 	}
@@ -77,8 +136,21 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 		v = v.Elem()
 	}
 	nodeColor := extractNodeColor(v)
-	if c, ok := opts.TypeColors[v.Type().Name()]; ok {
-		nodeColor = c
+
+	var typeName string
+	if hasFlag {
+		typeName = flag.TypeName()
+		if c, ok := opts.FlagColors[flag]; ok {
+			nodeColor = c
+		}
+	} else {
+		typeName = v.Type().Name()
+	}
+
+	if nodeColor == "" && typeName != "" {
+		if c, ok := opts.TypeColors[typeName]; ok {
+			nodeColor = c
+		}
 	}
 
 	if err, ok := val.(error); ok {
@@ -98,28 +170,40 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 
 	switch v.Kind() {
 	case reflect.Map:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (Record)\"%s];", id, nodeLabel, colorAttr))
+		label := typeName
+		if label == "" {
+			label = "Record"
+		}
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, label, colorAttr))
 		for i, k := range v.MapKeys() {
 			childId := fmt.Sprintf("%s_%d", id, i)
-			formatDotNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), childId, opts, depth+1, lines)
+			formatDotNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), childId, opts, depth+1, lines, 0, false)
 			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childId))
 		}
 	case reflect.Slice, reflect.Array:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (List)\"%s];", id, nodeLabel, colorAttr))
+		label := typeName
+		if label == "" {
+			label = "List"
+		}
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, label, colorAttr))
 		for i := 0; i < v.Len(); i++ {
 			childId := fmt.Sprintf("%s_%d", id, i)
-			formatDotNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), childId, opts, depth+1, lines)
+			formatDotNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), childId, opts, depth+1, lines, 0, false)
 			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childId))
 		}
 	case reflect.Struct:
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, v.Type().Name(), colorAttr))
+		label := typeName
+		if label == "" {
+			label = "Struct"
+		}
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s (%s)\"%s];", id, nodeLabel, label, colorAttr))
 		for i := 0; i < v.NumField(); i++ {
 			if v.Type().Field(i).Name == "NodeColor" {
 				continue
 			}
 			if v.Field(i).CanInterface() {
 				childId := fmt.Sprintf("%s_%d", id, i)
-				formatDotNode(v.Field(i).Interface(), v.Type().Field(i).Name, childId, opts, depth+1, lines)
+				formatDotNode(v.Field(i).Interface(), v.Type().Field(i).Name, childId, opts, depth+1, lines, 0, false)
 				*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childId))
 			}
 		}
@@ -133,9 +217,29 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 	return id, lines
 }
 
-func formatNode(val any, name string, prefix string, isLast bool, opts Options, depth int) string {
+func formatNode(val any, name string, prefix string, isLast bool, opts Options, depth int, flag dsltypes.BitFlag, hasFlag bool) string {
 	if opts.MaxDepth > 0 && depth > opts.MaxDepth {
 		return prefix + branch(isLast, opts.Style) + name + " [...]\n"
+	}
+
+	// Unwrap AST node if val is a TypedNode
+	if tn, ok := val.(dsltypes.TypedNode); ok {
+		flag = tn.TypeFlag()
+		hasFlag = true
+		val = tn.NodeValue()
+		if either, ok := val.(interface {
+			IsLeft() bool
+			UnwrapLeft() (error, bool)
+			UnwrapRight() (any, bool)
+		}); ok {
+			if either.IsLeft() {
+				err, _ := either.UnwrapLeft()
+				val = err
+			} else {
+				rightVal, _ := either.UnwrapRight()
+				val = rightVal
+			}
+		}
 	}
 
 	if g, ok := val.(Graphable); ok {
@@ -159,21 +263,33 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 	}
 
 	nodeColor := extractNodeColor(v)
-	structName := v.Type().Name()
-	if structName == "" {
-		if v.Kind() == reflect.Struct {
-			structName = "Struct"
-		}
-		if v.Kind() == reflect.Map {
-			structName = "Record"
-		}
-		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
-			structName = "List"
+
+	// Determine type name: Prioritize the AST node's BitFlag type over Go reflection
+	var typeName string
+	if hasFlag {
+		typeName = flag.TypeName()
+	} else {
+		typeName = v.Type().Name()
+		if typeName == "" {
+			if v.Kind() == reflect.Struct {
+				typeName = "Struct"
+			}
+			if v.Kind() == reflect.Map {
+				typeName = "Record"
+			}
+			if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+				typeName = "List"
+			}
 		}
 	}
 
-	if nodeColor == "" && structName != "" {
-		if c, ok := opts.TypeColors[structName]; ok {
+	if nodeColor == "" && hasFlag {
+		if c, ok := opts.FlagColors[flag]; ok {
+			nodeColor = c
+		}
+	}
+	if nodeColor == "" && typeName != "" {
+		if c, ok := opts.TypeColors[typeName]; ok {
 			nodeColor = c
 		}
 	}
@@ -210,7 +326,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		return out
 	}
 
-	shouldBox := opts.BoxTypes["all"] || (structName != "" && opts.BoxTypes[structName])
+	shouldBox := opts.BoxTypes["all"] || (hasFlag && opts.BoxFlags[flag]) || (typeName != "" && opts.BoxTypes[typeName])
 	var boxPrefix, boxTop, boxBot string
 	if shouldBox {
 		boxPrefix = opts.Style.BoxSide + "   "
@@ -220,7 +336,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 
 	switch v.Kind() {
 	case reflect.Map:
-		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, typeName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
 		if shouldBox {
 			res += boxTop
@@ -229,7 +345,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 
 		keys := v.MapKeys()
 		for i, k := range keys {
-			res += formatNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), newPrefix, i == len(keys)-1, opts, depth+1)
+			res += formatNode(v.MapIndex(k).Interface(), fmt.Sprintf("%v", k.Interface()), newPrefix, i == len(keys)-1, opts, depth+1, 0, false)
 		}
 		if len(keys) == 0 {
 			res += newPrefix + opts.Style.Corner + "(empty)\n"
@@ -240,7 +356,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		return res
 
 	case reflect.Slice, reflect.Array:
-		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, typeName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
 		if shouldBox {
 			res += boxTop
@@ -269,7 +385,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 				msg := fmt.Sprintf("... (%d items omitted) ...", omitted)
 				res += newPrefix + branch(idx == len(iterList)-1, opts.Style) + applyColor(msg, "yellow", "") + "\n"
 			} else {
-				res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, idx == len(iterList)-1, opts, depth+1)
+				res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, idx == len(iterList)-1, opts, depth+1, 0, false)
 			}
 		}
 		if v.Len() == 0 {
@@ -281,10 +397,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		return res
 
 	case reflect.Struct:
-		if structName == "" {
-			structName = "Struct"
-		}
-		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, structName) + "\n"
+		res := prefix + branch(isLast, opts.Style) + formatColoredName(name, typeName) + "\n"
 		newPrefix := prefix + extend(isLast, opts.Style)
 		if shouldBox {
 			res += boxTop
@@ -297,7 +410,7 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 				continue
 			}
 			if v.Field(i).CanInterface() {
-				res += formatNode(v.Field(i).Interface(), v.Type().Field(i).Name, newPrefix, i == fieldCount-1, opts, depth+1)
+				res += formatNode(v.Field(i).Interface(), v.Type().Field(i).Name, newPrefix, i == fieldCount-1, opts, depth+1, 0, false)
 			} else {
 				res += newPrefix + branch(i == fieldCount-1, opts.Style) + formatColoredName(v.Type().Field(i).Name, "<unexported>") + "\n"
 			}
@@ -311,7 +424,11 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		return res
 
 	default:
-		return prefix + branch(isLast, opts.Style) + formatColoredName(name, valStr) + "\n"
+		displayName := name
+		if displayName == "" && hasFlag {
+			displayName = typeName
+		}
+		return prefix + branch(isLast, opts.Style) + formatColoredName(displayName, valStr) + "\n"
 	}
 }
 
@@ -321,6 +438,7 @@ func branch(isLast bool, style Style) string {
 	}
 	return style.Cross
 }
+
 func extend(isLast bool, style Style) string {
 	if isLast {
 		return style.Empty

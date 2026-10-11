@@ -134,3 +134,45 @@ func TestVisualizer_CollectionsGraphable(t *testing.T) {
 		t.Fatalf("expected Set visualization to contain elements, got:\n%s", setVis)
 	}
 }
+
+func TestVisualizer_ASTNodeBitFlagType(t *testing.T) {
+	type RawHostData struct {
+		Payload string
+		Count   int
+	}
+
+	customFlag := dsltypes.BitFlag(1 << 8)
+	dsltypes.RegisterTypeFlag(customFlag, "DomainTelemetryRecord")
+
+	node := dsltypes.NewASTNode(RawHostData{
+		Payload: "sensor_matrix_active",
+		Count:   100,
+	}, customFlag)
+
+	opts := visualizer.ParseOptions("--curved --border")
+	output := visualizer.Format(node, opts)
+
+	// It MUST use the AST node's BitFlag type ("DomainTelemetryRecord")
+	// and NOT the Go reflection struct type ("RawHostData")!
+	if !strings.Contains(output, "DomainTelemetryRecord") {
+		t.Fatalf("expected visualization to use AST node BitFlag type 'DomainTelemetryRecord', got:\n%s", output)
+	}
+	if strings.Contains(output, "RawHostData") {
+		t.Fatalf("visualization should not use Go reflection type 'RawHostData', got:\n%s", output)
+	}
+
+	// Test FormatAST directly
+	astOut := visualizer.FormatAST(customFlag, RawHostData{Payload: "direct", Count: 1}, opts)
+	if !strings.Contains(astOut, "DomainTelemetryRecord") {
+		t.Fatalf("expected FormatAST to use BitFlag type 'DomainTelemetryRecord', got:\n%s", astOut)
+	}
+
+	// Test flag color application via BitFlag
+	optsColor := visualizer.DefaultOptions()
+	optsColor.FlagColors[customFlag] = "cyan"
+	colorOut := visualizer.Format(node, optsColor)
+	if !strings.Contains(colorOut, "\033[36m") {
+		t.Fatalf("expected FlagColors to colorize output via BitFlag, got:\n%s", colorOut)
+	}
+}
+

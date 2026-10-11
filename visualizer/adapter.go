@@ -21,7 +21,7 @@ func StepVisualize(args string) evaluator.PipelineStep[functions.Either[error, a
 			for node := range stream {
 				if node.Value.IsLeft() {
 					err, _ := node.Value.UnwrapLeft()
-					errCard := "\n" + Format(err, opts)
+					errCard := "\n" + FormatAST(node.DSLType, err, opts)
 					errNode := dsltypes.NewASTNode(functions.Left[error, any](fmt.Errorf("%s", errCard)), node.DSLType)
 					if !yield(errNode) {
 						return
@@ -30,7 +30,7 @@ func StepVisualize(args string) evaluator.PipelineStep[functions.Either[error, a
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				graphStr := "\n" + Format(val, opts)
+				graphStr := "\n" + FormatAST(node.DSLType, val, opts)
 
 				newNode := dsltypes.NewASTNode(functions.Right[error, any](any(graphStr)), node.DSLType)
 				if !yield(newNode) {

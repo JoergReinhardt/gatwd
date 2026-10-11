@@ -124,6 +124,7 @@ func ExampleFormat_tree() {
 func ExampleStepVisualize() {
 	engine := evaluator.NewEngine[functions.Either[error, any]]()
 	flag := dsltypes.BitFlag(1)
+	dsltypes.RegisterTypeFlag(flag, "Config")
 
 	// Stream generating a single test record
 	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {

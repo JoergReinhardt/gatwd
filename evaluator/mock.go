@@ -44,6 +44,7 @@ type MockUser struct {
 
 // GenerateMockUsers generates a lazy stream of MockUser records.
 func GenerateMockUsers(count int, flag dsltypes.BitFlag) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+	dsltypes.RegisterTypeFlag(flag, "MockUser")
 	roles := []string{"admin", "editor", "viewer", "guest"}
 	return GenerateStream(func(i int) MockUser {
 		return MockUser{

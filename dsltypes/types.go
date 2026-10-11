@@ -27,11 +27,29 @@ func (t TyComp) Match(other TyComp) bool {
 	return true
 }
 
+// TypedNode represents an AST node whose dynamic type is identified by a BitFlag.
+// This interface allows runtime engines and visualizers to inspect the node's
+// DSL type without relying on Go reflection.
+type TypedNode interface {
+	TypeFlag() BitFlag
+	NodeValue() any
+}
+
 // ASTNode represents the boundary between the Host Engine and the Guest DSL.
 // It pairs raw Go value (generically typed for the host) with its runtime DSL type.
 type ASTNode[T any] struct {
 	Value   T
 	DSLType BitFlag
+}
+
+// TypeFlag returns the AST node's BitFlag dynamic DSL type.
+func (n ASTNode[T]) TypeFlag() BitFlag {
+	return n.DSLType
+}
+
+// NodeValue returns the unwrapped inner value carried by the AST node.
+func (n ASTNode[T]) NodeValue() any {
+	return n.Value
 }
 
 // NewASTNode creates a new dynamically typed DSL node.

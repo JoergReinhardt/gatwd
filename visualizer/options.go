@@ -3,6 +3,8 @@ package visualizer
 import (
 	"strconv"
 	"strings"
+
+	"github.com/joergreinhardt/gatwd/dsltypes"
 )
 
 type Style struct {
@@ -32,16 +34,20 @@ type Options struct {
 	Head            int
 	Tail            int
 	TypeColors      map[string]string
+	FlagColors      map[dsltypes.BitFlag]string
 	ValueColors     map[string]string
 	BoxTypes        map[string]bool
+	BoxFlags        map[dsltypes.BitFlag]bool
 }
 
 func DefaultOptions() Options {
 	return Options{
 		Style:       UTF8Style,
 		TypeColors:  make(map[string]string),
+		FlagColors:  make(map[dsltypes.BitFlag]string),
 		ValueColors: make(map[string]string),
 		BoxTypes:    make(map[string]bool),
+		BoxFlags:    make(map[dsltypes.BitFlag]bool),
 	}
 }
 
@@ -115,6 +121,22 @@ func ParseOptions(args string) Options {
 			types := strings.Split(strings.TrimPrefix(p, "--box="), ",")
 			for _, t := range types {
 				opts.BoxTypes[t] = true
+			}
+		}
+		if strings.HasPrefix(p, "--color-flag=") {
+			kv := strings.SplitN(strings.TrimPrefix(p, "--color-flag="), ":", 2)
+			if len(kv) == 2 {
+				if f, err := strconv.ParseUint(kv[0], 10, 64); err == nil {
+					opts.FlagColors[dsltypes.BitFlag(f)] = kv[1]
+				}
+			}
+		}
+		if strings.HasPrefix(p, "--box-flag=") {
+			flags := strings.Split(strings.TrimPrefix(p, "--box-flag="), ",")
+			for _, fStr := range flags {
+				if f, err := strconv.ParseUint(fStr, 10, 64); err == nil {
+					opts.BoxFlags[dsltypes.BitFlag(f)] = true
+				}
 			}
 		}
 	}
