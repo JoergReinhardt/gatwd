@@ -6,6 +6,19 @@ import (
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
+// Example demonstrates basic evaluation of a Gatwd DSL pipeline using NewInterpreter.
+func Example() {
+	interp := cli.NewInterpreter()
+	interp.EvaluateLine("type Count = Int")
+	res := interp.EvaluateToValues("spawn Count: 10 |> math_add 5 |> assert 15")
+	for _, r := range res {
+		fmt.Println(r)
+	}
+
+	// Output:
+	// 15
+}
+
 // ExampleNewEdition demonstrates building a custom Gatwd Edition (distribution)
 // using ergonomic step and type constructors without touching iter.Seq or Either closures.
 func ExampleNewEdition() {
@@ -94,3 +107,48 @@ def check = assert OK
 	// Threshold: 90
 	// checked_OK
 }
+
+// ExampleArgStep demonstrates using ArgStep to create steps that accept string arguments.
+func ExampleArgStep() {
+	interp := cli.NewInterpreter()
+	interp.EvaluateLine("type Text = String")
+
+	interp.RegisterStep(cli.ArgStep("greet", func(arg string, val any) (any, error) {
+		return fmt.Sprintf("%s, %v!", arg, val), nil
+	}))
+
+	results := interp.EvaluateToValues("spawn Text: Alice |> greet Hello |> assert Hello, Alice!")
+	for _, res := range results {
+		fmt.Println(res)
+	}
+
+	// Output:
+	// Hello, Alice!
+}
+
+// ExampleAppliance_Reload demonstrates dynamically reloading an appliance with modified rules.
+func ExampleAppliance_Reload() {
+	initialRules := `
+type Metric = Int
+const VAL = 100
+`
+	app, _ := cli.NewAppliance(cli.WithEmbeddedScript(initialRules))
+	v1, _ := app.GetConstant("VAL")
+	fmt.Println("Initial:", v1)
+
+	// Update embedded rules and reload
+	updatedRules := `
+type Metric = Int
+const VAL = 200
+`
+	_ = app.Reload() // In real usage, override file is updated or option changed
+	// Direct evaluation with updated rules:
+	app.Interpreter().EvaluateScript(updatedRules)
+	v2, _ := app.GetConstant("VAL")
+	fmt.Println("Reloaded:", v2)
+
+	// Output:
+	// Initial: 100
+	// Reloaded: 200
+}
+
