@@ -22,10 +22,12 @@ type BuiltinDef struct {
 
 // OperatorDef describes an operator, pipe, or arrow.
 type OperatorDef struct {
-	Symbol      string `json:"symbol"`
-	Unicode     string `json:"unicode,omitempty"`
-	Category    string `json:"category"`
-	Description string `json:"description"`
+	Symbol        string `json:"symbol"`
+	Unicode       string `json:"unicode,omitempty"`
+	Category      string `json:"category"`
+	Precedence    int    `json:"precedence,omitempty"`
+	Associativity string `json:"associativity,omitempty"` // "left" or "right"
+	Description   string `json:"description"`
 }
 
 // SnippetDef describes an editor snippet template.
@@ -140,6 +142,7 @@ func DefaultSpec() GrammarSpec {
 			{Name: "visualize", Category: "observability", Signature: "visualize [flags]", Description: "Render stream as pretty UTF-8 visual cards"},
 			{Name: "telemetry", Category: "observability", Signature: "telemetry", Description: "Track and emit stream throughput telemetry"},
 			{Name: "checkpoint", Category: "reliability", Signature: "checkpoint <id> <interval>", Description: "Periodically persist pipeline state for recovery"},
+			{Name: "ebnf_parse", Category: "parser", Signature: "ebnf_parse <rule> <grammar>", Description: "Compile dynamic EBNF grammar and parse string stream into AST"},
 		},
 		Operators: []OperatorDef{
 			// Pipes
@@ -155,21 +158,21 @@ func DefaultSpec() GrammarSpec {
 			{Symbol: "***", Category: "arrows", Description: "Applicative Split: apply independent arrows to Pair halves"},
 
 			// Infix Math & Logic
-			{Symbol: "+", Category: "math", Description: "Infix addition with automatic overflow promotion"},
-			{Symbol: "-", Category: "math", Description: "Infix subtraction with unsigned underflow protection"},
-			{Symbol: "*", Category: "math", Description: "Infix multiplication with automatic overflow promotion"},
-			{Symbol: "/", Category: "math", Description: "Infix true division (promotes integers to float)"},
-			{Symbol: "//", Category: "math", Description: "Infix Euclidean integer floor division"},
-			{Symbol: "%", Category: "math", Description: "Infix modulo / remainder"},
-			{Symbol: "++", Category: "math", Description: "Monoidal concatenation for strings and lists"},
-			{Symbol: "==", Category: "comparison", Description: "Structural equality test"},
-			{Symbol: "!=", Category: "comparison", Description: "Structural inequality test"},
-			{Symbol: "<", Category: "comparison", Description: "Less than comparison"},
-			{Symbol: "<=", Category: "comparison", Description: "Less than or equal comparison"},
-			{Symbol: ">", Category: "comparison", Description: "Greater than comparison"},
-			{Symbol: ">=", Category: "comparison", Description: "Greater than or equal comparison"},
-			{Symbol: "&&", Category: "logic", Description: "Logical AND"},
-			{Symbol: "||", Category: "logic", Description: "Logical OR"},
+			{Symbol: "||", Category: "logic", Precedence: 1, Associativity: "left", Description: "Logical OR"},
+			{Symbol: "&&", Category: "logic", Precedence: 2, Associativity: "left", Description: "Logical AND"},
+			{Symbol: "==", Category: "comparison", Precedence: 3, Associativity: "left", Description: "Structural equality test"},
+			{Symbol: "!=", Category: "comparison", Precedence: 3, Associativity: "left", Description: "Structural inequality test"},
+			{Symbol: "<", Category: "comparison", Precedence: 4, Associativity: "left", Description: "Less than comparison"},
+			{Symbol: "<=", Category: "comparison", Precedence: 4, Associativity: "left", Description: "Less than or equal comparison"},
+			{Symbol: ">", Category: "comparison", Precedence: 4, Associativity: "left", Description: "Greater than comparison"},
+			{Symbol: ">=", Category: "comparison", Precedence: 4, Associativity: "left", Description: "Greater than or equal comparison"},
+			{Symbol: "+", Category: "math", Precedence: 5, Associativity: "left", Description: "Infix addition with automatic overflow promotion"},
+			{Symbol: "-", Category: "math", Precedence: 5, Associativity: "left", Description: "Infix subtraction with unsigned underflow protection"},
+			{Symbol: "++", Category: "math", Precedence: 5, Associativity: "left", Description: "Monoidal concatenation for strings and lists"},
+			{Symbol: "*", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix multiplication with automatic overflow promotion"},
+			{Symbol: "/", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix true division (promotes integers to float)"},
+			{Symbol: "//", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix Euclidean integer floor division"},
+			{Symbol: "%", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix modulo / remainder"},
 		},
 		Snippets: []SnippetDef{
 			{

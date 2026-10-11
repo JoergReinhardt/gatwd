@@ -168,3 +168,7 @@ spawn ComplexVal: 1+2i + 3+4i |> assert (4+6i)
 -- 43. List Comprehensions [expr | var <- source, filter...]
 spawn ListVal: [x * 2 | x <- [1, 2, 3, 4], x > 2] |> assert [6 8]
 
+-- 44. Dynamic EBNF Parser Transducer (Meta-Grammar Engine)
+spawn StrVal: "k := 42" |> ebnf_parse Assignment "Assignment = Var \":=\" Value ; Var = \"k\" ; Value = \"42\" ;" |> assert &{sequence  [{Var  [{terminal k []}]} {terminal := []} {Value  [{terminal 42 []}]}]}
+
+

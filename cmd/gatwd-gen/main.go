@@ -403,7 +403,7 @@ func genGoTokens(rootDir string, s spec.GrammarSpec) {
 	}
 	var opEntries []string
 	for _, o := range s.Operators {
-		opEntries = append(opEntries, fmt.Sprintf("\t%q: {Category: %q, Description: %q, Unicode: %q},", o.Symbol, o.Category, o.Description, o.Unicode))
+		opEntries = append(opEntries, fmt.Sprintf("\t%q: {Category: %q, Precedence: %d, Associativity: %q, Description: %q, Unicode: %q},", o.Symbol, o.Category, o.Precedence, o.Associativity, o.Description, o.Unicode))
 	}
 
 	content := fmt.Sprintf(`package parser
@@ -417,9 +417,11 @@ type BuiltinMetadata struct {
 }
 
 type OperatorMetadata struct {
-	Category    string
-	Description string
-	Unicode     string
+	Category      string
+	Precedence    int
+	Associativity string
+	Description   string
+	Unicode       string
 }
 
 // CanonicalKeywords contains all official Gatwd keywords.

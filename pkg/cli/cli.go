@@ -641,6 +641,14 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if stepStr == "telemetry" {
 			var count uint64
 			pipeline = append(pipeline, evaluator.StepTelemetry(&count))
+		} else if strings.HasPrefix(stepStr, "ebnf_parse ") {
+			// ebnf_parse <startRule> <grammarText>
+			parts := strings.SplitN(strings.TrimSpace(stepStr[11:]), " ", 2)
+			if len(parts) == 2 {
+				startRule := strings.Trim(parts[0], "\"")
+				grammarText := strings.Trim(parts[1], "\"")
+				pipeline = append(pipeline, evaluator.StepEBNFParse(startRule, grammarText))
+			}
 		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
 			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))

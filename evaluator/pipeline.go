@@ -14,6 +14,7 @@ import (
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/optics"
+	"github.com/joergreinhardt/gatwd/parser"
 )
 
 var ansiRegex = regexp.MustCompile("\033\\[[0-9;]*m")
@@ -1410,3 +1411,43 @@ func StepEmpty() PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepEBNFParse compiles an EBNF grammar specification and parses each incoming string node into an AST.
+func StepEBNFParse(startRule, ebnfText string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			grammar, err := parser.ParseEBNFGrammar(startRule, ebnfText)
+			if err != nil {
+				errNode := InjectError[any](fmt.Errorf("EBNF grammar error: %w", err), 0)
+				yield(errNode)
+				return
+			}
+
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
+				val, _ := node.Value.UnwrapRight()
+				strInput := fmt.Sprintf("%v", val)
+				ast, _, pErr := grammar.Parse(strInput)
+				if pErr != nil {
+					errNode := InjectError[any](fmt.Errorf("EBNF parse failed for %q: %w", strInput, pErr), node.DSLType)
+					if !yield(errNode) {
+						return
+					}
+					continue
+				}
+
+				newNode := dsltypes.NewASTNode(functions.Right[error, any](any(ast)), node.DSLType)
+				if !yield(newNode) {
+					return
+				}
+			}
+		}
+	}
+}
+

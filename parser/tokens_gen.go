@@ -9,9 +9,11 @@ type BuiltinMetadata struct {
 }
 
 type OperatorMetadata struct {
-	Category    string
-	Description string
-	Unicode     string
+	Category      string
+	Precedence    int
+	Associativity string
+	Description   string
+	Unicode       string
 }
 
 // CanonicalKeywords contains all official Gatwd keywords.
@@ -95,29 +97,30 @@ var CanonicalBuiltins = map[string]BuiltinMetadata{
 	"visualize": {Category: "observability", Signature: "visualize [flags]", Description: "Render stream as pretty UTF-8 visual cards"},
 	"telemetry": {Category: "observability", Signature: "telemetry", Description: "Track and emit stream throughput telemetry"},
 	"checkpoint": {Category: "reliability", Signature: "checkpoint <id> <interval>", Description: "Periodically persist pipeline state for recovery"},
+	"ebnf_parse": {Category: "parser", Signature: "ebnf_parse <rule> <grammar>", Description: "Compile dynamic EBNF grammar and parse string stream into AST"},
 }
 
 // CanonicalOperators contains all operators, pipes, and arrows.
 var CanonicalOperators = map[string]OperatorMetadata{
-	"|>": {Category: "pipe", Description: "Sequential pipeline stream forward", Unicode: "⊳"},
-	"||>": {Category: "pipe", Description: "Parallel pipeline stream execution", Unicode: ""},
-	"->": {Category: "arrow", Description: "Pattern match branch arrow and lambda return", Unicode: "→"},
-	"<-": {Category: "arrow", Description: "List comprehension generator source binding", Unicode: ""},
-	"&&&": {Category: "arrows", Description: "Kleisli FanOut: route single input to two parallel arrows", Unicode: ""},
-	"***": {Category: "arrows", Description: "Applicative Split: apply independent arrows to Pair halves", Unicode: ""},
-	"+": {Category: "math", Description: "Infix addition with automatic overflow promotion", Unicode: ""},
-	"-": {Category: "math", Description: "Infix subtraction with unsigned underflow protection", Unicode: ""},
-	"*": {Category: "math", Description: "Infix multiplication with automatic overflow promotion", Unicode: ""},
-	"/": {Category: "math", Description: "Infix true division (promotes integers to float)", Unicode: ""},
-	"//": {Category: "math", Description: "Infix Euclidean integer floor division", Unicode: ""},
-	"%": {Category: "math", Description: "Infix modulo / remainder", Unicode: ""},
-	"++": {Category: "math", Description: "Monoidal concatenation for strings and lists", Unicode: ""},
-	"==": {Category: "comparison", Description: "Structural equality test", Unicode: ""},
-	"!=": {Category: "comparison", Description: "Structural inequality test", Unicode: ""},
-	"<": {Category: "comparison", Description: "Less than comparison", Unicode: ""},
-	"<=": {Category: "comparison", Description: "Less than or equal comparison", Unicode: ""},
-	">": {Category: "comparison", Description: "Greater than comparison", Unicode: ""},
-	">=": {Category: "comparison", Description: "Greater than or equal comparison", Unicode: ""},
-	"&&": {Category: "logic", Description: "Logical AND", Unicode: ""},
-	"||": {Category: "logic", Description: "Logical OR", Unicode: ""},
+	"|>": {Category: "pipe", Precedence: 0, Associativity: "", Description: "Sequential pipeline stream forward", Unicode: "⊳"},
+	"||>": {Category: "pipe", Precedence: 0, Associativity: "", Description: "Parallel pipeline stream execution", Unicode: ""},
+	"->": {Category: "arrow", Precedence: 0, Associativity: "", Description: "Pattern match branch arrow and lambda return", Unicode: "→"},
+	"<-": {Category: "arrow", Precedence: 0, Associativity: "", Description: "List comprehension generator source binding", Unicode: ""},
+	"&&&": {Category: "arrows", Precedence: 0, Associativity: "", Description: "Kleisli FanOut: route single input to two parallel arrows", Unicode: ""},
+	"***": {Category: "arrows", Precedence: 0, Associativity: "", Description: "Applicative Split: apply independent arrows to Pair halves", Unicode: ""},
+	"||": {Category: "logic", Precedence: 1, Associativity: "left", Description: "Logical OR", Unicode: ""},
+	"&&": {Category: "logic", Precedence: 2, Associativity: "left", Description: "Logical AND", Unicode: ""},
+	"==": {Category: "comparison", Precedence: 3, Associativity: "left", Description: "Structural equality test", Unicode: ""},
+	"!=": {Category: "comparison", Precedence: 3, Associativity: "left", Description: "Structural inequality test", Unicode: ""},
+	"<": {Category: "comparison", Precedence: 4, Associativity: "left", Description: "Less than comparison", Unicode: ""},
+	"<=": {Category: "comparison", Precedence: 4, Associativity: "left", Description: "Less than or equal comparison", Unicode: ""},
+	">": {Category: "comparison", Precedence: 4, Associativity: "left", Description: "Greater than comparison", Unicode: ""},
+	">=": {Category: "comparison", Precedence: 4, Associativity: "left", Description: "Greater than or equal comparison", Unicode: ""},
+	"+": {Category: "math", Precedence: 5, Associativity: "left", Description: "Infix addition with automatic overflow promotion", Unicode: ""},
+	"-": {Category: "math", Precedence: 5, Associativity: "left", Description: "Infix subtraction with unsigned underflow protection", Unicode: ""},
+	"++": {Category: "math", Precedence: 5, Associativity: "left", Description: "Monoidal concatenation for strings and lists", Unicode: ""},
+	"*": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix multiplication with automatic overflow promotion", Unicode: ""},
+	"/": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix true division (promotes integers to float)", Unicode: ""},
+	"//": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix Euclidean integer floor division", Unicode: ""},
+	"%": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix modulo / remainder", Unicode: ""},
 }

@@ -333,22 +333,10 @@ func (p *InfixParser) next() TokenItem {
 }
 
 func getPrecedence(op string) int {
-	switch op {
-	case "||":
-		return 1
-	case "&&":
-		return 2
-	case "==", "!=":
-		return 3
-	case "<", "<=", ">", ">=":
-		return 4
-	case "+", "-", "++":
-		return 5
-	case "*", "/", "//", "%":
-		return 6
-	default:
-		return 0
+	if meta, exists := CanonicalOperators[op]; exists {
+		return meta.Precedence
 	}
+	return 0
 }
 
 func (p *InfixParser) ParseExpression() (Expr, error) {
