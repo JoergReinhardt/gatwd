@@ -273,6 +273,99 @@ return {
       opts.linters_by_ft.gatwd = { "gatwd" }
     end,
   },
+
+  -- 5. outline.nvim Symbol Provider for Gatwd
+  {
+    "hedyhli/outline.nvim",
+    optional = true,
+    opts = function(_, opts)
+      -- Preload gatwd outline provider
+      package.preload["outline/providers/gatwd"] = function()
+        return {
+          name = "gatwd",
+          supports_buffer = function(bufnr, config)
+            return vim.bo[bufnr].filetype == "gatwd"
+          end,
+          request_symbols = function(on_symbols, req_opts)
+            local bufnr = vim.api.nvim_get_current_buf()
+            local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+            local symbols = {}
+
+            for line_idx, line in ipairs(lines) do
+              local trimmed = vim.trim(line)
+              local sym_name = nil
+              local sym_kind = 12 -- Function by default
+              local detail = ""
+
+              -- 1. Functions / Pipelines: def <name> =
+              local def_name = trimmed:match("^def%%s+([%%a_][%%w_]*)%%s*=")
+              if def_name then
+                sym_name = def_name
+                sym_kind = 12 -- Function
+                detail = "Pipeline Function"
+              end
+
+              -- 2. Types: type <name> =
+              if not sym_name then
+                local type_name = trimmed:match("^type%%s+([%%a_][%%w_]*)%%s*=")
+                if type_name then
+                  sym_name = type_name
+                  sym_kind = 5 -- Class / Type
+                  detail = "Type Definition"
+                end
+              end
+
+              -- 3. Constants: const <name> =
+              if not sym_name then
+                local const_name = trimmed:match("^const%%s+([%%a_][%%w_]*)%%s*=")
+                if const_name then
+                  sym_name = const_name
+                  sym_kind = 14 -- Constant
+                  detail = "Constant"
+                end
+              end
+
+              -- 4. Stream pipelines: spawn <Type>:
+              if not sym_name then
+                local spawn_type = trimmed:match("^spawn%%s+([%%a_][%%w_]*):")
+                if spawn_type then
+                  sym_name = "spawn " .. spawn_type
+                  sym_kind = 24 -- Event / Stream
+                  detail = "Stream Pipeline"
+                end
+              end
+
+              if sym_name then
+                table.insert(symbols, {
+                  name = sym_name,
+                  kind = sym_kind,
+                  detail = detail,
+                  selectionRange = {
+                    start = { line = line_idx - 1, character = 0 },
+                    ["end"] = { line = line_idx - 1, character = #line },
+                  },
+                  range = {
+                    start = { line = line_idx - 1, character = 0 },
+                    ["end"] = { line = line_idx - 1, character = #line },
+                  },
+                  children = {},
+                })
+              end
+            end
+
+            on_symbols(symbols, req_opts)
+          end,
+        }
+      end
+
+      opts.providers = opts.providers or {}
+      opts.providers.priority = opts.providers.priority or { "lsp", "coc", "markdown", "norg", "man" }
+      -- Prepend gatwd provider so it is selected for .gatwd files
+      if not vim.tbl_contains(opts.providers.priority, "gatwd") then
+        table.insert(opts.providers.priority, 1, "gatwd")
+      end
+    end,
+  },
 }
 `, strings.Join(kwList, " "), strings.Join(typeList, " "), strings.Join(builtinList, " "), strings.Join(cmpItems, ",\n            "))
 
