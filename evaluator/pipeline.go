@@ -707,3 +707,29 @@ func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepAssert checks if the incoming node's string representation matches the expected string.
+// If it fails, it yields an error node. If it passes, it yields the original node unaltered.
+func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				
+				val, _ := node.Value.UnwrapRight()
+				actual := fmt.Sprintf("%v", val)
+				
+				if actual != expected {
+					err := fmt.Errorf("Assertion failed: expected '%s', got '%s'", expected, actual)
+					errNode := InjectError[any](err, node.DSLType)
+					if !yield(errNode) { return }
+				} else {
+					if !yield(node) { return }
+				}
+			}
+		}
+	}
+}

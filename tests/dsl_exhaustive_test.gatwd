@@ -1,0 +1,32 @@
+-- ==========================================================
+-- gatwd Exhaustive DSL Test Suite
+-- Run: ./gatwd tests/dsl_exhaustive_test.gatwd
+-- This file acts as a self-asserting unit test for the DSL grammar.
+-- If any pipeline evaluates incorrectly, the `assert` keyword will yield a Left(error).
+-- ==========================================================
+type IntVal = Int
+type StrVal = String
+
+-- 1. Primitive Type Spawning and Pure Math Adapters
+spawn IntVal: 10 |> math_add 5 |> assert 15
+spawn IntVal: 100 |> math_add 100 |> assert 200
+
+-- 2. Applicative Kleisli FanOut (&&&) - Tuple formation
+spawn IntVal: 10 |> (math_add 10 &&& math_add 20) |> format_tuple "%v,%v" |> assert 20,30
+
+-- 3. Applicative Split (***) - Parallel tuple mapping
+spawn IntVal: 10 |> (math_add 10 &&& math_add 20) |> [math_add 10 *** math_add 10] |> format_tuple "%v,%v" |> assert 30,40
+
+-- 4. Functional Iterators and Monadic Map Closure (flatMap)
+spawn IntVal: 10 |> map (\x -> math_add 5 |> math_add 5) |> assert 20
+
+-- 5. Pattern Matching (Catamorphisms) Routing
+spawn IntVal: 99 |> match { 99 -> math_add 1 |> math_add 2 } |> assert 102
+
+-- 6. Immutable Collections: Set
+spawn StrVal: Start |> emit dup, unique, dup |> to_set |> assert Set
+
+-- 7. Comonadic File System Traversal
+-- `down` enters `examples/tour/01_basics.gatwd` (alphabetically first)
+spawn StrVal: Start |> walk_fs examples/tour |> into_zipper |> down |> extract |> assert examples/tour/01_basics.gatwd
+

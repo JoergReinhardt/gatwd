@@ -170,6 +170,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pathStr := strings.TrimSpace(stepStr[8:])
 			adapter := adapters.WalkFSAdapter(pathStr)
 			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+		} else if strings.HasPrefix(stepStr, "assert ") {
+			expected := strings.TrimSpace(stepStr[7:])
+			pipeline = append(pipeline, evaluator.StepAssert(expected))
 		} else if strings.HasPrefix(stepStr, "visualize") {
 			pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
 		} else if strings.HasPrefix(stepStr, "sort") {
