@@ -195,19 +195,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 			pipeline = append(pipeline, evaluator.StepMatch(cases, nil))
 		} else if strings.HasPrefix(stepStr, "map") {
-			// Lambda: map (\x -> x + 2)
-			// For OS evaluation, we just replace \x -> echo x with generic exec adapter
 			lambda := strings.TrimSpace(stepStr[3:])
 			lambda = strings.TrimPrefix(lambda, "(")
 			lambda = strings.TrimSuffix(lambda, ")")
-			parts2 := strings.Split(lambda, "->")
+			parts2 := strings.SplitN(lambda, "->", 2)
 			if len(parts2) == 2 {
-				// We don't mathematically evaluate, we just run OS command replacing var with %s
-				cmd := strings.TrimSpace(parts2[1])
+				innerStr := strings.TrimSpace(parts2[1])
 				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
-				cmd = strings.ReplaceAll(cmd, varName, "%s")
-				adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
-				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+				if varName != "" {
+					innerStr = strings.ReplaceAll(innerStr, varName, "%s")
+				}
+				subParts, _ := splitPipelineAware(innerStr)
+				subPipeline := i.parsePipelineSteps(subParts)
+				pipeline = append(pipeline, evaluator.StepMap(subPipeline, i.Engine))
 			}
 		} else {
 			parts := strings.Fields(stepStr)
@@ -315,6 +315,39 @@ func splitPipelineAware(line string) ([]string, bool) {
 	}
 	
 	return parts, isParallel
+}
+
+func (i *Interpreter) EvaluateToValues(line string) []any {
+	isParallel := strings.Contains(line, "||>")
+	line = strings.ReplaceAll(line, "||>", "|>")
+	parts, _ := splitPipelineAware(line)
+
+	stringStream := i.Parser.Parse(parts[0])
+	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		for node := range stringStream {
+			wrappedValue := functions.Right[error, any](any(node.Value))
+			yield(dsltypes.NewASTNode(wrappedValue, node.DSLType))
+		}
+	}
+
+	pipeline := i.parsePipelineSteps(parts[1:])
+	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
+
+	if isParallel {
+		terminalNodes = i.Engine.ParEvaluate(terminalNodes, 10)
+	}
+
+	var results []any
+	for result := range terminalNodes {
+		if result.Value.IsRight() {
+			val, _ := result.Value.UnwrapRight()
+			results = append(results, val)
+		} else if result.Value.IsLeft() {
+			err, _ := result.Value.UnwrapLeft()
+			results = append(results, err)
+		}
+	}
+	return results
 }
 
 func (i *Interpreter) evaluatePipelineStr(line string) []string {

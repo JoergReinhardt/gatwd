@@ -563,3 +563,30 @@ func StepBuildArray() PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepMap applies a sub-pipeline to each individual node in the stream (FlatMap/Monadic Bind)
+func StepMap(subPipeline []PipelineStep[functions.Either[error, any]], engine *Engine[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() { 
+					if !yield(node) { return }
+					continue 
+				}
+
+				// Create a singleton stream for this node
+				singleton := func(subYield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					subYield(node)
+				}
+				
+				// Evaluate the sub-pipeline over this single node
+				results := engine.EvaluatePipeline(singleton, subPipeline)
+				
+				// Yield all results from the sub-pipeline downstream
+				for resNode := range results {
+					if !yield(resNode) { return }
+				}
+			}
+		}
+	}
+}
