@@ -1,0 +1,14 @@
+-- ==========================================================
+-- gatwd Tour: 24. Comonadic File System Navigation
+-- Run: ./gatwd examples/tour/24_comonadic_fs.gatwd
+-- ==========================================================
+type Node = String
+
+-- 1. Eager FS Tree Construction & Zipper Traversal
+-- `walk_fs` reads the physical OS directory and builds an immutable Rose Tree in memory.
+-- `into_zipper` converts the mathematical Tree into a Comonadic cursor.
+-- `down |> right` navigates geometrically into the first child, and then to its sibling.
+-- `extract` unwraps the Zipper context back into the raw file path.
+
+spawn Node: Start |> walk_fs examples/tour |> into_zipper |> down |> right |> extract |> visualize --color-val=File:magenta
+

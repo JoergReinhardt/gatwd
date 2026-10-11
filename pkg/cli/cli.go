@@ -166,6 +166,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				trimmed = append(trimmed, strings.TrimSpace(p))
 			}
 			pipeline = append(pipeline, evaluator.StepEmit(trimmed...))
+		} else if strings.HasPrefix(stepStr, "walk_fs ") {
+			pathStr := strings.TrimSpace(stepStr[8:])
+			adapter := adapters.WalkFSAdapter(pathStr)
+			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
 		} else if strings.HasPrefix(stepStr, "visualize") {
 			pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
 		} else if strings.HasPrefix(stepStr, "sort") {
@@ -198,7 +202,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "build_tree") {
 			rootName := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
 			pipeline = append(pipeline, evaluator.StepBuildTree(rootName))
-		} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" {
+		} else if stepStr == "into_zipper" || stepStr == "down" || stepStr == "up" || stepStr == "extract" || stepStr == "left" || stepStr == "right" {
 			pipeline = append(pipeline, evaluator.StepZipper(stepStr))
 		} else if strings.HasPrefix(stepStr, "match {") && strings.HasSuffix(stepStr, "}") {
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])

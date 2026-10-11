@@ -412,7 +412,25 @@ func StepZipper(op string) PipelineStep[functions.Either[error, any]] {
 						errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper DOWN because the current Tree node has no children"), node.DSLType)
 						if !yield(errNode) { return }
 					}
-				} else if op == "up" {
+				} else if op == "right" {
+						nextZipper := zipper.Right()
+						if nextZipper != nil {
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+							if !yield(newNode) { return }
+						} else {
+							errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper RIGHT because there is no sibling"), node.DSLType)
+							if !yield(errNode) { return }
+						}
+					} else if op == "left" {
+						nextZipper := zipper.Left()
+						if nextZipper != nil {
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)
+							if !yield(newNode) { return }
+						} else {
+							errNode := InjectError[any](fmt.Errorf("Cursor Error: Cannot move Zipper LEFT because there is no sibling"), node.DSLType)
+							if !yield(errNode) { return }
+						}
+					} else if op == "up" {
 					nextZipper := zipper.Up()
 					if nextZipper != nil {
 						newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextZipper)), node.DSLType)

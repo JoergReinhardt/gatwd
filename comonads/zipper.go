@@ -96,3 +96,53 @@ func (z *TreeZipper[T]) Up() *TreeZipper[T] {
 		Context: z.Context.Parent.Context, // Inherit the parent's context
 	}
 }
+
+// Right moves the cursor to the next sibling on the right.
+func (z *TreeZipper[T]) Right() *TreeZipper[T] {
+	if z.Context == nil || len(z.Context.RightSiblings) == 0 {
+		return nil
+	}
+
+	newFocus := z.Context.RightSiblings[0]
+	
+	newLeftSiblings := make([]*collections.Tree[T], len(z.Context.LeftSiblings), len(z.Context.LeftSiblings)+1)
+	copy(newLeftSiblings, z.Context.LeftSiblings)
+	newLeftSiblings = append(newLeftSiblings, z.Focus)
+
+	newRightSiblings := make([]*collections.Tree[T], len(z.Context.RightSiblings)-1)
+	copy(newRightSiblings, z.Context.RightSiblings[1:])
+
+	return &TreeZipper[T]{
+		Focus: newFocus,
+		Context: &TreeContext[T]{
+			Parent:        z.Context.Parent,
+			LeftSiblings:  newLeftSiblings,
+			RightSiblings: newRightSiblings,
+		},
+	}
+}
+
+// Left moves the cursor to the previous sibling on the left.
+func (z *TreeZipper[T]) Left() *TreeZipper[T] {
+	if z.Context == nil || len(z.Context.LeftSiblings) == 0 {
+		return nil
+	}
+
+	newFocus := z.Context.LeftSiblings[len(z.Context.LeftSiblings)-1]
+
+	newLeftSiblings := make([]*collections.Tree[T], len(z.Context.LeftSiblings)-1)
+	copy(newLeftSiblings, z.Context.LeftSiblings[:len(z.Context.LeftSiblings)-1])
+
+	newRightSiblings := make([]*collections.Tree[T], len(z.Context.RightSiblings)+1)
+	newRightSiblings[0] = z.Focus
+	copy(newRightSiblings[1:], z.Context.RightSiblings)
+
+	return &TreeZipper[T]{
+		Focus: newFocus,
+		Context: &TreeContext[T]{
+			Parent:        z.Context.Parent,
+			LeftSiblings:  newLeftSiblings,
+			RightSiblings: newRightSiblings,
+		},
+	}
+}
