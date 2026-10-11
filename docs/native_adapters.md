@@ -43,36 +43,34 @@ spawn Balance: 999999 |> math_add 1
 
 ---
 
-## 2. Registering Pipeline Transducers (`Interpreter.RegisterStep`)
+## 2. Ergonomic Step Constructors (`MapStep`, `FilterStep`, `ArgStep`)
 
-Third-party domain transformations are plugged into the interpreter using `RegisterStep` and `StepHandler`:
+Contributors and authors do **not** need to write complex `iter.Seq` closures, unpack `functions.Either[error, any]`, or manage AST nodes manually. Gatwd provides high-level functional constructors:
 
-```go
-interp.RegisterStep(func(stepStr string, i *cli.Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
-	if strings.HasPrefix(stepStr, "bigint_mult ") {
-		factorStr := strings.TrimSpace(stepStr[12:])
-		factor, _ := new(big.Int).SetString(factorStr, 10)
+* **`cli.MapStep(name, fn)`**: Transforms values directly:
+  ```go
+  interp.RegisterStep(cli.MapStep("mask_secret", func(val any) any {
+      return fmt.Sprintf("***[%v]***", val)
+  }))
+  ```
+* **`cli.FilterStep(name, predicate)`**: Keeps items matching a predicate:
+  ```go
+  interp.RegisterStep(cli.FilterStep("only_numbers", func(val any) bool {
+      _, ok := val.(int)
+      return ok
+  }))
+  ```
+* **`cli.ArgStep(prefix, fn)`**: Parses step parameters (e.g. `bigint_mult 10`):
+  ```go
+  interp.RegisterStep(cli.ArgStep("bigint_mult", func(arg string, val any) (any, error) {
+      factor, _ := new(big.Int).SetString(arg, 10)
+      bi := val.(*big.Int)
+      return new(big.Int).Mul(bi, factor), nil
+  }))
+  ```
+* **`cli.SinkStep(name, fn)`**: Performs side effects (logging, metrics) without mutating items.
 
-		step := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-				for node := range stream {
-					if node.Value.IsRight() {
-						val, _ := node.Value.UnwrapRight()
-						if bi, ok := val.(*big.Int); ok {
-							result := new(big.Int).Mul(bi, factor)
-							yield(dsltypes.NewASTNode(functions.Right[error, any](any(result)), node.DSLType))
-							continue
-						}
-					}
-					if !yield(node) { return }
-				}
-			}
-		}
-		return step, true
-	}
-	return nil, false
-})
-```
+*(For advanced use cases requiring full control over the `iter.Seq` stream trampoline or error channels, raw `StepHandler` remains fully accessible).*
 
 ---
 

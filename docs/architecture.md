@@ -178,28 +178,21 @@ Each Gatwd Edition or Appliance can operate across two execution tiers:
 
 ### 5.3 Architectural Archetypes & Reference Patterns
 
-#### Archetype 1: Specialized CLI with Embedded Script
+#### Archetype 1: Specialized CLI Edition
 ```go
 package main
 
 import (
-    "embed"
-    "os"
     "github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
-//go:embed scripts/default_audit.gatwd
-var embeddedFS embed.FS
-
 func main() {
-    interp := cli.NewInterpreter()
-    
-    // Fall back to embedded script if no external file provided
-    if len(os.Args) > 1 {
-        interp.LoadScript(os.Args[1])
-    } else {
-        _ = interp.LoadScriptFS(embeddedFS, "scripts/default_audit.gatwd")
-    }
+    cli.NewEdition("gatwd-audit").
+        WithType("AuditLog", parseLog).
+        WithStep(cli.MapStep("mask", maskSecret)).
+        WithStep(cli.FilterStep("critical_only", isCritical)).
+        WithStep(cli.ArgStep("tag", tagWithEnv)).
+        Run() // Handles flags, -i REPL, script loading automatically
 }
 ```
 
@@ -235,32 +228,29 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-#### Archetype 3: Kubernetes Operator Reconcile Loop
+#### Archetype 3: Kubernetes Operator Appliance with Hot-Reloading
 ```go
 package main
 
 import (
-    "context"
     "embed"
-    "k8s.io/apimachinery/pkg/runtime/schema"
-    "k8s.io/client-go/dynamic"
-    "github.com/joergreinhardt/gatwd/adapters"
     "github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
 //go:embed reconcile_rules.gatwd
 var rulesFS embed.FS
 
-func reconcileNamespace(client dynamic.Interface, ns string) {
-    interp := cli.NewInterpreter()
+func main() {
+    // Zero-boilerplate appliance with embedded baseline and live ConfigMap overrides
+    app, _ := cli.NewAppliance(
+        cli.WithEmbeddedFS(rulesFS, "reconcile_rules.gatwd"),
+        cli.WithConfigMapOverride("/etc/gatwd/rules.gatwd"),
+        cli.WithStep(cli.MapStep("enrich_node", enrichClusterNode)),
+    )
     
-    // Register native k8s adapter for dynamic resources
-    podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-    podFlag := interp.Parser.GetFlag("KubePod")
-    interp.Engine.Register(interp.Parser.GetFlag("KubeNamespace"), adapters.NativeKubernetesAdapter(client, podGVR, podFlag))
-    
-    // Run embedded reconciliation rules
-    _ = interp.LoadScriptFS(rulesFS, "reconcile_rules.gatwd")
+    // In operator reconcile loop:
+    res := app.Execute("spawn Cluster: default |> audit_and_reconcile")
+    _ = res
 }
 ```
 

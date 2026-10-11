@@ -783,6 +783,7 @@ func (i *Interpreter) RegisterType(definition string, factory func(string) any) 
 		typeName = strings.TrimSpace(parts[0])
 	}
 	i.Parser.RegisterTypeFactory(typeName, factory)
+	i.Parser.GetFlag(typeName)
 }
 
 func (i *Interpreter) EvaluateLine(line string) {

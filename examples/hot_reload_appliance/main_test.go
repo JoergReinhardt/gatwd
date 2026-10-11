@@ -4,14 +4,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
 func TestAppliance_HotReloadingAndFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 	overrideFile := filepath.Join(tmpDir, "rules.gatwd")
 
-	// 1. Initialize appliance with non-existent override file -> must load embedded fallback
-	app, err := NewAppliance(overrideFile)
+	// 1. Initialize first-class appliance with non-existent override file -> must load embedded fallback
+	app, err := cli.NewAppliance(
+		cli.WithEmbeddedScript(embeddedRules),
+		cli.WithConfigMapOverride(overrideFile),
+	)
 	if err != nil {
 		t.Fatalf("failed to initialize appliance: %v", err)
 	}
