@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"iter"
 	"math/big"
+	"sort"
 	"strconv"
-	"github.com/joergreinhardt/gatwd/comonads"
 	"strings"
+
+	"github.com/joergreinhardt/gatwd/comonads"
 
 	"github.com/joergreinhardt/gatwd/arrows"
 	"github.com/joergreinhardt/gatwd/collections"
@@ -586,6 +588,103 @@ func StepMap(subPipeline []PipelineStep[functions.Either[error, any]], engine *E
 				for resNode := range results {
 					if !yield(resNode) { return }
 				}
+			}
+		}
+	}
+}
+
+// StepSort buffers the entire lazy sequence into a slice, sorts it using a provided comparator, 
+// and then yields it back as a lazy sequence. This represents a strict evaluation boundary.
+func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var buffer []dsltypes.ASTNode[functions.Either[error, any]]
+			var errs []dsltypes.ASTNode[functions.Either[error, any]]
+
+			// Drain the stream
+			for node := range stream {
+				if node.Value.IsLeft() {
+					errs = append(errs, node)
+					continue
+				}
+				buffer = append(buffer, node)
+			}
+
+			// Yield errors immediately
+			for _, errNode := range errs {
+				if !yield(errNode) { return }
+			}
+
+			// Sort the buffer
+			sort.SliceStable(buffer, func(i, j int) bool {
+				valI, _ := buffer[i].Value.UnwrapRight()
+				valJ, _ := buffer[j].Value.UnwrapRight()
+				return less(valI, valJ)
+			})
+
+			// Yield the sorted buffer lazily
+			for _, node := range buffer {
+				if !yield(node) { return }
+			}
+		}
+	}
+}
+
+// Default numeric/string sorting comparator
+func DefaultLess(a, b any) bool {
+	switch va := a.(type) {
+	case int:
+		if vb, ok := b.(int); ok { return va < vb }
+	case float64:
+		if vb, ok := b.(float64); ok { return va < vb }
+	case string:
+		if vb, ok := b.(string); ok { return va < vb }
+	}
+	// Fallback to string comparison
+	return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
+}
+
+// StepToSet aggregates the entire stream into a deduplicated Set and yields the Set downstream.
+func StepToSet() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			set := collections.NewSet[string]()
+			var errs []dsltypes.ASTNode[functions.Either[error, any]]
+			var lastFlag dsltypes.BitFlag
+
+			for node := range stream {
+				if node.Value.IsLeft() {
+					errs = append(errs, node)
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				set = set.Add(fmt.Sprintf("%v", val))
+				lastFlag = node.DSLType
+			}
+
+			for _, errNode := range errs {
+				if !yield(errNode) { return }
+			}
+
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(set)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepEmit emits a fixed set of string values sequentially into the stream.
+func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			// First, pass through upstream
+			for node := range stream {
+				if !yield(node) { return }
+			}
+			
+			// Then emit our values
+			for _, v := range values {
+				node := dsltypes.NewASTNode(functions.Right[error, any](any(v)), 0)
+				if !yield(node) { return }
 			}
 		}
 	}

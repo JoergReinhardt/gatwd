@@ -13,6 +13,7 @@ import (
 	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/interactive"
+	"github.com/joergreinhardt/gatwd/adapters"
 	"github.com/joergreinhardt/gatwd/parser"
 	"github.com/joergreinhardt/gatwd/pkg/plugins"
 	"github.com/joergreinhardt/gatwd/visualizer"
@@ -158,8 +159,27 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			if len(args) >= 2 {
 				pipeline = append(pipeline, evaluator.StepUpdate(args[0], strings.Join(args[1:], " ")))
 			}
+		} else if strings.HasPrefix(stepStr, "emit ") {
+			parts := strings.Split(strings.TrimSpace(stepStr[5:]), ",")
+			var trimmed []string
+			for _, p := range parts {
+				trimmed = append(trimmed, strings.TrimSpace(p))
+			}
+			pipeline = append(pipeline, evaluator.StepEmit(trimmed...))
 		} else if strings.HasPrefix(stepStr, "visualize") {
 			pipeline = append(pipeline, visualizer.StepVisualize(strings.TrimSpace(stepStr[9:])))
+		} else if strings.HasPrefix(stepStr, "sort") {
+			pipeline = append(pipeline, evaluator.StepSort(evaluator.DefaultLess))
+		} else if strings.HasPrefix(stepStr, "to_set") {
+			pipeline = append(pipeline, evaluator.StepToSet())
+		} else if strings.HasPrefix(stepStr, "write_file") {
+			filename := strings.TrimSpace(stepStr[10:])
+			adapter := adapters.WriteFile(filename, false)
+			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+		} else if strings.HasPrefix(stepStr, "append_file") {
+			filename := strings.TrimSpace(stepStr[11:])
+			adapter := adapters.WriteFile(filename, true)
+			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
 		} else if stepStr == "route" {
 			pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
 		} else if stepStr == "build_bst" {

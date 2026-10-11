@@ -1,31 +1,40 @@
 package collections
 
-// Set represents a naive immutable Set.
-// In functional programming, immutability is key. Operations on this Set 
-// return a completely new Set rather than mutating the original.
+// Set is an immutable-ish generic hash set over comparable types.
 type Set[T comparable] struct {
 	elements map[T]struct{}
 }
 
-// NewSet initializes an empty Set.
-func NewSet[T comparable]() *Set[T] {
-	return &Set[T]{
-		elements: make(map[T]struct{}),
+func NewSet[T comparable](items ...T) *Set[T] {
+	s := &Set[T]{elements: make(map[T]struct{})}
+	for _, item := range items {
+		s.elements[item] = struct{}{}
 	}
+	return s
 }
 
-// Add returns a new Set containing the new element, preserving the original.
-func (s *Set[T]) Add(elem T) *Set[T] {
-	newMap := make(map[T]struct{})
-	for k := range s.elements {
-		newMap[k] = struct{}{}
-	}
-	newMap[elem] = struct{}{}
-	return &Set[T]{elements: newMap}
-}
-
-// Contains checks if the element exists in the Set.
-func (s *Set[T]) Contains(elem T) bool {
-	_, exists := s.elements[elem]
+func (s *Set[T]) Contains(item T) bool {
+	_, exists := s.elements[item]
 	return exists
+}
+
+func (s *Set[T]) Elements() []T {
+	keys := make([]T, 0, len(s.elements))
+	for k := range s.elements {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func (s *Set[T]) String() string {
+	return "Set"
+}
+
+func (s *Set[T]) Add(item T) *Set[T] {
+	newSet := NewSet[T]()
+	for k := range s.elements {
+		newSet.elements[k] = struct{}{}
+	}
+	newSet.elements[item] = struct{}{}
+	return newSet
 }

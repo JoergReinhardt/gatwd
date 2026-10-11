@@ -1,0 +1,21 @@
+-- ==========================================================
+-- gatwd Tour: 23. Go Standard Interface Mapping
+-- Run: ./gatwd examples/tour/23_go_standard_interfaces.gatwd
+-- ==========================================================
+type IntVal = Int
+type Str = String
+
+-- 1. sort.Interface (Strict buffering boundary)
+-- sorting requires draining the infinite lazy stream, sorting in memory, and yielding back out lazily.
+spawn Str: Start |> emit Z_Value, A_Value, M_Value |> sort |> visualize --color-type=String:cyan
+
+-- 2. New Immutable Collections: Set
+-- StepToSet drains the stream and deduplicates it into a pure structural immutable Set
+spawn Str: Start |> emit duplicated, unique, duplicated |> to_set |> visualize --color-type=Set:magenta
+
+-- 3. io.Writer Sink
+-- Write out streams dynamically to files.
+spawn IntVal: 99 |> math_add 1 |> write_file output.txt
+
+-- Clean up
+!rm output.txt
