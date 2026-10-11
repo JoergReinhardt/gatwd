@@ -46,3 +46,12 @@ func Bind[T, U any](seq iter.Seq[T], f func(T) iter.Seq[U]) iter.Seq[U] {
     // ...
 }
 ```
+
+## 4. Test-Driven Mathematical Rigor
+This project relies on mathematically proven Category Theory architectures (Monads, Comonadic Zippers, Kleisli arrows). We do not accept "dummy implementations" or mocked side-effects masquerading as structural features. 
+
+**Testing Intention and Style:**
+- **Aspire to Production-Readiness:** All tests must assume the goal is a fully production-ready system. Tests should exhaustively assert against edge cases inferred from the documentation and common-sense functional design.
+- **Structural Go Tests over String Matching:** Do not test the core engine merely by parsing CLI output strings. You must write structural integration tests (like in `evaluator/pipeline_test.go`) that instantiate the raw Go memory arrays (`[]PipelineStep`) and hard-assert against the resulting memory types (`int`, `functions.Pair`, `*collections.Tree`).
+- **DSL Native Assertions:** All DSL features must be tested natively using the Gatwd DSL `assert` keyword. If you add a new feature to the DSL, you must add it to `tests/dsl_exhaustive_test.gatwd` to ensure the mathematical engine can evaluate it natively without failing.
+- **TDD (Test-Driven Design) Philosophy:** Always write tests that enforce the intended architectural purity of the code. If a pipeline expects a Tuple, assert that a native Go struct Tuple is yielded—not a formatted string. 

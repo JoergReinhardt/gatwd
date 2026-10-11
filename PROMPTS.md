@@ -30,3 +30,10 @@ When refactoring old files (like `functions/composition.go` or `data/conversion_
 1. Do not indiscriminately delete the `BitFlag` logic; it must be preserved and moved to a dedicated `dsltypes` package.
 2. Rip out the heavy `Expression`, `Native`, and `Group` interface wrappers for host operations and replace them with generic type parameters.
 3. Replace custom `for head, tail = tail.Continue()` loops with `for value := range seq` using `iter.Seq`.
+
+## 5. Mathematical Rigor and Structural Testing
+When implementing new features or migrating existing ones, you must adopt a **Test-Driven Design (TDD) approach**.
+- **No Dummy Code or Mocks:** If you implement a functional concept (like `FanOut` or `Split`), do not implement a naive string-splitting parser or OS-fallback hack. You must implement the true mathematical structure in the base layers (`arrows/`, `comonads/`, `evaluator/`).
+- **Exhaustive Structural Assertions:** You must write tests that bypass the string CLI and directly construct the generic structures in Go, asserting exactly on the memory types yielded by the `iter.Seq` (e.g. `TestKleisli`, `TestFanOut`, `TestStepMap`).
+- **DSL Native Testing:** Every DSL-facing feature must be added to `tests/dsl_exhaustive_test.gatwd` using the `assert` keyword. Make sure the DSL itself can mathematically verify its own execution.
+- **Fail CI on Regression:** Design your tests so that if a future agent attempts to lazily replace a mathematical combinator with a bash-script execution, the tests will physically fail to compile or hard-crash.
