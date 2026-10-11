@@ -71,19 +71,15 @@ We strictly leverage Go's native documentation system (`go doc`, `pkgsite`, test
 4. **Current State Integrity**:
    - Documentation must ALWAYS reflect the active codebase. Never refer to outdated structures that were migrated into `legacy/`.
 
-## 6. The "All Layers Through" Mandate & CLI Architecture
+## 6. The "All Layers Through" Mandate & Release Architecture
 
 ### The "All Layers Through" Principle
 Lower-layer abstractions (Layers 0–4) must never remain stranded in Go API space without script-layer accessibility. Whenever a Go standard library capability, collection, transducer, or I/O adapter is built, it MUST be wired all the way through to the scripting language (Layer 5 `pkg/cli/`) as a **builtin**.
 
-### Builtins vs. Bare Interpreter
-- **Builtins**: Features derived from Go's standard library and Gatwd's core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`) are termed **builtins**. They are enabled by default in `cli.NewInterpreter()`.
-- **Bare Interpreter (`cli.NewBareInterpreter()`)**: A minimalist runtime providing only language evaluation primitives (variable substitution `let`, macro expansion `def`, constants `const`, pattern matching `match`, sequence composition `seq`, and core stream controls `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins can be selectively toggled or replaced.
+### Official Architectural Nomenclature
+1. **Bare Runtime (`cli.NewBareInterpreter()`)**: A minimalist evaluation engine providing only host language primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins are disabled unless explicitly registered.
+2. **Gatwd Builtins (`cli.NewInterpreter()`)**: Features derived from Go's standard library and Gatwd core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`, `scanner`, `net`). Enabled by default in the full interpreter.
+3. **Gatwd Editions (or Distributions)**: Standalone binary distributions (e.g., `cmd/gatwd-cloud`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, bundling third-party Go packages, custom domain types (`interp.RegisterType`), and custom transducers (`interp.RegisterStep`).
+4. **Gatwd Appliances**: Single-purpose, self-contained release artifacts (Kubernetes Operators, HTTP/gRPC streaming servers, compliance daemons, diagnostic CLIs) that compile embedded `.gatwd` DSL rules (`//go:embed`) via `interp.LoadScriptFS(...)` or `interp.EvaluateScript(...)`. Appliances ship with embedded default rules and support live overrides via command-line flags or Kubernetes ConfigMaps.
 
-### Third-Party Library Integration: Custom Editions & Standalone Releases
-Third-party Go packages (e.g. cloud SDKs, web frameworks, Kubernetes `client-go`, database drivers) must not bloat the core `gatwd` repository. Instead, they are integrated via **Custom Editions** (or **Distributions**):
-- **Archetypes**: Custom Editions can be authored as standalone command-line tools (`cmd/gatwd-cloud`), long-running HTTP/gRPC servers, or Kubernetes operators/controllers.
-- **Dual Execution Tiers**: Editions can execute at the Go **API level** directly (`evaluator.Engine`, `collections.HAMT`, `StepChunk`) for maximum throughput, or embed `.gatwd` DSL code via `//go:embed` using `interp.LoadScriptFS(...)` and `interp.EvaluateScript(...)`.
-- **Custom Wiring**: Domain types and custom transducers are registered via `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
-- **Zero-Dependency Releases**: Releases compile to single static binaries or distroless container images with embedded scripts and optional live ConfigMap overrides.
 

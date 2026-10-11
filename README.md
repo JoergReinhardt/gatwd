@@ -8,7 +8,9 @@ It is explicitly designed to bridge the gap between elegant functional languages
 
 - **Turing-Complete DSL:** Supports `import`, `def` (macros), `let ... in` bindings, and Lambdas (`map (\x -> ...)`).
 - **Algebraic Data Types:** Natively parses Sum Types (`|`), Records (`{}`), Tuples (`()`), and generic Collections (`Set`, `List`, `Tree`, `BST`, `BTree`, `RBTree`).
-- **Bare-Metal Interoperability:** Use `Interpreter.RegisterTypeFactory` to register native Go types (like `math/big.Int`, `net.IP`, or `time.Time`). The DSL dynamically wraps raw Go memory pointers and routes them mathematically through the execution pipeline at zero-overhead.
+- **Gatwd Builtins & Bare Runtime:** A minimal, unopinionated core engine (`cli.NewBareInterpreter()`) paired with exhaustive Go standard library builtins (`cli.NewInterpreter()`) covering collections, IO scanners, network streams, and state checkpointing.
+- **Gatwd Editions & Appliances:** Build custom binary distributions (Editions) importing third-party Go libraries, or package self-contained microservices, Kubernetes Operators, and CLI tools (Appliances) shipping with embedded `.gatwd` code (`//go:embed`) and runtime ConfigMap overrides.
+- **Bare-Metal Interoperability:** Use `Interpreter.RegisterType` to register native Go types (like `math/big.Int`, `net.IP`, or `time.Time`). The DSL dynamically wraps raw Go memory pointers and routes them mathematically through the execution pipeline at zero-overhead.
 - **Extreme Visualization Engine ("Blackjack & Hookers"):** A dynamic, reflection-based UTF-8 visualizer. Supports curved `╭─╮` or heavy `┏━┓` borders, flow-graph sub-boxes, `Head/Tail` array truncation, and conditional ANSI colorization by structural type or node value. Also outputs direct DOT/Graphviz!
 - **Lazy Trampolines:** Evaluates graphs dynamically using Go 1.23 `iter.Seq`, allowing for infinite data structures.
 - **Optics & Comonads:** Exposes functional Lenses (`focus`, `update`) and Zippers (`up`, `down`) directly to the scripting language for deep, immutable tree navigation.
@@ -37,9 +39,10 @@ spawn Balance: 999999999999999999 |> math_add 1 |> (audit_node &&& parse_access)
 
 ## Documentation
 
+* **[Architecture & Extensibility](docs/architecture.md)**: Deep dive into the host-guest engine, builtins, custom editions, and appliances.
 * **[DSL Guide](docs/dsl_guide.md)**: A complete handbook on how to write `gatwd` scripts.
 * **[Formal Grammar](docs/grammar.md)**: The EBNF specification for the DSL.
-* **[Native Plugins & Go Types](docs/native_adapters.md)**: How to write pure Go functions and register third-party Types seamlessly.
+* **[Native Adapters, Editions & Appliances](docs/native_adapters.md)**: How to write pure Go adapters, register third-party types/steps, and package standalone appliances.
 * **[Agentic Workflows & AI](docs/agentic_workflows.md)**: Harnessing the DSL for LLMs, autonomous agents, and K8s Operators.
 
 ## Interactive Tour

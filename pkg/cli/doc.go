@@ -7,5 +7,8 @@
 //   - Local variable bindings (let ... in ...).
 //   - Top-level immutable constants (const) and native Go constant registration (RegisterConstant).
 //   - Algebraic Data Type pattern matching and list destructuring ([pivot, ...rest]).
-//   - Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file.
+//   - Gatwd Builtins: Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file.
+//   - Bare Runtime (NewBareInterpreter): Minimalist execution core without standard library builtins.
+//   - Gatwd Editions: Custom binary distributions extending the language via RegisterType and RegisterStep.
+//   - Gatwd Appliances: Self-contained releases (Kubernetes Operators, Servers, CLIs) executing embedded scripts via LoadScriptFS.
 package cli

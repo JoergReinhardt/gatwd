@@ -54,9 +54,12 @@ This allows you to orchestrate autonomous agents safely: the AI is given freedom
 
 ---
 
-## 3. The Declarative Kubernetes Operator
+## 3. Declarative Kubernetes Operators as Gatwd Appliances
 
-Writing Kubernetes Operators in Go usually requires thousands of lines of boilerplate just to watch, parse, and reconcile state. With `gatwd`'s native Optics (Lenses) and `iter.Seq` lazy trampolines, you can express an entire reconciliation loop as a functional script running across infinite streams of events.
+Writing Kubernetes Operators in Go usually requires thousands of lines of boilerplate just to watch, parse, and reconcile state. With `gatwd`'s native Optics (Lenses) and `iter.Seq` lazy trampolines, you can package the operator as a **Gatwd Appliance**:
+- Embed the reconciliation logic directly into the operator binary (`//go:embed`) using `interp.LoadScriptFS`.
+- Allow live cluster operators to override rules via a Kubernetes ConfigMap mounted at `/etc/gatwd/rules.gatwd` without rebuilding the container.
+- Express the entire reconciliation loop as a functional script running across infinite streams of events:
 
 ```haskell
 type K8sDeployment = GoKubeAPI
@@ -74,6 +77,7 @@ spawn K8sDeployment: "production-namespace"
 
 ---
 
-## 4. The Visual CLI Harness
+## 4. Visual CLI Appliances
 
-Because `gatwd` includes a massive UTF-8 visualizer, it functions beautifully as a CLI framework. You can construct pipelines that gather data from dozens of asynchronous APIs (`||>`), reduce them into a single state tree (`fold`), and pipe them directly into `visualize` to draw realtime flow-graphs of your infrastructure or AI decision-trees directly in the user's terminal.
+Because `gatwd` includes a massive UTF-8 visualizer, it functions beautifully as a standalone **CLI Appliance**. You can construct binary appliances with embedded scripts that gather data from dozens of asynchronous APIs (`||>`), reduce them into a single state tree (`fold`), and pipe them directly into `visualize` to draw realtime flow-graphs of your infrastructure or AI decision-trees directly in the user's terminal.
+

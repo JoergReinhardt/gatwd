@@ -1,12 +1,14 @@
-# Native Go Adapters
+# Native Go Adapters, Gatwd Editions & Appliances
 
-The `gatwd` DSL engine acts purely as an algebraic routing pipeline. It uses Go's `iter.Seq` trampolines to stream generic `ASTNode[any]` pointers. 
+The `gatwd` DSL engine acts as an algebraic routing pipeline. It uses Go's `iter.Seq` trampolines to stream generic `ASTNode[any]` pointers. 
 
-Because the stream relies on `any`, **you can yield and process actual, raw Go memory pointers (structs) directly through the functional graph.**
+Because the stream relies on `any`, **you can yield and process actual, raw Go memory pointers (structs) directly through the functional graph at bare-metal speed.**
 
-## 1. Registering Native Types (`Interpreter.RegisterTypeFactory`)
+---
 
-When you invoke the CLI or build a `main.go`, you can seamlessly register third-party Go constructors into the DSL Parser. 
+## 1. Registering Native Types (`Interpreter.RegisterType`)
+
+When building a custom CLI, server, or operator, you can seamlessly register third-party Go constructors into the DSL Parser. 
 
 ```go
 package main
@@ -30,46 +32,60 @@ func main() {
 }
 ```
 
-Now, inside your `script.gatwd`:
+Inside your `script.gatwd`:
 ```haskell
--- Define a logical Alias that targets the Go Type Factory
+-- Define a logical Alias targeting the Go Type Factory
 type Balance = GoBigInt
 
--- The DSL will dynamically invoke big.Int.SetString("999999")!
+-- The DSL dynamically invokes big.Int.SetString("999999")!
 spawn Balance: 999999 |> math_add 1
 ```
 
-## 2. Registering Pipeline Transducers
+---
 
-You can register custom Go logic that processes these native structs by utilizing the `plugins` registry.
+## 2. Registering Pipeline Transducers (`Interpreter.RegisterStep`)
+
+Third-party domain transformations are plugged into the interpreter using `RegisterStep` and `StepHandler`:
 
 ```go
-package plugins
+interp.RegisterStep(func(stepStr string, i *cli.Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+	if strings.HasPrefix(stepStr, "bigint_mult ") {
+		factorStr := strings.TrimSpace(stepStr[12:])
+		factor, _ := new(big.Int).SetString(factorStr, 10)
 
-import (
-	"github.com/joergreinhardt/gatwd/dsltypes"
-	"github.com/joergreinhardt/gatwd/evaluator"
-	"github.com/joergreinhardt/gatwd/functions"
-)
-
-func StepBigIntAdd(amountStr string) evaluator.PipelineStep[functions.Either[error, any]] {
-	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[...] {
-		return func(yield func(...) bool) {
-			for node := range stream {
-				if node.Value.IsLeft() { continue }
-				
-				// 1. Unwrap the dynamic Any pointer
-				val, _ := node.Value.UnwrapRight()
-				
-				// 2. Safely type assert to your native Go Primitive!
-				bigIntVal := val.(*big.Int)
-				
-				// 3. Do blazing fast, bare-metal Go computation
-				// ...
-				
-				yield(newNode)
+		step := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+				for node := range stream {
+					if node.Value.IsRight() {
+						val, _ := node.Value.UnwrapRight()
+						if bi, ok := val.(*big.Int); ok {
+							result := new(big.Int).Mul(bi, factor)
+							yield(dsltypes.NewASTNode(functions.Right[error, any](any(result)), node.DSLType))
+							continue
+						}
+					}
+					if !yield(node) { return }
+				}
 			}
 		}
+		return step, true
 	}
-}
+	return nil, false
+})
 ```
+
+---
+
+## 3. Gatwd Editions vs. Gatwd Appliances
+
+When extending Gatwd with domain-specific logic, implementations fall into two packaging patterns:
+
+### Gatwd Editions (or Distributions)
+A custom Go binary (e.g., `cmd/gatwd-cloud` or `cmd/gatwd-db`) that imports `github.com/joergreinhardt/gatwd/pkg/cli`, bundles third-party Go libraries (AWS SDK, database drivers, Kubernetes `client-go`), and exposes custom types and transducers via `RegisterType` and `RegisterStep`. Users run arbitrary external `.gatwd` scripts against this enriched runtime.
+
+### Gatwd Appliances
+A self-contained, single-purpose release (such as a Kubernetes Operator, event processing microservice, or compliance daemon) that compiles pre-written `.gatwd` DSL rules directly into the static binary using `//go:embed` and `interp.LoadScriptFS(fsys, path)`:
+- Ships with embedded default rules and zero file dependencies.
+- Allows live Kubernetes administrators to override the rules via mounted ConfigMaps (`/etc/gatwd/rules.gatwd`) without rebuilding the container.
+- See `examples/kubernetes_repl/main.go` and `examples/custom_cli/main.go` for working examples.
+

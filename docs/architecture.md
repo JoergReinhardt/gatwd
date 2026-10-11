@@ -157,31 +157,26 @@ mockStream := evaluator.GenerateMockUsers(1000, flag)
 
 ---
 
-## 5. CLI Architecture: Bare Runtimes, Builtins & Custom Editions
+## 5. Runtimes, Builtins, Editions & Appliances
 
-### Standard Builtins (`cli.NewInterpreter()`)
-The main Gatwd binary exposes the complete suite of Go standard library integrations ("builtins"):
-- Persistent collections (`HAMT`, `Set`, `Chunk`, `List`, `Tree`, `BST`, `BTree`, `RBTree`).
-- Stream adapters (`Scanner`, `File`, `TCP Net`).
-- Telemetry, testing (`testing.InternalExample`), and state checkpoints.
+Gatwd's extension mechanism and standalone release model are formalized around four core concepts:
 
-### Bare Interpreter (`cli.NewBareInterpreter()`)
-For embedded environments where a minimal footprint is desired, `cli.NewBareInterpreter()` provides only host language evaluation primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`).
+### 5.1 Core Nomenclature
+1. **Bare Runtime (`cli.NewBareInterpreter()`)**: A minimalist execution kernel providing only fundamental language primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`). Standard library adapters and transducers are excluded for ultra-lean, sandboxed environments.
+2. **Gatwd Builtins (`cli.NewInterpreter()`)**: The standard interpreter distribution exposing Go standard library capabilities directly to the DSL (`HAMT`, `Set`, `Chunk`, `List`, `Tree`, `Scanner`, `Net`, `Checkpoint`, `Testing`, `Visualizer`, `Math`).
+3. **Gatwd Editions (or Distributions)**: Tailored Go binary distributions (e.g., `cmd/gatwd-cloud`, `cmd/gatwd-k8s`) importing `pkg/cli`, bundling third-party Go packages, custom domain types (`interp.RegisterType`), and domain step transducers (`interp.RegisterStep`).
+4. **Gatwd Appliances**: Self-contained, single-purpose release packages (such as Kubernetes Operators, stream processing microservices, or compliance auditing CLIs) that bundle pre-compiled, embedded `.gatwd` DSL code (`//go:embed`) via `LoadScriptFS` or `EvaluateScript`. Appliances run out of the box without external script files, while allowing live overrides via flags or Kubernetes ConfigMaps.
 
-## 5. Extensibility & Release Architecture: CLIs, Servers & Kubernetes Operators
+---
 
-Gatwd's extension mechanism and standalone release model support three primary deployment archetypes:
-1. **Specialized Command-Line Tools (CLIs)**: Domain utilities, ETL processors, or migration tools shipping with pre-compiled default scripts.
-2. **Long-Running Servers**: High-throughput HTTP, gRPC, or event streaming microservices evaluating category-theoretic pipelines.
-3. **Kubernetes Operators & Cloud Controllers**: Continuous reconcile loops that crawl cluster state via dynamic clients, detect drift, and enforce compliance policies.
-
-Each release can operate across **two execution tiers**:
+### 5.2 Two Execution Tiers: API Level vs. Embedded DSL
+Each Gatwd Edition or Appliance can operate across two execution tiers:
 - **API-Level Execution (Pure Go Engine)**: Directly builds and evaluates pipelines using `evaluator.Engine`, `collections.HAMT`, `collections.Chunk`, transducers (`evaluator.PipelineStep`), and adapters (`adapters.NativeKubernetesAdapter`, `adapters.ScannerToSeq`). Delivers maximum performance (~7.3M items/sec) with zero DSL parsing overhead and full Go type safety.
 - **Embedded Gatwd DSL (`//go:embed`)**: Compiles `.gatwd` scripts directly into static binary releases using `embed.FS` and executes them via `interp.LoadScriptFS(...)` or `interp.EvaluateScript(...)`. Users can override embedded scripts at runtime via CLI arguments or Kubernetes ConfigMap volume mounts.
 
 ---
 
-### Architectural Archetypes & Reference Patterns
+### 5.3 Architectural Archetypes & Reference Patterns
 
 #### Archetype 1: Specialized CLI with Embedded Script
 ```go
@@ -271,7 +266,7 @@ func reconcileNamespace(client dynamic.Interface, ns string) {
 
 ---
 
-### Release & Packaging Strategy
+### 5.4 Standalone Release & Container Packaging Strategy
 
 - **Static Binary Releases**: Built with `CGO_ENABLED=0 go build -ldflags="-s -w"`, packaging all Go code and embedded `.gatwd` scripts into a single, zero-dependency executable.
 - **Distroless Container Images**: Deployed using `FROM gcr.io/distroless/static:nonroot` for secure, minimal attack-surface Kubernetes pods and server containers.

@@ -7,9 +7,9 @@ description: "Audit lower-level Go abstractions (recent first), ensure they are 
 
 ## Principle
 
-In Gatwd, lower-layer functional abstractions (Layers 0 through 4) must never remain stranded in Go API space without script-layer accessibility. Whenever support for a Go standard library capability, persistent data structure, or streaming adapter is built in lower layers, it MUST be wired all the way through to the scripting language (Layer 5 `pkg/cli/`) as a **builtin**.
+In Gatwd, lower-layer functional abstractions (Layers 0 through 4) must never remain stranded in Go API space without script-layer accessibility. Whenever support for a Go standard library capability, persistent data structure, or streaming adapter is built in lower layers, it MUST be wired all the way through to the scripting language (Layer 5 `pkg/cli/`) as a **Gatwd Builtin**.
 
-Third-party Go packages must be integrated by creating **Custom Editions** (or **Distributions**) that import `pkg/cli` and register custom types and `StepHandler` transducers.
+Third-party Go packages must be integrated by creating **Gatwd Editions** (custom binary distributions) or **Gatwd Appliances** (single-purpose releases with embedded `.gatwd` code) that import `pkg/cli` and register custom types and `StepHandler` transducers.
 
 ## When to Activate
 
