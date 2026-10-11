@@ -1,61 +1,136 @@
 # Gophers All The Way Down (gatwd) - Architecture
 
-The `gatwd` repository is an experimental library that attempts to bring powerful functional programming concepts to Go. It predates Go generics (introduced in Go 1.18) and uses high-level workarounds based on closures, interface composition, and bitflag-based type checking to achieve features like Algebraic Data Types (ADTs), laziness, currying, and Hindley-Milner-esque type systems.
+`gatwd` is a purely functional, category-theoretic streaming engine and DSL written in modern Go (Go 1.18+ Generics and Go 1.23+ Iterators). It models data processing and infrastructure traversal as composable, trampolined streams over `iter.Seq`.
+
+---
 
 ## 1. The Core Paradigm: Host Engine vs. Guest DSL
 
-To understand the architecture, one must strictly separate the **Host Language Mechanics** (how the Go engine runs) from the **Guest DSL Runtime** (how the interpreted language behaves).
+`gatwd` strictly separates the **Host Language Mechanics** from the **Guest DSL Runtime**:
+
+```
++--------------------------------------------------------------+
+|                    Guest DSL (Scripts)                       |
+|   type SumType = A | B | let x = ... | def func = ...        |
++--------------------------------------------------------------+
+                               |
+                               v
++--------------------------------------------------------------+
+|                 Layer 5: Interpreter & Parser                |
+|   BitFlag Dynamic Type Registry | Monadic Parser Combinators |
++--------------------------------------------------------------+
+                               |
+                               v
++--------------------------------------------------------------+
+|                 Layer 3 & 4: Engine & Adapters               |
+|   iter.Seq Trampoline Pipelines | Network & FS Stream Adapters|
++--------------------------------------------------------------+
+                               |
+                               v
++--------------------------------------------------------------+
+|                 Layer 1 & 2: Collections & Arrows            |
+|   32-way HAMT | Cons List | Chunks | Kleisli Arrows | Zippers |
++--------------------------------------------------------------+
+                               |
+                               v
++--------------------------------------------------------------+
+|                 Layer 0: Mathematical Primitives              |
+|   Either[L, R] | Pair[A, B] | Option[T] | Lazy Iterators     |
++--------------------------------------------------------------+
+```
 
 ### The Host Engine (Modern Go)
-The internal plumbing of the interpreter—memory management, AST node structures, lazy evaluation loops, and functional primitives (`Map`, `Fold`, `Bind`)—is powered by modern Go 1.18+ Generics and Go 1.23+ Iterators (`iter.Seq`). This allows the host Go code to run blazingly fast and safely without relying on massive interface boxing or reflection. The use of `iter.Seq` acts as a native "trampoline," allowing mathematically infinite sequences and recursion without blowing up the Go call stack.
+The internal engine—memory management, AST node pipelines, lazy evaluation loops, and functional transducers (`Map`, `Fold`, `Filter`, `Take`, `Chunk`)—is powered strictly by native Go Generics (`[T any]`) and Iterators (`iter.Seq`). Using `iter.Seq` as a trampoline prevents stack overflow on recursive and infinite streams.
 
 ### The Guest DSL Runtime (BitFlag Registry)
-Because Go is statically typed, its Generics cannot evaluate dynamically parsed user types at runtime. To support an ML-like DSL where users can define new "quasi types" on the fly, the system maintains a custom **BitFlag-based runtime type registry**.
+Because Go Generics are compile-time only and cannot evaluate user-defined dynamic types parsed at runtime, the interpreter maintains a **BitFlag runtime type registry**:
+- Every AST node carries a `BitFlag uint64` quasi-type.
+- Sum types (`type OS = Linux | Darwin`) are represented by bitwise OR (`|`).
+- Pattern matching (`match { ... }`) evaluates via fast bitmask operations (`FlagMatch`).
+- List destructuring (`[pivot, ...rest]`) dynamically binds AST nodes into local branch scopes.
 
-- **BitFlag Identifiers**: Instead of using Go's `reflect`, the DSL tags every AST node with a unique bitflag (`1 << iota`).
-- **Dynamic Algebraic Types**: By combining these bitflags (using bitwise OR `A | B` for Sum types, or `TyComp` structs for Product types), the engine can parse a DSL definition like `type MyUnion = A | B` and immediately enforce it during evaluation.
-- **Pattern Matching**: The interpreter enforces dynamic typing simply by applying fast bitwise arithmetic (`FlagMatch`) on the AST nodes as they stream through the evaluator.
+---
 
-## 2. Package Structure
+## 2. Layered Architecture & Dependency Order
 
-### `data` Package
-Provides type-safe wrappers around all native Go primitives. 
-- Implements `Native` interface for numbers, texts, binaries.
-- Defines BitFlag aliases (`TyNat`) to represent these types efficiently.
-- Groups types into "Type Classes" (e.g., `Integers = Int | Int8 | Int16 | ...`) using bitwise OR operations.
-- Implements generic collections (Sets, Maps, Slices) operating on `Native` interfaces.
+The project strictly follows a **one-way dependency hierarchy** (Layer $N$ imports only from Layers $0 \dots N-1$):
 
-### `functions` Package
-Builds the functional programming abstractions on top of the `data` package.
-- **Data Constructors**: Functions to lift `Native` values into the functional `Expression` context.
-- **Type Constructors**: Higher-order functions used to construct complex types (Tuples, Records, Vectors, Monads).
-- **Control Flow**: Implements functional control flow like `Switch`, `Case`, `Maybe`, `Option`, `Either`.
-- **Continuations & Monads**: `Continuation`, `Group`, `Monadic`, `Functorial` interfaces providing `Map`, `Fold`, `Bind`, `Apply` and infinite list processing through lazy evaluation.
+1. **Layer 0 (`functions/`)**: Foundational algebraic types (`Either[error, any]`, `Pair`, `Option`, sequence combinators).
+2. **Layer 1 (`collections/`)**: Persistent, immutable data structures with structural sharing (`HAMT`, `List`, `Tree`, `Set`, `Map`, `Chunk`).
+3. **Layer 2 (`arrows/`, `comonads/`)**: Category theory combinators (Kleisli arrows `&&&` / `***`, Rose Tree spatial navigation).
+4. **Layer 3 (`evaluator/`)**: Stream execution engine, transducers (`PipelineStep`), checkpointing, performance benchmarking (`testing.B`), and diff assertions.
+5. **Layer 4 (`adapters/`)**: IO bridges mapping external systems (generalized `Scanner`, network `net.Listener` / `StepDial`, Go `fs.FS` trees) into lazy `iter.Seq` streams.
+6. **Layer 5 (`dsltypes/`, `parser/`, `visualizer/`, `pkg/cli/`)**: Language parsing, constants registry, AST nodes, and terminal visualization.
 
-### `prototypes` Package
-Contains unfinished experiments (e.g., recursive XML parsing).
+*Note on `legacy/`: Early pre-generics prototypes using reflection and non-generic interfaces were quarantined into the `legacy/` directory to preserve git history while ensuring the active project runs on pure modern Go.*
 
-## 3. Key Concepts
+---
 
-### Bitflag Type Checking
-Instead of checking types at runtime via `v.(type)` or reflection, every type has a unique bit flag (`1 << iota`). Composite types (Sum types / Unions) are represented by ORing the flags (`A | B`). Checking if a value is of a certain type is a fast bitwise operation (`value.Flag() & target_flag != 0`).
+## 3. Quick Start & Setup
 
-### Algebraic Data Types (ADTs)
-The `functions` package provides robust support for ADTs:
-- **Product Types**: Tuples, Records. Combines multiple types into one.
-- **Sum Types**: Enums, Sets. Represents a value that can be one of several different types.
-- **Options**: `Maybe` (`Just` / `None`) and `Option` (`Either` / `Or`) provide null-safety and error handling functionally.
+### Prerequisites
+- Go 1.23 or later (Go 1.24+ recommended for native `maphash.Comparable`).
 
-### Laziness & Continuations
-Lists and sequences are implemented as `Continuation`s. Instead of holding all elements in memory, they return a `Head()` (the current element) and a `Tail()` (a closure representing the rest of the computation), allowing for lazy execution and infinite sequences.
+### Building the CLI
+```bash
+# Clone the repository
+git clone git@github.com:JoergReinhardt/gatwd.git
+cd gatwd
 
-### Pattern Matching
-Functions can define structural type bounds and use pattern matching to execute different cases based on the `BitFlag` signature of the arguments passed, allowing polymorphic behavior without empty interface checking.
+# Build the interpreter binary
+go build -o gatwd ./cmd/gatwd/...
+```
 
-## 4. Domain Application: Interactive Graph Exploration
+### Running Tests
+```bash
+# Run all unit tests across all packages
+go test ./...
 
-The ultimate goal of this architecture is to serve as an **Infrastructure-as-Code Graph Explorer**, parsing and traversing massive configuration declarations (like Kubernetes YAMLs) or discovering live systems (via SSH).
+# Run the native self-asserting DSL test suite
+./run_dsl_tests.sh
+```
 
-- **Adapters as Type Classes**: Behaviors (like the ability to execute an `ssh` command or query an API) are defined as **Adapters** bound to specific `BitFlag` quasi-types. If a node is parsed and assigned the `HasSSH` BitFlag, it automatically inherits the SSH adapter, acting as a functional Type Class.
-- **Tool Agnosticity (The IO Monad)**: Adapters are tool-agnostic. Whether an adapter uses a native Go SSH library or executes a raw binary via `exec.Command("kubectl ...")` and parses `stdout`, the execution is wrapped in an **IO Monad**. To the host engine, every adapter simply returns a lazy `iter.Seq[ASTNode]`, abstracting away the messy side-effects.
-- **On-the-Fly Interactive Definition**: Because graph traversal uses the lazy Continuation trampoline (`iter.Seq`), the engine can traverse infinitely deep graphs safely. More importantly, if the engine encounters an unknown node type without a registered adapter, it does not block the call stack. The iterator simply yields a "pause" state, prompting the user for a CLI command to handle the new node. The engine dynamically generates a new `BitFlag` for the node, compiles the user's `exec` string into a new adapter, and cleanly resumes the trampoline.
+### Executing a Gatwd Script
+```bash
+# Run a script in batch mode
+./gatwd examples/tour/01_basics.gatwd
+
+# Launch the interactive REPL
+./gatwd
+```
+
+---
+
+## 4. Key Capabilities & How To Use Them
+
+### Persistent HAMT Maps & Sets
+```go
+import "github.com/joergreinhardt/gatwd/collections"
+
+// Create immutable HAMT map
+m := collections.NewHAMT[string, int]()
+m2 := m.Set("alpha", 100).Set("beta", 200)
+
+val, ok := m2.Get("alpha") // 100, true
+// m remains completely unmodified (len 0)
+```
+
+### Stream Pipelines with Checkpointing
+```go
+import (
+    "context"
+    "github.com/joergreinhardt/gatwd/evaluator"
+)
+
+// Pipeline that checkpoints every 50 items
+store := evaluator.NewMemoryCheckpointStore()
+step := evaluator.StepCheckpoint(context.Background(), store, "job_1", 50)
+```
+
+### Network Streaming
+```go
+import "github.com/joergreinhardt/gatwd/adapters"
+
+// Unfold TCP listener into a stream of connection nodes
+connStream := adapters.ListenerToSeq(listener, myFlag)
+```

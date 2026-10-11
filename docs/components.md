@@ -1,46 +1,56 @@
 # Core Components Reference
 
-This document breaks down the major types and functionalities provided by the `data` and `functions` packages.
+This document breaks down the major packages and abstractions that form the active `gatwd` architecture.
 
-## `data` Package
+---
 
-The `data` package implements native Go types wrapped in interfaces to allow them to participate in the BitFlag-based type system.
+## 1. Layer 0: `functions/` (Foundational Functional Primitives)
+The foundational mathematical primitives:
+- **`Either[L, R]`**: Standard sum-type container for functional error handling. Left represents errors/failures, Right represents valid values. Provides `Left()`, `Right()`, `IsLeft()`, `IsRight()`, `UnwrapLeft()`, and `UnwrapRight()`.
+- **`Pair[A, B]`**: Immutable 2-element product type (2-tuple) with `Fst` and `Snd`.
+- **`Option[T]`**: Functional optional container (`Some` / `None`).
+- **Sequences & Iterators**: High-order sequence utilities (`Take`, `Drop`, `Filter`, `Map`, `Fold`) built on Go 1.23+ `iter.Seq`.
 
-- **`BitFlag`**: An `uint` alias providing bitwise operations (`FlagLow`, `FlagHigh`, `FlagToggle`, `FlagMask`, `FlagMatch`). It acts as a lightweight, reflection-free type identifier.
-- **Native Interfaces**:
-  - `Numeral`, `Natural`, `Integer`, `Real`, `Rational`, `Imaginary`: Arithmetic bounds.
-  - `Boolean`: Truth values.
-  - `Text`, `Letter`, `BinaryMarshaler`: Textual and binary data bounds.
-- **Collections**:
-  - `Sliceable`, `Mutable`, `Mapped`: Interfaces for handling slices and maps in a type-safe way over `Native` types.
-  - `SetVal`: A generic Set implementation that relies on BitFlag matches and Native identities.
-- **Conversion Methods**: Extensive type conversion methods for translating between `Native` aliases and raw Go types (e.g., `IntVal` to `int`).
+---
 
-## `functions` Package
+## 2. Layer 1: `collections/` (Persistent Data Structures)
+Purely functional, persistent data structures with structural sharing:
+- **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping. Implements `json.Marshaler`, `driver.Valuer`, and `sql.Scanner`.
+- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`). Implements `json.Marshaler`, `driver.Valuer`, and `sql.Scanner`.
+- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `AddChild()`, `Children()`).
+- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, and `Remove()`.
+- **`Map[K, V]`**: Persistent dictionary backed by `HAMT[K, V]`.
+- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality.
 
-The `functions` package provides the actual functional programming toolkit. It builds upon `data` to provide dynamic and parametric function definitions.
+---
 
-- **`Expression`**: The central interface for functional types. Everything evaluates to an `Expression`.
-- **Higher-Order Functions**:
-  - `Curry(f, g)`: Takes two functions and returns a composited function.
-  - `Map(cont, fn)`: Applies `fn` to every element in the continuation.
-  - `Fold(acc, fn)`: Reduces a continuation into a single value using `fn`.
-  - `Filter(cont, test)` / `Pass(cont, test)`: Filters a continuation based on a predicate.
-  - `Zip(l, r, fn)`: Zips two continuations using a combining function.
-  - `Bind(expr, func)`: Monadic bind operation.
-- **Algebraic Data Types (ADTs)**:
-  - `Tuple`: Fixed-size heterogeneous collection.
-  - `Record`: Key-value pair collection with strong type boundaries.
-  - `Enum`: Value constrained to a finite set of named states.
-  - `Maybe` (`Just` / `None`): Represents a value that might be absent.
-  - `Option` (`Either` / `Or`): Represents a value that can be one of two types.
-- **Control Structures**:
-  - `Switch` & `Case`: Functional conditionals evaluated against pattern matching predicates.
-- **Continuations (Lazy Evaluation)**:
-  - `Sequence`, `Vector`, `List`: Abstracted over the `Continuation` interface (`Head()` and `Tail()`). They evaluate elements only when pulled, allowing for infinite datasets (Generators, Accumulators).
+## 3. Layer 2: Category Theory Combinators
+- **`arrows/`**: Kleisli arrows for monadic composition. Provides identity arrows, FanOut (`&&&`), Split (`***`), and curry composition.
+- **`comonads/`**: Spatial navigation via Rose Tree Zippers (`IntoZipper`, `Left`, `Right`, `Down`, `Up`, `Extract`).
 
-## `prototypes` Package
+---
 
-A sandbox for experiments. Currently contains:
-- `xml.go`: An experimental attempt to recursively unmarshal XML and map it into functional nodes (`XMLNode` and `walkXML`).
+## 4. Layer 3: `evaluator/` (Streaming Execution Engine)
+- **`Engine[T]`**: Trampolined stream processing engine that evaluates pipelines over `iter.Seq`.
+- **`PipelineStep[T]`**: First-class stream transducers (`func(iter.Seq) iter.Seq`). Includes `StepTake`, `StepDrop`, `StepFilter`, `StepMap`, `StepSort`, `StepToSet`, `StepToHAMT`, `StepHAMTGet`, `StepChunk`, `StepAssert`, `StepDebugPrint`.
+- **`StepCheckpoint` & `CheckpointStore`**: Non-intrusive stream watermarking and continuation state tracking without steady-state performance overhead.
+- **`BenchmarkPipeline` & `StepTelemetry`**: Performance measurement harness integrating with `testing.B` and live stream telemetry.
+- **`AssertVisualDiff` & `VerifyExampleOutput`**: Visual assertion diffing and testable example verification.
 
+---
+
+## 5. Layer 4: `adapters/` (IO Bridges & Anamorphisms)
+- **`ScannerAdapter` & `ScannerToSeq`**: Anamorphic unfold from any `bufio.Scanner` or generalized `Scanner` into lazy ASTNode streams.
+- **`ListenerToSeq`, `ConnToLines`, `StepDial`**: Streaming network socket ingress and egress for TCP and Unix domain sockets.
+- **`WalkFSAdapter`**: Traverses Go `fs.FS` directory trees, converting directory hierarchies into Comonadic Zippers.
+- **`WriteFile`**: Streaming sink to files using Go `io.Writer`.
+
+---
+
+## 6. Layer 5: Language & Tooling
+- **`dsltypes/`**: `BitFlag` dynamic quasi-type system and `ASTNode[T]` host-guest bridge (implementing `fmt.Stringer`).
+- **`parser/`**: Monadic parser combinators and syntax analyzers.
+- **`visualizer/`**: UTF-8 and ASCII graph rendering with borders, box alignment, DOT compilation, and first-class error card formatting.
+- **`pkg/cli/`**: The `Interpreter` combining the parser, engine, runtime scopes, macro expansions (`def`), local bindings (`let`), script constants (`const`), and host Go constant registrations (`RegisterConstant`).
+
+> Note: Early pre-generics prototypes and non-generic interface wrappers have been cleanly separated into the `legacy/` directory and are not part of the active pipeline.

@@ -35,3 +35,17 @@ Layer 5: pkg/cli/         (Parser, Interpreter, DSL)
 - Don't dogfood just because a newer tool exists — only when it genuinely improves correctness, clarity, or performance.
 - Don't break import layering to force dogfooding.
 - Every dogfood change must pass all tests. No exceptions.
+
+## Documentation Standards (`godoc`)
+All code must integrate seamlessly with Go's built-in documentation system:
+1. **Full godoc Coverage:** Every exported type, method, function, and const must have descriptive doc comments starting with the identifier name.
+2. **Explain Parameters & Return Values:** Describe generic type parameters (`[T any]`, `[K comparable]`), inputs, and output values.
+3. **Package `doc.go`:** Each package must have a `doc.go` providing architectural overview and usage patterns.
+4. **Current State:** Documentation must only describe active modern code, never structures in `legacy/`.
+
+## Testing Standards
+1. **Generic Type Diversity:** Tests must verify operations across primitives (`int`, `float64`, `string`), custom structs, and nested collections.
+2. **Integration Chaining:** Build end-to-end integration tests chaining generators, filters, transforms, and sinks.
+3. **Performance & Mocking:** Use mocked data generators dogfooding our own engine to test high-throughput pipelines.
+4. **Testable Examples:** Write `Example*` functions with `// Output:` comments in `*_example_test.go` to provide simultaneously executable tests and documentation.
+

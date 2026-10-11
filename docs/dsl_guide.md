@@ -85,3 +85,56 @@ def get_user = whoami
 
 spawn OS: Linux |> (get_time &&& get_user) |> [echo Time_%s *** echo User_%s] |> format_tuple "(%s, %s)"
 ```
+
+## 6. Top-Level Script Constants (`const`)
+
+Define compile-time immutable constants that can be used across spawn values and pipeline arguments:
+
+```haskell
+const BASE_PORT = 8080
+const MAX_RETRIES = 5
+
+spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
+```
+
+## 7. ADT Pattern Matching & List Destructuring
+
+Pattern matching supports full list deconstruction (`[pivot, ...rest]`), enabling functional recursion like Quicksort:
+
+```haskell
+def quicksort = match {
+    [] -> empty
+    | [pivot, ...rest] -> seq { rest |> filter_less pivot |> collect_list |> quicksort | pivot | rest |> filter_greater pivot |> collect_list |> quicksort }
+}
+
+spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
+```
+
+## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`)
+
+Fold key-value streams into a 32-way branching persistent Hash Array Mapped Trie:
+
+```haskell
+spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_get role |> assert admin
+```
+
+## 9. Performance Chunks & Continuations (`chunk`, `checkpoint`, `telemetry`)
+
+* `chunk <size>`: Batches lazy streams into eager, bounded contiguous arrays for CPU cache efficiency.
+* `checkpoint <id> <interval>`: Watermarks stream offsets, allowing computations to pause and resume.
+* `telemetry`: Zero-overhead element counter and duration profiler.
+
+```haskell
+spawn IntVal: 0 |> emit 1, 2, 3, 4 |> drop 1 |> chunk 2 |> head |> assert [1 2]
+spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> checkpoint job_1 2 |> math_add 10 |> head |> assert 11
+```
+
+## 10. IO Streaming & Network Adapters (`scan_file`, `dial_tcp`)
+
+* `scan_file <path>`: Streams lines from a file using the generalized scanner.
+* `dial_tcp <address>`: Transmits payloads across a network socket and streams back response lines.
+
+```haskell
+spawn StrVal: Start |> scan_file examples/tour/data/data1.txt |> head |> assert M
+spawn StrVal: "ping" |> dial_tcp "localhost:9090" |> assert "ECHO:ping"
+```

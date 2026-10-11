@@ -37,3 +37,9 @@ When implementing new features or migrating existing ones, you must adopt a **Te
 - **Exhaustive Structural Assertions:** You must write tests that bypass the string CLI and directly construct the generic structures in Go, asserting exactly on the memory types yielded by the `iter.Seq` (e.g. `TestKleisli`, `TestFanOut`, `TestStepMap`).
 - **DSL Native Testing:** Every DSL-facing feature must be added to `tests/dsl_exhaustive_test.gatwd` using the `assert` keyword. Make sure the DSL itself can mathematically verify its own execution.
 - **Fail CI on Regression:** Design your tests so that if a future agent attempts to lazily replace a mathematical combinator with a bash-script execution, the tests will physically fail to compile or hard-crash.
+
+## 6. Project Documentation Integrity & No Legacy Drift
+- **Zero Legacy Drift:** Documentation in `docs/` and exported code comments must NEVER reference structures that were moved into `legacy/`. All architectural overviews and examples must run against the modern generic and iterator-based engine.
+- **Package `doc.go` Overviews:** Every package must maintain a top-level `doc.go` documenting its role in the dataflow pipeline.
+- **Go Testable Examples:** Combine testing and documentation by writing `Example*` functions with `// Output:` comments in `*_example_test.go` files.
+

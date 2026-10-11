@@ -41,6 +41,15 @@ func (c *Chunk[T]) IsEmpty() bool {
 	return len(c.items) == 0
 }
 
+// Get returns the element at index i, or false if out of bounds.
+func (c *Chunk[T]) Get(i int) (T, bool) {
+	if i < 0 || i >= len(c.items) {
+		var zero T
+		return zero, false
+	}
+	return c.items[i], true
+}
+
 // IsFull returns true if the chunk has reached its capacity.
 func (c *Chunk[T]) IsFull() bool {
 	return len(c.items) >= c.size

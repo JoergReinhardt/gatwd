@@ -55,3 +55,19 @@ This project relies on mathematically proven Category Theory architectures (Mona
 - **Structural Go Tests over String Matching:** Do not test the core engine merely by parsing CLI output strings. You must write structural integration tests (like in `evaluator/pipeline_test.go`) that instantiate the raw Go memory arrays (`[]PipelineStep`) and hard-assert against the resulting memory types (`int`, `functions.Pair`, `*collections.Tree`).
 - **DSL Native Assertions:** All DSL features must be tested natively using the Gatwd DSL `assert` keyword. If you add a new feature to the DSL, you must add it to `tests/dsl_exhaustive_test.gatwd` to ensure the mathematical engine can evaluate it natively without failing.
 - **TDD (Test-Driven Design) Philosophy:** Always write tests that enforce the intended architectural purity of the code. If a pipeline expects a Tuple, assert that a native Go struct Tuple is yielded—not a formatted string. 
+- **Variety of Test Data & True Genericity:** Test across multiple generic types—primitives (`int`, `float64`, `string`), custom structs, nested collections (`List`, `HAMT`), and error branches. Never assume generic code works with only integers.
+
+## 5. Built-in Go Documentation System (godoc Mandate)
+We strictly leverage Go's native documentation system (`go doc`, `pkgsite`, testable `Example*` functions).
+
+1. **Every Exported Identifier Must Be Documented**:
+   - Comments MUST begin with the exact name of the exported identifier (e.g. `// HAMT represents an immutable...`).
+   - Clearly document all generic type parameters (e.g. `// K must satisfy comparable because...`).
+   - Clearly document all input arguments and returned values (including tuples and `Either[error, any]`).
+2. **Package Overviews (`doc.go`)**:
+   - Every major package MUST have a dedicated `doc.go` explaining its role in the Gatwd architecture, its mathematical foundations, and a quick-start code snippet.
+3. **Testable Examples (`Example*`)**:
+   - Provide standard Go `Example*` functions in `*_example_test.go` with `// Output:` comments. These are validated by `go test` and rendered directly into generated godoc!
+4. **Current State Integrity**:
+   - Documentation must ALWAYS reflect the active codebase. Never refer to outdated structures that were migrated into `legacy/`.
+

@@ -1,18 +1,13 @@
 # Project Report: Gophers All The Way Down (gatwd)
 
-## 1. Current State of the Project
+> **Status Update (Modernization Complete):** The roadmap laid out in this report has been fully executed. The legacy pre-generics codebase was migrated to `legacy/`. The engine was rebuilt on Go 1.18+ Generics and Go 1.23+ Iterators (`iter.Seq`), and a Turing-complete DSL interpreter with an interactive REPL, recursive ADT destructuring, HAMT collections, and streaming adapters is now active at `cmd/gatwd/`.
 
-**What's Working:**
-- The custom BitFlag-based type system in the `data` package is completely functional. It successfully categorizes native Go primitives into type classes (`Integers`, `Booleans`, `Rationals`) without utilizing `reflect`.
-- The `functions` package correctly implements fundamental functional programming paradigms: Algebraic Data Types (Tuples, Records, Enums, Options, Maybes), lazy evaluation (Continuations, Sequences), and high-level list manipulations (`Map`, `Fold`, `Zip`, `Bind`).
-- Pattern matching via bitwise operations works reliably.
-- The repository compiles cleanly and passes all existing unit tests under modern Go (after fixing some minor outdated syntax related to `string(int)` conversions).
+## 1. Initial State of the Project (Historical Context)
 
-**What's Not Working / Incomplete:**
-- The codebase lacks a practical entry point. `main.go` is completely empty.
-- The `prototypes` package is essentially a stub with unfinished XML parsing logic.
-- As per the README roadmap, several complex features are incomplete or unimplemented: Functors, Applicatives, and Monads exist as interfaces but lack complete cohesive implementations. The ML interpreter, parser library, and data structure generation from json/yaml/markdown are not implemented at all.
-- Test coverage is mediocre (~49% for `data`, ~38% for `functions`).
+**What was initially in the pre-generics codebase:**
+- The custom BitFlag-based type system in the original `data` package (now `legacy/data`) categorized native Go primitives into type classes (`Integers`, `Booleans`, `Rationals`) without utilizing `reflect`.
+- The original `functions` package (now `legacy/functions`) implemented fundamental functional programming paradigms using custom continuation closures (`Continue()`).
+- The repository lacked a practical entry point (`main.go` was empty), and several complex features (ML interpreter, parser library) were incomplete.
 
 ## 2. Viability and Usefulness
 
