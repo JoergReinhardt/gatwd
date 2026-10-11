@@ -40,8 +40,8 @@ func NewInterpreter() *Interpreter {
 }
 
 func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
-	subParts := strings.Split(subPipelineStr, "|>")
-	subPipeline := i.parsePipelineSteps(subParts)
+	subParts, _ := splitPipelineAware(subPipelineStr)
+		subPipeline := i.parsePipelineSteps(subParts)
 
 	return func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { yield(node) }
@@ -72,7 +72,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 
 		// Function Substitution (Macros)
 		if funcPipeline, exists := i.Funcs[stepStr]; exists {
-			funcParts := strings.Split(funcPipeline, "|>")
+			funcParts, _ := splitPipelineAware(funcPipeline)
 			pipeline = append(pipeline, i.parsePipelineSteps(funcParts)...)
 			continue
 		}
@@ -118,22 +118,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			cmd := strings.TrimSpace(stepStr[7:])
 			adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
 			pipeline = append(pipeline, evaluator.StepMemoize(adapter))
-		} else if strings.HasPrefix(stepStr, "match") {
-			cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
-			block := strings.TrimSpace(stepStr[5:])
-			block = strings.TrimPrefix(block, "{")
-			block = strings.TrimSuffix(block, "}")
-			rules := strings.Split(block, "|")
-			for _, rule := range rules {
-				parts := strings.Split(rule, "->")
-				if len(parts) == 2 {
-					pattern := strings.TrimSpace(parts[0])
-					cmd := strings.TrimSpace(parts[1])
-					cases[pattern] = evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
-				}
-			}
-			pipeline = append(pipeline, evaluator.StepMatch(cases, nil))
-		} else if strings.HasPrefix(stepStr, "zip") {
+				} else if strings.HasPrefix(stepStr, "zip") {
 			for res := range parser.ParseZip()(stepStr) {
 				cmd := res.Fst
 				secAdapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
@@ -197,8 +182,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepZipper(stepStr))
 		} else if strings.HasPrefix(stepStr, "match {") && strings.HasSuffix(stepStr, "}") {
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
-			casesStr := strings.Split(inner, "|")
-			cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
+			casesStr := splitCasesAware(inner)
+									cases := make(map[string]evaluator.Adapter[functions.Either[error, any]])
 
 			for _, c := range casesStr {
 				parts2 := strings.SplitN(c, "->", 2)
@@ -239,11 +224,102 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 	return pipeline
 }
 
-func (i *Interpreter) evaluatePipelineStr(line string) []string {
-	isParallel := strings.Contains(line, "||>")
-	line = strings.ReplaceAll(line, "||>", "|>")
-	parts := strings.Split(line, "|>")
+func splitCasesAware(line string) []string {
+	var parts []string
+	var current strings.Builder
+	depthParen := 0
+	depthBrace := 0
+	depthBracket := 0
 
+	runes := []rune(line)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		
+		if r == '(' { depthParen++ }
+		if r == ')' { depthParen-- }
+		if r == '{' { depthBrace++ }
+		if r == '}' { depthBrace-- }
+		if r == '[' { depthBracket++ }
+		if r == ']' { depthBracket-- }
+		
+		if depthParen == 0 && depthBrace == 0 && depthBracket == 0 {
+			if r == '|' {
+				// Make sure it's not |> or ||>
+				if i+1 < len(runes) && runes[i+1] == '>' {
+					// It's |>, don't split, just add it
+					current.WriteRune(r)
+					continue
+				}
+				if i+2 < len(runes) && runes[i+1] == '|' && runes[i+2] == '>' {
+					// It's ||>, don't split, just add it
+					current.WriteRune(r)
+					continue
+				}
+				
+				// It's a genuine case separator!
+				parts = append(parts, strings.TrimSpace(current.String()))
+				current.Reset()
+				continue
+			}
+		}
+		
+		current.WriteRune(r)
+	}
+	
+	if current.Len() > 0 {
+		parts = append(parts, strings.TrimSpace(current.String()))
+	}
+	
+	return parts
+}
+
+func splitPipelineAware(line string) ([]string, bool) {
+	var parts []string
+	var current strings.Builder
+	depthParen := 0
+	depthBrace := 0
+	depthBracket := 0
+	isParallel := false
+
+	runes := []rune(line)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		
+		if r == '(' { depthParen++ }
+		if r == ')' { depthParen-- }
+		if r == '{' { depthBrace++ }
+		if r == '}' { depthBrace-- }
+		if r == '[' { depthBracket++ }
+		if r == ']' { depthBracket-- }
+		
+		if depthParen == 0 && depthBrace == 0 && depthBracket == 0 {
+			if r == '|' && i+1 < len(runes) && runes[i+1] == '>' {
+				parts = append(parts, strings.TrimSpace(current.String()))
+				current.Reset()
+				i++ // skip '>'
+				continue
+			} else if r == '|' && i+2 < len(runes) && runes[i+1] == '|' && runes[i+2] == '>' {
+				parts = append(parts, strings.TrimSpace(current.String()))
+				current.Reset()
+				i += 2 // skip '|>'
+				isParallel = true
+				continue
+			}
+		}
+		
+		current.WriteRune(r)
+	}
+	
+	if current.Len() > 0 {
+		parts = append(parts, strings.TrimSpace(current.String()))
+	}
+	
+	return parts, isParallel
+}
+
+func (i *Interpreter) evaluatePipelineStr(line string) []string {
+	parts, isParallel := splitPipelineAware(line)
+	
 	stringStream := i.Parser.Parse(parts[0])
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {

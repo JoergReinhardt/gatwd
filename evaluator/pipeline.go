@@ -240,8 +240,8 @@ func StepMatch(cases map[string]Adapter[functions.Either[error, any]], defaultAd
 				matched := false
 				for pattern, adapter := range cases {
 					if strings.Contains(strVal, pattern) {
-						for res := range adapter(node) {
-							if !yield(res) { return }
+								for res := range adapter(node) {
+									if !yield(res) { return }
 						}
 						matched = true
 						break
