@@ -391,3 +391,15 @@ func (h *HAMT[K, V]) Scan(src any) error {
 	}
 	return h.UnmarshalJSON(source)
 }
+
+// Graph exposes the contents of the HAMT as a standard map for visualizer tree/DOT formatting.
+func (h *HAMT[K, V]) Graph() any {
+	if h == nil || h.root == nil || h.size == 0 {
+		return "<empty HAMT>"
+	}
+	res := make(map[string]V, h.size)
+	for k, v := range h.Seq() {
+		res[fmt.Sprintf("%v", k)] = v
+	}
+	return res
+}

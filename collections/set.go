@@ -119,3 +119,15 @@ func (s *Set[T]) Scan(src any) error {
 	}
 	return s.UnmarshalJSON(source)
 }
+
+// Graph exposes the Set's elements as a slice for visualizer tree/DOT formatting.
+func (s *Set[T]) Graph() any {
+	if s == nil || s.hamt == nil || s.Len() == 0 {
+		return "<empty Set>"
+	}
+	var items []T
+	for item := range s.Seq() {
+		items = append(items, item)
+	}
+	return items
+}

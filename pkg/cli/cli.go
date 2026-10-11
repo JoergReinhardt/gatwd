@@ -223,6 +223,72 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pathStr := strings.TrimSpace(stepStr[8:])
 			adapter := adapters.WalkFSAdapter(pathStr)
 			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+		} else if strings.HasPrefix(stepStr, "assert_unordered ") {
+			expected := strings.TrimSpace(stepStr[17:])
+			expected = strings.ReplaceAll(expected, ",", "\n")
+			pipeline = append(pipeline, func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					var actualLines []string
+					var lastFlag dsltypes.BitFlag = 1
+					for node := range stream {
+						lastFlag = node.DSLType
+						if node.Value.IsRight() {
+							val, _ := node.Value.UnwrapRight()
+							actualLines = append(actualLines, fmt.Sprintf("%v", val))
+						} else if node.Value.IsLeft() {
+							err, _ := node.Value.UnwrapLeft()
+							actualLines = append(actualLines, err.Error())
+						}
+					}
+					pass, diff := evaluator.CompareExampleOutput(expected, strings.Join(actualLines, "\n"), true)
+					if pass {
+						yield(dsltypes.NewASTNode(functions.Right[error, any](any("PASS")), lastFlag))
+					} else {
+						yield(evaluator.InjectError[any](fmt.Errorf("assert_unordered failure: %s", diff), lastFlag))
+					}
+				}
+			})
+		} else if strings.HasPrefix(stepStr, "example_test ") {
+			expected := strings.TrimSpace(stepStr[13:])
+			expected = strings.ReplaceAll(expected, ",", "\n")
+			pipeline = append(pipeline, func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					var actualLines []string
+					var lastFlag dsltypes.BitFlag = 1
+					for node := range stream {
+						lastFlag = node.DSLType
+						if node.Value.IsRight() {
+							val, _ := node.Value.UnwrapRight()
+							actualLines = append(actualLines, fmt.Sprintf("%v", val))
+						} else if node.Value.IsLeft() {
+							err, _ := node.Value.UnwrapLeft()
+							actualLines = append(actualLines, err.Error())
+						}
+					}
+					pass, diff := evaluator.CompareExampleOutput(expected, strings.Join(actualLines, "\n"), false)
+					if pass {
+						yield(dsltypes.NewASTNode(functions.Right[error, any](any("PASS")), lastFlag))
+					} else {
+						yield(evaluator.InjectError[any](fmt.Errorf("example_test failure: %s", diff), lastFlag))
+					}
+				}
+			})
+		} else if strings.HasPrefix(stepStr, "mock_stream ") {
+			countStr := strings.TrimSpace(stepStr[12:])
+			if count, err := strconv.Atoi(countStr); err == nil && count >= 0 {
+				pipeline = append(pipeline, func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return evaluator.GenerateStream(func(i int) any {
+						return i
+					}, count, dsltypes.BitFlag(1))
+				})
+			}
+		} else if strings.HasPrefix(stepStr, "mock_users ") {
+			countStr := strings.TrimSpace(stepStr[11:])
+			if count, err := strconv.Atoi(countStr); err == nil && count >= 0 {
+				pipeline = append(pipeline, func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return evaluator.GenerateMockUsers(count, dsltypes.BitFlag(1))
+				})
+			}
 		} else if strings.HasPrefix(stepStr, "assert ") {
 			expected := strings.TrimSpace(stepStr[7:])
 			pipeline = append(pipeline, evaluator.StepAssert(expected))

@@ -73,5 +73,17 @@ spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> checkpoint job_dsl 2 |> math_add 10
 -- 18. File Scanner Adapter (generalized Scanner integration)
 spawn StrVal: Start |> scan_file examples/tour/data/data1.txt |> head |> assert M
 
+-- 19. Mock Stream Generator (lazy synthetic data generation)
+spawn IntVal: 0 |> mock_stream 3 |> math_add 10 |> collect_list |> assert [10 11 12]
+
+-- 20. Mock Users Struct Generator (structured domain types in DSL)
+spawn StrVal: Start |> mock_users 2 |> head |> assert {0 admin_A admin 0 true}
+
+-- 21. Unordered Output Assertion (permutation-invariant matching)
+spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PASS
+
+-- 22. Testable Example Output Validation (ordered matching)
+spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
+
 
 

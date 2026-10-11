@@ -134,3 +134,23 @@ import "github.com/joergreinhardt/gatwd/adapters"
 // Unfold TCP listener into a stream of connection nodes
 connStream := adapters.ListenerToSeq(listener, myFlag)
 ```
+
+### Go Testable Examples & Synthetic Streams
+```go
+import "github.com/joergreinhardt/gatwd/evaluator"
+
+// Run programmatic testable example with stdout interception and visual diffs
+ex := evaluator.Example{
+    Name: "Demo",
+    F: func() { fmt.Println("Result") },
+    Output: "Result",
+    Unordered: false,
+}
+passed, captured, diff := evaluator.RunExample(ex)
+
+// Run whole suite with subtests under testing.TB
+evaluator.RunExamples(t, []evaluator.Example{ex})
+
+// Generate lazy streams of mock domain data for testing generic pipelines
+mockStream := evaluator.GenerateMockUsers(1000, flag)
+```

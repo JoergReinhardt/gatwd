@@ -25,6 +25,7 @@ func TestStepCheckpoint_Continuations(t *testing.T) {
 
 	// --- RUN 1: Execute, but cancel context after 35 elements ---
 	ctx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
 	
 	step1 := StepCheckpoint(ctx1, store, checkpointID, interval)
 	stream1 := step1(source)

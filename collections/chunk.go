@@ -91,3 +91,11 @@ func (c *Chunk[T]) String() string {
 	}
 	return "[" + strings.Join(elements, " ") + "]"
 }
+
+// Graph exposes the underlying slice for visualizer graph and tree formatting.
+func (c *Chunk[T]) Graph() any {
+	if c == nil || c.IsEmpty() {
+		return "<empty Chunk>"
+	}
+	return c.items
+}

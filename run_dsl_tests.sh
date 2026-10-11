@@ -2,6 +2,7 @@
 set -e
 
 echo "Running Exhaustive DSL Tests..."
+go build -o gatwd ./cmd/gatwd
 OUTPUT=$(./gatwd tests/dsl_exhaustive_test.gatwd)
 
 echo "$OUTPUT"

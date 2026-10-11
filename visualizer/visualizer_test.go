@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
@@ -104,5 +105,32 @@ func TestASTNode_Stringer(t *testing.T) {
 	)
 	if !strings.Contains(nodeLeft.String(), "[ERROR] invalid parameter") {
 		t.Fatalf("expected '[ERROR] invalid parameter', got %q", nodeLeft.String())
+	}
+}
+
+func TestVisualizer_CollectionsGraphable(t *testing.T) {
+	opts := visualizer.Options{}
+
+	// HAMT
+	hamt := collections.NewHAMT[string, int]().Set("alpha", 1).Set("beta", 2)
+	hamtVis := visualizer.Format(hamt, opts)
+	if !strings.Contains(hamtVis, "alpha: 1") || !strings.Contains(hamtVis, "beta: 2") {
+		t.Fatalf("expected HAMT visualization to contain keys, got:\n%s", hamtVis)
+	}
+
+	// Chunk
+	chunk := collections.NewChunk[string](3)
+	chunk.Append("first")
+	chunk.Append("second")
+	chunkVis := visualizer.Format(chunk, opts)
+	if !strings.Contains(chunkVis, "first") || !strings.Contains(chunkVis, "second") {
+		t.Fatalf("expected Chunk visualization to contain items, got:\n%s", chunkVis)
+	}
+
+	// Set
+	set := collections.NewSet("foo", "bar")
+	setVis := visualizer.Format(set, opts)
+	if !strings.Contains(setVis, "foo") || !strings.Contains(setVis, "bar") {
+		t.Fatalf("expected Set visualization to contain elements, got:\n%s", setVis)
 	}
 }

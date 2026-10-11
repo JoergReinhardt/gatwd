@@ -97,3 +97,11 @@ func (m *Map[K, V]) Scan(src any) error {
 	m.hamt = h
 	return nil
 }
+
+// Graph exposes the persistent Map's contents for visualizer tree/DOT formatting.
+func (m *Map[K, V]) Graph() any {
+	if m == nil || m.hamt == nil {
+		return "<empty Map>"
+	}
+	return m.hamt.Graph()
+}

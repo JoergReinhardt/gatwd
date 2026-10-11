@@ -138,3 +138,26 @@ spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> checkpoint job_1 2 |> math_add 10 |
 spawn StrVal: Start |> scan_file examples/tour/data/data1.txt |> head |> assert M
 spawn StrVal: "ping" |> dial_tcp "localhost:9090" |> assert "ECHO:ping"
 ```
+
+## 11. Synthetic Mock Streams & Go Example Assertions
+
+Gatwd brings Go standard library testing conventions (`testing.InternalExample`) directly into script pipelines:
+
+* `mock_stream <count>`: Generates lazy streams of integers `0, 1, ..., N-1` for mock benchmarking.
+* `mock_users <count>`: Generates lazy streams of structured domain structs (`MockUser{ID, Name, Role, Score, Active}`).
+* `assert_unordered <values...>`: Verifies that pipeline elements match the expected set regardless of permutation order (mirroring Go's `// Unordered output:`).
+* `example_test <values...>`: Validates exact sequential stream output (mirroring Go's `// Output:`).
+
+```haskell
+-- Generate synthetic integers and chain with math
+spawn IntVal: 0 |> mock_stream 3 |> math_add 10 |> collect_list |> assert [10 11 12]
+
+-- Stream domain structs through filtering
+spawn StrVal: Start |> mock_users 2 |> head |> assert {0 admin_A admin 0 true}
+
+-- Unordered permutation-invariant matching
+spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PASS
+
+-- Ordered example output validation
+spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
+```

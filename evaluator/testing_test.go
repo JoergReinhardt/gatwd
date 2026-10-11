@@ -3,6 +3,7 @@ package evaluator_test
 import (
 	"fmt"
 	"iter"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
@@ -54,6 +55,132 @@ func TestStepTelemetry(t *testing.T) {
 	}
 	if count != 25 {
 		t.Fatalf("expected telemetry counter to equal 25, got %d", count)
+	}
+}
+
+func TestExampleRunner_Ordered(t *testing.T) {
+	ex := evaluator.Example{
+		Name: "OrderedExample",
+		F: func() {
+			fmt.Println("Alpha")
+			fmt.Println("Beta")
+			fmt.Println("Gamma")
+		},
+		Output: `
+			Alpha
+			Beta
+			Gamma
+		`,
+		Unordered: false,
+	}
+
+	pass, captured, diff := evaluator.RunExample(ex)
+	if !pass {
+		t.Fatalf("expected example to pass, diff: %s", diff)
+	}
+	if !strings.Contains(captured, "Alpha") {
+		t.Fatalf("expected captured stdout to contain Alpha")
+	}
+}
+
+func TestExampleRunner_Unordered(t *testing.T) {
+	ex := evaluator.Example{
+		Name: "UnorderedExample",
+		F: func() {
+			// Emitted in non-alphabetical order
+			fmt.Println("Zeta")
+			fmt.Println("Alpha")
+			fmt.Println("Mu")
+		},
+		Output: `
+			Alpha
+			Mu
+			Zeta
+		`,
+		Unordered: true,
+	}
+
+	pass, _, diff := evaluator.RunExample(ex)
+	if !pass {
+		t.Fatalf("expected unordered example to pass, diff: %s", diff)
+	}
+}
+
+func TestExampleRunner_Mismatch(t *testing.T) {
+	ex := evaluator.Example{
+		Name: "MismatchExample",
+		F: func() {
+			fmt.Println("DifferentOutput")
+		},
+		Output: `
+			ExpectedOutput
+		`,
+		Unordered: false,
+	}
+
+	pass, _, diff := evaluator.RunExample(ex)
+	if pass {
+		t.Fatalf("expected example to fail on output mismatch")
+	}
+	if !strings.Contains(diff, "EXAMPLE ASSERTION FAILED") {
+		t.Fatalf("expected formatted visual diff card, got: %s", diff)
+	}
+}
+
+func TestRunExamples_Suite(t *testing.T) {
+	suite := []evaluator.Example{
+		{
+			Name: "SuiteEx1",
+			F: func() {
+				fmt.Println("100")
+			},
+			Output: "100",
+		},
+		{
+			Name: "SuiteEx2_Unordered",
+			F: func() {
+				fmt.Println("B")
+				fmt.Println("A")
+			},
+			Output:    "A\nB",
+			Unordered: true,
+		},
+	}
+
+	evaluator.RunExamples(t, suite)
+}
+
+func TestCaptureStdout_PanicSafety(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic to propagate")
+		}
+	}()
+
+	_, _ = evaluator.CaptureStdout(func() {
+		fmt.Println("about to panic")
+		panic("deliberate panic for safety test")
+	})
+}
+
+func TestRunInternalExamples_StandardLib(t *testing.T) {
+	examples := []evaluator.Example{
+		{
+			Name: "Internal1",
+			F: func() {
+				fmt.Println("hello world")
+			},
+			Output: "hello world\n",
+		},
+	}
+
+	matchAll := func(pat, str string) (bool, error) {
+		return true, nil
+	}
+
+	ok := evaluator.RunInternalExamples(matchAll, examples)
+	if !ok {
+		t.Fatalf("expected testing.RunExamples to succeed")
 	}
 }
 
