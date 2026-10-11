@@ -1,0 +1,93 @@
+package evaluator
+
+import (
+	"context"
+	"fmt"
+	"iter"
+
+	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/functions"
+)
+
+// CheckpointStore defines how continuations/watermarks are saved and loaded.
+// It can be backed by a SQL database, a file, or Redis.
+type CheckpointStore interface {
+	Save(ctx context.Context, id string, offset uint64) error
+	Load(ctx context.Context, id string) (uint64, error)
+}
+
+// MemoryCheckpointStore is a fast, in-memory implementation for testing.
+type MemoryCheckpointStore struct {
+	store map[string]uint64
+}
+
+func NewMemoryCheckpointStore() *MemoryCheckpointStore {
+	return &MemoryCheckpointStore{store: make(map[string]uint64)}
+}
+
+func (m *MemoryCheckpointStore) Save(ctx context.Context, id string, offset uint64) error {
+	m.store[id] = offset
+	return nil
+}
+
+func (m *MemoryCheckpointStore) Load(ctx context.Context, id string) (uint64, error) {
+	val, ok := m.store[id]
+	if !ok {
+		return 0, fmt.Errorf("checkpoint not found: %s", id)
+	}
+	return val, nil
+}
+
+// StepCheckpoint is a transparent transducer that periodically saves the current stream offset.
+// This allows the computation state to be serialized and resumed without degrading performance
+// for every single element.
+func StepCheckpoint(ctx context.Context, store CheckpointStore, id string, interval uint64) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			
+			// Try to resume from an existing checkpoint
+			resumeOffset, err := store.Load(ctx, id)
+			var currentOffset uint64 = 0
+			if err == nil {
+				currentOffset = resumeOffset
+			}
+
+			var processed uint64 = 0
+			
+			for node := range stream {
+				// Fast-forward phase: if we are resuming, skip until we reach the offset
+				if currentOffset > 0 {
+					currentOffset--
+					continue
+				}
+				
+				// Normal execution
+				if !yield(node) {
+					// If the stream is terminated early, try to save exactly where we stopped
+					store.Save(ctx, id, processed + resumeOffset)
+					return
+				}
+				
+				processed++
+				
+				// Periodically checkpoint in the background or asynchronously to avoid degrading performance
+				// In a real high-throughput system, this would drop onto a non-blocking channel.
+				// For structural purity here, we save synchronously every N elements.
+				if processed % interval == 0 {
+					// Use atomic or direct save
+					store.Save(ctx, id, processed + resumeOffset)
+					
+					// Check for context cancellation (allows pausing the pipeline externally)
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
+				}
+			}
+			
+			// Final checkpoint when the stream naturally depletes
+			store.Save(ctx, id, processed + resumeOffset)
+		}
+	}
+}
