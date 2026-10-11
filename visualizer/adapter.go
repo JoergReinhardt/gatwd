@@ -1,6 +1,7 @@
 package visualizer
 
 import (
+	"fmt"
 	"iter"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
@@ -19,7 +20,10 @@ func StepVisualize(args string) evaluator.PipelineStep[functions.Either[error, a
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
 				if node.Value.IsLeft() {
-					if !yield(node) { return }
+					err, _ := node.Value.UnwrapLeft()
+					errCard := "\n" + Format(err, opts)
+					errNode := dsltypes.NewASTNode(functions.Left[error, any](fmt.Errorf("%s", errCard)), node.DSLType)
+					if !yield(errNode) { return }
 					continue
 				}
 				

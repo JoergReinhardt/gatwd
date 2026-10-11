@@ -69,7 +69,11 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 	nodeColor := extractNodeColor(v)
 	if c, ok := opts.TypeColors[v.Type().Name()]; ok { nodeColor = c }
 	
-	if str, ok := val.(fmt.Stringer); ok {
+	if err, ok := val.(error); ok {
+		val = err.Error()
+		v = reflect.ValueOf(val)
+		if nodeColor == "" { nodeColor = "red" }
+	} else if str, ok := val.(fmt.Stringer); ok {
 		val = str.String()
 		v = reflect.ValueOf(val)
 	}
@@ -138,8 +142,14 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 		if c, ok := opts.TypeColors[structName]; ok { nodeColor = c }
 	}
 	
-	// If it implements Stringer, convert it to a string primitive for rendering
-	if str, ok := val.(fmt.Stringer); ok {
+	// If it implements error, format it with error styling
+	if err, ok := val.(error); ok {
+		val = err.Error()
+		v = reflect.ValueOf(val)
+		if nodeColor == "" {
+			nodeColor = "red"
+		}
+	} else if str, ok := val.(fmt.Stringer); ok {
 		val = str.String()
 		v = reflect.ValueOf(val)
 	}

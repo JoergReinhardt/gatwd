@@ -1,5 +1,7 @@
 package dsltypes
 
+import "fmt"
+
 // TyComp represents a Composed Type. 
 // It is used to represent Product Types (Tuples, Records) and complex
 // functional signatures (Arguments -> Return Type).
@@ -44,3 +46,29 @@ func NewASTNode[T any](val T, dslType BitFlag) ASTNode[T] {
 func (n ASTNode[T]) Match(expected BitFlag) bool {
 	return n.DSLType.Match(expected)
 }
+
+// String implements fmt.Stringer for ASTNode, producing clean human-readable output.
+func (n ASTNode[T]) String() string {
+	// If Value implements fmt.Stringer
+	if s, ok := any(n.Value).(fmt.Stringer); ok {
+		return s.String()
+	}
+	// If Value implements error
+	if err, ok := any(n.Value).(error); ok {
+		return fmt.Sprintf("[ERROR] %v", err)
+	}
+	// Check if Value is an Either with Left error
+	if either, ok := any(n.Value).(interface{ IsLeft() bool; UnwrapLeft() (error, bool); UnwrapRight() (any, bool) }); ok {
+		if either.IsLeft() {
+			err, _ := either.UnwrapLeft()
+			return fmt.Sprintf("[ERROR] %v", err)
+		}
+		val, _ := either.UnwrapRight()
+		if s, ok := val.(fmt.Stringer); ok {
+			return s.String()
+		}
+		return fmt.Sprintf("%v", val)
+	}
+	return fmt.Sprintf("%v", n.Value)
+}
+

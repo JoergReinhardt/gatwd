@@ -48,3 +48,9 @@ def quicksort = match {
     | [pivot, ...rest] -> seq { rest |> filter_less pivot |> collect_list |> quicksort | pivot | rest |> filter_greater pivot |> collect_list |> quicksort }
 }
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
+
+-- 12. Script Constants (const declaration and pipeline substitution)
+const TAX_BASE = 50
+const SURCHARGE = 15
+spawn IntVal: TAX_BASE |> math_add SURCHARGE |> assert 65
+

@@ -26,6 +26,7 @@ type Interpreter struct {
 	Funcs     map[string]string // Maps function name to pipeline string
 	RuntimeNodes map[string]dsltypes.ASTNode[functions.Either[error, any]]
 	Variables map[string]string // Maps local 'let' variables
+	Constants map[string]any    // Registered and script-defined constants
 }
 
 func NewInterpreter() *Interpreter {
@@ -35,6 +36,7 @@ func NewInterpreter() *Interpreter {
 		Funcs:     make(map[string]string),
 		RuntimeNodes: make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
 		Variables: make(map[string]string),
+		Constants: make(map[string]any),
 	}
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
 		// Suppress REPL pause in batch mode; just return the exec adapter
@@ -75,6 +77,17 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			for idx, w := range words {
 				if w == k {
 					words[idx] = v
+				}
+			}
+			stepStr = strings.Join(words, " ")
+		}
+
+		// Constant Substitution
+		for k, v := range i.Constants {
+			words := strings.Split(stepStr, " ")
+			for idx, w := range words {
+				if w == k {
+					words[idx] = fmt.Sprintf("%v", v)
 				}
 			}
 			stepStr = strings.Join(words, " ")
@@ -289,6 +302,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 									localInterp := NewInterpreter()
 									localInterp.Variables = i.Variables
 									localInterp.Funcs = i.Funcs
+									localInterp.Constants = i.Constants
 									localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
 									for k, v := range i.RuntimeNodes { localInterp.RuntimeNodes[k] = v }
 									
@@ -467,6 +481,15 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 		}
 		firstPart = strings.Join(words, " ")
 	}
+	for k, v := range i.Constants {
+		words := strings.Split(firstPart, " ")
+		for idx, w := range words {
+			if w == k {
+				words[idx] = fmt.Sprintf("%v", v)
+			}
+		}
+		firstPart = strings.Join(words, " ")
+	}
 
 	stringStream := i.Parser.Parse(firstPart)
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -509,6 +532,15 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		}
 		firstPart = strings.Join(words, " ")
 	}
+	for k, v := range i.Constants {
+		words := strings.Split(firstPart, " ")
+		for idx, w := range words {
+			if w == k {
+				words[idx] = fmt.Sprintf("%v", v)
+			}
+		}
+		firstPart = strings.Join(words, " ")
+	}
 	
 	stringStream := i.Parser.Parse(firstPart)
 	initialStream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -538,6 +570,18 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	return results
 }
 
+// RegisterConstant binds a native Go constant into the DSL environment.
+func (i *Interpreter) RegisterConstant(name string, val any) {
+	i.Constants[name] = val
+}
+
+// RegisterConstants binds multiple Go constants into the DSL environment.
+func (i *Interpreter) RegisterConstants(constants map[string]any) {
+	for k, v := range constants {
+		i.Constants[k] = v
+	}
+}
+
 // RegisterType allows third-party Go code to register native constructors for DSL types.
 func (i *Interpreter) RegisterType(definition string, factory func(string) any) {
 	i.Parser.RegisterTypeFactory(definition, factory)
@@ -565,6 +609,18 @@ func (i *Interpreter) EvaluateLine(line string) {
 		return
 	}
 
+	// Constant Definitions: const NAME = ...
+	if strings.HasPrefix(line, "const ") {
+		parts := strings.SplitN(line[6:], "=", 2)
+		if len(parts) == 2 {
+			constName := strings.TrimSpace(parts[0])
+			valStr := strings.TrimSpace(parts[1])
+			valStr = strings.Trim(valStr, "\"")
+			i.Constants[constName] = valStr
+		}
+		return
+	}
+
 	// Function Definitions: def func = ...
 	if strings.HasPrefix(line, "def ") {
 		parts := strings.SplitN(line[4:], "=", 2)
@@ -580,7 +636,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 	for _, res := range results {
 		fmt.Printf("∷ %s\n", res)
 	}
-	if len(results) == 0 && !strings.HasPrefix(line, "type ") && !strings.HasPrefix(line, "import ") {
+	if len(results) == 0 && !strings.HasPrefix(line, "type ") && !strings.HasPrefix(line, "import ") && !strings.HasPrefix(line, "const ") {
 		fmt.Println("(No output or node unhandled)")
 	}
 }
