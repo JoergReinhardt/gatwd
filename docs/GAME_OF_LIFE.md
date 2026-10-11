@@ -48,14 +48,15 @@ All variants utilize [`visualizer.SubpixelCanvas`](file:///home/j/src/rnd/gatwd/
 
 ## 3. Variant Comparison Matrix
 
-| Feature | Variant 1: Native Appliance | Variant 2: Pipeline Engine | Variant 3: Minted Custom Edition |
-| :--- | :--- | :--- | :--- |
-| **Location** | [`examples/game_of_life/`](file:///home/j/src/rnd/gatwd/examples/game_of_life) | [`examples/game_of_life_pipeline/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pipeline) | [`examples/game_of_life_edition/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition) |
-| **Language** | Go | Go + `evaluator.Engine` | Pure Gatwd DSL (`.gatwd`) |
-| **Extensibility Pattern** | Standalone Application | Embedded Functional Pipeline | **Minted Edition (`cli.NewEdition`)** |
-| **Core Spec Touched?** | **No** | **No** | **No** |
-| **Generational Transition** | Direct `comonads.StepConway` loop | `evaluator.PipelineStep` transducer stream | Gatwd pipe operator: `\|> conway_step` |
-| **Use Case** | Maximum throughput / Standalone CLI tool | Composing physics steps with filters / checkpoints | Interactive scripting, domain-specific Gatwd distributions |
+| Feature | Variant 1: Native Appliance | Variant 2: Pipeline Engine | Variant 3: Minted Custom Edition | Variant 4: 100% Pure DSL |
+| :--- | :--- | :--- | :--- | :--- |
+| **Location** | [`examples/game_of_life/`](file:///home/j/src/rnd/gatwd/examples/game_of_life) | [`examples/game_of_life_pipeline/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pipeline) | [`examples/game_of_life_edition/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition) | [`examples/game_of_life_pure_dsl/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl) |
+| **Language** | Go | Go + `evaluator.Engine` | Pure Gatwd DSL + Edition binary | **100% Pure Gatwd DSL** |
+| **Extensibility Pattern** | Standalone Application | Embedded Functional Pipeline | Minted Edition (`cli.NewEdition`) | **Zero Go code (Standard Builtins)** |
+| **Core Spec Touched?** | **No** | **No** | **No** | **No** |
+| **Generational Transition** | Direct `comonads.StepConway` loop | `evaluator.PipelineStep` transducer stream | Gatwd pipe: `\|> conway_step` | Sparse `Set` operations & catamorphisms |
+| **Runs With** | `go run ./examples/game_of_life` | `go run .../main.go` | `go run .../main.go script.gatwd` | **Standard `gatwd script.gatwd`** |
+| **Use Case** | Maximum throughput / Standalone CLI tool | Composing physics steps with filters | Domain distribution with high-res Braille | Portable scripting on vanilla Gatwd |
 
 ---
 
