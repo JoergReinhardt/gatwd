@@ -270,6 +270,10 @@ func reconcileNamespace(client dynamic.Interface, ns string) {
 
 - **Static Binary Releases**: Built with `CGO_ENABLED=0 go build -ldflags="-s -w"`, packaging all Go code and embedded `.gatwd` scripts into a single, zero-dependency executable.
 - **Distroless Container Images**: Deployed using `FROM gcr.io/distroless/static:nonroot` for secure, minimal attack-surface Kubernetes pods and server containers.
-- **ConfigMap Overrides**: Kubernetes Operator releases embed default reconciliation rules, while allowing live cluster administrators to mount custom `.gatwd` rulebooks over `/etc/gatwd/reconcile.gatwd` without rebuilding container images.
+- **ConfigMap Overrides & Zero-Downtime Hot-Reloading**:
+  - The embedded `embed.FS` script acts as the immutable baseline and default fallback.
+  - In production, Kubernetes mounts a ConfigMap over `/etc/gatwd/rules.gatwd` (or the operator watches the ConfigMap directly via `client-go` Informer).
+  - When the ConfigMap is updated, the appliance re-reads the script, compiles a new `Interpreter`, and atomically swaps the active pointer (`atomic.Pointer[cli.Interpreter]`), reloading the logic in real-time with zero container restart or downtime.
+
 
 
