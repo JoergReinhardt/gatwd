@@ -204,7 +204,46 @@ spawn RecordVal: {Owner: guest, Role: viewer} |> update Owner admin |> focus Own
 spawn RecordVal: {Title: PipelineCard, Status: Active} |> visualize --curved --border --border-color=yellow
 ```
 
-## 15. Synthetic Mock Streams & Go Example Assertions
+## 15. Infix Expressions & Operator Overloading (`+`, `-`, `*`, `/`, `//`, `%`, `++`, `==`, `<`, `&&`, `||`)
+
+Gatwd supports full infix mathematical, relational, and boolean expressions with standard operator precedence and parentheses everywhere: in `spawn <Type>: <expr>`, in `let <var> = <expr>`, and as pipeline operator sections (`|> * 5`, `|> / 2`).
+
+### Supported Infix Operators
+- **Arithmetic**:
+  - `+` (Addition, string concatenation)
+  - `-` (Subtraction)
+  - `*` (Multiplication)
+  - `/` (True division: **automatically promotes integer division to `Float` / `float64`**, e.g. `7 / 2 == 3.5`)
+  - `//` (Euclidean integer division, e.g. `7 // 2 == 3`)
+  - `%` (Modulo / remainder)
+- **Monoidal Concatenation**:
+  - `++` (String and collection concatenation, e.g. `"Hello " ++ "Gatwd"`)
+- **Relational & Equality**:
+  - `==`, `!=`, `<`, `<=`, `>`, `>=` (Structural equality and scalar comparisons)
+- **Boolean Logic**:
+  - `&&`, `||`
+
+### Automatic Overflow Promotion to `BigInt`
+Gatwd protects numerical pipelines against arithmetic overflow: operations exceeding signed integer bounds (`math.MaxInt64` / `math.MinInt64`) are **automatically promoted to arbitrary-precision `*big.Int`**:
+
+```haskell
+-- MaxInt64 + 1 automatically promotes to BigInt
+spawn BigIntVal: 9223372036854775807 + 1 |> assert 9223372036854775808
+
+-- True division promotes integers to float
+spawn FloatVal: 7 / 2 |> assert 3.5
+
+-- Precedence with parentheses
+spawn IntVal: (2 + 3) * 4 |> assert 20
+
+-- Infix inside let bindings
+let calc = 100 / 4 + 5 in spawn FloatVal: calc |> assert 30
+
+-- Pipeline Operator Sections (Haskell-style)
+spawn IntVal: 10 |> * 5 |> / 2 |> assert 25
+```
+
+## 16. Synthetic Mock Streams & Go Example Assertions
 
 Gatwd brings Go standard library testing conventions (`testing.InternalExample`) directly into script pipelines:
 
@@ -227,7 +266,7 @@ spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PA
 spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
 ```
 
-## 16. Runtimes, Builtins, Editions & Appliances
+## 17. Runtimes, Builtins, Editions & Appliances
 
 Gatwd's runtime model is categorized into four distinct concepts:
 

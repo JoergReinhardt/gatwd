@@ -45,9 +45,15 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 					flag, exists := p.typeRegistry[typeName]
 					if exists {
 						var parsedValue any = value
-						if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
+						// Try evaluating as infix expression first if it contains operators
+						if strings.ContainsAny(value, "+-*/%&|<>= ") {
+							if evaluated, err := EvalInfixString(value, nil); err == nil {
+								parsedValue = evaluated
+							} else if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
+								parsedValue = factory(value)
+							}
+						} else if factory, hasFactory := p.typeFactories[typeName]; hasFactory {
 							parsedValue = factory(value)
-						} else {
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }

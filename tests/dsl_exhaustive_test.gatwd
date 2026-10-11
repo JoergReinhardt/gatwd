@@ -6,6 +6,8 @@
 -- ==========================================================
 type IntVal = Int
 type StrVal = String
+type FloatVal = Float
+type BigIntVal = BigInt
 
 -- 1. Primitive Type Spawning and Pure Math Adapters
 spawn IntVal: 10 |> math_add 5 |> assert 15
@@ -122,4 +124,27 @@ spawn StrVal: Start |> emit alpha, beta, gamma |> drop 1 |> filter bet |> assert
 
 -- 34. Visualizer UTF-8 Card Pipeline Formatting
 spawn StrVal: Start |> echo "TestBox" |> visualize --curved --border --border-color=yellow |> assert ╭───────────────────────╮\n│ ╰─ Type(0): "TestBox" │\n╰───────────────────────╯
+
+-- 35. Full Infix Arithmetic with Precedence & Division Float Promotion
+spawn FloatVal: 7 / 2 |> assert 3.5
+spawn IntVal: 7 // 2 |> assert 3
+spawn IntVal: 2 + 3 * 4 |> assert 14
+spawn IntVal: (2 + 3) * 4 |> assert 20
+
+-- 36. Infix In Let Bindings
+let calc = 100 / 4 + 5 in spawn FloatVal: calc |> assert 30
+
+-- 37. Operator Sections in Pipelines
+spawn IntVal: 10 |> * 5 |> assert 50
+spawn IntVal: 7 |> / 2 |> assert 3.5
+spawn IntVal: 10 |> - 3 |> assert 7
+
+-- 38. Automatic Overflow Promotion to BigInt
+spawn BigIntVal: 9223372036854775807 + 1 |> assert 9223372036854775808
+
+-- 39. String Concatenation Operator (++)
+spawn StrVal: "Hello " ++ "Gatwd" |> assert Hello Gatwd
+
+-- 40. Boolean Logic Infix Evaluation
+spawn StrVal: (5 < 10 && 3 == 3) |> assert true
 

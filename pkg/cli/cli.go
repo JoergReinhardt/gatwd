@@ -370,6 +370,32 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "math_sub") {
 			amount := strings.TrimSpace(stepStr[9:])
 			pipeline = append(pipeline, evaluator.StepMathSub(amount))
+		} else if strings.HasPrefix(stepStr, "math_mul") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathMul(amount))
+		} else if strings.HasPrefix(stepStr, "math_div") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathDiv(amount))
+		} else if strings.HasPrefix(stepStr, "math_idiv") {
+			amount := strings.TrimSpace(stepStr[10:])
+			pipeline = append(pipeline, evaluator.StepMathIDiv(amount))
+		} else if strings.HasPrefix(stepStr, "math_mod") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathMod(amount))
+		} else if strings.HasPrefix(stepStr, "+ ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpAdd, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "- ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpSub, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "* ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpMul, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "// ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpIDiv, strings.TrimSpace(stepStr[3:])))
+		} else if strings.HasPrefix(stepStr, "/ ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpDiv, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "% ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpMod, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "++ ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpConcat, strings.TrimSpace(stepStr[3:])))
 		} else if stepStr == "build_array" {
 			pipeline = append(pipeline, evaluator.StepBuildArray())
 		} else if stepStr == "collect_list" {
@@ -849,9 +875,27 @@ func (i *Interpreter) EvaluateLine(line string) {
 				pipelineStr := strings.TrimSpace(defParts[1])
 
 				// Evaluate the left side completely
-				res := i.evaluatePipelineStr(pipelineStr)
-				if len(res) > 0 {
-					i.Variables[varName] = res[0] // Bind to first result
+				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
+					res := i.evaluatePipelineStr(pipelineStr)
+					if len(res) > 0 {
+						i.Variables[varName] = res[0] // Bind to first result
+					}
+				} else {
+					// Direct infix expression evaluation
+					lookup := func(k string) (any, bool) {
+						if v, ok := i.Variables[k]; ok {
+							return v, true
+						}
+						if v, ok := i.Constants[k]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+					} else {
+						i.Variables[varName] = pipelineStr
+					}
 				}
 
 				// Evaluate the right side
@@ -868,7 +912,22 @@ func (i *Interpreter) EvaluateLine(line string) {
 			constName := strings.TrimSpace(parts[0])
 			valStr := strings.TrimSpace(parts[1])
 			valStr = strings.Trim(valStr, "\"")
-			i.Constants[constName] = valStr
+			lookup := func(k string) (any, bool) {
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			// If it's a compound expression, evaluate it
+			if strings.ContainsAny(valStr, "+-*/%&|<>= ") {
+				if evaluated, err := parser.EvalInfixString(valStr, lookup); err == nil {
+					i.Constants[constName] = fmt.Sprintf("%v", evaluated)
+				} else {
+					i.Constants[constName] = valStr
+				}
+			} else {
+				i.Constants[constName] = valStr
+			}
 		}
 		return
 	}

@@ -3,7 +3,6 @@ package evaluator
 import (
 	"fmt"
 	"iter"
-	"math/big"
 	"regexp"
 	"sort"
 	"strconv"
@@ -639,32 +638,9 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				var newVal any
-
-				switch v := val.(type) {
-				case *big.Int:
-					n := new(big.Int)
-					n.SetString(amount, 10)
-					res := new(big.Int).Add(v, n)
-					newVal = res
-				case int:
-					n, _ := strconv.Atoi(amount)
-					newVal = v + n
-				case float64:
-					n, _ := strconv.ParseFloat(amount, 64)
-					newVal = v + n
-				case string:
-					if iv, err := strconv.Atoi(v); err == nil {
-						n, _ := strconv.Atoi(amount)
-						newVal = iv + n
-					} else if fv, err := strconv.ParseFloat(v, 64); err == nil {
-						n, _ := strconv.ParseFloat(amount, 64)
-						newVal = fv + n
-					} else {
-						newVal = v + amount
-					}
-				default:
-					errNode := InjectError[any](fmt.Errorf("math_add failed: unsupported type %T", val), node.DSLType)
+				newVal, err := functions.EvalBinaryOp(functions.OpAdd, val, amount)
+				if err != nil {
+					errNode := InjectError[any](fmt.Errorf("math_add failed: %w", err), node.DSLType)
 					if !yield(errNode) {
 						return
 					}
@@ -1193,31 +1169,9 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				var newVal any
-
-				switch v := val.(type) {
-				case int:
-					n, _ := strconv.Atoi(amount)
-					newVal = v - n
-				case float64:
-					n, _ := strconv.ParseFloat(amount, 64)
-					newVal = v - n
-				case string:
-					if iv, err := strconv.Atoi(v); err == nil {
-						n, _ := strconv.Atoi(amount)
-						newVal = iv - n
-					} else if fv, err := strconv.ParseFloat(v, 64); err == nil {
-						n, _ := strconv.ParseFloat(amount, 64)
-						newVal = fv - n
-					} else {
-						errNode := InjectError[any](fmt.Errorf("math_sub failed: cannot subtract from non-numeric string %q", v), node.DSLType)
-						if !yield(errNode) {
-							return
-						}
-						continue
-					}
-				default:
-					errNode := InjectError[any](fmt.Errorf("math_sub failed: unsupported type %T", val), node.DSLType)
+				newVal, err := functions.EvalBinaryOp(functions.OpSub, val, amount)
+				if err != nil {
+					errNode := InjectError[any](fmt.Errorf("math_sub failed: %w", err), node.DSLType)
 					if !yield(errNode) {
 						return
 					}
@@ -1390,6 +1344,57 @@ func StepSeq(adapters []Adapter[functions.Either[error, any]]) PipelineStep[func
 							return
 						}
 					}
+				}
+			}
+		}
+	}
+}
+
+// StepMathMul multiplies stream values by amount, with overflow promotion
+func StepMathMul(amount string) PipelineStep[functions.Either[error, any]] {
+	return StepBinaryOp(functions.OpMul, amount)
+}
+
+// StepMathDiv divides stream values by amount, promoting integer division to float64
+func StepMathDiv(amount string) PipelineStep[functions.Either[error, any]] {
+	return StepBinaryOp(functions.OpDiv, amount)
+}
+
+// StepMathIDiv performs integer Euclidean division (//)
+func StepMathIDiv(amount string) PipelineStep[functions.Either[error, any]] {
+	return StepBinaryOp(functions.OpIDiv, amount)
+}
+
+// StepMathMod calculates remainder / modulo (%)
+func StepMathMod(amount string) PipelineStep[functions.Either[error, any]] {
+	return StepBinaryOp(functions.OpMod, amount)
+}
+
+// StepBinaryOp evaluates a binary operator with the stream element on the left and operand on the right
+func StepBinaryOp(op functions.OpKind, operand string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
+				val, _ := node.Value.UnwrapRight()
+				newVal, err := functions.EvalBinaryOp(op, val, operand)
+				if err != nil {
+					errNode := InjectError[any](fmt.Errorf("operator %s failed: %w", op, err), node.DSLType)
+					if !yield(errNode) {
+						return
+					}
+					continue
+				}
+
+				newNode := dsltypes.NewASTNode(functions.Right[error, any](newVal), node.DSLType)
+				if !yield(newNode) {
+					return
 				}
 			}
 		}
