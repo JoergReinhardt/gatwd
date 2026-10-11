@@ -8,9 +8,10 @@ import (
 )
 
 func main() {
-	opts := visualizer.Options{Border: true, Style: visualizer.CurvedStyle}
+	opts := visualizer.ParseOptions("--curved --border --border-color=yellow --alternate-bg=blue,magenta")
 
-	fmt.Println(visualizer.Format("Operator: Comonadic Zippers", opts))
+	headerOpts := visualizer.ParseOptions("--heavy --border --border-color=cyan --color=white")
+	fmt.Println(visualizer.Format("Operator: Comonadic Zippers", headerOpts))
 
 	// 1. Build an immutable Rose Tree representing an AST
 	child3 := collections.Leaf("Pod-3")

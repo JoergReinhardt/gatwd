@@ -11,9 +11,10 @@ import (
 )
 
 func main() {
-	opts := visualizer.Options{Border: true, Style: visualizer.CurvedStyle}
+	headerOpts := visualizer.ParseOptions("--curved --border-color=cyan --color=white")
+	fmt.Println(visualizer.Format("Native Engine API: The Functional Pantheon", headerOpts))
 
-	fmt.Println(visualizer.Format("Native Engine API: The Functional Pantheon", opts))
+	opts := visualizer.ParseOptions("--curved --border --border-color=yellow --alternate-bg=blue,magenta")
 
 	// 1. Sets and Tuples
 	set := collections.NewSet[string]()

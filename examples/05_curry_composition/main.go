@@ -8,9 +8,10 @@ import (
 )
 
 func main() {
-	opts := visualizer.Options{Border: true, Style: visualizer.CurvedStyle}
+	headerOpts := visualizer.ParseOptions("--heavy --border --border-color=cyan --color=white")
+	fmt.Println(visualizer.Format("Operator: Curry & Compose", headerOpts))
 
-	fmt.Println(visualizer.Format("Operator: Curry & Compose", opts))
+	opts := visualizer.ParseOptions("--curved --border --border-color=green")
 
 	// A normal uncurried Go function taking two arguments
 	add := func(a, b int) int { return a + b }

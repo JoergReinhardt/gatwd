@@ -29,6 +29,8 @@ type Options struct {
 	FormatDOT       bool
 	Color           string
 	BgColor         string
+	BorderColor     string
+	AlternateBg     []string
 	Border          bool
 	AutoBorder      int
 	Head            int
@@ -103,6 +105,18 @@ func ParseOptions(args string) Options {
 		}
 		if strings.HasPrefix(p, "--bg=") {
 			opts.BgColor = strings.TrimPrefix(p, "--bg=")
+		}
+		if strings.HasPrefix(p, "--border-color=") {
+			opts.BorderColor = strings.TrimPrefix(p, "--border-color=")
+			opts.Border = true
+		}
+		if strings.HasPrefix(p, "--alternate-bg=") {
+			colors := strings.Split(strings.TrimPrefix(p, "--alternate-bg="), ",")
+			for _, c := range colors {
+				if c = strings.TrimSpace(c); c != "" {
+					opts.AlternateBg = append(opts.AlternateBg, c)
+				}
+			}
 		}
 
 		if strings.HasPrefix(p, "--color-type=") {

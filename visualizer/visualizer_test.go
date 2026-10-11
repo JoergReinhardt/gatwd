@@ -176,3 +176,31 @@ func TestVisualizer_ASTNodeBitFlagType(t *testing.T) {
 	}
 }
 
+func TestVisualizer_BorderColorAndAlternateBg(t *testing.T) {
+	// 1. Border color
+	optsBorderColor := visualizer.ParseOptions("--border-color=yellow")
+	if optsBorderColor.BorderColor != "yellow" || !optsBorderColor.Border {
+		t.Fatalf("expected BorderColor=yellow and Border=true, got %+v", optsBorderColor)
+	}
+	resBorder := visualizer.Format("hello", optsBorderColor)
+	// Yellow ANSI code is 33
+	if !strings.Contains(resBorder, "\033[33m") {
+		t.Fatalf("expected yellow border ANSI escape sequence, got:\n%s", resBorder)
+	}
+
+	// 2. Alternating background colors on lists
+	list := []string{"item1", "item2", "item3", "item4"}
+	optsAlt := visualizer.ParseOptions("--alternate-bg=blue,magenta")
+	if len(optsAlt.AlternateBg) != 2 || optsAlt.AlternateBg[0] != "blue" || optsAlt.AlternateBg[1] != "magenta" {
+		t.Fatalf("expected AlternateBg [blue magenta], got %+v", optsAlt.AlternateBg)
+	}
+	resAlt := visualizer.Format(list, optsAlt)
+	// Blue bg code is 44, magenta bg code is 45
+	if !strings.Contains(resAlt, "\033[44m") {
+		t.Fatalf("expected blue background (44m) in list output, got:\n%s", resAlt)
+	}
+	if !strings.Contains(resAlt, "\033[45m") {
+		t.Fatalf("expected magenta background (45m) in list output, got:\n%s", resAlt)
+	}
+}
+

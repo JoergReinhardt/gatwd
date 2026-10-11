@@ -57,4 +57,30 @@ func TestVisualPretty_CardGallery(t *testing.T) {
 			t.Logf("Visualized ASTNode Card:%s", val.(string))
 		}
 	})
+
+	t.Run("Border_Color_And_Bg_Gallery", func(t *testing.T) {
+		opts := visualizer.ParseOptions("--curved --border-color=yellow --bg=blue")
+		user := evaluator.MockUser{
+			ID:     202,
+			Name:   "secops_Bruce",
+			Role:   "security",
+			Score:  99.9,
+			Active: true,
+		}
+		card := visualizer.Format(user, opts)
+		t.Logf("\n%s", card)
+	})
+
+	t.Run("Alternating_List_Background", func(t *testing.T) {
+		opts := visualizer.ParseOptions("--curved --border --border-color=cyan --alternate-bg=blue,magenta")
+		items := []string{
+			"GET  /api/v1/health       [200 OK]",
+			"POST /api/v1/auth/login   [200 OK]",
+			"GET  /api/v1/metrics      [500 ERROR]",
+			"POST /api/v1/eval/stream  [200 OK]",
+			"DELETE /api/v1/session    [204 NO_CONTENT]",
+		}
+		card := visualizer.Format(items, opts)
+		t.Logf("\n%s", card)
+	})
 }

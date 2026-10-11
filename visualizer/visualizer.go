@@ -47,7 +47,7 @@ func FormatAST(flag dsltypes.BitFlag, val any, opts Options) string {
 
 	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
 	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
-		res = addBorder(res)
+		res = addBorder(res, opts.BorderColor)
 	}
 	return applyColor(res, opts.Color, opts.BgColor)
 }
@@ -85,7 +85,7 @@ func Format(val any, opts Options) string {
 
 	lineCount := len(strings.Split(strings.TrimSpace(res), "\n"))
 	if opts.Border || (opts.AutoBorder > 0 && lineCount > opts.AutoBorder) {
-		res = addBorder(res)
+		res = addBorder(res, opts.BorderColor)
 	}
 	return applyColor(res, opts.Color, opts.BgColor)
 }
@@ -385,7 +385,16 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 				msg := fmt.Sprintf("... (%d items omitted) ...", omitted)
 				res += newPrefix + branch(idx == len(iterList)-1, opts.Style) + applyColor(msg, "yellow", "") + "\n"
 			} else {
-				res += formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, idx == len(iterList)-1, opts, depth+1, 0, false)
+				nodeStr := formatNode(v.Index(i).Interface(), fmt.Sprintf("[%d]", i), newPrefix, idx == len(iterList)-1, opts, depth+1, 0, false)
+				if len(opts.AlternateBg) > 0 {
+					bg := opts.AlternateBg[idx%len(opts.AlternateBg)]
+					var coloredLines []string
+					for _, line := range strings.Split(strings.TrimRight(nodeStr, "\n"), "\n") {
+						coloredLines = append(coloredLines, applyColor(line, "", bg))
+					}
+					nodeStr = strings.Join(coloredLines, "\n") + "\n"
+				}
+				res += nodeStr
 			}
 		}
 		if v.Len() == 0 {

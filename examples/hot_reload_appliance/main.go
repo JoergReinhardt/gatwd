@@ -18,7 +18,7 @@ func main() {
 		overridePath = os.Args[1]
 	}
 
-	opts := visualizer.Options{Border: true, Style: visualizer.CurvedStyle}
+	opts := visualizer.ParseOptions("--curved --border --border-color=green --alternate-bg=blue,green")
 
 	// First-class Appliance constructor handles embedded fallback, ConfigMap loading,
 	// and zero-downtime atomic hot-reloading with zero boilerplate.
