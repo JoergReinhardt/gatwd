@@ -10,3 +10,28 @@ Before opening a pull request or asking an AI to generate code for this reposito
 4. [docs/refactoring_plan.md](./docs/refactoring_plan.md) - The architectural roadmap for the project.
 
 We welcome contributions that push us closer to a fully lazy, dynamically-extensible, mathematically pure graph exploration DSL!
+
+## Recursive Dogfooding
+
+After implementing any significant new abstraction, contributors (human or AI) **must** perform a "recursive dogfood" pass:
+
+1. **Use `git log` to build a chronological timeline** of when each abstraction was introduced.
+2. **Scan older code** (starting from the oldest files) asking: "Can this be simplified or strengthened using something we built later?"
+3. **Verify no cyclic dependencies** are created (`go vet ./...`). Layer N may only import from Layers 0 through N-1.
+4. **Write a test first** before replacing old code with newer abstractions.
+5. **Run the full test suite** to confirm no regressions.
+
+### Layer Dependency Order (never import upward):
+```
+Layer 0: functions/       (Either, Pair, Option)
+Layer 1: collections/     (List, Tree, Set, Map, HAMT, Chunk)
+Layer 2: arrows/, monads/, comonads/  (Category theory combinators)
+Layer 3: evaluator/       (Pipeline, Steps, Adapters)
+Layer 4: adapters/        (FS, Scanner, Writer)
+Layer 5: pkg/cli/         (Parser, Interpreter, DSL)
+```
+
+### Anti-patterns:
+- Don't dogfood just because a newer tool exists — only when it genuinely improves correctness, clarity, or performance.
+- Don't break import layering to force dogfooding.
+- Every dogfood change must pass all tests. No exceptions.
