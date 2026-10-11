@@ -1,0 +1,3 @@
+type HealthStatus = OK | DEGRADED
+const THRESHOLD = 80
+def eval_status = assert OK

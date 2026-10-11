@@ -57,9 +57,11 @@ This allows you to orchestrate autonomous agents safely: the AI is given freedom
 ## 3. Declarative Kubernetes Operators as Gatwd Appliances
 
 Writing Kubernetes Operators in Go usually requires thousands of lines of boilerplate just to watch, parse, and reconcile state. With `gatwd`'s native Optics (Lenses) and `iter.Seq` lazy trampolines, you can package the operator as a **Gatwd Appliance**:
-- Embed the reconciliation logic directly into the operator binary (`//go:embed`) using `interp.LoadScriptFS`.
-- Allow live cluster operators to override rules via a Kubernetes ConfigMap mounted at `/etc/gatwd/rules.gatwd` without rebuilding the container.
+- **Embedded Baseline**: Embed reconciliation rules directly into the operator binary (`//go:embed`) using `interp.LoadScriptFS`.
+- **ConfigMap Overrides**: Allow live cluster operators to override rules via a Kubernetes ConfigMap mounted at `/etc/gatwd/rules.gatwd` without rebuilding the container.
+- **Zero-Downtime Hot-Reloading**: Watch the ConfigMap via a `client-go` Informer and atomically swap the active rules (`atomic.Pointer[cli.Interpreter]`) in milliseconds. See [`examples/hot_reload_appliance/main.go`](../examples/hot_reload_appliance/main.go).
 - Express the entire reconciliation loop as a functional script running across infinite streams of events:
+
 
 ```haskell
 type K8sDeployment = GoKubeAPI

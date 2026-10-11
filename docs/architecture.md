@@ -270,10 +270,29 @@ func reconcileNamespace(client dynamic.Interface, ns string) {
 
 - **Static Binary Releases**: Built with `CGO_ENABLED=0 go build -ldflags="-s -w"`, packaging all Go code and embedded `.gatwd` scripts into a single, zero-dependency executable.
 - **Distroless Container Images**: Deployed using `FROM gcr.io/distroless/static:nonroot` for secure, minimal attack-surface Kubernetes pods and server containers.
-- **ConfigMap Overrides & Zero-Downtime Hot-Reloading**:
-  - The embedded `embed.FS` script acts as the immutable baseline and default fallback.
-  - In production, Kubernetes mounts a ConfigMap over `/etc/gatwd/rules.gatwd` (or the operator watches the ConfigMap directly via `client-go` Informer).
-  - When the ConfigMap is updated, the appliance re-reads the script, compiles a new `Interpreter`, and atomically swaps the active pointer (`atomic.Pointer[cli.Interpreter]`), reloading the logic in real-time with zero container restart or downtime.
+
+---
+
+### 5.5 Zero-Downtime Hot-Reloading & ConfigMap Mutation Architecture
+
+While compiled bytes within `embed.FS` reside in immutable binary memory (`.rodata`), the **active rule execution state** of a Gatwd Appliance can be dynamically mutated at runtime without restarting the container or dropping network connections.
+
+#### Architectural Mechanics
+1. **Baked-in Baseline (`embed.FS`)**: The appliance bundles standard `.gatwd` scripts as an unalterable baseline.
+2. **Mounted ConfigMap Override**: In production, Kubernetes mounts a ConfigMap volume (e.g., at `/etc/gatwd/rules.gatwd`).
+3. **Atomic Pointer Swapping (`atomic.Pointer[cli.Interpreter]`)**: When a configuration change occurs:
+   - The appliance reads the updated script from disk (or falls back to `embed.FS` if the override file is absent or deleted).
+   - A fresh `cli.NewInterpreter()` instance is instantiated and populated with the new rules.
+   - The appliance atomically swaps its active interpreter pointer (`activeInterp.Store(newInterp)`).
+   - In-flight stream evaluations complete safely on the previous interpreter, while incoming requests immediately execute the updated logic.
+
+#### Three Hot-Reload Trigger Modes
+- **Kubernetes API Informer (Sub-Second)**: Operators watch the `ConfigMap` resource directly via `client-go` Informers, reacting to `kubectl apply` in milliseconds without waiting for kubelet's volume sync period.
+- **Volume Symlink Watcher (`fsnotify`)**: Daemons watch the mounted `/etc/gatwd` directory. Kubelet updates mounted ConfigMaps by rotating the `..data` symlink atomically, which triggers the file watcher.
+- **Admin Endpoint & Signals**: Microservices expose a `POST /-/reload` webhook or handle `syscall.SIGHUP`.
+
+See [`examples/hot_reload_appliance/main.go`](../examples/hot_reload_appliance/main.go) for an executable reference implementation and [`examples/hot_reload_appliance/main_test.go`](../examples/hot_reload_appliance/main_test.go) for automated fallback tests.
+
 
 
 

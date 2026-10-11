@@ -86,6 +86,8 @@ A custom Go binary (e.g., `cmd/gatwd-cloud` or `cmd/gatwd-db`) that imports `git
 ### Gatwd Appliances
 A self-contained, single-purpose release (such as a Kubernetes Operator, event processing microservice, or compliance daemon) that compiles pre-written `.gatwd` DSL rules directly into the static binary using `//go:embed` and `interp.LoadScriptFS(fsys, path)`:
 - Ships with embedded default rules and zero file dependencies.
-- Allows live Kubernetes administrators to override the rules via mounted ConfigMaps (`/etc/gatwd/rules.gatwd`) without rebuilding the container.
-- See `examples/kubernetes_repl/main.go` and `examples/custom_cli/main.go` for working examples.
+- **Mutable Overrides & Hot-Reloading**: Allows live cluster administrators to override rules via mounted ConfigMaps (`/etc/gatwd/rules.gatwd`). When the ConfigMap updates, the appliance re-reads the script and atomically swaps the active interpreter (`atomic.Pointer[cli.Interpreter]`) with zero downtime.
+- See [`examples/hot_reload_appliance/main.go`](../examples/hot_reload_appliance/main.go) for an executable reference implementation of hot-reloading, and [`examples/kubernetes_repl/main.go`](../examples/kubernetes_repl/main.go) for Kubernetes dynamic crawling.
+- See [docs/architecture.md Section 5.5](architecture.md#55-zero-downtime-hot-reloading--configmap-mutation-architecture) for full architectural specifications.
+
 
