@@ -1,7 +1,9 @@
 package adapters
 
 import (
+	"bufio"
 	"iter"
+	"os"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
@@ -71,3 +73,36 @@ func ScannerAdapter(scanner Scanner) evaluator.Adapter[functions.Either[error, a
 		return ScannerToSeq(scanner, node.DSLType)
 	}
 }
+
+// StepScanFile creates a pipeline step that opens the specified file and streams
+// its tokens using the optional bufio.SplitFunc (defaults to lines if splitFunc is nil).
+func StepScanFile(path string, splitFunc bufio.SplitFunc) evaluator.PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			file, err := os.Open(path)
+			if err != nil {
+				yield(evaluator.InjectError[any](err, 0))
+				return
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			if splitFunc != nil {
+				scanner.Split(splitFunc)
+			}
+
+			for node := range ScannerToSeq(scanner, 0) {
+				if node.Value.IsRight() {
+					val, _ := node.Value.UnwrapRight()
+					if b, ok := val.([]byte); ok {
+						node = dsltypes.NewASTNode(functions.Right[error, any](any(string(b))), node.DSLType)
+					}
+				}
+				if !yield(node) {
+					return
+				}
+			}
+		}
+	}
+}
+

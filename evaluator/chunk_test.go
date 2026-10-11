@@ -58,3 +58,37 @@ func TestStepChunk(t *testing.T) {
 		t.Fatalf("Expected chunk of len 1, got %v", chunk3)
 	}
 }
+
+func TestStepUnchunk(t *testing.T) {
+	nodes := []dsltypes.ASTNode[functions.Either[error, any]]{
+		dsltypes.NewASTNode(functions.Right[error, any](any(10)), dsltypes.BitFlag(1)),
+		dsltypes.NewASTNode(functions.Right[error, any](any(20)), dsltypes.BitFlag(1)),
+		dsltypes.NewASTNode(functions.Right[error, any](any(30)), dsltypes.BitFlag(1)),
+	}
+
+	stream := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		for _, node := range nodes {
+			if !yield(node) {
+				return
+			}
+		}
+	}
+
+	// Chunk then Unchunk
+	chunked := StepChunk(2)(stream)
+	unchunked := StepUnchunk()(chunked)
+
+	var recovered []int
+	for node := range unchunked {
+		val, ok := node.Value.UnwrapRight()
+		if !ok {
+			t.Fatalf("expected right value")
+		}
+		recovered = append(recovered, val.(int))
+	}
+
+	if len(recovered) != 3 || recovered[0] != 10 || recovered[1] != 20 || recovered[2] != 30 {
+		t.Fatalf("expected [10 20 30] recovered after unchunk, got %v", recovered)
+	}
+}
+

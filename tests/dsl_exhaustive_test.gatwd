@@ -85,5 +85,17 @@ spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PA
 -- 22. Testable Example Output Validation (ordered matching)
 spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
 
+-- 23. HAMT Set Modification (immutable structural sharing update)
+spawn StrVal: Start |> emit user:alice |> to_hamt |> hamt_set env prod |> hamt_get env |> assert prod
 
+-- 24. HAMT Delete Modification (immutable key deletion)
+spawn StrVal: Start |> emit a:1, b:2 |> to_hamt |> hamt_del a |> hamt_get b |> assert 2
 
+-- 25. Set Add & Contains (immutable Set membership)
+spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains golang |> assert true
+
+-- 26. Chunk Unpack Transducer (unchunk roundtrip)
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> chunk 2 |> unchunk |> collect_list |> assert [10 20 30]
+
+-- 27. Word-Level Scanner Adapter (bufio.ScanWords integration)
+spawn StrVal: Start |> scan_words examples/tour/data/data1.txt |> head |> assert M

@@ -780,6 +780,203 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepHAMTSet associates key with val in an incoming HAMT or Map node, yielding the updated persistent collection.
+func StepHAMTSet(key string, val any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if h, ok := v.(*collections.HAMT[string, any]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(h.Set(key, val))), node.DSLType))
+					continue
+				}
+				if m, ok := v.(*collections.Map[string, any]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(m.Set(key, val))), node.DSLType))
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepHAMTDel deletes key from an incoming HAMT or Map node, yielding the updated persistent collection.
+func StepHAMTDel(key string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if h, ok := v.(*collections.HAMT[string, any]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(h.Delete(key))), node.DSLType))
+					continue
+				}
+				if m, ok := v.(*collections.Map[string, any]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(m.Delete(key))), node.DSLType))
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepHAMTKeys unfolds an incoming HAMT or Map into a stream of its keys.
+func StepHAMTKeys() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if h, ok := v.(*collections.HAMT[string, any]); ok {
+					for k := range h.Seq() {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(k)), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				if m, ok := v.(*collections.Map[string, any]); ok {
+					for k := range m.Seq() {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(k)), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepHAMTValues unfolds an incoming HAMT or Map into a stream of its values.
+func StepHAMTValues() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if h, ok := v.(*collections.HAMT[string, any]); ok {
+					for _, val := range h.Seq() {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				if m, ok := v.(*collections.Map[string, any]); ok {
+					for _, val := range m.Seq() {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepSetContains checks whether an incoming Set contains the specified item, yielding a boolean ASTNode.
+func StepSetContains(item string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if s, ok := v.(*collections.Set[string]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Contains(item))), node.DSLType))
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepSetAdd adds item to an incoming Set node, yielding the updated persistent Set.
+func StepSetAdd(item string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if s, ok := v.(*collections.Set[string]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Add(item))), node.DSLType))
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepSetRemove removes item from an incoming Set node, yielding the updated persistent Set.
+func StepSetRemove(item string) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if s, ok := v.(*collections.Set[string]); ok {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Remove(item))), node.DSLType))
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+// StepSetElements unfolds an incoming Set into a stream of its constituent elements.
+func StepSetElements() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) { return }
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if s, ok := v.(*collections.Set[string]); ok {
+					for elem := range s.Seq() {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(elem)), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
+
 // StepEmit emits a fixed set of string values sequentially into the stream.
 func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {

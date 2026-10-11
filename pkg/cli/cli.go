@@ -24,23 +24,34 @@ import (
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
+// StepHandler is an extension function that parses a DSL pipeline step string.
+// If the handler recognizes the step, it returns the compiled PipelineStep and true.
+type StepHandler func(stepStr string, interp *Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool)
+
 type Interpreter struct {
-	Engine    *evaluator.Engine[functions.Either[error, any]]
-	Parser    *parser.Parser
-	Funcs     map[string]string // Maps function name to pipeline string
-	RuntimeNodes map[string]dsltypes.ASTNode[functions.Either[error, any]]
-	Variables map[string]string // Maps local 'let' variables
-	Constants map[string]any    // Registered and script-defined constants
+	Engine         *evaluator.Engine[functions.Either[error, any]]
+	Parser         *parser.Parser
+	Funcs          map[string]string // Maps function name to pipeline string
+	RuntimeNodes   map[string]dsltypes.ASTNode[functions.Either[error, any]]
+	Variables      map[string]string // Maps local 'let' variables
+	Constants      map[string]any    // Registered and script-defined constants
+	CustomSteps    []StepHandler     // Pluggable extension step handlers
+	EnableBuiltins bool              // Whether Go std builtins are active
 }
 
-func NewInterpreter() *Interpreter {
+// NewBareInterpreter creates an interpreter with bare-bones execution capabilities:
+// variable bindings ('let'), macro definitions ('def'), constants ('const'), pattern
+// matching ('match'), and core stream primitives ('emit', 'take', 'drop', 'head', 'tail', 'assert').
+// Builtin standard library adapters and transducers are disabled unless registered.
+func NewBareInterpreter() *Interpreter {
 	i := &Interpreter{
-		Engine:    evaluator.NewEngine[functions.Either[error, any]](),
-		Parser:    parser.NewParser(),
-		Funcs:     make(map[string]string),
-		RuntimeNodes: make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
-		Variables: make(map[string]string),
-		Constants: make(map[string]any),
+		Engine:         evaluator.NewEngine[functions.Either[error, any]](),
+		Parser:         parser.NewParser(),
+		Funcs:          make(map[string]string),
+		RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
+		Variables:      make(map[string]string),
+		Constants:      make(map[string]any),
+		EnableBuiltins: false,
 	}
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
 		// Suppress REPL pause in batch mode; just return the exec adapter
@@ -48,6 +59,20 @@ func NewInterpreter() *Interpreter {
 	}
 	return i
 }
+
+// NewInterpreter creates the standard full interpreter with all Go standard library
+// builtins (HAMT, Set, Chunk, Net, Scanner, Checkpoint, Testing, Visualizer, Math) enabled.
+func NewInterpreter() *Interpreter {
+	i := NewBareInterpreter()
+	i.EnableBuiltins = true
+	return i
+}
+
+// RegisterStep registers a custom step handler for third-party libraries or domain-specific language extensions.
+func (i *Interpreter) RegisterStep(handler StepHandler) {
+	i.CustomSteps = append(i.CustomSteps, handler)
+}
+
 
 func (i *Interpreter) pipelineToAdapter(subPipelineStr string) evaluator.Adapter[functions.Either[error, any]] {
 	subParts, _ := splitPipelineAware(subPipelineStr)
@@ -116,6 +141,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				}
 			}
 			pipeline = append(pipeline, lazyStep)
+			continue
+		}
+
+		// Pluggable Third-Party Extension Step Check
+		customHandled := false
+		for _, handler := range i.CustomSteps {
+			if customStep, ok := handler(stepStr, i); ok {
+				pipeline = append(pipeline, customStep)
+				customHandled = true
+				break
+			}
+		}
+		if customHandled {
 			continue
 		}
 
@@ -301,6 +339,17 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepSort(evaluator.DefaultLess))
 		} else if strings.HasPrefix(stepStr, "to_set") {
 			pipeline = append(pipeline, evaluator.StepToSet())
+		} else if strings.HasPrefix(stepStr, "set_contains ") {
+			item := strings.Trim(strings.TrimSpace(stepStr[13:]), "\"")
+			pipeline = append(pipeline, evaluator.StepSetContains(item))
+		} else if strings.HasPrefix(stepStr, "set_add ") {
+			item := strings.Trim(strings.TrimSpace(stepStr[8:]), "\"")
+			pipeline = append(pipeline, evaluator.StepSetAdd(item))
+		} else if strings.HasPrefix(stepStr, "set_remove ") {
+			item := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
+			pipeline = append(pipeline, evaluator.StepSetRemove(item))
+		} else if stepStr == "set_elements" {
+			pipeline = append(pipeline, evaluator.StepSetElements())
 		} else if strings.HasPrefix(stepStr, "write_file") {
 			filename := strings.TrimSpace(stepStr[10:])
 			adapter := adapters.WriteFile(filename, false)
@@ -337,11 +386,27 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "hamt_get ") {
 			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, evaluator.StepHAMTGet(key))
+		} else if strings.HasPrefix(stepStr, "hamt_set ") {
+			parts := strings.Fields(strings.TrimSpace(stepStr[9:]))
+			if len(parts) >= 2 {
+				k := strings.Trim(parts[0], "\"")
+				v := strings.Trim(strings.Join(parts[1:], " "), "\"")
+				pipeline = append(pipeline, evaluator.StepHAMTSet(k, v))
+			}
+		} else if strings.HasPrefix(stepStr, "hamt_del ") {
+			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
+			pipeline = append(pipeline, evaluator.StepHAMTDel(key))
+		} else if stepStr == "hamt_keys" {
+			pipeline = append(pipeline, evaluator.StepHAMTKeys())
+		} else if stepStr == "hamt_values" {
+			pipeline = append(pipeline, evaluator.StepHAMTValues())
 		} else if strings.HasPrefix(stepStr, "chunk ") {
 			sizeStr := strings.TrimSpace(stepStr[6:])
 			if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
 				pipeline = append(pipeline, evaluator.StepChunk(size))
 			}
+		} else if stepStr == "unchunk" || stepStr == "flatten_chunk" {
+			pipeline = append(pipeline, evaluator.StepUnchunk())
 		} else if strings.HasPrefix(stepStr, "checkpoint ") {
 			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
 			id := "default"
@@ -359,21 +424,23 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
 			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))
+		} else if strings.HasPrefix(stepStr, "listen_tcp ") {
+			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
+			addr := "127.0.0.1:0"
+			maxConns := 1
+			if len(args) > 0 { addr = strings.Trim(args[0], "\"") }
+			if len(args) > 1 {
+				if mc, err := strconv.Atoi(args[1]); err == nil { maxConns = mc }
+			}
+			pipeline = append(pipeline, adapters.StepListenTCP("tcp", addr, maxConns))
+		} else if stepStr == "conn_lines" {
+			pipeline = append(pipeline, adapters.StepConnLines())
+		} else if strings.HasPrefix(stepStr, "scan_words ") {
+			filePath := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
+			pipeline = append(pipeline, adapters.StepScanFile(filePath, bufio.ScanWords))
 		} else if strings.HasPrefix(stepStr, "scan_file ") {
 			filePath := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
-			file, err := os.Open(filePath)
-			if err == nil {
-				scanner := bufio.NewScanner(file)
-				adapter := adapters.ScannerAdapter(scanner)
-				pipeline = append(pipeline, evaluator.StepAdapter(adapter))
-			} else {
-				errNode := evaluator.InjectError[any](err, 0)
-				pipeline = append(pipeline, evaluator.StepAdapter(func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-						yield(errNode)
-					}
-				}))
-			}
+			pipeline = append(pipeline, adapters.StepScanFile(filePath, nil))
 		} else if stepStr == "head" {
 			pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, any]](1))
 		} else if stepStr == "tail" {
@@ -415,7 +482,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 									headVar := strings.TrimSpace(parts[0])
 									tailVar := strings.TrimSpace(parts[1])
 									
-									localInterp := NewInterpreter()
+									localInterp := NewBareInterpreter()
+									localInterp.EnableBuiltins = i.EnableBuiltins
+									localInterp.CustomSteps = i.CustomSteps
 									localInterp.Variables = i.Variables
 									localInterp.Funcs = i.Funcs
 									localInterp.Constants = i.Constants
@@ -703,9 +772,19 @@ func (i *Interpreter) RegisterConstants(constants map[string]any) {
 }
 
 // RegisterType allows third-party Go code to register native constructors for DSL types.
+// Accepts either a simple type name like "IntVal" or a full definition like "type IntVal = Int".
 func (i *Interpreter) RegisterType(definition string, factory func(string) any) {
-	i.Parser.RegisterTypeFactory(definition, factory)
+	typeName := strings.TrimSpace(definition)
+	if strings.HasPrefix(typeName, "type ") {
+		typeName = strings.TrimSpace(typeName[5:])
+	}
+	if strings.Contains(typeName, "=") {
+		parts := strings.SplitN(typeName, "=", 2)
+		typeName = strings.TrimSpace(parts[0])
+	}
+	i.Parser.RegisterTypeFactory(typeName, factory)
 }
+
 func (i *Interpreter) EvaluateLine(line string) {
 	// Let Bindings: let x = ... in ...
 	if strings.HasPrefix(line, "let ") {
@@ -824,11 +903,10 @@ func (i *Interpreter) LoadScript(filename string) {
 	}
 }
 
-func Run() {
+// RunWithInterpreter executes batch script execution or interactive REPL using the supplied Interpreter.
+func RunWithInterpreter(interpreter *Interpreter) {
 	fmt.Println("=== gatwd Interpreter (V2 Modernized) ===")
 	fmt.Println("UTF-8 Mathematical Aliases Enabled (e.g. ⊳, →, ∷)")
-
-	interpreter := NewInterpreter()
 
 	interactiveMode := len(os.Args) == 1
 	var scriptToLoad string
@@ -893,3 +971,9 @@ func Run() {
 		interpreter.EvaluateLine(line)
 	}
 }
+
+// Run executes the default CLI using the full NewInterpreter() with all builtins.
+func Run() {
+	RunWithInterpreter(NewInterpreter())
+}
+

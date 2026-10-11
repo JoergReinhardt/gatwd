@@ -166,3 +166,58 @@ func StepDial(
 		}
 	}
 }
+
+// StepConnLines unfolds an incoming net.Conn node into a stream of lines.
+func StepConnLines() evaluator.PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				if conn, ok := val.(net.Conn); ok {
+					for lineNode := range ConnToLines(conn, node.DSLType) {
+						if !yield(lineNode) {
+							return
+						}
+					}
+				} else {
+					if !yield(node) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// StepListenTCP starts a TCP listener on address, yields accepted connections up to maxConns,
+// and shuts down cleanly.
+func StepListenTCP(network, address string, maxConns int) evaluator.PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			ln, err := net.Listen(network, address)
+			if err != nil {
+				yield(dsltypes.NewASTNode(functions.Left[error, any](err), 0))
+				return
+			}
+			defer ln.Close()
+
+			count := 0
+			for node := range ListenerToSeq(ln, 0) {
+				count++
+				if !yield(node) {
+					return
+				}
+				if maxConns > 0 && count >= maxConns {
+					return
+				}
+			}
+		}
+	}
+}
+

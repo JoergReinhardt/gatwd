@@ -43,3 +43,9 @@ When implementing new features or migrating existing ones, you must adopt a **Te
 - **Package `doc.go` Overviews:** Every package must maintain a top-level `doc.go` documenting its role in the dataflow pipeline.
 - **Go Testable Examples:** Combine testing and documentation by writing `Example*` functions with `// Output:` comments in `*_example_test.go` files.
 
+## 7. The "All Layers Through" Mandate & Custom Editions
+- **Full Stack Wiring:** Never stop at Layer 1–4 when implementing Go standard library integrations or transducers. You MUST expose them all the way through to Layer 5 (`pkg/cli/cli.go`) as **builtins**.
+- **DSL Verification:** Add every newly exposed builtin to `tests/dsl_exhaustive_test.gatwd` and verify with `./run_dsl_tests.sh`.
+- **Custom Editions for Third-Party Libraries:** Never add third-party domain dependencies (Kubernetes, AWS, Postgres, etc.) directly into `gatwd` core. Guide users and agents to create Custom Editions (`cmd/gatwd-<name>`) importing `pkg/cli` and registering types/steps via `RegisterStep` and `RegisterType`.
+
+

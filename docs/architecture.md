@@ -154,3 +154,40 @@ evaluator.RunExamples(t, []evaluator.Example{ex})
 // Generate lazy streams of mock domain data for testing generic pipelines
 mockStream := evaluator.GenerateMockUsers(1000, flag)
 ```
+
+---
+
+## 5. CLI Architecture: Bare Runtimes, Builtins & Custom Editions
+
+### Standard Builtins (`cli.NewInterpreter()`)
+The main Gatwd binary exposes the complete suite of Go standard library integrations ("builtins"):
+- Persistent collections (`HAMT`, `Set`, `Chunk`, `List`, `Tree`, `BST`, `BTree`, `RBTree`).
+- Stream adapters (`Scanner`, `File`, `TCP Net`).
+- Telemetry, testing (`testing.InternalExample`), and state checkpoints.
+
+### Bare Interpreter (`cli.NewBareInterpreter()`)
+For embedded environments where a minimal footprint is desired, `cli.NewBareInterpreter()` provides only host language evaluation primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`).
+
+### Creating Custom Editions (Third-Party Integrations)
+Third-party Go packages (e.g., Kubernetes client-go, AWS SDK, Postgres drivers) are integrated by creating dedicated Custom Edition binaries rather than bloating the core engine:
+```go
+package main
+
+import (
+    "github.com/joergreinhardt/gatwd/pkg/cli"
+)
+
+func main() {
+    // 1. Instantiate bare or full interpreter
+    interp := cli.NewInterpreter()
+
+    // 2. Register third-party types and step transducers
+    interp.RegisterType("MyType", myFactory)
+    interp.RegisterStep(myCustomTransducerHandler)
+
+    // 3. Launch REPL or script runner
+    cli.RunWithInterpreter(interp)
+}
+```
+See `examples/custom_cli/main.go` for an executable reference implementation.
+

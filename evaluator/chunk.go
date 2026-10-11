@@ -57,3 +57,33 @@ func StepChunk(size int) PipelineStep[functions.Either[error, any]] {
 		}
 	}
 }
+
+// StepUnchunk unpacks incoming Chunk nodes back into a flat stream of their individual constituent nodes.
+// If an element is not a Chunk, it passes through untouched. Error nodes pass through cleanly.
+func StepUnchunk() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				if chunk, ok := val.(*collections.Chunk[dsltypes.ASTNode[functions.Either[error, any]]]); ok {
+					for _, item := range chunk.Items() {
+						if !yield(item) {
+							return
+						}
+					}
+				} else {
+					if !yield(node) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+

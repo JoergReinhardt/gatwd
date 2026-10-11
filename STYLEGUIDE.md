@@ -71,3 +71,18 @@ We strictly leverage Go's native documentation system (`go doc`, `pkgsite`, test
 4. **Current State Integrity**:
    - Documentation must ALWAYS reflect the active codebase. Never refer to outdated structures that were migrated into `legacy/`.
 
+## 6. The "All Layers Through" Mandate & CLI Architecture
+
+### The "All Layers Through" Principle
+Lower-layer abstractions (Layers 0–4) must never remain stranded in Go API space without script-layer accessibility. Whenever a Go standard library capability, collection, transducer, or I/O adapter is built, it MUST be wired all the way through to the scripting language (Layer 5 `pkg/cli/`) as a **builtin**.
+
+### Builtins vs. Bare Interpreter
+- **Builtins**: Features derived from Go's standard library and Gatwd's core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`) are termed **builtins**. They are enabled by default in `cli.NewInterpreter()`.
+- **Bare Interpreter (`cli.NewBareInterpreter()`)**: A minimalist runtime providing only language evaluation primitives (variable substitution `let`, macro expansion `def`, constants `const`, pattern matching `match`, sequence composition `seq`, and core stream controls `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins can be selectively toggled or replaced.
+
+### Third-Party Library Integration: Custom Editions
+Third-party Go packages (e.g. cloud SDKs, web frameworks, database drivers) must not bloat the core `gatwd` repository. Instead, they are integrated via **Custom Editions** (or **Distributions**):
+- Developers create a dedicated CLI binary (e.g., `cmd/gatwd-cloud/main.go`).
+- The custom CLI imports `github.com/joergreinhardt/gatwd/pkg/cli` (either `NewBareInterpreter()` or `NewInterpreter()`).
+- Custom domain types and step handlers are registered via `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
+- Execution is triggered via `cli.RunWithInterpreter(interp)`.

@@ -49,3 +49,19 @@ All code must integrate seamlessly with Go's built-in documentation system:
 3. **Performance & Mocking:** Use mocked data generators dogfooding our own engine to test high-throughput pipelines.
 4. **Testable Examples:** Write `Example*` functions with `// Output:` comments in `*_example_test.go` to provide simultaneously executable tests and documentation.
 
+## The Multi-Layer Implementation Checklist ("All Layers Through")
+When introducing support for Go standard library features or new transducers:
+1. **Layer 0–4 Implementation:** Implement the pure Go abstraction with thorough unit tests and godoc.
+2. **Layer 5 Builtin Wiring:** Wire the abstraction into `pkg/cli/cli.go` as a builtin step or adapter.
+3. **DSL Exhaustive Test:** Add an assertion test case to `tests/dsl_exhaustive_test.gatwd`.
+4. **Documentation Sync:** Document the new keyword in `docs/dsl_guide.md` and `docs/components.md`.
+
+## Building Custom Editions for Third-Party Libraries
+Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` module. Instead, author a **Custom Edition** binary:
+1. Create a `cmd/gatwd-<name>/main.go` file (or standalone repository).
+2. Import `github.com/joergreinhardt/gatwd/pkg/cli`.
+3. Instantiate either `cli.NewInterpreter()` (standard builtins) or `cli.NewBareInterpreter()` (lean runtime).
+4. Register domain types and custom step transducers using `interp.RegisterType(...)` and `interp.RegisterStep(...)`.
+5. Call `cli.RunWithInterpreter(interp)`. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go) for a reference implementation.
+
+

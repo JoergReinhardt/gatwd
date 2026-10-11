@@ -110,36 +110,65 @@ def quicksort = match {
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
 ```
 
-## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`)
+## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_keys`, `hamt_values`)
 
-Fold key-value streams into a 32-way branching persistent Hash Array Mapped Trie:
+Fold key-value streams into a 32-way branching persistent Hash Array Mapped Trie, and perform pure structural sharing updates:
+
+* `to_hamt`: Aggregates the stream of key-value pairs into an immutable HAMT dictionary.
+* `hamt_get <key>`: Looks up a value by key.
+* `hamt_set <key> <val>`: Yields a new persistent HAMT with the key-value pair set.
+* `hamt_del <key>`: Yields a new persistent HAMT with the key removed.
+* `hamt_keys`: Unfolds a HAMT into a stream of its keys.
+* `hamt_values`: Unfolds a HAMT into a stream of its values.
 
 ```haskell
-spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_get role |> assert admin
+-- Aggregate and update HAMT
+spawn StrVal: Start |> emit user:alice |> to_hamt |> hamt_set env prod |> hamt_get env |> assert prod
+
+-- Delete key from HAMT
+spawn StrVal: Start |> emit a:1, b:2 |> to_hamt |> hamt_del a |> hamt_get b |> assert 2
 ```
 
-## 9. Performance Chunks & Continuations (`chunk`, `checkpoint`, `telemetry`)
+## 9. Performance Chunks & Continuations (`chunk`, `unchunk`, `checkpoint`, `telemetry`)
 
 * `chunk <size>`: Batches lazy streams into eager, bounded contiguous arrays for CPU cache efficiency.
+* `unchunk` (or `flatten_chunk`): Unpacks chunk nodes back into a flat sequential stream of elements.
 * `checkpoint <id> <interval>`: Watermarks stream offsets, allowing computations to pause and resume.
 * `telemetry`: Zero-overhead element counter and duration profiler.
 
 ```haskell
 spawn IntVal: 0 |> emit 1, 2, 3, 4 |> drop 1 |> chunk 2 |> head |> assert [1 2]
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> chunk 2 |> unchunk |> collect_list |> assert [10 20 30]
 spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> checkpoint job_1 2 |> math_add 10 |> head |> assert 11
 ```
 
-## 10. IO Streaming & Network Adapters (`scan_file`, `dial_tcp`)
+## 10. IO Streaming & Network Adapters (`scan_file`, `scan_words`, `dial_tcp`, `listen_tcp`, `conn_lines`)
 
 * `scan_file <path>`: Streams lines from a file using the generalized scanner.
-* `dial_tcp <address>`: Transmits payloads across a network socket and streams back response lines.
+* `scan_words <path>`: Streams whitespace-delimited words using Go's `bufio.ScanWords`.
+* `dial_tcp <address>`: Transmits payloads across a TCP socket and streams back response lines.
+* `listen_tcp <address> [count]`: Opens a TCP listener and unfolds accepted connections into a stream.
+* `conn_lines`: Unfolds an accepted network connection into a line-by-line stream.
 
 ```haskell
 spawn StrVal: Start |> scan_file examples/tour/data/data1.txt |> head |> assert M
+spawn StrVal: Start |> scan_words examples/tour/data/data1.txt |> head |> assert M
 spawn StrVal: "ping" |> dial_tcp "localhost:9090" |> assert "ECHO:ping"
 ```
 
-## 11. Synthetic Mock Streams & Go Example Assertions
+## 11. Persistent Hash Sets (`to_set`, `set_add`, `set_contains`, `set_remove`, `set_elements`)
+
+* `to_set`: Aggregates the stream into a deduplicated, persistent HAMT-backed Set.
+* `set_add <item>`: Yields a new Set with `<item>` added.
+* `set_contains <item>`: Checks membership, yielding `true` or `false`.
+* `set_remove <item>`: Yields a new Set with `<item>` removed.
+* `set_elements`: Unfolds the Set into a flat stream of its elements.
+
+```haskell
+spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains golang |> assert true
+```
+
+## 12. Synthetic Mock Streams & Go Example Assertions
 
 Gatwd brings Go standard library testing conventions (`testing.InternalExample`) directly into script pipelines:
 
@@ -161,3 +190,10 @@ spawn IntVal: 0 |> emit 20, 10 |> drop 1 |> assert_unordered 10, 20 |> assert PA
 -- Ordered example output validation
 spawn IntVal: 0 |> emit 10, 20 |> drop 1 |> example_test 10, 20 |> assert PASS
 ```
+
+## 13. Bare Runtimes vs. Builtin CLI & Custom Editions
+
+* **Builtins**: The default CLI (`cli.NewInterpreter()`) includes the complete Go standard library builtins (all collections, adapters, testing harness, visualizer, and math steps).
+* **Bare Interpreter**: Embedded applications can instantiate `cli.NewBareInterpreter()` to run only core language evaluation primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`).
+* **Custom Editions**: Third-party packages are integrated by creating tailored binary distributions (e.g. `cmd/gatwd-cloud`) that import `pkg/cli` and register custom types and step handlers via `interp.RegisterStep(...)`.
+
