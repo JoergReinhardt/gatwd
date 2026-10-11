@@ -157,6 +157,17 @@ func genLazyVimPlugin(rootDir string, s spec.GrammarSpec) {
 		builtinList = append(builtinList, b.Name)
 	}
 
+	var cmpItems []string
+	for _, k := range s.Keywords {
+		cmpItems = append(cmpItems, fmt.Sprintf("{ label = %q, kind = 14, detail = %q }", k.Name, k.Description))
+	}
+	for _, t := range s.Types {
+		cmpItems = append(cmpItems, fmt.Sprintf("{ label = %q, kind = 7, detail = %q }", t.Name, t.Description))
+	}
+	for _, b := range s.Builtins {
+		cmpItems = append(cmpItems, fmt.Sprintf("{ label = %q, kind = 3, detail = %q }", b.Name, b.Description))
+	}
+
 	content := fmt.Sprintf(`-- LazyVim Plugin Specification for Gatwd
 -- Copy or symlink this file directly into:
 -- ~/.config/nvim/lua/plugins/gatwd.lua
@@ -210,8 +221,60 @@ return {
       })
     end,
   },
+
+  -- 3. nvim-cmp Auto-completion for Keywords, Types, and Builtins
+  {
+    "hrsh7th/nvim-cmp",
+    optional = true,
+    opts = function(_, opts)
+      local cmp = require("cmp")
+      local gatwd_source = {
+        complete = function(self, params, callback)
+          if vim.bo.filetype ~= "gatwd" then
+            return callback({ items = {}, isIncomplete = false })
+          end
+          local items = {
+            %s
+          }
+          callback({ items = items, isIncomplete = false })
+        end,
+      }
+      cmp.register_source("gatwd", gatwd_source)
+      opts.sources = opts.sources or {}
+      table.insert(opts.sources, { name = "gatwd", priority = 100 })
+    end,
+  },
+
+  -- 4. nvim-lint Diagnostics via gatwd --check
+  {
+    "mfussenegger/nvim-lint",
+    optional = true,
+    opts = function(_, opts)
+      local lint = require("lint")
+      local bin = vim.fn.expand("~/go/bin/gatwd")
+      if vim.fn.executable("gatwd") == 1 then
+        bin = "gatwd"
+      end
+
+      lint.linters.gatwd = {
+        name = "gatwd",
+        cmd = bin,
+        stdin = false,
+        args = { "--check" },
+        ignore_exitcode = true,
+        stream = "stderr",
+        parser = require("lint.parser").from_errorformat("%%f:%%l:%%c: %%trror: %%m", {
+          source = "gatwd",
+          severity = vim.diagnostic.severity.ERROR,
+        }),
+      }
+
+      opts.linters_by_ft = opts.linters_by_ft or {}
+      opts.linters_by_ft.gatwd = { "gatwd" }
+    end,
+  },
 }
-`, strings.Join(kwList, " "), strings.Join(typeList, " "), strings.Join(builtinList, " "))
+`, strings.Join(kwList, " "), strings.Join(typeList, " "), strings.Join(builtinList, " "), strings.Join(cmpItems, ",\n            "))
 
 	mustWrite(filepath.Join(rootDir, "editors/neovim/lua/plugins/gatwd.lua"), content)
 }

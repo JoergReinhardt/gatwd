@@ -1307,6 +1307,38 @@ func RunWithInterpreter(interpreter *Interpreter) {
 	fmt.Println("=== gatwd Interpreter (V2 Modernized) ===")
 	fmt.Println("UTF-8 Mathematical Aliases Enabled (e.g. ⊳, →, ∷)")
 
+	if len(os.Args) > 1 && (os.Args[1] == "--check" || os.Args[1] == "-c") {
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: gatwd --check <file.gatwd>")
+			os.Exit(1)
+		}
+		targetFile := os.Args[2]
+		content, err := os.ReadFile(targetFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s:1:1: error: cannot read file: %v\n", targetFile, err)
+			os.Exit(1)
+		}
+		// Validate lines
+		hasError := false
+		lines := strings.Split(string(content), "\n")
+		for idx, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "--") {
+				continue
+			}
+			// Infix syntax validation check
+			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
+				fmt.Fprintf(os.Stderr, "%s:%d:1: error: invalid syntax ':='\n", targetFile, idx+1)
+				hasError = true
+			}
+		}
+		if hasError {
+			os.Exit(1)
+		}
+		// Clean check
+		os.Exit(0)
+	}
+
 	interactiveMode := len(os.Args) == 1
 	var scriptToLoad string
 	if len(os.Args) > 1 {

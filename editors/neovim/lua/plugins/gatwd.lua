@@ -51,4 +51,127 @@ return {
       })
     end,
   },
+
+  -- 3. nvim-cmp Auto-completion for Keywords, Types, and Builtins
+  {
+    "hrsh7th/nvim-cmp",
+    optional = true,
+    opts = function(_, opts)
+      local cmp = require("cmp")
+      local gatwd_source = {
+        complete = function(self, params, callback)
+          if vim.bo.filetype ~= "gatwd" then
+            return callback({ items = {}, isIncomplete = false })
+          end
+          local items = {
+            { label = "def", kind = 14, detail = "Define a reusable function pipeline" },
+            { label = "spawn", kind = 14, detail = "Spawn an initial typed stream AST node" },
+            { label = "type", kind = 14, detail = "Declare an algebraic data type, record, or collection alias" },
+            { label = "const", kind = 14, detail = "Declare a compile-time or script constant" },
+            { label = "let", kind = 14, detail = "Introduce a locally scoped variable binding" },
+            { label = "in", kind = 14, detail = "Delimiter for the evaluation body of a let expression" },
+            { label = "match", kind = 14, detail = "Pattern matching catamorphism with ADT and fixed-list destructuring" },
+            { label = "seq", kind = 14, detail = "Applicative stream concatenation of pipeline branches" },
+            { label = "import", kind = 14, detail = "Import declarations and functions from another Gatwd module" },
+            { label = "empty", kind = 14, detail = "Terminate a pipeline stream with an empty output" },
+            { label = "Int", kind = 7, detail = "Arbitrary or signed integer" },
+            { label = "String", kind = 7, detail = "UTF-8 string value" },
+            { label = "Float", kind = 7, detail = "Floating point real number" },
+            { label = "BigInt", kind = 7, detail = "Arbitrary-precision integer (*big.Int)" },
+            { label = "BigFloat", kind = 7, detail = "Arbitrary-precision floating point number (*big.Float)" },
+            { label = "Complex", kind = 7, detail = "Complex number (complex128)" },
+            { label = "Uint", kind = 7, detail = "Unsigned 64-bit integer" },
+            { label = "Bool", kind = 7, detail = "Boolean value (true / false)" },
+            { label = "List", kind = 7, detail = "Immutable persistent cons-cell linked list" },
+            { label = "Set", kind = 7, detail = "Persistent HAMT-backed immutable set" },
+            { label = "Tree", kind = 7, detail = "Immutable Rose Tree multi-way branch structure" },
+            { label = "BST", kind = 7, detail = "Binary search tree" },
+            { label = "BTree", kind = 7, detail = "Balanced B-tree" },
+            { label = "RBTree", kind = 7, detail = "Self-balancing red-black tree" },
+            { label = "Pair", kind = 7, detail = "Heterogeneous 2-element tuple product type" },
+            { label = "Tuple", kind = 7, detail = "N-ary product type" },
+            { label = "take", kind = 3, detail = "Take the first n nodes from stream" },
+            { label = "drop", kind = 3, detail = "Drop the first n nodes from stream" },
+            { label = "head", kind = 3, detail = "Take exactly 1 node from stream" },
+            { label = "tail", kind = 3, detail = "Drop the first 1 node from stream" },
+            { label = "distinct", kind = 3, detail = "Filter out duplicate elements in stream" },
+            { label = "fold", kind = 3, detail = "Aggregate stream into a single scalar value" },
+            { label = "memoize", kind = 3, detail = "Cache execution results of pure steps" },
+            { label = "map", kind = 3, detail = "Monadic bind / flatMap over stream elements" },
+            { label = "filter", kind = 3, detail = "Keep nodes matching text filter" },
+            { label = "filter_less", kind = 3, detail = "Filter elements strictly less than pivot" },
+            { label = "filter_greater", kind = 3, detail = "Filter elements greater than or equal to pivot" },
+            { label = "sort", kind = 3, detail = "Strict sorting boundary over stream" },
+            { label = "emit", kind = 3, detail = "Emit additional values into the stream" },
+            { label = "chunk", kind = 3, detail = "Batch stream into contiguous CPU-cache Chunks" },
+            { label = "unchunk", kind = 3, detail = "Flatten batched Chunks back into individual stream nodes" },
+            { label = "collect_list", kind = 3, detail = "Collect entire stream into an immutable List" },
+            { label = "to_hamt", kind = 3, detail = "Fold key:value stream into persistent HAMT dictionary" },
+            { label = "hamt_get", kind = 3, detail = "Lookup key in persistent HAMT" },
+            { label = "hamt_set", kind = 3, detail = "Insert or update key-value in HAMT with structural sharing" },
+            { label = "hamt_del", kind = 3, detail = "Remove key from HAMT" },
+            { label = "hamt_keys", kind = 3, detail = "Stream all keys from HAMT" },
+            { label = "hamt_values", kind = 3, detail = "Stream all values from HAMT" },
+            { label = "to_set", kind = 3, detail = "Fold stream into persistent immutable set" },
+            { label = "set_add", kind = 3, detail = "Add element to immutable set" },
+            { label = "set_contains", kind = 3, detail = "Test set membership" },
+            { label = "set_remove", kind = 3, detail = "Remove element from immutable set" },
+            { label = "set_elements", kind = 3, detail = "Unfold set into stream" },
+            { label = "parse_record", kind = 3, detail = "Parse whitespace columns into named Record fields" },
+            { label = "focus", kind = 3, detail = "Lens view: extract focused field from Record" },
+            { label = "update", kind = 3, detail = "Lens set: pure functional field update" },
+            { label = "build_tree", kind = 3, detail = "Construct immutable Rose Tree" },
+            { label = "into_zipper", kind = 3, detail = "Focus Rose Tree into Comonadic Zipper cursor" },
+            { label = "down", kind = 3, detail = "Move Zipper cursor to first child" },
+            { label = "up", kind = 3, detail = "Move Zipper cursor to parent node" },
+            { label = "left", kind = 3, detail = "Move Zipper cursor to left sibling" },
+            { label = "right", kind = 3, detail = "Move Zipper cursor to right sibling" },
+            { label = "extract", kind = 3, detail = "Comonadic counit: extract focused node value" },
+            { label = "zip", kind = 3, detail = "Pairwise zip incoming stream with secondary stream" },
+            { label = "format_tuple", kind = 3, detail = "Format product pair into formatted string" },
+            { label = "assert", kind = 3, detail = "Assert exact node value equality" },
+            { label = "expect", kind = 3, detail = "Assert predicate holds or abort with error" },
+            { label = "debug_print", kind = 3, detail = "Print inspect nodes in stream" },
+            { label = "visualize", kind = 3, detail = "Render stream as pretty UTF-8 visual cards" },
+            { label = "telemetry", kind = 3, detail = "Track and emit stream throughput telemetry" },
+            { label = "checkpoint", kind = 3, detail = "Periodically persist pipeline state for recovery" },
+            { label = "ebnf_parse", kind = 3, detail = "Compile dynamic EBNF grammar and parse string stream into AST" }
+          }
+          callback({ items = items, isIncomplete = false })
+        end,
+      }
+      cmp.register_source("gatwd", gatwd_source)
+      opts.sources = opts.sources or {}
+      table.insert(opts.sources, { name = "gatwd", priority = 100 })
+    end,
+  },
+
+  -- 4. nvim-lint Diagnostics via gatwd --check
+  {
+    "mfussenegger/nvim-lint",
+    optional = true,
+    opts = function(_, opts)
+      local lint = require("lint")
+      local bin = vim.fn.expand("~/go/bin/gatwd")
+      if vim.fn.executable("gatwd") == 1 then
+        bin = "gatwd"
+      end
+
+      lint.linters.gatwd = {
+        name = "gatwd",
+        cmd = bin,
+        stdin = false,
+        args = { "--check" },
+        ignore_exitcode = true,
+        stream = "stderr",
+        parser = require("lint.parser").from_errorformat("%f:%l:%c: %trror: %m", {
+          source = "gatwd",
+          severity = vim.diagnostic.severity.ERROR,
+        }),
+      }
+
+      opts.linters_by_ft = opts.linters_by_ft or {}
+      opts.linters_by_ft.gatwd = { "gatwd" }
+    end,
+  },
 }
