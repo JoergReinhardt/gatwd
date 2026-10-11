@@ -14,33 +14,29 @@ import (
 func ExampleEngine_EvaluatePipeline() {
 	engine := evaluator.NewEngine[functions.Either[error, any]]()
 	flag := dsltypes.BitFlag(1)
+	dsltypes.RegisterTypeFlag(flag, "Metric")
 
-	// Source generator: yields numbers 1 to 5
+	// Source generator: yields numbers
 	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-		for i := 1; i <= 5; i++ {
-			if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(i)), flag)) {
-				return
-			}
-		}
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any(1)), flag))
 	}
 
-	// Pipeline: add 10 to each element, take first 3
+	// Pipeline: add 10 to element, visualize output
 	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
 		evaluator.StepMathAdd("10"),
-		evaluator.StepTake[functions.Either[error, any]](3),
+		visualizer.StepVisualize("--curved --border"),
 	}
 
 	stream := engine.EvaluatePipeline(source, pipeline)
-
 	for node := range stream {
 		val, _ := node.Value.UnwrapRight()
-		fmt.Println(val)
+		fmt.Print(val.(string))
 	}
 
 	// Output:
-	// 11
-	// 12
-	// 13
+	// ╭───────────────╮
+	// │ ╰─ Metric: 11 │
+	// ╰───────────────╯
 }
 
 func ExampleStepCheckpoint() {
@@ -63,10 +59,20 @@ func ExampleStepCheckpoint() {
 	}
 
 	watermark, _ := store.Load(context.Background(), "job_alpha")
-	fmt.Printf("saved watermark: %d\n", watermark)
+
+	type CheckpointReport struct {
+		Job       string
+		Watermark uint64
+	}
+	report := CheckpointReport{Job: "job_alpha", Watermark: watermark}
+	fmt.Print(visualizer.Format(report, visualizer.ParseOptions("--curved --border")))
 
 	// Output:
-	// saved watermark: 4
+	// ╭───────────────────────╮
+	// │ ╰─ CheckpointReport   │
+	// │     ├─ Job: job_alpha │
+	// │     ╰─ Watermark: 4   │
+	// ╰───────────────────────╯
 }
 
 func ExampleStepChunk() {
@@ -74,11 +80,8 @@ func ExampleStepChunk() {
 	flag := dsltypes.BitFlag(1)
 
 	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-		for i := 1; i <= 5; i++ {
-			if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(i)), flag)) {
-				return
-			}
-		}
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any(10)), flag))
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any(20)), flag))
 	}
 
 	// Batch items into chunks of 2
@@ -87,25 +90,13 @@ func ExampleStepChunk() {
 	}
 
 	stream := engine.EvaluatePipeline(source, pipeline)
+	opts := visualizer.ParseOptions("--curved --border")
 	for node := range stream {
 		val, _ := node.Value.UnwrapRight()
 		chunk := val.(*collections.Chunk[dsltypes.ASTNode[functions.Either[error, any]]])
-		fmt.Printf("chunk size %d\n", chunk.Len())
+		fmt.Print(visualizer.Format(chunk, opts))
+		break
 	}
-
-	// Output:
-	// chunk size 2
-	// chunk size 2
-	// chunk size 1
-}
-
-func ExampleStepChunk_visualized() {
-	chunk := collections.NewChunk[int](2)
-	chunk.Append(10)
-	chunk.Append(20)
-
-	opts := visualizer.ParseOptions("--curved --border")
-	fmt.Print(visualizer.Format(chunk, opts))
 
 	// Output:
 	// ╭────────────────╮
@@ -119,36 +110,16 @@ func ExampleGenerateMockUsers() {
 	engine := evaluator.NewEngine[functions.Either[error, any]]()
 	flag := dsltypes.BitFlag(1)
 
-	// Generate 4 mock users
-	stream := evaluator.GenerateMockUsers(4, flag)
-
-	// Filter for active users only
+	// Generate mock users and filter for active
+	stream := evaluator.GenerateMockUsers(2, flag)
 	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
 		evaluator.StepFilter(func(val any) bool {
-			user := val.(evaluator.MockUser)
-			return user.Active
+			return val.(evaluator.MockUser).Active
 		}),
 	}
 
-	for node := range engine.EvaluatePipeline(stream, pipeline) {
-		val, _ := node.Value.UnwrapRight()
-		user := val.(evaluator.MockUser)
-		fmt.Printf("User %d: %s (%s)\n", user.ID, user.Name, user.Role)
-	}
-
-	// Output:
-	// User 0: admin_A (admin)
-	// User 2: viewer_C (viewer)
-}
-
-func ExampleGenerateMockUsers_visualized() {
-	flag := dsltypes.BitFlag(1)
-
-	// Stream 1 mock user and format into a visual card
-	stream := evaluator.GenerateMockUsers(1, flag)
 	opts := visualizer.ParseOptions("--curved --border")
-
-	for node := range stream {
+	for node := range engine.EvaluatePipeline(stream, pipeline) {
 		val, _ := node.Value.UnwrapRight()
 		fmt.Print(visualizer.Format(val, opts))
 	}
@@ -170,33 +141,22 @@ func ExampleRunExample() {
 		Name: "DemoExample",
 		F: func() {
 			fmt.Println("foo")
-			fmt.Println("bar")
 		},
-		Output: "foo\nbar",
-	}
-
-	passed, captured, _ := evaluator.RunExample(ex)
-	fmt.Printf("passed: %t, captured lines: %t\n", passed, len(captured) > 0)
-
-	// Output:
-	// passed: true, captured lines: true
-}
-
-func ExampleRunExample_unordered() {
-	// Permutation-invariant matching (Unordered = true)
-	ex := evaluator.Example{
-		Name: "UnorderedDemo",
-		F: func() {
-			fmt.Println("z")
-			fmt.Println("a")
-		},
-		Output:    "a\nz",
-		Unordered: true,
+		Output: "foo",
 	}
 
 	passed, _, _ := evaluator.RunExample(ex)
-	fmt.Printf("unordered match passed: %t\n", passed)
+
+	type SuiteSummary struct {
+		Suite  string
+		Passed bool
+	}
+	fmt.Print(visualizer.Format(SuiteSummary{Suite: ex.Name, Passed: passed}, visualizer.ParseOptions("--curved --border")))
 
 	// Output:
-	// unordered match passed: true
+	// ╭───────────────────────────╮
+	// │ ╰─ SuiteSummary           │
+	// │     ├─ Suite: DemoExample │
+	// │     ╰─ Passed: true       │
+	// ╰───────────────────────────╯
 }

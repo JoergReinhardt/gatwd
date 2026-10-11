@@ -6,35 +6,46 @@ import (
 
 	"github.com/joergreinhardt/gatwd/arrows"
 	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 func main() {
-	fmt.Println("=== Operator: Kleisli Arrow Fan-Out (&&&) ===")
+	header := visualizer.Format("Operator: Kleisli Arrow Fan-Out (&&&)", visualizer.ParseOptions("--heavy --border --color=cyan"))
+	fmt.Print(header)
 
-	// Kleisli Arrows represent A -> Seq[B]. This perfectly matches our Adapters!
-	
 	// Adapter A: Fetches user profile
 	getProfile := func(node dsltypes.ASTNode[string]) iter.Seq[string] {
 		return func(yield func(string) bool) {
-			yield(node.Value + " -> [Profile: Premium User]")
+			yield(node.Value + " -> Premium User")
 		}
 	}
 
 	// Adapter B: Fetches user billing history
 	getBilling := func(node dsltypes.ASTNode[string]) iter.Seq[string] {
 		return func(yield func(string) bool) {
-			yield(node.Value + " -> [Billing: $42.00]")
+			yield("$42.00 / month")
 		}
 	}
 
 	// Combine them into a FanOut Arrow (&&&)
-	// This routes the incoming user node to BOTH adapters, and zips the results together!
 	fanOutArrow := arrows.FanOut(getProfile, getBilling)
 
-	userNode := dsltypes.NewASTNode("User_Joerg", 1)
-	
-	fmt.Println("Routing UserNode through FanOut Arrow (getProfile &&& getBilling)...")
+	userFlag := dsltypes.BitFlag(1 << 3)
+	dsltypes.RegisterTypeFlag(userFlag, "AccountSummary")
+	userNode := dsltypes.NewASTNode("User_Joerg", userFlag)
+
+	type FanOutResult struct {
+		Subject string
+		Profile string
+		Billing string
+	}
+
 	for pair := range fanOutArrow(userNode) {
-		fmt.Printf("Result Pair: \n Left: %s\n Right: %s\n", pair.Fst, pair.Snd)
+		rec := FanOutResult{
+			Subject: userNode.Value,
+			Profile: pair.Fst,
+			Billing: pair.Snd,
+		}
+		fmt.Print(visualizer.FormatAST(userNode.DSLType, rec, visualizer.ParseOptions("--curved --border --color=green")))
 	}
 }

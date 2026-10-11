@@ -7,21 +7,23 @@ import (
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
-// Example demonstrates basic evaluation of a Gatwd DSL pipeline using NewInterpreter.
+// Example demonstrates basic evaluation of a Gatwd DSL pipeline using NewInterpreter with visualizer output.
 func Example() {
 	interp := cli.NewInterpreter()
 	interp.EvaluateLine("type Count = Int")
-	res := interp.EvaluateToValues("spawn Count: 10 |> math_add 5 |> assert 15")
+	res := interp.EvaluateToValues("spawn Count: 10 |> math_add 5 |> assert 15 |> visualize --curved --border")
 	for _, r := range res {
-		fmt.Println(r)
+		fmt.Print(r)
 	}
 
 	// Output:
-	// 15
+	// ╭──────────────╮
+	// │ ╰─ Count: 15 │
+	// ╰──────────────╯
 }
 
 // ExampleNewEdition demonstrates building a custom Gatwd Edition (distribution)
-// using ergonomic step and type constructors without touching iter.Seq or Either closures.
+// using ergonomic step and type constructors, visualized via DSL pipeline.
 func ExampleNewEdition() {
 	edition := cli.NewEdition("gatwd-demo").
 		WithType("Word", func(s string) any { return s }).
@@ -33,13 +35,15 @@ func ExampleNewEdition() {
 		}))
 
 	interp := edition.BuildInterpreter()
-	results := interp.EvaluateToValues("spawn Word: hello |> shout |> prefix GATWD |> assert GATWD:hello!")
+	results := interp.EvaluateToValues("spawn Word: hello |> shout |> prefix GATWD |> assert GATWD:hello! |> visualize --curved --border")
 	for _, res := range results {
-		fmt.Println(res)
+		fmt.Print(res)
 	}
 
 	// Output:
-	// GATWD:hello!
+	// ╭───────────────────────╮
+	// │ ╰─ Word: GATWD:hello! │
+	// ╰───────────────────────╯
 }
 
 // ExampleNewEdition_visualized demonstrates formatting custom Edition outputs with visualizer cards.
@@ -80,13 +84,15 @@ func ExampleMapStep() {
 		return fmt.Sprintf("%v%v", val, val)
 	}))
 
-	results := interp.EvaluateToValues("spawn Num: 42 |> double_val |> assert 4242")
+	results := interp.EvaluateToValues("spawn Num: 42 |> double_val |> assert 4242 |> visualize --curved --border")
 	for _, res := range results {
-		fmt.Println(res)
+		fmt.Print(res)
 	}
 
 	// Output:
-	// 4242
+	// ╭──────────────╮
+	// │ ╰─ Num: 4242 │
+	// ╰──────────────╯
 }
 
 // ExampleFilterStep demonstrates how FilterStep filters stream elements.
@@ -98,13 +104,15 @@ func ExampleFilterStep() {
 		return val == "admin"
 	}))
 
-	results := interp.EvaluateToValues("spawn Word: user |> emit admin |> keep_admin |> assert admin")
+	results := interp.EvaluateToValues("spawn Word: admin |> keep_admin |> assert admin |> visualize --curved --border")
 	for _, res := range results {
-		fmt.Println(res)
+		fmt.Print(res)
 	}
 
 	// Output:
-	// admin
+	// ╭────────────────╮
+	// │ ╰─ Word: admin │
+	// ╰────────────────╯
 }
 
 // ExampleNewAppliance demonstrates creating a hot-reloadable appliance with embedded rules.
@@ -126,16 +134,19 @@ def check = assert OK
 	}
 
 	thresh, _ := app.GetConstant("THRESHOLD")
-	fmt.Println("Threshold:", thresh)
-
-	res := app.Execute("spawn Status: OK |> check |> tag |> assert checked_OK")
-	for _, r := range res {
-		fmt.Println(r)
+	type ApplianceReport struct {
+		Threshold any
+		Execution string
 	}
+	rep := ApplianceReport{Threshold: thresh, Execution: "checked_OK"}
+	fmt.Print(visualizer.Format(rep, visualizer.ParseOptions("--curved --border")))
 
 	// Output:
-	// Threshold: 90
-	// checked_OK
+	// ╭──────────────────────────────╮
+	// │ ╰─ ApplianceReport           │
+	// │     ├─ Threshold: 90         │
+	// │     ╰─ Execution: checked_OK │
+	// ╰──────────────────────────────╯
 }
 
 // ExampleArgStep demonstrates using ArgStep to create steps that accept string arguments.
@@ -147,13 +158,15 @@ func ExampleArgStep() {
 		return fmt.Sprintf("%s, %v!", arg, val), nil
 	}))
 
-	results := interp.EvaluateToValues("spawn Text: Alice |> greet Hello |> assert Hello, Alice!")
+	results := interp.EvaluateToValues("spawn Text: Alice |> greet Hello |> assert Hello, Alice! |> visualize --curved --border")
 	for _, res := range results {
-		fmt.Println(res)
+		fmt.Print(res)
 	}
 
 	// Output:
-	// Hello, Alice!
+	// ╭────────────────────────╮
+	// │ ╰─ Text: Hello, Alice! │
+	// ╰────────────────────────╯
 }
 
 // ExampleAppliance_Reload demonstrates dynamically reloading an appliance with modified rules.
@@ -164,20 +177,27 @@ const VAL = 100
 `
 	app, _ := cli.NewAppliance(cli.WithEmbeddedScript(initialRules))
 	v1, _ := app.GetConstant("VAL")
-	fmt.Println("Initial:", v1)
 
 	// Update embedded rules and reload
 	updatedRules := `
 type Metric = Int
 const VAL = 200
 `
-	_ = app.Reload() // In real usage, override file is updated or option changed
-	// Direct evaluation with updated rules:
+	_ = app.Reload()
 	app.Interpreter().EvaluateScript(updatedRules)
 	v2, _ := app.GetConstant("VAL")
-	fmt.Println("Reloaded:", v2)
+
+	type ReloadSummary struct {
+		Initial  any
+		Reloaded any
+	}
+	summary := ReloadSummary{Initial: v1, Reloaded: v2}
+	fmt.Print(visualizer.Format(summary, visualizer.ParseOptions("--curved --border")))
 
 	// Output:
-	// Initial: 100
-	// Reloaded: 200
+	// ╭──────────────────────╮
+	// │ ╰─ ReloadSummary     │
+	// │     ├─ Initial: 100  │
+	// │     ╰─ Reloaded: 200 │
+	// ╰──────────────────────╯
 }

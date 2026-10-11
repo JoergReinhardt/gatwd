@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/joergreinhardt/gatwd/pkg/cli"
+	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
 //go:embed default_rules.gatwd
@@ -16,6 +17,8 @@ func main() {
 	if len(os.Args) > 1 {
 		overridePath = os.Args[1]
 	}
+
+	opts := visualizer.Options{Border: true, Style: visualizer.CurvedStyle}
 
 	// First-class Appliance constructor handles embedded fallback, ConfigMap loading,
 	// and zero-downtime atomic hot-reloading with zero boilerplate.
@@ -28,7 +31,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("=== Gatwd Hot-Reloading Appliance Running ===")
 	res := app.Execute("spawn HealthStatus: OK |> eval_status")
-	fmt.Printf("Health Check Result: %v\n", res)
+
+	fmt.Println(visualizer.Format(map[string]any{
+		"Appliance":    "Gatwd Hot-Reloading Appliance",
+		"OverridePath": overridePath,
+		"Status":       "Running",
+		"HealthCheck":  res,
+	}, opts))
 }

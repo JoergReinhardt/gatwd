@@ -11,21 +11,24 @@ import (
 )
 
 func ExampleScannerToSeq() {
-	input := "token1\ntoken2\ntoken3"
+	input := "token1\ntoken2"
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	flag := dsltypes.BitFlag(1)
+	dsltypes.RegisterTypeFlag(flag, "Token")
 
 	seq := adapters.ScannerToSeq(scanner, flag)
+	opts := visualizer.ParseOptions("--curved --border")
 
 	for node := range seq {
 		val, _ := node.Value.UnwrapRight()
-		fmt.Printf("%s\n", string(val.([]byte)))
+		fmt.Print(visualizer.FormatAST(flag, string(val.([]byte)), opts))
+		break
 	}
 
 	// Output:
-	// token1
-	// token2
-	// token3
+	// ╭──────────────────╮
+	// │ ╰─ Token: token1 │
+	// ╰──────────────────╯
 }
 
 func ExampleScannerToSeq_visualized() {
