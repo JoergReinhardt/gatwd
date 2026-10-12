@@ -4,6 +4,7 @@ import (
 	"iter"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
 )
@@ -99,5 +100,30 @@ func TestStepMap(t *testing.T) {
 	res := runPipelineToValues(steps)
 	if len(res) != 2 || res[0] != 15 || res[1] != 25 {
 		t.Errorf("Expected [15 25], got %v", res)
+	}
+}
+
+func TestStepFocusAndUpdate_HAMT(t *testing.T) {
+	h := collections.NewHAMT[string, any]().Set("env", "production")
+
+	// 1. Test StepFocus on HAMT
+	focusSteps := []PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(h)),
+		StepFocus("env"),
+	}
+	resFocus := runPipelineToValues(focusSteps)
+	if len(resFocus) != 1 || resFocus[0] != "production" {
+		t.Fatalf("expected 'production', got %v", resFocus)
+	}
+
+	// 2. Test StepUpdate on HAMT
+	updateSteps := []PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(h)),
+		StepUpdate("env", "staging"),
+		StepFocus("env"),
+	}
+	resUpdate := runPipelineToValues(updateSteps)
+	if len(resUpdate) != 1 || resUpdate[0] != "staging" {
+		t.Fatalf("expected 'staging', got %v", resUpdate)
 	}
 }

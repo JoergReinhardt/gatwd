@@ -198,8 +198,23 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 							return
 						}
 					}
+				} else if hamt, ok := val.(*collections.HAMT[string, any]); ok {
+					hamtLens := optics.HAMTLens[string, any](field)
+					mVal := hamtLens.Get(hamt)
+					if mVal.IsJust() {
+						fieldVal, _ := mVal.Unwrap()
+						newNode := dsltypes.NewASTNode(functions.Right[error, any](fieldVal), node.DSLType)
+						if !yield(newNode) {
+							return
+						}
+					} else {
+						errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus on field '%s' because it does not exist in this HAMT", field), node.DSLType)
+						if !yield(errNode) {
+							return
+						}
+					}
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus because Node is not a Record (Map)"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot focus because Node is not a Record or HAMT"), node.DSLType)
 					if !yield(errNode) {
 						return
 					}
@@ -228,8 +243,15 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 					if !yield(newNode) {
 						return
 					}
+				} else if hamt, ok := val.(*collections.HAMT[string, any]); ok {
+					hamtLens := optics.HAMTLens[string, any](field)
+					newHamt := hamtLens.Set(hamt, functions.Just(newValue))
+					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(newHamt)), node.DSLType)
+					if !yield(newNode) {
+						return
+					}
 				} else {
-					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot update because Node is not a Record (Map)"), node.DSLType)
+					errNode := InjectError[any](fmt.Errorf("Lens Error: Cannot update because Node is not a Record or HAMT"), node.DSLType)
 					if !yield(errNode) {
 						return
 					}
@@ -1132,6 +1154,15 @@ func StepSetElements() PipelineStep[functions.Either[error, any]] {
 
 // StepEmit emits a fixed set of string values sequentially into the stream.
 func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
+	var anyVals []any
+	for _, v := range values {
+		anyVals = append(anyVals, v)
+	}
+	return StepEmitValues(anyVals...)
+}
+
+// StepEmitValues emits a fixed set of arbitrary typed values into the stream.
+func StepEmitValues(values ...any) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			// First, pass through upstream
@@ -1143,7 +1174,7 @@ func StepEmit(values ...string) PipelineStep[functions.Either[error, any]] {
 
 			// Then emit our values
 			for _, v := range values {
-				node := dsltypes.NewASTNode(functions.Right[error, any](any(v)), 0)
+				node := dsltypes.NewASTNode(functions.Right[error, any](v), 0)
 				if !yield(node) {
 					return
 				}

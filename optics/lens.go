@@ -1,5 +1,10 @@
 package optics
 
+import (
+	"github.com/joergreinhardt/gatwd/collections"
+	"github.com/joergreinhardt/gatwd/functions"
+)
+
 // Lens provides functional getters and setters for deep, immutable structures.
 //
 // In a purely functional architecture (like our immutable AST Tree), you cannot
@@ -53,7 +58,7 @@ func RecordLens(field string) Lens[map[string]any, any] {
 	}
 }
 
-// MapLens creates a pure functional Lens focusing on a key K in a map[K]V.
+// MapLens creates a pure functional Lens focusing on a key K in a standard map[K]V.
 func MapLens[K comparable, V any](key K) Lens[map[K]V, V] {
 	return Lens[map[K]V, V]{
 		Get: func(m map[K]V) V {
@@ -70,6 +75,33 @@ func MapLens[K comparable, V any](key K) Lens[map[K]V, V] {
 			}
 			copied[key] = val
 			return copied
+		},
+	}
+}
+
+// HAMTLens creates a pure functional Lens focusing on key K in a persistent collections.HAMT[K, V].
+// Updating a field returns a brand new HAMT with O(log32 N) structural sharing.
+func HAMTLens[K comparable, V any](key K) Lens[*collections.HAMT[K, V], functions.Maybe[V]] {
+	return Lens[*collections.HAMT[K, V], functions.Maybe[V]]{
+		Get: func(h *collections.HAMT[K, V]) functions.Maybe[V] {
+			if h == nil {
+				return functions.Nothing[V]()
+			}
+			val, ok := h.Get(key)
+			if !ok {
+				return functions.Nothing[V]()
+			}
+			return functions.Just(val)
+		},
+		Set: func(h *collections.HAMT[K, V], mVal functions.Maybe[V]) *collections.HAMT[K, V] {
+			if h == nil {
+				h = collections.NewHAMT[K, V]()
+			}
+			if mVal.IsJust() {
+				v, _ := mVal.Unwrap()
+				return h.Set(key, v)
+			}
+			return h.Delete(key)
 		},
 	}
 }
