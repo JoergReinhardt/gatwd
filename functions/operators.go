@@ -713,6 +713,36 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
+	// Structural collection equality across List, Slice, and custom collections
+	type elementGetter interface{ Elements() []any }
+	if egA, okA := a.(elementGetter); okA {
+		if egB, okB := b.(elementGetter); okB {
+			elemsA := egA.Elements()
+			elemsB := egB.Elements()
+			if len(elemsA) != len(elemsB) {
+				return false
+			}
+			for i := range elemsA {
+				if !StructuralEqual(elemsA[i], elemsB[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+
+	// Fallback for formatted string comparison across collection/serialized boundaries
+	if strA, okA := a.(string); okA {
+		if fmt.Sprintf("%v", b) == strA {
+			return true
+		}
+	}
+	if strB, okB := b.(string); okB {
+		if fmt.Sprintf("%v", a) == strB {
+			return true
+		}
+	}
+
 	// Fallback to reflect.DeepEqual for composite structures
 	return reflect.DeepEqual(a, b)
 }

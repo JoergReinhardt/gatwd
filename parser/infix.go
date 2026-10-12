@@ -201,22 +201,17 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	}
 
 	if e.Op == functions.OpConcat {
-		// If either operand is a string, let EvalBinaryOp handle string concatenation
-		_, lIsStr := l.(string)
-		_, rIsStr := r.(string)
-		if !lIsStr && !rIsStr {
-			leftItems, errL := extractItems(l)
-			rightItems, errR := extractItems(r)
-			if errL == nil && errR == nil {
-				var combined []any
-				combined = append(combined, leftItems...)
-				combined = append(combined, rightItems...)
-				res := collections.Nil[any]()
-				for idx := len(combined) - 1; idx >= 0; idx-- {
-					res = collections.Cons(combined[idx], res)
-				}
-				return res, nil
+		leftItems, errL := extractItems(l)
+		rightItems, errR := extractItems(r)
+		if errL == nil && errR == nil {
+			var combined []any
+			combined = append(combined, leftItems...)
+			combined = append(combined, rightItems...)
+			res := collections.Nil[any]()
+			for idx := len(combined) - 1; idx >= 0; idx-- {
+				res = collections.Cons(combined[idx], res)
 			}
+			return res, nil
 		}
 	}
 

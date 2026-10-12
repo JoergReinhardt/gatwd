@@ -1071,24 +1071,35 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 				pipelineStr := strings.TrimSpace(defParts[1])
 
 				prevVal, hadPrev := i.Variables[varName]
+				prevNode, hadPrevNode := i.RuntimeNodes[varName]
+
+				lookup := func(k string) (any, bool) {
+					if rt, ok := i.RuntimeNodes[k]; ok {
+						if rt.Value.IsRight() {
+							val, _ := rt.Value.UnwrapRight()
+							return val, true
+						}
+					}
+					if v, ok := i.Variables[k]; ok {
+						return v, true
+					}
+					if v, ok := i.Constants[k]; ok {
+						return v, true
+					}
+					return nil, false
+				}
 
 				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
 					res := i.EvaluateToValues(pipelineStr)
 					if len(res) > 0 {
-						i.Variables[varName] = fmt.Sprintf("%v", res[0])
+						val := res[0]
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					}
 				} else {
-					lookup := func(k string) (any, bool) {
-						if v, ok := i.Variables[k]; ok {
-							return v, true
-						}
-						if v, ok := i.Constants[k]; ok {
-							return v, true
-						}
-						return nil, false
-					}
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
 						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					} else {
 						i.Variables[varName] = pipelineStr
 					}
@@ -1099,6 +1110,11 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 						i.Variables[varName] = prevVal
 					} else {
 						delete(i.Variables, varName)
+					}
+					if hadPrevNode {
+						i.RuntimeNodes[varName] = prevNode
+					} else {
+						delete(i.RuntimeNodes, varName)
 					}
 				}()
 
@@ -1112,14 +1128,18 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	parts, _ := splitPipelineAware(line)
 
 	firstPart := parts[0]
-	for k, v := range i.Variables {
-		words := strings.Split(firstPart, " ")
-		for idx, w := range words {
-			if w == k {
-				words[idx] = v
+	if _, isVar := i.Variables[firstPart]; !isVar {
+		if _, isRt := i.RuntimeNodes[firstPart]; !isRt {
+			for k, v := range i.Variables {
+				words := strings.Split(firstPart, " ")
+				for idx, w := range words {
+					if w == k {
+						words[idx] = v
+					}
+				}
+				firstPart = strings.Join(words, " ")
 			}
 		}
-		firstPart = strings.Join(words, " ")
 	}
 	for k, v := range i.Constants {
 		words := strings.Split(firstPart, " ")
@@ -1158,14 +1178,16 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 
 	firstPart := parts[0]
 	if _, isVar := i.Variables[firstPart]; !isVar {
-		for k, v := range i.Variables {
-			words := strings.Split(firstPart, " ")
-			for idx, w := range words {
-				if w == k {
-					words[idx] = v
+		if _, isRt := i.RuntimeNodes[firstPart]; !isRt {
+			for k, v := range i.Variables {
+				words := strings.Split(firstPart, " ")
+				for idx, w := range words {
+					if w == k {
+						words[idx] = v
+					}
 				}
+				firstPart = strings.Join(words, " ")
 			}
-			firstPart = strings.Join(words, " ")
 		}
 	}
 	for k, v := range i.Constants {
@@ -1251,26 +1273,37 @@ func (i *Interpreter) EvaluateLine(line string) {
 				pipelineStr := strings.TrimSpace(defParts[1])
 
 				prevVal, hadPrev := i.Variables[varName]
+				prevNode, hadPrevNode := i.RuntimeNodes[varName]
+
+				lookup := func(k string) (any, bool) {
+					if rt, ok := i.RuntimeNodes[k]; ok {
+						if rt.Value.IsRight() {
+							val, _ := rt.Value.UnwrapRight()
+							return val, true
+						}
+					}
+					if v, ok := i.Variables[k]; ok {
+						return v, true
+					}
+					if v, ok := i.Constants[k]; ok {
+						return v, true
+					}
+					return nil, false
+				}
 
 				// Evaluate the left side completely
 				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
-					res := i.evaluatePipelineStr(pipelineStr)
+					res := i.EvaluateToValues(pipelineStr)
 					if len(res) > 0 {
-						i.Variables[varName] = res[0] // Bind to first result
+						val := res[0]
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					}
 				} else {
 					// Direct infix expression evaluation
-					lookup := func(k string) (any, bool) {
-						if v, ok := i.Variables[k]; ok {
-							return v, true
-						}
-						if v, ok := i.Constants[k]; ok {
-							return v, true
-						}
-						return nil, false
-					}
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
 						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					} else {
 						i.Variables[varName] = pipelineStr
 					}
@@ -1285,6 +1318,11 @@ func (i *Interpreter) EvaluateLine(line string) {
 				} else {
 					delete(i.Variables, varName)
 				}
+				if hadPrevNode {
+					i.RuntimeNodes[varName] = prevNode
+				} else {
+					delete(i.RuntimeNodes, varName)
+				}
 			}
 		} else {
 			// Top-level variable definition: let x = ...
@@ -1293,23 +1331,33 @@ func (i *Interpreter) EvaluateLine(line string) {
 				varName := strings.TrimSpace(defParts[0])
 				pipelineStr := strings.TrimSpace(defParts[1])
 
+				lookup := func(k string) (any, bool) {
+					if rt, ok := i.RuntimeNodes[k]; ok {
+						if rt.Value.IsRight() {
+							val, _ := rt.Value.UnwrapRight()
+							return val, true
+						}
+					}
+					if v, ok := i.Variables[k]; ok {
+						return v, true
+					}
+					if v, ok := i.Constants[k]; ok {
+						return v, true
+					}
+					return nil, false
+				}
+
 				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
-					res := i.evaluatePipelineStr(pipelineStr)
+					res := i.EvaluateToValues(pipelineStr)
 					if len(res) > 0 {
-						i.Variables[varName] = res[0]
+						val := res[0]
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					}
 				} else {
-					lookup := func(k string) (any, bool) {
-						if v, ok := i.Variables[k]; ok {
-							return v, true
-						}
-						if v, ok := i.Constants[k]; ok {
-							return v, true
-						}
-						return nil, false
-					}
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
 						i.Variables[varName] = fmt.Sprintf("%v", val)
+						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 					} else {
 						i.Variables[varName] = pipelineStr
 					}
