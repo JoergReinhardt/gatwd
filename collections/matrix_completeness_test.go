@@ -18,8 +18,10 @@ func TestBind_Collections(t *testing.T) {
 		t.Errorf("List.Bind = %s, want [1 1 2 2 3 3]", s)
 	}
 
-	// Chunk: flatMap appends in order.
-	c := NewChunk[int](8)
+	// Chunk: flatMap appends in order. The source capacity is deliberately small
+	// (2) while the result is larger (4) — Bind must size the result to hold every
+	// produced element rather than inheriting the source's fixed capacity.
+	c := NewChunk[int](2)
 	for _, n := range []int{1, 2} {
 		c.Append(n)
 	}
@@ -30,7 +32,7 @@ func TestBind_Collections(t *testing.T) {
 		return r
 	})
 	if cb.Len() != 4 {
-		t.Errorf("Chunk.Bind len = %d, want 4", cb.Len())
+		t.Errorf("Chunk.Bind len = %d, want 4 (must not truncate past source capacity)", cb.Len())
 	}
 
 	// Set: flatMap unions results (idempotent — overlaps collapse).
