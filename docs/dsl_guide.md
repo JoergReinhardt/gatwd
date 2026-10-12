@@ -355,6 +355,14 @@ spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> map (\x -> x * 10) |> collect_list 
 let xs = [1, 2, 3] in xs |> map (\x -> x + 5) |> assert [6 7 8]
 ```
 
+### Monadic FlatMap (`flatmap`)
+`flatmap (\x -> expr)` is the Monad bind: the lambda yields a collection per element, and the results are flattened into one. Over a `List` the per-element lists are concatenated; over a stream each element's result is flattened and re-emitted. (At the Go API level `Bind` is also available on `List`, `Chunk`, `Set`, `Either`, and `Variant`.)
+
+```haskell
+let xs = [1, 2, 3] in xs |> flatmap (\x -> [x, x]) |> assert [1 1 2 2 3 3]
+spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list |> assert [1 1 2 2]
+```
+
 ### Set Algebra Builtins
 Full mathematical set algebra with persistent structural sharing:
 * `set_union <other>`: Set-theoretic union ($A \cup B$).

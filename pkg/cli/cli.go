@@ -512,6 +512,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								continue
 							}
 
+							// If val is a HAMT: keep entries whose value satisfies the predicate.
+							if h, ok := val.(*collections.HAMT[string, any]); ok {
+								res := h.Filter(func(_ string, v any) bool { return keep(v, node.DSLType) })
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
 							// If val is a Tree: prune child subtrees by the predicate.
 							if tr, ok := val.(*collections.Tree[any]); ok {
 								res := tr.Filter(func(x any) bool { return keep(x, node.DSLType) })
@@ -1274,6 +1283,90 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				}
 			}
 			pipeline = append(pipeline, dynamicMatch)
+		} else if strings.HasPrefix(stepStr, "flatmap") {
+			// flatmap (\x -> expr): the Monad bind at the DSL level. Over a List the
+			// per-element results (themselves lists) are concatenated into one List;
+			// over a stream each element's result is flattened and emitted in turn.
+			lambda := strings.TrimSpace(stepStr[7:])
+			lambda = strings.TrimPrefix(lambda, "(")
+			lambda = strings.TrimSuffix(lambda, ")")
+			parts2 := strings.SplitN(lambda, "->", 2)
+			if len(parts2) == 2 {
+				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
+				exprBody := strings.TrimSpace(parts2[1])
+				evalElem := func(item any) any {
+					lookup := func(name string) (any, bool) {
+						if name == varName {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							v, _ := rt.Value.UnwrapRight()
+							return v, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if v, ok := i.Variables[name]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
+						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
+							return resVal
+						}
+					}
+					return item
+				}
+				toElems := func(v any) []any {
+					if l, ok := v.(*collections.List[any]); ok {
+						var out []any
+						for it := range l.Seq() {
+							out = append(out, it)
+						}
+						return out
+					}
+					if seq, ok := functions.ToSliceAny(v); ok {
+						return seq
+					}
+					return []any{v}
+				}
+				flatStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+							// flatmap over a List value: concat per-element results.
+							if l, ok := val.(*collections.List[any]); ok {
+								var all []any
+								for it := range l.Seq() {
+									all = append(all, toElems(evalElem(it))...)
+								}
+								res := collections.Nil[any]()
+								for idx := len(all) - 1; idx >= 0; idx-- {
+									res = collections.Cons(all[idx], res)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							// flatmap over a stream element: emit each flattened result.
+							for _, e := range toElems(evalElem(val)) {
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](e), node.DSLType)) {
+									return
+								}
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, flatStep)
+			}
 		} else if strings.HasPrefix(stepStr, "map") {
 			lambda := strings.TrimSpace(stepStr[3:])
 			lambda = strings.TrimPrefix(lambda, "(")

@@ -29,6 +29,28 @@ func (v Variant) MatchType(expected BitFlag) bool {
 	return v.Flag.Match(expected)
 }
 
+// Map applies f to the variant's payload, preserving its tag and flag. A tagged
+// union is a Functor over its payload, so Map is the covariant map that leaves
+// the branch identity (`Tag`/`Flag`) untouched and transforms only the carried
+// value. (Bimap is intentionally absent: a general tagged union has only one
+// type parameter, so it is not a Bifunctor.)
+func (v Variant) Map(f func(any) any) Variant {
+	return Variant{Tag: v.Tag, Flag: v.Flag, Value: f(v.Value)}
+}
+
+// Fold eliminates the variant by applying f to its tag and payload, collapsing
+// the structure to a single result — the catamorphism for a tagged union.
+func (v Variant) Fold(f func(tag string, payload any) any) any {
+	return f(v.Tag, v.Value)
+}
+
+// Bind (monadic flatMap) applies f to the payload and returns the Variant that f
+// produces. This is the Monad bind of a tagged union over its payload, allowing
+// a branch to be re-tagged based on its carried value.
+func (v Variant) Bind(f func(any) Variant) Variant {
+	return f(v.Value)
+}
+
 // String implements fmt.Stringer for clean output representation.
 func (v Variant) String() string {
 	if v.Value == nil {

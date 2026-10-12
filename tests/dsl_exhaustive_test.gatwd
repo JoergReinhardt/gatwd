@@ -241,3 +241,11 @@ let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit 
 spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> reject (\x -> x > 4) |> tree_size |> assert 3
 spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> filter (\x -> x > 4) |> tree_size |> assert 3
 
+-- 61. flatMap / bind: monadic flatten over List and stream
+let fl = [1, 2, 3] in fl |> flatmap (\x -> [x, x]) |> assert [1 1 2 2 3 3]
+spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list |> assert [1 1 2 2]
+
+-- 62. HAMT.Filter / Reject wired to the DSL (filter entries by value)
+let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
+let hr = spawn S: x |> emit a:no, b:yes, c:no |> drop 1 |> to_hamt |> reject (\x -> x == "no") |> hamt_keys |> collect_list in hr |> assert [b]
+

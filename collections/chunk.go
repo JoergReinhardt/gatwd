@@ -165,6 +165,25 @@ func (c *Chunk[T]) Reject(predicate func(T) bool) *Chunk[T] {
 	return c.Filter(func(x T) bool { return !predicate(x) })
 }
 
+// Bind (monadic flatMap) applies f to each element — where f itself yields a
+// Chunk — and appends the results in order into a single contiguous Chunk.
+func (c *Chunk[T]) Bind(f func(T) *Chunk[T]) *Chunk[T] {
+	res := NewChunk[T](c.size)
+	if c == nil {
+		return res
+	}
+	for _, item := range c.items {
+		sub := f(item)
+		if sub == nil {
+			continue
+		}
+		for _, v := range sub.items {
+			res.Append(v)
+		}
+	}
+	return res
+}
+
 // Equal returns true if c and other have identical elements in the same order.
 func (c *Chunk[T]) Equal(other *Chunk[T]) bool {
 	if c == other {

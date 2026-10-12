@@ -6,7 +6,7 @@ This document breaks down the major packages and abstractions that form the acti
 
 ## 1. Layer 0: `functions/` (Foundational Functional Primitives)
 The foundational mathematical primitives:
-- **`Either[L, R]`**: Standard sum-type container for functional error handling. Left represents errors/failures, Right represents valid values. Provides `Left()`, `Right()`, `IsLeft()`, `IsRight()`, `UnwrapLeft()`, `UnwrapRight()`, `Map()`, `MapLeft()`, `Bimap()`, `Fold()`, and `Equal()`.
+- **`Either[L, R]`**: Standard sum-type container for functional error handling. Left represents errors/failures, Right represents valid values. Provides `Left()`, `Right()`, `IsLeft()`, `IsRight()`, `UnwrapLeft()`, `UnwrapRight()`, `Map()`, `MapLeft()`, `Bimap()`, `Fold()`, `Bind()` (railway-oriented short-circuiting), and `Equal()`.
 - **`Pair[A, B]`**: Immutable 2-element product type (2-tuple) with `Fst`, `Snd`, `Map()`, `MapFst()`, `Bimap()`, `Fold()`, and `Equal()`.
 - **`Option[T]` / `Maybe[T]`**: Functional optional container (`Just` / `Nothing`) with `Map()`, `Bind()`, `Fold()`, `Filter()`, and `Equal()`.
 - **Operators & Ordering (`Compare`, `StructuralEqual`, `EvalBinaryOp`)**: Total ordering comparison across scalars, strings, pairs, and sequences; order-independent mathematical set equality, HAMT key-value equality, and overloaded monoidal concatenation (`++`).
@@ -17,11 +17,11 @@ The foundational mathematical primitives:
 ## 2. Layer 1: `collections/` (Persistent Data Structures)
 Purely functional, persistent data structures with structural sharing (all implement `Graphable` for the visualizer):
 - **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping, `Merge()` (union), `Intersect()`, `Diff()` (keyed set algebra), `Equal()`, `MapValues()`, `Fold()`, `Filter()`, and `Reject()`. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `FoldLeft()`, `FoldRight()`, `Filter()`, `Reject()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `Bind()` (flatMap), `FoldLeft()`, `FoldRight()`, `Filter()`, `Reject()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
 - **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `AddChild()`, `Size()`, `Depth()`, `Flatten()`, `FlattenChunk()`, `Map()`, `Fold()` bottom-up catamorphism, `Filter()`/`Reject()` subtree pruning, `Equal()`). Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Fold()`, `Filter()`, and `Reject()`.
+- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Bind()` (idempotent flatMap), `Fold()`, `Filter()`, and `Reject()`.
 - **`Map[K, V]`**: Persistent dictionary backed by `HAMT[K, V]`, implementing `Graphable`.
-- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Reverse()`, `Slice()`, `Map()`, `Fold()`, `Filter()`, `Reject()`, and `Equal()`. Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, and `sql.Scanner`.
+- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Reverse()`, `Slice()`, `Map()`, `Bind()` (flatMap), `Fold()`, `Filter()`, `Reject()`, and `Equal()`. Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, and `sql.Scanner`.
 
 ---
 
@@ -54,7 +54,7 @@ Purely functional, persistent data structures with structural sharing (all imple
 ---
 
 ## 6. Layer 5: Language & Tooling
-- **`dsltypes/`**: `BitFlag` dynamic quasi-type system and `ASTNode[T]` host-guest bridge (implementing `fmt.Stringer`).
+- **`dsltypes/`**: `BitFlag` dynamic quasi-type system, `ASTNode[T]` host-guest bridge (implementing `fmt.Stringer`), and `Variant` tagged-union values with full Functor (`Map`), catamorphism (`Fold`), and Monad (`Bind`) instances over the payload, plus `SumTypeDefinition` branch tracking.
 - **`parser/`**: Monadic parser combinators and syntax analyzers. Sum-type awareness is exposed via `IsConstructor(name)`, `MakeVariant(type, value)` (boxes a branch as a `dsltypes.Variant`), and `SumTypeOf(branch)` (the declaring type plus all its branches) — used by the `match` evaluator for constructor discrimination and by `--check` for exhaustiveness.
 - **`pkg/cli/`**: The `Interpreter` combining the parser, engine, runtime scopes, macro expansions (`def`), local bindings (`let`), script constants (`const`), and host Go constant registrations (`RegisterConstant`). Provides `NewBareInterpreter()` (Bare Runtime), `NewInterpreter()` (Gatwd Builtins), `NewEdition()` (fluent distribution builder), `NewAppliance()` (hot-reloadable appliance constructor with `atomic.Pointer`), and ergonomic step helpers (`MapStep`, `FilterStep`, `ArgStep`, `SinkStep`). First-class lambda functions (`def f = \x -> …` applied in pipeline position), loud errors for unknown steps (`[ERROR] unknown step or command`), and a static `--check` validator (structural errors + non-exhaustive-`match` warnings over logical statements assembled by the shared `logicalLines` helper).
 

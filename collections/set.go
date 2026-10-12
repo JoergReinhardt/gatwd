@@ -212,6 +212,26 @@ func (s *Set[T]) Reject(predicate func(T) bool) *Set[T] {
 	return s.Filter(func(x T) bool { return !predicate(x) })
 }
 
+// Bind (monadic flatMap) applies f to each element — where f itself yields a
+// Set — and unions the results into a single Set (duplicates collapse, as the
+// Set monad is idempotent).
+func (s *Set[T]) Bind(f func(T) *Set[T]) *Set[T] {
+	res := NewSet[T]()
+	if s == nil || s.hamt == nil {
+		return res
+	}
+	for item := range s.Seq() {
+		sub := f(item)
+		if sub == nil {
+			continue
+		}
+		for v := range sub.Seq() {
+			res = res.Add(v)
+		}
+	}
+	return res
+}
+
 // ElementsAny returns all elements in the set as a slice of any.
 func (s *Set[T]) ElementsAny() []any {
 	if s == nil || s.hamt == nil {

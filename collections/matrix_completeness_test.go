@@ -1,6 +1,45 @@
 package collections
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
+
+// TestBind_Collections covers the monadic flatMap (Bind) added to the collection
+// types so they are no longer second-class monads next to Maybe and streams.
+func TestBind_Collections(t *testing.T) {
+	// List: duplicate each element, preserving order.
+	l := Nil[int]()
+	for i := 3; i >= 1; i-- {
+		l = Cons(i, l) // 1 2 3
+	}
+	got := l.Bind(func(n int) *List[int] { return Cons(n, Cons(n, Nil[int]())) })
+	if s := fmt.Sprint(got); s != "[1 1 2 2 3 3]" {
+		t.Errorf("List.Bind = %s, want [1 1 2 2 3 3]", s)
+	}
+
+	// Chunk: flatMap appends in order.
+	c := NewChunk[int](8)
+	for _, n := range []int{1, 2} {
+		c.Append(n)
+	}
+	cb := c.Bind(func(n int) *Chunk[int] {
+		r := NewChunk[int](2)
+		r.Append(n)
+		r.Append(n * 10)
+		return r
+	})
+	if cb.Len() != 4 {
+		t.Errorf("Chunk.Bind len = %d, want 4", cb.Len())
+	}
+
+	// Set: flatMap unions results (idempotent — overlaps collapse).
+	s := NewSet[int]().Add(1).Add(2)
+	sb := s.Bind(func(n int) *Set[int] { return NewSet[int]().Add(n).Add(0) })
+	if sb.Len() != 3 { // {1,2,0}
+		t.Errorf("Set.Bind len = %d, want 3", sb.Len())
+	}
+}
 
 // TestHAMT_IntersectDiff covers the keyed set-algebra added to HAMT so it reaches
 // parity with Set (which already had Union/Intersect/Diff).
