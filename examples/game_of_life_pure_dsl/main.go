@@ -276,8 +276,9 @@ func main() {
 			break
 		}
 
-		// Advance one generation purely via Gatwd DSL conway_step invocation!
-		interp.EvaluateLine("let live = live |> conway_step")
+		// Advance one generation purely via Gatwd DSL conway_step invocation, on a
+		// width x height torus so the board stays bounded and keeps wrapping.
+		interp.EvaluateLine(fmt.Sprintf("let live = [live, %d, %d] |> conway_step", width, height))
 
 		elapsed := time.Since(startTime)
 		if elapsed < stepDuration {

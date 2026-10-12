@@ -19,25 +19,25 @@ The rule is defined **once**, in `game_of_life.gatwd`. The viewer loads that sam
 Two definitions in [`game_of_life.gatwd`](game_of_life.gatwd):
 
 ```gatwd
--- One B3/S23 generation over a sparse set of live [x, y] cells.
+-- One B3/S23 generation on a w x h torus (neighbour coords taken modulo the grid).
 def conway_step = match {
-    live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+    [live, w, h] -> let nbrs = [[((x + dx) % w + w) % w, ((y + dy) % h + h) % h] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
             in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list
             in let births = [pt | [pt, cnt] <- pairs, cnt == 3]
             in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
             in births ++ survivors
 }
 
--- Iterate conway_step n times, purely by recursion (same shape as ackermann).
+-- Iterate conway_step n times on a w x h torus, purely by recursion (ackermann-shaped).
 def evolve = match {
-    [state, 0] -> state
-    | [state, n] -> let next = state |> to_chunk |> conway_step in [next, n - 1] |> evolve
+    [state, 0, w, h] -> state
+    | [state, n, w, h] -> let next = [state, w, h] |> conway_step in [next, n - 1, w, h] |> evolve
 }
 ```
 
-A board is a sparse list of live coordinate pairs on an unbounded integer plane: births are empty cells with exactly 3 live neighbours; survivors are live cells with exactly 2 (cells with 3 already appear as births, giving standard B3/S23).
+A board is a sparse list of live coordinate pairs; births are empty cells with exactly 3 live neighbours, survivors are live cells with exactly 2 (cells with 3 already appear as births, giving standard B3/S23).
 
-**Why `to_chunk`:** a value bound by a `match` pattern flows as a *stream* of its elements, so piping the board straight into `conway_step` would apply the rule cell-by-cell. `to_chunk` re-collapses the streamed state into a single board before each step. (At the top level, `let live = …` already binds a whole board, which is why single-step use needs no `to_chunk`.)
+**Bounded torus.** Neighbour coordinates are reduced modulo `w`/`h`, so the world is a finite `w x h` torus: the board stays within `[0,w) x [0,h)` and wraps at the edges instead of drifting outward forever. This keeps it lively indefinitely — an earlier unbounded version let expanding patterns drift into a region where the sparse rule misbehaved, and they collapsed after ~130 generations.
 
 ---
 
@@ -47,10 +47,10 @@ A board is a sparse list of live coordinate pairs on an unbounded integer plane:
 ```bash
 go run ./examples/game_of_life_pure_dsl
 ```
-Infinite real-time animation rendered in UTF-8 braille sub-pixels, each generation computed by the DSL (`let live = live |> conway_step`).
+Infinite real-time animation rendered in UTF-8 braille sub-pixels, each generation computed by the DSL (`let live = [live, w, h] |> conway_step` on the 64×42 torus).
 
 ### Define the startup grid by file
-The startup grid is a pure-gatwd file that binds `live`. The shipped default is [`patterns/edna.gatwd`](patterns/edna.gatwd) — the **Edna** methuselah (149 cells, lifespan 31,192 generations; from [gameoflifelab.com/patterns](https://www.gameoflifelab.com/patterns)), decoded from its canonical RLE and **pre-centered in the 64×42 frame so it has room to expand** (patterns seeded at the origin can collapse).
+The startup grid is a pure-gatwd file that binds `live`. The shipped default is [`patterns/edna.gatwd`](patterns/edna.gatwd) — the **Edna** methuselah (149 cells, lifespan 31,192 generations; from [gameoflifelab.com/patterns](https://www.gameoflifelab.com/patterns)), decoded from its canonical RLE and **centered in the 64×42 torus**.
 ```bash
 # Use a different startup-grid file (any .gatwd that binds `live`)
 go run ./examples/game_of_life_pure_dsl -pattern path/to/grid.gatwd
@@ -81,6 +81,6 @@ gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd    # asserts blinker per
 
 ## Notes
 
-- **Sparse, unbounded plane.** The rule uses integer coordinates with no array/grid; the `-width`/`-height` "frame" is a rendering window (toroidal by default), not a limit on the computation.
-- **Room to expand.** Seed patterns away from the origin (the shipped files are centered) so an expanding pattern has space; a pattern crowded at the origin can die prematurely.
+- **Bounded torus.** The rule is a sparse coordinate set wrapped modulo the grid, so the world is a finite `w x h` torus with no array allocation. `-width`/`-height` set that torus (default 64×42); the viewer injects them into the rule, so the simulation and the rendered frame always match.
+- **Why toroidal.** An earlier unbounded-plane version let expanding patterns drift into a region where the sparse rule misbehaved, collapsing a methuselah like Edna to zero after ~130 generations. Wrapping keeps coordinates bounded and the board lively indefinitely.
 - **Single source of truth.** `main.go` loads `conway_step` from `game_of_life.gatwd`; the physics is never duplicated in Go.
