@@ -18,9 +18,13 @@ func ExampleCombinator_parseFanOut() {
 		break
 	}
 
-	fmt.Print(visualizer.Format(map[string]string{
-		"LeftArrow":  left,
-		"RightArrow": right,
+	type Record struct {
+		LeftArrow  string
+		RightArrow string
+	}
+	fmt.Print(visualizer.Format(Record{
+		LeftArrow:  left,
+		RightArrow: right,
 	}, opts))
 
 	// Output:

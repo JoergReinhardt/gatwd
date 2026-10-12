@@ -1,6 +1,9 @@
 package collections
 
-import "iter"
+import (
+	"iter"
+	"reflect"
+)
 
 // Tree represents an immutable, persistent Rose Tree.
 //
@@ -66,6 +69,81 @@ func (t *Tree[T]) WalkDepthFirst() iter.Seq[T] {
 			}
 		}
 	}
+}
+
+// Map applies f to the value of this node and recursively to all children.
+func (t *Tree[T]) Map(f func(T) T) *Tree[T] {
+	if t == nil {
+		return nil
+	}
+	var newChildrenList *List[*Tree[T]] = Nil[*Tree[T]]()
+	if t.children != nil && !t.children.IsEmpty() {
+		var mappedChildren []*Tree[T]
+		for child := range t.children.Seq() {
+			mappedChildren = append(mappedChildren, child.Map(f))
+		}
+		for i := len(mappedChildren) - 1; i >= 0; i-- {
+			newChildrenList = Cons(mappedChildren[i], newChildrenList)
+		}
+	}
+	return NewTree[T](f(t.value), newChildrenList)
+}
+
+// Fold evaluates the tree bottom-up via catamorphism: each node combines its value
+// and the folded results of all its children.
+func (t *Tree[T]) Fold(f func(val T, childResults []any) any) any {
+	if t == nil {
+		return nil
+	}
+	var childResults []any
+	if t.children != nil {
+		for child := range t.children.Seq() {
+			childResults = append(childResults, child.Fold(f))
+		}
+	}
+	return f(t.value, childResults)
+}
+
+// Equal returns true if t and other are structurally equal (matching values and children).
+func (t *Tree[T]) Equal(other *Tree[T]) bool {
+	if t == other {
+		return true
+	}
+	if t == nil || other == nil {
+		return false
+	}
+	if !reflect.DeepEqual(t.value, other.value) {
+		return false
+	}
+	tChildLen := 0
+	if t.children != nil {
+		tChildLen = t.children.Len()
+	}
+	oChildLen := 0
+	if other.children != nil {
+		oChildLen = other.children.Len()
+	}
+	if tChildLen != oChildLen {
+		return false
+	}
+	if tChildLen == 0 {
+		return true
+	}
+	c1 := t.children
+	c2 := other.children
+	for c1 != nil && !c1.IsEmpty() && c2 != nil && !c2.IsEmpty() {
+		if !c1.head.Equal(c2.head) {
+			return false
+		}
+		c1 = c1.tail
+		c2 = c2.tail
+	}
+	return true
+}
+
+// IsTree implements a marker method for type introspection.
+func (t *Tree[T]) IsTree() bool {
+	return true
 }
 
 // Graph exposes the internal structure for generic UTF-8 Tree visualizations

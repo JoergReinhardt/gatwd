@@ -7,6 +7,7 @@ import (
 	"hash/maphash"
 	"iter"
 	"math/bits"
+	"reflect"
 )
 
 var defaultHAMTSeed = maphash.MakeSeed()
@@ -336,6 +337,99 @@ func (h *HAMT[K, V]) Values() iter.Seq[V] {
 			}
 		}
 	}
+}
+
+// Merge returns a new HAMT containing all mappings from h and other.
+// If keys collide, values from other take precedence (right-biased merge).
+func (h *HAMT[K, V]) Merge(other *HAMT[K, V]) *HAMT[K, V] {
+	if h == nil || h.root == nil {
+		if other == nil {
+			return NewHAMT[K, V]()
+		}
+		return other
+	}
+	if other == nil || other.root == nil {
+		return h
+	}
+	res := h
+	for k, v := range other.Seq() {
+		res = res.Set(k, v)
+	}
+	return res
+}
+
+// Equal returns true if h and other have identical keys and values.
+func (h *HAMT[K, V]) Equal(other *HAMT[K, V]) bool {
+	if h == other {
+		return true
+	}
+	hLen := 0
+	if h != nil {
+		hLen = h.Len()
+	}
+	oLen := 0
+	if other != nil {
+		oLen = other.Len()
+	}
+	if hLen != oLen {
+		return false
+	}
+	if hLen == 0 {
+		return true
+	}
+	for k, v := range h.Seq() {
+		otherVal, exists := other.Get(k)
+		if !exists {
+			return false
+		}
+		if !reflect.DeepEqual(v, otherVal) {
+			return false
+		}
+	}
+	return true
+}
+
+// MapValues returns a new HAMT where each value has been transformed by f.
+func (h *HAMT[K, V]) MapValues(f func(V) V) *HAMT[K, V] {
+	res := NewHAMT[K, V]()
+	if h == nil || h.root == nil {
+		return res
+	}
+	for k, v := range h.Seq() {
+		res = res.Set(k, f(v))
+	}
+	return res
+}
+
+// Fold reduces all key-value pairs of the HAMT using the accumulator function f.
+func (h *HAMT[K, V]) Fold(initial any, f func(acc any, k K, v V) any) any {
+	acc := initial
+	if h == nil || h.root == nil {
+		return acc
+	}
+	for k, v := range h.Seq() {
+		acc = f(acc, k, v)
+	}
+	return acc
+}
+
+// Filter returns a new HAMT containing only the key-value pairs satisfying predicate.
+func (h *HAMT[K, V]) Filter(predicate func(K, V) bool) *HAMT[K, V] {
+	res := NewHAMT[K, V]()
+	if h == nil || h.root == nil {
+		return res
+	}
+	for k, v := range h.Seq() {
+		if predicate(k, v) {
+			res = res.Set(k, v)
+		}
+	}
+	return res
+}
+
+// IsHAMT implements a marker method for type introspection.
+func (h *HAMT[K, V]) IsHAMT() bool {
+	return true
 }
 
 // MarshalJSON implements json.Marshaler.

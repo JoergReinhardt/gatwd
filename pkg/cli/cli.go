@@ -182,6 +182,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 
 		// Variable Substitution
 		for k, v := range i.Variables {
+			if _, isRt := i.RuntimeNodes[k]; isRt {
+				continue
+			}
 			// Naive word replacement for variables
 			words := strings.Split(stepStr, " ")
 			for idx, w := range words {
@@ -547,6 +550,102 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "set_remove ") {
 			item := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
 			pipeline = append(pipeline, evaluator.StepSetRemove(item))
+		} else if strings.HasPrefix(stepStr, "set_union") {
+			operandStr := strings.TrimSpace(stepStr[9:])
+			if operandStr == "" {
+				pipeline = append(pipeline, evaluator.StepSetUnion())
+			} else {
+				lookup := func(k string) (any, bool) {
+					if rt, ok := i.RuntimeNodes[k]; ok {
+						v, _ := rt.Value.UnwrapRight()
+						return v, true
+					}
+					if v, ok := i.Constants[k]; ok {
+						return v, true
+					}
+					if v, ok := i.Variables[k]; ok {
+						return v, true
+					}
+					return nil, false
+				}
+				if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+					pipeline = append(pipeline, evaluator.StepSetUnion(evaled))
+				} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					pipeline = append(pipeline, evaluator.StepSetUnion(v))
+				} else {
+					pipeline = append(pipeline, evaluator.StepSetUnion(operandStr))
+				}
+			}
+		} else if strings.HasPrefix(stepStr, "set_intersect ") {
+			operandStr := strings.TrimSpace(stepStr[14:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetIntersect(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(operandStr))
+			}
+		} else if strings.HasPrefix(stepStr, "set_diff ") {
+			operandStr := strings.TrimSpace(stepStr[9:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetDiff(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetDiff(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetDiff(operandStr))
+			}
+		} else if strings.HasPrefix(stepStr, "hamt_merge ") {
+			operandStr := strings.TrimSpace(stepStr[11:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepHAMTMerge(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepHAMTMerge(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepHAMTMerge(operandStr))
+			}
 		} else if stepStr == "set_elements" {
 			pipeline = append(pipeline, evaluator.StepSetElements())
 		} else if strings.HasPrefix(stepStr, "write_file") {
@@ -841,12 +940,186 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			lambda = strings.TrimSuffix(lambda, ")")
 			parts2 := strings.SplitN(lambda, "->", 2)
 			if len(parts2) == 2 {
-				innerStr := strings.TrimSpace(parts2[1])
 				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
-				if varName != "" {
-					innerStr = strings.ReplaceAll(innerStr, varName, "%s")
+				exprBody := strings.TrimSpace(parts2[1])
+
+				evalElem := func(item any, dslType dsltypes.BitFlag) (any, error) {
+					lookup := func(name string) (any, bool) {
+						if name == varName {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							v, _ := rt.Value.UnwrapRight()
+							return v, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if v, ok := i.Variables[name]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					// 1. Try Infix parser
+					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
+						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
+							return resVal, nil
+						}
+					}
+					// 2. Try sub-pipeline evaluation
+					childInterp := &Interpreter{
+						Engine:         i.Engine,
+						EnableBuiltins: i.EnableBuiltins,
+						Funcs:          i.Funcs,
+						RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
+						Variables:      make(map[string]string),
+						Constants:      i.Constants,
+						CustomSteps:    i.CustomSteps,
+					}
+					for k, v := range i.Variables {
+						childInterp.Variables[k] = v
+					}
+					for k, v := range i.RuntimeNodes {
+						childInterp.RuntimeNodes[k] = v
+					}
+					childInterp.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](item), dslType)
+					childInterp.Variables[varName] = fmt.Sprintf("%v", item)
+
+					subParts, _ := splitPipelineAware(exprBody)
+					subPipeline := childInterp.parsePipelineSteps(subParts)
+					singleton := func(subYield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						subYield(dsltypes.NewASTNode(functions.Right[error, any](item), dslType))
+					}
+					subRes := childInterp.Engine.EvaluatePipeline(singleton, subPipeline)
+					for r := range subRes {
+						if r.Value.IsRight() {
+							v, _ := r.Value.UnwrapRight()
+							return v, nil
+						} else {
+							err, _ := r.Value.UnwrapLeft()
+							return nil, err
+						}
+					}
+					return item, nil
 				}
-				subParts, _ := splitPipelineAware(innerStr)
+
+				mapStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+
+							// If val is a List collection:
+							if l, ok := val.(*collections.List[any]); ok {
+								var newItems []any
+								for it := range l.Seq() {
+									mVal, _ := evalElem(it, node.DSLType)
+									newItems = append(newItems, mVal)
+								}
+								resList := collections.Nil[any]()
+								for idx := len(newItems) - 1; idx >= 0; idx-- {
+									resList = collections.Cons(newItems[idx], resList)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if _, isList := val.(interface{ IsList() bool }); isList {
+								if seq, okSeq := functions.ToSliceAny(val); okSeq {
+									var newItems []any
+									for _, it := range seq {
+										mVal, _ := evalElem(it, node.DSLType)
+										newItems = append(newItems, mVal)
+									}
+									resList := collections.Nil[any]()
+									for idx := len(newItems) - 1; idx >= 0; idx-- {
+										resList = collections.Cons(newItems[idx], resList)
+									}
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
+										return
+									}
+									continue
+								}
+							}
+
+							// If val is a Chunk:
+							if c, ok := val.(*collections.Chunk[any]); ok {
+								resChunk := collections.NewChunk[any](c.Capacity())
+								for _, it := range c.Items() {
+									mVal, _ := evalElem(it, node.DSLType)
+									resChunk.Append(mVal)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if _, isChunk := val.(interface{ IsChunk() bool }); isChunk {
+								if seq, okSeq := functions.ToSliceAny(val); okSeq {
+									resChunk := collections.NewChunk[any](len(seq))
+									for _, it := range seq {
+										mVal, _ := evalElem(it, node.DSLType)
+										resChunk.Append(mVal)
+									}
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
+										return
+									}
+									continue
+								}
+							}
+
+							// If val is a Set:
+							if _, isSet := val.(interface{ IsSet() bool }); isSet {
+								if seq, okSeq := functions.ToSliceAny(val); okSeq {
+									resSet := collections.NewSet[any]()
+									for _, it := range seq {
+										mVal, _ := evalElem(it, node.DSLType)
+										resSet = resSet.Add(mVal)
+									}
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
+										return
+									}
+									continue
+								}
+							}
+
+							// If val is a standard Go slice:
+							if sl, okSl := val.([]any); okSl {
+								var newSl []any
+								for _, it := range sl {
+									mVal, _ := evalElem(it, node.DSLType)
+									newSl = append(newSl, mVal)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newSl)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// Scalar / individual stream node
+							resVal, errEval := evalElem(val, node.DSLType)
+							if errEval != nil {
+								if !yield(evaluator.InjectError[any](errEval, node.DSLType)) {
+									return
+								}
+							} else {
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](resVal), node.DSLType)) {
+									return
+								}
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, mapStep)
+			} else {
+				targetStr := strings.TrimSpace(lambda)
+				subParts, _ := splitPipelineAware(targetStr)
 				subPipeline := i.parsePipelineSteps(subParts)
 				pipeline = append(pipeline, evaluator.StepMap(subPipeline, i.Engine))
 			}
@@ -1050,6 +1323,15 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		}
 	}
 
+	if strings.HasPrefix(firstPart, "(") || (strings.ContainsAny(firstPart, "+-*/%&|<>= ") && !strings.HasPrefix(firstPart, "emit ")) {
+		if val, err := parser.EvalInfixString(firstPart, lookup); err == nil {
+			flag := i.Parser.GetFlag("Variable")
+			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+				yield(dsltypes.NewASTNode(functions.Right[error, any](val), flag))
+			}
+		}
+	}
+
 	stringStream := i.Parser.Parse(firstPart)
 	return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 		for node := range stringStream {
@@ -1089,8 +1371,12 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 					return nil, false
 				}
 
-				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
-					res := i.EvaluateToValues(pipelineStr)
+				cleanPipeline := pipelineStr
+				if strings.HasPrefix(cleanPipeline, "(") && strings.HasSuffix(cleanPipeline, ")") {
+					cleanPipeline = strings.TrimSpace(cleanPipeline[1 : len(cleanPipeline)-1])
+				}
+				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
+					res := i.EvaluateToValues(cleanPipeline)
 					if len(res) > 0 {
 						val := res[0]
 						i.Variables[varName] = fmt.Sprintf("%v", val)
@@ -1292,8 +1578,12 @@ func (i *Interpreter) EvaluateLine(line string) {
 				}
 
 				// Evaluate the left side completely
-				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
-					res := i.EvaluateToValues(pipelineStr)
+				cleanPipeline := pipelineStr
+				if strings.HasPrefix(cleanPipeline, "(") && strings.HasSuffix(cleanPipeline, ")") {
+					cleanPipeline = strings.TrimSpace(cleanPipeline[1 : len(cleanPipeline)-1])
+				}
+				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
+					res := i.EvaluateToValues(cleanPipeline)
 					if len(res) > 0 {
 						val := res[0]
 						i.Variables[varName] = fmt.Sprintf("%v", val)
@@ -1347,8 +1637,12 @@ func (i *Interpreter) EvaluateLine(line string) {
 					return nil, false
 				}
 
-				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
-					res := i.EvaluateToValues(pipelineStr)
+				cleanPipeline := pipelineStr
+				if strings.HasPrefix(cleanPipeline, "(") && strings.HasSuffix(cleanPipeline, ")") {
+					cleanPipeline = strings.TrimSpace(cleanPipeline[1 : len(cleanPipeline)-1])
+				}
+				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
+					res := i.EvaluateToValues(cleanPipeline)
 					if len(res) > 0 {
 						val := res[0]
 						i.Variables[varName] = fmt.Sprintf("%v", val)

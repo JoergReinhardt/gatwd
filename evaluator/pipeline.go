@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"iter"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -262,26 +263,292 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 }
 
 // StepFold collapses a stream of nodes into a single scalar value.
-// E.g., counting elements, summing values.
+// Supports: "count", "len", "length", "sum", "product", "prod", "min", "max", "concat", "any", "or", "all", "and".
 func StepFold(operation string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			count := 0
+			op := strings.ToLower(strings.TrimSpace(operation))
+			var items []any
 			var lastFlag dsltypes.BitFlag
+			count := 0
 			for node := range stream {
 				if node.Value.IsLeft() {
 					continue
 				} // Skip errors in fold
+				val, _ := node.Value.UnwrapRight()
+				items = append(items, val)
 				count++
 				lastFlag = node.DSLType
 			}
 
-			if operation == "count" {
+			switch op {
+			case "count", "len", "length":
 				val := functions.Right[error, any](fmt.Sprintf("%d", count))
 				yield(dsltypes.NewASTNode(val, lastFlag))
-			} else {
+
+			case "sum":
+				var acc any = int64(0)
+				for _, it := range items {
+					var err error
+					acc, err = functions.EvalBinaryOp(functions.OpAdd, acc, it)
+					if err != nil {
+						yield(InjectError[any](fmt.Errorf("fold sum error: %w", err), lastFlag))
+						return
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
+
+			case "product", "prod":
+				var acc any = int64(1)
+				for _, it := range items {
+					var err error
+					acc, err = functions.EvalBinaryOp(functions.OpMul, acc, it)
+					if err != nil {
+						yield(InjectError[any](fmt.Errorf("fold product error: %w", err), lastFlag))
+						return
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
+
+			case "min":
+				if len(items) == 0 {
+					yield(InjectError[any](fmt.Errorf("fold min on empty stream"), lastFlag))
+					return
+				}
+				minVal := items[0]
+				for _, it := range items[1:] {
+					c, err := functions.Compare(it, minVal)
+					if err == nil && c < 0 {
+						minVal = it
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](minVal), lastFlag))
+
+			case "max":
+				if len(items) == 0 {
+					yield(InjectError[any](fmt.Errorf("fold max on empty stream"), lastFlag))
+					return
+				}
+				maxVal := items[0]
+				for _, it := range items[1:] {
+					c, err := functions.Compare(it, maxVal)
+					if err == nil && c > 0 {
+						maxVal = it
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](maxVal), lastFlag))
+
+			case "concat":
+				if len(items) == 0 {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](any("")), lastFlag))
+					return
+				}
+				acc := items[0]
+				for _, it := range items[1:] {
+					var err error
+					acc, err = functions.EvalBinaryOp(functions.OpConcat, acc, it)
+					if err != nil {
+						yield(InjectError[any](fmt.Errorf("fold concat error: %w", err), lastFlag))
+						return
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
+
+			case "any", "or":
+				res := false
+				for _, it := range items {
+					if b, ok := it.(bool); ok {
+						if b {
+							res = true
+							break
+						}
+					} else if s, ok := it.(string); ok {
+						if s != "" && s != "0" && s != "false" {
+							res = true
+							break
+						}
+					} else if functions.IsNumeric(it) {
+						if f, ok := functions.ToFloat64(it); ok && f != 0 {
+							res = true
+							break
+						}
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), lastFlag))
+
+			case "all", "and":
+				res := true
+				for _, it := range items {
+					truthy := false
+					if b, ok := it.(bool); ok {
+						truthy = b
+					} else if s, ok := it.(string); ok {
+						truthy = s != "" && s != "0" && s != "false"
+					} else if functions.IsNumeric(it) {
+						if f, ok := functions.ToFloat64(it); ok {
+							truthy = f != 0
+						}
+					}
+					if !truthy {
+						res = false
+						break
+					}
+				}
+				yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), lastFlag))
+
+			default:
 				errNode := InjectError[any](fmt.Errorf("Unknown fold operation: %s", operation), lastFlag)
 				yield(errNode)
+			}
+		}
+	}
+}
+
+// StepSetUnion unions incoming Set with operand sets or accumulates a stream of sets.
+func StepSetUnion(operand ...any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				if len(operand) > 0 {
+					res, err := functions.EvalBinaryOp(functions.OpConcat, val, operand[0])
+					if err != nil {
+						yield(InjectError[any](fmt.Errorf("set_union error: %w", err), node.DSLType))
+						return
+					}
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)) {
+						return
+					}
+				} else {
+					if !yield(node) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// StepSetIntersect computes the intersection of incoming Set with other.
+func StepSetIntersect(other any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				rvVal := reflect.ValueOf(val)
+				mIntersect := rvVal.MethodByName("Intersect")
+				if mIntersect.IsValid() && other != nil && reflect.TypeOf(other).AssignableTo(mIntersect.Type().In(0)) {
+					out := mIntersect.Call([]reflect.Value{reflect.ValueOf(other)})
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](out[0].Interface()), node.DSLType)) {
+						return
+					}
+				} else {
+					elemsA, okA := functions.ToSliceAny(val)
+					elemsB, okB := functions.ToSliceAny(other)
+					if okA && okB {
+						resSet := collections.NewSet[any]()
+						for _, ea := range elemsA {
+							for _, eb := range elemsB {
+								if functions.StructuralEqual(ea, eb) {
+									resSet = resSet.Add(ea)
+									break
+								}
+							}
+						}
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
+							return
+						}
+					} else {
+						yield(InjectError[any](fmt.Errorf("set_intersect: expected Set, got %T and %T", val, other), node.DSLType))
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// StepSetDiff computes the relative complement of incoming Set minus other.
+func StepSetDiff(other any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				rvVal := reflect.ValueOf(val)
+				mDiff := rvVal.MethodByName("Diff")
+				if mDiff.IsValid() && other != nil && reflect.TypeOf(other).AssignableTo(mDiff.Type().In(0)) {
+					out := mDiff.Call([]reflect.Value{reflect.ValueOf(other)})
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](out[0].Interface()), node.DSLType)) {
+						return
+					}
+				} else {
+					elemsA, okA := functions.ToSliceAny(val)
+					elemsB, okB := functions.ToSliceAny(other)
+					if okA && okB {
+						resSet := collections.NewSet[any]()
+						for _, ea := range elemsA {
+							found := false
+							for _, eb := range elemsB {
+								if functions.StructuralEqual(ea, eb) {
+									found = true
+									break
+								}
+							}
+							if !found {
+								resSet = resSet.Add(ea)
+							}
+						}
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
+							return
+						}
+					} else {
+						yield(InjectError[any](fmt.Errorf("set_diff: expected Set, got %T and %T", val, other), node.DSLType))
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// StepHAMTMerge merges incoming HAMT with other.
+func StepHAMTMerge(other any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				res, err := functions.EvalBinaryOp(functions.OpConcat, val, other)
+				if err != nil {
+					yield(InjectError[any](fmt.Errorf("hamt_merge error: %w", err), node.DSLType))
+					return
+				}
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)) {
+					return
+				}
 			}
 		}
 	}

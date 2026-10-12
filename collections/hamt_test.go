@@ -185,3 +185,46 @@ func TestHAMT_JSONAndSQL(t *testing.T) {
 		t.Fatalf("expected banana=8, got %v", val)
 	}
 }
+
+func TestHAMT_MergeAndFP(t *testing.T) {
+	h1 := NewHAMT[string, int]().Set("a", 1).Set("b", 2)
+	h2 := NewHAMT[string, int]().Set("b", 20).Set("c", 30)
+
+	// Merge (right-biased)
+	merged := h1.Merge(h2)
+	if merged.Len() != 3 {
+		t.Fatalf("expected merged len=3, got %d", merged.Len())
+	}
+	vB, _ := merged.Get("b")
+	if vB != 20 {
+		t.Errorf("expected right-biased value 20 for 'b', got %d", vB)
+	}
+
+	// Equal
+	h1Clone := NewHAMT[string, int]().Set("b", 2).Set("a", 1)
+	if !h1.Equal(h1Clone) {
+		t.Errorf("expected h1 and h1Clone to be Equal")
+	}
+	if h1.Equal(merged) {
+		t.Errorf("expected h1 and merged not to be Equal")
+	}
+
+	// MapValues
+	mapped := h1.MapValues(func(v int) int { return v * 10 })
+	vA, _ := mapped.Get("a")
+	if vA != 10 {
+		t.Errorf("expected mapped 'a'=10, got %d", vA)
+	}
+
+	// Fold
+	sum := h1.Fold(0, func(acc any, k string, v int) any { return acc.(int) + v })
+	if sum != 3 {
+		t.Errorf("expected sum 3, got %v", sum)
+	}
+
+	// Filter
+	filtered := h1.Filter(func(k string, v int) bool { return v > 1 })
+	if filtered.Len() != 1 || !filtered.Equal(NewHAMT[string, int]().Set("b", 2)) {
+		t.Errorf("expected filtered to have only 'b': 2, got len %d", filtered.Len())
+	}
+}

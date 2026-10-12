@@ -3,6 +3,7 @@ package collections
 import (
 	"fmt"
 	"iter"
+	"reflect"
 	"strings"
 )
 
@@ -64,6 +65,134 @@ func (l *List[T]) Tail() (*List[T], bool) {
 		return nil, false
 	}
 	return l.tail, true
+}
+
+// Len returns the number of elements in the list.
+func (l *List[T]) Len() int {
+	count := 0
+	curr := l
+	for curr != nil && !curr.IsEmpty() {
+		count++
+		curr = curr.tail
+	}
+	return count
+}
+
+// Reverse returns a new list with elements in reverse order.
+func (l *List[T]) Reverse() *List[T] {
+	rev := Nil[T]()
+	curr := l
+	for curr != nil && !curr.IsEmpty() {
+		rev = Cons(curr.head, rev)
+		curr = curr.tail
+	}
+	return rev
+}
+
+// Concat returns the concatenation of l and other (l ++ other).
+func (l *List[T]) Concat(other *List[T]) *List[T] {
+	if l == nil || l.IsEmpty() {
+		if other == nil {
+			return Nil[T]()
+		}
+		return other
+	}
+	if other == nil || other.IsEmpty() {
+		return l
+	}
+	rev := l.Reverse()
+	res := other
+	curr := rev
+	for curr != nil && !curr.IsEmpty() {
+		res = Cons(curr.head, res)
+		curr = curr.tail
+	}
+	return res
+}
+
+// Map applies f to every element in the list and returns a new List.
+func (l *List[T]) Map(f func(T) T) *List[T] {
+	if l == nil || l.IsEmpty() {
+		return Nil[T]()
+	}
+	var items []T
+	for v := range l.Seq() {
+		items = append(items, f(v))
+	}
+	res := Nil[T]()
+	for i := len(items) - 1; i >= 0; i-- {
+		res = Cons(items[i], res)
+	}
+	return res
+}
+
+// FoldLeft reduces the list from left to right: f(...f(f(initial, x1), x2)...).
+func (l *List[T]) FoldLeft(initial any, f func(acc any, item T) any) any {
+	acc := initial
+	curr := l
+	for curr != nil && !curr.IsEmpty() {
+		acc = f(acc, curr.head)
+		curr = curr.tail
+	}
+	return acc
+}
+
+// FoldRight reduces the list from right to left: f(x1, f(x2, ...f(xn, initial)...)).
+func (l *List[T]) FoldRight(initial any, f func(item T, acc any) any) any {
+	if l == nil || l.IsEmpty() {
+		return initial
+	}
+	rev := l.Reverse()
+	acc := initial
+	curr := rev
+	for curr != nil && !curr.IsEmpty() {
+		acc = f(curr.head, acc)
+		curr = curr.tail
+	}
+	return acc
+}
+
+// Filter returns a new list containing only elements that satisfy predicate.
+func (l *List[T]) Filter(predicate func(T) bool) *List[T] {
+	var items []T
+	for v := range l.Seq() {
+		if predicate(v) {
+			items = append(items, v)
+		}
+	}
+	res := Nil[T]()
+	for i := len(items) - 1; i >= 0; i-- {
+		res = Cons(items[i], res)
+	}
+	return res
+}
+
+// Equal returns true if l and other contain identical elements in the same order.
+func (l *List[T]) Equal(other *List[T]) bool {
+	if l == other {
+		return true
+	}
+	c1, c2 := l, other
+	for {
+		e1 := c1 == nil || c1.IsEmpty()
+		e2 := c2 == nil || c2.IsEmpty()
+		if e1 && e2 {
+			return true
+		}
+		if e1 != e2 {
+			return false
+		}
+		if !reflect.DeepEqual(c1.head, c2.head) {
+			return false
+		}
+		c1 = c1.tail
+		c2 = c2.tail
+	}
+}
+
+// IsList implements a marker method for type introspection.
+func (l *List[T]) IsList() bool {
+	return true
 }
 
 // Seq returns a lazy Go 1.23 iterator over the list.

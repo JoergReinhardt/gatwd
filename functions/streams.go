@@ -3,6 +3,7 @@ package functions
 import (
 	"fmt"
 	"iter"
+	"reflect"
 )
 
 // Pair is an Algebraic Product Type that holds exactly two values.
@@ -19,6 +20,31 @@ func (p Pair[A, B]) String() string {
 // PairElements returns the constituent elements.
 func (p Pair[A, B]) PairElements() (any, any) {
 	return p.Fst, p.Snd
+}
+
+// Map applies f to the second element (Snd), returning a new Pair (Functor over 2nd component).
+func (p Pair[A, B]) Map(f func(B) B) Pair[A, B] {
+	return Pair[A, B]{Fst: p.Fst, Snd: f(p.Snd)}
+}
+
+// MapFst applies f to the first element (Fst), returning a new Pair.
+func (p Pair[A, B]) MapFst(f func(A) A) Pair[A, B] {
+	return Pair[A, B]{Fst: f(p.Fst), Snd: p.Snd}
+}
+
+// Bimap applies f to Fst and g to Snd, returning a new Pair (Bifunctor).
+func (p Pair[A, B]) Bimap(f func(A) A, g func(B) B) Pair[A, B] {
+	return Pair[A, B]{Fst: f(p.Fst), Snd: g(p.Snd)}
+}
+
+// Fold reduces the pair by applying f to both components.
+func (p Pair[A, B]) Fold(f func(A, B) any) any {
+	return f(p.Fst, p.Snd)
+}
+
+// Equal returns true if both components are structurally equal.
+func (p Pair[A, B]) Equal(other Pair[A, B]) bool {
+	return reflect.DeepEqual(p.Fst, other.Fst) && reflect.DeepEqual(p.Snd, other.Snd)
 }
 
 // Zip combines two lazy sequences into a single sequence of Pairs.

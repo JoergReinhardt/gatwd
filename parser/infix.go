@@ -201,6 +201,9 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	}
 
 	if e.Op == functions.OpConcat {
+		if res, err := functions.EvalBinaryOp(e.Op, l, r); err == nil {
+			return res, nil
+		}
 		leftItems, errL := extractItems(l)
 		rightItems, errR := extractItems(r)
 		if errL == nil && errR == nil {

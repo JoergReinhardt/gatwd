@@ -307,5 +307,50 @@ Gatwd's runtime model is categorized into four distinct concepts:
   res := app.Execute("spawn Status: OK |> check_rules")
   ```
 
+## 18. Functional Operations Completeness & Typeclass Parity
 
+Gatwd achieves full operation completeness across persistent types (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Pair`, `Either`, `Maybe`), bringing parity with Haskell (`Foldable`, `Functor`, `Semigroup`/`Monoid`, `Ord`/`Eq`), Clojure, and Scala:
 
+### Extended Folds (Foldable)
+Collapse lazy streams or persistent collections into scalar reductions:
+* `fold sum`: Numerically adds elements (supports integers, floats, and big numbers).
+* `fold product` (or `fold prod`): Computes element product (starting at 1).
+* `fold min`: Finds minimum element using total lexicographical ordering.
+* `fold max`: Finds maximum element using total lexicographical ordering.
+* `fold concat`: Monoidal reduction over elements with `++`.
+* `fold any` (or `fold or`): Boolean disjunction (short-circuits on first truthy item).
+* `fold all` (or `fold and`): Boolean conjunction.
+
+```haskell
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> fold sum |> assert 60
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold product |> assert 24
+spawn IntVal: 0 |> emit 50, 15, 80 |> drop 1 |> fold min |> assert 15
+```
+
+### Functor Mapping (`map`)
+Applies higher-order functions or sub-pipelines across both stream nodes and persistent collections (`List`, `Chunk`, `Set`, `Slice`):
+* Lambda mapping: `map (\x -> expr)` evaluates `expr` with `x` bound to each item.
+* Pointfree step mapping: `map <step>` or `map (<subpipeline>)`.
+
+```haskell
+-- Map across stream nodes
+spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> map (\x -> x * 10) |> collect_list |> assert [10 20 30]
+
+-- Map across persistent lists directly
+let xs = [1, 2, 3] in xs |> map (\x -> x + 5) |> assert [6 7 8]
+```
+
+### Set Algebra Builtins
+Full mathematical set algebra with persistent structural sharing:
+* `set_union <other>`: Set-theoretic union ($A \cup B$).
+* `set_intersect <other>`: Set-theoretic intersection ($A \cap B$).
+* `set_diff <other>`: Set-theoretic relative complement ($A \setminus B$).
+* `hamt_merge <other>`: Right-biased map merge ($H_1 \cup H_2$).
+
+### Monoidal Concatenation (`++`) & Lexicographical Ordering (`<`, `<=`, `>`, `>=`)
+Binary infix operators work uniformly across all types:
+* `String ++ String`: String concatenation.
+* `List ++ List` / `Chunk ++ Chunk`: Persistent sequence concatenation.
+* `Set ++ Set`: Set Union.
+* `HAMT ++ HAMT`: Map Merge.
+* `[1, 2] < [1, 3]`: Lexicographical comparison over sequences and pairs.

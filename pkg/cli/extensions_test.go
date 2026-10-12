@@ -115,3 +115,56 @@ spawn ClusterStatus: EXPECTED_STATE |> assert OK
 		t.Fatalf("expected constant 'EXPECTED_STATE' to be 'OK', got %v", opState)
 	}
 }
+
+func TestFPCompletenessAndOperations(t *testing.T) {
+	interp := cli.NewInterpreter()
+
+	// 1. Extended Folds
+	resSum := interp.EvaluateToValues("spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> fold sum |> assert 60")
+	if len(resSum) == 0 {
+		t.Fatalf("fold sum failed: %v", resSum)
+	}
+
+	resProd := interp.EvaluateToValues("spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold product |> assert 24")
+	if len(resProd) == 0 {
+		t.Fatalf("fold product failed: %v", resProd)
+	}
+
+	resMin := interp.EvaluateToValues("spawn IntVal: 0 |> emit 50, 10, 80 |> drop 1 |> fold min |> assert 10")
+	if len(resMin) == 0 {
+		t.Fatalf("fold min failed: %v", resMin)
+	}
+
+	resMax := interp.EvaluateToValues("spawn IntVal: 0 |> emit 50, 10, 80 |> drop 1 |> fold max |> assert 80")
+	if len(resMax) == 0 {
+		t.Fatalf("fold max failed: %v", resMax)
+	}
+
+	resConcat := interp.EvaluateToValues("spawn StrVal: Start |> emit A, B, C |> drop 1 |> fold concat |> assert ABC")
+	if len(resConcat) == 0 {
+		t.Fatalf("fold concat failed: %v", resConcat)
+	}
+
+	// 2. Map Lambdas over Stream
+	resMapStream := interp.EvaluateToValues("spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> map (\\x -> x * 10) |> collect_list |> assert [10 20 30]")
+	if len(resMapStream) == 0 {
+		t.Fatalf("map lambda over stream failed: %v", resMapStream)
+	}
+
+	// 3. Map Lambdas over Collection
+	resMapColl := interp.EvaluateToValues("let xs = [1, 2, 3] in xs |> map (\\x -> x + 10) |> assert [11 12 13]")
+	if len(resMapColl) == 0 {
+		t.Fatalf("map lambda over list failed: %v", resMapColl)
+	}
+
+	// 4. Infix Concatenation and Lexicographical Compare
+	resInfix := interp.EvaluateToValues("let a = [1, 2] in let b = [3, 4] in (a ++ b) |> assert [1 2 3 4]")
+	if len(resInfix) == 0 {
+		t.Fatalf("list infix concat failed: %v", resInfix)
+	}
+
+	resCmp := interp.EvaluateToValues("let a = [1, 2] in let b = [1, 3] in (a < b) |> assert true")
+	if len(resCmp) == 0 || resCmp[0] != true {
+		t.Fatalf("list lexicographical compare failed: %v", resCmp)
+	}
+}

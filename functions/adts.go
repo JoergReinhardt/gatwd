@@ -1,6 +1,9 @@
 package functions
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Either represents a value of one of two possible types (a disjoint union).
 type Either[L, R any] struct {
@@ -33,6 +36,50 @@ func (e Either[L, R]) Map(f func(R) R) Either[L, R] {
 		return Right[L, R](f(r))
 	}
 	return e
+}
+
+// MapLeft applies f to the Left value if present.
+func (e Either[L, R]) MapLeft(f func(L) L) Either[L, R] {
+	if e.IsLeft() {
+		l, _ := e.UnwrapLeft()
+		return Left[L, R](f(l))
+	}
+	return e
+}
+
+// Bimap applies fLeft if Left, or fRight if Right.
+func (e Either[L, R]) Bimap(fLeft func(L) L, fRight func(R) R) Either[L, R] {
+	if e.IsLeft() {
+		l, _ := e.UnwrapLeft()
+		return Left[L, R](fLeft(l))
+	}
+	r, _ := e.UnwrapRight()
+	return Right[L, R](fRight(r))
+}
+
+// Fold evaluates onLeft if e is Left, or onRight if e is Right.
+func (e Either[L, R]) Fold(onLeft func(L) any, onRight func(R) any) any {
+	if e.IsLeft() {
+		l, _ := e.UnwrapLeft()
+		return onLeft(l)
+	}
+	r, _ := e.UnwrapRight()
+	return onRight(r)
+}
+
+// Equal returns true if both are Left with equal values or both Right with equal values.
+func (e Either[L, R]) Equal(other Either[L, R]) bool {
+	if e.IsLeft() && other.IsLeft() {
+		l1, _ := e.UnwrapLeft()
+		l2, _ := other.UnwrapLeft()
+		return reflect.DeepEqual(l1, l2)
+	}
+	if e.IsRight() && other.IsRight() {
+		r1, _ := e.UnwrapRight()
+		r2, _ := other.UnwrapRight()
+		return reflect.DeepEqual(r1, r2)
+	}
+	return false
 }
 
 // Fold evaluates onLeft if e is Left, or onRight if e is Right.
@@ -91,6 +138,33 @@ func BindMaybe[A, B any](m Maybe[A], f func(A) Maybe[B]) Maybe[B] {
 	if m.IsNothing() { return Nothing[B]() }
 	val, _ := m.Unwrap()
 	return f(val)
+}
+
+// Fold applies f to the value if Just, or returns def if Nothing.
+func (m Maybe[T]) Fold(def any, f func(T) any) any {
+	if m.IsJust() {
+		return f(*m.value)
+	}
+	return def
+}
+
+// Filter returns the Maybe unchanged if predicate returns true on Just; otherwise Nothing.
+func (m Maybe[T]) Filter(p func(T) bool) Maybe[T] {
+	if m.IsJust() && p(*m.value) {
+		return m
+	}
+	return Nothing[T]()
+}
+
+// Equal returns true if both are Nothing or both are Just with equal values.
+func (m Maybe[T]) Equal(other Maybe[T]) bool {
+	if m.IsNothing() && other.IsNothing() {
+		return true
+	}
+	if m.IsJust() && other.IsJust() {
+		return reflect.DeepEqual(*m.value, *other.value)
+	}
+	return false
 }
 
 func (m Maybe[T]) String() string {

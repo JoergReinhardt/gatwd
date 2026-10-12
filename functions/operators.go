@@ -301,11 +301,83 @@ func fitInt(v int64) any {
 func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	// Monoidal concatenation operator ++
 	if op == OpConcat {
+		// Set ++ Set (Set Union)
+		if _, isSetA := left.(interface{ IsSet() bool }); isSetA {
+			if _, isSetB := right.(interface{ IsSet() bool }); isSetB {
+				rvA := reflect.ValueOf(left)
+				mUnion := rvA.MethodByName("Union")
+				if mUnion.IsValid() {
+					out := mUnion.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
+		// HAMT ++ HAMT (Map Merge)
+		if _, isHamtA := left.(interface{ IsHAMT() bool }); isHamtA {
+			if _, isHamtB := right.(interface{ IsHAMT() bool }); isHamtB {
+				rvA := reflect.ValueOf(left)
+				mMerge := rvA.MethodByName("Merge")
+				if mMerge.IsValid() {
+					out := mMerge.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
+		// Chunk ++ Chunk
+		if _, isChunkA := left.(interface{ IsChunk() bool }); isChunkA {
+			if _, isChunkB := right.(interface{ IsChunk() bool }); isChunkB {
+				rvA := reflect.ValueOf(left)
+				mConcat := rvA.MethodByName("Concat")
+				if mConcat.IsValid() {
+					out := mConcat.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
+		// List ++ List
+		if _, isListA := left.(interface{ IsList() bool }); isListA {
+			if _, isListB := right.(interface{ IsList() bool }); isListB {
+				rvA := reflect.ValueOf(left)
+				mConcat := rvA.MethodByName("Concat")
+				if mConcat.IsValid() {
+					out := mConcat.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
+		// Sequences / Slices
+		seqA, okA := ToSliceAny(left)
+		seqB, okB := ToSliceAny(right)
+		if okA && okB {
+			combined := append(seqA, seqB...)
+			return combined, nil
+		}
+
 		if ls, ok := left.(string); ok {
 			return ls + fmt.Sprintf("%v", right), nil
 		}
 		if rs, ok := right.(string); ok {
 			return fmt.Sprintf("%v", left) + rs, nil
+		}
+	}
+
+	// Relational ordering across all comparable types (<, <=, >, >=)
+	if op == OpLt || op == OpLte || op == OpGt || op == OpGte {
+		if cmp, err := Compare(left, right); err == nil {
+			switch op {
+			case OpLt:
+				return cmp < 0, nil
+			case OpLte:
+				return cmp <= 0, nil
+			case OpGt:
+				return cmp > 0, nil
+			case OpGte:
+				return cmp >= 0, nil
+			}
 		}
 	}
 
@@ -672,6 +744,173 @@ func toInt64(val any) (int64, bool) {
 	return 0, false
 }
 
+// ToSliceAny converts any supported sequence, collection, or Go slice to []any.
+func ToSliceAny(val any) ([]any, bool) {
+	if val == nil {
+		return nil, false
+	}
+	if eg, ok := val.(interface{ Elements() []any }); ok {
+		return eg.Elements(), true
+	}
+	if sa, ok := val.(interface{ ElementsAny() []any }); ok {
+		return sa.ElementsAny(), true
+	}
+	if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+		f, s := p.PairElements()
+		return []any{f, s}, true
+	}
+	rv := reflect.ValueOf(val)
+	if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+		n := rv.Len()
+		res := make([]any, n)
+		for i := 0; i < n; i++ {
+			res[i] = rv.Index(i).Interface()
+		}
+		return res, true
+	}
+	return nil, false
+}
+
+// Compare performs total ordering comparison across scalars, strings, pairs, and sequences.
+// Returns -1 for a < b, 0 for a == b, 1 for a > b.
+func Compare(a, b any) (int, error) {
+	if a == nil && b == nil {
+		return 0, nil
+	}
+	if a == nil {
+		return -1, nil
+	}
+	if b == nil {
+		return 1, nil
+	}
+	if StructuralEqual(a, b) {
+		return 0, nil
+	}
+
+	// BigFloat Operations
+	_, lIsBigF := a.(*big.Float)
+	_, rIsBigF := b.(*big.Float)
+	if lIsBigF || rIsBigF {
+		lbf := toBigFloat(a)
+		rbf := toBigFloat(b)
+		return lbf.Cmp(rbf), nil
+	}
+
+	// BigInt Operations
+	_, lIsBig := a.(*big.Int)
+	_, rIsBig := b.(*big.Int)
+	if lIsBig || rIsBig {
+		lb, lok := ToBigInt(a)
+		rb, rok := ToBigInt(b)
+		if lok && rok {
+			return lb.Cmp(rb), nil
+		}
+	}
+
+	// Floats
+	if af, okA := ToFloat64(a); okA {
+		if bf, okB := ToFloat64(b); okB {
+			if af < bf {
+				return -1, nil
+			}
+			if af > bf {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+
+	// Signed Integers
+	if ai, okA := toInt64(a); okA {
+		if bi, okB := toInt64(b); okB {
+			if ai < bi {
+				return -1, nil
+			}
+			if ai > bi {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+
+	// Unsigned Integers
+	if au, okA := toUint64(a); okA {
+		if bu, okB := toUint64(b); okB {
+			if au < bu {
+				return -1, nil
+			}
+			if au > bu {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+
+	// Strings
+	if as, okA := a.(string); okA {
+		if bs, okB := b.(string); okB {
+			return strings.Compare(as, bs), nil
+		}
+	}
+
+	// Booleans
+	if ab, okA := a.(bool); okA {
+		if bb, okB := b.(bool); okB {
+			if !ab && bb {
+				return -1, nil
+			}
+			if ab && !bb {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+
+	// Pairs (lexicographical)
+	if pa, okA := a.(interface{ PairElements() (any, any) }); okA {
+		if pb, okB := b.(interface{ PairElements() (any, any) }); okB {
+			fA, sA := pa.PairElements()
+			fB, sB := pb.PairElements()
+			cmpF, errF := Compare(fA, fB)
+			if errF != nil {
+				return 0, errF
+			}
+			if cmpF != 0 {
+				return cmpF, nil
+			}
+			return Compare(sA, sB)
+		}
+	}
+
+	// Sequences (lexicographical: List, Chunk, []any, etc.)
+	sliceA, isSliceA := ToSliceAny(a)
+	sliceB, isSliceB := ToSliceAny(b)
+	if isSliceA && isSliceB {
+		minLen := len(sliceA)
+		if len(sliceB) < minLen {
+			minLen = len(sliceB)
+		}
+		for i := 0; i < minLen; i++ {
+			cmpElem, err := Compare(sliceA[i], sliceB[i])
+			if err != nil {
+				return 0, err
+			}
+			if cmpElem != 0 {
+				return cmpElem, nil
+			}
+		}
+		if len(sliceA) < len(sliceB) {
+			return -1, nil
+		}
+		if len(sliceA) > len(sliceB) {
+			return 1, nil
+		}
+		return 0, nil
+	}
+
+	return 0, fmt.Errorf("incomparable types: %T and %T", a, b)
+}
+
 // StructuralEqual tests equality across primitives, pointers, complex, and types.
 func StructuralEqual(a, b any) bool {
 	if a == nil && b == nil {
@@ -680,8 +919,12 @@ func StructuralEqual(a, b any) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	if a == b {
-		return true
+	typA := reflect.TypeOf(a)
+	typB := reflect.TypeOf(b)
+	if typA == typB && typA.Comparable() {
+		if a == b {
+			return true
+		}
 	}
 
 	// Complex equality
@@ -713,21 +956,80 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
-	// Structural collection equality across List, Slice, and custom collections
-	type elementGetter interface{ Elements() []any }
-	if egA, okA := a.(elementGetter); okA {
-		if egB, okB := b.(elementGetter); okB {
-			elemsA := egA.Elements()
-			elemsB := egB.Elements()
-			if len(elemsA) != len(elemsB) {
+	// Pairs
+	if pa, okA := a.(interface{ PairElements() (any, any) }); okA {
+		if pb, okB := b.(interface{ PairElements() (any, any) }); okB {
+			fA, sA := pa.PairElements()
+			fB, sB := pb.PairElements()
+			return StructuralEqual(fA, fB) && StructuralEqual(sA, sB)
+		}
+	}
+
+	// Sets (order-independent mathematical equality)
+	type setChecker interface {
+		IsSet() bool
+		Len() int
+		ElementsAny() []any
+	}
+	if sa, okA := a.(setChecker); okA {
+		if sb, okB := b.(setChecker); okB {
+			if sa.Len() != sb.Len() {
 				return false
 			}
-			for i := range elemsA {
-				if !StructuralEqual(elemsA[i], elemsB[i]) {
+			elemsA := sa.ElementsAny()
+			elemsB := sb.ElementsAny()
+			for _, ea := range elemsA {
+				found := false
+				for _, eb := range elemsB {
+					if StructuralEqual(ea, eb) {
+						found = true
+						break
+					}
+				}
+				if !found {
 					return false
 				}
 			}
 			return true
+		}
+	}
+
+	// HAMTs (key-value structural equality)
+	type hamtChecker interface {
+		IsHAMT() bool
+		Len() int
+	}
+	if ha, okA := a.(hamtChecker); okA {
+		if hb, okB := b.(hamtChecker); okB {
+			if ha.Len() != hb.Len() {
+				return false
+			}
+			if ga, okGA := a.(interface{ Graph() any }); okGA {
+				if gb, okGB := b.(interface{ Graph() any }); okGB {
+					return StructuralEqual(ga.Graph(), gb.Graph())
+				}
+			}
+			return reflect.DeepEqual(a, b)
+		}
+	}
+
+	// Sequences (order-dependent: List, Chunk, Slice)
+	type setIgnorer interface{ IsSet() bool }
+	if _, isSetA := a.(setIgnorer); !isSetA {
+		if _, isSetB := b.(setIgnorer); !isSetB {
+			if seqA, okA := ToSliceAny(a); okA {
+				if seqB, okB := ToSliceAny(b); okB {
+					if len(seqA) != len(seqB) {
+						return false
+					}
+					for i := range seqA {
+						if !StructuralEqual(seqA[i], seqB[i]) {
+							return false
+						}
+					}
+					return true
+				}
+			}
 		}
 	}
 

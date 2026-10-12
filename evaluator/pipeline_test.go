@@ -127,3 +127,102 @@ func TestStepFocusAndUpdate_HAMT(t *testing.T) {
 		t.Fatalf("expected 'staging', got %v", resUpdate)
 	}
 }
+
+func TestStepFoldExtended(t *testing.T) {
+	emitNums := StepEmitValues(10, 20, 30)
+
+	// sum
+	resSum := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitNums, StepFold("sum")})
+	if len(resSum) != 1 || !functions.StructuralEqual(resSum[0], int64(60)) {
+		t.Errorf("expected sum 60, got %v", resSum)
+	}
+
+	// product
+	resProd := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitNums, StepFold("product")})
+	if len(resProd) != 1 || !functions.StructuralEqual(resProd[0], int64(6000)) {
+		t.Errorf("expected product 6000, got %v", resProd)
+	}
+
+	// min
+	resMin := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitNums, StepFold("min")})
+	if len(resMin) != 1 || !functions.StructuralEqual(resMin[0], 10) {
+		t.Errorf("expected min 10, got %v", resMin)
+	}
+
+	// max
+	resMax := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitNums, StepFold("max")})
+	if len(resMax) != 1 || !functions.StructuralEqual(resMax[0], 30) {
+		t.Errorf("expected max 30, got %v", resMax)
+	}
+
+	// concat
+	emitStrs := StepEmit("foo", "bar", "baz")
+	resConcat := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitStrs, StepFold("concat")})
+	if len(resConcat) != 1 || resConcat[0] != "foobarbaz" {
+		t.Errorf("expected concat 'foobarbaz', got %v", resConcat)
+	}
+
+	// any & all
+	emitBools := StepEmitValues(false, true, false)
+	resAny := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitBools, StepFold("any")})
+	if len(resAny) != 1 || resAny[0] != true {
+		t.Errorf("expected any=true, got %v", resAny)
+	}
+	resAll := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{emitBools, StepFold("all")})
+	if len(resAll) != 1 || resAll[0] != false {
+		t.Errorf("expected all=false, got %v", resAll)
+	}
+}
+
+func TestStepSetAndHAMTAlgebra(t *testing.T) {
+	s1 := collections.NewSet[int](1, 2)
+	s2 := collections.NewSet[int](2, 3)
+
+	// StepSetUnion
+	resUnion := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(s1)),
+		StepSetUnion(any(s2)),
+	})
+	if len(resUnion) != 1 {
+		t.Fatalf("expected 1 union result, got %d", len(resUnion))
+	}
+	uSet, ok := resUnion[0].(*collections.Set[int])
+	if !ok || uSet.Len() != 3 {
+		t.Fatalf("expected union set len=3, got %v", resUnion[0])
+	}
+
+	// StepSetIntersect
+	resIntersect := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(s1)),
+		StepSetIntersect(any(s2)),
+	})
+	if len(resIntersect) != 1 {
+		t.Fatalf("expected 1 intersect result, got %d", len(resIntersect))
+	}
+	iSet, ok := resIntersect[0].(*collections.Set[int])
+	if !ok || iSet.Len() != 1 || !iSet.Contains(2) {
+		t.Fatalf("expected intersect {2}, got %v", resIntersect[0])
+	}
+
+	// StepSetDiff
+	resDiff := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(s1)),
+		StepSetDiff(any(s2)),
+	})
+	dSet, ok := resDiff[0].(*collections.Set[int])
+	if !ok || dSet.Len() != 1 || !dSet.Contains(1) {
+		t.Fatalf("expected diff {1}, got %v", resDiff[0])
+	}
+
+	// StepHAMTMerge
+	h1 := collections.NewHAMT[string, int]().Set("a", 1)
+	h2 := collections.NewHAMT[string, int]().Set("b", 2)
+	resHamt := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{
+		StepEmitValues(any(h1)),
+		StepHAMTMerge(any(h2)),
+	})
+	mHamt, ok := resHamt[0].(*collections.HAMT[string, int])
+	if !ok || mHamt.Len() != 2 {
+		t.Fatalf("expected merged HAMT len=2, got %v", resHamt[0])
+	}
+}

@@ -75,3 +75,45 @@ func TestChunk(t *testing.T) {
 		t.Errorf("Expected len 0 after clear, got %d", chunk.Len())
 	}
 }
+
+func TestChunk_FP(t *testing.T) {
+	c1 := NewChunk[int](3)
+	c1.Append(1)
+	c1.Append(2)
+
+	c2 := NewChunk[int](3)
+	c2.Append(3)
+	c2.Append(4)
+
+	// Concat
+	cat := c1.Concat(c2)
+	if cat.Len() != 4 || cat.Items()[0] != 1 || cat.Items()[3] != 4 {
+		t.Fatalf("expected cat len=4 [1 2 3 4], got %v", cat.Items())
+	}
+
+	// Equal
+	c1Clone := NewChunk[int](2)
+	c1Clone.Append(1)
+	c1Clone.Append(2)
+	if !c1.Equal(c1Clone) {
+		t.Errorf("expected c1 and c1Clone to be Equal")
+	}
+
+	// Map
+	mapped := c1.Map(func(x int) int { return x * 10 })
+	if mapped.Len() != 2 || mapped.Items()[0] != 10 || mapped.Items()[1] != 20 {
+		t.Errorf("expected mapped [10 20], got %v", mapped.Items())
+	}
+
+	// Fold
+	sum := c1.Fold(0, func(acc any, x int) any { return acc.(int) + x })
+	if sum != 3 {
+		t.Errorf("expected sum 3, got %v", sum)
+	}
+
+	// Filter
+	filtered := c1.Filter(func(x int) bool { return x > 1 })
+	if filtered.Len() != 1 || filtered.Items()[0] != 2 {
+		t.Errorf("expected filtered [2], got %v", filtered.Items())
+	}
+}

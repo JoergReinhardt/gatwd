@@ -6,21 +6,22 @@ This document breaks down the major packages and abstractions that form the acti
 
 ## 1. Layer 0: `functions/` (Foundational Functional Primitives)
 The foundational mathematical primitives:
-- **`Either[L, R]`**: Standard sum-type container for functional error handling. Left represents errors/failures, Right represents valid values. Provides `Left()`, `Right()`, `IsLeft()`, `IsRight()`, `UnwrapLeft()`, and `UnwrapRight()`.
-- **`Pair[A, B]`**: Immutable 2-element product type (2-tuple) with `Fst` and `Snd`.
-- **`Option[T]`**: Functional optional container (`Some` / `None`).
-- **Sequences & Iterators**: High-order sequence utilities (`Take`, `Drop`, `Filter`, `Map`, `Fold`) built on Go 1.23+ `iter.Seq`.
+- **`Either[L, R]`**: Standard sum-type container for functional error handling. Left represents errors/failures, Right represents valid values. Provides `Left()`, `Right()`, `IsLeft()`, `IsRight()`, `UnwrapLeft()`, `UnwrapRight()`, `Map()`, `MapLeft()`, `Bimap()`, `Fold()`, and `Equal()`.
+- **`Pair[A, B]`**: Immutable 2-element product type (2-tuple) with `Fst`, `Snd`, `Map()`, `MapFst()`, `Bimap()`, `Fold()`, and `Equal()`.
+- **`Option[T]` / `Maybe[T]`**: Functional optional container (`Just` / `Nothing`) with `Map()`, `Bind()`, `Fold()`, `Filter()`, and `Equal()`.
+- **Operators & Ordering (`Compare`, `StructuralEqual`, `EvalBinaryOp`)**: Total ordering comparison across scalars, strings, pairs, and sequences; order-independent mathematical set equality, HAMT key-value equality, and overloaded monoidal concatenation (`++`).
+- **Sequences & Iterators**: High-order sequence utilities (`Take`, `Drop`, `Filter`, `Map`, `Fold`, `Zip`, `ZipWith`) built on Go 1.23+ `iter.Seq`.
 
 ---
 
 ## 2. Layer 1: `collections/` (Persistent Data Structures)
 Purely functional, persistent data structures with structural sharing (all implement `Graphable` for the visualizer):
-- **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `AddChild()`, `Children()`).
-- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, and `Graphable`.
+- **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping, `Merge()`, `Equal()`, `MapValues()`, `Fold()`, and `Filter()`. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `FoldLeft()`, `FoldRight()`, `Filter()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `Map()`, `Fold()` bottom-up catamorphism, `Equal()`).
+- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Fold()`, and `Filter()`.
 - **`Map[K, V]`**: Persistent dictionary backed by `HAMT[K, V]`, implementing `Graphable`.
-- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, implementing `Graphable`.
+- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Map()`, `Fold()`, `Filter()`, and `Equal()`.
 
 ---
 
@@ -32,7 +33,7 @@ Purely functional, persistent data structures with structural sharing (all imple
 
 ## 4. Layer 3: `evaluator/` (Streaming Execution Engine & Testing Harness)
 - **`Engine[T]`**: Trampolined stream processing engine that evaluates pipelines over `iter.Seq`.
-- **`PipelineStep[T]`**: First-class stream transducers (`func(iter.Seq) iter.Seq`). Includes `StepTake`, `StepDrop`, `StepFilter`, `StepMap`, `StepSort`, `StepToSet`, `StepToHAMT`, `StepHAMTGet`, `StepChunk`, `StepAssert`, `StepDebugPrint`.
+- **`PipelineStep[T]`**: First-class stream transducers (`func(iter.Seq) iter.Seq`). Includes `StepTake`, `StepDrop`, `StepFilter`, `StepMap`, `StepSort`, `StepToSet`, `StepSetUnion`, `StepSetIntersect`, `StepSetDiff`, `StepToHAMT`, `StepHAMTGet`, `StepHAMTMerge`, `StepFold` (expanded for `sum`, `product`, `min`, `max`, `concat`, `any`, `all`), `StepChunk`, `StepAssert`, `StepDebugPrint`.
 - **`StepCheckpoint` & `CheckpointStore`**: Non-intrusive stream watermarking and continuation state tracking without steady-state performance overhead.
 - **`BenchmarkPipeline` & `StepTelemetry`**: Performance measurement harness integrating with `testing.B` and live stream telemetry.
 - **`Example` & Go Testing Integration**: Full alignment with Go's `testing.InternalExample` interface. Provides `RunExample`, `RunExamples` (with subtests), `RunInternalExamples` (Go standard library bridge), and thread-safe `CaptureStdout` supporting ordered (`// Output:`) and permutation-invariant (`// Unordered output:`) line verification with formatted visual diff cards.
