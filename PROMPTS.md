@@ -48,4 +48,24 @@ When implementing new features or migrating existing ones, you must adopt a **Te
 - **DSL Verification:** Add every newly exposed builtin to `tests/dsl_exhaustive_test.gatwd` and verify with `./run_dsl_tests.sh`.
 - **Custom Editions for Third-Party Libraries:** Never add third-party domain dependencies (Kubernetes, AWS, Postgres, etc.) directly into `gatwd` core. Guide users and agents to create Custom Editions (`cmd/gatwd-<name>`) importing `pkg/cli` and registering types/steps via `RegisterStep` and `RegisterType`.
 
+## 8. The Anti-Mockup / Hard Work First Mandate
+- **No Bare-Minimum Passing:** Never implement the bare minimum just to make a unit test pass or dodge a difficult design challenge.
+- **Pure DSL-First Solutions:** When asked to implement algorithms or domain programs in Gatwd (e.g. Conway's Game of Life, sorting, tree traversal, simulations), NEVER write Go-level mockups, hardcoded sample sequences, or external shortcuts and claim it runs in Gatwd.
+- **Implement Missing Primitives First:** If essential language or engine features are missing to implement the algorithm cleanly in pure DSL, *immediately identify the missing primitives, implement the true functional abstractions in the engine and DSL first*, and then write the program purely in the DSL.
+- **Industrial-Strength Goal:** The target is a production-ready, mathematically rigorous functional programming language and interpreter. Every feature must be genuinely implemented, general, and robust.
+
+## 9. Exhaustive Operator-Type Matrix Completeness
+- **Orthogonal Parity Across All Types:** "Wiring all things up" must not be selective. Whenever an operator, method, or combinator is added or expanded (`++`, `map`, `fold`, `filter`, `compare`, `<`, `<=`, `>`, `>=`, `==`, `!=`, set operations), it MUST be implemented across the entire Cartesian product of data types where that operation is mathematically and conceptually valid:
+  - Collections: `List`, `Chunk`, `Set`, `HAMT`, `Tree`, sequences (`iter.Seq`).
+  - Algebraic Data Types (ADTs): `Pair`, `Either`, `Maybe`, `Variant`.
+  - Primitives: numbers, strings, runes, booleans.
+- **Never Leave Second-Class Citizens:** Never implement an operation for `List` without ensuring `Chunk`, `Set`, and `HAMT` have their corresponding algebraic implementations.
+
+## 10. In-Repository Agent Skills (`.agents/skills/`)
+All agent skills and operational instructions are maintained directly within the repository under `.agents/skills/` so that any AI assistant or human collaborator can discover and execute them:
+- `.agents/skills/recursive-dogfood/SKILL.md`: Audit older code for replacement with newer abstractions, enforce anti-mockup pure DSL development, and verify operator-type matrix completeness.
+- `.agents/skills/all-layers-sync/SKILL.md`: Audit lower-level Go abstractions and wire them all the way through to the DSL as builtins with exhaustive DSL tests.
+- `.agents/skills/project-doc-sync/SKILL.md`: Maintain package `doc.go` overviews, godoc on all exported identifiers, and testable `Example*` functions.
+
+
 
