@@ -59,22 +59,8 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 						} else if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
 							parsedValue = value[1 : len(value)-1]
 						}
-						if sumDef, isSum := p.sumTypes[typeName]; isSum {
-							// Check if value is a variant constructor e.g. "Branch" or "Branch(payload)"
-							branchTag := value
-							var payload any = nil
-							if parenIdx := strings.Index(value, "("); parenIdx != -1 && strings.HasSuffix(value, ")") {
-								branchTag = strings.TrimSpace(value[:parenIdx])
-								rawInner := strings.TrimSpace(value[parenIdx+1 : len(value)-1])
-								if evalInfix, err := EvalInfixString(rawInner, nil); err == nil {
-									payload = evalInfix
-								} else {
-									payload = rawInner
-								}
-							}
-							if branchFlag, hasBranch := sumDef.Branches[branchTag]; hasBranch {
-								parsedValue = dsltypes.NewVariant(branchTag, branchFlag, payload)
-							}
+						if variant, ok := p.MakeVariant(typeName, value); ok {
+							parsedValue = variant
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }
@@ -83,6 +69,66 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 			}
 		}
 	}
+}
+
+// MakeVariant attempts to interpret valStr as a constructor of the named sum type.
+// It returns the boxed Variant and true when typeName is a declared sum type and
+// valStr names one of its branches (optionally with a "(payload)" suffix, e.g.
+// "Just(1 + 2)"); otherwise it returns the zero Variant and false. Both the
+// top-level Parse path and the interpreter's spawn path use this so that a value
+// like `spawn OS: Linux` boxes a dsltypes.Variant{Tag:"Linux"} that the match
+// evaluator can discriminate on.
+func (p *Parser) MakeVariant(typeName, valStr string) (dsltypes.Variant, bool) {
+	sumDef, isSum := p.sumTypes[typeName]
+	if !isSum {
+		return dsltypes.Variant{}, false
+	}
+	branchTag := valStr
+	var payload any = nil
+	if parenIdx := strings.Index(valStr, "("); parenIdx != -1 && strings.HasSuffix(valStr, ")") {
+		branchTag = strings.TrimSpace(valStr[:parenIdx])
+		rawInner := strings.TrimSpace(valStr[parenIdx+1 : len(valStr)-1])
+		if evalInfix, err := EvalInfixString(rawInner, nil); err == nil {
+			payload = evalInfix
+		} else {
+			payload = rawInner
+		}
+	}
+	if branchFlag, hasBranch := sumDef.Branches[branchTag]; hasBranch {
+		return dsltypes.NewVariant(branchTag, branchFlag, payload), true
+	}
+	return dsltypes.Variant{}, false
+}
+
+// SumTypeOf returns the name of the sum type that declares the given constructor
+// branch and all of that type's branch names, or ok=false if name is not a
+// registered constructor. The match exhaustiveness check in `gatwd --check` uses
+// this to determine which branches of a closed sum type a `match` block leaves
+// uncovered.
+func (p *Parser) SumTypeOf(branch string) (name string, branches []string, ok bool) {
+	for typeName, sumDef := range p.sumTypes {
+		if _, has := sumDef.Branches[branch]; has {
+			all := make([]string, 0, len(sumDef.Branches))
+			for b := range sumDef.Branches {
+				all = append(all, b)
+			}
+			return typeName, all, true
+		}
+	}
+	return "", nil, false
+}
+
+// IsConstructor reports whether name is a registered constructor (branch) of any
+// declared sum type. The match evaluator uses this to distinguish a pattern that
+// names an ADT constructor (which must discriminate on the value's variant tag)
+// from a pattern that introduces a fresh variable binding (which matches anything).
+func (p *Parser) IsConstructor(name string) bool {
+	for _, sumDef := range p.sumTypes {
+		if _, ok := sumDef.Branches[name]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Parser) registerOrGet(name string) dsltypes.BitFlag {

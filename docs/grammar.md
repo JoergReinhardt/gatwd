@@ -29,12 +29,16 @@ SpawnNode      ::= "spawn " Identifier ":" Identifier
 PipelineStep   ::= OSCommand 
                  | "take " Integer
                  | "drop " Integer
-                 | "fold " ("count" | "sum")
+                 | "fold " FoldOp
                  | "distinct"
                  | "memoize " OSCommand
                  | "map " Lambda
+                 | Lambda                         (* bare lambda applies to the incoming value *)
+                 | FuncName                        (* a def, incl. lambda-bodied, applied by name *)
+                 | LetBinding                      (* let x = Pipeline in Pipeline, as a step *)
 
-Lambda         ::= "(" "\\" Identifier "->" PipelineStep ")"
+FoldOp         ::= "count" | "sum" | "product" | "min" | "max" | "concat" | "any" | "all"
+Lambda         ::= [ "(" ] "\\" Identifier "->" Pipeline [ ")" ]
 
 (* Error Handling & Compliance *)
                  | "expect " StringLiteral " " StringLiteral
@@ -48,7 +52,18 @@ Lambda         ::= "(" "\\" Identifier "->" PipelineStep ")"
 
 (* Pattern Matching (Catamorphisms) *)
                  | "match {" MatchRule { "|" MatchRule } "}"
-MatchRule      ::= Identifier "->" OSCommand
+MatchRule      ::= Pattern "->" Pipeline
+Pattern        ::= Constructor                      (* registered sum-type branch: discriminates *)
+                 | "_"                              (* wildcard catch-all *)
+                 | Identifier                        (* fresh variable: binds any value *)
+                 | "[]"                             (* empty list *)
+                 | "[" Identifier ", ..." Identifier "]"   (* head / tail *)
+                 | "[" Pattern { "," Pattern } "]"  (* fixed-length list/tuple, literals or binders *)
+                 | Literal
+
+(* List Comprehensions (multi-generator, with filter guards) *)
+Comprehension  ::= "[" Expr "|" Generator { "," ( Generator | Expr ) } "]"
+Generator      ::= Pattern "<-" Expr
 
 (* Optics (Lenses) & Records *)
                  | "parse_record " { Identifier }
@@ -57,6 +72,10 @@ MatchRule      ::= Identifier "->" OSCommand
 
 (* Primitives *)
 OSCommand      ::= Identifier { Identifier | StringLiteral | "%s" }
+Constructor    ::= Identifier   (* an Identifier registered as a branch of a sum type *)
+FuncName       ::= Identifier   (* an Identifier bound by a `def` *)
+Expr           ::= (* infix arithmetic/relational/boolean expression, Comprehension, or Literal *)
+Literal        ::= Integer | StringLiteral | "[" [ Expr { "," Expr } ] "]"
 Identifier     ::= ALPHA { ALPHA | DIGIT | "_" }
 StringLiteral  ::= "\"" { ANY_CHAR } "\""
 Integer        ::= DIGIT { DIGIT }

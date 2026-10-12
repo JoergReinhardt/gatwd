@@ -8,6 +8,7 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -206,6 +207,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			stepStr = strings.Join(words, " ")
 		}
 
+		// Bare lambda in pipeline position: `v |> \x -> expr` applies the lambda
+		// to each incoming value (identical to mapping it). This also makes
+		// lambda-bodied functions first-class and callable — e.g.
+		// `def inc = \x -> x + 1` then `5 |> inc` — because the stored body
+		// re-enters here as a bare lambda step and is applied element-wise.
+		if (strings.HasPrefix(stepStr, "\\") || strings.HasPrefix(stepStr, "(\\")) && strings.Contains(stepStr, "->") {
+			stepStr = "map " + stepStr
+		}
+
 		// Function Substitution (Lazy Call)
 		if _, exists := i.Funcs[stepStr]; exists {
 			funcName := stepStr
@@ -382,7 +392,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
 			}
-		} else if strings.HasPrefix(stepStr, "filter") {
+		} else if strings.HasPrefix(stepStr, "filter") || strings.HasPrefix(stepStr, "reject") {
+			// `reject p` keeps the complement of `filter p`; both share this branch
+			// ("filter" and "reject" are both 6 characters) with a negate flag.
+			negate := strings.HasPrefix(stepStr, "reject")
 			rawArg := strings.TrimSpace(stepStr[6:])
 			arg := rawArg
 			if strings.HasPrefix(arg, "(") && strings.HasSuffix(arg, ")") {
@@ -420,6 +433,12 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					return false
 				}
 
+				// keep is evalPred, inverted for `reject`.
+				keep := evalPred
+				if negate {
+					keep = func(it any, t dsltypes.BitFlag) bool { return !evalPred(it, t) }
+				}
+
 				filterStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 						for node := range stream {
@@ -435,7 +454,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if l, ok := val.(*collections.List[any]); ok {
 								var kept []any
 								for it := range l.Seq() {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										kept = append(kept, it)
 									}
 								}
@@ -453,7 +472,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if c, ok := val.(*collections.Chunk[any]); ok {
 								resChunk := collections.NewChunk[any](c.Capacity())
 								for _, it := range c.Items() {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										resChunk.Append(it)
 									}
 								}
@@ -468,7 +487,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								if seq, okSeq := functions.ToSliceAny(val); okSeq {
 									resSet := collections.NewSet[any]()
 									for _, it := range seq {
-										if evalPred(it, node.DSLType) {
+										if keep(it, node.DSLType) {
 											resSet = resSet.Add(it)
 										}
 									}
@@ -483,7 +502,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if sl, okSl := val.([]any); okSl {
 								var newSl []any
 								for _, it := range sl {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										newSl = append(newSl, it)
 									}
 								}
@@ -493,8 +512,26 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								continue
 							}
 
+							// If val is a HAMT: keep entries whose value satisfies the predicate.
+							if h, ok := val.(*collections.HAMT[string, any]); ok {
+								res := h.Filter(func(_ string, v any) bool { return keep(v, node.DSLType) })
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Tree: prune child subtrees by the predicate.
+							if tr, ok := val.(*collections.Tree[any]); ok {
+								res := tr.Filter(func(x any) bool { return keep(x, node.DSLType) })
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
 							// Stream node
-							if evalPred(val, node.DSLType) {
+							if keep(val, node.DSLType) {
 								if !yield(node) {
 									return
 								}
@@ -506,10 +543,14 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			} else {
 				keyword := strings.Trim(rawArg, "\"")
 				predicate := func(val any) bool {
+					match := false
 					if strVal, ok := val.(string); ok {
-						return strings.Contains(strVal, keyword)
+						match = strings.Contains(strVal, keyword)
 					}
-					return false
+					if negate {
+						return !match
+					}
+					return match
 				}
 				pipeline = append(pipeline, evaluator.StepFilter(predicate))
 			}
@@ -532,7 +573,95 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepDistinct())
 		} else if strings.HasPrefix(stepStr, "fold") {
 			op := strings.TrimSpace(stepStr[4:])
-			pipeline = append(pipeline, evaluator.StepFold(op))
+			if strings.HasPrefix(op, "(\\") || strings.HasPrefix(op, "\\") {
+				// Custom left fold: fold (\acc x -> expr) <seed>. Threads an
+				// accumulator seeded by <seed> left-to-right over the elements,
+				// generalizing the fixed reducers (sum/product/min/max/…).
+				lamStr, seedStr := op, ""
+				if strings.HasPrefix(op, "(") {
+					depth := 0
+					for idx, r := range op {
+						if r == '(' {
+							depth++
+						} else if r == ')' {
+							depth--
+							if depth == 0 {
+								lamStr = strings.TrimSpace(op[1:idx])
+								seedStr = strings.TrimSpace(op[idx+1:])
+								break
+							}
+						}
+					}
+				}
+				lamStr = strings.TrimPrefix(lamStr, "\\")
+				lamParts := strings.SplitN(lamStr, "->", 2)
+				if len(lamParts) == 2 && len(strings.Fields(lamParts[0])) == 2 {
+					vars := strings.Fields(strings.TrimSpace(lamParts[0]))
+					accVar, xVar := vars[0], vars[1]
+					body := strings.TrimSpace(lamParts[1])
+					seedExpr := seedStr
+					foldStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+							var items []any
+							var lastFlag dsltypes.BitFlag
+							for node := range stream {
+								if node.Value.IsLeft() {
+									continue
+								}
+								v, _ := node.Value.UnwrapRight()
+								items = append(items, v)
+								lastFlag = node.DSLType
+							}
+							if len(items) == 1 {
+								if col, ok := functions.ToSliceAny(items[0]); ok {
+									items = col
+								}
+							}
+							baseLookup := func(name string) (any, bool) {
+								if rt, ok := i.RuntimeNodes[name]; ok {
+									vv, _ := rt.Value.UnwrapRight()
+									return vv, true
+								}
+								if c, ok := i.Constants[name]; ok {
+									return c, true
+								}
+								if vv, ok := i.Variables[name]; ok {
+									return vv, true
+								}
+								return nil, false
+							}
+							var acc any
+							if seedExpr != "" {
+								if sv, err := parser.EvalInfixString(seedExpr, baseLookup); err == nil {
+									acc = sv
+								} else {
+									acc = seedExpr
+								}
+							}
+							for _, it := range items {
+								lookup := func(name string) (any, bool) {
+									if name == accVar {
+										return acc, true
+									}
+									if name == xVar {
+										return it, true
+									}
+									return baseLookup(name)
+								}
+								if pe, err := parser.ParseInfixExpr(body); err == nil {
+									if rv, e := pe.Eval(lookup); e == nil {
+										acc = rv
+									}
+								}
+							}
+							yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
+						}
+					}
+					pipeline = append(pipeline, foldStep)
+				}
+			} else {
+				pipeline = append(pipeline, evaluator.StepFold(op))
+			}
 		} else if strings.HasPrefix(stepStr, "memoize") {
 			cmd := strings.TrimSpace(stepStr[7:])
 			adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
@@ -861,6 +990,56 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			} else {
 				pipeline = append(pipeline, evaluator.StepHAMTMerge(operandStr))
 			}
+		} else if strings.HasPrefix(stepStr, "hamt_intersect ") {
+			operandStr := strings.TrimSpace(stepStr[15:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			// StepSetIntersect dispatches by reflection to the value's Intersect
+			// method, so it applies to HAMT (keyed intersection) as well as Set.
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetIntersect(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(operandStr))
+			}
+		} else if strings.HasPrefix(stepStr, "hamt_diff ") {
+			operandStr := strings.TrimSpace(stepStr[10:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			// StepSetDiff dispatches by reflection to the value's Diff method,
+			// so it applies to HAMT (keyed difference) as well as Set.
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetDiff(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetDiff(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetDiff(operandStr))
+			}
 		} else if stepStr == "set_elements" {
 			pipeline = append(pipeline, evaluator.StepSetElements())
 		} else if strings.HasPrefix(stepStr, "write_file") {
@@ -1134,7 +1313,37 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								break
 							}
 
-							// 5. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
+							// 5. Constructor pattern: an identifier naming a registered sum-type
+							// branch (e.g. `Linux`, `Red`, `Nothing`). It discriminates on the
+							// incoming value's variant tag rather than binding a variable. A
+							// registered constructor whose tag does not match this value falls
+							// through to the NEXT case (continue), never to the variable arm —
+							// so `match { Red -> a | Green -> b }` routes correctly instead of
+							// letting the first arm win.
+							if isIdent(pattern) && i.Parser.IsConstructor(pattern) {
+								matched := false
+								if variant, ok := val.(dsltypes.Variant); ok {
+									// Value was boxed as a sum-type Variant (parser path).
+									matched = variant.Is(pattern)
+								} else {
+									// Value flows as its bare tag string (interpreter spawn
+									// path): discriminate by exact tag equality, not substring.
+									matched = strVal == pattern
+								}
+								if matched {
+									adapter := i.pipelineToAdapter(cmd)
+									for res := range adapter(node) {
+										if !yield(res) {
+											return
+										}
+									}
+									break
+								}
+								// Constructor pattern that did not match: try the next case.
+								continue
+							}
+
+							// 6. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
 							if isIdent(pattern) && pattern != "true" && pattern != "false" {
 								localInterp := i.fork()
 								localInterp.RuntimeNodes[pattern] = dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)
@@ -1147,7 +1356,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								break
 							}
 
-							// 6. String/Value substring matching
+							// 7. String/Value substring matching
 							if !strings.HasPrefix(pattern, "[") && !strings.HasPrefix(pattern, "(") && strings.Contains(strVal, pattern) {
 								adapter := i.pipelineToAdapter(cmd)
 								for res := range adapter(node) {
@@ -1162,6 +1371,197 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				}
 			}
 			pipeline = append(pipeline, dynamicMatch)
+		} else if strings.HasPrefix(stepStr, "bimap") {
+			// bimap (\x -> e1) (\y -> e2): the Bifunctor map. Applies e1 to the
+			// first/Left component and e2 to the second/Right component of a Pair,
+			// an Either, or a 2-element list.
+			rest := strings.TrimSpace(stepStr[5:])
+			extract := func(s string) (string, string) {
+				s = strings.TrimSpace(s)
+				if strings.HasPrefix(s, "(") {
+					depth := 0
+					for idx, r := range s {
+						if r == '(' {
+							depth++
+						} else if r == ')' {
+							depth--
+							if depth == 0 {
+								return strings.TrimSpace(s[1:idx]), strings.TrimSpace(s[idx+1:])
+							}
+						}
+					}
+				}
+				return s, ""
+			}
+			parseLam := func(l string) (string, string, bool) {
+				l = strings.TrimPrefix(strings.TrimSpace(l), "\\")
+				pp := strings.SplitN(l, "->", 2)
+				if len(pp) != 2 {
+					return "", "", false
+				}
+				return strings.TrimSpace(pp[0]), strings.TrimSpace(pp[1]), true
+			}
+			lam1, rem := extract(rest)
+			lam2, _ := extract(rem)
+			v1, b1, ok1 := parseLam(lam1)
+			v2, b2, ok2 := parseLam(lam2)
+			if ok1 && ok2 {
+				evalOne := func(vn, body string, item any) any {
+					lookup := func(name string) (any, bool) {
+						if name == vn {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							vv, _ := rt.Value.UnwrapRight()
+							return vv, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if vv, ok := i.Variables[name]; ok {
+							return vv, true
+						}
+						return nil, false
+					}
+					if pe, err := parser.ParseInfixExpr(body); err == nil {
+						if rv, e := pe.Eval(lookup); e == nil {
+							return rv
+						}
+					}
+					return item
+				}
+				bimapStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+							if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+								a, b := p.PairElements()
+								np := functions.Pair[any, any]{Fst: evalOne(v1, b1, a), Snd: evalOne(v2, b2, b)}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(np)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if e, ok := val.(interface {
+								EitherValue() (any, any, bool)
+							}); ok {
+								lv, rv, isLeft := e.EitherValue()
+								var res any
+								if isLeft {
+									res = functions.Left[any, any](evalOne(v1, b1, lv))
+								} else {
+									res = functions.Right[any, any](evalOne(v2, b2, rv))
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if elems, ok := toListElements(val); ok && len(elems) == 2 {
+								np := []any{evalOne(v1, b1, elems[0]), evalOne(v2, b2, elems[1])}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(np)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if !yield(node) {
+								return
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, bimapStep)
+			}
+		} else if strings.HasPrefix(stepStr, "flatmap") {
+			// flatmap (\x -> expr): the Monad bind at the DSL level. Over a List the
+			// per-element results (themselves lists) are concatenated into one List;
+			// over a stream each element's result is flattened and emitted in turn.
+			lambda := strings.TrimSpace(stepStr[7:])
+			lambda = strings.TrimPrefix(lambda, "(")
+			lambda = strings.TrimSuffix(lambda, ")")
+			parts2 := strings.SplitN(lambda, "->", 2)
+			if len(parts2) == 2 {
+				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
+				exprBody := strings.TrimSpace(parts2[1])
+				evalElem := func(item any) any {
+					lookup := func(name string) (any, bool) {
+						if name == varName {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							v, _ := rt.Value.UnwrapRight()
+							return v, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if v, ok := i.Variables[name]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
+						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
+							return resVal
+						}
+					}
+					return item
+				}
+				toElems := func(v any) []any {
+					if l, ok := v.(*collections.List[any]); ok {
+						var out []any
+						for it := range l.Seq() {
+							out = append(out, it)
+						}
+						return out
+					}
+					if seq, ok := functions.ToSliceAny(v); ok {
+						return seq
+					}
+					return []any{v}
+				}
+				flatStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+							// flatmap over a List value: concat per-element results.
+							if l, ok := val.(*collections.List[any]); ok {
+								var all []any
+								for it := range l.Seq() {
+									all = append(all, toElems(evalElem(it))...)
+								}
+								res := collections.Nil[any]()
+								for idx := len(all) - 1; idx >= 0; idx-- {
+									res = collections.Cons(all[idx], res)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							// flatmap over a stream element: emit each flattened result.
+							for _, e := range toElems(evalElem(val)) {
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](e), node.DSLType)) {
+									return
+								}
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, flatStep)
+			}
 		} else if strings.HasPrefix(stepStr, "map") {
 			lambda := strings.TrimSpace(stepStr[3:])
 			lambda = strings.TrimPrefix(lambda, "(")
@@ -1431,6 +1831,118 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		}
 	}
 	return pipeline
+}
+
+// unbalancedDelimiter reports whether a line's (), [], and {} delimiters are
+// balanced and correctly nested, ignoring anything inside double-quoted string
+// literals. On imbalance it returns the rune index of the offending delimiter
+// and false; when balanced it returns (0, true). Used by `gatwd --check`.
+func unbalancedDelimiter(line string) (int, bool) {
+	var stack []struct {
+		open rune
+		pos  int
+	}
+	closer := map[rune]rune{')': '(', ']': '[', '}': '{'}
+	inString := false
+	for i, r := range line {
+		switch {
+		case r == '"':
+			inString = !inString
+		case inString:
+			// skip delimiters inside string literals
+		case r == '(' || r == '[' || r == '{':
+			stack = append(stack, struct {
+				open rune
+				pos  int
+			}{r, i})
+		case r == ')' || r == ']' || r == '}':
+			if len(stack) == 0 || stack[len(stack)-1].open != closer[r] {
+				return i, false
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(stack) > 0 {
+		return stack[len(stack)-1].pos, false
+	}
+	return 0, true
+}
+
+// checkExhaustiveMatch scans a statement for `match { ... }` blocks whose arms are
+// all constructors of a single sum type, and reports — via warn — any branches of
+// that type left uncovered when there is no catch-all (`_` or a bare variable) arm.
+// This is a local, registry-driven check: no type inference is required because the
+// constructor arms themselves identify the sum type. It is advisory (a warning),
+// since gatwd permits partial matches at runtime.
+func checkExhaustiveMatch(p *parser.Parser, stmt string, warn func(msg string)) {
+	const marker = "match {"
+	for idx := 0; ; {
+		mi := strings.Index(stmt[idx:], marker)
+		if mi < 0 {
+			return
+		}
+		start := idx + mi + len(marker)
+		depth, end := 1, start
+		for end < len(stmt) && depth > 0 {
+			switch stmt[end] {
+			case '{':
+				depth++
+			case '}':
+				depth--
+			}
+			if depth == 0 {
+				break
+			}
+			end++
+		}
+		if depth != 0 {
+			return // unbalanced; already reported by the delimiter check
+		}
+
+		var ctors []string
+		typeName := ""
+		catchAll, mixed := false, false
+		for _, arm := range splitCasesAware(stmt[start:end]) {
+			pp := strings.SplitN(strings.TrimSpace(arm), "->", 2)
+			pat := strings.TrimSpace(pp[0])
+			switch {
+			case pat == "" || pat == "_":
+				if pat == "_" {
+					catchAll = true
+				}
+			case isIdent(pat) && p.IsConstructor(pat):
+				tn, _, _ := p.SumTypeOf(pat)
+				if typeName == "" {
+					typeName = tn
+				} else if typeName != tn {
+					mixed = true
+				}
+				ctors = append(ctors, pat)
+			case isIdent(pat):
+				catchAll = true // a bare variable pattern binds anything
+			}
+			// non-identifier patterns (lists, literals) don't constrain a sum type
+		}
+
+		if typeName != "" && !catchAll && !mixed {
+			_, all, _ := p.SumTypeOf(ctors[0])
+			covered := make(map[string]bool, len(ctors))
+			for _, c := range ctors {
+				covered[c] = true
+			}
+			var missing []string
+			for _, b := range all {
+				if !covered[b] {
+					missing = append(missing, b)
+				}
+			}
+			if len(missing) > 0 {
+				sort.Strings(missing)
+				warn(fmt.Sprintf("non-exhaustive match on %s: missing %s", typeName, strings.Join(missing, ", ")))
+			}
+		}
+		idx = end + 1
+	}
 }
 
 func splitCasesAware(line string) []string {
@@ -2023,10 +2535,40 @@ func (i *Interpreter) EvaluateScript(script string) {
 
 // LoadScriptContent parses and evaluates a script string with a base directory for resolving relative imports.
 func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
-	lines := strings.Split(content, "\n")
-	var buffer string
+	for _, stmt := range logicalLines(content) {
+		buffer := stmt.text
+		// Module Imports
+		if strings.HasPrefix(buffer, "import ") {
+			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
+			if !filepath.IsAbs(importFile) {
+				importFile = filepath.Join(baseDir, importFile)
+			}
+			i.LoadScript(importFile)
+			continue
+		}
+		i.EvaluateLine(buffer)
+	}
+}
 
-	for _, rawLine := range lines {
+// logicalLine is a complete gatwd statement assembled from one or more physical
+// lines, tagged with the 1-based line number where the statement began.
+type logicalLine struct {
+	num  int
+	text string
+}
+
+// logicalLines splits a script into complete statements, joining physical lines
+// that continue a statement (unbalanced delimiters, an unterminated string, or a
+// trailing continuation operator like `=`, `|>`, or `in`). Comment and blank
+// lines are skipped. This is the single source of truth for statement assembly,
+// shared by script evaluation and `gatwd --check`.
+func logicalLines(content string) []logicalLine {
+	lines := strings.Split(content, "\n")
+	var out []logicalLine
+	var buffer string
+	startNum := 0
+
+	for idx, rawLine := range lines {
 		line := strings.TrimSpace(rawLine)
 		if line == "" || strings.HasPrefix(line, "--") {
 			continue
@@ -2040,6 +2582,7 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 			}
 		} else {
 			buffer = line
+			startNum = idx + 1
 		}
 
 		// Check for multi-line continuation
@@ -2056,23 +2599,13 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 			continue // Wait for next line
 		}
 
-		// Module Imports
-		if strings.HasPrefix(buffer, "import ") {
-			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
-			if !filepath.IsAbs(importFile) {
-				importFile = filepath.Join(baseDir, importFile)
-			}
-			i.LoadScript(importFile)
-			buffer = ""
-			continue
-		}
-
-		i.EvaluateLine(buffer)
+		out = append(out, logicalLine{num: startNum, text: buffer})
 		buffer = ""
 	}
 	if buffer != "" {
-		i.EvaluateLine(buffer)
+		out = append(out, logicalLine{num: startNum, text: buffer})
 	}
+	return out
 }
 
 // LoadScript reads a script from the filesystem and evaluates it.
@@ -2113,18 +2646,49 @@ func RunWithInterpreter(interpreter *Interpreter) {
 			fmt.Fprintf(os.Stderr, "%s:1:1: error: cannot read file: %v\n", targetFile, err)
 			os.Exit(1)
 		}
-		// Validate lines
-		hasError := false
-		lines := strings.Split(string(content), "\n")
-		for idx, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "--") {
-				continue
+		// Validate statically over logical statements (physical lines joined the
+		// same way the evaluator joins them). Only structural, zero-false-positive
+		// checks are reported — not type errors, which gatwd resolves at runtime.
+		stmts := logicalLines(string(content))
+
+		// Pre-register the script's sum types so exhaustiveness checks know each
+		// closed type's full set of constructors.
+		checkParser := parser.NewParser()
+		for _, stmt := range stmts {
+			if strings.HasPrefix(stmt.text, "type ") {
+				for range checkParser.Parse(stmt.text) {
+				}
 			}
-			// Infix syntax validation check
-			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
-				fmt.Fprintf(os.Stderr, "%s:%d:1: error: invalid syntax ':='\n", targetFile, idx+1)
+		}
+
+		hasError := false
+		for _, stmt := range stmts {
+			line := stmt.text
+			report := func(col int, msg string) {
+				fmt.Fprintf(os.Stderr, "%s:%d:%d: error: %s\n", targetFile, stmt.num, col, msg)
 				hasError = true
+			}
+			warn := func(msg string) {
+				fmt.Fprintf(os.Stderr, "%s:%d:1: warning: %s\n", targetFile, stmt.num, msg)
+			}
+			checkExhaustiveMatch(checkParser, line, warn)
+			// 1. Legacy assignment operator.
+			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
+				report(strings.Index(line, ":=")+1, "invalid assignment ':=' (use '=')")
+			}
+			// 2. Unbalanced (), [], or {} (string literals are ignored).
+			if col, ok := unbalancedDelimiter(line); !ok {
+				report(col+1, "unbalanced delimiter")
+			}
+			// 3. A declaration keyword missing its '='.
+			for _, kw := range []string{"def ", "const ", "type "} {
+				if strings.HasPrefix(line, kw) && !strings.Contains(line, "=") {
+					report(1, "'"+strings.TrimSpace(kw)+"' declaration is missing '='")
+				}
+			}
+			// 4. A trailing pipe with no following stage (unterminated at EOF).
+			if strings.HasSuffix(line, "|>") {
+				report(len(line)-1, "pipeline ends with '|>' but has no following stage")
 			}
 		}
 		if hasError {

@@ -38,6 +38,18 @@ func (e Either[L, R]) Map(f func(R) R) Either[L, R] {
 	return e
 }
 
+// Bind (monadic flatMap) applies f to the Right value and returns the resulting
+// Either, short-circuiting unchanged when the receiver is a Left. This is the
+// Monad bind for Either and the basis of railway-oriented error handling:
+// a Left propagates through a chain of Binds without invoking f.
+func (e Either[L, R]) Bind(f func(R) Either[L, R]) Either[L, R] {
+	if e.IsRight() {
+		r, _ := e.UnwrapRight()
+		return f(r)
+	}
+	return e
+}
+
 // MapLeft applies f to the Left value if present.
 func (e Either[L, R]) MapLeft(f func(L) L) Either[L, R] {
 	if e.IsLeft() {

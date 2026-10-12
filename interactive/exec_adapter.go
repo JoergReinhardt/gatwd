@@ -15,7 +15,15 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
 		return func(yield func(dsltypes.ASTNode[any]) bool) {
 			strValue := "unknown"
-			if s, ok := node.Value.(string); ok { strValue = s }
+			if node.Value != nil {
+				if s, ok := node.Value.(string); ok {
+					strValue = s
+				} else {
+					// Non-string payloads (e.g. a sum-type Variant) render via their
+					// Stringer / %v form rather than falling back to "unknown".
+					strValue = fmt.Sprintf("%v", node.Value)
+				}
+			}
 			cmdStr := commandTemplate
 			if strings.Contains(commandTemplate, "%s") {
 				cmdStr = fmt.Sprintf(commandTemplate, strValue)
@@ -23,6 +31,15 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 			
 			parts := strings.Fields(cmdStr)
 			if len(parts) == 0 {
+				return
+			}
+
+			// Loud failure: a step that is neither a recognized builtin nor an
+			// available executable surfaces an error instead of silently yielding
+			// nothing. This turns a typo'd pipeline step (e.g. `frobnicate`) from a
+			// silent no-op into a visible `[ERROR] unknown step or command` node.
+			if _, lookErr := exec.LookPath(parts[0]); lookErr != nil {
+				yield(dsltypes.NewASTNode[any](fmt.Errorf("unknown step or command: %q", parts[0]), yieldedFlag))
 				return
 			}
 

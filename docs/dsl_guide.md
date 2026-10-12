@@ -99,6 +99,21 @@ spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 
 ## 7. ADT Pattern Matching, List Destructuring & Non-Primitive Recursion
 
+### Sum-Type Constructor Matching
+When a `match` arm names a constructor of a declared sum type, it discriminates on the value's branch — each constructor routes to its own arm. Arms whose name is *not* a registered constructor are treated as fresh variable bindings that match any value (as in `conway_step`'s `live -> …`). A `_` arm or a bare variable arm is a catch-all.
+
+```haskell
+type OS = Linux | Windows | Darwin
+
+def route_os = match { Linux -> echo PENGUIN | Windows -> echo WINDOW | Darwin -> echo APPLE }
+
+spawn OS: Linux   |> route_os   -- PENGUIN
+spawn OS: Windows |> route_os   -- WINDOW
+```
+
+> **Tip:** `gatwd --check` warns when a `match` over a closed sum type is non-exhaustive (see §19), e.g. *"non-exhaustive match on OS: missing Darwin"*.
+
+### List & Tuple Patterns
 Pattern matching supports full list deconstruction (`[pivot, ...rest]`) as well as fixed-length tuple/list patterns (`[0, n]`, `[m, 0]`, `[m, n]`). This enables pure functional recursion like Quicksort using list comprehensions, as well as non-primitive recursive functions like Ackermann:
 
 ```haskell
@@ -327,6 +342,21 @@ spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold product |> assert 24
 spawn IntVal: 0 |> emit 50, 15, 80 |> drop 1 |> fold min |> assert 15
 ```
 
+#### Custom-Accumulator Fold (`fold (\acc x -> expr) seed`)
+Beyond the fixed reducers, a two-argument lambda with an explicit seed expresses any left fold, threading `acc` across the elements:
+
+```haskell
+let xs = [1, 2, 3, 4] in xs |> fold (\acc x -> acc + x) 0 |> assert 10
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> assert 24
+```
+
+### Bifunctor Mapping (`bimap`)
+`bimap (\x -> e1) (\y -> e2)` applies `e1` to the first/`Left` component and `e2` to the second/`Right` component of a `Pair` (e.g. from `&&&`), an `Either`, or a 2-element list:
+
+```haskell
+let p = [3, 4] in p |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
+```
+
 ### Functor Mapping (`map`)
 Applies higher-order functions or sub-pipelines across both stream nodes and persistent collections (`List`, `Chunk`, `Set`, `Slice`):
 * Lambda mapping: `map (\x -> expr)` evaluates `expr` with `x` bound to each item.
@@ -340,12 +370,22 @@ spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> map (\x -> x * 10) |> collect_list 
 let xs = [1, 2, 3] in xs |> map (\x -> x + 5) |> assert [6 7 8]
 ```
 
+### Monadic FlatMap (`flatmap`)
+`flatmap (\x -> expr)` is the Monad bind: the lambda yields a collection per element, and the results are flattened into one. Over a `List` the per-element lists are concatenated; over a stream each element's result is flattened and re-emitted. (At the Go API level `Bind` is also available on `List`, `Chunk`, `Set`, `Either`, and `Variant`.)
+
+```haskell
+let xs = [1, 2, 3] in xs |> flatmap (\x -> [x, x]) |> assert [1 1 2 2 3 3]
+spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list |> assert [1 1 2 2]
+```
+
 ### Set Algebra Builtins
 Full mathematical set algebra with persistent structural sharing:
 * `set_union <other>`: Set-theoretic union ($A \cup B$).
 * `set_intersect <other>`: Set-theoretic intersection ($A \cap B$).
 * `set_diff <other>`: Set-theoretic relative complement ($A \setminus B$).
-* `hamt_merge <other>`: Right-biased map merge ($H_1 \cup H_2$).
+* `hamt_merge <other>`: Right-biased map merge / keyed union ($H_1 \cup H_2$).
+* `hamt_intersect <other>`: Keyed map intersection, values from the left ($H_1 \cap H_2$).
+* `hamt_diff <other>`: Keyed map difference ($H_1 \setminus H_2$).
 
 ### Monoidal Concatenation (`++`) & Lexicographical Ordering (`<`, `<=`, `>`, `>=`)
 Binary infix operators work uniformly across all types:
@@ -364,10 +404,13 @@ First-class transducers to aggregate lazy streams into persistent structures:
 * `to_set`: Aggregates and deduplicates the stream into a persistent HAMT-backed `Set`.
 * `to_hamt`: Aggregates key-value pairs or "k:v" strings into an immutable `HAMT` map.
 
-### Lambda Predicate Filtering (`filter`)
-Filters streams or persistent collections (`List`, `Chunk`, `Set`, `Slice`) using lambdas:
+### Lambda Predicate Filtering (`filter`, `reject`)
+Filters streams or persistent collections (`List`, `Chunk`, `Set`, `Tree`, `Slice`) using lambdas:
 * `filter (\x -> expr)`: Retains elements where `expr` evaluates to `true`.
-* `filter "keyword"`: Substring matching over string nodes.
+* `reject (\x -> expr)`: Retains the complement — elements where `expr` is `false`.
+* `filter "keyword"` / `reject "keyword"`: Substring matching (and its complement) over string nodes.
+
+Over a `Tree`, `filter`/`reject` prune child subtrees by the predicate (the root is always kept).
 
 ```haskell
 -- Filter over persistent List:
@@ -381,4 +424,43 @@ spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> filter (\x -> x > 6) |> to_list
 * `pair_swap`: Swaps components of a pair or 2-element collection `[a, b]` $\to$ `[b, a]`.
 * `tree_size`: Evaluates the total node count of a Rose Tree.
 * `tree_depth`: Evaluates the maximum depth/height of a Rose Tree.
+
+## 19. First-Class Lambda Functions
+
+A lambda `\x -> expr` is a first-class value in pipeline position: it applies to the incoming value. This makes **lambda-bodied functions** callable and composable — not just the pointfree/operator-section `def`s of §5.
+
+```haskell
+-- Lambda-bodied function definitions:
+def inc = \x -> x + 1
+def dbl = \x -> x * 2
+
+spawn IntVal: 5 |> inc |> assert 6              -- apply by name
+spawn IntVal: 5 |> inc |> dbl |> assert 12      -- compose
+spawn IntVal: 5 |> (\x -> x * 10) |> assert 50  -- apply a lambda directly
+
+-- Bind a lambda with let, or pass one to a higher-order step by name:
+let f = \x -> x + 100 in spawn IntVal: 5 |> f |> assert 105
+let xs = [1, 2, 3] in xs |> map inc |> assert [2 3 4]
+```
+
+Lambdas are single-argument and applied in pipeline position; expression-position application (`f x`), multi-argument lambdas, and currying are not yet supported.
+
+## 20. Static Checking & Loud Errors (`gatwd --check`)
+
+`gatwd` fails loudly rather than silently. A pipeline step that is neither a known builtin/function nor an available executable surfaces an error node instead of producing nothing:
+
+```
+spawn IntVal: 5 |> frobnicate
+∷ [ERROR] unknown step or command: "frobnicate"
+```
+
+`gatwd --check <file.gatwd>` statically validates a script without running it, emitting `file:line:col:` diagnostics:
+
+* **Errors** (exit 1): unbalanced `()`/`[]`/`{}`, a `def`/`const`/`type` declaration missing `=`, a pipeline ending in a dangling `|>`, and the legacy `:=` operator.
+* **Warnings** (exit 0, advisory): a `match` over a closed sum type that is **non-exhaustive**, naming the uncovered branches — e.g. `warning: non-exhaustive match on OS: missing Darwin`. A `_` or bare-variable catch-all arm makes a match exhaustive.
+
+```bash
+gatwd --check examples/tour/09_pattern_matching.gatwd
+# examples/tour/09_pattern_matching.gatwd:6:1: warning: non-exhaustive match on OS: missing Darwin
+```
 

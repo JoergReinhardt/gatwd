@@ -213,3 +213,46 @@ let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen
 let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen1 |> unchunk |> to_set |> set_contains [1 2] |> assert true
 let blinker = [[2, 1], [2, 2], [2, 3]] in let gen2 = blinker |> cgol_step |> cgol_step in gen2 |> unchunk |> to_set |> set_contains [2 1] |> assert true
 
+-- 56. ADT Constructor Pattern Matching (each sum-type branch routes to its own arm)
+type Signal = SRed | SGreen | SYellow
+spawn Signal: SGreen |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert GO
+spawn Signal: SRed |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert STOP
+spawn Signal: SYellow |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert WAIT
+
+-- 57. First-Class Lambda Functions (lambda-bodied def, direct lambda step, composition, let-bound)
+def l_inc = \x -> x + 1
+def l_dbl = \x -> x * 2
+spawn IntVal: 5 |> l_inc |> assert 6
+spawn IntVal: 5 |> l_inc |> l_dbl |> assert 12
+spawn IntVal: 5 |> (\x -> x * 10) |> assert 50
+let lf = \x -> x + 100 in spawn IntVal: 5 |> lf |> assert 105
+let xs = [1, 2, 3] in xs |> map l_dbl |> assert [2 4 6]
+
+-- 58. Reject (negated filter) across List, stream, and Set
+let rl = [1, 2, 3, 4, 5] in rl |> reject (\x -> x > 3) |> assert [1 2 3]
+spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> reject (\x -> x > 6) |> to_list |> assert [2 5]
+spawn StrVal: s |> emit keep, drop, keep2 |> drop 1 |> reject (\x -> x == "drop") |> to_list |> assert [keep keep2]
+
+-- 59. HAMT set-algebra: Intersect (keyed) and Diff (keyed)
+let hi = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_intersect hi |> hamt_keys |> collect_list |> assert [a]
+let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_diff hd |> hamt_keys |> collect_list |> assert [b]
+
+-- 60. Tree.Filter / Reject (prune child subtrees by predicate)
+spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> reject (\x -> x > 4) |> tree_size |> assert 3
+spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> filter (\x -> x > 4) |> tree_size |> assert 3
+
+-- 61. flatMap / bind: monadic flatten over List and stream
+let fl = [1, 2, 3] in fl |> flatmap (\x -> [x, x]) |> assert [1 1 2 2 3 3]
+spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list |> assert [1 1 2 2]
+
+-- 62. HAMT.Filter / Reject wired to the DSL (filter entries by value)
+let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
+let hr = spawn S: x |> emit a:no, b:yes, c:no |> drop 1 |> to_hamt |> reject (\x -> x == "no") |> hamt_keys |> collect_list in hr |> assert [b]
+
+-- 63. Custom-accumulator fold (fold (\acc x -> expr) seed) over List and stream
+let cf = [1, 2, 3, 4] in cf |> fold (\acc x -> acc + x) 0 |> assert 10
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> assert 24
+
+-- 64. Bimap (Bifunctor map) over a 2-element pair: left via e1, right via e2
+let bp = [3, 4] in bp |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
+

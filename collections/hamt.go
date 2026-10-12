@@ -398,6 +398,44 @@ func (h *HAMT[K, V]) Merge(other *HAMT[K, V]) *HAMT[K, V] {
 	return res
 }
 
+// Intersect returns a new HAMT containing only the keys present in both h and
+// other, taking the values from h. This is the keyed analogue of Set.Intersect
+// (H₁ ∩ H₂), completing the set-algebra row for HAMT alongside Merge (union).
+func (h *HAMT[K, V]) Intersect(other *HAMT[K, V]) *HAMT[K, V] {
+	res := NewHAMT[K, V]()
+	if h == nil || h.root == nil || other == nil || other.root == nil {
+		return res
+	}
+	for k, v := range h.Seq() {
+		if _, ok := other.Get(k); ok {
+			res = res.Set(k, v)
+		}
+	}
+	return res
+}
+
+// Diff returns a new HAMT containing the keys of h that are absent from other
+// (H₁ \ H₂), preserving h's values. This is the keyed analogue of Set.Diff.
+func (h *HAMT[K, V]) Diff(other *HAMT[K, V]) *HAMT[K, V] {
+	if h == nil || h.root == nil {
+		return NewHAMT[K, V]()
+	}
+	if other == nil || other.root == nil {
+		return h
+	}
+	res := h
+	for k := range other.Seq() {
+		res = res.Delete(k)
+	}
+	return res
+}
+
+// Reject returns a new HAMT containing only the entries for which predicate is
+// false — the complement of Filter.
+func (h *HAMT[K, V]) Reject(predicate func(K, V) bool) *HAMT[K, V] {
+	return h.Filter(func(k K, v V) bool { return !predicate(k, v) })
+}
+
 // Equal returns true if h and other have identical keys and values.
 func (h *HAMT[K, V]) Equal(other *HAMT[K, V]) bool {
 	if h == other {

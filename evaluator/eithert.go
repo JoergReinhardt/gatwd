@@ -31,8 +31,16 @@ func EitherT[T any](adapter Adapter[T]) Adapter[functions.Either[error, T]] {
 
 			// 3. EXECUTE: Run the pure underlying adapter.
 			for result := range adapter(innerNode) {
-				// 4. RE-WRAP: Package the pure result back into an Either[error, T]
-				wrappedValue := functions.Right[error, T](result.Value)
+				// 4. RE-WRAP: Package the pure result back into an Either[error, T].
+				// If the underlying adapter yielded an error value (e.g. a command
+				// that could not be found), surface it as a Left so the failure is
+				// loud and propagates downstream instead of vanishing silently.
+				var wrappedValue functions.Either[error, T]
+				if errVal, isErr := any(result.Value).(error); isErr {
+					wrappedValue = functions.Left[error, T](errVal)
+				} else {
+					wrappedValue = functions.Right[error, T](result.Value)
+				}
 				wrappedNode := dsltypes.NewASTNode(wrappedValue, result.DSLType)
 
 				if !yield(wrappedNode) {

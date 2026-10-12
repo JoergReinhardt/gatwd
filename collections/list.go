@@ -167,6 +167,27 @@ func (l *List[T]) Filter(predicate func(T) bool) *List[T] {
 	return res
 }
 
+// Reject returns a new List containing the elements for which predicate is false
+// — the complement of Filter.
+func (l *List[T]) Reject(predicate func(T) bool) *List[T] {
+	return l.Filter(func(x T) bool { return !predicate(x) })
+}
+
+// Bind (monadic flatMap) applies f to each element — where f itself yields a
+// List — and concatenates the results in order into a single List. This is the
+// List instance of the Monad bind operation.
+func (l *List[T]) Bind(f func(T) *List[T]) *List[T] {
+	var parts []*List[T]
+	for v := range l.Seq() {
+		parts = append(parts, f(v))
+	}
+	res := Nil[T]()
+	for i := len(parts) - 1; i >= 0; i-- {
+		res = parts[i].Concat(res)
+	}
+	return res
+}
+
 // Equal returns true if l and other contain identical elements in the same order.
 func (l *List[T]) Equal(other *List[T]) bool {
 	if l == other {
