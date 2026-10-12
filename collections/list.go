@@ -167,6 +167,12 @@ func (l *List[T]) Filter(predicate func(T) bool) *List[T] {
 	return res
 }
 
+// Reject returns a new List containing the elements for which predicate is false
+// — the complement of Filter.
+func (l *List[T]) Reject(predicate func(T) bool) *List[T] {
+	return l.Filter(func(x T) bool { return !predicate(x) })
+}
+
 // Equal returns true if l and other contain identical elements in the same order.
 func (l *List[T]) Equal(other *List[T]) bool {
 	if l == other {

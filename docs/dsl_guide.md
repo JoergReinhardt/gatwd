@@ -360,7 +360,9 @@ Full mathematical set algebra with persistent structural sharing:
 * `set_union <other>`: Set-theoretic union ($A \cup B$).
 * `set_intersect <other>`: Set-theoretic intersection ($A \cap B$).
 * `set_diff <other>`: Set-theoretic relative complement ($A \setminus B$).
-* `hamt_merge <other>`: Right-biased map merge ($H_1 \cup H_2$).
+* `hamt_merge <other>`: Right-biased map merge / keyed union ($H_1 \cup H_2$).
+* `hamt_intersect <other>`: Keyed map intersection, values from the left ($H_1 \cap H_2$).
+* `hamt_diff <other>`: Keyed map difference ($H_1 \setminus H_2$).
 
 ### Monoidal Concatenation (`++`) & Lexicographical Ordering (`<`, `<=`, `>`, `>=`)
 Binary infix operators work uniformly across all types:
@@ -379,10 +381,13 @@ First-class transducers to aggregate lazy streams into persistent structures:
 * `to_set`: Aggregates and deduplicates the stream into a persistent HAMT-backed `Set`.
 * `to_hamt`: Aggregates key-value pairs or "k:v" strings into an immutable `HAMT` map.
 
-### Lambda Predicate Filtering (`filter`)
-Filters streams or persistent collections (`List`, `Chunk`, `Set`, `Slice`) using lambdas:
+### Lambda Predicate Filtering (`filter`, `reject`)
+Filters streams or persistent collections (`List`, `Chunk`, `Set`, `Tree`, `Slice`) using lambdas:
 * `filter (\x -> expr)`: Retains elements where `expr` evaluates to `true`.
-* `filter "keyword"`: Substring matching over string nodes.
+* `reject (\x -> expr)`: Retains the complement — elements where `expr` is `false`.
+* `filter "keyword"` / `reject "keyword"`: Substring matching (and its complement) over string nodes.
+
+Over a `Tree`, `filter`/`reject` prune child subtrees by the predicate (the root is always kept).
 
 ```haskell
 -- Filter over persistent List:

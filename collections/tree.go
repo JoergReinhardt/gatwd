@@ -90,6 +90,36 @@ func (t *Tree[T]) Map(f func(T) T) *Tree[T] {
 	return NewTree[T](f(t.value), newChildrenList)
 }
 
+// Filter returns a new Tree that keeps the root and, recursively, only those
+// child subtrees whose root value satisfies the predicate. A child whose value
+// fails the predicate is pruned together with all of its descendants. The root
+// value is always retained, because a Tree must have a root — this completes the
+// Filter row across every collection type.
+func (t *Tree[T]) Filter(predicate func(T) bool) *Tree[T] {
+	if t == nil {
+		return nil
+	}
+	var kept []*Tree[T]
+	if t.children != nil {
+		for child := range t.children.Seq() {
+			if predicate(child.value) {
+				kept = append(kept, child.Filter(predicate))
+			}
+		}
+	}
+	newChildren := Nil[*Tree[T]]()
+	for i := len(kept) - 1; i >= 0; i-- {
+		newChildren = Cons(kept[i], newChildren)
+	}
+	return NewTree[T](t.value, newChildren)
+}
+
+// Reject returns a new Tree pruning the child subtrees whose root value satisfies
+// the predicate — the complement of Filter.
+func (t *Tree[T]) Reject(predicate func(T) bool) *Tree[T] {
+	return t.Filter(func(x T) bool { return !predicate(x) })
+}
+
 // Fold evaluates the tree bottom-up via catamorphism: each node combines its value
 // and the folded results of all its children.
 func (t *Tree[T]) Fold(f func(val T, childResults []any) any) any {
@@ -262,8 +292,6 @@ func (t *Tree[T]) UnmarshalJSON(data []byte) error {
 	t.children = cl
 	return nil
 }
-
-
 
 // Graph exposes the internal structure for generic UTF-8 Tree visualizations
 func (t *Tree[T]) Graph() any {

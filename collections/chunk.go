@@ -159,6 +159,12 @@ func (c *Chunk[T]) Filter(predicate func(T) bool) *Chunk[T] {
 	return res
 }
 
+// Reject returns a new Chunk containing the elements for which predicate is false
+// — the complement of Filter.
+func (c *Chunk[T]) Reject(predicate func(T) bool) *Chunk[T] {
+	return c.Filter(func(x T) bool { return !predicate(x) })
+}
+
 // Equal returns true if c and other have identical elements in the same order.
 func (c *Chunk[T]) Equal(other *Chunk[T]) bool {
 	if c == other {

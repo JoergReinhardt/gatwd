@@ -228,3 +228,16 @@ spawn IntVal: 5 |> (\x -> x * 10) |> assert 50
 let lf = \x -> x + 100 in spawn IntVal: 5 |> lf |> assert 105
 let xs = [1, 2, 3] in xs |> map l_dbl |> assert [2 4 6]
 
+-- 58. Reject (negated filter) across List, stream, and Set
+let rl = [1, 2, 3, 4, 5] in rl |> reject (\x -> x > 3) |> assert [1 2 3]
+spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> reject (\x -> x > 6) |> to_list |> assert [2 5]
+spawn StrVal: s |> emit keep, drop, keep2 |> drop 1 |> reject (\x -> x == "drop") |> to_list |> assert [keep keep2]
+
+-- 59. HAMT set-algebra: Intersect (keyed) and Diff (keyed)
+let hi = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_intersect hi |> hamt_keys |> collect_list |> assert [a]
+let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_diff hd |> hamt_keys |> collect_list |> assert [b]
+
+-- 60. Tree.Filter / Reject (prune child subtrees by predicate)
+spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> reject (\x -> x > 4) |> tree_size |> assert 3
+spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> filter (\x -> x > 4) |> tree_size |> assert 3
+

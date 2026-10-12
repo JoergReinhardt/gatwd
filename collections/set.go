@@ -206,6 +206,12 @@ func (s *Set[T]) Filter(predicate func(T) bool) *Set[T] {
 	return res
 }
 
+// Reject returns a new Set containing the elements for which predicate is false
+// — the complement of Filter.
+func (s *Set[T]) Reject(predicate func(T) bool) *Set[T] {
+	return s.Filter(func(x T) bool { return !predicate(x) })
+}
+
 // ElementsAny returns all elements in the set as a slice of any.
 func (s *Set[T]) ElementsAny() []any {
 	if s == nil || s.hamt == nil {

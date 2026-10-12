@@ -392,7 +392,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
 			}
-		} else if strings.HasPrefix(stepStr, "filter") {
+		} else if strings.HasPrefix(stepStr, "filter") || strings.HasPrefix(stepStr, "reject") {
+			// `reject p` keeps the complement of `filter p`; both share this branch
+			// ("filter" and "reject" are both 6 characters) with a negate flag.
+			negate := strings.HasPrefix(stepStr, "reject")
 			rawArg := strings.TrimSpace(stepStr[6:])
 			arg := rawArg
 			if strings.HasPrefix(arg, "(") && strings.HasSuffix(arg, ")") {
@@ -430,6 +433,12 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					return false
 				}
 
+				// keep is evalPred, inverted for `reject`.
+				keep := evalPred
+				if negate {
+					keep = func(it any, t dsltypes.BitFlag) bool { return !evalPred(it, t) }
+				}
+
 				filterStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 						for node := range stream {
@@ -445,7 +454,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if l, ok := val.(*collections.List[any]); ok {
 								var kept []any
 								for it := range l.Seq() {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										kept = append(kept, it)
 									}
 								}
@@ -463,7 +472,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if c, ok := val.(*collections.Chunk[any]); ok {
 								resChunk := collections.NewChunk[any](c.Capacity())
 								for _, it := range c.Items() {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										resChunk.Append(it)
 									}
 								}
@@ -478,7 +487,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								if seq, okSeq := functions.ToSliceAny(val); okSeq {
 									resSet := collections.NewSet[any]()
 									for _, it := range seq {
-										if evalPred(it, node.DSLType) {
+										if keep(it, node.DSLType) {
 											resSet = resSet.Add(it)
 										}
 									}
@@ -493,7 +502,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							if sl, okSl := val.([]any); okSl {
 								var newSl []any
 								for _, it := range sl {
-									if evalPred(it, node.DSLType) {
+									if keep(it, node.DSLType) {
 										newSl = append(newSl, it)
 									}
 								}
@@ -503,8 +512,17 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								continue
 							}
 
+							// If val is a Tree: prune child subtrees by the predicate.
+							if tr, ok := val.(*collections.Tree[any]); ok {
+								res := tr.Filter(func(x any) bool { return keep(x, node.DSLType) })
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
 							// Stream node
-							if evalPred(val, node.DSLType) {
+							if keep(val, node.DSLType) {
 								if !yield(node) {
 									return
 								}
@@ -516,10 +534,14 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			} else {
 				keyword := strings.Trim(rawArg, "\"")
 				predicate := func(val any) bool {
+					match := false
 					if strVal, ok := val.(string); ok {
-						return strings.Contains(strVal, keyword)
+						match = strings.Contains(strVal, keyword)
 					}
-					return false
+					if negate {
+						return !match
+					}
+					return match
 				}
 				pipeline = append(pipeline, evaluator.StepFilter(predicate))
 			}
@@ -870,6 +892,56 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, evaluator.StepHAMTMerge(v))
 			} else {
 				pipeline = append(pipeline, evaluator.StepHAMTMerge(operandStr))
+			}
+		} else if strings.HasPrefix(stepStr, "hamt_intersect ") {
+			operandStr := strings.TrimSpace(stepStr[15:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			// StepSetIntersect dispatches by reflection to the value's Intersect
+			// method, so it applies to HAMT (keyed intersection) as well as Set.
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetIntersect(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetIntersect(operandStr))
+			}
+		} else if strings.HasPrefix(stepStr, "hamt_diff ") {
+			operandStr := strings.TrimSpace(stepStr[10:])
+			lookup := func(k string) (any, bool) {
+				if rt, ok := i.RuntimeNodes[k]; ok {
+					v, _ := rt.Value.UnwrapRight()
+					return v, true
+				}
+				if v, ok := i.Constants[k]; ok {
+					return v, true
+				}
+				if v, ok := i.Variables[k]; ok {
+					return v, true
+				}
+				return nil, false
+			}
+			// StepSetDiff dispatches by reflection to the value's Diff method,
+			// so it applies to HAMT (keyed difference) as well as Set.
+			if evaled, err := parser.EvalInfixString(operandStr, lookup); err == nil {
+				pipeline = append(pipeline, evaluator.StepSetDiff(evaled))
+			} else if rt, ok := i.RuntimeNodes[operandStr]; ok {
+				v, _ := rt.Value.UnwrapRight()
+				pipeline = append(pipeline, evaluator.StepSetDiff(v))
+			} else {
+				pipeline = append(pipeline, evaluator.StepSetDiff(operandStr))
 			}
 		} else if stepStr == "set_elements" {
 			pipeline = append(pipeline, evaluator.StepSetElements())

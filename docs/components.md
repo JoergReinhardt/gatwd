@@ -16,12 +16,12 @@ The foundational mathematical primitives:
 
 ## 2. Layer 1: `collections/` (Persistent Data Structures)
 Purely functional, persistent data structures with structural sharing (all implement `Graphable` for the visualizer):
-- **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping, `Merge()`, `Equal()`, `MapValues()`, `Fold()`, and `Filter()`. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `FoldLeft()`, `FoldRight()`, `Filter()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `AddChild()`, `Size()`, `Depth()`, `Flatten()`, `FlattenChunk()`, `Map()`, `Fold()` bottom-up catamorphism, `Equal()`). Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Fold()`, and `Filter()`.
+- **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping, `Merge()` (union), `Intersect()`, `Diff()` (keyed set algebra), `Equal()`, `MapValues()`, `Fold()`, `Filter()`, and `Reject()`. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `FoldLeft()`, `FoldRight()`, `Filter()`, `Reject()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `AddChild()`, `Size()`, `Depth()`, `Flatten()`, `FlattenChunk()`, `Map()`, `Fold()` bottom-up catamorphism, `Filter()`/`Reject()` subtree pruning, `Equal()`). Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
+- **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Fold()`, `Filter()`, and `Reject()`.
 - **`Map[K, V]`**: Persistent dictionary backed by `HAMT[K, V]`, implementing `Graphable`.
-- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Reverse()`, `Slice()`, `Map()`, `Fold()`, `Filter()`, and `Equal()`. Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, and `sql.Scanner`.
+- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Reverse()`, `Slice()`, `Map()`, `Fold()`, `Filter()`, `Reject()`, and `Equal()`. Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, and `sql.Scanner`.
 
 ---
 
