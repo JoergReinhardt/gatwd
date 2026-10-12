@@ -6,18 +6,70 @@ This directory contains Conway's Game of Life implemented in **100% Pure Gatwd D
 
 | Variant | Go Code Added | How It Runs |
 | :--- | :---: | :--- |
-| **Pure DSL (`game_of_life_pure_dsl`)** | **0 lines** | `gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd` |
-| **Minted Edition (`game_of_life_edition`)** | ~60 lines | `go run examples/game_of_life_edition/main.go ...` |
+| **Pure DSL (`game_of_life_pure_dsl`)** | **0 lines domain logic** | `go run ./examples/game_of_life_pure_dsl` or `gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd` |
+| **Minted Edition (`game_of_life_edition`)** | ~60 lines | `go run ./examples/game_of_life_edition ...` |
 | **Native Appliance (`game_of_life`)** | Standalone tool | `go run ./examples/game_of_life ...` |
 
-This variant requires **NO Go compiler**, **NO Go runtime code additions**, and **NO minted Edition binary**. It runs entirely on the standard, out-of-the-box `gatwd` CLI binary.
+This variant requires **NO custom compiler editions**, **NO Go automata physics extensions**, and **NO domain-specific Go builtins**. All generational physics (B3/S23) run directly in the standard Gatwd DSL.
+
+---
+
+## Running the Simulation
+
+Just like the other editions, `game_of_life_pure_dsl` provides a full, interactive terminal runner:
+
+### 1. Interactive Terminal Animation (Default)
+Runs an infinite real-time animation loop rendered in high-resolution UTF-8 Braille sub-pixels, computed generation-by-generation entirely by the Gatwd DSL engine:
+```bash
+go run ./examples/game_of_life_pure_dsl
+```
+
+### 2. Built-in Pattern Presets
+```bash
+# Classic spaceship gliding across the universe
+go run ./examples/game_of_life_pure_dsl -preset glider
+
+# Period-2 oscillators
+go run ./examples/game_of_life_pure_dsl -preset blinker
+go run ./examples/game_of_life_pure_dsl -preset toad
+go run ./examples/game_of_life_pure_dsl -preset beacon
+
+# Period-3 geometric pulsar
+go run ./examples/game_of_life_pure_dsl -preset pulsar
+
+# Methuselahs (long-running active chaotic evolutions)
+go run ./examples/game_of_life_pure_dsl -preset acorn
+go run ./examples/game_of_life_pure_dsl -preset r-pentomino
+```
+
+### 3. Rendering Modes & Custom Flags
+```bash
+# Quadrant blocks (2x2) with yellow coloring
+go run ./examples/game_of_life_pure_dsl -preset pulsar -mode quadrant -color yellow
+
+# Full character blocks (1x1) with 100ms frame delay
+go run ./examples/game_of_life_pure_dsl -preset glider -mode cell -delay 100
+
+# Batch mode: run 10 generations without clearing screen
+go run ./examples/game_of_life_pure_dsl -preset glider -steps 10 -non-interactive
+```
+
+### 4. Mathematical Verification Suite
+Execute the full mathematical verification suite asserting discrete spatial invariants and multi-generational lifecycles:
+```bash
+go run ./examples/game_of_life_pure_dsl -verify
+```
+or via the standard Gatwd CLI binary:
+```bash
+gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd
+```
 
 ---
 
 ## Architectural Principles
 
 ### 1. Dynamic Generational Transitions in Pure DSL
-Rather than hardcoding static coordinate transitions or using mockup coordinates, the entire simulation dynamically computes Generation $t+1$ from Generation $t$ directly in Gatwd syntax using Moore neighborhood expansion, multiset frequencies, and B3/S23 rule filtering:
+Rather than hardcoding static coordinate transitions, the entire simulation dynamically computes Generation $t+1$ from Generation $t$ directly in Gatwd syntax using Moore neighborhood expansion, multiset frequencies, and B3/S23 rule filtering:
 
 ```gatwd
 -- 1. Moore Neighborhood Expansion via Multi-Generator List Comprehension:
@@ -34,7 +86,7 @@ let nextGen = births ++ survivors
 ```
 
 ### 2. Multi-Generational Lifecycles
-The script verifies two fundamental Game of Life patterns dynamically across multiple steps:
+The verification script verifies two fundamental Game of Life patterns dynamically across multiple steps:
 
 1. **Blinker Oscillator (Period-2)**:
    - **Generation 0**: Horizontal `[[2, 1], [2, 2], [2, 3]]`
@@ -55,27 +107,4 @@ blinker1 |> unchunk |> to_set |> set_contains [2 1] |> assert false
 
 -- Population count invariant
 glider4 |> unchunk |> fold count |> assert 5
-```
-
-### 4. Diagnostic Card Visualization
-Simulation headers and invariant summaries are rendered using the standard Gatwd card visualizer (`visualize`):
-
-```gatwd
-spawn Status: Start |> echo "All Pure DSL Game of Life Invariants Verified!" |> visualize --curved --border --border-color=green
-```
-
----
-
-## Running the Script
-
-Execute the script with the standard Gatwd CLI:
-
-```bash
-gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd
-```
-
-or via `go run cmd/gatwd/main.go`:
-
-```bash
-go run cmd/gatwd/main.go examples/game_of_life_pure_dsl/game_of_life.gatwd
 ```
