@@ -37,6 +37,12 @@ type Interpreter struct {
 	RuntimeNodes   map[string]dsltypes.ASTNode[functions.Either[error, any]]
 	Variables      map[string]string // Maps local 'let' variables
 	Constants      map[string]any    // Registered and script-defined constants
+	// compiledFuncs caches each def's parsed pipeline steps, keyed by name.
+	// Only populated/served when the active scope carries no local Variables or
+	// RuntimeNodes (so no value-dependent substitution can occur), which makes
+	// the cached parse identical to a fresh one. Shared across forks by
+	// reference (like Funcs) and cleared when a def or constant is (re)defined.
+	compiledFuncs map[string][]evaluator.PipelineStep[functions.Either[error, any]]
 	CustomSteps    []StepHandler     // Pluggable extension step handlers
 	EnableBuiltins bool              // Whether Go std builtins are active
 }
@@ -53,6 +59,7 @@ func NewBareInterpreter() *Interpreter {
 		RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
 		Variables:      make(map[string]string),
 		Constants:      make(map[string]any),
+		compiledFuncs:  make(map[string][]evaluator.PipelineStep[functions.Either[error, any]]),
 		EnableBuiltins: false,
 	}
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
@@ -85,11 +92,22 @@ func (i *Interpreter) fork() *Interpreter {
 	}
 	localInterp.Funcs = i.Funcs
 	localInterp.Constants = i.Constants
+	localInterp.compiledFuncs = i.compiledFuncs
 	localInterp.RuntimeNodes = make(map[string]dsltypes.ASTNode[functions.Either[error, any]])
 	for k, v := range i.RuntimeNodes {
 		localInterp.RuntimeNodes[k] = v
 	}
 	return localInterp
+}
+
+// invalidateCompiledCache clears every cached def parse. Called whenever a def
+// or constant is (re)defined, since a cached parse may have baked in a prior
+// constant value or referenced a since-changed body. It deletes keys in place
+// to preserve the map identity shared with any live forks.
+func (i *Interpreter) invalidateCompiledCache() {
+	for k := range i.compiledFuncs {
+		delete(i.compiledFuncs, k)
+	}
 }
 
 func toListElements(val any) ([]any, bool) {
@@ -221,14 +239,29 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			funcName := stepStr
 			lazyStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-					// Compile the function body lazily at runtime
-					funcPipeline := i.Funcs[funcName]
-					funcParts, _ := splitPipelineAware(funcPipeline)
-					compiledSteps := i.parsePipelineSteps(funcParts)
+					// Compile the function body lazily at runtime. When the active
+					// scope carries no local Variables/RuntimeNodes, no value-
+					// dependent substitution can occur, so the parse is purely
+					// structural and can be cached by function name — the hot path
+					// for pure recursive defs. Scoped calls skip the cache and
+					// re-parse exactly as before, preserving semantics.
+					cacheable := len(i.Variables) == 0 && len(i.RuntimeNodes) == 0
+					var compiledSteps []evaluator.PipelineStep[functions.Either[error, any]]
+					if cacheable {
+						compiledSteps = i.compiledFuncs[funcName]
+					}
+					if compiledSteps == nil {
+						funcPipeline := i.Funcs[funcName]
+						funcParts, _ := splitPipelineAware(funcPipeline)
+						compiledSteps = i.parsePipelineSteps(funcParts)
+						if cacheable {
+							i.compiledFuncs[funcName] = compiledSteps
+						}
+					}
 
-					// Evaluate the compiled pipeline over the incoming stream
-					eng := evaluator.NewEngine[functions.Either[error, any]]()
-					outStream := eng.EvaluatePipeline(stream, compiledSteps)
+					// Evaluate over the incoming stream, reusing the interpreter's
+					// engine instead of allocating a fresh one per call.
+					outStream := i.Engine.EvaluatePipeline(stream, compiledSteps)
 					for node := range outStream {
 						if !yield(node) {
 							return
@@ -2483,6 +2516,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 			constName := strings.TrimSpace(parts[0])
 			valStr := strings.TrimSpace(parts[1])
 			valStr = strings.Trim(valStr, "\"")
+			i.invalidateCompiledCache()
 			if strings.Contains(valStr, "\n") {
 				i.Constants[constName] = valStr
 				return
@@ -2514,6 +2548,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 			funcName := strings.TrimSpace(parts[0])
 			pipelineStr := strings.TrimSpace(parts[1])
 			i.Funcs[funcName] = pipelineStr
+			i.invalidateCompiledCache()
 		}
 		return
 	}
