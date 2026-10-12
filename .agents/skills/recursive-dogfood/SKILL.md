@@ -46,6 +46,11 @@ Gatwd maintains an explicit taxonomy of types and operators. Whenever a type or 
 
 **Completeness Rule**: When introducing a new operator or type, you MUST implement all cells in the matrix where the operation is mathematically well-defined. Never implement `++` or `fold` for `List` without ensuring `Chunk`, `Set`, and `HAMT` also support their algebraic equivalents.
 
+### 3. Clean Core Prevention Rule (Generic Core vs Domain Isolation)
+- **Zero Domain Pollution in Core**: Never introduce use-case specific or domain-specific types, keywords, or pipeline steps (e.g. `StepConway`, `LifeGrid`) into core packages (`evaluator/`, `functions/`, `collections/`, `pkg/cli/`). Core must remain strictly generic, mathematical, and category-theoretic.
+- **Go Standard Library Upward Wiring**: If a specific use case reveals that a capability from the Go Standard Library is missing, implement it **generically** across all layers (Layers 0 through 5) so it becomes a general-purpose Gatwd builtin available to all programs.
+- **Third-Party Domain Dependencies**: Third-party Go dependencies (Redis, Postgres, Kafka, Kubernetes, AWS, etc.) must NEVER be imported into core. Implement them as **Adapters / Plugins** within the repository (e.g. in `adapters/` or `pkg/plugins/`), registrable in `pkg/cli` to build **Gatwd Editions** (`cmd/gatwd-<name>`) and **Gatwd Appliances**.
+
 ---
 
 ## When to Activate

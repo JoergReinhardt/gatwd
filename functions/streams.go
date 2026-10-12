@@ -22,6 +22,11 @@ func (p Pair[A, B]) PairElements() (any, any) {
 	return p.Fst, p.Snd
 }
 
+// Swap returns a new Pair with the components exchanged: (a, b) -> (b, a).
+func (p Pair[A, B]) Swap() Pair[B, A] {
+	return Pair[B, A]{Fst: p.Snd, Snd: p.Fst}
+}
+
 // Map applies f to the second element (Snd), returning a new Pair (Functor over 2nd component).
 func (p Pair[A, B]) Map(f func(B) B) Pair[A, B] {
 	return Pair[A, B]{Fst: p.Fst, Snd: f(p.Snd)}

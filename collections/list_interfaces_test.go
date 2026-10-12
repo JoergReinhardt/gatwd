@@ -128,4 +128,37 @@ func TestTree_FP(t *testing.T) {
 	if sumTree != 35 {
 		t.Errorf("expected tree fold sum 35, got %v", sumTree)
 	}
+
+	// AddChild, Size, Depth
+	child3 := Leaf(30)
+	treeWithChild := root.AddChild(child3)
+	if treeWithChild.Size() != 4 {
+		t.Errorf("expected tree size 4, got %d", treeWithChild.Size())
+	}
+	if treeWithChild.Depth() != 2 {
+		t.Errorf("expected tree depth 2, got %d", treeWithChild.Depth())
+	}
+
+	// Flatten and FlattenChunk
+	flatList := treeWithChild.Flatten()
+	if flatList.Len() != 4 {
+		t.Errorf("expected flatList len 4, got %d", flatList.Len())
+	}
+	flatChunk := treeWithChild.FlattenChunk()
+	if flatChunk.Len() != 4 || flatChunk.Items()[0] != 5 {
+		t.Errorf("expected flatChunk len 4 with root 5, got %v", flatChunk.Items())
+	}
+
+	// JSON Serialization
+	data, err := root.MarshalJSON()
+	if err != nil {
+		t.Fatalf("tree MarshalJSON failed: %v", err)
+	}
+	newRoot := Leaf(0)
+	if err := newRoot.UnmarshalJSON(data); err != nil {
+		t.Fatalf("tree UnmarshalJSON failed: %v", err)
+	}
+	if !root.Equal(newRoot) {
+		t.Errorf("expected deserialized tree to equal original root")
+	}
 }

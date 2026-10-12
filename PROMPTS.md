@@ -67,5 +67,11 @@ All agent skills and operational instructions are maintained directly within the
 - `.agents/skills/all-layers-sync/SKILL.md`: Audit lower-level Go abstractions and wire them all the way through to the DSL as builtins with exhaustive DSL tests.
 - `.agents/skills/project-doc-sync/SKILL.md`: Maintain package `doc.go` overviews, godoc on all exported identifiers, and testable `Example*` functions.
 
+## 11. Clean Core Prevention Rule (Generic Core vs Domain Isolation)
+- **Zero Domain Pollution in Core:** Never add use-case-specific or domain-specific types, keywords, or pipeline steps directly into core packages (`evaluator/`, `functions/`, `collections/`, `parser/`, `pkg/cli/`). For example, never introduce Conway-specific steps (`StepConway`, `LifeGrid`), simulation hacks, or database/Kubernetes commands into core. Core MUST remain strictly mathematical, category-theoretic, and universally generic.
+- **The Go Standard Library Rule (Generic Upward Wiring):** When a specific application reveals that a capability from the Go Standard Library (e.g. `io`, `bufio`, `net`, `math/big`, `crypto`, `time`, `sync`) is missing in Gatwd, implement it **generically** across all layers (Layers 0 through 5) so it becomes a first-class, general-purpose Gatwd builtin available to all programs.
+- **Third-Party Domain Dependencies (Adapters/Plugins for Editions & Appliances):** Third-party Go dependencies (Redis, Postgres, Kafka, Kubernetes, AWS, etc.) must NEVER be imported into core `gatwd` packages. Implement them as **Adapters / Plugins** inside the repository (e.g. under `adapters/` or `pkg/plugins/`), registrable in `pkg/cli` via `RegisterStep` and `RegisterType`. Use them to mint **Gatwd Editions** (`cmd/gatwd-<name>`) or **Gatwd Appliances** (single-purpose distributions with embedded `.gatwd` code) without bloating core.
+
+
 
 

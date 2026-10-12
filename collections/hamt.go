@@ -339,6 +339,46 @@ func (h *HAMT[K, V]) Values() iter.Seq[V] {
 	}
 }
 
+// KeySet returns a persistent Set containing all keys of the HAMT.
+func (h *HAMT[K, V]) KeySet() *Set[K] {
+	s := NewSet[K]()
+	if h == nil || h.root == nil {
+		return s
+	}
+	for k := range h.Keys() {
+		s = s.Add(k)
+	}
+	return s
+}
+
+// ValueChunk returns a contiguous bounded Chunk containing all values of the HAMT.
+func (h *HAMT[K, V]) ValueChunk() *Chunk[V] {
+	if h == nil || h.root == nil {
+		return NewChunk[V](0)
+	}
+	c := NewChunk[V](h.size)
+	for v := range h.Values() {
+		c.Append(v)
+	}
+	return c
+}
+
+// ValueList returns a persistent List containing all values of the HAMT.
+func (h *HAMT[K, V]) ValueList() *List[V] {
+	if h == nil || h.root == nil {
+		return Nil[V]()
+	}
+	var items []V
+	for v := range h.Values() {
+		items = append(items, v)
+	}
+	res := Nil[V]()
+	for i := len(items) - 1; i >= 0; i-- {
+		res = Cons(items[i], res)
+	}
+	return res
+}
+
 // Merge returns a new HAMT containing all mappings from h and other.
 // If keys collide, values from other take precedence (right-biased merge).
 func (h *HAMT[K, V]) Merge(other *HAMT[K, V]) *HAMT[K, V] {

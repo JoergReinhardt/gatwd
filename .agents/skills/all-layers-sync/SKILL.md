@@ -12,7 +12,9 @@ In Gatwd, lower-layer functional abstractions (Layers 0 through 4) must never re
 Crucially, **"wiring all things up" must be orthogonal and complete across the type-operator matrix**:
 1. **No Selective Wiring**: Introducing or expanding an operation (e.g., `++`, `map`, `fold`, `filter`, `<`, `==`) requires wiring it across ALL data types where it is algebraically sound (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Pair`, `Either`, `Maybe`, streams).
 2. **No Mockups / Shortcuts**: Never implement bare-minimum Go wrappers or mockups to satisfy a test or demo. Provide full, genuine language and engine primitives so the DSL can solve problems natively.
-3. **Third-Party Domain Extensions**: Third-party Go packages (Kubernetes, AWS, databases) must be integrated via **Gatwd Editions** (custom binary distributions) or **Gatwd Appliances** (single-purpose releases with embedded `.gatwd` code) importing `pkg/cli` and registering custom types and `StepHandler` transducers.
+3. **Clean Core Prevention Rule**: Never introduce use-case specific or domain-specific types, keywords, or pipeline steps (e.g. `StepConway`, `LifeGrid`) into core packages (`evaluator/`, `functions/`, `collections/`, `pkg/cli/`). Core must remain strictly generic, mathematical, and category-theoretic.
+4. **Go Standard Library Upward Wiring**: If a specific use case reveals that a capability from the Go Standard Library is missing, implement it generically across all layers (Layers 0 through 5) so it becomes a general-purpose Gatwd builtin.
+5. **Third-Party Domain Dependencies**: Third-party Go dependencies (Redis, Postgres, Kafka, Kubernetes, AWS, etc.) must NEVER be imported into core. Implement them as **Adapters / Plugins** within the repository (e.g. in `adapters/` or `pkg/plugins/`), registrable in `pkg/cli` to build **Gatwd Editions** (`cmd/gatwd-<name>`) and **Gatwd Appliances**.
 
 ---
 

@@ -349,6 +349,52 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 			}
 		}
 
+		// Tree ++ Tree (attach child)
+		if _, isTreeA := left.(interface{ IsTree() bool }); isTreeA {
+			if _, isTreeB := right.(interface{ IsTree() bool }); isTreeB {
+				rvA := reflect.ValueOf(left)
+				mAddChild := rvA.MethodByName("AddChild")
+				if mAddChild.IsValid() {
+					out := mAddChild.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
+		// Pair ++ Pair (element-wise concatenation)
+		if pa, okA := left.(interface{ PairElements() (any, any) }); okA {
+			if pb, okB := right.(interface{ PairElements() (any, any) }); okB {
+				fA, sA := pa.PairElements()
+				fB, sB := pb.PairElements()
+				combF, errF := EvalBinaryOp(OpConcat, fA, fB)
+				if errF == nil {
+					combS, errS := EvalBinaryOp(OpConcat, sA, sB)
+					if errS == nil {
+						return Pair[any, any]{Fst: combF, Snd: combS}, nil
+					}
+				}
+			}
+		}
+
+		// Maybe ++ Maybe
+		if ma, okA := left.(interface{ MaybeValue() (any, bool) }); okA {
+			if mb, okB := right.(interface{ MaybeValue() (any, bool) }); okB {
+				vA, isJA := ma.MaybeValue()
+				vB, isJB := mb.MaybeValue()
+				if !isJA {
+					return right, nil
+				}
+				if !isJB {
+					return left, nil
+				}
+				comb, err := EvalBinaryOp(OpConcat, vA, vB)
+				if err == nil {
+					return Just(comb), nil
+				}
+				return Just(vA), nil
+			}
+		}
+
 		// Sequences / Slices
 		seqA, okA := ToSliceAny(left)
 		seqB, okB := ToSliceAny(right)
@@ -882,6 +928,54 @@ func Compare(a, b any) (int, error) {
 		}
 	}
 
+	// Maybes (Nothing < Just(x))
+	if ma, okA := a.(interface{ MaybeValue() (any, bool) }); okA {
+		if mb, okB := b.(interface{ MaybeValue() (any, bool) }); okB {
+			vA, isJA := ma.MaybeValue()
+			vB, isJB := mb.MaybeValue()
+			if !isJA && !isJB {
+				return 0, nil
+			}
+			if !isJA && isJB {
+				return -1, nil
+			}
+			if isJA && !isJB {
+				return 1, nil
+			}
+			return Compare(vA, vB)
+		}
+	}
+
+	// Eithers (Left(x) < Right(y))
+	if ea, okA := a.(interface{ EitherValue() (any, any, bool) }); okA {
+		if eb, okB := b.(interface{ EitherValue() (any, any, bool) }); okB {
+			lA, rA, isLA := ea.EitherValue()
+			lB, rB, isLB := eb.EitherValue()
+			if isLA && !isLB {
+				return -1, nil
+			}
+			if !isLA && isLB {
+				return 1, nil
+			}
+			if isLA {
+				return Compare(lA, lB)
+			}
+			return Compare(rA, rB)
+		}
+	}
+
+	// Variants (tag comparison, then payload comparison)
+	if va, okA := a.(interface{ VariantElements() (string, uint64, any) }); okA {
+		if vb, okB := b.(interface{ VariantElements() (string, uint64, any) }); okB {
+			tA, _, valA := va.VariantElements()
+			tB, _, valB := vb.VariantElements()
+			if cmpTag := strings.Compare(tA, tB); cmpTag != 0 {
+				return cmpTag, nil
+			}
+			return Compare(valA, valB)
+		}
+	}
+
 	// Sequences (lexicographical: List, Chunk, []any, etc.)
 	sliceA, isSliceA := ToSliceAny(a)
 	sliceB, isSliceB := ToSliceAny(b)
@@ -962,6 +1056,48 @@ func StructuralEqual(a, b any) bool {
 			fA, sA := pa.PairElements()
 			fB, sB := pb.PairElements()
 			return StructuralEqual(fA, fB) && StructuralEqual(sA, sB)
+		}
+	}
+
+	// Maybes
+	if ma, okA := a.(interface{ MaybeValue() (any, bool) }); okA {
+		if mb, okB := b.(interface{ MaybeValue() (any, bool) }); okB {
+			vA, isJA := ma.MaybeValue()
+			vB, isJB := mb.MaybeValue()
+			if isJA != isJB {
+				return false
+			}
+			if !isJA {
+				return true
+			}
+			return StructuralEqual(vA, vB)
+		}
+	}
+
+	// Eithers
+	if ea, okA := a.(interface{ EitherValue() (any, any, bool) }); okA {
+		if eb, okB := b.(interface{ EitherValue() (any, any, bool) }); okB {
+			lA, rA, isLA := ea.EitherValue()
+			lB, rB, isLB := eb.EitherValue()
+			if isLA != isLB {
+				return false
+			}
+			if isLA {
+				return StructuralEqual(lA, lB)
+			}
+			return StructuralEqual(rA, rB)
+		}
+	}
+
+	// Variants
+	if va, okA := a.(interface{ VariantElements() (string, uint64, any) }); okA {
+		if vb, okB := b.(interface{ VariantElements() (string, uint64, any) }); okB {
+			tA, fA, valA := va.VariantElements()
+			tB, fB, valB := vb.VariantElements()
+			if tA != tB || fA != fB {
+				return false
+			}
+			return StructuralEqual(valA, valB)
 		}
 	}
 

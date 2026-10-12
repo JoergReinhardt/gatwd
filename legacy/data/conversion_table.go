@@ -1089,7 +1089,6 @@ var TypeConversionTable = [][]func(arg Native) Native{
 			return NewError(
 				fmt.Errorf(
 					"error occured during convertion from uint"))
-			return ErrorVal{}
 		}, // 25 ← Error
 	},
 

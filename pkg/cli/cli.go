@@ -383,14 +383,136 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
 			}
 		} else if strings.HasPrefix(stepStr, "filter") {
-			keyword := strings.Trim(strings.TrimSpace(stepStr[6:]), "\"")
-			predicate := func(val any) bool {
-				if strVal, ok := val.(string); ok {
-					return strings.Contains(strVal, keyword)
-				}
-				return false
+			rawArg := strings.TrimSpace(stepStr[6:])
+			arg := rawArg
+			if strings.HasPrefix(arg, "(") && strings.HasSuffix(arg, ")") {
+				arg = strings.TrimSuffix(strings.TrimPrefix(arg, "("), ")")
 			}
-			pipeline = append(pipeline, evaluator.StepFilter(predicate))
+			if strings.Contains(arg, "->") {
+				parts2 := strings.SplitN(arg, "->", 2)
+				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
+				exprBody := strings.TrimSpace(parts2[1])
+
+				evalPred := func(item any, dslType dsltypes.BitFlag) bool {
+					lookup := func(name string) (any, bool) {
+						if name == varName {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							v, _ := rt.Value.UnwrapRight()
+							return v, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if v, ok := i.Variables[name]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
+						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
+							if b, ok := resVal.(bool); ok {
+								return b
+							}
+						}
+					}
+					return false
+				}
+
+				filterStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+
+							// If val is a List:
+							if l, ok := val.(*collections.List[any]); ok {
+								var kept []any
+								for it := range l.Seq() {
+									if evalPred(it, node.DSLType) {
+										kept = append(kept, it)
+									}
+								}
+								resList := collections.Nil[any]()
+								for idx := len(kept) - 1; idx >= 0; idx-- {
+									resList = collections.Cons(kept[idx], resList)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Chunk:
+							if c, ok := val.(*collections.Chunk[any]); ok {
+								resChunk := collections.NewChunk[any](c.Capacity())
+								for _, it := range c.Items() {
+									if evalPred(it, node.DSLType) {
+										resChunk.Append(it)
+									}
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Set:
+							if _, isSet := val.(interface{ IsSet() bool }); isSet {
+								if seq, okSeq := functions.ToSliceAny(val); okSeq {
+									resSet := collections.NewSet[any]()
+									for _, it := range seq {
+										if evalPred(it, node.DSLType) {
+											resSet = resSet.Add(it)
+										}
+									}
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
+										return
+									}
+									continue
+								}
+							}
+
+							// If val is a slice:
+							if sl, okSl := val.([]any); okSl {
+								var newSl []any
+								for _, it := range sl {
+									if evalPred(it, node.DSLType) {
+										newSl = append(newSl, it)
+									}
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newSl)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// Stream node
+							if evalPred(val, node.DSLType) {
+								if !yield(node) {
+									return
+								}
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, filterStep)
+			} else {
+				keyword := strings.Trim(rawArg, "\"")
+				predicate := func(val any) bool {
+					if strVal, ok := val.(string); ok {
+						return strings.Contains(strVal, keyword)
+					}
+					return false
+				}
+				pipeline = append(pipeline, evaluator.StepFilter(predicate))
+			}
 		} else if strings.HasPrefix(stepStr, "expect") {
 			for res := range parser.ParseExpect()(stepStr) {
 				keyword := res.Fst.Fst
@@ -541,6 +663,99 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepSort(evaluator.DefaultLess))
 		} else if strings.HasPrefix(stepStr, "to_set") {
 			pipeline = append(pipeline, evaluator.StepToSet())
+		} else if strings.HasPrefix(stepStr, "to_list") {
+			pipeline = append(pipeline, evaluator.StepToList())
+		} else if strings.HasPrefix(stepStr, "to_chunk") {
+			pipeline = append(pipeline, evaluator.StepToChunk())
+		} else if stepStr == "pair_swap" {
+			pairSwapStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					for node := range stream {
+						if node.Value.IsLeft() {
+							if !yield(node) {
+								return
+							}
+							continue
+						}
+						val, _ := node.Value.UnwrapRight()
+						if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+							f, s := p.PairElements()
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(functions.Pair[any, any]{Fst: s, Snd: f})), node.DSLType)
+							if !yield(newNode) {
+								return
+							}
+							continue
+						}
+						if l, ok := val.(*collections.List[any]); ok && l.Len() == 2 {
+							f, _ := l.Head()
+							t, _ := l.Tail()
+							s, _ := t.Head()
+							swapped := collections.Cons(s, collections.Cons(f, collections.Nil[any]()))
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(swapped)), node.DSLType)
+							if !yield(newNode) {
+								return
+							}
+							continue
+						}
+						if sl, ok := functions.ToSliceAny(val); ok && len(sl) == 2 {
+							swapped := []any{sl[1], sl[0]}
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(swapped)), node.DSLType)
+							if !yield(newNode) {
+								return
+							}
+							continue
+						}
+						yield(node)
+					}
+				}
+			}
+			pipeline = append(pipeline, pairSwapStep)
+		} else if stepStr == "tree_size" {
+			treeSizeStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					for node := range stream {
+						if node.Value.IsLeft() {
+							if !yield(node) {
+								return
+							}
+							continue
+						}
+						val, _ := node.Value.UnwrapRight()
+						if t, ok := val.(interface{ Size() int }); ok {
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(t.Size())), node.DSLType)
+							if !yield(newNode) {
+								return
+							}
+						} else {
+							yield(node)
+						}
+					}
+				}
+			}
+			pipeline = append(pipeline, treeSizeStep)
+		} else if stepStr == "tree_depth" {
+			treeDepthStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+					for node := range stream {
+						if node.Value.IsLeft() {
+							if !yield(node) {
+								return
+							}
+							continue
+						}
+						val, _ := node.Value.UnwrapRight()
+						if t, ok := val.(interface{ Depth() int }); ok {
+							newNode := dsltypes.NewASTNode(functions.Right[error, any](any(t.Depth())), node.DSLType)
+							if !yield(newNode) {
+								return
+							}
+						} else {
+							yield(node)
+						}
+					}
+				}
+			}
+			pipeline = append(pipeline, treeDepthStep)
 		} else if strings.HasPrefix(stepStr, "set_contains ") {
 			item := strings.Trim(strings.TrimSpace(stepStr[13:]), "\"")
 			pipeline = append(pipeline, evaluator.StepSetContains(item))
@@ -1087,6 +1302,73 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 									}
 									continue
 								}
+							}
+
+							// If val is a HAMT:
+							if h, ok := val.(*collections.HAMT[string, any]); ok {
+								resHamt := collections.NewHAMT[string, any]()
+								for k, v := range h.Seq() {
+									mVal, _ := evalElem(v, node.DSLType)
+									resHamt = resHamt.Set(k, mVal)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resHamt)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Tree:
+							if tr, ok := val.(*collections.Tree[any]); ok {
+								var mapTree func(t *collections.Tree[any]) *collections.Tree[any]
+								mapTree = func(t *collections.Tree[any]) *collections.Tree[any] {
+									if t == nil {
+										return nil
+									}
+									mV, _ := evalElem(t.Value(), node.DSLType)
+									var newChList *collections.List[*collections.Tree[any]] = collections.Nil[*collections.Tree[any]]()
+									if t.Children() != nil {
+										var chs []*collections.Tree[any]
+										for c := range t.Children().Seq() {
+											chs = append(chs, mapTree(c))
+										}
+										for i := len(chs) - 1; i >= 0; i-- {
+											newChList = collections.Cons(chs[i], newChList)
+										}
+									}
+									return collections.NewTree(mV, newChList)
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(mapTree(tr))), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Pair:
+							if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+								f, s := p.PairElements()
+								mS, _ := evalElem(s, node.DSLType)
+								newPair := functions.Pair[any, any]{Fst: f, Snd: mS}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newPair)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+
+							// If val is a Maybe:
+							if mb, ok := val.(interface{ MaybeValue() (any, bool) }); ok {
+								v, isJ := mb.MaybeValue()
+								if isJ {
+									mV, _ := evalElem(v, node.DSLType)
+									newMb := functions.Just(mV)
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newMb)), node.DSLType)) {
+										return
+									}
+								} else {
+									if !yield(dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)) {
+										return
+									}
+								}
+								continue
 							}
 
 							// If val is a standard Go slice:

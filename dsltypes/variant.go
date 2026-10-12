@@ -37,6 +37,25 @@ func (v Variant) String() string {
 	return fmt.Sprintf("%s(%v)", v.Tag, v.Value)
 }
 
+// VariantElements exposes tag, bitflag (as uint64), and payload for structural comparison.
+func (v Variant) VariantElements() (string, uint64, any) {
+	return v.Tag, uint64(v.Flag), v.Value
+}
+
+// Equal checks equality of two variants by tag, flag, and payload.
+func (v Variant) Equal(other Variant) bool {
+	if v.Tag != other.Tag || v.Flag != other.Flag {
+		return false
+	}
+	if v.Value == nil && other.Value == nil {
+		return true
+	}
+	if v.Value == nil || other.Value == nil {
+		return false
+	}
+	return fmt.Sprintf("%v", v.Value) == fmt.Sprintf("%v", other.Value)
+}
+
 // SumTypeDefinition captures the declared branches of an algebraic sum type.
 type SumTypeDefinition struct {
 	Name     string

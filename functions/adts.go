@@ -92,6 +92,26 @@ func FoldEither[L, R, T any](e Either[L, R], onLeft func(L) T, onRight func(R) T
 	return onRight(r)
 }
 
+// Swap returns a new Either with the Left and Right types exchanged.
+func (e Either[L, R]) Swap() Either[R, L] {
+	if e.IsLeft() {
+		l, _ := e.UnwrapLeft()
+		return Right[R, L](l)
+	}
+	r, _ := e.UnwrapRight()
+	return Left[R, L](r)
+}
+
+// EitherValue returns left value, right value, and whether e is Left.
+func (e Either[L, R]) EitherValue() (any, any, bool) {
+	if e.IsLeft() {
+		l, _ := e.UnwrapLeft()
+		return l, nil, true
+	}
+	r, _ := e.UnwrapRight()
+	return nil, r, false
+}
+
 func (e Either[L, R]) String() string {
 	if e.IsLeft() {
 		l, _ := e.UnwrapLeft()
@@ -123,6 +143,14 @@ func (m Maybe[T]) Unwrap() (T, bool) {
 func (m Maybe[T]) UnwrapOr(def T) T {
 	if m.IsJust() { return *m.value }
 	return def
+}
+
+// MaybeValue returns the inner value (if any) and whether m is Just.
+func (m Maybe[T]) MaybeValue() (any, bool) {
+	if m.IsJust() {
+		return *m.value, true
+	}
+	return nil, false
 }
 
 // Map applies f to the contained value if Just.

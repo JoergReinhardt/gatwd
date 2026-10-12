@@ -167,4 +167,39 @@ func TestFPCompletenessAndOperations(t *testing.T) {
 	if len(resCmp) == 0 || resCmp[0] != true {
 		t.Fatalf("list lexicographical compare failed: %v", resCmp)
 	}
+
+	// 5. to_list and to_chunk conversions
+	resToList := interp.EvaluateToValues("spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> to_list |> assert [1 2 3]")
+	if len(resToList) == 0 {
+		t.Fatalf("to_list failed: %v", resToList)
+	}
+
+	resToChunk := interp.EvaluateToValues("spawn IntVal: 0 |> emit 4, 5, 6 |> drop 1 |> to_chunk |> assert [4 5 6]")
+	if len(resToChunk) == 0 {
+		t.Fatalf("to_chunk failed: %v", resToChunk)
+	}
+
+	// 6. Filter with Lambda over List
+	resFilterList := interp.EvaluateToValues("let xs = [1, 2, 3, 4] in xs |> filter (\\x -> x > 2) |> assert [3 4]")
+	if len(resFilterList) == 0 {
+		t.Fatalf("filter lambda over list failed: %v", resFilterList)
+	}
+
+	// 7. Filter with Lambda over Stream
+	resFilterStream := interp.EvaluateToValues("spawn IntVal: 0 |> emit 10, 25, 30 |> drop 1 |> filter (\\x -> x > 20) |> to_list |> assert [25 30]")
+	if len(resFilterStream) == 0 {
+		t.Fatalf("filter lambda over stream failed: %v", resFilterStream)
+	}
+
+	// 8. Fold Sum over Collection Node directly
+	resFoldColl := interp.EvaluateToValues("let xs = [10, 20, 30] in xs |> fold sum |> assert 60")
+	if len(resFoldColl) == 0 {
+		t.Fatalf("fold sum over list node failed: %v", resFoldColl)
+	}
+
+	// 9. Pair Swap
+	resPairSwap := interp.EvaluateToValues("let p = [10, 20] in p |> pair_swap |> assert [20 10]")
+	if len(resPairSwap) == 0 {
+		t.Fatalf("pair_swap failed: %v", resPairSwap)
+	}
 }

@@ -281,6 +281,13 @@ func StepFold(operation string) PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
+			if len(items) == 1 {
+				if colSlice, ok := functions.ToSliceAny(items[0]); ok {
+					items = colSlice
+					count = len(colSlice)
+				}
+			}
+
 			switch op {
 			case "count", "len", "length":
 				val := functions.Right[error, any](fmt.Sprintf("%d", count))
@@ -1131,6 +1138,74 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 			}
 
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(hamt)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepToList aggregates all elements in the stream into an immutable persistent List.
+func StepToList() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var items []any
+			var errs []dsltypes.ASTNode[functions.Either[error, any]]
+			var lastFlag dsltypes.BitFlag
+
+			for node := range stream {
+				if node.Value.IsLeft() {
+					errs = append(errs, node)
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				items = append(items, val)
+				lastFlag = node.DSLType
+			}
+
+			for _, errNode := range errs {
+				if !yield(errNode) {
+					return
+				}
+			}
+
+			resList := collections.Nil[any]()
+			for i := len(items) - 1; i >= 0; i-- {
+				resList = collections.Cons(items[i], resList)
+			}
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(resList)), lastFlag)
+			yield(newNode)
+		}
+	}
+}
+
+// StepToChunk aggregates all elements in the stream into a contiguous bounded Chunk.
+func StepToChunk() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var items []any
+			var errs []dsltypes.ASTNode[functions.Either[error, any]]
+			var lastFlag dsltypes.BitFlag
+
+			for node := range stream {
+				if node.Value.IsLeft() {
+					errs = append(errs, node)
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				items = append(items, val)
+				lastFlag = node.DSLType
+			}
+
+			for _, errNode := range errs {
+				if !yield(errNode) {
+					return
+				}
+			}
+
+			resChunk := collections.NewChunk[any](len(items))
+			for _, it := range items {
+				resChunk.Append(it)
+			}
+			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), lastFlag)
 			yield(newNode)
 		}
 	}

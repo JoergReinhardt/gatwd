@@ -117,3 +117,48 @@ func TestChunk_FP(t *testing.T) {
 		t.Errorf("expected filtered [2], got %v", filtered.Items())
 	}
 }
+
+func TestChunk_Reverse_Slice_Serialization(t *testing.T) {
+	c := NewChunk[int](4)
+	c.Append(10)
+	c.Append(20)
+	c.Append(30)
+
+	// Reverse
+	rev := c.Reverse()
+	if rev.Len() != 3 || rev.Items()[0] != 30 || rev.Items()[1] != 20 || rev.Items()[2] != 10 {
+		t.Errorf("expected reversed [30 20 10], got %v", rev.Items())
+	}
+
+	// Slice
+	sub := c.Slice(1, 3)
+	if sub.Len() != 2 || sub.Items()[0] != 20 || sub.Items()[1] != 30 {
+		t.Errorf("expected sliced [20 30], got %v", sub.Items())
+	}
+
+	// JSON
+	data, err := c.MarshalJSON()
+	if err != nil {
+		t.Fatalf("MarshalJSON failed: %v", err)
+	}
+	newC := NewChunk[int](0)
+	if err := newC.UnmarshalJSON(data); err != nil {
+		t.Fatalf("UnmarshalJSON failed: %v", err)
+	}
+	if !c.Equal(newC) {
+		t.Errorf("expected deserialized chunk to equal original")
+	}
+
+	// SQL Valuer and Scanner
+	val, err := c.Value()
+	if err != nil {
+		t.Fatalf("Value() failed: %v", err)
+	}
+	scanned := NewChunk[int](0)
+	if err := scanned.Scan(val); err != nil {
+		t.Fatalf("Scan() failed: %v", err)
+	}
+	if !c.Equal(scanned) {
+		t.Errorf("expected scanned chunk to equal original")
+	}
+}

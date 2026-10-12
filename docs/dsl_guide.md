@@ -353,4 +353,32 @@ Binary infix operators work uniformly across all types:
 * `List ++ List` / `Chunk ++ Chunk`: Persistent sequence concatenation.
 * `Set ++ Set`: Set Union.
 * `HAMT ++ HAMT`: Map Merge.
-* `[1, 2] < [1, 3]`: Lexicographical comparison over sequences and pairs.
+* `Tree ++ Tree`: Rose Tree node attachment.
+* `Pair ++ Pair`: Tuple element-wise concatenation.
+* `[1, 2] < [1, 3]`: Lexicographical comparison over sequences, pairs, and ADTs (`Maybe`, `Either`).
+
+### Stream & Collection Conversions
+First-class transducers to aggregate lazy streams into persistent structures:
+* `to_list`: Aggregates the stream into an immutable persistent Cons List (`List`).
+* `to_chunk`: Aggregates the stream into a contiguous bounded array buffer (`Chunk`).
+* `to_set`: Aggregates and deduplicates the stream into a persistent HAMT-backed `Set`.
+* `to_hamt`: Aggregates key-value pairs or "k:v" strings into an immutable `HAMT` map.
+
+### Lambda Predicate Filtering (`filter`)
+Filters streams or persistent collections (`List`, `Chunk`, `Set`, `Slice`) using lambdas:
+* `filter (\x -> expr)`: Retains elements where `expr` evaluates to `true`.
+* `filter "keyword"`: Substring matching over string nodes.
+
+```haskell
+-- Filter over persistent List:
+let xs = [1, 2, 3, 4, 5] in xs |> filter (\x -> x > 3) |> assert [4 5]
+
+-- Filter over stream:
+spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> filter (\x -> x > 6) |> to_list |> assert [8 11]
+```
+
+### Algebraic Tuple & Tree Transducers
+* `pair_swap`: Swaps components of a pair or 2-element collection `[a, b]` $\to$ `[b, a]`.
+* `tree_size`: Evaluates the total node count of a Rose Tree.
+* `tree_depth`: Evaluates the maximum depth/height of a Rose Tree.
+

@@ -50,6 +50,11 @@ All code adheres strictly to a unidirectional layered hierarchy. Layer $N$ may o
 ### Mandate 4: Recursive Dogfooding
 - Every time new abstractions or utilities are added, systematically revisit older code to determine if it can be simplified, strengthened, or replaced by newer constructs (e.g., raw maps $\to$ `HAMT`, raw slices $\to$ `Chunk`, loops $\to$ `iter.Seq`/`FoldLeft`).
 
+### Mandate 5: Clean Core Prevention Rule (Generic Core vs Domain Isolation)
+- **Zero Domain Pollution in Core**: Never add use-case-specific or domain-specific types, keywords, or pipeline steps directly into core packages (`evaluator/`, `functions/`, `collections/`, `parser/`, `pkg/cli/`). For example, never introduce Conway-specific steps (`StepConway`, `LifeGrid`), simulation hacks, or database/Kubernetes commands into core. Core MUST remain strictly mathematical, category-theoretic, and universally generic.
+- **The Go Standard Library Rule (Generic Upward Wiring)**: When a specific application reveals that a capability from the Go Standard Library (e.g. `io`, `bufio`, `net`, `math/big`, `crypto`, `time`, `sync`) is missing in Gatwd, implement it **generically** across all layers (Layers 0 through 5) so it becomes a first-class, general-purpose Gatwd builtin available to all programs.
+- **Third-Party Domain Dependencies (Adapters/Plugins for Editions & Appliances)**: Third-party Go dependencies (Redis, Postgres, Kafka, Kubernetes, AWS, etc.) must NEVER be imported into core `gatwd` packages. Implement them as **Adapters / Plugins** inside the repository (e.g. under `adapters/` or `pkg/plugins/`), registrable in `pkg/cli` via `RegisterStep` and `RegisterType`. Use them to mint **Gatwd Editions** (`cmd/gatwd-<name>`) or **Gatwd Appliances** (single-purpose distributions with embedded `.gatwd` code) without bloating core.
+
 ---
 
 ## 4. In-Repository Agent Skills

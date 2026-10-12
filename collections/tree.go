@@ -1,6 +1,7 @@
 package collections
 
 import (
+	"encoding/json"
 	"iter"
 	"reflect"
 )
@@ -145,6 +146,124 @@ func (t *Tree[T]) Equal(other *Tree[T]) bool {
 func (t *Tree[T]) IsTree() bool {
 	return true
 }
+
+// AddChild returns a new Tree with child appended to its list of children.
+func (t *Tree[T]) AddChild(child *Tree[T]) *Tree[T] {
+	if t == nil {
+		return child
+	}
+	if child == nil {
+		return t
+	}
+	var newChildren []*Tree[T]
+	if t.children != nil {
+		for c := range t.children.Seq() {
+			newChildren = append(newChildren, c)
+		}
+	}
+	newChildren = append(newChildren, child)
+	var cl *List[*Tree[T]] = Nil[*Tree[T]]()
+	for i := len(newChildren) - 1; i >= 0; i-- {
+		cl = Cons(newChildren[i], cl)
+	}
+	return NewTree[T](t.value, cl)
+}
+
+// Size returns the total count of nodes in the tree (this node plus all descendants).
+func (t *Tree[T]) Size() int {
+	if t == nil {
+		return 0
+	}
+	count := 1
+	if t.children != nil {
+		for c := range t.children.Seq() {
+			count += c.Size()
+		}
+	}
+	return count
+}
+
+// Depth returns the maximum height/depth of the tree (1 for leaf).
+func (t *Tree[T]) Depth() int {
+	if t == nil {
+		return 0
+	}
+	maxChildDepth := 0
+	if t.children != nil {
+		for c := range t.children.Seq() {
+			cd := c.Depth()
+			if cd > maxChildDepth {
+				maxChildDepth = cd
+			}
+		}
+	}
+	return 1 + maxChildDepth
+}
+
+// Flatten returns a persistent List of all tree node values in depth-first order.
+func (t *Tree[T]) Flatten() *List[T] {
+	if t == nil {
+		return Nil[T]()
+	}
+	var items []T
+	for v := range t.WalkDepthFirst() {
+		items = append(items, v)
+	}
+	res := Nil[T]()
+	for i := len(items) - 1; i >= 0; i-- {
+		res = Cons(items[i], res)
+	}
+	return res
+}
+
+// FlattenChunk returns a bounded contiguous Chunk of all tree node values in depth-first order.
+func (t *Tree[T]) FlattenChunk() *Chunk[T] {
+	if t == nil {
+		return NewChunk[T](0)
+	}
+	sz := t.Size()
+	c := NewChunk[T](sz)
+	for v := range t.WalkDepthFirst() {
+		c.Append(v)
+	}
+	return c
+}
+
+type treeJSON[T any] struct {
+	Value    T          `json:"value"`
+	Children []*Tree[T] `json:"children,omitempty"`
+}
+
+// MarshalJSON implements json.Marshaler.
+func (t *Tree[T]) MarshalJSON() ([]byte, error) {
+	if t == nil {
+		return []byte("null"), nil
+	}
+	var chList []*Tree[T]
+	if t.children != nil {
+		for c := range t.children.Seq() {
+			chList = append(chList, c)
+		}
+	}
+	return json.Marshal(treeJSON[T]{Value: t.value, Children: chList})
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (t *Tree[T]) UnmarshalJSON(data []byte) error {
+	var tj treeJSON[T]
+	if err := json.Unmarshal(data, &tj); err != nil {
+		return err
+	}
+	var cl *List[*Tree[T]] = Nil[*Tree[T]]()
+	for i := len(tj.Children) - 1; i >= 0; i-- {
+		cl = Cons(tj.Children[i], cl)
+	}
+	t.value = tj.Value
+	t.children = cl
+	return nil
+}
+
+
 
 // Graph exposes the internal structure for generic UTF-8 Tree visualizations
 func (t *Tree[T]) Graph() any {

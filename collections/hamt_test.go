@@ -227,4 +227,22 @@ func TestHAMT_MergeAndFP(t *testing.T) {
 	if filtered.Len() != 1 || !filtered.Equal(NewHAMT[string, int]().Set("b", 2)) {
 		t.Errorf("expected filtered to have only 'b': 2, got len %d", filtered.Len())
 	}
+
+	// KeySet
+	keySet := h1.KeySet()
+	if keySet.Len() != 2 || !keySet.Contains("a") || !keySet.Contains("b") {
+		t.Errorf("expected keySet to have 'a' and 'b', got %v", keySet.Elements())
+	}
+
+	// ValueChunk
+	valChunk := h1.ValueChunk()
+	if valChunk.Len() != 2 {
+		t.Errorf("expected valChunk len 2, got %d", valChunk.Len())
+	}
+
+	// ValueList
+	valList := h1.ValueList()
+	if valList.Len() != 2 {
+		t.Errorf("expected valList len 2, got %d", valList.Len())
+	}
 }

@@ -1,6 +1,8 @@
 package collections
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"iter"
 	"reflect"
@@ -198,6 +200,81 @@ func (c *Chunk[T]) String() string {
 		elements = append(elements, fmt.Sprintf("%v", item))
 	}
 	return "[" + strings.Join(elements, " ") + "]"
+}
+
+// Reverse returns a new Chunk with elements in reverse order.
+func (c *Chunk[T]) Reverse() *Chunk[T] {
+	if c == nil || len(c.items) == 0 {
+		return NewChunk[T](0)
+	}
+	res := NewChunk[T](c.size)
+	for i := len(c.items) - 1; i >= 0; i-- {
+		res.Append(c.items[i])
+	}
+	return res
+}
+
+// Slice returns a sub-chunk from start (inclusive) to end (exclusive), bounds-checked.
+func (c *Chunk[T]) Slice(start, end int) *Chunk[T] {
+	if c == nil || start >= len(c.items) || start >= end || end <= 0 {
+		return NewChunk[T](0)
+	}
+	if start < 0 {
+		start = 0
+	}
+	if end > len(c.items) {
+		end = len(c.items)
+	}
+	subItems := c.items[start:end]
+	res := NewChunk[T](len(subItems))
+	for _, it := range subItems {
+		res.Append(it)
+	}
+	return res
+}
+
+// MarshalJSON implements json.Marshaler.
+func (c *Chunk[T]) MarshalJSON() ([]byte, error) {
+	if c == nil || c.IsEmpty() {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(c.items)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (c *Chunk[T]) UnmarshalJSON(data []byte) error {
+	var items []T
+	if err := json.Unmarshal(data, &items); err != nil {
+		return err
+	}
+	c.items = items
+	c.size = len(items)
+	return nil
+}
+
+// Value implements driver.Valuer.
+func (c *Chunk[T]) Value() (driver.Value, error) {
+	b, err := c.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return string(b), nil
+}
+
+// Scan implements sql.Scanner.
+func (c *Chunk[T]) Scan(src any) error {
+	var source []byte
+	switch v := src.(type) {
+	case string:
+		source = []byte(v)
+	case []byte:
+		source = v
+	case nil:
+		source = []byte("[]")
+	default:
+		return fmt.Errorf("incompatible type for Chunk Scan: %T", src)
+	}
+	return c.UnmarshalJSON(source)
 }
 
 // Graph exposes the underlying slice for visualizer graph and tree formatting.
