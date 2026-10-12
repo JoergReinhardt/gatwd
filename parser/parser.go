@@ -10,16 +10,18 @@ import (
 )
 
 type Parser struct {
-	typeRegistry map[string]dsltypes.BitFlag
+	typeRegistry  map[string]dsltypes.BitFlag
 	typeFactories map[string]func(string) any
-	nextFlag     uint64
+	sumTypes      map[string]*dsltypes.SumTypeDefinition
+	nextFlag      uint64
 }
 
 func NewParser() *Parser {
 	return &Parser{
-		typeRegistry: make(map[string]dsltypes.BitFlag),
+		typeRegistry:  make(map[string]dsltypes.BitFlag),
 		typeFactories: make(map[string]func(string) any),
-		nextFlag:     1,
+		sumTypes:      make(map[string]*dsltypes.SumTypeDefinition),
+		nextFlag:      1,
 	}
 }
 
@@ -56,6 +58,23 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 							parsedValue = factory(value)
 						} else if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
 							parsedValue = value[1 : len(value)-1]
+						}
+						if sumDef, isSum := p.sumTypes[typeName]; isSum {
+							// Check if value is a variant constructor e.g. "Branch" or "Branch(payload)"
+							branchTag := value
+							var payload any = nil
+							if parenIdx := strings.Index(value, "("); parenIdx != -1 && strings.HasSuffix(value, ")") {
+								branchTag = strings.TrimSpace(value[:parenIdx])
+								rawInner := strings.TrimSpace(value[parenIdx+1 : len(value)-1])
+								if evalInfix, err := EvalInfixString(rawInner, nil); err == nil {
+									payload = evalInfix
+								} else {
+									payload = rawInner
+								}
+							}
+							if branchFlag, hasBranch := sumDef.Branches[branchTag]; hasBranch {
+								parsedValue = dsltypes.NewVariant(branchTag, branchFlag, payload)
+							}
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
 						if !yield(node) { return }
@@ -98,10 +117,16 @@ func (p *Parser) parseType(line string) {
 		// Sum Type: Type1 | Type2
 		subTypes := strings.Split(definition, "|")
 		var composedFlag dsltypes.BitFlag = 0
+		sumDef := dsltypes.NewSumTypeDefinition(typeName, 0)
 		for _, sub := range subTypes {
-			composedFlag = composedFlag.Concat(p.registerOrGet(strings.TrimSpace(sub)))
+			branch := strings.TrimSpace(sub)
+			branchFlag := p.registerOrGet(branch)
+			composedFlag = composedFlag.Concat(branchFlag)
+			sumDef.AddBranch(branch, branchFlag)
 		}
+		sumDef.Flag = composedFlag
 		p.typeRegistry[typeName] = composedFlag
+		p.sumTypes[typeName] = sumDef
 		dsltypes.RegisterTypeFlag(composedFlag, typeName)
 	} else {
 		// Base type

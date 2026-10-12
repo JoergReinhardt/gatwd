@@ -67,15 +67,7 @@ func (n ASTNode[T]) Match(expected BitFlag) bool {
 
 // String implements fmt.Stringer for ASTNode, producing clean human-readable output.
 func (n ASTNode[T]) String() string {
-	// If Value implements fmt.Stringer
-	if s, ok := any(n.Value).(fmt.Stringer); ok {
-		return s.String()
-	}
-	// If Value implements error
-	if err, ok := any(n.Value).(error); ok {
-		return fmt.Sprintf("[ERROR] %v", err)
-	}
-	// Check if Value is an Either with Left error
+	// 1. Check if Value is an Either with Left error or Right payload
 	if either, ok := any(n.Value).(interface{ IsLeft() bool; UnwrapLeft() (error, bool); UnwrapRight() (any, bool) }); ok {
 		if either.IsLeft() {
 			err, _ := either.UnwrapLeft()
@@ -86,6 +78,14 @@ func (n ASTNode[T]) String() string {
 			return s.String()
 		}
 		return fmt.Sprintf("%v", val)
+	}
+	// 2. If Value implements error
+	if err, ok := any(n.Value).(error); ok {
+		return fmt.Sprintf("[ERROR] %v", err)
+	}
+	// 3. If Value implements fmt.Stringer
+	if s, ok := any(n.Value).(fmt.Stringer); ok {
+		return s.String()
 	}
 	return fmt.Sprintf("%v", n.Value)
 }

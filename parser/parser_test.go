@@ -36,3 +36,30 @@ spawn Android: phone-1
 		t.Fatalf("Expected 2 nodes spawned, got %d", count)
 	}
 }
+
+func TestParser_SumTypeVariants(t *testing.T) {
+	script := `
+type Status = Active | Paused | Stopped
+spawn Status: Active
+spawn Status: Stopped(404)
+`
+	p := parser.NewParser()
+	var nodes []any
+	for node := range p.Parse(script) {
+		nodes = append(nodes, node.Value)
+	}
+
+	if len(nodes) != 2 {
+		t.Fatalf("expected 2 nodes, got %d", len(nodes))
+	}
+
+	activeStr := nodes[0].(interface{ String() string }).String()
+	if activeStr != "Active" {
+		t.Errorf("expected 'Active', got %q", activeStr)
+	}
+
+	stoppedStr := nodes[1].(interface{ String() string }).String()
+	if stoppedStr != "Stopped(404)" {
+		t.Errorf("expected 'Stopped(404)', got %q", stoppedStr)
+	}
+}
