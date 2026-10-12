@@ -99,6 +99,21 @@ spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 
 ## 7. ADT Pattern Matching, List Destructuring & Non-Primitive Recursion
 
+### Sum-Type Constructor Matching
+When a `match` arm names a constructor of a declared sum type, it discriminates on the value's branch — each constructor routes to its own arm. Arms whose name is *not* a registered constructor are treated as fresh variable bindings that match any value (as in `conway_step`'s `live -> …`). A `_` arm or a bare variable arm is a catch-all.
+
+```haskell
+type OS = Linux | Windows | Darwin
+
+def route_os = match { Linux -> echo PENGUIN | Windows -> echo WINDOW | Darwin -> echo APPLE }
+
+spawn OS: Linux   |> route_os   -- PENGUIN
+spawn OS: Windows |> route_os   -- WINDOW
+```
+
+> **Tip:** `gatwd --check` warns when a `match` over a closed sum type is non-exhaustive (see §19), e.g. *"non-exhaustive match on OS: missing Darwin"*.
+
+### List & Tuple Patterns
 Pattern matching supports full list deconstruction (`[pivot, ...rest]`) as well as fixed-length tuple/list patterns (`[0, n]`, `[m, 0]`, `[m, n]`). This enables pure functional recursion like Quicksort using list comprehensions, as well as non-primitive recursive functions like Ackermann:
 
 ```haskell
@@ -381,4 +396,43 @@ spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> filter (\x -> x > 6) |> to_list
 * `pair_swap`: Swaps components of a pair or 2-element collection `[a, b]` $\to$ `[b, a]`.
 * `tree_size`: Evaluates the total node count of a Rose Tree.
 * `tree_depth`: Evaluates the maximum depth/height of a Rose Tree.
+
+## 19. First-Class Lambda Functions
+
+A lambda `\x -> expr` is a first-class value in pipeline position: it applies to the incoming value. This makes **lambda-bodied functions** callable and composable — not just the pointfree/operator-section `def`s of §5.
+
+```haskell
+-- Lambda-bodied function definitions:
+def inc = \x -> x + 1
+def dbl = \x -> x * 2
+
+spawn IntVal: 5 |> inc |> assert 6              -- apply by name
+spawn IntVal: 5 |> inc |> dbl |> assert 12      -- compose
+spawn IntVal: 5 |> (\x -> x * 10) |> assert 50  -- apply a lambda directly
+
+-- Bind a lambda with let, or pass one to a higher-order step by name:
+let f = \x -> x + 100 in spawn IntVal: 5 |> f |> assert 105
+let xs = [1, 2, 3] in xs |> map inc |> assert [2 3 4]
+```
+
+Lambdas are single-argument and applied in pipeline position; expression-position application (`f x`), multi-argument lambdas, and currying are not yet supported.
+
+## 20. Static Checking & Loud Errors (`gatwd --check`)
+
+`gatwd` fails loudly rather than silently. A pipeline step that is neither a known builtin/function nor an available executable surfaces an error node instead of producing nothing:
+
+```
+spawn IntVal: 5 |> frobnicate
+∷ [ERROR] unknown step or command: "frobnicate"
+```
+
+`gatwd --check <file.gatwd>` statically validates a script without running it, emitting `file:line:col:` diagnostics:
+
+* **Errors** (exit 1): unbalanced `()`/`[]`/`{}`, a `def`/`const`/`type` declaration missing `=`, a pipeline ending in a dangling `|>`, and the legacy `:=` operator.
+* **Warnings** (exit 0, advisory): a `match` over a closed sum type that is **non-exhaustive**, naming the uncovered branches — e.g. `warning: non-exhaustive match on OS: missing Darwin`. A `_` or bare-variable catch-all arm makes a match exhaustive.
+
+```bash
+gatwd --check examples/tour/09_pattern_matching.gatwd
+# examples/tour/09_pattern_matching.gatwd:6:1: warning: non-exhaustive match on OS: missing Darwin
+```
 
