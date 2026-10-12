@@ -6,8 +6,10 @@ It is explicitly designed to bridge the gap between elegant functional languages
 
 ## Features & The Kitchen Sink
 
-- **Turing-Complete DSL:** Supports `import`, `def` (macros), `let ... in` bindings, and Lambdas (`map (\x -> ...)`).
-- **Algebraic Data Types:** Natively parses Sum Types (`|`), Records (`{}`), Tuples (`()`), and generic Collections (`Set`, `List`, `Tree`, `BST`, `BTree`, `RBTree`).
+- **Turing-Complete DSL:** Supports `import`, `def`, `let ... in` bindings, and **first-class lambdas** — a lambda-bodied `def inc = \x -> x + 1` is applied and composed in pipeline position (`5 |> inc |> dbl`), passed to higher-order steps by name (`map inc`), and bound with `let`.
+- **Algebraic Data Types & Constructor Matching:** Natively parses Sum Types (`|`), Records (`{}`), Tuples (`()`), and generic Collections (`Set`, `List`, `Tree`, `BST`, `BTree`, `RBTree`). `match` discriminates on sum-type constructors (`match { Linux -> … | Darwin -> … }`), with list/tuple destructuring and recursion.
+- **Exhaustive Functional Operations:** `map`, `filter`/`reject`, `fold` (fixed reducers *and* custom `fold (\acc x -> …) seed`), `flatmap`/bind, `bimap`, and set algebra — implemented across the full type matrix (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Pair`, `Either`, `Maybe`, `Variant`). See [`STYLEGUIDE.md` §7](STYLEGUIDE.md).
+- **Fail-Loud Tooling:** Unknown steps surface `[ERROR] unknown step or command` instead of vanishing silently, and `gatwd --check <file>` statically validates scripts (unbalanced delimiters, dangling `|>`, non-exhaustive-`match` warnings).
 - **Gatwd Builtins & Bare Runtime:** A minimal, unopinionated core engine (`cli.NewBareInterpreter()`) paired with exhaustive Go standard library builtins (`cli.NewInterpreter()`) covering collections, IO scanners, network streams, and state checkpointing.
 - **Gatwd Editions & Appliances:** Build custom binary distributions (Editions) importing third-party Go libraries, or package self-contained microservices, Kubernetes Operators, and CLI tools (Appliances) shipping with embedded `.gatwd` code (`//go:embed`) and runtime ConfigMap overrides.
 - **Bare-Metal Interoperability:** Use `Interpreter.RegisterType` to register native Go types (like `math/big.Int`, `net.IP`, or `time.Time`). The DSL dynamically wraps raw Go memory pointers and routes them mathematically through the execution pipeline at zero-overhead.
