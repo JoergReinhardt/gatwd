@@ -1134,7 +1134,20 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								break
 							}
 
-							// 5. String/Value substring matching
+							// 5. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
+							if isIdent(pattern) && pattern != "true" && pattern != "false" {
+								localInterp := i.fork()
+								localInterp.RuntimeNodes[pattern] = dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)
+								adapter := localInterp.pipelineToAdapter(cmd)
+								for res := range adapter(node) {
+									if !yield(res) {
+										return
+									}
+								}
+								break
+							}
+
+							// 6. String/Value substring matching
 							if !strings.HasPrefix(pattern, "[") && !strings.HasPrefix(pattern, "(") && strings.Contains(strVal, pattern) {
 								adapter := i.pipelineToAdapter(cmd)
 								for res := range adapter(node) {
@@ -1602,6 +1615,14 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 				yield(dsltypes.NewASTNode(functions.Right[error, any](parsedValue), flag))
 			}
+		}
+	}
+
+	// If firstPart is a bound runtime variable (e.g. nbrs in nbrs |> ...), yield its bound value
+	if val, ok := lookup(firstPart); ok {
+		flag := i.Parser.GetFlag("Variable")
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			yield(dsltypes.NewASTNode(functions.Right[error, any](val), flag))
 		}
 	}
 

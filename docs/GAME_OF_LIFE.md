@@ -1,6 +1,6 @@
 # Conway's Game of Life — Architectural Tiers, Effort, Intimidation & Trade-Offs
 
-This document presents **Conway's Game of Life (CGOL)** as the definitive architectural case study of the `gatwd` ecosystem. It explores the entire spectrum of functional engineering available in `gatwd`—from pure Category Theory comonads to 100% pure guest DSL scripts.
+This document presents **Conway's Game of Life (CGOL)** as the definitive architectural case study of the `gatwd` ecosystem. It explores the entire spectrum of functional engineering available in `gatwd`—from pure Category Theory comonads in Go to 100% pure guest DSL macros and scripts.
 
 Most importantly, it analyzes the **different layers of effort and intimidation**, their **operational trade-offs**, and how they demonstrate the **Clean Core Prevention Rule** (generic core vs. domain isolation).
 
@@ -10,24 +10,18 @@ Most importantly, it analyzes the **different layers of effort and intimidation*
 
 In software engineering, there is rarely a single "correct" layer at which an algorithm should be implemented. Different requirements demand different balances between **mathematical rigor**, **raw execution performance**, **developer accessibility**, and **system boundary decoupling**.
 
-`gatwd` provides four distinct tiers to implement cellular automata like Conway's Game of Life without polluting the core compiler or standard library:
+`gatwd` provides three distinct tiers to implement cellular automata like Conway's Game of Life without polluting the core compiler or standard library:
 
 ```
 +-------------------------------------------------------------------------------+
-|  Tier 4: 100% Pure Guest DSL (Scripting / High Abstraction / Zero Go Code)   |
-|  Sparse coordinate sets, multi-generator list comprehensions, HAMT frequencies|
+|  Tier 3: 100% Pure Guest DSL (Scripting / High Abstraction / Zero Go Code)   |
+|  Sparse coordinate sets, multi-generator list comprehensions, def macros      |
 +-------------------------------------------------------------------------------+
                                       ▲
                                       │ Domain separation
 +-------------------------------------------------------------------------------+
-|  Tier 3: Minted Custom Edition (Domain Distribution / Builder Pattern)        |
+|  Tier 2: Minted Custom Edition (Domain Distribution / Builder Pattern)        |
 |  cli.NewEdition("gatwd-life"), domain transducers, declarative .gatwd scripts |
-+-------------------------------------------------------------------------------+
-                                      ▲
-                                      │ Engine integration
-+-------------------------------------------------------------------------------+
-|  Tier 2: Host Engine Pipeline (Lazy Streams / Functional Transducers)        |
-|  evaluator.Engine, iter.Seq trampolines, evaluator.PipelineStep closures      |
 +-------------------------------------------------------------------------------+
                                       ▲
                                       │ Theoretical foundation
@@ -39,7 +33,7 @@ In software engineering, there is rarely a single "correct" layer at which an al
 
 ---
 
-## 2. The 4 Tiers: Effort, Intimidation & Trade-Offs
+## 2. The 3 Tiers: Effort, Intimidation & Trade-Offs
 
 Each tier addresses a specific developer persona and operational environment. Below is a rigorous analysis of the **engineering effort**, **intimidation factor**, and **inherent trade-offs** of each approach.
 
@@ -48,7 +42,7 @@ Each tier addresses a specific developer persona and operational environment. Be
 ### Tier 1: Category Theory & 2D Toroidal Grid Comonad
 - **Location**: [`examples/game_of_life/`](file:///home/j/src/rnd/gatwd/examples/game_of_life)
 - **Primary Package**: [`comonads`](file:///home/j/src/rnd/gatwd/comonads/grid.go)
-- **Role**: Pure mathematical modeling of spatial cellular automata using comonadic cobind.
+- **Role**: Pure mathematical modeling of spatial cellular automata using comonadic cobind in Go.
 
 #### 1. Cognitive Effort (High)
 Implementing cellular automata comonadically requires solid grounding in abstract algebra and Category Theory. Rather than treating the grid as a 2D matrix mutated by nested loops, the universe is modeled as a functor $W$ equipped with two natural transformations:
@@ -78,35 +72,7 @@ The developer must implement toroidal coordinate wrapping, spatial cursor offset
 
 ---
 
-### Tier 2: Host Engine Functional Pipelines & Transducers
-- **Location**: [`examples/game_of_life_pipeline/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pipeline)
-- **Primary Package**: [`evaluator`](file:///home/j/src/rnd/gatwd/evaluator/pipeline.go)
-- **Role**: Stream-driven pipeline execution where state transitions are modeled as transducers over Go 1.23 `iter.Seq`.
-
-#### 1. Cognitive Effort (Moderate)
-The developer writes functional stream transducers (`PipelineStep[T]`) that take an input stream of AST nodes and return a lazy output stream. The effort centers on understanding Go 1.23's standard iterator protocol:
-```go
-func(yield func(dsltypes.ASTNode[T]) bool)
-```
-The developer does not need to master category theory laws, but must understand generator functions, lazy push streams, and avoid blocking pipelines.
-
-#### 2. Intimidation Factor (Moderate)
-- **Who is intimidated?** Developers accustomed only to standard slice loops or channel-based pipelines.
-- **Why?** Go 1.23 push iterators (`yield`) invert the traditional call stack. Managing early termination signals (when `yield()` returns `false`) and composing multiple transducer stages without intermediate slice allocations requires mental shift.
-- **Why it matters**: It provides a familiar paradigm for data engineering (similar to Spark, Flink, Rx, or Unix pipelines) while keeping Go's native performance.
-
-#### 3. Trade-offs
-- **Pros**:
-  - High stream throughput with zero reflection overhead.
-  - Seamless composition with `evaluator.Engine` features: checkpointing (`StepCheckpoint`), batching (`StepChunk`), and state validation (`StepFilter`).
-  - Memory-efficient: lazy evaluation streams generations on demand without buffering unconsumed states.
-- **Cons**:
-  - Requires writing compiled Go closures.
-  - Cannot be edited or hot-reloaded dynamically by non-Go developers at runtime.
-
----
-
-### Tier 3: Domain Extensibility via Minted Custom Editions
+### Tier 2: Domain Extensibility via Minted Custom Editions
 - **Location**: [`examples/game_of_life_edition/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition)
 - **Primary Package**: [`pkg/cli`](file:///home/j/src/rnd/gatwd/pkg/cli/cli.go)
 - **Role**: Packaging a custom standalone binary distribution (`gatwd-life`) with domain-specific transducers (`conway_step`, `conway_render`), enabling users to author simulations in pure `.gatwd` script syntax.
@@ -138,28 +104,29 @@ The developer writes standard Go functions for the heavy physics calculations, w
 
 ---
 
-### Tier 4: 100% Pure Gatwd Guest DSL
+### Tier 3: 100% Pure Gatwd Guest DSL
 - **Location**: [`examples/game_of_life_pure_dsl/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl)
 - **Primary Scripts**: [`game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/game_of_life.gatwd) & [`main.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/main.go)
-- **Role**: Implementing the entire Conway simulation directly in declarative Gatwd DSL script using sparse coordinate sets, multi-generator list comprehensions, and persistent HAMT frequency maps.
+- **Role**: Implementing the entire Conway simulation directly in declarative Gatwd DSL script using sparse coordinate sets, multi-generator list comprehensions, HAMT frequencies, and a reusable `def conway_step` macro.
 
 #### 1. Cognitive Effort (Low for Systems / Moderate for Functional Logic)
 - **Tooling Effort**: Zero lines of Go domain logic. Runs on the vanilla, unextended `gatwd` interpreter.
-- **Algorithmic Effort**: Instead of a dense 2D grid, the simulation uses **Sparse Coordinate Sets**. Evolving Generation $t \to t+1$ requires:
-  1. Multi-generator list comprehension to generate all 8 Moore neighbors for each living cell:
-     ```haskell
-     let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
-     ```
-  2. Aggregating candidate coordinate frequencies into a persistent Hash Array Mapped Trie (HAMT):
-     ```haskell
-     let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list
-     ```
-  3. Applying Conway's B3/S23 transition rules via filtered list comprehensions:
-     ```haskell
-     let births = [pt | [pt, cnt] <- pairs, cnt == 3]
-     let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
-     let nextGen = births ++ survivors
-     ```
+- **Algorithmic Effort**: Instead of a dense 2D grid, the simulation uses **Sparse Coordinate Sets**. The transition rule is expressed as a first-class, reusable macro:
+  ```gatwd
+  def conway_step = match {
+      live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+              in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list
+              in let births = [pt | [pt, cnt] <- pairs, cnt == 3]
+              in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
+              in births ++ survivors
+  }
+  ```
+  Generations are then advanced naturally via functional pipeline piping:
+  ```gatwd
+  let blinker1 = blinker0 |> conway_step
+  let blinker2 = blinker1 |> conway_step
+  let glider4  = glider0  |> conway_step |> conway_step |> conway_step |> conway_step
+  ```
 
 #### 2. Intimidation Factor (Low to Moderate)
 - **Who is intimidated?** Imperative developers accustomed to modifying arrays in-place (`grid[x][y] = true`).
@@ -171,32 +138,33 @@ The developer writes standard Go functions for the heavy physics calculations, w
 - **Pros**:
   - **100% Portable**: Runs on any vanilla `gatwd` installation without plugins, custom editions, or Go toolchains.
   - **Infinite Universe**: Sparse coordinates are not bounded by fixed grid dimensions ($W \times H$). Memory is proportional to the number of *living* cells, not the total area.
+  - **Composability**: `conway_step` is a standard pipeline step that chains cleanly across generations (`live |> conway_step |> conway_step`).
   - **Dynamic Hot-Reloading**: Scripts can be modified on the fly or injected via Kubernetes ConfigMaps without restarting anything.
 - **Cons**:
   - Lower raw frames-per-second (FPS) compared to compiled Go loops due to dynamic interpreter overhead and intermediate collection allocations.
-  - Deep generational iterations require tail-call elimination or pipeline iteration rather than deep recursion.
+  - Deep generational iterations require pipeline iteration rather than unbounded recursive call stacks.
 
 ---
 
 ## 3. Comprehensive Comparative Matrix
 
-The table below contrasts all four implementation tiers across their architectural and operational parameters:
+The table below contrasts all three implementation tiers across their architectural and operational parameters:
 
-| Dimension | Tier 1: Category Comonad | Tier 2: Pipeline Transducer | Tier 3: Minted Edition | Tier 4: 100% Pure DSL |
-| :--- | :--- | :--- | :--- | :--- |
-| **Directory** | [`examples/game_of_life`](file:///home/j/src/rnd/gatwd/examples/game_of_life) | [`examples/game_of_life_pipeline`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pipeline) | [`examples/game_of_life_edition`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition) | [`examples/game_of_life_pure_dsl`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl) |
-| **Host Language** | Go | Go | Go + Gatwd DSL | **100% Pure Gatwd DSL** |
-| **Mathematical Abstraction** | Comonadic Cobind ($W(A) \to W(B)$) | Trampolined Stream Transducer | Monadic Pipeline Composition | Sparse Set Algebra & Catamorphisms |
-| **Spatial Representation** | 2D Toroidal Grid Zipper | In-flight Stream AST Nodes | Domain Value Object (`LifeGrid`) | Immutable Sparse Coordinate Lists / Sets |
-| **Cognitive Effort** | **High** (Category theory laws) | **Moderate** (Iterator protocol) | **Low** (Builder pattern) | **Low** (Declarative scripting) |
-| **Intimidation Level** | **Very High** (Academic FP jargon) | **Moderate** (Go 1.23 iterators) | **Low** (Clean OOP/FP API) | **Low–Moderate** (Comprehensions) |
-| **Developer Archetype** | FP Theorist / Language Designer | Systems / Stream Engineer | Platform / Tooling Developer | DevOps / Data Scientist / End User |
-| **Core Impact** | Clean (Layer 2 `comonads/`) | Clean (Layer 3 `evaluator/`) | **Zero Core Pollution** (User binary) | **Zero Core Pollution** (Standard DSL) |
-| **Performance (FPS)** | Ultra-High (~5,000+ gen/sec) | High (~3,000+ gen/sec) | High (~3,000+ gen/sec) | Moderate (~50–150 gen/sec) |
-| **Memory Model** | Dense contiguous array | Streamed AST nodes | Dense grid wrapped in AST | Sparse persistent HAMT & Cons Lists |
-| **Scalability Limit** | Bounded by fixed width × height | Bounded by memory | Bounded by memory | **Infinite coordinate space** |
-| **Hot-Reloadable?** | No (Static binary) | No (Static binary) | Yes (Script rules reloadable) | **Yes (100% dynamic scripts)** |
-| **Execution Command** | `go run ./examples/game_of_life` | `go run ./examples/game_of_life_pipeline/main.go` | `go run ./examples/game_of_life_edition/main.go script.gatwd` | `gatwd game_of_life.gatwd` |
+| Dimension | Tier 1: Category Comonad | Tier 2: Minted Edition | Tier 3: 100% Pure DSL |
+| :--- | :--- | :--- | :--- |
+| **Directory** | [`examples/game_of_life`](file:///home/j/src/rnd/gatwd/examples/game_of_life) | [`examples/game_of_life_edition`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition) | [`examples/game_of_life_pure_dsl`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl) |
+| **Host Language** | Go | Go + Gatwd DSL | **100% Pure Gatwd DSL** |
+| **Mathematical Abstraction** | Comonadic Cobind ($W(A) \to W(B)$) | Monadic Pipeline Composition | Sparse Set Algebra & Catamorphisms |
+| **Spatial Representation** | 2D Toroidal Grid Zipper | Domain Value Object (`LifeGrid`) | Immutable Sparse Coordinate Lists / Sets |
+| **Cognitive Effort** | **High** (Category theory laws) | **Low** (Builder pattern) | **Low** (Declarative scripting) |
+| **Intimidation Level** | **Very High** (Academic FP jargon) | **Low** (Clean OOP/FP API) | **Low–Moderate** (Comprehensions) |
+| **Developer Archetype** | FP Theorist / Language Designer | Platform / Tooling Developer | DevOps / Data Scientist / End User |
+| **Core Impact** | Clean (Layer 2 `comonads/`) | **Zero Core Pollution** (User binary) | **Zero Core Pollution** (Standard DSL) |
+| **Performance (FPS)** | Ultra-High (~5,000+ gen/sec) | High (~3,000+ gen/sec) | Moderate (~50–150 gen/sec) |
+| **Memory Model** | Dense contiguous array | Dense grid wrapped in AST | Sparse persistent HAMT & Cons Lists |
+| **Scalability Limit** | Bounded by fixed width × height | Bounded by memory | **Infinite coordinate space** |
+| **Hot-Reloadable?** | No (Static binary) | Yes (Script rules reloadable) | **Yes (100% dynamic scripts)** |
+| **Execution Command** | `go run ./examples/game_of_life` | `go run ./examples/game_of_life_edition/main.go script.gatwd` | `gatwd game_of_life.gatwd` |
 
 ---
 
@@ -217,66 +185,30 @@ func Extend[A, B any](z *GridZipper[A], rule func(*GridZipper[A]) B) *Grid[B] {
         return rule(&GridZipper[A]{grid: z.grid, X: x, Y: y})
     })
 }
-
-// 3. Spatial Stencils: 8-neighbor Moore and 4-neighbor Von Neumann
-func (z *GridZipper[T]) MooreNeighbors() [8]T { ... }
-func (z *GridZipper[T]) VonNeumannNeighbors() [4]T { ... }
 ```
 
-In the user application ([`examples/game_of_life/rules.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life/rules.go)), the domain-specific transition rule is defined in user space without polluting core:
+In user-space ([`examples/game_of_life/rules.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life/rules.go)), Conway's rule is a local function passed to `Extend`:
 
 ```go
-// User-Space Local Rule: Conway's B3/S23 neighborhood evaluation
 func ConwayRule(z *comonads.GridZipper[bool]) bool {
-    aliveNeighbors := 0
+    alive := z.Extract()
+    count := 0
     for _, neighbor := range z.MooreNeighbors() {
         if neighbor {
-            aliveNeighbors++
+            count++
         }
     }
-    if z.Extract() {
-        return aliveNeighbors == 2 || aliveNeighbors == 3
-    }
-    return aliveNeighbors == 3
+    return (alive && (count == 2 || count == 3)) || (!alive && count == 3)
 }
 
-// Discrete generation step across the universe
-func StepConway(g *comonads.Grid[bool]) *comonads.Grid[bool] {
-    return comonads.Extend(g.ZipperAt(0, 0), ConwayRule)
+func StepConway(grid *comonads.Grid[bool]) *comonads.Grid[bool] {
+    return comonads.Extend(grid.Zipper(0, 0), ConwayRule)
 }
-```
-
-
----
-
-### 4.2 Walkthrough: Tier 2 (Evaluator Pipeline Engine)
-In [`examples/game_of_life_pipeline/main.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pipeline/main.go), the simulation executes as a streaming transducer:
-
-```go
-// Define pipeline step transducer over iter.Seq
-stepConway := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-    return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-        for node := range stream {
-            if val, ok := node.Value.UnwrapRight(); ok {
-                if grid, isGrid := val.(*comonads.Grid[bool]); isGrid {
-                    nextGrid := comonads.StepConway(grid)
-                    if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(nextGrid)), node.DSLType)) {
-                        return
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Evaluate stream through engine
-engine := evaluator.NewEngine[functions.Either[error, any]]()
-outStream := engine.EvaluatePipeline(inputStream, []evaluator.PipelineStep[functions.Either[error, any]]{stepConway})
 ```
 
 ---
 
-### 4.3 Walkthrough: Tier 3 (Minted Custom Edition)
+### 4.2 Walkthrough: Tier 2 (Minted Custom Edition)
 In [`examples/game_of_life_edition/main.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition/main.go), the author mints a customized distribution (`gatwd-life`):
 
 ```go
@@ -292,11 +224,10 @@ func main() {
 }
 ```
 
-Users then author scripts in clean `.gatwd` syntax (`examples/game_of_life_edition/game_of_life.gatwd`):
-```gatwd
-type LifeGrid = Grid(Bool)
+In [`examples/game_of_life_edition/game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition/game_of_life.gatwd), end users author cellular automata cleanly:
 
-def step_and_render = conway_step |> conway_render braille cyan
+```gatwd
+def step_and_render = conway_step |> conway_render quadrant
 
 const GLIDER = "
 .O.
@@ -309,32 +240,35 @@ spawn LifeGrid: GLIDER |> parse_life 60 30 |> step_and_render
 
 ---
 
-### 4.4 Walkthrough: Tier 4 (100% Pure Gatwd DSL)
-In [`examples/game_of_life_pure_dsl/game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/game_of_life.gatwd), the simulation runs completely inside standard Gatwd:
+### 4.3 Walkthrough: Tier 3 (100% Pure Gatwd DSL)
+In [`examples/game_of_life_pure_dsl/game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/game_of_life.gatwd), the simulation runs completely inside standard Gatwd using a reusable macro:
 
 ```gatwd
--- 1. Initialize sparse coordinates of live cells
-let live = [[2, 1], [2, 2], [2, 3]]
+-- 1. Reusable Conway B3/S23 transition step
+def conway_step = match {
+    live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+            in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list
+            in let births = [pt | [pt, cnt] <- pairs, cnt == 3]
+            in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
+            in births ++ survivors
+}
 
--- 2. Multi-generator list comprehension: expand Moore neighborhood
-let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+-- 2. Spawn initial live cells
+let blinker0 = [[2, 1], [2, 2], [2, 3]]
 
--- 3. Calculate candidate frequencies into persistent HAMT
-let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list
+-- 3. Transition generation dynamically via conway_step
+let blinker1 = blinker0 |> conway_step
+let blinker2 = blinker1 |> conway_step
 
--- 4. Apply Conway rules (B3/S23)
-let births = [pt | [pt, cnt] <- pairs, cnt == 3]
-let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
-
--- 5. Produce Next Generation via list concatenation (++)
-let nextGen = births ++ survivors
+-- 4. Multi-step chaining (e.g. Glider 4-generation cycle)
+let glider4 = glider0 |> conway_step |> conway_step |> conway_step |> conway_step
 ```
 
 ---
 
 ## 5. High-Resolution UTF-8 Sub-Pixel Visualization
 
-All four variants take advantage of the terminal visualizer in [`visualizer/subpixel.go`](file:///home/j/src/rnd/gatwd/visualizer/subpixel.go) to render high-resolution simulation grids directly into terminal character cells using Unicode sub-character encodings:
+All variants take advantage of the terminal visualizer in [`visualizer/subpixel.go`](file:///home/j/src/rnd/gatwd/visualizer/subpixel.go) to render high-resolution simulation grids directly into terminal character cells using Unicode sub-character encodings:
 
 | Mode | Aspect Ratio | Resolution Gain | Unicode Block | Description |
 | :--- | :---: | :---: | :---: | :--- |
@@ -366,7 +300,7 @@ During earlier development, it was tempting to add `StepConway` or a `LifeGrid` 
    - Builtin frequency counters (`frequencies`), pair unpackers (`hamt_pairs`), and list collectors (`collect_list`).
    - Category-theoretic comonads (`comonads.Grid[T]`) representing general 2D toroidal surfaces.
 2. **Domain Isolation**:
-   - When a project requires domain-specific transducers and types, package them as **Minted Custom Editions** (`examples/game_of_life_edition`) or **Appliances** using `cli.NewEdition`.
+   - When a project requires domain-specific transducers and types, package them as **Minted Custom Editions** (`examples/game_of_life_edition`) using `cli.NewEdition`.
    - When maximum portability and zero-compilation scripting are needed, write **Pure Gatwd DSL Programs** (`examples/game_of_life_pure_dsl`).
 
 ---
@@ -379,15 +313,11 @@ When building real-world applications on `gatwd`, use this guide to select the a
    - You are developing new mathematical abstractions, spatial topologies, or category-theoretic algorithms.
    - You require formal mathematical correctness proofs and zero-allocation comonadic cobind over immutable grids.
 
-2. **Choose Tier 2 (Pipeline Engine in Go)** when:
-   - You are building high-throughput backend services processing continuous event streams or sensor data in Go.
-   - You need to chain state transitions with standard streaming steps (`StepChunk`, `StepCheckpoint`, `StepFilter`).
-
-3. **Choose Tier 3 (Minted Edition)** when:
+2. **Choose Tier 2 (Minted Edition)** when:
    - You are building an enterprise domain CLI, Kubernetes Operator, or simulation framework that integrates third-party libraries (e.g., Redis, Kafka, AWS, Docker).
    - You want your team to write readable, declarative `.gatwd` pipelines while keeping heavy computational logic compiled in Go.
 
-4. **Choose Tier 4 (100% Pure DSL)** when:
+3. **Choose Tier 3 (100% Pure DSL)** when:
    - You need maximum portability, dynamic rule changes, or hot-reloading without distributing compiled binaries.
    - Your problem domain naturally maps to sparse sets and mathematical comprehensions.
    - You are writing scripts to run on standard, unextended `gatwd` installations.

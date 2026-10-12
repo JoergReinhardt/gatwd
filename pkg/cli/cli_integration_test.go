@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/functions"
@@ -147,5 +148,53 @@ func TestStructuralPipelines(t *testing.T) {
 			t.Fatalf("Expected 1 result for next gen, got %d", len(resNextGen))
 		}
 		t.Logf("Next generation cells: %v", resNextGen[0])
+
+		// Test defining def conway_step = match { live -> ... }
+		interp.EvaluateLine("def test_nbrs = match { live -> [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] }")
+		rNbrs := interp.EvaluateToValues("spawn Life: [[2, 1], [2, 2], [2, 3]] |> test_nbrs")
+		t.Logf("rNbrs: %v", rNbrs)
+
+		interp.EvaluateLine("def test_pairs = match { live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in nbrs |> frequencies |> hamt_pairs |> collect_list }")
+		rPairs := interp.EvaluateToValues("spawn Life: [[2, 1], [2, 2], [2, 3]] |> test_pairs")
+		t.Logf("rPairs: %v", rPairs)
+
+		interp.EvaluateLine("def conway_step = match { live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt] in births ++ survivors }")
+		resGen1 := interp.EvaluateToValues("let live = [[2, 1], [2, 2], [2, 3]] in live |> conway_step")
+		if len(resGen1) != 1 {
+			t.Fatalf("Expected 1 result for gen 1, got %d", len(resGen1))
+		}
+		strGen1 := fmt.Sprintf("%v", resGen1[0])
+		if !strings.Contains(strGen1, "[1 2]") || !strings.Contains(strGen1, "[2 2]") || !strings.Contains(strGen1, "[3 2]") {
+			t.Errorf("Expected vertical blinker cells in Gen 1, got %s", strGen1)
+		}
+		if strings.Contains(strGen1, "[2 1]") || strings.Contains(strGen1, "[2 3]") {
+			t.Errorf("Horizontal-only cells must be dead in Gen 1, got %s", strGen1)
+		}
+
+		resGen2 := interp.EvaluateToValues("let live = [[2, 1], [2, 2], [2, 3]] in live |> conway_step |> conway_step")
+		if len(resGen2) != 1 {
+			t.Fatalf("Expected 1 result for gen 2, got %d", len(resGen2))
+		}
+		strGen2 := fmt.Sprintf("%v", resGen2[0])
+		if !strings.Contains(strGen2, "[2 1]") || !strings.Contains(strGen2, "[2 2]") || !strings.Contains(strGen2, "[2 3]") {
+			t.Errorf("Expected horizontal blinker cells in Gen 2, got %s", strGen2)
+		}
+		if strings.Contains(strGen2, "[1 2]") || strings.Contains(strGen2, "[3 2]") {
+			t.Errorf("Vertical-only cells must be dead in Gen 2, got %s", strGen2)
+		}
+
+		resGlider4 := interp.EvaluateToValues("let g = [[2, 1], [3, 2], [1, 3], [2, 3], [3, 3]] in g |> conway_step |> conway_step |> conway_step |> conway_step")
+		if len(resGlider4) != 1 {
+			t.Fatalf("Expected 1 result for glider gen 4, got %d", len(resGlider4))
+		}
+		strGlider4 := fmt.Sprintf("%v", resGlider4[0])
+		for _, expectedCoord := range []string{"[3 2]", "[4 3]", "[2 4]", "[3 4]", "[4 4]"} {
+			if !strings.Contains(strGlider4, expectedCoord) {
+				t.Errorf("Expected glider coordinate %s in Gen 4, got %s", expectedCoord, strGlider4)
+			}
+		}
+		if strings.Contains(strGlider4, "[2 1]") {
+			t.Errorf("Origin cell [2 1] must be dead in Glider Gen 4, got %s", strGlider4)
+		}
 	})
 }

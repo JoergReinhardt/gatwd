@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/joergreinhardt/gatwd/collections"
-	"github.com/joergreinhardt/gatwd/dsltypes"
-	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
@@ -206,13 +204,8 @@ func main() {
 	generation := 0
 	stepDuration := time.Duration(*delayMsFlag) * time.Millisecond
 
-	// Conway transition algorithm query written entirely in 100% Pure Gatwd DSL:
-	// 1. Multi-generator Moore neighborhood expansion
-	// 2. Persistent HAMT frequencies counting
-	// 3. Birth rule: count == 3
-	// 4. Survival rule: count == 2 & previously alive
-	// 5. Monoidal concatenation (++)
-	conwayStepDSL := "let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt] in births ++ survivors"
+	// Define reusable Conway B3/S23 transition step purely in Gatwd DSL
+	interp.EvaluateLine("def conway_step = match { live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt] in births ++ survivors }")
 
 	for {
 		startTime := time.Now()
@@ -253,7 +246,7 @@ func main() {
 
 		// Status card formatted using standard Gatwd visualizer
 		statusInfo := map[string]any{
-			"Engine":     "100% Pure Gatwd DSL (Sparse Multi-Generator B3/S23)",
+			"Engine":     "100% Pure Gatwd DSL (Reusable def conway_step Macro)",
 			"Preset":     *presetFlag,
 			"Generation": generation,
 			"Population": population,
@@ -269,16 +262,8 @@ func main() {
 			break
 		}
 
-		// Advance one generation purely via Gatwd DSL evaluation!
-		res := interp.EvaluateToValues(conwayStepDSL)
-		if len(res) == 0 {
-			break
-		}
-
-		nextGen := res[0]
-		flag := interp.Parser.GetFlag("Variable")
-		interp.RuntimeNodes["live"] = dsltypes.NewASTNode(functions.Right[error, any](nextGen), flag)
-		interp.Variables["live"] = fmt.Sprintf("%v", nextGen)
+		// Advance one generation purely via Gatwd DSL conway_step invocation!
+		interp.EvaluateLine("let live = live |> conway_step")
 
 		elapsed := time.Since(startTime)
 		if elapsed < stepDuration {

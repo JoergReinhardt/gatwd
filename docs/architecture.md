@@ -291,11 +291,10 @@ For a complete pedagogical walkthrough of how `gatwd` balances **mathematical ri
 
 👉 **[`docs/GAME_OF_LIFE.md`](GAME_OF_LIFE.md)**
 
-This case study compares four distinct tiers of cellular automata implementations across the repository:
+This case study compares three distinct tiers of cellular automata implementations across the repository:
 1. **Tier 1: Category Theory Comonads** ([`examples/game_of_life/`](../examples/game_of_life)) — Spatial zippers, counit (`extract`), and cobind (`extend`) over 2D toroidal grids in pure Go.
-2. **Tier 2: Host Engine Stream Pipelines** ([`examples/game_of_life_pipeline/`](../examples/game_of_life_pipeline)) — Trampolined `iter.Seq` transducers executed by `evaluator.Engine`.
-3. **Tier 3: Minted Custom Editions** ([`examples/game_of_life_edition/`](../examples/game_of_life_edition)) — Builder pattern (`cli.NewEdition`) isolating domain types while exposing declarative `.gatwd` pipelines.
-4. **Tier 4: 100% Pure Gatwd DSL** ([`examples/game_of_life_pure_dsl/`](../examples/game_of_life_pure_dsl)) — Sparse coordinate sets, multi-generator list comprehensions, HAMT frequencies, and B3/S23 catamorphisms running on vanilla, unextended `gatwd`.
+2. **Tier 2: Minted Custom Editions** ([`examples/game_of_life_edition/`](../examples/game_of_life_edition)) — Builder pattern (`cli.NewEdition`) isolating domain types while exposing declarative `.gatwd` pipelines.
+3. **Tier 3: 100% Pure Gatwd DSL** ([`examples/game_of_life_pure_dsl/`](../examples/game_of_life_pure_dsl)) — Sparse coordinate sets, multi-generator list comprehensions, HAMT frequencies, and reusable `def conway_step` macro running on vanilla, unextended `gatwd`.
 
 
 

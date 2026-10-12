@@ -206,3 +206,10 @@ let coll = [10, 20, 30, 40] in coll |> fold sum |> assert 100
 
 -- 54. Algebraic Tuple Pair Swap
 let tuple = [100, 200] in tuple |> pair_swap |> assert [200 100]
+
+-- 55. Pure Reusable Conway Transition Macro (B3/S23 Oscillator Verification)
+def cgol_step = match { live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt] in births ++ survivors }
+let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen1 |> unchunk |> fold count |> assert 3
+let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen1 |> unchunk |> to_set |> set_contains [1 2] |> assert true
+let blinker = [[2, 1], [2, 2], [2, 3]] in let gen2 = blinker |> cgol_step |> cgol_step in gen2 |> unchunk |> to_set |> set_contains [2 1] |> assert true
+
