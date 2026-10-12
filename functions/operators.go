@@ -13,22 +13,41 @@ import (
 // OpKind represents the supported binary operators.
 type OpKind string
 
+// The Op* constants enumerate every binary operator the evaluator understands,
+// each tagged with the concrete source token it is parsed from. They form the
+// closed set of OpKind values dispatched by EvalBinaryOp.
 const (
-	OpAdd    OpKind = "+"
-	OpSub    OpKind = "-"
-	OpMul    OpKind = "*"
-	OpDiv    OpKind = "/"   // True division -> float64 / complex128
-	OpIDiv   OpKind = "//"  // Integer Euclidean division
-	OpMod    OpKind = "%"   // Remainder / modulo
-	OpConcat OpKind = "++" // Monoidal concatenation
-	OpEq     OpKind = "=="
-	OpNeq    OpKind = "!="
-	OpLt     OpKind = "<"
-	OpLte    OpKind = "<="
-	OpGt     OpKind = ">"
-	OpGte    OpKind = ">="
-	OpAnd    OpKind = "&&"
-	OpOr     OpKind = "||"
+	// OpAdd is numeric/string addition ("+").
+	OpAdd OpKind = "+"
+	// OpSub is numeric subtraction ("-").
+	OpSub OpKind = "-"
+	// OpMul is numeric multiplication ("*").
+	OpMul OpKind = "*"
+	// OpDiv is true division ("/"), promoting to float64 or complex128.
+	OpDiv OpKind = "/"
+	// OpIDiv is integer Euclidean division ("//").
+	OpIDiv OpKind = "//"
+	// OpMod is the remainder/modulo operator ("%").
+	OpMod OpKind = "%"
+	// OpConcat is the monoidal concatenation operator ("++"), used to combine
+	// strings, lists, and other monoids.
+	OpConcat OpKind = "++"
+	// OpEq is the equality comparison ("==").
+	OpEq OpKind = "=="
+	// OpNeq is the inequality comparison ("!=").
+	OpNeq OpKind = "!="
+	// OpLt is the less-than comparison ("<").
+	OpLt OpKind = "<"
+	// OpLte is the less-than-or-equal comparison ("<=").
+	OpLte OpKind = "<="
+	// OpGt is the greater-than comparison (">").
+	OpGt OpKind = ">"
+	// OpGte is the greater-than-or-equal comparison (">=").
+	OpGte OpKind = ">="
+	// OpAnd is the short-circuiting logical conjunction ("&&").
+	OpAnd OpKind = "&&"
+	// OpOr is the short-circuiting logical disjunction ("||").
+	OpOr OpKind = "||"
 )
 
 // IsNumeric checks if val is a signed integer, unsigned integer, float, complex, or *big.Int.

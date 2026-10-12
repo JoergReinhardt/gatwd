@@ -196,6 +196,9 @@ type BenchmarkReport struct {
 	ItemsProcessed uint64
 }
 
+// String renders the BenchmarkReport as a single human-readable summary line
+// (name, operation count, total duration, throughput, ns/op, and items
+// processed), satisfying the fmt.Stringer interface.
 func (r BenchmarkReport) String() string {
 	return fmt.Sprintf("Benchmark %s: %d ops in %v (%.2f ops/sec, %d ns/op, %d items)",
 		r.Name, r.Operations, r.TotalDuration, r.OpsPerSec, r.NanosecsPerOp, r.ItemsProcessed)
