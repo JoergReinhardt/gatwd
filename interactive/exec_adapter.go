@@ -15,7 +15,15 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
 		return func(yield func(dsltypes.ASTNode[any]) bool) {
 			strValue := "unknown"
-			if s, ok := node.Value.(string); ok { strValue = s }
+			if node.Value != nil {
+				if s, ok := node.Value.(string); ok {
+					strValue = s
+				} else {
+					// Non-string payloads (e.g. a sum-type Variant) render via their
+					// Stringer / %v form rather than falling back to "unknown".
+					strValue = fmt.Sprintf("%v", node.Value)
+				}
+			}
 			cmdStr := commandTemplate
 			if strings.Contains(commandTemplate, "%s") {
 				cmdStr = fmt.Sprintf(commandTemplate, strValue)

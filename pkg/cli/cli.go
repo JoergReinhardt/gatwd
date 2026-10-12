@@ -206,6 +206,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			stepStr = strings.Join(words, " ")
 		}
 
+		// Bare lambda in pipeline position: `v |> \x -> expr` applies the lambda
+		// to each incoming value (identical to mapping it). This also makes
+		// lambda-bodied functions first-class and callable — e.g.
+		// `def inc = \x -> x + 1` then `5 |> inc` — because the stored body
+		// re-enters here as a bare lambda step and is applied element-wise.
+		if (strings.HasPrefix(stepStr, "\\") || strings.HasPrefix(stepStr, "(\\")) && strings.Contains(stepStr, "->") {
+			stepStr = "map " + stepStr
+		}
+
 		// Function Substitution (Lazy Call)
 		if _, exists := i.Funcs[stepStr]; exists {
 			funcName := stepStr
@@ -1134,7 +1143,37 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								break
 							}
 
-							// 5. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
+							// 5. Constructor pattern: an identifier naming a registered sum-type
+							// branch (e.g. `Linux`, `Red`, `Nothing`). It discriminates on the
+							// incoming value's variant tag rather than binding a variable. A
+							// registered constructor whose tag does not match this value falls
+							// through to the NEXT case (continue), never to the variable arm —
+							// so `match { Red -> a | Green -> b }` routes correctly instead of
+							// letting the first arm win.
+							if isIdent(pattern) && i.Parser.IsConstructor(pattern) {
+								matched := false
+								if variant, ok := val.(dsltypes.Variant); ok {
+									// Value was boxed as a sum-type Variant (parser path).
+									matched = variant.Is(pattern)
+								} else {
+									// Value flows as its bare tag string (interpreter spawn
+									// path): discriminate by exact tag equality, not substring.
+									matched = strVal == pattern
+								}
+								if matched {
+									adapter := i.pipelineToAdapter(cmd)
+									for res := range adapter(node) {
+										if !yield(res) {
+											return
+										}
+									}
+									break
+								}
+								// Constructor pattern that did not match: try the next case.
+								continue
+							}
+
+							// 6. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
 							if isIdent(pattern) && pattern != "true" && pattern != "false" {
 								localInterp := i.fork()
 								localInterp.RuntimeNodes[pattern] = dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)
@@ -1147,7 +1186,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								break
 							}
 
-							// 6. String/Value substring matching
+							// 7. String/Value substring matching
 							if !strings.HasPrefix(pattern, "[") && !strings.HasPrefix(pattern, "(") && strings.Contains(strVal, pattern) {
 								adapter := i.pipelineToAdapter(cmd)
 								for res := range adapter(node) {

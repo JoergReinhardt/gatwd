@@ -63,3 +63,37 @@ spawn Status: Stopped(404)
 		t.Errorf("expected 'Stopped(404)', got %q", stoppedStr)
 	}
 }
+
+func TestParser_IsConstructorAndMakeVariant(t *testing.T) {
+	p := parser.NewParser()
+	// Register the sum type so its branches become known constructors.
+	for range p.Parse("type Color = Red | Green | Blue\n") {
+	}
+
+	// IsConstructor: true only for declared branches, not the type itself or
+	// arbitrary identifiers (which the match evaluator treats as fresh variables).
+	for _, ctor := range []string{"Red", "Green", "Blue"} {
+		if !p.IsConstructor(ctor) {
+			t.Errorf("expected %q to be a constructor", ctor)
+		}
+	}
+	for _, notCtor := range []string{"Color", "live", "Purple", "x"} {
+		if p.IsConstructor(notCtor) {
+			t.Errorf("expected %q NOT to be a constructor", notCtor)
+		}
+	}
+
+	// MakeVariant: boxes a declared branch as a Variant carrying the branch tag.
+	v, ok := p.MakeVariant("Color", "Green")
+	if !ok || !v.Is("Green") {
+		t.Fatalf("MakeVariant(Color, Green) = %+v, %v; want Variant{Tag:Green}, true", v, ok)
+	}
+	// A value that is not a branch of the type yields no variant.
+	if _, ok := p.MakeVariant("Color", "Purple"); ok {
+		t.Errorf("MakeVariant(Color, Purple) should fail: Purple is not a branch")
+	}
+	// A non-sum type name yields no variant.
+	if _, ok := p.MakeVariant("NotAType", "Green"); ok {
+		t.Errorf("MakeVariant(NotAType, ...) should fail")
+	}
+}

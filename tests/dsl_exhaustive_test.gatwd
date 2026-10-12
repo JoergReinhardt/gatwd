@@ -213,3 +213,18 @@ let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen
 let blinker = [[2, 1], [2, 2], [2, 3]] in let gen1 = blinker |> cgol_step in gen1 |> unchunk |> to_set |> set_contains [1 2] |> assert true
 let blinker = [[2, 1], [2, 2], [2, 3]] in let gen2 = blinker |> cgol_step |> cgol_step in gen2 |> unchunk |> to_set |> set_contains [2 1] |> assert true
 
+-- 56. ADT Constructor Pattern Matching (each sum-type branch routes to its own arm)
+type Signal = SRed | SGreen | SYellow
+spawn Signal: SGreen |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert GO
+spawn Signal: SRed |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert STOP
+spawn Signal: SYellow |> match { SRed -> echo STOP | SGreen -> echo GO | SYellow -> echo WAIT } |> assert WAIT
+
+-- 57. First-Class Lambda Functions (lambda-bodied def, direct lambda step, composition, let-bound)
+def l_inc = \x -> x + 1
+def l_dbl = \x -> x * 2
+spawn IntVal: 5 |> l_inc |> assert 6
+spawn IntVal: 5 |> l_inc |> l_dbl |> assert 12
+spawn IntVal: 5 |> (\x -> x * 10) |> assert 50
+let lf = \x -> x + 100 in spawn IntVal: 5 |> lf |> assert 105
+let xs = [1, 2, 3] in xs |> map l_dbl |> assert [2 4 6]
+
