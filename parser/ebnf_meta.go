@@ -26,6 +26,10 @@ type EBNFLiteral struct {
 	Value string
 }
 
+// Compile turns the terminal literal into a Combinator that matches its exact text
+// after leading whitespace (via Token) and yields a single "terminal" EBNFNode whose
+// Text is the matched string. The rules map is unused because a literal has no
+// references to resolve. It satisfies the EBNFExpr interface.
 func (l EBNFLiteral) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	return Map(Token(l.Value), func(matched string) EBNFNode {
 		return EBNFNode{Rule: "terminal", Text: matched}
@@ -37,6 +41,12 @@ type EBNFNonTerminal struct {
 	Name string
 }
 
+// Compile resolves the named production in rules and compiles it on demand, wrapping
+// each resulting child in an EBNFNode whose Rule is the non-terminal's Name. The
+// lookup happens lazily inside the returned Combinator (not at compile time), which is
+// what lets mutually recursive grammars terminate: a rule only expands its references
+// as input is consumed. If the referenced rule is absent the Combinator fails cleanly
+// by yielding nothing. It satisfies the EBNFExpr interface.
 func (nt EBNFNonTerminal) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	return func(input string) iter.Seq[functions.Pair[EBNFNode, string]] {
 		target, ok := rules[nt.Name]
@@ -56,6 +66,13 @@ type EBNFSeq struct {
 	Items []EBNFExpr
 }
 
+// Compile produces a Combinator that matches every item in order and collects the
+// results into a single "sequence" EBNFNode whose Children are the sub-matches. An
+// empty sequence matches the empty string and yields an "empty" node; a single item
+// is compiled directly without an enclosing sequence wrapper. For two or more items it
+// threads the remaining input through each item recursively, committing to the first
+// success of each (deterministic, no backtracking across items). It satisfies the
+// EBNFExpr interface.
 func (s EBNFSeq) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	if len(s.Items) == 0 {
 		return func(input string) iter.Seq[functions.Pair[EBNFNode, string]] {
@@ -96,6 +113,10 @@ type EBNFChoice struct {
 	Alternatives []EBNFExpr
 }
 
+// Compile folds the alternatives into a single Combinator using Or, so the choice
+// tries each alternative in declaration order and yields the first that succeeds.
+// An empty set of alternatives compiles to a parser that always fails (yields
+// nothing). It satisfies the EBNFExpr interface.
 func (c EBNFChoice) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	if len(c.Alternatives) == 0 {
 		return func(input string) iter.Seq[functions.Pair[EBNFNode, string]] {
@@ -115,6 +136,10 @@ type EBNFRepeat struct {
 	Item EBNFExpr
 }
 
+// Compile builds a Combinator that greedily matches zero or more occurrences of the
+// inner item (via Many) and gathers them into a single "repeat" EBNFNode whose
+// Children are the matches in order. Because Many always succeeds (possibly with zero
+// matches), a repetition never fails. It satisfies the EBNFExpr interface.
 func (r EBNFRepeat) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	return func(input string) iter.Seq[functions.Pair[EBNFNode, string]] {
 		return func(yield func(functions.Pair[EBNFNode, string]) bool) {
@@ -135,6 +160,10 @@ type EBNFOptional struct {
 	Item EBNFExpr
 }
 
+// Compile builds a Combinator that matches zero or one occurrence of the inner item.
+// On a match it yields an "optional" EBNFNode wrapping the single child and the
+// remaining input; when the item does not match it still succeeds, yielding an empty
+// "optional" node and the input unchanged. It satisfies the EBNFExpr interface.
 func (o EBNFOptional) Compile(rules map[string]EBNFExpr) Combinator[EBNFNode] {
 	return func(input string) iter.Seq[functions.Pair[EBNFNode, string]] {
 		return func(yield func(functions.Pair[EBNFNode, string]) bool) {
