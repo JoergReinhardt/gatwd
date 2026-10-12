@@ -1,0 +1,68 @@
+-- ============================================================
+-- gatwd: New Language Features Showcase (self-asserting)
+-- Run:  ./gatwd examples/new_features/showcase.gatwd
+-- Lint: ./gatwd --check examples/new_features/showcase.gatwd
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1. ADT Constructor Pattern Matching
+--    Each sum-type constructor routes to its own match arm.
+-- ------------------------------------------------------------
+type Signal = Red | Green | Yellow
+
+def light = match { Red -> echo STOP | Green -> echo GO | Yellow -> echo SLOW }
+
+spawn Signal: Green  |> light |> assert GO
+spawn Signal: Red    |> light |> assert STOP
+spawn Signal: Yellow |> light |> assert SLOW
+
+-- ------------------------------------------------------------
+-- 2. First-Class Lambda Functions
+--    Lambdas are applicable values in pipeline position.
+-- ------------------------------------------------------------
+def inc = \x -> x + 1
+def dbl = \x -> x * 2
+
+-- lambda-bodied def, composition, inline lambda, let-bound, passed to map by name:
+spawn IntVal: 5 |> inc |> assert 6
+spawn IntVal: 5 |> inc |> dbl |> assert 12
+spawn IntVal: 5 |> (\x -> x * 10) |> assert 50
+let f = \x -> x + 100 in spawn IntVal: 5 |> f |> assert 105
+let xs = [1, 2, 3] in xs |> map inc |> assert [2 3 4]
+
+-- ------------------------------------------------------------
+-- 3. reject  (negated filter) across List, stream and Tree
+-- ------------------------------------------------------------
+let rl = [1, 2, 3, 4, 5] in rl |> reject (\x -> x > 3) |> assert [1 2 3]
+spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> reject (\x -> x > 6) |> to_list |> assert [2 5]
+spawn S: Root |> emit 1, 5, 2, 8 |> drop 1 |> build_tree Root |> reject (\x -> x > 4) |> tree_size |> assert 3
+
+-- ------------------------------------------------------------
+-- 4. flatmap  (monadic bind): flatten per-element collections
+-- ------------------------------------------------------------
+let fl = [1, 2, 3] in fl |> flatmap (\x -> [x, x]) |> assert [1 1 2 2 3 3]
+spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list |> assert [1 1 2 2]
+
+-- ------------------------------------------------------------
+-- 5. Custom-accumulator fold:  fold (\acc x -> expr) seed
+-- ------------------------------------------------------------
+let cf = [1, 2, 3, 4] in cf |> fold (\acc x -> acc + x) 0 |> assert 10
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> assert 24
+
+-- ------------------------------------------------------------
+-- 6. bimap  (Bifunctor map) over a 2-element pair
+-- ------------------------------------------------------------
+let bp = [3, 4] in bp |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
+
+-- ------------------------------------------------------------
+-- 7. HAMT keyed set-algebra: hamt_intersect / hamt_diff
+-- ------------------------------------------------------------
+let hi = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_intersect hi |> hamt_keys |> collect_list |> assert [a]
+let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_diff hd |> hamt_keys |> collect_list |> assert [b]
+
+-- ------------------------------------------------------------
+-- 8. HAMT.Filter wired to the DSL (filter entries by value)
+-- ------------------------------------------------------------
+let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
+
+spawn S: Done |> echo "All new-feature assertions passed."
