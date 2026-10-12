@@ -13,21 +13,25 @@ import (
 // TokenType represents lexical token types for infix expressions.
 type TokenType int
 
+// The Tok* constants enumerate the lexical token kinds produced by TokenizeInfix.
 const (
-	TokEOF TokenType = iota
-	TokNumber
-	TokString
-	TokIdent
-	TokOp
-	TokLParen
-	TokRParen
-	TokLBracket
-	TokRBracket
-	TokComma
-	TokPipe
-	TokArrow
+	TokEOF      TokenType = iota // TokEOF marks the end of the token stream.
+	TokNumber                    // TokNumber is an integer, float, or complex literal.
+	TokString                    // TokString is a double-quoted string literal (quotes stripped).
+	TokIdent                     // TokIdent is an identifier: variable, constant, or boolean literal.
+	TokOp                        // TokOp is a binary operator such as +, *, ==, or &&.
+	TokLParen                    // TokLParen is an opening parenthesis '('.
+	TokRParen                    // TokRParen is a closing parenthesis ')'.
+	TokLBracket                  // TokLBracket is an opening bracket '[' (list or comprehension).
+	TokRBracket                  // TokRBracket is a closing bracket ']'.
+	TokComma                     // TokComma is an element or clause separator ','.
+	TokPipe                      // TokPipe is the list-comprehension bar '|'.
+	TokArrow                     // TokArrow is the generator binding arrow "<-".
 )
 
+// TokenItem is a single lexical token: its Type classifies it (one of the Tok*
+// constants) and Text holds the matched source text, with any surrounding quotes
+// already stripped for string literals.
 type TokenItem struct {
 	Type TokenType
 	Text string
@@ -157,18 +161,28 @@ type Expr interface {
 	Eval(lookup func(string) (any, bool)) (any, error)
 }
 
+// LiteralExpr is a leaf Expr holding an already-parsed constant value, such as an
+// int, float, complex, string, or *big.Int.
 type LiteralExpr struct {
 	Value any
 }
 
+// Eval returns the literal's stored Value unchanged. The lookup function is ignored
+// because a literal does not depend on any variable binding, and it never fails.
 func (e LiteralExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return e.Value, nil
 }
 
+// VarExpr is a leaf Expr that references an identifier by Name, to be resolved at
+// evaluation time.
 type VarExpr struct {
 	Name string
 }
 
+// Eval resolves the variable's Name using the lookup function, returning the bound
+// value if present. The boolean literals "true" and "false" are recognized directly
+// even when lookup is nil or has no binding for them. It returns an error for any
+// other undefined identifier.
 func (e VarExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if lookup != nil {
 		if val, ok := lookup(e.Name); ok {
@@ -184,12 +198,21 @@ func (e VarExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return nil, fmt.Errorf("undefined identifier: %s", e.Name)
 }
 
+// BinaryExpr is an interior Expr node applying operator Op to the results of its Left
+// and Right sub-expressions. Precedence and associativity are already resolved during
+// parsing, so the tree shape alone determines evaluation order.
 type BinaryExpr struct {
 	Op    functions.OpKind
 	Left  Expr
 	Right Expr
 }
 
+// Eval evaluates the Left and Right operands (short-circuiting on the first error),
+// then applies Op via functions.EvalBinaryOp. For the concatenation operator OpConcat
+// it first tries the native binary op (for strings and monoids) and, failing that,
+// falls back to treating both operands as sequences: it extracts their items and
+// rebuilds a single immutable cons list, which gives `++` list-append semantics. The
+// lookup function is threaded down to both operands for variable resolution.
 func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	l, err := e.Left.Eval(lookup)
 	if err != nil {
@@ -226,6 +249,10 @@ type ListLiteralExpr struct {
 	Elements []Expr
 }
 
+// Eval evaluates each element expression and builds an immutable cons list preserving
+// source order. Because collections.Cons prepends, the elements are evaluated and
+// consed from last to first. It returns the first element evaluation error, if any,
+// threading lookup through for variable resolution.
 func (e ListLiteralExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	res := collections.Nil[any]()
 	// Cons prepends, so reverse to preserve order
@@ -325,6 +352,14 @@ func extractItems(srcVal any) ([]any, error) {
 	}
 }
 
+// Eval evaluates the comprehension into an immutable cons list. It runs the
+// Generators as nested loops (the first generator is outermost), extending the
+// variable scope at each level with that generator's pattern bindings; single-name
+// patterns bind the whole element while multi-name patterns destructure it. Once all
+// generators are bound, every Filter expression must evaluate to boolean true for the
+// YieldExpr to be evaluated and its result collected. A comprehension with no
+// generators yields the empty list. Errors from any source, filter, or yield
+// evaluation abort and propagate. lookup supplies the enclosing scope's bindings.
 func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if len(e.Generators) == 0 {
 		return collections.Nil[any](), nil
@@ -414,6 +449,9 @@ type InfixParser struct {
 	pos    int
 }
 
+// NewInfixParser returns an InfixParser positioned at the start of tokens, ready to
+// build an Expr via ParseExpression. The caller typically obtains tokens from
+// TokenizeInfix.
 func NewInfixParser(tokens []TokenItem) *InfixParser {
 	return &InfixParser{tokens: tokens, pos: 0}
 }
@@ -438,6 +476,11 @@ func getPrecedence(op string) int {
 	return 0
 }
 
+// ParseExpression parses a full infix expression from the current position and
+// returns its Expr AST. It drives precedence-climbing starting at minimum precedence
+// 0, so operators bind according to the precedences in CanonicalOperators and lower
+// ones form the outer (later-evaluated) nodes of the tree. It returns an error on
+// malformed input, such as an unexpected token or unbalanced brackets.
 func (p *InfixParser) ParseExpression() (Expr, error) {
 	return p.parsePrecedence(0)
 }

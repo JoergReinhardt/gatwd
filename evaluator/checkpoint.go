@@ -24,10 +24,18 @@ type MemoryCheckpointStore struct {
 	store *collections.HAMT[string, uint64]
 }
 
+// NewMemoryCheckpointStore constructs an empty, ready-to-use MemoryCheckpointStore
+// backed by a fresh immutable HAMT. It returns a pointer so that the embedded
+// mutex and the HAMT pointer are shared across callers of the same store.
 func NewMemoryCheckpointStore() *MemoryCheckpointStore {
 	return &MemoryCheckpointStore{store: collections.NewHAMT[string, uint64]()}
 }
 
+// Save records offset as the latest checkpoint for the continuation identified
+// by id, replacing any previous value. Because the underlying HAMT is immutable,
+// the write swaps in a new root under a write lock; ctx is accepted to satisfy
+// the CheckpointStore interface and is unused by this in-memory implementation.
+// It always returns a nil error.
 func (m *MemoryCheckpointStore) Save(ctx context.Context, id string, offset uint64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -35,6 +43,10 @@ func (m *MemoryCheckpointStore) Save(ctx context.Context, id string, offset uint
 	return nil
 }
 
+// Load returns the most recently saved offset for the continuation identified
+// by id. If no checkpoint exists for id it returns 0 and a non-nil error. The
+// read is guarded by a read lock; ctx is accepted to satisfy the CheckpointStore
+// interface and is unused by this in-memory implementation.
 func (m *MemoryCheckpointStore) Load(ctx context.Context, id string) (uint64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

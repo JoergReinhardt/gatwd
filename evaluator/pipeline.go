@@ -20,8 +20,20 @@ import (
 
 var ansiRegex = regexp.MustCompile("\033\\[[0-9;]*m")
 
+// PipelineStep is one stage of a lazy stream transformation: a function that
+// maps an input sequence of ASTNode[T] to an output sequence of the same type.
+// The type parameter T is the payload carried by each node (commonly
+// functions.Either[error, any]). Because steps compose as plain function
+// composition over iter.Seq, an entire pipeline is itself a PipelineStep and
+// nothing is evaluated until the final sequence is ranged over.
 type PipelineStep[T any] func(iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]]
 
+// EvaluatePipeline threads the initial stream through each step in order,
+// returning the composed output stream. The type parameter T is the node
+// payload type. Composition is left-to-right: steps[0] sees the raw input and
+// each subsequent step consumes the previous step's output. Evaluation stays
+// fully lazy — this method only wires the stages together; no element is pulled
+// until the returned iter.Seq is iterated.
 func (e *Engine[T]) EvaluatePipeline(initial iter.Seq[dsltypes.ASTNode[T]], steps []PipelineStep[T]) iter.Seq[dsltypes.ASTNode[T]] {
 	stream := initial
 	for _, step := range steps {
@@ -30,18 +42,28 @@ func (e *Engine[T]) EvaluatePipeline(initial iter.Seq[dsltypes.ASTNode[T]], step
 	return stream
 }
 
+// StepAdapter lifts an Adapter into a PipelineStep by monadically binding it
+// over the stream. The type parameter T is the node payload. Because an Adapter
+// maps one node to a sequence of nodes, binding it flattens those per-node
+// sequences into a single continuous output stream (a Kleisli fan-out followed
+// by a flatten).
 func StepAdapter[T any](adapter Adapter[T]) PipelineStep[T] {
 	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
 		return functions.Bind(stream, adapter)
 	}
 }
 
+// StepTake returns a PipelineStep that yields at most the first n nodes of the
+// stream and then stops, truncating (potentially infinite) sequences. The type
+// parameter T is the node payload.
 func StepTake[T any](n int) PipelineStep[T] {
 	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
 		return functions.Take(stream, n)
 	}
 }
 
+// StepDrop returns a PipelineStep that discards the first n nodes of the stream
+// and yields every node after them. The type parameter T is the node payload.
 func StepDrop[T any](n int) PipelineStep[T] {
 	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
 		return functions.Drop(stream, n)
@@ -131,6 +153,12 @@ func StepFormatTuple(formatStr string) PipelineStep[functions.Either[error, any]
 	}
 }
 
+// StepExpect returns a PipelineStep that validates each Right value against
+// predicate, acting as a guard in the Either error-handling railway. The type
+// parameter T is the success payload. Nodes already carrying a Left are passed
+// through untouched; for a Right value the predicate is applied and, when it
+// returns false, the node is replaced by an error node wrapping err (via
+// InjectError). Values that satisfy the predicate are forwarded unchanged.
 func StepExpect[T any](predicate func(T) bool, err error) PipelineStep[functions.Either[error, T]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, T]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, T]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, T]]) bool) {
@@ -158,6 +186,12 @@ func StepExpect[T any](predicate func(T) bool, err error) PipelineStep[functions
 	}
 }
 
+// StepZip returns a PipelineStep that expands each incoming node through the
+// secondary Adapter, flattening the Adapter's per-node output into the stream.
+// The type parameter T is the node payload. For every source node it iterates
+// the sequence produced by secondary(node) and yields each result in turn, so a
+// one-to-many secondary adapter interleaves its outputs directly into the main
+// stream.
 func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
 	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
 		return func(yield func(dsltypes.ASTNode[T]) bool) {
@@ -173,6 +207,14 @@ func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
 	}
 }
 
+// StepFocus returns a PipelineStep that narrows each record-like node down to a
+// single named field, using a functional lens as the composable getter. It
+// handles both map[string]any records and *collections.HAMT values. Left nodes
+// pass through unchanged; for a Right record it yields a node holding just the
+// focused field's value. If the field is absent, or the node is neither a
+// Record nor a HAMT, it emits a descriptive lens error node (via InjectError)
+// instead of panicking — the optics-based, total alternative to raw field
+// access.
 func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 	lens := optics.RecordLens(field)
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -225,6 +267,13 @@ func StepFocus(field string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepUpdate returns a PipelineStep that immutably sets a named field to
+// newValue on each record-like node, using a functional lens as the composable
+// setter. It handles both map[string]any records and *collections.HAMT values,
+// producing a new structure rather than mutating the original. Left nodes pass
+// through unchanged; nodes that are neither a Record nor a HAMT become a
+// descriptive lens error node (via InjectError). This is the set counterpart to
+// StepFocus's get.
 func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error, any]] {
 	lens := optics.RecordLens(field)
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -923,6 +972,12 @@ func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepMathAdd returns a PipelineStep that adds amount to each Right value via
+// the type-directed functions.EvalBinaryOp with OpAdd, so the operation adapts
+// to the operands (numeric addition, string/monoid concatenation, etc.). The
+// amount is passed as a string and coerced by EvalBinaryOp. Left nodes pass
+// through unchanged; if the addition fails for a given value, that node becomes
+// an error node (via InjectError) and the stream continues.
 func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1044,7 +1099,11 @@ func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any
 	}
 }
 
-// Default numeric/string sorting comparator
+// DefaultLess is the fallback ordering predicate used by StepSort, reporting
+// whether a sorts before b. It compares natively when both operands share a
+// known type (int, float64, or string); for mismatched or unrecognized types it
+// degrades gracefully to a lexicographic comparison of their fmt "%v"
+// renderings, so it is total and never panics.
 func DefaultLess(a, b any) bool {
 	switch va := a.(type) {
 	case int:
@@ -1567,6 +1626,11 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepMathSub returns a PipelineStep that subtracts amount from each Right value
+// via functions.EvalBinaryOp with OpSub, so the operation is type-directed over
+// the operands. The amount is passed as a string and coerced by EvalBinaryOp.
+// Left nodes pass through unchanged; if the subtraction fails for a value, that
+// node becomes an error node (via InjectError) and the stream continues.
 func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1597,6 +1661,11 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepDebugPrint returns a transparent PipelineStep that prints each node to
+// stdout (tagged with prefix and whether it is a LEFT error or RIGHT value) and
+// then forwards it unchanged. It is a side-effecting "tap" or probe: the stream
+// is observed but never altered, so it can be inserted anywhere for debugging
+// without affecting the pipeline's result.
 func StepDebugPrint(prefix string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1616,6 +1685,12 @@ func StepDebugPrint(prefix string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepYieldRuntimeNode returns a PipelineStep that discards the incoming stream
+// and instead emits a single, pre-computed runtime node — a constant generator
+// used to splice a value produced elsewhere into a pipeline. As a convenience,
+// if that node wraps a *collections.List, the list is flattened and its
+// elements are yielded one per node; any other value (or a Left) is yielded
+// as-is.
 func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1641,6 +1716,12 @@ func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) P
 	}
 }
 
+// StepFilterLess returns a PipelineStep that keeps only the nodes whose integer
+// value is strictly less than the pivot carried by pivotNode. Both the pivot
+// and each element are coerced to int (ints directly, strings via strconv);
+// Left nodes, a Left pivot, and non-integer values are dropped. Together with
+// StepFilterGreaterEqual this forms the two halves of a quicksort-style
+// partition around a pivot.
 func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1683,6 +1764,12 @@ func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) Pi
 	}
 }
 
+// StepFilterGreaterEqual returns a PipelineStep that keeps only the nodes whose
+// integer value is greater than or equal to the pivot carried by pivotNode.
+// Both the pivot and each element are coerced to int (ints directly, strings
+// via strconv); Left nodes, a Left pivot, and non-integer values are dropped.
+// It is the complement of StepFilterLess, together partitioning a stream around
+// a pivot.
 func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1725,6 +1812,10 @@ func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, a
 	}
 }
 
+// StepConcat returns a PipelineStep that applies two adapters to every incoming
+// node and concatenates their outputs, yielding all results from left before
+// all results from right for each node. It realizes the monoidal "++"
+// (concatenation) of two one-to-many adapters over the stream, preserving order.
 func StepConcat(left, right Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1744,6 +1835,10 @@ func StepConcat(left, right Adapter[functions.Either[error, any]]) PipelineStep[
 	}
 }
 
+// StepSeq returns a PipelineStep that, for each incoming node, runs the given
+// adapters in order and yields every result they produce. It generalizes
+// StepConcat from two adapters to an ordered slice, sequencing their per-node
+// outputs into one flattened stream.
 func StepSeq(adapters []Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1811,6 +1906,10 @@ func StepBinaryOp(op functions.OpKind, operand string) PipelineStep[functions.Ei
 	}
 }
 
+// StepEmpty returns a PipelineStep that fully drains its input and yields
+// nothing, producing an empty stream. It still iterates the source so any
+// upstream side effects run, acting as a terminal "sink" that discards all
+// values — the absorbing element for stream composition.
 func StepEmpty() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1886,6 +1985,3 @@ func StepEBNFParse(startRule, ebnfText string) PipelineStep[functions.Either[err
 		}
 	}
 }
-
-
-

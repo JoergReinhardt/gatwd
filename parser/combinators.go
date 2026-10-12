@@ -7,13 +7,16 @@ import (
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
-// Parser is a monadic function following the classic Wadler "List of Successes" method.
-// It takes an input string and returns a lazy iter.Seq of possible successful parses.
-// Each success contains the parsed value A, and the remaining unparsed string.
-// If it fails, it simply yields nothing (an empty sequence).
+// Combinator is a monadic parser following the classic Wadler "List of Successes"
+// method. The type parameter A is the kind of value a successful parse produces.
+// A Combinator takes an input string and returns a lazy iter.Seq of possible
+// successful parses; each success is a functions.Pair holding the parsed value of
+// type A and the remaining unparsed suffix of the input. Failure is represented by
+// yielding nothing (an empty sequence), and ambiguity by yielding more than one
+// Pair, so backtracking falls out naturally from iterating the sequence.
 //
-// By using iter.Seq, we eat our own dogfood! We can use our generic `Bind`, `Map`, 
-// and `Filter` primitives to build a world-class Parser Combinator!
+// By using iter.Seq, we eat our own dogfood! We can use our generic Bind, Map,
+// and Filter primitives to build a world-class parser combinator.
 type Combinator[A any] func(string) iter.Seq[functions.Pair[A, string]]
 
 // Bind chains two parsers together. If the first succeeds, its result is passed
@@ -92,7 +95,7 @@ func Many[A any](p Combinator[A]) Combinator[[]A] {
 		return func(yield func(functions.Pair[[]A, string]) bool) {
 			var results []A
 			rem := input
-			
+
 			// Greedy consume
 			for {
 				matched := false

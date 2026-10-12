@@ -1,9 +1,15 @@
 -- ==========================================================
--- gatwd Tour: 9. Pattern Matching
+-- gatwd Tour: 9. Pattern Matching (ADT constructors)
 -- ==========================================================
+-- A `match` arm that names a sum-type constructor discriminates on the
+-- value's branch, so each constructor routes to its own arm. (Arms whose
+-- name is not a registered constructor bind a fresh variable instead.)
 type OS = Linux | Windows | Darwin
 
-def route_os = match { Linux -> echo PENGUIN_%s | Windows -> echo WINDOW_%s }
+-- Exhaustive over all three branches — `gatwd --check` would otherwise warn
+-- "non-exhaustive match on OS: missing <branch>".
+def route_os = match { Linux -> echo PENGUIN | Windows -> echo WINDOW | Darwin -> echo APPLE }
 
-spawn OS: Linux |> route_os
-spawn OS: Windows |> route_os
+spawn OS: Linux   |> route_os |> assert PENGUIN
+spawn OS: Windows |> route_os |> assert WINDOW
+spawn OS: Darwin  |> route_os |> assert APPLE

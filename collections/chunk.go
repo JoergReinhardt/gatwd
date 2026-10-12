@@ -166,20 +166,25 @@ func (c *Chunk[T]) Reject(predicate func(T) bool) *Chunk[T] {
 }
 
 // Bind (monadic flatMap) applies f to each element — where f itself yields a
-// Chunk — and appends the results in order into a single contiguous Chunk.
+// Chunk — and appends the results in order into a single contiguous Chunk. The
+// result is sized to hold every produced element (a Chunk has a fixed capacity,
+// so the result must be allocated large enough to avoid dropping elements when
+// Bind expands the input).
 func (c *Chunk[T]) Bind(f func(T) *Chunk[T]) *Chunk[T] {
-	res := NewChunk[T](c.size)
 	if c == nil {
-		return res
+		return NewChunk[T](0)
 	}
+	var all []T
 	for _, item := range c.items {
 		sub := f(item)
 		if sub == nil {
 			continue
 		}
-		for _, v := range sub.items {
-			res.Append(v)
-		}
+		all = append(all, sub.items...)
+	}
+	res := NewChunk[T](len(all))
+	for _, v := range all {
+		res.Append(v)
 	}
 	return res
 }

@@ -1,14 +1,22 @@
 package parser
 
 import (
-	"strings"
-	"strconv"
-	"math/big"
 	"iter"
+	"math/big"
+	"strconv"
+	"strings"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 )
 
+// Parser compiles Gatwd type declarations into runtime metadata and turns a script
+// into a lazy stream of typed AST nodes. It maintains three registries: typeRegistry
+// maps each declared type name to a unique dsltypes.BitFlag used as its runtime tag,
+// typeFactories maps a type name to a native Go constructor that parses a literal
+// string into a concrete value (e.g. "Int" to strconv.Atoi), and sumTypes maps each
+// declared sum (algebraic data) type to its branch definitions. nextFlag holds the
+// next power-of-two bit to hand out, so every type gets a distinct single-bit flag
+// that can be unioned (Concat) to describe a sum type as the OR of its branches.
 type Parser struct {
 	typeRegistry  map[string]dsltypes.BitFlag
 	typeFactories map[string]func(string) any
@@ -16,6 +24,9 @@ type Parser struct {
 	nextFlag      uint64
 }
 
+// NewParser returns a Parser with empty registries and the first BitFlag bit (1)
+// ready to be allocated. Each subsequent registered type shifts nextFlag left by one,
+// so the Parser can tag up to 64 distinct base types with single-bit flags.
 func NewParser() *Parser {
 	return &Parser{
 		typeRegistry:  make(map[string]dsltypes.BitFlag),
@@ -25,13 +36,27 @@ func NewParser() *Parser {
 	}
 }
 
+// Parse reads a Gatwd script and returns a lazy iter.Seq that yields one
+// dsltypes.ASTNode for every `spawn` statement in source order. It processes the
+// script line by line: blank lines and `--` comments are skipped, `type ...` lines
+// register a type via parseType (producing no node), and `spawn <Type>: <value>`
+// lines look up the named type's BitFlag and box the value into an ASTNode tagged
+// with that flag. The value is resolved in priority order: if it contains operator
+// characters it is first evaluated as an infix expression, otherwise a registered
+// type factory parses it, and a bare double-quoted literal is unquoted; finally, if
+// the type is a sum type and the value names one of its branches, MakeVariant boxes
+// it as a dsltypes.Variant. The returned sequence is lazy, so parsing of later lines
+// only happens as the caller pulls nodes, and iteration stops early if yield returns
+// false. A spawn of an unregistered type yields no node.
 func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 	return func(yield func(dsltypes.ASTNode[any]) bool) {
 		lines := strings.Split(script, "\n")
-		
+
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "--") { continue }
+			if line == "" || strings.HasPrefix(line, "--") {
+				continue
+			}
 
 			if strings.HasPrefix(line, "type ") {
 				p.parseType(line)
@@ -43,7 +68,7 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 				if len(parts) == 2 {
 					typeName := strings.TrimSpace(parts[0])
 					value := strings.TrimSpace(parts[1])
-					
+
 					flag, exists := p.typeRegistry[typeName]
 					if exists {
 						var parsedValue any = value
@@ -63,7 +88,9 @@ func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 							parsedValue = variant
 						}
 						node := dsltypes.NewASTNode[any](parsedValue, flag)
-						if !yield(node) { return }
+						if !yield(node) {
+							return
+						}
 					}
 				}
 			}
@@ -145,7 +172,9 @@ func (p *Parser) registerOrGet(name string) dsltypes.BitFlag {
 func (p *Parser) parseType(line string) {
 	def := strings.TrimSpace(line[5:])
 	parts := strings.SplitN(def, "=", 2)
-	if len(parts) != 2 { return }
+	if len(parts) != 2 {
+		return
+	}
 
 	typeName := strings.TrimSpace(parts[0])
 	definition := strings.TrimSpace(parts[1])
@@ -155,8 +184,8 @@ func (p *Parser) parseType(line string) {
 		// Just register the base type for now (BitFlags can't inherently track struct shapes)
 		p.registerOrGet(typeName)
 	} else if (strings.HasPrefix(definition, "Set(") || strings.HasPrefix(definition, "List(") || strings.HasPrefix(definition, "Grid(") || strings.HasPrefix(definition, "Tree(") || strings.HasPrefix(definition, "BST(") || strings.HasPrefix(definition, "BTree(") || strings.HasPrefix(definition, "RBTree(")) && strings.HasSuffix(definition, ")") {
-			p.registerOrGet(typeName)
-		} else if strings.HasPrefix(definition, "(") && strings.HasSuffix(definition, ")") {
+		p.registerOrGet(typeName)
+	} else if strings.HasPrefix(definition, "(") && strings.HasSuffix(definition, ")") {
 		// Tuple Type: (Type1, Type2)
 		p.registerOrGet(typeName)
 	} else if strings.Contains(definition, "|") {
@@ -214,16 +243,24 @@ func (p *Parser) parseType(line string) {
 	}
 }
 
-
 // RegisterTypeFactory allows third-party Go code to register native constructors for DSL types.
 // For example, RegisterTypeFactory("Time", func(s string) any { t, _ := time.Parse(time.RFC3339, s); return t })
 func (p *Parser) RegisterTypeFactory(definition string, factory func(string) any) {
 	p.typeFactories[definition] = factory
 }
+
+// GetFlag returns the dsltypes.BitFlag tag for typeName, allocating and registering a
+// fresh single-bit flag the first time the name is seen. Because it registers on
+// demand, callers can obtain a stable runtime tag for a type even before (or without)
+// a full `type` declaration.
 func (p *Parser) GetFlag(typeName string) dsltypes.BitFlag {
 	return p.registerOrGet(typeName)
 }
 
+// GetFactory returns the native constructor registered for typeName and reports
+// whether one exists. The factory converts a raw literal string into a concrete Go
+// value (for example parsing "42" into an int); ok is false for types that have no
+// factory, such as sum types or bare base types that are stored as their string form.
 func (p *Parser) GetFactory(typeName string) (func(string) any, bool) {
 	f, ok := p.typeFactories[typeName]
 	return f, ok
