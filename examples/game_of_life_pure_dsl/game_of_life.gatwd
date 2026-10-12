@@ -1,33 +1,23 @@
 -- ==============================================================================
--- Conway's Game of Life in 100% Pure Gatwd DSL
+-- Conway's Game of Life — 100% pure gatwd
 -- ==============================================================================
--- This implementation runs entirely on the standard, unextended Gatwd runtime!
--- It adds ZERO domain Go code, mints ZERO custom editions, and requires ZERO mocks.
+-- Runs on the STOCK `gatwd` binary. The transition rule AND the generational
+-- loop are both pure DSL — no Go, no custom steps, no embedded strings. The
+-- companion wrapper (main.go) only *renders*: it loads the rule from this file,
+-- seeds a starting grid (e.g. a pattern file), and animates it.
 --
--- Architecture:
--- 1. Reusable B3/S23 Life Transition Macro (def conway_step):
---    - Sparse Coordinate Space: Living cells represented as coordinate pairs [x, y].
---    - Moore Neighborhood Expansion: Multi-generator list comprehension.
---    - Frequency Aggregation: Persistent HAMT frequencies counting.
---    - Births:    [pt | [pt, cnt] <- pairs, cnt == 3]
---    - Survivors: [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
---    - NextGen:   births ++ survivors
--- 2. Complete Generational Lifecycles:
---    - Blinker Oscillator: Gen 0 (Horizontal) -> Gen 1 (Vertical) -> Gen 2 (Horizontal)
---    - Glider Spaceship: Gen 0 -> Gen 1 -> Gen 2 -> Gen 3 -> Gen 4 (Diagonal +1, +1 Shift)
+--   ./gatwd examples/game_of_life_pure_dsl/game_of_life.gatwd   -- run the asserts
+--
+-- Representation: the board is a sparse list of live coordinate pairs [x, y] on
+-- an unbounded integer plane.
 -- ==============================================================================
 
-type Status = String
 type Cell = [Int]
 
--- ------------------------------------------------------------------------------
--- 1. Visual Card Header
--- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "Gatwd Game of Life (Pure DSL — Sparse Set Architecture)" |> visualize --curved --border --border-color=cyan
-
--- ------------------------------------------------------------------------------
--- 2. Pure Functional Conway B3/S23 Transition Step Definition
--- ------------------------------------------------------------------------------
+-- One B3/S23 generation over a sparse set of live cells.
+--   births    = empty cells with exactly 3 live neighbours
+--   survivors = live cells with exactly 2 live neighbours (3 already appear as
+--               births, so the union gives the standard B3/S23 next state)
 def conway_step = match {
     live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
             in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list
@@ -36,97 +26,19 @@ def conway_step = match {
             in births ++ survivors
 }
 
--- ------------------------------------------------------------------------------
--- 3. Generation 0: Spawn Horizontal Blinker Oscillator
--- Live Cells: [2, 1], [2, 2], [2, 3]
--- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "=== Generation 0: Horizontal Blinker ==="
+-- Iterate conway_step n times, purely by recursion (same shape as ackermann).
+-- `to_chunk` re-collapses the match-bound (streamed) state into one board before
+-- each step; without it conway_step would be applied cell-by-cell and die.
+def evolve = match {
+    [state, 0] -> state
+    | [state, n] -> let next = state |> to_chunk |> conway_step in [next, n - 1] |> evolve
+}
 
-let blinker0 = [[2, 1], [2, 2], [2, 3]]
-blinker0 |> unchunk |> collect_list
+-- --- Correctness invariants -------------------------------------------------
+-- A blinker is a period-2 oscillator: 3 cells at every generation.
+let blinker = [[2, 1], [2, 2], [2, 3]]
+[blinker, 20] |> evolve |> to_chunk |> unchunk |> fold count |> assert 3
 
--- Check population count of Generation 0
-blinker0 |> unchunk |> fold count |> assert 3
-
--- Verify membership of living cells
-blinker0 |> unchunk |> to_set |> set_contains [2 2] |> assert true
-blinker0 |> unchunk |> to_set |> set_contains [1 2] |> assert false
-
--- ------------------------------------------------------------------------------
--- 4. Dynamic Conway Transition: Generation 0 -> Generation 1 (Vertical)
--- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "=== Computing Generation 1 Dynamically via conway_step ==="
-
-let blinker1 = blinker0 |> conway_step
-blinker1 |> unchunk |> collect_list
-
--- Check population count of Generation 1
-blinker1 |> unchunk |> fold count |> assert 3
-
--- Verify vertical orientation: cells [1, 2], [2, 2], [3, 2] alive; [2, 1], [2, 3] dead
-blinker1 |> unchunk |> to_set |> set_contains [1 2] |> assert true
-blinker1 |> unchunk |> to_set |> set_contains [2 2] |> assert true
-blinker1 |> unchunk |> to_set |> set_contains [3 2] |> assert true
-blinker1 |> unchunk |> to_set |> set_contains [2 1] |> assert false
-blinker1 |> unchunk |> to_set |> set_contains [2 3] |> assert false
-
--- ------------------------------------------------------------------------------
--- 5. Dynamic Conway Transition: Generation 1 -> Generation 2 (Period-2 Return)
--- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "=== Computing Generation 2 Dynamically (Period-2 Return) ==="
-
-let blinker2 = blinker1 |> conway_step
-blinker2 |> unchunk |> collect_list
-
--- Check population count of Generation 2
-blinker2 |> unchunk |> fold count |> assert 3
-
--- Verify return to horizontal orientation: cells [2, 1], [2, 2], [2, 3] alive; [1, 2], [3, 2] dead
-blinker2 |> unchunk |> to_set |> set_contains [2 1] |> assert true
-blinker2 |> unchunk |> to_set |> set_contains [2 2] |> assert true
-blinker2 |> unchunk |> to_set |> set_contains [2 3] |> assert true
-blinker2 |> unchunk |> to_set |> set_contains [1 2] |> assert false
-blinker2 |> unchunk |> to_set |> set_contains [3 2] |> assert false
-
--- ------------------------------------------------------------------------------
--- 6. Glider Spaceship in Pure DSL Sparse Coordinates
--- Initial coordinates at Generation 0:
---   . O .      -> [2, 1]
---   . . O      -> [3, 2]
---   O O O      -> [1, 3], [2, 3], [3, 3]
--- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "=== Glider Spaceship: Generation 0 ==="
-
-let glider0 = [[2, 1], [3, 2], [1, 3], [2, 3], [3, 3]]
-glider0 |> unchunk |> collect_list
-glider0 |> unchunk |> fold count |> assert 5
-
--- Dynamically evolve Glider across 4 generations via chained conway_step
-let glider1 = glider0 |> conway_step
-glider1 |> unchunk |> fold count |> assert 5
-
-let glider2 = glider1 |> conway_step
-glider2 |> unchunk |> fold count |> assert 5
-
-let glider3 = glider2 |> conway_step
-glider3 |> unchunk |> fold count |> assert 5
-
-let glider4 = glider3 |> conway_step
-
-spawn Status: Start |> echo "=== Glider Spaceship: Generation 4 (Dynamically Shifted by +1, +1) ==="
-glider4 |> unchunk |> collect_list
-
--- Verify population remains exactly 5
-glider4 |> unchunk |> fold count |> assert 5
-
--- Verify exact translated coordinates: [3, 2], [4, 3], [2, 4], [3, 4], [4, 4]
-glider4 |> unchunk |> to_set |> set_contains [3 2] |> assert true
-glider4 |> unchunk |> to_set |> set_contains [4 3] |> assert true
-glider4 |> unchunk |> to_set |> set_contains [2 4] |> assert true
-glider4 |> unchunk |> to_set |> set_contains [3 4] |> assert true
-glider4 |> unchunk |> to_set |> set_contains [4 4] |> assert true
-
--- Verify that origin coordinate [2, 1] died
-glider4 |> unchunk |> to_set |> set_contains [2 1] |> assert false
-
-spawn Status: Start |> echo "All Pure DSL Game of Life Invariants Verified!" |> visualize --curved --border --border-color=green
+-- A glider is a c/4 spaceship: it translates but always has 5 cells.
+let glider = [[2, 1], [3, 2], [1, 3], [2, 3], [3, 3]]
+[glider, 40] |> evolve |> to_chunk |> unchunk |> fold count |> assert 5

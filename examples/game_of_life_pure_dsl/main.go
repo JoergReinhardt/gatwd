@@ -112,11 +112,12 @@ func main() {
 	stepsFlag := flag.Int("steps", 0, "Number of generations to run (0 = infinite interactive loop)")
 	delayMsFlag := flag.Int("delay", 80, "Animation delay between generations in milliseconds")
 	modeFlag := flag.String("mode", "braille", "Sub-character rendering mode: braille (2x4), quadrant (2x2), halfblock (1x2), cell (1x1)")
-	widthFlag := flag.Int("width", 80, "Grid width in sub-pixels")
-	heightFlag := flag.Int("height", 40, "Grid height in sub-pixels")
+	widthFlag := flag.Int("width", 64, "Grid width in sub-pixels (the border the pattern evolves within)")
+	heightFlag := flag.Int("height", 42, "Grid height in sub-pixels (the border the pattern evolves within)")
 	colorFlag := flag.String("color", "cyan", "Living cell color: cyan, green, yellow, magenta, white")
 	torusFlag := flag.Bool("torus", true, "Wrap coordinates toroidally around canvas boundaries")
 	nonInteractiveFlag := flag.Bool("non-interactive", false, "Disable screen clearing (batch output mode)")
+	patternFlag := flag.String("pattern", "examples/game_of_life_pure_dsl/patterns/edna.gatwd", "Pure-gatwd startup-grid file (binds `live`); empty to use -preset")
 	scriptFlag := flag.String("script", "", "Path to custom .gatwd script to run directly")
 	verifyFlag := flag.Bool("verify", false, "Execute the full dynamic verification test suite script")
 
@@ -193,9 +194,25 @@ func main() {
 		defer fmt.Print("\033[?25h")
 	}
 
-	// Initialize Gatwd DSL Interpreter
+	// Initialize the interpreter and load the pure-DSL rule (conway_step) from its
+	// single source of truth. No Conway logic lives in Go — the wrapper renders.
 	interp := cli.NewInterpreter()
-	interp.EvaluateLine(fmt.Sprintf("let live = %s", initialListExpr))
+	interp.LoadScript("examples/game_of_life_pure_dsl/game_of_life.gatwd")
+
+	// Seed the board. A pattern file binds `live` directly (pre-centered); if none
+	// is given or it is missing, fall back to the selected preset.
+	seedName := *presetFlag
+	if *patternFlag != "" {
+		if _, err := os.Stat(*patternFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "pattern %s not found (%v); using preset %q\n", *patternFlag, err, *presetFlag)
+			interp.EvaluateLine(fmt.Sprintf("let live = %s", initialListExpr))
+		} else {
+			interp.LoadScript(*patternFlag)
+			seedName = *patternFlag
+		}
+	} else {
+		interp.EvaluateLine(fmt.Sprintf("let live = %s", initialListExpr))
+	}
 
 	canvas := visualizer.NewSubpixelCanvas(width, height, mode)
 	xFactor, yFactor := canvas.SubpixelDimensions()
@@ -203,9 +220,6 @@ func main() {
 
 	generation := 0
 	stepDuration := time.Duration(*delayMsFlag) * time.Millisecond
-
-	// Define reusable Conway B3/S23 transition step purely in Gatwd DSL
-	interp.EvaluateLine("def conway_step = match { live -> let nbrs = [[x + dx, y + dy] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt] in births ++ survivors }")
 
 	for {
 		startTime := time.Now()
@@ -247,7 +261,7 @@ func main() {
 		// Status card formatted using standard Gatwd visualizer
 		statusInfo := map[string]any{
 			"Engine":     "100% Pure Gatwd DSL (Reusable def conway_step Macro)",
-			"Preset":     *presetFlag,
+			"Seed":       seedName,
 			"Generation": generation,
 			"Population": population,
 			"Resolution": fmt.Sprintf("%dx%d sub-pixels (%dx%d chars, mode: %s [%dx%d])", width, height, termCols, termRows, mode, xFactor, yFactor),
