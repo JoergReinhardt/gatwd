@@ -8,6 +8,7 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1507,6 +1508,83 @@ func unbalancedDelimiter(line string) (int, bool) {
 	return 0, true
 }
 
+// checkExhaustiveMatch scans a statement for `match { ... }` blocks whose arms are
+// all constructors of a single sum type, and reports — via warn — any branches of
+// that type left uncovered when there is no catch-all (`_` or a bare variable) arm.
+// This is a local, registry-driven check: no type inference is required because the
+// constructor arms themselves identify the sum type. It is advisory (a warning),
+// since gatwd permits partial matches at runtime.
+func checkExhaustiveMatch(p *parser.Parser, stmt string, warn func(msg string)) {
+	const marker = "match {"
+	for idx := 0; ; {
+		mi := strings.Index(stmt[idx:], marker)
+		if mi < 0 {
+			return
+		}
+		start := idx + mi + len(marker)
+		depth, end := 1, start
+		for end < len(stmt) && depth > 0 {
+			switch stmt[end] {
+			case '{':
+				depth++
+			case '}':
+				depth--
+			}
+			if depth == 0 {
+				break
+			}
+			end++
+		}
+		if depth != 0 {
+			return // unbalanced; already reported by the delimiter check
+		}
+
+		var ctors []string
+		typeName := ""
+		catchAll, mixed := false, false
+		for _, arm := range splitCasesAware(stmt[start:end]) {
+			pp := strings.SplitN(strings.TrimSpace(arm), "->", 2)
+			pat := strings.TrimSpace(pp[0])
+			switch {
+			case pat == "" || pat == "_":
+				if pat == "_" {
+					catchAll = true
+				}
+			case isIdent(pat) && p.IsConstructor(pat):
+				tn, _, _ := p.SumTypeOf(pat)
+				if typeName == "" {
+					typeName = tn
+				} else if typeName != tn {
+					mixed = true
+				}
+				ctors = append(ctors, pat)
+			case isIdent(pat):
+				catchAll = true // a bare variable pattern binds anything
+			}
+			// non-identifier patterns (lists, literals) don't constrain a sum type
+		}
+
+		if typeName != "" && !catchAll && !mixed {
+			_, all, _ := p.SumTypeOf(ctors[0])
+			covered := make(map[string]bool, len(ctors))
+			for _, c := range ctors {
+				covered[c] = true
+			}
+			var missing []string
+			for _, b := range all {
+				if !covered[b] {
+					missing = append(missing, b)
+				}
+			}
+			if len(missing) > 0 {
+				sort.Strings(missing)
+				warn(fmt.Sprintf("non-exhaustive match on %s: missing %s", typeName, strings.Join(missing, ", ")))
+			}
+		}
+		idx = end + 1
+	}
+}
+
 func splitCasesAware(line string) []string {
 	var parts []string
 	var current strings.Builder
@@ -2211,13 +2289,29 @@ func RunWithInterpreter(interpreter *Interpreter) {
 		// Validate statically over logical statements (physical lines joined the
 		// same way the evaluator joins them). Only structural, zero-false-positive
 		// checks are reported — not type errors, which gatwd resolves at runtime.
+		stmts := logicalLines(string(content))
+
+		// Pre-register the script's sum types so exhaustiveness checks know each
+		// closed type's full set of constructors.
+		checkParser := parser.NewParser()
+		for _, stmt := range stmts {
+			if strings.HasPrefix(stmt.text, "type ") {
+				for range checkParser.Parse(stmt.text) {
+				}
+			}
+		}
+
 		hasError := false
-		for _, stmt := range logicalLines(string(content)) {
+		for _, stmt := range stmts {
 			line := stmt.text
 			report := func(col int, msg string) {
 				fmt.Fprintf(os.Stderr, "%s:%d:%d: error: %s\n", targetFile, stmt.num, col, msg)
 				hasError = true
 			}
+			warn := func(msg string) {
+				fmt.Fprintf(os.Stderr, "%s:%d:1: warning: %s\n", targetFile, stmt.num, msg)
+			}
+			checkExhaustiveMatch(checkParser, line, warn)
 			// 1. Legacy assignment operator.
 			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
 				report(strings.Index(line, ":=")+1, "invalid assignment ':=' (use '=')")

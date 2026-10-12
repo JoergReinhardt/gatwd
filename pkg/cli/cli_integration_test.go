@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/functions"
+	"github.com/joergreinhardt/gatwd/parser"
 )
 
 func TestStructuralPipelines(t *testing.T) {
@@ -252,5 +253,35 @@ func TestUnknownStepFailsLoudly(t *testing.T) {
 	res := interp.evaluatePipelineStr("spawn IntVal: 5 |> definitely_not_a_real_step_xyz")
 	if len(res) != 1 || !strings.Contains(res[0], "[ERROR]") {
 		t.Fatalf("expected a loud [ERROR] for an unknown step, got %v", res)
+	}
+}
+
+func TestCheckExhaustiveMatch(t *testing.T) {
+	p := parser.NewParser()
+	for range p.Parse("type OS = Linux | Windows | Darwin\n") {
+	}
+
+	collect := func(stmt string) []string {
+		var warnings []string
+		checkExhaustiveMatch(p, stmt, func(msg string) { warnings = append(warnings, msg) })
+		return warnings
+	}
+
+	// Missing a branch → one warning naming the uncovered constructor.
+	w := collect("def r = match { Linux -> echo L | Windows -> echo W }")
+	if len(w) != 1 || !strings.Contains(w[0], "missing Darwin") {
+		t.Fatalf("expected 'missing Darwin' warning, got %v", w)
+	}
+	// All branches covered → no warning.
+	if w := collect("def r = match { Linux -> a | Windows -> b | Darwin -> c }"); len(w) != 0 {
+		t.Fatalf("exhaustive match should not warn, got %v", w)
+	}
+	// Catch-all wildcard → no warning.
+	if w := collect("def r = match { Linux -> a | _ -> b }"); len(w) != 0 {
+		t.Fatalf("wildcard catch-all should not warn, got %v", w)
+	}
+	// A match with no constructor arms (list/literal patterns) → no warning.
+	if w := collect("def q = match { [] -> empty | [h, ...t] -> h }"); len(w) != 0 {
+		t.Fatalf("non-constructor match should not warn, got %v", w)
 	}
 }

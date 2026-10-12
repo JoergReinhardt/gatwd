@@ -25,7 +25,13 @@
 >   with zero false positives across every repo script. Tests: `TestUnbalancedDelimiter`,
 >   `TestLogicalLines_JoinsMultilineStatements`, `TestUnknownStepFailsLoudly`. **Deferred:** wiring
 >   `parser/errors.go` `FormatError` into the line-based top-level parser (it is combinator-level; low ROI).
-> - ☐ **Workstream D:** not started.
+> - ◑ **Workstream D — gradual typing: exhaustiveness DONE.** `gatwd --check` now reports
+>   **non-exhaustive `match`** warnings for a closed sum type (keyed off `Parser.SumTypeOf` /
+>   `SumTypeDefinition.Branches`): a match whose arms are all constructors of one type, with no catch-all
+>   (`_` / bare variable), warns which branches are uncovered (e.g. `missing Darwin`). Local and
+>   registry-driven — no type inference needed. Advisory (exit 0). Test: `TestCheckExhaustiveMatch`.
+>   **Deferred (the larger, more speculative part):** optional type annotations (D1) and local/bidirectional
+>   inference (D2) — a much bigger subsystem whose ROI is lower for a dynamically-typed interpreter.
 
 ## 0. Scope & non-goals
 

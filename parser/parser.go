@@ -100,6 +100,24 @@ func (p *Parser) MakeVariant(typeName, valStr string) (dsltypes.Variant, bool) {
 	return dsltypes.Variant{}, false
 }
 
+// SumTypeOf returns the name of the sum type that declares the given constructor
+// branch and all of that type's branch names, or ok=false if name is not a
+// registered constructor. The match exhaustiveness check in `gatwd --check` uses
+// this to determine which branches of a closed sum type a `match` block leaves
+// uncovered.
+func (p *Parser) SumTypeOf(branch string) (name string, branches []string, ok bool) {
+	for typeName, sumDef := range p.sumTypes {
+		if _, has := sumDef.Branches[branch]; has {
+			all := make([]string, 0, len(sumDef.Branches))
+			for b := range sumDef.Branches {
+				all = append(all, b)
+			}
+			return typeName, all, true
+		}
+	}
+	return "", nil, false
+}
+
 // IsConstructor reports whether name is a registered constructor (branch) of any
 // declared sum type. The match evaluator uses this to distinguish a pattern that
 // names an ADT constructor (which must discriminate on the value's variant tag)
