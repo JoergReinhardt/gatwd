@@ -18,22 +18,25 @@ The foundational mathematical primitives:
 Purely functional, persistent data structures with structural sharing (all implement `Graphable` for the visualizer):
 - **`HAMT[K, V]`**: 32-way branching Hash Array Mapped Trie using bitmap index compression (`math/bits.OnesCount32`) and standard `hash/maphash.Comparable`. Provides $O(\log_{32} N) \approx O(1)$ persistent key-value mapping, `Merge()`, `Equal()`, `MapValues()`, `Fold()`, and `Filter()`. Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
 - **`List[T]`**: Persistent singly-linked Cons list (`Nil()`, `Cons()`, `Head()`, `Tail()`, `Seq()`, `Len()`, `Reverse()`, `Concat()`, `Map()`, `FoldLeft()`, `FoldRight()`, `Filter()`, `Equal()`). Implements `json.Marshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
-- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `Map()`, `Fold()` bottom-up catamorphism, `Equal()`).
+- **`Tree[T]`**: Multi-way Rose Tree (`NewTree()`, `Leaf()`, `Children()`, `AddChild()`, `Size()`, `Depth()`, `Flatten()`, `FlattenChunk()`, `Map()`, `Fold()` bottom-up catamorphism, `Equal()`). Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, `sql.Scanner`, and `Graphable`.
 - **`Set[T]`**: Persistent hash set backed by `HAMT[T, struct{}]`. Provides $O(\log_{32} N)$ structural sharing, `Contains()`, `Add()`, `Remove()`, `Union()`, `Intersect()`, `Diff()`, `IsSubset()`, `Equal()`, `Map()`, `Fold()`, and `Filter()`.
 - **`Map[K, V]`**: Persistent dictionary backed by `HAMT[K, V]`, implementing `Graphable`.
-- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Map()`, `Fold()`, `Filter()`, and `Equal()`.
+- **`Chunk[T]`**: Eager, contiguous, bounds-checked slice wrapper for CPU spatial locality and cache efficiency, providing `Concat()`, `Reverse()`, `Slice()`, `Map()`, `Fold()`, `Filter()`, and `Equal()`. Implements `json.Marshaler`, `json.Unmarshaler`, `driver.Valuer`, and `sql.Scanner`.
 
 ---
 
 ## 3. Layer 2: Category Theory Combinators
 - **`arrows/`**: Kleisli arrows for monadic composition. Provides identity arrows, FanOut (`&&&`), Split (`***`), and curry composition.
-- **`comonads/`**: Spatial navigation via Rose Tree Zippers (`IntoZipper`, `Left`, `Right`, `Down`, `Up`, `Extract`).
+- **`comonads/`**:
+  - **Rose Tree Zipper**: Spatial navigation via zippers (`IntoZipper`, `Left`, `Right`, `Down`, `Up`, `Extract`).
+  - **2D Toroidal Grid Comonad**: Discrete 2-dimensional toroidal surfaces (`Grid[T]`, `GridZipper[T]`, `Extract`, `Duplicate`, `Extend`/cobind, `MooreNeighbors`, `ConwayRule`, `StepConway`).
 
 ---
 
 ## 4. Layer 3: `evaluator/` (Streaming Execution Engine & Testing Harness)
 - **`Engine[T]`**: Trampolined stream processing engine that evaluates pipelines over `iter.Seq`.
-- **`PipelineStep[T]`**: First-class stream transducers (`func(iter.Seq) iter.Seq`). Includes `StepTake`, `StepDrop`, `StepFilter`, `StepMap`, `StepSort`, `StepToSet`, `StepSetUnion`, `StepSetIntersect`, `StepSetDiff`, `StepToHAMT`, `StepHAMTGet`, `StepHAMTMerge`, `StepFold` (expanded for `sum`, `product`, `min`, `max`, `concat`, `any`, `all`), `StepChunk`, `StepAssert`, `StepDebugPrint`.
+- **`PipelineStep[T]`**: First-class stream transducers (`func(iter.Seq) iter.Seq`). Includes `StepTake`, `StepDrop`, `StepFilter` (supporting lambda predicates `\x -> ...`), `StepMap` (supporting lambda functions across HAMTs, Trees, Pairs, and Maybes), `StepSort`, `StepToSet`, `StepToList`, `StepToChunk`, `StepSetUnion`, `StepSetIntersect`, `StepSetDiff`, `StepToHAMT`, `StepHAMTGet`, `StepHAMTMerge`, `StepFold` (expanded for `sum`, `product`, `min`, `max`, `count`, `concat`, `any`, `all`), `StepChunk`, `StepAssert`, `StepDebugPrint`.
+
 - **`StepCheckpoint` & `CheckpointStore`**: Non-intrusive stream watermarking and continuation state tracking without steady-state performance overhead.
 - **`BenchmarkPipeline` & `StepTelemetry`**: Performance measurement harness integrating with `testing.B` and live stream telemetry.
 - **`Example` & Go Testing Integration**: Full alignment with Go's `testing.InternalExample` interface. Provides `RunExample`, `RunExamples` (with subtests), `RunInternalExamples` (Go standard library bridge), and thread-safe `CaptureStdout` supporting ordered (`// Output:`) and permutation-invariant (`// Unordered output:`) line verification with formatted visual diff cards.
