@@ -198,3 +198,59 @@ func TestStructuralPipelines(t *testing.T) {
 		}
 	})
 }
+
+func TestUnbalancedDelimiter(t *testing.T) {
+	balanced := []string{
+		`spawn IntVal: (1 + 2) |> assert 3`,
+		`def q = match { [] -> empty | [p, ...r] -> seq { r | p } }`,
+		`let xs = [[1, 2], [3, 4]] in xs |> head`,
+		`echo "unmatched ( inside a string is fine"`,
+		``,
+	}
+	for _, s := range balanced {
+		if _, ok := unbalancedDelimiter(s); !ok {
+			t.Errorf("expected %q to be balanced", s)
+		}
+	}
+	unbalanced := []string{
+		`spawn IntVal: (1 + 2 |> assert 3`,
+		`let xs = [1, 2 in xs`,
+		`match { a -> b`,
+		`foo )`,
+		`[ ( ] )`, // mismatched nesting
+	}
+	for _, s := range unbalanced {
+		if _, ok := unbalancedDelimiter(s); ok {
+			t.Errorf("expected %q to be unbalanced", s)
+		}
+	}
+}
+
+func TestLogicalLines_JoinsMultilineStatements(t *testing.T) {
+	content := "type OS = Linux | Windows\n" +
+		"def route = match {\n" +
+		"  Linux -> echo L\n" +
+		"| Windows -> echo W\n" +
+		"}\n" +
+		"spawn OS: Linux |> route\n"
+	got := logicalLines(content)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 logical statements, got %d: %+v", len(got), got)
+	}
+	// The multi-line match must be reassembled into one balanced statement
+	// tagged with the line where `def route` began (line 2).
+	if got[1].num != 2 {
+		t.Errorf("expected def statement to start at line 2, got %d", got[1].num)
+	}
+	if _, ok := unbalancedDelimiter(got[1].text); !ok {
+		t.Errorf("reassembled def statement should be balanced, got %q", got[1].text)
+	}
+}
+
+func TestUnknownStepFailsLoudly(t *testing.T) {
+	interp := NewInterpreter()
+	res := interp.evaluatePipelineStr("spawn IntVal: 5 |> definitely_not_a_real_step_xyz")
+	if len(res) != 1 || !strings.Contains(res[0], "[ERROR]") {
+		t.Fatalf("expected a loud [ERROR] for an unknown step, got %v", res)
+	}
+}

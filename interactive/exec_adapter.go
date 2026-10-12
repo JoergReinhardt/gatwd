@@ -34,6 +34,15 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 				return
 			}
 
+			// Loud failure: a step that is neither a recognized builtin nor an
+			// available executable surfaces an error instead of silently yielding
+			// nothing. This turns a typo'd pipeline step (e.g. `frobnicate`) from a
+			// silent no-op into a visible `[ERROR] unknown step or command` node.
+			if _, lookErr := exec.LookPath(parts[0]); lookErr != nil {
+				yield(dsltypes.NewASTNode[any](fmt.Errorf("unknown step or command: %q", parts[0]), yieldedFlag))
+				return
+			}
+
 			cmd := exec.Command(parts[0], parts[1:]...)
 			stdout, err := cmd.StdoutPipe()
 			if err != nil { return }

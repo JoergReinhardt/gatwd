@@ -16,7 +16,16 @@
 >   composable: `def inc = \x -> x + 1` then `5 |> inc`, `5 |> (\x -> x*10)`, `inc |> dbl`,
 >   `let f = \x -> … in 5 |> f`, and `map inc` all work (test #57). **Deferred (higher-risk, infix-parser
 >   surgery):** expression-position application `f x`, multi-argument lambdas, and currying — see §2.
-> - ☐ **Workstream C, D:** not started.
+> - ◑ **Workstream C — loud errors + diagnostics: core DONE.** Unknown pipeline steps (neither a
+>   builtin/function nor an available executable) now surface `[ERROR] unknown step or command: "x"`
+>   instead of vanishing silently (`EitherT` propagates error-valued adapter results as `Left`;
+>   `GenericExecAdapter` emits an error on `exec.LookPath` failure). `gatwd --check` is now a real
+>   structural validator (unbalanced delimiters, `def`/`const`/`type` missing `=`, trailing `|>`, legacy
+>   `:=`) over *logical* statements — physical lines joined via the new shared `logicalLines` helper —
+>   with zero false positives across every repo script. Tests: `TestUnbalancedDelimiter`,
+>   `TestLogicalLines_JoinsMultilineStatements`, `TestUnknownStepFailsLoudly`. **Deferred:** wiring
+>   `parser/errors.go` `FormatError` into the line-based top-level parser (it is combinator-level; low ROI).
+> - ☐ **Workstream D:** not started.
 
 ## 0. Scope & non-goals
 

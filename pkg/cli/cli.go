@@ -1472,6 +1472,41 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 	return pipeline
 }
 
+// unbalancedDelimiter reports whether a line's (), [], and {} delimiters are
+// balanced and correctly nested, ignoring anything inside double-quoted string
+// literals. On imbalance it returns the rune index of the offending delimiter
+// and false; when balanced it returns (0, true). Used by `gatwd --check`.
+func unbalancedDelimiter(line string) (int, bool) {
+	var stack []struct {
+		open rune
+		pos  int
+	}
+	closer := map[rune]rune{')': '(', ']': '[', '}': '{'}
+	inString := false
+	for i, r := range line {
+		switch {
+		case r == '"':
+			inString = !inString
+		case inString:
+			// skip delimiters inside string literals
+		case r == '(' || r == '[' || r == '{':
+			stack = append(stack, struct {
+				open rune
+				pos  int
+			}{r, i})
+		case r == ')' || r == ']' || r == '}':
+			if len(stack) == 0 || stack[len(stack)-1].open != closer[r] {
+				return i, false
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(stack) > 0 {
+		return stack[len(stack)-1].pos, false
+	}
+	return 0, true
+}
+
 func splitCasesAware(line string) []string {
 	var parts []string
 	var current strings.Builder
@@ -2062,10 +2097,40 @@ func (i *Interpreter) EvaluateScript(script string) {
 
 // LoadScriptContent parses and evaluates a script string with a base directory for resolving relative imports.
 func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
-	lines := strings.Split(content, "\n")
-	var buffer string
+	for _, stmt := range logicalLines(content) {
+		buffer := stmt.text
+		// Module Imports
+		if strings.HasPrefix(buffer, "import ") {
+			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
+			if !filepath.IsAbs(importFile) {
+				importFile = filepath.Join(baseDir, importFile)
+			}
+			i.LoadScript(importFile)
+			continue
+		}
+		i.EvaluateLine(buffer)
+	}
+}
 
-	for _, rawLine := range lines {
+// logicalLine is a complete gatwd statement assembled from one or more physical
+// lines, tagged with the 1-based line number where the statement began.
+type logicalLine struct {
+	num  int
+	text string
+}
+
+// logicalLines splits a script into complete statements, joining physical lines
+// that continue a statement (unbalanced delimiters, an unterminated string, or a
+// trailing continuation operator like `=`, `|>`, or `in`). Comment and blank
+// lines are skipped. This is the single source of truth for statement assembly,
+// shared by script evaluation and `gatwd --check`.
+func logicalLines(content string) []logicalLine {
+	lines := strings.Split(content, "\n")
+	var out []logicalLine
+	var buffer string
+	startNum := 0
+
+	for idx, rawLine := range lines {
 		line := strings.TrimSpace(rawLine)
 		if line == "" || strings.HasPrefix(line, "--") {
 			continue
@@ -2079,6 +2144,7 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 			}
 		} else {
 			buffer = line
+			startNum = idx + 1
 		}
 
 		// Check for multi-line continuation
@@ -2095,23 +2161,13 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 			continue // Wait for next line
 		}
 
-		// Module Imports
-		if strings.HasPrefix(buffer, "import ") {
-			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
-			if !filepath.IsAbs(importFile) {
-				importFile = filepath.Join(baseDir, importFile)
-			}
-			i.LoadScript(importFile)
-			buffer = ""
-			continue
-		}
-
-		i.EvaluateLine(buffer)
+		out = append(out, logicalLine{num: startNum, text: buffer})
 		buffer = ""
 	}
 	if buffer != "" {
-		i.EvaluateLine(buffer)
+		out = append(out, logicalLine{num: startNum, text: buffer})
 	}
+	return out
 }
 
 // LoadScript reads a script from the filesystem and evaluates it.
@@ -2152,18 +2208,33 @@ func RunWithInterpreter(interpreter *Interpreter) {
 			fmt.Fprintf(os.Stderr, "%s:1:1: error: cannot read file: %v\n", targetFile, err)
 			os.Exit(1)
 		}
-		// Validate lines
+		// Validate statically over logical statements (physical lines joined the
+		// same way the evaluator joins them). Only structural, zero-false-positive
+		// checks are reported — not type errors, which gatwd resolves at runtime.
 		hasError := false
-		lines := strings.Split(string(content), "\n")
-		for idx, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "--") {
-				continue
-			}
-			// Infix syntax validation check
-			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
-				fmt.Fprintf(os.Stderr, "%s:%d:1: error: invalid syntax ':='\n", targetFile, idx+1)
+		for _, stmt := range logicalLines(string(content)) {
+			line := stmt.text
+			report := func(col int, msg string) {
+				fmt.Fprintf(os.Stderr, "%s:%d:%d: error: %s\n", targetFile, stmt.num, col, msg)
 				hasError = true
+			}
+			// 1. Legacy assignment operator.
+			if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
+				report(strings.Index(line, ":=")+1, "invalid assignment ':=' (use '=')")
+			}
+			// 2. Unbalanced (), [], or {} (string literals are ignored).
+			if col, ok := unbalancedDelimiter(line); !ok {
+				report(col+1, "unbalanced delimiter")
+			}
+			// 3. A declaration keyword missing its '='.
+			for _, kw := range []string{"def ", "const ", "type "} {
+				if strings.HasPrefix(line, kw) && !strings.Contains(line, "=") {
+					report(1, "'"+strings.TrimSpace(kw)+"' declaration is missing '='")
+				}
+			}
+			// 4. A trailing pipe with no following stage (unterminated at EOF).
+			if strings.HasSuffix(line, "|>") {
+				report(len(line)-1, "pipeline ends with '|>' but has no following stage")
 			}
 		}
 		if hasError {
