@@ -16,8 +16,25 @@ This variant requires **NO Go compiler**, **NO Go runtime code additions**, and 
 
 ## Architectural Principles
 
-### 1. Sparse Coordinate Sets
-Instead of maintaining a dense 2D matrix array, the simulation models the unbounded universe as an immutable mathematical set of coordinate strings:
+### 1. Dynamic Generational Transition in Pure DSL
+Rather than hardcoding static coordinate transitions, the simulation dynamically computes Generation $t+1$ from Generation $t$ directly in Gatwd syntax using Moore neighborhood expansion, multiset frequencies, and B3/S23 rule filtering:
+
+```gatwd
+-- 1. Moore Neighborhood Expansion via Multi-Generator List Comprehension:
+let blinker = [[2, 1], [2, 2], [2, 3]]
+let nbrs = [[x + dx, y + dy] | [x, y] <- blinker, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+
+-- 2. Candidate Cell Neighbor Counts via Persistent HAMT Frequencies:
+let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list
+
+-- 3. Conway Rules Application (Birth: count == 3, Survival: count == 2 & was alive):
+let births = [pt | [pt, cnt] <- pairs, cnt == 3]
+let survivors = [pt | [pt, cnt] <- pairs, cnt == 2, (pt == [2, 1] || pt == [2, 2] || pt == [2, 3])]
+let gen1 = births ++ survivors
+```
+
+### 2. Sparse Coordinate Sets
+In addition to vector coordinate lists, the simulation models the unbounded universe as an immutable mathematical set of coordinate strings:
 
 ```gatwd
 type CellSet = Set(String)
@@ -25,14 +42,14 @@ type CellSet = Set(String)
 
 Living cells are stored as `"x:y"` keys in an immutable Hash Array Mapped Trie (HAMT) backing the `Set`.
 
-### 2. Population Measurement via Catamorphisms
+### 3. Population Measurement via Catamorphisms
 Population counts across discrete generational steps are computed using Gatwd's catamorphic stream folds:
 
 ```gatwd
 spawn CellSet: Start |> emit 2:1, 2:2, 2:3 |> drop 1 |> to_set |> set_elements |> fold count |> assert 3
 ```
 
-### 3. Spatial Membership & Invariant Testing
+### 4. Spatial Membership & Invariant Testing
 Cell existence, births, and deaths are validated using persistent set membership checks and assertions:
 
 ```gatwd
@@ -43,7 +60,7 @@ spawn CellSet: LiveGrid |> set_contains 2:2 |> assert true
 spawn CellSet: LiveGrid |> set_contains 2:1 |> assert false
 ```
 
-### 4. Diagnostic Card Visualization
+### 5. Diagnostic Card Visualization
 Simulation generation cards and invariant summaries are rendered using the standard Gatwd card visualizer (`visualize`):
 
 ```gatwd

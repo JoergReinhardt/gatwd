@@ -77,6 +77,20 @@ func StepUnchunk() PipelineStep[functions.Either[error, any]] {
 							return
 						}
 					}
+				} else if list, ok := val.(*collections.List[any]); ok {
+					for item := range list.Seq() {
+						wrapped := functions.Right[error, any](item)
+						if !yield(dsltypes.NewASTNode(wrapped, node.DSLType)) {
+							return
+						}
+					}
+				} else if sl, ok := val.([]any); ok {
+					for _, item := range sl {
+						wrapped := functions.Right[error, any](item)
+						if !yield(dsltypes.NewASTNode(wrapped, node.DSLType)) {
+							return
+						}
+					}
 				} else {
 					if !yield(node) {
 						return

@@ -2,8 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"github.com/joergreinhardt/gatwd/functions"
 	"testing"
+
+	"github.com/joergreinhardt/gatwd/functions"
 )
 
 func TestStructuralPipelines(t *testing.T) {
@@ -128,5 +129,23 @@ func TestStructuralPipelines(t *testing.T) {
 		if fmt.Sprintf("%v", res29[0]) != "29" {
 			t.Errorf("Expected 29 for A(3, 2), got %v", res29[0])
 		}
+	})
+
+	t.Run("Pure DSL Conway Step", func(t *testing.T) {
+		interp := NewInterpreter()
+		interp.EvaluateLine("let blinker = [[2, 1], [2, 2], [2, 3]]")
+		// Test frequencies of neighbors
+		resBirths := interp.EvaluateToValues("let nbrs = [[x + dx, y + dy] | [x, y] <- blinker, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list in [pt | [pt, cnt] <- pairs, cnt == 3]")
+		if len(resBirths) != 1 {
+			t.Fatalf("Expected 1 result for births, got %d", len(resBirths))
+		}
+		t.Logf("Birth cells: %v", resBirths[0])
+
+		// Test survivors (cnt == 2 and was in blinker)
+		resNextGen := interp.EvaluateToValues("let nbrs = [[x + dx, y + dy] | [x, y] <- blinker, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)] in let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list in let births = [pt | [pt, cnt] <- pairs, cnt == 3] in let survivors = [pt | [pt, cnt] <- pairs, cnt == 2, (pt == [2, 1] || pt == [2, 2] || pt == [2, 3])] in births ++ survivors")
+		if len(resNextGen) != 1 {
+			t.Fatalf("Expected 1 result for next gen, got %d", len(resNextGen))
+		}
+		t.Logf("Next generation cells: %v", resNextGen[0])
 	})
 }

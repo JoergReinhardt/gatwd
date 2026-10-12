@@ -36,20 +36,37 @@ spawn CellSet: Start |> emit 2:1, 2:2, 2:3 |> drop 1 |> to_set |> set_contains 2
 spawn CellSet: Start |> emit 2:1, 2:2, 2:3 |> drop 1 |> to_set |> set_contains 1:2 |> assert false
 
 -- ------------------------------------------------------------------------------
--- 3. Generation 1: Advance Blinker (Period-2 Oscillation to Vertical)
+-- 3. Generation Transition via Dynamic Conway Step
 -- In Conway's B3/S23:
--- Dead cells with exactly 3 neighbors are born:
---   - (1, 2) has neighbors (2, 1), (2, 2), (2, 3) -> Count 3 -> BORN!
---   - (3, 2) has neighbors (2, 1), (2, 2), (2, 3) -> Count 3 -> BORN!
--- Living cells with < 2 neighbors die (underpopulation):
---   - (2, 1) has only 1 neighbor (2, 2) -> DIES!
---   - (2, 3) has only 1 neighbor (2, 2) -> DIES!
--- Living cells with 2 neighbors survive:
---   - (2, 2) has 2 neighbors (2, 1) and (2, 3) -> SURVIVES!
---
--- New Live Population: (1, 2), (2, 2), (3, 2) (Vertical line!)
+-- 1. Neighbors Moore Neighborhood:
+--    Each live cell emits its 8 surrounding neighbor coordinates.
+-- 2. Frequencies of Occurrences:
+--    Candidate cells are aggregated into a persistent HAMT map of (cell -> count).
+-- 3. Rules Evaluation:
+--    - Birth: A dead cell with count == 3 becomes alive!
+--    - Survival: A living cell with count == 2 survives!
+--    - Next Generation: births ++ survivors
 -- ------------------------------------------------------------------------------
-spawn Status: Start |> echo "=== Generation 1: Vertical Blinker (Period-2 Transition) ==="
+spawn Status: Start |> echo "=== Dynamic Conway Step Calculation ==="
+
+let blinker = [[2, 1], [2, 2], [2, 3]]
+let nbrs = [[x + dx, y + dy] | [x, y] <- blinker, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+let pairs = nbrs |> unchunk |> frequencies |> hamt_pairs |> collect_list
+let births = [pt | [pt, cnt] <- pairs, cnt == 3]
+let survivors = [pt | [pt, cnt] <- pairs, cnt == 2, (pt == [2, 1] || pt == [2, 2] || pt == [2, 3])]
+let gen1 = births ++ survivors
+
+spawn Status: Start |> echo "=== Generation 1: Computed Dynamically via Pure DSL ==="
+gen1 |> unchunk |> collect_list
+
+-- Verify births and survivors match vertical blinker: [[3 2] [1 2] [2 2]]
+births |> unchunk |> collect_list
+survivors |> unchunk |> collect_list
+
+-- ------------------------------------------------------------------------------
+-- 4. Set-based Invariant Verification (Generations 1 & 2)
+-- ------------------------------------------------------------------------------
+spawn Status: Start |> echo "=== Generation 1: Vertical Blinker Verification ==="
 
 spawn CellSet: Start |> emit 1:2, 2:2, 3:2 |> drop 1 |> to_set |> set_elements |> collect_list
 
@@ -63,7 +80,7 @@ spawn CellSet: Start |> emit 1:2, 2:2, 3:2 |> drop 1 |> to_set |> set_contains 2
 spawn CellSet: Start |> emit 1:2, 2:2, 3:2 |> drop 1 |> to_set |> set_contains 2:3 |> assert false
 
 -- ------------------------------------------------------------------------------
--- 4. Generation 2: Period-2 Return to Horizontal Blinker
+-- 5. Generation 2: Period-2 Return to Horizontal Blinker
 -- Live Population returns identically to: (2, 1), (2, 2), (2, 3)
 -- ------------------------------------------------------------------------------
 spawn Status: Start |> echo "=== Generation 2: Oscillates Back to Horizontal ==="

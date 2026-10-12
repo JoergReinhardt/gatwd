@@ -112,6 +112,8 @@ func DefaultSpec() GrammarSpec {
 			{Name: "hamt_del", Category: "collections", Signature: "hamt_del <key>", Description: "Remove key from HAMT"},
 			{Name: "hamt_keys", Category: "collections", Signature: "hamt_keys", Description: "Stream all keys from HAMT"},
 			{Name: "hamt_values", Category: "collections", Signature: "hamt_values", Description: "Stream all values from HAMT"},
+			{Name: "hamt_pairs", Category: "collections", Signature: "hamt_pairs", Description: "Stream all key-value pairs from HAMT"},
+			{Name: "frequencies", Category: "collections", Signature: "frequencies", Description: "Count occurrences of stream elements into persistent HAMT"},
 			{Name: "to_set", Category: "collections", Signature: "to_set", Description: "Fold stream into persistent immutable set"},
 			{Name: "set_add", Category: "collections", Signature: "set_add <item>", Description: "Add element to immutable set"},
 			{Name: "set_contains", Category: "collections", Signature: "set_contains <item>", Description: "Test set membership"},

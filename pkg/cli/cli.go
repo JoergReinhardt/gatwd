@@ -123,6 +123,13 @@ func toListElements(val any) ([]any, bool) {
 		}
 		return elems, true
 	}
+	if p, ok := val.(functions.Pair[any, any]); ok {
+		return []any{p.Fst, p.Snd}, true
+	}
+	if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+		f, s := p.PairElements()
+		return []any{f, s}, true
+	}
 	return nil, false
 }
 
@@ -618,6 +625,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepHAMTKeys())
 		} else if stepStr == "hamt_values" {
 			pipeline = append(pipeline, evaluator.StepHAMTValues())
+		} else if stepStr == "hamt_pairs" {
+			pipeline = append(pipeline, evaluator.StepHAMTPairs())
+		} else if stepStr == "frequencies" {
+			pipeline = append(pipeline, evaluator.StepFrequencies())
 		} else if strings.HasPrefix(stepStr, "chunk ") {
 			sizeStr := strings.TrimSpace(stepStr[6:])
 			if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
@@ -972,22 +983,41 @@ func splitPipelineAware(line string) ([]string, bool) {
 }
 
 func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-	if strings.HasPrefix(firstPart, "[") && strings.HasSuffix(firstPart, "]") && !strings.Contains(firstPart, " *** ") {
-		lookup := func(k string) (any, bool) {
-			if rt, ok := i.RuntimeNodes[k]; ok {
-				if rt.Value.IsRight() {
-					val, _ := rt.Value.UnwrapRight()
-					return val, true
-				}
+	lookup := func(k string) (any, bool) {
+		if rt, ok := i.RuntimeNodes[k]; ok {
+			if rt.Value.IsRight() {
+				val, _ := rt.Value.UnwrapRight()
+				return val, true
 			}
-			if v, ok := i.Variables[k]; ok {
-				return v, true
-			}
-			if v, ok := i.Constants[k]; ok {
-				return v, true
-			}
-			return nil, false
 		}
+		if v, ok := i.Variables[k]; ok {
+			return v, true
+		}
+		if v, ok := i.Constants[k]; ok {
+			return v, true
+		}
+		return nil, false
+	}
+
+	// 1. Direct variable reference: e.g. "nbrs |> unchunk"
+	if rtNode, exists := i.RuntimeNodes[firstPart]; exists {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			yield(rtNode)
+		}
+	}
+	if v, exists := i.Variables[firstPart]; exists {
+		var parsedVal any = v
+		if evaluated, err := parser.EvalInfixString(v, lookup); err == nil {
+			parsedVal = evaluated
+		}
+		flag := i.Parser.GetFlag("Variable")
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			yield(dsltypes.NewASTNode(functions.Right[error, any](parsedVal), flag))
+		}
+	}
+
+	// 2. Bracket expression (list literals or list comprehensions)
+	if strings.HasPrefix(firstPart, "[") && strings.HasSuffix(firstPart, "]") && !strings.Contains(firstPart, " *** ") {
 		if val, err := parser.EvalInfixString(firstPart, lookup); err == nil {
 			flag := i.Parser.GetFlag("List")
 			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1030,6 +1060,53 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 }
 
 func (i *Interpreter) EvaluateToValues(line string) []any {
+	line = strings.TrimSpace(line)
+	// Let Bindings: let x = ... in ...
+	if strings.HasPrefix(line, "let ") {
+		parts := strings.SplitN(line[4:], " in ", 2)
+		if len(parts) == 2 {
+			defParts := strings.SplitN(parts[0], "=", 2)
+			if len(defParts) == 2 {
+				varName := strings.TrimSpace(defParts[0])
+				pipelineStr := strings.TrimSpace(defParts[1])
+
+				prevVal, hadPrev := i.Variables[varName]
+
+				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
+					res := i.EvaluateToValues(pipelineStr)
+					if len(res) > 0 {
+						i.Variables[varName] = fmt.Sprintf("%v", res[0])
+					}
+				} else {
+					lookup := func(k string) (any, bool) {
+						if v, ok := i.Variables[k]; ok {
+							return v, true
+						}
+						if v, ok := i.Constants[k]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+					} else {
+						i.Variables[varName] = pipelineStr
+					}
+				}
+
+				defer func() {
+					if hadPrev {
+						i.Variables[varName] = prevVal
+					} else {
+						delete(i.Variables, varName)
+					}
+				}()
+
+				return i.EvaluateToValues(parts[1])
+			}
+		}
+	}
+
 	isParallel := strings.Contains(line, "||>")
 	line = strings.ReplaceAll(line, "||>", "|>")
 	parts, _ := splitPipelineAware(line)
@@ -1080,14 +1157,16 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	parts, isParallel := splitPipelineAware(line)
 
 	firstPart := parts[0]
-	for k, v := range i.Variables {
-		words := strings.Split(firstPart, " ")
-		for idx, w := range words {
-			if w == k {
-				words[idx] = v
+	if _, isVar := i.Variables[firstPart]; !isVar {
+		for k, v := range i.Variables {
+			words := strings.Split(firstPart, " ")
+			for idx, w := range words {
+				if w == k {
+					words[idx] = v
+				}
 			}
+			firstPart = strings.Join(words, " ")
 		}
-		firstPart = strings.Join(words, " ")
 	}
 	for k, v := range i.Constants {
 		// Replace bare identifier in firstPart or after "spawn Type: IDENT"
@@ -1162,7 +1241,7 @@ func (i *Interpreter) RegisterType(definition string, factory func(string) any) 
 }
 
 func (i *Interpreter) EvaluateLine(line string) {
-	// Let Bindings: let x = ... in ...
+	// Let Bindings: let x = ... in ... or top-level let x = ...
 	if strings.HasPrefix(line, "let ") {
 		parts := strings.SplitN(line[4:], " in ", 2)
 		if len(parts) == 2 {
@@ -1205,6 +1284,35 @@ func (i *Interpreter) EvaluateLine(line string) {
 					i.Variables[varName] = prevVal
 				} else {
 					delete(i.Variables, varName)
+				}
+			}
+		} else {
+			// Top-level variable definition: let x = ...
+			defParts := strings.SplitN(line[4:], "=", 2)
+			if len(defParts) == 2 {
+				varName := strings.TrimSpace(defParts[0])
+				pipelineStr := strings.TrimSpace(defParts[1])
+
+				if strings.Contains(pipelineStr, "|>") || strings.HasPrefix(pipelineStr, "spawn ") {
+					res := i.evaluatePipelineStr(pipelineStr)
+					if len(res) > 0 {
+						i.Variables[varName] = res[0]
+					}
+				} else {
+					lookup := func(k string) (any, bool) {
+						if v, ok := i.Variables[k]; ok {
+							return v, true
+						}
+						if v, ok := i.Constants[k]; ok {
+							return v, true
+						}
+						return nil, false
+					}
+					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
+						i.Variables[varName] = fmt.Sprintf("%v", val)
+					} else {
+						i.Variables[varName] = pipelineStr
+					}
 				}
 			}
 		}

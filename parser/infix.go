@@ -199,6 +199,27 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if e.Op == functions.OpConcat {
+		// If either operand is a string, let EvalBinaryOp handle string concatenation
+		_, lIsStr := l.(string)
+		_, rIsStr := r.(string)
+		if !lIsStr && !rIsStr {
+			leftItems, errL := extractItems(l)
+			rightItems, errR := extractItems(r)
+			if errL == nil && errR == nil {
+				var combined []any
+				combined = append(combined, leftItems...)
+				combined = append(combined, rightItems...)
+				res := collections.Nil[any]()
+				for idx := len(combined) - 1; idx >= 0; idx-- {
+					res = collections.Cons(combined[idx], res)
+				}
+				return res, nil
+			}
+		}
+	}
+
 	return functions.EvalBinaryOp(e.Op, l, r)
 }
 
@@ -220,86 +241,166 @@ func (e ListLiteralExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return res, nil
 }
 
-// ListComprehensionExpr represents [expr | var <- source, filterExpr...]
-type ListComprehensionExpr struct {
-	YieldExpr Expr
-	VarName   string
-	Source    Expr
-	Filters   []Expr
+// Generator represents a single 'var <- source' or '[x, y] <- source' clause in a comprehension.
+type Generator struct {
+	PatternNames []string
+	Source       Expr
 }
 
-func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error) {
-	srcVal, err := e.Source.Eval(lookup)
-	if err != nil {
-		return nil, err
-	}
+// ListComprehensionExpr represents [expr | gen1, gen2..., filterExpr...]
+type ListComprehensionExpr struct {
+	YieldExpr  Expr
+	Generators []Generator
+	Filters    []Expr
+}
 
-	var items []any
+func extractItems(srcVal any) ([]any, error) {
 	switch s := srcVal.(type) {
 	case *collections.List[any]:
+		var items []any
 		for item := range s.Seq() {
 			items = append(items, item)
 		}
+		return items, nil
 	case *collections.List[int]:
+		var items []any
 		for item := range s.Seq() {
 			items = append(items, item)
 		}
+		return items, nil
 	case *collections.List[string]:
+		var items []any
 		for item := range s.Seq() {
 			items = append(items, item)
 		}
+		return items, nil
+	case interface{ Elements() []string }:
+		var items []any
+		for _, x := range s.Elements() {
+			items = append(items, x)
+		}
+		return items, nil
+	case interface{ Elements() []any }:
+		return s.Elements(), nil
+	case functions.Pair[any, any]:
+		return []any{s.Fst, s.Snd}, nil
+	case interface{ PairElements() (any, any) }:
+		f, snd := s.PairElements()
+		return []any{f, snd}, nil
 	case []any:
-		items = append(items, s...)
+		return s, nil
 	case []int:
+		var items []any
 		for _, x := range s {
 			items = append(items, x)
 		}
+		return items, nil
 	case []string:
+		var items []any
 		for _, x := range s {
 			items = append(items, x)
 		}
+		return items, nil
+	case string:
+		// If string represents a list literal or formatted list, parse it into items
+		trimmed := strings.TrimSpace(s)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			// Convert spaces or commas to standard comma-separated format and evaluate
+			inner := strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+			if inner == "" {
+				return nil, nil
+			}
+			// Attempt parsing as Infix expression
+			if parsedList, err := EvalInfixString(trimmed, nil); err == nil && parsedList != nil {
+				return extractItems(parsedList)
+			}
+		}
+		return nil, fmt.Errorf("list comprehension source must be a collection, got string: %s", s)
 	case int:
-		// Range 0 .. s-1
+		var items []any
 		for i := 0; i < s; i++ {
 			items = append(items, i)
 		}
+		return items, nil
 	default:
 		return nil, fmt.Errorf("list comprehension source must be a collection, got %T", srcVal)
 	}
+}
+
+func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	if len(e.Generators) == 0 {
+		return collections.Nil[any](), nil
+	}
 
 	var collected []any
-	for _, item := range items {
-		// Scoped lookup binding VarName
-		scopedLookup := func(k string) (any, bool) {
-			if k == e.VarName {
-				return item, true
+
+	var runGenerators func(genIdx int, currentLookup func(string) (any, bool)) error
+	runGenerators = func(genIdx int, currentLookup func(string) (any, bool)) error {
+		if genIdx >= len(e.Generators) {
+			// All generators bound: check filters
+			passed := true
+			for _, filt := range e.Filters {
+				fRes, err := filt.Eval(currentLookup)
+				if err != nil {
+					return err
+				}
+				b, ok := fRes.(bool)
+				if !ok || !b {
+					passed = false
+					break
+				}
 			}
-			if lookup != nil {
-				return lookup(k)
+			if passed {
+				yVal, err := e.YieldExpr.Eval(currentLookup)
+				if err != nil {
+					return err
+				}
+				collected = append(collected, yVal)
 			}
-			return nil, false
+			return nil
 		}
 
-		passed := true
-		for _, filt := range e.Filters {
-			fRes, err := filt.Eval(scopedLookup)
-			if err != nil {
-				return nil, err
-			}
-			b, ok := fRes.(bool)
-			if !ok || !b {
-				passed = false
-				break
-			}
+		gen := e.Generators[genIdx]
+		srcVal, err := gen.Source.Eval(currentLookup)
+		if err != nil {
+			return err
+		}
+		items, err := extractItems(srcVal)
+		if err != nil {
+			return err
 		}
 
-		if passed {
-			yVal, err := e.YieldExpr.Eval(scopedLookup)
-			if err != nil {
-				return nil, err
+		for _, item := range items {
+			boundItem := item
+			scopedLookup := func(k string) (any, bool) {
+				if len(gen.PatternNames) == 1 && gen.PatternNames[0] == k {
+					return boundItem, true
+				}
+				// Pattern tuple destructuring: [x, y] <- [[1, 2], [3, 4]]
+				if len(gen.PatternNames) > 1 {
+					subElems, ok := extractItems(boundItem)
+					if ok == nil && len(subElems) == len(gen.PatternNames) {
+						for pIdx, pName := range gen.PatternNames {
+							if pName == k {
+								return subElems[pIdx], true
+							}
+						}
+					}
+				}
+				if currentLookup != nil {
+					return currentLookup(k)
+				}
+				return nil, false
 			}
-			collected = append(collected, yVal)
+			if err := runGenerators(genIdx+1, scopedLookup); err != nil {
+				return err
+			}
 		}
+		return nil
+	}
+
+	if err := runGenerators(0, lookup); err != nil {
+		return nil, err
 	}
 
 	resList := collections.Nil[any]()
@@ -432,30 +533,80 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			return nil, err
 		}
 
-		// Check if this is a List Comprehension: [expr | var <- src, filter...]
+		// Check if this is a List Comprehension: [expr | gen1, gen2..., filter1, filter2...]
 		if p.peek().Type == TokPipe {
 			p.next() // consume '|'
-			varTok := p.next()
-			if varTok.Type != TokIdent {
-				return nil, fmt.Errorf("expected generator variable name after '|'")
-			}
-			arrowTok := p.next()
-			if arrowTok.Type != TokArrow || arrowTok.Text != "<-" {
-				return nil, fmt.Errorf("expected '<-' in generator, got %s", arrowTok.Text)
-			}
-			sourceExpr, err := p.parsePrecedence(0)
-			if err != nil {
-				return nil, err
-			}
 
+			var generators []Generator
 			var filters []Expr
-			for p.peek().Type == TokComma {
-				p.next() // consume ','
-				filt, err := p.parsePrecedence(0)
-				if err != nil {
-					return nil, err
+
+			for {
+				if p.peek().Type == TokRBracket || p.peek().Type == TokEOF {
+					break
 				}
-				filters = append(filters, filt)
+
+				// Check if the next segment is a generator 'var <- src' or '[x, y] <- src'
+				// Look ahead for TokArrow ("<-") before any comma or closing bracket at top level
+				arrowIdx := -1
+				bracketDepth := 0
+				parenDepth := 0
+				for scan := p.pos; scan < len(p.tokens); scan++ {
+					tt := p.tokens[scan].Type
+					if tt == TokLBracket {
+						bracketDepth++
+					} else if tt == TokRBracket {
+						if bracketDepth == 0 {
+							break
+						}
+						bracketDepth--
+					} else if tt == TokLParen {
+						parenDepth++
+					} else if tt == TokRParen {
+						parenDepth--
+					} else if tt == TokComma {
+						if bracketDepth == 0 && parenDepth == 0 {
+							break
+						}
+					} else if tt == TokArrow && p.tokens[scan].Text == "<-" {
+						if bracketDepth <= 1 && parenDepth == 0 {
+							arrowIdx = scan
+							break
+						}
+					}
+				}
+
+				if arrowIdx != -1 {
+					// It's a generator! Collect pattern tokens up to arrowIdx
+					var patNames []string
+					for p.pos < arrowIdx {
+						tok := p.next()
+						if tok.Type == TokIdent {
+							patNames = append(patNames, tok.Text)
+						}
+					}
+					p.next() // consume '<-'
+					srcExpr, err := p.parsePrecedence(0)
+					if err != nil {
+						return nil, err
+					}
+					generators = append(generators, Generator{
+						PatternNames: patNames,
+						Source:       srcExpr,
+					})
+				} else {
+					// Otherwise, it's a filter boolean expression
+					filt, err := p.parsePrecedence(0)
+					if err != nil {
+						return nil, err
+					}
+					filters = append(filters, filt)
+				}
+
+				if p.peek().Type == TokComma {
+					p.next() // consume ','
+					continue
+				}
+				break
 			}
 
 			if p.next().Type != TokRBracket {
@@ -463,10 +614,9 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			}
 
 			return ListComprehensionExpr{
-				YieldExpr: firstExpr,
-				VarName:   varTok.Text,
-				Source:    sourceExpr,
-				Filters:   filters,
+				YieldExpr:  firstExpr,
+				Generators: generators,
+				Filters:    filters,
 			}, nil
 		}
 

@@ -49,6 +49,15 @@ func (l *List[T]) Head() (T, bool) {
 	return l.head, true
 }
 
+// Elements returns a slice of all elements as any.
+func (l *List[T]) Elements() []any {
+	var elems []any
+	for v := range l.Seq() {
+		elems = append(elems, v)
+	}
+	return elems
+}
+
 // Tail returns the rest of the list after the head.
 func (l *List[T]) Tail() (*List[T], bool) {
 	if l.IsEmpty() {

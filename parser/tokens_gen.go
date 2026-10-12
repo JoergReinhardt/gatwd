@@ -75,6 +75,8 @@ var CanonicalBuiltins = map[string]BuiltinMetadata{
 	"hamt_del": {Category: "collections", Signature: "hamt_del <key>", Description: "Remove key from HAMT"},
 	"hamt_keys": {Category: "collections", Signature: "hamt_keys", Description: "Stream all keys from HAMT"},
 	"hamt_values": {Category: "collections", Signature: "hamt_values", Description: "Stream all values from HAMT"},
+	"hamt_pairs": {Category: "collections", Signature: "hamt_pairs", Description: "Stream all key-value pairs from HAMT"},
+	"frequencies": {Category: "collections", Signature: "frequencies", Description: "Count occurrences of stream elements into persistent HAMT"},
 	"to_set": {Category: "collections", Signature: "to_set", Description: "Fold stream into persistent immutable set"},
 	"set_add": {Category: "collections", Signature: "set_add <item>", Description: "Add element to immutable set"},
 	"set_contains": {Category: "collections", Signature: "set_contains <item>", Description: "Test set membership"},

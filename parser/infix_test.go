@@ -111,3 +111,37 @@ func TestInfixParser_ListComprehensions(t *testing.T) {
 		t.Fatalf("expected '[6 8]', got %v", resStr)
 	}
 }
+
+func TestInfixParser_MultiGeneratorComprehensions(t *testing.T) {
+	expr := "[[x, y] | x <- [1, 2], y <- [10, 20]]"
+	val, err := parser.EvalInfixString(expr, nil)
+	if err != nil {
+		t.Fatalf("multi-generator failed: %v", err)
+	}
+	resStr := fmt.Sprintf("%v", val)
+	expected := "[[1 10] [1 20] [2 10] [2 20]]"
+	if resStr != expected {
+		t.Fatalf("expected %q, got %q", expected, resStr)
+	}
+
+	exprDestruct := "[[x + dx, y + dy] | [x, y] <- [[2, 2]], dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]"
+	valD, err := parser.EvalInfixString(exprDestruct, nil)
+	if err != nil {
+		t.Fatalf("destructuring comprehension failed: %v", err)
+	}
+	resDStr := fmt.Sprintf("%v", valD)
+	t.Logf("Neighbors of [2, 2]: %s", resDStr)
+}
+
+func TestInfixParser_ListConcatenation(t *testing.T) {
+	expr := "[1, 2] ++ [3, 4]"
+	val, err := parser.EvalInfixString(expr, nil)
+	if err != nil {
+		t.Fatalf("list concatenation failed: %v", err)
+	}
+	resStr := fmt.Sprintf("%v", val)
+	expected := "[1 2 3 4]"
+	if resStr != expected {
+		t.Fatalf("expected %q, got %q", expected, resStr)
+	}
+}

@@ -29,7 +29,7 @@
       "name": "entity.name.type.gatwd"
     },
     {
-      "match": "\\b(take|drop|head|tail|distinct|fold|memoize|map|filter|filter_less|filter_greater|sort|emit|chunk|unchunk|collect_list|to_hamt|hamt_get|hamt_set|hamt_del|hamt_keys|hamt_values|to_set|set_add|set_contains|set_remove|set_elements|parse_record|focus|update|build_tree|into_zipper|down|up|left|right|extract|zip|format_tuple|assert|expect|debug_print|visualize|telemetry|checkpoint|ebnf_parse)\\b",
+      "match": "\\b(take|drop|head|tail|distinct|fold|memoize|map|filter|filter_less|filter_greater|sort|emit|chunk|unchunk|collect_list|to_hamt|hamt_get|hamt_set|hamt_del|hamt_keys|hamt_values|hamt_pairs|frequencies|to_set|set_add|set_contains|set_remove|set_elements|parse_record|focus|update|build_tree|into_zipper|down|up|left|right|extract|zip|format_tuple|assert|expect|debug_print|visualize|telemetry|checkpoint|ebnf_parse)\\b",
       "name": "support.function.builtin.gatwd"
     },
     {

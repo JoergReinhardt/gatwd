@@ -27,7 +27,7 @@ return {
           vim.cmd([[
             syntax keyword gatwdKeyword def spawn type const let in match seq import empty
             syntax keyword gatwdType Int String Float BigInt BigFloat Complex Uint Bool List Set Tree BST BTree RBTree Pair Tuple Grid
-            syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse
+            syntax keyword gatwdBuiltin take drop head tail distinct fold memoize map filter filter_less filter_greater sort emit chunk unchunk collect_list to_hamt hamt_get hamt_set hamt_del hamt_keys hamt_values hamt_pairs frequencies to_set set_add set_contains set_remove set_elements parse_record focus update build_tree into_zipper down up left right extract zip format_tuple assert expect debug_print visualize telemetry checkpoint ebnf_parse
             syntax match gatwdPipe /|>\|||>\|⊳/
             syntax match gatwdArrow /->\|<-\|→/
             syntax match gatwdArrowCombinator /&&&\|\*\*\*/
@@ -113,6 +113,8 @@ return {
             { label = "hamt_del", kind = 3, detail = "Remove key from HAMT" },
             { label = "hamt_keys", kind = 3, detail = "Stream all keys from HAMT" },
             { label = "hamt_values", kind = 3, detail = "Stream all values from HAMT" },
+            { label = "hamt_pairs", kind = 3, detail = "Stream all key-value pairs from HAMT" },
+            { label = "frequencies", kind = 3, detail = "Count occurrences of stream elements into persistent HAMT" },
             { label = "to_set", kind = 3, detail = "Fold stream into persistent immutable set" },
             { label = "set_add", kind = 3, detail = "Add element to immutable set" },
             { label = "set_contains", kind = 3, detail = "Test set membership" },

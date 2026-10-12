@@ -36,6 +36,15 @@ func (c *Chunk[T]) Items() []T {
 	return c.items
 }
 
+// Elements returns all elements in the chunk as a slice of any.
+func (c *Chunk[T]) Elements() []any {
+	var elems []any
+	for _, item := range c.items {
+		elems = append(elems, item)
+	}
+	return elems
+}
+
 // IsEmpty returns true if the chunk has no elements.
 func (c *Chunk[T]) IsEmpty() bool {
 	return len(c.items) == 0

@@ -1002,6 +1002,42 @@ func StepHAMTValues() PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepHAMTPairs unfolds an incoming HAMT or Map into a stream of key-value Pairs.
+func StepHAMTPairs() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				v, _ := node.Value.UnwrapRight()
+				if h, ok := v.(*collections.HAMT[string, any]); ok {
+					for k, val := range h.Seq() {
+						pair := functions.Pair[any, any]{Fst: any(k), Snd: val}
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(pair)), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				if m, ok := v.(*collections.Map[string, any]); ok {
+					for k, val := range m.Seq() {
+						pair := functions.Pair[any, any]{Fst: any(k), Snd: val}
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(pair)), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				yield(node)
+			}
+		}
+	}
+}
+
 // StepSetContains checks whether an incoming Set contains the specified item, yielding a boolean ASTNode.
 func StepSetContains(item string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -1408,6 +1444,33 @@ func StepEmpty() PipelineStep[functions.Either[error, any]] {
 			for range stream {
 				// yield nothing
 			}
+		}
+	}
+}
+
+// StepFrequencies counts occurrences of elements in the stream, producing a persistent HAMT of item -> count.
+func StepFrequencies() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			h := collections.NewHAMT[string, any]()
+			var lastFlag dsltypes.BitFlag
+			for node := range stream {
+				if node.Value.IsLeft() {
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				key := fmt.Sprintf("%v", val)
+				lastFlag = node.DSLType
+
+				currentCount := 0
+				if curVal, exists := h.Get(key); exists {
+					if c, ok := curVal.(int); ok {
+						currentCount = c
+					}
+				}
+				h = h.Set(key, currentCount+1)
+			}
+			yield(dsltypes.NewASTNode(functions.Right[error, any](any(h)), lastFlag))
 		}
 	}
 }

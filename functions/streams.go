@@ -1,11 +1,24 @@
 package functions
 
-import "iter"
+import (
+	"fmt"
+	"iter"
+)
 
 // Pair is an Algebraic Product Type that holds exactly two values.
 type Pair[A, B any] struct {
 	Fst A
 	Snd B
+}
+
+// String formats the pair as a standard Gatwd list literal [Fst, Snd].
+func (p Pair[A, B]) String() string {
+	return "[" + fmt.Sprintf("%v", p.Fst) + ", " + fmt.Sprintf("%v", p.Snd) + "]"
+}
+
+// PairElements returns the constituent elements.
+func (p Pair[A, B]) PairElements() (any, any) {
+	return p.Fst, p.Snd
 }
 
 // Zip combines two lazy sequences into a single sequence of Pairs.
