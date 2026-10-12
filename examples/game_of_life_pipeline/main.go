@@ -90,9 +90,23 @@ func main() {
 	gridFlag := dsltypes.BitFlag(1 << 8)
 	dsltypes.RegisterTypeFlag(gridFlag, "Grid[bool]")
 
+	// Define Conway local rule: B3/S23 Moore neighborhood transition
+	conwayRule := func(z *comonads.GridZipper[bool]) bool {
+		aliveNeighbors := 0
+		for _, neighbor := range z.MooreNeighbors() {
+			if neighbor {
+				aliveNeighbors++
+			}
+		}
+		if z.Extract() {
+			return aliveNeighbors == 2 || aliveNeighbors == 3
+		}
+		return aliveNeighbors == 3
+	}
+
 	// 2. Setup Evaluator Pipeline
 	// The entire generational cycle is handed to the Evaluator Pipeline:
-	// Initial Grid -> StepConway (Extend) -> Render via Visualizer
+	// Initial Grid -> Extend with conwayRule -> Render via Visualizer
 	stepConway := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -104,7 +118,7 @@ func main() {
 				}
 				val, _ := node.Value.UnwrapRight()
 				if grid, ok := val.(*comonads.Grid[bool]); ok {
-					nextGrid := comonads.StepConway(grid)
+					nextGrid := comonads.Extend(grid.ZipperAt(0, 0), conwayRule)
 					newNode := dsltypes.NewASTNode(functions.Right[error, any](any(nextGrid)), node.DSLType)
 					if !yield(newNode) {
 						return
@@ -143,7 +157,8 @@ func main() {
 
 		// Populate canvas from functional grid
 		canvas.Clear()
-		for _, pt := range currentGrid.LiveCoordinates() {
+		isAlive := func(b bool) bool { return b }
+		for _, pt := range currentGrid.CoordinatesWhere(isAlive) {
 			canvas.Set(pt[0], pt[1], true)
 		}
 		renderedStr := canvas.Render(*color)
@@ -152,18 +167,20 @@ func main() {
 			fmt.Print("\033[H\033[2J")
 		}
 
+		pop := currentGrid.Count(isAlive)
+
 		// Status card rendered via Gatwd Visualizer format
 		statusInfo := map[string]any{
 			"Variant":    "Evaluator Pipeline (Functional Comonadic Stream)",
 			"Preset":     *preset,
 			"Generation": generation,
-			"Population": currentGrid.Population(),
+			"Population": pop,
 			"Resolution": fmt.Sprintf("%dx%d sub-pixels (%dx%d chars, mode: %s [%dx%d])", *width, *height, termCols, termRows, mode, xFactor, yFactor),
 		}
 		bannerOpts := visualizer.ParseOptions("--border --curved --border-color=blue --color=white")
 		fmt.Println(visualizer.Format(statusInfo, bannerOpts))
 		fmt.Println(renderedStr)
-		fmt.Printf("∷ [Pipeline Life] Generation %d | Population %d | Delay: %dms ∷\n", generation, currentGrid.Population(), *delayMs)
+		fmt.Printf("∷ [Pipeline Life] Generation %d | Population %d | Delay: %dms ∷\n", generation, pop, *delayMs)
 
 		generation++
 		if *maxSteps > 0 && generation >= *maxSteps {

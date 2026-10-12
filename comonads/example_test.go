@@ -7,26 +7,30 @@ import (
 )
 
 func ExampleGrid_Extend() {
-	// 5x5 grid with a horizontal blinker at y=2, x in {1, 2, 3}
-	g := comonads.NewGrid(5, 5, false, func(x, y int) bool {
-		return y == 2 && (x >= 1 && x <= 3)
+	// 3x3 integer grid with a center impulse
+	g := comonads.NewGrid(3, 3, false, func(x, y int) int {
+		if x == 1 && y == 1 {
+			return 9
+		}
+		return 0
 	})
 
-	fmt.Printf("Gen 0 population: %d\n", g.Population())
+	// Apply a local 3x3 smoothing rule comonadically via Extend:
+	// sum Moore neighbors + focused cell, divided by 9 (box blur filter)
+	smoothed := g.Extend(func(z *comonads.GridZipper[int]) int {
+		sum := z.Extract()
+		for _, n := range z.MooreNeighbors() {
+			sum += n
+		}
+		return sum / 9
+	})
 
-	// Advance one step comonadically using StepConway (which calls Extend)
-	g1 := comonads.StepConway(g)
-	fmt.Printf("Gen 1 population: %d\n", g1.Population())
-	fmt.Printf("Gen 1 vertical center (2, 2): %t\n", g1.Get(2, 2))
-	fmt.Printf("Gen 1 vertical top (2, 1): %t\n", g1.Get(2, 1))
-	fmt.Printf("Gen 1 vertical bottom (2, 3): %t\n", g1.Get(2, 3))
-	fmt.Printf("Gen 1 old left endpoint (1, 2): %t\n", g1.Get(1, 2))
+	fmt.Printf("Center before: %d\n", g.Get(1, 1))
+	fmt.Printf("Center after:  %d\n", smoothed.Get(1, 1))
+	fmt.Printf("Corner after:  %d\n", smoothed.Get(0, 0))
 
 	// Output:
-	// Gen 0 population: 3
-	// Gen 1 population: 3
-	// Gen 1 vertical center (2, 2): true
-	// Gen 1 vertical top (2, 1): true
-	// Gen 1 vertical bottom (2, 3): true
-	// Gen 1 old left endpoint (1, 2): false
+	// Center before: 9
+	// Center after:  1
+	// Corner after:  1
 }

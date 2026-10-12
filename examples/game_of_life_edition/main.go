@@ -132,10 +132,24 @@ func stepParseLifeWithDims(arg string, val any) (any, error) {
 	}), nil
 }
 
+// conwayRule evaluates Conway's B3/S23 transition comonadically for a cell.
+func conwayRule(z *comonads.GridZipper[bool]) bool {
+	aliveNeighbors := 0
+	for _, neighbor := range z.MooreNeighbors() {
+		if neighbor {
+			aliveNeighbors++
+		}
+	}
+	if z.Extract() {
+		return aliveNeighbors == 2 || aliveNeighbors == 3
+	}
+	return aliveNeighbors == 3
+}
+
 // stepConwayAdvances advances any comonads.Grid[bool] comonad by one discrete generation.
 func stepConwayAdvance(val any) any {
 	if grid, ok := val.(*comonads.Grid[bool]); ok {
-		return comonads.StepConway(grid)
+		return comonads.Extend(grid.ZipperAt(0, 0), conwayRule)
 	}
 	return val
 }

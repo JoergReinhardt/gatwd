@@ -9,9 +9,10 @@
 //     of its ancestors, left siblings, and right siblings. Operations Left, Right, Down, and Up
 //     re-focus the zipper on neighboring sub-branches in O(1) time without rebuilding the tree.
 //
-//   - 2D Toroidal Grid Comonad (Grid, GridZipper): Models discrete 2-dimensional toroidal surfaces
-//     and cellular automata. Satisfies the comonad laws via Extract (W[A] -> A),
-//     Duplicate (W[A] -> W[W[A]]), and Extend/Cobind ((W[A] -> B) -> W[A] -> W[B]). Enables
-//     simultaneous neighborhood transitions such as Conway's Game of Life.
+//   - 2D Toroidal Grid Comonad (Grid, GridZipper): Models discrete 2-dimensional toroidal surfaces.
+//     Satisfies the comonad laws via Extract (W[A] -> A), Duplicate (W[A] -> W[W[A]]), and
+//     Extend/Cobind ((W[A] -> B) -> W[A] -> W[B]). Enables simultaneous neighborhood transitions,
+//     spatial stencils (Moore, Von Neumann), and 2D image/grid convolution filters.
 package comonads
+
 

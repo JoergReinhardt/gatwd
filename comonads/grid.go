@@ -133,23 +133,15 @@ func Extend[A, B any](z *GridZipper[A], rule func(*GridZipper[A]) B) *Grid[B] {
 	})
 }
 
-// ConwayRule is the canonical comonadic local rule for Conway's Game of Life.
-//   - Any live cell with 2 or 3 live neighbors survives.
-//   - Any dead cell with exactly 3 live neighbors becomes a live cell.
-//   - All other cells die or stay dead.
-func ConwayRule(z *GridZipper[bool]) bool {
-	aliveNeighbors := 0
-	for _, neighbor := range z.MooreNeighbors() {
-		if neighbor {
-			aliveNeighbors++
-		}
+// VonNeumannNeighbors returns the 4 orthogonal neighboring values
+// (North, East, South, West) relative to the focused cursor.
+func (z *GridZipper[T]) VonNeumannNeighbors() [4]T {
+	return [4]T{
+		z.grid.Get(z.X, z.Y-1), // N
+		z.grid.Get(z.X+1, z.Y),   // E
+		z.grid.Get(z.X, z.Y+1), // S
+		z.grid.Get(z.X-1, z.Y),   // W
 	}
-
-	currentlyAlive := z.Extract()
-	if currentlyAlive {
-		return aliveNeighbors == 2 || aliveNeighbors == 3
-	}
-	return aliveNeighbors == 3
 }
 
 // Extend evaluates a local rule across the entire grid comonadically.
@@ -157,33 +149,28 @@ func (g *Grid[T]) Extend(rule func(*GridZipper[T]) T) *Grid[T] {
 	return Extend(g.ZipperAt(0, 0), rule)
 }
 
-// StepConway evaluates one discrete generation of Conway's Game of Life
-// across the entire grid comonadically using Extend.
-func StepConway(g *Grid[bool]) *Grid[bool] {
-	return Extend(g.ZipperAt(0, 0), ConwayRule)
-}
-
-// Population counts the number of living cells in the grid.
-func (g *Grid[T]) Population() int {
+// Count returns the number of cells matching the given predicate.
+func (g *Grid[T]) Count(predicate func(val T) bool) int {
 	count := 0
 	for _, cell := range g.cells {
-		if b, ok := any(cell).(bool); ok && b {
+		if predicate(cell) {
 			count++
 		}
 	}
 	return count
 }
 
-// LiveCoordinates returns a slice of [x, y] coordinates for all live cells.
-func (g *Grid[T]) LiveCoordinates() [][2]int {
+// CoordinatesWhere returns a slice of [x, y] coordinates where the predicate returns true.
+func (g *Grid[T]) CoordinatesWhere(predicate func(val T) bool) [][2]int {
 	var res [][2]int
 	for y := 0; y < g.Height; y++ {
 		for x := 0; x < g.Width; x++ {
-			if b, ok := any(g.Get(x, y)).(bool); ok && b {
+			if predicate(g.Get(x, y)) {
 				res = append(res, [2]int{x, y})
 			}
 		}
 	}
 	return res
 }
+
 

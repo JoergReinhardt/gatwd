@@ -203,7 +203,7 @@ The table below contrasts all four implementation tiers across their architectur
 ## 4. Code Walkthroughs
 
 ### 4.1 Walkthrough: Tier 1 (Comonadic Grid)
-In [`comonads/grid.go`](file:///home/j/src/rnd/gatwd/comonads/grid.go), the cellular automaton is modeled as a comonadic transformation:
+In Layer 2 ([`comonads/grid.go`](file:///home/j/src/rnd/gatwd/comonads/grid.go)), the engine provides strictly **generic spatial comonad primitives**:
 
 ```go
 // 1. Counit: Extract the value under current focus
@@ -218,8 +218,16 @@ func Extend[A, B any](z *GridZipper[A], rule func(*GridZipper[A]) B) *Grid[B] {
     })
 }
 
-// 3. Local Rule: Conway's B3/S23 neighborhood evaluation
-func ConwayRule(z *GridZipper[bool]) bool {
+// 3. Spatial Stencils: 8-neighbor Moore and 4-neighbor Von Neumann
+func (z *GridZipper[T]) MooreNeighbors() [8]T { ... }
+func (z *GridZipper[T]) VonNeumannNeighbors() [4]T { ... }
+```
+
+In the user application ([`examples/game_of_life/rules.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life/rules.go)), the domain-specific transition rule is defined in user space without polluting core:
+
+```go
+// User-Space Local Rule: Conway's B3/S23 neighborhood evaluation
+func ConwayRule(z *comonads.GridZipper[bool]) bool {
     aliveNeighbors := 0
     for _, neighbor := range z.MooreNeighbors() {
         if neighbor {
@@ -232,11 +240,12 @@ func ConwayRule(z *GridZipper[bool]) bool {
     return aliveNeighbors == 3
 }
 
-// 4. One discrete generation step across the universe
-func StepConway(g *Grid[bool]) *Grid[bool] {
-    return Extend(g.ZipperAt(0, 0), ConwayRule)
+// Discrete generation step across the universe
+func StepConway(g *comonads.Grid[bool]) *comonads.Grid[bool] {
+    return comonads.Extend(g.ZipperAt(0, 0), ConwayRule)
 }
 ```
+
 
 ---
 

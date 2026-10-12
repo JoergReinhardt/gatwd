@@ -45,7 +45,24 @@ func TestGridComonad_Laws(t *testing.T) {
 	}
 }
 
-func TestGridComonad_ConwayBlinker(t *testing.T) {
+func testConwayRule(z *GridZipper[bool]) bool {
+	aliveNeighbors := 0
+	for _, neighbor := range z.MooreNeighbors() {
+		if neighbor {
+			aliveNeighbors++
+		}
+	}
+	if z.Extract() {
+		return aliveNeighbors == 2 || aliveNeighbors == 3
+	}
+	return aliveNeighbors == 3
+}
+
+func testStepConway(g *Grid[bool]) *Grid[bool] {
+	return Extend(g.ZipperAt(0, 0), testConwayRule)
+}
+
+func TestGridComonad_CellularAutomaton(t *testing.T) {
 	// A 5x5 grid with a horizontal blinker at (2, 1), (2, 2), (2, 3)
 	// After 1 step, should be vertical at (1, 2), (2, 2), (3, 2)
 	// After 2 steps, should return to horizontal.
@@ -53,7 +70,11 @@ func TestGridComonad_ConwayBlinker(t *testing.T) {
 		return y == 2 && (x == 1 || x == 2 || x == 3)
 	})
 
-	g1 := StepConway(g)
+	if g.Count(func(v bool) bool { return v }) != 3 {
+		t.Fatalf("expected 3 living cells initially")
+	}
+
+	g1 := testStepConway(g)
 
 	// In g1, should be vertical at x=2, y=1, 2, 3
 	if !g1.Get(2, 1) || !g1.Get(2, 2) || !g1.Get(2, 3) {
@@ -63,7 +84,7 @@ func TestGridComonad_ConwayBlinker(t *testing.T) {
 		t.Errorf("Blinker generation 1 old horizontal endpoints still alive")
 	}
 
-	g2 := StepConway(g1)
+	g2 := testStepConway(g1)
 
 	// In g2, should return to horizontal
 	for y := 0; y < 5; y++ {
@@ -76,37 +97,22 @@ func TestGridComonad_ConwayBlinker(t *testing.T) {
 	}
 }
 
-func TestGridComonad_ConwayGlider(t *testing.T) {
-	// Glider at (1, 0), (2, 1), (0, 2), (1, 2), (2, 2)
-	// In 4 generations, a glider translates by (1, 1)
-	g := NewGrid(10, 10, true, func(x, y int) bool {
-		glider := (x == 1 && y == 0) ||
-			(x == 2 && y == 1) ||
-			(x == 0 && y == 2) ||
-			(x == 1 && y == 2) ||
-			(x == 2 && y == 2)
-		return glider
+func TestGridComonad_VonNeumannAndCoordinates(t *testing.T) {
+	g := NewGrid(3, 3, false, func(x, y int) int {
+		return y*3 + x
 	})
-
-	curr := g
-	for i := 0; i < 4; i++ {
-		curr = StepConway(curr)
+	z := g.ZipperAt(1, 1)
+	vn := z.VonNeumannNeighbors() // N (1,0)=1, E (2,1)=5, S (1,2)=7, W (0,1)=3
+	expected := [4]int{1, 5, 7, 3}
+	if vn != expected {
+		t.Errorf("expected Von Neumann neighbors %v, got %v", expected, vn)
 	}
 
-	// Should be translated by (1, 1)
-	expectedGlider := func(x, y int) bool {
-		return (x == 2 && y == 1) ||
-			(x == 3 && y == 2) ||
-			(x == 1 && y == 3) ||
-			(x == 2 && y == 3) ||
-			(x == 3 && y == 3)
-	}
-
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
-			if curr.Get(x, y) != expectedGlider(x, y) {
-				t.Errorf("Glider position mismatch at (%d, %d) after 4 steps: expected %v, got %v", x, y, expectedGlider(x, y), curr.Get(x, y))
-			}
-		}
+	coords := g.CoordinatesWhere(func(val int) bool {
+		return val%2 != 0 // odd numbers: 1, 3, 5, 7
+	})
+	if len(coords) != 4 {
+		t.Errorf("expected 4 odd coordinates, got %d", len(coords))
 	}
 }
+

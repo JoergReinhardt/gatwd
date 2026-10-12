@@ -29,7 +29,8 @@ Purely functional, persistent data structures with structural sharing (all imple
 - **`arrows/`**: Kleisli arrows for monadic composition. Provides identity arrows, FanOut (`&&&`), Split (`***`), and curry composition.
 - **`comonads/`**:
   - **Rose Tree Zipper**: Spatial navigation via zippers (`IntoZipper`, `Left`, `Right`, `Down`, `Up`, `Extract`).
-  - **2D Toroidal Grid Comonad**: Discrete 2-dimensional toroidal surfaces (`Grid[T]`, `GridZipper[T]`, `Extract`, `Duplicate`, `Extend`/cobind, `MooreNeighbors`, `ConwayRule`, `StepConway`).
+  - **2D Toroidal Grid Comonad**: Discrete 2-dimensional toroidal surfaces (`Grid[T]`, `GridZipper[T]`, `Extract`, `Duplicate`, `Extend`/cobind, `MooreNeighbors`, `VonNeumannNeighbors`, `Count`, `CoordinatesWhere`).
+
 
 ---
 

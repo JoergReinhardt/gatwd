@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joergreinhardt/gatwd/comonads"
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
@@ -40,7 +39,7 @@ func TestLoader_ParseASCII(t *testing.T) {
 	}
 
 	// 1 comonadic step
-	nextGrid := comonads.StepConway(grid)
+	nextGrid := StepConway(grid)
 	if !nextGrid.Get(1, 2) || !nextGrid.Get(2, 2) || !nextGrid.Get(3, 2) {
 		t.Errorf("blinker did not oscillate horizontally")
 	}
@@ -58,7 +57,7 @@ func TestPresets_AllAvailable(t *testing.T) {
 			t.Errorf("preset %s has 0 population", key)
 		}
 		grid := pat.PlaceOnGrid(60, 40, true, true)
-		nextGrid := comonads.StepConway(grid)
+		nextGrid := StepConway(grid)
 		if nextGrid == nil {
 			t.Errorf("StepConway failed on preset %s", key)
 		}

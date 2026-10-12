@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joergreinhardt/gatwd/comonads"
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
 
@@ -190,7 +189,7 @@ func main() {
 
 		// Evaluate next generation comonadically via StepConway (Extend with ConwayRule)
 		calcStart := time.Now()
-		grid = comonads.StepConway(grid)
+		grid = StepConway(grid)
 		calcElapsed := time.Since(calcStart)
 
 		// Frame timing
