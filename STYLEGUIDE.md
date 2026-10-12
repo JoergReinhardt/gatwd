@@ -92,5 +92,36 @@ To prevent intimidating contributors with nested Category Theory closures (`iter
 - Use **`cli.NewAppliance(...)`** for building production-grade services and operators.
 Raw `StepHandler` closures should only be authored when custom trampoline short-circuiting or multiplexing is explicitly required.
 
+## 7. Exhaustive Operator-Type Matrix Completeness
+
+Where [§6](#6-the-all-layers-through-mandate--release-architecture) demands *vertical* completeness (every abstraction wired from Layer 0 up to the DSL), this rule demands *horizontal* completeness: **whenever you add or extend an operator, method, or combinator, implement it across the entire Cartesian product of types where it is mathematically and algebraically valid.** Think of the type system as a matrix — rows are types, columns are operations — and never ship a half-filled row or column.
+
+### The Matrix
+
+| Operation (column) | Concept | Valid across (rows) |
+| :--- | :--- | :--- |
+| `++` / `concat` | Monoid | `List`, `Chunk`, `Set` (union), `HAMT` (merge), `Tree`, `Pair`, `string`, `iter.Seq` |
+| `map` / `bimap` / `mapValues` | Functor / Bifunctor | `List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Pair`, `Either`, `Maybe`, `Variant`, streams |
+| `fold` / `foldLeft` / `foldRight` | Foldable / Catamorphism | `List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Pair`, `Either`, `Maybe`, streams |
+| `filter` / `reject` | Predicate filtering | `List`, `Chunk`, `Set`, `HAMT`, `Tree`, streams |
+| `flatMap` / `bind` | Monad | `List`, `Chunk`, `Set`, `Maybe`, `Either`, streams |
+| `==`, `!=` | Structural Eq | all collections (order-independent for `Set`/`HAMT`), ADTs, primitives |
+| `<`, `<=`, `>`, `>=` | Total / Partial Ord | primitives, `List`, `Chunk`, `Pair`, ADTs, streams (lexicographic) |
+| `union`, `intersect`, `diff` | Set algebra | `Set`, `HAMT` (keyed set) |
+
+Type rows span **persistent collections** (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `iter.Seq`), **ADTs** (`Pair`, `Either`, `Maybe`, `Variant`), and **scalar primitives** (`int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`).
+
+### The Rules
+1. **No second-class citizens.** Never implement an operation for `List` without giving `Chunk`, `Set`, `HAMT`, `Tree`, and the eligible ADTs their corresponding algebraic implementation. `Variant` is a full ADT, not an afterthought.
+2. **Only where it is mathematically well-defined.** Skip a cell *only* when the operation is genuinely meaningless for that type (e.g. ordering on an unordered `Set`). When you skip, it must be because of the math, not because it was tedious.
+3. **A new cell is not "done" until it is complete through every layer.** The definition of done for one matrix cell is: the Go method on the type → the operator overload in `functions/operators.go` (if infix) → the evaluator transducer in `evaluator/pipeline.go` (if a stream op) → the DSL builtin in `pkg/cli/cli.go` → the self-asserting case in `tests/dsl_exhaustive_test.gatwd`.
+
+### Anti-Patterns
+- **Piecemeal operator support:** adding `fold` for `List` only, leaving `Chunk`/`Set`/`HAMT`/`Tree` folds unimplemented.
+- **Go-but-not-DSL cells:** implementing a capability in Go (e.g. `HAMT.Filter`, `Bimap`) but never wiring it through to the DSL — the cell is only half-filled.
+- **Silent asymmetry:** a type that quietly supports fewer operations than its siblings with no mathematical reason recorded.
+
+This rule is enforced as **Mandate 2** in [`AGENTS.md`](AGENTS.md) and operationalized by the [`recursive-dogfood`](.agents/skills/recursive-dogfood/SKILL.md) skill.
+
 
 

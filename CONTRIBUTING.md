@@ -4,10 +4,11 @@ Thank you for your interest in contributing to `gatwd`!
 
 Before opening a pull request or asking an AI to generate code for this repository, you **must** read the following documents:
 
-1. [STYLEGUIDE.md](./STYLEGUIDE.md) - This dictates our naming conventions (Category Theory) and our documentation mandate. All code must contain exceptionally educational `godoc` comments explaining the functional concepts used.
-2. [PROMPTS.md](./PROMPTS.md) - Instructions and constraints for refactoring the architecture towards modern Go Generics and Iterators while preserving the BitFlag runtime registry.
-3. [tests/dsl_exhaustive_test.gatwd](./tests/dsl_exhaustive_test.gatwd) - The native DSL test suite. All new syntax and features must be self-asserted here.
-4. [docs/refactoring_plan.md](./docs/refactoring_plan.md) - The architectural roadmap for the project.
+1. [AGENTS.md](./AGENTS.md) - The architecture manual and the five mandatory development invariants, including **Mandate 2: Exhaustive Operator-Type Matrix Completeness** (orthogonal operator parity across every type) and the "All Layers Through" and Clean Core rules.
+2. [STYLEGUIDE.md](./STYLEGUIDE.md) - This dictates our naming conventions (Category Theory), our documentation mandate, and the operator-type matrix completeness rule (§7). All code must contain exceptionally educational `godoc` comments explaining the functional concepts used.
+3. [PROMPTS.md](./PROMPTS.md) - Instructions and constraints for refactoring the architecture towards modern Go Generics and Iterators while preserving the BitFlag runtime registry.
+4. [tests/dsl_exhaustive_test.gatwd](./tests/dsl_exhaustive_test.gatwd) - The native DSL test suite. All new syntax and features must be self-asserted here.
+5. [docs/refactoring_plan.md](./docs/refactoring_plan.md) - The architectural roadmap for the project.
 
 We welcome contributions that push us closer to a fully lazy, dynamically-extensible, mathematically pure graph exploration DSL!
 
@@ -58,6 +59,21 @@ When introducing support for Go standard library features or new transducers:
 3. **DSL Exhaustive Test:** Add an assertion test case to `tests/dsl_exhaustive_test.gatwd` and verify `./run_dsl_tests.sh` passes 100%.
 4. **Visual Verification:** Include pretty visual printing or card formatting tests where applicable.
 5. **Documentation Sync:** Document the new keyword in `docs/dsl_guide.md`, `docs/components.md`, and `README.md`.
+
+## The Operator-Type Matrix Completeness Checklist (Orthogonal Parity)
+
+Where the "All Layers Through" checklist guarantees *vertical* completeness (an abstraction wired from Layer 0 up to the DSL), this one guarantees *horizontal* completeness. **Whenever you add or extend an operator, method, or combinator, you must implement it across the entire Cartesian product of types where it is mathematically valid** — picture a matrix whose rows are types and whose columns are operations, and never ship a half-filled row or column. This is **Mandate 2** in [`AGENTS.md`](AGENTS.md) and [`STYLEGUIDE.md §7`](STYLEGUIDE.md); it is operationalized by the [`recursive-dogfood`](.agents/skills/recursive-dogfood/SKILL.md) skill.
+
+**Type rows:** persistent collections (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `iter.Seq` streams), ADTs (`Pair`, `Either`, `Maybe`, `Variant`), and scalar primitives (`int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`).
+
+**Operation columns:** `++`/`concat` (Monoid), `map`/`bimap`/`mapValues` (Functor/Bifunctor), `fold`/`foldLeft`/`foldRight` (Foldable), `filter`/`reject` (predicate), `flatMap`/`bind` (Monad), `==`/`!=` (Eq), `<`/`<=`/`>`/`>=` (Ord), `union`/`intersect`/`diff` (Set algebra).
+
+When you touch any cell, complete it everywhere it is well-defined:
+
+1. **Fill the whole row/column:** never implement `fold` (or `++`, `filter`, `<`, `bind`, …) for `List` without giving `Chunk`, `Set`, `HAMT`, `Tree`, and the eligible ADTs their corresponding algebraic implementation. `Variant` is a full ADT, not a second-class citizen.
+2. **Skip only on mathematical grounds:** omit a cell *only* when the operation is genuinely meaningless for that type (e.g. ordering on an unordered `Set`) — never because it was tedious.
+3. **Carry each cell through every layer:** Go method on the type → operator overload in `functions/operators.go` (if infix) → evaluator transducer in `evaluator/pipeline.go` (if a stream op) → DSL builtin in `pkg/cli/cli.go` → self-asserting case in `tests/dsl_exhaustive_test.gatwd`. A cell implemented in Go but not reachable from the DSL is only half-filled.
+4. **Record asymmetries:** if a type supports fewer operations than its siblings, the reason must be the math, and it should be obvious why.
 
 ## Building Gatwd Editions & Appliances
 Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databases) into the core `gatwd` repository. Instead, author a **Gatwd Edition** (custom binary distribution) or a **Gatwd Appliance** (self-contained release):
