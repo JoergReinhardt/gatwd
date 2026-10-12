@@ -342,6 +342,21 @@ spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold product |> assert 24
 spawn IntVal: 0 |> emit 50, 15, 80 |> drop 1 |> fold min |> assert 15
 ```
 
+#### Custom-Accumulator Fold (`fold (\acc x -> expr) seed`)
+Beyond the fixed reducers, a two-argument lambda with an explicit seed expresses any left fold, threading `acc` across the elements:
+
+```haskell
+let xs = [1, 2, 3, 4] in xs |> fold (\acc x -> acc + x) 0 |> assert 10
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> assert 24
+```
+
+### Bifunctor Mapping (`bimap`)
+`bimap (\x -> e1) (\y -> e2)` applies `e1` to the first/`Left` component and `e2` to the second/`Right` component of a `Pair` (e.g. from `&&&`), an `Either`, or a 2-element list:
+
+```haskell
+let p = [3, 4] in p |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
+```
+
 ### Functor Mapping (`map`)
 Applies higher-order functions or sub-pipelines across both stream nodes and persistent collections (`List`, `Chunk`, `Set`, `Slice`):
 * Lambda mapping: `map (\x -> expr)` evaluates `expr` with `x` bound to each item.

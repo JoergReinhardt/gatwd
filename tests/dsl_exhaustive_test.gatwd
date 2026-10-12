@@ -249,3 +249,10 @@ spawn IntVal: 0 |> emit 1, 2 |> drop 1 |> flatmap (\x -> [x, x]) |> collect_list
 let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
 let hr = spawn S: x |> emit a:no, b:yes, c:no |> drop 1 |> to_hamt |> reject (\x -> x == "no") |> hamt_keys |> collect_list in hr |> assert [b]
 
+-- 63. Custom-accumulator fold (fold (\acc x -> expr) seed) over List and stream
+let cf = [1, 2, 3, 4] in cf |> fold (\acc x -> acc + x) 0 |> assert 10
+spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> assert 24
+
+-- 64. Bimap (Bifunctor map) over a 2-element pair: left via e1, right via e2
+let bp = [3, 4] in bp |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
+

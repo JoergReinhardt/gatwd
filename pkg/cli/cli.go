@@ -573,7 +573,95 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepDistinct())
 		} else if strings.HasPrefix(stepStr, "fold") {
 			op := strings.TrimSpace(stepStr[4:])
-			pipeline = append(pipeline, evaluator.StepFold(op))
+			if strings.HasPrefix(op, "(\\") || strings.HasPrefix(op, "\\") {
+				// Custom left fold: fold (\acc x -> expr) <seed>. Threads an
+				// accumulator seeded by <seed> left-to-right over the elements,
+				// generalizing the fixed reducers (sum/product/min/max/…).
+				lamStr, seedStr := op, ""
+				if strings.HasPrefix(op, "(") {
+					depth := 0
+					for idx, r := range op {
+						if r == '(' {
+							depth++
+						} else if r == ')' {
+							depth--
+							if depth == 0 {
+								lamStr = strings.TrimSpace(op[1:idx])
+								seedStr = strings.TrimSpace(op[idx+1:])
+								break
+							}
+						}
+					}
+				}
+				lamStr = strings.TrimPrefix(lamStr, "\\")
+				lamParts := strings.SplitN(lamStr, "->", 2)
+				if len(lamParts) == 2 && len(strings.Fields(lamParts[0])) == 2 {
+					vars := strings.Fields(strings.TrimSpace(lamParts[0]))
+					accVar, xVar := vars[0], vars[1]
+					body := strings.TrimSpace(lamParts[1])
+					seedExpr := seedStr
+					foldStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+							var items []any
+							var lastFlag dsltypes.BitFlag
+							for node := range stream {
+								if node.Value.IsLeft() {
+									continue
+								}
+								v, _ := node.Value.UnwrapRight()
+								items = append(items, v)
+								lastFlag = node.DSLType
+							}
+							if len(items) == 1 {
+								if col, ok := functions.ToSliceAny(items[0]); ok {
+									items = col
+								}
+							}
+							baseLookup := func(name string) (any, bool) {
+								if rt, ok := i.RuntimeNodes[name]; ok {
+									vv, _ := rt.Value.UnwrapRight()
+									return vv, true
+								}
+								if c, ok := i.Constants[name]; ok {
+									return c, true
+								}
+								if vv, ok := i.Variables[name]; ok {
+									return vv, true
+								}
+								return nil, false
+							}
+							var acc any
+							if seedExpr != "" {
+								if sv, err := parser.EvalInfixString(seedExpr, baseLookup); err == nil {
+									acc = sv
+								} else {
+									acc = seedExpr
+								}
+							}
+							for _, it := range items {
+								lookup := func(name string) (any, bool) {
+									if name == accVar {
+										return acc, true
+									}
+									if name == xVar {
+										return it, true
+									}
+									return baseLookup(name)
+								}
+								if pe, err := parser.ParseInfixExpr(body); err == nil {
+									if rv, e := pe.Eval(lookup); e == nil {
+										acc = rv
+									}
+								}
+							}
+							yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
+						}
+					}
+					pipeline = append(pipeline, foldStep)
+				}
+			} else {
+				pipeline = append(pipeline, evaluator.StepFold(op))
+			}
 		} else if strings.HasPrefix(stepStr, "memoize") {
 			cmd := strings.TrimSpace(stepStr[7:])
 			adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
@@ -1283,6 +1371,113 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				}
 			}
 			pipeline = append(pipeline, dynamicMatch)
+		} else if strings.HasPrefix(stepStr, "bimap") {
+			// bimap (\x -> e1) (\y -> e2): the Bifunctor map. Applies e1 to the
+			// first/Left component and e2 to the second/Right component of a Pair,
+			// an Either, or a 2-element list.
+			rest := strings.TrimSpace(stepStr[5:])
+			extract := func(s string) (string, string) {
+				s = strings.TrimSpace(s)
+				if strings.HasPrefix(s, "(") {
+					depth := 0
+					for idx, r := range s {
+						if r == '(' {
+							depth++
+						} else if r == ')' {
+							depth--
+							if depth == 0 {
+								return strings.TrimSpace(s[1:idx]), strings.TrimSpace(s[idx+1:])
+							}
+						}
+					}
+				}
+				return s, ""
+			}
+			parseLam := func(l string) (string, string, bool) {
+				l = strings.TrimPrefix(strings.TrimSpace(l), "\\")
+				pp := strings.SplitN(l, "->", 2)
+				if len(pp) != 2 {
+					return "", "", false
+				}
+				return strings.TrimSpace(pp[0]), strings.TrimSpace(pp[1]), true
+			}
+			lam1, rem := extract(rest)
+			lam2, _ := extract(rem)
+			v1, b1, ok1 := parseLam(lam1)
+			v2, b2, ok2 := parseLam(lam2)
+			if ok1 && ok2 {
+				evalOne := func(vn, body string, item any) any {
+					lookup := func(name string) (any, bool) {
+						if name == vn {
+							return item, true
+						}
+						if rt, ok := i.RuntimeNodes[name]; ok {
+							vv, _ := rt.Value.UnwrapRight()
+							return vv, true
+						}
+						if c, ok := i.Constants[name]; ok {
+							return c, true
+						}
+						if vv, ok := i.Variables[name]; ok {
+							return vv, true
+						}
+						return nil, false
+					}
+					if pe, err := parser.ParseInfixExpr(body); err == nil {
+						if rv, e := pe.Eval(lookup); e == nil {
+							return rv
+						}
+					}
+					return item
+				}
+				bimapStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+						for node := range stream {
+							if node.Value.IsLeft() {
+								if !yield(node) {
+									return
+								}
+								continue
+							}
+							val, _ := node.Value.UnwrapRight()
+							if p, ok := val.(interface{ PairElements() (any, any) }); ok {
+								a, b := p.PairElements()
+								np := functions.Pair[any, any]{Fst: evalOne(v1, b1, a), Snd: evalOne(v2, b2, b)}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(np)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if e, ok := val.(interface {
+								EitherValue() (any, any, bool)
+							}); ok {
+								lv, rv, isLeft := e.EitherValue()
+								var res any
+								if isLeft {
+									res = functions.Left[any, any](evalOne(v1, b1, lv))
+								} else {
+									res = functions.Right[any, any](evalOne(v2, b2, rv))
+								}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if elems, ok := toListElements(val); ok && len(elems) == 2 {
+								np := []any{evalOne(v1, b1, elems[0]), evalOne(v2, b2, elems[1])}
+								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(np)), node.DSLType)) {
+									return
+								}
+								continue
+							}
+							if !yield(node) {
+								return
+							}
+						}
+					}
+				}
+				pipeline = append(pipeline, bimapStep)
+			}
 		} else if strings.HasPrefix(stepStr, "flatmap") {
 			// flatmap (\x -> expr): the Monad bind at the DSL level. Over a List the
 			// per-element results (themselves lists) are concatenated into one List;
