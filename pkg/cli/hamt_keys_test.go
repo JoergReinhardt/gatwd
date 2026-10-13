@@ -282,3 +282,80 @@ func TestJSONRefusesNonStringHAMTKeys(t *testing.T) {
 		t.Errorf("String keys still encode, got %v", got)
 	}
 }
+
+// ---- step 3: a String never equals the printed form of a collection --------------------
+//
+// The W3 operator matrix (functions.TestNumericOperatorMatrix) covers String x number; this
+// is its String x carrier half, built here because it needs every collection type.
+
+func stringVsCarrierValues() map[string]any {
+	chunk := collections.NewChunk[any](2)
+	chunk.Append(1)
+	chunk.Append(2)
+	tree := collections.NewTree[any](1, collections.Cons(collections.Leaf[any](2), collections.Nil[*collections.Tree[any]]()))
+	return map[string]any{
+		"List":       listOf([]any{1, 2}),
+		"EmptyList":  listOf(nil),
+		"Chunk":      chunk,
+		"Slice":      []any{1, 2},
+		"Set":        collections.NewSet[any](1, 2),
+		"HAMT":       collections.NewHAMT[string, any]().Set("a", 1),
+		"Tree":       tree,
+		"Pair":       functions.Pair[any, any]{Fst: 1, Snd: 2},
+		"Just":       functions.Just[any](1),
+		"Nothing":    functions.Nothing[any](),
+		"Left":       functions.Left[any, any](1),
+		"Right":      functions.Right[any, any](1),
+		"Bytes":      functions.Bytes{1, 2},
+		"Int":        12,
+		"Float":      1.5,
+		"Bool":       true,
+		"Char":       functions.Char('x'),
+		"StringText": "text",
+	}
+}
+
+func TestStringVersusEveryCarrierIsNeverEqual(t *testing.T) {
+	for name, v := range stringVsCarrierValues() {
+		printed := fmt.Sprintf("%v", v)
+		for _, s := range []string{printed, fmt.Sprint(v), "[1 2]", "[1, 2]", "", "true", "12", "x"} {
+			if name == "StringText" || (name == "Char" && s == "x") {
+				continue // String == String, and the D1 one-character rule, are the intended equalities
+			}
+			if functions.StructuralEqual(s, v) || functions.StructuralEqual(v, s) {
+				t.Errorf("%s %#v == String %q must be false", name, v, s)
+			}
+		}
+		// ordering across kinds is an error, never a comparison of printed forms
+		if _, err := functions.Compare(printed, v); err == nil && name != "Char" && name != "StringText" {
+			t.Errorf("Compare(String %q, %s) must be an error", printed, name)
+		}
+	}
+	// the equalities that remain
+	for _, tc := range [][2]any{{"[2 1]", "[2 1]"}, {"", ""}, {"x", functions.Char('x')}} {
+		if !functions.StructuralEqual(tc[0], tc[1]) || !functions.StructuralEqual(tc[1], tc[0]) {
+			t.Errorf("%#v == %#v must stay true", tc[0], tc[1])
+		}
+	}
+}
+
+// Through the interpreter, inside lambdas (function forms) and as the infix operator.
+func TestStringVersusCollectionThroughTheInterpreter(t *testing.T) {
+	in := NewInterpreter()
+	for src, want := range map[string]any{
+		`"[2 1]" == [2, 1]`: false, `[2, 1] == "[2 1]"`: false, `"[2 1]" != [2, 1]`: true,
+		`"[2 1]" == "[2 1]"`: true, `[2, 1] == [2, 1]`: true,
+		`map (\c -> c == "[2 1]") [[2, 1], "[2 1]"]`:                      []any{false, true},
+		`map (\c -> "[2, 1]" == c) [(pair 2 1), [2, 1]]`:                  []any{false, false},
+		`map (\c -> c == "{a: 1}") [(hamt_from [["a", 1]])]`:              []any{false},
+		`map (\c -> c == "{1 2}") [(to_set [1, 2])]`:                      []any{false},
+		`map (\c -> c == "Just(1)") [(just 1)]`:                           []any{false},
+		`map (\c -> member c ["[1 2]"]) [[1, 2], "[1 2]"]`:                []any{false, true},
+		`length (filter (\c -> c == [1, 2]) [[1, 2], "[1 2]", [1.0, 2]])`: 2,
+	} {
+		got := evalOne(t, in, src)
+		if !functions.StructuralEqual(got, want) {
+			t.Errorf("%s = %#v, want %#v", src, got, want)
+		}
+	}
+}

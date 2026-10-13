@@ -987,17 +987,6 @@ func Compare(a, b any) (int, error) {
 	return 0, fmt.Errorf("incomparable types: %s and %s%s", KindName(a), KindName(b), hint)
 }
 
-// isCollectionValue reports whether v is a collection or ADT — anything that is not a
-// scalar (a number, Bool, Char, String or nil). Only these have a printed form a String may
-// equal (see StructuralEqual).
-func isCollectionValue(v any) bool {
-	switch v.(type) {
-	case nil, bool, string, Char, Bytes, []byte:
-		return false
-	}
-	return !IsNumber(v)
-}
-
 // StructuralEqual tests equality across primitives, pointers, complex, and types.
 func StructuralEqual(a, b any) bool {
 	if a == nil && b == nil {
@@ -1160,21 +1149,9 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
-	// The serialization boundary, kept on purpose: HAMT keys are Strings, so a String key
-	// read back from a collection (`frequencies |> hamt_pairs` gives "[2 1]") must still
-	// equal the coordinate pair [2 1] it came from. A String equals the PRINTED FORM of a
-	// COLLECTION only — never of a number, Bool or Char: `"5" == 5` is false (D2: strings are
-	// not numbers), and `'a' == "a"` is the explicit one-character rule above (D1).
-	if strA, okA := a.(string); okA && isCollectionValue(b) {
-		if fmt.Sprintf("%v", b) == strA {
-			return true
-		}
-	}
-	if strB, okB := b.(string); okB && isCollectionValue(a) {
-		if fmt.Sprintf("%v", a) == strB {
-			return true
-		}
-	}
+	// There is deliberately no printed-form rule: a String equals only a String (and a
+	// one-character String a Char, D1). `"[2 1]" == [2, 1]` is false; a collection used as a
+	// HAMT key is carried by value (collections key encoding, evaluator.EncodeKey), not by text.
 
 	// Fallback to reflect.DeepEqual for composite structures
 	return reflect.DeepEqual(a, b)

@@ -1138,3 +1138,22 @@ hamt_empty |> hamt_set a five |> hamt_get a |> assert five
 -- a graph id or color is a String; a number is written as its text
 graph_nodes (graph_add_node "N" 7 graph_empty) |> assert [7]
 graph_has_node "7" (graph_add_node "N" 7 graph_empty) |> assert true
+
+-- 107. A String is not the printed form of a collection (hardening, user decision 2026-10-13): == and !=
+-- between a String and any collection or ADT are false/true by type, for every carrier row (List, Pair,
+-- Set, HAMT, Maybe), not by comparing printed text. String == String and a one-character String == Char
+-- (D1) are unchanged, and a collection still equals a structurally equal collection. Non-domain.
+"[2 1]" == [2, 1] |> assert false
+[2, 1] == "[2 1]" |> assert false
+"[2 1]" != [2, 1] |> assert true
+"[2 1]" == "[2 1]" |> assert true
+map (\c -> c == "[2 1]") [[2, 1], "[2 1]", (pair 2 1)] |> assert [false true false]
+map (\c -> "[2, 1]" == c) [(pair 2 1), [2, 1]] |> assert [false false]
+map (\c -> c == "{1 2}") [(to_set [1, 2])] |> assert [false]
+map (\c -> c == "Just(1)") [(just 1), "Just(1)"] |> assert [false true]
+map (\c -> c == "[a:1]") [(hamt_from [["a", 1]])] |> assert [false]
+map (\c -> c == "[]") [[], "[]"] |> assert [false true]
+map (\c -> c != "[1 2]") [[1, 2], "[1 2]"] |> assert [true false]
+length (filter (\c -> c == [1, 2]) [[1, 2], "[1 2]", [1.0, 2], (pair 1 2)]) |> assert 3
+map (\c -> member c ["[1 2]"]) [[1, 2], "[1 2]"] |> assert [false true]
+map (\c -> c == 'x') ["x", "xy"] |> assert [true false]
