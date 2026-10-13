@@ -49,9 +49,9 @@ func TestTimeTypesInCollections(t *testing.T) {
 		}
 	}
 	// the raw memory type: a Set of canonical UTC Times
-	s, ok := evalOne(t, in, `to_set [@2026-10-13T11:30:00+02:00]`).(*collections.Set[any])
+	s, ok := evalOne(t, in, `to_set [@2026-10-13T11:30:00+02:00]`).(*collections.Setoid[any])
 	if !ok {
-		t.Fatal("to_set must yield a *Set[any]")
+		t.Fatal("to_set must yield a *Setoid[any]")
 	}
 	if el := s.ElementsAny(); len(el) != 1 || el[0].(functions.Time).String() != "2026-10-13T09:30:00Z" {
 		t.Errorf("a Set member is the canonical UTC Time, got %v", el)

@@ -767,14 +767,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 			pipeline = append(pipeline, treeDepthStep)
 		} else if strings.HasPrefix(stepStr, "set_contains ") {
-			item := strings.Trim(strings.TrimSpace(stepStr[13:]), "\"")
-			pipeline = append(pipeline, evaluator.StepSetContains(item))
+			pipeline = append(pipeline, evaluator.StepSetContains(i.setItem(stepStr[13:])))
 		} else if strings.HasPrefix(stepStr, "set_add ") {
-			item := strings.Trim(strings.TrimSpace(stepStr[8:]), "\"")
-			pipeline = append(pipeline, evaluator.StepSetAdd(item))
+			pipeline = append(pipeline, evaluator.StepSetAdd(i.setItem(stepStr[8:])))
 		} else if strings.HasPrefix(stepStr, "set_remove ") {
-			item := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
-			pipeline = append(pipeline, evaluator.StepSetRemove(item))
+			pipeline = append(pipeline, evaluator.StepSetRemove(i.setItem(stepStr[11:])))
 		} else if strings.HasPrefix(stepStr, "set_union") {
 			operandStr := strings.TrimSpace(stepStr[9:])
 			if operandStr == "" {
@@ -2934,6 +2931,21 @@ func (i *Interpreter) resolveGraphOperand(s string) any {
 		return v
 	}
 	return s
+}
+
+// setItem reads the operand of `set_contains`/`set_add`/`set_remove` as a value, since a Set's
+// members are values and never their printed form: a canonical number is that number
+// (the LiteralToken rule of `emit`), a quoted token is a String, and anything else is an
+// expression (`[1 2]`, a let-bound name) with the bare text as the fallback (`golang`).
+func (i *Interpreter) setItem(token string) any {
+	token = strings.TrimSpace(token)
+	if n, ok := functions.ParseCanonicalNumber(token); ok {
+		return n
+	}
+	if len(token) >= 2 && token[0] == '"' && token[len(token)-1] == '"' {
+		return token[1 : len(token)-1]
+	}
+	return i.resolveGraphOperand(token)
 }
 
 // evalSeed evaluates a fold's seed token (a literal or a bound name) to a value,

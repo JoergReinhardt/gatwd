@@ -22,8 +22,8 @@ func evalOne(t *testing.T, i *Interpreter, src string) any {
 // the SAME carrier it was given, with element types untouched (ints stay ints).
 func TestMatrixCarrierPreservation(t *testing.T) {
 	i := NewInterpreter()
-	if _, ok := evalOne(t, i, `map (\x -> x + 1) (to_set [1, 2])`).(*collections.Set[any]); !ok {
-		t.Error("map over a Set must yield a *Set[any]")
+	if _, ok := evalOne(t, i, `map (\x -> x + 1) (to_set [1, 2])`).(*collections.Setoid[any]); !ok {
+		t.Error("map over a Set must yield a *Setoid[any]")
 	}
 	if _, ok := evalOne(t, i, `map (\x -> x + 1) (hamt_from [["a", 1]])`).(*collections.HAMT[string, any]); !ok {
 		t.Error("map over a HAMT must yield a *HAMT")
@@ -44,7 +44,7 @@ func TestMatrixCarrierPreservation(t *testing.T) {
 		t.Errorf("map over Nothing must stay Nothing, got %v", mb)
 	}
 	// element types preserved: the set holds ints, not strings.
-	s := evalOne(t, i, `to_set [1, 2, 3]`).(*collections.Set[any])
+	s := evalOne(t, i, `to_set [1, 2, 3]`).(*collections.Setoid[any])
 	for _, e := range s.ElementsAny() {
 		if _, isStr := e.(string); isStr {
 			t.Errorf("set element %v was stringified", e)
@@ -106,13 +106,15 @@ func TestMatrixErrorsAreValues(t *testing.T) {
 	}
 }
 
-// TestUnhashableSetElementIsAnError: Go panics on a map key that is a slice; the Set
-// function forms must convert that to an error value.
-func TestUnhashableSetElementIsAnError(t *testing.T) {
-	if _, err := newAnySet([]any{[]any{1}}); err == nil {
-		t.Fatal("an unhashable element must be reported as an error")
+// TestUnkeyableSetElementIsAnError: a Set member needs the language's equality, which a
+// function has none of; the Set function forms report that as an error value and name the kind.
+func TestUnkeyableSetElementIsAnError(t *testing.T) {
+	fn := functions.NewClosure([]string{"x"}, func(a []any) (any, error) { return a[0], nil })
+	if _, err := newAnySet([]any{fn}); err == nil || !strings.Contains(err.Error(), "cannot be a Set member") {
+		t.Fatalf("a function as a Set member: err = %v, want one naming the Set member", err)
 	}
-	if _, err := safeSetOp2(func() bool { return collections.NewSet[any](1).Contains([]any{1}) }); err == nil {
-		t.Fatal("an unhashable membership query must be reported as an error")
+	// A list is no longer "unhashable": it is a member by value.
+	if s, err := newAnySet([]any{[]any{1}, []any{1}}); err != nil || s.Len() != 1 {
+		t.Fatalf("two equal lists: Len = %v, err = %v, want one member", s.Len(), err)
 	}
 }

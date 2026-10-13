@@ -212,8 +212,8 @@ func TestKeyRoundTrip(t *testing.T) {
 	if _, ok := DecodeKey(mustKey(t, functions.Pair[any, any]{Fst: 2, Snd: 1})).(*collections.List[any]); !ok {
 		t.Errorf("a Pair key decodes to a *List")
 	}
-	if _, ok := DecodeKey(mustKey(t, collections.NewSet[any](1))).(*collections.Set[any]); !ok {
-		t.Errorf("a Set key decodes to a *Set")
+	if _, ok := DecodeKey(mustKey(t, collections.NewSet[any](1))).(*collections.Setoid[any]); !ok {
+		t.Errorf("a Set key decodes to the DSL's Set, a *Setoid")
 	}
 	if _, ok := DecodeKey(mustKey(t, collections.NewHAMT[string, any]().Set("a", 1))).(*collections.HAMT[string, any]); !ok {
 		t.Errorf("a HAMT key decodes to a *HAMT")

@@ -158,7 +158,7 @@ func timeAdd(t Time, d Duration) (Time, error) {
 // key. A Time is equal to another when it is the same instant, whatever zone shows it, so a
 // Time becomes its UTC form (the display zone is dropped); every other value is itself. The
 // collections' key sites (a Set element, a HAMT key, the distinct/frequencies/to_set steps)
-// go through it so that `==` and membership agree.
+// go through it (via evaluator.EncodeKey and ValueSetKey) so that `==` and membership agree.
 func CanonicalKey(v any) any {
 	if t, ok := v.(Time); ok {
 		return t.UTC()
@@ -166,6 +166,7 @@ func CanonicalKey(v any) any {
 	return v
 }
 
-// KeyText is the printed form of CanonicalKey(v): the text a HAMT key or a distinct/frequency
-// bucket is made of.
+// KeyText is the printed form of CanonicalKey(v). It is text for display and for the few
+// places that really want a String (a graph-less path segment, a BST[string] element); it is
+// NOT an element's identity: Sets, distinct and HAMT keys use evaluator.EncodeKey.
 func KeyText(v any) string { return fmt.Sprintf("%v", CanonicalKey(v)) }
