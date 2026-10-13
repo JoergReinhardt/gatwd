@@ -1,0 +1,37 @@
+-- Node identity. A node of the graph is identified by ONE string; it must tell apart
+-- everything the cluster tells apart, so the id is QUALIFIED:
+--
+--     Kind/namespace/name        Pod/default/web   Service/default/web   Pod/prod/web
+--
+-- A resource without a namespace (a cluster-scoped kind, or an offline manifest that
+-- names none) gets the namespace "_": Role/_/admin. Kubernetes names never contain "/",
+-- so the three segments are unambiguous. The same local name under another kind or
+-- another namespace is therefore another node, and a resource listed twice is a
+-- duplicate id that ingest reports (graph_insert_node) instead of merging silently.
+--
+-- References in a manifest are namespace-local (an ownerReference, a Service's pods,
+-- an Ingress backend, a ConfigMap or claim reference, a RoleBinding subject): a
+-- relation resolves them with the referrer's scope through k8s_ref.
+
+-- The scope of a resource: its namespace, or "_" when it names none.
+-- (A comprehension needs a generator: `[ e | guard ]` alone yields [], so the resource is
+-- bound with `q <- [r]` before the guard runs.)
+def k8s_scope = \r -> head ([ (hamt_path "metadata.namespace" q) | q <- [r], hamt_has_path "metadata.namespace" q ] ++ [ "_" ])
+
+-- The id built from its three parts.
+def k8s_id = \kind ns name -> kind ++ "/" ++ ns ++ "/" ++ name
+
+-- The id of a resource payload.
+def k8s_id_of = \r -> k8s_id (hamt_get "kind" r) (k8s_scope r) (hamt_path "metadata.name" r)
+
+-- The parts of an id.
+def k8s_id_kind  = \id -> nth 0 (str_split "/" id)
+def k8s_id_scope = \id -> nth 1 (str_split "/" id)
+def k8s_short    = \id -> nth 2 (str_split "/" id)
+
+-- The id a reference (kind, name) made from a resource in namespace ns points at: the
+-- node Kind/ns/name if the graph has it, else Kind/_/name (a cluster-scoped target, or
+-- manifests that name no namespace), else Kind/ns/name again so that a dangling
+-- reference still reads as the id it was looking for. Pair it with graph_has_node to
+-- keep edges between existing nodes.
+def k8s_ref = \kind ns name g -> head ([ i | i <- [(k8s_id kind ns name), (k8s_id kind "_" name)], graph_has_node i g ] ++ [ (k8s_id kind ns name) ])

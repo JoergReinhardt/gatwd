@@ -12,7 +12,8 @@ import (
 // a pipeline: a seed node is turned into an empty graph, two colored nodes and a
 // directed edge are added, and the graph is then unfolded back into its node
 // identities — the DSL `spawn … |> graph_empty |> graph_add_node … |> graph_nodes`
-// surface, exercised directly over the Either[error, any] stream.
+// surface, exercised directly over the Either[error, any] stream. The ids are qualified
+// (Kind/scope/name) so that a Service and a Pod called alike stay two nodes.
 func ExampleStepGraphNodes() {
 	engine := evaluator.NewEngine[functions.Either[error, any]]()
 	flag := dsltypes.BitFlag(1)
@@ -23,9 +24,9 @@ func ExampleStepGraphNodes() {
 
 	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
 		evaluator.StepGraphEmpty(),
-		evaluator.StepGraphAddNode("Service", "web"),
-		evaluator.StepGraphAddNode("Pod", "nginx"),
-		evaluator.StepGraphAddEdge("Selects", 1, "web", "nginx"),
+		evaluator.StepGraphAddNode("Service", "Service/default/web"),
+		evaluator.StepGraphAddNode("Pod", "Pod/default/nginx"),
+		evaluator.StepGraphAddEdge("Selects", 1, "Service/default/web", "Pod/default/nginx"),
 		evaluator.StepGraphNodes(),
 	}
 
@@ -35,8 +36,8 @@ func ExampleStepGraphNodes() {
 	}
 
 	// Output:
-	// nginx
-	// web
+	// Pod/default/nginx
+	// Service/default/web
 }
 
 // ExampleStepGraphShortestPath shows a weighted walk: Dijkstra prefers the two-hop

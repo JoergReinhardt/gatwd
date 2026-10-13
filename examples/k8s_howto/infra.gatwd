@@ -5,6 +5,6 @@ import "infra_relations.gatwd"
 
 spawn StrVal: examples/k8s_howto/cluster |> manifests |> infra_graph |> graph_edges_of UsesDatabase |> collect_list
 spawn StrVal: examples/k8s_howto/cluster |> manifests |> infra_graph |> graph_edges_of HostedOn |> collect_list
-spawn StrVal: examples/k8s_howto/cluster |> manifests |> infra_graph |> graph_shortest_path orders-db-credentials pg-prod |> collect_list
+spawn StrVal: examples/k8s_howto/cluster |> manifests |> infra_graph |> graph_shortest_path Secret/default/orders-db-credentials DBMS/default/pg-prod |> collect_list
 -- the original model is unchanged:
 spawn StrVal: examples/k8s_howto/cluster |> manifests |> infra_graph |> graph_edges_of Mounts |> collect_list

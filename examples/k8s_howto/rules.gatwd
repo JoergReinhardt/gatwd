@@ -26,16 +26,16 @@
 --   spawn StrVal: ./manifests |> manifests |> compliance        (offline)
 --   spawn StrVal: default |> k8s_resources |> compliance        (live cluster)
 
-def rule_unselected_pod = \g -> [ ["UnselectedPod", (hamt_path "metadata.name" p)] | p <- (graph_payloads_of "Pod" g), (graph_in_of "Selects" (hamt_path "metadata.name" p) g) == [] ]
+def rule_unselected_pod = \g -> [ ["UnselectedPod", pid] | p <- (graph_payloads_of "Pod" g), pid <- [ (k8s_id_of p) ], (graph_in_of "Selects" pid g) == [] ]
 
-def rule_idle_deployment = \g -> [ ["IdleDeployment", (hamt_path "metadata.name" d)] | d <- (graph_payloads_of "Deployment" g), (graph_out_of "Owns" (hamt_path "metadata.name" d) g) == [] ]
+def rule_idle_deployment = \g -> [ ["IdleDeployment", did] | d <- (graph_payloads_of "Deployment" g), did <- [ (k8s_id_of d) ], (graph_out_of "Owns" did g) == [] ]
 
 -- A Service without spec.selector (e.g. ExternalName) selects nothing by design.
-def rule_unused_service = \g -> [ ["UnusedService", (hamt_path "metadata.name" s)] | s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, (graph_out_of "Selects" (hamt_path "metadata.name" s) g) == [] ]
+def rule_unused_service = \g -> [ ["UnusedService", sid] | s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, sid <- [ (k8s_id_of s) ], (graph_out_of "Selects" sid g) == [] ]
 
-def rule_dangling_ingress = \g -> [ ["DanglingIngress", (hamt_path "metadata.name" i)] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path, (member (hamt_path "backend.service.name" path) (k8s_names "Service" g)) == false ]
+def rule_dangling_ingress = \g -> [ ["DanglingIngress", (k8s_id_of i)] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path, (graph_has_node (k8s_ref "Service" (k8s_scope i) (hamt_path "backend.service.name" path) g) g) == false ]
 
-def rule_missing_configmap = \g -> [ ["MissingConfigMap", wid] | [wid, ws] <- (k8s_workloads g), cm <- (k8s_config_refs ws), (member cm (k8s_names "ConfigMap" g)) == false ]
+def rule_missing_configmap = \g -> [ ["MissingConfigMap", wid] | [wid, ws] <- (k8s_workloads g), cid <- (k8s_config_ids wid ws g), (graph_has_node cid g) == false ]
 
 def rule_dependency_cycle = \g -> [ ["DependencyCycle", c] | c <- (graph_scc g), (length c) > 1 ]
 
@@ -46,14 +46,14 @@ type InfraEdgeColor = UsesDatabase | HostedOn
 
 def secret_target = \s -> hamt_get "gatwd.io/database" (hamt_path "metadata.annotations" s)
 
-def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (hamt_path "metadata.name" s), (secret_target s)] | s <- (graph_payloads_of "Secret" g), hamt_has_path "metadata.annotations" s, hamt_has "gatwd.io/database" (hamt_path "metadata.annotations" s), graph_has_node (secret_target s) g ] g) graph_empty
+def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (k8s_id_of s), did] | s <- (graph_payloads_of "Secret" g), hamt_has_path "metadata.annotations" s, hamt_has "gatwd.io/database" (hamt_path "metadata.annotations" s), did <- [ (k8s_ref "Database" (k8s_scope s) (secret_target s) g) ], graph_has_node did g ] g) graph_empty
 
-def rel_hosted_on = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (hamt_path "metadata.name" d), (hamt_path "spec.dbms" d)] | d <- (graph_payloads_of "Database" g), hamt_has_path "spec.dbms" d, graph_has_node (hamt_path "spec.dbms" d) g ] g) graph_empty
+def rel_hosted_on = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (k8s_id_of d), mid] | d <- (graph_payloads_of "Database" g), hamt_has_path "spec.dbms" d, mid <- [ (k8s_ref "DBMS" (k8s_scope d) (hamt_path "spec.dbms" d) g) ], graph_has_node mid g ] g) graph_empty
 
 -- The extended pipeline: the original k8s_graph, then the new passes.
 def infra_graph = k8s_graph |> rel_uses_database |> rel_hosted_on
 
 -- A Database that no Secret holds credentials for.
-def rule_database_without_credentials = \g -> [ ["DatabaseWithoutCredentials", (hamt_path "metadata.name" d)] | d <- (graph_payloads_of "Database" g), (graph_in_of "UsesDatabase" (hamt_path "metadata.name" d) g) == [] ]
+def rule_database_without_credentials = \g -> [ ["DatabaseWithoutCredentials", did] | d <- (graph_payloads_of "Database" g), did <- [ (k8s_id_of d) ], (graph_in_of "UsesDatabase" did g) == [] ]
 
 def compliance = infra_graph |> fold (\_ g -> (rule_unselected_pod g) ++ (rule_idle_deployment g) ++ (rule_unused_service g) ++ (rule_dangling_ingress g) ++ (rule_missing_configmap g) ++ (rule_dependency_cycle g) ++ (rule_database_without_credentials g)) 0

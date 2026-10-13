@@ -1,5 +1,9 @@
 -- Ingest: lift a stream of raw resources (the nested-HAMT payloads yielded by the
 -- crawl/manifest/kustomize steps) into a typed graph. Each resource becomes a node
--- colored by its kind, identified by its metadata.name, carrying the whole resource
--- as its payload so the relation passes can read any field of it.
-def k8s_ingest = fold (\g r -> graph_add_node (hamt_get "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+-- colored by its kind and identified by its qualified id Kind/namespace/name
+-- (ids.gatwd), carrying the whole resource as its payload so the relation passes can
+-- read any field of it. graph_insert_node refuses an id that is already a node: two
+-- resources with the same kind, namespace and name are one mistake in the data (the
+-- same manifest listed twice, two files defining one object), reported as an
+-- [ERROR] naming both - never merged into whichever came last.
+def k8s_ingest = fold (\g r -> graph_insert_node (hamt_get "kind" r) (k8s_id_of r) r g) graph_empty

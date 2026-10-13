@@ -51,10 +51,10 @@ func TestHowToTasks(t *testing.T) {
 		return res
 	}
 
-	if res := run("trace_to_pod", cluster); !reflect.DeepEqual(res.Lines, []string{"[nginx-svc app-pod]"}) {
+	if res := run("trace_to_pod", cluster); !reflect.DeepEqual(res.Lines, []string{"[Service/default/nginx-svc Pod/default/app-pod]"}) {
 		t.Errorf("trace_to_pod = %v", res.Lines)
 	}
-	if res := run("who_configures_what", cluster); len(res.Lines) != 1 || !strings.Contains(res.Lines[0], "app-config-Configures->worker") {
+	if res := run("who_configures_what", cluster); len(res.Lines) != 1 || !strings.Contains(res.Lines[0], "ConfigMap/default/app-config-Configures->Deployment/default/worker") {
 		t.Errorf("who_configures_what = %v", res.Lines)
 	}
 	if res := run("pod_count", cluster); !reflect.DeepEqual(res.Lines, []string{"1"}) {
@@ -67,7 +67,7 @@ func TestHowToTasks(t *testing.T) {
 		t.Fatalf("main = %+v, want task main with 3 lines", res)
 	}
 	all := strings.Join(res.Lines, "\n")
-	for _, want := range []string{"app-config-Configures->worker", "[nginx-svc app-pod]", "1"} {
+	for _, want := range []string{"ConfigMap/default/app-config-Configures->Deployment/default/worker", "[Service/default/nginx-svc Pod/default/app-pod]", "1"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("main output lacks %q:\n%s", want, all)
 		}
@@ -96,7 +96,7 @@ func TestHowToTasksCommandLine(t *testing.T) {
 	cluster := filepath.Join(howtoDir, "cluster")
 
 	out, err := exec.Command(bin, script, "--task", "trace_to_pod", "--", cluster).Output()
-	if err != nil || !strings.Contains(string(out), "∷ [nginx-svc app-pod]") {
+	if err != nil || !strings.Contains(string(out), "∷ [Service/default/nginx-svc Pod/default/app-pod]") {
 		t.Fatalf("--task trace_to_pod: %v\n%s", err, out)
 	}
 	out, err = exec.Command(bin, script, "--", cluster).Output()
@@ -118,9 +118,9 @@ func TestHowToExtendModelFromScript(t *testing.T) {
 	}
 	src := "spawn StrVal: " + filepath.Join(howtoDir, "cluster") + " |> manifests |> infra_graph"
 	cases := map[string]string{
-		src + " |> graph_edges_of UsesDatabase |> collect_list":                       "[orders-db-credentials-UsesDatabase->orders]",
-		src + " |> graph_shortest_path orders-db-credentials pg-prod |> collect_list": "[orders-db-credentials orders pg-prod]",
-		src + " |> graph_edges_of Mounts |> collect_list":                             "[app-data-Mounts->app-pod]",
+		src + " |> graph_edges_of UsesDatabase |> collect_list":                                                   "[Secret/default/orders-db-credentials-UsesDatabase->Database/default/orders]",
+		src + " |> graph_shortest_path Secret/default/orders-db-credentials DBMS/default/pg-prod |> collect_list": "[Secret/default/orders-db-credentials Database/default/orders DBMS/default/pg-prod]",
+		src + " |> graph_edges_of Mounts |> collect_list":                                                         "[PersistentVolumeClaim/default/app-data-Mounts->Pod/default/app-pod]",
 	}
 	for line, want := range cases {
 		if got := one(t, i, line); got != want {
@@ -137,7 +137,7 @@ func TestHowToRulesOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := violations(t, app.Execute(checkPipeline(filepath.Join(howtoDir, "cluster"))))
-	want := "[[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]"
+	want := "[[IdleDeployment Deployment/default/worker] [UnusedService Service/default/backend-svc] [MissingConfigMap Deployment/default/worker] [DatabaseWithoutCredentials Database/default/audit]]"
 	if !reflect.DeepEqual(got, []string{want}) {
 		t.Fatalf("violations = %v\nwant        %s", got, want)
 	}

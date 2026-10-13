@@ -3,21 +3,23 @@
 --     Secret --UsesDatabase--> Database --HostedOn--> DBMS
 --
 -- Databases and DBMSs are ordinary graph nodes: anything with a `kind` and a
--- `metadata.name` becomes a node coloured by its kind. Here they come from manifests
+-- `metadata.name` becomes a node coloured by its kind, with the qualified id
+-- Kind/namespace/name (Database/_/orders, DBMS/_/pg-prod; "_" = no namespace), so a
+-- Database named like a Service or a Pod cannot collide with it. The annotation and
+-- spec.dbms below name their target by plain name; k8s_ref resolves it in the
+-- referrer's namespace. Here the records come from manifests
 -- (databases.yaml); in production a SQL adapter yields the same payload shape.
 --
 -- The Secret is linked by an ANNOTATION, not by decoding its base64 `data`: the DSL has no
--- base64 builtin, and credentials should not be parsed into a graph anyway. Note that node
--- ids are `metadata.name` only — keep names unique across kinds (a Database called like a
--- Service would collide).
+-- base64 builtin, and credentials should not be parsed into a graph anyway.
 type InfraNodeColor = DBMS | Database
 type InfraEdgeColor = UsesDatabase | HostedOn
 
 def secret_target = \s -> hamt_get "gatwd.io/database" (hamt_path "metadata.annotations" s)
 
-def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (hamt_path "metadata.name" s), (secret_target s)] | s <- (graph_payloads_of "Secret" g), hamt_has_path "metadata.annotations" s, hamt_has "gatwd.io/database" (hamt_path "metadata.annotations" s), graph_has_node (secret_target s) g ] g) graph_empty
+def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (k8s_id_of s), did] | s <- (graph_payloads_of "Secret" g), hamt_has_path "metadata.annotations" s, hamt_has "gatwd.io/database" (hamt_path "metadata.annotations" s), did <- [ (k8s_ref "Database" (k8s_scope s) (secret_target s) g) ], graph_has_node did g ] g) graph_empty
 
-def rel_hosted_on = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (hamt_path "metadata.name" d), (hamt_path "spec.dbms" d)] | d <- (graph_payloads_of "Database" g), hamt_has_path "spec.dbms" d, graph_has_node (hamt_path "spec.dbms" d) g ] g) graph_empty
+def rel_hosted_on = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (k8s_id_of d), mid] | d <- (graph_payloads_of "Database" g), hamt_has_path "spec.dbms" d, mid <- [ (k8s_ref "DBMS" (k8s_scope d) (hamt_path "spec.dbms" d) g) ], graph_has_node mid g ] g) graph_empty
 
 -- The extended pipeline: the original k8s_graph, then the new passes.
 def infra_graph = k8s_graph |> rel_uses_database |> rel_hosted_on

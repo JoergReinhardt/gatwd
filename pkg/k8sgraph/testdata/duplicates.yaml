@@ -1,0 +1,25 @@
+# NEGATIVE fixture: the same resource (kind, namespace, name) defined twice with
+# different content - two files of one kustomization defining one object, a pasted
+# document. Ingest must report the collision naming both, never keep whichever came last.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup
+  namespace: default
+  labels:
+    app: first
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup
+  namespace: default
+  labels:
+    app: second
+---
+# a different namespace is NOT a duplicate
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup
+  namespace: other

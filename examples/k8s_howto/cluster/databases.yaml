@@ -3,6 +3,7 @@ apiVersion: infra.example.com/v1
 kind: DBMS
 metadata:
   name: pg-prod
+  namespace: default
 spec:
   engine: postgres
   host: pg-prod.db.internal
@@ -12,6 +13,7 @@ apiVersion: infra.example.com/v1
 kind: Database
 metadata:
   name: orders
+  namespace: default
 spec:
   dbms: pg-prod
 ---
@@ -19,6 +21,7 @@ apiVersion: infra.example.com/v1
 kind: Database
 metadata:
   name: audit
+  namespace: default
 spec:
   dbms: pg-prod
 ---
@@ -26,6 +29,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: orders-db-credentials
+  namespace: default
   annotations:
     gatwd.io/database: orders
 data:
