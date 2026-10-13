@@ -683,12 +683,17 @@ func LiteralToken(text string) any {
 }
 
 // OperandValue turns the literal token of a pipeline operator section (`|> + 5`,
-// `math_add 10`) into the value the operator is applied to: a numeric literal becomes the
-// number it spells, anything else stays the text. `++` always keeps the text.
+// `math_add 10`) into the value the operator is applied to: a numeric or time literal
+// becomes the value it spells, anything else stays the text. `++` always keeps the text.
 func OperandValue(op OpKind, text string) any {
 	if op != OpConcat {
 		if n, ok := ParseNumberLiteral(text); ok {
 			return n
+		}
+		// A Duration, Time or Date literal (`5s`, `@2026-10-13`), read as the expression
+		// lexer reads it, so `|> + 5s` and `|> > @2026-01-01` work on time values.
+		if v, ok := parseTemporalToken(text); ok {
+			return v
 		}
 	}
 	return text

@@ -103,3 +103,34 @@ func TemporalLiteral(v any) (string, bool) {
 	}
 	return "", false
 }
+
+// parseTemporalToken reads a Duration, Time or Date literal as the expression lexer does,
+// without insisting on the canonical spelling (`007s` is 7 seconds there, so it is here).
+// It is for operands that are code, such as the `5s` of `|> + 5s`; LiteralToken, for text
+// that is data, uses the canonical readers instead.
+func parseTemporalToken(text string) (any, bool) {
+	if text == "" {
+		return nil, false
+	}
+	if text[0] == '@' {
+		body := text[1:]
+		if strings.IndexByte(body, 'T') >= 0 {
+			if t, err := ParseTime(body); err == nil {
+				return t, true
+			}
+			return nil, false
+		}
+		if d, err := ParseDate(body); err == nil {
+			return d, true
+		}
+		return nil, false
+	}
+	first := strings.TrimLeft(text, "+-")
+	if len(text)-len(first) > 1 || first == "" || first[0] < '0' || first[0] > '9' {
+		return nil, false
+	}
+	if d, err := ParseDuration(strings.TrimPrefix(text, "+")); err == nil {
+		return d, true
+	}
+	return nil, false
+}
