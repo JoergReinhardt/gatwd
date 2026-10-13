@@ -149,3 +149,24 @@ func TestCharAndStringShareEscapes(t *testing.T) {
 		}
 	}
 }
+
+// Ordering is declared first in every Parser, so its Variants are equal across Parsers and
+// to OrderingVariant — the value `compare` returns equals the constant a script writes.
+func TestOrderingIsSharedAcrossParsers(t *testing.T) {
+	for _, tag := range []string{"LT", "EQ", "GT"} {
+		want, ok := parser.OrderingVariant(tag)
+		if !ok {
+			t.Fatalf("OrderingVariant(%q) not found", tag)
+		}
+		got, ok := parser.NewParser().MakeVariant("Ordering", tag)
+		if !ok || !got.Equal(want) {
+			t.Errorf("%s: a fresh Parser built %#v, OrderingVariant %#v", tag, got, want)
+		}
+		if !parser.NewParser().IsConstructor(tag) {
+			t.Errorf("%s must be a registered constructor", tag)
+		}
+	}
+	if _, ok := parser.OrderingVariant("MAYBE"); ok {
+		t.Error("OrderingVariant must reject an unknown tag")
+	}
+}

@@ -34,7 +34,7 @@ func TestCharFuncsStructural(t *testing.T) {
 		{`char_is_lower 'Q'`, false},
 		{`'a' == "a"`, true},
 		{`'a' < 'b'`, true},
-		{`compare 'a' 'b'`, -1},
+		{`ordering_to_int (compare 'a' 'b')`, -1},
 	} {
 		got := evalOne(t, in, tc.src)
 		if got != tc.want {

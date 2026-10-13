@@ -97,3 +97,13 @@ func Example_stringEscapes() {
 	fmt.Println(lines[0], quoted[0])
 	// Output: [a b] say "hi"
 }
+
+// Example_ordering shows compare answering with the Ordering sum type, and the strict Bool
+// functions used as a fold.
+func Example_ordering() {
+	interp := cli.NewInterpreter()
+	o := interp.EvaluateToValues(`compare 1 2`)
+	all := interp.EvaluateToValues(`[true, true, false] |> fold and true`)
+	fmt.Println(o[0], all[0])
+	// Output: LT false
+}

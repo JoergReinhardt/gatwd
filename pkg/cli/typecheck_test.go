@@ -145,6 +145,14 @@ code 'z'
 'a' < 'b'
 'a' == "a"
 ['a', 'b'] |> map (\c -> code c)
+not true
+and true false
+[true, false] |> fold or false
+compare 1 2 == LT
+compare "a" "b" != GT
+ordering_to_int (compare 1 2)
+def cmp3 : Int -> Int -> Ordering = \a b -> compare a b
+true |> not
 `
 	if ws := warnings(src); len(ws) != 0 {
 		t.Fatalf("valid program must be silent, got %v", ws)

@@ -274,6 +274,20 @@ function returns — `map char_upper "abc"` is a list of `Char`s). The *closed* 
 `fold`, `head` … do not descend into it; inside a lambda or a function-form call use the function forms
 (`["abc", "de"] |> map (\s -> reverse s)`).
 
+### Booleans and `Ordering` (hardening W2)
+
+`not b`, `xor a b`, `and a b`, `or a b` are curried function forms (also steps: `true |> not`) for folds and lambdas —
+`[true, false] |> fold and true`. They are **strict** (both arguments are evaluated) and accept only `Bool`: `not 1` is an
+error, a number is never "truthy". `&&` and `||` remain the short-circuiting infix operators. There is no prefix `!`
+(it would collide with `!=`); write `not`.
+
+`compare a b` answers with the **`Ordering`** sum type `LT | EQ | GT` (declared in every parser, so it is an ordinary sum
+type): `compare 1 2 == LT`, `compare x y |> match { LT -> … | EQ -> … | GT -> … }` (`gatwd --check` reports a missing branch).
+`ordering_to_int o` gives `-1`/`0`/`1`, `ordering_from_int n` the Ordering of a sign, `ordering_reverse o` flips it, and
+`ordering_then a b` is `a` unless it is `EQ`, then `b` — the lexicographic combination
+(`ordering_then (compare x1 y1) (compare x2 y2)`). `min`, `max` and the infix comparisons are unchanged. (`compare` used to
+return `-1`/`0`/`1`; wrap it in `ordering_to_int` for that.)
+
 ### The `str_*` library (hardening W2)
 
 Data-last, curried, usable as steps (`"a,b" |> str_split ","`), positions count **characters**, and a collection of `Char`s is

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 )
@@ -28,12 +29,30 @@ type Parser struct {
 // ready to be allocated. Each subsequent registered type shifts nextFlag left by one,
 // so the Parser can tag up to 64 distinct base types with single-bit flags.
 func NewParser() *Parser {
-	return &Parser{
+	p := &Parser{
 		typeRegistry:  make(map[string]dsltypes.BitFlag),
 		typeFactories: make(map[string]func(string) any),
 		sumTypes:      make(map[string]*dsltypes.SumTypeDefinition),
 		nextFlag:      1,
 	}
+	// Ordering is the result type of `compare`. It is declared first, so its branch flags
+	// are the same in every Parser — a Variant built by one Parser equals one built by
+	// another — and `match`, the exhaustiveness check and the constants LT/EQ/GT all
+	// see it as an ordinary sum type.
+	p.parseType("type Ordering = LT | EQ | GT")
+	return p
+}
+
+var (
+	orderingOnce   sync.Once
+	orderingParser *Parser
+)
+
+// OrderingVariant returns the Ordering value with the given tag ("LT", "EQ" or "GT"): the
+// result `compare` produces. It reports false for any other tag.
+func OrderingVariant(tag string) (dsltypes.Variant, bool) {
+	orderingOnce.Do(func() { orderingParser = NewParser() })
+	return orderingParser.MakeVariant("Ordering", tag)
 }
 
 // Parse reads a Gatwd script and returns a lazy iter.Seq that yields one

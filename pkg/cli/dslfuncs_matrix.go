@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"cmp"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -784,7 +783,10 @@ func registerMatrixFuncs(m map[string]any) {
 	})
 	defn(m, "compare", "a b", func(a []any) (any, error) {
 		c, err := compareAny(a[0], a[1])
-		return cmp.Compare(c, 0), err
+		if err != nil {
+			return nil, err
+		}
+		return orderingOf(c), nil
 	})
 	negate := func(v any) (any, error) {
 		return functions.EvalBinaryOp(functions.OpSub, 0, v)

@@ -1702,6 +1702,9 @@ func startsWithLiteral(s string) bool {
 	if s == "" {
 		return false
 	}
+	if s == "true" || s == "false" {
+		return true
+	}
 	r := rune(s[0])
 	return r == '"' || r == '\'' || (r >= '0' && r <= '9')
 }
@@ -2754,6 +2757,9 @@ func (i *Interpreter) exprFallback(name string) (any, bool) {
 	}
 	if name == "variant" && i.Parser != nil {
 		return i.variantConstructor(), true
+	}
+	if v, ok := parser.OrderingVariant(name); ok {
+		return v, true
 	}
 	if i.Parser != nil && i.Parser.IsConstructor(name) {
 		return name, true

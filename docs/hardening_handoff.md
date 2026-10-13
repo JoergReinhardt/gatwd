@@ -50,7 +50,7 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 
 Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
 
-**W2 (plan §5):** **done so far (see plan §0):** `Char` (`4cc0c8a`), F18 function-form-as-step, `String` as a collection row, the `str_*` library. **Remaining tier 1:** `not`/`xor`/`and`/`or`, the `Ordering` ADT and `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`, but check `const`s, which are stored as text). **D18 (escapes in `"…"` literals) is decided and done.** Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
+**W2 (plan §5):** **done so far (see plan §0):** `Char` (`4cc0c8a`), F18 function-form-as-step, `String` as a collection row, the `str_*` library. **Also done:** `not`/`xor`/`and`/`or` and the `Ordering` sum type (`compare` returns it). **Remaining tier 1:** `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`, but check `const`s, which are stored as text). **D18 (escapes in `"…"` literals) is decided and done.** Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
 **The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** **F18 (function-form-as-step) is done too** (plan §5.4).
 
 **W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
