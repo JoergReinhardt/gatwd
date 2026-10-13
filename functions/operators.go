@@ -454,6 +454,22 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 		}
 	}
 
+	// Arithmetic and ordering never read a String as a number (D2 extended): `"5" - 1` and
+	// `"5" < 10` are errors, and two Strings never do arithmetic. Two Strings still ORDER, as
+	// text (see Compare). A Char next to a String is the D1 on-demand conversion, not a number.
+	switch op {
+	case OpSub, OpMul, OpDiv, OpIDiv, OpMod, OpLt, OpLte, OpGt, OpGte:
+		_, lStr := left.(string)
+		_, rStr := right.(string)
+		ordering := op == OpLt || op == OpLte || op == OpGt || op == OpGte
+		switch {
+		case lStr && rStr && !ordering:
+			return nil, fmt.Errorf("operator '%s' is not defined for String and String; use str_to_int / str_to_float to parse", op)
+		case lStr != rStr && !IsChar(left) && !IsChar(right):
+			return nil, fmt.Errorf("operator '%s' is not defined for %s and %s; use str_to_int / str_to_float to parse", op, KindName(left), KindName(right))
+		}
+	}
+
 	// `+` is numeric addition only (D2): a String or Char operand is a type error, never
 	// a concatenation and never a numeric parse. `++` concatenates; str_to_int parses.
 	if op == OpAdd {
@@ -986,6 +1002,13 @@ func Compare(a, b any) (int, error) {
 	}
 	if StructuralEqual(a, b) {
 		return 0, nil
+	}
+
+	// Two Strings order as text, never as numbers: "10" < "9".
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			return strings.Compare(as, bs), nil
+		}
 	}
 
 	// Chars order by code point; a one-character String converts on demand (D1).

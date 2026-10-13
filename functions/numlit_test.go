@@ -115,3 +115,42 @@ func TestKindName(t *testing.T) {
 		}
 	}
 }
+
+// D2 extended: arithmetic and ordering never read a String as a number; two Strings order as
+// text; a Char beside a String is the D1 conversion, not arithmetic.
+func TestStringsAreNeverNumbersInOtherOperators(t *testing.T) {
+	for _, op := range []functions.OpKind{functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpIDiv, functions.OpMod, functions.OpLt, functions.OpLte, functions.OpGt, functions.OpGte} {
+		for _, pair := range [][2]any{{"5", 1}, {1, "5"}, {"5", 1.5}} {
+			if res, err := functions.EvalBinaryOp(op, pair[0], pair[1]); err == nil || !strings.Contains(err.Error(), "str_to_int") {
+				t.Errorf("%#v %s %#v = %#v, %v; want an error naming str_to_int", pair[0], op, pair[1], res, err)
+			}
+		}
+	}
+	for _, op := range []functions.OpKind{functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpIDiv, functions.OpMod} {
+		if res, err := functions.EvalBinaryOp(op, "6", "2"); err == nil {
+			t.Errorf(`"6" %s "2" = %#v, want an error`, op, res)
+		}
+	}
+	for _, tc := range []struct {
+		l, r string
+		op   functions.OpKind
+		want bool
+	}{
+		{"10", "9", functions.OpLt, true}, // text order, not 10 < 9
+		{"abc", "abd", functions.OpLt, true},
+		{"b", "a", functions.OpGt, true},
+		{"a", "a", functions.OpLte, true},
+	} {
+		got, err := functions.EvalBinaryOp(tc.op, tc.l, tc.r)
+		if err != nil || got != tc.want {
+			t.Errorf("%q %s %q = %v, %v; want %v", tc.l, tc.op, tc.r, got, err, tc.want)
+		}
+	}
+	if got, err := functions.EvalBinaryOp(functions.OpLt, "a", functions.Char('b')); err != nil || got != true {
+		t.Errorf(`"a" < 'b' = %v, %v; the D1 conversion must keep working`, got, err)
+	}
+	// numbers are untouched
+	if got, err := functions.EvalBinaryOp(functions.OpSub, 5, 1); err != nil || !functions.StructuralEqual(got, 4) {
+		t.Errorf("5 - 1 = %v, %v", got, err)
+	}
+}

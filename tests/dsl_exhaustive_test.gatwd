@@ -770,3 +770,12 @@ const D2_SUM = 2 * 3
 D2_SUM * 2 |> assert 12
 spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> fold sum |> assert 60
 spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> map (\x -> x + 1) |> collect_list |> assert [11 21 31]
+
+-- 94. Strings are never numbers in arithmetic or ordering (D2 extended): two Strings order as TEXT,
+-- numbers are parsed explicitly. (Equality and the function forms are specified in W3.)
+"10" < "9" |> assert true
+"abc" < "abd" |> assert true
+"b" > "a" |> assert true
+maybe_default 0 (str_to_int "10") < maybe_default 0 (str_to_int "9") |> assert false
+maybe_default 0 (str_to_int "5") - 1 |> assert 4
+"a" < 'b' |> assert true

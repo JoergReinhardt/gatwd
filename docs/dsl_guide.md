@@ -243,7 +243,7 @@ Gatwd supports full infix mathematical, relational, and boolean expressions with
 
 ### Supported Infix Operators
 - **Arithmetic**:
-  - `+` (**numeric addition only**: `"a" + "b"` and `"1" + 2` are errors — use `++` to concatenate and `str_to_int` to parse; D2)
+  - `+` (**numeric addition only**: `"a" + "b"` and `"1" + 2` are errors — use `++` to concatenate and `str_to_int` to parse; D2). The same holds for `-`, `*`, `/`, `//`, `%` and `<`, `<=`, `>`, `>=`: a `String` is never read as a number (`"5" - 1`, `"5" < 10` are errors), and two `String`s **order as text** (`"10" < "9"` is `true`)
   - `-` (Subtraction)
   - `*` (Multiplication)
   - `/` (True division: **automatically promotes integer division to `Float` / `float64`**, e.g. `7 / 2 == 3.5`)
