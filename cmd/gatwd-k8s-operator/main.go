@@ -69,7 +69,7 @@ func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize boo
 		if noKustomize {
 			opts = append(opts, k8sgraph.WithoutKustomize())
 		}
-		app, err := newApplianceWith(nil, opts, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
+		app, err := newApplianceWith(nil, opts, s.Rules, s.Mode, cli.WithPolicy(s.Policy), s.BoundOptions())
 		return app, checkPipeline(manifests), err
 	}
 	if noKustomize {
@@ -79,13 +79,13 @@ func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize boo
 	if err != nil {
 		return nil, "", cli.UsageError(fmt.Errorf("no --manifests given and no cluster reachable (%v)", err))
 	}
-	app, err := newAppliance(client, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
+	app, err := newAppliance(client, s.Rules, s.Mode, cli.WithPolicy(s.Policy), s.BoundOptions())
 	return app, livePipeline(namespace), err
 }
 
 // newAppliance assembles the operator: the k8s edition, the embedded rules, and the override
 // (a mounted ConfigMap) combined with them according to mode. `compliance` is the entry point
-// every rule set must define. extra carries the execution policy (--allow-*); without it the
+// every rule set must define. extra carries the execution policy (--allow-*) and the per-check limits (--timeout, --max-output); without the policy the
 // rules, the override above all, may only compute.
 func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode, extra ...cli.ApplianceOption) (*cli.Appliance, error) {
 	return newApplianceWith(client, nil, override, mode, extra...)
