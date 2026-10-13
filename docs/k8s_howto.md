@@ -142,6 +142,37 @@ syntactically fine but fails when it runs is reported by the check itself as `[E
 rules instead (`--rules-mode replace`, see §3.2). The file then must be a complete rule set — a copy of the embedded
 file plus changes — and it cannot call `rule_*` names it does not define.
 
+**What an override may do (security).** An override is a script that did **not** come from the command line: it is
+a file somebody mounted, often from a ConfigMap that other people can edit. The language can do more than compute — a
+word that is not a step is run as an operating-system program, there are file and network steps, and `import` reads
+a file — so the operator starts the rules, the override above all, under a **deny-all policy** (decision D8):
+
+| Capability | What it is | Gated steps | Flag that grants it |
+| :-- | :-- | :-- | :-- |
+| `exec` | running OS commands | an unknown step word (`printf …`, `sh -c …`), `memoize CMD`, `zip CMD` | `--allow-exec` |
+| `fs` | touching files | `scan_file`, `scan_words`, `walk_fs`, `write_file`, `append_file`, `import "file"` | `--allow-fs` |
+| `net` | opening sockets | `dial_tcp`, `listen_tcp` | `--allow-net` |
+| `env` | reading the environment | (no builtin reads it yet; the switch for the one that will) | `--allow-env` |
+
+A denied step does not run; it is an error value, never an empty result — in text `[ERROR] step 'printf' requires the
+exec capability (policy denies it)`, in `--format json` an entry in `errors` and a structured one in `diagnostics`
+(`"kind":"capability_denied","step":"printf","capability":"exec"`). A top-level statement that needs a capability
+fails the **load** (exit 1, the file and the step are named); a rule that needs one fails the **check**.
+
+- **The override cannot widen its own policy.** The policy is set by the process's flags, in Go; no statement of the
+  language names it, so `const AllowExec = true` or a `def` that looks like a switch changes nothing (a test drives the
+  real binary through those attempts). A ConfigMap edit can never grant what the Deployment's `args:` do not.
+- **What stays allowed:** everything the operator wires itself — `manifests`, the cluster crawl (`k8s_resources`,
+  `k8s_*`) and the embedded rules — works with no flag; a pure override (graph rules, comprehensions) needs none.
+- **Imports:** an override's `import "sibling.gatwd"` reads a file, so it needs `--allow-fs`. Without it the start fails
+  with `import "…" requires the fs capability`; either inline the sibling file or grant the capability. (Imports of the
+  embedded rules are not file access and are always fine.)
+- **Which scripts run OS commands?** Only a script that is trusted: the one you name on the command line of `gatwd` or
+  `gatwd-k8s` (and `-e`, preludes, the REPL), or one you grant `--allow-exec` for. Scripts from anywhere else —
+  an override, a `RunOptions.Source` — do not.
+- **Time and size.** The Go API `Interpreter.Run` also takes a `context.Context` (a deadline kills a stuck step and the
+  OS command it started) and an output limit; the operator binary does not expose flags for them yet.
+
 ### 2.3 The graph model and its extension points
 
 Every resource becomes a node **coloured by its `kind`**, with the whole resource (a nested map) as
@@ -293,7 +324,7 @@ The static operator is a single ELF binary of roughly 31 MB (the in-process kust
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--fail-on-violation` (see below). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--fail-on-violation` (see below), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env` (all off, §2.2). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors

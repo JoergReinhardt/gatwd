@@ -793,6 +793,49 @@ before the script), `--no-prelude` (skip the embedded preludes; their steps stay
 `1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.
 
+### Execution policy, timeouts and output limits
+
+A script can start OS commands (a word that is not a step runs as a program), touch files, `import` files and open
+sockets. That is what a person at a terminal wants and what a mounted ConfigMap must not get, so the interpreter
+checks a **policy** — a set of capabilities — before such a step runs (decision D8):
+
+| Capability | Steps it gates |
+| :-- | :-- |
+| `exec` | an unknown step word, `memoize CMD`, `zip CMD` |
+| `fs` | `scan_file`, `scan_words`, `walk_fs`, `write_file`, `append_file`, `import "file"` (an embedded import is not file access) |
+| `net` | `dial_tcp`, `listen_tcp` |
+| `env` | nothing yet: no builtin reads the environment; an Edition step takes part through `Interpreter.RequireCapability` |
+
+A denied step yields `[ERROR] step 'printf' requires the exec capability (policy denies it)` — an error value on the
+same channel as every other failure, never an empty result. Steps an Edition wires itself (`RegisterStep`,
+`AdapterStep`: the cluster crawl, `manifests`) are the author's decision and stay allowed.
+
+**Who is trusted.** The script you name on the command line, `-e`, `--prelude` files and the REPL run under
+`cli.TrustedPolicy()` (everything allowed; `NewInterpreter` starts there). Anything that did not come from the
+command line starts from `cli.DenyAll()`: an Appliance's rules and override (`cli.WithPolicy`, the `--allow-*` flags),
+and a script given as text to `Run`. Nothing inside a script can widen the policy — it is set in Go and no statement
+names it.
+
+**`Run` and its bounds.** `RunOptions` carries them (they are installed for the call and restored after it):
+
+| Field | Meaning |
+| :-- | :-- |
+| `Source` | a script as text (a ConfigMap value, an API body) instead of `Script`'s path; with no `Policy` it runs under `DenyAll` |
+| `Policy` | a `*cli.Policy` for this run (nil: the interpreter's own) |
+| `Context` | a deadline or cancel: every pipeline step stops at the next node, the loop over top-level statements stops, an OS command a step started is killed; `Run` returns an error wrapping the cause (`errors.Is(err, context.DeadlineExceeded)`). Cooperative: one non-terminating evaluation of a single element cannot be interrupted |
+| `MaxOutput` | bytes the run may print and return; past it the output is dropped, the run is cancelled and `Run` returns an error wrapping `cli.ErrOutputLimit` |
+
+```go
+p := cli.Policy{}                                  // may only compute
+ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+defer cancel()
+res, err := interp.Run(cli.RunOptions{Source: body, Policy: &p, Context: ctx, MaxOutput: 1 << 20})
+```
+
+**Failures have a shape.** `cli.FailureOf(err)` classifies an error value — `capability_denied` (with `Step` and
+`Capability`), `unknown_step`, `stopped`, `error` — and the Appliance's `--format json` report carries the same
+objects in a `diagnostics` array (below). The free-text `[ERROR]` line is unchanged.
+
 ### The Appliance command line
 
 An Appliance binary (for example `gatwd-k8s-operator`) gets its own tree from `cli.NewApplianceTree`, because it is
@@ -813,6 +856,7 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--interval DUR` | `run`/legacy form: wait between checks; the override is re-read each time |
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
 | `--fail-on-violation` | `check`: exit 1 when the result is non-empty (rejected for `run`, which never exits on violations) |
+| `--allow-exec` `--allow-fs` `--allow-net` `--allow-env` | grant the rules (the override above all) a capability; all denied by default, see *Execution policy* below |
 
 The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
 single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
