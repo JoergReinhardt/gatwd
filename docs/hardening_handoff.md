@@ -14,23 +14,18 @@
 All were raised by the tracks and the closing checklist (2026-10-13); none blocks anything. Present each with its default so the user can answer in one line, record the answers
 (with the date) in `docs/hardening_plan.md` §1 and in §2 here. If the user says "defaults", use the recommended column and say so in the plan.
 
+**The Q1–Q11 of the previous handoff were answered on 2026-10-13** (plan §1, "Answered after the closing checklist") and implemented: pushed; typed time tokens; value-typed sets; operator `--timeout`/`--max-output`;
+`Duration` stays literal text in JSON/YAML; override imports stay behind `--allow-fs`; no `env` builtin yet; age rules stay an example override; Secret `data` is documented, not redacted. **Open now:**
+
 | # | Open question | Recommended default |
 | :-- | :-- | :-- |
-| Q1 | **Push** the local commits (`git log --oneline origin/master..HEAD`; about 45, everything since `24ef7c8`)? | push |
-| Q2 | Typed tokens for the new literals (plan §5.6 T1): should `const X = 30d`, `emit 5s`, `-D X=5s` bind a real `Duration` (as numbers do) instead of text? | yes |
-| Q3 | `Duration` in JSON/YAML (T2): keep the literal text (`"1h30m"`) or ISO 8601 (`"PT1H30M"`)? | keep the literal (it reads back through the DSL) |
-| Q4 | Layout-based `strptime`-style parsing (T3)? | defer until a rule needs it |
-| Q5 | `to_set` / `distinct` still deduplicate by printed form (Track G deferral; DSL test 55 asserts `set_contains [1 2]` on such a Set). Make them value-typed? | yes, a small follow-up |
-| Q6 | May an override's `import` of files **in its own directory** work without `--allow-fs`? | no, stay strict |
-| Q7 | Add a script-reachable `env` builtin (today `AllowEnv` gates nothing)? | only when something needs it |
-| Q8 | Operator per-check timeout / output-limit flags: names and exit status on timeout? | `--timeout`, `--max-output`, exit 1 |
-| Q9 | Should an age / image-tag / expiry rule join the six **embedded** operator rules, or stay an example override (`examples/k8s_howto/age_rules.gatwd`)? | stay an example |
-| Q10 | Redact Secret `data` at ingest (it is held in the graph today; the how-to has a no-Secrets recipe)? | document, do not redact by default |
-| Q11 | Allow a rule result a message as a third element so `str_format` can build it (changes the `[Rule, resource]` contract)? | defer |
+| Q1 | **Apply to the cluster** (the tool is read-only today; the shipped RBAC grants `get`/`list`): a write adapter in `adapters/` behind `cli.AdapterStep`, a new `AllowCluster` capability in `cli.Policy` (denied by default), `--dry-run` as the default, server-side apply with a field manager, an offline twin that writes rendered YAML to a directory, a separate opt-in RBAC role; first version apply only (no delete/prune), in `gatwd-k8s` before the operator. | yes, as proposed |
+| Q2 | Push the commits since `66a2abe` (the merges of Tracks I, J, K and the doc commits)? | push |
+| Q3 | Signal handling in the operator `run` loop, bounding rule load/hot reload (Track K's open items); the quoted `const Q = "2+3"` evaluation (Track I); `BST[string]` still stringifies (Track J). | queue as small tracks |
 
 ## 1. Where we are
 
-**State (2026-10-13):** `master` contains everything; the remote is at `24ef7c8`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
+**State (2026-10-13):** `master` contains everything; the remote is at `66a2abe`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
 Stage by name; commit and push only when asked.
 
 **Done and merged** (plan §0 has a row each): W0, W1a/b, W2 (+ YAML, `go.yaml.in/yaml/v3` on the Clean Core allowlist for `pkg/cli`), W3 (numeric tower, `Ratio`, prefix `!`), W4 (qualified ids), W5 (kustomize, Go 1.27),

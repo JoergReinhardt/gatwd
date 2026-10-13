@@ -1,6 +1,6 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
-> **Status (2026-10-13): W0–W7, YAML, the time types and the follow-ups are implemented and merged (see §0); only the closing checklist (§10.1) remains.** Progress table: §0.
+> **Status (2026-10-13): W0–W7, YAML, the time types and the follow-ups are implemented and merged (see §0); everything in the plan is done; what remains are the optional follow-ups of the handoff §0.** Progress table: §0.
 > **All decisions D1–D10 are answered** (§1, 2026-10-13); **D11–D13 (the `Ratio` type, §6.1) are decided on the recommendation**. Two answers carry a point to settle when their phase starts: D1 (the
 > details of the two-way `Char`/`String` conversion, W2) and D7 (auto-render, W5).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
@@ -54,7 +54,8 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | String vs collection equality (Track G, `0d30e85`) | **done and merged**: canonical, collision-free HAMT keys (`evaluator/hamt_key.go`), the printed-form fallback removed from `StructuralEqual`. Notes: §6.3. Open: `to_set`/`distinct` steps still deduplicate by printed form (recommended: make them value-typed). |
 | §5.6 `Duration`/`Time`/`Date` (Track F, `51830ae`) | **done and merged**: three core types, unit/`@` literals, arithmetic, function forms, `now` through an injectable clock, checker support, JSON/YAML as strings; time keys encoded by UTC instant in `EncodeKey`. Notes: §5.6; open T1-T3 there. |
 | W7 execution policy (Track H, `84a5c85`) | **done and merged**: `cli.Policy`, capability gates (exec, fs, net; env has no builtin yet), `RunOptions.Source/Policy/Context/MaxOutput`, operator `--allow-*` flags, deny-by-default overrides, `diagnostics` in the JSON report. Notes: §9. Deferred: `parser.FormatError` wiring, operator timeout/output-limit flags. |
-| Closing checklist (§10.1) | in progress (branch `hardening/closing`). |
+| Closing checklist (§10.1) | **done and merged** (2026-10-13): every row marked done with a commit or deferred with a reason; the how-to is pinned by `cmd/gatwd-k8s-operator/doc_test.go`. |
+| Follow-ups after the checklist (Tracks I, J, K) | **done and merged** (2026-10-13): typed `Duration`/`Time`/`Date` tokens for `emit`/`const`/`-D` (§5.6.2); value-typed `to_set`/`distinct` on the new `collections.Setoid` (§6.3a); operator `--timeout`/`--max-output` with failure kinds `timeout`/`output_limit` (§9). |
 | Merged-tree gates (2026-10-13) | `go vet`, `go test ./...`, `./run_dsl_tests.sh`, `-race`, silent `--check` all green; script regression diff against `2526cc0`: only explained differences (ids, `collect_list` now loud, the big-integer `+`, the cheatsheet's new step; the visualizer tours and `tour_23` differ between runs of the same binary). |
 
 ---
