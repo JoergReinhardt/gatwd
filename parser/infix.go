@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,18 +16,20 @@ type TokenType int
 
 // The Tok* constants enumerate the lexical token kinds produced by TokenizeInfix.
 const (
-	TokEOF      TokenType = iota // TokEOF marks the end of the token stream.
-	TokNumber                    // TokNumber is an integer, float, or complex literal.
-	TokString                    // TokString is a double-quoted string literal (quotes stripped).
-	TokIdent                     // TokIdent is an identifier: variable, constant, or boolean literal.
-	TokOp                        // TokOp is a binary operator such as +, *, ==, or &&.
-	TokLParen                    // TokLParen is an opening parenthesis '('.
-	TokRParen                    // TokRParen is a closing parenthesis ')'.
-	TokLBracket                  // TokLBracket is an opening bracket '[' (list or comprehension).
-	TokRBracket                  // TokRBracket is a closing bracket ']'.
-	TokComma                     // TokComma is an element or clause separator ','.
-	TokPipe                      // TokPipe is the list-comprehension bar '|'.
-	TokArrow                     // TokArrow is the generator binding arrow "<-".
+	TokEOF       TokenType = iota // TokEOF marks the end of the token stream.
+	TokNumber                     // TokNumber is an integer, float, or complex literal.
+	TokString                     // TokString is a double-quoted string literal (quotes stripped).
+	TokIdent                      // TokIdent is an identifier: variable, constant, or boolean literal.
+	TokOp                         // TokOp is a binary operator such as +, *, ==, or &&.
+	TokLParen                     // TokLParen is an opening parenthesis '('.
+	TokRParen                     // TokRParen is a closing parenthesis ')'.
+	TokLBracket                   // TokLBracket is an opening bracket '[' (list or comprehension).
+	TokRBracket                   // TokRBracket is a closing bracket ']'.
+	TokComma                      // TokComma is an element or clause separator ','.
+	TokPipe                       // TokPipe is the list-comprehension bar '|'.
+	TokArrow                      // TokArrow is the generator binding arrow "<-".
+	TokLambda                     // TokLambda is the lambda introducer '\\'.
+	TokThinArrow                  // TokThinArrow is the lambda body arrow "->".
 )
 
 // TokenItem is a single lexical token: its Type classifies it (one of the Tok*
@@ -96,6 +99,11 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		// <-, ->, ++, ==, !=, <=, >=, &&, ||, //
 		if i+1 < n {
 			two := string(runes[i : i+2])
+			if two == "->" {
+				tokens = append(tokens, TokenItem{Type: TokThinArrow, Text: "->"})
+				i += 2
+				continue
+			}
 			if two == "<-" {
 				tokens = append(tokens, TokenItem{Type: TokArrow, Text: "<-"})
 				i += 2
@@ -108,6 +116,12 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			}
 		}
 
+		if r == '\\' {
+			tokens = append(tokens, TokenItem{Type: TokLambda, Text: "\\"})
+			i++
+			continue
+		}
+
 		if r == '|' {
 			tokens = append(tokens, TokenItem{Type: TokPipe, Text: "|"})
 			i++
@@ -116,7 +130,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 
 		// Single-character operators: +, -, *, /, %, <, >
 		if r == '+' || r == '-' || r == '*' || r == '/' || r == '%' || r == '<' || r == '>' {
-			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokLParen || tokens[len(tokens)-1].Type == TokLBracket || tokens[len(tokens)-1].Type == TokComma || tokens[len(tokens)-1].Type == TokPipe || tokens[len(tokens)-1].Type == TokArrow)
+			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokLParen || tokens[len(tokens)-1].Type == TokLBracket || tokens[len(tokens)-1].Type == TokComma || tokens[len(tokens)-1].Type == TokPipe || tokens[len(tokens)-1].Type == TokArrow || tokens[len(tokens)-1].Type == TokThinArrow)
 			if (r == '-' || r == '+') && isUnary && i+1 < n && (unicode.IsDigit(runes[i+1])) {
 				// Parse signed number below
 			} else {
@@ -224,24 +238,32 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	}
 
 	if e.Op == functions.OpConcat {
-		if res, err := functions.EvalBinaryOp(e.Op, l, r); err == nil {
-			return res, nil
-		}
-		leftItems, errL := extractItems(l)
-		rightItems, errR := extractItems(r)
-		if errL == nil && errR == nil {
-			var combined []any
-			combined = append(combined, leftItems...)
-			combined = append(combined, rightItems...)
-			res := collections.Nil[any]()
-			for idx := len(combined) - 1; idx >= 0; idx-- {
-				res = collections.Cons(combined[idx], res)
-			}
-			return res, nil
-		}
+		return ConcatValues(l, r)
 	}
 
 	return functions.EvalBinaryOp(e.Op, l, r)
+}
+
+// ConcatValues is the `++` Monoid operation as a Go function: it tries the native
+// binary operator first (strings, Sets, HAMTs, Graphs, Trees and the other monoids)
+// and, failing that, treats both operands as sequences and appends them into one
+// immutable cons list. It is shared by the infix `++` operator and the `concat`
+// expression function so the two are behaviorally identical.
+func ConcatValues(l, r any) (any, error) {
+	if res, err := functions.EvalBinaryOp(functions.OpConcat, l, r); err == nil {
+		return res, nil
+	}
+	leftItems, errL := extractItems(l)
+	rightItems, errR := extractItems(r)
+	if errL == nil && errR == nil {
+		combined := append(append([]any(nil), leftItems...), rightItems...)
+		res := collections.Nil[any]()
+		for idx := len(combined) - 1; idx >= 0; idx-- {
+			res = collections.Cons(combined[idx], res)
+		}
+		return res, nil
+	}
+	return functions.EvalBinaryOp(functions.OpConcat, l, r)
 }
 
 // ListLiteralExpr represents a list literal: [1, 2, 3]
@@ -482,9 +504,8 @@ func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	fn, ok := hv.(functions.DSLFunc)
-	if !ok {
-		return nil, fmt.Errorf("cannot apply non-function value of type %T", hv)
+	if !functions.IsCallable(hv) {
+		return nil, &ApplyError{Err: fmt.Errorf("cannot apply non-function value of type %T", hv)}
 	}
 	args := make([]any, len(e.Args))
 	for idx, a := range e.Args {
@@ -494,7 +515,57 @@ func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		}
 		args[idx] = av
 	}
-	return fn(args)
+	res, err := functions.Apply(hv, args)
+	if err != nil {
+		var already *ApplyError
+		if errors.As(err, &already) {
+			return nil, err
+		}
+		return nil, &ApplyError{Err: err}
+	}
+	return res, nil
+}
+
+// ApplyError marks an error raised by function application itself — a non-callable
+// head or a callee that returned an error — as opposed to a lexical or name-resolution
+// failure (`undefined identifier`). The distinction lets the interpreter fall back
+// to other parses when an expression merely does not resolve, yet report loudly when a
+// real call was made and failed. Its message is the underlying error's.
+type ApplyError struct{ Err error }
+
+// Error returns the underlying error's message unchanged.
+func (e *ApplyError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the underlying error to errors.Is/As.
+func (e *ApplyError) Unwrap() error { return e.Err }
+
+// LambdaExpr is an interior Expr node for a lambda abstraction `\x y -> body`. Its
+// Eval does not run the body: it returns a *functions.Closure that captures the
+// lookup function of the defining environment (lexical scope) and evaluates Body
+// later, once all Params are supplied, with the parameters shadowing that
+// environment. Because Closure implements currying, `\x y -> …` applied to one
+// argument yields a function awaiting y.
+type LambdaExpr struct {
+	Params []string
+	Body   Expr
+}
+
+// Eval returns the Closure for this lambda over the given defining environment.
+func (e LambdaExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	params, body := e.Params, e.Body
+	return functions.NewClosure(params, func(args []any) (any, error) {
+		return body.Eval(func(name string) (any, bool) {
+			for idx := len(params) - 1; idx >= 0; idx-- {
+				if params[idx] == name {
+					return args[idx], true
+				}
+			}
+			if lookup != nil {
+				return lookup(name)
+			}
+			return nil, false
+		})
+	}), nil
 }
 
 // InfixParser builds an Expr using precedence climbing.
@@ -656,6 +727,25 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 	case TokIdent:
 		return VarExpr{Name: tok.Text}, nil
 
+	case TokLambda:
+		// `\x y -> body`: the body extends as far right as possible and is an
+		// ordinary application context, even inside a plain list literal.
+		var params []string
+		for p.peek().Type == TokIdent {
+			params = append(params, p.next().Text)
+		}
+		if len(params) == 0 || p.next().Type != TokThinArrow {
+			return nil, fmt.Errorf("malformed lambda: expected `\\x y -> body`")
+		}
+		savedApp := p.appDisabled
+		p.appDisabled = false
+		body, err := p.parsePrecedence(0)
+		p.appDisabled = savedApp
+		if err != nil {
+			return nil, err
+		}
+		return LambdaExpr{Params: params, Body: body}, nil
+
 	case TokLParen:
 		// A parenthesised group is a fresh application context — `(f x)` applies even
 		// when it sits inside a plain list literal — so re-enable application here.
@@ -695,7 +785,7 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 
 			var generators []Generator
 			var filters []Expr
-				var filterAfter []int
+			var filterAfter []int
 
 			for {
 				if p.peek().Type == TokRBracket || p.peek().Type == TokEOF {
@@ -773,10 +863,10 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 
 			p.appDisabled = savedApp
 			return ListComprehensionExpr{
-				YieldExpr:  firstExpr,
-				Generators: generators,
+				YieldExpr:   firstExpr,
+				Generators:  generators,
 				Filters:     filters,
-					FilterAfter: filterAfter,
+				FilterAfter: filterAfter,
 			}, nil
 		}
 

@@ -9,7 +9,9 @@ Comment        ::= "--" { ANY_CHAR } "\n"
 
 (* Modularity & Reusability *)
 Import         ::= "import " StringLiteral
-FunctionDef    ::= "def " Identifier "=" Pipeline
+FunctionDef    ::= "def " Identifier [ ":" TypeAnnotation ] "=" ( Pipeline | LambdaExpr )   (* the annotation is advisory: read by `gatwd --check`, ignored by evaluation *)
+TypeAnnotation ::= TypeAtom { "->" TypeAtom }                                  (* right-associative; "(" TypeAnnotation ")" groups *)
+TypeAtom       ::= Identifier [ "(" TypeAnnotation { "," TypeAnnotation } ")" ]
 LetBinding     ::= "let " Identifier "=" Pipeline " in " Pipeline
 
 (* Type Definitions (Algebraic Data Types) *)
@@ -35,9 +37,13 @@ PipelineStep   ::= OSCommand
                  | "map " Lambda
                  | Lambda                         (* bare lambda applies to the incoming value *)
                  | FuncName                        (* a def, incl. lambda-bodied, applied by name *)
+                 | FuncName Atom { Atom }          (* a closure applied to arguments; the incoming value is the LAST argument *)
+                 | "fold " Atom [ Atom ]           (* fold a 2-ary closure (name or partial application) with optional seed *)
+                 | "filter " Atom | "reject " Atom (* a predicate closure instead of an inline lambda *)
                  | LetBinding                      (* let x = Pipeline in Pipeline, as a step *)
 
 FoldOp         ::= "count" | "sum" | "product" | "min" | "max" | "concat" | "any" | "all"
+                 | Lambda Atom                    (* custom left fold: fold (\acc x -> expr) seed *)
 Lambda         ::= [ "(" ] "\\" Identifier "->" Pipeline [ ")" ]
 
 (* Error Handling & Compliance *)
@@ -45,6 +51,7 @@ Lambda         ::= [ "(" ] "\\" Identifier "->" Pipeline [ ")" ]
                  | "filter " StringLiteral
 
 (* Arrow Routing (Kleisli & Applicative) *)
+                 | "(" Pipeline { " <+> " Pipeline } ")"  (* ArrowPlus: run the incoming node through every branch, concatenate outputs in order *)
                  | "(" OSCommand " &&& " OSCommand ")"
                  | "[" OSCommand " *** " OSCommand "]"
                  | "zip " OSCommand
@@ -77,6 +84,7 @@ FuncName       ::= Identifier   (* an Identifier bound by a `def` *)
 Expr           ::= (* infix arithmetic/relational/boolean expression, Application, Comprehension, or Literal *)
 Application    ::= Atom { Atom }   (* juxtaposition: `f a b` applies f to a, b; binds tighter than any operator *)
 Atom           ::= Identifier | Literal | StringLiteral | "(" Expr ")" | "[" ... "]"
+LambdaExpr     ::= "\\" Identifier { Identifier } "->" Expr   (* a Closure VALUE; body extends as far right as possible; parenthesise to pass as an argument *)
 Literal        ::= Integer | StringLiteral | "[" [ Expr { "," Expr } ] "]"
 Identifier     ::= ALPHA { ALPHA | DIGIT | "_" }
 StringLiteral  ::= "\"" { ANY_CHAR } "\""
@@ -84,6 +92,36 @@ Integer        ::= DIGIT { DIGIT }
 ALPHA          ::= "A".."Z" | "a".."z"
 DIGIT          ::= "0".."9"
 ```
+
+### Optional type annotations and `gatwd --check` (gradual typing)
+
+`def name : Type = body` carries an optional, purely advisory signature:
+`def inc : Int -> Int = \x -> x + 1`, `def pairs : List(Int) -> Int -> Bool = …`.
+`Type ::= Atom { "->" Type }` (right-associative), `Atom ::= Ident [ "(" Type { "," Type } ")" ] | "(" Type ")"`;
+names declared by `type Alias = Int` resolve to their right-hand side. The annotation
+never changes evaluation. `gatwd --check` reads it and, with local inference from
+literals, operators, let bindings and comprehension generators, reports as
+*warnings* (exit status unaffected) the definite contradictions it can see: wrong
+argument or result types, too many arguments (to a def or a builtin), operators the
+runtime matrix rejects for the operand types (`"a" - 1`, `[1] * 2`), unbound names in
+expressions, and a `spawn IntVal: hello` seed that contradicts a numeric/Bool alias.
+Anything it cannot determine is `Any`, which is consistent with every type — so valid
+programs, and everything produced at runtime, are never flagged.
+
+### Closures: lambdas as values, currying, lexical scope
+
+`\x y -> x + y` is an *expression* that evaluates to a `functions.Closure` carrying
+its parameter list and the name environment of its definition site (lexical scope).
+Closures are **curried**: applying fewer arguments than the arity yields a closure
+awaiting the rest (`add 1` ⇒ `\y -> 1 + y`), exactly the isomorphism
+`(A×B → C) ≅ (A → B → C)`, and applying more arguments applies the result to the
+surplus (`mk 5 10` where `mk = \k -> \x -> x + k`). A lambda-bodied `def` and a
+`let`-bound lambda are the same kind of value, so they can be passed to
+`map`/`filter`/`reject`/`fold` by name or as a partial application
+(`map (add 10)`, `fold add 0`, `filter is_pos`). In pipeline position
+`x |> f a b` applies `f a b x` — the incoming value is the LAST argument, the
+Haskell data-last convention; a bare one-argument closure name maps over the incoming
+collection. A `def` whose body is not a single lambda stays a pipeline macro.
 
 ### Function application in expressions (juxtaposition)
 
@@ -114,3 +152,21 @@ its tag **string** `"Owns"`, so relation rules need not quote colors. These reso
 in every expression context (fold/map/filter reducer bodies, comprehension
 sources/yields, bare expressions) via a low-priority lookup fallback, so a user
 binding of the same name always wins.
+
+The **operator-type matrix** is also available as expression functions (Workstream E),
+all *data-last* and *curried*, preserving element types: `map filter reject fold
+flatmap bimap`; sequences `length is_empty head tail nth reverse cons concat range
+member to_list to_set`; Set `set_empty set_add set_remove set_contains set_union
+set_intersect set_diff set_elements`; HAMT `hamt_empty hamt_from hamt_set hamt_del
+hamt_has hamt_keys hamt_values hamt_pairs hamt_merge hamt_diff hamt_intersect`; Tree
+`tree_leaf tree_node tree_add_child tree_value tree_children tree_size tree_depth
+tree_flatten tree_member`; BST `bst_empty bst_from bst_insert bst_member`; Pair `pair
+fst snd pair_swap`; Maybe/Either `just nothing is_just is_nothing maybe_default
+maybe_fold either_left either_right is_left is_right either_default either_fold`;
+Variant `variant variant_tag variant_payload is_variant` (`variant "Circle" 3` boxes a
+declared constructor with its payload); primitives `min max abs negate compare`.
+`map`/`filter`/`fold`/`bimap` dispatch on the carrier (List, Chunk, Set, HAMT values,
+Tree, BST for fold, Pair second component, Maybe, Either-Right, Variant payload).
+Errors are values: a wrong carrier, non-callable, out-of-range index or unhashable Set
+element yields an `[ERROR]` result rather than a silent no-op. A call used as an
+element of a *plain* list literal needs parentheses: `[(tree_leaf 2), (tree_leaf 3)]`.

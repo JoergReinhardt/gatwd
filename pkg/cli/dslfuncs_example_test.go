@@ -28,3 +28,30 @@ func Example_graphIngestFromRecords() {
 	fmt.Println(res[0])
 	// Output: web
 }
+
+// Example_graphInOfOutOf shows the colour-filtered adjacency function forms. A rule
+// asks "does anything of this colour point at x?" — an empty list means no — so a
+// comprehension can find the roots of a relation (here, the nodes no Owns edge enters).
+func Example_graphInOfOutOf() {
+	interp := cli.NewInterpreter()
+	interp.EvaluateScript(`def g_chain = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_edges [["Owns", 1, "a", "b"], ["Owns", 1, "b", "c"]] g) graph_empty`)
+	in := interp.EvaluateToValues(`["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_in_of "Owns" "b" g) 0`)
+	out := interp.EvaluateToValues(`["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_out_of "Owns" "b" g) 0`)
+	roots := interp.EvaluateToValues(`["a", "b", "c"] |> g_chain |> fold (\_ g -> [ n | n <- ["a", "b", "c"], (graph_in_of "Owns" n g) == [] ]) 0`)
+	fmt.Println(in[0], out[0], roots[0])
+	// Output: [a] [c] [a]
+}
+
+// Example_graphAlgorithmsInComprehension runs whole-graph algorithms (strongly
+// connected components, topological order, shortest path) from inside a rule: here a
+// dependency cycle is found with graph_scc, and a safe apply order is empty exactly
+// when a cycle exists.
+func Example_graphAlgorithmsInComprehension() {
+	interp := cli.NewInterpreter()
+	interp.EvaluateScript(`def g_cycle = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_edges [["Owns", 1, "x", "y"], ["Owns", 1, "y", "x"], ["Owns", 1, "y", "z"]] g) graph_empty`)
+	cycles := interp.EvaluateToValues(`["x", "y", "z"] |> g_cycle |> fold (\_ g -> [ c | c <- (graph_scc g), (length c) > 1 ]) 0`)
+	order := interp.EvaluateToValues(`["x", "y", "z"] |> g_cycle |> fold (\_ g -> graph_topo_sort g) 0`)
+	path := interp.EvaluateToValues(`["x", "y", "z"] |> g_cycle |> fold (\_ g -> graph_shortest_path "x" "z" g) 0`)
+	fmt.Println(cycles[0], order[0], path[0])
+	// Output: [[x y]] [] [x y z]
+}

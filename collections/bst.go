@@ -1,5 +1,7 @@
 package collections
 
+import "iter"
+
 // BST is an immutable functional Binary Search Tree.
 type BST[T any] struct {
 	value T
@@ -41,4 +43,46 @@ func (b *BST[T]) Graph() any {
 		Left  *BST[T]
 		Right *BST[T]
 	}{Value: b.value, Left: b.left, Right: b.right}
+}
+
+// Contains reports whether v is in the tree under the comparator cmp (the same total
+// order Insert used). A nil tree is empty and contains nothing. It runs in O(depth)
+// by following a single root-to-leaf path.
+func (b *BST[T]) Contains(v T, cmp func(a, b T) int) bool {
+	for b != nil {
+		switch c := cmp(v, b.value); {
+		case c < 0:
+			b = b.left
+		case c > 0:
+			b = b.right
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// Size returns the number of values stored (duplicates were ignored on Insert). A
+// nil tree has size 0.
+func (b *BST[T]) Size() int {
+	if b == nil {
+		return 0
+	}
+	return 1 + b.left.Size() + b.right.Size()
+}
+
+// Seq yields the values in ascending (in-order) sequence, lazily, so a BST is a
+// Foldable: a search tree's catamorphism is the sorted sequence. A nil tree yields
+// nothing.
+func (b *BST[T]) Seq() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		b.walk(yield)
+	}
+}
+
+func (b *BST[T]) walk(yield func(T) bool) bool {
+	if b == nil {
+		return true
+	}
+	return b.left.walk(yield) && yield(b.value) && b.right.walk(yield)
 }

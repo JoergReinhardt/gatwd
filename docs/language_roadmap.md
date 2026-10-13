@@ -1,43 +1,45 @@
 # Language Roadmap — Staying Interpreted: First-Class Functions & Gradual Typing
 
-> **Status:** in progress (2026-10-12). Companion to [`docs/assessment.md`](assessment.md), which
-> diagnosed the two main gaps vs. Haskell/Elm. This doc scopes *how much of those gaps is reachable
-> while keeping `gatwd` an interpreted, dynamically/gradually-typed language* — and sketches the
-> concrete approach against the code that exists today.
+> **Status:** COMPLETE (2026-10-13) — every workstream is implemented, tested (Go structural tests,
+> `Example*`, self-asserting `tests/dsl_exhaustive_test.gatwd` §§56–80) and documented
+> ([`docs/grammar.md`](grammar.md)). Companion to [`docs/assessment.md`](assessment.md), which diagnosed
+> the two main gaps vs. Haskell/Elm. This doc scoped *how much of those gaps is reachable while keeping
+> `gatwd` an interpreted, dynamically/gradually-typed language*.
 >
 > **Progress:**
-> - ✅ **Workstream A — ADT constructor matching: DONE.** `Parser.IsConstructor`/`MakeVariant` added;
->   a constructor arm (matching a `Variant` tag or exact tag string) now runs before the variable-binding
->   arm in the `match` evaluator, so `match { Red -> … | Green -> … }` routes correctly while fresh
->   variables (e.g. `conway_step`'s `live ->`) still bind. Covered by `tests/dsl_exhaustive_test.gatwd`
->   (#56) and `parser.TestParser_IsConstructorAndMakeVariant`.
-> - ◑ **Workstream B — first-class functions: pipeline-position slice DONE; expression-position
->   application slice DONE.** A bare/paren lambda in pipeline position applies to the incoming value,
->   making lambda-bodied `def`s first-class and composable: `def inc = \x -> x + 1` then `5 |> inc`,
->   `5 |> (\x -> x*10)`, `inc |> dbl`, `let f = \x -> … in 5 |> f`, and `map inc` all work (test #57).
->   **Expression-position application `f a b` now also works** (the previously-deferred infix-parser
->   surgery), landed 2026-10-13 as a by-product of the k8s-graph ingest work: `functions.DSLFunc`
->   (type-erased callable value) + `parser/infix.go` `ApplyExpr`/`parseApplication` (juxtaposition binds
->   tighter than operators; an `appDisabled` guard keeps space-separated list literals `[2 1]` parsing as
->   separate elements; parens/comprehensions re-enable application). This is the vehicle for the proposed
->   **Workstream E** (§6). **Still deferred:** promoting the current re-parsed-text `def` macro to a real
->   `Closure` value kind, multi-argument *lambdas* (`\x y -> …` as a value), and currying — see §2.
-> - ◑ **Workstream C — loud errors + diagnostics: core DONE.** Unknown pipeline steps (neither a
->   builtin/function nor an available executable) now surface `[ERROR] unknown step or command: "x"`
->   instead of vanishing silently (`EitherT` propagates error-valued adapter results as `Left`;
->   `GenericExecAdapter` emits an error on `exec.LookPath` failure). `gatwd --check` is now a real
->   structural validator (unbalanced delimiters, `def`/`const`/`type` missing `=`, trailing `|>`, legacy
->   `:=`) over *logical* statements — physical lines joined via the new shared `logicalLines` helper —
->   with zero false positives across every repo script. Tests: `TestUnbalancedDelimiter`,
->   `TestLogicalLines_JoinsMultilineStatements`, `TestUnknownStepFailsLoudly`. **Deferred:** wiring
->   `parser/errors.go` `FormatError` into the line-based top-level parser (it is combinator-level; low ROI).
-> - ◑ **Workstream D — gradual typing: exhaustiveness DONE.** `gatwd --check` now reports
->   **non-exhaustive `match`** warnings for a closed sum type (keyed off `Parser.SumTypeOf` /
->   `SumTypeDefinition.Branches`): a match whose arms are all constructors of one type, with no catch-all
->   (`_` / bare variable), warns which branches are uncovered (e.g. `missing Darwin`). Local and
->   registry-driven — no type inference needed. Advisory (exit 0). Test: `TestCheckExhaustiveMatch`.
->   **Deferred (the larger, more speculative part):** optional type annotations (D1) and local/bidirectional
->   inference (D2) — a much bigger subsystem whose ROI is lower for a dynamically-typed interpreter.
+> - ✅ **Workstream A — ADT constructor matching.** `Parser.IsConstructor`/`MakeVariant`; a constructor
+>   arm runs before the variable-binding arm in `match`. Tests: dsl #56, `TestParser_IsConstructorAndMakeVariant`.
+> - ✅ **Workstream B — first-class functions.** `functions.Closure` (`functions/closure.go`) is a real,
+>   curried, lexically-scoped function value: `\x y -> body` is an *expression* (`parser.LambdaExpr`, new
+>   `\`/`->` tokens) that captures its defining environment; `Apply` curries on under-application and
+>   re-applies on over-application. A lambda-bodied `def`, a `let`-bound lambda and a partial application
+>   are the same kind of value, usable in expression position (`add 1 2`, `(add 10) 5`, `mk 5 10`), in
+>   pipeline position data-last (`x |> add 3` = `add 3 x`), and by `map`/`filter`/`reject`/`fold`
+>   (`map (add 10)`, `fold add 0`, `filter is_pos`). Interpreter glue: `pkg/cli/closures.go`;
+>   `mapStepOver`/`filterStepOver` were extracted so inline lambdas and closures share one structural
+>   implementation. This also fixed the long-standing "multi-arg lambda `def` as `fold` reducer
+>   mis-evaluates" gotcha. Tests: `functions/closure_test.go`, `parser/lambda_test.go`,
+>   `pkg/cli/closures_test.go`, dsl #78. **Not done (by design):** a `def` whose body is a pipeline stays a
+>   re-parsed macro — it is a stream transformer, not a value function.
+> - ✅ **Workstream C — loud errors + diagnostics.** Unknown pipeline steps surface `[ERROR] unknown step
+>   or command`; `gatwd --check` is a real structural validator over logical lines (`CheckScript`). Now also:
+>   a first-part expression whose *call* fails returns the error (`parser.ApplyError`) instead of silently
+>   falling through to "(No output)". **Deferred:** wiring `parser/errors.go` `FormatError` into the
+>   line-based top-level parser (combinator-level; low ROI).
+> - ✅ **Workstream D — gradual typing.** D3 exhaustiveness (non-exhaustive `match` warnings) plus
+>   **D1** optional annotations (`def inc : Int -> Int = …`, `ParseTypeAnnotation`, advisory only) and
+>   **D2** local inference (`pkg/cli/typecheck.go`): types flow from literals, operators, annotated
+>   parameters, let bindings and comprehension generators; reports wrong argument/result types, arity,
+>   operator misuse (decided by the *runtime operator matrix* on sample values, so checker and evaluator
+>   cannot disagree), unbound names, and bad `spawn` seeds — all as non-blocking warnings, `Any` consistent
+>   with everything, zero warnings across every repo script. Tests: `pkg/cli/typecheck_test.go`.
+> - ✅ **Workstream E — expression-level function forms across the operator-type matrix.** 74 new curried,
+>   data-last, type-preserving function forms in `pkg/cli/dslfuncs_matrix.go` (+ carrier-polymorphic
+>   `mapValue`/`filterValue`/`foldValue`/`bindValue` in `pkg/cli/valueops.go`): generic
+>   `map filter reject fold flatmap bimap`; sequences; Set; HAMT; Tree; **BST** (new `Contains`/`Size`/`Seq`
+>   at Layer 1); Pair; Maybe/Either; Variant (`variant "Circle" 3`); primitives. Pre-existing fixed-arity
+>   builtins (`hamt_get`, `graph_in_of`, …) became curried too. Tests: dsl #79 (91 assertions),
+>   `pkg/cli/dslfuncs_matrix_test.go`, `collections/bst_test.go`, `Example_matrixFunctionForms`.
 
 ## 0. Scope & non-goals
 
@@ -210,7 +212,7 @@ generics, and the no-runtime-type-error guarantee.
 
 ## 4b. Workstream E — Expression-level function forms across the operator-type matrix (RECOMMENDED)
 
-> **Status:** proposed (2026-10-13). **Independent of the Kubernetes-graph plan**
+> **Status:** DONE (2026-10-13). **Independent of the Kubernetes-graph plan**
 > ([`docs/k8s_graph_design.md`](k8s_graph_design.md)) — that plan only *motivated* and *seeded* it. This is a
 > general language change that stands on its own and benefits every program, so it is tracked here, not in
 > the k8s plan.
@@ -292,10 +294,10 @@ infra already covered by `parser/apply_test.go` and `pkg/cli/dslfuncs_test.go`.
 | 4 | **D1/D2** — annotations + checker/inference | ~3–5 days | C (`--check` entry) | yes (pre-pass) |
 | 4 | **D3** — exhaustiveness | ~1 day | A | yes (pre-pass) |
 | — | **E** — expression-level function forms across the operator-type matrix (recommended, independent) | ~1–3 days, incremental per type | B expression slice (✅ landed) | yes (additive registration) |
-
-**How much of each hurdle this recovers:**
 | — | **F** — Layers 0–2 as a reusable Go library (proposal, see §6) | multi-week, incremental | coordinate with B/E (same files) | yes (additive first; DSL moves behind a facade) |
 | — | **G** — program-level IR + pluggable backends (proposal, see §7) | IR: multi-week; backends: incremental | benefits from F (typed core); IR itself is independent | yes (interpreter becomes the first IR consumer) |
+
+**How much of each hurdle this recovers:**
 
 - **Hurdle B (first-class functions): ~fully.** Nothing about it needs static types or AOT; Workstream B
   closes it. Its expression-application slice is already landed, and **Workstream E** then turns that into

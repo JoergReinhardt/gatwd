@@ -1,0 +1,149 @@
+package cli
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/joergreinhardt/gatwd/functions"
+)
+
+// registerGraphFuncs adds the READ-side and inferred-edge function forms of the graph
+// row of the operator-type matrix, complementing the constructors and accessors in
+// dslfuncs.go. They are the expression-level twins of the graph_* pipeline steps and
+// take the graph as their LAST argument, like every graph function:
+//
+//	graph_add_inferred_edges specs g   twin of graph_add_edge_inferred, over a list of
+//	                                   [color weight from to] specs (assumed, trust-weighted)
+//	graph_has_node id g                is id a node of g?
+//	graph_nodes g                      node identities, sorted
+//	graph_order g / graph_size g       node / edge counts
+//	graph_edge_pairs color g           [from to] pairs of every edge of that color
+//	graph_reachable id g               ids reachable from id (including id), sorted
+//	graph_shortest_path from to g      node ids of a least-weight path, [] when none
+//	graph_topo_sort g                  a dependency order, [] when the graph is cyclic
+//	graph_scc g                        strongly connected components (lists of ids)
+//
+// With these a rule can run a whole-graph algorithm INSIDE a comprehension —
+// `[ c | c <- graph_scc g, length c > 1 ]` finds dependency cycles — rather than
+// only at the end of a pipeline.
+func registerGraphFuncs(m map[string]any) {
+	graphArg := func(v any) (dslGraph, error) {
+		g, ok := asDSLGraph(v)
+		if !ok {
+			return nil, fmt.Errorf("last argument must be a graph, got %T", v)
+		}
+		return g, nil
+	}
+	idList := func(ids []string) []any {
+		out := make([]any, len(ids))
+		for idx, id := range ids {
+			out[idx] = id
+		}
+		return out
+	}
+
+	defn(m, "graph_add_inferred_edges", "specs g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		specs, ok := functions.ToSliceAny(a[0])
+		if !ok {
+			return nil, fmt.Errorf("first argument must be a list of edge specs, got %T", a[0])
+		}
+		for _, spec := range specs {
+			f, ok := functions.ToSliceAny(spec)
+			if !ok || len(f) != 4 {
+				return nil, fmt.Errorf("each edge spec must be [color weight from to], got %v", spec)
+			}
+			g = g.AddInferredEdge(dslStr(f[2]), dslStr(f[3]), dslStr(f[0]), f[1])
+		}
+		return g, nil
+	})
+	defn(m, "graph_has_node", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		return g.HasNode(dslStr(a[0])), nil
+	})
+	defn(m, "graph_nodes", "g", func(a []any) (any, error) {
+		g, err := graphArg(a[0])
+		if err != nil {
+			return nil, err
+		}
+		ids := g.NodeIDs()
+		sort.Strings(ids)
+		return listOf(idList(ids)), nil
+	})
+	defn(m, "graph_order", "g", func(a []any) (any, error) {
+		g, err := graphArg(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.Order(), nil
+	})
+	defn(m, "graph_size", "g", func(a []any) (any, error) {
+		g, err := graphArg(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.Size(), nil
+	})
+	defn(m, "graph_edge_pairs", "color g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		var out []any
+		for _, e := range g.EdgesByColor(dslStr(a[0])) {
+			out = append(out, listOf([]any{e.From, e.To}))
+		}
+		return listOf(out), nil
+	})
+	defn(m, "graph_reachable", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		var ids []string
+		for _, id := range g.Reachable(dslStr(a[0])).Elements() {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		return listOf(idList(ids)), nil
+	})
+	defn(m, "graph_shortest_path", "from to g", func(a []any) (any, error) {
+		g, err := graphArg(a[2])
+		if err != nil {
+			return nil, err
+		}
+		path, _, ok := g.ShortestPath(dslStr(a[0]), dslStr(a[1]))
+		if !ok {
+			return listOf(nil), nil
+		}
+		return listOf(idList(path)), nil
+	})
+	defn(m, "graph_topo_sort", "g", func(a []any) (any, error) {
+		g, err := graphArg(a[0])
+		if err != nil {
+			return nil, err
+		}
+		order, isOrder := g.TopoSort().UnwrapRight()
+		if !isOrder {
+			return listOf(nil), nil
+		}
+		return listOf(idList(order)), nil
+	})
+	defn(m, "graph_scc", "g", func(a []any) (any, error) {
+		g, err := graphArg(a[0])
+		if err != nil {
+			return nil, err
+		}
+		var out []any
+		for _, comp := range g.SCC() {
+			out = append(out, listOf(idList(comp)))
+		}
+		return listOf(out), nil
+	})
+}

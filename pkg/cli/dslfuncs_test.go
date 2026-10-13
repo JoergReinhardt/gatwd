@@ -70,7 +70,7 @@ func TestDSLBuiltinFuncsArity(t *testing.T) {
 }
 
 // TestExprFallback covers the general-lookup fallback (§3B + §5.1b): a builtin
-// function name resolves to its DSLFunc, a declared sum-type constructor resolves to
+// function name resolves to a callable, a declared sum-type constructor resolves to
 // its tag STRING, and an unknown identifier still misses (so a real undefined name
 // surfaces an error rather than being silently swallowed).
 func TestExprFallback(t *testing.T) {
@@ -79,8 +79,8 @@ func TestExprFallback(t *testing.T) {
 
 	if v, ok := i.exprFallback("hamt_get"); !ok {
 		t.Errorf("hamt_get should resolve to a builtin")
-	} else if _, isFn := v.(functions.DSLFunc); !isFn {
-		t.Errorf("hamt_get should resolve to a DSLFunc, got %T", v)
+	} else if !functions.IsCallable(v) {
+		t.Errorf("hamt_get should resolve to a callable, got %T", v)
 	}
 	if v, ok := i.exprFallback("Owns"); !ok || v != "Owns" {
 		t.Errorf(`constructor "Owns" should resolve to the tag string "Owns", got %v (ok=%v)`, v, ok)

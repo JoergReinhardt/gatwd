@@ -379,3 +379,192 @@ let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns,
 let es = [["a", "b"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_in_of Selects "b" g) 0 |> assert []
 -- (b) used as a guard: the nodes no Owns edge enters (roots).
 let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> [ n | n <- ["a", "b", "c"], (graph_in_of Owns n g) == [] ]) 0 |> assert [a]
+
+-- 78. First-class Closure values (Workstream B): lambdas as expression values with
+-- multi-argument abstraction, currying/partial application, lexical capture, and
+-- closures accepted by map/filter/reject/fold wherever an inline lambda is.
+def c_add = \x y -> x + y
+def c_pos = \x -> x > 0
+def c_mkadder = \k -> \x -> x + k
+-- (a) multi-argument application in expression position.
+c_add 1 2 |> assert 3
+-- (b) currying: a closure applied to fewer arguments than its arity is a function.
+(c_add 10) 5 |> assert 15
+-- (c) over-application through a returned closure (a function that returns a function).
+c_mkadder 5 10 |> assert 15
+-- (d) pipeline position applies the closure with the incoming value LAST.
+spawn IntVal: 5 |> c_add 3 |> assert 8
+-- (e) partial application is a value: let-bound, then used as a pipeline step and as a map argument.
+let add100 = c_add 100 in spawn IntVal: 1 |> add100 |> assert 101
+let add7 = c_mkadder 7 in [1, 2] |> map add7 |> assert [8 9]
+-- (f) a closure value expression as a map argument.
+[1, 2, 3] |> map (c_add 10) |> assert [11 12 13]
+-- (g) a named binary closure is a fold reducer, with and without a seed.
+[1, 2, 3] |> fold c_add 0 |> assert 6
+[1, 2, 3] |> fold c_add |> assert 6
+-- (h) a named predicate closure drives filter and reject across List.
+[1, -2, 3] |> filter c_pos |> assert [1 3]
+[1, -2, 3] |> reject c_pos |> assert [-2]
+-- (i) let-bound multi-argument lambda value, applied with an explicit first argument.
+let mul = \x y -> x * y in spawn IntVal: 6 |> mul 7 |> assert 42
+-- (j) lexical capture: two closures from one factory keep distinct captured values.
+let a5 = c_mkadder 5 in let a9 = c_mkadder 9 in [(a5 1), (a9 1)] |> assert [6 10]
+
+-- 79. Expression-level function forms across the operator-type matrix (Workstream E).
+-- Each cell is the FUNCTION form of an operation: arguments are computed runtime values
+-- (not string tokens), types are preserved, and every function is curried.
+-- (a) Functor / Filterable / Foldable / Monad over List.
+map (\x -> x * 2) [1, 2, 3] |> assert [2 4 6]
+filter (\x -> x > 1) [1, 2, 3] |> assert [2 3]
+reject (\x -> x > 1) [1, 2, 3] |> assert [1]
+fold (\a x -> a + x) 0 [1, 2, 3] |> assert 6
+flatmap (\x -> [x, x]) [1, 2] |> assert [1 1 2 2]
+-- (b) sequences: length/head/tail/nth/reverse/cons/concat/range/member/to_list.
+length [1, 2, 3] |> assert 3
+length "héllo" |> assert 5
+head [7, 8, 9] |> assert 7
+tail [7, 8, 9] |> assert [8 9]
+nth 2 [7, 8, 9] |> assert 9
+reverse [1, 2, 3] |> assert [3 2 1]
+cons 0 [1, 2] |> assert [0 1 2]
+concat [1] [2, 3] |> assert [1 2 3]
+range 1 4 |> assert [1 2 3 4]
+member 2 [1, 2, 3] |> assert true
+member 9 [1, 2, 3] |> assert false
+is_empty [] |> assert true
+-- (c) Set: element types preserved (ints stay ints), set algebra, Functor/Filterable.
+length (set_union (to_set [1, 2]) (to_set [2, 3])) |> assert 3
+length (set_intersect (to_set [1, 2, 3]) (to_set [2, 3, 4])) |> assert 2
+length (set_diff (to_set [1, 2, 3]) (to_set [2])) |> assert 2
+set_contains 2 (set_add 2 set_empty) |> assert true
+set_contains 2 (set_remove 2 (to_set [1, 2])) |> assert false
+set_elements (to_set [7]) |> assert [7]
+length (map (\x -> x * 0) (to_set [1, 2, 3])) |> assert 1
+length (filter (\x -> x > 1) (to_set [1, 2, 3])) |> assert 2
+fold (\a x -> a + x) 0 (to_set [1, 2, 3]) |> assert 6
+-- (d) Chunk: Functor/Filterable/Foldable keep the carrier.
+let c = (spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> to_chunk) in map (\x -> x * 2) c |> assert [2 4 6]
+let c = (spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> to_chunk) in filter (\x -> x > 1) c |> assert [2 3]
+let c = (spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> to_chunk) in fold (\a x -> a + x) 0 c |> assert 6
+-- (e) HAMT: set/get/del/has/keys/values/pairs/merge/diff/intersect + Functor over values.
+hamt_get "a" (hamt_set "a" 1 hamt_empty) |> assert 1
+hamt_has "a" (hamt_set "a" 1 hamt_empty) |> assert true
+hamt_has "a" (hamt_del "a" (hamt_set "a" 1 hamt_empty)) |> assert false
+hamt_values (hamt_set "a" 5 hamt_empty) |> assert [5]
+hamt_keys (hamt_set "a" 5 hamt_empty) |> assert [a]
+fst (head (hamt_pairs (hamt_set "a" 5 hamt_empty))) |> assert a
+hamt_get "b" (hamt_merge (hamt_from [["a", 1]]) (hamt_from [["b", 2]])) |> assert 2
+length (hamt_diff (hamt_from [["a", 1], ["b", 2]]) (hamt_from [["a", 1]])) |> assert 1
+length (hamt_intersect (hamt_from [["a", 1], ["b", 2]]) (hamt_from [["a", 1]])) |> assert 1
+hamt_get "b" (map (\v -> v * 10) (hamt_from [["a", 1], ["b", 2]])) |> assert 20
+length (filter (\v -> v > 1) (hamt_from [["a", 1], ["b", 2]])) |> assert 1
+fold (\a v -> a + v) 0 (hamt_from [["a", 1], ["b", 2]]) |> assert 3
+-- (f) Tree (rose tree): construction, projection, Functor/Filterable/Foldable.
+tree_size (tree_node 1 [(tree_leaf 2), (tree_leaf 3)]) |> assert 3
+tree_depth (tree_node 1 [(tree_leaf 2), (tree_leaf 3)]) |> assert 2
+tree_flatten (tree_node 1 [(tree_leaf 2), (tree_leaf 3)]) |> assert [1 2 3]
+tree_member 3 (tree_node 1 [(tree_leaf 2), (tree_leaf 3)]) |> assert true
+tree_value (tree_add_child (tree_leaf 9) (tree_leaf 1)) |> assert 1
+length (tree_children (tree_add_child (tree_leaf 9) (tree_leaf 1))) |> assert 1
+tree_flatten (map (\x -> x * 2) (tree_node 1 [(tree_leaf 2), (tree_leaf 3)])) |> assert [2 4 6]
+fold (\a x -> a + x) 0 (tree_node 1 [(tree_leaf 2), (tree_leaf 3)]) |> assert 6
+-- (g) BST: ordered insert/membership, in-order fold.
+to_list (bst_from [5, 2, 8, 1]) |> assert [1 2 5 8]
+bst_member 8 (bst_from [5, 2, 8, 1]) |> assert true
+bst_member 3 (bst_from [5, 2, 8, 1]) |> assert false
+length (bst_insert 3 (bst_from [5, 2, 8, 1])) |> assert 5
+fold (\a x -> a + x) 0 (bst_from [5, 2, 8, 1]) |> assert 16
+-- (h) Pair: construct/project/swap, Functor over snd, Bifunctor.
+fst (pair 1 "x") |> assert 1
+snd (pair 1 "x") |> assert x
+fst (pair_swap (pair 1 2)) |> assert 2
+snd (map (\x -> x + 1) (pair "k" 1)) |> assert 2
+snd (bimap (\a -> a + 1) (\b -> b * 2) (pair 1 5)) |> assert 10
+-- (i) Maybe / Either.
+maybe_default 0 (just 5) |> assert 5
+maybe_default 0 nothing |> assert 0
+is_just (just 1) |> assert true
+is_nothing nothing |> assert true
+maybe_default 0 (map (\x -> x + 1) (just 1)) |> assert 2
+maybe_default 0 (flatmap (\x -> just (x * 3)) (just 2)) |> assert 6
+maybe_default 0 (filter (\x -> x > 5) (just 2)) |> assert 0
+maybe_fold 0 (\x -> x + 1) (just 4) |> assert 5
+either_default 0 (either_right 4) |> assert 4
+either_default 0 (either_left "bad") |> assert 0
+is_left (either_left 1) |> assert true
+is_right (either_left 1) |> assert false
+either_fold (\e -> 0) (\x -> x + 1) (either_right 4) |> assert 5
+either_default 0 (map (\x -> x + 1) (either_right 4)) |> assert 5
+either_default 0 (flatmap (\x -> either_right (x * 2)) (either_right 4)) |> assert 8
+either_default 7 (bimap (\e -> e) (\x -> x * 2) (either_left 1)) |> assert 7
+-- (j) Variant: constructor application over a declared sum type, Functor over the payload.
+type Shape = Circle | Square
+variant_payload (variant "Circle" 3) |> assert 3
+variant_tag (variant "Square" 1) |> assert Square
+is_variant "Circle" (variant "Circle" 3) |> assert true
+is_variant "Square" (variant "Circle" 3) |> assert false
+variant_payload (map (\r -> r * 2) (variant "Circle" 3)) |> assert 6
+-- (k) primitives.
+min 3 7 |> assert 3
+max 3 7 |> assert 7
+abs (0 - 4) |> assert 4
+negate 5 |> assert -5
+compare 1 2 |> assert -1
+-- (l) function forms compose inside lambdas, folds, comprehensions and partial application.
+[ length x | x <- [[1], [1, 2]] ] |> assert [1 2]
+[ set_contains y (to_set [1, 2]) | y <- [1, 3] ] |> assert [true false]
+hamt_get "ab" (fold (\h w -> hamt_set w (length w) h) hamt_empty ["ab", "c"]) |> assert 2
+map (hamt_get "a") [(hamt_from [["a", 1]]), (hamt_from [["a", 2]])] |> assert [1 2]
+map (set_contains 2) [(to_set [1, 2]), (to_set [3])] |> assert [true false]
+(fold (\a x -> a + x) 100) [1, 2] |> assert 103
+
+-- 80. Optional type annotations on def (Workstream D1): advisory for `gatwd --check`,
+-- never alter evaluation. Annotated and unannotated defs behave identically.
+def a_inc : Int -> Int = \x -> x + 1
+def a_add : Int -> Int -> Int = \x y -> x + y
+a_inc 41 |> assert 42
+spawn IntVal: 5 |> a_add 3 |> assert 8
+[1, 2, 3] |> map (a_add 10) |> assert [11 12 13]
+
+-- 81. ArrowPlus / MonadPlus choice (<+>): merge several sub-pipelines into ONE stream.
+-- The incoming node runs through every branch; outputs concatenate in branch order.
+spawn IntVal: 5 |> (math_add 1 <+> math_add 10 <+> math_add 100) |> collect_list |> assert [6 15 105]
+-- A branch may itself be a pipeline; the merged stream feeds the rest of the pipeline.
+spawn IntVal: 5 |> (math_add 1 |> math_add 1 <+> math_add 10) |> map (\x -> x * 2) |> collect_list |> assert [14 30]
+-- Monoid identity/associativity: nesting changes nothing.
+spawn IntVal: 1 |> ((math_add 1 <+> math_add 2) <+> math_add 3) |> collect_list |> assert [2 3 4]
+
+-- 82. Graph function forms (generic, domain-free): read side + inferred edges, callable
+-- inside a comprehension so a whole-graph algorithm can run as part of a rule.
+-- Fixtures: a chain a -> b -> c with an isolated node d, and a cycle x <-> y -> z.
+def g_chain = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_edges [["Owns", 1, "a", "b"], ["Owns", 1, "b", "c"]] g) graph_empty
+def g_cycle = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_edges [["Owns", 1, "x", "y"], ["Owns", 1, "y", "x"], ["Owns", 1, "y", "z"]] g) graph_empty
+-- (a) counts, membership, node ids.
+["d", "c", "b", "a"] |> g_chain |> fold (\_ g -> graph_order g) 0 |> assert 4
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_size g) 0 |> assert 2
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_has_node "b" g) false |> assert true
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_has_node "z" g) true |> assert false
+["c", "a", "b"] |> g_chain |> fold (\_ g -> graph_nodes g) 0 |> assert [a b c]
+-- (b) edges: per-color pairs, reachability, shortest path, topological order.
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_edge_pairs "Owns" g) 0 |> assert [[a b] [b c]]
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_edge_pairs "Selects" g) 0 |> assert []
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_reachable "b" g) 0 |> assert [b c]
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_shortest_path "a" "c" g) 0 |> assert [a b c]
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_shortest_path "c" "a" g) 0 |> assert []
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_topo_sort g) 0 |> assert [a b c]
+-- (c) cycles: no topological order exists; scc finds the component, and a rule can
+-- keep only the non-trivial ones inside a comprehension.
+["x", "y", "z"] |> g_cycle |> fold (\_ g -> graph_topo_sort g) 0 |> assert []
+["x", "y", "z"] |> g_cycle |> fold (\_ g -> [ c | c <- (graph_scc g), (length c) > 1 ]) 0 |> assert [[x y]]
+-- (d) inferred edges are tracked separately from asserted ones.
+["a", "b"] |> fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_inferred_edges [["Calls", 0.5, "a", "b"]] g) graph_empty |> graph_edges_inferred |> collect_list |> assert [a-Calls->b]
+
+-- 83. User closures and builtins are callable inside INLINE map/filter/flatmap lambdas
+-- (the lambda body resolves names through the same environment as fold bodies).
+def c2_add = \x y -> x + y
+def c2_pos = \x -> x > 0
+[1, 2, 3] |> map (\x -> c2_add x 10) |> assert [11 12 13]
+[1, -2, 3] |> filter (\x -> c2_pos x) |> assert [1 3]
+[1, -2, 3] |> reject (\x -> c2_pos x) |> assert [-2]
+[1, 2] |> flatmap (\x -> [x, (c2_add x 10)]) |> assert [1 11 2 12]
+[[1], [1, 2]] |> map (\x -> length x) |> assert [1 2]

@@ -270,6 +270,25 @@ func buildDSLBuiltinFuncs() map[string]any {
 		return evaluator.IsSubsetValue(args[0], args[1])
 	})
 
+	registerMatrixFuncs(m)
+	registerGraphFuncs(m)
+
+	// Fixed-arity builtins become curried Closures, so `map (hamt_get "a") rs` or
+	// `fold (graph_add_edge Owns 1 "a") …` partially apply like every user function.
+	// graph_add_node is variadic (3 or 4 args) and stays a raw DSLFunc.
+	for name, arity := range map[string]int{
+		"graph_add_edge": 5, "graph_add_inferred_edge": 5, "graph_add_edges": 2,
+		"graph_payloads": 1, "graph_payloads_of": 2, "graph_in_of": 3, "graph_out_of": 3,
+		"hamt_has_path": 2, "hamt_get": 2, "hamt_path": 2, "subset_of": 2,
+	} {
+		raw := m[name].(functions.DSLFunc)
+		params := make([]string, arity)
+		for idx := range params {
+			params[idx] = fmt.Sprintf("a%d", idx+1)
+		}
+		m[name] = functions.NewClosure(params, func(a []any) (any, error) { return raw(a) })
+	}
+
 	return m
 }
 

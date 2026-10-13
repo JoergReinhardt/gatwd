@@ -94,6 +94,39 @@ func StepFanOut(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipeli
 	}
 }
 
+// StepPlus (<+>) merges several sources into one stream: every incoming node is run
+// through each branch adapter in turn and the outputs are concatenated, branch by
+// branch. It is the pipeline form of arrows.Plus (ArrowPlus / MonadPlus choice) —
+// the generic, domain-free way to feed a single downstream pipeline from many
+// producers, e.g. `spawn StrVal: ns |> (crawl_a <+> crawl_b <+> crawl_c) |> build`.
+// Left (error) nodes pass through untouched; with no branches the step is the zero
+// arrow and yields nothing for Right nodes.
+func StepPlus(branches ...Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	type node = dsltypes.ASTNode[functions.Either[error, any]]
+	ks := make([]arrows.Kleisli[node, node], len(branches))
+	for idx, b := range branches {
+		ks[idx] = arrows.Kleisli[node, node](b)
+	}
+	plus := arrows.Plus(ks...)
+	return func(stream iter.Seq[node]) iter.Seq[node] {
+		return func(yield func(node) bool) {
+			for n := range stream {
+				if n.Value.IsLeft() {
+					if !yield(n) {
+						return
+					}
+					continue
+				}
+				for out := range plus(n) {
+					if !yield(out) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
 // StepDistinct deduplicates a stream of nodes using the Immutable Set.
 // This is critical for preventing infinite loops in cyclic graphs.
 func StepDistinct() PipelineStep[functions.Either[error, any]] {

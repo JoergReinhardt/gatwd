@@ -65,4 +65,52 @@ let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit 
 -- ------------------------------------------------------------
 let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
 
+-- ------------------------------------------------------------
+-- 9. Closures: curried, lexically scoped, first-class values
+--    A multi-argument lambda is applied in expression position, partially
+--    applied, returned from a function, and applied in a pipeline with the
+--    incoming value LAST (`x |> add 3` is `add 3 x`).
+-- ------------------------------------------------------------
+def add = \x y -> x + y
+def mk_adder = \k -> \x -> x + k
+add 1 2 |> assert 3
+(add 10) 5 |> assert 15
+mk_adder 5 10 |> assert 15
+spawn IntVal: 5 |> add 3 |> assert 8
+[1, 2, 3] |> map (add 10) |> assert [11 12 13]
+[1, 2, 3] |> fold add 0 |> assert 6
+let add7 = mk_adder 7 in [1, 2] |> map add7 |> assert [8 9]
+
+-- ------------------------------------------------------------
+-- 10. Optional type annotations (advisory; run `gatwd --check` on this file)
+-- ------------------------------------------------------------
+def inc2 : Int -> Int = \x -> x + 2
+inc2 40 |> assert 42
+
+-- ------------------------------------------------------------
+-- 11. The operator-type matrix as curried FUNCTIONS: the same operation over
+--     every carrier, taking computed values, usable inside lambdas.
+-- ------------------------------------------------------------
+map (\x -> x * 2) [1, 2, 3] |> assert [2 4 6]
+hamt_get "ab" (fold (\h w -> hamt_set w (length w) h) hamt_empty ["ab", "c"]) |> assert 2
+map (set_contains 2) [(to_set [1, 2]), (to_set [3])] |> assert [true false]
+tree_flatten (map (\x -> x + 1) (tree_node 1 [(tree_leaf 2), (tree_leaf 3)])) |> assert [2 3 4]
+to_list (bst_from [5, 2, 8, 1]) |> assert [1 2 5 8]
+maybe_default 0 (map (\x -> x + 1) (just 1)) |> assert 2
+either_default 0 (flatmap (\x -> either_right (x * 2)) (either_right 4)) |> assert 8
+snd (bimap (\a -> a + 1) (\b -> b * 2) (pair 1 5)) |> assert 10
+[ length x | x <- [[1], [1, 2]] ] |> assert [1 2]
+
+-- ------------------------------------------------------------
+-- 12. Graph functions inside a comprehension: find dependency cycles
+-- ------------------------------------------------------------
+def dep_graph = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_edges [["Owns", 1, "x", "y"], ["Owns", 1, "y", "x"], ["Owns", 1, "y", "z"]] g) graph_empty
+["x", "y", "z"] |> dep_graph |> fold (\_ g -> [ c | c <- (graph_scc g), (length c) > 1 ]) 0 |> assert [[x y]]
+["x", "y", "z"] |> dep_graph |> fold (\_ g -> graph_topo_sort g) 0 |> assert []
+
+-- ------------------------------------------------------------
+-- 13. <+> merges several sub-pipelines into ONE stream (ArrowPlus)
+-- ------------------------------------------------------------
+spawn IntVal: 5 |> (math_add 1 <+> math_add 10 <+> math_add 100) |> collect_list |> assert [6 15 105]
+
 spawn S: Done |> echo "All new-feature assertions passed."
