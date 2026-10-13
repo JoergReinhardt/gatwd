@@ -14,18 +14,21 @@
 All were raised by the tracks and the closing checklist (2026-10-13); none blocks anything. Present each with its default so the user can answer in one line, record the answers
 (with the date) in `docs/hardening_plan.md` §1 and in §2 here. If the user says "defaults", use the recommended column and say so in the plan.
 
-**The Q1–Q11 of the previous handoff were answered on 2026-10-13** (plan §1, "Answered after the closing checklist") and implemented: pushed; typed time tokens; value-typed sets; operator `--timeout`/`--max-output`;
+**The Q1–Q11 of the previous handoff were answered on 2026-10-13** (plan §1, "Answered after the closing checklist") and implemented (incl. cluster apply/rollout, signals, bounded loading, quoted const, BST values): pushed; typed time tokens; value-typed sets; operator `--timeout`/`--max-output`;
 `Duration` stays literal text in JSON/YAML; override imports stay behind `--allow-fs`; no `env` builtin yet; age rules stay an example override; Secret `data` is documented, not redacted. **Open now:**
 
 | # | Open question | Recommended default |
 | :-- | :-- | :-- |
-| Q1 | **Apply to the cluster** (the tool is read-only today; the shipped RBAC grants `get`/`list`): a write adapter in `adapters/` behind `cli.AdapterStep`, a new `AllowCluster` capability in `cli.Policy` (denied by default), `--dry-run` as the default, server-side apply with a field manager, an offline twin that writes rendered YAML to a directory, a separate opt-in RBAC role; first version apply only (no delete/prune), in `gatwd-k8s` before the operator. | yes, as proposed |
-| Q2 | Push the commits since `66a2abe` (the merges of Tracks I, J, K and the doc commits)? | push |
-| Q3 | Signal handling in the operator `run` loop, bounding rule load/hot reload (Track K's open items); the quoted `const Q = "2+3"` evaluation (Track I); `BST[string]` still stringifies (Track J). | queue as small tracks |
+| Q1 | Push the commits since `10fc9ae` (resource-limits note, Tracks N, L, M and their merges)? | push |
+| Q2 | `--out` (offline apply twin): should it work without `cluster-apply`? Today it needs only the fs capability and writes even in dry-run. | leave |
+| Q3 | Should the operator apply from offline manifests to a live client? A loud error today. | keep until asked |
+| Q4 | BST `==`: compare in-order content instead of tree shape? `map` over a BST stays an error? | yes / yes |
+| Q5 | Separate budgets for rule loading and checks (today one `--timeout`)? | no |
+| Q6 | Queued small items: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling. | queue only when needed |
 
 ## 1. Where we are
 
-**State (2026-10-13):** `master` contains everything; the remote is at `66a2abe`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
+**State (2026-10-13):** `master` contains everything; the remote is at `10fc9ae`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
 Stage by name; commit and push only when asked.
 
 **Done and merged** (plan §0 has a row each): W0, W1a/b, W2 (+ YAML, `go.yaml.in/yaml/v3` on the Clean Core allowlist for `pkg/cli`), W3 (numeric tower, `Ratio`, prefix `!`), W4 (qualified ids), W5 (kustomize, Go 1.27),
