@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
@@ -87,7 +88,7 @@ def check = assert OK
 	}
 
 	limit, ok := app.GetConstant("RETRY_LIMIT")
-	if !ok || limit != "3" {
+	if !ok || !functions.StructuralEqual(limit, 3) {
 		t.Fatalf("expected embedded default RETRY_LIMIT '3', got %v", limit)
 	}
 
@@ -111,7 +112,7 @@ def check = assert FAIL
 	}
 
 	limitUpdated, ok := app.GetConstant("RETRY_LIMIT")
-	if !ok || limitUpdated != "99" {
+	if !ok || !functions.StructuralEqual(limitUpdated, 99) {
 		t.Fatalf("expected updated RETRY_LIMIT '99', got %v", limitUpdated)
 	}
 }

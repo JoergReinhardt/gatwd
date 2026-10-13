@@ -804,30 +804,10 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 	tok := p.next()
 	switch tok.Type {
 	case TokNumber:
-		if strings.HasSuffix(tok.Text, "i") {
-			c, err := strconv.ParseComplex(tok.Text, 128)
-			if err != nil {
-				return nil, err
-			}
-			return LiteralExpr{Value: c}, nil
+		if n, ok := functions.ParseNumberLiteral(tok.Text); ok {
+			return LiteralExpr{Value: n}, nil
 		}
-		if strings.Contains(tok.Text, ".") {
-			f, err := strconv.ParseFloat(tok.Text, 64)
-			if err != nil {
-				return nil, err
-			}
-			return LiteralExpr{Value: f}, nil
-		}
-		i, err := strconv.ParseInt(tok.Text, 10, 64)
-		if err != nil {
-			// If number exceeds int64, promote directly to big.Int
-			n, ok := functions.ToBigInt(tok.Text)
-			if ok {
-				return LiteralExpr{Value: n}, nil
-			}
-			return nil, err
-		}
-		return LiteralExpr{Value: functions.TryNarrowInteger(i)}, nil
+		return nil, fmt.Errorf("malformed number %q", tok.Text)
 
 	case TokString:
 		return LiteralExpr{Value: tok.Text}, nil

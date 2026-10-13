@@ -566,11 +566,13 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 		} else if strings.HasPrefix(stepStr, "emit ") {
 			parts := strings.Split(strings.TrimSpace(stepStr[5:]), ",")
-			var trimmed []string
+			// The tokens are literals: a canonical number (`10`, `-5`, `1.5`) is that number,
+			// anything else (`alice`, `007`, `kind:Pod`) stays text.
+			var values []any
 			for _, p := range parts {
-				trimmed = append(trimmed, strings.TrimSpace(p))
+				values = append(values, functions.LiteralToken(strings.TrimSpace(p)))
 			}
-			pipeline = append(pipeline, evaluator.StepEmit(trimmed...))
+			pipeline = append(pipeline, evaluator.StepEmitValues(values...))
 		} else if strings.HasPrefix(stepStr, "walk_fs ") {
 			pathStr := strings.TrimSpace(stepStr[8:])
 			adapter := adapters.WalkFSAdapter(pathStr)
@@ -2234,6 +2236,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 		if len(parts) == 2 {
 			constName := strings.TrimSpace(parts[0])
 			valStr := strings.TrimSpace(parts[1])
+			quoted := strings.HasPrefix(valStr, "\"")
 			valStr = strings.Trim(valStr, "\"")
 			i.invalidateCompiledCache()
 			if strings.Contains(valStr, "\n") {
@@ -2249,12 +2252,19 @@ func (i *Interpreter) EvaluateLine(line string) {
 			// If it's a compound expression, evaluate it
 			if strings.ContainsAny(valStr, "+-*/%&|<>= ") {
 				if evaluated, err := parser.EvalInfixString(valStr, lookup); err == nil {
-					i.Constants[constName] = fmt.Sprintf("%v", evaluated)
+					if functions.IsNumeric(evaluated) {
+						i.Constants[constName] = evaluated
+					} else {
+						i.Constants[constName] = fmt.Sprintf("%v", evaluated)
+					}
 				} else {
 					i.Constants[constName] = valStr
 				}
-			} else {
+			} else if quoted {
 				i.Constants[constName] = valStr
+			} else {
+				// A bare canonical number is that number (`const N = 5`), anything else text.
+				i.Constants[constName] = functions.LiteralToken(valStr)
 			}
 		}
 		return

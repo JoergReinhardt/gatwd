@@ -107,3 +107,18 @@ func Example_ordering() {
 	fmt.Println(o[0], all[0])
 	// Output: LT false
 }
+
+// Example_plusIsNumeric shows D2: `+` adds numbers, `++` concatenates, and text is
+// converted explicitly.
+func Example_plusIsNumeric() {
+	interp := cli.NewInterpreter()
+	sum := interp.EvaluateToValues(`1 + 2`)
+	text := interp.EvaluateToValues(`"1" ++ "2"`)
+	parsed := interp.EvaluateToValues(`maybe_default 0 (str_to_int "41") + 1`)
+	bad := interp.EvaluateToValues(`"a" + 1`)
+	fmt.Println(sum[0], text[0], parsed[0])
+	fmt.Println(bad[0])
+	// Output:
+	// 3 12 42
+	// operator '+' is not defined for String and Int; use ++ to concatenate
+}

@@ -9,7 +9,7 @@ import (
 func closureInterp(t *testing.T) *Interpreter {
 	t.Helper()
 	i := NewInterpreter()
-	i.EvaluateScript("def add = \\x y -> x + y\ndef sub = \\x y -> x - y\ndef pos = \\x -> x > 0\ndef mk = \\k -> \\x -> x + k\ndef pipe_macro = map (\\x -> x + 1)")
+	i.EvaluateScript("type IntVal = Int\ndef add = \\x y -> x + y\ndef sub = \\x y -> x - y\ndef pos = \\x -> x > 0\ndef mk = \\k -> \\x -> x + k\ndef pipe_macro = map (\\x -> x + 1)")
 	return i
 }
 

@@ -94,13 +94,14 @@ func checkDefineName(name string) error {
 	return nil
 }
 
-// setDefines binds the `-D` string constants.
+// setDefines binds the `-D` constants: a canonical number is that number, anything else the
+// String (the same rule as `const` and `emit`).
 func (i *Interpreter) setDefines(defs map[string]string) error {
 	for name, value := range defs {
 		if err := checkDefineName(name); err != nil {
 			return err
 		}
-		i.Constants[name] = value
+		i.Constants[name] = functions.LiteralToken(value)
 	}
 	if len(defs) > 0 {
 		i.invalidateCompiledCache()

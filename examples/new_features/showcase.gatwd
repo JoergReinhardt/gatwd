@@ -9,6 +9,7 @@
 --    Each sum-type constructor routes to its own match arm.
 -- ------------------------------------------------------------
 type Signal = Red | Green | Yellow
+type IntVal = Int
 
 def light = match { Red -> echo STOP | Green -> echo GO | Yellow -> echo SLOW }
 

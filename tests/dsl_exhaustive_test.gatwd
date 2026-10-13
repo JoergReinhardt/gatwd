@@ -756,3 +756,17 @@ def o92_word = match { GT -> echo bigger | LT -> echo smaller | EQ -> echo same 
 compare 3 1 |> o92_word |> assert bigger
 compare 1 3 |> o92_word |> assert smaller
 compare 2 2 |> o92_word |> assert same
+
+-- 93. D2: `+` is numeric-only; `++` concatenates, str_to_int parses. The literal tokens of `const`,
+-- `emit` and `-D` are typed (a canonical number is a number), so they add up inside lambdas too.
+1 + 2 |> assert 3
+"a" ++ "b" |> assert ab
+"1" ++ "2" |> assert 12
+maybe_default 0 (str_to_int "41") + 1 |> assert 42
+const D2_N = 5
+D2_N + 1 |> assert 6
+[1, 2] |> map (\x -> x + D2_N) |> assert [6 7]
+const D2_SUM = 2 * 3
+D2_SUM * 2 |> assert 12
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> fold sum |> assert 60
+spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> map (\x -> x + 1) |> collect_list |> assert [11 21 31]

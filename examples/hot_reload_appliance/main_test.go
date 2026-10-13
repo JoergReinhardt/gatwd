@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 )
 
@@ -22,7 +23,7 @@ func TestAppliance_HotReloadingAndFallback(t *testing.T) {
 	}
 
 	thresh, ok := app.GetConstant("THRESHOLD")
-	if !ok || thresh != "80" {
+	if !ok || !functions.StructuralEqual(thresh, 80) {
 		t.Fatalf("expected embedded default THRESHOLD '80', got %v", thresh)
 	}
 
@@ -47,7 +48,7 @@ def eval_status = assert CRITICAL
 	}
 
 	threshUpdated, ok := app.GetConstant("THRESHOLD")
-	if !ok || threshUpdated != "42" {
+	if !ok || !functions.StructuralEqual(threshUpdated, 42) {
 		t.Fatalf("expected updated THRESHOLD '42', got %v", threshUpdated)
 	}
 
@@ -66,7 +67,7 @@ def eval_status = assert CRITICAL
 	}
 
 	threshRevert, ok := app.GetConstant("THRESHOLD")
-	if !ok || threshRevert != "80" {
+	if !ok || !functions.StructuralEqual(threshRevert, 80) {
 		t.Fatalf("expected reverted THRESHOLD '80', got %v", threshRevert)
 	}
 }

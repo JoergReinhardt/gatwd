@@ -19,7 +19,7 @@ func TestBareInterpreter_CoreAndExtension(t *testing.T) {
 
 	// Core primitive works
 	res := bare.EvaluateToValues("spawn IntVal: 0 |> emit 1, 2, 3 |> drop 1 |> head |> assert 1")
-	if len(res) == 0 || res[0] != "1" {
+	if len(res) == 0 || !functions.StructuralEqual(res[0], 1) || functions.KindName(res[0]) != "Int" {
 		t.Fatalf("expected bare interpreter to execute core emit/drop/head/assert, got %v", res)
 	}
 
@@ -90,7 +90,7 @@ spawn Metric: BASE |> bump |> assert 60
 `
 	interp.EvaluateScript(embeddedDSL)
 	val, ok := interp.Constants["BASE"]
-	if !ok || val != "50" {
+	if !ok || !functions.StructuralEqual(val, 50) {
 		t.Fatalf("expected constant 'BASE' to be set to '50', got %v", val)
 	}
 

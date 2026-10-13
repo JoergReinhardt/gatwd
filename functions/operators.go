@@ -454,6 +454,20 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 		}
 	}
 
+	// `+` is numeric addition only (D2): a String or Char operand is a type error, never
+	// a concatenation and never a numeric parse. `++` concatenates; str_to_int parses.
+	if op == OpAdd {
+		_, lStr := left.(string)
+		_, rStr := right.(string)
+		if lStr || rStr || IsChar(left) || IsChar(right) {
+			hint := "use ++ to concatenate"
+			if lStr && rStr {
+				hint = "use ++ to concatenate, or str_to_int / str_to_float to parse"
+			}
+			return nil, fmt.Errorf("operator '+' is not defined for %s and %s; %s", KindName(left), KindName(right), hint)
+		}
+	}
+
 	// Relational ordering across all comparable types (<, <=, >, >=)
 	if op == OpLt || op == OpLte || op == OpGt || op == OpGte {
 		if cmp, err := Compare(left, right); err == nil {
@@ -749,6 +763,104 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	}
 
 	return nil, fmt.Errorf("unsupported binary operator %q for types %T and %T", op, left, right)
+}
+
+// ParseNumberLiteral reads the text of a numeric literal exactly as the expression lexer
+// does: an integer (an int64 narrowed to the smallest Int, or a *big.Int beyond int64), a
+// float (`1.5`) or a complex number (`2i`), with an optional sign. It reports false for
+// anything else, including numeric-looking text with spaces or a trailing garbage rune.
+func ParseNumberLiteral(text string) (any, bool) {
+	if text == "" {
+		return nil, false
+	}
+	switch {
+	case strings.HasSuffix(text, "i"):
+		c, err := strconv.ParseComplex(text, 128)
+		return c, err == nil
+	case strings.Contains(text, "."):
+		f, err := strconv.ParseFloat(text, 64)
+		return f, err == nil
+	}
+	if n, err := strconv.ParseInt(text, 10, 64); err == nil {
+		return TryNarrowInteger(n), true
+	}
+	if b, ok := new(big.Int).SetString(strings.TrimPrefix(text, "+"), 10); ok && strings.Trim(strings.TrimPrefix(strings.TrimPrefix(text, "+"), "-"), "0123456789") == "" {
+		return b, true
+	}
+	return nil, false
+}
+
+// ParseCanonicalNumber is ParseNumberLiteral restricted to text that prints back unchanged
+// (`10`, `-5`, `1.5`; not `007`, `+5`, `1.50`, `2i`), so turning a token into a number
+// never loses information about how it was written.
+func ParseCanonicalNumber(text string) (any, bool) {
+	n, ok := ParseNumberLiteral(text)
+	if !ok {
+		return nil, false
+	}
+	switch x := n.(type) {
+	case float64:
+		return n, strconv.FormatFloat(x, 'f', -1, 64) == text
+	case complex128:
+		return nil, false
+	case *big.Int:
+		return n, x.String() == text
+	}
+	i, _ := toInt64(n)
+	return n, strconv.FormatInt(i, 10) == text
+}
+
+// LiteralToken is the value a bare literal token denotes — in `emit a, 10`, `const N = 5`
+// and `-D N=5`: a canonical number is that number, anything else is the text. One rule for
+// every place a script writes a value without quotes.
+func LiteralToken(text string) any {
+	if n, ok := ParseCanonicalNumber(text); ok {
+		return n
+	}
+	return text
+}
+
+// OperandValue turns the literal token of a pipeline operator section (`|> + 5`,
+// `math_add 10`) into the value the operator is applied to: a numeric literal becomes the
+// number it spells, anything else stays the text. `++` always keeps the text.
+func OperandValue(op OpKind, text string) any {
+	if op != OpConcat {
+		if n, ok := ParseNumberLiteral(text); ok {
+			return n
+		}
+	}
+	return text
+}
+
+// KindName names the DSL type of a runtime value for error messages: Int, Float, String,
+// Char, Bool, … — and the Go type for anything else.
+func KindName(v any) string {
+	switch v.(type) {
+	case string:
+		return "String"
+	case Char:
+		return "Char"
+	case bool:
+		return "Bool"
+	case float32, float64:
+		return "Float"
+	case complex64, complex128:
+		return "Complex"
+	case *big.Int:
+		return "BigInt"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "Int"
+	}
+	switch {
+	case implementsList(v):
+		return "List"
+	}
+	return fmt.Sprintf("%T", v)
+}
+
+func implementsList(v any) bool {
+	l, ok := v.(interface{ IsList() bool })
+	return ok && l.IsList()
 }
 
 func toBigFloat(val any) *big.Float {

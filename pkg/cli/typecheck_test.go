@@ -49,7 +49,7 @@ func TestParseTypeAnnotation(t *testing.T) {
 // TestAnnotatedDefStillRuns: the annotation is advisory and never alters evaluation.
 func TestAnnotatedDefStillRuns(t *testing.T) {
 	i := NewInterpreter()
-	i.EvaluateScript("def inc : Int -> Int = \\x -> x + 1\ndef add : Int -> Int -> Int = \\a b -> a + b")
+	i.EvaluateScript("type IntVal = Int\ndef inc : Int -> Int = \\x -> x + 1\ndef add : Int -> Int -> Int = \\a b -> a + b")
 	if v := i.EvaluateToValues("inc 41"); len(v) != 1 || intOf(t, v[0]) != 42 {
 		t.Fatalf("annotated def must evaluate normally, got %v", v)
 	}

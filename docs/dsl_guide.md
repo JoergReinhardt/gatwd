@@ -97,6 +97,13 @@ const MAX_RETRIES = 5
 spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 ```
 
+**Literal tokens are typed.** The unquoted value of a `const`, of `-D NAME=VALUE` and of each `emit` token follows one rule: a
+*canonical* number (`10`, `-5`, `1.5` — text that prints back unchanged) is that number, anything else (`alice`, `007`, `1.50`,
+`kind:Pod`) is a `String`, and a quoted value (`const ZIP = "10115"`) is always a `String`. So `const N = 5` can be added to inside
+a lambda (`map (\x -> x + N)`), while the text of a log line or a config value never silently becomes a number; convert it
+explicitly with `str_to_int` / `str_to_float` (`Maybe`). A spawn of an **undeclared** type keeps its value as text, so declare
+the type you compute with (`type IntVal = Int`) — `x + 1` on text is an error that names both types.
+
 ## 7. ADT Pattern Matching, List Destructuring & Non-Primitive Recursion
 
 ### Sum-Type Constructor Matching
@@ -236,7 +243,7 @@ Gatwd supports full infix mathematical, relational, and boolean expressions with
 
 ### Supported Infix Operators
 - **Arithmetic**:
-  - `+` (Addition, string concatenation)
+  - `+` (**numeric addition only**: `"a" + "b"` and `"1" + 2` are errors — use `++` to concatenate and `str_to_int` to parse; D2)
   - `-` (Subtraction)
   - `*` (Multiplication)
   - `/` (True division: **automatically promotes integer division to `Float` / `float64`**, e.g. `7 / 2 == 3.5`)
@@ -680,7 +687,7 @@ gatwd builtins                          # function forms (with parameters), defs
 gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
 ```
 
-Global flags: `-D NAME=VALUE` (a string constant; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
+Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1.5` is that number, anything else — `bob`, `007` — the String; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
 before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
 `1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.

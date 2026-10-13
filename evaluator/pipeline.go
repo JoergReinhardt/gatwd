@@ -1155,7 +1155,7 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				newVal, err := functions.EvalBinaryOp(functions.OpAdd, val, amount)
+				newVal, err := functions.EvalBinaryOp(functions.OpAdd, val, functions.OperandValue(functions.OpAdd, amount))
 				if err != nil {
 					errNode := InjectError[any](fmt.Errorf("math_add failed: %w", err), node.DSLType)
 					if !yield(errNode) {
@@ -1893,7 +1893,7 @@ func StepMathSub(amount string) PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				newVal, err := functions.EvalBinaryOp(functions.OpSub, val, amount)
+				newVal, err := functions.EvalBinaryOp(functions.OpSub, val, functions.OperandValue(functions.OpSub, amount))
 				if err != nil {
 					errNode := InjectError[any](fmt.Errorf("math_sub failed: %w", err), node.DSLType)
 					if !yield(errNode) {
@@ -2138,7 +2138,7 @@ func StepBinaryOp(op functions.OpKind, operand string) PipelineStep[functions.Ei
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				newVal, err := functions.EvalBinaryOp(op, val, operand)
+				newVal, err := functions.EvalBinaryOp(op, val, functions.OperandValue(op, operand))
 				if err != nil {
 					errNode := InjectError[any](fmt.Errorf("operator %s failed: %w", op, err), node.DSLType)
 					if !yield(errNode) {

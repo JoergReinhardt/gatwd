@@ -50,7 +50,7 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 
 Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
 
-**W2 (plan §5):** **done so far (see plan §0):** `Char` (`4cc0c8a`), F18 function-form-as-step, `String` as a collection row, the `str_*` library. **Also done:** `not`/`xor`/`and`/`or` and the `Ordering` sum type (`compare` returns it). **Remaining tier 1:** `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`, but check `const`s, which are stored as text). **D18 (escapes in `"…"` literals) is decided and done.** Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
+**W2 (plan §5):** **done so far (see plan §0):** `Char` (`4cc0c8a`), F18 function-form-as-step, `String` as a collection row, the `str_*` library. **Also done:** `not`/`xor`/`and`/`or` and the `Ordering` sum type (`compare` returns it). **D2 is done too (plan §0, step 7).** **W2 tier 1 is complete.** **D18 (escapes in `"…"` literals) is decided and done.** Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
 **The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** **F18 (function-form-as-step) is done too** (plan §5.4).
 
 **W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
@@ -86,9 +86,9 @@ A change to a binary's command line also gets a row in that binary's real-binary
 - A bare name used as an expression looks up a *value*: `eval -e "k8s_graph"` is `undefined identifier` because `k8s_graph` is a pipeline-bodied def (a fragment). Use it in a pipeline: `spawn StrVal: DIR |> manifests |> k8s_graph |> graph_order`.
 - `main` and `--task` run after the script's top-level statements, which always run — keep invocations out of the top level. With `-e`, `main` does not run.
 - Exec steps split quotes like a shell and a non-zero exit is an error. An unknown pipeline step still **runs an OS command** (F17) until W7: never feed untrusted scripts to the interpreter.
-- `"a" + [1]` and `"a" + 1` still concatenate until D2 lands (W2); the graph fail-loud rows use an undefined name for that reason.
+- `+` is numeric-only (D2, done): `"a" + 1` is an error naming both types and `++`. Text reaching arithmetic must be converted (`str_to_int`); the tokens of `emit`/`const`/`-D` are typed literals; spawn an **undeclared** type and the value is text (declare `type IntVal = Int`). `- * / // %` and comparisons still coerce numeric strings — a W3 item.
 - Known, **not fixed**: `zip` is suspect (`echo Primary: %s |> zip date` yields only the date); big integers print with a leading `+` (F11, W3).
-- `-D X=5` binds the **string** `"5"`; `X + 1` still gives `6` today because `+` coerces — after D2 that is `[ERROR]` unless the value is converted.
+- `-D X=5` binds the **number** 5 (canonical numbers only; `-D X=007` or `bob` are Strings) — this amends D4, see plan §0 step 7.
 
 **CLI and tooling**
 - `cobra` with `Args: ArbitraryArgs` on the root: a first argument that is not a subcommand is the script, so a script literally named `run`, `check`, `task`, `eval`, `repl`, `prelude`, `builtins`, `version`, `completion` or `help` must be passed as `./check`. A mistyped subcommand (`chek`) is read as a script path and fails with `cannot read script`.
