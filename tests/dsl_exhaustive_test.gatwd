@@ -1179,3 +1179,49 @@ hamt_from [["a", @2026-10-14], ["b", @2025-01-01], ["c", @2026-02-28]] |> hamt_v
 [@2026-10-14, @2025-01-01] |> map (\d -> min d @2026-01-01) |> assert [2026-01-01 2025-01-01]
 [@2026-10-14, @2025-01-01] |> map (\d -> max d @2026-01-01) |> assert [2026-10-14 2026-01-01]
 [@2026-10-14, @2025-01-01] |> map (\d -> compare d @2026-01-01) |> assert [GT LT]
+
+-- 109. Duration/Time/Date function forms (hardening §5.6): data-last and curried, Maybe for malformed text
+-- (dur_parse, time_parse, date_parse), errors for impossible requests (asserted in the Go tests). time_format uses a
+-- strftime subset (%Y %m %d %H %M %S %z %Z %%) and the names rfc3339, date, clock. date_add_months clamps to the end of
+-- the month; time_of_date is the zone's first instant of the day; a Date and a Time meet only through a named zone.
+["1h30m", "5q", "-5s", "1h1h", ""] |> map (\s -> maybe_default 0s (dur_parse s)) |> assert [1h30m 0s -5s 0s 0s]
+["2026-10-13T09:30:00Z", "2026-10-13T09:30:00", "x"] |> map (\s -> is_just (time_parse s)) |> assert [true false false]
+["2026-10-13", "2026-02-30", "13.10.2026"] |> map (\s -> is_just (date_parse s)) |> assert [true false false]
+["2026-10-13T11:30:00+02:00"] |> map (\s -> maybe_default @0001-01-01T00:00:00Z (time_parse s)) |> assert [2026-10-13T11:30:00+02:00]
+[1500ms, 90s] |> map (\d -> to_seconds d) |> assert [1.5 90]
+[1500ms, -1999us] |> map (\d -> dur_ms d) |> assert [1500 -1]
+[1.5, 90, 1r2] |> map (\x -> dur_from_seconds x) |> assert [1s500ms 1m30s 500ms]
+[90s, -90s, 89s, 29s] |> map (\d -> dur_round 1m d) |> assert [2m -2m 1m 0s]
+[90s, -90s, 89s] |> map (\d -> dur_truncate 1m d) |> assert [1m -1m 1m]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> time_format "%Y-%m-%d %H:%M:%S %z" t) |> assert [2026-10-13 09:30:00 +0000 2026-10-13 11:30:00 +0200]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_format "date" (time_in "Asia/Kolkata" t)) |> assert [2026-10-13]
+[@2026-10-13T23:30:00Z] |> map (\t -> time_format "date" (time_in "Asia/Kolkata" t)) |> assert [2026-10-14]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_format "clock" (time_in "Europe/Berlin" t)) |> assert [11:30:00]
+[@2026-10-13T09:30:00Z, @2026-10-18T09:30:00Z] |> map (\t -> time_weekday t) |> assert [2 7]
+[@2026-10-13T09:30:00Z] |> map (\t -> [(time_year t), (time_month t), (time_day t), (time_hour t), (time_minute t), (time_second t), (time_nano t)]) |> assert [[2026 10 13 9 30 0 0]]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_from_unix (time_unix t)) |> assert [2026-10-13T09:30:00Z]
+[@2026-10-13T09:45:30Z] |> map (\t -> [(time_truncate 1h t), (time_round 1h t)]) |> assert [[2026-10-13T09:00:00Z 2026-10-13T10:00:00Z]]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t == time_in "UTC" t) |> assert [true true]
+[@2026-10-13, @2024-02-29] |> map (\d -> [(date_year d), (date_month d), (date_day d), (date_weekday d), (date_days_in_month d)]) |> assert [[2026 10 13 2 31] [2024 2 29 4 29]]
+[[2026, 10, 13], [2026, 12, 31]] |> map (\p -> date_of (head p) (nth 1 p) (nth 2 p)) |> assert [2026-10-13 2026-12-31]
+[@2026-01-31, @2024-01-31, @2026-03-31, @2026-12-31] |> map (\d -> date_add_months 1 d) |> assert [2026-02-28 2024-02-29 2026-04-30 2027-01-31]
+[@2026-03-31, @2026-01-15] |> map (\d -> date_add_months -1 d) |> assert [2026-02-28 2025-12-15]
+[@2024-02-29, @2026-10-13] |> map (\d -> date_add_years 1 d) |> assert [2025-02-28 2027-10-13]
+[@2026-10-13, @2026-12-31] |> map (\d -> date_add_days 30 d) |> assert [2026-11-12 2027-01-30]
+[2024, 1900, 2000, 2026] |> map (\y -> is_leap_year y) |> assert [true false true false]
+[@2026-10-13T22:30:00Z] |> map (\t -> [(date_of_time "UTC" t), (date_of_time "Europe/Berlin" t)]) |> assert [[2026-10-13 2026-10-14]]
+[@2026-10-13, @2026-03-29, @2026-10-25] |> map (\d -> time_of_date "Europe/Berlin" d) |> assert [2026-10-13T00:00:00+02:00 2026-03-29T00:00:00+01:00 2026-10-25T00:00:00+02:00]
+-- Daylight saving, Europe/Berlin: the spring day lasts 23 h and the autumn day 25 h, so "+ 24h" is not "tomorrow"
+[@2026-03-28, @2026-03-29, @2026-10-24, @2026-10-25] |> map (\d -> (time_of_date "Europe/Berlin" (date_add_days 1 d)) - (time_of_date "Europe/Berlin" d)) |> assert [24h 23h 24h 25h]
+[@2026-03-29] |> map (\d -> time_of_date "Europe/Berlin" d) |> map (\t -> t + 24h) |> map (\t -> time_format "%Y-%m-%d %H:%M" t) |> assert [2026-03-30 01:00]
+[@2026-10-25] |> map (\d -> time_of_date "Europe/Berlin" d) |> map (\t -> t + 24h) |> map (\t -> time_format "%Y-%m-%d %H:%M" t) |> assert [2026-10-25 23:00]
+[@2026-10-25T00:30:00Z, @2026-10-25T01:30:00Z] |> map (\t -> time_format "%H:%M %z" (time_in "Europe/Berlin" t)) |> assert [02:30 +0200 02:30 +0100]
+-- a midnight swallowed by a daylight-saving gap is the first valid instant after it
+[@2026-03-29] |> map (\d -> time_of_date "Asia/Beirut" d) |> assert [2026-03-29T01:00:00+03:00]
+-- step form is the function form
+@2026-10-13T09:30:00Z |> time_in "Europe/Berlin" |> time_hour |> assert 11
+@2026-10-13 |> date_add_months 1 |> assert 2026-11-13
+90s |> dur_round 1m |> assert 2m
+-- partial application and the pipeline
+[@2026-12-31, @2026-02-28] |> map (date_add_days 1) |> assert [2027-01-01 2026-03-01]
+[@2026-10-13T09:30:00Z, @2026-10-14T09:30:00Z, @2026-10-15T09:30:00Z] |> filter (\t -> time_day t > 13) |> map (\t -> time_day t) |> assert [14 15]
