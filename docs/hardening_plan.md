@@ -504,6 +504,40 @@ it from `.gatwd`, core stays domain-free. **Size:** about two days inside the la
 injectable-clock adapter step; **D16** `Time` carries a display location, no `DateTime` type; **D17** `Date ± whole-day
 Duration` operators. Each recommendation is the first option named; ask before implementing this section.
 
+#### 5.6.1 Closure notes (Track F, 2026-10-13; D14–D17 accepted as proposed)
+
+**Done, one commit per sub-step, all gates green after each** (gofmt, `go vet`, `go test ./...`, `./run_dsl_tests.sh`,
+`-race` on `./pkg/... ./evaluator ./parser ./interactive`, silent `--check`, script regression diff with the base
+binary run twice: empty apart from the visualizer tours 15/20/23, which differ between runs of one binary):
+
+| Step | Commit | What |
+| :-- | :-- | :-- |
+| 1 `Duration` | `452a99f` | `functions.Duration` (`type Duration time.Duration`), `ParseDuration`, the `TokDuration` lexer token (`5s 1h30m 1.5h 2d 1w`), canonical printing, the operator matrix in `functions/timeops.go` (`± * / // %`, `Duration / Duration` = exact `Ratio`), unary `-`/`abs`, overflow errors; `sort`'s `DefaultLess` now orders numbers and time values by value |
+| 2 `Time` | `75d5ae0` | `functions.Time` (struct around `time.Time`: RFC 3339 printing, years 1–9999, monotonic part stripped), `@…T…Z`/`@…+02:00` literals (`TokTime`), `Time ± Duration`, `Time - Time`, comparison by instant, embedded zone database (`time/tzdata`), DST pinned for `Europe/Berlin` 2026-03-29 and 2026-10-25 |
+| 3 `Date` | `a5b7249` | `functions.Date` (comparable struct), `@2026-10-13` literal (`TokDate`), D17 (`Date ± whole-day Duration`, `Date - Date`), `AddDays/Months/Years` with end-of-month clamping, `Date` vs `Time` is an error |
+| 4 function forms | `21eebd9` | `dur_*`, `time_*`, `date_*`, `is_leap_year`, `date_of_time`, `time_of_date` (`pkg/cli/dslfuncs_time.go`, helpers in `functions/timefmt.go`); strftime-subset layouts; `Maybe` parsers |
+| 5 `now` | `aa860ef` | `adapters.ClockAdapter`, the `now` step and a bare `now` head, `Interpreter.Clock` (inherited by forks and pipeline lambdas) |
+| 6 checker, matrix, encoding | `f895387`, `982631d` | `Duration`/`Time`/`Date` known to `--check`; `CanonicalKey`/`KeyText` (a `Time` is its instant as a Set member and HAMT key, in function and step forms); `json_encode`/`yaml_encode` |
+| 7 docs | this commit | `dsl_guide.md` ("`Duration`, `Time` and `Date`"), `grammar.md`, godoc (`functions`, `adapters`, `pkg/cli`), `Example*` |
+
+**Decisions taken on the recommendation (reversible, say if you want the alternative):**
+1. **Encoding.** `json_encode`/`yaml_encode` write a `Time` as RFC 3339, a `Date` as ISO 8601 and a `Duration` as its literal
+   text (`"1h30m"`), all Strings; before this they failed with "has no JSON form" (never silent). Alternatives for `Duration`:
+   ISO 8601 (`PT1H30M`) or integer nanoseconds. Decoding leaves text as text (the YAML-date stance); `time_parse`/`date_parse`/`dur_parse` revive it.
+2. **`dur_truncate`/`dur_round` take a `Duration` as the unit** (`dur_round 1m d`), the same argument shape as `time_truncate d t`;
+   the plan wrote `unit` without saying whether a name string or a `Duration`.
+3. **`time_truncate`/`time_round` count from `0001-01-01T00:00:00Z`** (Go's rule), so `1d` is UTC midnight whatever the display zone; use `time_of_date zone (date_of_time zone t)` for the zone's midnight.
+4. **A `Time` Set member / HAMT key is its canonical UTC form** (`==` and membership agree); the display zone is not kept in a `Set`.
+5. **`time_in ""` and `time_in "Local"` are errors** (local time is never implicit); `time_of_date` resolves a midnight lost to a daylight-saving gap to the first valid instant after it and a repeated midnight to the earlier one (tested with `Asia/Beirut` 2026-03-29 and `America/Havana` 2026-11-01).
+6. **Range:** `Time`/`Date` years 1–9999 (what a four-digit RFC 3339 year reads back); `Duration` about ±292 years; anything beyond is an error.
+7. **`now` is not a function form**: it is a step (and a bare head); inside a lambda take the reading as a parameter (`\now exp -> exp - now < 14d`). A user binding named `now` shadows it.
+
+**Deferred, with reason:** (a) **typed tokens** — `const X = 30d`, `emit 5s`, `-D X=5s` keep the *text*, because `LiteralToken` types only canonical numbers and a Duration's canonical form is not how people write it (`30d` prints `720h`); use `let limit = 30d` or `dur_parse "30d"` (documented in the guide); open question below. (b) `DateTime` (D16) and a `sleep` step (needs W7's policy). (c) ISO 8601 durations (`PT1H`) and `Time`/`Date` parsing of other layouts: `strptime`-style parsing is not provided, only RFC 3339 and `YYYY-MM-DD`. (d) The k8s prelude does not use the new types yet (§10.1 row added). (e) Weekday names, week numbers, `time_format` locale names.
+
+**Behaviour changes to know:** a number immediately followed by letters is now one token, so `5s` is a `Duration`, and `5q`/`5min`/`3x` are lex errors naming the unit (they were a number applied to an identifier, `cannot apply non-function value`, an error before as well; the regression diff over every committed script is empty); `5 s` is unchanged. `sort` (`evaluator.DefaultLess`) now orders any two numbers (`int8` vs `int64`, big integers, `Ratio`) and time values by value instead of by printed text. The binary grows by about 0.5 MB (embedded zone database).
+
+**Open questions:** **T1** make `const`/`emit`/`-D` tokens typed for `Duration`/`Time`/`Date` literals (`const MAX_AGE = 30d`)? Recommended: yes for `Time` and `Date` (`@…` is unambiguous) and for a Duration whose *value* is written (not only canonical text), at the price of changing how a printed value looks (`30d` shows `720h`). **T2** keep the `Duration` JSON form as the literal String or switch to ISO 8601? **T3** add `str`-style parsing with a layout (`time_parse_with "%d.%m.%Y" s`) when a real need appears?
+
 ---
 
 ## 6. W3 — The numeric tower, specified (D3)
@@ -863,6 +897,7 @@ the how-to, and the script regression diff. Collect here as phases land; **each 
 | **`compare` and ordering of mixed values** (W3): `compare`, `min`, `max`, `<` on a String and a number are errors; two Strings order as text | anything that sorts or compares labels/ports as text vs numbers: convert with `str_to_int` first | rules that compare a label or annotation value with a number |
 | **W4 follow-ups** (the W4 row above is done on branch `hardening/w4`: how-to §2.3/§2.4/§3.5/§4, all ids and tests migrated) | after W5 (kustomize): say that `kubectl kustomize` output carries namespaces and that two overlays defining one object now fail with the duplicate-id error; if provenance (W4 §7.1 item 1) is decided, show the file in the error text | a source path in the duplicate error (adapter + payload shape, after Track C); decide `ownerReferences` without `kind` (§7.1 item 2); an override that still uses `k8s_names` or `metadata.name` ids fails loudly: mention it in the W6 layered-rules text |
 | **W4 finds for other tracks** | `prelude cat` reads only the entry file: either teach it the imported files (W6, `command.go`) or drop the claim "copy, edit, load with `--prelude`" for `relations.gatwd` | the operator prints a duplicate-id error and **exits 0** like a violation list: W6's exit codes (`--fail-on-violation`, `2` for no source) must also fail on an error result; the guard-only comprehension defect (§7.1 item 3) belongs to the parser |
+| **§5.6 as built (Track F)**: `Duration`/`Time`/`Date`, `now`, `Interpreter.Clock`, JSON/YAML as Strings | the "ages and expiry" example in `docs/k8s_howto.md`, run against the final binary with an injected clock (`now |> map (\t -> (t - created) > 30d)`); mention `time_parse` for `metadata.creationTimestamp` and that decoded YAML/JSON dates are text until `time_parse`/`date_parse` | adopt in `lib/k8s/*.gatwd` (`creationTimestamp` age rules, certificate expiry `expires - now < 14d`, `Secret` rotation); the edition's tests set `Interpreter.Clock` (`Edition.BuildInterpreter()` then `interp.Clock = …`), never the wall clock; **typed tokens** (T1) decide whether `-D MAX_AGE=30d` works for the operator; Editions that need a different clock set it on the interpreter they build |
 
 | Risk | Mitigation |
 | :-- | :-- |

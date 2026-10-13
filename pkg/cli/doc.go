@@ -7,7 +7,7 @@
 //   - Local variable bindings (let ... in ...).
 //   - Top-level immutable constants (const) and native Go constant registration (RegisterConstant).
 //   - Algebraic Data Type pattern matching and list destructuring ([pivot, ...rest]).
-//   - Gatwd Builtins: Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file.
+//   - Gatwd Builtins: Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file, now (an injectable-clock adapter step, Interpreter.Clock).
 //   - Bare Runtime (NewBareInterpreter): Minimalist execution core without standard library builtins.
 //   - Gatwd Editions (NewEdition): Fluent builder for custom distributions with domain types and steps.
 //   - Gatwd Appliances (NewAppliance, NewApplianceTree): Hot-reloadable releases with embedded scripts and a ConfigMap override layered on top (OverrideLayer, or OverrideReplace); a check/run command line with --format text|json and exit statuses 0, 1 and 2.
