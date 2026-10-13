@@ -1,6 +1,6 @@
-# Handoff — continue the hardening plan at W2 and W3 (base types, numeric tower)
+# Handoff — continue the hardening plan at W3 (the numeric tower and `Ratio`); W2 is done
 
-> Handoff for a **fresh context**. It **supersedes the earlier version of this file** (the W1b brief, now done) and
+> Handoff for a **fresh context**. It **supersedes the earlier version of this file** (the W2/W3 brief written after W1b) and
 > nothing else; the k8s-graph handoffs `phase6/7/8_handoff.md` are historical and carry banners.
 >
 > **Read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
@@ -11,9 +11,14 @@
 
 ## 1. Where we are
 
-**Committed and pushed (2026-10-13, `master` at `19a4b03`; local commit `4cc0c8a` = W2 step 1, `Char`, not pushed):** the language roadmap, the Kubernetes graph tool, the agent rules/skills/guards, the how-to, the
-hardening plan, W0 (fail-loud sweep), the D4 argument model and **W1b**, the cobra command tree. `output.txt` in the repo root is untracked and **not ours** —
-do not add it. Stage by name; commit and push only when asked.
+**State (2026-10-13):** everything up to `master` at `19a4b03` is pushed; **W2 is committed locally and not pushed** (about a dozen commits from `4cc0c8a` to
+`e5e38ff`; `git log --oneline 19a4b03..HEAD`). `output.txt` in the repo root is untracked and **not ours** — do not add it. Stage by name; commit and push only when asked.
+
+**W2 is done** (plan §0 has one row per step): `Char`; `String` and `Bytes` as collection rows; the `str_*` library, `show`, `str_format`; D18 string escapes; Bool functions and the
+`Ordering` sum type (`compare` returns it); **D2** (`+` numeric-only, and `- * / // %` and the ordering operators reject a `String` beside a number; two Strings order as text); typed literal tokens for
+`emit`/`const`/`-D`; F18 (every builtin is also a step); `Bytes` with base64/hex/url/utf8 and `sha256`/`md5`; JSON; RE2 regex. Several pre-existing silent defects were fixed on the way
+(let-bound and constant Strings spliced as bare words, delimiters inside string literals confusing the statement joiner and the splitters). **Deferred, with reasons:** YAML (needs a
+third-party library; Clean Core — an Edition registers it), `Unit`, prefix `!`. **Still planned for later:** `Duration`/`Time`/`Date` (plan §5.6, D14–D17 proposed, **ask first**), scheduled after W3.
 
 What W1b changed (for orientation):
 
@@ -46,25 +51,24 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 | D7 | Bump the repo to **Go 1.27**, kustomize v0.21.3 (W5). No system Go update needed: `GOTOOLCHAIN=auto` fetches `go1.27.x`; only CI/Docker images need ≥ 1.27. Auto-render of kustomization roots was **not** explicitly answered — confirm at W5. |
 | D8 | Yes: unknown step ⇒ OS command stays for trusted CLI use, denied by default for overrides and non-command-line scripts (W7). |
 
-## 3. Goals for the next phase (W2 and W3 — they can run in parallel; one commit per sub-step)
+## 3. Goals for the next phase (W3, one commit per sub-step)
 
-Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
+Start from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse. D11–D13 (the `Ratio` design) are decided.
 
-**W2 (plan §5):** **done so far (see plan §0):** `Char` (`4cc0c8a`), F18 function-form-as-step, `String` as a collection row, the `str_*` library. **Also done:** `not`/`xor`/`and`/`or` and the `Ordering` sum type (`compare` returns it). **D2 is done too (plan §0, step 7).** **W2 tier 1 is complete.** **D18 (escapes in `"…"` literals) is decided and done.** Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
-**The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** **F18 (function-form-as-step) is done too** (plan §5.4).
-
-**W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
-promotion lattice, `/ // %` and zero-division errors, `**`/`pow`/`sqrt`/`floor`/`ceil`/`round`/…, unary minus, and the constraint names `Num`/`Integral`/`Fractional`/`Comparable`/
-`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`) with **zero false positives** on every committed script. An operator × type-pair matrix test. **Plus `Ratio`, exact fractions (plan §6.1):** `3r4` and `0.75r` literals, `ratio n d`, `*big.Rat` with demotion to `Int`, `to_ratio` (shortest-decimal), `to_ratio_exact`, `to_ratio_approx x max_den`, correctly rounded `to_float`. D11–D13 are decided; nothing to ask first.
+**W3 (plan §6):** the numeric tower as a tested specification.
+1. Logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11), the promotion lattice, `/ // %` and zero-division errors.
+2. `**`/`pow`/`sqrt`/`floor`/`ceil`/`round`/`trunc`/`sign`/`gcd`/`lcm`/`to_int`/`to_float`/`is_nan`/`is_inf`, and **unary minus** (`- 5`, `abs -3`, `str_slice -1 …` currently parse as subtraction; the F2 rows `- 5` and `2 ** 3` in `pkg/cli/failloud_test.go` expect `cannot evaluate`: flip them).
+3. The constraint names `Num`/`Integral`/`Fractional`/`Comparable`/`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`), **zero false positives** on every committed script.
+4. **Strings are not numbers — the rest of D2 (plan §6 item 7):** equality (`"5" == 5` must be `false`; `StructuralEqual`'s `%v` fallback and numeric-string branch), and the helpers `ToFloat64`/`toInt64`/`ToBigInt`/`ToComplex128` stop parsing `string` (they are why `nth "1" xs`, `range "0" "2"`, `min "5" 3` work).
+5. **`Ratio`, exact fractions (plan §6.1):** `3r4` and `0.75r` literals, `ratio n d`, `*big.Rat` with demotion to `Int`, `to_ratio` (shortest decimal) / `to_ratio_exact` / `to_ratio_approx x max_den`, correctly rounded `to_float`; D11 (`/` on two Ints unchanged), D12 (Ratio vs Float: arithmetic promotes, comparison exact), D13 (`%` stays modulo) are decided.
+6. An operator × type-pair matrix test, including the `String × number` rows.
 
 **Definition of done per cell** is in `AGENTS.md` Mandate 2 (Go method → operator → evaluator step → step form → function form → DSL assertion *inside a lambda* → structural Go test → `Example`).
 Each partial function needs a negative case; the parity check "step form ≡ function form" is a test, not a hope.
 
-**Also planned, after W3:** `Duration`, `Time` and `Date` (plan §5.6; D14–D17 are proposed and **must be asked before implementing**).
+**After W3:** `Duration`/`Time`/`Date` (plan §5.6; **D14–D17 are proposed and must be asked before implementing**), then **W4** (qualified node ids, D6 — migrate all tests/examples in the same phase) → **W5** (Go 1.27 bump first) → **W6** (operator flags `--long` with the normaliser hook, layered rules, exit codes) → **W7** (policy, `context`, structured diagnostics).
 
-**When everything is done:** work through the **closing checklist for the k8s how-to and k8s code** (plan §10.1; user request) — it collects the doc and code updates that each phase leaves behind; add a row there whenever a phase changes behaviour the k8s edition or its how-to touches.
-
-After W2/W3: **W4** (qualified node ids, D6 — migrate all tests/examples in the same phase) → **W5** (Go 1.27 bump first) → **W6** (operator flags `--long` with the normaliser hook that now exists, layered rules, exit codes) → **W7** (policy, `context`, structured diagnostics).
+**When everything is done:** work through the **closing checklist for the k8s how-to and k8s code** (plan §10.1; user request); add a row there whenever a phase changes behaviour the k8s edition or its how-to touches.
 
 ## 4. Authoring shapes (copy these)
 
@@ -134,15 +138,14 @@ D2 will change the output of any script that concatenated with `+` (none found);
 
 ## 8. First steps
 
-1. `git status -sb`: confirm the tree is clean apart from `output.txt` (the D1 clarification may still be an uncommitted doc edit). Run the §7 gates once for a known-green start; build the baseline binary from `HEAD` **before** editing.
-2. Ask the user: **commit W1b?** (and push? — never without asking). Then settle the D1 details (§2) and confirm the D2 corollary (`"a" + "b"`).
-3. Write W2's design note into plan §5 (grounded in `pkg/cli/valueops.go`, `functions/`, `parser/`): how `Char` literals lex, which cells of the Char/String × operation matrix exist, the on-demand conversion table.
-4. Pinning tests first (the F2 rows, the `+` rows), then the generic Go type in `functions/` with structural tests, then registration in `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line), then docs (`dsl_guide.md`, `grammar.md`).
-5. W3 in parallel only if the tree stays reviewable; otherwise W2 tier 1 first. Update the plan's progress table and rewrite this handoff at the end of each phase; mark the old one superseded.
+1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start. Build the baseline binary from `HEAD` **before** editing: `go build -o /tmp/gatwd_base ./cmd/gatwd`.
+2. Ask the user whether to **push** the W2 commits (never without asking).
+3. W3 sub-step order I recommend: unary minus and `**` (they unblock the F2 rows and `abs -3`) → the logical `Int` demotion rule and the F11 display → the String-is-not-a-number leftovers (item 4) → the constraint names in the checker → `Ratio` → the matrix test last, so it documents the final behaviour.
+4. For each: pinning tests first, then the generic Go in `functions/`, then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line; a statement ending in `=` continues on the next line — don't end an `assert` argument with `=`), then docs (`dsl_guide.md`, `grammar.md`). Update the plan's progress table and rewrite this handoff at the end of the phase; mark the old one superseded.
 
 ## 9. Pointers
 
-- Plan and decisions: `docs/hardening_plan.md` (§0 progress, §1 decisions, §2.4 defect table F1–F18, §4.5 what W1b decided, §5 W2, §6 W3).
+- Plan and decisions: `docs/hardening_plan.md` (§0 progress, §1 decisions, §2.4 defect table F1–F18, §4.5 what W1b decided, §5 W2, §6 W3, §10.1 closing checklist).
 - Command line: `pkg/cli/command.go`, `docs/dsl_guide.md` §23; the argument model: `pkg/cli/run.go`.
 - Guards: `internal/archtest/{layers,clean_core,doclinks}_test.go`, `run_dsl_tests.sh`.
 - Prompts and skills: `.agents/prompts/{add-language-feature,fill-matrix-cell,review-against-mandates,phase-handoff}.md`, `.agents/skills/{all-layers-sync,dsl-authoring,phase-delivery,recursive-dogfood}`.
