@@ -271,6 +271,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 	})
 
 	registerMatrixFuncs(m)
+	registerNumericFuncs(m)
 	registerGraphFuncs(m)
 	registerCharFuncs(m)
 	registerStrFuncs(m)

@@ -2104,7 +2104,8 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 }
 
 // renderNodes drains a stream into the printed form of its nodes: `[ERROR] …` for a Left,
-// the raw text of a byte slice, and `%+v` for everything else.
+// the raw text of a byte slice, plain digits for a big integer, and `%+v` for everything else
+// (displayText).
 func renderNodes(nodes iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) []string {
 	var out []string
 	for node := range nodes {
@@ -2119,10 +2120,7 @@ func renderValue(v functions.Either[error, any]) string {
 		return fmt.Sprintf("[ERROR] %v", err)
 	}
 	val, _ := v.UnwrapRight()
-	if b, ok := val.([]byte); ok {
-		return string(b)
-	}
-	return fmt.Sprintf("%+v", val)
+	return displayText(val)
 }
 
 // explainSilentStatement reports why a single-part statement that produced nothing was

@@ -875,3 +875,61 @@ w3_dec -5 |> assert -6
 5 |> ** 2 |> assert 25
 5 |> math_pow 3 |> assert 125
 5 |> - 2 |> assert 3
+
+-- 99. Numeric tower, step 2 (hardening W3): the logical Int. Int is unbounded and exact; a result that
+-- fits int64 is an ordinary Int again (demotion), a larger one a big integer printed without a '+'.
+-- `/` is exact when it divides and a Float otherwise; `//` floors; `%` takes the sign of the divisor.
+2 ** 63 |> assert 9223372036854775808
+2 ** 63 - 1 |> assert 9223372036854775807
+2 ** 100 - 2 ** 100 |> assert 0
+(2 ** 64) / (2 ** 64) |> assert 1
+9223372036854775807 + 1 |> assert 9223372036854775808
+-9223372036854775807 - 2 |> assert -9223372036854775809
+[2 ** 64, 7] |> assert [18446744073709551616 7]
+[1, 2, 3] |> map (\x -> 2 ** 62 * x) |> assert [4611686018427387904 9223372036854775808 13835058055282163712]
+[1, 2, 3] |> fold (\acc x -> acc * 10 ** 12 + x) 0 |> assert 1000000000002000000000003
+7 // 2 |> assert 3
+-7 // 2 |> assert -4
+7 // -2 |> assert -4
+-7 % 3 |> assert 2
+7 % -3 |> assert -2
+[-7, 7, 0, 12] |> map (\a -> 3 * (a // 3) + a % 3) |> assert [-7 7 0 12]
+7 / 2 |> assert 3.5
+8 / 2 |> assert 4
+1 / 3 |> assert 0.3333333333333333
+-7.5 // 2 |> assert -4
+-7.5 % 2 |> assert 0.5
+divmod -7 2 |> assert [-4, 1]
+[-7, 7] |> map (\a -> fst (divmod a 2)) |> assert [-4 3]
+quot -7 2 |> assert -3
+rem -7 2 |> assert -1
+-- exact comparison, never through a double
+9007199254740993 > 9007199254740992.0 |> assert true
+9007199254740993 == 9007199254740992.0 |> assert false
+1 == 1.0 |> assert true
+0.1 + 0.2 == 0.3 |> assert false
+[1, 2.5, 3] |> map (\x -> x < 2.5) |> assert [true false false]
+-- the named functions, step form and function form inside a lambda
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> floor x) |> assert [2 -3 2 -3]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> ceil x) |> assert [3 -2 3 -2]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> trunc x) |> assert [2 -2 2 -2]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> round x) |> assert [3 -3 3 -3]
+[2.5, 3.5, -2.5] |> map (\x -> round_even x) |> assert [2 4 -2]
+[-3, 0, 4] |> map (\x -> sign x) |> assert [-1 0 1]
+[-3, 4] |> map (\x -> abs x) |> assert [3 4]
+-(2 ** 63) |> abs |> assert 9223372036854775808
+[4, 9, 16] |> map (\x -> sqrt x) |> assert [2 3 4]
+isqrt (10 ** 40) |> assert 100000000000000000000
+[12, 7, 0] |> map (\a -> gcd a 18) |> assert [6 1 18]
+[4, 6, 0] |> map (\a -> lcm a 6) |> assert [12 6 0]
+fold (\a x -> lcm a x) 1 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] |> assert 2520
+[3, 4] |> map (\x -> pow 2 x) |> assert [8 16]
+[3.0, 4.0] |> map (\x -> to_int x) |> assert [3 4]
+[3, 4] |> map (\x -> to_float x) |> assert [3 4]
+to_float (2 ** 53 + 1) |> assert 9.007199254740992e+15
+[1.5, 3] |> map (\x -> is_nan x) |> assert [false false]
+[1.5, 3] |> map (\x -> is_inf x) |> assert [false false]
+2.7 |> floor |> assert 2
+16 |> sqrt |> assert 4
+-- (the negative cases — sqrt -4, to_int 3.5, 1 // 0, ... — are errors by design, so they live in
+-- pkg/cli/numeric_test.go and failloud_test.go: this file must stay free of [ERROR].)
