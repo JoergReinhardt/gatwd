@@ -3,28 +3,20 @@
 > Handoff for a **fresh context**. It **supersedes the earlier version of this file** (the "W2 is done; run W3–W6 in parallel" brief) and
 > nothing else; the k8s-graph handoffs `phase6/7/8_handoff.md` are historical and carry banners.
 >
-> **First, do §0** (put the open questions to the user). **Then read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
+> **First, do §0** (the answered questions). **Then read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
 > (§0 progress table, §1 decisions, §5.6 time types, §9 W7, §10.1 closing checklist, and the closure notes §6.2/§7.1/§8.1/§9) → `docs/development_playbook.md` (§3 gates and the
 > regression check, §4 step vs function form, §6 DSL traps) → this file. Then start at "First steps" (§8).
 
 ---
 
-## 0. START HERE — put the open questions to the user first
+## 0. START HERE — no open questions; the follow-ups of §3 are queued
 
 Everything below was **found or left open by the four parallel tracks** (2026-10-13). None blocks the next phase except where marked; present each with its default
 so the user can answer in one line, record the answers (with the date) in `docs/hardening_plan.md` §1 and in §2 here.
 
-| # | Open question | Recommended default | What it gates |
-| :-- | :-- | :-- | :-- |
-| Q1 | **Push** the local commits (`git log --oneline origin/master..HEAD`; about 25, from the W3–W6 merges and YAML)? | push, once the user has read the list | publication only |
-| Q2 | **Remote kustomize bases** (`https://…`, `git@…`) are refused loudly (the library cannot be told not to fetch). Allow them behind an explicit opt-in flag? | stay refused; revisit with W7's capability policy | W5 follow-up |
-| Q3 | `go.mod` carries `replace k8s.io/kube-openapi => 2026…` because kustomize v0.21.3 needs a newer one than `apimachinery` v0.37.1 allows. Adopt `client-go`/`apimachinery` v0.38 alpha to drop it? | keep the replace until v0.38 is stable | none |
-| Q4 | **Exit codes (W6):** should `check` fail on violations by default (better for CI, breaks scripts that rely on exit 0), and should violations get their own code (1 = broken run, 3 = violations)? | opt-in `--fail-on-violation` stays; add code 3 for violations | W6 follow-up |
-| Q5 | The duplicate-id error (W4) names both payloads but not the **source file**: no adapter attaches one. Add provenance to manifest documents (touches `adapters/manifest_adapter.go`)? | yes, a `_source` field set by the manifest adapter, shown only in errors | W4 follow-up |
-| Q6 | An `ownerReferences` entry without `kind` is now an error (it used to match by name). Keep it strict? | keep | none |
-| Q7 | **String vs collection equality (W3):** `"[2 1]" == [2, 1]` is still `true` because the pure-DSL Game of Life depends on it through HAMT keys. Fix HAMT keys so the equality can go? | yes, as a separate small phase after §5.6 | D2 completeness |
-| Q8 | `2 ** -3` is a `Float` (0.125) today; or the exact `1r8`? | keep `Float` (a `Ratio` result needs an explicit `ratio`) | §6.2 |
-| Q9 | `n -1` with `n` a number is an application error with a hint (a negative literal is an argument: `f -3`). Keep, or make it a subtraction again? | keep, the hint names the fix | §6.2 |
+**All of Q1–Q9 were answered on 2026-10-13** and are recorded in `docs/hardening_plan.md` §1 ("Answered after the parallel run"): push (done); remote kustomize bases stay refused; update to
+`client-go`/`apimachinery` v0.38 and drop the `replace`; violations get exit code 3 (`--fail-on-violation` stays opt-in); source provenance in duplicate-id errors; `ownerReferences` without `kind` stays an error;
+fix HAMT keys so a String no longer equals a collection's printed form (after §5.6); `2 ** -3` stays a `Float`; `n -1` stays an application error. **Nothing is open.**
 
 If the user is away or says "defaults", use the recommended column, **say so in the plan entry**, and continue.
 

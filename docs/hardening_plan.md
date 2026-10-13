@@ -106,6 +106,20 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **Q5** (rest) | **Keep:** `Unit` deferred; `LT`/`EQ`/`GT` reserved by `Ordering`; `compare` returns `Ordering`; typed `-D` numbers. | |
 | **Q6** | **Run the four tracks (W3, W4, W5, W6) in parallel** in their own worktrees; merge one at a time in the order C, D, A, B. | Handoff §3a. |
 
+**Answered after the parallel run (2026-10-13; the user's answers to the second round of questions, defaults where the user said "keep default"):**
+
+| ID | Decision | Notes |
+| :-- | :-- | :-- |
+| **Push** | Pushed (`9373f01..24ef7c8`). | |
+| **Remote kustomize bases** | **Stay refused** ("keep as is"). | Revisit with W7's capability policy. |
+| **kube-openapi `replace`** | **Update `client-go`/`apimachinery` to v0.38 (alpha) and drop the `replace`.** | Done on `master` after this entry; see §8.1 for the result. |
+| **Exit codes** | **Keep the default:** `--fail-on-violation` stays opt-in; violations get their own exit code **3** (1 = a broken run, 2 = a malformed command line). | Operator follow-up, §9. |
+| **Source provenance** | **Yes:** the manifest adapter attaches the source file to a document and a duplicate-id error names it. | W4 follow-up, §7.1. |
+| **`ownerReferences` without `kind`** | **Keep strict** (an error). | |
+| **String vs collection equality** | **Yes, fix:** HAMT keys must stop depending on the printed form of a collection, then `"[2 1]" == [2, 1]` becomes `false`. | A small phase after §5.6 (D2 completeness). |
+| **`2 ** -3`** | **Keep the default:** a `Float`; an exact result needs an explicit `ratio`. | §6.2. |
+| **`n -1`** | **Keep:** an application error with a hint. | §6.2. |
+
 ---
 
 ## 2. Findings
