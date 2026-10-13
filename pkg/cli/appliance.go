@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // OverrideMode says how an Appliance combines its embedded rules with an override file
@@ -138,7 +140,9 @@ type Appliance struct {
 	embeddedStr  string
 	mode         OverrideMode
 	required     []string
-	policy       Policy // zero value: DenyAll
+	policy       Policy        // zero value: DenyAll
+	timeout      time.Duration // per check; zero: none (WithTimeout)
+	maxOutput    int64         // per check, bytes; zero: none (WithMaxOutput)
 }
 
 // NewAppliance creates and initializes a hot-reloadable Gatwd Appliance.
@@ -159,6 +163,9 @@ func NewAppliance(opts ...ApplianceOption) (*Appliance, error) {
 	}
 	for _, opt := range opts {
 		opt(app)
+	}
+	if err := app.checkBounds(); err != nil {
+		return nil, err
 	}
 	if err := app.Reload(); err != nil {
 		return nil, err
@@ -428,13 +435,11 @@ func (a *Appliance) Report() LoadReport {
 	return st.report
 }
 
-// Execute evaluates a DSL pipeline line against the currently active interpreter.
+// Execute evaluates a DSL pipeline line against the currently active interpreter: one check.
+// It is bounded by the Appliance's WithTimeout and WithMaxOutput, if any, afresh on every
+// call; a check stopped by a bound yields one error value naming it (see ExecuteContext).
 func (a *Appliance) Execute(line string) []any {
-	interp := a.Interpreter()
-	if interp == nil {
-		return nil
-	}
-	return interp.EvaluateToValues(line)
+	return a.ExecuteContext(context.Background(), line)
 }
 
 // GetConstant retrieves an evaluated constant from the currently active interpreter.

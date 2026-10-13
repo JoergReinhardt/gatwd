@@ -154,6 +154,8 @@ func (p Policy) Require(c Capability, step, detail string) error {
 type execState struct {
 	policy atomic.Pointer[Policy]
 	ctx    atomic.Pointer[ctxBox]
+	// budget, when set, bounds the bytes EvaluateToValues collects (Appliance.WithMaxOutput).
+	budget atomic.Pointer[outputBudget]
 }
 
 type ctxBox struct{ ctx context.Context }
