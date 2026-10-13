@@ -42,7 +42,11 @@ func operator(t *testing.T, bin string, args ...string) (int, string, string) {
 	return code, out.String(), errb.String()
 }
 
-const idleWant = "[[UnselectedPod stray] [IdleDeployment lonely]]\n"
+const (
+	idleWant   = "[[UnselectedPod stray] [IdleDeployment lonely]]\n"
+	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"stray"},{"rule":"IdleDeployment","resource":"lonely"}],"errors":[]}` + "\n"
+	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"orphan"},{"rule":"UnusedService","resource":"unused-svc"},{"rule":"DanglingIngress","resource":"front"},{"rule":"MissingConfigMap","resource":"orphan"},{"rule":"DependencyCycle","resource":["loop-a","loop-b"]}],"errors":[]}` + "\n"
+)
 
 // TestOperatorCommandLine drives the real binary through every command line the how-to
 // documents: the subcommands, the legacy single-dash spelling (with its notice), the layered
@@ -54,6 +58,8 @@ func TestOperatorCommandLine(t *testing.T) {
 	_ = os.WriteFile(layered, []byte("def probe = \\_ g -> rule_idle_deployment g\ndef compliance = k8s_graph |> fold probe 0\n"), 0o644)
 	broken := filepath.Join(dir, "broken.gatwd")
 	_ = os.WriteFile(broken, []byte("def compliance = k8s_graph |> fold (\n"), 0o644)
+	failing := filepath.Join(dir, "failing.gatwd")
+	_ = os.WriteFile(failing, []byte("def compliance = k8s_graph |> fold (\\_ g -> no_such_rule g) 0\n"), 0o644)
 	absent := filepath.Join(dir, "absent.gatwd")
 
 	rows := []struct {
@@ -69,11 +75,18 @@ func TestOperatorCommandLine(t *testing.T) {
 			[]string{"-manifests is deprecated; use --manifests", "-rules is deprecated; use --rules"}},
 		{"a layered override reuses an embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered}, 0, "[[IdleDeployment lonely]]\n",
 			[]string{"layered on the embedded rules", "overridden: compliance", "added: probe"}},
-		{"replace mode cannot reach the embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered, "--rules-mode", "replace"}, 0, "",
+		{"replace mode cannot reach the embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered, "--rules-mode", "replace"}, 1, "",
 			[]string{"REPLACES"}},
 		{"a broken override fails the start", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", broken}, 1, "", []string{broken, "unbalanced delimiter"}},
+		{"violations with --fail-on-violation exit 1", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--fail-on-violation"}, 1, idleWant, []string{"2 violation(s) found"}},
+		{"a compliant cluster exits 0 with --fail-on-violation", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--fail-on-violation"}, 0, "[]\n", nil},
+		{"json output, violations", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--format", "json"}, 0, idleJSON, nil},
+		{"json output, every rule violated", []string{"check", "--manifests", "testdata/broken.yaml", "--rules", absent, "--format", "json", "--fail-on-violation"}, 1, brokenJSON, []string{"5 violation(s) found"}},
+		{"json output, compliant", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--format", "json"}, 0, `{"status":"ok","count":0,"violations":[],"errors":[]}` + "\n", nil},
+		{"a rule that errors at run time fails the check", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", failing, "--format", "json"}, 1, "", []string{"the check failed"}},
 		{"no source and no cluster", []string{"check", "--rules", absent}, 2, "", []string{"no --manifests given and no cluster reachable"}},
 		{"unknown flag", []string{"check", "--manifests", "x", "--nope"}, 2, "", []string{"unknown flag"}},
+		{"unknown format", []string{"check", "--manifests", "testdata/idle.yaml", "--format", "yaml"}, 2, "", []string{"text or json"}},
 		{"unknown rules mode", []string{"check", "--manifests", "testdata/idle.yaml", "--rules-mode", "merge"}, 2, "", []string{"layer or replace"}},
 		{"run without an interval", []string{"run", "--manifests", "testdata/idle.yaml"}, 2, "", []string{"--interval"}},
 		{"rules cat", []string{"rules", "cat"}, 0, "", nil},
@@ -89,6 +102,10 @@ func TestOperatorCommandLine(t *testing.T) {
 			case "rules cat":
 				if !strings.Contains(stdout, "def compliance") || !strings.Contains(stdout, "rule_dependency_cycle") {
 					t.Errorf("rules cat printed %q", stdout)
+				}
+			case "a rule that errors at run time fails the check":
+				if !strings.Contains(stdout, `"status":"error"`) || !strings.Contains(stdout, "no_such_rule") {
+					t.Errorf("stdout = %q, want an error status naming the failing rule", stdout)
 				}
 			case "version":
 				if !strings.HasPrefix(stdout, "gatwd-k8s-operator ") {

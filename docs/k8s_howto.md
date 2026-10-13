@@ -124,6 +124,9 @@ one extra rule, and a `compliance` that runs the embedded rules plus the new one
 ```bash
 gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules examples/k8s_howto/rules.gatwd
 # [[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]
+#   (stderr)  gatwd-k8s-operator: rules: override …/rules.gatwd layered on the embedded rules (mode layer)
+#   (stderr)  gatwd-k8s-operator: rules: overridden: compliance
+#   (stderr)  gatwd-k8s-operator: rules: added: infra_graph, rel_hosted_on, rel_uses_database, rule_database_without_credentials, secret_target
 ```
 
 Imports inside an override resolve against **the override file's directory**, not the working directory, so
@@ -263,15 +266,33 @@ The static operator is a single ELF binary of roughly 29 MB. To install into `$G
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`. Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--fail-on-violation` (see below). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
-**Exit codes.** The operator exits **0** whether or not it found violations (`2` if it has neither
-`-manifests` nor a reachable cluster). It reports; it does not gate. For a CI gate compare the output:
+**Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
+(`[ERROR] …`), a pipeline that yields nothing, or, with `--fail-on-violation`, a non-empty result; `2` a
+malformed command line (unknown flag or `--format`, no `--manifests` and no reachable cluster). Without
+`--fail-on-violation` the operator reports violations but exits 0, so a scheduled `run` is not restarted for
+finding something. For a CI gate:
 
 ```bash
-test "$(gatwd-k8s-operator -manifests ./rendered)" = "[]" || { echo "policy violations"; exit 1; }
+gatwd-k8s-operator check --manifests ./rendered --fail-on-violation || { echo "policy violations"; exit 1; }
 ```
+
+`run --interval` is a daemon: a failing check is printed and the loop continues; only a start-up failure ends it
+(and `--fail-on-violation` is rejected there).
+
+**Output formats.** `--format text` (default) prints the result as before: `[]` when compliant, otherwise
+`[[Rule resource] …]`; an error prints as `[ERROR] …`. `--format json` prints **one JSON object per check, on one
+line**, for log pipelines (every key always present):
+
+```bash
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --format json
+# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"worker"},…],"errors":[]}
+```
+
+`status` is `ok`, `violations` or `error`; a resource that is a list (a dependency cycle) stays a JSON array.
+Diagnostics — the rules report, reload failures — always go to **stderr**, so stdout stays machine-readable.
 
 The operator reads plain manifests (`manifests` step). For kustomize output, render first
 (`kubectl kustomize overlay > rendered/all.yaml`, then `--manifests rendered`). In `gatwd-k8s` scripts the
@@ -340,6 +361,5 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `metadata.name` only (§2.3).
-- The operator does not set a non-zero exit code on violations (§3.2).
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

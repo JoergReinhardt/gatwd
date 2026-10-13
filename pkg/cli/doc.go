@@ -10,7 +10,7 @@
 //   - Gatwd Builtins: Direct integration with transducers: chunk, checkpoint, telemetry, to_hamt, dial_tcp, scan_file.
 //   - Bare Runtime (NewBareInterpreter): Minimalist execution core without standard library builtins.
 //   - Gatwd Editions (NewEdition): Fluent builder for custom distributions with domain types and steps.
-//   - Gatwd Appliances (NewAppliance): Hot-reloadable releases with embedded scripts and live ConfigMap overrides.
+//   - Gatwd Appliances (NewAppliance, NewApplianceTree): Hot-reloadable releases with embedded scripts and a ConfigMap override layered on top (OverrideLayer, or OverrideReplace); a check/run command line with --format text|json and exit statuses 0, 1 and 2.
 //   - The command line (CommandTree, Edition.Command): a cobra tree — script runner/REPL, run, eval, check, task, prelude, builtins, version, completion — that maps flags to Interpreter.Run. Output goes to Interpreter.Out.
 //   - Ergonomic Step Helpers: MapStep, FilterStep, ArgStep, SinkStep for boilerplate-free transducer creation.
 package cli

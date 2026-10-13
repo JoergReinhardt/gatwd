@@ -22,10 +22,14 @@ import (
 //	NAME version · NAME completion SHELL
 //	NAME [flags]                  the legacy form: `run` when --interval is given, else `check`
 //
-// Flags every Appliance has: --rules FILE, --rules-mode layer|replace, --interval DUR. A
-// domain adds its own (its data source) in Bind. Exit status: 0 ok, 1 a command failed (rules
-// that do not load, a check that errored), 2 a malformed command line — the same mapping as
-// the Edition command tree.
+// Flags every Appliance has: --rules FILE, --rules-mode layer|replace, --interval DUR,
+// --format text|json, --fail-on-violation. A domain adds its own (its data source) in Bind.
+//
+// Exit status, the same mapping as the Edition command tree: 0 the check ran and, with
+// --fail-on-violation, found nothing; 1 the command failed — rules that do not load, a check
+// that errored or yielded nothing, or violations under --fail-on-violation; 2 a malformed
+// command line. `run` is a daemon: a failing check is reported and the loop continues, and
+// only a start-up failure ends it.
 
 // ApplianceSettings is what the generic flags resolved to; a domain's ApplianceSetup turns it
 // into an Appliance.
@@ -82,9 +86,11 @@ func NewApplianceTree(spec ApplianceSpec) *ApplianceTree {
 
 // applianceFlags are the generic flags shared by the commands.
 type applianceFlags struct {
-	rules     string
-	rulesMode string
-	interval  time.Duration
+	rules           string
+	rulesMode       string
+	interval        time.Duration
+	format          string
+	failOnViolation bool
 }
 
 // Root returns a fresh cobra root for the spec.
@@ -111,6 +117,8 @@ func (t *ApplianceTree) Root() *cobra.Command {
 	pf := root.PersistentFlags()
 	pf.StringVar(&f.rules, "rules", t.spec.RulesPath, "override rules `FILE` (a mounted ConfigMap); a missing or empty file means none")
 	pf.StringVar(&f.rulesMode, "rules-mode", OverrideLayer.String(), "how the override combines with the embedded rules: `layer` (on top of them) or `replace` (instead of them)")
+	pf.StringVar(&f.format, "format", FormatText, "output format: `text` (one result per line) or `json` (one JSON object per check)")
+	pf.BoolVar(&f.failOnViolation, "fail-on-violation", false, "exit 1 when the check finds violations (check only; run never exits on them)")
 	root.Flags().DurationVar(&f.interval, "interval", 0, "re-check (and hot-reload the rules) every `DUR`; 0 checks once")
 	if t.spec.Bind != nil {
 		setup = t.spec.Bind(root)
@@ -219,6 +227,12 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	if f.interval < 0 {
 		return usagef("--interval must not be negative")
 	}
+	if f.format != FormatText && f.format != FormatJSON {
+		return usagef("unknown --format %q: want text or json", f.format)
+	}
+	if loop && f.failOnViolation {
+		return usagef("--fail-on-violation applies to a single check; run keeps checking and never exits on violations")
+	}
 	stdout, stderr := cmd.OutOrStdout(), cmd.ErrOrStderr()
 
 	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode})
@@ -229,10 +243,20 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	t.logLines(stderr, app.Report().Lines())
 
 	for {
-		for _, v := range app.Execute(pipeline) {
-			fmt.Fprintln(stdout, v)
+		rep := classify(app.Execute(pipeline))
+		failures := len(rep.errs)
+		if f.format == FormatJSON {
+			failures = rep.writeJSON(stdout)
+		} else {
+			rep.writeText(stdout)
 		}
 		if !loop {
+			switch {
+			case failures > 0:
+				return fmt.Errorf("the check failed (%d error(s), see the output above)", failures)
+			case f.failOnViolation && len(rep.findings) > 0:
+				return fmt.Errorf("%d violation(s) found", len(rep.findings))
+			}
 			return nil
 		}
 		if !t.sleep(f.interval) {
