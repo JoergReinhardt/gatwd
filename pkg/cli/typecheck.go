@@ -112,7 +112,7 @@ func numericConstraint(c string) bool { return c == "Num" || c == "Integral" || 
 // consistency and operator rules are decided by enumerating it.
 var constraintUniverse = []string{
 	"Int", "BigInt", "Uint", "Float", "Complex", "Ratio",
-	"String", "Char", "Bool", "Bytes",
+	"String", "Char", "Bool", "Bytes", "Duration", "Time", "Date",
 	"List", "Chunk", "Set", "HAMT", "Tree", "Graph", "Pair", "Maybe",
 }
 
@@ -365,6 +365,12 @@ func tyOfValue(v any) Ty {
 		return Ty{Name: "BigInt"}
 	case *functions.Ratio:
 		return Ty{Name: "Ratio"}
+	case functions.Duration:
+		return Ty{Name: "Duration"}
+	case functions.Time:
+		return Ty{Name: "Time"}
+	case functions.Date:
+		return Ty{Name: "Date"}
 	case *collections.List[any]:
 		return tyList(tyAny)
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -396,6 +402,14 @@ func sampleOf(t Ty) (any, bool) {
 		return r, true
 	case "Complex":
 		return complex(1, 1), true
+	case "Duration":
+		return functions.Duration(24 * 3600e9), true // a whole day, so `Date + Duration` is defined
+	case "Time":
+		t, _ := functions.ParseTime("2026-10-13T09:30:00Z")
+		return t, true
+	case "Date":
+		d, _ := functions.NewDate(2026, 10, 13)
+		return d, true
 	case "List":
 		return collections.Cons[any](1, collections.Nil[any]()), true
 	}
@@ -442,6 +456,10 @@ func binaryType(op functions.OpKind, l, r Ty) (Ty, string) {
 		case functions.OpAdd, functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpPow:
 			t = Ty{Name: "Ratio"}
 		}
+	}
+	// Duration / Duration is the exact ratio (an Int only when the sample happened to divide).
+	if t.Name == "Int" && l.Name == "Duration" && r.Name == "Duration" && op == functions.OpDiv {
+		t = Ty{Name: "Ratio"}
 	}
 	return t, ""
 }
@@ -663,6 +681,9 @@ func (c *typeChecker) known(name string, scope tyScope) (Ty, bool) {
 	}
 	if name == "true" || name == "false" || name == "variant" {
 		return tyBool, true
+	}
+	if name == "now" {
+		return Ty{Name: "Time"}, true // the clock step's reading, usable as a pipeline head (D15)
 	}
 	if c.ctors != nil && c.ctors(name) {
 		return tyString, true
