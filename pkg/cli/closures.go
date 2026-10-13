@@ -101,6 +101,30 @@ func (i *Interpreter) closureStep(stepStr string) (evaluator.PipelineStep[functi
 	if !ok {
 		return nil, false
 	}
+	return i.applyStep(stepStr, head, fn, fromDef, true)
+}
+
+// builtinStep is the function-form-as-step fallback (F18): when no existing step claims
+// the head and it names a registry builtin, `x |> f a b` applies the curried function
+// data-last, exactly as `f a b x` — so every function form is also a step. It is
+// consulted after the whole step chain and before the OS-exec fallback.
+func (i *Interpreter) builtinStep(stepStr string) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+	fields := strings.Fields(stepStr)
+	if len(fields) == 0 || !isIdent(fields[0]) {
+		return nil, false
+	}
+	fn, ok := dslBuiltinLookup(fields[0])
+	if !ok || !functions.IsCallable(fn) {
+		return nil, false
+	}
+	return i.applyStep(stepStr, fields[0], fn, false, false)
+}
+
+// applyStep compiles the step `head a b …` for a resolved callable fn (see closureStep).
+// structural selects the let-bound-closure reading of a bare arity-1 `f` (map it over the
+// incoming value); a builtin is applied to the whole value instead (`xs |> length`).
+func (i *Interpreter) applyStep(stepStr, head string, fn any, fromDef, structural bool) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+	fields := strings.Fields(stepStr)
 	var argExprs []parser.Expr
 	if len(fields) > 1 {
 		expr, err := parser.ParseInfixExpr(stepStr)
@@ -112,7 +136,7 @@ func (i *Interpreter) closureStep(stepStr string) (evaluator.PipelineStep[functi
 			return nil, false
 		}
 		argExprs = app.Args
-	} else if c, isClosure := fn.(*functions.Closure); isClosure && c.Arity() == 1 {
+	} else if c, isClosure := fn.(*functions.Closure); structural && isClosure && c.Arity() == 1 {
 		if fromDef {
 			return nil, false
 		}
@@ -148,7 +172,10 @@ func (i *Interpreter) closureStep(stepStr string) (evaluator.PipelineStep[functi
 				}
 				out := dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)
 				if evalErr != nil {
-					out = evaluator.InjectError[any](fmt.Errorf("%s: %w", head, evalErr), node.DSLType)
+					if !strings.HasPrefix(evalErr.Error(), head+":") {
+						evalErr = fmt.Errorf("%s: %w", head, evalErr)
+					}
+					out = evaluator.InjectError[any](evalErr, node.DSLType)
 				}
 				if !yield(out) {
 					return

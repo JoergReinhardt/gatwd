@@ -51,9 +51,9 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
 
 **W2 (plan §5):** **`Char` is done** (`4cc0c8a`: literal, escapes, `char_*`, `asChar`, checker). Remaining tier 1 — String as a collection row in `pkg/cli/valueops.go`, the `str_*` library, `not`/`xor`/`and`/`or`,
-`Ordering` ADT, `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`), the generic *function-form-as-step* fallback (F18) placed after the
+`Ordering` ADT, `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`), the generic *function-form-as-step* fallback (F18, **done**) placed after the
 existing step chain and before the OS-exec fallback. Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
-**The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** Next sub-step recommended: F18 (function-form-as-step), because `x |> char_upper` still says `unknown step`.
+**The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** **F18 (function-form-as-step) is done too** (plan §5.4).
 
 **W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
 promotion lattice, `/ // %` and zero-division errors, `**`/`pow`/`sqrt`/`floor`/`ceil`/`round`/…, unary minus, and the constraint names `Num`/`Integral`/`Fractional`/`Comparable`/
@@ -82,7 +82,7 @@ A change to a binary's command line also gets a row in that binary's real-binary
 
 **Language and runtime**
 - A bare literal head (`5 |> f`) and a bare constant (`N`) work; a *non-scalar* constant or let-bound value is never spliced as text — `ARGS` is a list value, use it in expressions.
-- `||>` applies to the following per-element step, order is nondeterministic, a whole-stream step (`fold`, `sort`) after it sees singletons. `length` has no step form (F18) — use the function form `length x` (W2 closes this).
+- `||>` applies to the following per-element step, order is nondeterministic, a whole-stream step (`fold`, `sort`) after it sees singletons. Every builtin is also a step now (F18, applied to the whole value); inside a pipeline-bodied lambda use the function form.
 - A bare name used as an expression looks up a *value*: `eval -e "k8s_graph"` is `undefined identifier` because `k8s_graph` is a pipeline-bodied def (a fragment). Use it in a pipeline: `spawn StrVal: DIR |> manifests |> k8s_graph |> graph_order`.
 - `main` and `--task` run after the script's top-level statements, which always run — keep invocations out of the top level. With `-e`, `main` does not run.
 - Exec steps split quotes like a shell and a non-zero exit is an error. An unknown pipeline step still **runs an OS command** (F17) until W7: never feed untrusted scripts to the interpreter.

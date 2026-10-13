@@ -517,7 +517,7 @@ gatwd --check examples/tour/09_pattern_matching.gatwd
 
 ## 21. The Operator-Type Matrix as Functions
 
-Every operation exists in two forms. The **step form** takes literal tokens and sits in a pipeline (`xs |> hamt_set k 1`); the **function form** takes *computed values* and composes inside lambdas, folds and comprehensions (`hamt_set (hamt_get "k" r) n m`). Function forms are **curried**, **data-last** (`x |> f a` ≡ `f a x`), **type-preserving** (elements are never stringified) and report errors as values.
+Every operation exists in two forms. The **step form** takes literal tokens and sits in a pipeline (`xs |> hamt_set k 1`); the **function form** takes *computed values* and composes inside lambdas, folds and comprehensions (`hamt_set (hamt_get "k" r) n m`). Function forms are **curried**, **data-last** (`x |> f a` ≡ `f a x`), **type-preserving** (elements are never stringified) and report errors as values. **Every function form is also a step**: a pipeline step whose head names a builtin that no other step claims applies it to the whole incoming value (`[1, 2, 3] |> length` is `3`, `'a' |> char_upper` is `A`, `xs |> member 2`); the older stream steps (`head`, `tail`, `map`, `fold`, …) keep their meaning, and inside a lambda the function form is the one to use.
 
 | Family | Functions |
 | :--- | :--- |

@@ -1389,6 +1389,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					continue
 				}
 			}
+			if bs, ok := i.builtinStep(stepStr); ok {
+				pipeline = append(pipeline, bs)
+				continue
+			}
 			adapter := evaluator.EitherT(interactive.GenericExecAdapter(stepStr, 0))
 			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
 		}

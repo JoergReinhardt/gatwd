@@ -617,3 +617,18 @@ maybe_default 0 (map (\c -> char_code c) (char_of_str "z")) |> assert 122
 maybe_default 0 (map (\c -> char_code c) (char_of_str "zz")) |> assert 0
 is_just (char_of_str "z") |> assert true
 is_just (char_of_str "zz") |> assert false
+
+-- 88. Every function form is also a step (hardening W2, F18): `x |> f a` is `f a x`, applied to
+-- the WHOLE incoming value. The step chain keeps its meaning; this fallback only claims names
+-- that no step claims and that name a registry builtin.
+[3, 1, 2] |> length |> assert 3
+[3, 1, 2] |> reverse |> assert [2 1 3]
+[3, 1, 2] |> member 1 |> assert true
+[3, 1, 2] |> nth 0 |> assert 3
+[3, 1, 2] |> cons 9 |> assert [9 3 1 2]
+'a' |> char_upper |> char_code |> assert 65
+"é" |> char_code |> assert 233
+[1, 2] |> pair 0 |> snd |> assert [1 2]
+(just 4) |> maybe_default 0 |> assert 4
+-- inside a lambda prefer the function form (a pipeline-bodied lambda streams its input's elements)
+[[1, 2], [3]] |> map (\xs -> length xs) |> assert [2 1]

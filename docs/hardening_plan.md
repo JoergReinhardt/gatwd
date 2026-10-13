@@ -34,6 +34,7 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | W1a (`Run` API) | **done**: `RunOptions{Script, Args, Task, Eval, Define, Preludes}`, `Interpreter.Run`/`RunTask`, `ARGS`/`ARG0`/`main`/`--task` (D4), `Interpreter.Out` (statement output as a writer), `ParseDefines`. Deferred with reasons in §4.5. |
 | W1b (cobra tree) | **done** (2026-10-13): `pkg/cli/command.go` (`CommandTree`, `CommandSpec`), `repl.go`; `Edition.Command/WithCommand/WithArgNormalizer`; the hand-rolled `parseRunArgs` and `--check` branch are deleted; backward-compatibility table `TestCommandTreeBackwardCompatible`, subcommand table, two real-binary tests (`cmd/gatwd`, `cmd/gatwd-k8s`). Design calls and deferrals: §4.5. |
 | W2 tier 1, step 1 (`Char`) | **done** (2026-10-13, commit `4cc0c8a`): `functions.Char` (`type Char rune`, so it never matches the numeric `int32` arms), `'a'` literals with escapes (`parser.lexCharLiteral`, `TokChar`), `==`/ordering incl. the D1 one-character-String rule (`Compare`, `StructuralEqual`), `char_*` function forms (`dslfuncs_text.go`), the `asChar` entry of the conversion table (`valueops.go`), checker support (`Char`; `Char`/`String` are consistent), docs (`dsl_guide.md` §15, `grammar.md`). Not yet: String as a collection row, `str_*`, `not`/`xor`/`and`/`or`, `Ordering`, D2, F18 (function-form-as-step — `'a' |> char_upper` is `unknown step` until it lands), `Bytes`. Notes: `const K = 'k'` stores text like every constant (a pre-existing limitation, revisit with D2); `StructuralEqual`'s string/`%v` fallback already equated `'a'` and `"a"`, the explicit `Char` case documents D1 and survives removing that fallback. |
+| W2 tier 1, step 2 (F18) | **done** (2026-10-13, uncommitted): function-form-as-step fallback, see §5.4. |
 | W2 rest, W3–W7 | not started |
 
 ---
@@ -155,7 +156,7 @@ Takeaways for gatwd:
 | F15 | `Parser.Parse` godoc claims an unregistered `spawn` type yields no node (the interpreter registers on demand) | probe | **done (W0)** — doc fix |
 | F16 | override replaces embedded rules; imports in an override resolve against the process cwd | probe | W6 |
 | F17 | **unknown pipeline step runs an OS command** (`|> printf …` executes) | probe | W7 |
-| F18 | `length` has no step form (function forms in general are not usable as steps) | probe | W2: generic builtin-as-step fallback (§5.4) |
+| F18 | `length` has no step form (function forms in general are not usable as steps) | probe | **fixed** (W2 step 2): generic builtin-as-step fallback (§5.4) |
 
 ---
 
@@ -363,6 +364,17 @@ Instead of hand-writing a step per function, add a **generic fallback in step di
 registry builtin (a curried closure) and no existing step claims it, apply it data-last — `"abc" |> length`,
 `xs |> str_join ","`. The fallback sits *after* the existing step chain (so `head`, `map`, … keep their current
 meaning) and *before* the OS-exec fallback. This closes the step/function parity gap for the whole matrix at once.
+
+**Done (W2 step 2, 2026-10-13):** `Interpreter.builtinStep` in `pkg/cli/closures.go`, hooked in after the plugin registry
+check and before `GenericExecAdapter`. The semantics differ from the let-bound-closure step in one deliberate way: a
+builtin is applied to the **whole incoming value** (`[1,2,3] |> length` is `3`), never mapped over its elements; a
+bare arity-1 *let-bound* closure keeps its map-over-the-value meaning. Tests: `builtinstep_test.go` (step ≡ function
+table, whole-value, existing steps and unknowns unchanged, **every registry name resolves as a step**). Known and kept:
+(a) the pre-existing stream steps `head` and `tail` operate on stream *nodes*, so `[3,1,2] |> head` is not `head [3,1,2]`
+(the step form and function form differ for a reason; rename or document at the matrix review); (b) inside a
+pipeline-bodied lambda the input's elements stream, so write `\xs -> length xs`; (c) an OS command named like a builtin
+is now shadowed by the builtin — today only `compare` (ImageMagick) is affected; (d) `abs -3` parses as `abs - 3` until
+unary minus lands in W3.
 
 ### 5.5 Later tier
 
