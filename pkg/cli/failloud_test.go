@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -51,6 +52,9 @@ var failLoudRows = []struct {
 	{"undefined bare name", `no_such_binding`, "undefined identifier: no_such_binding"},
 	{"F10 exec non-zero exit", `spawn S: x |> sh -c "echo boom >&2; exit 3"`, "exit status 3"},
 	{"F10 exec unterminated quote", `spawn S: x |> sh -c "echo`, "unterminated"},
+	{"P1 guard-only comprehension", `[x | 2 > 1]`, "no generator"},
+	{"P1 guard-only comprehension in a call", `length [ 1 | true ]`, "no generator"},
+	{"P1 guard-only comprehension in a lambda", `[1, 2] |> map (\x -> [ x | x > 1 ])`, "no generator"},
 	{"F8 assert on empty stream", `spawn Node: A |> filter "zzz" |> assert "A"`, "empty stream"},
 }
 
@@ -130,5 +134,78 @@ func TestLiteralHeadIsAnExpression(t *testing.T) {
 	got := in.EvaluateToValues(`let lh_inc = lh_add 1 in 5 |> lh_inc`)
 	if len(got) != 1 || got[0] != 6 {
 		t.Errorf("let-bound partial application = %v, want [6]", got)
+	}
+}
+
+// P1: a comprehension with a guard but no generator (`[ e | guard ]`) loops over nothing. It
+// used to yield `[]` even when the guard held, and inside `let`, `def`, lambdas and `emit` the
+// rejection was swallowed as a text macro. Every statement shape must now report the error
+// (the message names the cause and the generator form to use), and a rejected `let` or `def`
+// must not leave a half-bound name behind.
+func TestGuardOnlyComprehensionIsLoudInEveryStatementShape(t *testing.T) {
+	shapes := []string{
+		`let a = [ 1 | true ]`,
+		`let f = \x -> [ x | x > 1 ]`,
+		`def g = \x -> [ x | x > 1 ]`,
+		`let b = [ 1 | true ] in b`,
+		`spawn S: x |> emit [ 1 | true ]`,
+		`head ([ 1 | true ] ++ [9])`,
+		`[1, 2] |> map (\x -> [ x | x > 1 ]) |> length`,
+	}
+	for _, stmt := range shapes {
+		in, buf := quietInterpreter()
+		in.EvaluateLine(stmt)
+		out := buf.String()
+		if !strings.Contains(out, "[ERROR]") || !strings.Contains(out, "no generator") || !strings.Contains(out, "_ <- [0]") {
+			t.Errorf("EvaluateLine(%q) printed %q; want an [ERROR] naming the missing generator and the fix", stmt, out)
+		}
+		vals := in.EvaluateToValues(stmt)
+		if len(vals) != 1 {
+			t.Errorf("EvaluateToValues(%q) = %v; want exactly the error", stmt, vals)
+			continue
+		}
+		if err, ok := vals[0].(error); !ok || !strings.Contains(err.Error(), "no generator") {
+			t.Errorf("EvaluateToValues(%q) = %v; want an error naming the missing generator", stmt, vals)
+		}
+	}
+	in, _ := quietInterpreter()
+	in.EvaluateLine(`let a = [ 1 | true ]`)
+	if _, bound := in.Variables["a"]; bound {
+		t.Error("a rejected let must not bind its name (it used to bind the raw text)")
+	}
+}
+
+// P1: the replacement the message suggests really works, with the guard before or after
+// the generator and with a failing guard, so the error message is not a dead end.
+func TestGuardOnlyComprehensionReplacement(t *testing.T) {
+	in := NewInterpreter()
+	for stmt, want := range map[string]string{
+		`[ 7 | _ <- [0], 2 > 1 ]`:               "[7]",
+		`[ 7 | _ <- [0], 2 < 1 ]`:               "[]",
+		`[ q | q <- [5], q > 1 ]`:               "[5]",
+		`head ([ 7 | _ <- [0], 2 > 1 ] ++ [9])`: "7",
+		`head ([ 7 | _ <- [0], 2 < 1 ] ++ [9])`: "9",
+	} {
+		vals := in.EvaluateToValues(stmt)
+		if len(vals) != 1 || fmt.Sprint(vals[0]) != want {
+			t.Errorf("%q = %v; want %s", stmt, vals, want)
+		}
+	}
+}
+
+// P1: `gatwd --check` reports the form statically, as an error (evaluating it is always one),
+// at the right line, and stays silent on the generator forms next to it.
+func TestCheckFlagsGuardOnlyComprehension(t *testing.T) {
+	src := "let ok = [ x | x <- [1, 2], x > 1 ]\nlet bad = [ 1 | true ]\n[ 7 | _ <- [0], 2 > 1 ]\ndef f = \\x -> [ x | x > 0 ]\n"
+	var lines []int
+	for _, d := range CheckScript(src) {
+		if d.Severity == "error" && strings.Contains(d.Msg, "no generator") {
+			lines = append(lines, d.Line)
+		} else {
+			t.Errorf("unexpected diagnostic %+v", d)
+		}
+	}
+	if len(lines) != 2 || lines[0] != 2 || lines[1] != 4 {
+		t.Errorf("guard-only errors on lines %v; want [2 4]", lines)
 	}
 }

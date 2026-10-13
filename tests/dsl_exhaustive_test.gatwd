@@ -1493,3 +1493,12 @@ length (bst_insert 100 b118) |> assert 3
 (bst_from [1, 2, 3]) == [1, 2, 3] |> assert false
 [[2, 1, 3], [3, 2, 1], [1, 3, 2]] |> map (\xs -> (bst_from xs) == (bst_from [1, 2, 3])) |> assert [true true true]
 [[1, 2], [1, 3]] |> map (\xs -> (bst_from xs) == (bst_from [1, 2])) |> assert [true false]
+
+-- 120. A comprehension needs a generator (hardening Track P): `[ e | guard ]` alone is an error
+-- (an [ERROR] cannot be asserted here; pkg/cli/failloud_test.go pins it, and `gatwd --check` reports it).
+-- The documented replacement binds a dummy generator, so the guard decides whether e is yielded once.
+[ 7 | _ <- [0], 2 > 1 ] |> assert [7]
+[ 7 | _ <- [0], 2 < 1 ] |> assert []
+[1, 5, 9] |> map (\n -> head ([ n | _ <- [0], n > 4 ] ++ [0])) |> assert [0 5 9]
+[1, 5, 9] |> map (\n -> length [ n | _ <- [0], n > 4 ]) |> assert [0 1 1]
+[1, 5, 9] |> map (\n -> [ n | m <- [n], m > 4 ]) |> assert [[] [5] [9]]

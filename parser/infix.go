@@ -652,6 +652,14 @@ type Generator struct {
 	Source       Expr
 }
 
+// ErrNoGenerator is the error for a list comprehension that has a guard but no
+// generator, such as `[ e | guard ]`. A comprehension is a nested loop over its
+// generators (`x <- xs`); with none there is nothing to loop over, so the form has no
+// meaning (it used to silently yield `[]`, even when the guard held). The message
+// names the cause and the two idiomatic alternatives.
+var ErrNoGenerator = errors.New("list comprehension has no generator: `[ e | guard ]` loops over nothing and would yield [] whatever the guard says; " +
+	"bind a generator first, e.g. `[ e | _ <- [0], guard ]` (yields e once when the guard holds) or `[ e | q <- [v], guard q ]`")
+
 // ListComprehensionExpr represents [expr | gen1, gen2..., filterExpr...]
 type ListComprehensionExpr struct {
 	YieldExpr  Expr
@@ -748,7 +756,7 @@ func extractItems(srcVal any) ([]any, error) {
 // evaluation abort and propagate. lookup supplies the enclosing scope's bindings.
 func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if len(e.Generators) == 0 {
-		return collections.Nil[any](), nil
+		return nil, ErrNoGenerator
 	}
 
 	var collected []any
@@ -1317,6 +1325,9 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			if p.next().Type != TokRBracket {
 				return nil, fmt.Errorf("expected closing bracket ']' after list comprehension")
 			}
+			if len(generators) == 0 {
+				return nil, ErrNoGenerator
+			}
 
 			p.appDisabled = savedApp
 			return ListComprehensionExpr{
@@ -1408,4 +1419,75 @@ func EvalInfixString(input string, lookup func(string) (any, bool)) (any, error)
 		return nil, err
 	}
 	return expr.Eval(lookup)
+}
+
+// CheckComprehensions scans statement text for a list comprehension that has a
+// guard but no generator (`[ e | guard ]`) and returns ErrNoGenerator, naming the
+// offending bracket group, when it finds one; it returns nil otherwise.
+//
+// The infix parser already rejects the form (ParseInfixExpr), but the interpreter
+// re-parses many statement shapes (`let`, `def`, lambdas, `emit`, step arguments) and
+// falls back to treating text it cannot evaluate as a text macro, which turned the
+// rejection back into silence. Scanning the whole statement once, before any of that,
+// makes the rejection impossible to lose.
+//
+// The scan is lexical and deliberately tolerant (a statement is not always an infix
+// expression: `let x = …`, `spawn S: …`, `def f = …` all contain one). It skips double
+// quoted strings, Char literals and `--` comments, tracks the nesting of `[`, `(` and
+// `{`, and for each `[` group records whether a top-level `|` (not part of `|>` or
+// `||>`) and a generator arrow `<-` occur. A `|` inside parentheses, braces (match
+// arms) or a nested group belongs to that inner group.
+func CheckComprehensions(src string) error {
+	if !strings.Contains(src, "|") || !strings.Contains(src, "[") {
+		return nil
+	}
+	type frame struct {
+		bracket, pipe, arrow bool
+		start                int
+	}
+	var stack []frame
+	rs := []rune(src)
+	for i := 0; i < len(rs); i++ {
+		c := rs[i]
+		switch {
+		case c == '"':
+			for i++; i < len(rs) && rs[i] != '"'; i++ {
+				if rs[i] == '\\' {
+					i++
+				}
+			}
+		case c == '\'' && i+2 < len(rs) && rs[i+1] != '\\' && rs[i+2] == '\'':
+			i += 2
+		case c == '\'' && i+3 < len(rs) && rs[i+1] == '\\' && rs[i+3] == '\'':
+			i += 3
+		case c == '-' && i+1 < len(rs) && rs[i+1] == '-' && (i == 0 || rs[i-1] == ' ' || rs[i-1] == '\t' || rs[i-1] == '\n'):
+			for i < len(rs) && rs[i] != '\n' {
+				i++
+			}
+		case c == '[':
+			stack = append(stack, frame{bracket: true, start: i})
+		case c == '(' || c == '{':
+			stack = append(stack, frame{})
+		case c == '|':
+			isPipeOp := (i+1 < len(rs) && rs[i+1] == '>') || (i+1 < len(rs) && rs[i+1] == '|') || (i > 0 && rs[i-1] == '|')
+			if n := len(stack); n > 0 && stack[n-1].bracket && !isPipeOp {
+				stack[n-1].pipe = true
+			}
+		case c == '<' && i+1 < len(rs) && rs[i+1] == '-':
+			if n := len(stack); n > 0 && stack[n-1].bracket {
+				stack[n-1].arrow = true
+			}
+		case c == ']' || c == ')' || c == '}':
+			n := len(stack)
+			if n == 0 {
+				continue
+			}
+			top := stack[n-1]
+			stack = stack[:n-1]
+			if c == ']' && top.bracket && top.pipe && !top.arrow {
+				return fmt.Errorf("%w (in `%s`)", ErrNoGenerator, string(rs[top.start:i+1]))
+			}
+		}
+	}
+	return nil
 }

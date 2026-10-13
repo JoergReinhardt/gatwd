@@ -38,6 +38,8 @@ forms are **data-last** and **curried** (`map (hamt_get "a") records`).
    nodes do not show in listings. Guard relations with `graph_has_node`.
 3. **Guards are positional.** In `[… | x <- xs, hamt_has_path "k" x, y <- (hamt_path "k" x)]` the
    `hamt_has_path` runs as soon as `x` is bound — put it *before* the dependent generator.
+   A comprehension needs **a generator**: `[ e | guard ]` alone is an `[ERROR] … no generator`
+   (also flagged by `gatwd --check`); use `[ e | _ <- [0], guard ]` to yield `e` once when the guard holds.
 4. **`hamt_get`/`hamt_path` error on a missing key** (naming the segment); use `hamt_has_path` /
    `hamt_get_or` when absence is normal.
 5. **Edge specs are 4-element lists** `["Color", weight, "from", "to"]`; the DSL has no tuple
