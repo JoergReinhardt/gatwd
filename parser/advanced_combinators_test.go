@@ -1,8 +1,8 @@
 package parser_test
 
 import (
-	"testing"
 	"github.com/joergreinhardt/gatwd/parser"
+	"testing"
 )
 
 func TestAdvancedCombinators(t *testing.T) {
@@ -64,5 +64,32 @@ func TestAdvancedCombinators(t *testing.T) {
 	}
 	if caseCount != 1 {
 		t.Fatalf("Failed to parse Match Case")
+	}
+}
+
+func TestParseMatchCaseSplitsAtTheFirstArrowOutsideLiterals(t *testing.T) {
+	for _, row := range []struct{ in, pat, body string }{
+		{"-1 -> x", "-1", "x"},
+		{"@2026-10-13 -> echo hi", "@2026-10-13", "echo hi"},
+		{`"a->b" -> 1`, `"a->b"`, "1"},
+		{`'-' -> 1`, `'-'`, "1"},
+		{`[m, n] -> let r = f in \x -> x`, "[m, n]", `let r = f in \x -> x`},
+	} {
+		n := 0
+		for res := range parser.ParseMatchCase()(row.in) {
+			n++
+			if res.Fst.Fst != row.pat || res.Fst.Snd != row.body {
+				t.Fatalf("%q = (%q, %q), want (%q, %q)", row.in, res.Fst.Fst, res.Fst.Snd, row.pat, row.body)
+			}
+		}
+		if n != 1 {
+			t.Fatalf("%q produced %d results, want 1", row.in, n)
+		}
+	}
+	// No arrow outside a literal: no result, so the caller can report the arm.
+	for _, in := range []string{"zzz", `"a->b"`, ""} {
+		for res := range parser.ParseMatchCase()(in) {
+			t.Fatalf("%q parsed as %v, want no result", in, res)
+		}
 	}
 }

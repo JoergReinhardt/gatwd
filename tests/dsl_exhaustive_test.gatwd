@@ -1502,3 +1502,44 @@ length (bst_insert 100 b118) |> assert 3
 [1, 5, 9] |> map (\n -> head ([ n | _ <- [0], n > 4 ] ++ [0])) |> assert [0 5 9]
 [1, 5, 9] |> map (\n -> length [ n | _ <- [0], n > 4 ]) |> assert [0 1 1]
 [1, 5, 9] |> map (\n -> [ n | m <- [n], m > 4 ]) |> assert [[] [5] [9]]
+
+-- 121. `match` literal patterns are equality, never substring containment (hardening Track R). A literal pattern is
+-- typed like the same token anywhere else (`0` is the Int 0) and matches when value == literal, the language's own `==`.
+-- A value no arm matches is an [ERROR] and a pattern that means nothing is an [ERROR] naming it; an [ERROR] cannot be
+-- asserted here, so pkg/cli/match_test.go and pkg/cli/failloud_test.go pin those. Every case below is an Int or a Char,
+-- never printed text, and a number that merely CONTAINS another's digits must take the catch-all arm.
+def r121_one = match { 0 -> 10 | 1 -> 11 | n -> 99 }
+0 |> r121_one |> assert 10
+1 |> r121_one |> assert 11
+20 |> r121_one |> assert 99
+11 |> r121_one |> assert 99
+12 |> r121_one |> assert 99
+101 |> r121_one |> assert 99
+-- the naive Fibonacci used to be wrong from fib 10 on (10 contains the digit 0, 11 contains 1)
+def r121_fib = match { 0 -> 0 | 1 -> 1 | n -> let a = (n - 1) |> r121_fib in let b = (n - 2) |> r121_fib in a + b }
+9 |> r121_fib |> assert 34
+10 |> r121_fib |> assert 55
+11 |> r121_fib |> assert 89
+-- exact across Int/Float (0.0 == 0); a Char and a String are not numbers
+def r121_kind = match { 0 -> echo zero | 'a' -> echo char | "b" -> echo str | true -> echo yes | 5s -> echo dur | _ -> echo other }
+0.0 |> r121_kind |> assert zero
+'a' |> r121_kind |> assert char
+"b" |> r121_kind |> assert str
+true |> r121_kind |> assert yes
+5s |> r121_kind |> assert dur
+"0" |> r121_kind |> assert other
+'0' |> r121_kind |> assert other
+10 |> r121_kind |> assert other
+false |> r121_kind |> assert other
+-- the elements of a fixed-length pattern follow the same rule (the Ackermann shape)
+def r121_pair = match { [0, y] -> y + 1000 | ["0", y] -> y + 2000 | [x, y] -> x + y }
+[0, 5] |> r121_pair |> assert 1005
+[0.0, 5] |> r121_pair |> assert 1005
+["0", 5] |> r121_pair |> assert 2005
+['0', 5] |> r121_pair |> assert 2005
+-- (D1: a one-character String equals the Char, so '0' takes the "0" arm; the number arm is skipped)
+[10, 5] |> r121_pair |> assert 15
+-- a head element pattern too
+def r121_head = match { [] -> empty | [0, ...t] -> 1 | [h, ...t] -> 2 }
+[0, 5] |> r121_head |> assert 1
+[7, 5] |> r121_head |> assert 2

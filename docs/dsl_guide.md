@@ -157,6 +157,26 @@ def ackermann = match {
 [3, 2] |> ackermann |> assert 29
 ```
 
+### Literal Patterns, Fall-Through and Errors
+
+A literal pattern (a number, a `"String"`, a `'c'` Char, `true`/`false`, a Duration `5s`, a Time or Date `@2026-10-13`) is typed
+like the same token anywhere else in a script and matches a value when `value == literal`, the `==` the language uses everywhere:
+`0` is the Int 0, so it matches `0` and `0.0` and never `"0"`, `'0'`, `10` or `20` (a String is not a number, and a one-character
+String equals a Char as in `"a" == 'a'`). The same rule applies to the element patterns inside `[0, n]` and to the head of `[0, ...rest]`.
+**There is no substring matching**: the printed text of a value never picks an arm.
+
+```haskell
+def fib = match { 0 -> 0 | 1 -> 1 | n -> let a = (n - 1) |> fib in let b = (n - 2) |> fib in a + b }
+10 |> fib |> assert 55
+```
+
+Arms are tried in order and the first match wins; put the catch-all (`_` or a variable) last. Two things are errors, not silence:
+
+* A value that **no arm matches** yields `[ERROR] match: no arm matches <value>` (the stream continues with the next value).
+* A pattern that is none of `_`, a name, a literal, `[]`, `[h, ...t]` or a flat list/tuple of names, `_` and literals is an error naming
+  the pattern as soon as the `match` is built: a guard `n if n > 0` says *guards are not supported yet* (they are planned), an
+  expression such as `1 + 2`, a nested pattern `[[a, b], c]` and an arm without `->` are rejected the same way.
+
 ## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_keys`, `hamt_values`)
 
 Fold key-value streams into a 32-way branching persistent Hash Array Mapped Trie, and perform pure structural sharing updates:

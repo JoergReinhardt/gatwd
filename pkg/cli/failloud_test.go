@@ -55,6 +55,11 @@ var failLoudRows = []struct {
 	{"P1 guard-only comprehension", `[x | 2 > 1]`, "no generator"},
 	{"P1 guard-only comprehension in a call", `length [ 1 | true ]`, "no generator"},
 	{"P1 guard-only comprehension in a lambda", `[1, 2] |> map (\x -> [ x | x > 1 ])`, "no generator"},
+	{"R1 match no arm matches", `5 |> match { 1 -> 11 | 2 -> 22 }`, "match: no arm matches 5"},
+	{"R1 match string is not a number", `"1" |> match { 1 -> 11 }`, "match: no arm matches 1"},
+	{"R1 match guard", `5 |> match { n if n > 0 -> 1 | _ -> 2 }`, "guards are not supported yet"},
+	{"R1 match expression pattern", `5 |> match { 1 + 2 -> 1 | _ -> 2 }`, "invalid pattern"},
+	{"R1 match arm without arrow", `5 |> match { 1 -> 1 | zzz }`, `arm "zzz"`},
 	{"F8 assert on empty stream", `spawn Node: A |> filter "zzz" |> assert "A"`, "empty stream"},
 }
 

@@ -926,6 +926,43 @@ Closes the §6.3a deferral (3) and the handoff's "`zip` is suspect". Two Mandate
   done. (2) `parser.ParseZip` is now unused by the interpreter (doc comment updated); remove it with its test when the parser track has merged. (3) Non-integer *string* elements in the pivot filters
   still coerce to 0 (`strconv.Atoi` error ignored); left as is, like the steps themselves (quicksort-era).
 
+### 6.4 Track R closure notes: `match` literal patterns are equality; no arm and bad pattern are errors (2026-10-14)
+
+Branch `hardening/r`, from `e5cb0fe`. Mandate 6 defect: three silent wrong results in the `match { pat -> body | … }` step. Gates: `gofmt` on
+touched files, `go vet`, `go test -p 2 ./...`, `./run_dsl_tests.sh`, `gatwd --check` silent over every `*.gatwd` outside `tests/`, `legacy/`, `.claude/`,
+`benchmarks/` (two pre-existing warnings in `tests/dsl_exhaustive_test.gatwd`), script regression diff against a binary built from `e5cb0fe`
+(differences only in the nondeterministic scripts: timestamps in `scripts/03` and `tour_05`, map order in `tour_15`, `20`, `23`).
+
+- **The defects (all reproduced first).** (1) Case 7 of the inlined arm matcher was `strings.Contains(fmt.Sprintf("%v", value), pattern)`, so
+  `def one = match { 0 -> 10 | 1 -> 11 | n -> 99 }` answered `20 |> one` = 10 and `11 |> one` = 11, and the naive `fib` was right up to `9 |> fib` and wrong from
+  `10 |> fib` (0) on. (2) Fixed-length list/tuple patterns compared `fmt.Sprintf("%v", elem) != p`: `[0, y]` matched `0.0`, `"0"` and `'0'`. (3) A value
+  that matched no arm was dropped (the loop just ended). Found on the way: an arm whose pattern contained `-` (`-1 -> …`, `@2026-10-13 -> …`, `"a-b" -> …`)
+  was **silently dropped at build time** (`parser.ParseMatchCase` stopped the pattern at the first `-`), and `true`/`false` (excluded from the variable case) fell
+  into the substring case.
+- **The fix.** `pkg/cli/matchpattern.go`: a pattern is compiled once when the step is built (`compileArmPattern`), and `Interpreter.matchArm` tries it
+  against a value; the seven inlined cases are gone from `cli.go`. A **literal** pattern (number, `"String"`, `'c'`, `true`/`false`, Duration, Time, Date) is read by the expression
+  lexer, so it is typed exactly like the same token anywhere else (`0` is the Int 0), and matches when `functions.StructuralEqual(value, literal)`: `0` matches `0.0`,
+  never `"0"`, `'0'`, `10`, `20`; a String is not a number (D2); a one-character String equals a Char (D1, so `"0"` and `'0'` are the same pattern value). The same rule
+  covers the elements of `[p1, p2]` / `(p1, p2)` and the head of `[h, ...t]` (which used to bind a variable literally named `0`). `ParseMatchCase` now splits at the first `->` outside a String or Char
+  literal. A value no arm matches is `[ERROR] match: no arm matches <value>` (an error node positioned like every step error, the stream goes on). A pattern that is none of
+  `_`, a name, a literal, `[]`, `[h, ...t]` or a flat list/tuple of names, `_` and literals is an error naming the pattern **when the match is built** (`failStep`): `n if n > 0`
+  says *guards are not supported yet*; `1 + 2`, `[[a, b], c]` (nested), `[a, b, ...t]` (several heads), `()`, and an arm with no `->` or no body are rejected too.
+- **Decision recorded: no substring matching is kept (hard to reverse; the evidence was unambiguous).** Evidence: no committed script, test, example or doc uses a non-identifier String
+  pattern against a String value. `grep 'match {'` over `docs/ examples/ tests/ benchmarks/ lib/ cmd/ pkg/ spec/` finds only constructor, wildcard, variable, numeric-literal and
+  list/tuple arms (`99 -> …`, `0 -> …`, `[0, n]`, `[state, 0]`), and the guide's match section (§7) never mentions substring matching (the substring wording in the guide and
+  `spec/spec.go` belongs to `filter`/`reject`). A quoted String pattern never worked as a substring either (`"foo"` is searched *with its quotes* in the printed value), and an unquoted
+  word is an identifier, hence a variable. So no script changed; the script regression diff is identical. If substring tests are ever wanted they need a distinct spelling
+  (e.g. `contains "foo"` as a function in a guard, with F9), never the pattern position.
+- **Behaviour changes to know about.** A String-valued stream no longer matches a numeric literal arm: `spawn IntVal: 99 |> match { 99 -> … }` with `IntVal` **undeclared** seeds the String `99`
+  (it used to match by substring and then fail in `math_add`); declare `type IntVal = Int` (the committed tests do). Values that used to vanish now print `[ERROR] match: no arm matches …`.
+- **Tests.** `pkg/cli/match_test.go` (pinned constructor/head-tail/tuple/wildcard/variable arms, the `one`/`fib` examples with `fib 10` = 55 and `fib 11` = 89, literal kinds,
+  Float-vs-Int, String-vs-number, Char, head element, no-arm, bad patterns, `compileArmPattern` and `matchArm` tables), `failLoudRows` (`R1 match …`), `parser/advanced_combinators_test.go`,
+  `tests/dsl_exhaustive_test.gatwd` §121. Negative control: restoring `strings.Contains` on the literal arms fails 7 Go tests and 12 lines of §121.
+- **Not done, with reasons.** Guards and clause-style `def` (F9). `gatwd --check` exhaustiveness (`checkExhaustiveMatch`) is unchanged: a match over literals has no closed set to
+  check, and extending it to "literal arms without a catch-all" would flag the committed `match { 99 -> … }` examples that are intentionally partial. Nested patterns (`[[a, b], c]`) are a loud error
+  rather than supported. **Found, not fixed (pre-existing, also on `e5cb0fe`):** a `match`-bodied `def` applied inside a lambda body, `[0, 1] |> map (\n -> n |> one)`, **panics** with a
+  nil `Parser` in the child interpreter built by `pipelineLambda` (`cli.go` ~463, `i.Parser.GetFlag("Int")`); it needs its own track.
+
 ## 7. W4 — Node identity (D6, decided)
 
 **Problem (verified):** a node's id is `metadata.name`. Two resources with the same name collide — across kinds
