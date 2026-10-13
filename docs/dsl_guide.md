@@ -98,10 +98,23 @@ spawn IntVal: BASE_PORT |> math_add 1 |> assert 8081
 ```
 
 **Literal tokens are typed.** The unquoted value of a `const`, of `-D NAME=VALUE` and of each `emit` token follows one rule: a
-*canonical* number (`10`, `-5`, `1.5` — text that prints back unchanged) is that number, anything else (`alice`, `007`, `1.50`,
-`kind:Pod`) is a `String`, and a quoted value (`const ZIP = "10115"`) is always a `String`. So `const N = 5` can be added to inside
-a lambda (`map (\x -> x + N)`), while the text of a log line or a config value never silently becomes a number; convert it
-explicitly with `str_to_int` / `str_to_float` (`Maybe`). A spawn of an **undeclared** type keeps its value as text, so declare
+*canonical* literal is that value, anything else (`alice`, `007`, `1.50`, `kind:Pod`) is a `String`, and a quoted value
+(`const ZIP = "10115"`) is always a `String`. The canonical literals are
+numbers (`10`, `-5`, `1.5` — text that prints back unchanged), **Durations** (`5s`, `1h30m`, `30d`, `-2w`, `1.5h`),
+**Times** (`@2026-10-13T10:00:00Z`, `@2026-10-13T11:30:00+02:00`) and **Dates** (`@2026-10-13`). A Time or Date is canonical
+when it prints back unchanged (`@2026-10-13T10:00:00+00:00` and `.250Z` are not: they print `Z` and `.25Z`). A Duration has
+many spellings of one value (`90m`, `1h30m`, `5400s`) and prints as its own chain (`30d` shows as `720h`), so for it
+"canonical" is about the *numbers*, not the unit: each segment is written without a `+` sign, a leading zero (`007s`) or a
+trailing zero in a fraction (`1.50h`), so `007s`, `1.50h`, `+5s`, `-0s`, `0.0s` stay `String`s, exactly like `007` and `1.50`.
+So `const N = 5` and `const MAX_AGE = 30d` can be used inside a lambda (`map (\x -> x + N)`, `filter (\age -> age > MAX_AGE)`),
+`emit 5s, 6s |> fold (\a b -> a + b) 0s` adds durations, and `-D X=5s` binds a `Duration`, while the text of a log line or
+a config value never silently becomes a value; convert it explicitly with `str_to_int` / `str_to_float` (`Maybe`) or
+`dur_parse` / `time_parse` / `date_parse`. A `const` whose value contains an operator character is an expression and is
+evaluated (`const P = +5` is `5`, `const D = 1h + 30m` a `Duration`, `const D = @2026-10-13` a `Date`); a *quoted*
+`const` value that evaluates to a time value stays the text you wrote. Operator sections read the same literals
+(`|> + 5s`, `|> - 7d`), and a time constant is spliced into a pipeline head or step as its literal, so the line re-lexes to the
+same value. A `spawn` seed is not a literal token: for a type with no registered parser it stays text (`spawn T: 5s` seeds the String `5s`; use `emit 5s` or `let d = 5s`). A String
+constant used inside a lambda is spliced quoted, so `const Q = "30d"` is a `String` there (it used to read as a Duration). A spawn of an **undeclared** type keeps its value as text, so declare
 the type you compute with (`type IntVal = Int`) — `x + 1` on text is an error that names both types.
 
 ## 7. ADT Pattern Matching, List Destructuring & Non-Primitive Recursion
@@ -428,8 +441,8 @@ shown in two zones is **one** `Set` member and **one** `HAMT` key (a `Set` store
 `time_in` to show it again). `sort`, `min`, `max`, `compare` order by value. **Encoding:** `json_encode`/`yaml_encode` write
 a `Time` as its RFC 3339 `String`, a `Date` as its ISO `String`, a `Duration` as its literal text (`"1h30m"`); decoding leaves
 text as text and `time_parse`/`date_parse`/`dur_parse` revive it on request (the same stance as YAML dates).
-**Not yet:** `const X = 30d`, `emit 5s` and `-D X=5s` keep the *text* (their tokens are typed only for canonical numbers),
-so write `let limit = 30d` or a `def limit = \_ -> 30d`, or `dur_parse "30d"`. The checker knows all three types
+**Typed tokens:** `const X = 30d`, `emit 5s` and `-D X=5s` bind a real `Duration` (and `@2026-10-13…` a `Time` or `Date`) by the
+same rule as numbers (§6). The checker knows all three types
 (`Comparable`, never `Num`; `Duration / Duration` is typed `Ratio`; `now` is a `Time`).
 
 ### Booleans and `Ordering` (hardening W2)
@@ -895,7 +908,7 @@ gatwd builtins                          # function forms (with parameters), defs
 gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
 ```
 
-Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1.5` is that number, anything else — `bob`, `007` — the String; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
+Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1.5`, Duration such as `5s` or `30d`, Time or Date such as `@2026-10-13` is that value, anything else — `bob`, `007`, `007s` — the String; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
 before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
 `1` a command failed, `2` a malformed command line (an Appliance adds `3` for violations, see below). A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.

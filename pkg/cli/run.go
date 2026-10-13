@@ -40,7 +40,8 @@ type RunOptions struct {
 	// empty, `main` does not run: the statements replace the default task. A statement that
 	// prints an `[ERROR]` or nothing at all makes Run fail.
 	Eval []string
-	// Define binds string constants (`-D NAME=VALUE`) before anything else runs.
+	// Define binds constants (`-D NAME=VALUE`) before anything else runs: a canonical number,
+	// Duration, Time or Date literal is that value, anything else a String (functions.LiteralToken).
 	Define map[string]string
 	// Preludes are extra scripts loaded, in order, before Script.
 	Preludes []string
@@ -120,8 +121,8 @@ func checkDefineName(name string) error {
 	return nil
 }
 
-// setDefines binds the `-D` constants: a canonical number is that number, anything else the
-// String (the same rule as `const` and `emit`).
+// setDefines binds the `-D` constants: a canonical number, Duration, Time or Date literal is
+// that value, anything else the String (the same rule as `const` and `emit`).
 func (i *Interpreter) setDefines(defs map[string]string) error {
 	for name, value := range defs {
 		if err := checkDefineName(name); err != nil {

@@ -1377,3 +1377,37 @@ let xs = [1, "1", [1, 2]] in xs |> unchunk |> to_set |> set_union b |> length |>
 let xs = [1, "1", [1, 2]] in xs |> unchunk |> to_set |> set_intersect b |> length |> assert 2
 let xs = [1, "1", [1, 2]] in xs |> unchunk |> to_set |> set_diff b |> length |> assert 1
 (a ++ b) |> length |> assert 4
+
+-- 116. Typed literal tokens (hardening §5.6 T1): the unquoted tokens of `const`, `emit` and `-D` are typed by ONE rule (a
+-- canonical number, Duration, Time or Date literal is that value; anything else, a quoted const and a non-canonical
+-- spelling such as `007s` or `1.50h`, is a String). So a Duration constant takes part in arithmetic and ordering inside a
+-- lambda, and `emit 5s, 6s |> fold` adds durations. `-D X=5s` follows the same rule (pinned in pkg/cli/typed_tokens_test.go).
+const MAX_AGE = 30d
+const OPENED = @2026-10-13
+const DEADLINE = @2026-10-13T10:00:00+02:00
+const QUOTED_AGE = "30d"
+const PADDED_AGE = 007s
+[1d, 29d, 31d] |> map (\age -> age > MAX_AGE) |> assert [false false true]
+[1d, 2d] |> map (\age -> age + MAX_AGE) |> assert [744h 768h]
+[1d, 8d] |> map (\n -> OPENED + n) |> assert [2026-10-14 2026-10-21]
+[1h, 90m] |> map (\n -> DEADLINE + n) |> assert [2026-10-13T11:00:00+02:00 2026-10-13T11:30:00+02:00]
+[@2026-10-14, @2026-10-20] |> map (\d -> d - OPENED) |> assert [24h 168h]
+[1, 2] |> map (\n -> (n * MAX_AGE) > 59d) |> assert [false true]
+[1d] |> map (\n -> length (QUOTED_AGE ++ "!")) |> assert [4]
+[1d] |> map (\n -> QUOTED_AGE == "30d") |> assert [true]
+[1d] |> map (\n -> PADDED_AGE == "007s") |> assert [true]
+-- the same constant spliced into a pipeline head and into an operator section
+MAX_AGE + 1d |> assert 744h
+OPENED + 1d |> assert 2026-10-14
+spawn S: x |> emit 1d, 2d |> drop 1 |> + MAX_AGE |> collect_list |> assert [744h 768h]
+spawn S: x |> emit 5s, 6s |> drop 1 |> fold (\a b -> a + b) 0s |> assert 11s
+spawn S: x |> emit 5s, 6s, 5000ms |> drop 1 |> collect_list |> map (\v -> v == 5s) |> assert [true false true]
+spawn S: x |> emit @2026-10-13, @2026-10-14 |> drop 1 |> collect_list |> map (\v -> v + 1d) |> assert [2026-10-14 2026-10-15]
+spawn S: x |> emit 5s, 007s, 1.50h, +5s |> drop 1 |> collect_list |> map (\v -> v == "007s") |> assert [false true false false]
+spawn S: x |> emit 5s, 007s, 1.50h, +5s |> drop 1 |> collect_list |> map (\v -> v ++ "!") |> assert [5s! 007s! 1.50h! +5s!]
+spawn S: x |> emit 7, 007, 1.50, 1.5 |> drop 1 |> collect_list |> map (\v -> v == 7) |> assert [true false false false]
+-- (the negative case, `n + QUOTED_AGE` is an error because a quoted constant is text, cannot be caught in the DSL; it is
+-- pinned in pkg/cli/typed_tokens_test.go)
+-- the step forms of hamt_get/hamt_set/hamt_del read a bare time token as a value too (the key `5s` is a Duration)
+hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get 5s |> assert a
+hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get @2026-10-13 |> assert d

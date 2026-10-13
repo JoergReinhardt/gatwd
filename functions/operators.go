@@ -663,22 +663,39 @@ func ParseCanonicalNumber(text string) (any, bool) {
 }
 
 // LiteralToken is the value a bare literal token denotes — in `emit a, 10`, `const N = 5`
-// and `-D N=5`: a canonical number is that number, anything else is the text. One rule for
-// every place a script writes a value without quotes.
+// and `-D N=5`. One rule for every place a script writes a value without quotes: a token
+// that is a canonical literal is that value, anything else is the text.
+//
+// The canonical literals are numbers (ParseCanonicalNumber: `10`, `-5`, `1.5`), Durations
+// (ParseCanonicalDuration: `5s`, `1h30m`, `30d`), and Times and Dates with their `@`
+// (ParseCanonicalTemporal: `@2026-10-13`, `@2026-10-13T10:00:00Z`). Text that merely looks
+// like one but is not written canonically (`007`, `1.50`, `007s`, `+5s`) stays a String, so
+// typing a token never rewrites what the user wrote into something else.
 func LiteralToken(text string) any {
 	if n, ok := ParseCanonicalNumber(text); ok {
 		return n
+	}
+	if d, ok := ParseCanonicalDuration(text); ok {
+		return d
+	}
+	if v, ok := ParseCanonicalTemporal(text); ok {
+		return v
 	}
 	return text
 }
 
 // OperandValue turns the literal token of a pipeline operator section (`|> + 5`,
-// `math_add 10`) into the value the operator is applied to: a numeric literal becomes the
-// number it spells, anything else stays the text. `++` always keeps the text.
+// `math_add 10`) into the value the operator is applied to: a numeric or time literal
+// becomes the value it spells, anything else stays the text. `++` always keeps the text.
 func OperandValue(op OpKind, text string) any {
 	if op != OpConcat {
 		if n, ok := ParseNumberLiteral(text); ok {
 			return n
+		}
+		// A Duration, Time or Date literal (`5s`, `@2026-10-13`), read as the expression
+		// lexer reads it, so `|> + 5s` and `|> > @2026-01-01` work on time values.
+		if v, ok := parseTemporalToken(text); ok {
+			return v
 		}
 	}
 	return text

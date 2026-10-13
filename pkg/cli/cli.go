@@ -268,13 +268,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 
 		// Constant Substitution
 		for k, v := range i.Constants {
-			if !scalarValue(v) {
+			if !spliceableConst(v) {
 				continue
 			}
 			words := strings.Split(stepStr, " ")
+			word := constWord(v)
+			if sv, isString := v.(string); isString && isLambdaStep(stepStr) {
+				// Inside a lambda the text is code: an unquoted `30d` or `5` would lex as a
+				// Duration or an Int, not as the String the constant is.
+				word = quoteString(sv)
+			}
 			for idx, w := range words {
 				if w == k {
-					words[idx] = fmt.Sprintf("%v", v)
+					words[idx] = word
 				}
 			}
 			stepStr = strings.Join(words, " ")
@@ -1827,8 +1833,29 @@ func constSplice(v any) string {
 	if s, ok := v.(string); ok {
 		return quoteString(s)
 	}
+	return constWord(v)
+}
+
+// constWord is the text of a constant's non-String value inside script text. A Duration,
+// Time or Date is its literal (`30d`, `@2026-10-13`: a Time or Date prints without the `@`,
+// which would read as a subtraction), so the line re-lexes to the same value; anything else
+// is its printed form.
+func constWord(v any) string {
+	if lit, ok := functions.TemporalLiteral(v); ok {
+		return lit
+	}
 	return fmt.Sprintf("%v", v)
 }
+
+// isLambdaStep reports whether a pipeline step is written with a lambda, whose body is
+// expression text rather than raw step arguments.
+func isLambdaStep(step string) bool {
+	return strings.Contains(step, "\\") && strings.Contains(step, "->")
+}
+
+// spliceableConst reports whether a constant's value may be written into pipeline text: a
+// scalar (scalarValue) or a Duration, Time or Date, whose literal re-lexes to the value.
+func spliceableConst(v any) bool { return scalarValue(v) || functions.IsTemporal(v) }
 
 // spliceText is the text a let-bound variable k (printed form v) is replaced by when it is
 // substituted into a pipeline head. A String is spliced as its quoted literal so the line
@@ -2058,7 +2085,7 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	for k, v := range i.Constants {
 		// A head that is exactly a constant's name resolves to the value itself (lookup),
 		// not to its text, which no parser would accept as a statement.
-		if !scalarValue(v) || strings.TrimSpace(firstPart) == k {
+		if !spliceableConst(v) || strings.TrimSpace(firstPart) == k {
 			continue
 		}
 		words := strings.Split(firstPart, " ")
@@ -2112,7 +2139,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 	for k, v := range i.Constants {
 		// A head that is exactly a constant's name resolves to the value itself (lookup),
 		// not to its text, which no parser would accept as a statement.
-		if !scalarValue(v) || strings.TrimSpace(firstPart) == k {
+		if !spliceableConst(v) || strings.TrimSpace(firstPart) == k {
 			continue
 		}
 		// Replace bare identifier in firstPart or after "spawn Type: IDENT"
@@ -2120,7 +2147,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		if len(colonParts) == 2 {
 			rhs := strings.TrimSpace(colonParts[1])
 			if rhs == k {
-				firstPart = colonParts[0] + ": " + fmt.Sprintf("%v", v)
+				firstPart = colonParts[0] + ": " + constWord(v)
 			}
 		} else {
 			words := strings.Split(firstPart, " ")
@@ -2354,8 +2381,10 @@ func (i *Interpreter) EvaluateLine(line string) {
 			// If it's a compound expression, evaluate it
 			if strings.ContainsAny(valStr, "+-*/%&|<>= ") {
 				if evaluated, err := parser.EvalInfixString(valStr, lookup); err == nil {
-					if functions.IsNumeric(evaluated) {
+					if functions.IsNumeric(evaluated) || (functions.IsTemporal(evaluated) && !quoted) {
 						i.Constants[constName] = evaluated
+					} else if functions.IsTemporal(evaluated) {
+						i.Constants[constName] = valStr // a quoted value is a String, whatever it would evaluate to
 					} else {
 						i.Constants[constName] = fmt.Sprintf("%v", evaluated)
 					}
@@ -2365,7 +2394,8 @@ func (i *Interpreter) EvaluateLine(line string) {
 			} else if quoted {
 				i.Constants[constName] = valStr
 			} else {
-				// A bare canonical number is that number (`const N = 5`), anything else text.
+				// A bare canonical literal is that value (`const N = 5`, `30d`), anything else text.
+				// (A Time or Date such as `@2026-10-13` holds a `-` and takes the expression path above.)
 				i.Constants[constName] = functions.LiteralToken(valStr)
 			}
 		}
