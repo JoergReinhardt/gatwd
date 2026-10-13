@@ -34,7 +34,7 @@ go test ./...                    # unit, structural, Example*, and internal/arch
 go test -race ./pkg/... ./evaluator ./parser   # when touching interpreter/parallel code
 ```
 
-- `internal/archtest` fails the build if a library layer imports upward, if core imports a third-party package, if core code names a domain (`kubernetes`, `k8s`, `conway`, …), or if a documentation link is broken or hard-codes a machine-specific path.
+- `internal/archtest` fails the build if a library layer imports upward, if core imports a third-party package (the sole exception is cobra/pflag in `pkg/cli`), if core code names a domain (`kubernetes`, `k8s`, `conway`, …), or if a documentation link is broken or hard-codes a machine-specific path.
 - Interpreter, parser or evaluator changes: also diff the output of every `*.gatwd` script against a baseline binary (build it from a `git worktree` of the previous commit) and make sure `gatwd --check` is silent over all of them. A few scripts differ between runs on `master` alone (Go map iteration order) — run the baseline more than once.
 - **A test that cannot fail is worthless.** `assert` passes on an empty stream, so inspect every output line of a new DSL assertion; pair "no violations" tests with a violating fixture; break each new guard once to watch it fail.
 

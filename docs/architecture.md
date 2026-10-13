@@ -64,7 +64,7 @@ The project strictly follows a **one-way dependency hierarchy** (Layer $N$ impor
    Also at this level: `interactive/`, `visualizer/` (terminal visualization) and `pkg/plugins/`.
 6. **Layer 5 (`pkg/cli/`, `pkg/<domain>/`, `cmd/`)**: The interpreter, builtins, Edition/Appliance builders, thin domain shims and the distribution binaries.
 
-The direction is machine-checked: `go vet ./...` rejects cycles and `internal/archtest` enforces the library-layer boundaries and the Clean Core rule (core imports only the standard library and this module and names no domain).
+The direction is machine-checked: `go vet ./...` rejects cycles and `internal/archtest` enforces the library-layer boundaries and the Clean Core rule (core imports only the standard library and this module — plus cobra/pflag in `pkg/cli` only — and names no domain).
 
 ### 2.1 Planned: Layers 0–2 as a Standalone Functional Library
 

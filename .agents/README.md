@@ -27,7 +27,7 @@ Ready-to-fill prompts with a definition of done — see [`prompts/README.md`](pr
 
 Rules that are cheaper to enforce than to remember live in tests/scripts, not prose:
 
-- `internal/archtest` — library-layer import boundaries, the Clean Core rule (no third-party import, no domain identifier in core), and documentation links (no broken relative links, no machine-specific absolute paths).
+- `internal/archtest` — library-layer import boundaries, the Clean Core rule (no third-party import — except the allowlisted cobra/pflag in `pkg/cli` — and no domain identifier in core), and documentation links (no broken relative links, no machine-specific absolute paths).
 - `run_dsl_tests.sh` — fails on `[ERROR]`, on statements that produce no output (vacuous asserts), and on `gatwd --check` structural errors.
 - `gatwd --check` — structural errors plus advisory typing/exhaustiveness warnings; must stay silent on committed scripts.
 

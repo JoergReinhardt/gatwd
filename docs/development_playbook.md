@@ -90,7 +90,8 @@ go test -race <touched pkgs>      # parallel steps (||>) share interpreter state
 - **Layer boundaries** of the library layers (`TestLibraryLayersBoundaries`; its
   `knownViolations` list may only shrink).
 - **Clean Core** (`TestCleanCoreImportsNoThirdParty`, `TestCleanCoreNoDomainIdentifiers`): core
-  packages import only the standard library and this module, and no non-test identifier names a
+  packages import only the standard library and this module (plus an explicit allowlist: cobra/pflag in
+  `pkg/cli` only), and no non-test identifier names a
   domain. Comments may still use a domain as an *example*.
 - **Documentation links** (`TestDocLinksResolve`): every relative markdown link in the root docs,
   `docs/`, `.agents/` and the skills must resolve, and none may hard-code a machine-specific path.

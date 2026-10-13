@@ -4,7 +4,8 @@
 > document grounded against the actual codebase (grammar, engine types, edition/appliance
 > machinery); now retained as the **design and decision record**. §5 records what each phase
 > actually delivered, §6 the decisions with their rationale, §8 the verified mandate checklist.
-> The way this project was run is distilled in [`development_playbook.md`](development_playbook.md).
+> The way this project was run is distilled in [`development_playbook.md`](development_playbook.md); how to *use* and
+> extend the result is in [`k8s_howto.md`](k8s_howto.md).
 > Scope: (1) a generic cyclic / directed / typed ("colored") / weighted **graph
 > abstraction** in gatwd core, wired through every layer to the DSL; and (2) a
 > **Kubernetes resource-graph** built *on top of that DSL* as adapters + plugins +
@@ -16,7 +17,7 @@
 
 - **Mandate 5 (Clean Core)** is the spine. The *graph* is a pure,
   category-theoretic, domain-free abstraction and belongs in core. No **import** of a
-  third-party package and no **identifier** naming `kubernetes`/`k8s` may appear in
+  third-party package (except cobra/pflag in `pkg/cli`, allowlisted 2026-10-13) and no **identifier** naming `kubernetes`/`k8s` may appear in
   `functions/`, `dsltypes/`, `collections/`, `arrows/`, `comonads/`, `optics/`,
   `transducers/`, `transformers/`, `evaluator/`, `parser/`, or `pkg/cli/` (comments may
   still use Kubernetes as an *example*). This is enforced by `internal/archtest`

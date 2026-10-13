@@ -19,15 +19,36 @@ var corePackages = []string{
 	"transducers", "transformers", "evaluator", "parser", "pkg/cli",
 }
 
+// coreImportAllowlist is the short, explicit list of third-party imports core may use, keyed by
+// the package allowed to use them. Add to it only for infrastructure that carries no domain
+// knowledge, and say why.
+//
+//   - pkg/cli may import cobra and pflag: a command-line framework is plumbing, not domain
+//     pollution, and it is what kubectl, Helm and kind are built on (decision 2026-10-13, see
+//     docs/hardening_plan.md §4). It is deliberately NOT allowed in the lower layers
+//     (functions, collections, evaluator, parser, ...), which stay standard-library only.
+var coreImportAllowlist = map[string][]string{
+	"pkg/cli": {"github.com/spf13/cobra", "github.com/spf13/pflag"},
+}
+
+func allowedThirdParty(pkg, importPath string) bool {
+	for _, p := range coreImportAllowlist[pkg] {
+		if importPath == p || strings.HasPrefix(importPath, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // domainWords must not appear in any identifier declared or used in core code.
 // Comments and documentation prose may still mention a domain as an EXAMPLE; what is
 // forbidden is code that knows about one.
 var domainWords = []string{"kubernetes", "k8s", "kube", "conway", "lifegrid", "postgres", "redis", "kafka"}
 
 // TestCleanCoreImportsNoThirdParty: core packages import only the standard library
-// and this module. A third-party import in core is the first step of domain
-// pollution; put it behind an adapter, plugin or shim and register it with
-// cli.RegisterStep / cli.RegisterType instead.
+// and this module, plus the explicit coreImportAllowlist (cobra/pflag in pkg/cli). A
+// third-party import in core is the first step of domain pollution; put it behind an
+// adapter, plugin or shim and register it with cli.RegisterStep / cli.RegisterType instead.
 func TestCleanCoreImportsNoThirdParty(t *testing.T) {
 	root := moduleRoot(t)
 	for _, pkg := range corePackages {
@@ -45,6 +66,9 @@ func TestCleanCoreImportsNoThirdParty(t *testing.T) {
 				first, _, _ := strings.Cut(p, "/")
 				if strings.HasPrefix(p, modulePath) || !strings.Contains(first, ".") {
 					continue // this module, or the standard library
+				}
+				if allowedThirdParty(pkg, p) {
+					continue // explicitly allowlisted for this package
 				}
 				t.Errorf("%s/%s imports third-party %q: core must stay dependency-free (Mandate 5)", pkg, filepath.Base(path), p)
 			}
