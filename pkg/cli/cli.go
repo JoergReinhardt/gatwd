@@ -424,7 +424,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				}
 				return i.exprFallback(k)
 			}
-			if strings.ContainsAny(stepStr, "+-*/%&|<>= ") || (len(stepStr) > 0 && unicode.IsDigit(rune(stepStr[0]))) {
+			// `- 2` is the operator section "subtract 2", not the expression "minus two" (which
+			// parses since unary minus exists): a step that opens with an operator and a space is
+			// always a section, handled below.
+			if !strings.HasPrefix(stepStr, "- ") && (strings.ContainsAny(stepStr, "+-*/%&|<>= ") || (len(stepStr) > 0 && unicode.IsDigit(rune(stepStr[0])))) {
 				// A step that merely evaluates to a function (a partial application such
 				// as `map (\x -> …)`) is a pipeline step, not an expression value.
 				if probe, err := parser.EvalInfixString(stepStr, lookup); err == nil && !functions.IsCallable(probe) {
@@ -941,6 +944,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "math_idiv") {
 			amount := strings.TrimSpace(stepStr[10:])
 			pipeline = append(pipeline, evaluator.StepMathIDiv(amount))
+		} else if strings.HasPrefix(stepStr, "math_pow") {
+			amount := strings.TrimSpace(stepStr[9:])
+			pipeline = append(pipeline, evaluator.StepMathPow(amount))
 		} else if strings.HasPrefix(stepStr, "math_mod") {
 			amount := strings.TrimSpace(stepStr[9:])
 			pipeline = append(pipeline, evaluator.StepMathMod(amount))
@@ -950,6 +956,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpSub, strings.TrimSpace(stepStr[2:])))
 		} else if strings.HasPrefix(stepStr, "* ") {
 			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpMul, strings.TrimSpace(stepStr[2:])))
+		} else if strings.HasPrefix(stepStr, "** ") {
+			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpPow, strings.TrimSpace(stepStr[3:])))
 		} else if strings.HasPrefix(stepStr, "// ") {
 			pipeline = append(pipeline, evaluator.StepBinaryOp(functions.OpIDiv, strings.TrimSpace(stepStr[3:])))
 		} else if strings.HasPrefix(stepStr, "/ ") {

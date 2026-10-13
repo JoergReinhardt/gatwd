@@ -176,6 +176,7 @@ func DefaultSpec() GrammarSpec {
 			{Symbol: "/", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix true division (promotes integers to float)"},
 			{Symbol: "//", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix Euclidean integer floor division"},
 			{Symbol: "%", Category: "math", Precedence: 6, Associativity: "left", Description: "Infix modulo / remainder"},
+			{Symbol: "**", Category: "math", Precedence: 7, Associativity: "right", Description: "Exponentiation (exact for Int ** non-negative Int)"},
 		},
 		Snippets: []SnippetDef{
 			{

@@ -126,4 +126,5 @@ var CanonicalOperators = map[string]OperatorMetadata{
 	"/": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix true division (promotes integers to float)", Unicode: ""},
 	"//": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix Euclidean integer floor division", Unicode: ""},
 	"%": {Category: "math", Precedence: 6, Associativity: "left", Description: "Infix modulo / remainder", Unicode: ""},
+	"**": {Category: "math", Precedence: 7, Associativity: "right", Description: "Exponentiation (exact for Int ** non-negative Int)", Unicode: ""},
 }

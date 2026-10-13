@@ -2125,6 +2125,12 @@ func StepMathMod(amount string) PipelineStep[functions.Either[error, any]] {
 	return StepBinaryOp(functions.OpMod, amount)
 }
 
+// StepMathPow raises stream values to the power amount (`**`): exact for an Int raised to a
+// non-negative Int, a Float otherwise (see functions.Pow).
+func StepMathPow(amount string) PipelineStep[functions.Either[error, any]] {
+	return StepBinaryOp(functions.OpPow, amount)
+}
+
 // StepBinaryOp evaluates a binary operator with the stream element on the left and operand on the right
 func StepBinaryOp(op functions.OpKind, operand string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {

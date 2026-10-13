@@ -29,6 +29,8 @@ const (
 	OpIDiv OpKind = "//"
 	// OpMod is the remainder/modulo operator ("%").
 	OpMod OpKind = "%"
+	// OpPow is exponentiation ("**"), right-associative.
+	OpPow OpKind = "**"
 	// OpConcat is the monoidal concatenation operator ("++"), used to combine
 	// strings, lists, and other monoids.
 	OpConcat OpKind = "++"
@@ -465,7 +467,7 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	// `"5" < 10` are errors, and two Strings never do arithmetic. Two Strings still ORDER, as
 	// text (see Compare). A Char next to a String is the D1 on-demand conversion, not a number.
 	switch op {
-	case OpSub, OpMul, OpDiv, OpIDiv, OpMod, OpLt, OpLte, OpGt, OpGte:
+	case OpSub, OpMul, OpDiv, OpIDiv, OpMod, OpPow, OpLt, OpLte, OpGt, OpGte:
 		_, lStr := left.(string)
 		_, rStr := right.(string)
 		ordering := op == OpLt || op == OpLte || op == OpGt || op == OpGte
@@ -489,6 +491,11 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 			}
 			return nil, fmt.Errorf("operator '+' is not defined for %s and %s; %s", KindName(left), KindName(right), hint)
 		}
+	}
+
+	// Exponentiation has its own exact/float rules (see Pow).
+	if op == OpPow {
+		return Pow(left, right)
 	}
 
 	// Relational ordering across all comparable types (<, <=, >, >=)

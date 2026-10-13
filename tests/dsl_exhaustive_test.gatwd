@@ -847,3 +847,31 @@ re_match (re_quote "a.b") "axb" |> assert false
 const RE97_WORD = gatwd
 str_upper RE97_WORD |> assert GATWD
 length RE97_WORD |> assert 5
+
+-- 98. Numeric tower, step 1 (hardening W3): unary minus and `**`. A "-" in operand position negates
+-- (`- 5`, `-x`); `f -3` (a space before, none after) is a negative ARGUMENT, `a - 3` and `a-3` stay
+-- subtractions; `**` is right-associative and binds tighter than unary minus: -2 ** 2 is -4.
+- 5 |> assert -5
+-(2 + 3) |> assert -5
+2 ** 3 |> assert 8
+2 ** 3 ** 2 |> assert 512
+-2 ** 2 |> assert -4
+(-2) ** 2 |> assert 4
+10 - 3 |> assert 7
+abs -3 |> assert 3
+min -1 3 |> assert -1
+2 ** -1 |> assert 0.5
+2 ** 0.5 |> assert 1.4142135623730951
+2 ** 100 |> assert 1267650600228229401496703205376
+-9223372036854775808 |> assert -9223372036854775808
+[1, 2, 3] |> map (\x -> -x) |> assert [-1 -2 -3]
+[1, 2, 3] |> map (\x -> x ** 2) |> assert [1 4 9]
+[1, 2, 3] |> map (\x -> 2 ** x - 1) |> assert [1 3 7]
+[3, -1, 0 - 2] |> map (\x -> -x) |> assert [-3 1 2]
+[3 -1 -2] |> length |> assert 3
+def w3_dec = \n -> n - 1
+w3_dec 5 |> assert 4
+w3_dec -5 |> assert -6
+5 |> ** 2 |> assert 25
+5 |> math_pow 3 |> assert 125
+5 |> - 2 |> assert 3
