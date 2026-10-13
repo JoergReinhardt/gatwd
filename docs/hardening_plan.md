@@ -1,8 +1,8 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
-> **Status (2026-10-13): W0 is implemented and the D4 slice of W1a is implemented — both committed (not pushed). W1b (the cobra tree) is next; W2–W7 are untouched.** Progress table: §0. Decisions are recorded in §1: D2, D5, D6, D9, D10
-> and **D4** are **decided** (2026-10-13); **D1, D3, D7, D8 are still open** and must be answered before the
-> affected phase starts (Mandate 8: ask at hard-to-reverse choices, record the answer here).
+> **Status (2026-10-13): W0, W1a and W1b (the cobra command tree) are implemented; W2–W7 are untouched.** Progress table: §0.
+> **All decisions D1–D10 are answered** (§1, 2026-10-13). Two answers carry a point to confirm when their phase starts: D1 (the
+> exact `Char` conversion rule, W2) and D7 (auto-render, W5).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
 > facts marked **(researched)** come from the sources listed at the end.
 > **To start implementing, read [`hardening_handoff.md`](hardening_handoff.md).**
@@ -30,9 +30,9 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 
 | Phase | State |
 | :-- | :-- |
-| W0 | **done** (committed). One deviation: item 3 is half done — unparsable statements report *why* (`cannot evaluate "…": <reason>`) but not *where*; `parser/errors.go` `FormatError` is not wired into the infix/line parsers yet (carry into W1b/W2 or drop). F2's missing operators (`Char`, `not`, `**`, unary minus) belong to W2/W3. |
-| W1a (`Run` API) | **partly done** (committed): `RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`, `ARGS`/`ARG0`/`main`/`--task` (D4), hand-rolled `parseRunArgs`. **Open:** `Eval`, `Define`, `Preludes`, `NoPrelude`, `Check`, `Interactive`, I/O writers and `context`; routing top-level statement output through a writer instead of `fmt.Printf`. |
-| W1b (cobra tree) | not started |
+| W0 | **done** (committed). One deviation: item 3 is half done — unparsable statements report *why* (`cannot evaluate "…": <reason>`) but not *where*; `parser/errors.go` `FormatError` is not wired into the infix/line parsers — **decided at W1b: deferred to W7**, see §4.5. F2's missing operators (`Char`, `not`, `**`, unary minus) belong to W2/W3. |
+| W1a (`Run` API) | **done**: `RunOptions{Script, Args, Task, Eval, Define, Preludes}`, `Interpreter.Run`/`RunTask`, `ARGS`/`ARG0`/`main`/`--task` (D4), `Interpreter.Out` (statement output as a writer), `ParseDefines`. Deferred with reasons in §4.5. |
+| W1b (cobra tree) | **done** (2026-10-13): `pkg/cli/command.go` (`CommandTree`, `CommandSpec`), `repl.go`; `Edition.Command/WithCommand/WithArgNormalizer`; the hand-rolled `parseRunArgs` and `--check` branch are deleted; backward-compatibility table `TestCommandTreeBackwardCompatible`, subcommand table, two real-binary tests (`cmd/gatwd`, `cmd/gatwd-k8s`). Design calls and deferrals: §4.5. |
 | W2–W7 | not started |
 
 ---
@@ -47,17 +47,17 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **D5** | **Layered overrides by default**: the embedded rules load first, the override on top; `replace` stays as an explicit mode (`-rules-mode replace`). | Chosen as the idiomatic model: systemd drop-ins, Helm values, Kustomize overlays and CSS all layer; "replace the whole file" is the exception, not the default. |
 | **D6** | **Qualified node ids** `Kind/namespace/name` + loud duplicate detection (A+C in §7). **All tests and examples are migrated in the same phase.** | |
 | **D9** | **`assert` on an empty stream is an error.** | Scripts that relied on a vacuous assert get fixed. |
-| **D4** | **Argument model, as recommended:** `ARGS` (List of String, after `--`), `ARG0`, `main` as the optional default task, `--task NAME` to run any `def`. | The flag syntax itself is cobra's (§4); D4 is what a script *sees*. **Extension made while implementing:** a pipeline-bodied task is a *fragment* whose input stream is the arguments (one String node each), a lambda-bodied task is called with the `ARGS` list. **Implemented** in `pkg/cli/run.go` (`RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`) with the existing hand-rolled flag parsing; the rest of `RunOptions` and the cobra tree are still W1. Spec: `docs/dsl_guide.md` §23. |
+| **D4** | **Argument model, as recommended:** `ARGS` (List of String, after `--`), `ARG0`, `main` as the optional default task, `--task NAME` to run any `def`. | The flag syntax itself is cobra's (§4); D4 is what a script *sees*. **Extension made while implementing:** a pipeline-bodied task is a *fragment* whose input stream is the arguments (one String node each), a lambda-bodied task is called with the `ARGS` list. **Implemented** in `pkg/cli/run.go` (`RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`) and, since W1b, on the cobra tree. Spec: `docs/dsl_guide.md` §23. |
 | **D10** | **Use a real CLI library: cobra (+ pflag), integrated directly into core (`pkg/cli`).** The Clean Core rule gets an explicit, narrow exemption: cobra/pflag may be imported by `pkg/cli` only; the lower layers stay standard-library only. | Cobra is what kubectl, Helm and kind use; `pflag` is already in our module graph via client-go. A CLI framework is plumbing, not domain. **Implemented in `internal/archtest` (allowlist) and the rule docs on 2026-10-13.** |
 
-**Open — please answer before the phase starts:**
+**Decided later the same day (2026-10-13):**
 
-| ID | Question | Recommendation | Affects |
-| :-- | :-- | :-- | :-- |
-| **D1** | Add a `Char` type with `'a'` literals, and make `String` a collection row (map/filter/fold over characters)? | **Yes** (Elm, Haskell have Char; strings index by characters, never bytes) | W2 |
-| **D3** | Numeric model: (a) keep the runtime types, **specify** the tower and add `Num`/`Integral`/`Fractional` as *annotation-level constraint names* (like Elm's `number`); (b) a boxed runtime `Num` value | **(a).** (b) adds boxing and no new capability | W3 |
-| **D7** | Kustomize: pin `sigs.k8s.io/kustomize/api` at **v0.21.0** (Go 1.26) or bump the repo to Go 1.27 for v0.21.3; and make `manifests` auto-render kustomization roots? | **Pin v0.21.0** now; **auto-render, with `--no-kustomize`** to opt out | W5 |
-| **D8** | Unknown pipeline step ⇒ run OS command: keep for trusted CLI use, **deny by default** for Appliance overrides and any script not given on the command line? | **Yes** (capability policy, §9) | W7 |
+| ID | Decision | Notes |
+| :-- | :-- | :-- |
+| **D1** | **`Char` is added; `String` becomes a collection row — "convert to char on demand if possible, otherwise yes"** (the user's words). | **Reading to confirm when W2 starts:** `Char` is a real type with `'a'` literals; where a one-character `String` meets a `Char` position (`char_code "a"`, `'a' == "a"`, a `Char` annotation) it converts on demand instead of erroring; where on-demand conversion is not possible (a multi-character string, a different type) the answer is "yes, a real distinct `Char` and a real collection row". Keep the coercion rule narrow and listed in one table, because D2 removed implicit `+` coercion for the opposite reason. |
+| **D3** | **(a)** keep the runtime representations; specify the tower; `Num`/`Integral`/`Fractional` are annotation-level constraint names (no boxed `Num`). | W3 as written in §6. |
+| **D7** | **Bump the repo to Go 1.27** and use `sigs.k8s.io/kustomize/api` **v0.21.3** (not the v0.21.0 pin). | The user also asked whether system Go must be updated: **no** — `GOTOOLCHAIN=auto` (the default; this machine has system Go 1.26.0 and the toolchain cache) downloads `go1.27.x` (1.27.2 is on proxy.golang.org) when `go.mod` says `go 1.27.0`. Only CI images, Dockerfiles and other contributors need Go ≥ 1.27 or auto-toolchain with network access (the repo has no Dockerfile or CI file that pins a Go version). **Not answered explicitly:** auto-render of kustomization roots with `--no-kustomize` — proceed on the recommendation at W5 and confirm. |
+| **D8** | **Yes** — unknown pipeline step ⇒ OS command stays for trusted CLI use; **denied by default** for Appliance overrides and any script not given on the command line (capability policy, §9). | W7. |
 
 ---
 
@@ -270,6 +270,36 @@ persistent flags: --prelude FILE (repeatable) · --no-prelude · -D NAME=VALUE �
 - `docs/dsl_guide.md`, `docs/k8s_howto.md` (§3.2 flags table, deploy manifest) and the playbook updated.
 - **DoD:** `--help` everywhere; old invocations unchanged (or shimmed with a notice); only `pkg/cli` imports cobra.
 
+### 4.5 What W1b built, and what it decided (2026-10-13)
+
+The command tree is exactly §4.3 with these differences. Each was a call made while implementing; veto any of them.
+
+- **Where output goes:** option (a) — `Interpreter.Out io.Writer` (default `os.Stdout`, inherited by forks). Top-level statements,
+  the REPL and the tree all print through it; `captureStdout` is gone from the tests. `StepDebugPrint` (the pipeline tap) and
+  `evaluator/testing.go` still use the process stdout by design.
+- **`RunOptions`** gained `Eval`, `Define`, `Preludes`. `NoPrelude` is **construction-time**, so it lives in the tree
+  (`CommandSpec.Build(noPrelude)`), not in `Run`. `-e` statements replace the default `main` task; a statement that prints an
+  `[ERROR]` **or nothing at all** makes the run fail (Mandate 6; script top-level statements keep today's exit code until W6).
+- **`-D NAME=VALUE`** binds a string constant; an invalid name, a missing `=`, or `ARGS`/`ARG0` is a usage error (exit 2).
+  `--prelude FILE` (repeatable) loads before the script; an unreadable prelude is an error, not a silent skip.
+- **`steps` is `builtins`:** step-form names are matched by prefix and cannot be enumerated, so the command lists the curried
+  function forms (with parameters), the prelude defs and the constants; the help says so.
+- **`task NAME [-s SCRIPT] [-- args]`:** the script comes from `-s/--script`, so `--` stays unambiguous.
+- **Exit codes:** 0 ok · 1 a command failed · 2 a malformed command line (unknown flag, second positional, missing value, bad `-D`).
+  One intended change from the old binary: `--check` with no file now exits **2**, not 1. The banner is printed only by the
+  script runner and the REPL, not by `check`, `eval`, `task`, `builtins`, `version` or `completion`.
+- **The argument normaliser hook** exists (`CommandSpec.NormalizeArgs`, `Edition.WithArgNormalizer`) and is tested with a toy
+  rewrite; the single-dash operator migration itself is W6.
+- **Deferred, with reasons:** `context.Context` in `Run` (the evaluator has no cancellation; adding the parameter would be a no-op
+  that looks like a feature — W7 brings the policy and the timeout together); `Stdin`/`Stderr` fields (the tree owns them);
+  `RunOptions.Check`/`Interactive` (command-line concerns, in the tree); the `GATWD_<FLAG>` environment defaults (optional in §4.3,
+  nothing needs them yet); a generic `env "NAME"` builtin (only together with the W7 policy hook); **"where" for unparsable
+  statements** — `FormatError` belongs to the combinator tracker, which the infix/line parser does not use, and the script loader
+  knows the line while `EvaluateLine` does not; structured diagnostics (line, column, code) are what the W7 API server needs
+  anyway, so it is done once there. `gatwd --check` already reports `file:line:col` for structural errors.
+- **Known, not fixed here:** the k8s edition's `main` builds a cluster client *before* the tree runs, so even `version` and
+  `completion` print the "no cluster access" notice on stderr; make the client lazy in W6.
+
 ---
 
 ## 5. W2 — Base types and standard library
@@ -278,7 +308,7 @@ All additions are **generic** (Mandate 5), live as pure Go in `functions/` (Laye
 registered as curried data-last function forms in `pkg/cli/dslfuncs_*.go`, and get DSL assertions
 (Mandate 3) and `Example*`s. Naming follows the existing prefix style (`set_`, `hamt_`, `tree_`).
 
-### 5.1 Char and String (D1 open, D2 decided)
+### 5.1 Char and String (D1, D2 decided)
 
 - **`Char`**: literal `'a'`, escapes `'\n'`, `'é'`; a Unicode code point (Go `rune`); `==`, `<`, `compare`;
   `char_code`, `char_from_code`, `char_is_digit/alpha/space/upper/lower`, `char_upper/lower`.
@@ -387,15 +417,16 @@ negative case per partial function.
 
 ---
 
-## 8. W5 — In-process kustomize (D7)
+## 8. W5 — In-process kustomize (D7: bump to Go 1.27)
 
 **Findings (researched, and a scratch module built and ran):** `sigs.k8s.io/kustomize/api/krusty` is the supported
 embedding API (`krusty.MakeKustomizer(krusty.MakeDefaultOptions()).Run(fs, path)` → `ResMap.AsYaml()`). In a scratch
 module it **coexisted with our `k8s.io/client-go v0.37.1`** and rendered a real overlay (`namePrefix` applied). The scratch binary
 built to ~33 MB unstripped (measure the real delta against the stripped operator when implementing). Constraints:
 
-- **Go version:** the newest `api v0.21.3` requires **Go ≥ 1.27**; `v0.20.1` and `v0.21.0` stay on Go 1.26. → pin
-  **v0.21.0** (or deliberately move the repo to Go 1.27).
+- **Go version (D7, decided):** the newest `api v0.21.3` requires **Go ≥ 1.27**; `v0.20.1` and `v0.21.0` stay on Go 1.26.
+  → **bump the repo to Go 1.27** (`go 1.27.0` in `go.mod`; the go command fetches the toolchain itself, no system update
+  needed) and use v0.21.3. Re-run every gate after the bump, before any kustomize code.
 - **Concurrency:** upstream reports a data race when one `Kustomizer` is used from several goroutines → create a
   `Kustomizer` per call and serialise renders with a mutex (our `||>` parallel steps could otherwise hit it).
 - **Filesystem:** `filesys.MakeFsOnDisk()` for paths, `MakeFsInMemory()` to render bases shipped in a ConfigMap or
@@ -406,7 +437,7 @@ built to ~33 MB unstripped (measure the real delta against the stripped operator
 **Design:** `pkg/k8sgraph/kustomize.go` provides `InProcessRenderer()` implementing the adapter's existing
 `WithRenderer` seam; `KustomizeStep` uses it by default (the external-binary renderer stays selectable via
 `WithKustomizeCommand`). The dependency is imported **only** by the k8s shim, never by core
-(`internal/archtest` stays green). `manifests` **auto-renders a kustomization root** (D7) with `--no-kustomize` /
+(`internal/archtest` stays green). `manifests` **auto-renders a kustomization root** (D7, to confirm) with `--no-kustomize` /
 an option to opt out. Tests: render the overlay fixture and compare with `kubectl kustomize` when present (skip
 otherwise); a `-race` test with concurrent renders; a test that an exec plugin is refused.
 
@@ -460,7 +491,7 @@ docs/playbook/skills updated in the same change.
 | Every importer of `pkg/cli` links cobra | accepted (D10); command tree isolated in `command*.go`; allowlist is `pkg/cli`-only and negative-controlled |
 | Operator flag migration (`-x` → `--x`) | normaliser + deprecation notice for one release; docs/`deploy.yaml`/tests updated in the same commit |
 | `let` rework (F6) | time-boxed spike before committing to the design |
-| kustomize version/Go skew | pinned v0.21.0; CI check that `go.mod`'s `go` line does not change |
+| kustomize version/Go skew | D7: bump the repo to Go 1.27 (kustomize v0.21.3) as the first W5 step and re-run every gate; the toolchain is fetched automatically, CI images must carry Go ≥ 1.27 |
 | Scope creep in the stdlib | tiers (§5): Tier 1 = Char/String/`not`/`Ordering`/parsers/Bytes+encodings; JSON/YAML/regex/hashes second; time later |
 | Exec policy added late | keep the Appliance on **replace-only embedded rules** until W7, and never run API-submitted scripts before it |
 

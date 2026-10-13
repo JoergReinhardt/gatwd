@@ -591,3 +591,33 @@ Put invocations in `main` (or in tasks), not at the top level: top-level stateme
 `--task`. `ARGS` is a list *value* — use it inside expressions (`length ARGS`, `nth 0 ARGS`) rather than
 splicing it into step text. A task name that does not exist, a script that cannot be read, or a task that prints
 an `[ERROR]` makes the process exit non-zero (`1`; a malformed command line exits `2`).
+
+### The command line
+
+Every Edition and Appliance gets the same command line (a cobra tree in `pkg/cli`; it only maps flags to
+`Interpreter.Run`). The old forms keep working:
+
+```bash
+gatwd [script] [-- arg ...]            # run a script (then its `main`); no script → the REPL
+gatwd -i script                         # run it, then a prompt with its defs loaded
+gatwd --task NAME script -- arg ...     # run one def instead of `main`
+gatwd --check file                      # same as `gatwd check file`
+```
+
+and these are new:
+
+```bash
+gatwd run script -- arg ...             # explicit form
+gatwd eval -e '1 + 2' -e '"a" ++ "b"'   # one-liners; exit 1 if a statement errors or prints nothing
+gatwd script -e 'main_helper 3'         # -e after a script: replaces `main`
+gatwd check a.gatwd b.gatwd             # structural errors exit 1; typing findings are advisory
+gatwd task NAME [-s script] -- arg ...  # a def from the prelude, or from `script`
+gatwd prelude list | cat NAME           # the embedded prelude files
+gatwd builtins                          # function forms (with parameters), defs, constants
+gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
+```
+
+Global flags: `-D NAME=VALUE` (a string constant; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
+before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
+`1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
+Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.

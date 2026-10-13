@@ -53,7 +53,8 @@ arguments, so the same script serves any directory:
 ```bash
 gatwd-k8s examples/k8s_howto/tasks.gatwd -- examples/k8s_howto/cluster                       # runs `main`: all three tasks
 gatwd-k8s examples/k8s_howto/tasks.gatwd --task trace_to_pod -- examples/k8s_howto/cluster   # ONE task
-gatwd-k8s --check examples/k8s_howto/tasks.gatwd                                              # validate without running
+gatwd-k8s check examples/k8s_howto/tasks.gatwd                                                # validate without running (`--check` also works)
+gatwd-k8s task trace_to_pod -s examples/k8s_howto/tasks.gatwd -- examples/k8s_howto/cluster   # the same single task, as a subcommand
 gatwd-k8s -i examples/k8s_howto/tasks.gatwd -- examples/k8s_howto/cluster                    # run, then a prompt with the defs loaded
 ```
 
@@ -84,7 +85,9 @@ Parameters: pass them after `--` and read them from `ARGS`; for a fixed default,
 Everything written in `.gatwd` is read at run time, so the loop is: edit, re-run, look.
 
 ```bash
-gatwd-k8s --check my.gatwd          # structural errors (exit 1) and advisory warnings
+gatwd-k8s check my.gatwd            # structural errors (exit 1) and advisory warnings
+gatwd-k8s prelude cat lib/k8s/prelude.gatwd   # read the embedded relations; copy, edit, load with --prelude
+gatwd-k8s --no-prelude my.gatwd     # run without the embedded prelude (the steps stay registered)
 gatwd-k8s my.gatwd                  # run it
 gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules my_rules.gatwd   # try operator rules
 gatwd-k8s-operator -manifests … -rules my_rules.gatwd -interval 5s               # and edit while it runs
@@ -247,7 +250,7 @@ The static operator is a single ELF binary of roughly 29 MB. To install into `$G
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; on failure prints a notice and runs offline | the same; with `-manifests` it never needs one |
-| Flags | `--check file`, `-i [file]` | `-manifests PATH` (omit for live), `-namespace NS` (default `default`; `""` = all namespaces), `-rules FILE` (default `/etc/gatwd/rules.gatwd`), `-interval DUR` (`0` = once) |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | `-manifests PATH` (omit for live), `-namespace NS` (default `default`; `""` = all namespaces), `-rules FILE` (default `/etc/gatwd/rules.gatwd`), `-interval DUR` (`0` = once) |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** The operator exits **0** whether or not it found violations (`2` if it has neither

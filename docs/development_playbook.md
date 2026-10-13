@@ -98,6 +98,13 @@ go test -race <touched pkgs>      # parallel steps (||>) share interpreter state
 
 `go test -run Example ./...` is redundant with `go test ./...` but is the fast loop for godoc.
 
+Command-line changes live in `pkg/cli/command*.go` and are tested three ways: a **backward-compatibility
+table** (`TestCommandTreeBackwardCompatible` — every invocation the old binary accepted or rejected, with exit
+code and output), a subcommand table (`cmd.Execute` against `bytes.Buffer`s, no process), and a **real-binary
+test** per `cmd/` (`cmd/gatwd/cli_test.go`, `cmd/gatwd-k8s/cli_test.go`). The tree holds no semantics: a new
+behaviour goes into `Interpreter.Run` first. Capture statement output with `Interpreter.Out`, never by swapping
+`os.Stdout`.
+
 ### Regression check for interpreter changes
 
 Changes to `pkg/cli`, `parser` or `evaluator` can alter script behavior in ways unit tests miss.
