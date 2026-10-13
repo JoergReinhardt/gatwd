@@ -3,6 +3,7 @@ package interactive
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"iter"
 	"os/exec"
@@ -12,7 +13,30 @@ import (
 	"github.com/joergreinhardt/gatwd/evaluator"
 )
 
+// UnknownStepError is the failure of a step that is neither a recognised step nor an
+// executable on the PATH: usually a typo. Name is the word that was looked up. Its message
+// is `unknown step or command: "name"`.
+type UnknownStepError struct{ Name string }
+
+// Error is the one-line message.
+func (e *UnknownStepError) Error() string {
+	return fmt.Sprintf("unknown step or command: %q", e.Name)
+}
+
+// GenericExecAdapter runs commandTemplate (a `%s` is replaced by the incoming node) as an
+// operating-system command and yields each non-empty line of its standard output as a node.
+// A command that cannot start or exits non-zero yields an error node carrying its standard
+// error. It runs without a context; see GenericExecAdapterContext.
 func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) evaluator.Adapter[any] {
+	return GenericExecAdapterContext(nil, commandTemplate, yieldedFlag)
+}
+
+// GenericExecAdapterContext is GenericExecAdapter bound to a context supplied by ctx each
+// time the adapter runs (a function, so an adapter built once and cached still sees the
+// context of the run it executes in; nil means no context). When the context is done the
+// child process is killed and the error node carries the context's cause
+// (errors.Is(err, context.DeadlineExceeded) holds).
+func GenericExecAdapterContext(ctx func() context.Context, commandTemplate string, yieldedFlag dsltypes.BitFlag) evaluator.Adapter[any] {
 	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
 		return func(yield func(dsltypes.ASTNode[any]) bool) {
 			strValue := "unknown"
@@ -44,15 +68,25 @@ func GenericExecAdapter(commandTemplate string, yieldedFlag dsltypes.BitFlag) ev
 			// nothing. This turns a typo'd pipeline step (e.g. `frobnicate`) from a
 			// silent no-op into a visible `[ERROR] unknown step or command` node.
 			if _, lookErr := exec.LookPath(parts[0]); lookErr != nil {
-				yield(dsltypes.NewASTNode[any](fmt.Errorf("unknown step or command: %q", parts[0]), yieldedFlag))
+				yield(dsltypes.NewASTNode[any](&UnknownStepError{Name: parts[0]}, yieldedFlag))
 				return
 			}
 
+			runCtx := context.Background()
+			if ctx != nil {
+				if c := ctx(); c != nil {
+					runCtx = c
+				}
+			}
 			fail := func(err error) {
+				if runCtx.Err() != nil {
+					// the process was killed by the context: say why, not "signal: killed"
+					err = context.Cause(runCtx)
+				}
 				yield(dsltypes.NewASTNode[any](fmt.Errorf("%s: %w", parts[0], err), yieldedFlag))
 			}
 
-			cmd := exec.Command(parts[0], parts[1:]...)
+			cmd := exec.CommandContext(runCtx, parts[0], parts[1:]...)
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 			stdout, err := cmd.StdoutPipe()

@@ -69,7 +69,7 @@ func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize boo
 		if noKustomize {
 			opts = append(opts, k8sgraph.WithoutKustomize())
 		}
-		app, err := newAppliance(nil, s.Rules, s.Mode, opts...)
+		app, err := newApplianceWith(nil, opts, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
 		return app, checkPipeline(manifests), err
 	}
 	if noKustomize {
@@ -79,21 +79,27 @@ func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize boo
 	if err != nil {
 		return nil, "", cli.UsageError(fmt.Errorf("no --manifests given and no cluster reachable (%v)", err))
 	}
-	app, err := newAppliance(client, s.Rules, s.Mode)
+	app, err := newAppliance(client, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
 	return app, livePipeline(namespace), err
 }
 
 // newAppliance assembles the operator: the k8s edition, the embedded rules, and the override
 // (a mounted ConfigMap) combined with them according to mode. `compliance` is the entry point
-// every rule set must define. opts are the edition options (WithoutKustomize).
-func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode, opts ...k8sgraph.Option) (*cli.Appliance, error) {
-	return cli.NewAppliance(
+// every rule set must define. extra carries the execution policy (--allow-*); without it the
+// rules, the override above all, may only compute.
+func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode, extra ...cli.ApplianceOption) (*cli.Appliance, error) {
+	return newApplianceWith(client, nil, override, mode, extra...)
+}
+
+// newApplianceWith is newAppliance with edition options (k8sgraph.WithoutKustomize).
+func newApplianceWith(client dynamic.Interface, opts []k8sgraph.Option, override string, mode cli.OverrideMode, extra ...cli.ApplianceOption) (*cli.Appliance, error) {
+	return cli.NewAppliance(append([]cli.ApplianceOption{
 		cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client, opts...)),
 		cli.WithEmbeddedFS(rulesFS, rulesPath),
 		cli.WithConfigMapOverride(override),
 		cli.WithOverrideMode(mode),
 		cli.WithRequiredDefs("compliance"),
-	)
+	}, extra...)...)
 }
 
 // checkPipeline runs the compliance rules over offline manifests.

@@ -209,7 +209,11 @@ func TestApplianceImportsResolveAgainstOverrideDirectory(t *testing.T) {
 	dir := t.TempDir()
 	writeRules(t, dir, "extra.gatwd", "def rule_extra = \\x -> x + 7\n")
 	p := writeRules(t, dir, "rules.gatwd", "import \"extra.gatwd\"\ndef entry = \\x -> [(rule_a x), (rule_extra x)]\n")
-	app, err := newRules(t, p)
+	// an import reads a file: the override needs the fs capability (denied by default, W7)
+	if _, err := newRules(t, p); err == nil || !strings.Contains(err.Error(), "requires the fs capability") {
+		t.Fatalf("an import in an override must be denied by default: err = %v", err)
+	}
+	app, err := newRules(t, p, cli.WithPolicy(cli.Policy{AllowFS: true}))
 	if err != nil {
 		t.Fatalf("import beside the override: %v", err)
 	}

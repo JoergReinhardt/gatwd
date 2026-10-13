@@ -23,7 +23,8 @@ import (
 //	NAME [flags]                  the legacy form: `run` when --interval is given, else `check`
 //
 // Flags every Appliance has: --rules FILE, --rules-mode layer|replace, --interval DUR,
-// --format text|json, --fail-on-violation. A domain adds its own (its data source) in Bind.
+// --format text|json, --fail-on-violation, and the execution policy --allow-exec, --allow-fs,
+// --allow-net, --allow-env (all off: the rules, an override above all, may only compute). A domain adds its own (its data source) in Bind.
 //
 // Exit status, the same mapping as the Edition command tree plus one: 0 the check ran and,
 // with --fail-on-violation, found nothing; 1 the command failed — rules that do not load, a
@@ -39,13 +40,16 @@ type ApplianceSettings struct {
 	Rules string
 	// Mode is how the override combines with the embedded rules (--rules-mode).
 	Mode OverrideMode
+	// Policy is what the rules may do beyond computing (--allow-exec, --allow-fs, --allow-net,
+	// --allow-env); every capability is denied unless its flag is given.
+	Policy Policy
 }
 
-// Options returns the ApplianceOptions that apply the settings: WithConfigMapOverride and
-// WithOverrideMode. A domain setup passes them to NewAppliance next to its own edition and
+// Options returns the ApplianceOptions that apply the settings: WithConfigMapOverride,
+// WithOverrideMode and WithPolicy. A domain setup passes them to NewAppliance next to its own edition and
 // embedded rules.
 func (s ApplianceSettings) Options() []ApplianceOption {
-	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode)}
+	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode), WithPolicy(s.Policy)}
 }
 
 // ApplianceSetup builds the Appliance and the pipeline to evaluate, once the command line has
@@ -92,6 +96,7 @@ type applianceFlags struct {
 	interval        time.Duration
 	format          string
 	failOnViolation bool
+	allow           Policy
 }
 
 // Root returns a fresh cobra root for the spec.
@@ -120,6 +125,10 @@ func (t *ApplianceTree) Root() *cobra.Command {
 	pf.StringVar(&f.rulesMode, "rules-mode", OverrideLayer.String(), "how the override combines with the embedded rules: `layer` (on top of them) or `replace` (instead of them)")
 	pf.StringVar(&f.format, "format", FormatText, "output format: `text` (one result per line) or `json` (one JSON object per check)")
 	pf.BoolVar(&f.failOnViolation, "fail-on-violation", false, "exit 3 when the check finds violations (check only; run never exits on them); a failed check still exits 1")
+	pf.BoolVar(&f.allow.AllowExec, "allow-exec", false, "let the rules run OS commands (an unknown step is a program); denied by default")
+	pf.BoolVar(&f.allow.AllowFS, "allow-fs", false, "let the rules read and write files and `import` other files; denied by default")
+	pf.BoolVar(&f.allow.AllowNet, "allow-net", false, "let the rules open network connections; denied by default")
+	pf.BoolVar(&f.allow.AllowEnv, "allow-env", false, "let the rules read the process environment; denied by default")
 	root.Flags().DurationVar(&f.interval, "interval", 0, "re-check (and hot-reload the rules) every `DUR`; 0 checks once")
 	if t.spec.Bind != nil {
 		setup = t.spec.Bind(root)
@@ -236,7 +245,7 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	}
 	stdout, stderr := cmd.OutOrStdout(), cmd.ErrOrStderr()
 
-	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode})
+	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow})
 	if err != nil {
 		return err
 	}

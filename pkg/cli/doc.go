@@ -12,5 +12,6 @@
 //   - Gatwd Editions (NewEdition): Fluent builder for custom distributions with domain types and steps.
 //   - Gatwd Appliances (NewAppliance, NewApplianceTree): Hot-reloadable releases with embedded scripts and a ConfigMap override layered on top (OverrideLayer, or OverrideReplace); a check/run command line with --format text|json and exit statuses 0, 1, 2 and (violations under --fail-on-violation) 3.
 //   - The command line (CommandTree, Edition.Command): a cobra tree — script runner/REPL, run, eval, check, task, prelude, builtins, version, completion — that maps flags to Interpreter.Run. Output goes to Interpreter.Out.
+//   - The execution policy (Policy, TrustedPolicy, DenyAll, Interpreter.SetPolicy, Appliance WithPolicy and the --allow-exec/--allow-fs/--allow-net/--allow-env flags): the OS-command fallback, the file and network steps and file imports run only when the policy grants the capability; a denied step is an error value (CapabilityError), and FailureOf classifies failures for machine consumers. RunOptions carries a Policy, a Context (deadline, cancel) and an output limit.
 //   - Ergonomic Step Helpers: MapStep, FilterStep, ArgStep, SinkStep for boilerplate-free transducer creation.
 package cli

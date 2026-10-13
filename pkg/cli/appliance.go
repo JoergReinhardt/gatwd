@@ -138,6 +138,7 @@ type Appliance struct {
 	embeddedStr  string
 	mode         OverrideMode
 	required     []string
+	policy       Policy // zero value: DenyAll
 }
 
 // NewAppliance creates and initializes a hot-reloadable Gatwd Appliance.
@@ -191,6 +192,20 @@ func WithConfigMapOverride(path string) ApplianceOption {
 func WithOverrideMode(mode OverrideMode) ApplianceOption {
 	return func(a *Appliance) { a.mode = mode }
 }
+
+// WithPolicy sets the execution policy the Appliance's rules run under: what the embedded
+// rules and the override may do beyond computing (see Policy). The default is DenyAll — an
+// override is a script that did not come from the command line (decision D8), so it cannot
+// run OS commands, touch files, open sockets or read the environment unless the operator of
+// the process grants it here (the command line has --allow-exec, --allow-fs, --allow-net and
+// --allow-env). Steps the Edition wired itself (a cluster crawl, `manifests`) are not
+// affected. The policy is set by Go code from the process's flags; no rule text can widen it.
+func WithPolicy(p Policy) ApplianceOption {
+	return func(a *Appliance) { a.policy = p }
+}
+
+// Policy returns the execution policy the Appliance's rules run under.
+func (a *Appliance) Policy() Policy { return a.policy }
 
 // WithRequiredDefs names defs (or constants) that must be defined after every load. An
 // override that leaves one undefined — in OverrideReplace mode, typically by forgetting
@@ -321,6 +336,10 @@ func (a *Appliance) load() (*applianceState, error) {
 	}
 
 	interp := a.edition.BuildInterpreter()
+	// The Edition's own preludes ran trusted inside BuildInterpreter (they are part of the
+	// binary); everything loaded from here on — the embedded rules and above all the override —
+	// runs under the Appliance's policy, and so does every later Execute.
+	interp.SetPolicy(a.policy)
 	problems := &loadProblems{}
 	interp.Out = problems
 	defer func() { interp.Out = nil }()
