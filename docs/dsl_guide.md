@@ -831,10 +831,19 @@ no data source).
 value as the pipeline produced it. `json` prints one line per check, every key always present:
 
 ```json
-{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[]}
-{"status":"ok","count":0,"violations":[],"errors":[]}
-{"status":"error","count":0,"violations":[],"errors":["undefined identifier: no_such_rule"]}
+{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[],"diagnostics":[]}
+{"status":"ok","count":0,"violations":[],"errors":[],"diagnostics":[]}
+{"status":"error","count":0,"violations":[],"errors":["undefined identifier: no_such_rule"],"diagnostics":[{"kind":"error","message":"undefined identifier: no_such_rule"}]}
 ```
 
 `status` is `ok`, `violations` or `error`; a finding that is not a `[String, value]` pair becomes `{"value": …}`; a
 value JSON cannot hold (a Set, a function) is reported in `errors`, never dropped.
+
+`errors` lists the failure messages as plain strings, as before. `diagnostics` describes the same failures, one object
+each and **in the same order**, so a consumer need not parse prose: `kind` is one of `capability_denied`, `unknown_step`,
+`stopped`, `no_result`, `unencodable_value` or `error` (treat an unknown kind like `error`), `message` is the text of the
+`[ERROR]` line, and `step` and `capability` appear where the failure names them:
+
+```json
+{"status":"error","count":0,"violations":[],"errors":["step 'echo' requires the exec capability (policy denies it)"],"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]}
+```

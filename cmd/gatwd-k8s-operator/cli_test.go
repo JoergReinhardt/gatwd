@@ -44,8 +44,8 @@ func operator(t *testing.T, bin string, args ...string) (int, string, string) {
 
 const (
 	idleWant   = "[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]\n"
-	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[]}` + "\n"
-	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/orphan"},{"rule":"UnusedService","resource":"Service/default/unused-svc"},{"rule":"DanglingIngress","resource":"Ingress/default/front"},{"rule":"MissingConfigMap","resource":"Pod/default/orphan"},{"rule":"DependencyCycle","resource":["Deployment/default/loop-a","Deployment/default/loop-b"]}],"errors":[]}` + "\n"
+	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[],"diagnostics":[]}` + "\n"
+	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/orphan"},{"rule":"UnusedService","resource":"Service/default/unused-svc"},{"rule":"DanglingIngress","resource":"Ingress/default/front"},{"rule":"MissingConfigMap","resource":"Pod/default/orphan"},{"rule":"DependencyCycle","resource":["Deployment/default/loop-a","Deployment/default/loop-b"]}],"errors":[],"diagnostics":[]}` + "\n"
 )
 
 // TestOperatorCommandLine drives the real binary through every command line the how-to
@@ -82,7 +82,7 @@ func TestOperatorCommandLine(t *testing.T) {
 		{"a compliant cluster exits 0 with --fail-on-violation", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--fail-on-violation"}, 0, "[]\n", nil},
 		{"json output, violations", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--format", "json"}, 0, idleJSON, nil},
 		{"json output, every rule violated", []string{"check", "--manifests", "testdata/broken.yaml", "--rules", absent, "--format", "json", "--fail-on-violation"}, 1, brokenJSON, []string{"5 violation(s) found"}},
-		{"json output, compliant", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--format", "json"}, 0, `{"status":"ok","count":0,"violations":[],"errors":[]}` + "\n", nil},
+		{"json output, compliant", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--format", "json"}, 0, `{"status":"ok","count":0,"violations":[],"errors":[],"diagnostics":[]}` + "\n", nil},
 		{"a rule that errors at run time fails the check", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", failing, "--format", "json"}, 1, "", []string{"the check failed"}},
 		{"no source and no cluster", []string{"check", "--rules", absent}, 2, "", []string{"no --manifests given and no cluster reachable"}},
 		{"unknown flag", []string{"check", "--manifests", "x", "--nope"}, 2, "", []string{"unknown flag"}},
@@ -258,5 +258,31 @@ func TestOperatorHelpListsThePolicyFlags(t *testing.T) {
 		if !strings.Contains(stdout, f) || !strings.Contains(stdout, "denied by default") {
 			t.Errorf("--help does not describe %s:\n%s", f, stdout)
 		}
+	}
+}
+
+// TestOperatorJSONDiagnostics: a denied capability reaches a log pipeline as a structured
+// entry (kind, step, capability) next to the unchanged free-text `errors`.
+func TestOperatorJSONDiagnostics(t *testing.T) {
+	bin := buildOperator(t)
+	override := filepath.Join(t.TempDir(), "exec.gatwd")
+	if err := os.WriteFile(override, []byte("def compliance = echo hello-from-override\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := operator(t, bin, "check", "--manifests", "testdata/idle.yaml", "--rules", override, "--format", "json")
+	if code != 1 {
+		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
+	}
+	for _, want := range []string{
+		`"status":"error"`,
+		`"errors":["step 'echo' requires the exec capability (policy denies it)"]`,
+		`"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout lacks %s:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, "hello-from-override") {
+		t.Errorf("the denied command ran:\n%s", stdout)
 	}
 }

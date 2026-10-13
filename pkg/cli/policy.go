@@ -119,7 +119,7 @@ func (p Policy) String() string {
 }
 
 // CapabilityError is the failure of a step that needs a capability the policy denies. It is
-// a value on the Left channel like any other error; DiagnosticOf reads its fields.
+// a value on the Left channel like any other error; FailureOf reads its fields.
 type CapabilityError struct {
 	// Capability is the capability the step needs.
 	Capability Capability

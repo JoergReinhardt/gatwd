@@ -33,21 +33,22 @@ const (
 
 // checkReport is the classified outcome of one evaluation.
 type checkReport struct {
-	values   []any    // everything the pipeline yielded, as given
-	findings []any    // the non-error values, lists flattened
-	errs     []string // failures of the check itself
+	values   []any     // everything the pipeline yielded, as given
+	findings []any     // the non-error values, lists flattened
+	errs     []string  // failures of the check itself
+	diags    []Failure // the same failures, classified; diags[i] describes errs[i]
 }
 
 // classify sorts the values of one evaluation into findings and errors.
 func classify(values []any) checkReport {
 	r := checkReport{values: values}
 	if len(values) == 0 {
-		r.errs = append(r.errs, "the pipeline yielded no result (a rule set that is compliant answers [], not nothing)")
+		r.addError(Failure{Kind: FailNoResult, Message: "the pipeline yielded no result (a rule set that is compliant answers [], not nothing)"})
 		return r
 	}
 	for _, v := range values {
 		if err, ok := v.(error); ok {
-			r.errs = append(r.errs, err.Error())
+			r.addError(FailureOf(err))
 			continue
 		}
 		if items, ok := functions.ToSliceAny(v); ok && !isMapLike(v) {
@@ -57,6 +58,13 @@ func classify(values []any) checkReport {
 		r.findings = append(r.findings, v)
 	}
 	return r
+}
+
+// addError records one failure of the check itself, both as the text `errors` carries and as
+// its classified form.
+func (r *checkReport) addError(d Failure) {
+	r.errs = append(r.errs, d.Message)
+	r.diags = append(r.diags, d)
 }
 
 // writeText prints each value on its own line, as the pipeline produced it; an error value is
@@ -77,14 +85,22 @@ func (r checkReport) writeText(w io.Writer) {
 // writeJSON prints the report as one JSON object on one line (JSON Lines), so a log pipeline
 // can ingest each check as an event:
 //
-//	{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},…],"errors":[]}
+//	{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},…],"errors":[],"diagnostics":[]}
 //
 // status is ok, violations or error; count is the number of findings; every key is always
-// present. A finding that is a [rule, resource] pair with a String rule becomes
+// present. errors lists the failure messages as plain strings; diagnostics describes the same
+// failures, one object each and in the same order, with a stable "kind" (see the Fail
+// constants) and, where the failure names them, the "step" and the "capability" — so a
+// consumer need not parse the prose:
+//
+//	"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]
+//
+// A finding that is a [rule, resource] pair with a String rule becomes
 // {"rule":…,"resource":…}; any other finding is {"value":…}. A value JSON cannot hold (a Set, a
 // function) is reported in errors, never dropped. It returns the number of errors reported.
 func (r checkReport) writeJSON(w io.Writer) int {
 	errs := append([]string(nil), r.errs...)
+	diags := append([]Failure(nil), r.diags...)
 	var b strings.Builder
 	b.WriteString(`{"status":`)
 	// the status is computed after encoding, because an unencodable finding is an error
@@ -93,6 +109,7 @@ func (r checkReport) writeJSON(w io.Writer) int {
 		item, err := findingJSON(f)
 		if err != nil {
 			errs = append(errs, err.Error())
+			diags = append(diags, Failure{Kind: FailUnencodable, Message: err.Error()})
 			continue
 		}
 		items = append(items, item)
@@ -111,6 +128,13 @@ func (r checkReport) writeJSON(w io.Writer) int {
 			b.WriteByte(',')
 		}
 		b.WriteString(quoteJSON(e))
+	}
+	b.WriteString(`],"diagnostics":[`)
+	for i, d := range diags {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(d.json())
 	}
 	b.WriteString("]}")
 	fmt.Fprintln(w, b.String())

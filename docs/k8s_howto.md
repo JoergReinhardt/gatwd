@@ -342,10 +342,13 @@ line**, for log pipelines (every key always present):
 
 ```bash
 gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --format json
-# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker"},…],"errors":[]}
+# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker"},…],"errors":[],"diagnostics":[]}
 ```
 
 `status` is `ok`, `violations` or `error`; a resource that is a list (a dependency cycle) stays a JSON array.
+`errors` holds the failure messages as plain strings and `diagnostics` the same failures as objects with a `kind`
+(`capability_denied`, `unknown_step`, `stopped`, `no_result`, `unencodable_value`, `error`) and, where they apply,
+the `step` and `capability` — so a log pipeline can alert on "an override tried to run a program" without parsing text.
 Diagnostics — the rules report, reload failures — always go to **stderr**, so stdout stays machine-readable.
 
 The operator renders kustomization roots the same way `manifests` does (§3.2); the separate `kustomize` step in `gatwd-k8s` scripts always renders, in process.
