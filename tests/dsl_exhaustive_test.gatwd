@@ -948,3 +948,19 @@ to_float (2 ** 53 + 1) |> assert 9.007199254740992e+15
 nth (maybe_default 0 (str_to_int "1")) [7, 8, 9] |> assert 8
 [1, 2] |> map (\i -> nth i [7, 8, 9]) |> assert [8 9]
 max (maybe_default 0 (str_to_int "5")) 3 |> assert 5
+
+-- 101. Constraint names in annotations (hardening W3): Num, Integral, Fractional, Comparable, Appendable
+-- state intent and are checked by `gatwd --check` (advisory); they never change evaluation.
+def w3_sum2 : Num -> Num -> Num = \a b -> a + b
+def w3_half : Fractional -> Fractional = \x -> x / 2
+def w3_idiv2 : Integral -> Integral = \n -> n // 2
+def w3_below : Comparable -> Comparable -> Bool = \a b -> a < b
+def w3_glue : Appendable -> Appendable -> Appendable = \a b -> a ++ b
+def w3_neg : Num -> Num = \x -> -x
+[1, 2.5, 2 ** 70] |> map (\x -> w3_sum2 x 1) |> assert [2 3.5 1180591620717411303425]
+[3, 5] |> map (\x -> w3_half x) |> assert [1.5 2.5]
+[7, -7] |> map (\x -> w3_idiv2 x) |> assert [3 -4]
+[["a", "b"], ["b", "a"]] |> map (\p -> w3_below (head p) (nth 1 p)) |> assert [true false]
+w3_glue "ab" "cd" |> assert abcd
+w3_glue [1] [2] |> assert [1 2]
+[1, -2.5] |> map (\x -> w3_neg x) |> assert [-1 2.5]

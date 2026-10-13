@@ -171,3 +171,115 @@ func TestCheckStructuralErrorsStillErrors(t *testing.T) {
 		t.Fatalf("want 3 structural errors, got %v", ds)
 	}
 }
+
+// ---- constraint names (hardening W3): Num, Integral, Fractional, Comparable, Appendable ----
+
+func TestConstraintNamesParse(t *testing.T) {
+	for _, src := range []string{"Num", "Num -> Num -> Num", "Integral -> Fractional", "Comparable -> Comparable -> Bool", "List(Num) -> Appendable"} {
+		ty, err := ParseTypeAnnotation(src)
+		if err != nil || ty.String() != src {
+			t.Errorf("%q -> %v, %v", src, ty, err)
+		}
+	}
+	if ty, _ := ParseTypeAnnotation("Num"); !ty.isConstraint() {
+		t.Error("Num must be a constraint")
+	}
+	if ty, _ := ParseTypeAnnotation("List(Num)"); ty.isConstraint() {
+		t.Error("List(Num) is a type, not a constraint")
+	}
+	for _, name := range []string{"Num", "Integral", "Fractional", "Comparable", "Appendable"} {
+		if !IsConstraintName(name) {
+			t.Errorf("%s must be a constraint name", name)
+		}
+		if _, err := ParseTypeAnnotation(name + "(Int)"); err == nil {
+			t.Errorf("%s(Int) must not parse: a constraint takes no type arguments", name)
+		}
+	}
+	if IsConstraintName("Int") || IsConstraintName("Number") {
+		t.Error("Int and Number are not constraint names")
+	}
+}
+
+// Valid uses of every constraint: the checker must stay silent (zero false positives).
+func TestConstraintsValidProgramIsSilent(t *testing.T) {
+	src := `
+def sum2 : Num -> Num -> Num = \a b -> a + b
+def half : Fractional -> Fractional = \x -> x / 2
+def idiv2 : Integral -> Integral = \n -> n // 2
+def modulo : Integral -> Integral -> Integral = \a b -> a % b
+def below : Comparable -> Comparable -> Bool = \a b -> a < b
+def glue : Appendable -> Appendable -> Appendable = \a b -> a ++ b
+def neg : Num -> Num = \x -> -x
+def sq : Num -> Num = \x -> x ** 2
+def as_int : Num -> Int = \x -> 1
+def mean : List(Num) -> Num = \xs -> sum2 (head xs) 1
+def keep : Num -> Num = \n -> sum2 n 1
+sum2 1 2
+sum2 1.5 2
+sum2 (1 + 2i) 1
+half 3
+half 3.5
+idiv2 7
+modulo 7 3
+below "a" "b"
+below 1 2
+below 'a' 'b'
+below [1] [2]
+glue "a" "b"
+glue [1] [2]
+neg 4
+sq 3
+as_int 2.5
+keep (sum2 1 2)
+[1, 2, 3] |> map (\x -> sum2 x 1)
+`
+	if ws := warnings(src); len(ws) != 0 {
+		t.Fatalf("valid constraint program must be silent, got %v", ws)
+	}
+}
+
+// Each contradiction is reported, with the constraint named in the message.
+func TestConstraintsReportContradictions(t *testing.T) {
+	for src, want := range map[string]string{
+		"def sum2 : Num -> Num = \\a -> a\nsum2 \"a\"":                                                   "expected Num",
+		"def sum2 : Num -> Num = \\a -> a\nsum2 true":                                                    "expected Num",
+		"def idiv : Integral -> Int = \\a -> 1\nidiv \"x\"":                                              "expected Integral",
+		"def fr : Fractional -> Int = \\a -> 1\nfr [1]":                                                  "expected Fractional",
+		"def cmp : Comparable -> Int = \\a -> 1\ncmp (3 + 4i)":                                           "expected Comparable",
+		"def app : Appendable -> Int = \\a -> 1\napp 3":                                                  "expected Appendable",
+		"def app : Appendable -> Int = \\a -> 1\napp true":                                               "expected Appendable",
+		"def f : Num -> String = \\a -> \"s\"\ndef g : String -> Int = \\s -> 1\ng (f 1)":                "", // fine
+		"def bad : Integral -> Fractional = \\a -> a\ndef use : Integral -> Int = \\i -> 1\nuse (bad 1)": "", // Fractional into Integral: meets only through the tower; see below
+		"def bad : Integral -> Int = \\x -> -\"a\"":                                                      "operator '-' is not defined for String",
+		"def bad : Num(Int) -> Int = \\x -> 1":                                                           "takes no type arguments",
+	} {
+		ws := warnings(src)
+		if want == "" {
+			continue
+		}
+		if !hasWarning(ws, want) {
+			t.Errorf("%q: want a warning containing %q, got %v", src, want, ws)
+		}
+	}
+	// a String-typed result where a Num is promised
+	if ws := warnings("def f : Num -> Num = \\a -> \"s\""); !hasWarning(ws, "annotation says Num") {
+		t.Errorf("a String body under a Num annotation must warn, got %v", ws)
+	}
+	// two constraints with no member in common contradict each other
+	if ws := warnings("def only_int : Integral -> Int = \\a -> 1\ndef frac : Fractional -> Int = \\a -> only_int a"); !hasWarning(ws, "expected Integral") {
+		t.Errorf("a Fractional where an Integral is wanted must warn, got %v", ws)
+	}
+}
+
+// Unary minus is typed through the runtime oracle.
+func TestUnaryMinusIsChecked(t *testing.T) {
+	if ws := warnings("def n : Int -> Int = \\x -> -x\nn 3\n- 5\n-2.5\n-(1 + 2)"); len(ws) != 0 {
+		t.Errorf("valid unary minus must be silent, got %v", ws)
+	}
+	if ws := warnings(`- "a"`); !hasWarning(ws, "operator '-' is not defined for String") {
+		t.Errorf(`- "a" must warn, got %v`, ws)
+	}
+	if ws := warnings("def s : String -> Int = \\x -> -x"); !hasWarning(ws, "operator '-' is not defined for String") {
+		t.Errorf("negating a String parameter must warn, got %v", ws)
+	}
+}
