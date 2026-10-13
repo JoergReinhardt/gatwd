@@ -900,8 +900,31 @@ Closes the §6.3 deferral (1) on the user's decision "make the step value-typed 
   and the base binary on section 118 (5 errors). `tour_16` (`build_bst |> visualize`) is byte-identical.
 - **Deferred / open.** (1) `==` on two trees is shape-sensitive (generic fallback): the same elements inserted in a different order are not `==`;
   compare `to_list`. *Open question:* give a BST content equality (in-order sequence), which is what a Set-like ordered collection means. (2) `map` over a
-  BST is still an error (a Functor could break the ordering invariant; skipped for a mathematical reason). (3) `build_bst` still skips upstream error
-  nodes silently (pre-existing, not changed here). (4) There is no `to_bst`; `bst_from` is the constructor.
+  BST is still an error (a Functor could break the ordering invariant; skipped for a mathematical reason). (3) `build_bst` skipped upstream error
+  nodes silently (fixed in §6.3b). (4) There is no `to_bst`; `bst_from` is the constructor.
+
+#### 6.3b Track Q closure notes: collectors deliver upstream errors; `zip` pairs (2026-10-14, branch `hardening/q`)
+
+Closes the §6.3a deferral (3) and the handoff's "`zip` is suspect". Two Mandate 6 defects, both with the same shape: a step quietly produced a plausible result.
+
+- **Collecting steps.** `build_bst` skipped `Left` nodes, so a failed stream (an unreadable file, a failing `map`) built a tree of the survivors, or `<nil BST>` (`tour_16`/`17` run from a
+  different working directory showed it). An audit of every step that gathers a stream found the same defect in `build_tree`, `build_btree`, `build_rbtree`, `build_array`,
+  `frequencies` and every `fold` operation (`fold sum` printed 9 over `6//1, error, 6//2`), and in `to_list`, `to_chunk`, `to_set`, `to_hamt`, which yielded the error *and then*
+  the partial aggregate. All now follow `collect_list`: the error nodes are yielded **instead of** the aggregate (one helper, `evaluator.yieldFailed`). Already correct: `collect_list`,
+  `sort`, `distinct`, `chunk`, `unchunk`. The per-element pivot filters `filter_less`/`filter_greater` dropped error nodes (and non-integer elements, and a bad pivot) and an
+  *undefined pivot variable* silently added no step: they pass errors on, and the rest are error nodes. Tests: `evaluator/collectors_fail_loud_test.go` (every collector, clean control plus failed
+  stream), `pkg/cli/collector_errors_test.go`; negative control = the pre-fix code (18 and 12 failures).
+- **`zip` was a flatMap with a pairing name.** Its spec text, parser doc and the tour all say "pairwise / joins the primary stream", but `StepZip` yielded only the secondary adapter's output and
+  dropped the incoming node: `echo Primary: %s |> zip date` printed the date. Two further defects behind it: `parser.ParseZip` read one *alphabetic word*, so `zip echo hello world` ran a bare `echo`,
+  `zip tr a-z A-Z` a bare `tr`, and `zip` alone (or `zipx foo`) silently added no step or zipped the command `x`; and the step ignored an error from the secondary. **Decision (recommended
+  option taken; the documented contract, no other reading is coherent for an adapter that needs an input node):** `zip CMD` is `(id &&& CMD)` per node: one `Pair(incoming, result)` per result of CMD,
+  CMD is the whole rest of the step, arguments included; a failing CMD, an upstream error, or an incoming value CMD produced nothing for is an `[ERROR]` (never a half-empty pair). The same audit
+  found `(A &&& B)` unwrapping a failed branch to a `nil` (`[<nil>, <date>]`): it now yields the branch error. `evaluator.StepZip` is no longer generic (it builds a `Pair[any, any]`).
+  Tests: `evaluator/zip_test.go`, `pkg/cli/zip_test.go` (negative-controlled), `docs/dsl_guide.md` §5 and the tour 05 comment updated.
+- **Deferred.** (1) There is no list-level `zip xs ys` function form (and no `zip_with`): `zip` the step takes a *command*, so the data-last function form cannot share the name (Mandate 2: step and
+  function form must agree, else a distinct name). Pairing two lists is a real missing matrix cell; add it as e.g. `pairs_of`/`zip_lists` over List/Chunk/String/Bytes/Seq with the usual definition of
+  done. (2) `parser.ParseZip` is now unused by the interpreter (doc comment updated); remove it with its test when the parser track has merged. (3) Non-integer *string* elements in the pivot filters
+  still coerce to 0 (`strconv.Atoi` error ignored); left as is, like the steps themselves (quicksort-era).
 
 ## 7. W4 — Node identity (D6, decided)
 

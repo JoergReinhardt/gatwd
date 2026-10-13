@@ -75,6 +75,7 @@ spawn Server: Worker |> ping cluster_ip
 
 `gatwd` relies entirely on Category Theory to safely mutate values without side-effects.
 * `(A &&& B)` (Kleisli FanOut): Routes a node into TWO independent functions concurrently, yielding a Tuple `(Res1, Res2)`.
+* `zip CMD` (pairing): pairs each value with what the command `CMD` (the whole rest of the step, arguments included, `%s` = the value) makes of it: `echo Primary: %s |> zip date` yields `[Primary: joerg, <the date>]`, i.e. `(id &&& CMD)`, and a one-to-many `CMD` gives one pair per output line. A command that fails, or produces nothing to pair with, is an `[ERROR]`, never a half-empty pair.
 * `[A *** B]` (Applicative Split): Takes a Tuple, and routes the Left side to Function A, and Right side to Function B.
 * `update` / `focus`: First-class Lenses for manipulating inner structs immutably.
 * `into_zipper` / `up` / `down`: Comonadic navigation over Trees.

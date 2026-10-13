@@ -94,7 +94,8 @@ func StepDrop[T any](n int) PipelineStep[T] {
 }
 
 // StepFanOut routes the incoming node into BOTH adapters concurrently.
-// It yields a single Tuple (functions.Pair) containing both results.
+// It yields a single Tuple (functions.Pair) containing both results; if either branch
+// failed it yields that branch's error instead (the left branch's first).
 func StepFanOut(adapter1, adapter2 Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		fanOutArrow := arrows.FanOut(arrows.Kleisli[dsltypes.ASTNode[functions.Either[error, any]], dsltypes.ASTNode[functions.Either[error, any]]](adapter1), arrows.Kleisli[dsltypes.ASTNode[functions.Either[error, any]], dsltypes.ASTNode[functions.Either[error, any]]](adapter2))
@@ -102,6 +103,18 @@ func StepFanOut(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipeli
 		return functions.Bind(stream, func(node dsltypes.ASTNode[functions.Either[error, any]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 			return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 				for pair := range fanOutArrow(node) {
+					// Fail loud: a branch that failed is reported as that error, never paired
+					// as a nil (`(cat /missing &&& date)` used to print [<nil>, <date>]).
+					if pair.Fst.Value.IsLeft() || pair.Snd.Value.IsLeft() {
+						failed := pair.Fst
+						if !pair.Fst.Value.IsLeft() {
+							failed = pair.Snd
+						}
+						if !yield(failed) {
+							return
+						}
+						continue
+					}
 					v1, _ := pair.Fst.Value.UnwrapRight()
 					v2, _ := pair.Snd.Value.UnwrapRight()
 
@@ -251,19 +264,47 @@ func StepExpect[T any](predicate func(T) bool, err error) PipelineStep[functions
 	}
 }
 
-// StepZip returns a PipelineStep that expands each incoming node through the
-// secondary Adapter, flattening the Adapter's per-node output into the stream.
-// The type parameter T is the node payload. For every source node it iterates
-// the sequence produced by secondary(node) and yields each result in turn, so a
-// one-to-many secondary adapter interleaves its outputs directly into the main
-// stream.
-func StepZip[T any](secondary Adapter[T]) PipelineStep[T] {
-	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
-		return func(yield func(dsltypes.ASTNode[T]) bool) {
+// StepZip pairs every incoming node with what the secondary Adapter makes of it: for each
+// Right node it runs secondary(node) and yields one functions.Pair[any, any] (Fst = the
+// incoming value, Snd = the secondary's value) per result, so `echo Primary: %s |> zip date`
+// is the stream of pairs (Primary: joerg, <the date>) and a one-to-many secondary yields
+// one pair per result with the incoming value repeated. It is the identity-and-adapter fan-out
+// `(id &&& secondary)` (see StepFanOut), and the pair is what `format_tuple` consumes.
+//
+// Nothing is silent (Mandate 6): an error node already in the stream passes through, an
+// error from the secondary is yielded as that error (never a Pair holding it), and an
+// incoming value for which the secondary produced no result at all is an error naming the
+// unpaired value. (Until hardening Track Q this step yielded the secondary's output ALONE
+// and dropped the incoming node, so `zip date` printed only the date; its package docs
+// always promised pairs.)
+func StepZip(secondary Adapter[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
-				secondaryStream := secondary(node)
-				for secNode := range secondaryStream {
-					if !yield(secNode) {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				primary, _ := node.Value.UnwrapRight()
+				paired := false
+				for secNode := range secondary(node) {
+					paired = true
+					if secNode.Value.IsLeft() {
+						if !yield(secNode) {
+							return
+						}
+						continue
+					}
+					partner, _ := secNode.Value.UnwrapRight()
+					pair := functions.Pair[any, any]{Fst: primary, Snd: partner}
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(pair)), node.DSLType)) {
+						return
+					}
+				}
+				if !paired {
+					if !yield(InjectError[any](fmt.Errorf("zip: the secondary produced nothing to pair with %v", primary), node.DSLType)) {
 						return
 					}
 				}
