@@ -76,9 +76,9 @@ func TestApplianceFlagsMapToTheLimits(t *testing.T) {
 	if got.Timeout != 0 || got.MaxOutput != 0 {
 		t.Errorf("the defaults must be no limit: %+v", got)
 	}
-	// the settings reach the Appliance
-	app, err := NewAppliance(append(ApplianceSettings{Timeout: 3, MaxOutput: 9}.Options(), WithEmbeddedScript(toyRules))...)
-	if err != nil || app.Timeout() != 3 || app.MaxOutput() != 9 {
+	// the settings reach the Appliance (the timeout also bounds loading, so it must leave room for it)
+	app, err := NewAppliance(append(ApplianceSettings{Timeout: 3 * time.Minute, MaxOutput: 9}.Options(), WithEmbeddedScript(toyRules))...)
+	if err != nil || app.Timeout() != 3*time.Minute || app.MaxOutput() != 9 {
 		t.Errorf("Options() lost the limits: %v %v %v", err, app.Timeout(), app.MaxOutput())
 	}
 }

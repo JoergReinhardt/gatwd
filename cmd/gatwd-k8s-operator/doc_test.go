@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -101,6 +102,10 @@ func TestHowToDocSamples(t *testing.T) {
 	slowRule := filepath.Join(dir, "slow.gatwd")
 	mustWrite(t, slowRule, "def compliance = sleep 20\n")
 
+	// an override whose top-level statement never finishes: the load must be bounded
+	hangRule := filepath.Join(dir, "hang.gatwd")
+	mustWrite(t, hangRule, hangingStatement+ruleIdle)
+
 	const cluster = "examples/k8s_howto/cluster"
 	const prod = "pkg/k8sgraph/testdata/kustomize/overlays/prod"
 	rows := []docSample{
@@ -180,6 +185,10 @@ func TestHowToDocSamples(t *testing.T) {
 			args:       []string{"check", "--manifests", cluster, "--rules", slowRule, "--allow-exec", "--timeout", "200ms", "--format", "json"},
 			docNeedles: []string{`{"kind":"timeout","message":"check timed out after 30s","limit":"30s"}`, `{"kind":"output_limit","message":"check output exceeded the limit of 40 bytes","limit":"40"}`},
 			outNeedles: []string{`{"kind":"timeout","message":"check timed out after 200ms","limit":"200ms"}`}},
+		{name: "a load that hangs is stopped at --timeout (the doc shows 30s, the test waits 300ms)", which: "operator", code: 1,
+			args:       []string{"check", "--manifests", cluster, "--rules", hangRule, "--timeout", "300ms"},
+			docNeedles: []string{"--rules hang.gatwd --timeout 30s", "hang.gatwd: 1 problem(s): loading the rules timed out after 30s", "reload failed, still using the previous rules: hang.gatwd"},
+			outNeedles: []string{"hang.gatwd: 1 problem(s): loading the rules timed out after 300ms"}},
 		{name: "structured data in resources", which: "edition",
 			args:       []string{"examples/k8s_howto/data.gatwd", "--", "examples/k8s_howto/data"},
 			docNeedles: []string{"∷ [3 2Gi 3r4 [[WeakPassword Secret/default/weak-secret]] [622493693890 f52fbd32b2b3]]"}},
@@ -251,8 +260,11 @@ func TestHowToHasNoStaleClaims(t *testing.T) {
 		"has no flag for this yet",      // the operator has --no-kustomize
 		"does not attach a source path", // duplicate errors name the file
 		"the encodings tier of the hardening plan adds it",
-		"has no per-check timeout",       // --timeout and --max-output exist
-		"does not expose flags for them", //
+		"has no per-check timeout",                  // --timeout and --max-output exist
+		"does not expose flags for them",            //
+		"is not part of a check and is not bounded", // --timeout bounds loading
+		"but no signal handling",                    // SIGINT and SIGTERM stop the operator
+		"ends only when the process is killed",      //
 	} {
 		if strings.Contains(text, stale) {
 			t.Errorf("docs/k8s_howto.md carries a stale claim: %q", stale)
@@ -345,5 +357,48 @@ func copyTree(t *testing.T, src, dst string) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestHowToStopSignals: the notices the how-to quotes for SIGTERM are the ones the binary prints,
+// with the exit status the doc gives (the behaviour itself is pinned in signal_test.go).
+func TestHowToStopSignals(t *testing.T) {
+	skipWithoutSignals(t)
+	bin := buildOperator(t)
+	doc, err := os.ReadFile(howtoDoc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := squash(string(doc))
+	slow := filepath.Join(t.TempDir(), "slow.gatwd")
+	mustWrite(t, slow, "def compliance = sleep 300\n")
+
+	for _, r := range []struct {
+		name   string
+		args   []string
+		code   int
+		needle string
+	}{
+		{"run", []string{"run", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec", "--interval", "1h"}, 0,
+			"gatwd-k8s-operator: received terminated, stopping"},
+		{"check", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec"}, 1,
+			"gatwd-k8s-operator: the check was interrupted (received terminated)"},
+	} {
+		t.Run(r.name, func(t *testing.T) {
+			if !strings.Contains(text, squash(r.needle)) {
+				t.Errorf("docs/k8s_howto.md no longer shows %q", r.needle)
+			}
+			c, _, stderr, done := startOperator(t, bin, r.args...)
+			waitStderr(t, stderr, "rules: ")
+			if err := c.Process.Signal(syscall.SIGTERM); err != nil {
+				t.Fatal(err)
+			}
+			if code := exitCodeOf(t, waitEnd(t, done, r.name)); code != r.code {
+				t.Fatalf("exit %d, want %d (the doc's table)\nstderr: %s", code, r.code, stderr)
+			}
+			if !strings.Contains(stderr.String(), r.needle) {
+				t.Errorf("the binary no longer prints %q:\n%s", r.needle, stderr)
+			}
+		})
 	}
 }

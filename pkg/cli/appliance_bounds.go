@@ -23,14 +23,24 @@ import (
 
 // TimeoutError is the failure of a check that ran longer than its timeout. It is an error
 // VALUE in the result, so it prints as `[ERROR] check timed out after 30s`, and
-// errors.Is(err, context.DeadlineExceeded) holds.
+// errors.Is(err, context.DeadlineExceeded) holds. The same budget bounds loading and
+// reloading the rules (see WithTimeout); there the error is the cause of a *LoadError and
+// says "loading the rules timed out after 30s".
 type TimeoutError struct {
-	// Limit is the timeout the check exceeded.
+	// Limit is the timeout that was exceeded.
 	Limit time.Duration
+	// What names what ran over; empty means "check".
+	What string
 }
 
-// Error names the limit.
-func (e *TimeoutError) Error() string { return "check timed out after " + e.Limit.String() }
+// Error names what ran over and the limit.
+func (e *TimeoutError) Error() string {
+	what := e.What
+	if what == "" {
+		what = "check"
+	}
+	return what + " timed out after " + e.Limit.String()
+}
 
 // Is makes a TimeoutError match context.DeadlineExceeded.
 func (e *TimeoutError) Is(target error) bool { return target == context.DeadlineExceeded }
@@ -94,7 +104,19 @@ func resultSize(v any) int {
 // limit. A check that runs over reports a single *TimeoutError ("check timed out after 30s"):
 // every pipeline step stops at its next node and an OS command a step started is killed. The
 // deadline is per Execute, so each iteration of a loop starts a fresh one. A negative timeout
-// makes NewAppliance fail. Loading the rules is not part of a check and is not bounded.
+// makes NewAppliance fail.
+//
+// The same duration also bounds LOADING the rules — NewAppliance, Reload and ReloadContext —
+// as one budget for the embedded rules plus the override together. Loading evaluates the
+// top-level statements of the rules, so a slow or endless statement (a pipeline over a stream
+// that never ends, an OS command under --allow-exec) would otherwise stall the start-up or the
+// hot reload for good. A load that runs over fails with a *LoadError whose Err is a
+// *TimeoutError ("loading the rules timed out after 30s", errors.Is(err,
+// context.DeadlineExceeded)); NewAppliance returns it, and Reload leaves the last good rules in
+// place. Like a check, loading is stopped cooperatively: at the next statement, at the next
+// node of a pipeline, by killing an OS command — a single pure evaluation of one element that
+// never returns cannot be interrupted. The Edition's own preludes are part of the binary and are
+// not bounded.
 func WithTimeout(d time.Duration) ApplianceOption {
 	return func(a *Appliance) { a.timeout = d }
 }

@@ -430,7 +430,7 @@ The static operator is a single ELF binary of roughly 33 MB, 31 MiB (the in-proc
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), `--timeout DUR` and `--max-output BYTES` (per-check limits, both off by default, §3.2), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env`, `--allow-cluster-apply`, `--allow-cluster-rollout` (all off, §2.2), plus the write flags `--dry-run` (default true), `--force-conflicts`, `--field-manager`, `--out`, `--apply-namespace` (§3.5). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), `--timeout DUR` (per check, and for loading the rules) and `--max-output BYTES` (per check), both off by default, §3.2; SIGINT/SIGTERM stop it, §3.2, and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env`, `--allow-cluster-apply`, `--allow-cluster-rollout` (all off, §2.2), plus the write flags `--dry-run` (default true), `--force-conflicts`, `--field-manager`, `--out`, `--apply-namespace` (§3.5). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
@@ -483,8 +483,23 @@ gatwd-k8s --no-kustomize eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/
   message>` and a non-zero exit, never an empty graph.
 - Cost: the kustomize library adds about 3 MB (11%) to the stripped static binaries (§3.1).
 
-`run --interval` is a daemon: a failing check is printed and the loop continues; only a start-up failure ends it
-(and `--fail-on-violation` is rejected there).
+`run --interval` is a daemon: a failing check is printed and the loop continues; only a start-up failure or a stop
+request (below) ends it (and `--fail-on-violation` is rejected there).
+
+**Stopping: SIGINT and SIGTERM.** Kubernetes stops a pod by sending SIGTERM to the container's PID 1, which is the
+operator itself (§3.3); Ctrl-C sends SIGINT. Both are a request to stop, handled the same way by `check` and `run`: the
+check in progress is cancelled (every pipeline step stops at its next node, an OS command a step started is killed) and
+so is a rules load or reload in progress, so the process ends promptly, not after the interval or the check.
+
+| Command | What happens | Exit |
+| :-- | :-- | :-- |
+| `run --interval DUR` | one line on stderr, `gatwd-k8s-operator: received terminated, stopping` (`received interrupt` for SIGINT; `, stopping, the check in progress was cancelled` when a check was running); the cancelled check prints nothing | `0` — a requested stop is the normal end of a daemon |
+| `check` | `gatwd-k8s-operator: the check was interrupted (received terminated)` — the check did not finish, so it is not a result | `1` |
+
+A check that had already failed before the signal was reported when it failed; the stop does not turn it into anything
+else. A **second** signal while the process is still stopping exits at once with status `1` (cancellation is cooperative:
+one evaluation that never reaches a node boundary cannot be interrupted any other way, and the second signal is the way
+out of it). Output printed before the stop stays printed.
 
 **Limits per check: `--timeout` and `--max-output`.** Rules (an override above all) can be slow or can produce more than
 anyone wants to read, so one check can be bounded in time and in size. Both are **off by default** (`0` is no limit);
@@ -513,7 +528,25 @@ In `--format json` the same failure is an entry in `errors` and a structured one
 reports the failed round like any other failing check and carries on with the next one. Sensible starting values for a
 scheduled `run --interval 5m`: `--timeout 2m` (shorter than the interval, so rounds never overlap) and `--max-output
 1048576` (1 MiB of report per round); the limits bound what a check *emits*, the timeout is what bounds the memory and
-time it spends computing. Loading the rules (start-up, hot reload) is not part of a check and is not bounded.
+time it spends computing.
+
+**`--timeout` also bounds loading the rules.** Loading evaluates the top-level statements of the embedded rules and of
+the override, so an override can hang there too (a statement over a stream that never ends; an OS command under
+`--allow-exec`). The same `--timeout` is one budget for each load — the embedded rules and the override together — at
+start-up and again at every reload of `run --interval` (the embedded preludes of the edition are part of the binary and
+are not bounded). A start-up load that runs over is a failed start; a hot reload that runs over is reported like any
+broken override, and **the last good rules keep serving**:
+
+```bash
+gatwd-k8s-operator check --manifests DIR --rules hang.gatwd --timeout 30s
+# gatwd-k8s-operator: hang.gatwd: 1 problem(s): loading the rules timed out after 30s   (exit 1)
+# in `run --interval`, on a reload:
+# gatwd-k8s-operator: reload failed, still using the previous rules: hang.gatwd: 1 problem(s): loading the rules timed out after 30s
+```
+
+Without `--timeout` nothing bounds a load (a stop request still cancels it). The bound is cooperative, like the one on a
+check: a statement stops at its next pipeline node and a command is killed, but one closure that never returns cannot be
+interrupted (§4).
 
 **Output formats.** `--format text` (default) prints the result as before: `[]` when compliant, otherwise
 `[[Rule resource] …]`; an error prints as `[ERROR] …`. `--format json` prints **one JSON object per check, on one
@@ -575,7 +608,11 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - **Scope:** the sample uses `--namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
   `--namespace NAME` and a `Role` + `RoleBinding` instead.
 - **Bounding a round:** the sample's `args:` carry `--timeout 2m` and `--max-output 1048576` as a commented-out line; with
-  an override that can run a program (`--allow-exec`) a timeout is what keeps a stuck command from stalling the loop (§3.2).
+  an override that can run a program (`--allow-exec`) a timeout is what keeps a stuck command from stalling the loop —
+  and, since it also bounds loading, a hanging override from stalling the hot reload (§3.2).
+- **Shutdown:** the kubelet's SIGTERM ends `run` promptly with exit `0` (§3.2), well inside the default 30 s grace period;
+  nothing needs configuring. The operator must be PID 1 of the container (the `ENTRYPOINT` above, in exec form, not a
+  `sh -c` wrapper that would swallow the signal).
 - **What the override may do:** the Deployment's `args:` are the only place a capability is granted (§2.2). A mounted
   `rules.gatwd` that `import`s a sibling key needs `--allow-fs` in `args:`; one that runs a program needs `--allow-exec`;
   a pure rule set (the sample's) needs nothing. Editing the ConfigMap can never add a flag.
@@ -718,6 +755,8 @@ carries the dry-run option, and each rollout step sends exactly the patch descri
 | `[ERROR] cannot apply …: no cluster is configured (give --out DIR …)` | `k8s_apply` has no cluster to write to (an offline source); give `--out DIR` or point it at a cluster (§3.5) |
 | `would-create` / `would-configure` and nothing changed | that is the default dry run; `--dry-run=false` makes it real (§3.5) |
 | `[ERROR] check timed out after 30s` (exit 1) | the check ran longer than `--timeout` (a stuck command in an override, or a cluster crawl that is too slow); raise the limit or fix the rule (§3.2) |
+| `… loading the rules timed out after 30s` (exit 1 at start; a `reload failed, still using the previous rules` line in `run`) | a top-level statement of the embedded rules or the override ran longer than `--timeout`; fix or remove it (§3.2) |
+| `the check was interrupted (received terminated)` (exit 1) | `check` was sent SIGTERM or SIGINT before it finished; for `run` the same signal is a normal stop (exit 0, §3.2) |
 | `[ERROR] check output exceeded the limit of N bytes` (exit 1) | the report is larger than `--max-output`; raise it or narrow the rules (§3.2) |
 | `[ERROR] … Duration overflow: the difference between … is beyond about ±292 years` from an age rule | a `creationTimestamp` (or expiry) centuries away from now; fix the data (§2.6) |
 | `key 'kind' not found` after `--no-kustomize`, or from an `ownerReference` | the root's `kustomization.yaml` was read as a document (§3.2), or the owner reference names no `kind` (§2.3) |
@@ -730,10 +769,10 @@ carries the dry-run option, and each rollout step sends exactly the patch descri
 - Node ids are `Kind/namespace/name` (§2.3). The duplicate error names the file (and document) of both
   declarations for offline manifests; for a live crawl, which has no files, it quotes the payloads only.
 - `--no-kustomize` exists on both `gatwd-k8s` and `gatwd-k8s-operator` (§3.2); on the operator it applies to `--manifests` only.
-- The operator has `--timeout` and `--max-output` per check (§3.2), but no signal handling: `run --interval` ends only
-  when the process is killed. A single closure that never returns cannot be interrupted at all (the timeout is checked
-  between nodes, and kills the OS commands a step started), and `--max-output` bounds what a check emits, not the
-  memory it uses while it computes.
+- The operator has `--timeout` and `--max-output` per check (§3.2), and `--timeout` also bounds loading and reloading the
+  rules; SIGINT and SIGTERM stop it (§3.2). A single closure that never returns cannot be interrupted at all (the
+  timeout and a stop request are checked between nodes and between statements, and kill the OS commands a step started),
+  and `--max-output` bounds what a check emits, not the memory it uses while it computes.
 - Writing (§3.5) is **apply and the rollout family only, with no delete or prune**: removing an object is `kubectl delete`'s
   job, and a rename leaves the old object behind. `k8s_rollout_status`, `undo` and `pause`/`resume` cover Deployments only
   (StatefulSet and DaemonSet history lives in `ControllerRevision`s); `k8s_apply` resolves the common built-in kinds from a

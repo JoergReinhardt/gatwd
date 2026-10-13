@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -34,7 +37,25 @@ import (
 // check that errored, yielded nothing or went over its --timeout/--max-output; 2 a malformed command line; 3 (ExitViolations) the
 // check ran correctly and, under --fail-on-violation, found violations. An error always wins
 // over violations: a check that both errored and found violations exits 1. `run` is a daemon: a failing check is reported and the loop continues, and
-// only a start-up failure ends it.
+// only a start-up failure or a stop request ends it.
+//
+// Stopping. SIGINT and SIGTERM (what Kubernetes sends a pod, to PID 1, before the grace period
+// ends) are a request to stop, handled for `check` and `run` alike: the context of the check in
+// progress is cancelled (every pipeline step stops at its next node and an OS command a step
+// started is killed), so the process ends promptly rather than after the interval or the check.
+// For `run` that is a normal shutdown of a daemon: one line on stderr ("NAME: received
+// terminated, stopping") and exit status 0; the interrupted check prints nothing, and a check
+// that had already failed before the signal was reported when it failed. For `check` the check
+// did not finish, so it exits 1 ("the check was interrupted"). A second signal while the
+// process is still stopping exits at once with status 1: cancellation is cooperative, and one
+// evaluation that never reaches a node boundary cannot be interrupted any other way.
+//
+// Loading. --timeout also bounds LOADING the rules (the top-level statements of the embedded
+// rules and of the override are evaluated while loading): one budget per load, at start-up and
+// again at every reload of `run`. A start-up load that runs over fails the command with status
+// 1 ("PATH: 1 problem(s): loading the rules timed out after 30s"); a hot reload that runs over
+// is reported on stderr like any broken override and the last good rules keep serving. A stop
+// request cancels a load in progress the same way it cancels a check.
 
 // ApplianceSettings is what the generic flags resolved to; a domain's ApplianceSetup turns it
 // into an Appliance.
@@ -50,6 +71,9 @@ type ApplianceSettings struct {
 	Timeout time.Duration
 	// MaxOutput is how many bytes one check may produce (--max-output); zero means no limit.
 	MaxOutput int64
+	// Context bounds loading the rules (the stop request of the command, see below); nil means
+	// no bound beyond Timeout. The command fills it in; a setup passes it on with BoundOptions.
+	Context context.Context
 }
 
 // Options returns the ApplianceOptions that apply the settings: WithConfigMapOverride,
@@ -59,12 +83,14 @@ func (s ApplianceSettings) Options() []ApplianceOption {
 	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode), WithPolicy(s.Policy), s.BoundOptions()}
 }
 
-// BoundOptions returns the options for the per-check limits alone (WithTimeout and
-// WithMaxOutput), for a domain setup that assembles the other options itself.
+// BoundOptions returns the options for the limits alone (WithTimeout, which also bounds
+// loading and reloading the rules, WithMaxOutput and WithLoadContext), for a domain setup that
+// assembles the other options itself.
 func (s ApplianceSettings) BoundOptions() ApplianceOption {
 	return func(a *Appliance) {
 		WithTimeout(s.Timeout)(a)
 		WithMaxOutput(s.MaxOutput)(a)
+		WithLoadContext(s.Context)(a)
 	}
 }
 
@@ -94,7 +120,11 @@ type ApplianceSpec struct {
 // ApplianceTree is an ApplianceSpec turned into a runnable command line.
 type ApplianceTree struct {
 	spec  ApplianceSpec
-	sleep func(time.Duration) bool // waits between checks; false stops the loop (replaced in tests)
+	sleep func(time.Duration) bool // waits between checks; false stops the loop; nil: wait on a timer or a stop request (replaced in tests)
+	// signals starts listening for stop requests and returns their channel and a function that
+	// stops listening; tests inject a channel instead of sending the process a real signal.
+	signals func() (<-chan os.Signal, func())
+	exit    func(code int) // ends the process on a second stop request (replaced in tests)
 }
 
 // NewApplianceTree builds the command line for spec.
@@ -102,7 +132,81 @@ func NewApplianceTree(spec ApplianceSpec) *ApplianceTree {
 	if spec.Name == "" {
 		spec.Name = "appliance"
 	}
-	return &ApplianceTree{spec: spec, sleep: func(d time.Duration) bool { time.Sleep(d); return true }}
+	return &ApplianceTree{spec: spec, signals: notifyStopSignals, exit: os.Exit}
+}
+
+// notifyStopSignals listens for SIGINT and SIGTERM. Installing a handler is also what lets a
+// process that runs as PID 1 receive SIGTERM at all: the kernel drops signals sent to PID 1
+// that have no handler.
+func notifyStopSignals() (<-chan os.Signal, func()) {
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	return ch, func() { signal.Stop(ch) }
+}
+
+// stopRequest is the cause of a context cancelled by SIGINT or SIGTERM.
+type stopRequest struct{ sig os.Signal }
+
+func (s stopRequest) Error() string { return "received " + s.sig.String() }
+
+// stopContext returns a context that a stop request cancels (with a stopRequest cause) and the
+// function that releases it. After the first request the goroutine keeps listening: a second
+// one means the graceful stop is stuck, and ends the process at once.
+func (t *ApplianceTree) stopContext(parent context.Context, stderr io.Writer) (context.Context, func()) {
+	ch, stopListening := t.signals()
+	ctx, cancel := context.WithCancelCause(parent)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case sig := <-ch:
+			cancel(stopRequest{sig})
+		case <-done:
+			return
+		}
+		select {
+		case sig := <-ch:
+			fmt.Fprintf(stderr, "%s: received %v again, exiting without waiting for the check\n", t.spec.Name, sig)
+			t.exit(ExitFailed)
+		case <-done:
+		}
+	}()
+	return ctx, func() {
+		close(done)
+		stopListening()
+		cancel(nil)
+	}
+}
+
+// wait pauses for d between two checks and reports whether the loop goes on: false when the
+// context is done first (a stop request) or, in a test, when the sleep hook says so.
+func (t *ApplianceTree) wait(ctx context.Context, d time.Duration) bool {
+	if t.sleep != nil {
+		return t.sleep(d)
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// stopped ends the command after a stop request. `run` is a daemon and a stop request is its
+// normal end (nil, status 0), announced on one line; `check` did not finish what it was asked
+// to do, so it fails.
+func (t *ApplianceTree) stopped(ctx context.Context, stderr io.Writer, loop, inFlight bool) error {
+	cause := cancelCause(ctx)
+	if !loop {
+		return fmt.Errorf("the check was interrupted (%v)", cause)
+	}
+	note := "stopping"
+	if inFlight {
+		note = "stopping, the check in progress was cancelled"
+	}
+	fmt.Fprintf(stderr, "%s: %v, %s\n", t.spec.Name, cause, note)
+	return nil
 }
 
 // applianceFlags are the generic flags shared by the commands.
@@ -272,16 +376,30 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 		return usagef("--fail-on-violation applies to a single check; run keeps checking and never exits on violations")
 	}
 	stdout, stderr := cmd.OutOrStdout(), cmd.ErrOrStderr()
+	parent := cmd.Context()
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, release := t.stopContext(parent, stderr)
+	defer release()
 
-	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow, Timeout: f.timeout, MaxOutput: f.maxOutput})
+	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow, Timeout: f.timeout, MaxOutput: f.maxOutput, Context: ctx})
 	if err != nil {
+		if ctx.Err() != nil { // a stop request during start-up: not a failure of the setup
+			return t.stopped(ctx, stderr, loop, false)
+		}
 		return err
 	}
 	last := app.Report().String()
 	t.logLines(stderr, app.Report().Lines())
 
 	for {
-		rep := classify(app.Execute(pipeline))
+		values := app.ExecuteContext(ctx, pipeline)
+		if ctx.Err() != nil {
+			// a stop request: the values are the cancelled check's, not a result
+			return t.stopped(ctx, stderr, loop, true)
+		}
+		rep := classify(values)
 		failures := len(rep.errs)
 		if f.format == FormatJSON {
 			failures = rep.writeJSON(stdout)
@@ -297,10 +415,16 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 			}
 			return nil
 		}
-		if !t.sleep(f.interval) {
+		if !t.wait(ctx, f.interval) {
+			if ctx.Err() != nil {
+				return t.stopped(ctx, stderr, loop, false)
+			}
 			return nil
 		}
-		if err := app.Reload(); err != nil {
+		if err := app.ReloadContext(ctx); err != nil {
+			if ctx.Err() != nil {
+				return t.stopped(ctx, stderr, loop, false)
+			}
 			fmt.Fprintf(stderr, "%s: reload failed, still using the previous rules: %v\n", t.spec.Name, err)
 		} else if now := app.Report().String(); now != last {
 			last = now
