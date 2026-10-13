@@ -62,6 +62,8 @@ promotion lattice, `/ // %` and zero-division errors, `**`/`pow`/`sqrt`/`floor`/
 **Definition of done per cell** is in `AGENTS.md` Mandate 2 (Go method → operator → evaluator step → step form → function form → DSL assertion *inside a lambda* → structural Go test → `Example`).
 Each partial function needs a negative case; the parity check "step form ≡ function form" is a test, not a hope.
 
+**Also planned, after W3:** `Duration`, `Time` and `Date` (plan §5.6; D14–D17 are proposed and **must be asked before implementing**).
+
 After W2/W3: **W4** (qualified node ids, D6 — migrate all tests/examples in the same phase) → **W5** (Go 1.27 bump first) → **W6** (operator flags `--long` with the normaliser hook that now exists, layered rules, exit codes) → **W7** (policy, `context`, structured diagnostics).
 
 ## 4. Authoring shapes (copy these)

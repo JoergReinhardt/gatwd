@@ -35,7 +35,7 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | W1b (cobra tree) | **done** (2026-10-13): `pkg/cli/command.go` (`CommandTree`, `CommandSpec`), `repl.go`; `Edition.Command/WithCommand/WithArgNormalizer`; the hand-rolled `parseRunArgs` and `--check` branch are deleted; backward-compatibility table `TestCommandTreeBackwardCompatible`, subcommand table, two real-binary tests (`cmd/gatwd`, `cmd/gatwd-k8s`). Design calls and deferrals: §4.5. |
 | W2 tier 1, step 1 (`Char`) | **done** (2026-10-13, commit `4cc0c8a`): `functions.Char` (`type Char rune`, so it never matches the numeric `int32` arms), `'a'` literals with escapes (`parser.lexCharLiteral`, `TokChar`), `==`/ordering incl. the D1 one-character-String rule (`Compare`, `StructuralEqual`), `char_*` function forms (`dslfuncs_text.go`), the `asChar` entry of the conversion table (`valueops.go`), checker support (`Char`; `Char`/`String` are consistent), docs (`dsl_guide.md` §15, `grammar.md`). Not yet: String as a collection row, `str_*`, `not`/`xor`/`and`/`or`, `Ordering`, D2, F18 (function-form-as-step — `'a' |> char_upper` is `unknown step` until it lands), `Bytes`. Notes: `const K = 'k'` stores text like every constant (a pre-existing limitation, revisit with D2); `StructuralEqual`'s string/`%v` fallback already equated `'a'` and `"a"`, the explicit `Char` case documents D1 and survives removing that fallback. |
 | W2 tier 1, step 2 (F18) | **done** (2026-10-13, uncommitted): function-form-as-step fallback, see §5.4. |
-| W2 rest, W3–W7 | not started |
+| W2 rest, W3–W7 | not started. **`Duration`/`Time`/`Date` are designed (§5.6, D14–D17 proposed)** and scheduled after W3. |
 
 ---
 
@@ -378,11 +378,101 @@ unary minus lands in W3.
 
 ### 5.5 Later tier
 
-`Time`/`Duration` (Go `time`), bit operations, n-ary tuples. (`Ratio`, exact fractions, is in W3: §6.1.)
+`Duration`, `Time` and `Date` (Go `time`; **designed in §5.6**), bit operations, n-ary tuples. (`Ratio`, exact fractions, is in W3: §6.1.)
 
 **DoD (W2):** each type/library row has structural Go tests, DSL assertions (output verified non-empty),
 `Example*`, docs in `dsl_guide.md`/`grammar.md` (new literal), checker support for `Char`/`Bytes`/`Ordering`, and a
 negative case per partial function.
+
+
+### 5.6 `Duration`, `Time` and `Date` (proposed; scheduled after W3, because `Duration / Duration` uses `Ratio`)
+
+Three distinct scalar types over Go's `time` (standard library only, Mandate 5), in `functions/`, each with its own
+arithmetic, ordering and function forms. They are separate because they answer different questions: *how long*
+(`Duration`), *which instant* (`Time`), *which calendar day* (`Date`). Mixing them silently is the classic bug (adding
+24 h is not "tomorrow" across a daylight-saving change), so the language keeps them apart and makes the conversions
+named, explicit functions.
+
+| Type | Representation | Meaning | Prints as (and re-lexes from) |
+| :-- | :-- | :-- | :-- |
+| `Duration` | `functions.Duration` = `type Duration time.Duration` (int64 nanoseconds; a named type, so it never passes for an `Int`) | a signed length of elapsed time, about ±292 years | `1h30m`, `250ms`, `-5s`, `0s` |
+| `Time` | `time.Time` (an instant; Go also keeps a location for display) | a point on the timeline | RFC 3339, `2026-10-13T09:30:00Z` |
+| `Date` | `functions.Date{Year, Month, Day}` (proleptic Gregorian, no zone, comparable) | a calendar day | ISO 8601, `2026-10-13` |
+
+**Literals (D14, proposed).**
+
+| Form | Value |
+| :-- | :-- |
+| `5s`, `250ms`, `1h30m`, `2d`, `1w` | `Duration`. Units: `ns us µs ms s m h` as in Go's `time.ParseDuration`, plus `d` (= 24 h) and `w` (= 7 d), **fixed lengths, not calendar days**. A number *immediately* followed by a unit (no space) and then a non-identifier character lexes as one `Duration` token; `5 s` is still an application. Segments chain (`1h30m15s`); a fractional first segment is allowed (`1.5h`); a unit used twice, an unknown unit or an overflow is a lex error. |
+| `@2026-10-13T09:30:00Z`, `@2026-10-13T11:30:00+02:00` | `Time` (RFC 3339; a missing zone is an error, never "local") |
+| `@2026-10-13` | `Date` |
+| `time "…"`, `date "…"`, `duration "…"` | the same as function forms returning `Maybe` for computed text (`time_parse`, `date_parse`, `dur_parse`); malformed text is `Nothing`, never an error |
+
+The `@` prefix marks a time-like literal and cannot start anything else today (`@` is unused in the lexer).
+**Alternative recorded:** functions only (no `@`, no unit suffix) — smaller lexer change, but `now - @…` and
+`timeout > 30s` are the readable forms this type family exists for.
+
+**Arithmetic and ordering (the matrix; everything else is an error naming both types).**
+
+| Operation | Result |
+| :-- | :-- |
+| `Duration ± Duration` | `Duration` |
+| `Duration * Int`, `Int * Duration`, `Duration * Float`/`Ratio`, `Duration / Int`/`Float`/`Ratio` | `Duration`, **truncated toward zero** to whole nanoseconds (as Go's `time.Duration` does); `/ 0` is an error |
+| `Duration / Duration` | **exact `Ratio`, demoted to `Int` when whole** (`90m / 1h` is `3r2`, `2h / 1h` is `2`); `to_float` for the double. Before W3 lands: `Float`. |
+| `Duration // Duration`, `Duration % Duration` | floor quotient (`Int`) and remainder (`Duration`) |
+| unary `-`, `abs` | `Duration` |
+| `Time + Duration`, `Time - Duration` | `Time` |
+| `Time - Time` | `Duration` (an error if it overflows int64 ns) |
+| `Date ± Duration` | `Date` **only when the duration is a whole number of days** (`2d`, `-1w`); `Date + 90m` is an error saying so. `Date - Date` is a `Duration` (a multiple of `1d`). |
+| `==`, `!=`, `<`, `<=`, `>`, `>=`, `min`, `max`, `compare` | within a type only; `Time` compares by instant (`Equal`), not by location; **`Date` vs `Time` is an error** (no implicit zone) |
+| `Time + Time`, `Date + Date`, `Time * n`, … | errors (not meaningful) |
+
+Overflow is an error (Mandate 6), never wrap-around.
+
+**Functions** (data-last, curried, `Maybe` for malformed text, error values for impossible requests):
+- *Duration:* `dur_ns d`, `dur_ms d`, `to_seconds d` (`Float`), `dur_from_seconds x`, `dur_parse s`, `dur_truncate unit d`, `dur_round unit d`.
+- *Time:* `time_parse s`, `time_format layout t` (a documented strftime subset `%Y-%m-%d %H:%M:%S %z %Z`, plus the names `rfc3339`, `date`, `clock`; Go's reference-time layouts are not exposed), `time_unix t`/`time_from_unix n` (seconds), `time_year/month/day/hour/minute/second/nano t`, `time_weekday t` (ISO `1` = Monday … `7`), `time_in zone t` (IANA name; an unknown zone is an error), `time_truncate d t`, `time_round d t`.
+- *Date:* `date t`-style constructors `date_of y m d` (an invalid day such as 2026-02-30 is an error), `date_parse s`, `date_format layout d`, `date_year/month/day`, `date_weekday`, `date_add_days n d`, **`date_add_months n d`** and `date_add_years n d` (the day clamps to the end of the month: 31 Jan + 1 month is 28/29 Feb, as in Java's `plusMonths`), `date_days_in_month d`, `is_leap_year y`, `date_of_time zone t`, `time_of_date zone d` (midnight in `zone`; a midnight skipped by a daylight-saving gap resolves to the first valid instant after it, documented).
+- *Common:* all three work with `map`/`fold`/`filter`, sort with `compare`, and print through `show`/`str_from`.
+
+**`now` is not a pure function (D15, proposed).** The clock is a side effect, so it lives where side effects live
+(Mandate: effects isolated in adapters): `now` is a **stream-source step** reading an injectable
+`Interpreter.Clock func() time.Time` (default `time.Now`), exactly like `scan_file` reads a file. Everything above is pure;
+tests set a fixed clock, so no test sleeps or depends on the wall clock. A `sleep d` adapter step is deliberately
+**not** part of this tier (deferral: blocking steps need the W7 capability policy first).
+
+**Zone model (D16, proposed).** A `Time` is an instant that *remembers a display location* (Go's model): `time_in
+"Europe/Berlin" t` is the same instant rendered in another zone, `==` ignores the location, calendar fields
+(`time_hour`, `date_of_time`) use it, and a parsed RFC 3339 offset sets it. There is **no separate `DateTime` type**
+(a zone-less wall-clock time); that is the usual source of bugs and is a recorded deferral (add it only when a real
+need appears). The default location is UTC; local time is never implicit.
+
+**Date arithmetic with Durations (D17, proposed):** `Date ± whole-day Duration` is allowed (above) because it makes
+`today + 7d` and `deadline - today` readable and exact; **alternative:** `Date` only through `date_add_*` functions and
+no operators. Calendar months and years always go through functions, since they are not fixed lengths.
+
+**Where it plugs in (Mandate 2 cells):** the types and helpers in `functions/time.go` → `EvalBinaryOp`/`Compare`/
+`StructuralEqual` arms (before the numeric arms, so a `Duration` is never read as an `int64`) → the `@`/unit lexing
+in `parser/infix.go` (`TokDuration`, `TokTime`, `TokDate`) → function forms in `pkg/cli/dslfuncs_time.go` → the `now`
+adapter step and `Interpreter.Clock` → `tyDuration`/`tyTime`/`tyDate` in the checker (operator results come from the
+runtime matrix, so `Duration * Int` is typed for free; `Comparable ⊇` all three) → DSL assertions inside lambdas and
+comprehensions → structural Go tests on the raw types → `Example`. The text-substitution guard `scalarValue` treats all
+three as non-scalar. A `Duration` also joins the `Num`-like constraint list only as `Comparable`, never as `Num`.
+
+**Negative cases (each must be seen red first):** `Date + 90m`, `@2026-02-30`, `@2026-10-13T09:30:00` (no zone),
+`Time + Time`, `Date < Time`, `1h / 0s`, `time_in "Nowhere/Land" t`, `1h1h`, `5q`, `9223372036854775807ns + 1ns` (overflow),
+`date_of 2026 13 1`. **Property tests:** `(t + d) - t == d`, `date_add_months` clamps and never skips a month,
+`date_parse (date_format "%Y-%m-%d" d) == just d`, `time_parse (time_format rfc3339 t) == just t`, DST boundaries
+(`Europe/Berlin` 2026-03-29 and 2026-10-25) for `time_in`, `time_of_date` and `+ 24h` versus `date_add_days 1`.
+
+**Motivating use (generic, not domain code):** resource ages and expiry — `now - (time_parse created)` is a `Duration`, a
+rule such as `age > 30d` or a certificate `expires - now < 14d` reads as written; the Kubernetes prelude may use
+it from `.gatwd`, core stays domain-free. **Size:** about two days inside the later tier (the three lexer tokens and the
+`strftime` translation are the long poles).
+
+**Proposed decisions, unanswered:** **D14** the `@` and unit-suffix literals (vs functions only); **D15** `now` as an
+injectable-clock adapter step; **D16** `Time` carries a display location, no `DateTime` type; **D17** `Date ± whole-day
+Duration` operators. Each recommendation is the first option named; ask before implementing this section.
 
 ---
 
@@ -582,6 +672,7 @@ W0 fail-loud ──► W1 CLI ──┬─► W2 base types/stdlib ──┐
   later work would otherwise have to touch.
 - **W1 before W2/W3**: the new library is exercised through scripts that take arguments. W1 itself is two steps: the `Run`
   API first (W1a), then the cobra command tree in `pkg/cli` (W1b), which **W6 (operator subcommands/flags) depends on**.
+- **§5.6 (`Duration`/`Time`/`Date`) after W3**: `Duration / Duration` is an exact `Ratio`, so it needs §6.1; it is not on W4's path.
 - **W2 before W4**: `k8s_id` needs string building (already possible with `++`, so W4 can start earlier if needed).
 - **W5/W6 are independent** of W2–W4 and can be done any time after W1.
 
