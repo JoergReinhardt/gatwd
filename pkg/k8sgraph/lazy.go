@@ -81,6 +81,10 @@ func (f failedResource) Delete(context.Context, string, metav1.DeleteOptions, ..
 	return f.err
 }
 
+func (f failedResource) DeleteWithResult(context.Context, string, metav1.DeleteOptions, ...string) (metav1.APIResult, error) {
+	return nil, f.err
+}
+
 func (f failedResource) DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error {
 	return f.err
 }
