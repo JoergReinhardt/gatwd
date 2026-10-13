@@ -1034,3 +1034,38 @@ w3_mean 1r2 1r3 |> assert 5r12
 def w3_inv = \b -> !b
 w3_inv true |> assert false
 [true, true, false] |> fold (\a x -> a && !(!x)) true |> assert false
+
+-- 104. The numeric operator matrix (hardening W3): the six arithmetic operators over Int, Ratio and Float
+-- pairs, through one closure. Expected values were computed independently with exact fractions.
+def w3_ops = \a b -> [a + b, a - b, a * b, a / b, a // b, a % b]
+w3_ops (7) (2) |> assert [9 5 14 3.5 3 1]
+w3_ops (3r2) (5r3) |> assert [19r6 -1r6 5r2 9r10 0 3r2]
+w3_ops (2.5) (0.5) |> assert [3 2 1.25 5 5 0]
+w3_ops (7) (3r2) |> assert [17r2 11r2 21r2 14r3 4 1]
+w3_ops (3r2) (2) |> assert [7r2 -1r2 3 3r4 0 3r2]
+w3_ops (7) (0.5) |> assert [7.5 6.5 3.5 14 14 0]
+w3_ops (-7) (2) |> assert [-5 -9 -14 -3.5 -4 1]
+w3_ops (7) (-2) |> assert [5 9 -14 -3.5 -4 -1]
+w3_ops (3r2) (0.5) |> assert [2 1 0.75 3 3 0]
+w3_ops (2 ** 70) (3) |> assert [1180591620717411303427 1180591620717411303421 3541774862152233910272 3.935305402391371e+20 393530540239137101141 1]
+-- ordering and equality over mixed numeric pairs, exactly
+def w3_cmp = \a b -> [a < b, a <= b, a > b, a >= b, a == b, a != b]
+w3_cmp 1 2 |> assert [true true false false false true]
+w3_cmp 1r2 0.5 |> assert [false true false true true false]
+w3_cmp 1r10 0.1 |> assert [true true false false false true]
+w3_cmp 1 1.0 |> assert [false true false true true false]
+w3_cmp (2 ** 70) 1180591620717411303424.0 |> assert [false true false true true false]
+w3_cmp "a" "b" |> assert [true true false false false true]
+w3_cmp "10" "9" |> assert [true true false false false true]
+-- (String against a number is an error for every operator but == and !=: see section 100 and the Go matrix test)
+-- the lattice: the class of a result is the join of the operand classes
+[[1, 2], [1, 1r2], [1, 0.5], [1r2, 0.5], [1r2, 1r3]] |> map (\p -> head p + nth 1 p) |> assert [3 3r2 1.5 1 5r6]
+[[1, 2], [1, 1r2], [1, 0.5]] |> map (\p -> head p * nth 1 p) |> assert [2 1r2 0.5]
+-- the same operators as pipeline sections (step form)
+7 |> + 2 |> assert 9
+7 |> - 3r2 |> assert 11r2
+7 |> * 0.5 |> assert 3.5
+7 |> / 2 |> assert 3.5
+7 |> // 2 |> assert 3
+7 |> % 3r2 |> assert 1
+3r2 |> ** 2 |> assert 9r4

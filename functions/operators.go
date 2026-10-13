@@ -81,6 +81,10 @@ func ToComplex128(val any) (complex128, bool) {
 		if f, ok := ratioFloat(v.rat()); ok {
 			return complex(f, 0), true
 		}
+	case *big.Int:
+		if f, ok := floatOperand(v); ok {
+			return complex(f, 0), true
+		}
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
 		if f, ok := ToFloat64(v); ok {

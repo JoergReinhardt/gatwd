@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -355,5 +356,40 @@ let pb_t = true`)
 		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
 			t.Errorf("%s = %v, want [%s]", stmt, got, want)
 		}
+	}
+}
+
+// Step form ≡ operator form for every arithmetic operator over the tower: `a op b` and the
+// pipeline section `a |> op b` answer the same value, or fail with the same message.
+func TestOperatorSectionsEqualOperators(t *testing.T) {
+	in := NewInterpreter()
+	operands := []string{"7", "2", "(-3)", "2.5", "0.5", "3r2", "5r3", "1180591620717411303424", `"s"`, "true"}
+	// a section's operand is a literal token: a negative number is written without the parentheses
+	section := func(operand string) string { return strings.Trim(operand, "()") }
+	ops := []string{"+", "-", "*", "/", "//", "%", "**"}
+	checked := 0
+	for _, a := range operands {
+		for _, b := range operands {
+			for _, op := range ops {
+				infix := in.evaluatePipelineStr(fmt.Sprintf("%s %s %s", a, op, b))
+				step := in.evaluatePipelineStr(fmt.Sprintf("%s |> %s %s", a, op, section(b)))
+				if len(infix) != 1 || len(step) != 1 {
+					t.Errorf("%s %s %s: infix %v, step %v; want one line each", a, op, b, infix, step)
+					continue
+				}
+				checked++
+				iErr, sErr := strings.Contains(infix[0], "[ERROR]"), strings.Contains(step[0], "[ERROR]")
+				if iErr != sErr {
+					t.Errorf("%s %s %s: infix %q but step %q disagree on failing", a, op, b, infix[0], step[0])
+					continue
+				}
+				if !iErr && infix[0] != step[0] {
+					t.Errorf("%s %s %s: infix %q but step %q", a, op, b, infix[0], step[0])
+				}
+			}
+		}
+	}
+	if checked != len(operands)*len(operands)*len(ops) {
+		t.Errorf("checked %d cells, want %d", checked, len(operands)*len(operands)*len(ops))
 	}
 }
