@@ -62,6 +62,8 @@ Each partial function needs a negative case; the parity check "step form ≡ fun
 
 **Also planned, after W3:** `Duration`, `Time` and `Date` (plan §5.6; D14–D17 are proposed and **must be asked before implementing**).
 
+**When everything is done:** work through the **closing checklist for the k8s how-to and k8s code** (plan §10.1; user request) — it collects the doc and code updates that each phase leaves behind; add a row there whenever a phase changes behaviour the k8s edition or its how-to touches.
+
 After W2/W3: **W4** (qualified node ids, D6 — migrate all tests/examples in the same phase) → **W5** (Go 1.27 bump first) → **W6** (operator flags `--long` with the normaliser hook that now exists, layered rules, exit codes) → **W7** (policy, `context`, structured diagnostics).
 
 ## 4. Authoring shapes (copy these)

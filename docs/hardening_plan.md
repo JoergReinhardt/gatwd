@@ -696,6 +696,26 @@ sub-step → full gates (`gofmt`, `go vet`, `go test ./...`, `./run_dsl_tests.sh
 diff against a baseline binary** (the breaking changes in W0/W2/W4 will show up there on purpose) →
 docs/playbook/skills updated in the same change.
 
+### 10.1 Closing checklist: the Kubernetes how-to and the k8s code (user request, 2026-10-13)
+
+When **all** phases are done, `docs/k8s_howto.md` and the Kubernetes edition (`pkg/k8sgraph`, `cmd/gatwd-k8s`,
+`cmd/gatwd-k8s-operator`, the embedded `lib/k8s/*.gatwd`, their tests and `testdata/`) are reviewed and updated
+against what changed. Run the `project-doc-sync` skill, `gatwd --check` over every `.gatwd` and every code block of
+the how-to, and the script regression diff. Collect here as phases land; **each row is a task, not a decision.**
+
+| Source of the change | Update in `docs/k8s_howto.md` | Update in the k8s code |
+| :-- | :-- | :-- |
+| **D2, D18, typed literal tokens** (done) | re-run every sample (`+` on text is an error, `-D`/`const`/`emit` numbers are numbers, strings have escapes); fixed already: the "no string builtins" claims in §2.4 and §4 | check the prelude and operator rules for text reaching arithmetic or ordering (a scan found none today); `cmd/gatwd-k8s-operator/main.go` builds `spawn StrVal: …` strings — keep them as they are, they are text |
+| **`str_*`, `show`, `str_format`, `Char`, `Ordering`, Bool functions** (done) | document them where §2.3/§2.4 build ids or labels; show `str_format` in a rule's violation message | **adopt in the prelude** instead of ad-hoc text: the id builder (W4), violation messages, label matching |
+| **W2 tier 2:** base64/hex/url, JSON/YAML, regex (RE2), hashes | rewrite §2.4's "why an annotation" paragraph: decoding is now possible, **keep the security call** (credentials must not enter graph payloads — decide, then document) | `json_parse`/`yaml_parse` for ConfigMap data and annotations; `re_match` for image tags and label patterns; `sha256` fingerprints of Secret data (never the data) |
+| **§5.6 `Duration`/`Time`/`Date`** (proposed) | an "ages and expiry" example (`now - (time_parse created) > 30d`, certificate `expires - now < 14d`) | `creationTimestamp`-based rules in `lib/k8s/*.gatwd`; the injectable `Interpreter.Clock` in the edition's tests (no wall clock) |
+| **W3 numeric tower, `Ratio`** | resource quantities (`500m`, `2Gi`) as an example of exact arithmetic; the numeric-constraint annotations in rule signatures | quantity parsing helpers in the prelude, if wanted (`Ratio` gives exact CPU/memory sums); `--check` stays at zero findings |
+| **W4 qualified node ids (D6)** | rewrite §2.3 ("Ids are `metadata.name` only") and §4 (the collision limitation); every query and example output | `ingest.gatwd`, `relations.gatwd`, `queries.gatwd`, `types.gatwd`, `steps.go`, **all** tests, `testdata/` expectations and the live/offline parity test (`live_parity_test.go`) migrate in the same phase |
+| **W5 in-process kustomize (D7, Go 1.27)** | §3.1 build (Go version), §3.3 container image (golang tag), manifests/kustomization notes, remove "external binary" caveats | `adapters/` manifest ingestion, `pkg/k8sgraph/edition.go` (`ApplyEdition`), `go.mod`; auto-render of kustomization roots was **not** explicitly answered (D7) — confirm before documenting it |
+| **W6 operator: `--long` flags, layered rules (D5), exit codes, lazy client** | §2.2 (override rules now *layer*; `replace` is a mode), §3.2 flag table, §3.4 deploy manifests (args, exit codes), §4 (drop the "replace, not layer" and "exit 0 always" limitations) | `cmd/gatwd-k8s/main.go` (lazy client: `version`/`completion` must not print the "no cluster access" notice), `cmd/gatwd-k8s-operator/main.go`, `pkg/cli/appliance.go` reload semantics, the operator's embedded default rules |
+| **W7 policy (D8), `context`, structured diagnostics** | a security section: which scripts may run OS commands; how a ConfigMap-sourced override is sandboxed | the Appliance's default policy for overrides; diagnostics instead of free-text `[ERROR]` in the operator output |
+| **Anything that renames or removes a builtin** (`compare` now returns `Ordering`, `-D` typing, …) | grep the how-to and `examples/k8s_howto/` for the old behaviour | grep `lib/k8s/*.gatwd`, the operator rules and `testdata` |
+
 | Risk | Mitigation |
 | :-- | :-- |
 | Breaking changes (D2 string `+`, D9 assert, ids) | decide first (§1); the regression diff lists every affected script; a one-line migration note per change in the doc |

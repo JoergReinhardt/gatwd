@@ -174,8 +174,8 @@ gatwd-k8s examples/k8s_howto/infra.gatwd
 # [orders-db-credentials orders pg-prod]            ← the path Secret → Database → DBMS
 ```
 
-**Why an annotation instead of reading the credentials?** The DSL has no base64 or string functions, and
-a Secret's `data` is base64. An annotation (`gatwd.io/database: orders`) is plaintext, visible from a live
+**Why an annotation instead of reading the credentials?** The DSL has string functions (`str_*`) but no base64 yet
+(the encodings tier of the hardening plan adds it), and a Secret's `data` is base64. An annotation (`gatwd.io/database: orders`) is plaintext, visible from a live
 cluster, and keeps credentials out of the graph logic. Matching by *exact equality* of a value to a node
 name also works (that is how the inferred `Calls` relation works). If you genuinely need decoded values,
 add a **generic** `base64_decode` builtin to core first (the Go-standard-library rule: wire `encoding/base64`
@@ -327,7 +327,7 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 - Override rules replace, not layer (§2.2). Layering embedded + override would be a small change to
   `Appliance.Reload` if you prefer it.
-- The DSL has no base64 or string builtins (§2.4).
+- The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `metadata.name` only (§2.3).
 - The operator does not set a non-zero exit code on violations (§3.2).
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
