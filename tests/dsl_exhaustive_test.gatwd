@@ -1225,3 +1225,18 @@ hamt_from [["a", @2026-10-14], ["b", @2025-01-01], ["c", @2026-02-28]] |> hamt_v
 -- partial application and the pipeline
 [@2026-12-31, @2026-02-28] |> map (date_add_days 1) |> assert [2027-01-01 2026-03-01]
 [@2026-10-13T09:30:00Z, @2026-10-14T09:30:00Z, @2026-10-15T09:30:00Z] |> filter (\t -> time_day t > 13) |> map (\t -> time_day t) |> assert [14 15]
+
+-- 110. `now` (hardening §5.6, D15): the clock is a side effect, so it is a stream-source STEP (an adapter, like scan_file)
+-- reading Interpreter.Clock; a bare `now` at the head of a pipeline is the same reading. The suite cannot fix the wall
+-- clock, so these assert only what holds at any real time; the Go tests inject a fixed clock for exact values.
+spawn S: x |> now |> map (\t -> t > @2020-01-01T00:00:00Z) |> assert true
+now |> map (\t -> t > @2020-01-01T00:00:00Z) |> assert true
+now |> map (\t -> (time_year t) >= 2026) |> assert true
+now |> map (\t -> t - t) |> assert 0s
+now |> map (\t -> time_in "Europe/Berlin" t == t) |> assert true
+now |> map (\t -> (date_of_time "UTC" t) == (date_of_time "UTC" t)) |> assert true
+now |> map (\t -> ((t + 30d) - t) > 29d) |> assert true
+def expires_within = \limit now exp -> (exp - now) < limit
+now |> map (\t -> expires_within 14d t (t + 7d)) |> assert true
+now |> map (\t -> expires_within 14d t (t + 20d)) |> assert false
+now |> map (\t -> expires_within 14d t (t - 1d)) |> assert true
