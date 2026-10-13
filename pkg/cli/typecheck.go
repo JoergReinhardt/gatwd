@@ -509,6 +509,9 @@ func joinResults(ts []Ty) Ty {
 // representative values, like binaryType: an error is a definite contradiction.
 func unaryType(op string, t Ty) (Ty, string) {
 	if t.isAny() {
+		if op == "!" {
+			return tyBool, "" // `!x` is a Bool whatever x turns out to be (or an error)
+		}
 		return tyAny, ""
 	}
 	cands := []Ty{t}

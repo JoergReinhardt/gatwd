@@ -160,3 +160,63 @@ func TestRatioLiteralsLexAndEvaluate(t *testing.T) {
 }
 
 func fmtFloat(f float64) string { return strconv.FormatFloat(f, 'g', -1, 64) }
+
+// Prefix `!` is `not`; `!=` is untouched.
+func TestPrefixBang(t *testing.T) {
+	env := map[string]any{"a": 1, "b": 2, "t": true, "f": false}
+	lookup := func(n string) (any, bool) { v, ok := env[n]; return v, ok }
+	rows := []struct {
+		src  string
+		want bool
+	}{
+		{"!true", false},
+		{"!false", true},
+		{"! true", false},
+		{"!!true", true},
+		{"!(a == b)", true},
+		{"!(a == a)", false},
+		{"a != b", true},
+		{"a != a", false},
+		{"a!=b", true},
+		{"a !=b", true},
+		{"a!= b", true},
+		{"!t", false},
+		{"!t || t", true},
+		{"!t && t", false},
+		{"!(t && f)", true},
+		{"!f && t", true},
+	}
+	for _, r := range rows {
+		v, err := parser.EvalInfixString(r.src, lookup)
+		if err != nil {
+			t.Errorf("%s: %v", r.src, err)
+			continue
+		}
+		if v != r.want {
+			t.Errorf("%s = %v, want %v", r.src, v, r.want)
+		}
+	}
+	// ! binds like unary minus: tighter than every binary operator, so `!t == f` is `(!t) == f`
+	if v, err := parser.EvalInfixString("!t == f", lookup); err != nil || v != true {
+		t.Errorf("!t == f = %v, %v; want true", v, err)
+	}
+	e, err := parser.ParseInfixExpr("!t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, ok := e.(parser.UnaryExpr); !ok || u.Op != "!" {
+		t.Errorf("!t parsed as %T %v, want UnaryExpr{!}", e, e)
+	}
+	// errors: a non-Bool operand, a stray '=', nothing after the bang
+	for _, bad := range []string{"!1", `!"x"`, "! = true", "!", "!=", "a != ", "!!"} {
+		if v, err := parser.EvalInfixString(bad, lookup); err == nil {
+			t.Errorf("%q = %v, want an error", bad, v)
+		}
+	}
+	// an application argument: `f !x` is `f (!x)`
+	f := functions.NewClosure([]string{"v"}, func(a []any) (any, error) { return a[0], nil })
+	env["id"] = f
+	if v, err := parser.EvalInfixString("id !t", lookup); err != nil || v != false {
+		t.Errorf("id !t = %v, %v; want false", v, err)
+	}
+}

@@ -162,6 +162,14 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			continue
 		}
 
+		// Prefix `!` is `not` (the two-character `!=` was consumed above, so a `!` that
+		// reaches here is never part of an inequality; `! =` is a prefix followed by a stray `=`).
+		if r == '!' {
+			tokens = append(tokens, TokenItem{Type: TokPrefix, Text: "!"})
+			i++
+			continue
+		}
+
 		// Unary and binary minus. In operand position (start, after an operator, an opening
 		// bracket, a comma, ...) "-" is the prefix operator; after an operand it is a
 		// subtraction, except that `f -3` (a space before, none after) starts a negative
@@ -437,7 +445,7 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return res, nil
 }
 
-// UnaryExpr is an interior Expr node applying the prefix operator Op ("-") to Operand.
+// UnaryExpr is an interior Expr node applying the prefix operator Op ("-" or "!") to Operand.
 // A negated numeric literal is folded into the literal at parse time, so `-5` is a
 // LiteralExpr and `-9223372036854775808` is the smallest int64, not a negated big integer.
 type UnaryExpr struct {
@@ -459,11 +467,14 @@ func (e UnaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return res, nil
 }
 
-// ApplyUnary applies a prefix operator to a value: "-" is functions.Negate.
+// ApplyUnary applies a prefix operator to a value: "-" is functions.Negate, "!" is
+// functions.Not (a synonym of the `not` function).
 func ApplyUnary(op string, v any) (any, error) {
 	switch op {
 	case "-":
 		return functions.Negate(v)
+	case "!":
+		return functions.Not(v)
 	}
 	return nil, fmt.Errorf("unknown prefix operator %q", op)
 }
@@ -947,7 +958,7 @@ func (p *InfixParser) parsePrefix(op string, atomOnly bool) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if lit, ok := operand.(LiteralExpr); ok {
+	if lit, ok := operand.(LiteralExpr); ok && op == "-" {
 		if v, err := ApplyUnary(op, lit.Value); err == nil && functions.IsNumeric(lit.Value) {
 			return LiteralExpr{Value: v}, nil
 		}

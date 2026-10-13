@@ -885,3 +885,13 @@ func QuotRem(a, b any) (q, r any, err error) {
 	qq, rr := new(big.Int).QuoRem(x, y, new(big.Int))
 	return CanonInt(qq), CanonInt(rr), nil
 }
+
+// Not is boolean negation, the function behind `not b` and the prefix operator `!b`. It is
+// strict: only a Bool has a negation, a number is never "truthy" (Mandate 6).
+func Not(v any) (any, error) {
+	b, ok := v.(bool)
+	if !ok {
+		return nil, fmt.Errorf("want a Bool, got %v (%T)", v, v)
+	}
+	return !b, nil
+}

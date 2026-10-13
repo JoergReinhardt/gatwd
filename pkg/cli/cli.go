@@ -1891,7 +1891,8 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		}
 	}
 
-	if strings.HasPrefix(firstPart, "(") || startsWithLiteral(firstPart) || (strings.ContainsAny(firstPart, "+-*/%&|<>= ") && !strings.HasPrefix(firstPart, "emit ")) {
+	// A leading `!` is the prefix operator (`!true`, `!ok`), so the head is an expression.
+	if strings.HasPrefix(firstPart, "(") || strings.HasPrefix(firstPart, "!") || startsWithLiteral(firstPart) || (strings.ContainsAny(firstPart, "+-*/%&|<>= ") && !strings.HasPrefix(firstPart, "emit ")) {
 		val, err := parser.EvalInfixString(firstPart, lookup)
 		if err == nil {
 			flag := i.Parser.GetFlag("Variable")

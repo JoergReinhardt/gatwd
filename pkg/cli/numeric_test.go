@@ -302,3 +302,58 @@ func TestRatioAsValue(t *testing.T) {
 		t.Errorf("map over Ratios = %v", got)
 	}
 }
+
+// ---- prefix `!` (user decision 2026-10-13): a synonym of `not`, `!=` unchanged -----------
+
+func TestPrefixBangThroughTheInterpreter(t *testing.T) {
+	in := NewInterpreter()
+	in.EvaluateScript(`def pb_inv = \b -> !b
+let pb_t = true`)
+	for stmt, want := range map[string]string{
+		`!true`:                                 "false",
+		`!false`:                                "true",
+		`!(1 == 2)`:                             "true",
+		`1 != 2`:                                "true",
+		`1 != 1`:                                "false",
+		`!pb_t`:                                 "false",
+		`!!pb_t`:                                "true",
+		`pb_inv true`:                           "false",
+		`[true, false] |> map (\x -> !x)`:       "[false true]",
+		`[true, false] |> map (\x -> not x)`:    "[false true]",
+		`[1, 2, 3] |> filter (\x -> !(x == 2))`: "[1 3]",
+		`[1, 2, 3] |> filter (\x -> x != 2)`:    "[1 3]",
+		`!true || true`:                         "true",
+		`not !true`:                             "true",
+		`1 !=2`:                                 "true",
+	} {
+		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", stmt, got, want)
+		}
+	}
+	// `!` and `not` agree on every Bool and fail identically on everything else.
+	for _, v := range []string{"true", "false", "1", `"x"`, "'c'", "[true]", "1r2", "2.5"} {
+		bang := in.evaluatePipelineStr("!(" + v + ")")
+		word := in.evaluatePipelineStr("not " + v)
+		if len(bang) != 1 || len(word) != 1 {
+			t.Errorf("! / not %s: %v / %v", v, bang, word)
+			continue
+		}
+		if strings.Contains(bang[0], "[ERROR]") != strings.Contains(word[0], "[ERROR]") {
+			t.Errorf("! and not disagree on %s: %v vs %v", v, bang, word)
+		}
+		if !strings.Contains(bang[0], "[ERROR]") && bang[0] != word[0] {
+			t.Errorf("! and not disagree on %s: %v vs %v", v, bang, word)
+		}
+	}
+	// statements that merely contain a '!' are untouched: text, exec arguments, lambdas that echo it
+	for stmt, want := range map[string]string{
+		`"a!" ++ "b"`:                        "a!b",
+		`spawn S: x |> echo hi!`:             "hi!",
+		`spawn S: x |> sh -c "echo wow!"`:    "wow!",
+		`spawn S: x |> map (\s -> s ++ "!")`: "x!",
+	} {
+		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", stmt, got, want)
+		}
+	}
+}

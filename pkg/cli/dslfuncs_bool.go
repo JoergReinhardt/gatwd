@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/parser"
 )
 
@@ -54,10 +55,7 @@ func asBool(v any) (bool, error) {
 //	not b · xor a b · and a b · or a b
 //	ordering_to_int o (-1, 0, 1) · ordering_from_int n (its sign) · ordering_reverse o · ordering_then a b
 func registerBoolFuncs(m map[string]any) {
-	defn(m, "not", "b", func(a []any) (any, error) {
-		b, err := asBool(a[0])
-		return !b, err
-	})
+	defn(m, "not", "b", func(a []any) (any, error) { return functions.Not(a[0]) })
 	for name, f := range map[string]func(x, y bool) bool{
 		"and": func(x, y bool) bool { return x && y },
 		"or":  func(x, y bool) bool { return x || y },

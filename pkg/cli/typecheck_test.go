@@ -327,3 +327,15 @@ func mustRatio(t *testing.T) any {
 	}
 	return got[0]
 }
+
+func TestPrefixBangIsChecked(t *testing.T) {
+	if ws := warnings("def inv : Bool -> Bool = \\b -> !b\ninv true\n!true\n!(1 == 2)\n[true] |> map (\\x -> !x)"); len(ws) != 0 {
+		t.Errorf("valid ! must be silent, got %v", ws)
+	}
+	if ws := warnings("!1"); !hasWarning(ws, "operator '!' is not defined for Int") {
+		t.Errorf("!1 must warn, got %v", ws)
+	}
+	if ws := warnings("def f : String -> Bool = \\s -> !s"); !hasWarning(ws, "operator '!' is not defined for String") {
+		t.Errorf("!String must warn, got %v", ws)
+	}
+}
