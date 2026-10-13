@@ -933,3 +933,18 @@ to_float (2 ** 53 + 1) |> assert 9.007199254740992e+15
 16 |> sqrt |> assert 4
 -- (the negative cases — sqrt -4, to_int 3.5, 1 // 0, ... — are errors by design, so they live in
 -- pkg/cli/numeric_test.go and failloud_test.go: this file must stay free of [ERROR].)
+
+-- 100. Strings are not numbers (hardening W3, the end of D2): == between a String and a number is false,
+-- two Strings compare as text, and text never converts implicitly — parse it with str_to_int / str_to_float.
+"5" == 5 |> assert false
+5 == "5" |> assert false
+"5" != 5 |> assert true
+"10" == "10.0" |> assert false
+"10" == "10" |> assert true
+'a' == "a" |> assert true
+["5", "5.0", "05"] |> map (\s -> s == "5") |> assert [true false false]
+["5", "5.0"] |> map (\s -> s == 5) |> assert [false false]
+["5", "5.0", "x"] |> map (\s -> maybe_default 0 (str_to_float s)) |> assert [5 5 0]
+nth (maybe_default 0 (str_to_int "1")) [7, 8, 9] |> assert 8
+[1, 2] |> map (\i -> nth i [7, 8, 9]) |> assert [8 9]
+max (maybe_default 0 (str_to_int "5")) 3 |> assert 5

@@ -65,7 +65,8 @@ func IsNumeric(val any) bool {
 	}
 }
 
-// ToComplex128 attempts to convert numeric or complex value to complex128.
+// ToComplex128 converts a number to complex128. Text is never a number (D2): a String is
+// not parsed, use str_to_float or parse explicitly.
 func ToComplex128(val any) (complex128, bool) {
 	switch v := val.(type) {
 	case complex128:
@@ -81,17 +82,12 @@ func ToComplex128(val any) (complex128, bool) {
 		if f, ok := ToFloat64(v); ok {
 			return complex(f, 0), true
 		}
-	case string:
-		// parse complex string like "1+2i" or "3i"
-		v = strings.TrimSpace(v)
-		if c, err := strconv.ParseComplex(v, 128); err == nil {
-			return c, true
-		}
 	}
 	return 0, false
 }
 
-// ToBigInt attempts to convert any integer/numeric value to *big.Int.
+// ToBigInt converts any integer value to a fresh *big.Int; a Float, a String or anything
+// else is not an integer (false).
 func ToBigInt(val any) (*big.Int, bool) {
 	switch v := val.(type) {
 	case *big.Int:
@@ -116,16 +112,12 @@ func ToBigInt(val any) (*big.Int, bool) {
 		return new(big.Int).SetUint64(uint64(v)), true
 	case uint8:
 		return new(big.Int).SetUint64(uint64(v)), true
-	case string:
-		n := new(big.Int)
-		if _, ok := n.SetString(strings.TrimSpace(v), 10); ok {
-			return n, true
-		}
 	}
 	return nil, false
 }
 
-// ToFloat64 converts any numeric value or numeric string to float64.
+// ToFloat64 converts a number to float64. Text is never a number (D2): a numeric String is
+// not parsed.
 func ToFloat64(val any) (float64, bool) {
 	switch v := val.(type) {
 	case float64:
@@ -158,10 +150,6 @@ func ToFloat64(val any) (float64, bool) {
 	case *big.Float:
 		f, _ := v.Float64()
 		return f, true
-	case string:
-		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
-			return f, true
-		}
 	}
 	return 0, false
 }
@@ -744,10 +732,6 @@ func toUint64(val any) (uint64, bool) {
 		if v >= 0 {
 			return uint64(v), true
 		}
-	case string:
-		if u, err := strconv.ParseUint(strings.TrimSpace(v), 10, 64); err == nil {
-			return u, true
-		}
 	}
 	return 0, false
 }
@@ -778,10 +762,6 @@ func toInt64(val any) (int64, bool) {
 		return int64(v), true
 	case uint8:
 		return int64(v), true
-	case string:
-		if iv, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
-			return iv, true
-		}
 	}
 	return 0, false
 }
@@ -964,7 +944,24 @@ func Compare(a, b any) (int, error) {
 		return 0, nil
 	}
 
-	return 0, fmt.Errorf("incomparable types: %T and %T", a, b)
+	hint := ""
+	_, aStr := a.(string)
+	_, bStr := b.(string)
+	if (aStr && IsNumber(b)) || (bStr && IsNumber(a)) {
+		hint = " (a String is not a number; use str_to_int / str_to_float to parse)"
+	}
+	return 0, fmt.Errorf("incomparable types: %s and %s%s", KindName(a), KindName(b), hint)
+}
+
+// isCollectionValue reports whether v is a collection or ADT — anything that is not a
+// scalar (a number, Bool, Char, String or nil). Only these have a printed form a String may
+// equal (see StructuralEqual).
+func isCollectionValue(v any) bool {
+	switch v.(type) {
+	case nil, bool, string, Char, Bytes, []byte:
+		return false
+	}
+	return !IsNumber(v)
 }
 
 // StructuralEqual tests equality across primitives, pointers, complex, and types.
@@ -1129,13 +1126,17 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
-	// Fallback for formatted string comparison across collection/serialized boundaries
-	if strA, okA := a.(string); okA {
+	// The serialization boundary, kept on purpose: HAMT keys are Strings, so a String key
+	// read back from a collection (`frequencies |> hamt_pairs` gives "[2 1]") must still
+	// equal the coordinate pair [2 1] it came from. A String equals the PRINTED FORM of a
+	// COLLECTION only — never of a number, Bool or Char: `"5" == 5` is false (D2: strings are
+	// not numbers), and `'a' == "a"` is the explicit one-character rule above (D1).
+	if strA, okA := a.(string); okA && isCollectionValue(b) {
 		if fmt.Sprintf("%v", b) == strA {
 			return true
 		}
 	}
-	if strB, okB := b.(string); okB {
+	if strB, okB := b.(string); okB && isCollectionValue(a) {
 		if fmt.Sprintf("%v", a) == strB {
 			return true
 		}

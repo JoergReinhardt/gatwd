@@ -134,7 +134,7 @@ func encodeJSON(b *strings.Builder, v any, path string) error {
 		}
 		if functions.IsNumeric(v) {
 			if _, isComplex := v.(complex128); !isComplex {
-				n, ok := functions.ToBigInt(fmt.Sprint(v))
+				n, ok := functions.ToBigInt(v)
 				if ok {
 					b.WriteString(n.String())
 					return nil

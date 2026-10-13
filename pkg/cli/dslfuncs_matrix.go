@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"unicode/utf8"
 
@@ -87,12 +88,22 @@ func asAnySet(v any) (*collections.Set[any], error) {
 	return nil, fmt.Errorf("want a Set, got %T", v)
 }
 
+// asInt reads an integer argument: any Int that fits a Go int, or a Float that is a whole
+// number. Text is not a number (D2): `nth "1" xs` is an error that says so.
 func asInt(v any) (int, error) {
-	f, ok := functions.ToFloat64(v)
-	if !ok || f != float64(int(f)) {
-		return 0, fmt.Errorf("want an integer, got %v (%T)", v, v)
+	if b, ok := functions.ToBigInt(v); ok {
+		if !b.IsInt64() {
+			return 0, fmt.Errorf("want an integer that fits 64 bits, got %v", v)
+		}
+		return int(b.Int64()), nil
 	}
-	return int(f), nil
+	if _, isString := v.(string); isString {
+		return 0, fmt.Errorf("want an integer, got the String %q (a String is not a number; use str_to_int)", v)
+	}
+	if f, ok := functions.ToFloat64(v); ok && f == math.Trunc(f) && math.Abs(f) < 1<<62 {
+		return int(f), nil
+	}
+	return 0, fmt.Errorf("want an integer, got %v (%T)", v, v)
 }
 
 func structuralMember(x any, items []any) bool {

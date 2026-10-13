@@ -462,3 +462,54 @@ func TestNumericFunctions(t *testing.T) {
 		t.Error("is_inf of a Bool must be an error")
 	}
 }
+
+// ---- strings are not numbers (the rest of D2) ------------------------------------------
+
+func TestTextIsNeverANumber(t *testing.T) {
+	if _, ok := functions.ToFloat64("1.5"); ok {
+		t.Error("ToFloat64 must not parse a String")
+	}
+	if _, ok := functions.ToBigInt("15"); ok {
+		t.Error("ToBigInt must not parse a String")
+	}
+	if _, ok := functions.ToComplex128("1+2i"); ok {
+		t.Error("ToComplex128 must not parse a String")
+	}
+	eq := []struct {
+		a, b any
+		want bool
+	}{
+		{"5", 5, false},
+		{5, "5", false},
+		{"5", 5.0, false},
+		{"5.0", 5, false},
+		{"10", "10.0", false}, // two Strings compare as text
+		{"10", "10", true},
+		{"1+2i", complex(1, 2), false},
+		{"true", true, false},
+		{"a", functions.Char('a'), true}, // D1: the explicit one-character rule
+		{functions.Char('a'), "a", true},
+		{"ab", functions.Char('a'), false},
+		{"", 0, false},
+		{"0", false, false},
+	}
+	for _, r := range eq {
+		if got := functions.StructuralEqual(r.a, r.b); got != r.want {
+			t.Errorf("StructuralEqual(%#v, %#v) = %v, want %v", r.a, r.b, got, r.want)
+		}
+		op := functions.OpEq
+		if got, _ := functions.EvalBinaryOp(op, r.a, r.b); got != r.want {
+			t.Errorf("%#v == %#v = %v, want %v", r.a, r.b, got, r.want)
+		}
+		if got, _ := functions.EvalBinaryOp(functions.OpNeq, r.a, r.b); got != !r.want {
+			t.Errorf("%#v != %#v = %v, want %v", r.a, r.b, got, !r.want)
+		}
+	}
+	for _, p := range [][2]any{{"5", 3}, {3, "5"}, {"5", 3.5}} {
+		if c, err := functions.Compare(p[0], p[1]); err == nil {
+			t.Errorf("Compare(%#v, %#v) = %d, want an error (a String is not a number)", p[0], p[1], c)
+		} else if !strings.Contains(err.Error(), "str_to_int") {
+			t.Errorf("Compare(%#v, %#v) error %q does not point to str_to_int", p[0], p[1], err)
+		}
+	}
+}

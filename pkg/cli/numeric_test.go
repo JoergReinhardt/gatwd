@@ -154,3 +154,45 @@ func TestBigIntegersPrintWithoutPlus(t *testing.T) {
 		t.Errorf("2**63 is %T, want *big.Int", large[0])
 	}
 }
+
+// D2, finished: a String is never a number — not in `==`, and not in the helpers that used to
+// parse numeric text (`nth "1" xs`, `range "0" "2"`, `min "5" 3`, `compare "5" 3`).
+func TestStringsAreNotNumbersInFunctionsAndEquality(t *testing.T) {
+	in := NewInterpreter()
+	for stmt, want := range map[string]string{
+		`"5" == 5`:                              "false",
+		`5 == "5"`:                              "false",
+		`"5" != 5`:                              "true",
+		`"10" == "10.0"`:                        "false",
+		`"5" == "5"`:                            "true",
+		`'a' == "a"`:                            "true",
+		`maybe_default 0 (str_to_int "5") == 5`: "true",
+	} {
+		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", stmt, got, want)
+		}
+	}
+	for stmt, want := range map[string]string{
+		`nth "1" [7, 8, 9]`: "str_to_int",
+		`range "0" "2"`:     "str_to_int",
+		`min "5" 3`:         "str_to_int",
+		`max 3 "5"`:         "str_to_int",
+		`compare "5" 3`:     "str_to_int",
+		`floor "2.5"`:       "String",
+		`abs "5"`:           "String",
+	} {
+		got := in.evaluatePipelineStr(stmt)
+		if len(got) != 1 || !strings.Contains(got[0], "[ERROR]") || !strings.Contains(got[0], want) {
+			t.Errorf("%s = %v, want an [ERROR] mentioning %q", stmt, got, want)
+		}
+	}
+	// the legitimate spelling still works
+	if got := in.EvaluateToValues(`nth (maybe_default 0 (str_to_int "1")) [7, 8, 9]`); len(got) != 1 || !functions.StructuralEqual(got[0], 8) {
+		t.Errorf("nth with a parsed index = %v, want [8]", got)
+	}
+	// The serialization boundary is kept (HAMT keys are Strings): a String still equals the
+	// printed form of a COLLECTION, never of a scalar.
+	if got := in.evaluatePipelineStr(`"[2 1]" == [2, 1]`); len(got) != 1 || got[0] != "true" {
+		t.Errorf(`"[2 1]" == [2, 1] = %v, want [true] (HAMT-key boundary)`, got)
+	}
+}
