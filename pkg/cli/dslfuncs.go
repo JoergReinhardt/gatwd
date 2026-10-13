@@ -162,14 +162,17 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if !ok {
 			return nil, fmt.Errorf("graph_add_edges: first argument must be a list of edge specs, got %T", args[0])
 		}
+		edges := make([]functions.Edge[string, string, any], 0, len(specs))
 		for _, spec := range specs {
 			fields, ok := functions.ToSliceAny(spec)
 			if !ok || len(fields) != 4 {
 				return nil, fmt.Errorf("graph_add_edges: each edge spec must be [color weight from to], got %v", spec)
 			}
-			g = g.Connect(dslStr(fields[2]), dslStr(fields[3]), dslStr(fields[0]), fields[1])
+			edges = append(edges, functions.NewEdge[string, string, any](dslStr(fields[2]), dslStr(fields[3]), dslStr(fields[0]), fields[1]))
 		}
-		return g, nil
+		// A derivation pass can find one fact twice (a ConfigMap mounted AND referenced
+		// from an env var); identical specs are added once (F14, collections.AddEdgesOnce).
+		return g.AddEdgesOnce(edges), nil
 	})
 
 	// hamt_get key payload → the value at key, or an error — the expression form of
@@ -195,7 +198,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 		return nodePayloads(g.NodesByColor(dslStr(args[0]))), nil
 	})
 
-	// graph_in_of / graph_out_of color id g → the identities of the nodes joined to id
+	// graph_in_of / graph_out_of color id g → the identities of the declared nodes joined to id
 	// by an incoming / outgoing edge of that color. The expression form of the
 	// reverse/forward adjacency, so a comprehension can ask "is anything of this
 	// color pointing at x?" (an empty list means no).
@@ -219,7 +222,9 @@ func buildDSLBuiltinFuncs() map[string]any {
 			color := dslStr(args[0])
 			out := []any{}
 			for _, e := range dir.edges(g, dslStr(args[1])) {
-				if e.Color == color {
+				// An edge whose far endpoint is not a declared node is stored but not
+				// followed: adjacency agrees with the node listing (F13, Graph.Neighbors).
+				if e.Color == color && g.HasNode(dir.end(e)) {
 					out = append(out, dir.end(e))
 				}
 			}

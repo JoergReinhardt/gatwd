@@ -362,24 +362,33 @@ func (g *Graph[K, C, N, E]) InEdges(id K) []functions.Edge[K, C, E] {
 }
 
 // Neighbors returns the distinct successor identities of a node (via out-edges),
-// in deterministic order.
+// in deterministic order. An edge whose far endpoint was never declared as a node
+// is not followed: adjacency agrees with the node listing (NodeIDs, Nodes), so a
+// walk never yields an id that has no node. Such an edge is still stored — Edges
+// and Size count it — because Connect does not create endpoints; declare the node
+// and the edge starts to count.
 func (g *Graph[K, C, N, E]) Neighbors(id K) []K {
-	return dedupIDs(g.OutEdges(id), func(e functions.Edge[K, C, E]) K { return e.To })
+	return dedupIDs(g.OutEdges(id), func(e functions.Edge[K, C, E]) K { return e.To }, g.HasNode)
 }
 
 // Predecessors returns the distinct predecessor identities of a node (via
-// in-edges), in deterministic order.
+// in-edges), in deterministic order, leaving out edges whose source is not a
+// declared node (see Neighbors).
 func (g *Graph[K, C, N, E]) Predecessors(id K) []K {
-	return dedupIDs(g.InEdges(id), func(e functions.Edge[K, C, E]) K { return e.From })
+	return dedupIDs(g.InEdges(id), func(e functions.Edge[K, C, E]) K { return e.From }, g.HasNode)
 }
 
-// dedupIDs projects an endpoint out of each edge and removes duplicates,
-// preserving the (already sorted) edge order.
-func dedupIDs[K comparable, C comparable, E any](edges []functions.Edge[K, C, E], pick func(functions.Edge[K, C, E]) K) []K {
+// dedupIDs projects an endpoint out of each edge, drops endpoints that are not
+// declared nodes (see Neighbors) and removes duplicates, preserving the (already
+// sorted) edge order.
+func dedupIDs[K comparable, C comparable, E any](edges []functions.Edge[K, C, E], pick func(functions.Edge[K, C, E]) K, declared func(K) bool) []K {
 	seen := make(map[K]struct{}, len(edges))
 	var out []K
 	for _, e := range edges {
 		k := pick(e)
+		if !declared(k) {
+			continue
+		}
 		if _, ok := seen[k]; ok {
 			continue
 		}
