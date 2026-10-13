@@ -596,6 +596,44 @@ that `0.1 + 0.2 == 0.3` fails for `Float`; round-trips `to_ratio (to_float r)` f
 - **D13:** `%` stays modulo; the `%` fraction operator is the recorded alternative.
 - **Size:** about a day of work inside W3, after the logical-`Int` demotion rule exists (the `Ratio` demotion reuses it).
 
+### 6.2 Track A closure notes (W3 implemented on branch `hardening/w3`, 2026-10-13)
+
+One commit per sub-step, every gate green after each (`gofmt` on touched files, `go vet`, `go test ./...`, `./run_dsl_tests.sh`,
+`go test -race ./pkg/... ./evaluator ./parser ./interactive ./cmd/gatwd-k8s-operator`, script regression diff against a baseline built at the
+branch point, `--check` silent over every `*.gatwd`). The regression diff differs from the baseline only in `examples/tour/18_big_math.gatwd`
+(the F11 `+` is gone) plus five tour scripts that are nondeterministic on the baseline itself (dates, map order).
+
+| Step | What it did | Commit |
+| :-- | :-- | :-- |
+| 1 | unary minus, `**`; the F2 rows `- 5` and `2 ** 3` flipped; `|> ** n`, `math_pow` | `7f7603b` |
+| 2 | the logical `Int` (canonical, demotes), the lattice `Int < Float < Complex`, exact comparison, zero-division errors, `pow sqrt isqrt floor ceil trunc round round_even sign abs negate gcd lcm divmod quot rem to_int to_float is_nan is_inf`, F11 | `a348057` |
+| 3 | strings are not numbers (`"5" == 5` is `false`; `ToFloat64`/`ToBigInt`/`ToComplex128`/`toInt64`/`toUint64` no longer parse text) | `c8eaf0c` |
+| 4 | `Num` `Integral` `Fractional` `Comparable` `Appendable` in the checker | `6c4acb9` |
+| 5 | `Ratio` (D11–D13) | `be3633a` |
+| 6 | prefix `!` | `39d68e5` |
+| 7 | the operator x type-pair matrix test (it found: a big integer next to a `Complex` failed) | `99b6d18` |
+
+**Behaviour changes (breaking, all intended; none changed a committed script's output).**
+- `//` now **floors** and `%` takes the **sign of the divisor** (`-7 // 2 == -4`, `-7 % 3 == 2`); it truncated before. `quot`/`rem` are the truncated forms. The plan said "floor division" and defined the `Ratio` remainder as `a - b*(a//b)`, so the Int rule follows it.
+- A `-` directly before an operand after a space (`f -3`) is a negative **argument**; `n -1` with `n` a number is an application error with a hint. `5 -3` (a literal cannot be applied) and `a - 3`, `a-3` are unchanged. In a plain list `[3 -1]` is two elements (a printed list of negatives now reads back; it used to read as `[2]`).
+- `==`/`<` between an `Int` and a `Float` are **exact** (they compared as doubles; they differ only beyond 2^53). A `NaN` is unordered. Comparing a `String` with a number in `Compare` (`min "5" 3`) is an error naming `str_to_int`.
+- Integer results are canonical: unsigned operands take part as ordinary integers (a `uint64` operation no longer answers with a `uint64`).
+- Big integers print without a leading `+` (F11).
+
+**Deviations from the text above (each a call made while implementing; veto any).**
+- **`Ratio` is `*functions.Ratio`, a defined type over `big.Rat`, not a bare `*big.Rat`.** A bare `*big.Rat` prints `3/4` (it has only `String()`), which does not lex back and is what lists print their elements with; the named type prints `3r4`. Structural tests assert `*functions.Ratio`.
+- **`Int ** negative Int` is a `Float`** (`2 ** -1 == 0.5`), like `/` on integers that do not divide; a `Ratio` base with a negative exponent is exact. The plan only described the `Ratio` case.
+- **`//` and `%` are defined for `Float` too** (`//` gives the `Int` floor of the quotient, `%` a `Float`); `Complex` is an error (no floor on a plane).
+- **`Integral` and `Fractional` are consistent with every *numeric* type** in the checker (the tower converts at runtime), so they contradict only non-numbers and each other; the plan's `Integral ≡ Int` would otherwise warn on every `Float` argument. `Appendable` is `String, Bytes, List, Chunk, Set, HAMT, Tree, Graph, Pair, Maybe` (the plan said `String ∪ List`; `++` is defined on all of them), `Comparable` is everything but `Complex` and functions.
+- **The `%v` fallback of `StructuralEqual` is kept for String-versus-*collection*** (`"[2 1]" == [2, 1]` is `true`): HAMT keys are Strings, and the pure-DSL Game of Life (`examples/game_of_life_pure_dsl`, `TestStructuralPipelines/Pure_DSL_Conway_Step`) compares keys that went through `frequencies |> hamt_pairs` with coordinate pairs. The real fix is HAMT keys that carry values (a Layer-1 change). A `String` never equals a number, `Bool` or `Char` (the D1 one-character rule is explicit).
+- `to_ratio 1e-3` in §6.1 cannot be written: the lexer has no exponent literals. `to_ratio 0.001` is `1r1000`. `str_to_ratio "1.5e-3"` does parse exponents (bounded at ±1000).
+- The `--check` advisory for an `Int` beyond 2^53 mixed with a `Float` (§6 item 2) judges **literals** only (the checker does not track values), so "a known `Int` that large" is deferred.
+- A fraction below the smallest double converts to `0.0` in `to_float` (documented in §6.1); beyond the range it is an error.
+
+**Deferred, with reasons.** `quot`/`rem`/`divmod` are in; `Duration / Duration` (§5.6) is not started (needs Q2). `ratio_cf`, `ratio_from_cf`, `ratio_mediant` are in (the "smart extras", not time-boxed out). JSON has no form for a `Ratio` (`json_encode 1r2` is an error naming it; use `to_float` or `show`). A negative index in `str_slice` is an error (not "from the end"); no decision exists for that. `Float` literals with exponents (`1e-3`) are not in the lexer.
+
+**Open questions for the user.** (1) Keep the String-versus-collection equality boundary, or schedule the HAMT-keys-carry-values change so the fallback can go? (2) Is `Int ** negative Int` as a `Float` right, or should it be an exact `Ratio` (`2 ** -3 == 1r8`)? It is one function (`intPow`). (3) `n -1` as an application error (Elm's rule): keep, or require `f (-1)` and leave `n -1` a subtraction?
+
 ---
 
 ## 7. W4 — Node identity (D6, decided)
@@ -719,6 +757,8 @@ the how-to, and the script regression diff. Collect here as phases land; **each 
 | **W6 operator: `--long` flags, layered rules (D5), exit codes, lazy client** | §2.2 (override rules now *layer*; `replace` is a mode), §3.2 flag table, §3.4 deploy manifests (args, exit codes), §4 (drop the "replace, not layer" and "exit 0 always" limitations) | `cmd/gatwd-k8s/main.go` (lazy client: `version`/`completion` must not print the "no cluster access" notice), `cmd/gatwd-k8s-operator/main.go`, `pkg/cli/appliance.go` reload semantics, the operator's embedded default rules |
 | **W7 policy (D8), `context`, structured diagnostics** | a security section: which scripts may run OS commands; how a ConfigMap-sourced override is sandboxed | the Appliance's default policy for overrides; diagnostics instead of free-text `[ERROR]` in the operator output |
 | **Anything that renames or removes a builtin** (`compare` now returns `Ordering`, `-D` typing, …) | grep the how-to and `examples/k8s_howto/` for the old behaviour | grep `lib/k8s/*.gatwd`, the operator rules and `testdata` |
+| **W3 numeric display and operators** (done, §6.2): `//`/`%` floor, `==` exact and String-never-a-number, big integers print without `+`, `-x`/`!x`/`**`, `Ratio` | re-run every how-to sample that prints numbers or negative values; `n -1` in a sample is now an application error (write `n - 1`); mention `Ratio` for resource quantities (`500m` is `1r2`) | grep `lib/k8s/*.gatwd`, the operator rules and `testdata` for `//`, `%`, a negative literal after an identifier (`x -1`), `== "<number text>"` and numeric strings given to `nth`/`range`/`min`/`max`/`compare`; the scan done in W3 found none in the committed scripts |
+| **`compare` and ordering of mixed values** (W3): `compare`, `min`, `max`, `<` on a String and a number are errors; two Strings order as text | anything that sorts or compares labels/ports as text vs numbers: convert with `str_to_int` first | rules that compare a label or annotation value with a number |
 
 | Risk | Mitigation |
 | :-- | :-- |

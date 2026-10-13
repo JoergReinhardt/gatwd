@@ -229,7 +229,9 @@ The project's own relations and rules are the style reference
 | `map (\g -> …)` changes payloads | `map` on a graph element is the graph Functor | **Whole-graph passes use `fold (\_ g -> …) seed`** |
 | A `def` mis-evaluates its arguments | a `def` whose body is a *pipeline* is a re-parsed text macro | **Value functions are lambda-bodied (`def f = \x y -> …`); pipeline fragments are zero-parameter defs** |
 | `assert` reports "empty stream" | `assert` now fails when no node arrives (D9) | **Fix the pipeline that produced nothing; do not weaken the assert** |
-| `-x` fails to parse | unary minus applies to numeric literals only | **Write `0 - x`** |
+| `n -1` is "cannot apply non-function value" | since W3 `-` is unary minus, and `f -3` (space before, none after) is a negative *argument* | **Write a subtraction with spaces: `n - 1`** (`-x`, `- 5`, `abs -3` all parse now) |
+| `-7 // 2` / `-7 % 3` differ from Go | `//` floors and `%` takes the sign of the divisor (W3); `quot`/`rem` are the truncated forms | **Use `quot`/`rem` for Go's `/` and `%`; `a == b*(a//b) + a%b` always holds** |
+| `"5" == 5` is `false`, `nth "1" xs` errors | strings are not numbers (D2 finished in W3) | **Parse with `str_to_int`/`str_to_float` (`Maybe`)**; a String still equals a *collection's* printed form (HAMT keys) |
 | A partial application is run as a step | a step whose text evaluates to a *function* is not an expression value | **The infix-step detector ignores callables; keep it that way** |
 | `to_set` set ≠ function-form set | the step builds `Set[string]`, function forms normalise to `Set[any]` | **Compare via `member`/`length`, not `==`, across the two forms** |
 | Test helper wrote nonsense | `echo '…\x…'` interprets escapes in zsh | **Write scratch scripts with `cat > f <<'EOF'`** |
