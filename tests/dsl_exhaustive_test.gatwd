@@ -256,3 +256,35 @@ spawn IntVal: 0 |> emit 2, 3, 4 |> drop 1 |> fold (\acc x -> acc * x) 1 |> asser
 -- 64. Bimap (Bifunctor map) over a 2-element pair: left via e1, right via e2
 let bp = [3, 4] in bp |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
 
+
+-- 65. Graph collection: Graph(T) grammar + construction/projection builtins
+type K8sGraph = Graph(String)
+-- order (|V|) and size (|E|)
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_add_node Service web |> graph_add_edge Selects 1 web nginx |> graph_order |> assert 2
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_add_node Service web |> graph_add_edge Selects 1 web nginx |> graph_size |> assert 1
+-- node & edge projection (deterministic order; edges as from-Color->to)
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_nodes |> collect_list |> assert [a b c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_edges |> head |> assert a-Owns->b
+-- adjacency: out / in / neighbors
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_out a |> head |> assert b
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_in b |> head |> assert a
+-- nodes_of / edges_of by color
+spawn S: x |> graph_empty |> graph_add_node Pod p |> graph_add_node Service s |> graph_nodes_of Pod |> head |> assert p
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_add_edge Mounts 1 a b |> graph_edges_of Mounts |> head |> assert a-Mounts->b
+
+-- 66. Graph fan-out grouping + inferred edges (§6 #8/#9)
+spawn S: x |> graph_empty |> graph_add_node N svc |> graph_add_node N p1 |> graph_add_node N p2 |> graph_add_fanout Selects 1 svc p1 p2 |> graph_edges_of_group Selects:svc |> collect_list |> assert [svc-Selects->p1 svc-Selects->p2]
+spawn S: x |> graph_empty |> graph_add_node N cm |> graph_add_node N svc |> graph_add_edge_inferred Consumes 0 cm svc |> graph_edges_inferred |> head |> assert cm-Consumes->svc
+spawn S: x |> graph_empty |> graph_add_node N d |> graph_add_node N r1 |> graph_add_node N r2 |> graph_add_fanin Owns 1 d r1 r2 |> graph_edges_of_group Owns:d |> collect_list |> assert [r1-Owns->d r2-Owns->d]
+
+-- 67. Graph walks & algorithms: reachable, BFS/DFS, shortest path, topo sort, SCC
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_reachable a |> collect_list |> assert [a b c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 a c |> graph_bfs a |> head |> assert a
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 2 b c |> graph_add_edge E 5 a c |> graph_shortest_path a c |> collect_list |> assert [a b c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_topo_sort |> collect_list |> assert [a b c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge E 1 a b |> graph_add_edge E 1 b a |> graph_scc |> head |> assert a,b
+
+-- 68. Graph mutation: remove_node / remove_edge, and walk_from strategy
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_remove_node b |> graph_nodes |> collect_list |> assert [a c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_remove_edge Owns a b |> graph_size |> assert 0
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge E 1 a b |> graph_walk_from a bfs |> collect_list |> assert [a b]

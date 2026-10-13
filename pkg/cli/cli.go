@@ -1155,6 +1155,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepHAMTPairs())
 		} else if stepStr == "frequencies" {
 			pipeline = append(pipeline, evaluator.StepFrequencies())
+		} else if step, ok := buildGraphStep(stepStr); ok {
+			pipeline = append(pipeline, step)
 		} else if strings.HasPrefix(stepStr, "chunk ") {
 			sizeStr := strings.TrimSpace(stepStr[6:])
 			if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
@@ -2800,4 +2802,136 @@ func RunWithInterpreter(interpreter *Interpreter) {
 // Run executes the default CLI using the full NewInterpreter() with all builtins.
 func Run() {
 	RunWithInterpreter(NewInterpreter())
+}
+
+// buildGraphStep is the Layer-5 string dispatch for the generic Graph collection
+// builtins. It parses a `graph_*` pipeline token into its evaluator.StepGraph*
+// counterpart (evaluator/graph_steps.go), returning ok=false for any token it does
+// not recognise so the surrounding pipeline dispatch can keep trying other steps.
+//
+// The builtins mirror the collections.Graph API as a new DSL collection row:
+//
+//	Construction : graph_empty, graph_add_node, graph_add_edge,
+//	               graph_add_edge_inferred, graph_add_fanout, graph_add_fanin,
+//	               graph_remove_node, graph_remove_edge
+//	Projection   : graph_order, graph_size, graph_nodes, graph_edges,
+//	               graph_out, graph_in, graph_neighbors, graph_nodes_of,
+//	               graph_edges_of, graph_edges_of_group, graph_edges_inferred,
+//	               graph_reachable
+//	Walks/algos  : graph_bfs, graph_dfs, graph_walk_from, graph_shortest_path,
+//	               graph_topo_sort, graph_scc
+//
+// Arguments are whitespace-separated; node identities and colors are bare tokens.
+func buildGraphStep(stepStr string) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+	fields := strings.Fields(stepStr)
+	if len(fields) == 0 || !strings.HasPrefix(fields[0], "graph_") {
+		return nil, false
+	}
+	name, args := fields[0], fields[1:]
+	switch name {
+	// --- construction ---
+	case "graph_empty":
+		return evaluator.StepGraphEmpty(), true
+	case "graph_add_node":
+		if len(args) >= 2 {
+			return evaluator.StepGraphAddNode(args[0], args[1]), true
+		}
+	case "graph_add_edge":
+		if len(args) >= 4 {
+			return evaluator.StepGraphAddEdge(args[0], parseGraphWeight(args[1]), args[2], args[3]), true
+		}
+	case "graph_add_edge_inferred":
+		if len(args) >= 4 {
+			return evaluator.StepGraphAddInferredEdge(args[0], parseGraphWeight(args[1]), args[2], args[3]), true
+		}
+	case "graph_add_fanout":
+		if len(args) >= 3 {
+			return evaluator.StepGraphAddFanOut(args[0], parseGraphWeight(args[1]), args[2], args[3:]), true
+		}
+	case "graph_add_fanin":
+		if len(args) >= 3 {
+			return evaluator.StepGraphAddFanIn(args[0], parseGraphWeight(args[1]), args[2], args[3:]), true
+		}
+	case "graph_remove_node":
+		if len(args) >= 1 {
+			return evaluator.StepGraphRemoveNode(args[0]), true
+		}
+	case "graph_remove_edge":
+		if len(args) >= 3 {
+			return evaluator.StepGraphRemoveEdge(args[0], args[1], args[2]), true
+		}
+	// --- projection ---
+	case "graph_order":
+		return evaluator.StepGraphOrder(), true
+	case "graph_size":
+		return evaluator.StepGraphSize(), true
+	case "graph_nodes":
+		return evaluator.StepGraphNodes(), true
+	case "graph_edges":
+		return evaluator.StepGraphEdges(), true
+	case "graph_out":
+		if len(args) >= 1 {
+			return evaluator.StepGraphOut(args[0]), true
+		}
+	case "graph_in":
+		if len(args) >= 1 {
+			return evaluator.StepGraphIn(args[0]), true
+		}
+	case "graph_neighbors":
+		if len(args) >= 1 {
+			return evaluator.StepGraphNeighbors(args[0]), true
+		}
+	case "graph_nodes_of":
+		if len(args) >= 1 {
+			return evaluator.StepGraphNodesOf(args[0]), true
+		}
+	case "graph_edges_of":
+		if len(args) >= 1 {
+			return evaluator.StepGraphEdgesOf(args[0]), true
+		}
+	case "graph_edges_of_group":
+		if len(args) >= 1 {
+			return evaluator.StepGraphEdgesOfGroup(args[0]), true
+		}
+	case "graph_edges_inferred":
+		return evaluator.StepGraphEdgesInferred(), true
+	case "graph_reachable":
+		if len(args) >= 1 {
+			return evaluator.StepGraphReachable(args[0]), true
+		}
+	// --- walks & algorithms ---
+	case "graph_bfs":
+		if len(args) >= 1 {
+			return evaluator.StepGraphBFS(args[0]), true
+		}
+	case "graph_dfs":
+		if len(args) >= 1 {
+			return evaluator.StepGraphDFS(args[0]), true
+		}
+	case "graph_walk_from":
+		if len(args) >= 2 {
+			return evaluator.StepGraphWalkFrom(args[0], args[1]), true
+		}
+	case "graph_shortest_path":
+		if len(args) >= 2 {
+			return evaluator.StepGraphShortestPath(args[0], args[1]), true
+		}
+	case "graph_topo_sort":
+		return evaluator.StepGraphTopoSort(), true
+	case "graph_scc":
+		return evaluator.StepGraphSCC(), true
+	}
+	return nil, false
+}
+
+// parseGraphWeight interprets a DSL weight token as int, then float64, then string,
+// matching the evaluator's own parseWeight so graph_add_* and ShortestPath agree.
+func parseGraphWeight(tok string) any {
+	if i, err := strconv.Atoi(tok); err == nil {
+		return i
+	}
+	if f, err := strconv.ParseFloat(tok, 64); err == nil {
+		return f
+	}
+	return tok
 }

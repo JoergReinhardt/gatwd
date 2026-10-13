@@ -18,7 +18,7 @@ NativeType     ::= Identifier (* Maps to Go Primitives registered via Interprete
 SumType        ::= Identifier { "|" Identifier }
 RecordType     ::= "{" FieldDef { "," FieldDef } "}"
 TupleType      ::= "(" Identifier { "," Identifier } ")"
-CollectionType ::= ( "Set(" | "List(" | "Tree(" | "BST(" | "BTree(" | "RBTree(" ) Identifier ")"
+CollectionType ::= ( "Set(" | "List(" | "Graph(" | "Tree(" | "BST(" | "BTree(" | "RBTree(" ) Identifier ")"
 FieldDef       ::= Identifier ":" Identifier
 
 (* Pipelines (Graph Traversal & Evaluation) *)

@@ -530,13 +530,46 @@ over the cycle-safe walk, fuses Map/Filter). Structural Go tests + `Example*` wi
 *Deferred to Phase 4:* DSL builtins (`graph_fold_walk`/`graph_shortest_path`/
 `graph_topo_sort`/`graph_scc`/`graph_focus`/`graph_over`/…) + exhaustive asserts.
 
-**Phase 3 — evaluator steps (CORE L3).** `evaluator/graph_steps.go` + tests
-asserting yielded memory types, not strings.
+**Phase 3 — evaluator steps (CORE L3). ✅ DONE (2026-10-13).** Landed together with
+Phase 4 wiring as `evaluator/graph_steps.go`: the DSL pins the generic
+`Graph[K,C,N,E]` to `dslGraph = *collections.Graph[string,string,any,any]` (string
+id/color, `any` payload/weight — `ShortestPath` reads weight via `ToFloat64`). Two
+reusable step shapes — `graphMap` (graph→graph, Left/non-graph pass-through) and
+`graphUnfold` (graph→stream of derived values) — back every `StepGraph*`. Godoc +
+testable `Example*` (`graph_steps_example_test.go`: `ExampleStepGraphNodes`,
+`ExampleStepGraphShortestPath`, both with `// Output:`).
 
-**Phase 4 — grammar + DSL builtins (CORE L5).** `Graph(` in parser; graph builtins
-in `pkg/cli`; exhaustive `assert` cases. `doc.go` + godoc + `Example*`.
-(Prelude support is **Phase P1**, done independently.) *Gate:* whole graph usable
-from pure DSL; core still has zero K8s.
+**Phase 4 — grammar + DSL builtins (CORE L5). ✅ DONE (2026-10-13).** `Graph(` added
+to `CollectionType` in `parser/parser.go` (so `type K8sGraph = Graph(String)`
+parses) and `docs/grammar.md`. `pkg/cli/cli.go` gains `buildGraphStep(stepStr)`, a
+`graph_*` dispatcher wired into the pipeline-step chain, exposing **26 builtins**:
+- *construction:* `graph_empty`, `graph_add_node`, `graph_add_edge`,
+  `graph_add_edge_inferred`, `graph_add_fanout`, `graph_add_fanin`,
+  `graph_remove_node`, `graph_remove_edge`
+- *projection:* `graph_order`, `graph_size`, `graph_nodes`, `graph_edges`,
+  `graph_out`, `graph_in`, `graph_neighbors`, `graph_nodes_of`, `graph_edges_of`,
+  `graph_edges_of_group`, `graph_edges_inferred`, `graph_reachable`
+- *walks/algos:* `graph_bfs`, `graph_dfs`, `graph_walk_from`,
+  `graph_shortest_path`, `graph_topo_sort`, `graph_scc`
+
+Exhaustive self-asserting cases in `tests/dsl_exhaustive_test.gatwd` §§65–68 (edges
+project as `from-Color->to`; all green via `./run_dsl_tests.sh`). (Prelude support is
+**Phase P1**, done independently.) *Gate met:* a graph is constructible, walkable,
+and queryable from pure DSL; core still has zero K8s.
+
+> **Deferred to Phase 4b (DSL higher-order / binary-operand cells).** The Go-level
+> Functor/Foldable/Filterable/Monoid/optics methods on `Graph` all exist (Phase 1–2)
+> but are **not yet** surfaced as DSL builtins, because each needs a wiring the
+> construction/projection steps don't: `graph_map_nodes`/`graph_map_edges`/
+> `graph_bimap`, `graph_fold_nodes`/`graph_fold_edges`/`graph_fold_walk`, and
+> `graph_filter_nodes`/`graph_filter_edges` need a **lambda argument** threaded into
+> a graph-typed step (the existing `map`/`filter`/`fold` DSL steps take lambdas but
+> operate on the generic stream, not a graph value); `graph_union`/`graph_diff`/
+> `graph_intersect` need a **second graph operand** in one pipeline (the `++`→`Union`
+> operator is already wired at the `functions.EvalBinaryOp` level, but the DSL has no
+> graph-valued binary-operand syntax yet); `graph_focus`/`graph_over`/`graph_set`
+> need the optic-rewrite surface. Tracked explicitly so the matrix gap is recorded,
+> not silent (Mandate 2).
 
 **Phase 5 — generic K8s I/O (L4).** Depends on **P2** (structured adapter). Add
 `kustomize_adapter.go` yielding the same nested-HAMT payloads as P2 (offline
@@ -683,7 +716,9 @@ def rel_calls = \pod -> \services ->
 - [ ] Core contains no `kubernetes`/`k8s` identifier (Mandate 5).
 - [x] Graph fills `map/fold/filter/++/==` as a new collection row at the Go
       level (Mandate 2) — Phase 1. ✅ (DSL builtins for the row land in Phase 4.)
-- [ ] Every graph op → DSL builtin + `tests/dsl_exhaustive_test.gatwd` assert (M3).
+- [x] Graph construction/projection/walk ops → DSL builtins + `tests/dsl_exhaustive_test.gatwd`
+      asserts §§65–68 (M3) — Phases 3–4. ✅ (Functor/Fold/Filter/Monoid/optics cells
+      deferred to Phase 4b, recorded above — not silent.)
 - [ ] K8s relations are pure DSL; no Go loops faking a graph (M1/8).
 - [ ] Third-party K8s deps only in `adapters/` + `pkg/plugins` (M5).
 - [ ] Edition `main.go` is assembly-only; registered pieces come from
