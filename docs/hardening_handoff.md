@@ -3,19 +3,15 @@
 > Handoff for a **fresh context**. It **supersedes the earlier version of this file** (the "tracks E–G in flight" brief) and
 > nothing else; the k8s-graph handoffs `phase6/7/8_handoff.md` are historical and carry banners.
 >
-> **First, do §0** (put the open questions to the user). **Then read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
+> **First read §0** (nothing is open; pick from the queued items only if the user asks). **Then read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
 > (§0 progress table, §1 decisions, the closure sections §5.6/§6.2/§6.3/§7.1/§8.1/§9, §10.1 closing table) → `docs/development_playbook.md` (§3 gates and the
 > regression check, §4 step vs function form, §6 DSL traps) → this file.
 
 ---
 
-## 0. START HERE — put the open questions to the user first
+## 0. START HERE — nothing is open
 
-All were raised by the tracks and the closing checklist (2026-10-13); none blocks anything. Present each with its default so the user can answer in one line, record the answers
-(with the date) in `docs/hardening_plan.md` §1 and in §2 here. If the user says "defaults", use the recommended column and say so in the plan.
-
-**The Q1–Q11 of the previous handoff were answered on 2026-10-13** (plan §1, "Answered after the closing checklist") and implemented (incl. cluster apply/rollout, signals, bounded loading, quoted const, BST values): pushed; typed time tokens; value-typed sets; operator `--timeout`/`--max-output`;
-`Duration` stays literal text in JSON/YAML; override imports stay behind `--allow-fs`; no `env` builtin yet; age rules stay an example override; Secret `data` is documented, not redacted. **Open now:**
+Every question raised by the tracks and the closing checklist was answered on 2026-10-13 and implemented (plan §1: "Answered at the start of the parallel run", "…after the parallel run", "…after the closing checklist", "…after tracks L–N", and the W7 design points).
 
 **All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
@@ -35,7 +31,7 @@ exponent float literals (`1e-3`); the `--check` advisory beyond literals.
 
 ## 2. Decisions — all answered (2026-10-13)
 
-Two rounds of answers are in `docs/hardening_plan.md` §1 (D1–D18, "Answered at the start of the parallel run", "Answered after the parallel run", the W7 design points). **§0 above is new and open.**
+The rounds of answers are in `docs/hardening_plan.md` §1 (D1–D18, "Answered at the start of the parallel run", "Answered after the parallel run", the W7 design points). Nothing is open.
 
 ## 3. Working mode
 
@@ -115,7 +111,7 @@ D2 will change the output of any script that concatenated with `+` (none found);
 
 ## 8. First steps
 
-0. **Put the §0 questions to the user and wait** (they block nothing; "defaults" lets work start at once).
+0. Nothing is open (§0); wait for the user's next request.
 1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start. Handle Q1 (push) as answered.
 2. Pick the follow-ups the answers enable; independent ones run as parallel tracks (§3). Pinning tests first, then generic Go in `functions/`/`collections/`, then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line;
    **a statement ending in `=` continues on the next line — do not end an `assert` argument with `=`**), then docs. One commit per sub-step, all gates after each.
