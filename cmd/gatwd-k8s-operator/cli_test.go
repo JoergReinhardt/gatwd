@@ -162,3 +162,101 @@ func TestOperatorRunLoop(t *testing.T) {
 		}
 	}
 }
+
+// TestOperatorOverridePolicy drives the real binary through the execution policy (W7): an
+// override is a script that did not come from the command line, so it may only compute. An
+// OS command in it is an error unless the process is started with --allow-exec, and nothing
+// inside the file can grant itself the capability.
+func TestOperatorOverridePolicy(t *testing.T) {
+	bin := buildOperator(t)
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	// a rule set whose entry point runs a program
+	execRule := write("exec.gatwd", "def compliance = echo hello-from-override\n")
+	// the same, after trying every spelling of "I may run programs"
+	widening := write("widen.gatwd", "const AllowExec = true\nconst Policy = TrustedPolicy\ndef allow_exec = true\ndef compliance = echo hello-from-override\n")
+	// a top-level statement: it would run while the override loads
+	atLoad := write("atload.gatwd", "spawn StrVal: x |> echo ran-at-load\n")
+	pure := write("pure.gatwd", "def probe = \\_ g -> rule_idle_deployment g\ndef compliance = k8s_graph |> fold probe 0\n")
+
+	const denied = "[ERROR] step 'echo' requires the exec capability (policy denies it)"
+	rows := []struct {
+		name      string
+		args      []string
+		code      int
+		stdoutHas []string
+		stdoutNot []string
+		stderrHas []string
+	}{
+		{"an override that runs a program is denied by default",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", execRule}, 1,
+			[]string{denied}, []string{"hello-from-override"}, nil},
+		{"--allow-exec grants it",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", execRule, "--allow-exec"}, 0,
+			[]string{"hello-from-override"}, []string{"[ERROR]"}, nil},
+		{"the other --allow flags do not grant exec",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", execRule, "--allow-fs", "--allow-net", "--allow-env"}, 1,
+			[]string{denied}, []string{"hello-from-override"}, nil},
+		{"an override cannot widen the policy from inside the file",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", widening}, 1,
+			[]string{denied}, []string{"hello-from-override"}, nil},
+		{"replace mode is no way around it",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", execRule, "--rules-mode", "replace"}, 1,
+			[]string{denied}, []string{"hello-from-override"}, nil},
+		{"a top-level statement stops the start",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", atLoad}, 1,
+			nil, []string{"ran-at-load"}, []string{atLoad, "step 'echo' requires the exec capability (policy denies it)"}},
+		{"a top-level statement runs once the process allows it",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", atLoad, "--allow-exec"}, 0,
+			[]string{"UnselectedPod"}, []string{"[ERROR]", "ran-at-load"}, nil},
+		{"a pure override needs no capability and is unaffected",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", pure}, 0,
+			[]string{"[[IdleDeployment Deployment/default/lonely]]"}, []string{"[ERROR]"}, nil},
+		{"the embedded rules over the offline source need no capability",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", filepath.Join(dir, "absent.gatwd")}, 0,
+			[]string{idleWant[:len(idleWant)-1]}, []string{"[ERROR]"}, nil},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			code, stdout, stderr := operator(t, bin, r.args...)
+			if code != r.code {
+				t.Fatalf("exit %d, want %d\nstdout: %s\nstderr: %s", code, r.code, stdout, stderr)
+			}
+			for _, want := range r.stdoutHas {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("stdout lacks %q:\n%s", want, stdout)
+				}
+			}
+			for _, bad := range r.stdoutNot {
+				if strings.Contains(stdout, bad) {
+					t.Errorf("stdout must not contain %q:\n%s", bad, stdout)
+				}
+			}
+			for _, want := range r.stderrHas {
+				if !strings.Contains(stderr, want) {
+					t.Errorf("stderr lacks %q:\n%s", want, stderr)
+				}
+			}
+		})
+	}
+}
+
+// TestOperatorHelpListsThePolicyFlags keeps the flags discoverable: each is off by default.
+func TestOperatorHelpListsThePolicyFlags(t *testing.T) {
+	bin := buildOperator(t)
+	code, stdout, stderr := operator(t, bin, "check", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	for _, f := range []string{"--allow-exec", "--allow-fs", "--allow-net", "--allow-env"} {
+		if !strings.Contains(stdout, f) || !strings.Contains(stdout, "denied by default") {
+			t.Errorf("--help does not describe %s:\n%s", f, stdout)
+		}
+	}
+}

@@ -59,28 +59,29 @@ func embeddedRules() (string, error) {
 // builds it here, once, and its failure is "no source" — a malformed invocation (exit 2).
 func setup(s cli.ApplianceSettings, manifests, namespace string) (*cli.Appliance, string, error) {
 	if manifests != "" {
-		app, err := newAppliance(nil, s.Rules, s.Mode)
+		app, err := newAppliance(nil, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
 		return app, checkPipeline(manifests), err
 	}
 	client, err := k8sgraph.DynamicClientFromKubeconfig()
 	if err != nil {
 		return nil, "", cli.UsageError(fmt.Errorf("no --manifests given and no cluster reachable (%v)", err))
 	}
-	app, err := newAppliance(client, s.Rules, s.Mode)
+	app, err := newAppliance(client, s.Rules, s.Mode, cli.WithPolicy(s.Policy))
 	return app, livePipeline(namespace), err
 }
 
 // newAppliance assembles the operator: the k8s edition, the embedded rules, and the override
 // (a mounted ConfigMap) combined with them according to mode. `compliance` is the entry point
-// every rule set must define.
-func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode) (*cli.Appliance, error) {
-	return cli.NewAppliance(
+// every rule set must define. extra carries the execution policy (--allow-*); without it the
+// rules, the override above all, may only compute.
+func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode, extra ...cli.ApplianceOption) (*cli.Appliance, error) {
+	return cli.NewAppliance(append([]cli.ApplianceOption{
 		cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client)),
 		cli.WithEmbeddedFS(rulesFS, rulesPath),
 		cli.WithConfigMapOverride(override),
 		cli.WithOverrideMode(mode),
 		cli.WithRequiredDefs("compliance"),
-	)
+	}, extra...)...)
 }
 
 // checkPipeline runs the compliance rules over offline manifests.
