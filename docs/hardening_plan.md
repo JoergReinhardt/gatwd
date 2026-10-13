@@ -143,6 +143,16 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **Secret `data` redaction** | **Document, do not redact** ("kubeconfig/RBAC on the user side will restrict it when necessary"). | how-to §2.4 Security. |
 | **Third message element in rule results** | Deferred. | |
 
+**Answered after tracks L–N (2026-10-13; the user: "yes" to all recommendations):**
+
+| ID | Decision | Notes |
+| :-- | :-- | :-- |
+| **Push** | Pushed (`10fc9ae..e561520`). | |
+| **`--out` without `cluster-apply`** | Leave as is (fs capability only; writes in dry-run too). | |
+| **Operator: offline manifests to a live client** | Stays a loud error until asked for. | |
+| **BST `==` / `map`** | **`==` compares in-order content** (shape-independent; a BST is not a List) — done, DSL section 119, `pkg/cli/bst_equality_test.go`; **`map` over a BST stays an error.** | `functions.StructuralEqual` via `IsBST`/`BSTElements`. |
+| **Separate load/check budgets** | No: one `--timeout`. | |
+
 ---
 
 ## 2. Findings

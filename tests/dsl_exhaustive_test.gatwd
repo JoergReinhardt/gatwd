@@ -1482,3 +1482,14 @@ to_list b118 |> assert [9 10]
 [10, 9, 11] |> map (\n -> bst_member n b118) |> assert [true true false]
 [b118] |> map (\t -> fold (\a x -> a + x) 0 t) |> assert [19]
 length (bst_insert 100 b118) |> assert 3
+
+-- 119. BST equality is content, not shape (hardening, user decision 2026-10-13): two search trees holding
+-- the same values in order are equal whatever insertion order shaped them; different content or a
+-- different carrier (a List of the same values) is not equal. map over a BST stays an error.
+(bst_from [2, 1, 3]) == (bst_from [3, 1, 2]) |> assert true
+(bst_from [1, 2, 3]) == (bst_from [3, 2, 1]) |> assert true
+(bst_from [1, 2, 3]) == (bst_from [1, 2, 4]) |> assert false
+(bst_from [1, 2, 3]) == (bst_from [1, 2]) |> assert false
+(bst_from [1, 2, 3]) == [1, 2, 3] |> assert false
+[[2, 1, 3], [3, 2, 1], [1, 3, 2]] |> map (\xs -> (bst_from xs) == (bst_from [1, 2, 3])) |> assert [true true true]
+[[1, 2], [1, 3]] |> map (\xs -> (bst_from xs) == (bst_from [1, 2])) |> assert [true false]

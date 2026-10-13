@@ -17,18 +17,11 @@ All were raised by the tracks and the closing checklist (2026-10-13); none block
 **The Q1–Q11 of the previous handoff were answered on 2026-10-13** (plan §1, "Answered after the closing checklist") and implemented (incl. cluster apply/rollout, signals, bounded loading, quoted const, BST values): pushed; typed time tokens; value-typed sets; operator `--timeout`/`--max-output`;
 `Duration` stays literal text in JSON/YAML; override imports stay behind `--allow-fs`; no `env` builtin yet; age rules stay an example override; Secret `data` is documented, not redacted. **Open now:**
 
-| # | Open question | Recommended default |
-| :-- | :-- | :-- |
-| Q1 | Push the commits since `10fc9ae` (resource-limits note, Tracks N, L, M and their merges)? | push |
-| Q2 | `--out` (offline apply twin): should it work without `cluster-apply`? Today it needs only the fs capability and writes even in dry-run. | leave |
-| Q3 | Should the operator apply from offline manifests to a live client? A loud error today. | keep until asked |
-| Q4 | BST `==`: compare in-order content instead of tree shape? `map` over a BST stays an error? | yes / yes |
-| Q5 | Separate budgets for rule loading and checks (today one `--timeout`)? | no |
-| Q6 | Queued small items: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling. | queue only when needed |
+**All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
 ## 1. Where we are
 
-**State (2026-10-13):** `master` contains everything; the remote is at `10fc9ae`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
+**State (2026-10-13):** `master` contains everything; the remote is at `e561520`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
 Stage by name; commit and push only when asked.
 
 **Done and merged** (plan §0 has a row each): W0, W1a/b, W2 (+ YAML, `go.yaml.in/yaml/v3` on the Clean Core allowlist for `pkg/cli`), W3 (numeric tower, `Ratio`, prefix `!`), W4 (qualified ids), W5 (kustomize, Go 1.27),

@@ -1157,6 +1157,27 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
+	// Binary search trees: equal when they hold the same values in order, whatever shape the
+	// insertion order gave them.
+	type bstChecker interface {
+		IsBST() bool
+		BSTElements() []any
+	}
+	if ta, okA := a.(bstChecker); okA {
+		if tb, okB := b.(bstChecker); okB {
+			ea, eb := ta.BSTElements(), tb.BSTElements()
+			if len(ea) != len(eb) {
+				return false
+			}
+			for i := range ea {
+				if !StructuralEqual(ea[i], eb[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+
 	// Sets (order-independent mathematical equality)
 	type setChecker interface {
 		IsSet() bool

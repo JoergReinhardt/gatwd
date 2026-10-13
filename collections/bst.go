@@ -86,3 +86,18 @@ func (b *BST[T]) walk(yield func(T) bool) bool {
 	}
 	return b.left.walk(yield) && yield(b.value) && b.right.walk(yield)
 }
+
+// IsBST marks a BST for structural equality in package functions, which sits below
+// collections and so cannot name the type.
+func (b *BST[T]) IsBST() bool { return true }
+
+// BSTElements returns the values in ascending order as a slice of any: the sequence that
+// equality compares, so two search trees holding the same values are equal whatever
+// insertion order gave them their shape.
+func (b *BST[T]) BSTElements() []any {
+	var out []any
+	for v := range b.Seq() {
+		out = append(out, v)
+	}
+	return out
+}
