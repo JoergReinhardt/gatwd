@@ -105,8 +105,9 @@ a rebuild.
   `[ERROR] …` naming the cause (`fold: undefined identifier: …`, `map: element 2: …`). If a rule
   unexpectedly yields `[]`, the source list or a guard is empty, not a swallowed error.
 - Inside a plain list literal, parenthesise calls: `[(f x), (g y)]`, not `[f x, g y]`.
-- A comprehension needs a generator: `[ e | guard ]` alone yields `[]` even when the guard holds. Bind the value first
-  (`[ e | q <- [r], guard ]`, as `k8s_scope` does).
+- A comprehension needs a generator: `[ e | guard ]` with no `x <- xs` is an `[ERROR] … no generator` (and
+  `gatwd --check` reports it). To yield a value once when a guard holds, bind it first
+  (`[ e | q <- [r], guard q ]`, as `k8s_scope` does) or use a dummy generator, `[ e | _ <- [0], guard ]`.
 
 More traps and their causes: [`development_playbook.md`](development_playbook.md) §6.
 

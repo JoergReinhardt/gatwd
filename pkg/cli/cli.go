@@ -1995,6 +1995,11 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	if line == "" {
 		return nil
 	}
+	// A comprehension with a guard but no generator is an error wherever it sits in the
+	// statement; the let/def/lambda paths below would otherwise swallow it as text.
+	if err := parser.CheckComprehensions(line); err != nil {
+		return []any{err}
+	}
 	// Let Bindings: let x = ... in ...
 	if strings.HasPrefix(line, "let ") {
 		parts := strings.SplitN(line[4:], " in ", 2)
@@ -2122,6 +2127,9 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 }
 
 func (i *Interpreter) evaluatePipelineStr(line string) []string {
+	if err := parser.CheckComprehensions(line); err != nil {
+		return []string{"[ERROR] " + err.Error()}
+	}
 	parts, parallel := splitPipelineOps(line)
 
 	firstPart := parts[0]
@@ -2249,6 +2257,11 @@ func (i *Interpreter) RegisterType(definition string, factory func(string) any) 
 }
 
 func (i *Interpreter) EvaluateLine(line string) {
+	// See EvaluateToValues: `[ e | guard ]` has no generator and must not become text.
+	if err := parser.CheckComprehensions(line); err != nil && !strings.HasPrefix(strings.TrimSpace(line), "--") {
+		fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
+		return
+	}
 	// Let Bindings: let x = ... in ... or top-level let x = ...
 	if strings.HasPrefix(line, "let ") {
 		parts := strings.SplitN(line[4:], " in ", 2)

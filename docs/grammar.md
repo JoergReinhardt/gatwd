@@ -69,7 +69,7 @@ Pattern        ::= Constructor                      (* registered sum-type branc
                  | Literal
 
 (* List Comprehensions (multi-generator, with filter guards) *)
-Comprehension  ::= "[" Expr "|" Generator { "," ( Generator | Expr ) } "]"
+Comprehension  ::= "[" Expr "|" Generator { "," ( Generator | Expr ) } "]"   (* at least one Generator: `[ e | guard ]` is an error; write `[ e | _ <- [0], guard ]` *)
 Generator      ::= Pattern "<-" Expr
 
 (* Optics (Lenses) & Records *)

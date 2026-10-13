@@ -265,6 +265,8 @@ func TestHowToHasNoStaleClaims(t *testing.T) {
 		"is not part of a check and is not bounded", // --timeout bounds loading
 		"but no signal handling",                    // SIGINT and SIGTERM stop the operator
 		"ends only when the process is killed",      //
+		"alone yields `[]`",                         // a guard-only comprehension is an error, not []
+		"yields `[]` even when the guard holds",     //
 	} {
 		if strings.Contains(text, stale) {
 			t.Errorf("docs/k8s_howto.md carries a stale claim: %q", stale)

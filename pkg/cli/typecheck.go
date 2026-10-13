@@ -1128,6 +1128,10 @@ func CheckScript(content string) []Diagnostic {
 			report(strings.Index(line, ":=")+1, "invalid assignment ':=' (use '=')")
 		}
 		structural := false
+		if err := parser.CheckComprehensions(line); err != nil {
+			// Not advisory: evaluating the form is always an error, so it is reported as one.
+			report(1, err.Error())
+		}
 		if col, ok := unbalancedDelimiter(line); !ok {
 			report(col+1, "unbalanced delimiter")
 			structural = true

@@ -549,6 +549,10 @@ Gatwd provides native Haskell/Python-style list comprehensions over collections 
 -- List comprehension with generator and filter predicate:
 spawn ListVal: [x * 2 | x <- [1, 2, 3, 4], x > 2] |> assert [6 8]
 
+-- A comprehension needs at least one generator (`x <- xs`). `[ e | guard ]` alone is an
+-- [ERROR] (and `gatwd --check` flags it); to yield e once when a guard holds, bind a dummy generator:
+-- [ 7 | _ <- [0], 2 > 1 ]  is [7]     [ 7 | _ <- [0], 2 < 1 ]  is []
+
 -- True division promotes integers to float:
 spawn FloatVal: 7 / 2 |> assert 3.5
 
