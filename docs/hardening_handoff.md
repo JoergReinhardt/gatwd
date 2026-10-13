@@ -57,7 +57,9 @@ controls done: the exit-code mapping and the `--no-prelude` plumbing were each b
 failed, `2` a malformed command line. **Design calls made in W1b are listed in plan §4.5** (output via `Interpreter.Out`; `-e` replaces `main`
 and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIPT`; deferrals with reasons).
 
-## 2. Decisions — D1–D13 and D18 answered (2026-10-13); **D14–D17, YAML, D7 auto-render are the open questions of §0**
+## 2. Decisions — all answered (2026-10-13)
+
+**§0 was answered by the user on 2026-10-13** (recorded in `docs/hardening_plan.md` §1, "Answered at the start of the parallel run"): Q1 pushed (`19a4b03..9373f01`); Q2 D14–D17 as proposed; Q3 YAML **goes into core** (allowlist for `pkg/cli`, after Track C's `go.mod` change merges); Q4 auto-render with `--no-kustomize`; Q5 prefix `!` is wanted as a synonym for `not` — added in Track A next to unary minus, `!=` unchanged, the rest kept; Q6 four parallel tracks.
 
 | ID | Decision |
 | :-- | :-- |
@@ -68,7 +70,7 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 | D4, D5, D6, D9, D10 | as in plan §1 (D4 and D10 are implemented). |
 | D7 | Bump the repo to **Go 1.27**, kustomize v0.21.3 (W5). No system Go update needed: `GOTOOLCHAIN=auto` fetches `go1.27.x`; only CI/Docker images need ≥ 1.27. Auto-render of kustomization roots was **not** explicitly answered — confirm at W5. |
 | D8 | Yes: unknown step ⇒ OS command stays for trusted CLI use, denied by default for overrides and non-command-line scripts (W7). |
-| D14–D17 | **Open** (§0 Q2): the time types' literals, the clock, the zone model, `Date` arithmetic. |
+| D14–D17 | **As proposed** (2026-10-13): the time types' literals, the clock, the zone model, `Date` arithmetic — plan §5.6. |
 | D18 | Escapes in `"…"` literals — decided on the recommendation and implemented (W2). |
 | `-D` typing | `-D NAME=VALUE` binds a number for a canonical number, else a String — amends D4; the user accepted it (2026-10-13). |
 
