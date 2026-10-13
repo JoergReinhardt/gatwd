@@ -92,7 +92,7 @@ and Workstream F in [`language_roadmap.md`](language_roadmap.md)):
 ## 3. Quick Start & Setup
 
 ### Prerequisites
-- Go 1.23 or later (Go 1.24+ recommended for native `maphash.Comparable`).
+- Go 1.27 or later. `go.mod` says `go 1.27.0`; with the default `GOTOOLCHAIN=auto` an older `go` command downloads the matching toolchain itself (network access needed once), so no system update is required. CI images and Dockerfiles that build the module must carry Go 1.27+ (or allow the toolchain download).
 
 ### Building the CLI
 ```bash

@@ -233,6 +233,9 @@ access to Secrets by default.
 
 ### 3.1 Build
 
+The module needs **Go 1.27** (`go.mod` says `go 1.27.0`; the in-process kustomize renderer requires it). An older `go` command fetches
+the toolchain by itself (`GOTOOLCHAIN=auto`, the default); a container build stage must use a `golang:1.27` image or newer.
+
 ```bash
 go build -o bin/gatwd-k8s ./cmd/gatwd-k8s
 go build -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
