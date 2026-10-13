@@ -1,0 +1,9 @@
+# A tiny kustomization root: rendered it yields Pod/default/x-web, read as plain files it yields
+# the Kustomization document itself and Pod/default/web (what --no-kustomize selects).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  name: k
+namePrefix: x-
+resources:
+  - pod.yaml

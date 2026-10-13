@@ -167,3 +167,39 @@ func TestOperatorRunLoop(t *testing.T) {
 		}
 	}
 }
+
+// TestOperatorNoKustomize drives the real binary through the --no-kustomize switch. An
+// override that prints the node ids shows what was read: the rendered overlay (the name
+// prefix applied) or, with the flag, the plain files of the kustomization root.
+func TestOperatorNoKustomize(t *testing.T) {
+	bin := buildOperator(t)
+	ids := filepath.Join(t.TempDir(), "ids.gatwd")
+	_ = os.WriteFile(ids, []byte("def compliance = k8s_graph |> k8s_apply_order |> collect_list\n"), 0o644)
+	root := "testdata/kustomize-root"
+
+	rows := []struct {
+		name      string
+		args      []string
+		code      int
+		stdout    string
+		stderrHas string
+	}{
+		{"a kustomization root is rendered by default", []string{"check", "--manifests", root, "--rules", ids}, 0, "[Pod/default/x-web]\n", ""},
+		{"--no-kustomize reads the plain files", []string{"check", "--manifests", root, "--rules", ids, "--no-kustomize"}, 0, "[Kustomization/_/k Pod/default/web]\n", ""},
+		{"--no-kustomize=false renders", []string{"check", "--manifests", root, "--rules", ids, "--no-kustomize=false"}, 0, "[Pod/default/x-web]\n", ""},
+		{"the flag works after the subcommand and in the legacy form", []string{"--manifests", root, "--rules", ids, "--no-kustomize"}, 0, "[Kustomization/_/k Pod/default/web]\n", ""},
+		{"with the live source the flag would do nothing, so it is refused", []string{"check", "--no-kustomize", "--rules", ids}, 2, "", "--no-kustomize applies to --manifests"},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			code, stdout, stderr := operator(t, bin, r.args...)
+			if code != r.code || stdout != r.stdout || !strings.Contains(stderr, r.stderrHas) {
+				t.Fatalf("exit %d (want %d)\nstdout: %q (want %q)\nstderr: %s (want %q)", code, r.code, stdout, r.stdout, stderr, r.stderrHas)
+			}
+		})
+	}
+
+	if _, out, _ := operator(t, bin, "check", "--help"); !strings.Contains(out, "--no-kustomize") {
+		t.Errorf("--help must document --no-kustomize:\n%s", out)
+	}
+}

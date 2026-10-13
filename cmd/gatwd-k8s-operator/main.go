@@ -7,6 +7,9 @@
 //
 //	gatwd-k8s-operator check --manifests DIR      check once
 //	gatwd-k8s-operator run --namespace NS --interval 5m
+//
+// A kustomization root under --manifests is rendered in process; --no-kustomize reads it as
+// the plain files it contains, like the gatwd-k8s edition's flag of the same name.
 package main
 
 import (
@@ -40,8 +43,9 @@ func operatorTree() *cli.ApplianceTree {
 		Bind: func(cmd *cobra.Command) cli.ApplianceSetup {
 			manifests := cmd.PersistentFlags().String("manifests", "", "manifest file or directory to check; omit to check the live cluster")
 			namespace := cmd.PersistentFlags().String("namespace", "default", "namespace to crawl when checking the live cluster (\"\" = all)")
+			noKustomize := cmd.PersistentFlags().Bool("no-kustomize", false, "read a kustomization root under --manifests as plain files instead of rendering it")
 			return func(s cli.ApplianceSettings) (*cli.Appliance, string, error) {
-				return setup(s, *manifests, *namespace)
+				return setup(s, *manifests, *namespace, *noKustomize)
 			}
 		},
 		Embedded:    embeddedRules,
@@ -57,10 +61,19 @@ func embeddedRules() (string, error) {
 
 // setup picks the source. Offline manifests never build a cluster client; the live path
 // builds it here, once, and its failure is "no source" — a malformed invocation (exit 2).
-func setup(s cli.ApplianceSettings, manifests, namespace string) (*cli.Appliance, string, error) {
+// --no-kustomize is the edition's switch (k8sgraph.WithoutKustomize) and means something only
+// for manifests: with the live source it would be silently ignored, so it is a usage error.
+func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize bool) (*cli.Appliance, string, error) {
 	if manifests != "" {
-		app, err := newAppliance(nil, s.Rules, s.Mode)
+		var opts []k8sgraph.Option
+		if noKustomize {
+			opts = append(opts, k8sgraph.WithoutKustomize())
+		}
+		app, err := newAppliance(nil, s.Rules, s.Mode, opts...)
 		return app, checkPipeline(manifests), err
+	}
+	if noKustomize {
+		return nil, "", cli.UsageError(fmt.Errorf("--no-kustomize applies to --manifests; the live cluster has no kustomization roots"))
 	}
 	client, err := k8sgraph.DynamicClientFromKubeconfig()
 	if err != nil {
@@ -72,10 +85,10 @@ func setup(s cli.ApplianceSettings, manifests, namespace string) (*cli.Appliance
 
 // newAppliance assembles the operator: the k8s edition, the embedded rules, and the override
 // (a mounted ConfigMap) combined with them according to mode. `compliance` is the entry point
-// every rule set must define.
-func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode) (*cli.Appliance, error) {
+// every rule set must define. opts are the edition options (WithoutKustomize).
+func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode, opts ...k8sgraph.Option) (*cli.Appliance, error) {
 	return cli.NewAppliance(
-		cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client)),
+		cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client, opts...)),
 		cli.WithEmbeddedFS(rulesFS, rulesPath),
 		cli.WithConfigMapOverride(override),
 		cli.WithOverrideMode(mode),
