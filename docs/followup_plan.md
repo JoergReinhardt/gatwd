@@ -1,0 +1,117 @@
+# Follow-up plan: the larger items left after the hardening run
+
+> Status (2026-10-14): written after `docs/hardening_plan.md` closed. The hardening plan is
+> finished; every item below was **deferred there with a reason** and none blocks anything.
+> This file turns the deferrals into phases that can be picked up one at a time. Decisions
+> already taken are in `hardening_plan.md` §1; open ones are marked **Decision** and carry a
+> recommendation. The small silent-failure fixes (guard-only comprehension, `build_bst`
+> error nodes, `zip`) are not here: they were done as their own tracks first.
+
+## 0. How to work through it
+
+- **Same delivery rules as before** (`AGENTS.md` Mandates 6 and 8, `.agents/skills/phase-delivery/SKILL.md`): one commit per sub-step, every gate green, negative-control each guard, write deferrals down, stage by name, commit and push only when asked.
+- **Parallel where the files allow** (user instruction, 2026-10-13). The dependency table in §9 says which phases touch disjoint files.
+- **Resource limits** (user, 2026-10-13, after a laptop crash): at most **two** heavy agents at once; every command under `nice -n 10`, `GOMAXPROCS=4`, `go test -p 2`; `-race` on touched packages per commit and the full set once per merge; **never** run `benchmarks/*.gatwd` in a routine gate. The one exception is phase F2, which changes the evaluator's hot path: it runs the two benchmarks **once before and once after**, deliberately, and says so in its report.
+- **Gates** are the usual set (`gofmt`, `go vet`, `go test -p 2 ./...`, `./run_dsl_tests.sh`, `-race`, silent `gatwd --check` over every `*.gatwd`, script regression diff for interpreter, parser or evaluator changes).
+
+## 1. Phase F1: error positions (`parser.FormatError`)  — size M, highest user value
+
+**Today.** `parser/errors.go` (60 lines) has a `SyntaxErrorTracker`, an `Expect` combinator and `FormatError`, an Elm/Rust-style pointer at the failing character. Nothing outside the file calls it. A bad statement reaches the user as `cannot evaluate "<line>": <reason>` (`pkg/cli/cli.go`, near line 2219): it names *what* failed but not *where*. The infix expression parser (`parser/infix.go`) and the line parsers do not thread a tracker, which is why W0/W1b deferred this.
+
+**Goal.** A syntax error names the line and column in the script, quotes the line and points at the column, in the REPL, in `-e`, in script files and in `--check`.
+
+**Design.**
+1. Give the lexer a position on every token (offset into the statement) and the statement joiner a map from joined-statement offsets back to file line and column. This is the real work: the joiner (`logicalLines`) currently discards positions.
+2. Make the infix parser report the furthest failing token position through the existing tracker instead of a bare error.
+3. Render with `FormatError` in `cli.go` where `cannot evaluate` is built; keep the old sentence as the first line so existing substring tests still match, add the pointer lines below it.
+4. `gatwd --check` prints `file:line:col: error: …` (the shape editors parse).
+
+**Decision D-F1.** Keep the old message as the first line (recommended, no test churn) or replace it. Recommended: keep and append.
+
+**Tests.** Table of malformed statements with the expected line, column and pointer; a multi-line statement; a string literal containing delimiters (the earlier W2 joiner bugs); negative control: break the position map and watch the table fail. Docs: `docs/error_handling.md`, `docs/dsl_guide.md`.
+
+## 2. Phase F2: interruptible evaluation of a closure that never returns  — size L, touches the hot path
+
+**Today.** Cancellation (`--timeout`, SIGINT/SIGTERM, the output limit) is cooperative and checked at pipeline-node boundaries (`execState.cancelled()`, `pkg/cli/policy.go`; called at `cli.go` around line 2450 and between statements in `run.go`). `Closure.Apply` (`functions/closure.go`) runs the body to completion with no check, and `functions/` is Layer 0 so it cannot import `pkg/cli`. A pure infinite recursion (`def spin = \n -> spin (n + 1)`) is therefore not stopped by a timeout or a signal.
+
+**Goal.** A timeout or stop request ends a runaway pure computation within a bounded time, as an `[ERROR] … timed out` value, never a hang and never a leaked goroutine spinning forever.
+
+**Options.**
+- **A. A cooperative budget in the closure call path** (recommended). `functions` defines a tiny hook, for example `type Interrupter interface{ Interrupted() error }`, carried by the evaluation environment; `Closure.Apply` checks it every N applications (a counter, N around 1024) and returns the error. `pkg/cli` implements it with `execState.cancelled`. Cost: one counter increment per application; measure it.
+- **B. Run the evaluation in a goroutine and abandon it on timeout.** Simple, but the goroutine keeps burning CPU and memory after the "timeout"; rejected.
+- **C. A recursion-depth or step limit as a language rule** (like a fuel parameter). Changes semantics for legitimate deep programs; offered only as an additional, opt-in `--max-steps`.
+
+**Decision D-F2.** Option A, plus optional C later. Recommended: A.
+
+**Tests.** A spinning closure at top level, inside `map`, inside a comprehension and inside a `fold` is stopped within a deadline (use short timeouts, no sleeps); a legitimately deep non-spinning recursion still finishes; the interrupt error is a value on the Left channel and the operator reports it with the existing `timeout` diagnostic. **Performance protocol:** run `benchmarks/ackermann.gatwd` and `benchmarks/conway_gun.gatwd` once on the baseline and once after; accept at most a few percent; record the numbers in the phase entry. Negative control: remove the check, watch the spin test hang-fail within its deadline.
+
+**Risk.** The check must not run while holding the interpreter's locks; test with `-race`.
+
+## 3. Phase F3: signal handling in `gatwd` itself  — size S
+
+**Today.** Only the operator (`ApplianceTree.serve`) handles SIGINT/SIGTERM. `gatwd script.gatwd` and the REPL die on the default signal handler; a second Ctrl-C is the only way out of a long script, and child OS commands started by exec steps are killed only if the process dies.
+
+**Goal.** SIGINT/SIGTERM cancel the running script's context (the machinery from W7 and Track K already exists: `RunOptions.Context`), stop child commands, print one line, exit non-zero (130 for SIGINT, 143 for SIGTERM is the Unix convention; a decision below). The REPL: Ctrl-C cancels the current statement and returns to the prompt; Ctrl-D exits.
+
+**Decision D-F3.** Exit statuses 130/143 (recommended, what shells expect) or the existing 1. A second signal exits immediately.
+
+**Depends on** F2 for the "stops a spinning closure" part; works without it for everything else. Tests: a real-binary signal test like the operator's (skip where unsupported).
+
+## 4. Phase F4: rollout completion  — size M
+
+**Today** (`adapters/kubernetes_rollout.go`, Track L). `Applier.Status` is one reading; `Undo`, `Pause`, `Resume`, status work for Deployments only. StatefulSets and DaemonSets keep their history in `ControllerRevision` objects, not ReplicaSets.
+
+**F4a `rollout status --watch`.** A step that waits until the rollout is complete or a deadline passes, using the cluster's watch API with the existing `--timeout` context. Output: a stream of status records ending in a final `complete` or an error. **Decision D-F4a:** a separate step `k8s_rollout_wait` (recommended: `k8s_rollout_status` stays a pure single read, so the family keeps its "status is read-only and ungated" rule; the watch is still read-only and ungated) versus a flag on `status`. Fake-client tests drive a fake watcher; never a real cluster.
+
+**F4b StatefulSet and DaemonSet.** `Undo` selects the revision through `ControllerRevision` (owner reference + `revision` field), `Status` uses `updatedReplicas`/`currentRevision` for StatefulSets and `numberReady`/`updatedNumberScheduled` for DaemonSets, `Pause`/`Resume` are not defined for them by Kubernetes (loud, named error, not a silent no-op). Same capability gate (`cluster-rollout`), same dry-run default.
+
+**Tests.** Fake dynamic client with emulated writes (`k8sgraphtest.EmulateWrites`); negative: undo to a revision that does not exist is an error naming the available revisions. Docs: how-to §3.5, `doc_test.go` rows.
+
+## 5. Phase F5: richer rule results (a message per violation)  — size M, **needs a decision**
+
+**Today.** A rule result is `[Rule, resource]` (text, JSON `{"rule","resource"}`), and a cycle is a list resource. `str_format` exists but a rule cannot carry a human message, so the report names *what* and *where* but not *why*.
+
+**Options.**
+- **A. Optional third element:** `[Rule, resource, message]`, fully backward compatible (two-element results unchanged, JSON gains `"message"` only when present). Recommended.
+- **B. A record type** (`Violation{rule, resource, message}` as a HAMT or Variant): cleaner, but breaks every existing rule and override.
+- **C. Message by convention in the rule name:** no change, no structure; rejected.
+
+**Decision D-F5.** Option A. Touches `pkg/cli/appliance_report.go` (the one place text and JSON are rendered), the embedded rules (optional: give the six rules messages), the how-to and `doc_test.go`. Negative fixture per rule with an expected message. Mandate 7: the messages are `.gatwd`, never Go.
+
+## 6. Phase F6: small language and library items  — each S, independent, pick when a consumer appears
+
+| Item | Today | Plan |
+| :-- | :-- | :-- |
+| Exponent float literals | `1e-3` is not lexed (`parser`/`functions.ParseNumberLiteral`) | Lex `1e3`, `1.5e-3`, `2E10` as `Float` (an `e` exponent makes it a Float, never an Int); `1e400` is a range error, not `+Inf`; pinning tests for `1e3x` (still a lex error), interaction with the `3r4` and duration suffixes (`5e` is not a unit), grammar and guide text. |
+| `Unit` | deferred in W2 (no consumer) | Add `()` as a `Unit` value only when a function needs it (for example effectful steps returning nothing); until then keep the deferral. |
+| `json_encode` of a `Ratio` | error | **Decision D-F6a:** encode as the exact string `"3r4"` (recommended, reads back through the DSL, never lossy) or as a Float (lossy, rejected). `yaml_encode` follows. |
+| `strptime`-style time parsing | only RFC 3339/ISO literals and `time_parse` | A layout function `time_parse_with layout text` using the documented strftime subset already used for formatting; `Maybe` for malformed text. Only when a rule needs a non-ISO timestamp. |
+| `env` builtin | none; `AllowEnv` gates nothing | `env_get name` returning `Maybe String`, gated by `CapEnv` through `RequireCapability` and the same structural guard test. Only when something needs it. |
+| `--check` advisory beyond literals | only literals are judged (the 2^53 Int-vs-Float case) | Extend the checker's value-range reasoning to annotated bindings; keep the zero-false-positive rule on every committed script as the acceptance test. |
+
+## 7. Phase F7: operator configuration  — size S–M, low priority
+
+- **`GATWD_<FLAG>` environment defaults** for the operator and edition flags (design in `hardening_plan.md` §4.3): flag > environment > default, one table in `pkg/cli/command.go`, documented per flag. Useful for container images (`env:` in `deploy.yaml`) instead of long `args:`. **Decision D-F7a:** do it for the operator only first (recommended).
+- **Watch the ConfigMap** instead of interval-driven reload: a `fsnotify`-style watch is a new third-party dependency in core, which the Clean Core rule forbids; the in-process alternative is polling the file's modification time on a short ticker (recommended, stdlib only, no allowlist change). The reload path already keeps the last good rules on failure.
+
+## 8. Standing decisions that stay as they are
+
+Remote kustomize bases stay refused; Secret `data` is documented, not redacted; age rules stay an example override; deleting or pruning cluster objects stays out of scope; `--out` does not need the apply capability; the operator never applies offline manifests to a live client; one `--timeout` bounds loading and checks. Reopen any of these only on the user's word.
+
+## 9. Sequencing and parallelism
+
+| Phase | Files it owns | Runs in parallel with | Must wait for |
+| :-- | :-- | :-- | :-- |
+| F1 error positions | `parser/`, `pkg/cli/cli.go` (message), docs | F4, F5, F6, F7 | nothing |
+| F2 interruptible evaluation | `functions/closure.go`, `pkg/cli/policy.go`, evaluator hot path | F4, F5 | nothing (benchmarks once, deliberately) |
+| F3 `gatwd` signals | `cmd/gatwd/`, `pkg/cli/repl.go`, `run.go` | F4, F5, F6 | F2 for the runaway-closure case only |
+| F4 rollout | `adapters/kubernetes_rollout.go`, `pkg/k8sgraph/write.go` | F1, F2, F3, F5, F6 | nothing |
+| F5 rule messages | `pkg/cli/appliance_report.go`, `lib/k8s` rules, how-to | F1, F2, F3, F4, F6 | decision D-F5 |
+| F6 small items | `functions/`, `parser` lexer, `dslfuncs_*`, `typecheck.go` | F4, F5, F7 | F1 if it renumbers the lexer positions (exponent literals) |
+| F7 operator config | `pkg/cli/appliance_command.go`, `cmd/gatwd-k8s-operator` | F1, F2, F4, F6 | nothing |
+
+**Suggested order** (at most two heavy agents at a time): **F1 and F4** first (disjoint, highest value), then **F2 and F5**, then **F3 and F7**, with F6 items interleaved on demand. F1 before the exponent-literal item of F6 because both touch the lexer.
+
+## 10. Definition of done for the whole plan
+
+Each phase: a design entry here updated with the decision and date; commits per sub-step; the verification gates green; deferrals written down; a handoff entry in `docs/hardening_handoff.md` (or a new handoff file if that one is retired); and, for anything user-visible in the Kubernetes tool, a row in `hardening_plan.md` §10.1 and a pinned how-to example in `cmd/gatwd-k8s-operator/doc_test.go`.

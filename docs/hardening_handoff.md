@@ -15,6 +15,8 @@ Every question raised by the tracks and the closing checklist was answered on 20
 
 **All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
+**The larger deferred items now have a written plan: [`followup_plan.md`](followup_plan.md)** (phases F1 error positions, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
+
 ## 1. Where we are
 
 **State (2026-10-13):** `master` contains everything; the remote is at `e561520`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
