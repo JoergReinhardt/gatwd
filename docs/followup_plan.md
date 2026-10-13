@@ -128,6 +128,42 @@ produced `[ERROR] Assertion failed: expected '55', got '0'`: the assert caught i
 
 **Order inside F8:** F8a (with F1) → F8b(1) → F8c (it may disappear once F8b(1) rejects the form loudly; then keep the test as the negative control) → F8b(2) as an optional last step.
 
+## 7b. Phase F9: pattern-matching function definitions  — size M–L, found 2026-10-14
+
+Raised by the user's question about Haskell-style definitions ("first line defines the function name and input values, following lines each start with `|` with the pattern the arguments must match, then the body, one variant per line"). What exists today, verified with the built binary:
+
+| Haskell | gatwd today |
+| :-- | :-- |
+| `fact 0 = 1` / `fact n = n * fact (n-1)` (one clause per line) | not supported: `def fact 0 = 1` and `def fact n = …` are **silently accepted and define nothing**; a later `3 \|> fact` is `unknown step or command: "fact"` |
+| `f x \| x > 0 = …` (guards) | not supported: `\| n if n > 0 -> 1` is not a recognised pattern, the arm **never matches** and the next arm wins |
+| several arguments `add 0 y = y` | one incoming value only; several arguments are matched as a tuple/list pattern `[0, y]` |
+| patterns in lambda parameters | `\x y ->` binds variables only |
+| what exists | `def f = match { pat -> body \| pat -> body … }`, one arm per line (multi-line works, brackets are open), applied with `x \|> f`; patterns: literal, variable, `_`, constructor, `[]`, `[a, b]`, `(a, b)`, `[h, ...t]` |
+
+**Already fixed as Track R (merged 2026-10-14, see `hardening_plan.md` §6.4):** literal patterns matched by *substring* (`0 -> …` matched 10 and 20; a recursive `fib` was wrong from 10 on), element patterns compared printed text, and a value matching no arm vanished silently. They are value equality, a loud error for an unrecognised pattern and a loud `no arm matches` error now. Everything below builds on that.
+
+**F9a. Guards.** `| pattern if condition -> body`, evaluated after the pattern binds its variables; a failing guard falls through to the next arm (as in Haskell); the condition is an ordinary expression (`n > 0`, `x == y`, `str_starts_with "a" s`) and must be a `Bool` (anything else is a loud error naming the arm). `--check`: variables bound by the pattern are in scope in the guard (zero false positives on committed scripts); exhaustiveness treats a guarded arm as not covering its pattern (so `n if n > 0 -> …` alone still warns). **Decision D-F9a:** spelling `pat if cond ->` (recommended: reads like the existing arms and like Rust/OCaml `when`/Scala `if`) versus Haskell's `| cond` after the pattern. Recommended: `if`.
+
+**F9b. Clause-style definitions.** Consecutive `def NAME <patterns> = body` lines with the same name form one function, in order, exactly Haskell's layout:
+```
+def fact 0 = 1
+def fact n = n * (fact (n - 1))
+def add 0 y = y
+def add x 0 = x
+def add x y = x + y
+```
+*Design.* A desugaring in the statement front end (not the evaluator): the joined clauses become `def fact = \a1 -> match a1 { … }`-equivalent; with N parameters the clauses match the **tuple** of the arguments, so `def add = \a b -> [a, b] |> match { [0, y] -> y | [x, 0] -> x | [x, y] -> x + y }` (the existing tuple patterns, no new matcher). The result is a normal curried closure: `add 3 4`, `map (add 1)`, partial application and the function-form call all work, which the one-input `match`-def (a pipeline macro) cannot do. Clauses of different arity, a gap (another statement between clauses of one name), or a redefinition later are loud errors naming both lines. Optional guards on a clause: `def f x if x > 0 = …` (after F9a). `--check`: the clauses are one function for typing and exhaustiveness (a final catch-all clause is required to silence "non-exhaustive").
+*Why not just a Haskell `|` layout:* it combines with F8a (a line starting with `|` continues the previous statement), so both spellings work: the repeated-`def` form above and the one-`def` block `def fact = match { 0 -> 1 \| n -> … }`.
+**Decision D-F9b:** repeated `def` clauses (recommended: unambiguous with the current line-oriented statements, no layout rule needed) versus a Haskell-style `fact 0 = 1` without `def` (rejected: a bare `name pattern = expr` is today a malformed statement and would collide with application and equality).
+
+**F9c. Patterns in lambda parameters** (`\0 y -> y`, `\(a, b) -> a + b`): the same tuple desugaring applied to `\` parameters. Optional; do it when a consumer exists (the clause form of F9b covers the use case).
+
+**F9d. The silent acceptance of `def fact 0 = 1` is a defect of its own** until F9b lands: make the current form a loud error (`def NAME` must be followed by `=`; a pattern before `=` is not supported yet, see clause-style definitions) as the first, 10-line sub-step, so nothing can be silently defined-as-nothing in the meantime.
+
+*Tests.* A table of clause definitions (factorial, fib, `add` with tuple patterns, a guard, partial application, a catch-all missing → `--check` warning, arity mismatch error, a gap error); step form vs closure parity; negative controls: break the clause grouping and the guard fall-through and watch the tests fail; the committed pure-DSL examples (`examples/game_of_life_pure_dsl`, `quicksort`/`ackermann` in `tests/dsl_exhaustive_test.gatwd`) get a clause-style twin as dogfooding (Mandate 4), asserting the same results. Docs: `docs/dsl_guide.md` (a Haskell-comparison table like the one above), `docs/grammar.md`, the `dsl-authoring` skill.
+
+**Order inside F9:** F9d (loud error) → F9a guards → F9b clause definitions (needs F8a if the clauses use trailing-operator continuation) → F9c if wanted.
+
 ## 8. Standing decisions that stay as they are
 
 Remote kustomize bases stay refused; Secret `data` is documented, not redacted; age rules stay an example override; deleting or pruning cluster objects stays out of scope; `--out` does not need the apply capability; the operator never applies offline manifests to a live client; one `--timeout` bounds loading and checks. Reopen any of these only on the user's word.
@@ -143,9 +179,10 @@ Remote kustomize bases stay refused; Secret `data` is documented, not redacted; 
 | F5 rule messages | `pkg/cli/appliance_report.go`, `lib/k8s` rules, how-to | F1, F2, F3, F4, F6 | decision D-F5 |
 | F6 small items | `functions/`, `parser` lexer, `dslfuncs_*`, `typecheck.go` | F4, F5, F7 | F1 if it renumbers the lexer positions (exponent literals) |
 | F8 multi-line statements, expression-group diagnostics | `pkg/cli/cli.go` (`logicalLines`), `parser/infix.go`, `pkg/cli/typecheck.go` (`--check` joiner use), embedded rules and prelude (reformat), docs | F2, F3, F4, F5, F7 | **F1** (same joiner; do F8a with or right after F1) |
+| F9 pattern-matching definitions (guards, clause-style `def`) | `pkg/cli/cli.go` (match step, `def` front end), `parser/` (`def` and arm grammar), `pkg/cli/typecheck.go`, docs | F2, F3, F4, F5, F7 | Track R (merged first), F8a for line-continuation inside clauses |
 | F7 operator config | `pkg/cli/appliance_command.go`, `cmd/gatwd-k8s-operator` | F1, F2, F4, F6 | nothing |
 
-**Suggested order** (at most two heavy agents at a time): **F1 (+ F8a, one agent) and F4** first (disjoint, highest value), then **F2 and F5**, then **F3 and F7**, with F8b/F8c and the F6 items interleaved on demand. F1 before the exponent-literal item of F6 because both touch the lexer.
+**Suggested order** (at most two heavy agents at a time): **F1 (+ F8a, one agent) and F4** first (disjoint, highest value), then **F2 and F5**, then **F3 and F7**, with F8b/F8c, **F9 (it follows Track R and F8a; F9d first)** and the F6 items interleaved on demand. F1 before the exponent-literal item of F6 because both touch the lexer.
 
 ## 10. Definition of done for the whole plan
 
