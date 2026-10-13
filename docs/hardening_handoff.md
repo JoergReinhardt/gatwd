@@ -44,7 +44,12 @@ script regression diff against `2526cc0` — all green, every difference explain
 The user's answers to the first round of open questions are recorded in `docs/hardening_plan.md` §1 ("Answered at the start of the parallel run"): push (done), D14–D17 as proposed, YAML into core (done), auto-render with
 `--no-kustomize` (done), prefix `!` as a synonym of `not` (done), parallel tracks (done). D1–D13 and D18 are in plan §1. **The questions of §0 above are new and open.**
 
-## 3. Goals for the next phases (one commit per sub-step; sequential from here)
+## 3. Goals for the next phases (one commit per sub-step)
+
+**Execution mode (user instruction, 2026-10-13): implement in parallel wherever possible.** Decide by file overlap, not by habit: independent phases run as concurrent subagents (one `isolation: "worktree"` branch each, started in one message, self-contained briefs, "never push, never edit the progress table or this handoff"), sub-steps *inside* a phase stay sequential, and the main session merges one branch at a time (order: the track touching the most files last), re-runs every gate and the script regression diff after each merge, and records the answers/closure. What the plan forces to be sequential: W7 after the track that touches `command.go`/`appliance*.go` (E) has merged; the closing checklist after everything. The briefs, the merge procedure and the lessons of the first parallel run are in the plan's §10 and below.
+
+**In flight when this was written (2026-10-13):** Track E (`hardening/e`: operator exit code 3, operator `--no-kustomize`, source provenance in duplicate-id errors), Track F (`hardening/f`: §5.6 `Duration`/`Time`/`Date`), Track G (`hardening/g`: `String` no longer equals a collection's printed form, HAMT-key design). Done on `master` meanwhile: the `client-go`/`apimachinery` v0.38 alpha update (the `replace` is gone). Check `git branch` and `git worktree list` for what is still unmerged; merge the finished ones, then start W7.
+
 
 Start from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill.
 
@@ -129,8 +134,8 @@ D2 will change the output of any script that concatenated with `+` (none found);
 0. **Put the §0 questions to the user and wait.** Nothing else happens before that (they do not block §5.6, so "defaults" lets work start immediately).
 1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start. Handle Q1 (push) as answered.
 2. Build a baseline binary (`go build -o /tmp/gatwd_base ./cmd/gatwd`), write the pinning tests for §5.6 first, then the generic Go in `functions/` (types, literals in `parser/`), then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line; **a statement ending in `=` continues on the next line — do not end an `assert` argument with `=`**), then docs. One commit per sub-step, all gates after each.
-3. Then W7 (ask first at its decision points), then the §10.1 closing checklist.
-4. The four-track parallel mode is spent; a *future* parallel run should again use one worktree per track, self-contained briefs, "never push / never edit the progress table" and a merge order chosen by file overlap (the id migration last).
+3. Then W7 (ask first at its decision points; it can run in parallel with anything that does not touch `command.go`/`appliance*.go`/the exec fallback), then the §10.1 closing checklist.
+4. Parallel mode is the default (§3): one worktree per track, self-contained briefs, "never push / never edit the progress table", and a merge order chosen by file overlap (the track touching the most files last).
 
 ## 9. Pointers
 
