@@ -26,8 +26,9 @@ func PreludeFS() fs.FS { return preludeFS }
 // ApplyEdition assembles the Kubernetes graph edition onto e: the offline
 // `manifests` and `kustomize` source steps, one live crawl step per commonly
 // crawled core resource (k8s_pods, k8s_services, ...) when client is non-nil, and
-// the embedded DSL prelude that defines k8s_ingest, the relation rules and the
-// k8s_graph pipeline.
+// the embedded DSL prelude that defines k8s_ingest, the relation rules, the
+// k8s_graph pipeline and — for a live cluster — k8s_resources, the merge of every
+// crawl stream into one resource stream.
 //
 // It is pure assembly: every relation and graph algorithm comes from the
 // embedded .gatwd library and the generic graph core. Pass a nil client to build
@@ -39,15 +40,9 @@ func PreludeFS() fs.FS { return preludeFS }
 func ApplyEdition(e *cli.Edition, client dynamic.Interface) *cli.Edition {
 	e = e.WithStep(ManifestStep("manifests")).WithStep(KustomizeStep("kustomize"))
 	if client != nil {
-		e = e.
-			WithStep(CrawlStep("k8s_pods", client, PodsGVR)).
-			WithStep(CrawlStep("k8s_services", client, ServicesGVR)).
-			WithStep(CrawlStep("k8s_configmaps", client, ConfigMapsGVR)).
-			WithStep(CrawlStep("k8s_secrets", client, SecretsGVR)).
-			WithStep(CrawlStep("k8s_endpoints", client, EndpointsGVR)).
-			WithStep(CrawlStep("k8s_deployments", client, DeploymentsGVR)).
-			WithStep(CrawlStep("k8s_replicasets", client, ReplicaSetsGVR)).
-			WithStep(CrawlStep("k8s_ingresses", client, IngressesGVR))
+		for _, c := range CoreCrawls {
+			e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR))
+		}
 	}
 	return e.WithPreludeFS(preludeFS, PreludePath)
 }

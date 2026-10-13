@@ -1,3 +1,5 @@
+> **SUPERSEDED — historical record.** Phase 6 is complete (see `docs/k8s_graph_design.md` §5, Phase 6). Do not follow this as a start guide; it describes the state *before* the ingest primitive and prelude existed. Kept only for the reasoning it records.
+
 # Phase 6 Handoff — the pure-DSL Kubernetes relation prelude
 
 > Handoff for a **fresh context** to implement Phase 6 of the K8s-graph project.

@@ -1,3 +1,5 @@
+> **COMPLETED — historical record.** Every goal below was delivered; see `docs/k8s_graph_design.md` §5 (Phase 8 entry) for what actually landed and the remaining ideas. The goal list and the "Gotchas" are kept because the gotchas are still true — they are now consolidated, with their prevention rules, in `docs/development_playbook.md` §6 and `AGENTS.md` §5a. To write the next handoff use `.agents/prompts/phase-handoff.md`. Where the text below says "multi-arg lambda `def` mis-evaluates" or "`EvaluateToValues(\"\")` panics": both are fixed (closures; empty input returns no values).
+
 # Phase 8 Handoff — live operator source, relation matrix, perf
 
 > Handoff for a **fresh context**. Phases 1–7 of the k8s-graph project are **COMPLETE and

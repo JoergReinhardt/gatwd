@@ -178,6 +178,35 @@ map-iteration order on master alone). Behavior-preserving, but only a ~1% win �
 kept mainly as a documented stepping-stone and for the argument-free top-level
 call paths where the cache *does* engage.
 
+## Kubernetes graph (`run_k8s_graph.sh`)
+
+`BenchmarkK8sGraph` (in `pkg/k8sgraph/bench_test.go`) times the whole offline
+pipeline `manifests |> k8s_graph |> graph_order` — YAML decode, ingest, and every
+relation pass — over synthetic clusters (`S` Services, `P` Pods in S Deployments /
+ReplicaSets, a shared ConfigMap referenced by every Pod, an Ingress per ten
+Services). Run it with `benchmarks/run_k8s_graph.sh`.
+
+The first measurement showed the `Selects` relation dominating (467 of ~560 ms at
+50 services x 500 pods): the naive pass compared every (Service, Pod) pair —
+O(services x pods) — in interpreted DSL. It now indexes Pods once by their
+`key=value` labels (a HAMT of pod lists, pure DSL in `lib/k8s/relations.gatwd`) and
+verifies only the candidates a Service's first selector pair retrieves.
+
+| cluster (services x pods) | naive pass | label-indexed pass |
+|---|---|---|
+| 10 x 100  | 35 ms   | 24 ms  |
+| 25 x 250  | 160 ms  | 77 ms  |
+| 50 x 500  | 562 ms  | 129 ms |
+| 100 x 1000 | 2040 ms | 294 ms |
+
+Growth from 50x500 to 100x1000 (2x the cluster, 4x the pairs) went from 3.6x to 2.3x
+— the remaining cost is the per-resource decode/ingest/relation passes, roughly
+linear in the number of resources. Semantics are pinned by
+`TestSelectsIndexedPassSemantics` (multi-pair selectors, unlabeled Pods, unmatched
+selectors, empty selector) and by the live/offline parity test.
+
+*Single runs (`-benchtime 2x`) on one dev machine; order-of-magnitude only.*
+
 ## TODO
 
 - In-process leak harness: loop a fixed `A(3,n)` N times, assert `HeapInuse`

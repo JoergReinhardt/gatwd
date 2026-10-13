@@ -1,11 +1,31 @@
 -- Use-case rules of the Kubernetes compliance operator. They run over the typed
 -- graph the embedded k8s prelude derives (k8s_graph) and are the part an operator
--- hot-reloads from a ConfigMap. Each rule is a comprehension yielding
+-- hot-reloads from a ConfigMap. Each rule is a closure from the graph to a list of
 -- [violation, resource] pairs; an empty list means the cluster is compliant.
 --
---   UnselectedPod:  a Pod that no Service selects, so it receives no traffic.
---   IdleDeployment: a Deployment that owns no ReplicaSet, so it manages no Pods.
+--   UnselectedPod:    a Pod that no Service selects, so it receives no traffic.
+--   IdleDeployment:   a Deployment that owns no ReplicaSet, so it manages no Pods.
+--   UnusedService:    a Service with a selector that selects no Pod.
+--   DanglingIngress:  an Ingress routing to a Service that does not exist.
+--   MissingConfigMap: a Pod/Deployment referencing a ConfigMap that does not exist.
+--   DependencyCycle:  resources that (transitively) own/depend on each other; the
+--                     resource is the list of ids in the strongly connected component.
 --
 -- Usage over one resource stream:
---   spawn StrVal: ./manifests |> manifests |> compliance
-def compliance = k8s_graph |> fold (\_ g -> [ ["UnselectedPod", (hamt_path "metadata.name" p)] | p <- (graph_payloads_of "Pod" g), (graph_in_of "Selects" (hamt_path "metadata.name" p) g) == [] ] ++ [ ["IdleDeployment", (hamt_path "metadata.name" d)] | d <- (graph_payloads_of "Deployment" g), (graph_out_of "Owns" (hamt_path "metadata.name" d) g) == [] ]) 0
+--   spawn StrVal: ./manifests |> manifests |> compliance        (offline)
+--   spawn StrVal: default |> k8s_resources |> compliance        (live cluster)
+
+def rule_unselected_pod = \g -> [ ["UnselectedPod", (hamt_path "metadata.name" p)] | p <- (graph_payloads_of "Pod" g), (graph_in_of "Selects" (hamt_path "metadata.name" p) g) == [] ]
+
+def rule_idle_deployment = \g -> [ ["IdleDeployment", (hamt_path "metadata.name" d)] | d <- (graph_payloads_of "Deployment" g), (graph_out_of "Owns" (hamt_path "metadata.name" d) g) == [] ]
+
+-- A Service without spec.selector (e.g. ExternalName) selects nothing by design.
+def rule_unused_service = \g -> [ ["UnusedService", (hamt_path "metadata.name" s)] | s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, (graph_out_of "Selects" (hamt_path "metadata.name" s) g) == [] ]
+
+def rule_dangling_ingress = \g -> [ ["DanglingIngress", (hamt_path "metadata.name" i)] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path, (member (hamt_path "backend.service.name" path) (k8s_names "Service" g)) == false ]
+
+def rule_missing_configmap = \g -> [ ["MissingConfigMap", wid] | [wid, ws] <- (k8s_workloads g), cm <- (k8s_config_refs ws), (member cm (k8s_names "ConfigMap" g)) == false ]
+
+def rule_dependency_cycle = \g -> [ ["DependencyCycle", c] | c <- (graph_scc g), (length c) > 1 ]
+
+def compliance = k8s_graph |> fold (\_ g -> (rule_unselected_pod g) ++ (rule_idle_deployment g) ++ (rule_unused_service g) ++ (rule_dangling_ingress g) ++ (rule_missing_configmap g) ++ (rule_dependency_cycle g)) 0

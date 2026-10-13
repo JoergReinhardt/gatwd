@@ -1,7 +1,10 @@
 # Design & Implementation Plan: Generic Typed Graph Core + Kubernetes Graph Edition
 
-> Status: **DRAFT v2** (2026-10-13) — living design document, grounded against the
-> actual codebase (grammar, engine types, edition/appliance machinery).
+> Status: **IMPLEMENTED — Phases 1–8 complete** (2026-10-13). Originally a living design
+> document grounded against the actual codebase (grammar, engine types, edition/appliance
+> machinery); now retained as the **design and decision record**. §5 records what each phase
+> actually delivered, §6 the decisions with their rationale, §8 the verified mandate checklist.
+> The way this project was run is distilled in [`development_playbook.md`](development_playbook.md).
 > Scope: (1) a generic cyclic / directed / typed ("colored") / weighted **graph
 > abstraction** in gatwd core, wired through every layer to the DSL; and (2) a
 > **Kubernetes resource-graph** built *on top of that DSL* as adapters + plugins +
@@ -12,10 +15,12 @@
 ## 0. Guiding principles (the 5 mandates applied)
 
 - **Mandate 5 (Clean Core)** is the spine. The *graph* is a pure,
-  category-theoretic, domain-free abstraction and belongs in core. The string
-  `kubernetes`/`k8s` must not appear anywhere under `functions/`, `dsltypes/`,
-  `collections/`, `arrows/`, `comonads/`, `optics/`, `transducers/`,
-  `transformers/`, `evaluator/`, `parser/`, or `pkg/cli/`.
+  category-theoretic, domain-free abstraction and belongs in core. No **import** of a
+  third-party package and no **identifier** naming `kubernetes`/`k8s` may appear in
+  `functions/`, `dsltypes/`, `collections/`, `arrows/`, `comonads/`, `optics/`,
+  `transducers/`, `transformers/`, `evaluator/`, `parser/`, or `pkg/cli/` (comments may
+  still use Kubernetes as an *example*). This is enforced by `internal/archtest`
+  (`TestCleanCoreImportsNoThirdParty`, `TestCleanCoreNoDomainIdentifiers`).
 - **Mandate 3 (All-Layers-Through)**: every graph capability is exposed from
   Layer 0/1 up to a DSL builtin and asserted in `tests/dsl_exhaustive_test.gatwd`.
 - **Mandate 2 (Operator-Type Matrix)**: the graph joins
@@ -712,9 +717,44 @@ rules. E2E tests over `pkg/k8sgraph/testdata/stack.yaml`: request trace
 `cmd/gatwd-k8s-operator/main_test.go`. Gap: the operator checks offline manifests; a
 live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
 
-**Phase 8 — hardening + recursive-dogfood.** Expand relations/weights/matrix;
-perf/leak bench on a large synthetic cluster graph (mirror the Conway/Ackermann
-bench style under `benchmarks/`).
+**Phase 8 — live source, relation matrix, rules, perf. DONE (2026-10-13).**
+- *Live source (design choice (a), generic).* `arrows.Plus` (ArrowPlus / MonadPlus
+  choice, Layer 2) → `evaluator.StepPlus` (Layer 3) → the DSL step `(a <+> b <+> …)`
+  merges several sub-pipelines into one stream. `lib/k8s/sources.gatwd` defines
+  `k8s_resources` as the `<+>` of all twelve crawl steps (`k8sgraph.CoreCrawls`,
+  now incl. PVCs, ServiceAccounts, Roles, RoleBindings), so
+  `spawn StrVal: default |> k8s_resources |> k8s_graph` feeds the SAME prelude as the
+  offline path. `TestLiveOfflineParity` (fake dynamic client, helper package
+  `pkg/k8sgraph/k8sgraphtest`) proves §6 #10: identical nodes, declared edges and
+  inferred edges for both fixtures. The operator gained a live mode (`-namespace`).
+- *Relation matrix.* `Configures` (ConfigMap → Pod/Deployment-template via volume,
+  `configMapKeyRef`, `envFrom`), `Mounts` (PVC → workload), `Binds` (RoleBinding →
+  ServiceAccount subjects and → its Role) and the **inferred** `Calls` (weight 0.5:
+  a workload env value / ConfigMap data value equal to a Service name). Authored in
+  pure DSL with first-class closures (`k8s_workloads`, `k8s_names`, `k8s_config_refs`,
+  `k8s_claim_refs`); edges only join existing nodes. Fixture `testdata/stack_full.yaml`;
+  `TestPodSpecRelations`. Node color `PVC` renamed to the real kind
+  `PersistentVolumeClaim`; `RoleBinding` added.
+- *Generic core additions it needed* (all domain-free, DSL §§79–82): the full
+  operator-type matrix as curried expression functions (Workstream E), the
+  graph read-side function forms (`graph_scc`, `graph_topo_sort`, `graph_reachable`,
+  `graph_shortest_path`, `graph_edge_pairs`, `graph_has_node`, `graph_nodes`,
+  `graph_order`, `graph_size`, `graph_add_inferred_edges`), `hamt_get_or`.
+- *Compliance rules* (`rules/compliance.gatwd`, each a closure graph → violations):
+  UnselectedPod, IdleDeployment, **UnusedService, DanglingIngress, MissingConfigMap,
+  DependencyCycle** (graph_scc inside a comprehension). `testdata/broken.yaml`
+  violates every rule; `TestOperatorAllRules`, `TestOperatorLiveSource`.
+- *Perf.* `BenchmarkK8sGraph` + `benchmarks/run_k8s_graph.sh`. Profiling showed the
+  O(services × pods) `Selects` pass was about three quarters of the run; replaced by a label-indexed
+  pass (pure DSL, HAMT of pod lists): 2040 ms → 294 ms at 100 × 1000, scaling now
+  ~linear. Semantics pinned by `TestSelectsIndexedPassSemantics`.
+- *Dogfood/docs.* Relations rewritten on closures; `Example_graphInOfOutOf`,
+  `Example_graphAlgorithmsInComprehension`; `EvaluateToValues("")` no longer panics;
+  `doc.go` for the prelude. **Remaining ideas (not started):** edges keyed by
+  `metadata.name` only (a Pod and Service with the same name collide — namespace/kind
+  qualified ids), a leak/soak harness for a long-running operator `-interval` loop,
+  CRD-driven GVR discovery in the edition (`EnumerateResources` exists), live
+  `kustomize`-vs-cluster drift diff (`graph_diff`).
 
 ---
 
@@ -839,7 +879,7 @@ def rel_calls = \pod -> \services ->
 
 ## 8. Appendix B — mandate compliance checklist
 
-- [ ] Core contains no `kubernetes`/`k8s` identifier (Mandate 5).
+- [x] Core contains no `kubernetes`/`k8s` identifier or third-party import (Mandate 5) — enforced by `internal/archtest`. ✅
 - [x] Graph fills `map/fold/filter/++/==` as a new collection row at the Go
       level (Mandate 2) — Phase 1. ✅ (DSL builtins for the row land in Phase 4.)
 - [x] Graph construction/projection/walk ops → DSL builtins + `tests/dsl_exhaustive_test.gatwd`
@@ -848,15 +888,17 @@ def rel_calls = \pod -> \services ->
       Phase 4b. ✅
 - [x] Graph optics (single-node payload Lens: `graph_focus`/`graph_set`/`graph_over`) →
       DSL builtins + asserts §72 (M3) — Phase 4c. ✅ **Matrix row complete through DSL.**
-- [ ] K8s relations are pure DSL; no Go loops faking a graph (M1/8).
-- [ ] Third-party K8s deps only in `adapters/` + `pkg/plugins` (M5).
-- [ ] Edition `main.go` is assembly-only; registered pieces come from
-      core/adapters/plugins/preload DSL (user rule, §0).
+- [x] K8s relations are pure DSL; no Go loops faking a graph (M1/8) — `pkg/k8sgraph/lib/k8s/relations.gatwd` (Owns, Selects, RoutesTo, Configures, Mounts, Binds, inferred Calls). ✅
+- [x] Third-party K8s deps only in `adapters/` + the `pkg/k8sgraph` shim (M5); client-go is confined to adapter/shim files. ✅
+- [x] Edition `main.go` is assembly-only; registered pieces come from
+      core/adapters/plugins/preload DSL (user rule, §0; Mandate 7). ✅
 - [x] Generic `Edition.WithPreludeFS`/`WithPrelude` added to `pkg/cli` (Phase P1). ✅
 - [x] Generic `cli.AdapterStep` bridges any `Adapter[any]`→DSL step (Phase P3a). ✅
 - [x] K8s adapter emits structured nested-HAMT payloads, not bare names (Phase P2). ✅
 - [x] Domain `k8sgraph.CrawlStep` constructs the K8s adapter → `cli.AdapterStep` (Phase P3b). ✅
-- [ ] godoc + `doc.go` + `Example*` for all new exports (project-doc-sync).
+- [x] godoc on every new exported identifier (verified by an AST scan of the touched files), `doc.go` for new packages, `Example*` for the main new exports (project-doc-sync). ✅
+- [x] Live/offline parity proven by test (`TestLiveOfflineParity`) and every compliance rule proven by a violating fixture (`testdata/broken.yaml`) — Mandates 6/7. ✅
+- [x] Generic-first: every core primitive the domain needed (`<+>`, `subset_of`, `hamt_path`, `graph_scc` as a function, `Edition.WithPreludeFS`, `cli.AdapterStep`, …) has a non-domain DSL assertion (M3). ✅
 
 ---
 

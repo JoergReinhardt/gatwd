@@ -1,6 +1,8 @@
 // Command gatwd-k8s-operator is the Kubernetes compliance Appliance: the gatwd-k8s
 // edition plus embedded use-case rules (rules/compliance.gatwd) that hot-reload
-// from a mounted ConfigMap. It is pure assembly; the rules live in .gatwd.
+// from a mounted ConfigMap. It checks offline manifests (-manifests) or, when none
+// are given and a cluster is reachable, the live cluster (-namespace). It is pure
+// assembly; the rules live in .gatwd.
 package main
 
 import (
@@ -20,18 +22,25 @@ import (
 var rulesFS embed.FS
 
 func main() {
-	manifests := flag.String("manifests", "", "manifest file or directory to check (required)")
+	manifests := flag.String("manifests", "", "manifest file or directory to check; omit to check the live cluster")
+	namespace := flag.String("namespace", "default", "namespace to crawl when checking the live cluster")
 	override := flag.String("rules", "/etc/gatwd/rules.gatwd", "mounted ConfigMap rules that override the embedded ones")
 	interval := flag.Duration("interval", 0, "re-check (and hot-reload rules) every interval; 0 checks once")
 	flag.Parse()
-	if *manifests == "" {
-		fmt.Fprintln(os.Stderr, "gatwd-k8s-operator: -manifests is required")
-		os.Exit(2)
-	}
 
 	client, err := k8sgraph.DynamicClientFromKubeconfig()
 	if err != nil {
 		client = nil
+	}
+	var pipeline string
+	switch {
+	case *manifests != "":
+		pipeline = checkPipeline(*manifests)
+	case client != nil:
+		pipeline = livePipeline(*namespace)
+	default:
+		fmt.Fprintln(os.Stderr, "gatwd-k8s-operator: no -manifests given and no cluster reachable")
+		os.Exit(2)
 	}
 	app, err := newAppliance(client, *override)
 	if err != nil {
@@ -40,7 +49,7 @@ func main() {
 	}
 
 	for {
-		for _, v := range app.Execute(checkPipeline(*manifests)) {
+		for _, v := range app.Execute(pipeline) {
 			fmt.Println(v)
 		}
 		if *interval == 0 {
@@ -61,6 +70,13 @@ func newAppliance(client dynamic.Interface, override string) (*cli.Appliance, er
 	)
 }
 
+// checkPipeline runs the compliance rules over offline manifests.
 func checkPipeline(manifests string) string {
 	return "spawn StrVal: " + manifests + " |> manifests |> compliance"
+}
+
+// livePipeline runs the SAME rules over a live cluster: k8s_resources (lib/k8s/sources.gatwd)
+// merges every crawl stream of the namespace into the one stream k8s_graph consumes.
+func livePipeline(namespace string) string {
+	return "spawn StrVal: " + namespace + " |> k8s_resources |> compliance"
 }

@@ -1,0 +1,56 @@
+# One violation of every rule the embedded compliance.gatwd checks.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: orphan
+  labels:
+    app: orphan
+spec:
+  volumes:
+    - name: cfg
+      configMap:
+        name: gone-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unused-svc
+spec:
+  selector:
+    app: nobody
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-svc
+spec:
+  type: ExternalName
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: front
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: no-such-svc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loop-a
+  ownerReferences:
+    - kind: Deployment
+      name: loop-b
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loop-b
+  ownerReferences:
+    - kind: Deployment
+      name: loop-a

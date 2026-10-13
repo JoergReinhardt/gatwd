@@ -28,7 +28,34 @@ var (
 	DeploymentsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	ReplicaSetsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	IngressesGVR   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
+
+	PVCsGVR            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}
+	ServiceAccountsGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "serviceaccounts"}
+	RolesGVR           = schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}
+	RoleBindingsGVR    = schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"}
 )
+
+// CoreCrawls lists the live source steps an edition registers, keyword → GVR, in
+// the order the merged `k8s_resources` stream (lib/k8s/sources.gatwd) visits them.
+// Keeping the list as data lets ApplyEdition, the live/offline parity test and the
+// prelude's source definition stay in step with one another.
+var CoreCrawls = []struct {
+	Keyword string
+	GVR     schema.GroupVersionResource
+}{
+	{"k8s_pods", PodsGVR},
+	{"k8s_services", ServicesGVR},
+	{"k8s_configmaps", ConfigMapsGVR},
+	{"k8s_secrets", SecretsGVR},
+	{"k8s_endpoints", EndpointsGVR},
+	{"k8s_deployments", DeploymentsGVR},
+	{"k8s_replicasets", ReplicaSetsGVR},
+	{"k8s_ingresses", IngressesGVR},
+	{"k8s_pvcs", PVCsGVR},
+	{"k8s_serviceaccounts", ServiceAccountsGVR},
+	{"k8s_roles", RolesGVR},
+	{"k8s_rolebindings", RoleBindingsGVR},
+}
 
 // CrawlStep exposes a configured Kubernetes resource crawl as a named `|>`
 // pipeline step. It is the entire domain-specific half of the adapter→DSL bridge:

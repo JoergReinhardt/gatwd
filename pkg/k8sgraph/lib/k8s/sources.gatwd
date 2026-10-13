@@ -1,0 +1,8 @@
+-- Live source: every crawled resource kind merged into ONE resource stream with the
+-- generic <+> (ArrowPlus) combinator, so a single k8s_graph pass sees the whole
+-- cluster. The spawned value is the namespace (empty = all namespaces):
+--   spawn StrVal: default |> k8s_resources |> k8s_graph
+-- These crawl steps exist only when the edition was built with a cluster client (a
+-- nil client leaves just the offline `manifests`/`kustomize` sources), so the
+-- definition is a lazy macro: it costs nothing until a live run uses it.
+def k8s_resources = (k8s_pods <+> k8s_services <+> k8s_configmaps <+> k8s_secrets <+> k8s_endpoints <+> k8s_deployments <+> k8s_replicasets <+> k8s_ingresses <+> k8s_pvcs <+> k8s_serviceaccounts <+> k8s_roles <+> k8s_rolebindings)

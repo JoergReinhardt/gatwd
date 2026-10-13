@@ -20,6 +20,22 @@
 // So this shim is pure assembly: it wires core + adapters + the DSL prelude
 // together into an Edition/Appliance. See docs/k8s_graph_design.md §4.
 //
+// # The prelude (lib/k8s/*.gatwd)
+//
+//   - types.gatwd      node colors (resource kinds) and edge colors (relations)
+//   - ingest.gatwd     k8s_ingest: a resource stream folded into a typed graph
+//   - relations.gatwd  Owns, Selects (label-indexed), RoutesTo, Configures, Mounts,
+//     Binds and the INFERRED Calls, plus the helper closures they share
+//   - sources.gatwd    k8s_resources: every live crawl stream merged with <+>
+//   - queries.gatwd    k8s_apply_order, k8s_cycles
+//   - prelude.gatwd    the embed entry point; defines k8s_graph
+//
+// One resource stream feeds one pipeline, offline or live — the downstream is
+// source-agnostic because both produce the same nested-HAMT payloads:
+//
+//	spawn StrVal: ./manifests |> manifests |> k8s_graph       (offline)
+//	spawn StrVal: default |> k8s_resources |> k8s_graph       (live cluster)
+//
 // # Quick start (Edition assembly)
 //
 //	client, _ := k8sgraph.DynamicClientFromKubeconfig()

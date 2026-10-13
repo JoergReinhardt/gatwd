@@ -9,10 +9,60 @@
 def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "name" o), (hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
 
 -- Selects: Service -> every Pod whose labels contain the Service's spec.selector.
-def rel_selects = fold (\_ g -> graph_add_edges [ ["Selects", 1, (hamt_path "metadata.name" s), (hamt_path "metadata.name" p)] | s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, p <- (graph_payloads_of "Pod" g), hamt_has_path "metadata.labels" p, subset_of (hamt_path "spec.selector" s) (hamt_path "metadata.labels" p) ] g) graph_empty
+-- A naive pass compares every (Service, Pod) pair: O(services x pods). Instead the Pods
+-- are indexed once by their "key=value" label pairs (a HAMT of pod lists); a Service
+-- looks up the candidates for ONE of its selector pairs and only those are verified
+-- against the full selector with subset_of, so the cost is O(pods x labels + services
+-- + candidates). An empty selector has no pair to look up and falls back to every Pod.
+def k8s_label_key = \kv -> (fst kv) ++ "=" ++ (snd kv)
+
+def k8s_label_index = \pods -> fold (\idx p -> fold (\i kv -> hamt_set (k8s_label_key kv) (cons p (hamt_get_or [] (k8s_label_key kv) i)) i) idx (hamt_pairs (hamt_path "metadata.labels" p))) hamt_empty pods
+
+def k8s_selector_candidates = \idx pods pairs -> [ q | (is_empty pairs) == false, q <- (hamt_get_or [] (k8s_label_key (head pairs)) idx) ] ++ [ q | is_empty pairs, q <- pods ]
+
+def k8s_selects_specs = \g -> [ ["Selects", 1, (hamt_path "metadata.name" s), (hamt_path "metadata.name" p)] | pods <- [ [ q | q <- (graph_payloads_of "Pod" g), hamt_has_path "metadata.labels" q ] ], idx <- [ (k8s_label_index pods) ], s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, p <- (k8s_selector_candidates idx pods (hamt_pairs (hamt_path "spec.selector" s))), subset_of (hamt_path "spec.selector" s) (hamt_path "metadata.labels" p) ]
+
+def rel_selects = fold (\_ g -> graph_add_edges (k8s_selects_specs g) g) graph_empty
 
 -- RoutesTo: Ingress -> the Service named by each rule path's backend.
 def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (hamt_path "metadata.name" i), (hamt_path "backend.service.name" path)] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path ] g) graph_empty
 
+-- ---------------------------------------------------------------------------
+-- Pod-spec relations. A "workload" is anything that carries a pod spec: a Pod (its
+-- own spec) or a Deployment (spec.template.spec). The helpers below are ordinary
+-- closures (first-class lambdas); the relations call them inside a comprehension.
+-- Edges only join resources that exist in the graph (graph_has_node), so a reference
+-- to a missing object yields no phantom edge — the dangling-reference compliance rules
+-- find those from the manifests themselves.
+-- ---------------------------------------------------------------------------
+
+-- [id, podSpec] for every Pod and every Deployment pod template.
+def k8s_workloads = \g -> [ [(hamt_path "metadata.name" p), (hamt_path "spec" p)] | p <- (graph_payloads_of "Pod" g), hamt_has_path "spec" p ] ++ [ [(hamt_path "metadata.name" d), (hamt_path "spec.template.spec" d)] | d <- (graph_payloads_of "Deployment" g), hamt_has_path "spec.template.spec" d ]
+
+-- The names of every node of one kind (a node's id is its metadata.name).
+def k8s_names = \kind g -> [ (hamt_path "metadata.name" r) | r <- (graph_payloads_of kind g) ]
+
+-- Names of ConfigMaps a pod spec references: as a volume, as an env var source
+-- (valueFrom.configMapKeyRef) or wholesale (envFrom[].configMapRef).
+def k8s_config_refs = \ws -> [ (hamt_path "configMap.name" v) | hamt_has_path "volumes" ws, v <- (hamt_path "volumes" ws), hamt_has_path "configMap.name" v ] ++ [ (hamt_path "valueFrom.configMapKeyRef.name" e) | hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "env" c, e <- (hamt_path "env" c), hamt_has_path "valueFrom.configMapKeyRef.name" e ] ++ [ (hamt_path "configMapRef.name" f) | hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "envFrom" c, f <- (hamt_path "envFrom" c), hamt_has_path "configMapRef.name" f ]
+
+-- Names of PersistentVolumeClaims a pod spec mounts as volumes.
+def k8s_claim_refs = \ws -> [ (hamt_path "persistentVolumeClaim.claimName" v) | hamt_has_path "volumes" ws, v <- (hamt_path "volumes" ws), hamt_has_path "persistentVolumeClaim.claimName" v ]
+
+-- Configures: ConfigMap -> workload that mounts or env-references it.
+def rel_configures = fold (\_ g -> graph_add_edges [ ["Configures", 1, cm, wid] | [wid, ws] <- (k8s_workloads g), cm <- (k8s_config_refs ws), graph_has_node cm g ] g) graph_empty
+
+-- Mounts: PersistentVolumeClaim -> workload that mounts it as a volume.
+def rel_mounts = fold (\_ g -> graph_add_edges [ ["Mounts", 1, claim, wid] | [wid, ws] <- (k8s_workloads g), claim <- (k8s_claim_refs ws), graph_has_node claim g ] g) graph_empty
+
+-- Binds: RoleBinding -> each ServiceAccount subject, and -> the Role it grants.
+def rel_binds = fold (\_ g -> graph_add_edges ([ ["Binds", 1, (hamt_path "metadata.name" rb), (hamt_get "name" s)] | rb <- (graph_payloads_of "RoleBinding" g), hamt_has_path "subjects" rb, s <- (hamt_path "subjects" rb), hamt_has_path "kind" s, hamt_get "kind" s == "ServiceAccount", graph_has_node (hamt_get "name" s) g ] ++ [ ["Binds", 1, (hamt_path "metadata.name" rb), (hamt_path "roleRef.name" rb)] | rb <- (graph_payloads_of "RoleBinding" g), hamt_has_path "roleRef.name" rb, graph_has_node (hamt_path "roleRef.name" rb) g ]) g) graph_empty
+
+-- Calls (INFERRED, weight 0.5): evidence-based, not declared. A workload whose env var
+-- value is exactly a Service name, or a ConfigMap data value equal to a Service name,
+-- is assumed to call that Service. These are recorded as inferred edges so a query can
+-- keep them apart from the declared relations (graph_edges_inferred).
+def rel_calls = fold (\_ g -> graph_add_inferred_edges ([ ["Calls", 0.5, wid, (hamt_get "value" e)] | [wid, ws] <- (k8s_workloads g), hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "env" c, e <- (hamt_path "env" c), hamt_has_path "value" e, member (hamt_get "value" e) (k8s_names "Service" g) ] ++ [ ["Calls", 0.5, (hamt_path "metadata.name" cm), v] | cm <- (graph_payloads_of "ConfigMap" g), hamt_has_path "data" cm, v <- (hamt_values (hamt_path "data" cm)), member v (k8s_names "Service" g) ]) g) graph_empty
+
 -- The full relation matrix as one pass chain over an ingested graph.
-def k8s_relations = rel_owns |> rel_selects |> rel_routes_to
+def k8s_relations = rel_owns |> rel_selects |> rel_routes_to |> rel_configures |> rel_mounts |> rel_binds |> rel_calls

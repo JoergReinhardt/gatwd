@@ -2,6 +2,7 @@
 import "types.gatwd"
 import "ingest.gatwd"
 import "relations.gatwd"
+import "sources.gatwd"
 import "queries.gatwd"
 
 -- A resource stream lifted to a typed graph with every relation derived:

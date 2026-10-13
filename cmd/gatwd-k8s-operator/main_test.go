@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/joergreinhardt/gatwd/pkg/k8sgraph/k8sgraphtest"
 )
 
 func violations(t *testing.T, vals []any) []string {
@@ -31,6 +33,35 @@ func TestOperatorEmbeddedRules(t *testing.T) {
 		if !reflect.DeepEqual(got, []string{want}) {
 			t.Errorf("%s: violations = %v, want %s", path, got, want)
 		}
+	}
+}
+
+const brokenWant = "[[UnselectedPod orphan] [UnusedService unused-svc] [DanglingIngress front] [MissingConfigMap orphan] [DependencyCycle [loop-a loop-b]]]"
+
+// TestOperatorAllRules: one fixture violating every embedded rule yields exactly the
+// expected violations, in rule order — and the compliant parts (a selector-less
+// ExternalName Service, the missing-config Pod's other fields) are not flagged.
+func TestOperatorAllRules(t *testing.T) {
+	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := violations(t, app.Execute(checkPipeline("testdata/broken.yaml")))
+	if !reflect.DeepEqual(got, []string{brokenWant}) {
+		t.Fatalf("violations = %v\nwant        %s", got, brokenWant)
+	}
+}
+
+// TestOperatorLiveSource: the operator, given a (fake) cluster instead of manifests,
+// reports exactly what it reports for the same objects offline.
+func TestOperatorLiveSource(t *testing.T) {
+	app, err := newAppliance(k8sgraphtest.FakeClusterFromFile(t, "testdata/broken.yaml"), filepath.Join(t.TempDir(), "absent.gatwd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := violations(t, app.Execute(livePipeline("default")))
+	if !reflect.DeepEqual(got, []string{brokenWant}) {
+		t.Fatalf("live violations = %v\nwant              %s", got, brokenWant)
 	}
 }
 

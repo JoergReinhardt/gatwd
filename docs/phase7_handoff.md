@@ -1,3 +1,5 @@
+> **SUPERSEDED — historical record.** Phase 7 is complete (design doc §5, Phase 7). Superseded by `docs/phase8_handoff.md`, itself now complete.
+
 # Phase 7 Handoff — K8s graph Edition + Appliance
 
 > Handoff for a **fresh context**. Phase 6 (the pure-DSL relation prelude +
