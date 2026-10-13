@@ -754,6 +754,26 @@ The design above is implemented as written; these are the calls made while doing
      (`relations.gatwd` cannot be read, so the "copy, edit, shadow" workflow of the how-to is half a workflow) — W6's
      `command.go`.
 
+
+**Track E closure — source provenance (item 1 above; 2026-10-13, branch `hardening/e`).** The duplicate-id error now names
+the file each declaration was read from (`declared as Pod in a.yaml (…) and again as Pod in more/b.yaml, document 2 (…)`).
+*Design, and why not the suggested `_source` key:* the source is a **side channel on the payload value**, not a key in
+it — `collections.Source{Origin, Document}` attached with `HAMT.WithSource` (Clojure's `with-meta`), read with
+`collections.SourceOf`. It is invisible to `Get`/`Seq`/`Keys`/`Len`/`Equal`/`StructuralEqual`/JSON and the DSL, so no rule,
+no graph and no export can see it and live/offline parity is untouched by construction; a `_source` key would have
+changed `hamt_keys`, `json_encode` of every payload (and any live→manifest export) and forced every parity comparison to
+strip it. A test proves the difference: with the source stored as a key, `TestSourceProvenanceIsInvisible` fails.
+`Set`/`Delete` (and so `Merge`/`Diff` from the receiver) keep the source, `Filter`/`MapValues`/`Intersect` do not. Core
+stays domain-free (Origin is an opaque string; `collections` only). `adapters/manifest_adapter.go` attaches the file, and
+the 1-based document position only when the file holds several documents (empty documents count, so it matches the
+file); a rendered kustomization root is `kustomize render of DIR, document N`; live crawls attach nothing. `DuplicateNodeError`
+gained `ExistingSource`/`NewSource` and its text is unchanged when neither payload has one. DSL: `with_source origin
+document h` and `source_of v` (a `Maybe String`), registered from `pkg/cli/source_funcs.go` through `registerGraphFuncs`
+(not `dslfuncs.go`, to stay out of Track F's registry lines). Tests: the two-file fixture `testdata/duplicates-files/`,
+`duplicates.yaml` (document 1 and 2), payload parity live vs offline by JSON, the operator real-binary row; negative
+controls: source not attached, source stored as a key (both seen red). **Deferred:** a source on *live* payloads (a
+namespace/cluster label would be possible with the same mechanism; nothing needs it); `with_source` only carries a HAMT
+(the record shape) — other carriers are a recorded gap, not a mathematical one.
 ---
 
 ## 8. W5 — In-process kustomize (D7: bump to Go 1.27)
@@ -819,6 +839,24 @@ Four commits, each with all gates green: the Go bump · `Edition.WithFlags` · t
 - **Security, unchanged until W7:** a mounted override is still *trusted code* — its defs can use any step, including the unknown-step OS-command fallback (F17); layering does not widen that (replace mode ran the same text), but the §10 "replace-only until W7" mitigation no longer means anything once the default is `layer`: W7's deny-by-default policy for overrides is what closes it.
 - **Deferred:** `GATWD_<FLAG>` environment defaults (§4.3, nothing needs them); a `--rules-mode` that merges per-def (`layer` is whole-def redefinition); watching the ConfigMap (reload stays interval-driven); `context`/signal handling in the loop (W7).
 
+**Track E closure — exit code 3, operator `--no-kustomize` (2026-10-13, branch `hardening/e`; user decisions).**
+- **Exit codes, now:** `0` ok · `1` the command broke (error nodes — a duplicate id included —, a pipeline that yielded nothing,
+  rules that do not load, a failed `check`) · `2` a malformed command line · **`3` the check ran and found violations, only
+  with `--fail-on-violation`** (the flag stays opt-in; `run` still rejects it). An error always wins: a check that both errored
+  and found violations exits 1. Built as `cli.ExitOK/ExitFailed/ExitUsage/ExitViolations` and `cli.ViolationsError{Count}`
+  (`command.go`, mapped in `executeRoot`, which both command trees share), not a magic number; a domain command can return
+  `ViolationsError` too. Pinned by `TestExitStatusMapping`, the toy Appliance rows (including "an error wins over violations")
+  and the real-binary operator rows (violations → 3, JSON → 3, a duplicate id → 1); the mapping was negative-controlled
+  (violations mapped to 1, and the error/violation order swapped, both seen red). Docs: `dsl_guide.md` §23, `k8s_howto.md`
+  §3.2 (with a CI `case $?` snippet), the `edition-appliance` skill. The W6 open question "should `check` fail on violations
+  by default" is **answered: no**.
+- **Operator `--no-kustomize`:** a persistent flag of the operator tree declared in its `Bind` and mapped to
+  `k8sgraph.WithoutKustomize()` in `setup` (the main stays wiring). **Call made:** with the live source (no `--manifests`) the
+  flag would silently do nothing, so it is a usage error (exit 2) — loud instead of ignored; veto if you want it accepted.
+  Test: `TestOperatorNoKustomize` (a checked-in root `testdata/kustomize-root`: rendered gives `Pod/default/x-web`, with the flag
+  the plain files `Kustomization/_/k` and `Pod/default/web`), negative-controlled twice (option not applied; live guard off).
+  Closes the §8.1 deferral (2).
+
 **W7 (later; design now, build when needed):** running scripts that did **not** come from the command line —
 ConfigMaps, API requests — is only safe with a **capability policy**, because an unknown step executes an OS
 command (verified, F17) and the DSL can read files and sockets.
@@ -877,6 +915,7 @@ the how-to, and the script regression diff. Collect here as phases land; **each 
 | **`compare` and ordering of mixed values** (W3): `compare`, `min`, `max`, `<` on a String and a number are errors; two Strings order as text | anything that sorts or compares labels/ports as text vs numbers: convert with `str_to_int` first | rules that compare a label or annotation value with a number |
 | **W4 follow-ups** (the W4 row above is done on branch `hardening/w4`: how-to §2.3/§2.4/§3.5/§4, all ids and tests migrated) | after W5 (kustomize): say that `kubectl kustomize` output carries namespaces and that two overlays defining one object now fail with the duplicate-id error; if provenance (W4 §7.1 item 1) is decided, show the file in the error text | a source path in the duplicate error (adapter + payload shape, after Track C); decide `ownerReferences` without `kind` (§7.1 item 2); an override that still uses `k8s_names` or `metadata.name` ids fails loudly: mention it in the W6 layered-rules text |
 | **W4 finds for other tracks** | `prelude cat` reads only the entry file: either teach it the imported files (W6, `command.go`) or drop the claim "copy, edit, load with `--prelude`" for `relations.gatwd` | the operator prints a duplicate-id error and **exits 0** like a violation list: W6's exit codes (`--fail-on-violation`, `2` for no source) must also fail on an error result; the guard-only comprehension defect (§7.1 item 3) belongs to the parser |
+| **Track E: exit code 3, operator `--no-kustomize`, source provenance** (done in `hardening/e`) | §3.2 documents exit `3`, the CI `case $?` snippet, the flag and the file in the duplicate error (done); re-run the three commands (`check --fail-on-violation` → 3, `--no-kustomize`, a duplicate) after the other tracks merge | the operator `main.go` and `cli_test.go` carry the flag and the rows; **remove the stale "operator has no flag" sentences if another track re-adds them**; a source on live payloads is deferred (§7.1). When Track F's time types land, check that `with_source`/`source_of` (`pkg/cli/source_funcs.go`) did not collide with a registry change in `dslfuncs.go` |
 
 | Risk | Mitigation |
 | :-- | :-- |

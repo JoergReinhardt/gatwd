@@ -25,10 +25,11 @@ import (
 // Flags every Appliance has: --rules FILE, --rules-mode layer|replace, --interval DUR,
 // --format text|json, --fail-on-violation. A domain adds its own (its data source) in Bind.
 //
-// Exit status, the same mapping as the Edition command tree: 0 the check ran and, with
-// --fail-on-violation, found nothing; 1 the command failed — rules that do not load, a check
-// that errored or yielded nothing, or violations under --fail-on-violation; 2 a malformed
-// command line. `run` is a daemon: a failing check is reported and the loop continues, and
+// Exit status, the same mapping as the Edition command tree plus one: 0 the check ran and,
+// with --fail-on-violation, found nothing; 1 the command failed — rules that do not load, a
+// check that errored or yielded nothing; 2 a malformed command line; 3 (ExitViolations) the
+// check ran correctly and, under --fail-on-violation, found violations. An error always wins
+// over violations: a check that both errored and found violations exits 1. `run` is a daemon: a failing check is reported and the loop continues, and
 // only a start-up failure ends it.
 
 // ApplianceSettings is what the generic flags resolved to; a domain's ApplianceSetup turns it
@@ -118,7 +119,7 @@ func (t *ApplianceTree) Root() *cobra.Command {
 	pf.StringVar(&f.rules, "rules", t.spec.RulesPath, "override rules `FILE` (a mounted ConfigMap); a missing or empty file means none")
 	pf.StringVar(&f.rulesMode, "rules-mode", OverrideLayer.String(), "how the override combines with the embedded rules: `layer` (on top of them) or `replace` (instead of them)")
 	pf.StringVar(&f.format, "format", FormatText, "output format: `text` (one result per line) or `json` (one JSON object per check)")
-	pf.BoolVar(&f.failOnViolation, "fail-on-violation", false, "exit 1 when the check finds violations (check only; run never exits on them)")
+	pf.BoolVar(&f.failOnViolation, "fail-on-violation", false, "exit 3 when the check finds violations (check only; run never exits on them); a failed check still exits 1")
 	root.Flags().DurationVar(&f.interval, "interval", 0, "re-check (and hot-reload the rules) every `DUR`; 0 checks once")
 	if t.spec.Bind != nil {
 		setup = t.spec.Bind(root)
@@ -255,7 +256,7 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 			case failures > 0:
 				return fmt.Errorf("the check failed (%d error(s), see the output above)", failures)
 			case f.failOnViolation && len(rep.findings) > 0:
-				return fmt.Errorf("%d violation(s) found", len(rep.findings))
+				return ViolationsError{Count: len(rep.findings)}
 			}
 			return nil
 		}

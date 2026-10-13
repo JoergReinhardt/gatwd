@@ -206,7 +206,7 @@ const VAL = 200
 }
 
 // ExampleCommandTree_Execute runs a command line without a process: the tree returns the
-// exit status (0 ok, 1 a command failed, 2 a malformed command line) and writes to the
+// exit status (ExitOK, ExitFailed when a command failed, ExitUsage for a malformed command line) and writes to the
 // given streams.
 func ExampleCommandTree_Execute() {
 	tree := cli.NewCommandTree(cli.CommandSpec{

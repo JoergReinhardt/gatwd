@@ -157,9 +157,13 @@ What the qualified id buys, and what it asks of you:
 - **Equal names no longer collide.** A Service and a Pod called `web`, or `web` in `default` and in
   `prod`, are different nodes (`pkg/k8sgraph/testdata/collisions.yaml`). A resource defined **twice**
   (same kind, namespace and name — two files of one kustomization, a pasted document) is an error that
-  names both declarations, never one silently replacing the other:
-  `[ERROR] … duplicate node id "Pod/default/dup": declared as Pod ({…"app":"first"…}) and again as Pod ({…"app":"second"…}) — the two declarations are different`
-  (`pkg/k8sgraph/testdata/duplicates.yaml`; the operator prints that error instead of a violation list).
+  names both declarations — **and the file each came from** — never one silently replacing the other:
+  `[ERROR] … duplicate node id "Pod/default/dup": declared as Pod in rendered/a.yaml ({…"app":"first"…}) and again as Pod in rendered/more/b.yaml, document 2 ({…"app":"second"…}) — the two declarations are different`
+  (`pkg/k8sgraph/testdata/duplicates.yaml` for two documents of one file, `duplicates-files/` for two files; the
+  operator prints that error instead of a violation list and exits 1). The position (`document N`) appears only
+  when the file holds several documents; a rendered kustomization root reads `kustomize render of DIR, document N`.
+  Offline manifests carry this provenance beside the resource (invisible to rules, equality and JSON); a live
+  cluster has none, so a live duplicate names the payloads only.
 - **References resolve in the referrer's namespace**, because Kubernetes references are namespace-local:
   an Ingress backend, a ConfigMap or claim a pod uses, a Service's selector, an `ownerReference` (which
   names the owner's kind), a `roleRef` (kind and name) and a RoleBinding subject (which may carry its own
@@ -293,17 +297,23 @@ The static operator is a single ELF binary of roughly 31 MB (the in-process kust
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--fail-on-violation` (see below). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (see below). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
-(`[ERROR] …`), a pipeline that yields nothing, or, with `--fail-on-violation`, a non-empty result; `2` a
-malformed command line (unknown flag or `--format`, no `--manifests` and no reachable cluster). Without
-`--fail-on-violation` the operator reports violations but exits 0, so a scheduled `run` is not restarted for
-finding something. For a CI gate:
+(`[ERROR] …`, including a duplicate node id), a pipeline that yields nothing; `2` a malformed command line
+(unknown flag or `--format`, no `--manifests` and no reachable cluster); `3` the check ran and found violations,
+**only with `--fail-on-violation`**. Without that flag the operator reports violations but exits 0, so a
+scheduled `run` is not restarted for finding something. A check that both errored and found violations exits `1`.
+For a CI gate that tells a policy finding from a broken run:
 
 ```bash
-gatwd-k8s-operator check --manifests ./rendered --fail-on-violation || { echo "policy violations"; exit 1; }
+gatwd-k8s-operator check --manifests ./rendered --fail-on-violation
+case $? in
+  0) echo "compliant" ;;
+  3) echo "policy violations"; exit 1 ;;
+  *) echo "the check itself failed"; exit 2 ;;
+esac
 ```
 
 **Kustomize.** The `manifests` step renders a *kustomization root* — a directory holding `kustomization.yaml`,
@@ -317,11 +327,14 @@ gatwd-k8s eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |
 gatwd-k8s --no-kustomize eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> collect_list |> length'   # ∷ 3: the plain files
 ```
 
-- **`--no-kustomize`** (a persistent flag of `gatwd-k8s`; `k8sgraph.WithoutKustomize()` for an Appliance) makes
+- **`--no-kustomize`** (a persistent flag of `gatwd-k8s` and of `gatwd-k8s-operator`; the operator's flag is the
+  edition's `k8sgraph.WithoutKustomize()` option) makes
   `manifests` read a root as the plain files it contains, as it did before auto-render. The root's own
   `kustomization.yaml` is then one of the documents and usually has no `kind`, so building a graph from it fails with
   `key 'kind' not found`: the switch is for a tree of already-rendered YAML that happens to hold such a file. The
-  operator renders by default and has no flag for this yet (use the option).
+  operator renders by default too: `gatwd-k8s-operator check --manifests DIR --no-kustomize` reads the root as plain
+  files. The flag belongs to the `--manifests` source; with the live cluster (no `--manifests`) it is a usage error
+  (exit 2) rather than a flag that silently does nothing.
 - The separate **`kustomize` step** (`… |> kustomize |> k8s_graph`) always renders, whatever the flag says. Use
   `kubectl kustomize overlay > rendered/all.yaml` only if you want an artifact on disk.
 - Only the path you give is tested for being a root. A directory *tree* that contains roots (`overlays/dev`,
@@ -412,9 +425,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 ## 4. Known limitations (as of this writing)
 
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
-- Node ids are `Kind/namespace/name` (§2.3). The duplicate error quotes both declarations' payloads but not the
-  file they came from: the manifest reader does not attach a source path to a payload, so with many files you
-  find the pair by the quoted fields.
-- `--no-kustomize` is a `gatwd-k8s` flag; the operator renders overlays but only has the `k8sgraph.WithoutKustomize()` option, not a flag (§3.2).
+- Node ids are `Kind/namespace/name` (§2.3). The duplicate error names the file (and document) of both
+  declarations for offline manifests; for a live crawl, which has no files, it quotes the payloads only.
+- `--no-kustomize` exists on both `gatwd-k8s` and `gatwd-k8s-operator` (§3.2); on the operator it applies to `--manifests` only.
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -251,5 +253,37 @@ func TestInterpreterOutWriter(t *testing.T) {
 	in.EvaluateLine("1 + 2")
 	if got := buf.String(); got != "∷ 3\n" {
 		t.Fatalf("Out got %q", got)
+	}
+}
+
+// TestExitStatusMapping pins the one mapping every command line shares (ExitOK, ExitFailed,
+// ExitUsage, ExitViolations), including through wrapping, and that the numbers themselves are
+// the documented ones: scripts and CI jobs depend on 0, 1, 2 and 3.
+func TestExitStatusMapping(t *testing.T) {
+	if ExitOK != 0 || ExitFailed != 1 || ExitUsage != 2 || ExitViolations != 3 {
+		t.Fatalf("documented statuses changed: ok %d, failed %d, usage %d, violations %d", ExitOK, ExitFailed, ExitUsage, ExitViolations)
+	}
+	fail := func(err error) *cobra.Command {
+		return &cobra.Command{Use: "t", Args: noArgs, RunE: func(*cobra.Command, []string) error { return err }}
+	}
+	rows := []struct {
+		name   string
+		err    error
+		code   int
+		stderr string
+	}{
+		{"nil", nil, ExitOK, ""},
+		{"an ordinary error", errors.New("broke"), ExitFailed, "broke"},
+		{"a usage error", UsageError(errors.New("bad line")), ExitUsage, "Run 't --help'"},
+		{"violations", ViolationsError{Count: 4}, ExitViolations, "4 violation(s) found"},
+		{"violations, wrapped", fmt.Errorf("check: %w", ViolationsError{Count: 1}), ExitViolations, "1 violation(s) found"},
+	}
+	for _, r := range rows {
+		var out, errb bytes.Buffer
+		root := &cobra.Command{Use: "t", SilenceUsage: true, SilenceErrors: true}
+		root.AddCommand(fail(r.err))
+		if code := executeRoot("t", root, []string{"t"}, strings.NewReader(""), &out, &errb); code != r.code || !strings.Contains(errb.String(), r.stderr) {
+			t.Errorf("%s: exit %d (want %d), stderr %q (want %q)", r.name, code, r.code, errb.String(), r.stderr)
+		}
 	}
 }

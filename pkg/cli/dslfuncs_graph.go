@@ -41,6 +41,7 @@ func payloadJSON(v any) string {
 // `[ c | c <- graph_scc g, length c > 1 ]` finds dependency cycles — rather than
 // only at the end of a pipeline.
 func registerGraphFuncs(m map[string]any) {
+	registerSourceFuncs(m) // provenance of the payloads graph_insert_node reports on (source_funcs.go)
 	graphArg := func(v any) (dslGraph, error) {
 		g, ok := asDSLGraph(v)
 		if !ok {

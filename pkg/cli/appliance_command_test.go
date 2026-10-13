@@ -214,11 +214,12 @@ func TestApplianceTreeFormatsAndExitCodes(t *testing.T) {
 		stdoutHas string // when the exact text is unstable
 	}{
 		{"violations are reported, exit 0 without --fail-on-violation", []string{"check", "--source", "entry 5"}, 0, "[[Big 7] [Big 9]]\n", "", ""},
-		{"--fail-on-violation exits 1 on violations", []string{"check", "--source", "entry 5", "--fail-on-violation"}, 1, "[[Big 7] [Big 9]]\n", "2 violation(s) found", ""},
+		{"--fail-on-violation exits 3 on violations", []string{"check", "--source", "entry 5", "--fail-on-violation"}, ExitViolations, "[[Big 7] [Big 9]]\n", "2 violation(s) found", ""},
+		{"an error wins over violations: a check that broke is 1, never 3", []string{"check", "--source", "spawn IntVal: 0 |> emit 5, a |> drop 1 |> map (\\x -> [(x + 1)])", "--fail-on-violation"}, ExitFailed, "", "the check failed", "[6]\n[ERROR]"},
 		{"compliant is [] and exits 0 even with --fail-on-violation", []string{"check", "--source", "entry 50", "--fail-on-violation"}, 0, "[]\n", "", ""},
 		{"json, violations", []string{"check", "--source", "entry 5", "--format", "json"}, 0,
 			`{"status":"violations","count":2,"violations":[{"rule":"Big","resource":7},{"rule":"Big","resource":9}],"errors":[]}` + "\n", "", ""},
-		{"json, violations and --fail-on-violation", []string{"check", "--source", "entry 5", "--format", "json", "--fail-on-violation"}, 1,
+		{"json, violations and --fail-on-violation", []string{"check", "--source", "entry 5", "--format", "json", "--fail-on-violation"}, ExitViolations,
 			`{"status":"violations","count":2,"violations":[{"rule":"Big","resource":7},{"rule":"Big","resource":9}],"errors":[]}` + "\n", "2 violation(s) found", ""},
 		{"json, compliant", []string{"check", "--source", "entry 50", "--format", "json", "--fail-on-violation"}, 0,
 			`{"status":"ok","count":0,"violations":[],"errors":[]}` + "\n", "", ""},

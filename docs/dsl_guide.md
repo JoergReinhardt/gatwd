@@ -676,7 +676,7 @@ Every operation exists in two forms. The **step form** takes literal tokens and 
 | Functor / Filterable / Foldable / Monad | `map` `filter` `reject` `fold` `flatmap` `bimap` — dispatch on the carrier: List, Chunk, Set, HAMT (values), Tree, Pair (second component), Maybe, Either (right), Variant (payload) |
 | Sequences | `length` `is_empty` `head` `tail` `nth` `reverse` `cons` `concat` `range` `member` `to_list` `to_set` |
 | Set | `set_empty` `set_add` `set_remove` `set_contains` `set_union` `set_intersect` `set_diff` `set_elements` |
-| HAMT | `hamt_empty` `hamt_from` `hamt_set` `hamt_del` `hamt_has` `hamt_get` `hamt_get_or` `hamt_path` `hamt_has_path` `hamt_keys` `hamt_values` `hamt_pairs` `hamt_merge` `hamt_diff` `hamt_intersect` |
+| HAMT | `hamt_empty` `hamt_from` `hamt_set` `hamt_del` `hamt_has` `hamt_get` `hamt_get_or` `hamt_path` `hamt_has_path` `hamt_keys` `hamt_values` `hamt_pairs` `hamt_merge` `hamt_diff` `hamt_intersect` `with_source` `source_of` |
 | Tree / BST | `tree_leaf` `tree_node` `tree_add_child` `tree_value` `tree_children` `tree_size` `tree_depth` `tree_flatten` `tree_member` · `bst_empty` `bst_from` `bst_insert` `bst_member` (a BST folds in order) |
 | Pair / Maybe / Either / Variant | `pair` `fst` `snd` `pair_swap` · `just` `nothing` `is_just` `is_nothing` `maybe_default` `maybe_fold` · `either_left` `either_right` `is_left` `is_right` `either_default` `either_fold` · `variant` `variant_tag` `variant_payload` `is_variant` |
 | Primitives | `min` `max` `abs` `negate` `compare` |
@@ -716,7 +716,7 @@ def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "kind" o ++
 
 Read side: `graph_payloads` `graph_payloads_of color` `graph_in_of color id` `graph_out_of color id` `graph_has_node` `graph_nodes` `graph_order` `graph_size` `graph_edge_pairs color` `graph_reachable` `graph_shortest_path` `graph_topo_sort` `graph_scc`. The pipeline steps (`graph_nodes_of`, `graph_edges_of`, `graph_walk_from`, `graph_map_nodes`, `graph_focus`/`graph_set`/`graph_over`, `graph_union`/`graph_diff`/`graph_intersect`, …) are exercised in `tests/dsl_exhaustive_test.gatwd`.
 
-**Node identity.** A node is identified by its id string alone, so two different things given the same id would become one node. The convention is therefore that **an id is qualified**: `Kind/scope/name` (the Kubernetes edition: `Pod/default/web`, `Service/default/web`, `Role/_/admin`, with `_` for "no namespace"), so equal local names under different kinds or scopes are different nodes. `graph_add_node` keeps its upsert meaning (a later declaration replaces the earlier one); **`graph_insert_node color id [payload] g`** (function form; step form `graph_insert_node COLOR ID`) is its strict twin and returns an `[ERROR] duplicate node id "…": declared as … and again as …` — naming the id and both colors and payloads (structured payloads print as JSON) — instead of overwriting. Use it for ingest. Two related rules: an edge whose far endpoint is not a declared node is stored (`graph_size`, `graph_edges` count it) but **not followed** (`graph_in_of`, `graph_out_of`, `graph_out`/`graph_in`, walks, `graph_shortest_path`), so adjacency agrees with `graph_nodes`; and `graph_add_edges` / `graph_add_inferred_edges` add an identical spec (same color, weight, endpoints) **once**, because a derivation pass can find one fact twice (the single-edge step `graph_add_edge` stays a multigraph insert). `collect_list` no longer drops an `[ERROR]` node from the stream it collects: it yields the errors instead of a list.
+**Node identity.** A node is identified by its id string alone, so two different things given the same id would become one node. The convention is therefore that **an id is qualified**: `Kind/scope/name` (the Kubernetes edition: `Pod/default/web`, `Service/default/web`, `Role/_/admin`, with `_` for "no namespace"), so equal local names under different kinds or scopes are different nodes. `graph_add_node` keeps its upsert meaning (a later declaration replaces the earlier one); **`graph_insert_node color id [payload] g`** (function form; step form `graph_insert_node COLOR ID`) is its strict twin and returns an `[ERROR] duplicate node id "…": declared as … and again as …` — naming the id and both colors and payloads (structured payloads print as JSON) — instead of overwriting. When a payload remembers where it was read (**`with_source origin document h`** attaches an origin to a HAMT *beside* its contents, like Clojure's `with-meta`; **`source_of v`** reads it back as a `Maybe String`), the error says so too: `declared as Pod in a.yaml (…) and again as Pod in b.yaml, document 2 (…)`. The source is invisible to `==`, `hamt_*`, `json_encode` and printing, survives `hamt_set`/`hamt_del`, and an adapter that has no file (a live crawl) simply attaches none; the manifest reader attaches the file and, for multi-document files, the document's position. Use it for ingest. Two related rules: an edge whose far endpoint is not a declared node is stored (`graph_size`, `graph_edges` count it) but **not followed** (`graph_in_of`, `graph_out_of`, `graph_out`/`graph_in`, walks, `graph_shortest_path`), so adjacency agrees with `graph_nodes`; and `graph_add_edges` / `graph_add_inferred_edges` add an identical spec (same color, weight, endpoints) **once**, because a derivation pass can find one fact twice (the single-edge step `graph_add_edge` stays a multigraph insert). `collect_list` no longer drops an `[ERROR]` node from the stream it collects: it yields the errors instead of a list.
 
 **`(a <+> b <+> c)`** merges several sub-pipelines into one stream: each incoming node runs through every branch and the outputs are concatenated in branch order (the ArrowPlus / MonadPlus choice combinator; the zero arrow is the identity and it is associative). It is how many producers feed one downstream pipeline:
 
@@ -790,7 +790,7 @@ gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
 
 Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1.5` is that number, anything else — `bob`, `007` — the String; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
 before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
-`1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
+`1` a command failed, `2` a malformed command line (an Appliance adds `3` for violations, see below). A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.
 
 ### The Appliance command line
@@ -812,7 +812,7 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--rules-mode layer\|replace` | `layer` (default, decision D5): the override is loaded on top of the embedded rules and may call them; `replace`: the override is the whole rule set |
 | `--interval DUR` | `run`/legacy form: wait between checks; the override is re-read each time |
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
-| `--fail-on-violation` | `check`: exit 1 when the result is non-empty (rejected for `run`, which never exits on violations) |
+| `--fail-on-violation` | `check`: exit `3` when the result is non-empty (opt-in; off by default; rejected for `run`, which never exits on violations) |
 
 The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
 single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
@@ -822,10 +822,13 @@ that cannot be read (imports resolve against the override's directory) or a requ
 start with exit `1` and names the problems; on a hot reload the error is printed and the **last good rules keep
 running**. At start and whenever it changes, the Appliance prints which defs the override overrode and which it added.
 
-**Exit status** — the same mapping as everywhere: `0` the check ran (and, with `--fail-on-violation`, found nothing);
-`1` the command failed — rules that do not load, a check that errored (`[ERROR]` result), a pipeline that yielded no
-result at all, or violations under `--fail-on-violation`; `2` a malformed command line (unknown flag or `--format`,
-no data source).
+**Exit status** — the same mapping as everywhere, plus one code for findings: `0` the check ran (and, with
+`--fail-on-violation`, found nothing); `1` the command failed — rules that do not load, a check that errored (`[ERROR]`
+result), a pipeline that yielded no result at all; `2` a malformed command line (unknown flag or `--format`, no data
+source); `3` the check ran correctly and, under `--fail-on-violation`, found violations. A CI job can therefore tell
+"policy findings" (`3`) from "the check could not run" (`1`). A check that both errored and found violations exits `1`:
+a broken run is never reported as a mere finding. In Go the codes are `cli.ExitOK`, `ExitFailed`, `ExitUsage` and
+`ExitViolations`; a domain command returns `cli.ViolationsError` to exit `3`.
 
 **Formats.** A rule set answers with a list of `[rule, resource]` findings; `[]` is compliant. `text` prints the
 value as the pipeline produced it. `json` prints one line per check, every key always present:
