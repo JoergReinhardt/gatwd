@@ -31,6 +31,7 @@ type Edition struct {
 	preludes     []preludeEntry
 	commands     []*cobra.Command
 	flags        []func(*pflag.FlagSet)
+	grants       []*capabilityFlag
 	normalize    func([]string) []string
 }
 
@@ -138,6 +139,35 @@ func (e *Edition) WithFlags(fn func(*pflag.FlagSet)) *Edition {
 	return e
 }
 
+// capabilityFlag is one opt-in switch: a persistent flag that grants a capability to the
+// interpreter the Edition builds.
+type capabilityFlag struct {
+	name string
+	cap  Capability
+	on   bool
+}
+
+// WithCapabilityFlag declares a persistent boolean flag (--NAME, default false) that grants
+// the capability c to the interpreter this Edition builds. It is how a capability that
+// TrustedPolicy withholds (CapClusterApply, CapClusterRollout) is opted in to, even for the
+// user's own command-line script: no flag, no capability. The flag is read when the
+// interpreter is built, after the command line is parsed, and only ever widens the policy by
+// that one capability; nothing inside a script can do so. usage is the help text.
+//
+// Example:
+//
+//	cli.NewEdition("gatwd-k8s").
+//	    WithStep(cli.GatedStep(cli.CapClusterApply, applyStep)).
+//	    WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster").
+//	    Run()
+func (e *Edition) WithCapabilityFlag(name string, c Capability, usage string) *Edition {
+	g := &capabilityFlag{name: name, cap: c}
+	e.grants = append(e.grants, g)
+	return e.WithFlags(func(f *pflag.FlagSet) {
+		f.BoolVar(&g.on, name, false, usage+"; denied by default, even for your own script")
+	})
+}
+
 // WithArgNormalizer registers a rewrite applied to the command-line arguments before they
 // are parsed, so an edition can keep accepting a retired spelling (a single-dash long flag,
 // a renamed flag) for a release while it prints its own notice.
@@ -227,6 +257,11 @@ func (e *Edition) buildInterpreter(skipPreludes bool) *Interpreter {
 		interp = NewInterpreter()
 	}
 
+	for _, g := range e.grants {
+		if g.on {
+			interp.SetPolicy(interp.Policy().Grant(g.cap))
+		}
+	}
 	for name, factory := range e.types {
 		interp.RegisterType(name, factory)
 	}

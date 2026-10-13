@@ -43,6 +43,18 @@ import (
 // gates nothing yet; it is the switch a future `env` builtin (or an Edition step) must
 // consult through Interpreter.RequireCapability.
 //
+// # The two capabilities even a trusted script does not get
+//
+// CapClusterApply and CapClusterRollout name WRITES to a remote system of record (an
+// Edition's steps that create or change objects, and that restart, roll back, pause or
+// scale a workload). Everything above can hurt the machine the script runs on; these can
+// hurt a shared production system, often by a typo, and a script is easy to run by habit.
+// So they are denied BY DEFAULT EVERYWHERE: TrustedPolicy does not grant them, a script the
+// user names on the command line needs the explicit opt-in flag of the Edition
+// (Edition.WithCapabilityFlag, e.g. --allow-cluster-apply and --allow-cluster-rollout), and an
+// Appliance has the same two flags. They gate only the steps an Edition registers behind
+// GatedStep; core itself has no step that needs them.
+//
 // # Who is trusted
 //
 // The script a person names on the command line (and `-e`, preludes, the REPL) is trusted:
@@ -65,7 +77,18 @@ const (
 	CapNet Capability = "net"
 	// CapEnv is reading the process environment. No builtin needs it yet (see the file comment).
 	CapEnv Capability = "env"
+	// CapClusterApply is creating or updating objects in a remote cluster (a declarative
+	// apply). It is NOT part of TrustedPolicy: it needs an explicit opt-in, even for the
+	// user's own command-line script.
+	CapClusterApply Capability = "cluster-apply"
+	// CapClusterRollout is operating on running workloads of a remote cluster: restart,
+	// undo, pause, resume and scale (the rollout family; reading the rollout status is a
+	// read and needs no capability). It is NOT part of TrustedPolicy either.
+	CapClusterRollout Capability = "cluster-rollout"
 )
+
+// allCapabilities lists every capability, in the order Policy.String prints them.
+var allCapabilities = []Capability{CapExec, CapFS, CapNet, CapEnv, CapClusterApply, CapClusterRollout}
 
 // Policy is the set of capabilities a script is granted. The zero value grants nothing, so a
 // forgotten field fails closed.
@@ -78,10 +101,17 @@ type Policy struct {
 	AllowNet bool
 	// AllowEnv grants CapEnv.
 	AllowEnv bool
+	// AllowClusterApply grants CapClusterApply. TrustedPolicy leaves it false.
+	AllowClusterApply bool
+	// AllowClusterRollout grants CapClusterRollout. TrustedPolicy leaves it false.
+	AllowClusterRollout bool
 }
 
-// TrustedPolicy grants every capability: the policy of a script the user named on the
-// command line (and of NewInterpreter).
+// TrustedPolicy grants every capability that acts on the machine the script runs on (exec,
+// fs, net, env): the policy of a script the user named on the command line (and of
+// NewInterpreter). It deliberately does NOT grant CapClusterApply or CapClusterRollout, the
+// capabilities that write to a remote system; those need an explicit opt-in (see Grant and
+// Edition.WithCapabilityFlag) even here.
 func TrustedPolicy() Policy {
 	return Policy{AllowExec: true, AllowFS: true, AllowNet: true, AllowEnv: true}
 }
@@ -100,14 +130,39 @@ func (p Policy) Allows(c Capability) bool {
 		return p.AllowNet
 	case CapEnv:
 		return p.AllowEnv
+	case CapClusterApply:
+		return p.AllowClusterApply
+	case CapClusterRollout:
+		return p.AllowClusterRollout
 	}
 	return false
+}
+
+// Grant returns the policy with c added; an unknown capability is returned unchanged (it is
+// never granted). It is how a command-line flag opts in to a capability TrustedPolicy
+// withholds.
+func (p Policy) Grant(c Capability) Policy {
+	switch c {
+	case CapExec:
+		p.AllowExec = true
+	case CapFS:
+		p.AllowFS = true
+	case CapNet:
+		p.AllowNet = true
+	case CapEnv:
+		p.AllowEnv = true
+	case CapClusterApply:
+		p.AllowClusterApply = true
+	case CapClusterRollout:
+		p.AllowClusterRollout = true
+	}
+	return p
 }
 
 // String lists the granted capabilities, `exec,fs`, or `none`.
 func (p Policy) String() string {
 	var granted []string
-	for _, c := range []Capability{CapExec, CapFS, CapNet, CapEnv} {
+	for _, c := range allCapabilities {
 		if p.Allows(c) {
 			granted = append(granted, string(c))
 		}
@@ -277,6 +332,29 @@ func (i *Interpreter) gated(c Capability, name string, step pipelineStep) pipeli
 				}
 			}
 		}
+	}
+}
+
+// GatedStep wraps an Edition's step handler so that every step it builds runs only when the
+// policy in force grants c; otherwise the stream is one error node, `step 'NAME' requires
+// the C capability (policy denies it)`, and the wrapped step is never started (Mandate 6: a
+// denial is an error value, never an empty result). NAME is the first word of the step, so
+// a step with an argument (`k8s_scale 3`) is reported as `k8s_scale`.
+//
+// Editions register steps through WithStep and those are, by default, the author's decision
+// and always allowed. A step that WRITES to a remote system is the exception: wrap its
+// handler, so the capability is checked when the stream runs (a policy tightened after the
+// step was compiled still applies):
+//
+//	e.WithStep(cli.GatedStep(cli.CapClusterApply, applyStep))
+func GatedStep(c Capability, handler StepHandler) StepHandler {
+	return func(stepStr string, interp *Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+		step, ok := handler(stepStr, interp)
+		if !ok {
+			return nil, false
+		}
+		name, _, _ := strings.Cut(strings.TrimSpace(stepStr), " ")
+		return interp.gated(c, name, step), true
 	}
 }
 

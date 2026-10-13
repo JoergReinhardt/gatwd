@@ -29,7 +29,7 @@
 //   - relations.gatwd  Owns, Selects (label-indexed), RoutesTo, Configures, Mounts,
 //     Binds and the INFERRED Calls, plus the helper closures they share
 //   - sources.gatwd    k8s_resources: every live crawl stream merged with <+>
-//   - queries.gatwd    k8s_apply_order, k8s_cycles
+//   - queries.gatwd    k8s_apply_order, k8s_apply_objects, k8s_cycles
 //   - prelude.gatwd    the embed entry point; defines k8s_graph
 //
 // One resource stream feeds one pipeline, offline or live — the downstream is
@@ -50,6 +50,23 @@
 // naming the root. The library is imported here and nowhere else (Clean Core).
 //
 //	spawn StrVal: ./overlays/prod |> manifests |> k8s_graph
+//
+// # Writing to the cluster (apply and the rollout family)
+//
+// ApplyEdition also registers the WRITE steps (write.go): `k8s_apply` (server-side
+// apply) and the rollout family `k8s_rollout_restart|undo|pause|resume`, `k8s_scale`
+// and the read-only `k8s_rollout_status`. They are denied by default, in three
+// independent layers: the capability policy (cli.CapClusterApply and
+// cli.CapClusterRollout, which not even cli.TrustedPolicy grants, opted in with
+// --allow-cluster-apply / --allow-cluster-rollout), server dry run as the default
+// (--dry-run=false makes a write real), and the RBAC of the client's identity. Each
+// result is the DSL list [verb, Kind/ns/name, outcome] per object; with --out DIR the
+// same step renders YAML files instead and needs no cluster. There is no delete or
+// prune, and the adapter (adapters.Applier) cannot express one. The shim holds no
+// logic: every write step is built by recordStep inside cli.GatedStep, which
+// TestEveryWriteStepIsGated pins.
+//
+//	spawn StrVal: ./overlays/prod |> manifests |> k8s_graph |> k8s_apply_objects |> k8s_apply
 //
 // # Quick start (Edition assembly)
 //

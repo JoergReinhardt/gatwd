@@ -925,10 +925,23 @@ checks a **policy** — a set of capabilities — before such a step runs (decis
 | `fs` | `scan_file`, `scan_words`, `walk_fs`, `write_file`, `append_file`, `import "file"` (an embedded import is not file access) |
 | `net` | `dial_tcp`, `listen_tcp` |
 | `env` | nothing yet: no builtin reads the environment; an Edition step takes part through `Interpreter.RequireCapability` |
+| `cluster-apply` | a **remote write** an Edition wires behind `cli.GatedStep(cli.CapClusterApply, …)`: the Kubernetes edition's `k8s_apply` (core has no such step) |
+| `cluster-rollout` | the same for operating on running workloads: `k8s_rollout_restart/undo/pause/resume`, `k8s_scale` (reading a rollout's status needs no capability) |
 
 A denied step yields `[ERROR] step 'printf' requires the exec capability (policy denies it)` — an error value on the
 same channel as every other failure, never an empty result. Steps an Edition wires itself (`RegisterStep`,
 `AdapterStep`: the cluster crawl, `manifests`) are the author's decision and stay allowed.
+
+**Two capabilities even the trusted script does not get.** `cluster-apply` and `cluster-rollout` name *writes to a
+remote system of record*: they can hurt a shared production system, often by a typo, and a script is run by habit. So
+`cli.TrustedPolicy()` grants `exec`, `fs`, `net` and `env` but **not** these two, `cli.DenyAll()` grants none, and they
+need an explicit opt-in even for the user's own script: an Edition declares the flag with
+`Edition.WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, usage)` (`gatwd-k8s --allow-cluster-apply`), an
+Appliance has `--allow-cluster-apply` and `--allow-cluster-rollout` among its generic flags, and Go code uses
+`Policy.Grant(c)`. An Edition gates a step with `cli.GatedStep(cap, handler)`; the denial is the same
+`[ERROR] step 'k8s_apply' requires the cluster-apply capability (policy denies it)` error value and the same structured
+`capability_denied` diagnostic (`"capability":"cluster-apply"`). The capability decides *whether* a script may write; the
+step is still a server dry run until its own switch says otherwise (the Kubernetes how-to, §3.5).
 
 **Who is trusted.** The script you name on the command line, `-e`, `--prelude` files and the REPL run under
 `cli.TrustedPolicy()` (everything allowed; `NewInterpreter` starts there). Anything that did not come from the
@@ -976,7 +989,7 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--interval DUR` | `run`/legacy form: wait between checks; the override is re-read each time |
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
 | `--fail-on-violation` | `check`: exit `3` when the result is non-empty (opt-in; off by default; rejected for `run`, which never exits on violations) |
-| `--allow-exec` `--allow-fs` `--allow-net` `--allow-env` | grant the rules (the override above all) a capability; all denied by default, see *Execution policy* below |
+| `--allow-exec` `--allow-fs` `--allow-net` `--allow-env` `--allow-cluster-apply` `--allow-cluster-rollout` | grant the rules (the override above all) a capability; all denied by default, see *Execution policy* below |
 | `--timeout DUR` | stop a check that runs longer than `DUR`: it fails with `[ERROR] check timed out after DUR` (exit `1`); every `run` round gets a fresh limit; `0` (default) is no limit, a negative value is a usage error |
 | `--max-output BYTES` | fail a check that produces more than `BYTES` of text report (`[ERROR] check output exceeded the limit of N bytes`, exit `1`; never silently truncated); `0` (default) is no limit |
 

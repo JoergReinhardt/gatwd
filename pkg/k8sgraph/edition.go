@@ -28,7 +28,11 @@ func PreludeFS() fs.FS { return preludeFS }
 // Option adjusts ApplyEdition.
 type Option func(*editionConfig)
 
-type editionConfig struct{ noKustomize bool }
+type editionConfig struct {
+	noKustomize bool
+	write       *WriteFlags
+	resolver    adapters.ResourceResolver
+}
 
 // WithoutKustomize makes `manifests` read a kustomization root as the plain files it
 // contains, as it did before auto-render; it is the programmatic form of the
@@ -50,6 +54,12 @@ func WithoutKustomize() Option { return func(c *editionConfig) { c.noKustomize =
 // The edition gains one persistent flag, `--no-kustomize`, which turns that off so a
 // kustomization root is read as the plain files it contains; the explicit
 // `kustomize` step always renders. A render error is an `[ERROR]` that names the root.
+//
+// It also registers the write steps (`k8s_apply`, `k8s_rollout_*`, `k8s_scale`, see write.go),
+// denied unless the policy grants cli.CapClusterApply / cli.CapClusterRollout: the edition adds
+// the flags `--allow-cluster-apply`, `--allow-cluster-rollout`, `--dry-run` (default true, a
+// server dry run), `--force-conflicts`, `--field-manager`, `--out` and `--apply-namespace`;
+// a host with its own command line passes WithWriteFlags.
 //
 // It is pure assembly: every relation and graph algorithm comes from the
 // embedded .gatwd library and the generic graph core. Pass a nil client to build
@@ -74,6 +84,21 @@ func ApplyEdition(e *cli.Edition, client dynamic.Interface, opts ...Option) *cli
 		adapters.WithRenderer(InProcessRenderer()),
 		adapters.WithKustomizeSwitch(func() bool { return !noKustomize }))).
 		WithStep(KustomizeStep("kustomize"))
+	// The write steps are always registered and always gated: a script needs the explicit
+	// capability (--allow-cluster-apply) and writes nothing but a server dry run until
+	// --dry-run=false. With no client they fail loudly per object (nothing to write to).
+	write := cfg.write
+	if write == nil {
+		write = DefaultWriteFlags()
+		e = e.WithFlags(write.Bind).
+			WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster (k8s_apply)").
+			WithCapabilityFlag("allow-cluster-rollout", cli.CapClusterRollout, "let scripts restart, undo, pause, resume and scale workloads (k8s_rollout_*, k8s_scale)")
+	}
+	applier := newApplier(client, write, cfg.resolver)
+	e = e.WithStep(ApplyStep("k8s_apply", applier, func() string { return write.Out }))
+	for _, h := range RolloutSteps(applier) {
+		e = e.WithStep(h)
+	}
 	if client != nil {
 		for _, c := range CoreCrawls {
 			e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR))

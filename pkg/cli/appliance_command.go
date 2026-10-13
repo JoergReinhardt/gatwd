@@ -147,6 +147,8 @@ func (t *ApplianceTree) Root() *cobra.Command {
 	pf.BoolVar(&f.allow.AllowFS, "allow-fs", false, "let the rules read and write files and `import` other files; denied by default")
 	pf.BoolVar(&f.allow.AllowNet, "allow-net", false, "let the rules open network connections; denied by default")
 	pf.BoolVar(&f.allow.AllowEnv, "allow-env", false, "let the rules read the process environment; denied by default")
+	pf.BoolVar(&f.allow.AllowClusterApply, "allow-cluster-apply", false, "let the rules create and update objects in a cluster (a write step such as k8s_apply); denied by default")
+	pf.BoolVar(&f.allow.AllowClusterRollout, "allow-cluster-rollout", false, "let the rules restart, roll back, pause, resume and scale workloads in a cluster; denied by default")
 	pf.DurationVar(&f.timeout, "timeout", 0, "stop a check that takes longer than `DUR` (a failed check, exit 1; each check of `run` gets its own); 0 means no limit")
 	pf.Int64Var(&f.maxOutput, "max-output", 0, "fail a check that produces more than `BYTES` of output (never truncated silently; each check of `run` gets its own); 0 means no limit")
 	root.Flags().DurationVar(&f.interval, "interval", 0, "re-check (and hot-reload the rules) every `DUR`; 0 checks once")
