@@ -153,3 +153,19 @@ func timeAdd(t Time, d Duration) (Time, error) {
 	}
 	return res, nil
 }
+
+// CanonicalKey is the form of v under which equal values are the same Set member or HAMT
+// key. A Time is equal to another when it is the same instant, whatever zone shows it, so a
+// Time becomes its UTC form (the display zone is dropped); every other value is itself. The
+// collections' key sites (a Set element, a HAMT key, the distinct/frequencies/to_set steps)
+// go through it so that `==` and membership agree.
+func CanonicalKey(v any) any {
+	if t, ok := v.(Time); ok {
+		return t.UTC()
+	}
+	return v
+}
+
+// KeyText is the printed form of CanonicalKey(v): the text a HAMT key or a distinct/frequency
+// bucket is made of.
+func KeyText(v any) string { return fmt.Sprintf("%v", CanonicalKey(v)) }

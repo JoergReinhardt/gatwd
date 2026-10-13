@@ -167,7 +167,7 @@ func StepDistinct() PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				hash := fmt.Sprintf("%v", val)
+				hash := functions.KeyText(val)
 
 				if !visited.Contains(hash) {
 					visited = visited.Add(hash) // Immutably create new Set
@@ -1324,7 +1324,7 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				set = set.Add(fmt.Sprintf("%v", val))
+				set = set.Add(functions.KeyText(val))
 				lastFlag = node.DSLType
 			}
 
@@ -1373,7 +1373,7 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 					}
 					hamt = hamt.Set(k, v)
 				} else {
-					hamt = hamt.Set(fmt.Sprintf("%v", val), val)
+					hamt = hamt.Set(functions.KeyText(val), val)
 				}
 			}
 
@@ -2209,7 +2209,7 @@ func StepFrequencies() PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				key := fmt.Sprintf("%v", val)
+				key := functions.KeyText(val)
 				lastFlag = node.DSLType
 
 				currentCount := 0

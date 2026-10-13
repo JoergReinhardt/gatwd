@@ -532,7 +532,7 @@ func newAnySet(items []any) (set *collections.Set[any], err error) {
 	}()
 	set = collections.NewSet[any]()
 	for _, it := range items {
-		set = set.Add(it)
+		set = set.Add(functions.CanonicalKey(it))
 	}
 	return set, nil
 }

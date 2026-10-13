@@ -1240,3 +1240,21 @@ def expires_within = \limit now exp -> (exp - now) < limit
 now |> map (\t -> expires_within 14d t (t + 7d)) |> assert true
 now |> map (\t -> expires_within 14d t (t + 20d)) |> assert false
 now |> map (\t -> expires_within 14d t (t - 1d)) |> assert true
+
+-- 111. Duration/Time/Date as members of the collection rows (hardening §5.6). Structural equality reaches inside List,
+-- Pair and Maybe; a Time is its INSTANT, so one instant shown in two zones is one Set member and one HAMT key (a Set
+-- stores the canonical UTC form). json_encode/yaml_encode write the three types as Strings (RFC 3339, ISO 8601, the
+-- Duration literal); decoding leaves text as text, time_parse/date_parse/dur_parse revive it on request.
+[[1s, 2s], [1000ms, 3s]] |> map (\xs -> xs == [1s, 2s]) |> assert [true false]
+[@2026-10-13T09:30:00Z, @2026-10-13T09:30:01Z] |> map (\t -> [t] == [@2026-10-13T11:30:00+02:00]) |> assert [true false]
+[5s, 6s, 5] |> map (\d -> (just d) == (just 5000ms)) |> assert [true false false]
+[1s, 2s, 1000ms] |> map (\d -> member d (to_set [1s, 3s])) |> assert [true false true]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00, @2026-10-13T10:30:00+01:00] |> map (\t -> length (to_set [t, @2026-10-13T09:30:00Z])) |> assert [1 1 1]
+[@2026-10-13, @2026-10-14, @2026-10-15] |> map (\d -> member d (to_set [@2026-10-13, @2026-10-14])) |> assert [true true false]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> hamt_get t (hamt_from [[@2026-10-13T11:30:00+02:00, "x"]])) |> assert [x x]
+[@2026-10-13, @2026-10-14] |> map (\d -> hamt_get d (hamt_from [[@2026-10-13, "a"], [@2026-10-14, "b"]])) |> assert [a b]
+[1s, 5s] |> map (\d -> hamt_get d (hamt_from [[1000ms, "short"], [5s, "long"]])) |> assert [short long]
+[@2026-10-13T11:30:00+02:00, @2026-10-13, 90m, -5s] |> map (\v -> json_encode v) |> assert ["2026-10-13T11:30:00+02:00" "2026-10-13" "1h30m" "-5s"]
+json_encode (hamt_from [["at", @2026-10-13T09:30:00Z], ["for", 90m]]) |> assert {"at":"2026-10-13T09:30:00Z","for":"1h30m"}
+[@2026-10-13, @2024-02-29] |> map (\d -> maybe_default @0001-01-01 (date_parse (maybe_default "?" (map (\x -> hamt_path "d" x) (json_parse (json_encode (hamt_from [["d", d]]))))))) |> assert [2026-10-13 2024-02-29]
+yaml_encode [@2026-10-13, 1h] |> assert - "2026-10-13"\n- 1h

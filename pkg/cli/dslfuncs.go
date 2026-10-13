@@ -83,7 +83,7 @@ func dslStr(v any) string {
 	if s, ok := v.(string); ok {
 		return s
 	}
-	return fmt.Sprintf("%v", v)
+	return functions.KeyText(v) // a Time keys by its instant, not by the zone it is shown in
 }
 
 // dslBuiltinFuncs is the registry of expression-level builtins, consulted as a

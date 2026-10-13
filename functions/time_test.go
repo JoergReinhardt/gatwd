@@ -330,3 +330,29 @@ func TestTimeRangeChecksBothYears(t *testing.T) {
 		t.Error("a display year of 0 must be out of range")
 	}
 }
+
+// CanonicalKey makes `==` and membership agree: one instant in two zones is one key; every
+// other value is its own key.
+func TestCanonicalKey(t *testing.T) {
+	a := tm(t, "2026-10-13T09:30:00Z")
+	b := tm(t, "2026-10-13T11:30:00+02:00")
+	if functions.CanonicalKey(a) != functions.CanonicalKey(b) {
+		t.Error("the same instant in two zones must have one canonical key (comparable as a Go value)")
+	}
+	if functions.KeyText(a) != "2026-10-13T09:30:00Z" || functions.KeyText(b) != "2026-10-13T09:30:00Z" {
+		t.Errorf("KeyText = %q, %q", functions.KeyText(a), functions.KeyText(b))
+	}
+	if functions.CanonicalKey(tm(t, "2026-10-13T09:30:01Z")) == functions.CanonicalKey(a) {
+		t.Error("different instants are different keys")
+	}
+	for _, v := range []any{5, "x", functions.Duration(5), dt(t, "2026-10-13")} {
+		if functions.CanonicalKey(v) != v {
+			t.Errorf("CanonicalKey(%v) changed it", v)
+		}
+	}
+	// the key is a usable Go map key, also for a Time parsed with a fixed zone
+	m := map[any]int{functions.CanonicalKey(b): 1}
+	if m[functions.CanonicalKey(a)] != 1 {
+		t.Error("canonical Times must be interchangeable map keys")
+	}
+}

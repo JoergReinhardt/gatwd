@@ -370,7 +370,7 @@ func registerMatrixFuncs(m map[string]any) {
 	})
 	member := func(a []any) (any, error) {
 		if s, ok := a[1].(*collections.Set[any]); ok {
-			return safeSetOp2(func() bool { return s.Contains(a[0]) })
+			return safeSetOp2(func() bool { return s.Contains(functions.CanonicalKey(a[0])) })
 		}
 		items, ok := elementsOf(a[1])
 		if !ok {
@@ -401,21 +401,21 @@ func registerMatrixFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp(func() *collections.Set[any] { return s.Add(a[0]) })
+		return safeSetOp(func() *collections.Set[any] { return s.Add(functions.CanonicalKey(a[0])) })
 	})
 	defn(m, "set_remove", "x s", func(a []any) (any, error) {
 		s, err := asAnySet(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp(func() *collections.Set[any] { return s.Remove(a[0]) })
+		return safeSetOp(func() *collections.Set[any] { return s.Remove(functions.CanonicalKey(a[0])) })
 	})
 	defn(m, "set_contains", "x s", func(a []any) (any, error) {
 		s, err := asAnySet(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp2(func() bool { return s.Contains(a[0]) })
+		return safeSetOp2(func() bool { return s.Contains(functions.CanonicalKey(a[0])) })
 	})
 	for name, op := range map[string]func(x, y *collections.Set[any]) *collections.Set[any]{
 		"set_union":     func(x, y *collections.Set[any]) *collections.Set[any] { return x.Union(y) },
