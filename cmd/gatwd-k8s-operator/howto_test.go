@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -251,5 +254,106 @@ func TestHowToDeployManifest(t *testing.T) {
 	want := []string{"Namespace", "ServiceAccount", "ClusterRole", "ClusterRoleBinding", "Deployment"}
 	if !reflect.DeepEqual(kinds, want) {
 		t.Fatalf("kinds = %v, want %v", kinds, want)
+	}
+}
+
+// TestHowToAgeRule: age.gatwd reads the clock once (`now`) and hands it to a pure rule. The test
+// injects Interpreter.Clock, so nothing depends on the wall clock: at 2026-10-13 only the old
+// Pod is stale; seven weeks later the fresh one is too (the rule can fail both ways); a Pod with
+// no or an unreadable creationTimestamp is reported as UnknownAge at every clock.
+func TestHowToAgeRule(t *testing.T) {
+	script := filepath.Join(howtoDir, "age.gatwd")
+	aged := filepath.Join(howtoDir, "aged")
+	at := func(clock string) string {
+		t.Helper()
+		now, err := time.Parse(time.RFC3339, clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i := howtoEdition()
+		i.Clock = func() time.Time { return now }
+		res, err := i.Run(cli.RunOptions{Script: script, Args: []string{aged}})
+		if err != nil {
+			t.Fatalf("clock %s: %v", clock, err)
+		}
+		if len(res.Lines) != 1 {
+			t.Fatalf("clock %s: lines = %v, want one", clock, res.Lines)
+		}
+		return res.Lines[0]
+	}
+	if got, want := at("2026-10-13T12:00:00Z"), "[[StalePod Pod/default/old-pod] [UnknownAge Pod/default/bad-stamp-pod] [UnknownAge Pod/default/no-stamp-pod]]"; got != want {
+		t.Errorf("at 2026-10-13: %s, want %s", got, want)
+	}
+	if got, want := at("2026-12-01T12:00:00Z"), "[[StalePod Pod/default/fresh-pod] [StalePod Pod/default/old-pod] [UnknownAge Pod/default/bad-stamp-pod] [UnknownAge Pod/default/no-stamp-pod]]"; got != want {
+		t.Errorf("at 2026-12-01: %s, want %s", got, want)
+	}
+	// Before the oldest stamp nothing is stale (a clock in the past is not an error), but the
+	// undatable Pods are still reported: the rule never goes quiet about what it cannot judge.
+	if got, want := at("2025-01-16T00:00:00Z"), "[[UnknownAge Pod/default/bad-stamp-pod] [UnknownAge Pod/default/no-stamp-pod]]"; got != want {
+		t.Errorf("at 2025-01-16: %s, want %s", got, want)
+	}
+}
+
+// TestHowToDataExample: data.gatwd reads YAML and JSON out of a ConfigMap, decodes a Secret's
+// base64 inside a rule and reports fingerprints, never values. The expected fingerprints come
+// from Go's own SHA-256 (an independent oracle), and no decoded password may reach the output.
+func TestHowToDataExample(t *testing.T) {
+	res, err := howtoEdition().Run(cli.RunOptions{Script: filepath.Join(howtoDir, "data.gatwd"), Args: []string{filepath.Join(howtoDir, "data")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fp := func(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:])[:12] }
+	// strong-secret sorts before weak-secret
+	want := "[3 2Gi 3r4 [[WeakPassword Secret/default/weak-secret]] [" + fp("correct-horse-battery") + " " + fp("hunter2") + "]]"
+	if len(res.Lines) != 1 || res.Lines[0] != want {
+		t.Fatalf("data.gatwd = %v\nwant        [%s]", res.Lines, want)
+	}
+	for _, secret := range []string{"hunter2", "correct-horse-battery"} {
+		if strings.Contains(res.Lines[0], secret) {
+			t.Errorf("the decoded password %q reached the output", secret)
+		}
+	}
+}
+
+// TestHowToAgeOverrideInTheOperator: age_rules.gatwd is a layered override that reads the real
+// clock once per check (a top-level `let clock = (now |> head)`), needs no capability flag, and
+// adds StalePod/UnknownAge to the embedded rules. The Pods are generated with dates far from
+// today (2000 and 2099), so the answer holds on any day — the injected-clock test above is
+// what pins the boundaries.
+func TestHowToAgeOverrideInTheOperator(t *testing.T) {
+	bin := buildOperator(t)
+	dir := t.TempDir()
+	pod := func(name, stamp string) string {
+		s := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: " + name + "\n  namespace: default\n"
+		if stamp != "" {
+			s += "  creationTimestamp: \"" + stamp + "\"\n"
+		}
+		return s
+	}
+	manifests := pod("ancient", "2000-01-01T00:00:00Z") + "---\n" + pod("future", "2099-01-01T00:00:00Z") + "---\n" + pod("no-stamp", "")
+	if err := os.WriteFile(filepath.Join(dir, "pods.yaml"), []byte(manifests), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	override := filepath.Join(howtoDir, "age_rules.gatwd")
+	code, stdout, stderr := operator(t, bin, "check", "--manifests", dir, "--rules", override, "--format", "json")
+	if code != 0 {
+		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
+	}
+	for _, want := range []string{
+		`{"rule":"StalePod","resource":"Pod/default/ancient"}`,
+		`{"rule":"UnknownAge","resource":"Pod/default/no-stamp"}`,
+		`"errors":[]`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout lacks %s:\n%s", want, stdout)
+		}
+	}
+	for _, bad := range []string{`"rule":"StalePod","resource":"Pod/default/future"`, `"rule":"UnknownAge","resource":"Pod/default/ancient"`} {
+		if strings.Contains(stdout, bad) {
+			t.Errorf("stdout must not contain %s:\n%s", bad, stdout)
+		}
+	}
+	if !strings.Contains(stderr, "added: born, older_than, rule_stale_pod") {
+		t.Errorf("the report of the override lacks its added rule:\n%s", stderr)
 	}
 }

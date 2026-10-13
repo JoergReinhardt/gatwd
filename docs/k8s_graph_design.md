@@ -391,35 +391,26 @@ func ApplyEdition(e *cli.Edition, client dynamic.Interface) *cli.Edition {
   `examples/custom_cli` + `examples/game_of_life_edition`):
   ```go
   func main() {
-      client := k8sgraph.DynamicClientFromKubeconfig() // helper in pkg/k8sgraph (I/O only)
-      k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s"), client).Run()
+      // the client is built lazily, on the first crawl (hardening W6): version/completion/offline never look for a kubeconfig
+      k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s"), k8sgraph.LazyDynamicClient()).Run()
   }
   ```
-  If `WithPreludeFS` (gap #1) is not yet added, the assembly-only fallback is:
-  ```go
-  func main() {
-      client := k8sgraph.DynamicClientFromKubeconfig()
-      e := k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s"), client) // without the prelude line
-      interp := e.BuildInterpreter()
-      interp.LoadScriptFS(k8sgraph.PreludeFS(), "lib/k8s/prelude.gatwd")
-      cli.RunWithInterpreter(interp)
-  }
-  ```
+  (`ApplyEdition` wires the steps and `WithPreludeFS`, so no fallback assembly is needed; the
+  `DynamicClientFromKubeconfig() (client, error)` helper is what the operator calls on its live path.)
 - `cmd/gatwd-k8s-operator/main.go` — **Appliance** (templated on
   `examples/hot_reload_appliance`):
   ```go
-  //go:embed rules/compliance.gatwd
-  var complianceRules string
-  func main() {
-      client := k8sgraph.DynamicClientFromKubeconfig()
-      base := k8sgraph.ApplyEdition(cli.NewEdition("k8s-operator"), client)
-      app, err := cli.NewAppliance(
-          cli.WithEdition(base),
-          cli.WithEmbeddedScript(complianceRules),          // baseline rules
-          cli.WithConfigMapOverride("/etc/gatwd/rules.gatwd"), // live hot-reload
-      )
-      // ... watch ConfigMap -> app.Reload(); serve app.Execute(...) ...
-  }
+  //go:embed rules/*.gatwd
+  var rulesFS embed.FS
+  // the command line is cli.NewApplianceTree (check, run --interval, rules cat, --rules, --rules-mode, …)
+  // and builds the appliance from:
+  cli.NewAppliance(
+      cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client)),
+      cli.WithEmbeddedFS(rulesFS, "rules/compliance.gatwd"), // baseline rules
+      cli.WithConfigMapOverride("/etc/gatwd/rules.gatwd"),   // layered on top, hot-reloaded
+      cli.WithOverrideMode(mode),                            // layer (default) or replace
+      cli.WithPolicy(policy),                                // deny-all unless --allow-* (hardening W7)
+  )
   ```
   (The embedded prelude of node/edge *types* + base relations comes in via
   `ApplyEdition`'s `WithPreludeFS`; the appliance's own embed carries the
@@ -636,8 +627,8 @@ asserts lexical order) / `…MissingPath`; `k8sgraph.TestManifestStep` drives it
 the DSL — `spawn StrVal: <file> |> manifests |> hamt_path spec.selector.app` →
 `nginx` (confirms a filesystem path survives as a `spawn` value). All gates green.
 
-**Kustomize rendering — EXTERNAL renderer, adapter stays kustomize-agnostic
-(✅ 2026-10-13, user-directed).** Kustomize libraries are a daily occurrence, so
+**Kustomize rendering — pluggable renderer, adapter stays kustomize-agnostic
+(✅ 2026-10-13, user-directed). Superseded in part by hardening W5: the default renderer is now the in-process kustomize library (no external binary), `manifests` auto-renders a root and `--no-kustomize` turns that off — `docs/k8s_howto.md` §3.2; the text below is the original design and still describes the `WithKustomizeCommand` / `WithRenderer` seams.** Kustomize libraries are a daily occurrence, so
 `ManifestAdapter` is parameterized (functional options `ManifestOption`) to *deal
 with* them: when pointed at a **kustomization root** (`isKustomizationRoot`: dir
 directly holds `kustomization.yaml`/`.yml`/`Kustomization`) it first renders the
@@ -729,7 +720,7 @@ live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
   `spawn StrVal: default |> k8s_resources |> k8s_graph` feeds the SAME prelude as the
   offline path. `TestLiveOfflineParity` (fake dynamic client, helper package
   `pkg/k8sgraph/k8sgraphtest`) proves §6 #10: identical nodes, declared edges and
-  inferred edges for both fixtures. The operator gained a live mode (`-namespace`).
+  inferred edges for both fixtures. The operator gained a live mode (`--namespace`; `-namespace` is still accepted for one release).
 - *Relation matrix.* `Configures` (ConfigMap → Pod/Deployment-template via volume,
   `configMapKeyRef`, `envFrom`), `Mounts` (PVC → workload), `Binds` (RoleBinding →
   ServiceAccount subjects and → its Role) and the **inferred** `Calls` (weight 0.5:

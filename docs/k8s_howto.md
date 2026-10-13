@@ -14,7 +14,8 @@ Both read a **live cluster** (kubeconfig or in-cluster service account) or **off
 Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language reference:
 [`dsl_guide.md`](dsl_guide.md). Everything below was run against the files in
 [`examples/k8s_howto/`](../examples/k8s_howto/) and is covered by tests
-(`cmd/gatwd-k8s-operator/howto_test.go`). Commands assume the repository root.
+(`cmd/gatwd-k8s-operator/howto_test.go` runs the examples; `doc_test.go` runs the real binaries and fails when a command or
+output shown here no longer matches what they print). Commands assume the repository root.
 
 ```bash
 go build -o /tmp/gatwd-k8s ./cmd/gatwd-k8s
@@ -86,7 +87,8 @@ Everything written in `.gatwd` is read at run time, so the loop is: edit, re-run
 
 ```bash
 gatwd-k8s check my.gatwd            # structural errors (exit 1) and advisory warnings
-gatwd-k8s prelude cat lib/k8s/prelude.gatwd   # read the embedded relations; copy, edit, load with --prelude
+gatwd-k8s prelude list              # the embedded library: the entry file and the files beside it
+gatwd-k8s prelude cat lib/k8s/relations.gatwd   # read one; copy, edit, load a copy with --prelude (read after the library, so it redefines what it names)
 gatwd-k8s --no-prelude my.gatwd     # run without the embedded prelude (the steps stay registered)
 gatwd-k8s my.gatwd                  # run it
 gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules my_rules.gatwd   # try operator rules
@@ -103,6 +105,8 @@ a rebuild.
   `[ERROR] …` naming the cause (`fold: undefined identifier: …`, `map: element 2: …`). If a rule
   unexpectedly yields `[]`, the source list or a guard is empty, not a swallowed error.
 - Inside a plain list literal, parenthesise calls: `[(f x), (g y)]`, not `[f x, g y]`.
+- A comprehension needs a generator: `[ e | guard ]` alone yields `[]` even when the guard holds. Bind the value first
+  (`[ e | q <- [r], guard ]`, as `k8s_scope` does).
 
 More traps and their causes: [`development_playbook.md`](development_playbook.md) §6.
 
@@ -131,6 +135,10 @@ gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules examples
 
 Imports inside an override resolve against **the override file's directory**, not the working directory, so
 `import "infra_relations.gatwd"` finds a sibling key of the same mounted ConfigMap.
+
+**An override written for the old ids fails loudly too.** One that still calls `k8s_names` (removed: `k8s_ref` replaced it)
+or builds ids from `metadata.name` alone is not silently wrong: the former is `[ERROR] fold: undefined identifier: k8s_names`
+(exit 1), the latter finds no node (§2.3, `k8s_ref`). Migrate it to `k8s_ref kind ns name g` and `k8s_id_of`.
 
 **A broken override fails loudly.** An unreadable file, a structural error (`unbalanced delimiter`), a statement
 that prints `[ERROR]`, an import that cannot be read, or a `compliance` left undefined is a load error naming the
@@ -197,7 +205,7 @@ What the qualified id buys, and what it asks of you:
   cluster has none, so a live duplicate names the payloads only.
 - **References resolve in the referrer's namespace**, because Kubernetes references are namespace-local:
   an Ingress backend, a ConfigMap or claim a pod uses, a Service's selector, an `ownerReference` (which
-  names the owner's kind), a `roleRef` (kind and name) and a RoleBinding subject (which may carry its own
+  names the owner's kind — an owner reference without `kind` is invalid Kubernetes and an error here, `key 'kind' not found`, not a guess by name), a `roleRef` (kind and name) and a RoleBinding subject (which may carry its own
   `namespace`). `k8s_ref kind ns name g` returns the id that exists — `Kind/ns/name`, else `Kind/_/name`
   (a cluster-scoped target or a manifest without namespaces), else `Kind/ns/name` again so a missing
   target still reads as the id it was looked for under. Use it in your own relations instead of building
@@ -247,13 +255,17 @@ gatwd-k8s examples/k8s_howto/infra.gatwd
 # [Secret/default/orders-db-credentials Database/default/orders DBMS/default/pg-prod]   ← the path Secret → Database → DBMS
 ```
 
-**Why an annotation instead of reading the credentials?** The DSL has string functions (`str_*`) but no base64 yet
-(the encodings tier of the hardening plan adds it), and a Secret's `data` is base64. An annotation (`gatwd.io/database: orders`) is plaintext, visible from a live
-cluster, and keeps credentials out of the graph logic. Matching by *exact equality* of a value to the name of
-a node in the same namespace also works (that is how the inferred `Calls` relation works: `k8s_ref` turns the
-value into the Service's id). If you genuinely need decoded values,
-add a **generic** `base64_decode` builtin to core first (the Go-standard-library rule: wire `encoding/base64`
-through every layer with a non-domain DSL test), never a Secret-specific hack in the shim.
+**Why an annotation instead of reading the credentials?** A Secret's `data` is base64, and the DSL can decode it
+(`base64_decode`, `hex_decode`, `sha256`; §2.5), so the relation *could* read the database name out of the credentials.
+It does not, on purpose: an annotation (`gatwd.io/database: orders`) is plaintext, visible from a live cluster with
+`kubectl`, and keeps credentials out of the graph logic and out of every rule's output. Matching by *exact equality* of
+a value to the name of a node in the same namespace also works (that is how the inferred `Calls` relation works:
+`k8s_ref` turns the value into the Service's id). **The security call, decided and documented:** a rule may *inspect*
+a decoded value inside its own comprehension (is the password empty? is it the default?) and may report a
+**fingerprint** (`sha256` of the bytes, hex-encoded) or the *fact* ("weak password"), but never the decoded value: a
+violation line goes to logs. Note that the standard crawl still holds the Secret's payload, `data` included, in the
+graph in memory (see *Security* below); keeping it out of the graph altogether is an ingest-time redaction that the
+edition does not do yet (an open question in the hardening plan).
 
 **Step 3 — plug in the real adapter (Go).** You said the SQL/Redis adapters already exist and are
 integrated. All that is needed is to expose each as a step, merge the streams, and ship the relations as an
@@ -299,8 +311,89 @@ in the graph. If you do not need them, drop `k8s_secrets` from the source and fr
 def k8s_resources = (k8s_pods <+> k8s_services <+> k8s_configmaps <+> k8s_endpoints <+> k8s_deployments <+> k8s_replicasets <+> k8s_ingresses <+> k8s_pvcs <+> k8s_serviceaccounts <+> k8s_roles <+> k8s_rolebindings)
 ```
 
-(put it in your override/prelude; verified against a fake cluster). The sample `deploy.yaml` grants **no**
+(put it in your override/prelude; pinned against a fake cluster by `TestLiveCrawlWithoutSecrets`: with it the crawl yields no Secret, without it both). The sample `deploy.yaml` grants **no**
 access to Secrets by default.
+
+### 2.5 Structured data inside resources: YAML, JSON, base64, fingerprints
+
+A ConfigMap often carries a whole file as one string, and a Secret's `data` is base64. The language reads both
+without a Go change (all of it generic, in core — nothing Kubernetes-specific):
+
+| You have | Use | You get |
+| :-- | :-- | :-- |
+| a YAML or JSON document in a string | `yaml_parse s` · `json_parse s` | a **`Maybe`** of the same nested shape a resource has, so `hamt_path "a.b" d` navigates it; malformed text is `Nothing`, never an error |
+| a value to write out | `yaml_encode v` · `json_encode v` | text (sorted keys, deterministic) |
+| a base64 string (a Secret value) | `base64_decode s` | a `Maybe Bytes`; `utf8_decode b` is the `Maybe String` |
+| bytes to compare or show | `sha256 b` · `hex_encode b` · `bytes_length b` | a hex fingerprint · hex text · the length |
+| text to match (an image tag, a label value) | `re_match pat s` · `re_groups pat s` | a `Bool` · a `Maybe` of the groups (RE2: linear time, so an untrusted pattern cannot hang a check) |
+| a quantity (`500m`, `2Gi`) | `str_to_int`, `ratio n d` | an exact `Ratio` (`ratio 500 1000` is `1r2`); sums stay exact |
+
+`examples/k8s_howto/data.gatwd` puts them to work over `examples/k8s_howto/data/data.yaml` (a ConfigMap holding a YAML
+entry and a JSON entry, and two Secrets):
+
+```haskell
+-- examples/k8s_howto/data.gatwd
+def field_of = \parse key field cm -> maybe_fold nothing (\d -> hamt_get field d) (parse (hamt_path ("data." ++ key) cm))
+def cores : String -> Num = \q -> maybe_fold 0 (\m -> ratio m 1000) (str_to_int (str_slice 0 ((length q) - 1) q))
+def password_bytes = \s -> base64_decode (hamt_path "data.password" s)
+def rule_weak_password = \g -> [ ["WeakPassword", (k8s_id_of s)] | s <- (graph_payloads_of "Secret" g), maybe_fold true (\b -> (bytes_length b) < 8) (password_bytes s) ]
+def fingerprint = \s -> maybe_fold "undecodable" (\b -> str_slice 0 12 (sha256 b)) (password_bytes s)
+```
+
+```bash
+gatwd-k8s examples/k8s_howto/data.gatwd -- examples/k8s_howto/data
+# ∷ [3 2Gi 3r4 [[WeakPassword Secret/default/weak-secret]] [622493693890 f52fbd32b2b3]]
+#     replicas (YAML) · memory (JSON) · 500m + 250m, exact · the weak Secret · both fingerprints
+```
+
+The annotations (`def cores : String -> Num`) are advisory and state intent: `gatwd --check` reports only a definite contradiction (`cores 5`), and stays silent on these files.
+
+Things to know. **Each decoder says what happens on `Nothing`** — `maybe_fold default f m` — and here an undecodable
+password counts as weak (a rule must not go quiet about what it cannot read). A dotted key (`app.yaml`) cannot be
+reached with `hamt_path`, which splits on dots; use `hamt_get "app.yaml"` on the `data` map. **Decoded YAML dates stay
+text** (`2026-10-13` is a `String`) until you ask: `time_parse` / `date_parse` (§2.6). **Credentials:** the rule reports
+the resource id and a fingerprint, never the decoded value (the rule above, §2.4 and the security note there).
+
+### 2.6 Ages and expiry: `Duration`, `Time` and the injectable clock
+
+`Duration` (`30d`, `90m`, `1h30m`), `Time` (`@2026-10-13T09:30:00Z`) and `Date` (`@2026-10-13`) are separate types with
+their own arithmetic: `Time - Time` is a `Duration`, `Time + Duration` a `Time`, `Duration` compares with `Duration`
+(`dsl_guide.md` §15 has the full table). `time_parse s` turns `metadata.creationTimestamp` (an RFC 3339 string) into a
+`Maybe Time`. A rule for "Pods older than 30 days" is then one comparison — the only question is where "now" comes from.
+
+`now` reads the clock, a side effect, so it is a **step** and not a function: take **one reading at the edge** and pass it to
+the rule as an ordinary value, which keeps the rule pure and testable. `examples/k8s_howto/age_rules.gatwd` does that,
+as an operator override:
+
+```haskell
+-- examples/k8s_howto/age_rules.gatwd
+let max_age = 30d
+let clock = (now |> head)
+def born = \r -> head ([ (time_parse (hamt_path "metadata.creationTimestamp" q)) | q <- [r], hamt_has_path "metadata.creationTimestamp" q ] ++ [ nothing ])
+def older_than : Time -> Duration -> Any -> Bool = \now limit r -> maybe_fold false (\t -> (now - t) > limit) (born r)
+def rule_stale_pod = \now limit g -> [ ["StalePod", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), (older_than now limit p) ] ++ [ ["UnknownAge", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), is_nothing (born p) ]
+```
+
+```bash
+gatwd-k8s-operator check --manifests examples/k8s_howto/aged --rules examples/k8s_howto/age_rules.gatwd
+gatwd-k8s examples/k8s_howto/age.gatwd -- examples/k8s_howto/aged     # the age rule alone, as a script
+# ∷ [[StalePod Pod/default/old-pod] [UnknownAge Pod/default/bad-stamp-pod] [UnknownAge Pod/default/no-stamp-pod]]
+```
+
+(The output above is for a run in October 2026; `fresh-pod` was created on 2026-10-10 and becomes a `StalePod` on
+2026-11-09. That is the reason the tests inject the clock rather than read it.)
+
+- **A Pod whose age cannot be known is reported** (`UnknownAge`: no `creationTimestamp`, as in most hand-written manifests, or
+  one that does not parse), never treated as fresh. A live cluster always has the stamp.
+- **`let clock = (now |> head)` at the top of an override is read again before every check**: the operator evaluates the
+  override on each `check` and each `run --interval` round, so a long-running operator does not judge by the clock of its start.
+  `now` needs no `--allow-*` flag (it is not an OS command, file or socket).
+- **Tests inject the clock** and never wait or read the wall clock: `interp := edition.BuildInterpreter(); interp.Clock = func() time.Time { … }`
+  (`TestHowToAgeRule` runs the rule at three different instants, including one before the oldest Pod).
+- **Limits:** a difference beyond about ±292 years is an error (`Duration overflow`), so a stamp in the year 3000 makes the
+  whole check fail loudly instead of wrapping. `-D MAX_AGE=30d` and `const MAX_AGE = 30d` stay *text* (only canonical
+  numbers are typed there): write `let max_age = 30d` or `dur_parse "30d"`. Certificate expiry works the same way
+  (`(expires - now) < 14d`) once the date has been read out of the Secret.
 
 ---
 
@@ -309,7 +402,7 @@ access to Secrets by default.
 ### 3.1 Build
 
 The module needs **Go 1.27** (`go.mod` says `go 1.27.0`; the in-process kustomize renderer requires it). An older `go` command fetches
-the toolchain by itself (`GOTOOLCHAIN=auto`, the default); a container build stage must use a `golang:1.27` image or newer.
+the toolchain by itself (`GOTOOLCHAIN=auto`, the default); a container build stage must use a `golang:1.27` image or newer. The Kubernetes client libraries (`client-go`, `apimachinery`) are at `v0.38.0-alpha.2`, a pre-release; revisit when v0.38.0 is tagged.
 
 ```bash
 go build -o bin/gatwd-k8s ./cmd/gatwd-k8s
@@ -319,7 +412,7 @@ go build -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 ```
 
-The static operator is a single ELF binary of roughly 31 MB (the in-process kustomize library accounts for about 3 MB of that). To install into `$GOBIN` (default
+The static operator is a single ELF binary of roughly 33 MB, 31 MiB (the in-process kustomize library accounts for about 3 MB of that). To install into `$GOBIN` (default
 `~/go/bin`) from a checkout: `go install ./cmd/gatwd-k8s ./cmd/gatwd-k8s-operator`.
 
 ### 3.2 Run it
@@ -346,6 +439,9 @@ case $? in
   *) echo "the check itself failed"; exit 2 ;;
 esac
 ```
+
+For a log pipeline or a CI artifact add `--format json` (below); the exit status is the same, so
+`check … --fail-on-violation --format json > report.json` both stores the report and gates the job.
 
 **Kustomize.** The `manifests` step renders a *kustomization root* — a directory holding `kustomization.yaml`,
 `kustomization.yml` or `Kustomization` — by itself, **in process**: the kustomize library is linked into the
@@ -439,6 +535,9 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - **One replica is enough**; there is no leader election because it only reads and prints.
 - **Scope:** the sample uses `--namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
   `--namespace NAME` and a `Role` + `RoleBinding` instead.
+- **What the override may do:** the Deployment's `args:` are the only place a capability is granted (§2.2). A mounted
+  `rules.gatwd` that `import`s a sibling key needs `--allow-fs` in `args:`; one that runs a program needs `--allow-exec`;
+  a pure rule set (the sample's) needs nothing. Editing the ConfigMap can never add a flag.
 - **Add a kind** (a CRD): add a crawl step in `pkg/k8sgraph` (`CoreCrawls`), list it in
   `lib/k8s/sources.gatwd`, and add `get`/`list` for it to the `ClusterRole`.
 
@@ -452,15 +551,26 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 | Rule output is empty but should not be | a node kind is missing from the source list or RBAC (§2.3) |
 | `[ERROR] … duplicate node id "Kind/ns/name"` | the same resource is defined twice (the message quotes both); remove one, or give them different names or namespaces (§2.3) |
 | A reference you expect has no edge, or live and offline disagree | the two sides carry different namespaces (`Pod/_/x` vs `Pod/default/x`), or the target lives in another namespace than the referrer (§2.3) |
+| `[ERROR] step 'x' requires the exec capability (policy denies it)` (or `fs`, `net`) from an override | the override runs a program, reads a file or `import`s one; grant it on the command line (`--allow-exec`, `--allow-fs`, …) or remove it (§2.2) |
+| `[ERROR] … Duration overflow: the difference between … is beyond about ±292 years` from an age rule | a `creationTimestamp` (or expiry) centuries away from now; fix the data (§2.6) |
+| `key 'kind' not found` after `--no-kustomize`, or from an `ownerReference` | the root's `kustomization.yaml` was read as a document (§3.2), or the owner reference names no `kind` (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |
 
 ---
 
 ## 4. Known limitations (as of this writing)
 
-- The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `Kind/namespace/name` (§2.3). The duplicate error names the file (and document) of both
   declarations for offline manifests; for a live crawl, which has no files, it quotes the payloads only.
 - `--no-kustomize` exists on both `gatwd-k8s` and `gatwd-k8s-operator` (§3.2); on the operator it applies to `--manifests` only.
+- The operator has no per-check timeout, output limit or signal handling: the Go API `Interpreter.Run` takes a
+  `context.Context` and an output limit (a deadline kills a stuck step and the OS command it started), but the operator
+  binary exposes no flag for them, and `run --interval` ends only when the process is killed. A single closure that never
+  returns cannot be interrupted at all.
+- The policy's `env` capability gates nothing yet: no builtin reads the environment (§2.2).
+- Rules cannot read the clock inside a lambda: `now` is a step, so an age rule takes the reading as a parameter from a
+  top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` keep the text `30d`.
+- The standard crawl holds Secrets, `data` included, in the graph in memory (§2.4, *Security*); there is no ingest-time
+  redaction.
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.
