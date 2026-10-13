@@ -277,6 +277,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 	registerBoolFuncs(m)
 	registerEncodingFuncs(m)
 	registerJSONFuncs(m)
+	registerYAMLFuncs(m)
 	registerRegexFuncs(m)
 
 	// Fixed-arity builtins become curried Closures, so `map (hamt_get "a") rs` or

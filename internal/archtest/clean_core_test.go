@@ -27,8 +27,11 @@ var corePackages = []string{
 //     pollution, and it is what kubectl, Helm and kind are built on (decision 2026-10-13, see
 //     docs/hardening_plan.md §4). It is deliberately NOT allowed in the lower layers
 //     (functions, collections, evaluator, parser, ...), which stay standard-library only.
+//   - pkg/cli may import go.yaml.in/yaml/v3: YAML is a data format like JSON, which the
+//     standard library covers and YAML it does not (decision 2026-10-13, docs/hardening_plan.md
+//     §1, for yaml_parse/yaml_encode and the visualizer). Only that module, only in pkg/cli.
 var coreImportAllowlist = map[string][]string{
-	"pkg/cli": {"github.com/spf13/cobra", "github.com/spf13/pflag"},
+	"pkg/cli": {"github.com/spf13/cobra", "github.com/spf13/pflag", "go.yaml.in/yaml/v3"},
 }
 
 func allowedThirdParty(pkg, importPath string) bool {
@@ -46,7 +49,7 @@ func allowedThirdParty(pkg, importPath string) bool {
 var domainWords = []string{"kubernetes", "k8s", "kube", "conway", "lifegrid", "postgres", "redis", "kafka"}
 
 // TestCleanCoreImportsNoThirdParty: core packages import only the standard library
-// and this module, plus the explicit coreImportAllowlist (cobra/pflag in pkg/cli). A
+// and this module, plus the explicit coreImportAllowlist (cobra, pflag and the YAML library in pkg/cli). A
 // third-party import in core is the first step of domain pollution; put it behind an
 // adapter, plugin or shim and register it with cli.RegisterStep / cli.RegisterType instead.
 func TestCleanCoreImportsNoThirdParty(t *testing.T) {

@@ -79,6 +79,6 @@ Purely functional, persistent data structures with structural sharing (all imple
 - Usage and extension guide: [`k8s_howto.md`](k8s_howto.md). Design and decision record: [`k8s_graph_design.md`](k8s_graph_design.md). How to mint your own: `.agents/skills/edition-appliance/SKILL.md`.
 
 ## 8. Architecture Tests
-`internal/archtest` turns architectural rules into tests: the library layers (`functions` → `collections` → `arrows`/`comonads`/`optics`/`transducers`/`transformers`) may import only lower library layers (its `knownViolations` list may only shrink), and core packages import only the standard library and this module (the explicit exception: cobra/pflag in `pkg/cli`) and contain no identifier naming a domain (Clean Core, Mandate 5).
+`internal/archtest` turns architectural rules into tests: the library layers (`functions` → `collections` → `arrows`/`comonads`/`optics`/`transducers`/`transformers`) may import only lower library layers (its `knownViolations` list may only shrink), and core packages import only the standard library and this module (the explicit exception: cobra/pflag and the YAML library in `pkg/cli`) and contain no identifier naming a domain (Clean Core, Mandate 5).
 
 > Note: Early pre-generics prototypes and non-generic interface wrappers have been cleanly separated into the `legacy/` directory and are not part of the active pipeline.

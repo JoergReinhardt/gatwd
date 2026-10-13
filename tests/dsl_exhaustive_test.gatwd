@@ -847,3 +847,25 @@ re_match (re_quote "a.b") "axb" |> assert false
 const RE97_WORD = gatwd
 str_upper RE97_WORD |> assert GATWD
 length RE97_WORD |> assert 5
+
+-- 98. YAML (hardening W2 tier 2; the library joined the Clean Core allowlist 2026-10-13): yaml_parse yields
+-- the same nested shape as json_parse inside a Maybe; malformed or unsupported text is Nothing; text
+-- is never altered silently (a date stays text, a merge key expands, an explicit key wins).
+maybe_default 0 (map (\d -> hamt_path "a.b" d) (yaml_parse "a:\n  b: 7\n")) |> assert 7
+maybe_default [] (yaml_parse "[1, 2, 3]") |> assert [1 2 3]
+maybe_default 0 (map (\xs -> length xs) (yaml_parse "- a\n- b\n")) |> assert 2
+is_just (yaml_parse "a: [1, 2") |> assert false
+is_just (yaml_parse "a: 1\na: 2") |> assert false
+is_just (yaml_parse "a: !Ref x") |> assert false
+is_just (yaml_parse "a: 1\n---\nb: 2") |> assert false
+is_just (yaml_parse "a: 1") |> assert true
+is_null (maybe_default 5 (yaml_parse "null")) |> assert true
+maybe_default "?" (map (\d -> hamt_path "when" d) (yaml_parse "when: 2026-10-13")) |> assert 2026-10-13
+maybe_default 0 (map (\d -> hamt_path "use.x" d) (yaml_parse "base: &b {x: 1}\nuse:\n  <<: *b\n")) |> assert 1
+maybe_default 0 (map (\d -> hamt_path "use.y" d) (yaml_parse "base: &b {y: 2}\nuse:\n  <<: *b\n  y: 9\n")) |> assert 9
+maybe_default [] (map (\ds -> length ds) (yaml_parse_all "a: 1\n---\n- 2\n---\nx")) |> assert 3
+maybe_default 9 (map (\ds -> length ds) (yaml_parse_all "")) |> assert 0
+yaml_encode (hamt_from [["b", 1], ["a", [1, "x"]]]) |> assert a:\n  - 1\n  - x\nb: 1
+yaml_encode_all [[1], "x"] |> assert - 1\n---\nx
+["a: 1", "a: [", "b: 2"] |> map (\s -> is_just (yaml_parse s)) |> assert [true false true]
+"k: v" |> yaml_parse |> map (\d -> hamt_path "k" d) |> maybe_default "?" |> assert v

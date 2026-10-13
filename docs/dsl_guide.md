@@ -333,7 +333,20 @@ a `Bool`, and `null` the null value (`is_null x`). The result is a **`Maybe`**: 
 is `Nothing`, never an error (`json_parse "null"` is `Just` null). `json_encode v` is the reverse and deterministic (object keys
 sorted, no whitespace, no HTML escaping); `json_pretty v` indents by two spaces. A value JSON cannot hold — a `Pair`, a closure,
 a `Set` (no defined order), `Bytes` (use `base64_encode`), `NaN`/`Inf` — is an error that names the path to it (`$.a[1]`).
-YAML is not part of core (it needs a third-party library); an Edition can register it.
+
+### YAML (hardening W2, tier 2)
+
+`yaml_parse s` reads YAML into the same shape as `json_parse` (mapping `HAMT`, sequence `List`, `Int`/`BigInt`, `Float`,
+`String`, `Bool`, null) inside a **`Maybe`**; `yaml_parse_all s` reads a `---` stream into a `Maybe` of a `List` of documents
+(an empty stream is `[]`). `yaml_encode v` writes block-style YAML with sorted keys and no final newline, quoting a `String`
+only where it would otherwise read back as something else (`"5"`, `"yes"`); `yaml_encode_all docs` joins documents with `---`.
+It fails on the same values `json_encode` does. **Nothing is altered silently:** an unquoted timestamp (`2026-10-13`) and a
+binary scalar stay the text they were written as (parse them later with the time and `base64_decode` functions), anchors and
+aliases are expanded and `<<` merge keys applied (an explicit key wins), a non-string scalar key (`1: a`) becomes the String
+`"1"`. **Malformed or unsupported text is `Nothing`:** a syntax error, a duplicate key, a complex (non-scalar) key, a tag
+outside the core schema (`!Ref x`), a multi-document stream given to `yaml_parse`, and a document that expands past a million
+nodes (an alias bomb). The library (`go.yaml.in/yaml/v3`) is on the Clean Core allowlist for `pkg/cli` only (decision
+2026-10-13; the visualizer is expected to use it later).
 
 ### The `str_*` library (hardening W2)
 

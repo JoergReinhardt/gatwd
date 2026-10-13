@@ -152,6 +152,24 @@ func Example_json() {
 	// {"a":[1,2],"b":1}
 }
 
+// Example_yaml shows YAML: parse into the same shape as JSON (a Maybe), navigate with
+// hamt_path, and encode back as block-style YAML with sorted keys. A date stays the text it
+// was written as; malformed text is Nothing.
+func Example_yaml() {
+	interp := cli.NewInterpreter()
+	name := interp.EvaluateToValues(`maybe_default "?" (map (\d -> hamt_path "metadata.name" d) (yaml_parse "metadata:\n  name: web\n"))`)
+	bad := interp.EvaluateToValues(`is_just (yaml_parse "a: [1, 2")`)
+	out := interp.EvaluateToValues(`yaml_encode (hamt_from [["b", 1], ["a", [1, "yes"]]])`)
+	fmt.Println(name[0], bad[0])
+	fmt.Println(out[0])
+	// Output:
+	// web false
+	// a:
+	//   - 1
+	//   - "yes"
+	// b: 1
+}
+
 // Example_regex shows RE2 regular expressions: matching, extraction with groups, and
 // replacement with $1 expansion. A pattern that does not match is Nothing, not an error.
 func Example_regex() {
