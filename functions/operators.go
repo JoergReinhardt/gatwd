@@ -475,6 +475,11 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 		}
 	}
 
+	// Duration, Time and Date (timeops.go): points and vectors, never numbers.
+	if res, handled, err := temporalBinaryOp(op, left, right); handled {
+		return res, err
+	}
+
 	// Arithmetic and ordering never read a String as a number (D2 extended): `"5" - 1` and
 	// `"5" < 10` are errors, and two Strings never do arithmetic. Two Strings still ORDER, as
 	// text (see Compare). A Char next to a String is the D1 on-demand conversion, not a number.
@@ -695,6 +700,8 @@ func KindName(v any) string {
 		return "BigInt"
 	case *Ratio:
 		return "Ratio"
+	case Duration:
+		return "Duration"
 	case Bytes, []byte:
 		return "Bytes"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -838,6 +845,10 @@ func Compare(a, b any) (int, error) {
 	}
 	if b == nil {
 		return 1, nil
+	}
+	// Time values order within one type only (timeops.go).
+	if IsTemporal(a) || IsTemporal(b) {
+		return temporalCompare(a, b)
 	}
 	// Numbers order exactly across Int, big integers and Floats (never through a double).
 	if cmp, ordered, isReal := CompareNumbers(a, b); isReal {
@@ -1017,6 +1028,12 @@ func StructuralEqual(a, b any) bool {
 	// Char equality; a one-character String converts on demand (D1).
 	if ca, cb, ok := charPair(a, b); ok {
 		return ca == cb
+	}
+
+	// Duration, Time and Date equal only a value of their own type (a Time by instant).
+	if IsTemporal(a) || IsTemporal(b) {
+		c, err := temporalCompare(a, b) // an error: two different types, never equal
+		return err == nil && c == 0
 	}
 
 	// Numbers: exact across Int, big integers and Floats (a NaN equals nothing); Complex

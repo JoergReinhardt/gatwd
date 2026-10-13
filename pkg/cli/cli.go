@@ -1768,6 +1768,9 @@ func scalarValue(v any) bool {
 	if functions.IsChar(v) {
 		return false // its text ("a") would re-parse as a String
 	}
+	if functions.IsTemporal(v) {
+		return false // a Duration is an int64 underneath, but its text is a typed literal, not a number
+	}
 	switch reflect.ValueOf(v).Kind() {
 	case reflect.Invalid, reflect.Bool, reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,

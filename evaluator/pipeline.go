@@ -1280,7 +1280,8 @@ func StepSort(less func(a, b any) bool) PipelineStep[functions.Either[error, any
 
 // DefaultLess is the fallback ordering predicate used by StepSort, reporting
 // whether a sorts before b. It compares natively when both operands share a
-// known type (int, float64, or string); for mismatched or unrecognized types it
+// known type (int, float64, or string), and any two numbers or time values (Duration,
+// Time, Date) by value through functions.Compare; for mismatched or unrecognized types it
 // degrades gracefully to a lexicographic comparison of their fmt "%v"
 // renderings, so it is total and never panics.
 func DefaultLess(a, b any) bool {
@@ -1296,6 +1297,13 @@ func DefaultLess(a, b any) bool {
 	case string:
 		if vb, ok := b.(string); ok {
 			return va < vb
+		}
+	}
+	// Numbers (of any width, big integers, Ratios) and the time types order by value, never
+	// by their printed text ("1m" < "5s" is the wrong order for Durations).
+	if (functions.IsNumber(a) && functions.IsNumber(b)) || functions.IsTemporal(a) || functions.IsTemporal(b) {
+		if c, err := functions.Compare(a, b); err == nil {
+			return c < 0
 		}
 	}
 	// Fallback to string comparison

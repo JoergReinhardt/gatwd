@@ -33,6 +33,7 @@ const (
 	TokThinArrow                  // TokThinArrow is the lambda body arrow "->".
 	TokChar                       // TokChar is a single-quoted character literal (Text is the character itself).
 	TokPrefix                     // TokPrefix is a prefix (unary) operator in operand position: "-".
+	TokDuration                   // TokDuration is a duration literal such as 5s or 1h30m (Text is the source text).
 )
 
 // TokenItem is a single lexical token: its Type classifies it (one of the Tok*
@@ -221,6 +222,17 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 					continue
 				}
 			}
+			// Duration literals: a number immediately followed by a unit, `5s`, `1h30m`, `1.5h`.
+			if i < n && durationWordRune(runes[i]) && !strings.HasSuffix(string(runes[start:i]), "i") {
+				end := scanDurationExtent(runes, i)
+				text := string(runes[start:end])
+				if _, err := functions.ParseDuration(strings.TrimLeft(text, "+")); err != nil {
+					return nil, err
+				}
+				tokens = append(tokens, TokenItem{Type: TokDuration, Text: text})
+				i = end
+				continue
+			}
 			tokens = append(tokens, TokenItem{Type: TokNumber, Text: string(runes[start:i])})
 			continue
 		}
@@ -272,11 +284,39 @@ func scanRatioSuffix(runes []rune, start, r int) (int, bool) {
 	return end, true // bare `5r`: reported as malformed by the literal reader
 }
 
+// durationWordRune reports whether r can start the unit of a duration literal: any letter
+// (so an unknown unit is reported by name rather than read as an application) or `_`.
+func durationWordRune(r rune) bool { return unicode.IsLetter(r) || r == '_' }
+
+// scanDurationExtent returns the index just past the duration literal whose first unit
+// starts at runes[i] (the number before it is already scanned): a unit word, then any
+// number of further `digits[.digits]` + unit-word segments. It only finds the extent; the
+// literal's validity (known units, no repeat, range) is functions.ParseDuration's to judge.
+func scanDurationExtent(runes []rune, i int) int {
+	n := len(runes)
+	for {
+		for i < n && durationWordRune(runes[i]) {
+			i++
+		}
+		j := i
+		for j < n && (unicode.IsDigit(runes[j]) || runes[j] == '.') {
+			j++
+		}
+		if j == i {
+			return i
+		}
+		i = j // a further segment: its number is scanned, its unit word follows
+		if i >= n || !durationWordRune(runes[i]) {
+			return i // a number without a unit: ParseDuration reports it
+		}
+	}
+}
+
 // endsOperand reports whether a token can end an operand, so that a following "-" is a
 // binary operator (or a tight negative argument) rather than a prefix.
 func endsOperand(t TokenItem) bool {
 	switch t.Type {
-	case TokNumber, TokString, TokChar, TokIdent, TokRParen, TokRBracket:
+	case TokNumber, TokString, TokChar, TokIdent, TokRParen, TokRBracket, TokDuration:
 		return true
 	}
 	return false
@@ -918,7 +958,7 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 // adjacent atoms with no operator between them form a function application.
 func (p *InfixParser) isAtomStart() bool {
 	switch p.peek().Type {
-	case TokNumber, TokString, TokChar, TokIdent, TokLParen, TokLBracket, TokPrefix:
+	case TokNumber, TokString, TokChar, TokDuration, TokIdent, TokLParen, TokLBracket, TokPrefix:
 		return true
 	default:
 		return false
@@ -1036,6 +1076,13 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 	case TokChar:
 		r, _ := utf8.DecodeRuneInString(tok.Text)
 		return LiteralExpr{Value: functions.Char(r)}, nil
+
+	case TokDuration:
+		d, err := functions.ParseDuration(strings.TrimLeft(tok.Text, "+"))
+		if err != nil {
+			return nil, err
+		}
+		return LiteralExpr{Value: d}, nil
 
 	case TokIdent:
 		return VarExpr{Name: tok.Text}, nil

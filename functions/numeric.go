@@ -100,6 +100,11 @@ func Negate(v any) (any, error) {
 		return new(big.Float).Neg(x), nil
 	case *Ratio:
 		return CanonRat(new(big.Rat).Neg(x.rat())), nil
+	case Duration:
+		if x == Duration(minInt64) {
+			return nil, fmt.Errorf("Duration overflow: -%s is outside about ±292 years", x)
+		}
+		return -x, nil
 	}
 	if b, ok := intOperand(v); ok {
 		return CanonInt(b.Neg(b)), nil
@@ -614,6 +619,12 @@ func notNumber(fn string, v any) error {
 // (abs of the smallest int64 promotes), Float stays Float. A Complex number has a
 // magnitude, not an absolute value; use a Complex-aware function for that.
 func Abs(v any) (any, error) {
+	if d, ok := v.(Duration); ok {
+		if d < 0 {
+			return Negate(d)
+		}
+		return d, nil
+	}
 	switch classOf(v) {
 	case clsInt:
 		b, _ := intOperand(v)

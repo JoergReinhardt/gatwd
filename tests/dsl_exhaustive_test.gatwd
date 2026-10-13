@@ -1105,3 +1105,36 @@ spawn S: x |> graph_empty |> graph_add_node Pod Pod/default/web |> graph_add_nod
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_size (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "b"], ["E", 1, "a", "b"]] g)) 0 |> assert 1
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_out_of "E" "a" (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "ghost"]] g)) 0 |> assert [b]
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> graph_add_edge E 1 a ghost |> graph_add_edge E 1 a b |> graph_reachable a |> collect_list |> assert [a b]
+
+-- 106. Duration (hardening §5.6, D14): a signed length of time, `5s`, `250ms`, `1h30m`, `2d`, `1w`, `1.5h`. A number
+-- IMMEDIATELY followed by a unit is one literal (`5 s` is still an application); the units are ns us µs ms s m h d w
+-- of fixed length (a day is exactly 24 h). A Duration is never a number: `5s + 1` is an error (asserted in the Go tests,
+-- a DSL assert cannot match an [ERROR]). It prints as the canonical chain, largest unit the hour (30d prints 720h).
+[5s, 1h30m, 250ms, 2d, 1w, 1.5h, 90m, -5s] |> map (\d -> d + 0s) |> assert [5s 1h30m 250ms 48h 168h 1h30m 1h30m -5s]
+[1s, 1h30m] |> map (\a -> a + 15m) |> assert [15m1s 1h45m]
+[1h, 90m] |> map (\a -> a - 30m) |> assert [30m 1h]
+[5s, 250ms] |> map (\a -> a * 3) |> assert [15s 750ms]
+[5s, 250ms] |> map (\a -> 3 * a) |> assert [15s 750ms]
+[5s, 1m] |> map (\a -> a * 1.5) |> assert [7s500ms 1m30s]
+[5s, 1m] |> map (\a -> a * 1r2) |> assert [2s500ms 30s]
+[1m, 10s] |> map (\a -> a / 4) |> assert [15s 2s500ms]
+[7ns, -7ns] |> map (\a -> a / 2) |> assert [3ns -3ns]
+[90m, 2h, 30m, -90m] |> map (\a -> a / 1h) |> assert [3r2 2 1r2 -3r2]
+[100m, -100m] |> map (\a -> a // 1h) |> assert [1 -2]
+[100m, -100m] |> map (\a -> a % 1h) |> assert [40m 20m]
+[10d, 40d] |> map (\age -> age > 30d) |> assert [false true]
+[10d, 30d, 40d] |> map (\age -> age >= 30d) |> assert [false true true]
+[1s, 1m, 1h] |> map (\a -> a < 90s) |> assert [true true false]
+[5s, 5000ms, 6s] |> map (\a -> a == 5s) |> assert [true true false]
+[5s, 5] |> map (\a -> a == 5s) |> assert [true false]
+[5s, 6s] |> map (\a -> a != 5s) |> assert [false true]
+[5s, -5s, 0s] |> map (\a -> abs a) |> assert [5s 5s 0s]
+[5s, -5s, 0s] |> map (\a -> negate a) |> assert [-5s 5s 0s]
+[5s, -5s] |> map (\a -> -a) |> assert [-5s 5s]
+hamt_from [["a", 5s], ["b", 1m], ["c", 2s]] |> hamt_values |> sort |> collect_list |> assert [2s 5s 1m]
+hamt_from [["a", 5], ["b", 100], ["c", 2r3], ["d", 1r2]] |> hamt_values |> sort |> collect_list |> assert [1r2 2r3 5 100]
+[5s, 1m, 2s] |> map (\a -> min a 10s) |> assert [5s 10s 2s]
+[5s, 1m, 2s] |> map (\a -> max a 10s) |> assert [10s 1m 10s]
+[5s, 1m, 2s] |> map (\a -> compare a 10s) |> assert [LT GT LT]
+[5s, 1m] |> fold (\acc a -> acc + a) 0s |> assert 1m5s
+[1h30m, 250ms] |> map (\a -> a + 0s) |> assert [1h30m 250ms]
