@@ -661,3 +661,44 @@ to_list "ab" |> assert [a b]
 "ab" ++ [] |> assert ab
 -- the pipeline boundary: each stream node is one String, not its characters
 spawn S: x |> emit ab, cd |> drop 1 |> map (\s -> s ++ "!") |> collect_list |> assert [ab! cd!]
+
+-- 90. The str_* library (hardening W2): data-last, curried, positions count characters, malformed
+-- text is a Maybe, an impossible request an error. Every one is also a step (F18).
+str_split "," "a,b,,c" |> assert [a b  c]
+str_join "-" ["a", "b", 'c'] |> assert a-b-c
+str_words "  hi   there " |> assert [hi there]
+str_chars "hé" |> length |> assert 2
+str_from_chars ['a', 'b'] |> assert ab
+str_trim "  x " |> assert x
+str_upper "héllo" |> assert HÉLLO
+str_lower "ÀB" |> assert àb
+str_repeat 3 "ab" |> assert ababab
+str_contains "ell" "hello" |> assert true
+str_starts_with "he" "hello" |> assert true
+str_ends_with "he" "hello" |> assert false
+str_replace "l" "L" "hello" |> assert heLLo
+str_slice 1 3 "héllo" |> assert él
+str_pad_left 5 '0' "42" |> assert 00042
+str_pad_right 4 '.' "ab" |> assert ab..
+str_lines (str_join (char_to_str '\n') ["a", "b", ""]) |> assert [a b]
+-- Maybe-valued: malformed text is Nothing, never an error
+maybe_default 0 (str_to_int "42") |> assert 42
+maybe_default 0 (str_to_int "4x") |> assert 0
+maybe_default 0.5 (str_to_float "nan") |> assert 0.5
+maybe_default 1.5 (str_to_float "2.5") |> assert 2.5
+maybe_default 99 (str_index_of "l" "héllo") |> assert 2
+maybe_default 99 (str_index_of "z" "héllo") |> assert 99
+-- display
+str_from [1, 2] |> assert [1 2]
+show ['a', "b", 1] |> assert ['a', "b", 1]
+str_format "%s has %d items (%.2f%%)" ["x", 3, 12.345] |> assert x has 3 items (12.35%)
+-- as steps, and inside lambdas / comprehensions
+"a,b" |> str_split "," |> assert [a b]
+"  x " |> str_trim |> str_upper |> assert X
+["a-b", "c"] |> map (\s -> str_split "-" s) |> assert [[a b] [c]]
+["ab", "cd"] |> map (\s -> str_upper s) |> str_join "+" |> assert AB+CD
+[ (str_pad_left 3 '0' (str_from n)) | n <- [1, 20, 300] ] |> assert [001 020 300]
+-- a collection of Chars is accepted where a String is demanded
+str_upper (map (\c -> char_lower c) "ABC") |> assert ABC
+-- a round trip through Char lists
+str_from_chars (reverse (str_chars "abc")) |> assert cba

@@ -274,6 +274,25 @@ function returns — `map char_upper "abc"` is a list of `Char`s). The *closed* 
 `fold`, `head` … do not descend into it; inside a lambda or a function-form call use the function forms
 (`["abc", "de"] |> map (\s -> reverse s)`).
 
+### The `str_*` library (hardening W2)
+
+Data-last, curried, usable as steps (`"a,b" |> str_split ","`), positions count **characters**, and a collection of `Char`s is
+accepted wherever a `String` is demanded. Malformed text is a `Maybe`; an impossible request (empty separator, a slice out of
+range, a `%d` given a string) is an `[ERROR]`.
+
+| Group | Functions |
+| :-- | :-- |
+| split / join | `str_split sep s` · `str_join sep xs` · `str_lines s` · `str_words s` · `str_chars s` · `str_from_chars cs` |
+| transform | `str_trim` · `str_upper` · `str_lower` · `str_repeat n s` · `str_replace old new s` · `str_slice from to s` (half-open) · `str_pad_left n ch s` · `str_pad_right n ch s` |
+| query | `str_contains sub s` · `str_starts_with p s` · `str_ends_with p s` · `str_index_of sub s` (`Maybe Int`, in characters) |
+| parse | `str_to_int s` · `str_to_float s` — `Maybe`; decimal syntax only (no surrounding space, no `nan`/`inf`/hex) |
+| display | `str_from x` (the printed form) · `show x` (`"a"`, `'a'`, `['a', "b", 1]`) · `str_format fmt args` |
+
+`str_format` is a checked printf subset: `%s %v %d %f %g %e %x %q %c %%` with flags, width and precision
+(`str_format "%5d|%-5s|%.2f" [42, "ab", 3.14159]`); each verb names the type it needs, and a mismatch, a missing or a surplus
+argument is an error. String literals have **no escapes yet** (`"\n"` is a backslash and an `n`): build a newline with
+`char_to_str '\n'`.
+
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`
 Gatwd protects numerical pipelines against arithmetic overflow across all numeric types:
 - **Signed Integers (`Int`, `int64`)**: Operations exceeding `math.MaxInt64` / `math.MinInt64` automatically promote to arbitrary-precision `*big.Int`.

@@ -204,3 +204,174 @@ func TestStreamStepsKeepStringNodesScalar(t *testing.T) {
 		t.Errorf("filter over a stream of Strings = %v, want [ab]", got)
 	}
 }
+
+func TestStrLibraryValues(t *testing.T) {
+	in := NewInterpreter()
+	for _, tc := range []struct {
+		src  string
+		want any
+	}{
+		{`str_join "-" ["a", "b", 'c']`, "a-b-c"},
+		{`str_join "," []`, ""},
+		{`str_from_chars ['a', 'b']`, "ab"},
+		{`str_from_chars []`, ""},
+		{`str_trim "  x "`, "x"},
+		{`str_upper "héllo"`, "HÉLLO"},
+		{`str_lower "ÀB"`, "àb"},
+		{`str_repeat 3 "ab"`, "ababab"},
+		{`str_repeat 0 "ab"`, ""},
+		{`str_contains "ell" "hello"`, true},
+		{`str_contains "z" "hello"`, false},
+		{`str_contains "" "hello"`, true},
+		{`str_starts_with "he" "hello"`, true},
+		{`str_ends_with "he" "hello"`, false},
+		{`str_replace "l" "L" "hello"`, "heLLo"},
+		{`str_slice 1 3 "héllo"`, "él"},
+		{`str_slice 2 2 "abc"`, ""},
+		{`str_pad_left 5 '0' "42"`, "00042"},
+		{`str_pad_left 1 '0' "42"`, "42"},
+		{`str_pad_right 4 "." "ab"`, "ab.."},
+		{`str_from [1, 2]`, "[1 2]"},
+		{`str_from 'x'`, "x"},
+		{`str_from "x"`, "x"},
+		{`show "a"`, `"a"`},
+		{`show 'a'`, `'a'`},
+		{`show '\n'`, `'\n'`},
+		{`show ['a', "b", 1]`, `['a', "b", 1]`},
+		{`str_format "%s has %d items (%.2f%%)" ["x", 3, 12.345]`, "x has 3 items (12.35%)"},
+		{`str_format "%5d|%-5s|%c|%v" [42, "ab", 'z', [1, 2]]`, "   42|ab   |z|[1 2]"},
+		{`str_format "%x" [255]`, "ff"},
+		{`str_format "%q" ["a b"]`, `"a b"`},
+		{`str_format "100%%" []`, "100%"},
+		{`str_format "%s" ['c']`, "c"},
+		{`str_to_int "-42"`, "Just(-42)"},
+		{`str_to_int "+7"`, "Just(7)"},
+		{`str_to_int "99999999999999999999"`, "Just(99999999999999999999)"},
+		{`str_to_int ""`, "Nothing"},
+		{`str_to_int "4x"`, "Nothing"},
+		{`str_to_int " 4"`, "Nothing"},
+		{`str_to_int "1.5"`, "Nothing"},
+		{`str_to_float "1.5e3"`, "Just(1500)"},
+		{`str_to_float ".5"`, "Just(0.5)"},
+		{`str_to_float "nan"`, "Nothing"},
+		{`str_to_float "inf"`, "Nothing"},
+		{`str_to_float "0x1p-2"`, "Nothing"},
+		{`str_to_float "1e999"`, "Nothing"},
+		{`str_to_float "x"`, "Nothing"},
+		{`str_index_of "z" "hello"`, "Nothing"},
+		{`str_index_of "l" "héllo"`, "Just(2)"},
+		{`str_index_of "" "abc"`, "Just(0)"},
+	} {
+		got := evalOne(t, in, tc.src)
+		if s, isStr := tc.want.(string); isStr && strings.HasPrefix(s, "Just(") || tc.want == "Nothing" {
+			got = displayText(got) // a Maybe prints as Just(x) / Nothing
+		}
+		if got != tc.want {
+			t.Errorf("%s = %#v, want %#v", tc.src, got, tc.want)
+		}
+	}
+}
+
+func TestStrLibraryStructural(t *testing.T) {
+	in := NewInterpreter()
+	for _, tc := range []struct {
+		src  string
+		want []any
+	}{
+		{`str_split "," "a,b,,c"`, []any{"a", "b", "", "c"}},
+		{`str_split "," ""`, []any{""}},
+		{`str_words "  hi   there "`, []any{"hi", "there"}},
+		{`str_chars "hé"`, []any{functions.Char('h'), functions.Char('é')}},
+		{`str_chars ""`, nil},
+		{`str_lines (str_join (char_to_str '\n') ["a", "b"])`, []any{"a", "b"}},
+		{`str_lines (str_join (char_to_str '\n') ["a", "b", ""])`, []any{"a", "b"}},
+		{`str_lines (str_join (char_to_str '\n') ["a", ""])`, []any{"a"}},
+		{`str_lines ""`, nil},
+	} {
+		got := itemsOf(t, evalOne(t, in, tc.src))
+		if len(got) != len(tc.want) {
+			t.Errorf("%s = %#v, want %#v", tc.src, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("%s[%d] = %#v, want %#v", tc.src, i, got[i], tc.want[i])
+			}
+		}
+	}
+	for _, src := range []string{`str_to_int "5"`, `str_index_of "a" "a"`} {
+		if mb, ok := evalOne(t, in, src).(functions.Maybe[any]); !ok || !mb.IsJust() {
+			t.Errorf("%s must be a Just Maybe", src)
+		}
+	}
+	if mb, ok := evalOne(t, in, `str_to_int "5"`).(functions.Maybe[any]); ok {
+		if v, _ := mb.MaybeValue(); !functions.StructuralEqual(v, 5) || functions.IsChar(v) {
+			t.Errorf(`str_to_int "5" payload = %#v (%T), want the narrowed Int 5`, v, v)
+		}
+	}
+}
+
+// A collection of Chars is accepted wherever a String is demanded (the D1 table).
+func TestStrLibraryAcceptsCharCollections(t *testing.T) {
+	in := NewInterpreter()
+	if got := evalOne(t, in, `str_upper (map (\c -> char_lower c) "ABC")`); got != "ABC" {
+		t.Errorf("str_upper over a List of Chars = %#v, want ABC", got)
+	}
+	if got := evalOne(t, in, `str_contains ['b', 'c'] ['a', 'b', 'c']`); got != true {
+		t.Errorf("str_contains over Char collections = %#v", got)
+	}
+}
+
+func TestStrLibraryFailsLoud(t *testing.T) {
+	in := NewInterpreter()
+	for _, tc := range []struct{ src, want string }{
+		{`str_split "" "abc"`, "empty separator"},
+		{`str_split "," 5`, "want a String"},
+		{`str_upper 5`, "want a String"},
+		{`str_upper ['a', 1]`, "element 1"},
+		{`str_join "," [1, 2]`, "element 0"},
+		{`str_join "," 5`, "collection"},
+		{`str_replace "" "x" "abc"`, "empty pattern"},
+		{`str_slice 2 1 "abc"`, "out of range"},
+		{`str_slice 0 9 "abc"`, "out of range"},
+		{`str_slice (0 - 1) 2 "abc"`, "out of range"},
+		{`str_slice "0" 1 "abc"`, "want an Int"},
+		{`str_repeat (0 - 1) "a"`, "negative"},
+		{`str_repeat 99999999 "abcdefghij"`, "longer than"},
+		{`str_repeat "3" "a"`, "want an Int"},
+		{`str_pad_left 3 "ab" "x"`, "one-character"},
+		{`str_format "%d" ["x"]`, "wants an Int"},
+		{`str_format "%s" [1]`, "wants a String"},
+		{`str_format "%f" ["x"]`, "wants a number"},
+		{`str_format "%s" []`, "needs an argument"},
+		{`str_format "%s" ["a", "b"]`, "argument(s) given"},
+		{`str_format "%z" [1]`, "unsupported verb"},
+		{`str_format "abc%" []`, "ends inside"},
+		{`str_format "%s" 5`, "must be a list"},
+	} {
+		res := in.evaluatePipelineStr(tc.src)
+		if len(res) != 1 || !strings.Contains(res[0], "[ERROR]") || !strings.Contains(res[0], tc.want) {
+			t.Errorf("%s = %v, want an [ERROR] containing %q", tc.src, res, tc.want)
+		}
+	}
+}
+
+// Every str_* function form is also a step (F18), applied data-last to the whole String.
+func TestStrLibraryAsSteps(t *testing.T) {
+	in := NewInterpreter()
+	for _, c := range [][2]string{
+		{`"a,b" |> str_split ","`, `str_split "," "a,b"`},
+		{`"hello" |> str_upper`, `str_upper "hello"`},
+		{`"  x " |> str_trim |> str_upper`, `str_upper (str_trim "  x ")`},
+		{`["a", "b"] |> str_join "+"`, `str_join "+" ["a", "b"]`},
+		{`"42" |> str_to_int`, `str_to_int "42"`},
+		{`"hello" |> str_slice 1 3`, `str_slice 1 3 "hello"`},
+		{`"hello" |> reverse`, `reverse "hello"`},
+	} {
+		step := strings.Join(in.evaluatePipelineStr(c[0]), ";")
+		fn := strings.Join(in.evaluatePipelineStr(c[1]), ";")
+		if step == "" || step != fn || strings.Contains(step, "ERROR") {
+			t.Errorf("%s = %q but %s = %q", c[0], step, c[1], fn)
+		}
+	}
+}

@@ -76,3 +76,14 @@ func Example_stringRow() {
 	fmt.Println(kept[0], back[0], codes[0])
 	// Output: ac cba [97 98]
 }
+
+// Example_strLibrary shows the str_* library: data-last functions that double as pipeline
+// steps, with Maybe-valued parsing instead of errors for malformed text.
+func Example_strLibrary() {
+	interp := cli.NewInterpreter()
+	parts := interp.EvaluateToValues(`"a,b,c" |> str_split ","`)
+	n := interp.EvaluateToValues(`maybe_default 0 (str_to_int "4x")`)
+	msg := interp.EvaluateToValues(`str_format "%s=%d" ["x", 3]`)
+	fmt.Println(parts[0], n[0], msg[0])
+	// Output: [a b c] 0 x=3
+}
