@@ -189,7 +189,8 @@ Rules (Mandates 5 and 7):
   client builds an offline-only edition (CI, tests).
 - **Third-party SDKs are confined** to specific adapter/shim files. Prefer an external binary plus
   an injectable seam (`ManifestAdapter` + `WithRenderer`, shelling out to `kustomize`) over a heavy
-  dependency, unless the user decides otherwise.
+  dependency, unless the user decides otherwise. (The user did decide, later: D7 puts the kustomize
+  library into the k8s shim, `pkg/k8sgraph.InProcessRenderer`, behind that very seam — plan §8.1.)
 - **Source-agnostic downstream.** Live and offline sources yield the *same* payload shape (nested
   HAMT), so the same prelude runs on both. Prove it with a parity test over a fake client
   (`pkg/k8sgraph/k8sgraphtest` + `TestLiveOfflineParity`), never by inspection.
@@ -306,7 +307,7 @@ did not make.
 | P2 | structured nested-HAMT resources (not names) | "replace strings with real types" |
 | 6-prereq | `hamt_path` + `HAMTPathLens` | an absent-key path is an *Optional*, not a Lens |
 | P3b | `k8sgraph.CrawlStep` | shim with zero logic |
-| 5 | offline manifests, kustomize via injectable renderer | user decision: external binary, no heavy dep |
+| 5 | offline manifests, kustomize via injectable renderer | user decision then: external binary, no heavy dep (superseded by D7: in-process library, same seam) |
 | ingest | `fold` with a graph accumulator + **juxtaposition application** | a missing language primitive implemented properly (Mandate 1), not faked in Go |
 | 6 | embedded pure-DSL prelude + `ApplyEdition` | relations in `.gatwd` |
 | 7 | `cmd/gatwd-k8s`, `cmd/gatwd-k8s-operator` | pure-assembly main; hot-reloadable rules |

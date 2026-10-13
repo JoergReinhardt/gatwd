@@ -36,6 +36,19 @@
 //	spawn StrVal: ./manifests |> manifests |> k8s_graph       (offline)
 //	spawn StrVal: default |> k8s_resources |> k8s_graph       (live cluster)
 //
+// # Kustomize, in process
+//
+// The `manifests` step renders a kustomization root on its own: the
+// sigs.k8s.io/kustomize library runs inside the process (InProcessRenderer; no
+// kustomize, kubectl or git binary), and the rendered resources enter the graph like
+// any other manifest. Files and directories that are not kustomization roots are
+// read as before. The edition's `--no-kustomize` flag (ApplyEdition's option
+// WithoutKustomize) switches that off; the explicit `kustomize` step always renders.
+// Exec plugins, Helm and remote bases are refused, and a render error is an [ERROR]
+// naming the root. The library is imported here and nowhere else (Clean Core).
+//
+//	spawn StrVal: ./overlays/prod |> manifests |> k8s_graph
+//
 // # Quick start (Edition assembly)
 //
 //	client, _ := k8sgraph.DynamicClientFromKubeconfig()

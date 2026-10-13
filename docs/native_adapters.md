@@ -108,8 +108,9 @@ e := cli.NewEdition("gatwd-k8s").
 **3. A thin shim package** (`pkg/<domain>`) constructs the adapters and exposes one assembly function. It contains no algorithm:
 
 ```go
-func ApplyEdition(e *cli.Edition, client dynamic.Interface) *cli.Edition {
-    e = e.WithStep(ManifestStep("manifests")).WithStep(KustomizeStep("kustomize"))
+func ApplyEdition(e *cli.Edition, client dynamic.Interface, opts ...Option) *cli.Edition {
+    // `manifests` renders a kustomization root in process; --no-kustomize is declared with e.WithFlags
+    e = e.WithStep(ManifestStep("manifests", adapters.WithRenderer(InProcessRenderer()), …)).WithStep(KustomizeStep("kustomize"))
     if client != nil { // nil client ⇒ offline-only edition (CI, tests)
         for _, c := range CoreCrawls { e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR)) }
     }
