@@ -314,6 +314,12 @@ def k8s_resources = (k8s_pods <+> k8s_services <+> k8s_configmaps <+> k8s_endpoi
 (put it in your override/prelude; pinned against a fake cluster by `TestLiveCrawlWithoutSecrets`: with it the crawl yields no Secret, without it both). The sample `deploy.yaml` grants **no**
 access to Secrets by default.
 
+**Design decision (2026-10-13): the tool does not redact Secret `data` at ingest.** Rules may need it (a rule that checks
+a credential's shape or age cannot work on a redacted copy), and what the tool can see is already decided one layer
+down: by the kubeconfig or service account it runs as, and by the RBAC role you bind to it. Restrict access there
+(drop `secrets` from the role, as the sample `deploy.yaml` does) and, where an installation needs it, drop `k8s_secrets`
+from the source as above; a rule result prints resource ids, never payloads.
+
 ### 2.5 Structured data inside resources: YAML, JSON, base64, fingerprints
 
 A ConfigMap often carries a whole file as one string, and a Secret's `data` is base64. The language reads both

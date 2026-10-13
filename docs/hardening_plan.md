@@ -125,6 +125,22 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **`n -1`** | **Keep:** an application error with a hint. | §6.2. |
 | **W7 design points** | **Taken on the recommendation** (the user said "continue" after the three points were put to them, 2026-10-13): (1) the policy gates only capabilities reachable from script text — the unknown-step OS-command fallback and file/network/env builtins; steps an Edition wires itself (`manifests`, the cluster crawl) stay allowed; (2) the operator opts in with `--allow-exec/--allow-fs/--allow-net/--allow-env`, all off by default, and a ConfigMap can never widen them; (3) diagnostics keep the free-text `[ERROR] …` and add structured fields (kind, step, capability) to the JSON `errors` entries. | Reversible while W7 is unmerged; veto at any time. |
 
+**Answered after the closing checklist (2026-10-13; the user's answers to handoff §0 Q1–Q11, the rest on the recommendation):**
+
+| ID | Decision | Notes |
+| :-- | :-- | :-- |
+| **Push** | Pushed (`24ef7c8..66a2abe`). | |
+| **T1 typed tokens** | **Yes:** `const X = 30d`, `emit 5s`, `-D X=5s` bind a real `Duration` (and `@…` a `Time`/`Date`), by the same canonical-literal rule as numbers. | Track I. |
+| **T2 `Duration` in JSON/YAML** | **Keep the literal text** (`"1h30m"`). | No change. |
+| **T3 `strptime`-style parsing** | Deferred until a rule needs it. | |
+| **`to_set` / `distinct`** | **Value-typed** (no printed-form dedup). | Track J. |
+| **Override `import` without `--allow-fs`** | **No**, stays strict. | No change. |
+| **`env` builtin** | Only when something needs it. | No change. |
+| **Operator timeout / output limit** | **Yes:** `--timeout`, `--max-output`, exit 1 on timeout. | Track K. |
+| **Age/expiry rule in the embedded rules** | **Stays an example override.** | No change. |
+| **Secret `data` redaction** | **Document, do not redact** ("kubeconfig/RBAC on the user side will restrict it when necessary"). | how-to §2.4 Security. |
+| **Third message element in rule results** | Deferred. | |
+
 ---
 
 ## 2. Findings
