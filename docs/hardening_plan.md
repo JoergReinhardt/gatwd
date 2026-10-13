@@ -573,6 +573,64 @@ binary run twice: empty apart from the visualizer tours 15/20/23, which differ b
 
 **Open questions:** **T1** make `const`/`emit`/`-D` tokens typed for `Duration`/`Time`/`Date` literals (`const MAX_AGE = 30d`)? Recommended: yes for `Time` and `Date` (`@…` is unambiguous) and for a Duration whose *value* is written (not only canonical text), at the price of changing how a printed value looks (`30d` shows `720h`). **T2** keep the `Duration` JSON form as the literal String or switch to ISO 8601? **T3** add `str`-style parsing with a layout (`time_parse_with "%d.%m.%Y" s`) when a real need appears?
 
+#### 5.6.2 T1 closure notes (Track I, 2026-10-13; user: yes, by the same canonical-literal rule as numbers)
+
+`const X = 30d`, `emit 5s`, `-D X=5s` and `@2026-10-13[T…]` now bind a real `Duration`/`Time`/`Date`. One rule, one function:
+`functions.LiteralToken` (a canonical number, then `ParseCanonicalDuration`, then `ParseCanonicalTemporal`, else the text).
+Commits: `4289c3e` (the rule and its Go tests), `07c2ef8` (wiring, splicing, tests), the docs commit after them.
+
+**The Duration decision (the open point in the brief).** A number is canonical when it *prints back unchanged*. A Duration cannot
+meet that test as stated (`90m`, `1h30m` and `5400s` are one value; `30d` prints `720h`), and requiring it would leave exactly
+the tokens people write (`30d`) as text. The rule chosen never rewrites the *spelling of the number*, and lets the *unit* be
+free: a token is a typed Duration when `ParseDuration` accepts it **and** every numeric segment is written canonically (no
+`+` sign, no leading zero, no trailing zero in a fraction, no `-0s`). So `5s`, `90m`, `1h30m`, `30d`, `-2w`, `1.5h`, `0s` are
+Durations; `007s`, `1.50h`, `+5s`, `0.0s`, `-0s`, `5q`, `5` (no unit) stay Strings. This is also the only choice that never
+contradicts the expression lexer: every typed token lexes as the same Duration inside an expression (the lexer is more
+liberal, `007s` is 7 s there); the token rule only declines to guess for spellings it would normalise. `Time` and `Date`
+keep the literal test: typed only when the value prints back as written (`@2026-10-13T10:00:00+00:00` prints `…Z`, `.250Z`
+prints `.25Z`, so they stay Strings; a bad calendar day such as `@2026-02-30`, a missing zone or a missing `@` stays text,
+never an error). **Cost:** a typed Duration prints in its canonical chain (`const X = 30d` shows `720h`).
+
+**What changed besides the rule.**
+1. `const`: a bare time token is typed through the existing expression path (`@2026-10-13` holds a `-`, so it was already
+   evaluated, then turned into text; now the value is kept); `const D = 1h + 30m` is a `Duration`; a *quoted* value that would
+   evaluate to a time value stays the text written. A const value with an operator character is an expression (`const P = +5`
+   is `5`, so `const P = +5s` is a `Duration`; unchanged for numbers).
+2. Splicing: a time constant is spliced into a pipeline head, a step and `spawn T: C` as its **literal** (`functions.TemporalLiteral`:
+   a `Time`/`Date` prints without its `@`, which would re-lex as a subtraction); `scalarValue` (used for `let` variables) is
+   unchanged, `spliceableConst` adds the three types. The regression diff shows no script using them.
+3. Operator sections take the same literals as operands (`|> + 5s`, `|> - 7d`, `|> + AGE`): `OperandValue` reads a Duration/
+   Time/Date token as the lexer does (it already accepted non-canonical numbers such as `007`). Before, the operand stayed text
+   and `emit 5s |> + 5s` failed with `Duration and String`.
+4. **Found on the way (pre-existing, fixed):** a **String** constant was spliced *unquoted* into a lambda step, so
+   `const Q = "5"` then `\n -> Q == "5"` was `false` (the lambda saw the Int `5`) and, with the Duration lexer, `const Q = "30d"` read
+   as a Duration there. Inside a lambda step (`isLambdaStep`: a `\` and a `->`) a String constant is now spliced quoted. Raw
+   step arguments (`walk_fs DIR`, `take N`) are unchanged: they are not expression text.
+5. `hamt_get`/`hamt_set`/`hamt_del` step forms read a bare time token as the value it is (`hamt_get 5s`), via `hamtStepKey`'s
+   `LiteralToken`; `hamt_get @2026-10-13` was `key not found` before.
+6. Checker: no code change; it already typed a bare `const` through the expression reader (a Duration is a `Duration`, a quoted
+   `"30d"` a `String`), now pinned by `TestCheckerTypesTemporalConstants`. `--check` stays silent on every committed script.
+7. Docs: `docs/dsl_guide.md` (§6 literal tokens, the time section's "Not yet", the `-D` flag), `docs/grammar.md` (`LiteralToken`),
+   `docs/k8s_howto.md` (the two places that said `-D`/`const` stay text), the `-D` flag help, godoc.
+
+**Tests.** `functions/temporal_literal_test.go` (the rule, canonical and non-canonical spellings, round trip through
+`TemporalLiteral`), `pkg/cli/typed_tokens_test.go` (const kinds, quoted/non-canonical stay String, lambda use, emit kinds,
+`-D`, sections, statement-path lambda splice, the checker), DSL section 115 in `tests/dsl_exhaustive_test.gatwd` (everything
+inside lambdas or per element). Negative controls, each failing before being restored: dropping the zero check or the
+print-back check in the canonical readers, ignoring the quoted case, `%v` instead of the literal at the step splice, `%v`
+instead of `TemporalLiteral` in `constWord`, disabling the lambda quoting, and disabling the operand reader.
+
+**Regression diff** over every committed script (base binary twice, new once): no difference apart from the nondeterministic
+`examples/scripts/03_kleisli_fanout`, `examples/tour/05`, `15`, `20`, `23` (they differ between two runs of the *base* binary).
+
+**Deferred / open (decided on the recommendation, say if you want the alternative):**
+- **T1a** `spawn T: 5s` for a type with no registered parser still seeds the String `5s` (a spawn seed is not a literal token;
+  `W2` step 7 decided undeclared spawns keep text). Typing it would change `spawn S: 5` from `"5"` to `5` too. Use `emit`/`let`.
+- **T1b** a *quoted* `const` value that evaluates to a number is still evaluated (`const Q = "2+3"` is `5`), against the
+  documented "a quoted value is always a String"; only the time-valued case was fixed here. Fixing it means skipping the
+  expression path for every quoted value.
+
+
 ---
 
 ## 6. W3 — The numeric tower, specified (D3)

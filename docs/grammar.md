@@ -92,6 +92,7 @@ Segment        ::= ( Digits | Digits "." Digits ) Unit   (* only the first segme
 Unit           ::= "ns" | "us" | "µs" | "μs" | "ms" | "s" | "m" | "h" | "d" | "w"   (* d = 24 h and w = 7 d: fixed lengths, not calendar days *)
 Time           ::= "@" Digits4 "-" Digits2 "-" Digits2 "T" Digits2 ":" Digits2 ":" Digits2 [ "." Digits ] ( "Z" | ( "+" | "-" ) Digits2 ":" Digits2 )   (* RFC 3339; the zone is required; years 1..9999 *)
 Date           ::= "@" Digits4 "-" Digits2 "-" Digits2   (* ISO 8601, a real calendar day; years 1..9999 *)
+LiteralToken   ::= Number | Duration | Time | Date | Text   (* the UNQUOTED value of `const`, `emit` and `-D`: a CANONICAL literal (prints back unchanged; Duration segments have no `+`, leading or trailing zeros) is that value, any other text, `007`, `007s`, `1.50`, a quoted const, is a String; `functions.LiteralToken` *)
 Ratio          ::= Digits "r" Digits | Digits "." Digits "r"   (* 3r4 ; the exact decimal 0.75r ; 1r0 is a lex error, a bare 5r is an error *)
 PrefixOp       ::= "-" | "!"   (* in operand position: `-x`, `!ok`; `!` only when not followed by "=" ; `f -3` (space before, none after) is a negative argument *)
 BinaryOp       ::= "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "+" | "-" | "++" | "*" | "/" | "//" | "%" | "**"

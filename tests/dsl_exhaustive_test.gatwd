@@ -1356,3 +1356,6 @@ spawn S: x |> emit 5s, 007s, 1.50h, +5s |> drop 1 |> collect_list |> map (\v -> 
 spawn S: x |> emit 7, 007, 1.50, 1.5 |> drop 1 |> collect_list |> map (\v -> v == 7) |> assert [true false false false]
 -- (the negative case, `n + QUOTED_AGE` is an error because a quoted constant is text, cannot be caught in the DSL; it is
 -- pinned in pkg/cli/typed_tokens_test.go)
+-- the step forms of hamt_get/hamt_set/hamt_del read a bare time token as a value too (the key `5s` is a Duration)
+hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get 5s |> assert a
+hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get @2026-10-13 |> assert d

@@ -397,8 +397,9 @@ gatwd-k8s examples/k8s_howto/age.gatwd -- examples/k8s_howto/aged     # the age 
 - **Tests inject the clock** and never wait or read the wall clock: `interp := edition.BuildInterpreter(); interp.Clock = func() time.Time { … }`
   (`TestHowToAgeRule` runs the rule at three different instants, including one before the oldest Pod).
 - **Limits:** a difference beyond about ±292 years is an error (`Duration overflow`), so a stamp in the year 3000 makes the
-  whole check fail loudly instead of wrapping. `-D MAX_AGE=30d` and `const MAX_AGE = 30d` stay *text* (only canonical
-  numbers are typed there): write `let max_age = 30d` or `dur_parse "30d"`. Certificate expiry works the same way
+  whole check fail loudly instead of wrapping. `-D MAX_AGE=30d` and `const MAX_AGE = 30d` bind a real
+  `Duration` (a canonical Duration, Time or Date token is typed like a number; `007s` or a quoted `"30d"` stay text), so
+  `age > MAX_AGE` works inside a rule. Certificate expiry works the same way
   (`(expires - now) < 14d`) once the date has been read out of the Secret.
 
 ---
@@ -575,7 +576,7 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
   returns cannot be interrupted at all.
 - The policy's `env` capability gates nothing yet: no builtin reads the environment (§2.2).
 - Rules cannot read the clock inside a lambda: `now` is a step, so an age rule takes the reading as a parameter from a
-  top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` keep the text `30d`.
+  top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` are a `Duration`.
 - The standard crawl holds Secrets, `data` included, in the graph in memory (§2.4, *Security*); there is no ingest-time
   redaction.
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not

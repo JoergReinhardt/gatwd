@@ -208,7 +208,7 @@ func (t *CommandTree) Root() *cobra.Command {
 	pf := root.PersistentFlags()
 	pf.StringArrayVar(&g.preludes, "prelude", nil, "load `FILE` before the script (repeatable)")
 	pf.BoolVar(&g.noPrelude, "no-prelude", false, "skip the embedded preludes")
-	pf.StringArrayVarP(&g.defines, "define", "D", nil, "bind the string constant `NAME=VALUE` (repeatable)")
+	pf.StringArrayVarP(&g.defines, "define", "D", nil, "bind the constant `NAME=VALUE`: a number, Duration (5s, 30d), Time or Date (@2026-10-13) literal is typed, anything else a String (repeatable)")
 	for _, declare := range t.spec.Flags {
 		declare(pf)
 	}
