@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -28,9 +29,9 @@ spec:
     app: nginx
 `
 
-func collectPayloads(t *testing.T, path string) []any {
+func collectPayloads(t *testing.T, path string, opts ...adapters.ManifestOption) []any {
 	t.Helper()
-	adapter := adapters.ManifestAdapter()
+	adapter := adapters.ManifestAdapter(opts...)
 	var payloads []any
 	for node := range adapter(dsltypes.NewASTNode[any](path, dsltypes.BitFlag(0))) {
 		payloads = append(payloads, node.Value)
@@ -107,5 +108,93 @@ func TestManifestAdapterMissingPath(t *testing.T) {
 	}
 	if _, ok := payloads[0].(error); !ok {
 		t.Fatalf("expected an error payload for a missing path, got %T", payloads[0])
+	}
+}
+
+// TestManifestAdapterKustomizeRender proves a kustomization root is rendered (via
+// the pluggable renderer) and the rendered YAML is then decoded like any other
+// manifest — the adapter itself stays kustomize-agnostic.
+func TestManifestAdapterKustomizeRender(t *testing.T) {
+	dir := t.TempDir()
+	// Any kustomization file makes the dir a render root; content is irrelevant
+	// here because the renderer is injected.
+	if err := os.WriteFile(filepath.Join(dir, "kustomization.yaml"), []byte("resources: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var renderedDir string
+	fakeRender := func(d string) ([]byte, error) {
+		renderedDir = d
+		return []byte(multiDocManifest), nil
+	}
+
+	payloads := collectPayloads(t, dir, adapters.WithRenderer(fakeRender))
+	if renderedDir != dir {
+		t.Fatalf("renderer called with %q, want %q", renderedDir, dir)
+	}
+	if len(payloads) != 2 {
+		t.Fatalf("expected 2 rendered documents, got %d", len(payloads))
+	}
+	if kind := hamtGet(t, payloads[0], "kind"); kind != "Pod" {
+		t.Fatalf("rendered doc0 kind = %v, want Pod", kind)
+	}
+	if kind := hamtGet(t, payloads[1], "kind"); kind != "Service" {
+		t.Fatalf("rendered doc1 kind = %v, want Service", kind)
+	}
+}
+
+// TestManifestAdapterKustomizeFallsBackToWalk proves that a Kustomize-enabled
+// adapter still treats a *plain* directory (no kustomization file) as raw manifests
+// — the renderer must not run.
+func TestManifestAdapterKustomizeFallsBackToWalk(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pod.yaml"), []byte("kind: Pod\nmetadata:\n  name: one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	fakeRender := func(string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
+
+	payloads := collectPayloads(t, dir, adapters.WithRenderer(fakeRender))
+	if called {
+		t.Fatal("renderer ran on a plain (non-kustomization) directory")
+	}
+	if len(payloads) != 1 {
+		t.Fatalf("expected 1 walked document, got %d", len(payloads))
+	}
+	if kind := hamtGet(t, payloads[0], "kind"); kind != "Pod" {
+		t.Fatalf("walked doc kind = %v, want Pod", kind)
+	}
+}
+
+// TestManifestAdapterKustomizeEndToEnd renders a real kustomization with the host's
+// kustomize renderer (kubectl kustomize), gated on that binary being present.
+func TestManifestAdapterKustomizeEndToEnd(t *testing.T) {
+	if _, err := exec.LookPath("kubectl"); err != nil {
+		t.Skip("kubectl not installed; skipping real kustomize render")
+	}
+
+	dir := t.TempDir()
+	resource := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: base-cm\ndata:\n  key: value\n"
+	if err := os.WriteFile(filepath.Join(dir, "cm.yaml"), []byte(resource), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	kustomization := "resources:\n  - cm.yaml\nnamePrefix: rendered-\n"
+	if err := os.WriteFile(filepath.Join(dir, "kustomization.yaml"), []byte(kustomization), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	payloads := collectPayloads(t, dir, adapters.WithKustomizeCommand("kubectl", "kustomize"))
+	if len(payloads) != 1 {
+		t.Fatalf("expected 1 rendered resource, got %d: %v", len(payloads), payloads)
+	}
+	// The namePrefix transformer proves it was genuinely rendered by kustomize,
+	// not read raw.
+	meta := hamtGet(t, payloads[0], "metadata")
+	if name := hamtGet(t, meta, "name"); name != "rendered-base-cm" {
+		t.Fatalf("rendered metadata.name = %v, want rendered-base-cm (namePrefix applied)", name)
 	}
 }

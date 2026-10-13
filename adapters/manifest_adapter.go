@@ -1,11 +1,13 @@
 package adapters
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/fs"
 	"iter"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +16,70 @@ import (
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 )
+
+// ManifestOption configures ManifestAdapter. Options are the parameterization seam
+// through which Kustomize support is enabled *without* the adapter ever importing a
+// kustomize library: the adapter only knows "render a directory to a YAML byte
+// stream via a pluggable function"; the default implementation shells out to the
+// external `kustomize build`. All kustomize-specific behavior lives in that
+// external renderer, never in the adapter.
+type ManifestOption func(*manifestConfig)
+
+type manifestConfig struct {
+	kustomize bool
+	render    func(dir string) ([]byte, error)
+}
+
+// WithKustomize enables Kustomize rendering. When the adapter is pointed at a
+// *kustomization root* (a directory containing kustomization.yaml/.yml or
+// Kustomization), it first runs `kustomize build` to render the library into a
+// plain multi-document YAML stream, then decodes that stream exactly like any other
+// manifest. Plain directories and files are read directly, unchanged — so a mixed
+// tree of raw manifests and kustomize overlays "just works". Since Kustomize
+// libraries are a daily occurrence, this is the option most editions will enable.
+func WithKustomize() ManifestOption {
+	return func(c *manifestConfig) { c.kustomize = true }
+}
+
+// WithKustomizeCommand overrides the external renderer command (default
+// `kustomize build`). For example WithKustomizeCommand("kubectl", "kustomize")
+// renders via `kubectl kustomize <dir>`. The target directory is always appended as
+// the final argument. Implies WithKustomize.
+func WithKustomizeCommand(name string, args ...string) ManifestOption {
+	return func(c *manifestConfig) {
+		c.kustomize = true
+		c.render = execRenderer(name, args...)
+	}
+}
+
+// WithRenderer injects a custom directory→YAML renderer, bypassing the external
+// command. It is the seam used by tests, and the same seam through which an edition
+// could later plug an in-process kustomize API (sigs.k8s.io/kustomize) without the
+// adapter ever importing it. Implies WithKustomize.
+func WithRenderer(fn func(dir string) ([]byte, error)) ManifestOption {
+	return func(c *manifestConfig) {
+		c.kustomize = true
+		c.render = fn
+	}
+}
+
+// execRenderer builds the default renderer: it runs `name args... dir` and returns
+// the rendered YAML on stdout, surfacing a failed build (binary missing, invalid
+// kustomization) as an error including the tool's stderr.
+func execRenderer(name string, args ...string) func(string) ([]byte, error) {
+	return func(dir string) ([]byte, error) {
+		cmdArgs := append(append([]string{}, args...), dir)
+		cmd := exec.Command(name, cmdArgs...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("kustomize render failed (%s %s): %w: %s",
+				name, strings.Join(cmdArgs, " "), err, strings.TrimSpace(stderr.String()))
+		}
+		return stdout.Bytes(), nil
+	}
+}
 
 // ManifestAdapter reads Kubernetes-style YAML/JSON manifests from the filesystem
 // (a single file, or every *.yaml/*.yml/*.json under a directory tree) and yields
@@ -37,7 +103,17 @@ import (
 // to a Left — the branch fails loudly instead of silently vanishing. Documents are
 // visited in the lexical order filepath.WalkDir guarantees, so a crawl is
 // deterministic.
-func ManifestAdapter() evaluator.Adapter[any] {
+//
+// With WithKustomize (or a *kustomization root* path), the directory is first
+// rendered via the external `kustomize build` and the resulting YAML stream is
+// decoded identically — so a kustomize library is dealt with by rendering it, then
+// treating the output as any other YAML.
+func ManifestAdapter(opts ...ManifestOption) evaluator.Adapter[any] {
+	cfg := manifestConfig{render: execRenderer("kustomize", "build")}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
 	return func(node dsltypes.ASTNode[any]) iter.Seq[dsltypes.ASTNode[any]] {
 		return func(yield func(dsltypes.ASTNode[any]) bool) {
 			path, ok := node.Value.(string)
@@ -45,6 +121,27 @@ func ManifestAdapter() evaluator.Adapter[any] {
 				yield(dsltypes.NewASTNode[any](
 					fmt.Errorf("ManifestAdapter: expected a file or directory path, got %T", node.Value),
 					node.DSLType))
+				return
+			}
+
+			// Kustomize libraries: render the root to YAML, then decode as usual.
+			if cfg.kustomize && isKustomizationRoot(path) {
+				rendered, err := cfg.render(path)
+				if err != nil {
+					yield(dsltypes.NewASTNode[any](err, node.DSLType))
+					return
+				}
+				docs, err := decodeManifests(bytes.NewReader(rendered))
+				if err != nil {
+					if !yield(dsltypes.NewASTNode[any](fmt.Errorf("kustomize output: %w", err), node.DSLType)) {
+						return
+					}
+				}
+				for _, doc := range docs {
+					if !yield(dsltypes.NewASTNode[any](unstructuredToValue(doc), node.DSLType)) {
+						return
+					}
+				}
 				return
 			}
 
@@ -70,6 +167,21 @@ func ManifestAdapter() evaluator.Adapter[any] {
 			}
 		}
 	}
+}
+
+// isKustomizationRoot reports whether dir directly contains a kustomization file,
+// i.e. is the root of a kustomize overlay/base that `kustomize build` can render.
+func isKustomizationRoot(dir string) bool {
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	for _, name := range []string{"kustomization.yaml", "kustomization.yml", "Kustomization"} {
+		if fi, err := os.Stat(filepath.Join(dir, name)); err == nil && !fi.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // manifestFiles resolves a path to the ordered set of manifest files it denotes:
@@ -111,8 +223,14 @@ func decodeManifestFile(path string) ([]map[string]any, error) {
 		return nil, err
 	}
 	defer f.Close()
+	return decodeManifests(f)
+}
 
-	decoder := k8syaml.NewYAMLOrJSONDecoder(f, 4096)
+// decodeManifests decodes every YAML/JSON document from an arbitrary reader — a
+// manifest file on disk or the stdout of `kustomize build` — into the generic
+// map[string]any shape, skipping empty documents.
+func decodeManifests(r io.Reader) ([]map[string]any, error) {
+	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 4096)
 	var docs []map[string]any
 	for {
 		var obj map[string]any

@@ -628,13 +628,28 @@ asserts lexical order) / `…MissingPath`; `k8sgraph.TestManifestStep` drives it
 the DSL — `spawn StrVal: <file> |> manifests |> hamt_path spec.selector.app` →
 `nginx` (confirms a filesystem path survives as a `spawn` value). All gates green.
 
-**DECISION (2026-10-13): manifest reader now, in-process `kustomize build` deferred.**
-The `sigs.k8s.io/kustomize/api` dep is a heavy tree and is *not* required for offline
-parity: `kustomize build overlay/ > out.yaml` output is just a YAML document stream,
-so `… |> manifests` over that file already works. A native in-process
-`KustomizeAdapter` (adding the kustomize API dep, reusing `unstructuredToValue`
-identically) is a thin follow-up an edition can add when it needs build-on-read —
-kept out of core adapters until a consumer needs it, per the clean-core rule.
+**Kustomize rendering — EXTERNAL renderer, adapter stays kustomize-agnostic
+(✅ 2026-10-13, user-directed).** Kustomize libraries are a daily occurrence, so
+`ManifestAdapter` is parameterized (functional options `ManifestOption`) to *deal
+with* them: when pointed at a **kustomization root** (`isKustomizationRoot`: dir
+directly holds `kustomization.yaml`/`.yml`/`Kustomization`) it first renders the
+library to a YAML stream, then decodes it via the shared `decodeManifests` — i.e.
+render, then treat as any other YAML. Crucially **no kustomize specifics live in the
+adapter**: it only knows "render a dir → YAML bytes via a pluggable function". The
+default renderer `execRenderer` shells out to the external `kustomize build` (NO
+`sigs.k8s.io/kustomize` Go dep — just `os/exec`). Options:
+- `WithKustomize()` — enable rendering (default cmd `kustomize build`);
+- `WithKustomizeCommand(name, args…)` — e.g. `WithKustomizeCommand("kubectl",
+  "kustomize")` → `kubectl kustomize <dir>` (dir appended last);
+- `WithRenderer(func(dir)([]byte,error))` — inject a custom renderer; this is also
+  the seam through which an edition could later plug the in-process
+  `sigs.k8s.io/kustomize` API **without the adapter importing it**.
+Plain files/dirs still read directly (mixed raw+overlay trees "just work"); a failed
+render (binary missing, bad kustomization) → error node → `Left`. Shim step
+`k8sgraph.KustomizeStep(keyword)` = `AdapterStep(kw, ManifestAdapter(WithKustomize()))`.
+Tests: injected-renderer (render-root rendered + decoded; plain dir falls back to
+walk, renderer NOT called) + **real `kubectl kustomize` e2e** (gated on the binary;
+`namePrefix` transformer proves genuine rendering). All gates green.
 
 **Phase 6 — K8s Graph base library.** Depends on **P1, P2, P3** and Phases 1–4.
 `pkg/k8sgraph/` shim (`ApplyEdition`, `DynamicClientFromKubeconfig`, embedded

@@ -65,6 +65,21 @@ func ManifestStep(keyword string) cli.StepHandler {
 	return cli.AdapterStep(keyword, adapters.ManifestAdapter())
 }
 
+// KustomizeStep is a Kustomize-aware ManifestStep: when the spawned path is a
+// kustomization root it renders the library with the external `kustomize build`
+// first, then treats the output as any other YAML (plain files/dirs still read
+// directly). This is the step editions register to work with the kustomize
+// overlays that dominate real-world clusters:
+//
+//	spawn StrVal: ./overlays/prod |> kustomize |> hamt_path spec.selector
+//
+// To render with a different tool (e.g. `kubectl kustomize`), build the adapter
+// directly: cli.AdapterStep(keyword,
+// adapters.ManifestAdapter(adapters.WithKustomizeCommand("kubectl", "kustomize"))).
+func KustomizeStep(keyword string) cli.StepHandler {
+	return cli.AdapterStep(keyword, adapters.ManifestAdapter(adapters.WithKustomize()))
+}
+
 // RestConfigFromKubeconfig loads a *rest.Config for talking to the cluster,
 // preferring the in-cluster service-account config (so the same binary runs as an
 // Appliance inside the cluster) and falling back to a kubeconfig file — $KUBECONFIG
