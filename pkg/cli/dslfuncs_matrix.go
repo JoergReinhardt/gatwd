@@ -77,17 +77,9 @@ func asAnyTree(v any) (*collections.Tree[any], error) {
 	return t, nil
 }
 
-// asAnySet normalises any set carrier (Set[any], Set[string], …) to a Set[any].
-func asAnySet(v any) (*collections.Set[any], error) {
-	if s, ok := v.(*collections.Set[any]); ok {
-		return s, nil
-	}
-	if _, ok := v.(interface{ IsSet() bool }); ok {
-		items, _ := functions.ToSliceAny(v)
-		return newAnySet(items)
-	}
-	return nil, fmt.Errorf("want a Set, got %T", v)
-}
+// asAnySet reads any set carrier as the DSL Set (a *collections.Setoid[any], see
+// evaluator.AsValueSet).
+func asAnySet(v any) (*collections.Setoid[any], error) { return evaluator.AsValueSet(v) }
 
 // asInt reads an integer argument: any Int that fits a Go int, or a Float that is a whole
 // number. Text is not a number (D2): `nth "1" xs` is an error that says so.
@@ -114,17 +106,6 @@ func structuralMember(x any, items []any) bool {
 		}
 	}
 	return false
-}
-
-// safeSetOp runs a Set operation, converting the runtime panic Go raises for an
-// unhashable element into an error.
-func safeSetOp(f func() *collections.Set[any]) (res any, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			res, err = nil, fmt.Errorf("unhashable element (%v)", r)
-		}
-	}()
-	return f(), nil
 }
 
 func compareAny(a, b any) (int, error) {
@@ -370,8 +351,12 @@ func registerMatrixFuncs(m map[string]any) {
 		return listOf(out), nil
 	})
 	member := func(a []any) (any, error) {
-		if s, ok := a[1].(*collections.Set[any]); ok {
-			return safeSetOp2(func() bool { return s.Contains(functions.CanonicalKey(a[0])) })
+		if _, ok := a[1].(interface{ IsSet() bool }); ok {
+			s, err := asAnySet(a[1])
+			if err != nil {
+				return nil, err
+			}
+			return s.Contains(functions.CanonicalKey(a[0]))
 		}
 		items, ok := elementsOf(a[1])
 		if !ok {
@@ -392,36 +377,39 @@ func registerMatrixFuncs(m map[string]any) {
 		if !ok {
 			return nil, fmt.Errorf("not a collection: %T", a[0])
 		}
-		return newAnySet(items)
+		return evaluator.NewValueSet(items...)
 	})
 
 	// ---- Set -----------------------------------------------------------------------
-	m["set_empty"] = any(collections.NewSet[any]())
+	// The DSL's Set is a *collections.Setoid[any] whose members are the same exactly when
+	// they are `==` (evaluator.ValueSetKey), as for a HAMT key; step and function form share
+	// it. An element with no equality (a function, a Graph, NaN) is an error value.
+	m["set_empty"] = any(evaluator.EmptyValueSet())
 	defn(m, "set_add", "x s", func(a []any) (any, error) {
 		s, err := asAnySet(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp(func() *collections.Set[any] { return s.Add(functions.CanonicalKey(a[0])) })
+		return evaluator.ValueSetAdd(s, a[0])
 	})
 	defn(m, "set_remove", "x s", func(a []any) (any, error) {
 		s, err := asAnySet(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp(func() *collections.Set[any] { return s.Remove(functions.CanonicalKey(a[0])) })
+		return s.Remove(functions.CanonicalKey(a[0]))
 	})
 	defn(m, "set_contains", "x s", func(a []any) (any, error) {
 		s, err := asAnySet(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return safeSetOp2(func() bool { return s.Contains(functions.CanonicalKey(a[0])) })
+		return s.Contains(functions.CanonicalKey(a[0]))
 	})
-	for name, op := range map[string]func(x, y *collections.Set[any]) *collections.Set[any]{
-		"set_union":     func(x, y *collections.Set[any]) *collections.Set[any] { return x.Union(y) },
-		"set_intersect": func(x, y *collections.Set[any]) *collections.Set[any] { return x.Intersect(y) },
-		"set_diff":      func(x, y *collections.Set[any]) *collections.Set[any] { return x.Diff(y) },
+	for name, op := range map[string]func(x, y *collections.Setoid[any]) *collections.Setoid[any]{
+		"set_union":     func(x, y *collections.Setoid[any]) *collections.Setoid[any] { return x.Union(y) },
+		"set_intersect": func(x, y *collections.Setoid[any]) *collections.Setoid[any] { return x.Intersect(y) },
+		"set_diff":      func(x, y *collections.Setoid[any]) *collections.Setoid[any] { return x.Diff(y) },
 	} {
 		op := op
 		defn(m, name, "a b", func(a []any) (any, error) {
@@ -433,7 +421,7 @@ func registerMatrixFuncs(m map[string]any) {
 			if err != nil {
 				return nil, err
 			}
-			return safeSetOp(func() *collections.Set[any] { return op(x, y) })
+			return op(x, y), nil
 		})
 	}
 	defn(m, "set_elements", "s", func(a []any) (any, error) {
@@ -833,16 +821,6 @@ func registerMatrixFuncs(m map[string]any) {
 	})
 	// negate and abs are the numeric tower's (dslfuncs_numeric.go): unary minus and the
 	// absolute value of a real number, exact for any size of Int.
-}
-
-// safeSetOp2 is safeSetOp for boolean-valued Set queries.
-func safeSetOp2(f func() bool) (res any, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			res, err = nil, fmt.Errorf("unhashable element (%v)", r)
-		}
-	}()
-	return f(), nil
 }
 
 // variantConstructor is the Variant row's constructor `variant "Tag" payload`. It is

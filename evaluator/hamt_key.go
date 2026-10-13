@@ -56,8 +56,8 @@ import (
 //
 // Two deliberate edges: a Complex number is compared by `==` through doubles, so a big
 // integer and a Complex that only round to the same double are `==` but different keys
-// (the key is stricter, never lossy); and a Set or HAMT key holding values that are not
-// comparable cannot be rebuilt as a Set by DecodeKey and decodes to the same text.
+// (the key is stricter, never lossy); and a Set key decodes to a Set (a *collections.Setoid[any],
+// see NewValueSet) whose members are the decoded values.
 
 // keyMark starts the encoding of every key that is not a plain String. NUL cannot occur
 // in a name (Kubernetes ids, JSON keys, file names), and a String that does start with it
@@ -114,7 +114,7 @@ func lengthPrefixed(s string) string { return strconv.Itoa(len(s)) + ":" + s }
 func encodeKeyValue(v any) (string, error) {
 	switch x := v.(type) {
 	case nil:
-		return "", fmt.Errorf("nil cannot be a HAMT key")
+		return "", &unkeyable{what: "nil"}
 	case string:
 		return "s" + x, nil
 	case functions.Char:
@@ -182,7 +182,20 @@ func encodeKeyValue(v any) (string, error) {
 		}
 		return "l" + strconv.Itoa(len(elems)) + ":" + strings.Join(parts, ""), nil
 	}
-	return "", fmt.Errorf("a %s cannot be a HAMT key (keys are scalars, sequences, Sets, HAMTs, Trees, Maybes, Eithers and Variants)", functions.KindName(v))
+	return "", &unkeyable{what: "a " + functions.KindName(v)}
+}
+
+// unkeyable is the error for a value that has no canonical encoding (a function, a Graph,
+// nil, an unknown Go type). It remembers what the value was so the same failure can be
+// worded for the role the value was meant to play: a HAMT key (EncodeKey) or a Set member
+// (ValueSetKey).
+type unkeyable struct{ what string }
+
+func (e *unkeyable) Error() string { return e.describe("a HAMT key", "keys are") }
+
+// describe words the failure for a role, e.g. ("a Set member", "Set members are").
+func (e *unkeyable) describe(role, plural string) string {
+	return fmt.Sprintf("%s cannot be %s (%s scalars, sequences, Sets, HAMTs, Trees, Maybes, Eithers and Variants)", e.what, role, plural)
 }
 
 func encodeNumberKey(v any) (string, error) {
@@ -375,13 +388,7 @@ func decodeKeyValue(s string) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		set := collections.NewSet[any]()
-		for _, e := range elems {
-			if err := tryAdd(&set, e); err != nil {
-				return nil, err
-			}
-		}
-		return set, nil
+		return NewValueSet(elems...)
 	case 'M':
 		r := &keyReader{rest}
 		n, err := r.number(':')
@@ -455,15 +462,4 @@ func decodeKeyValue(s string) (any, error) {
 		return dsltypes.NewVariant(tagName, dsltypes.BitFlag(flag), payload), nil
 	}
 	return nil, fmt.Errorf("malformed key")
-}
-
-// tryAdd adds e to the set, reporting (instead of panicking on) an element Go cannot hash.
-func tryAdd(s **collections.Set[any], e any) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("a set element of this kind cannot be hashed")
-		}
-	}()
-	*s = (*s).Add(e)
-	return nil
 }

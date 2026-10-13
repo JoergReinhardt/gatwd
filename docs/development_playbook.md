@@ -245,7 +245,7 @@ The project's own relations and rules are the style reference
 | `-7 // 2` / `-7 % 3` differ from Go | `//` floors and `%` takes the sign of the divisor (W3); `quot`/`rem` are the truncated forms | **Use `quot`/`rem` for Go's `/` and `%`; `a == b*(a//b) + a%b` always holds** |
 | `"5" == 5` is `false`, `nth "1" xs` errors | strings are not numbers (D2 finished in W3) | **Parse with `str_to_int`/`str_to_float` (`Maybe`)**; a String still equals a *collection's* printed form (HAMT keys) |
 | A partial application is run as a step | a step whose text evaluates to a *function* is not an expression value | **The infix-step detector ignores callables; keep it that way** |
-| `to_set` set ≠ function-form set | the step builds `Set[string]`, function forms normalise to `Set[any]` | **Compare via `member`/`length`, not `==`, across the two forms** |
+| `to_set` set ≠ function-form set (**fixed**) | the step used to build `Set[string]` (printed form) and the function forms `Set[any]` (Go identity) | **Both build a `*collections.Setoid[any]` keyed by `==` (`evaluator.NewValueSet`); `==` across the two forms is fine. Never key a new set-like by `fmt.Sprintf("%v")`** |
 | Test helper wrote nonsense | `echo '…\x…'` interprets escapes in zsh | **Write scratch scripts with `cat > f <<'EOF'`** |
 | Results look odd in Go tests | `EvaluateToValues` treats its argument as one pipeline; `def` lines in a multi-line string are not registered | **Use `EvaluateScript` for setup, `EvaluateToValues` for the query** (empty input returns no values) |
 | Result type surprises | lists come back as `*collections.List[any]` | **Use `functions.ToSliceAny`** |

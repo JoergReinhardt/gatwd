@@ -756,6 +756,37 @@ working directory; the Game of Life prints `3` and `5` as before).
   (3) `hamt_keys` of a HAMT built by the optics/JSON readers returns the same Strings as before.
 - **k8s.** `pkg/k8sgraph` tests (including live/offline parity) and `lib/k8s/*.gatwd` pass unchanged; ids are Strings (`Kind/ns/name`).
 
+#### 6.3a Track J closure notes: the Set and `distinct` are value-typed (2026-10-13)
+
+Closes the §6.3 deferral (1) on the user's decision "make the step value-typed too". Branch `hardening/j`.
+
+- **The premise was half wrong.** §6.3 said the function form `to_set` was already value-typed. It was not: it built a `*Set[any]` keyed by Go's `==` on the
+  interface value, so `length (to_set [1, 1.0, "1", 2])` was 4, `to_set [[1,2],[1,2],[2,1]]` had three members (two list pointers) and an
+  unhashable element was an "unhashable" error. Both forms needed the change, and they now share one type.
+- **Representation (decided, recommended option taken).** *Options:* (A) a `Set[string]` of `EncodeKey` strings with decode on read; (B) a `Set[any]` made value-equal;
+  (C) a new Layer-1 set whose element identity is a caller-supplied canonical key, elements stored as themselves. *Chosen: C* — `collections.Setoid[T]`
+  (`collections/setoid.go`, a `HAMT[string, T]` from key to element) with `evaluator.ValueSetKey` (= `EncodeKey`, a Time by its UTC instant) as the key function. A would
+  have made every duck-typed reader (`ElementsAny`, `functions.ToSliceAny`, JSON, the visualizer) decode, and left a `Set[string]` of NUL-tagged text visible to Go callers;
+  B is impossible (Go cannot hash a slice, and a list is a pointer). With C no member is ever decoded from text (a member read back is the value stored), the key design is the
+  HAMT's own (so a Set and a HAMT key agree on `==`), and it is hard to reverse only in the sense that every producer now builds it, which is the point. `*collections.Set[T]`
+  stays as the Go-native set (Go's `==`); `evaluator.AsValueSet` reads any set carrier as the DSL Set, and two sets of one carrier still combine by the carrier's own method.
+- **Behaviour.** `[1, 1.0, "1"] |> unchunk |> distinct` keeps `1` and `"1"` and merges `1` and `1.0`; `[[1,2],[1,2],[2,1]]` has two members; a Time in two zones is one
+  member; `set_contains "[1 2]"` is false on a Set of lists (DSL test 55, which asserted `set_contains [1 2]` on such a Set, still asserts it, now on real lists, and gained
+  the negatives `[1 3]`, `"[1 2]"` and the size 3). The first of several equal members stays. Step operands of `set_contains`/`set_add`/`set_remove` are values (`i.setItem`:
+  canonical number, quoted String, expression such as `[1 2]` or a let-bound name, bare text as the fallback).
+- **Fail loud (Mandate 6), two changes beyond the brief.** (1) A `set_contains`/`set_add`/`set_remove`/`set_elements` step handed a non-Set used to *pass the value through unchanged*
+  (`emit 1 |> set_contains 1` printed `1`); it is now an error naming the step. (2) An element with no equality (a function, a Graph, `NaN`, an unknown Go type) is an error in
+  `to_set` (no Set is yielded then), `distinct` (an error node, the rest flows) and the `set_*` function forms; `distinct` of a stream of Graphs, which used to work by printed text, is now
+  that error. No committed script was affected (the script regression diff is clean).
+- **Mandate 2 matrix.** `to_set` over List, Set, HAMT values, Tree and a stream; `set_add/remove/contains/union/intersect/diff/elements`, `member`, `==`, `++`, and `map`/`filter`/`flatmap`
+  over a Set, each in step and function form where both exist: `pkg/cli/value_set_test.go`, `evaluator/valueset_test.go`, `collections/setoid_test.go`, DSL section 115 (function forms
+  inside lambdas, then the step forms). Negative-controlled by restoring the printed-form key (21 DSL errors, 5 evaluator and 15 cli test failures). The k8s graph tests, live/offline parity included, pass unchanged.
+- **Deviations / deferred.** (1) `BST[string]` (`bst_insert`/`bst_member` over `dslStr`) still stringifies its elements; a BST is ordered by `Compare`, not a set, and `BST[any]` is the
+  default, so it is recorded here, not changed. (2) `functions.KeyText` stays for `dslStr` (path segments, a Variant tag, a graph id) and is documented as display text, not identity.
+  (3) `set_*` step operands accept a let-bound name now (a bare word that names a variable is its value, not its text), the same resolution `set_union`/`subset_of` always had.
+  (4) `subset_of` over two non-Set collections is still a pairwise `StructuralEqual` scan (O(n·m), value-typed, unchanged); the `set_intersect`/`set_diff` fallbacks over a List now build DSL Sets.
+- **Open question.** `emit 1.0` is a String (`LiteralToken` keeps a non-canonical number as text), so a Float needs a function form or a `let` list in step-form tests; that is Track I's area.
+
 ## 7. W4 — Node identity (D6, decided)
 
 **Problem (verified):** a node's id is `metadata.name`. Two resources with the same name collide — across kinds

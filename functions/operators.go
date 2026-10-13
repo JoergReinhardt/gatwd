@@ -346,7 +346,9 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 			if _, isSetB := right.(interface{ IsSet() bool }); isSetB {
 				rvA := reflect.ValueOf(left)
 				mUnion := rvA.MethodByName("Union")
-				if mUnion.IsValid() {
+				// Two sets of one carrier unite by the carrier's own Union; a Set of another
+				// carrier is not an argument it accepts (it would panic), so it is no union.
+				if mUnion.IsValid() && reflect.TypeOf(right).AssignableTo(mUnion.Type().In(0)) {
 					out := mUnion.Call([]reflect.Value{reflect.ValueOf(right)})
 					return out[0].Interface(), nil
 				}

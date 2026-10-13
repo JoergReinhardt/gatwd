@@ -14,8 +14,9 @@
    `evaluator` step if a stream op → DSL **step form** → DSL **function form** (`defn`, data-last,
    curried) → carrier case in `valueops.go` → DSL assertions → `Example`.
 3. **Mind the capacity/identity traps** found last time: `Chunk` has fixed capacity (`Chunk.Bind`
-   truncated past it — size results to the total); `Set` from the `to_set` step is `Set[string]`
-   while function forms normalise to `Set[any]`; Go methods cannot add type parameters, so
+   truncated past it — size results to the total); the DSL's `Set` is one type
+   (`*collections.Setoid[any]`, members keyed by `==`, see `evaluator.NewValueSet`) for step and
+   function forms alike; Go methods cannot add type parameters, so
    `Map` is `func(T) T` on collections.
 4. **Dogfood**: can older code now use the new cell?
 

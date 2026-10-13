@@ -5,6 +5,7 @@ import (
 
 	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
@@ -522,20 +523,9 @@ func bindValue(v any, f func(any) (any, error)) (any, error) {
 	return listOf(out), nil
 }
 
-// newAnySet builds a Set[any] from items, converting the runtime panic Go raises for
-// an unhashable element (e.g. a slice) into an error.
-func newAnySet(items []any) (set *collections.Set[any], err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			set, err = nil, fmt.Errorf("set: unhashable element (%v)", r)
-		}
-	}()
-	set = collections.NewSet[any]()
-	for _, it := range items {
-		set = set.Add(functions.CanonicalKey(it))
-	}
-	return set, nil
-}
+// newAnySet builds the DSL's Set (a *collections.Setoid[any]) from items: equal elements
+// (`==`) are one member; an element with no equality is an error.
+func newAnySet(items []any) (*collections.Setoid[any], error) { return evaluator.NewValueSet(items...) }
 
 // newAnyChunk builds a Chunk[any] of at least the given capacity holding items.
 func newAnyChunk(capacity int, items []any) *collections.Chunk[any] {

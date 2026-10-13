@@ -33,7 +33,7 @@ func TestSetLikeStepsKeyTimeByInstant(t *testing.T) {
 		t.Errorf("distinct kept %v, want 3 elements", got)
 	}
 	set := count(StepToSet())
-	if len(set) != 1 || set[0].(*collections.Set[string]).Len() != 3 {
+	if len(set) != 1 || set[0].(*collections.Setoid[any]).Len() != 3 {
 		t.Errorf("to_set = %#v, want one Set of 3", set)
 	}
 	freq := count(StepFrequencies())

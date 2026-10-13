@@ -150,8 +150,11 @@ func StepPlus(branches ...Adapter[functions.Either[error, any]]) PipelineStep[fu
 	}
 }
 
-// StepDistinct deduplicates a stream of nodes using the Immutable Set.
-// This is critical for preventing infinite loops in cyclic graphs.
+// StepDistinct deduplicates a stream: a value passes only the first time it is seen, where
+// "the same value" is the language's `==` (the key design of the HAMT and the Set, see
+// ValueSetKey) and never the printed form: `1` and "1" are two values, `1` and `1.0` one, two
+// lists with the same elements one. A value with no equality (a function, a Graph, NaN) is an
+// error node, not a guess. It is critical for preventing infinite loops in cyclic graphs.
 func StepDistinct() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -167,10 +170,16 @@ func StepDistinct() PipelineStep[functions.Either[error, any]] {
 				}
 
 				val, _ := node.Value.UnwrapRight()
-				hash := functions.KeyText(val)
+				key, err := ValueSetKey(val)
+				if err != nil {
+					if !yield(InjectError[any](fmt.Errorf("distinct: %w", err), node.DSLType)) {
+						return
+					}
+					continue
+				}
 
-				if !visited.Contains(hash) {
-					visited = visited.Add(hash) // Immutably create new Set
+				if !visited.Contains(key) {
+					visited = visited.Add(key) // Immutably create new Set
 					if !yield(node) {
 						return
 					}
@@ -528,7 +537,22 @@ func StepSetUnion(operand ...any) PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				if len(operand) > 0 {
+				if len(operand) > 0 && isSetCarrier(val) && reflect.TypeOf(val) != reflect.TypeOf(operand[0]) {
+					// Set ∪ an operand of another carrier: both are read as DSL Sets (the same
+					// carrier unites by its own Union, below).
+					a, err := AsValueSet(val)
+					var b *collections.Setoid[any]
+					if err == nil {
+						b, err = asSetOperand(operand[0])
+					}
+					if err != nil {
+						yield(InjectError[any](fmt.Errorf("set_union error: %w", err), node.DSLType))
+						return
+					}
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(a.Union(b))), node.DSLType)) {
+						return
+					}
+				} else if len(operand) > 0 {
 					res, err := functions.EvalBinaryOp(functions.OpConcat, val, operand[0])
 					if err != nil {
 						yield(InjectError[any](fmt.Errorf("set_union error: %w", err), node.DSLType))
@@ -656,8 +680,24 @@ func StepSubsetOf(other any) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
-// StepSetIntersect computes the intersection of incoming Set with other.
-func StepSetIntersect(other any) PipelineStep[functions.Either[error, any]] {
+// asSetOperand reads the second operand of a set operation: a Set (any carrier) is itself, any
+// other collection is the Set of its elements, anything else is an error.
+func asSetOperand(v any) (*collections.Setoid[any], error) {
+	if _, ok := v.(interface{ IsSet() bool }); ok {
+		return AsValueSet(v)
+	}
+	if items, ok := functions.ToSliceAny(v); ok {
+		return NewValueSet(items...)
+	}
+	return nil, fmt.Errorf("want a Set or another collection, got %s", functions.KindName(v))
+}
+
+// setBinaryStep is the one body of the Set-algebra steps set_intersect and set_diff: two values
+// of the same carrier are combined by the carrier's own method (the DSL's Set, a
+// *collections.Setoid[any], by the language's `==`; a HAMT by key, so the same steps serve
+// hamt_intersect and hamt_diff; a Go-built Set[T] by Go's ==); two different carriers are both
+// read as DSL Sets and op combines those. A value that is none of these is an error node.
+func setBinaryStep(name, method string, other any, op func(a, b *collections.Setoid[any]) *collections.Setoid[any]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -668,86 +708,48 @@ func StepSetIntersect(other any) PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				rvVal := reflect.ValueOf(val)
-				mIntersect := rvVal.MethodByName("Intersect")
-				if mIntersect.IsValid() && other != nil && reflect.TypeOf(other).AssignableTo(mIntersect.Type().In(0)) {
-					out := mIntersect.Call([]reflect.Value{reflect.ValueOf(other)})
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](out[0].Interface()), node.DSLType)) {
-						return
+				var out any
+				var err error
+				if m := reflect.ValueOf(val).MethodByName(method); m.IsValid() && other != nil && reflect.TypeOf(other).AssignableTo(m.Type().In(0)) {
+					out = m.Call([]reflect.Value{reflect.ValueOf(other)})[0].Interface()
+				} else if _, ok := functions.ToSliceAny(val); ok {
+					var a, b *collections.Setoid[any]
+					if a, err = asSetOperand(val); err == nil {
+						if b, err = asSetOperand(other); err == nil {
+							out = any(op(a, b))
+						}
 					}
 				} else {
-					elemsA, okA := functions.ToSliceAny(val)
-					elemsB, okB := functions.ToSliceAny(other)
-					if okA && okB {
-						resSet := collections.NewSet[any]()
-						for _, ea := range elemsA {
-							for _, eb := range elemsB {
-								if functions.StructuralEqual(ea, eb) {
-									resSet = resSet.Add(ea)
-									break
-								}
-							}
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
-							return
-						}
-					} else {
-						yield(InjectError[any](fmt.Errorf("set_intersect: expected Set, got %T and %T", val, other), node.DSLType))
+					err = fmt.Errorf("expected Set, got %s", functions.KindName(val))
+				}
+				if err != nil {
+					if !yield(InjectError[any](fmt.Errorf("%s: %w", name, err), node.DSLType)) {
 						return
 					}
+					continue
+				}
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](out), node.DSLType)) {
+					return
 				}
 			}
 		}
 	}
 }
 
+// isSetCarrier reports whether v is a set of any carrier.
+func isSetCarrier(v any) bool {
+	_, ok := v.(interface{ IsSet() bool })
+	return ok
+}
+
+// StepSetIntersect computes the intersection of incoming Set with other.
+func StepSetIntersect(other any) PipelineStep[functions.Either[error, any]] {
+	return setBinaryStep("set_intersect", "Intersect", other, func(a, b *collections.Setoid[any]) *collections.Setoid[any] { return a.Intersect(b) })
+}
+
 // StepSetDiff computes the relative complement of incoming Set minus other.
 func StepSetDiff(other any) PipelineStep[functions.Either[error, any]] {
-	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			for node := range stream {
-				if node.Value.IsLeft() {
-					if !yield(node) {
-						return
-					}
-					continue
-				}
-				val, _ := node.Value.UnwrapRight()
-				rvVal := reflect.ValueOf(val)
-				mDiff := rvVal.MethodByName("Diff")
-				if mDiff.IsValid() && other != nil && reflect.TypeOf(other).AssignableTo(mDiff.Type().In(0)) {
-					out := mDiff.Call([]reflect.Value{reflect.ValueOf(other)})
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](out[0].Interface()), node.DSLType)) {
-						return
-					}
-				} else {
-					elemsA, okA := functions.ToSliceAny(val)
-					elemsB, okB := functions.ToSliceAny(other)
-					if okA && okB {
-						resSet := collections.NewSet[any]()
-						for _, ea := range elemsA {
-							found := false
-							for _, eb := range elemsB {
-								if functions.StructuralEqual(ea, eb) {
-									found = true
-									break
-								}
-							}
-							if !found {
-								resSet = resSet.Add(ea)
-							}
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
-							return
-						}
-					} else {
-						yield(InjectError[any](fmt.Errorf("set_diff: expected Set, got %T and %T", val, other), node.DSLType))
-						return
-					}
-				}
-			}
-		}
-	}
+	return setBinaryStep("set_diff", "Diff", other, func(a, b *collections.Setoid[any]) *collections.Setoid[any] { return a.Diff(b) })
 }
 
 // StepHAMTMerge merges incoming HAMT with other.
@@ -1310,13 +1312,18 @@ func DefaultLess(a, b any) bool {
 	return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
 }
 
-// StepToSet aggregates the entire stream into a deduplicated Set and yields the Set downstream.
+// StepToSet aggregates the entire stream into a deduplicated Set (a *collections.Setoid[any],
+// see NewValueSet) and yields the Set downstream. Elements are the same member when they are
+// `==`: `1` and "1" are two members, `1` and `1.0` one, two equal lists one. An element with
+// no equality (a function, a Graph, NaN) is an error node, and then no Set is yielded: a Set
+// that silently lacks an element would be worse than none.
 func StepToSet() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			set := collections.NewSet[string]()
+			set := EmptyValueSet()
 			var errs []dsltypes.ASTNode[functions.Either[error, any]]
 			var lastFlag dsltypes.BitFlag
+			unkeyed := false
 
 			for node := range stream {
 				if node.Value.IsLeft() {
@@ -1324,7 +1331,13 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				set = set.Add(functions.KeyText(val))
+				next, err := ValueSetAdd(set, val)
+				if err != nil {
+					unkeyed = true
+					errs = append(errs, InjectError[any](fmt.Errorf("to_set: %w", err), node.DSLType))
+					continue
+				}
+				set = next
 				lastFlag = node.DSLType
 			}
 
@@ -1332,6 +1345,9 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 				if !yield(errNode) {
 					return
 				}
+			}
+			if unkeyed {
+				return
 			}
 
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(set)), lastFlag)
@@ -1738,8 +1754,10 @@ func StepHAMTPairs() PipelineStep[functions.Either[error, any]] {
 	}
 }
 
-// StepSetContains checks whether an incoming Set contains the specified item, yielding a boolean ASTNode.
-func StepSetContains(item string) PipelineStep[functions.Either[error, any]] {
+// setStep lifts a function over a DSL Set to a pipeline step: the incoming value must be a
+// Set (a *collections.Setoid[any], or any set carrier a Go caller builds, see AsValueSet);
+// anything else, and any error of f, is an error node that names the step and what arrived.
+func setStep(name string, f func(s *collections.Setoid[any]) (any, error)) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -1750,61 +1768,50 @@ func StepSetContains(item string) PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
-				if s, ok := v.(*collections.Set[string]); ok {
-					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Contains(item))), node.DSLType))
+				s, err := AsValueSet(v)
+				var out any
+				if err == nil {
+					out, err = f(s)
+				}
+				if err != nil {
+					if !yield(InjectError[any](fmt.Errorf("%s: %w", name, err), node.DSLType)) {
+						return
+					}
 					continue
 				}
-				yield(node)
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](out), node.DSLType)) {
+					return
+				}
 			}
 		}
 	}
+}
+
+// StepSetContains checks whether an incoming Set contains item (by the language's `==`: the
+// Int 2 is a member of a Set holding 2.0, the String "2" is not), yielding a Bool node.
+func StepSetContains(item any) PipelineStep[functions.Either[error, any]] {
+	return setStep("set_contains", func(s *collections.Setoid[any]) (any, error) {
+		ok, err := s.Contains(functions.CanonicalKey(item))
+		return ok, err
+	})
 }
 
 // StepSetAdd adds item to an incoming Set node, yielding the updated persistent Set.
-func StepSetAdd(item string) PipelineStep[functions.Either[error, any]] {
-	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			for node := range stream {
-				if node.Value.IsLeft() {
-					if !yield(node) {
-						return
-					}
-					continue
-				}
-				v, _ := node.Value.UnwrapRight()
-				if s, ok := v.(*collections.Set[string]); ok {
-					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Add(item))), node.DSLType))
-					continue
-				}
-				yield(node)
-			}
-		}
-	}
+func StepSetAdd(item any) PipelineStep[functions.Either[error, any]] {
+	return setStep("set_add", func(s *collections.Setoid[any]) (any, error) {
+		return ValueSetAdd(s, item)
+	})
 }
 
-// StepSetRemove removes item from an incoming Set node, yielding the updated persistent Set.
-func StepSetRemove(item string) PipelineStep[functions.Either[error, any]] {
-	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			for node := range stream {
-				if node.Value.IsLeft() {
-					if !yield(node) {
-						return
-					}
-					continue
-				}
-				v, _ := node.Value.UnwrapRight()
-				if s, ok := v.(*collections.Set[string]); ok {
-					yield(dsltypes.NewASTNode(functions.Right[error, any](any(s.Remove(item))), node.DSLType))
-					continue
-				}
-				yield(node)
-			}
-		}
-	}
+// StepSetRemove removes item (by `==`) from an incoming Set node, yielding the updated persistent Set.
+func StepSetRemove(item any) PipelineStep[functions.Either[error, any]] {
+	return setStep("set_remove", func(s *collections.Setoid[any]) (any, error) {
+		return s.Remove(functions.CanonicalKey(item))
+	})
 }
 
-// StepSetElements unfolds an incoming Set into a stream of its constituent elements.
+// StepSetElements unfolds an incoming Set into a stream of its constituent elements, as the
+// values they are (never text), in no particular order.
 func StepSetElements() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1816,15 +1823,18 @@ func StepSetElements() PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
-				if s, ok := v.(*collections.Set[string]); ok {
-					for elem := range s.Seq() {
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(elem)), node.DSLType)) {
-							return
-						}
+				s, err := AsValueSet(v)
+				if err != nil {
+					if !yield(InjectError[any](fmt.Errorf("set_elements: %w", err), node.DSLType)) {
+						return
 					}
 					continue
 				}
-				yield(node)
+				for elem := range s.Seq() {
+					if !yield(dsltypes.NewASTNode(functions.Right[error, any](elem), node.DSLType)) {
+						return
+					}
+				}
 			}
 		}
 	}
