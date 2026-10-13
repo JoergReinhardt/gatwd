@@ -174,7 +174,7 @@ spawn StrVal: Start |> emit a:1, b:2 |> to_hamt |> hamt_del a |> hamt_get b |> a
 
 `hamt_keys` and `hamt_pairs` return the keys as the values they were (`frequencies` over coordinate pairs gives pairs of `[x, y]` lists, so `fst p == [2, 1]` is `true` and the Game of Life compares real coordinates). A `String` key is still itself, so records from `json_parse`, `yaml_parse` and manifests are unchanged; `json_encode`/`yaml_encode` of a HAMT whose keys are not Strings is an error (object keys are Strings). A value that cannot be a key (a function, a Graph, `NaN`) is an error naming it, never a guess. The same rule is applied by the function forms (`hamt_set`, `hamt_get`, `hamt_has`, `hamt_del`, `hamt_get_or`, `hamt_from`), the step forms (`hamt_get K`, `hamt_set K V`, `hamt_del K`, a bare canonical number token is a number, a quoted one a String), `to_hamt` and `frequencies`.
 
-*Design (for contributors).* `evaluator.EncodeKey` writes a String as itself and anything else as a NUL byte plus a tagged, length-prefixed canonical text (numbers through `functions.CanonNumber`, the representative of their `==` class; Sets and HAMT entries sorted); `evaluator.DecodeKey` is the inverse. Order is kept for lists, `1` and `1.0` meet, and two different collections can never share a key because every element is tagged and length-prefixed. **Graph ids and colors** are different: they are Strings by construction, so `graph_add_node "c" 7 g` names the node `"7"` (a number is its text) but a list or pair is an error — use `show` to name a node by one. Not yet covered: `to_set` and `distinct` still deduplicate by printed form (`docs/hardening_plan.md` §6.3).
+*Design (for contributors).* `evaluator.EncodeKey` writes a String as itself and anything else as a NUL byte plus a tagged, length-prefixed canonical text (numbers through `functions.CanonNumber`, the representative of their `==` class; Sets and HAMT entries sorted); `evaluator.DecodeKey` is the inverse. Order is kept for lists, `1` and `1.0` meet, and two different collections can never share a key because every element is tagged and length-prefixed. **Graph ids and colors** are different: they are Strings by construction, so `graph_add_node "c" 7 g` names the node `"7"` (a number is its text) but a list or pair is an error — use `show` to name a node by one. The Set and `distinct` use the same key design (section 11).
 
 ## 9. Performance Chunks & Continuations (`chunk`, `unchunk`, `checkpoint`, `telemetry`)
 
@@ -209,7 +209,11 @@ spawn StrVal: "ping" |> dial_tcp "localhost:9090" |> assert "ECHO:ping"
 * `set_add <item>`: Yields a new Set with `<item>` added.
 * `set_contains <item>`: Checks membership, yielding `true` or `false`.
 * `set_remove <item>`: Yields a new Set with `<item>` removed.
-* `set_elements`: Unfolds the Set into a flat stream of its elements.
+* `set_elements`: Unfolds the Set into a flat stream of its elements (the values, never their text).
+
+**A member is a value.** "The same member" is the language's `==`, exactly as for a HAMT key (section 8), never the printed form: `1` and `"1"` are two members, `1` and `1.0` one, `[1, 2]` and `[1, 2]` one (two lists, one value), `[1, 2]` and `[2, 1]` two, `[1, 2]` and the text `"[1 2]"` two, and one instant written in two zones is one member. The step operand of `set_contains`/`set_add`/`set_remove` is read as a value too: `3` is the number, `"3"` a String, `[1 2]` a list, a bare word (`golang`) its text, a let-bound name its value. `distinct` uses the same relation, so `[1, 1.0, "1"] |> unchunk |> distinct` keeps `1` and `"1"`. An element with no equality (a function, a Graph, `NaN`) cannot be a member: `to_set`, `distinct` and the `set_*` forms report an error that names it, and a `set_*` step handed something that is not a Set says so (it used to pass the value through unchanged). Step form and function form build the same Set (`to_set`, `set_add`, `set_remove`, `set_contains`, `set_union`, `set_intersect`, `set_diff`, `set_elements`, and `map`/`filter`/`flatmap`/`member`/`==`/`++` over a Set), so they can be compared with `==` across the two forms.
+
+*Design (for contributors).* The Set is a `*collections.Setoid[any]` (`collections/setoid.go`): the elements themselves, stored in a `HAMT[string, any]` under `evaluator.ValueSetKey` (= `EncodeKey`, with a Time reduced to its UTC instant). Nothing is decoded from text, so reading a member gives back the stored value; the first of several equal members stays; a Set read from a Go carrier (`*collections.Set[string]`, `*collections.Set[any]`) is rebuilt by `evaluator.AsValueSet`. `evaluator.NewValueSet`, `ValueSetAdd` and `EmptyValueSet` are the constructors; a Go caller's own `*collections.Set[T]` still works under Go's `==` and still unites with a Set of the same type by its own method.
 
 ```haskell
 spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains golang |> assert true
@@ -220,7 +224,7 @@ spawn StrVal: Start |> emit x |> drop 1 |> to_set |> set_elements |> assert x
 ## 12. Stream Transducers (`filter`, `distinct`, `fold`)
 
 * `filter <substring>`: Filters nodes whose string representation contains the target substring.
-* `distinct`: Deduplicates consecutive and recurring elements across the stream, maintaining order.
+* `distinct`: Deduplicates consecutive and recurring elements across the stream, maintaining order. "The same element" is `==` (as for a Set member, section 11): `1` and `"1"` are two, `1` and `1.0` one.
 * `fold <op>`: Catamorphism reducing the stream to a single summary value (e.g. `fold count` counts elements).
 
 ```haskell

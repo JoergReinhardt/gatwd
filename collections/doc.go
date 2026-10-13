@@ -17,7 +17,10 @@
 //   - Tree[T]: A multi-way Rose Tree for modeling hierarchical structures and directory graphs.
 //
 //   - Set[T]: An immutable hash set backed by HAMT[T, struct{}], offering O(log32 N) additions
-//     and membership checks with structural sharing.
+//     and membership checks with structural sharing (elements are the same under Go's ==).
+//
+//   - Setoid[T]: A set whose notion of "the same element" is a caller-supplied canonical key
+//     (the DSL's Set: members are the same when the language's `==` says so), backed by HAMT[string, T].
 //
 //   - Map[K, V]: An immutable dictionary backed by HAMT[K, V].
 //
