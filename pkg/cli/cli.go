@@ -1137,6 +1137,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "hamt_get ") {
 			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
 			pipeline = append(pipeline, evaluator.StepHAMTGet(key))
+		} else if strings.HasPrefix(stepStr, "hamt_path ") {
+			path := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
+			pipeline = append(pipeline, evaluator.StepHAMTPath(path))
 		} else if strings.HasPrefix(stepStr, "hamt_set ") {
 			parts := strings.Fields(strings.TrimSpace(stepStr[9:]))
 			if len(parts) >= 2 {

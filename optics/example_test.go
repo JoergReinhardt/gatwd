@@ -3,6 +3,8 @@ package optics_test
 import (
 	"fmt"
 
+	"github.com/joergreinhardt/gatwd/collections"
+	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/optics"
 	"github.com/joergreinhardt/gatwd/visualizer"
 )
@@ -74,4 +76,32 @@ func ExampleRecordLens() {
 	// │     ├─ OriginalUser: alice │
 	// │     ╰─ UpdatedUser: bob    │
 	// ╰────────────────────────────╯
+}
+
+// ExampleHAMTPathLens shows deep, composable field access over nested persistent
+// HAMTs — the functional equivalent of a chain of struct field accessors
+// (s.Spec.Selector.App) for a dynamically-typed, open-schema payload. The Get is
+// an Optional "preview" (Maybe); the Set rebuilds only the spine along the path,
+// so the original graph/resource is untouched (structural sharing).
+func ExampleHAMTPathLens() {
+	selector := collections.NewHAMT[string, any]().Set("app", "nginx")
+	spec := collections.NewHAMT[string, any]().Set("selector", selector)
+	root := collections.NewHAMT[string, any]().Set("spec", spec)
+
+	pathL := optics.HAMTPathLens("spec", "selector", "app")
+
+	got, _ := pathL.Get(root).Unwrap()
+	fmt.Println("get:", got)
+
+	// Focused rewrite of the deep leaf; only spec→selector→app is copied.
+	updated := pathL.Set(root, functions.Just[any]("redis"))
+	newVal, _ := pathL.Get(updated).Unwrap()
+	oldVal, _ := pathL.Get(root).Unwrap()
+	fmt.Println("updated:", newVal)
+	fmt.Println("original unchanged:", oldVal)
+
+	// Output:
+	// get: nginx
+	// updated: redis
+	// original unchanged: nginx
 }

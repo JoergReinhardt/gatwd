@@ -1305,6 +1305,77 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// StepHAMTPath navigates a dotted path ("spec.selector.app") through nested
+// payloads in a single step — the multi-level generalization of hamt_get, and the
+// DSL-facing accessor that gives struct-like deep field access over gatwd's
+// dynamically-typed, open-schema data (the shape the Kubernetes adapter yields).
+//
+// It is the dynamic, multi-carrier sibling of optics.HAMTPathLens: at each path
+// segment it dispatches on the carrier so one accessor spans every product-like
+// value the DSL produces — a persistent *collections.HAMT, a *collections.Map, and
+// a map[string]any Record (from parse_record). Because a path over possibly-absent
+// keys is an Optional (affine traversal), not a total Lens, this realizes its
+// "preview" direction: it stops and emits a descriptive error (via InjectError,
+// naming the failing segment and the full path) the moment a segment is missing or
+// its parent is not navigable, so a mistyped config path is debuggable instead of
+// silently yielding nil. An empty path passes the node through unchanged.
+func StepHAMTPath(path string) PipelineStep[functions.Either[error, any]] {
+	segments := strings.Split(path, ".")
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				if path == "" {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+
+				cur, _ := node.Value.UnwrapRight()
+				var pathErr error
+				for _, seg := range segments {
+					var next any
+					var found bool
+					switch carrier := cur.(type) {
+					case *collections.HAMT[string, any]:
+						next, found = carrier.Get(seg)
+					case *collections.Map[string, any]:
+						next, found = carrier.Get(seg)
+					case map[string]any:
+						next, found = carrier[seg]
+					default:
+						pathErr = fmt.Errorf("Path Error: cannot navigate segment '%s' of path '%s': parent is not a Record/HAMT/Map (got %T)", seg, path, cur)
+					}
+					if pathErr != nil {
+						break
+					}
+					if !found {
+						pathErr = fmt.Errorf("Path Error: segment '%s' of path '%s' not found", seg, path)
+						break
+					}
+					cur = next
+				}
+
+				if pathErr != nil {
+					if !yield(InjectError[any](pathErr, node.DSLType)) {
+						return
+					}
+					continue
+				}
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](cur), node.DSLType)) {
+					return
+				}
+			}
+		}
+	}
+}
+
 // StepHAMTSet associates key with val in an incoming HAMT or Map node, yielding the updated persistent collection.
 func StepHAMTSet(key string, val any) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {

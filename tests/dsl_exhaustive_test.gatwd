@@ -70,6 +70,13 @@ spawn IntVal: TAX_BASE |> math_add SURCHARGE |> assert 65
 -- 13. Persistent HAMT Dictionary (to_hamt, hamt_get)
 spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_get role |> assert admin
 
+-- 13b. Dotted-path accessor (hamt_path): deep field access over HAMT and Record
+-- carriers — the composed-optic generalization of hamt_get. Single-level here
+-- (DSL cannot yet build a nested HAMT; deep navigation is asserted in Go:
+-- evaluator.TestStepHAMTPath / ExampleStepHAMTPath / optics.ExampleHAMTPathLens).
+spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_path role |> assert admin
+spawn StrVal: Start |> echo "drwx root 4096 Jan 1 secret_file" |> parse_record Perms Owner Size Month Day Name |> hamt_path Owner |> assert root
+
 -- 14. Stream Head & Tail Operators
 spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> head |> assert 10
 spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> tail |> head |> assert 20

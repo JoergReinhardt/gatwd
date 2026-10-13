@@ -105,3 +105,66 @@ func HAMTLens[K comparable, V any](key K) Lens[*collections.HAMT[K, V], function
 		},
 	}
 }
+
+// HAMTPathLens focuses a *path* of nested string-keyed HAMTs — the shape the
+// Kubernetes adapter yields (spec → selector → app) — by composing one HAMTLens
+// per path segment into a single optic. It is the functional, composable
+// equivalent of a chain of struct field accessors (`s.Spec.Selector.App`) over a
+// dynamically-typed, open-schema payload where no Go struct is available.
+//
+// Because a path segment may be absent, a path is honestly an Optional (affine
+// traversal), not a total Lens: the focus is a functions.Maybe[any].
+//   - Get is the "preview": it walks the path and returns functions.Nothing the
+//     moment an intermediate level is absent or is not itself a nested HAMT, else
+//     functions.Just the leaf value.
+//   - Set rebuilds only the *spine* along the path (every level off the path keeps
+//     its O(log32 N) structural sharing), creating missing intermediate HAMTs as
+//     needed — so a focused rewrite of `spec.selector.app` copies a path, not the
+//     whole resource. A Nothing deletes the leaf.
+//
+// With no keys it is the identity optic (Get = Just(root), Set = root).
+func HAMTPathLens(keys ...string) Lens[*collections.HAMT[string, any], functions.Maybe[any]] {
+	return Lens[*collections.HAMT[string, any], functions.Maybe[any]]{
+		Get: func(root *collections.HAMT[string, any]) functions.Maybe[any] {
+			var cur any = root
+			for _, k := range keys {
+				h, ok := cur.(*collections.HAMT[string, any])
+				if !ok || h == nil {
+					return functions.Nothing[any]()
+				}
+				v, found := h.Get(k)
+				if !found {
+					return functions.Nothing[any]()
+				}
+				cur = v
+			}
+			return functions.Just(cur)
+		},
+		Set: func(root *collections.HAMT[string, any], mVal functions.Maybe[any]) *collections.HAMT[string, any] {
+			if len(keys) == 0 {
+				return root
+			}
+			var rebuild func(h *collections.HAMT[string, any], i int) *collections.HAMT[string, any]
+			rebuild = func(h *collections.HAMT[string, any], i int) *collections.HAMT[string, any] {
+				if h == nil {
+					h = collections.NewHAMT[string, any]()
+				}
+				if i == len(keys)-1 {
+					if mVal.IsJust() {
+						v, _ := mVal.Unwrap()
+						return h.Set(keys[i], v)
+					}
+					return h.Delete(keys[i])
+				}
+				// Descend; a missing or non-HAMT intermediate becomes a fresh HAMT.
+				child, _ := h.Get(keys[i])
+				ch, ok := child.(*collections.HAMT[string, any])
+				if !ok {
+					ch = collections.NewHAMT[string, any]()
+				}
+				return h.Set(keys[i], rebuild(ch, i+1))
+			}
+			return rebuild(root, 0)
+		},
+	}
+}

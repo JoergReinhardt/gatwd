@@ -814,6 +814,25 @@ skip re-exploration.
   `CollectionType ::= ("Set("|"List("|"Tree("|"BST("|"BTree("|"RBTree(") Ident ")"` — **add `Graph(`** here for Phase 4.
 - `Pipeline ::= SpawnNode {("|>"|"||>") PipelineStep}`; `SpawnNode ::= "spawn" Ident ":" Ident`
 - Lambdas `\x -> …`, `match { Ctor -> … | _ -> … }` (constructor matching = Workstream A, done), comprehensions `[e | p <- xs, guard]`.
-- HAMT builtins (payload navigation): `to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_values`.
+- HAMT builtins (payload navigation): `to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_values`, `hamt_path` (**new, Phase-6 prereq**).
+
+**Deep field access — the "functional struct" accessor (Phase-6 prereq, ✅ 2026-10-13).**
+Resources are open-schema, so payloads are nested HAMTs (a product over a *dynamic*
+key set), not fixed-schema records/Go structs. The functional equivalent of
+`pod.Spec.Selector.App` over that open payload is a **composed optic**, implemented
+two ways:
+- `optics.HAMTPathLens(keys ...string) Lens[*HAMT[string,any], Maybe[any]]`
+  (`optics/lens.go`) — composes one `HAMTLens` per segment; Get is an Optional
+  "preview" (`Maybe`), Set rebuilds only the spine along the path (structural
+  sharing, so a focused `spec.selector.app` rewrite copies a path, not the whole
+  resource). This is the reusable primitive for the live→kustomize rewrite (§6 #10).
+- DSL `hamt_path "spec.selector.app"` → `evaluator.StepHAMTPath` — the dynamic,
+  multi-carrier (HAMT / Map / `map[string]any` Record) preview: walks all levels in
+  one step, erroring (naming the failing segment + path) on a missing/non-navigable
+  segment instead of silently yielding nil. Tests: `evaluator.TestStepHAMTPath`
+  (nested/missing/scalar/record/empty), `ExampleStepHAMTPath`,
+  `optics.ExampleHAMTPathLens`, DSL §13b (single-level over HAMT + Record; deep
+  nesting asserted in Go since the DSL can't yet build a nested HAMT). The
+  relation predicates (§7, Phase 6) use `hamt_path` instead of chained `hamt_get`.
 
 **Edition template files** — `examples/custom_cli/main.go`, `examples/game_of_life_edition/main.go` (Edition); `examples/hot_reload_appliance/main.go` (Appliance + `//go:embed`); `examples/14_plugins/` (plugin→keyword). NOT a template: `cmd/gatwd-gen` (codegen tool).
