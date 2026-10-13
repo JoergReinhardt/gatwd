@@ -1,7 +1,7 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
 > **Status (2026-10-13): W0, W1a and W1b (the cobra command tree) are implemented; W2 has started (`Char` done); W3–W7 are untouched.** Progress table: §0.
-> **All decisions D1–D10 are answered** (§1, 2026-10-13); **D11/D12 (the `Ratio` type, §6.1) are proposed**. Two answers carry a point to settle when their phase starts: D1 (the
+> **All decisions D1–D10 are answered** (§1, 2026-10-13); **D11–D13 (the `Ratio` type, §6.1) are decided on the recommendation**. Two answers carry a point to settle when their phase starts: D1 (the
 > details of the two-way `Char`/`String` conversion, W2) and D7 (auto-render, W5).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
 > facts marked **(researched)** come from the sources listed at the end.
@@ -58,7 +58,13 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **D2** (corollary) | **`"a" + "b"` is an error** with a hint to use `++` (the operator's message names `++`). | Applies when D2 is implemented (W2, after `str_*`). Check first how `const`s (stored as text) behave under a numeric-only `+`. |
 | **D1** (details) | **Accepted as proposed:** a `List`/`Chunk` of `Char`s counts as a serialized string; a mixed collection (`['a', 1]`) is an error naming the element; an empty collection converts to `""` only where a `String` is demanded (annotation or string function). | The table is in `pkg/cli/valueops.go` (`asChar` is its first row). |
 
-**Proposed in this revision, awaiting an answer (§6.1):** **D11** `/` on two `Int`s keeps today's meaning (exact when divisible, else `Float`); exactness is opt-in through the `Ratio` literal or `ratio`. **D12** `Ratio` vs `Float`: arithmetic promotes to `Float`, comparison is exact (Python's `fractions`).
+**Decided on the recommendation (2026-10-13, the user: "do it like you recommend and propose in both cases"; §6.1):**
+
+| ID | Decision | Alternative, kept as a written proposal |
+| :-- | :-- | :-- |
+| **D11** | `/` on two `Int`s keeps today's meaning (exact when divisible, else `Float`); exactness is opt-in through the `Ratio` literal `3r4` or `ratio n d`. | Scheme/Clojure-style exact `/` for `Int`/`Int` (breaking: `7 / 2 == 3.5` is pinned in docs and tests). |
+| **D12** | `Ratio` ⊕ `Float` arithmetic promotes to `Float`; `==`/`<` are **exact** (the `Float` is compared by its exact value), so `1r10 == 0.1` is `false` and `to_ratio 0.1 == 1r10` is `true`. | (a) compare as doubles (`1r10 == 0.1` is `true`, like `Int == Float` today; `==` stops being transitive); (b) make `Ratio` vs `Float` comparison an error that demands `to_float`/`to_ratio`. |
+| **D13** | `%` stays **modulo**. | Haskell-style `%` as the fraction operator: `1 % 3` is `1r3` for `Int`/`Ratio` operands; modulo moves to a function `mod a b` (also `rem`). Cost: three script lines use `%` as an operator (`examples/scripts/cheatsheet.gatwd:44,105`, `examples/game_of_life_pure_dsl/game_of_life.gatwd:24`), plus docs and tests. Cheap to add later *alongside* `3r4`; ask again if wanted. |
 
 **Decided later the same day (2026-10-13):**
 
@@ -401,7 +407,7 @@ never mutated. Core stays standard-library only (Mandate 5); the type lives in `
 **Canonical form:** a result whose denominator is 1 **demotes to `Int`** (so `1r2 + 1r2` is `1`, and `ℤ ⊂ ℚ` holds
 without a `4r1` that is "almost an Int"); this is the same rule as the `big.Int` → `int64` demotion in item 1.
 
-**Syntax (proposed, D11 is the one open point).**
+**Syntax (D11–D13 decided).**
 
 | Form | Meaning |
 | :-- | :-- |
@@ -414,12 +420,12 @@ without a `4r1` that is "almost an Int"); this is the same rule as the `big.Int`
 | `3r4` printed | `3r4` (round-trips through the lexer); `show` and `str_from` agree |
 
 Why a suffix and not `1/3`: `/` on two `Int`s already means "exact when divisible, otherwise `Float`" (`7 / 2 == 3.5`,
-pinned in `dsl_guide.md` and the tests) and **D11 proposes keeping it** — silently turning every division into a
+pinned in `dsl_guide.md` and the tests) and **D11 keeps it** — silently turning every division into a
 fraction would change the output of existing scripts, and `1:3` would collide with the `key:value` syntax of `emit`
 and `spawn`. `%` is modulo (Haskell's `%` is not available), `1/3` as a *literal* would make `/` context-dependent.
 The `r` suffix reads like Clojure's `1/3`, Scheme's `1/3` and Python's `Fraction`, keeps the lexer change to one
 character in the number scanner (`TokNumber` already scans digits, `.` and the complex `i`), and `ratio` covers computed
-operands. The alternative to decide against D11 is *exact `/` for `Int`/`Int`* (Scheme/Clojure/Julia-`//`-style); the
+operands. The recorded alternative to D11 is *exact `/` for `Int`/`Int`* (Scheme/Clojure/Julia-`//`-style); the
 costs are in the D11 note below and the choice is cheap to reverse because `/` goes through one function.
 
 **Converting from a `Float` — three named, explicit functions** (a float never converts to a `Ratio` implicitly):
@@ -463,9 +469,10 @@ lambdas/comprehensions (`fold (\a x -> a + x) 0r1 …` summing `1r2 … 1r10` ex
 that `0.1 + 0.2 == 0.3` fails for `Float`; round-trips `to_ratio (to_float r)` for decimal-representable `r`;
 `to_ratio_approx` on the convergents of π; every `Ratio × {Int, BigInt, Float, Complex}` operator pair in the W3 matrix.
 
-**Decision notes.**
-- **D11 (proposed):** keep `/` on `Int`/`Int` as is; exactness is opt-in. Recommendation: yes — no existing script changes, and the literal makes the intent visible at the call site. Against: users coming from Scheme/Clojure expect `(/ 1 3)` to be exact.
-- **D12 (proposed):** `Ratio` ⊕ `Float` arithmetic promotes to `Float`; `==`/`<` are exact (the `Float` is compared by its exact value). Recommendation: yes, it is what Python's `fractions.Fraction` does and it keeps `==` honest, at the price that `1r10 == 0.1` is `false` (the documented answer is `to_ratio 0.1 == 1r10`). Note this is stricter than today's `Int == Float` (compared as doubles); the difference only shows beyond 2⁵³.
+**Decision notes (all decided 2026-10-13, alternatives recorded in §1).**
+- **D11:** keep `/` on `Int`/`Int`; exactness is opt-in. No existing script changes and the literal makes the intent visible at the call site. Against: users coming from Scheme/Clojure expect `(/ 1 3)` to be exact.
+- **D12:** arithmetic with a `Float` promotes to `Float`; `==`/`<` are exact — what Python's `fractions.Fraction` does. Price: `1r10 == 0.1` is `false` (the answer is `to_ratio 0.1 == 1r10`). It is stricter than today's `Int == Float` (compared as doubles); the difference only shows beyond 2⁵³.
+- **D13:** `%` stays modulo; the `%` fraction operator is the recorded alternative.
 - **Size:** about a day of work inside W3, after the logical-`Int` demotion rule exists (the `Ratio` demotion reuses it).
 
 ---

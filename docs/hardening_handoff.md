@@ -40,7 +40,7 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 | :-- | :-- |
 | D1 | `Char` added; `String` is a collection row of `Char`s; **conversion works both ways, on demand** (user, 2026-10-13: *"if a serialized collection of chars gets treated as a string, convert it"*): a `Char` collection used as a `String` becomes the `String`, a one-character `String` becomes a `Char`, a `String` used as a `Char` collection becomes one. **Details accepted 2026-10-13:** `List`/`Chunk` of `Char` count as a string, a mixed collection is an error naming the element, an empty collection converts only where a `String` is demanded. Keep the conversion table narrow and in `valueops.go` (D2 removed implicit `+` coercion for the opposite reason). |
 | D2 | `+` is numeric-only; `++` concatenates. **Corollary confirmed (2026-10-13):** `"a" + "b"` is also an error with a hint to use `++`. Check how `const`s (stored as text) behave first. |
-| D11, D12 | **Proposed, unanswered** (plan §6.1, the `Ratio` fraction type for W3): `/` on `Int`/`Int` unchanged; `Ratio` vs `Float` promotes in arithmetic and compares exactly. Ask at the start of W3. |
+| D11, D12, D13 | **Decided on the recommendation (2026-10-13)**, alternatives written down in plan §1/§6.1: `/` on `Int`/`Int` unchanged; `Ratio` vs `Float` promotes in arithmetic and compares exactly; `%` stays modulo (`%` as fraction operator is the recorded alternative). |
 | D3 | (a): keep the runtime types, specify the tower, `Num`/`Integral`/`Fractional` are annotation-level constraint names. |
 | D4, D5, D6, D9, D10 | as in plan §1 (D4 and D10 are implemented). |
 | D7 | Bump the repo to **Go 1.27**, kustomize v0.21.3 (W5). No system Go update needed: `GOTOOLCHAIN=auto` fetches `go1.27.x`; only CI/Docker images need ≥ 1.27. Auto-render of kustomization roots was **not** explicitly answered — confirm at W5. |
@@ -57,7 +57,7 @@ existing step chain and before the OS-exec fallback. Second tier: `Bytes` + enco
 
 **W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
 promotion lattice, `/ // %` and zero-division errors, `**`/`pow`/`sqrt`/`floor`/`ceil`/`round`/…, unary minus, and the constraint names `Num`/`Integral`/`Fractional`/`Comparable`/
-`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`) with **zero false positives** on every committed script. An operator × type-pair matrix test. **Plus `Ratio`, exact fractions (plan §6.1):** `3r4` and `0.75r` literals, `ratio n d`, `*big.Rat` with demotion to `Int`, `to_ratio` (shortest-decimal), `to_ratio_exact`, `to_ratio_approx x max_den`, correctly rounded `to_float`; ask D11/D12 first.
+`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`) with **zero false positives** on every committed script. An operator × type-pair matrix test. **Plus `Ratio`, exact fractions (plan §6.1):** `3r4` and `0.75r` literals, `ratio n d`, `*big.Rat` with demotion to `Int`, `to_ratio` (shortest-decimal), `to_ratio_exact`, `to_ratio_approx x max_den`, correctly rounded `to_float`. D11–D13 are decided; nothing to ask first.
 
 **Definition of done per cell** is in `AGENTS.md` Mandate 2 (Go method → operator → evaluator step → step form → function form → DSL assertion *inside a lambda* → structural Go test → `Example`).
 Each partial function needs a negative case; the parity check "step form ≡ function form" is a test, not a hope.
