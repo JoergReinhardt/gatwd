@@ -94,6 +94,40 @@
 - **`GATWD_<FLAG>` environment defaults** for the operator and edition flags (design in `hardening_plan.md` §4.3): flag > environment > default, one table in `pkg/cli/command.go`, documented per flag. Useful for container images (`env:` in `deploy.yaml`) instead of long `args:`. **Decision D-F7a:** do it for the operator only first (recommended).
 - **Watch the ConfigMap** instead of interval-driven reload: a `fsnotify`-style watch is a new third-party dependency in core, which the Clean Core rule forbids; the in-process alternative is polling the file's modification time on a short ticker (recommended, stdlib only, no allowlist change). The reload path already keeps the last good rules on failure.
 
+## 7a. Phase F8: multi-line statements and expression-group diagnostics  — size S–M, found 2026-10-14
+
+Raised by the user's question "why are all gatwd defs so long, is there a multiline syntax?". Three findings, each reproduced with the built binary.
+
+**F8a. Statement continuation is too narrow.** `logicalLines` (`pkg/cli/cli.go`, shared by script evaluation and `gatwd --check`) joins physical lines only when delimiters are unbalanced, a string is unterminated, or the buffer ends in `=`, `|>`, `||>`, ` let`, ` in` or `\`. So a bracketed body already spans lines (a comprehension over five lines works), but
+```
+def area = \w h ->
+  w * h
+```
+is two statements and fails loudly (`undefined identifier: w`). That is why the embedded rules (`cmd/gatwd-k8s-operator/rules/compliance.gatwd`, `lib/k8s/*.gatwd`) are single very long lines: there was no natural place to break them.
+
+*Design* (the Go/Kotlin rule: a line that cannot end a statement continues):
+1. Trailing `->`, `,` and binary operators (`+ - * / // % ** ++ == != < <= > >= && || <+>`) continue the statement.
+2. A line that *starts* with `|>`, `||>`, `++`, `<+>` or `|` continues the previous one (a statement can never start with them, so this is safe).
+3. One implementation in `logicalLines`, so `--check` and evaluation agree; keep the position map F1 needs (F1 and F8a share this function: same agent, F1 first or together).
+4. Reformat the embedded rules and the k8s prelude into readable multi-line form once it works (comments per clause, one generator or guard per line), pinned by the existing parity and rule tests so behaviour cannot drift.
+
+*Risk.* An exec step whose last argument is an operator-like token (`echo a,`, `echo -`) would now continue onto the next line. **Decision D-F8a:** apply rules 1 and 2 to every statement (recommended: simple, one rule to document; the regression diff over every committed script and the k8s fixtures is the acceptance test and shows any victim) or only to statements that begin with `def`, `let` or a lambda (safer, but two rules). Recommended: every statement, and add an escape only if the diff finds a real victim (then record it here).
+
+*Tests.* A table of (physical lines, expected logical statements) including every operator, a trailing `,` inside a list literal, comments between continued lines, a string literal ending in an operator character (must not continue), `--check` line numbers pointing at the *first* physical line of a joined statement; negative control: remove rule 1 and watch the area example fail. Docs: the joiner's rules are not documented anywhere today; add them to `docs/dsl_guide.md` and `docs/grammar.md`.
+
+**F8b. A pipeline inside an expression group gives bad or no guidance.** `(3 |> dbl) + 1` and `1 + (3 |> dbl)` at top level fail with `expected closing parenthesis ')'`, which does not say what is wrong. Inside a `match` arm the same text surfaces as `unknown step or command: "((n"`. The working idioms are function application (`dbl 3 + 1`) and `let r = 3 |> dbl in r + 1`.
+
+*Design.* **Decision D-F8b:** (1) always: a precise error at the point of failure, `a pipeline (|>) cannot appear inside an expression; apply the function directly (f x) or bind it: let r = x |> f in …`, from the infix parser and inside `match` arms (same message, with the position once F1 lands); (2) optionally, support `(x |> f)` as an expression when `f` resolves to a function *value* (a closure or builtin curried function, where `x |> f` is just `f x`), and keep it an error when `f` is a stream step (it yields a stream, not a value). Mandate 1 argues for (2); the ambiguity argues for doing (1) first and (2) as its own sub-step with the decision recorded. Recommended: (1) now, (2) after F1.
+
+**F8c. Possible silent failure inside recursive `match` defs: investigate.** A naive recursive Fibonacci written with the expression-group form,
+```
+def fib = match { 0 -> 0 | 1 -> 1 | n -> ((n - 1) |> fib) + ((n - 2) |> fib) }
+10 |> fib |> assert 55
+```
+produced `[ERROR] Assertion failed: expected '55', got '0'`: the assert caught it, but the evaluation itself neither failed loudly nor returned the right value. In a smaller case (`n -> ((n - 1) |> dbl) + 1`) the error is the confusing `unknown step or command: "((n"`, so two different arms of the same code path behave differently. *Work:* reproduce with a Go test, find which path turns the arm body into a value or an empty result, make it a loud error (Mandate 6) or correct, add rows to `failLoudRows`. If F8b(2) is implemented, the same test must then produce `55`.
+
+**Order inside F8:** F8a (with F1) → F8b(1) → F8c (it may disappear once F8b(1) rejects the form loudly; then keep the test as the negative control) → F8b(2) as an optional last step.
+
 ## 8. Standing decisions that stay as they are
 
 Remote kustomize bases stay refused; Secret `data` is documented, not redacted; age rules stay an example override; deleting or pruning cluster objects stays out of scope; `--out` does not need the apply capability; the operator never applies offline manifests to a live client; one `--timeout` bounds loading and checks. Reopen any of these only on the user's word.
@@ -108,9 +142,10 @@ Remote kustomize bases stay refused; Secret `data` is documented, not redacted; 
 | F4 rollout | `adapters/kubernetes_rollout.go`, `pkg/k8sgraph/write.go` | F1, F2, F3, F5, F6 | nothing |
 | F5 rule messages | `pkg/cli/appliance_report.go`, `lib/k8s` rules, how-to | F1, F2, F3, F4, F6 | decision D-F5 |
 | F6 small items | `functions/`, `parser` lexer, `dslfuncs_*`, `typecheck.go` | F4, F5, F7 | F1 if it renumbers the lexer positions (exponent literals) |
+| F8 multi-line statements, expression-group diagnostics | `pkg/cli/cli.go` (`logicalLines`), `parser/infix.go`, `pkg/cli/typecheck.go` (`--check` joiner use), embedded rules and prelude (reformat), docs | F2, F3, F4, F5, F7 | **F1** (same joiner; do F8a with or right after F1) |
 | F7 operator config | `pkg/cli/appliance_command.go`, `cmd/gatwd-k8s-operator` | F1, F2, F4, F6 | nothing |
 
-**Suggested order** (at most two heavy agents at a time): **F1 and F4** first (disjoint, highest value), then **F2 and F5**, then **F3 and F7**, with F6 items interleaved on demand. F1 before the exponent-literal item of F6 because both touch the lexer.
+**Suggested order** (at most two heavy agents at a time): **F1 (+ F8a, one agent) and F4** first (disjoint, highest value), then **F2 and F5**, then **F3 and F7**, with F8b/F8c and the F6 items interleaved on demand. F1 before the exponent-literal item of F6 because both touch the lexer.
 
 ## 10. Definition of done for the whole plan
 

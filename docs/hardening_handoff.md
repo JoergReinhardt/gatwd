@@ -15,7 +15,7 @@ Every question raised by the tracks and the closing checklist was answered on 20
 
 **All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed (full plan: `followup_plan.md`): `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
-**The larger deferred items now have a written plan: [`followup_plan.md`](followup_plan.md)** (phases F1 error positions, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
+**The larger deferred items now have a written plan: [`followup_plan.md`](followup_plan.md)** (phases F1 error positions, F8 multi-line statements, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
 
 ## 1. Where we are
 
@@ -27,7 +27,7 @@ W6 (layered overrides, exit codes, formats, lazy client), the follow-ups (exit s
 canonical HAMT keys and `String != printed collection`, §5.6 `Duration`/`Time`/`Date`, W7 (`cli.Policy`, capability gates, `--allow-*`, `diagnostics`), and the §10.1 closing checklist (the how-to is pinned by
 `cmd/gatwd-k8s-operator/doc_test.go`). Gates on the final tree: `gofmt`, `go vet`, `go test ./...`, `./run_dsl_tests.sh`, `-race`, silent `--check`; script regression diff against `2526cc0` explained.
 
-**Deferred with reasons:** everything still open is planned in [`followup_plan.md`](followup_plan.md) (F1–F7). Fixed since the hardening plan closed: a guard-only comprehension is a loud error (Track P), the collecting steps deliver upstream error nodes (Track Q), `zip` pairs its input with the command's output (Track Q; a list-level `zip xs ys` needs a distinct name, plan §6.3b).
+**Deferred with reasons:** everything still open is planned in [`followup_plan.md`](followup_plan.md) (F1–F8). Fixed since the hardening plan closed: a guard-only comprehension is a loud error (Track P), the collecting steps deliver upstream error nodes (Track Q), `zip` pairs its input with the command's output (Track Q; a list-level `zip xs ys` needs a distinct name, plan §6.3b).
 
 ## 2. Decisions — all answered (2026-10-13)
 
