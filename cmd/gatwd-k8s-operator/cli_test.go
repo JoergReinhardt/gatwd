@@ -50,7 +50,7 @@ const (
 
 // TestOperatorCommandLine drives the real binary through every command line the how-to
 // documents: the subcommands, the legacy single-dash spelling (with its notice), the layered
-// override and its report, and the exit statuses 0, 1 and 2.
+// override and its report, and the exit statuses 0, 1, 2 and 3.
 func TestOperatorCommandLine(t *testing.T) {
 	bin := buildOperator(t)
 	dir := t.TempDir()
@@ -78,10 +78,11 @@ func TestOperatorCommandLine(t *testing.T) {
 		{"replace mode cannot reach the embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered, "--rules-mode", "replace"}, 1, "",
 			[]string{"REPLACES"}},
 		{"a broken override fails the start", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", broken}, 1, "", []string{broken, "unbalanced delimiter"}},
-		{"violations with --fail-on-violation exit 1", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--fail-on-violation"}, 1, idleWant, []string{"2 violation(s) found"}},
+		{"violations with --fail-on-violation exit 3", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--fail-on-violation"}, 3, idleWant, []string{"2 violation(s) found"}},
 		{"a compliant cluster exits 0 with --fail-on-violation", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--fail-on-violation"}, 0, "[]\n", nil},
+		{"a duplicate id is a failed check (1), not a violation (3)", []string{"check", "--manifests", "../../pkg/k8sgraph/testdata/duplicates.yaml", "--rules", absent, "--fail-on-violation"}, 1, "", []string{"the check failed"}},
 		{"json output, violations", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", absent, "--format", "json"}, 0, idleJSON, nil},
-		{"json output, every rule violated", []string{"check", "--manifests", "testdata/broken.yaml", "--rules", absent, "--format", "json", "--fail-on-violation"}, 1, brokenJSON, []string{"5 violation(s) found"}},
+		{"json output, every rule violated", []string{"check", "--manifests", "testdata/broken.yaml", "--rules", absent, "--format", "json", "--fail-on-violation"}, 3, brokenJSON, []string{"5 violation(s) found"}},
 		{"json output, compliant", []string{"check", "--manifests", "testdata/compliant.yaml", "--rules", absent, "--format", "json"}, 0, `{"status":"ok","count":0,"violations":[],"errors":[]}` + "\n", nil},
 		{"a rule that errors at run time fails the check", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", failing, "--format", "json"}, 1, "", []string{"the check failed"}},
 		{"no source and no cluster", []string{"check", "--rules", absent}, 2, "", []string{"no --manifests given and no cluster reachable"}},
@@ -106,6 +107,10 @@ func TestOperatorCommandLine(t *testing.T) {
 			case "a rule that errors at run time fails the check":
 				if !strings.Contains(stdout, `"status":"error"`) || !strings.Contains(stdout, "no_such_rule") {
 					t.Errorf("stdout = %q, want an error status naming the failing rule", stdout)
+				}
+			case "a duplicate id is a failed check (1), not a violation (3)":
+				if !strings.Contains(stdout, `duplicate node id "Pod/default/dup"`) {
+					t.Errorf("stdout = %q, want the duplicate-id error", stdout)
 				}
 			case "version":
 				if !strings.HasPrefix(stdout, "gatwd-k8s-operator ") {

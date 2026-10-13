@@ -18,7 +18,7 @@ Prompt: `.agents/prompts/mint-edition-appliance.md`.
   only what it changes); `OverrideReplace` is the explicit alternative. A broken override is a
   `*cli.LoadError`, never a silent fall-back, and a failed reload keeps the last good rules.
   Its command line is `cli.NewApplianceTree` (`check`, `run --interval`, `rules cat`, `--format
-  text|json`, `--fail-on-violation`; exit 0 ok / 1 failed / 2 malformed): the domain supplies only
+  text|json`, `--fail-on-violation`; exit 0 ok / 1 failed / 2 malformed / 3 violations with `--fail-on-violation`): the domain supplies only
   `Bind` (its source flags and a setup that builds the Appliance and the pipeline).
 - **Shim** — `pkg/<domain>`: wiring only.
 - **Prelude** — `lib/<domain>/*.gatwd` embedded with `//go:embed`: the domain's vocabulary and
@@ -62,8 +62,8 @@ cmd/gatwd-<domain>-<role>/          Appliance: edition + rules/*.gatwd + flags; 
    - hot-reload test (override file → `Reload` → behavior changes → file removed → default again),
      plus a **broken override** (start fails loudly; reload keeps the last good rules) and a layered
      override that reuses an embedded rule;
-   - one real-binary row per command line and exit status (0, 1 for violations/errors, 2 for a
-     malformed line), a JSON-format row, and "commands that need no cluster build no client"
+   - one real-binary row per command line and exit status (0; 1 for errors; 2 for a
+     malformed line; 3 for violations under `--fail-on-violation`), a JSON-format row, and "commands that need no cluster build no client"
      (`k8sgraph.LazyDynamicClient`);
    - tests that need an external binary skip when it is absent; never contact a real service;
    - `internal/archtest` must stay green (no domain/SDK in core).

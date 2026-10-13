@@ -297,13 +297,19 @@ The static operator is a single ELF binary of roughly 31 MB (the in-process kust
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
-(`[ERROR] …`), a pipeline that yields nothing, or, with `--fail-on-violation`, a non-empty result; `2` a
-malformed command line (unknown flag or `--format`, no `--manifests` and no reachable cluster). Without
-`--fail-on-violation` the operator reports violations but exits 0, so a scheduled `run` is not restarted for
-finding something. For a CI gate:
+(`[ERROR] …`, including a duplicate node id), a pipeline that yields nothing; `2` a malformed command line
+(unknown flag or `--format`, no `--manifests` and no reachable cluster); `3` the check ran and found violations,
+**only with `--fail-on-violation`**. Without that flag the operator reports violations but exits 0, so a
+scheduled `run` is not restarted for finding something. A check that both errored and found violations exits `1`.
+For a CI gate that tells a policy finding from a broken run:
 
 ```bash
-gatwd-k8s-operator check --manifests ./rendered --fail-on-violation || { echo "policy violations"; exit 1; }
+gatwd-k8s-operator check --manifests ./rendered --fail-on-violation
+case $? in
+  0) echo "compliant" ;;
+  3) echo "policy violations"; exit 1 ;;
+  *) echo "the check itself failed"; exit 2 ;;
+esac
 ```
 
 **Kustomize.** The `manifests` step renders a *kustomization root* — a directory holding `kustomization.yaml`,

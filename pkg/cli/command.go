@@ -69,6 +69,33 @@ func NewCommandTree(spec CommandSpec) *CommandTree {
 	return &CommandTree{spec: spec}
 }
 
+// The exit statuses of every command line in this package (Edition trees and Appliance trees).
+// They are documented in docs/dsl_guide.md §23 and pinned by tests; callers (CI, a scheduler)
+// can rely on them to tell "the check found problems" from "the check could not run".
+const (
+	// ExitOK means the command ran and, where a check was asked to fail on findings, found none.
+	ExitOK = 0
+	// ExitFailed means the command broke: a script or check that errored or yielded nothing,
+	// rules that do not load, a static check that found an error.
+	ExitFailed = 1
+	// ExitUsage means a malformed command line (unknown flag, missing argument, no source).
+	ExitUsage = 2
+	// ExitViolations means the check ran correctly and found violations, and the caller asked
+	// for that to fail the command (--fail-on-violation). It is distinct from ExitFailed so a
+	// CI job can tell a policy finding from a broken run (the diff/grep convention).
+	ExitViolations = 3
+)
+
+// ViolationsError reports that a check ran correctly and found violations. A command returns
+// it (or wraps it) when the caller asked findings to fail the command; the tree reports the
+// message on stderr and exits with ExitViolations instead of ExitFailed.
+type ViolationsError struct {
+	// Count is the number of violations found.
+	Count int
+}
+
+func (v ViolationsError) Error() string { return fmt.Sprintf("%d violation(s) found", v.Count) }
+
 // usageError marks a malformed command line (exit status 2).
 type usageError struct{ err error }
 
@@ -88,7 +115,9 @@ func usagef(format string, a ...any) error { return usageError{fmt.Errorf(format
 func UsageError(err error) error { return usageError{err} }
 
 // Execute runs the command line argv (without the program name) and returns the exit
-// status: 0 on success, 1 when a command failed, 2 when the command line is malformed.
+// status: ExitOK (0) on success, ExitFailed (1) when a command failed, ExitUsage (2) when the
+// command line is malformed. The Edition tree never returns ExitViolations; a domain command
+// that returns ViolationsError does.
 func (t *CommandTree) Execute(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	args := append([]string{}, argv...)
 	if t.spec.NormalizeArgs != nil {
@@ -101,7 +130,8 @@ func (t *CommandTree) Execute(argv []string, stdin io.Reader, stdout, stderr io.
 }
 
 // executeRoot runs a cobra root with the streams and maps its error to the exit status shared
-// by every command line in this package: 0 ok, 1 a command failed, 2 a malformed command line.
+// by every command line in this package: ExitOK, ExitFailed (a command failed), ExitUsage (a
+// malformed command line) and ExitViolations (a ViolationsError).
 func executeRoot(name string, root *cobra.Command, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	root.SetIn(stdin)
 	root.SetOut(stdout)
@@ -110,17 +140,21 @@ func executeRoot(name string, root *cobra.Command, args []string, stdin io.Reade
 	err := root.Execute()
 	var silent silentExit
 	var usage usageError
+	var violations ViolationsError
 	switch {
 	case err == nil:
-		return 0
+		return ExitOK
 	case errors.As(err, &silent):
 		return silent.code
 	case errors.As(err, &usage):
 		fmt.Fprintf(stderr, "%s: %v\nRun '%s --help' for usage.\n", name, err, name)
-		return 2
+		return ExitUsage
+	case errors.As(err, &violations):
+		fmt.Fprintf(stderr, "%s: %v\n", name, err)
+		return ExitViolations
 	default:
 		fmt.Fprintf(stderr, "%s: %v\n", name, err)
-		return 1
+		return ExitFailed
 	}
 }
 
@@ -413,7 +447,7 @@ func checkFiles(cmd *cobra.Command, files []string) error {
 		}
 	}
 	if failed {
-		return silentExit{1}
+		return silentExit{ExitFailed}
 	}
 	return nil
 }

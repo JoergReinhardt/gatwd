@@ -790,7 +790,7 @@ gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
 
 Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1.5` is that number, anything else — `bob`, `007` — the String; `ARGS`/`ARG0` are reserved), `--prelude FILE` (repeatable, loaded
 before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
-`1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
+`1` a command failed, `2` a malformed command line (an Appliance adds `3` for violations, see below). A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.
 
 ### The Appliance command line
@@ -812,7 +812,7 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--rules-mode layer\|replace` | `layer` (default, decision D5): the override is loaded on top of the embedded rules and may call them; `replace`: the override is the whole rule set |
 | `--interval DUR` | `run`/legacy form: wait between checks; the override is re-read each time |
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
-| `--fail-on-violation` | `check`: exit 1 when the result is non-empty (rejected for `run`, which never exits on violations) |
+| `--fail-on-violation` | `check`: exit `3` when the result is non-empty (opt-in; off by default; rejected for `run`, which never exits on violations) |
 
 The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
 single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
@@ -822,10 +822,13 @@ that cannot be read (imports resolve against the override's directory) or a requ
 start with exit `1` and names the problems; on a hot reload the error is printed and the **last good rules keep
 running**. At start and whenever it changes, the Appliance prints which defs the override overrode and which it added.
 
-**Exit status** — the same mapping as everywhere: `0` the check ran (and, with `--fail-on-violation`, found nothing);
-`1` the command failed — rules that do not load, a check that errored (`[ERROR]` result), a pipeline that yielded no
-result at all, or violations under `--fail-on-violation`; `2` a malformed command line (unknown flag or `--format`,
-no data source).
+**Exit status** — the same mapping as everywhere, plus one code for findings: `0` the check ran (and, with
+`--fail-on-violation`, found nothing); `1` the command failed — rules that do not load, a check that errored (`[ERROR]`
+result), a pipeline that yielded no result at all; `2` a malformed command line (unknown flag or `--format`, no data
+source); `3` the check ran correctly and, under `--fail-on-violation`, found violations. A CI job can therefore tell
+"policy findings" (`3`) from "the check could not run" (`1`). A check that both errored and found violations exits `1`:
+a broken run is never reported as a mere finding. In Go the codes are `cli.ExitOK`, `ExitFailed`, `ExitUsage` and
+`ExitViolations`; a domain command returns `cli.ViolationsError` to exit `3`.
 
 **Formats.** A rule set answers with a list of `[rule, resource]` findings; `[]` is compliant. `text` prints the
 value as the pipeline produced it. `json` prints one line per check, every key always present:
