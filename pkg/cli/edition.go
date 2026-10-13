@@ -1,6 +1,11 @@
 package cli
 
-import "io/fs"
+import (
+	"fmt"
+	"io/fs"
+
+	"github.com/spf13/cobra"
+)
 
 // preludeEntry is one DSL prelude queued on an Edition. Exactly one of its two
 // shapes is populated: an inline script (fsys == nil) or an embedded file read
@@ -22,6 +27,8 @@ type Edition struct {
 	constants    map[string]any
 	stepHandlers []StepHandler
 	preludes     []preludeEntry
+	commands     []*cobra.Command
+	normalize    func([]string) []string
 }
 
 // NewEdition creates a new fluent builder for authoring a custom Gatwd distribution.
@@ -101,8 +108,58 @@ func (e *Edition) WithPreludeFS(fsys fs.FS, path string) *Edition {
 	return e
 }
 
+// WithCommand adds a domain subcommand to the edition's command line. The command maps
+// flags to a DSL task or pipeline defined in the prelude — it holds no logic itself — and
+// obtains its interpreter from BuildInterpreter.
+func (e *Edition) WithCommand(cmd *cobra.Command) *Edition {
+	e.commands = append(e.commands, cmd)
+	return e
+}
+
+// WithArgNormalizer registers a rewrite applied to the command-line arguments before they
+// are parsed, so an edition can keep accepting a retired spelling (a single-dash long flag,
+// a renamed flag) for a release while it prints its own notice.
+func (e *Edition) WithArgNormalizer(fn func([]string) []string) *Edition {
+	e.normalize = fn
+	return e
+}
+
+// Command returns the edition's command line: the script runner, `eval`, `check`, `task`,
+// `repl`, `prelude`, `builtins`, `version`, shell completion, and the commands added with
+// WithCommand.
+func (e *Edition) Command() *CommandTree {
+	preludes := make([]Prelude, len(e.preludes))
+	for k, p := range e.preludes {
+		p := p
+		name := p.path
+		if p.fsys == nil {
+			name = fmt.Sprintf("inline-%d", k+1)
+		}
+		preludes[k] = Prelude{Name: name, Source: func() (string, error) {
+			if p.fsys == nil {
+				return p.script, nil
+			}
+			b, err := fs.ReadFile(p.fsys, p.path)
+			return string(b), err
+		}}
+	}
+	return NewCommandTree(CommandSpec{
+		Name:          e.Name,
+		Build:         e.buildInterpreter,
+		Preludes:      preludes,
+		Commands:      e.commands,
+		NormalizeArgs: e.normalize,
+	})
+}
+
 // BuildInterpreter instantiates and configures a new Interpreter from this Edition blueprint.
 func (e *Edition) BuildInterpreter() *Interpreter {
+	return e.buildInterpreter(false)
+}
+
+// buildInterpreter is BuildInterpreter with the option to leave the embedded preludes out
+// (types, constants and steps stay registered).
+func (e *Edition) buildInterpreter(skipPreludes bool) *Interpreter {
 	var interp *Interpreter
 	if e.bare {
 		interp = NewBareInterpreter()
@@ -124,6 +181,9 @@ func (e *Edition) BuildInterpreter() *Interpreter {
 	// //go:embed path) is a programmer error; surface it loudly rather than
 	// shipping a silently half-configured edition.
 	for _, p := range e.preludes {
+		if skipPreludes {
+			break
+		}
 		if p.fsys != nil {
 			if err := interp.LoadScriptFS(p.fsys, p.path); err != nil {
 				panic("gatwd edition " + e.Name + ": failed to load embedded prelude '" + p.path + "': " + err.Error())
@@ -137,5 +197,5 @@ func (e *Edition) BuildInterpreter() *Interpreter {
 
 // Run executes the CLI using this configured Edition.
 func (e *Edition) Run() {
-	RunWithInterpreter(e.BuildInterpreter())
+	e.Command().exitWith()
 }

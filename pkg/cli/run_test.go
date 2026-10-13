@@ -8,47 +8,6 @@ import (
 	"testing"
 )
 
-func TestParseRunArgs(t *testing.T) {
-	cases := []struct {
-		name string
-		argv []string
-		want runArgs
-		err  string
-	}{
-		{"none", nil, runArgs{}, ""},
-		{"script", []string{"s.gatwd"}, runArgs{script: "s.gatwd"}, ""},
-		{"interactive", []string{"-i", "s.gatwd"}, runArgs{script: "s.gatwd", interactive: true}, ""},
-		{"args after dashes", []string{"s.gatwd", "--", "a", "-b", "--c"}, runArgs{script: "s.gatwd", args: []string{"a", "-b", "--c"}}, ""},
-		{"task separate", []string{"--task", "t", "s.gatwd"}, runArgs{script: "s.gatwd", task: "t"}, ""},
-		{"task equals", []string{"s.gatwd", "--task=t", "--", "x"}, runArgs{script: "s.gatwd", task: "t", args: []string{"x"}}, ""},
-		{"task without script", []string{"--task", "t"}, runArgs{task: "t"}, ""},
-		{"empty args", []string{"s.gatwd", "--"}, runArgs{script: "s.gatwd", args: []string{}}, ""},
-		{"task needs name", []string{"--task"}, runArgs{}, "--task needs a task name"},
-		{"unknown flag", []string{"--bogus"}, runArgs{}, `unknown flag "--bogus"`},
-		{"second positional", []string{"a.gatwd", "b.gatwd"}, runArgs{script: "a.gatwd"}, `unexpected argument "b.gatwd"`},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got, err := parseRunArgs(c.argv)
-			if c.err != "" {
-				if err == nil || !strings.Contains(err.Error(), c.err) {
-					t.Fatalf("error = %v, want one containing %q", err, c.err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(got.args) == 0 && len(c.want.args) == 0 {
-				got.args, c.want.args = nil, nil
-			}
-			if !reflect.DeepEqual(got, c.want) {
-				t.Fatalf("got %+v, want %+v", got, c.want)
-			}
-		})
-	}
-}
-
 func writeScript(t *testing.T, body string) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "s.gatwd")

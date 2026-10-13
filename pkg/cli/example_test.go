@@ -2,6 +2,9 @@ package cli_test
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/visualizer"
@@ -200,4 +203,22 @@ const VAL = 200
 	// │     ├─ Initial: 100  │
 	// │     ╰─ Reloaded: 200 │
 	// ╰──────────────────────╯
+}
+
+// ExampleCommandTree_Execute runs a command line without a process: the tree returns the
+// exit status (0 ok, 1 a command failed, 2 a malformed command line) and writes to the
+// given streams.
+func ExampleCommandTree_Execute() {
+	tree := cli.NewCommandTree(cli.CommandSpec{
+		Name:  "gatwd",
+		Build: func(bool) *cli.Interpreter { return cli.NewInterpreter() },
+	})
+	code := tree.Execute([]string{"eval", "-e", "1 + 2"}, strings.NewReader(""), os.Stdout, os.Stderr)
+	fmt.Println("exit", code)
+	code = tree.Execute([]string{"--no-such-flag"}, strings.NewReader(""), io.Discard, io.Discard)
+	fmt.Println("exit", code)
+	// Output:
+	// ∷ 3
+	// exit 0
+	// exit 2
 }

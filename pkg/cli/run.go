@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
@@ -30,6 +34,14 @@ type RunOptions struct {
 	Args []string
 	// Task names the def to run instead of `main`.
 	Task string
+	// Eval statements run, in order, after the script loads. When Eval is given and Task is
+	// empty, `main` does not run: the statements replace the default task. A statement that
+	// prints an `[ERROR]` or nothing at all makes Run fail.
+	Eval []string
+	// Define binds string constants (`-D NAME=VALUE`) before anything else runs.
+	Define map[string]string
+	// Preludes are extra scripts loaded, in order, before Script.
+	Preludes []string
 }
 
 // RunResult is what the selected task produced.
@@ -52,12 +64,99 @@ func (i *Interpreter) setArgs(script string, args []string) {
 	i.invalidateCompiledCache()
 }
 
-// Run binds ARGS and ARG0, loads o.Script (its top-level statements run and print as
-// usual) and then runs the selected task: o.Task, or `main` if the script defines it. An
-// unreadable script, an unknown task, or a task that reports an `[ERROR]` is an error;
-// the task's lines are returned either way so the caller can print them first.
+// defineName is a constant name `-D` may bind.
+var defineName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// ParseDefines reads `NAME=VALUE` strings into a map; the later of two equal names wins.
+// A missing `=`, an invalid name, or one of the reserved names ARGS and ARG0 is an error.
+func ParseDefines(defs []string) (map[string]string, error) {
+	out := make(map[string]string, len(defs))
+	for _, d := range defs {
+		name, value, ok := strings.Cut(d, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid definition %q: want NAME=VALUE", d)
+		}
+		if err := checkDefineName(name); err != nil {
+			return nil, err
+		}
+		out[name] = value
+	}
+	return out, nil
+}
+
+func checkDefineName(name string) error {
+	if !defineName.MatchString(name) {
+		return fmt.Errorf("invalid definition name %q: want an identifier (NAME=VALUE)", name)
+	}
+	if name == "ARGS" || name == "ARG0" {
+		return fmt.Errorf("cannot define %s: it is bound to the script arguments", name)
+	}
+	return nil
+}
+
+// setDefines binds the `-D` string constants.
+func (i *Interpreter) setDefines(defs map[string]string) error {
+	for name, value := range defs {
+		if err := checkDefineName(name); err != nil {
+			return err
+		}
+		i.Constants[name] = value
+	}
+	if len(defs) > 0 {
+		i.invalidateCompiledCache()
+	}
+	return nil
+}
+
+// errorCounter forwards writes and counts the lines that report a failure: an `[ERROR]`
+// result, or a statement that printed nothing (the DSL gate rejects both).
+type errorCounter struct {
+	w io.Writer
+	n atomic.Int64
+}
+
+func (e *errorCounter) Write(p []byte) (int, error) {
+	if bytes.HasPrefix(p, []byte("∷ [ERROR]")) || bytes.HasPrefix(p, []byte("(No output or node unhandled)")) {
+		e.n.Add(1)
+	}
+	return e.w.Write(p)
+}
+
+// runEval evaluates statements as if typed at the prompt and fails if any printed an [ERROR].
+func (i *Interpreter) runEval(stmts []string) error {
+	if len(stmts) == 0 {
+		return nil
+	}
+	counter := &errorCounter{w: i.out()}
+	saved := i.Out
+	i.Out = counter
+	defer func() { i.Out = saved }()
+	for _, s := range stmts {
+		i.EvaluateLine(s)
+	}
+	if n := counter.n.Load(); n > 0 {
+		return fmt.Errorf("%d evaluated statement(s) failed or printed nothing", n)
+	}
+	return nil
+}
+
+// Run binds ARGS, ARG0 and the -D constants, loads the extra preludes and then o.Script (its
+// top-level statements run and print as usual), runs o.Eval, and finally runs the selected
+// task: o.Task, or `main` if the script defines it. An unreadable script or prelude, an
+// unknown task, or a task that reports an `[ERROR]` is an error; the task's lines are
+// returned either way so the caller can print them first.
 func (i *Interpreter) Run(o RunOptions) (RunResult, error) {
 	i.setArgs(o.Script, o.Args)
+	if err := i.setDefines(o.Define); err != nil {
+		return RunResult{}, err
+	}
+	for _, p := range o.Preludes {
+		content, err := os.ReadFile(p)
+		if err != nil {
+			return RunResult{}, fmt.Errorf("cannot read prelude %q: %w", p, err)
+		}
+		i.LoadScriptContent(string(content), filepath.Dir(p))
+	}
 	if o.Script != "" {
 		content, err := os.ReadFile(o.Script)
 		if err != nil {
@@ -65,8 +164,14 @@ func (i *Interpreter) Run(o RunOptions) (RunResult, error) {
 		}
 		i.LoadScriptContent(string(content), filepath.Dir(o.Script))
 	}
+	if err := i.runEval(o.Eval); err != nil {
+		return RunResult{}, err
+	}
 	name := o.Task
 	if name == "" {
+		if len(o.Eval) > 0 {
+			return RunResult{}, nil
+		}
 		if _, ok := i.Funcs["main"]; !ok {
 			return RunResult{}, nil
 		}
@@ -125,44 +230,4 @@ func (i *Interpreter) taskNames() []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-// runArgs is the parsed command line of RunWithInterpreter.
-type runArgs struct {
-	script      string
-	task        string
-	interactive bool
-	args        []string
-}
-
-// parseRunArgs reads `[-i] [--task NAME] [script] [-- arg ...]`. It rejects what it does
-// not understand — an unknown flag, a second positional argument — instead of treating
-// it as a file name.
-func parseRunArgs(argv []string) (runArgs, error) {
-	var ra runArgs
-	for idx := 0; idx < len(argv); idx++ {
-		a := argv[idx]
-		switch {
-		case a == "--":
-			ra.args = append([]string(nil), argv[idx+1:]...)
-			return ra, nil
-		case a == "-i":
-			ra.interactive = true
-		case a == "--task":
-			if idx+1 >= len(argv) {
-				return ra, fmt.Errorf("--task needs a task name")
-			}
-			idx++
-			ra.task = argv[idx]
-		case strings.HasPrefix(a, "--task="):
-			ra.task = strings.TrimPrefix(a, "--task=")
-		case strings.HasPrefix(a, "-") && len(a) > 1:
-			return ra, fmt.Errorf("unknown flag %q (script arguments go after --)", a)
-		case ra.script == "":
-			ra.script = a
-		default:
-			return ra, fmt.Errorf("unexpected argument %q (script arguments go after --)", a)
-		}
-	}
-	return ra, nil
 }

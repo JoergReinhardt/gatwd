@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"iter"
 	"os"
@@ -52,6 +53,16 @@ type Interpreter struct {
 	lambdaCache    *sync.Map     // map[string]parser.Expr; concurrent-safe because ||> evaluates in parallel
 	CustomSteps    []StepHandler // Pluggable extension step handlers
 	EnableBuiltins bool          // Whether Go std builtins are active
+	// Out receives the printed result of every top-level statement; nil means os.Stdout.
+	Out io.Writer
+}
+
+// out is the writer top-level statements print to.
+func (i *Interpreter) out() io.Writer {
+	if i.Out == nil {
+		return os.Stdout
+	}
+	return i.Out
 }
 
 // NewBareInterpreter creates an interpreter with bare-bones execution capabilities:
@@ -94,6 +105,7 @@ func (i *Interpreter) RegisterStep(handler StepHandler) {
 func (i *Interpreter) fork() *Interpreter {
 	localInterp := NewBareInterpreter()
 	localInterp.EnableBuiltins = i.EnableBuiltins
+	localInterp.Out = i.Out
 	localInterp.CustomSteps = i.CustomSteps
 	localInterp.Variables = make(map[string]string)
 	for k, v := range i.Variables {
@@ -2101,7 +2113,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
 					res := i.EvaluateToValues(cleanPipeline)
 					if err := letResultError(varName, res); err != nil {
-						fmt.Printf("∷ [ERROR] %v\n", err)
+						fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
 						return
 					}
 					val := res[0]
@@ -2162,7 +2174,7 @@ func (i *Interpreter) EvaluateLine(line string) {
 				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
 					res := i.EvaluateToValues(cleanPipeline)
 					if err := letResultError(varName, res); err != nil {
-						fmt.Printf("∷ [ERROR] %v\n", err)
+						fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
 						return
 					}
 					val := res[0]
@@ -2227,10 +2239,10 @@ func (i *Interpreter) EvaluateLine(line string) {
 
 	results := i.evaluatePipelineStr(line)
 	for _, res := range results {
-		fmt.Printf("∷ %s\n", res)
+		fmt.Fprintf(i.out(), "∷ %s\n", res)
 	}
 	if len(results) == 0 && !strings.HasPrefix(line, "type ") && !strings.HasPrefix(line, "import ") && !strings.HasPrefix(line, "const ") {
-		fmt.Println("(No output or node unhandled)")
+		fmt.Fprintln(i.out(), "(No output or node unhandled)")
 	}
 }
 
@@ -2259,7 +2271,7 @@ func (i *Interpreter) loadScriptContent(content string, baseDir string, fsys fs.
 				importFile = pathpkg.Join(baseDir, importFile)
 				bytes, err := fs.ReadFile(fsys, importFile)
 				if err != nil {
-					fmt.Printf("Error reading embedded import '%s': %v\n", importFile, err)
+					fmt.Fprintf(i.out(), "Error reading embedded import '%s': %v\n", importFile, err)
 					continue
 				}
 				i.loadScriptContent(string(bytes), pathpkg.Dir(importFile), fsys)
@@ -2337,7 +2349,7 @@ func logicalLines(content string) []logicalLine {
 func (i *Interpreter) LoadScript(filename string) {
 	bytes, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Printf("Error reading file '%s': %v\n", filename, err)
+		fmt.Fprintf(i.out(), "Error reading file '%s': %v\n", filename, err)
 		return
 	}
 	i.LoadScriptContent(string(bytes), filepath.Dir(filename))
@@ -2355,105 +2367,14 @@ func (i *Interpreter) LoadScriptFS(fsys fs.FS, filename string) error {
 	return nil
 }
 
-// RunWithInterpreter executes batch script execution or interactive REPL using the supplied Interpreter.
+// RunWithInterpreter runs the command line of the process (see command.go) against
+// interpreter and exits with a non-zero status on failure. The interpreter has no
+// embedded preludes to skip, so --no-prelude changes nothing.
 func RunWithInterpreter(interpreter *Interpreter) {
-	fmt.Println("=== gatwd Interpreter (V2 Modernized) ===")
-	fmt.Println("UTF-8 Mathematical Aliases Enabled (e.g. ⊳, →, ∷)")
-
-	if len(os.Args) > 1 && (os.Args[1] == "--check" || os.Args[1] == "-c") {
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "Usage: gatwd --check <file.gatwd>")
-			os.Exit(1)
-		}
-		targetFile := os.Args[2]
-		content, err := os.ReadFile(targetFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s:1:1: error: cannot read file: %v\n", targetFile, err)
-			os.Exit(1)
-		}
-		// Validate statically over logical statements (see CheckScript): structural
-		// problems are errors (exit 1); exhaustiveness and gradual-typing findings are
-		// advisory warnings (exit 0).
-		hasError := false
-		for _, d := range CheckScript(string(content)) {
-			fmt.Fprintf(os.Stderr, "%s:%d:%d: %s: %s\n", targetFile, d.Line, d.Col, d.Severity, d.Msg)
-			if d.Severity == "error" {
-				hasError = true
-			}
-		}
-		if hasError {
-			os.Exit(1)
-		}
-		// Clean check
-		os.Exit(0)
-	}
-
-	ra, perr := parseRunArgs(os.Args[1:])
-	if perr != nil {
-		fmt.Fprintf(os.Stderr, "gatwd: %v\nusage: gatwd [-i] [--task NAME] [script] [-- arg ...]   |   gatwd --check <file.gatwd>\n", perr)
-		os.Exit(2)
-	}
-	// With nothing to run (no script, no task) the REPL is the default.
-	interactiveMode := ra.interactive || (ra.script == "" && ra.task == "")
-
-	if ra.script != "" && !interactiveMode {
-		fmt.Printf("Running Batch Mode: %s\n", ra.script)
-	}
-	result, runErr := interpreter.Run(RunOptions{Script: ra.script, Args: ra.args, Task: ra.task})
-	for _, line := range result.Lines {
-		fmt.Printf("∷ %s\n", line)
-	}
-	if result.Task != "" && len(result.Lines) == 0 {
-		fmt.Println("(No output or node unhandled)")
-	}
-	if runErr != nil {
-		fmt.Fprintf(os.Stderr, "gatwd: %v\n", runErr)
-		if !interactiveMode {
-			os.Exit(1)
-		}
-	}
-	if !interactiveMode {
-		return
-	}
-
-	fmt.Println("Running Interactive Mode. Type ':load <file>' to load a script, or 'exit' to quit.")
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		fmt.Print("gatwd ⊳ ")
-		if !scanner.Scan() {
-			break
-		}
-		line := strings.TrimSpace(scanner.Text())
-		if line == "exit" || line == "quit" {
-			break
-		}
-		if line == "" || strings.HasPrefix(line, "--") {
-			continue
-		}
-
-		if strings.HasPrefix(line, ":load ") {
-			interpreter.LoadScript(strings.TrimSpace(line[6:]))
-			continue
-		}
-
-		// Handle REPL introspection commands
-		if line == ":macros" {
-			fmt.Println("Registered Macros:")
-			for k, v := range interpreter.Funcs {
-				fmt.Printf("  %s = %s\n", k, v)
-			}
-			continue
-		}
-		if line == ":vars" {
-			fmt.Println("Registered Bindings (let):")
-			for k, v := range interpreter.Variables {
-				fmt.Printf("  %s = %s\n", k, v)
-			}
-			continue
-		}
-
-		interpreter.EvaluateLine(line)
-	}
+	NewCommandTree(CommandSpec{
+		Name:  "gatwd",
+		Build: func(bool) *Interpreter { return interpreter },
+	}).exitWith()
 }
 
 // Run executes the default CLI using the full NewInterpreter() with all builtins.

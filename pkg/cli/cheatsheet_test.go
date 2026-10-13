@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"io"
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,23 +11,12 @@ import (
 
 const cheatsheetPath = "../../examples/scripts/cheatsheet.gatwd"
 
-func captureStdout(t *testing.T, f func()) string {
-	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := os.Stdout
-	os.Stdout = w
-	done := make(chan string)
-	go func() {
-		b, _ := io.ReadAll(r)
-		done <- string(b)
-	}()
-	f()
-	w.Close()
-	os.Stdout = old
-	return <-done
+// quietInterpreter is a full interpreter whose statement output goes to the returned buffer.
+func quietInterpreter() (*Interpreter, *bytes.Buffer) {
+	in := NewInterpreter()
+	buf := &bytes.Buffer{}
+	in.Out = buf
+	return in, buf
 }
 
 // cheatsheetProblems runs a script the way the command line does and lists everything the
@@ -36,11 +25,11 @@ func captureStdout(t *testing.T, f func()) string {
 func cheatsheetProblems(t *testing.T, script string, args ...string) []string {
 	t.Helper()
 	var problems []string
-	out := captureStdout(t, func() {
-		if _, err := NewInterpreter().Run(RunOptions{Script: script, Args: args}); err != nil {
-			problems = append(problems, "run: "+err.Error())
-		}
-	})
+	in, buf := quietInterpreter()
+	if _, err := in.Run(RunOptions{Script: script, Args: args}); err != nil {
+		problems = append(problems, "run: "+err.Error())
+	}
+	out := buf.String()
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, "[ERROR]") || strings.Contains(line, "No output or node unhandled") {
 			problems = append(problems, line)
@@ -67,15 +56,13 @@ func TestCheatsheetRunsCleanWithAndWithoutArguments(t *testing.T) {
 func TestCheatsheetMainAndTasks(t *testing.T) {
 	var res RunResult
 	var err error
-	captureStdout(t, func() {
-		res, err = NewInterpreter().Run(RunOptions{Script: cheatsheetPath, Args: []string{"a", "b c"}})
-	})
+	in, _ := quietInterpreter()
+	res, err = in.Run(RunOptions{Script: cheatsheetPath, Args: []string{"a", "b c"}})
 	if err != nil || res.Task != "main" || !reflect.DeepEqual(res.Lines, []string{"[2 [a! b c!]]"}) {
 		t.Fatalf("main = %+v, %v", res, err)
 	}
-	captureStdout(t, func() {
-		res, err = NewInterpreter().Run(RunOptions{Script: cheatsheetPath, Task: "shout", Args: []string{"x"}})
-	})
+	in, _ = quietInterpreter()
+	res, err = in.Run(RunOptions{Script: cheatsheetPath, Task: "shout", Args: []string{"x"}})
 	if err != nil || !reflect.DeepEqual(res.Lines, []string{"[x!]"}) {
 		t.Fatalf("shout = %+v, %v", res, err)
 	}
