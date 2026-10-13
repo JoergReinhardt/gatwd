@@ -7,6 +7,18 @@
 > recommendation. The small silent-failure fixes (guard-only comprehension, collectors
 > dropping error nodes, `zip`) are not here: they were done as their own tracks first (merged 2026-10-14).
 
+## Start here (state at the end of 2026-10-14; nothing is being implemented)
+
+**State:** everything merged and pushed; the tree is green; no branches, worktrees or background agents are open. The hardening plan is closed; this file is the only open plan.
+
+**Decisions.** Accepted by the user on 2026-10-14 ("your recommendation in both cases"): **D-F9a** guards are spelled `pat if cond -> body`; **D-F9b** clause-style definitions are repeated `def NAME <patterns> = body` lines (no bare `fact 0 = 1`). **Every other decision below is still a recommendation awaiting the user's sign-off**; if the user says "defaults", take the recommended option and record it here with the date: D-F1 (keep the old message as first line), D-F2 (cooperative check in the closure call path), D-F3 (exit 130/143), D-F4a (separate `k8s_rollout_wait` step), D-F5 (optional third message element), D-F6a (`Ratio` as the exact string `"3r4"` in JSON/YAML), D-F7a (environment defaults for the operator first; ConfigMap watch by polling), D-F8a (continuation rules for every statement), D-F8b (precise error first, `(x |> f)` support after F1).
+
+**Suggested first session** (two agents at a time, resource limits in §0): agent 1 = **F9e** (the nil-parser panic, a crash) then **F9d** (make `def NAME <pattern> = …` a loud error) then **F9a** guards; agent 2 = **F1 + F8a** (error positions and statement continuation share `logicalLines`, so one agent). **F4** (rollout) is independent and can replace either agent when it finishes. Then F9b (clause definitions) after F9e and F8a, then F2 with F5, then F3 and F7; F6 items only when a consumer appears.
+
+**Already answered (not to be re-asked):** see `hardening_plan.md` §1; in particular remote kustomize bases stay refused, Secret `data` is documented not redacted, delete/prune is out of scope, `--out` needs no apply capability, one `--timeout` bounds loading and checks, BST `==` compares content, `map` over a BST stays an error.
+
+**Answers to questions asked in passing (2026-10-14):** gatwd lambdas are curried and multi-argument (`\x y -> …`, `f 1 2`, `map (f 1)`; a `match`-bodied `def` takes one incoming value, several arguments being matched as a tuple, which F9b fixes); the Haskell clause layout does not exist yet (F9); `(x |> f)` inside an expression and a trailing `->` at the end of a line do not work yet (F8).
+
 ## 0. How to work through it
 
 - **Same delivery rules as before** (`AGENTS.md` Mandates 6 and 8, `.agents/skills/phase-delivery/SKILL.md`): one commit per sub-step, every gate green, negative-control each guard, write deferrals down, stage by name, commit and push only when asked.

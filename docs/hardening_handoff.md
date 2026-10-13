@@ -15,11 +15,11 @@ Every question raised by the tracks and the closing checklist was answered on 20
 
 **All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed (full plan: `followup_plan.md`): `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
-**The larger deferred items now have a written plan: [`followup_plan.md`](followup_plan.md)** (phases F1 error positions, F8 multi-line statements, F9 pattern-matching definitions, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
+**START HERE: [`followup_plan.md`](followup_plan.md) — its "Start here" section has the state, the decisions (D-F9a/b accepted, the rest awaiting sign-off) and the suggested first session. It is the only open plan.** The larger deferred items are planned there (phases F1 error positions, F8 multi-line statements, F9 pattern-matching definitions, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
 
 ## 1. Where we are
 
-**State (2026-10-13):** `master` contains everything; the remote is at `e561520`. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
+**State (2026-10-13):** `master` contains everything; the remote is at `d65f3e8` plus the docs commit that follows it. `output.txt` in the repo root is untracked and **not ours**. `.claude/worktrees/` is empty and all `hardening/*` branches are deleted.
 Stage by name; commit and push only when asked.
 
 **Done and merged** (plan §0 has a row each): W0, W1a/b, W2 (+ YAML, `go.yaml.in/yaml/v3` on the Clean Core allowlist for `pkg/cli`), W3 (numeric tower, `Ratio`, prefix `!`), W4 (qualified ids), W5 (kustomize, Go 1.27),
@@ -111,7 +111,7 @@ D2 will change the output of any script that concatenated with `+` (none found);
 
 ## 8. First steps
 
-0. Nothing is open (§0); wait for the user's next request.
+0. Read `followup_plan.md` "Start here"; ask the user to sign off on (or say "defaults" for) the open D-F decisions, then start the suggested first session (nothing is implemented yet).
 1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start. Handle Q1 (push) as answered.
 2. Pick the follow-ups the answers enable; independent ones run as parallel tracks (§3). Pinning tests first, then generic Go in `functions/`/`collections/`, then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line;
    **a statement ending in `=` continues on the next line — do not end an `assert` argument with `=`**), then docs. One commit per sub-step, all gates after each.
