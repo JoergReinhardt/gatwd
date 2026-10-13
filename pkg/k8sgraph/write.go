@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,6 +191,77 @@ func ApplyStep(keyword string, a *adapters.Applier, out func() string) cli.StepH
 		}
 		return a.Apply(ctx, v)
 	}))
+}
+
+// rolloutOp is one operation of the rollout family on one workload.
+type rolloutOp func(a *adapters.Applier, ctx context.Context, arg string, v any) (adapters.WriteRecord, error)
+
+// intArg parses the integer argument of a step, or says what the step wants.
+func intArg(step, arg, what string) (int64, error) {
+	n, err := strconv.ParseInt(strings.TrimSpace(arg), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s needs %s as its argument, got %q", step, what, arg)
+	}
+	return n, nil
+}
+
+// noArg wraps an operation that takes no argument.
+func noArg(step string, f func(*adapters.Applier, context.Context, any) (adapters.WriteRecord, error)) rolloutOp {
+	return func(a *adapters.Applier, ctx context.Context, arg string, v any) (adapters.WriteRecord, error) {
+		if strings.TrimSpace(arg) != "" {
+			return adapters.WriteRecord{}, fmt.Errorf("%s takes no argument (got %q)", step, arg)
+		}
+		return f(a, ctx, v)
+	}
+}
+
+func rolloutRecordOp(a *adapters.Applier, op rolloutOp) recordOp {
+	return func(ctx context.Context, _ *cli.Interpreter, arg string, v any) (adapters.WriteRecord, error) {
+		return op(a, ctx, arg, v)
+	}
+}
+
+// RolloutStepNames are the keywords of the rollout family, in documentation order.
+var RolloutStepNames = []string{"k8s_rollout_status", "k8s_rollout_restart", "k8s_rollout_undo", "k8s_rollout_pause", "k8s_rollout_resume", "k8s_scale"}
+
+// RolloutSteps returns the rollout family as steps over a workload (an object payload or the
+// id `Deployment/default/web`), each yielding [verb, id, outcome]:
+//
+//	k8s_rollout_status          read-only; needs no capability, only `get`
+//	k8s_rollout_restart         annotate the pod template with restartedAt
+//	k8s_rollout_undo [REVISION] roll back to the previous (or the given) revision
+//	k8s_rollout_pause           spec.paused = true
+//	k8s_rollout_resume          spec.paused = false
+//	k8s_scale N                 spec.replicas = N
+//
+// Everything but status is denied unless the policy grants cli.CapClusterRollout, and a server
+// dry run unless the write settings persist (--dry-run=false).
+func RolloutSteps(a *adapters.Applier) []cli.StepHandler {
+	status := recordStep("k8s_rollout_status", rolloutRecordOp(a, noArg("k8s_rollout_status", (*adapters.Applier).Status))) // read-only: no capability gate
+	return []cli.StepHandler{
+		status,
+		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_restart", rolloutRecordOp(a, noArg("k8s_rollout_restart", (*adapters.Applier).Restart)))),
+		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_pause", rolloutRecordOp(a, noArg("k8s_rollout_pause", (*adapters.Applier).Pause)))),
+		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_resume", rolloutRecordOp(a, noArg("k8s_rollout_resume", (*adapters.Applier).Resume)))),
+		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_undo", rolloutRecordOp(a, func(a *adapters.Applier, ctx context.Context, arg string, v any) (adapters.WriteRecord, error) {
+			var rev int64
+			if strings.TrimSpace(arg) != "" {
+				n, err := intArg("k8s_rollout_undo", arg, "a revision number (or no argument for the previous one)")
+				if err != nil {
+					return adapters.WriteRecord{}, err
+				}
+				rev = n
+			}
+			return a.Undo(ctx, v, rev)
+		}))),
+		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_scale", rolloutRecordOp(a, func(a *adapters.Applier, ctx context.Context, arg string, v any) (adapters.WriteRecord, error) {
+			n, err := intArg("k8s_scale", arg, "the replica count")
+			if err != nil {
+				return adapters.WriteRecord{}, err
+			}
+			return a.Scale(ctx, v, n)
+		}))),
+	}
 }
 
 // newApplier assembles the adapter the write steps share: the client, the kind resolver

@@ -85,9 +85,14 @@ func ApplyEdition(e *cli.Edition, client dynamic.Interface, opts ...Option) *cli
 	if write == nil {
 		write = DefaultWriteFlags()
 		e = e.WithFlags(write.Bind).
-			WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster (k8s_apply)")
+			WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster (k8s_apply)").
+			WithCapabilityFlag("allow-cluster-rollout", cli.CapClusterRollout, "let scripts restart, undo, pause, resume and scale workloads (k8s_rollout_*, k8s_scale)")
 	}
-	e = e.WithStep(ApplyStep("k8s_apply", newApplier(client, write, cfg.resolver), func() string { return write.Out }))
+	applier := newApplier(client, write, cfg.resolver)
+	e = e.WithStep(ApplyStep("k8s_apply", applier, func() string { return write.Out }))
+	for _, h := range RolloutSteps(applier) {
+		e = e.WithStep(h)
+	}
 	if client != nil {
 		for _, c := range CoreCrawls {
 			e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR))

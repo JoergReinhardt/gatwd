@@ -600,6 +600,9 @@ func TestEveryWriteStepIsGated(t *testing.T) {
 				continue
 			}
 			sites++
+			if strings.Contains(line, `recordStep("k8s_rollout_status"`) && strings.Contains(line, "// read-only: no capability gate") {
+				continue // the one read-only step: `rollout status` only needs the get permission
+			}
 			if !strings.Contains(line, "cli.GatedStep(cli.Cap") {
 				t.Errorf("%s:%d wires a write step without cli.GatedStep(cli.Cap…, …):\n  %s", f, n+1, trim)
 			}
@@ -607,6 +610,31 @@ func TestEveryWriteStepIsGated(t *testing.T) {
 	}
 	if sites == 0 {
 		t.Fatal("no write step found: the guard is looking for the wrong constructor")
+	}
+}
+
+// TestWriteAdapterIsReachedOnlyThroughTheGatedSteps: the Applier's mutating methods are called
+// from write.go (inside recordStep operations, which TestEveryWriteStepIsGated pins to
+// cli.GatedStep) and nowhere else in the shim, so no other file can wire an ungated write.
+func TestWriteAdapterIsReachedOnlyThroughTheGatedSteps(t *testing.T) {
+	call := regexp.MustCompile(`\.(Apply|RenderTo|Restart|Undo|Pause|Resume|Scale)\(|\(\*adapters\.Applier\)\.(Apply|RenderTo|Restart|Undo|Pause|Resume|Scale)\b`)
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || f == "write.go" {
+			continue
+		}
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for n, line := range strings.Split(string(raw), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "//") {
+				continue
+			}
+			if call.MatchString(line) {
+				t.Errorf("%s:%d reaches a mutating Applier method outside write.go, so outside the gated steps:\n  %s", f, n+1, strings.TrimSpace(line))
+			}
+		}
 	}
 }
 

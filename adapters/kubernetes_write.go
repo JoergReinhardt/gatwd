@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -243,6 +244,8 @@ type Applier struct {
 	Resolver ResourceResolver
 	// Settings is read for every object; nil means the zero WriteSettings (a dry run).
 	Settings func() WriteSettings
+	// Now is the clock of Restart; nil means time.Now (a test injects a fixed one).
+	Now func() time.Time
 }
 
 func (a *Applier) settings() WriteSettings {
