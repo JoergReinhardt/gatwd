@@ -102,6 +102,8 @@ go test ./...                       # includes internal/archtest (layers, Clean 
 go test -race ./pkg/... ./evaluator ./parser ./interactive ./cmd/gatwd-k8s-operator
 ```
 
+**Resource limits (user, 2026-10-13: a parallel run crashed the laptop).** Never run `benchmarks/*.gatwd` (ackermann, conway_gun: 6–9 s each) in routine gates — exclude `./benchmarks/*` from the regression-diff loop and run them only for a performance change, once. Prefix heavy commands with `nice -n 10`, set `GOMAXPROCS=4`, use `go test -p 2`; run `-race` on the touched packages per sub-step and the full set once per merge; run at most two heavy agents at once.
+
 Interpreter, parser and evaluator changes also need the **script regression diff** and a silent `--check` (recreate the helper; it is ephemeral):
 
 ```bash
