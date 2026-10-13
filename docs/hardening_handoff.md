@@ -1,11 +1,29 @@
-# Handoff — continue the hardening plan at W3 (the numeric tower and `Ratio`); W2 is done
+# Handoff — hardening plan: W2 is done; next are W3, W4, W5, W6 (in parallel, as the plan allows), then W7
 
 > Handoff for a **fresh context**. It **supersedes the earlier version of this file** (the W2/W3 brief written after W1b) and
 > nothing else; the k8s-graph handoffs `phase6/7/8_handoff.md` are historical and carry banners.
 >
-> **Read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
+> **First, do §0** (ask the user the open questions). **Then read in this order:** `AGENTS.md` (mandates 1–8, §5 gates, §5a prevention rules) → `docs/hardening_plan.md`
 > (§0 progress table, §1 decisions, §5 W2, §6 W3, §10 sequencing) → `docs/development_playbook.md` (§3 gates and the
 > regression check, §4 step vs function form, §6 DSL traps) → this file. Then start at "First steps" (§8).
+
+---
+
+## 0. START HERE — ask the user the open questions first, then work
+
+**Your first message to the user is the list below. Do not read further code, start a track or run a gate before the user has answered (or said "use your defaults").**
+Present each question with its recommended default so the user can answer in one line. Record the answers (with the date) in `docs/hardening_plan.md` §1 and in this file's §2, then continue.
+
+| # | Open question | Recommended default | What it gates |
+| :-- | :-- | :-- | :-- |
+| Q1 | **Push** the local W2 commits (`git log --oneline 19a4b03..HEAD`; nothing since `19a4b03` is on the remote)? Push now, push after W3, or never until asked? | push now, so the parallel worktrees branch from a shared base | publication only |
+| Q2 | **D14–D17** (plan §5.6): `Duration`/`Time`/`Date` — (D14) `@…` and unit-suffix literals (`5s`, `@2026-10-13`) or functions only; (D15) `now` as an injectable-clock adapter step; (D16) `Time` carries a display zone, no `DateTime` type; (D17) `Date ± whole-day Duration` operators. | all four as proposed (the first option of each) | §5.6, which runs after W3; answer now so it is not blocked later |
+| Q3 | **YAML** is deferred because core may import only the standard library: keep it an Edition-registered function (default), or add a YAML library to the Clean Core allowlist for `pkg/cli` (smaller, but widens core)? | keep deferred | whether `yaml_parse`/`yaml_encode` exist in core |
+| Q4 | **D7 auto-render:** should `manifests` render a kustomization root automatically (with `--no-kustomize` as the off switch), or only on request? Never answered explicitly. | auto-render, `--no-kustomize` to disable | W5 behaviour |
+| Q5 | **Veto check** — decisions taken on the recommendation during W2 that the user has not seen as a question: no prefix `!` (it collides with `!=`; use `not`); `Unit` deferred; the constructors `LT`/`EQ`/`GT` are reserved by the built-in `Ordering` (a user sum type that also declares them shares them; plan §0 step 6); `compare` returns `Ordering` instead of `-1/0/1` (breaking, written in the plan); `-D` numbers are typed (the user accepted this). Any to reverse? | keep all | nothing is blocked; reversing is cheap now |
+| Q6 | **Parallel run:** confirm the four tracks in §3a start now (W3, W4, W5, W6), each in its own git worktree, merged by you one at a time? | yes | how the session is organised |
+
+If the user is away or says "defaults", use the recommended column, **say so in the plan entry**, and continue.
 
 ---
 
@@ -39,7 +57,7 @@ controls done: the exit-code mapping and the `--no-prelude` plumbing were each b
 failed, `2` a malformed command line. **Design calls made in W1b are listed in plan §4.5** (output via `Interpreter.Out`; `-e` replaces `main`
 and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIPT`; deferrals with reasons).
 
-## 2. Decisions — **all answered (2026-10-13)**
+## 2. Decisions — D1–D13 and D18 answered (2026-10-13); **D14–D17, YAML, D7 auto-render are the open questions of §0**
 
 | ID | Decision |
 | :-- | :-- |
@@ -50,8 +68,11 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 | D4, D5, D6, D9, D10 | as in plan §1 (D4 and D10 are implemented). |
 | D7 | Bump the repo to **Go 1.27**, kustomize v0.21.3 (W5). No system Go update needed: `GOTOOLCHAIN=auto` fetches `go1.27.x`; only CI/Docker images need ≥ 1.27. Auto-render of kustomization roots was **not** explicitly answered — confirm at W5. |
 | D8 | Yes: unknown step ⇒ OS command stays for trusted CLI use, denied by default for overrides and non-command-line scripts (W7). |
+| D14–D17 | **Open** (§0 Q2): the time types' literals, the clock, the zone model, `Date` arithmetic. |
+| D18 | Escapes in `"…"` literals — decided on the recommendation and implemented (W2). |
+| `-D` typing | `-D NAME=VALUE` binds a number for a canonical number, else a String — amends D4; the user accepted it (2026-10-13). |
 
-## 3. Goals for the next phase (W3, one commit per sub-step)
+## 3. Goals for the next phases (one commit per sub-step; the tracks run in parallel, §3a)
 
 Start from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse. D11–D13 (the `Ratio` design) are decided.
 
@@ -66,9 +87,36 @@ Start from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and
 **Definition of done per cell** is in `AGENTS.md` Mandate 2 (Go method → operator → evaluator step → step form → function form → DSL assertion *inside a lambda* → structural Go test → `Example`).
 Each partial function needs a negative case; the parity check "step form ≡ function form" is a test, not a hope.
 
-**After W3:** `Duration`/`Time`/`Date` (plan §5.6; **D14–D17 are proposed and must be asked before implementing**), then **W4** (qualified node ids, D6 — migrate all tests/examples in the same phase) → **W5** (Go 1.27 bump first) → **W6** (operator flags `--long` with the normaliser hook, layered rules, exit codes) → **W7** (policy, `context`, structured diagnostics).
+**Order of the remaining work:** the four tracks of §3a run in parallel (W3, W4, W5, W6 — the plan says they are independent); then, sequentially, §5.6 `Duration`/`Time`/`Date` (after Track A and Q2), W7 (after Track D) and the closing checklist.
 
 **When everything is done:** work through the **closing checklist for the k8s how-to and k8s code** (plan §10.1; user request); add a row there whenever a phase changes behaviour the k8s edition or its how-to touches.
+
+## 3a. Execution mode — parallel only where the plan says it is possible
+
+**What the plan allows (`docs/hardening_plan.md` §0 order line and §10):** W2 ∥ W3 (done); **W5 and W6 are independent of W2–W4 and can be done any time after W1** (done); **W4 needs only W2** ("can start earlier if needed"; W2 is done).
+So the four open tracks have no dependency on each other and **run in parallel**:
+
+| Track | Phase | Starts from | Notes |
+| :-- | :-- | :-- | :-- |
+| **A** | W3 numeric tower + `Ratio` (plan §6, §6.1) | now | touches `functions/`, `parser/`, `pkg/cli/typecheck.go`, `pkg/cli/dslfuncs_*` |
+| **B** | W4 qualified node ids (D6, plan §7) | now | touches `evaluator/`, `adapters/`, `pkg/k8sgraph`, the embedded `lib/k8s/*.gatwd`, **all** id-bearing tests and `testdata/` |
+| **C** | W5 in-process kustomize (D7, plan §8) — **the Go 1.27 bump is its first commit** | now | touches `go.mod`/`go.sum`, `adapters/manifest_adapter.go`, `pkg/k8sgraph/edition.go` |
+| **D** | W6 operator/Appliance (D5, plan §9) | now | touches `pkg/cli/command.go`, `appliance.go`, `cmd/gatwd-k8s*`, the operator's rules loading |
+
+**Everything else is sequential — do not parallelise it:**
+- the **sub-steps inside one track** (each is one commit with all gates green, in the order the plan lists them);
+- **§5.6 `Duration`/`Time`/`Date`** — after Track A has landed (`Duration / Duration` needs `Ratio`) and after Q2 is answered;
+- **W7** (policy, `context`, structured diagnostics, plan §9) — after Track D has landed;
+- the **closing checklist** for the k8s how-to and code (plan §10.1) — after every track has landed;
+- merging, the plan's progress table, and this handoff — the main session only.
+
+**How to run the tracks.** One subagent per track, started with the Agent tool in a single message (so they run concurrently), each with `isolation: "worktree"` (its own branch, e.g. `hardening/w3`; this keeps the shared-tree rule intact) and a **self-contained brief**: the track's plan section, §4–§7 of this file (authoring shapes, gotchas, constraints, gates), `AGENTS.md` Mandates 1–8, and these rules:
+1. Build a baseline binary from the branch point first; run every gate (§7) and the script regression diff after each sub-step; negative-control every new guard.
+2. One commit per sub-step in its own branch. **Never push, never touch another track's files, never edit the plan's §0 progress table or this handoff** (the main session does). Put the track's closure notes in its own plan section (§6/§7/§8/§9) and **append** rows to the §10.1 checklist table.
+3. The tracks are delegated work, so a hard-to-reverse choice that the plan already decides is followed; one the plan does not decide is **not guessed**: stop that sub-step, record it as an open question in the report and carry on with the next sub-step that does not depend on it.
+4. Final report (under 300 words): commits, what changed, deviations, deferrals with reasons, **open questions for the user**, and the exact gate results.
+
+**Merging (main session, one track at a time, in the order C, D, A, B** — the Go bump first, the id migration last because it touches the most files**).** For each branch: review the diff (`git diff master...hardening/<x>`), merge, re-run all §7 gates and the script regression diff on `master`, resolve conflicts (the likely ones: `pkg/cli/cli.go`, `docs/dsl_guide.md`, `docs/hardening_plan.md`, `tests/dsl_exhaustive_test.gatwd` — keep both sides' additions, never drop a test), then update the plan's §0 progress table and delete the worktree. Surface every track's open questions to the user together. Commit and push only when the user has said so (Q1).
 
 ## 4. Authoring shapes (copy these)
 
@@ -138,10 +186,11 @@ D2 will change the output of any script that concatenated with `+` (none found);
 
 ## 8. First steps
 
-1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start. Build the baseline binary from `HEAD` **before** editing: `go build -o /tmp/gatwd_base ./cmd/gatwd`.
-2. Ask the user whether to **push** the W2 commits (never without asking).
-3. W3 sub-step order I recommend: unary minus and `**` (they unblock the F2 rows and `abs -3`) → the logical `Int` demotion rule and the F11 display → the String-is-not-a-number leftovers (item 4) → the constraint names in the checker → `Ratio` → the matrix test last, so it documents the final behaviour.
-4. For each: pinning tests first, then the generic Go in `functions/`, then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line; a statement ending in `=` continues on the next line — don't end an `assert` argument with `=`), then docs (`dsl_guide.md`, `grammar.md`). Update the plan's progress table and rewrite this handoff at the end of the phase; mark the old one superseded.
+0. **Ask the user the §0 questions and wait.** Nothing else happens before that.
+1. `git status -sb` (clean apart from `output.txt`), then the §7 gates once for a known-green start on `master`. Handle Q1 (push) as answered.
+2. Start the four tracks of §3a **in parallel** (one message, four Agent calls, `isolation: "worktree"`), with the briefs described there. The recommended order *inside* Track A is: unary minus and `**` (they unblock the F2 rows and `abs -3`) → the logical `Int` demotion rule and the F11 display → the String-is-not-a-number leftovers (§3 item 4) → the constraint names in the checker → `Ratio` → the operator × type matrix test last, so it documents the final behaviour.
+3. While the tracks run, do nothing that edits files they own. Collect the reports, merge in the order C, D, A, B (§3a), run the gates after each merge, update plan §0, rewrite this handoff.
+4. Then, sequentially: §5.6 (if Q2 allows), W7, and the §10.1 closing checklist (k8s how-to and code). Authoring reminders for every track: pinning tests first, then the generic Go in `functions/`, then `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line; **a statement ending in `=` continues on the next line — do not end an `assert` argument with `=`**), then docs.
 
 ## 9. Pointers
 
