@@ -319,3 +319,53 @@ spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_focus nginx |> as
 spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_set nginx running |> graph_focus nginx |> assert running
 spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_set nginx 10 |> graph_over nginx (\p -> p + 5) |> graph_focus nginx |> assert 15
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_set a 1 |> graph_set b 2 |> graph_over a (\p -> p * 100) |> graph_focus b |> assert 2
+
+-- 73. Graph ingest via fold with a GRAPH accumulator (anti-mockup ingest primitive).
+-- A stream/list of records is folded into one persistent graph: the reducer applies
+-- the graph-construction FUNCTIONS (graph_add_node / graph_add_edges), callable now
+-- that the infix expression language supports juxtaposition application `f x y`.
+-- This is how a crawled resource stream becomes a graph in pure DSL — no Go loop.
+-- (a) fold a plain list of ids into nodes; the reducer returns the grown graph.
+let ids = ["a", "b", "c"] in ids |> fold (\g r -> graph_add_node "N" r g) graph_empty |> graph_nodes |> collect_list |> assert [a b c]
+-- (b) derive each node's color + id FROM a record payload via the hamt_get function
+-- form, keeping the whole record as the node payload (the real ingest shape).
+let r1 = spawn S: x |> emit kind:Pod, name:nginx |> drop 1 |> to_hamt in let r2 = spawn S: x |> emit kind:Service, name:web |> drop 1 |> to_hamt in [r1, r2] |> fold (\g x -> graph_add_node (hamt_get "kind" x) (hamt_get "name" x) x g) graph_empty |> graph_nodes |> collect_list |> assert [nginx web]
+-- (c) the derived color is a real node color: project the Service-colored nodes.
+let r1 = spawn S: x |> emit kind:Pod, name:nginx |> drop 1 |> to_hamt in let r2 = spawn S: x |> emit kind:Service, name:web |> drop 1 |> to_hamt in [r1, r2] |> fold (\g x -> graph_add_node (hamt_get "kind" x) (hamt_get "name" x) x g) graph_empty |> graph_nodes_of Service |> head |> assert web
+-- (d) deep field access in the reducer via the hamt_path function form.
+let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fold (\g x -> graph_add_node (hamt_path "kind" x) (hamt_path "name" x) x g) graph_empty |> graph_nodes_of Pod |> head |> assert api
+-- (e) edge ingest: a second fold adds a variable number of edges per element via a
+-- destructuring comprehension feeding graph_add_edges (list of [color w from to]).
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [["Owns", 1, f, t] | [f, t] <- [e]] g) graph_empty |> graph_edges_of Owns |> collect_list |> assert [a-Owns->b b-Owns->c]
+
+-- 74. Expression-level builtins resolve in ANY expression context (§3B), and bare
+-- sum-type constructors resolve to their tag STRING in expressions (§5.1b).
+-- (a) a bare top-level comprehension using the hamt_path function form over a record.
+let rec = spawn S: x |> emit kind:Pod, name:nginx |> drop 1 |> to_hamt in [rec] |> fold (\g r -> graph_add_node (hamt_path "kind" r) (hamt_path "name" r) r g) graph_empty |> graph_nodes |> collect_list |> assert [nginx]
+-- (b) a bare constructor (declared sum type) used as an edge color resolves to "Owns".
+type EdgeColor = Owns | Selects | RoutesTo
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> graph_edges_of Owns |> collect_list |> assert [a-Owns->b b-Owns->c]
+
+-- 75. Generic subset_of (§5.2): Record/HAMT containment + Set/collection membership,
+-- the honest primitive for the K8s Selects relation (selector ⊆ labels). Both the
+-- pipeline-step form (subject |> subset_of operand) and the function form are wired.
+-- (a) Set ⊆ Set — true then false.
+let sup = (spawn S: x |> emit 1, 2, 3 |> drop 1 |> to_set) in spawn S: x |> emit 1, 2 |> drop 1 |> to_set |> subset_of sup |> assert true
+let sup = (spawn S: x |> emit 1, 2, 3 |> drop 1 |> to_set) in spawn S: x |> emit 1, 4 |> drop 1 |> to_set |> subset_of sup |> assert false
+-- (b) HAMT ⊆ HAMT by (key,value) — selector ⊆ labels, true then false.
+let labels = (spawn S: x |> emit app:nginx, tier:web |> drop 1 |> to_hamt) in spawn S: x |> emit app:nginx |> drop 1 |> to_hamt |> subset_of labels |> assert true
+let labels = (spawn S: x |> emit app:nginx |> drop 1 |> to_hamt) in spawn S: x |> emit app:other |> drop 1 |> to_hamt |> subset_of labels |> assert false
+-- (c) the function form inside an expression (fold reducer): colors a node by whether
+-- the selector is a subset of the labels, then projects the matching color.
+let labels = spawn S: x |> emit app:nginx, tier:web |> drop 1 |> to_hamt in let sel = spawn S: x |> emit app:nginx |> drop 1 |> to_hamt in [sel] |> fold (\g s -> graph_add_node (subset_of s labels) "match" s g) graph_empty |> graph_nodes_of true |> collect_list |> assert [match]
+
+-- 76. Expression-level graph read side + path-presence guard (generic, domain-free).
+-- (a) graph_payloads: a graph stream element handed to a reducer as g exposes every node payload.
+let ids = ["a", "b", "c"] in ids |> fold (\g r -> graph_add_node "N" r g) graph_empty |> fold (\_ g -> graph_payloads g) 0 |> assert [a b c]
+-- (b) graph_payloads_of: only the payloads of one node color.
+let r1 = spawn S: x |> emit kind:Pod, name:nginx |> drop 1 |> to_hamt in let r2 = spawn S: x |> emit kind:Service, name:web |> drop 1 |> to_hamt in [r1, r2] |> fold (\g x -> graph_add_node (hamt_get "kind" x) (hamt_get "name" x) x g) graph_empty |> fold (\_ g -> [ hamt_get "name" p | p <- (graph_payloads_of "Service" g) ]) 0 |> assert [web]
+-- (c) hamt_has_path: true for a present key, false for a missing one.
+let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fold (\a x -> hamt_has_path "kind" x) false |> assert true
+let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fold (\a x -> hamt_has_path "missing" x) true |> assert false
+-- (d) a guard between generators prunes before the next generator runs; unchanged semantics.
+[ y | x <- [1, 2, 3], x > 1, y <- [x, x] ] |> assert [2 2 3 3]

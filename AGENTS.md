@@ -93,3 +93,52 @@ go vet ./...
 # 3. Run the exhaustive DSL integration test suite
 ./run_dsl_tests.sh
 ```
+
+---
+
+## 6. Code Navigation & Refactoring Tooling (use the type-aware Go tools)
+
+This is a large, heavily-generic codebase (e.g. `pkg/cli/cli.go` is ~3k lines; the
+same method name — `Union`, `Map`, `Fold`, `Filter` — exists on `List`, `Chunk`,
+`Set`, `HAMT`, `Tree`, and `Graph`). Prefer Go's **type-aware** tooling over
+`grep`/`sed` for navigation and refactoring: text search cannot tell which type a
+method belongs to, misses multi-line signatures, and makes renames unsafe. The
+toolchain, `gofmt`, `goimports`, and `gopls` are all available in this environment.
+
+**Navigation — prefer these to reading whole files or grepping:**
+
+```bash
+go doc ./collections Graph.AddNode     # authoritative signature + doc, no file read
+go doc ./pkg/cli                       # package overview + exported symbol index
+gopls definition      path/file.go:LINE:COL   # jump to a symbol's declaration
+gopls references      path/file.go:LINE:COL   # EVERY use, module-wide, type-aware
+gopls implementation  path/file.go:LINE:COL   # concrete impls of an interface
+gopls call_hierarchy  path/file.go:LINE:COL   # callers/callees of a function
+gopls symbols         path/file.go             # outline of one file
+gopls workspace_symbol Name                    # find a symbol across the module
+```
+
+Use `gopls references` to find all call sites before changing a signature, and to
+check a proposed new identifier does not collide — it is authoritative where `grep`
+guesses.
+
+**Refactoring:**
+
+```bash
+gopls rename -w path/file.go:LINE:COL NewName   # type-aware, module-wide safe rename
+```
+
+Prefer `gopls rename` over an editor find-replace / `Edit replace_all` for renaming
+any exported or widely-used identifier: it renames only the right binding across
+every package, never a same-named method on a different type or a substring match.
+
+**After every code change, before the §5 verification suite:**
+
+```bash
+gofmt -w <changed files>       # or: go fmt ./<changed pkg>
+goimports -w <changed files>   # fix/order imports
+```
+
+These complement — do not replace — the standard file-editing tools; reach for them
+whenever a task involves finding call sites, confirming a signature, checking for
+name collisions, or renaming.

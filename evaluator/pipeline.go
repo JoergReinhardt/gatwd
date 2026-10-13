@@ -491,6 +491,115 @@ func StepSetUnion(operand ...any) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// rangeMapLike invokes fn for every key/value of a product-like payload (a
+// persistent *collections.HAMT, a *collections.Map, or a map[string]any Record),
+// reporting whether v was map-like at all. It is the iteration dual of HAMTGetKey.
+func rangeMapLike(v any, fn func(k string, val any)) bool {
+	switch c := v.(type) {
+	case *collections.HAMT[string, any]:
+		for k, val := range c.Seq() {
+			fn(k, val)
+		}
+		return true
+	case *collections.Map[string, any]:
+		for k, val := range c.Seq() {
+			fn(k, val)
+		}
+		return true
+	case map[string]any:
+		for k, val := range c {
+			fn(k, val)
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+// IsSubsetValue reports whether sub ⊆ super, generically and domain-free, across the
+// two families where containment is well-defined:
+//
+//   - Record/map-like (HAMT, Map, map[string]any): sub ⊆ super iff every (key,value)
+//     of sub is present in super with a structurally-equal value. This is the
+//     "selector ⊆ labels" shape — a map is a subset when all its bindings hold.
+//   - Set/collection-like (Set, List, Chunk, any ToSliceAny-able value): sub ⊆ super
+//     iff every element of sub is a member of super (by structural equality).
+//
+// The empty subset is ⊆ anything (vacuously true). A type mismatch (one map-like and
+// one not, or neither recognizable) is an error, not a silent false, so a mistyped
+// operand is debuggable. Equality uses functions.StructuralEqual so nested
+// collections and ADTs compare by value.
+func IsSubsetValue(sub, super any) (bool, error) {
+	// Map-like subset: every binding of sub must hold in super.
+	subIsMap := false
+	result := true
+	ranged := rangeMapLike(sub, func(k string, v any) {
+		subIsMap = true
+		sv, found, navigable := HAMTGetKey(super, k)
+		if !navigable || !found || !functions.StructuralEqual(v, sv) {
+			result = false
+		}
+	})
+	if ranged {
+		if _, _, superNavigable := HAMTGetKey(super, ""); subIsMap && !superNavigable {
+			// super is not map-like at all — a genuine type mismatch.
+			return false, fmt.Errorf("subset_of: subset is a Record/HAMT/Map but superset is not (got %T)", super)
+		}
+		return result, nil
+	}
+
+	// Collection-like subset: every element of sub must be a member of super.
+	subEls, okA := functions.ToSliceAny(sub)
+	superEls, okB := functions.ToSliceAny(super)
+	if okA && okB {
+		for _, e := range subEls {
+			member := false
+			for _, s := range superEls {
+				if functions.StructuralEqual(e, s) {
+					member = true
+					break
+				}
+			}
+			if !member {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	return false, fmt.Errorf("subset_of: operands must be both Records/HAMTs or both Sets/collections (got %T and %T)", sub, super)
+}
+
+// StepSubsetOf tests whether the incoming value (the subject) is a subset of other,
+// yielding a bool. `subject |> subset_of other` reads "subject ⊆ other"; it is the
+// pipeline-step twin of the subset_of expression-level builtin. See IsSubsetValue
+// for the generic Set/Record semantics.
+func StepSubsetOf(other any) PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				res, err := IsSubsetValue(val, other)
+				if err != nil {
+					if !yield(InjectError[any](err, node.DSLType)) {
+						return
+					}
+					continue
+				}
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
+					return
+				}
+			}
+		}
+	}
+}
+
 // StepSetIntersect computes the intersection of incoming Set with other.
 func StepSetIntersect(other any) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
@@ -1282,27 +1391,65 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				if h, ok := val.(*collections.HAMT[string, any]); ok {
-					if res, found := h.Get(key); found {
-						yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
-					} else {
-						yield(InjectError[any](fmt.Errorf("key '%s' not found in HAMT", key), node.DSLType))
-					}
+				res, found, navigable := HAMTGetKey(val, key)
+				if !navigable {
+					yield(node) // pass through if not a HAMT/Map
 					continue
 				}
-				if m, ok := val.(*collections.Map[string, any]); ok {
-					if res, found := m.Get(key); found {
-						yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
-					} else {
-						yield(InjectError[any](fmt.Errorf("key '%s' not found in Map", key), node.DSLType))
-					}
-					continue
+				if found {
+					yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
+				} else {
+					yield(InjectError[any](fmt.Errorf("key '%s' not found", key), node.DSLType))
 				}
-				// Pass through if not a HAMT/Map
-				yield(node)
 			}
 		}
 	}
+}
+
+// HAMTGetKey reads a single key out of any product-like payload the DSL produces —
+// a persistent *collections.HAMT, a *collections.Map, or a map[string]any Record —
+// returning the value, whether the key was present, and whether the payload was a
+// navigable carrier at all. Keeping this dispatch in one place lets both the
+// hamt_get pipeline step and the hamt_get expression-level builtin (the function
+// form applied inside fold/map lambda bodies) share identical semantics.
+func HAMTGetKey(val any, key string) (value any, found bool, navigable bool) {
+	switch carrier := val.(type) {
+	case *collections.HAMT[string, any]:
+		v, ok := carrier.Get(key)
+		return v, ok, true
+	case *collections.Map[string, any]:
+		v, ok := carrier.Get(key)
+		return v, ok, true
+	case map[string]any:
+		v, ok := carrier[key]
+		return v, ok, true
+	default:
+		return nil, false, false
+	}
+}
+
+// NavigateHAMTPath walks a dotted path ("spec.selector.app") through nested
+// product-like payloads, returning the value at the path or a descriptive error
+// naming the failing segment. It is the pure core shared by the hamt_path pipeline
+// step and the hamt_path expression-level builtin: an empty path returns the input
+// unchanged (identity), and because a path over possibly-absent keys is an affine
+// traversal (a "preview"), a missing or non-navigable segment is an error rather
+// than a silent nil.
+func NavigateHAMTPath(cur any, path string) (any, error) {
+	if path == "" {
+		return cur, nil
+	}
+	for _, seg := range strings.Split(path, ".") {
+		next, found, navigable := HAMTGetKey(cur, seg)
+		if !navigable {
+			return nil, fmt.Errorf("Path Error: cannot navigate segment '%s' of path '%s': parent is not a Record/HAMT/Map (got %T)", seg, path, cur)
+		}
+		if !found {
+			return nil, fmt.Errorf("Path Error: segment '%s' of path '%s' not found", seg, path)
+		}
+		cur = next
+	}
+	return cur, nil
 }
 
 // StepHAMTPath navigates a dotted path ("spec.selector.app") through nested
@@ -1320,7 +1467,6 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 // its parent is not navigable, so a mistyped config path is debuggable instead of
 // silently yielding nil. An empty path passes the node through unchanged.
 func StepHAMTPath(path string) PipelineStep[functions.Either[error, any]] {
-	segments := strings.Split(path, ".")
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -1330,45 +1476,15 @@ func StepHAMTPath(path string) PipelineStep[functions.Either[error, any]] {
 					}
 					continue
 				}
-				if path == "" {
-					if !yield(node) {
-						return
-					}
-					continue
-				}
-
 				cur, _ := node.Value.UnwrapRight()
-				var pathErr error
-				for _, seg := range segments {
-					var next any
-					var found bool
-					switch carrier := cur.(type) {
-					case *collections.HAMT[string, any]:
-						next, found = carrier.Get(seg)
-					case *collections.Map[string, any]:
-						next, found = carrier.Get(seg)
-					case map[string]any:
-						next, found = carrier[seg]
-					default:
-						pathErr = fmt.Errorf("Path Error: cannot navigate segment '%s' of path '%s': parent is not a Record/HAMT/Map (got %T)", seg, path, cur)
-					}
-					if pathErr != nil {
-						break
-					}
-					if !found {
-						pathErr = fmt.Errorf("Path Error: segment '%s' of path '%s' not found", seg, path)
-						break
-					}
-					cur = next
-				}
-
-				if pathErr != nil {
-					if !yield(InjectError[any](pathErr, node.DSLType)) {
+				res, err := NavigateHAMTPath(cur, path)
+				if err != nil {
+					if !yield(InjectError[any](err, node.DSLType)) {
 						return
 					}
 					continue
 				}
-				if !yield(dsltypes.NewASTNode(functions.Right[error, any](cur), node.DSLType)) {
+				if !yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)) {
 					return
 				}
 			}

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"iter"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -31,20 +32,20 @@ import (
 type StepHandler func(stepStr string, interp *Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool)
 
 type Interpreter struct {
-	Engine         *evaluator.Engine[functions.Either[error, any]]
-	Parser         *parser.Parser
-	Funcs          map[string]string // Maps function name to pipeline string
-	RuntimeNodes   map[string]dsltypes.ASTNode[functions.Either[error, any]]
-	Variables      map[string]string // Maps local 'let' variables
-	Constants      map[string]any    // Registered and script-defined constants
+	Engine       *evaluator.Engine[functions.Either[error, any]]
+	Parser       *parser.Parser
+	Funcs        map[string]string // Maps function name to pipeline string
+	RuntimeNodes map[string]dsltypes.ASTNode[functions.Either[error, any]]
+	Variables    map[string]string // Maps local 'let' variables
+	Constants    map[string]any    // Registered and script-defined constants
 	// compiledFuncs caches each def's parsed pipeline steps, keyed by name.
 	// Only populated/served when the active scope carries no local Variables or
 	// RuntimeNodes (so no value-dependent substitution can occur), which makes
 	// the cached parse identical to a fresh one. Shared across forks by
 	// reference (like Funcs) and cleared when a def or constant is (re)defined.
-	compiledFuncs map[string][]evaluator.PipelineStep[functions.Either[error, any]]
-	CustomSteps    []StepHandler     // Pluggable extension step handlers
-	EnableBuiltins bool              // Whether Go std builtins are active
+	compiledFuncs  map[string][]evaluator.PipelineStep[functions.Either[error, any]]
+	CustomSteps    []StepHandler // Pluggable extension step handlers
+	EnableBuiltins bool          // Whether Go std builtins are active
 }
 
 // NewBareInterpreter creates an interpreter with bare-bones execution capabilities:
@@ -661,7 +662,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 								if vv, ok := i.Variables[name]; ok {
 									return vv, true
 								}
-								return nil, false
+								return i.exprFallback(name)
 							}
 							var acc any
 							if seedExpr != "" {
@@ -954,6 +955,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					pipeline = append(pipeline, evaluator.StepSetUnion(operandStr))
 				}
 			}
+		} else if strings.HasPrefix(stepStr, "subset_of ") {
+			// subject |> subset_of <operand>  →  bool (subject ⊆ operand); operand is
+			// a let-bound collection/Record resolved through the standard env lookup.
+			operandStr := strings.TrimSpace(stepStr[len("subset_of "):])
+			pipeline = append(pipeline, evaluator.StepSubsetOf(i.resolveGraphOperand(operandStr)))
 		} else if strings.HasPrefix(stepStr, "set_intersect ") {
 			operandStr := strings.TrimSpace(stepStr[14:])
 			lookup := func(k string) (any, bool) {
@@ -2116,7 +2122,7 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		if v, ok := i.Constants[k]; ok {
 			return v, true
 		}
-		return nil, false
+		return i.exprFallback(k)
 	}
 
 	// 1. Direct variable reference: e.g. "nbrs |> unchunk"
@@ -2577,11 +2583,29 @@ func (i *Interpreter) EvaluateScript(script string) {
 
 // LoadScriptContent parses and evaluates a script string with a base directory for resolving relative imports.
 func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
+	i.loadScriptContent(content, baseDir, nil)
+}
+
+// loadScriptContent is LoadScriptContent with an optional virtual filesystem: when
+// fsys is non-nil, `import` statements are resolved inside it (slash-separated,
+// relative to baseDir) instead of the OS filesystem, so a multi-file prelude
+// embedded with //go:embed can import its sibling modules.
+func (i *Interpreter) loadScriptContent(content string, baseDir string, fsys fs.FS) {
 	for _, stmt := range logicalLines(content) {
 		buffer := stmt.text
 		// Module Imports
 		if strings.HasPrefix(buffer, "import ") {
 			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
+			if fsys != nil {
+				importFile = pathpkg.Join(baseDir, importFile)
+				bytes, err := fs.ReadFile(fsys, importFile)
+				if err != nil {
+					fmt.Printf("Error reading embedded import '%s': %v\n", importFile, err)
+					continue
+				}
+				i.loadScriptContent(string(bytes), pathpkg.Dir(importFile), fsys)
+				continue
+			}
 			if !filepath.IsAbs(importFile) {
 				importFile = filepath.Join(baseDir, importFile)
 			}
@@ -2668,7 +2692,7 @@ func (i *Interpreter) LoadScriptFS(fsys fs.FS, filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read embedded script '%s': %w", filename, err)
 	}
-	i.LoadScriptContent(string(bytes), filepath.Dir(filename))
+	i.loadScriptContent(string(bytes), pathpkg.Dir(filename), fsys)
 	return nil
 }
 
@@ -3079,8 +3103,31 @@ func (i *Interpreter) graphLookup(binds map[string]any) func(string) (any, bool)
 		if v, ok := i.Variables[name]; ok {
 			return v, true
 		}
-		return nil, false
+		return i.exprFallback(name)
 	}
+}
+
+// exprFallback resolves an identifier that is NOT a local or user binding — the
+// LAST step of every expression-eval name lookup, so user bindings always win. It
+// supplies two things to any expression context (fold/map/filter reducer bodies,
+// comprehension sources/yields, bare top-level expressions):
+//
+//   - the generic expression-level builtin FUNCTIONS (graph_*/hamt_get/hamt_path, …)
+//     registered in dslBuiltinFuncs, so they are callable by juxtaposition `f a b`;
+//   - a bare nullary sum-type CONSTRUCTOR (e.g. the edge color `Owns` declared by
+//     `type EdgeColor = Owns | …`) resolved to its tag STRING, so relation rules can
+//     write `graph_add_edge Owns …` without quoting the color. This is a low-priority
+//     fallback (after RuntimeNodes/Constants/Variables), and constructor resolution
+//     in `match` arms is unaffected — that path is handled by the match evaluator, not
+//     by this expression lookup.
+func (i *Interpreter) exprFallback(name string) (any, bool) {
+	if v, ok := dslBuiltinLookup(name); ok {
+		return v, true
+	}
+	if i.Parser != nil && i.Parser.IsConstructor(name) {
+		return name, true
+	}
+	return nil, false
 }
 
 // resolveGraphOperand resolves a set-algebra operand token to its value — normally

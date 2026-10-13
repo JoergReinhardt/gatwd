@@ -277,6 +277,12 @@ type ListComprehensionExpr struct {
 	YieldExpr  Expr
 	Generators []Generator
 	Filters    []Expr
+	// FilterAfter[i] is the number of generators written before Filters[i]. Like a
+	// Haskell guard, Filters[i] is applied as soon as those generators are bound, so
+	// it can protect a later generator that depends on it
+	// (`[… | x <- xs, has "k" x, y <- (get "k" x)]`). A nil FilterAfter means every
+	// filter runs after all generators are bound.
+	FilterAfter []int
 }
 
 func extractItems(srcVal any) ([]any, error) {
@@ -367,29 +373,40 @@ func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error
 
 	var collected []any
 
+	// filtersPass applies the guards that become applicable once `bound` generators
+	// are bound (all of them when FilterAfter is nil and bound == len(Generators)).
+	filtersPass := func(bound int, lookup func(string) (any, bool)) (bool, error) {
+		for i, filt := range e.Filters {
+			at := len(e.Generators)
+			if e.FilterAfter != nil {
+				at = e.FilterAfter[i]
+			}
+			if at != bound {
+				continue
+			}
+			fRes, err := filt.Eval(lookup)
+			if err != nil {
+				return false, err
+			}
+			if b, ok := fRes.(bool); !ok || !b {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
 	var runGenerators func(genIdx int, currentLookup func(string) (any, bool)) error
 	runGenerators = func(genIdx int, currentLookup func(string) (any, bool)) error {
+		passed, err := filtersPass(genIdx, currentLookup)
+		if err != nil || !passed {
+			return err
+		}
 		if genIdx >= len(e.Generators) {
-			// All generators bound: check filters
-			passed := true
-			for _, filt := range e.Filters {
-				fRes, err := filt.Eval(currentLookup)
-				if err != nil {
-					return err
-				}
-				b, ok := fRes.(bool)
-				if !ok || !b {
-					passed = false
-					break
-				}
+			yVal, err := e.YieldExpr.Eval(currentLookup)
+			if err != nil {
+				return err
 			}
-			if passed {
-				yVal, err := e.YieldExpr.Eval(currentLookup)
-				if err != nil {
-					return err
-				}
-				collected = append(collected, yVal)
-			}
+			collected = append(collected, yVal)
 			return nil
 		}
 
@@ -443,10 +460,55 @@ func (e ListComprehensionExpr) Eval(lookup func(string) (any, bool)) (any, error
 	return resList, nil
 }
 
+// ApplyExpr is an interior Expr node representing function application by
+// juxtaposition: a Head expression applied to one or more Args, as in
+// `graph_add_node color id payload g` or `hamt_path "metadata.name" r`. Application
+// binds tighter than every binary operator, so `f x + g y` parses as
+// `(f x) + (g y)`; nested application requires parentheses — `f (g x)` — exactly as
+// in Haskell, which is what lets juxtaposition be unambiguous.
+type ApplyExpr struct {
+	Head Expr
+	Args []Expr
+}
+
+// Eval evaluates the Head to a callable, the Args left-to-right, then applies the
+// callable to the argument values. The Head must resolve to a functions.DSLFunc
+// (the DSL's type-erased callable); applying anything else is an error rather than a
+// panic, keeping a mis-application inside the Either[error, any] discipline. Any
+// error from the head, an argument, or the call itself short-circuits and
+// propagates. lookup is threaded through for variable/function resolution.
+func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	hv, err := e.Head.Eval(lookup)
+	if err != nil {
+		return nil, err
+	}
+	fn, ok := hv.(functions.DSLFunc)
+	if !ok {
+		return nil, fmt.Errorf("cannot apply non-function value of type %T", hv)
+	}
+	args := make([]any, len(e.Args))
+	for idx, a := range e.Args {
+		av, err := a.Eval(lookup)
+		if err != nil {
+			return nil, err
+		}
+		args[idx] = av
+	}
+	return fn(args)
+}
+
 // InfixParser builds an Expr using precedence climbing.
 type InfixParser struct {
 	tokens []TokenItem
 	pos    int
+	// appDisabled suppresses juxtaposition function application while parsing the
+	// elements of a PLAIN list literal. gatwd serializes lists space-separated
+	// (`[2 1]`, `[nginx web]`) and re-parses them, so inside a bare `[...]` adjacent
+	// atoms must stay SEPARATE elements, not fold into `apply 2 to 1`. Parentheses
+	// and comprehensions reset it to false, so application still works everywhere a
+	// function call is actually intended (lambda bodies, args, comprehension
+	// sources/yields). See parseApplication and the TokLBracket branch.
+	appDisabled bool
 }
 
 // NewInfixParser returns an InfixParser positioned at the start of tokens, ready to
@@ -486,7 +548,7 @@ func (p *InfixParser) ParseExpression() (Expr, error) {
 }
 
 func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
-	left, err := p.parsePrimary()
+	left, err := p.parseApplication()
 	if err != nil {
 		return nil, err
 	}
@@ -515,6 +577,48 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 	}
 
 	return left, nil
+}
+
+// atomStarters are the token types that can begin an atom (a primary expression):
+// a number, string, identifier, parenthesised group, or list/comprehension. Two
+// adjacent atoms with no operator between them form a function application.
+func (p *InfixParser) isAtomStart() bool {
+	switch p.peek().Type {
+	case TokNumber, TokString, TokIdent, TokLParen, TokLBracket:
+		return true
+	default:
+		return false
+	}
+}
+
+// parseApplication parses a run of juxtaposed atoms as function application:
+// the first atom is the callable, each subsequent atom is an argument. A lone atom
+// (no trailing atoms) is returned unwrapped, so non-application expressions are
+// unaffected. Because an atom never starts with an operator token, this greedily
+// consumes only argument atoms and stops at the first operator, giving application
+// a higher binding than any infix operator.
+func (p *InfixParser) parseApplication() (Expr, error) {
+	if p.appDisabled {
+		// Inside a plain list literal: juxtaposed atoms are separate elements, so
+		// do not fold trailing atoms into an application.
+		return p.parsePrimary()
+	}
+	head, err := p.parsePrimary()
+	if err != nil {
+		return nil, err
+	}
+	var args []Expr
+	for p.isAtomStart() {
+		arg, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, arg)
+	}
+	if len(args) == 0 {
+		return head, nil
+	}
+	return ApplyExpr{Head: head, Args: args}, nil
 }
 
 func (p *InfixParser) parsePrimary() (Expr, error) {
@@ -553,10 +657,15 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 		return VarExpr{Name: tok.Text}, nil
 
 	case TokLParen:
+		// A parenthesised group is a fresh application context — `(f x)` applies even
+		// when it sits inside a plain list literal — so re-enable application here.
+		savedApp := p.appDisabled
+		p.appDisabled = false
 		expr, err := p.parsePrecedence(0)
 		if err != nil {
 			return nil, err
 		}
+		p.appDisabled = savedApp
 		if p.next().Type != TokRParen {
 			return nil, fmt.Errorf("expected closing parenthesis ')'")
 		}
@@ -569,6 +678,12 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			return ListLiteralExpr{Elements: nil}, nil
 		}
 
+		// Decide comprehension vs. plain list BEFORE parsing the first expression: a
+		// comprehension (`[e | …]`) wants application in its yield/sources, a plain
+		// list (`[2 1]`, `[a, b]`) wants adjacent atoms kept as separate elements.
+		savedApp := p.appDisabled
+		p.appDisabled = !p.bracketHasTopLevelPipe()
+
 		firstExpr, err := p.parsePrecedence(0)
 		if err != nil {
 			return nil, err
@@ -580,6 +695,7 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 
 			var generators []Generator
 			var filters []Expr
+				var filterAfter []int
 
 			for {
 				if p.peek().Type == TokRBracket || p.peek().Type == TokEOF {
@@ -641,6 +757,7 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 						return nil, err
 					}
 					filters = append(filters, filt)
+					filterAfter = append(filterAfter, len(generators))
 				}
 
 				if p.peek().Type == TokComma {
@@ -654,10 +771,12 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 				return nil, fmt.Errorf("expected closing bracket ']' after list comprehension")
 			}
 
+			p.appDisabled = savedApp
 			return ListComprehensionExpr{
 				YieldExpr:  firstExpr,
 				Generators: generators,
-				Filters:    filters,
+				Filters:     filters,
+					FilterAfter: filterAfter,
 			}, nil
 		}
 
@@ -677,11 +796,45 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 			}
 			elements = append(elements, elem)
 		}
+		p.appDisabled = savedApp
 		return ListLiteralExpr{Elements: elements}, nil
 
 	default:
 		return nil, fmt.Errorf("unexpected token in expression: %s", tok.Text)
 	}
+}
+
+// bracketHasTopLevelPipe reports whether a '|' appears at the current bracket's top
+// level before its matching ']', i.e. whether the '[' just consumed opens a list
+// comprehension (`[e | …]`) rather than a plain list literal. It scans without
+// advancing the parser, tracking nested bracket and paren depth so a pipe inside a
+// nested collection or group does not count.
+func (p *InfixParser) bracketHasTopLevelPipe() bool {
+	depthB, depthP := 0, 0
+	for scan := p.pos; scan < len(p.tokens); scan++ {
+		switch p.tokens[scan].Type {
+		case TokLBracket:
+			depthB++
+		case TokRBracket:
+			if depthB == 0 {
+				return false // reached our closing ']' with no top-level pipe
+			}
+			depthB--
+		case TokLParen:
+			depthP++
+		case TokRParen:
+			if depthP > 0 {
+				depthP--
+			}
+		case TokPipe:
+			if depthB == 0 && depthP == 0 {
+				return true
+			}
+		case TokEOF:
+			return false
+		}
+	}
+	return false
 }
 
 // ParseInfixExpr is the public helper to parse and return an Expr AST.

@@ -11,11 +11,17 @@
 >   arm in the `match` evaluator, so `match { Red -> … | Green -> … }` routes correctly while fresh
 >   variables (e.g. `conway_step`'s `live ->`) still bind. Covered by `tests/dsl_exhaustive_test.gatwd`
 >   (#56) and `parser.TestParser_IsConstructorAndMakeVariant`.
-> - ◑ **Workstream B — first-class functions: pipeline-position slice DONE.** A bare/paren lambda in
->   pipeline position now applies to the incoming value, making lambda-bodied `def`s first-class and
->   composable: `def inc = \x -> x + 1` then `5 |> inc`, `5 |> (\x -> x*10)`, `inc |> dbl`,
->   `let f = \x -> … in 5 |> f`, and `map inc` all work (test #57). **Deferred (higher-risk, infix-parser
->   surgery):** expression-position application `f x`, multi-argument lambdas, and currying — see §2.
+> - ◑ **Workstream B — first-class functions: pipeline-position slice DONE; expression-position
+>   application slice DONE.** A bare/paren lambda in pipeline position applies to the incoming value,
+>   making lambda-bodied `def`s first-class and composable: `def inc = \x -> x + 1` then `5 |> inc`,
+>   `5 |> (\x -> x*10)`, `inc |> dbl`, `let f = \x -> … in 5 |> f`, and `map inc` all work (test #57).
+>   **Expression-position application `f a b` now also works** (the previously-deferred infix-parser
+>   surgery), landed 2026-10-13 as a by-product of the k8s-graph ingest work: `functions.DSLFunc`
+>   (type-erased callable value) + `parser/infix.go` `ApplyExpr`/`parseApplication` (juxtaposition binds
+>   tighter than operators; an `appDisabled` guard keeps space-separated list literals `[2 1]` parsing as
+>   separate elements; parens/comprehensions re-enable application). This is the vehicle for the proposed
+>   **Workstream E** (§6). **Still deferred:** promoting the current re-parsed-text `def` macro to a real
+>   `Closure` value kind, multi-argument *lambdas* (`\x y -> …` as a value), and currying — see §2.
 > - ◑ **Workstream C — loud errors + diagnostics: core DONE.** Unknown pipeline steps (neither a
 >   builtin/function nor an available executable) now surface `[ERROR] unknown step or command: "x"`
 >   instead of vanishing silently (`EitherT` propagates error-valued adapter results as `Left`;
@@ -202,6 +208,80 @@ generics, and the no-runtime-type-error guarantee.
 
 ---
 
+## 4b. Workstream E — Expression-level function forms across the operator-type matrix (RECOMMENDED)
+
+> **Status:** proposed (2026-10-13). **Independent of the Kubernetes-graph plan**
+> ([`docs/k8s_graph_design.md`](k8s_graph_design.md)) — that plan only *motivated* and *seeded* it. This is a
+> general language change that stands on its own and benefits every program, so it is tracked here, not in
+> the k8s plan.
+
+### The observation
+
+The k8s-graph ingest work ("option C": `fold` with a graph accumulator) needed a reducer body to *construct*
+a value, not just combine scalars with operators. Delivering that required **function application in the
+expression language** (Workstream B's expression slice, now landed) plus a few **expression-level builtins**
+that take and return *real typed values* — `graph_add_node color id payload g`, `hamt_get key record`,
+`hamt_path "a.b.c" record` — registered as `functions.DSLFunc`s in `pkg/cli/dslfuncs.go` and resolved via the
+reducer/lambda name lookups.
+
+The insight the user named: this is **"replacing strings with real types."** Historically a DSL operation was
+reachable only as a *pipeline step* whose arguments are literal string tokens parsed out of the step text
+(`graph_add_node Pod nginx` — `Pod`/`nginx` are raw strings). The new *expression-function* form lets the
+arguments be **computed, real runtime values** (`graph_add_node (hamt_get "kind" r) (hamt_get "name" r) r g`).
+The step form is point-free and convenient at the top of a pipe; the function form is applicative and
+composes inside lambdas, folds, and comprehensions. They are complementary, and the function form is strictly
+more expressive.
+
+### The proposal
+
+Fill the **operator-type matrix** (STYLEGUIDE §7) with expression-level `DSLFunc` forms for every collection
+and ADT where the operation is mathematically valid — the horizontal complement to the pipeline-step forms
+that already exist. The enabling machinery is done; the remaining work is *registration* plus asserts.
+
+Illustrative cells (each the function form of an existing step, returning the real typed value):
+
+- **List / Chunk** — `cons x xs`, `append xs ys`, `head xs`, `tail xs`, `nth i xs`, `length xs`
+- **Set** — `set_insert x s`, `set_member x s` → `bool`, `set_union a b`, `set_intersect a b`, `set_diff a b`
+- **HAMT** — `hamt_set k v m`, `hamt_del k m`, `hamt_keys m`, `hamt_values m` (`hamt_get`/`hamt_path` ✅ done)
+- **Tree / BST** — `tree_insert x t`, `tree_member x t`
+- **Pair** — `pair a b`, `fst p`, `snd p`
+- **Either / Maybe** — `right x`, `left e`, `just x`, `nothing`, `either_map f e`, `maybe_default d m`
+- **Variant** — constructor application yielding a `dsltypes.Variant`
+- **Primitives** — `min a b`, `max a b`, `abs n` (arithmetic itself already works via operators)
+
+### Design constraints (carry over from the landed slice)
+
+1. **Preserve element types; do not stringify.** The graph pins `K`/`C` to `string`, so its constructors
+   coerce via `dslStr` — correct *there only*. A `Set` of ints, a `Pair[int,int]`, or a `Maybe[float64]` must
+   thread values through untouched. Each registered `DSLFunc` owns its own coercion policy.
+2. **Honor the `appDisabled` list-literal guard.** gatwd serializes lists space-separated and re-parses them,
+   so inside a bare `[...]` adjacent atoms stay separate elements; a function call used there must be
+   parenthesized (`[(cons 1 xs), ys]`) — the same rule as Haskell. The parser already enforces this.
+3. **One wiring generalization.** `dslBuiltinLookup` is currently consulted only by the `fold` reducer and the
+   graph-lambda lookups. To make these functions callable in *every* expression context (a bare
+   `let x = cons 1 xs in …`, any comprehension), wire the registry into the general evaluator name-resolution
+   path. Small, clean, and the natural home for Workstream B's eventual `Closure`-backed user functions too.
+4. **Namespaces don't collide.** A name may be *both* a pipeline step and an expression function (`graph_empty`,
+   `hamt_get` already are): step dispatch keys off the pipeline-step text, function application off the
+   expression lookup. Keep the two forms behaviorally identical.
+
+### Definition of done (per cell, matching the matrix mandate)
+
+The Go method on the type → the pipeline-step form (if infix/stream) → the expression-function `DSLFunc` in
+`pkg/cli/dslfuncs.go` → a self-asserting case in `tests/dsl_exhaustive_test.gatwd` exercising the *function*
+form inside a lambda/comprehension (not only the step form). Structural Go tests assert the raw memory type
+returned, per STYLEGUIDE §4.
+
+### Payoff & relation to Workstream B
+
+This makes the operator-type matrix usable *from inside the language* — user-written `fold`/`map`/relation
+predicates over any type — without waiting for the full `Closure` subsystem (B.1–B.5). When B's `Closure`
+value kind lands, these registered `DSLFunc`s become the builtin tier that user closures compose with; the two
+are consistent (both are callables resolved through the same lookup). Low risk: additive registration on top of
+infra already covered by `parser/apply_test.go` and `pkg/cli/dslfuncs_test.go`.
+
+---
+
 ## 5. Sequencing, effort, and the scorecard
 
 | Order | Workstream | Effort | Depends on | Interpreter-safe? |
@@ -211,11 +291,13 @@ generics, and the no-runtime-type-error guarantee.
 | 3 | **C** — loud errors + wire diagnostics | ~1–2 days | — | yes (runtime + parser) |
 | 4 | **D1/D2** — annotations + checker/inference | ~3–5 days | C (`--check` entry) | yes (pre-pass) |
 | 4 | **D3** — exhaustiveness | ~1 day | A | yes (pre-pass) |
+| — | **E** — expression-level function forms across the operator-type matrix (recommended, independent) | ~1–3 days, incremental per type | B expression slice (✅ landed) | yes (additive registration) |
 
 **How much of each hurdle this recovers:**
 
 - **Hurdle B (first-class functions): ~fully.** Nothing about it needs static types or AOT; Workstream B
-  closes it.
+  closes it. Its expression-application slice is already landed, and **Workstream E** then turns that into
+  broad day-to-day leverage by exposing the operator-type matrix as composable expression-level functions.
 - **Hurdle A (static types): the gradual/dynamic-done-well tier.** Workstreams C + D deliver loud errors,
   optional annotations, local inference, and exhaustiveness — most of the *day-to-day* safety of Elm/Haskell,
   minus the global soundness guarantee that scope rules out.
