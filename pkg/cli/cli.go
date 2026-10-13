@@ -485,11 +485,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			varName := strings.TrimSpace(stepStr[12:])
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterLess(pivotNode))
+			} else {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("filter_less: unknown pivot variable %q", varName)))
 			}
 		} else if strings.HasPrefix(stepStr, "filter_greater ") {
 			varName := strings.TrimSpace(stepStr[15:])
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
+			} else {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("filter_greater: unknown pivot variable %q", varName)))
 			}
 		} else if strings.HasPrefix(stepStr, "filter") || strings.HasPrefix(stepStr, "reject") {
 			// `reject p` keeps the complement of `filter p`; both share this branch
@@ -545,11 +549,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "memoize") {
 			cmd := strings.TrimSpace(stepStr[7:])
 			pipeline = append(pipeline, i.gated(CapExec, "memoize", evaluator.StepMemoize(i.execAdapter(cmd))))
-		} else if strings.HasPrefix(stepStr, "zip") {
-			for res := range parser.ParseZip()(stepStr) {
-				cmd := res.Fst
+		} else if stepStr == "zip" || strings.HasPrefix(stepStr, "zip ") {
+			// `zip CMD` pairs each node with what CMD makes of it. CMD is the whole rest of
+			// the step (a command template with its arguments, like `memoize CMD`): it used to
+			// be cut at the first non-letter by parser.ParseZip, so `zip tr a-z A-Z` ran a bare
+			// `tr`, and `zip` with no command added no step at all.
+			if cmd := strings.TrimSpace(stepStr[3:]); cmd == "" {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("zip: expected a command to pair each value with (zip CMD)")))
+			} else {
 				pipeline = append(pipeline, i.gated(CapExec, "zip", evaluator.StepZip(i.execAdapter(cmd))))
-				break
 			}
 		} else if strings.HasPrefix(stepStr, "format_tuple") {
 			formatStr := strings.TrimSpace(stepStr[12:])

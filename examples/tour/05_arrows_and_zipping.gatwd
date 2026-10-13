@@ -10,5 +10,6 @@ type User = Profile
 spawn User: joerg |> (date &&& whoami)
 
 -- 2. Stream Zipping
--- Joins the primary stream directly with a secondary adapter stream.
+-- Pairs every value of the primary stream with what a secondary adapter makes of it:
+-- the result is the pair [Primary: joerg, <the date>], not the date alone.
 spawn User: joerg |> echo Primary: %s |> zip date

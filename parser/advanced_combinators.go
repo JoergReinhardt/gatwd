@@ -129,7 +129,9 @@ func ParseExpect() Combinator[functions.Pair[string, string]] {
 // ParseZip returns a Combinator that matches the keyword "zip" followed by whitespace
 // and an alphabetic adapter name, yielding that name. It is the parser for the `zip
 // <adapter>` arrow, which pairs the incoming stream elementwise with a secondary
-// stream produced by the named adapter.
+// stream produced by the named adapter. It reads ONE alphabetic word only; the interpreter
+// does not use it for the `zip` step any more (the step takes the whole rest of the line as a
+// command template, arguments included).
 func ParseZip() Combinator[string] {
 	isAlpha := func(b byte) bool { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
 	wordParser := Map(Many(Satisfy(isAlpha)), func(b []byte) string { return string(b) })
