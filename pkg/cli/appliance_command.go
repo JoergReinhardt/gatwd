@@ -49,6 +49,13 @@ import (
 // did not finish, so it exits 1 ("the check was interrupted"). A second signal while the
 // process is still stopping exits at once with status 1: cancellation is cooperative, and one
 // evaluation that never reaches a node boundary cannot be interrupted any other way.
+//
+// Loading. --timeout also bounds LOADING the rules (the top-level statements of the embedded
+// rules and of the override are evaluated while loading): one budget per load, at start-up and
+// again at every reload of `run`. A start-up load that runs over fails the command with status
+// 1 ("PATH: 1 problem(s): loading the rules timed out after 30s"); a hot reload that runs over
+// is reported on stderr like any broken override and the last good rules keep serving. A stop
+// request cancels a load in progress the same way it cancels a check.
 
 // ApplianceSettings is what the generic flags resolved to; a domain's ApplianceSetup turns it
 // into an Appliance.
@@ -64,6 +71,9 @@ type ApplianceSettings struct {
 	Timeout time.Duration
 	// MaxOutput is how many bytes one check may produce (--max-output); zero means no limit.
 	MaxOutput int64
+	// Context bounds loading the rules (the stop request of the command, see below); nil means
+	// no bound beyond Timeout. The command fills it in; a setup passes it on with BoundOptions.
+	Context context.Context
 }
 
 // Options returns the ApplianceOptions that apply the settings: WithConfigMapOverride,
@@ -73,12 +83,14 @@ func (s ApplianceSettings) Options() []ApplianceOption {
 	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode), WithPolicy(s.Policy), s.BoundOptions()}
 }
 
-// BoundOptions returns the options for the per-check limits alone (WithTimeout and
-// WithMaxOutput), for a domain setup that assembles the other options itself.
+// BoundOptions returns the options for the limits alone (WithTimeout, which also bounds
+// loading and reloading the rules, WithMaxOutput and WithLoadContext), for a domain setup that
+// assembles the other options itself.
 func (s ApplianceSettings) BoundOptions() ApplianceOption {
 	return func(a *Appliance) {
 		WithTimeout(s.Timeout)(a)
 		WithMaxOutput(s.MaxOutput)(a)
+		WithLoadContext(s.Context)(a)
 	}
 }
 
@@ -369,8 +381,11 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	ctx, release := t.stopContext(parent, stderr)
 	defer release()
 
-	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow, Timeout: f.timeout, MaxOutput: f.maxOutput})
+	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow, Timeout: f.timeout, MaxOutput: f.maxOutput, Context: ctx})
 	if err != nil {
+		if ctx.Err() != nil { // a stop request during start-up: not a failure of the setup
+			return t.stopped(ctx, stderr, loop, false)
+		}
 		return err
 	}
 	last := app.Report().String()
@@ -404,7 +419,10 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 			}
 			return nil
 		}
-		if err := app.Reload(); err != nil {
+		if err := app.ReloadContext(ctx); err != nil {
+			if ctx.Err() != nil {
+				return t.stopped(ctx, stderr, loop, false)
+			}
 			fmt.Fprintf(stderr, "%s: reload failed, still using the previous rules: %v\n", t.spec.Name, err)
 		} else if now := app.Report().String(); now != last {
 			last = now

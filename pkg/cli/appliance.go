@@ -105,12 +105,20 @@ type LoadError struct {
 	Source string
 	// Problems are the individual findings, one line each, with line numbers where known.
 	Problems []string
+	// Err is the cause when the load was stopped rather than wrong: a *TimeoutError when it ran
+	// over the Appliance's WithTimeout, a *CancelError when its context was cancelled. Nil for a
+	// problem with the rules themselves.
+	Err error
 }
 
 // Error lists every problem so a broken ConfigMap is diagnosed from one log line.
 func (e *LoadError) Error() string {
 	return fmt.Sprintf("%s: %d problem(s): %s", e.Source, len(e.Problems), strings.Join(e.Problems, "; "))
 }
+
+// Unwrap exposes the cause of a stopped load: errors.Is(err, context.DeadlineExceeded) holds
+// for a load that ran over its timeout.
+func (e *LoadError) Unwrap() error { return e.Err }
 
 // ApplianceOption configures a Gatwd Appliance instance.
 type ApplianceOption func(*Appliance)
@@ -140,9 +148,10 @@ type Appliance struct {
 	embeddedStr  string
 	mode         OverrideMode
 	required     []string
-	policy       Policy        // zero value: DenyAll
-	timeout      time.Duration // per check; zero: none (WithTimeout)
-	maxOutput    int64         // per check, bytes; zero: none (WithMaxOutput)
+	policy       Policy          // zero value: DenyAll
+	timeout      time.Duration   // per check; zero: none (WithTimeout)
+	maxOutput    int64           // per check, bytes; zero: none (WithMaxOutput)
+	loadCtx      context.Context // bounds NewAppliance and Reload; nil: none (WithLoadContext)
 }
 
 // NewAppliance creates and initializes a hot-reloadable Gatwd Appliance.
@@ -171,6 +180,14 @@ func NewAppliance(opts ...ApplianceOption) (*Appliance, error) {
 		return nil, err
 	}
 	return app, nil
+}
+
+// WithLoadContext makes ctx bound loading the rules — NewAppliance and Reload — in addition to
+// the WithTimeout budget: when it is done (a stop request, say) loading stops and fails with a
+// *LoadError wrapping a *CancelError. nil, the default, means no bound beyond the timeout.
+// Checks are bounded separately, by the context given to ExecuteContext.
+func WithLoadContext(ctx context.Context) ApplianceOption {
+	return func(a *Appliance) { a.loadCtx = ctx }
 }
 
 // WithEmbeddedScript configures raw embedded script text as the baseline fallback.
@@ -335,8 +352,29 @@ func diffNames(prefix string, before, after map[string]string) (overridden, adde
 	return overridden, added
 }
 
-// load builds a complete rule set without touching the active one.
-func (a *Appliance) load() (*applianceState, error) {
+// loadStopped is the *LoadError of a load whose context is done, nil while it is not. The
+// statements that ran after the stop printed errors of their own; the cause is the one finding.
+func loadStopped(ctx context.Context, source string) error {
+	if ctx.Err() == nil {
+		return nil
+	}
+	cause := cancelCause(ctx)
+	var timeout *TimeoutError
+	if errors.As(cause, &timeout) {
+		return &LoadError{Source: source, Problems: []string{cause.Error()}, Err: cause}
+	}
+	stopped := &CancelError{Cause: cause}
+	return &LoadError{Source: source, Problems: []string{"loading the rules: " + stopped.Error()}, Err: stopped}
+}
+
+// load builds a complete rule set without touching the active one. It runs under ctx and the
+// Appliance's timeout (one budget for the embedded rules and the override together).
+func (a *Appliance) load(ctx context.Context) (*applianceState, error) {
+	if a.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, a.timeout, &TimeoutError{Limit: a.timeout, What: "loading the rules"})
+		defer cancel()
+	}
 	overrideText, hasOverride, err := a.readOverride()
 	if err != nil {
 		return nil, err
@@ -347,6 +385,12 @@ func (a *Appliance) load() (*applianceState, error) {
 	// binary); everything loaded from here on — the embedded rules and above all the override —
 	// runs under the Appliance's policy, and so does every later Execute.
 	interp.SetPolicy(a.policy)
+	if ctx.Done() != nil {
+		// the interpreter outlives the load: the context must not (a later Execute would
+		// find it done)
+		interp.SetContext(ctx)
+		defer interp.SetContext(nil)
+	}
 	problems := &loadProblems{}
 	interp.Out = problems
 	defer func() { interp.Out = nil }()
@@ -355,6 +399,9 @@ func (a *Appliance) load() (*applianceState, error) {
 	if !(hasOverride && a.mode == OverrideReplace) {
 		if err := a.loadBase(interp); err != nil {
 			return nil, &LoadError{Source: "embedded rules", Problems: []string{err.Error()}}
+		}
+		if err := loadStopped(ctx, "embedded rules"); err != nil {
+			return nil, err
 		}
 		if len(problems.lines) > 0 {
 			return nil, &LoadError{Source: "embedded rules", Problems: problems.lines}
@@ -368,6 +415,9 @@ func (a *Appliance) load() (*applianceState, error) {
 		}
 		beforeDefs, beforeConsts := snapshot(interp)
 		interp.LoadScriptContent(overrideText, filepath.Dir(a.overridePath))
+		if err := loadStopped(ctx, a.overridePath); err != nil {
+			return nil, err
+		}
 		if len(problems.lines) > 0 {
 			return nil, &LoadError{Source: a.overridePath, Problems: problems.lines}
 		}
@@ -416,8 +466,22 @@ func structuralErrors(text string) []string {
 // If the new rules cannot be loaded (a *LoadError) the swap does not happen: the previous,
 // last good rules keep serving Execute, and the error says what is wrong so it can be
 // logged and fixed. Reload therefore never degrades a running Appliance.
+//
+// Reloading is bounded like a check: by the Appliance's WithTimeout (a load that runs over
+// fails with a *LoadError wrapping a *TimeoutError and the last good rules keep serving) and
+// by WithLoadContext.
 func (a *Appliance) Reload() error {
-	st, err := a.load()
+	ctx := a.loadCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return a.ReloadContext(ctx)
+}
+
+// ReloadContext is Reload under ctx: when ctx is done the load stops and fails with a
+// *LoadError wrapping a *CancelError, and the previous rules stay in place.
+func (a *Appliance) ReloadContext(ctx context.Context) error {
+	st, err := a.load(ctx)
 	if err != nil {
 		return err
 	}
