@@ -369,3 +369,13 @@ let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fol
 let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fold (\a x -> hamt_has_path "missing" x) true |> assert false
 -- (d) a guard between generators prunes before the next generator runs; unchanged semantics.
 [ y | x <- [1, 2, 3], x > 1, y <- [x, x] ] |> assert [2 2 3 3]
+
+-- 77. graph_in_of / graph_out_of (generic, domain-free): the colour-filtered
+-- reverse/forward adjacency as an expression, so a comprehension can test "does any
+-- edge of this colour enter/leave x?" (an empty list means none).
+-- (a) incoming and outgoing neighbours of one colour, ignoring other colours.
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_in_of Owns "b" g) 0 |> assert [a]
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_out_of Owns "b" g) 0 |> assert [c]
+let es = [["a", "b"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_in_of Selects "b" g) 0 |> assert []
+-- (b) used as a guard: the nodes no Owns edge enters (roots).
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> [ n | n <- ["a", "b", "c"], (graph_in_of Owns n g) == [] ]) 0 |> assert [a]

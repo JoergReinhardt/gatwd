@@ -701,9 +701,16 @@ an `embed.FS` now imports its siblings from that FS). Asserts: DSL §76,
 **NEXT:** Phase 7 (`cmd/gatwd-k8s` Edition + `cmd/gatwd-k8s-operator` Appliance); then
 expand the relation matrix (`Configures`, `Mounts`, `Binds`, `Calls`, inferred edges).
 
-**Phase 7 — Editions & Appliances.** `cmd/gatwd-k8s/` Edition;
-`cmd/gatwd-k8s-operator/` Appliance w/ embedded compliance + reload. E2E demos for
-2 use cases (dependency resolve, request trace) over fixtures.
+**Phase 7 — Editions & Appliances. DONE.** `cmd/gatwd-k8s/` Edition (pure assembly;
+falls back to an offline edition when there is no kubeconfig). `cmd/gatwd-k8s-operator/`
+Appliance: embedded `rules/compliance.gatwd` (UnselectedPod, IdleDeployment) over
+`k8s_graph`, ConfigMap override + `Reload`, `-manifests`/`-rules`/`-interval` flags.
+New generic core builtins `graph_in_of` / `graph_out_of color id g` (DSL §77) back the
+rules. E2E tests over `pkg/k8sgraph/testdata/stack.yaml`: request trace
+(`graph_shortest_path web nginx-pod`) and dependency resolve (`graph_reachable`,
+`k8s_apply_order`) in `pkg/k8sgraph/edition_test.go`; operator tests in
+`cmd/gatwd-k8s-operator/main_test.go`. Gap: the operator checks offline manifests; a
+live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
 
 **Phase 8 — hardening + recursive-dogfood.** Expand relations/weights/matrix;
 perf/leak bench on a large synthetic cluster graph (mirror the Conway/Ackermann

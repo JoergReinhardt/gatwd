@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lonely
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stray

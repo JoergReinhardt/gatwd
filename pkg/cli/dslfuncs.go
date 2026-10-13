@@ -195,6 +195,38 @@ func buildDSLBuiltinFuncs() map[string]any {
 		return nodePayloads(g.NodesByColor(dslStr(args[0]))), nil
 	})
 
+	// graph_in_of / graph_out_of color id g → the identities of the nodes joined to id
+	// by an incoming / outgoing edge of that color. The expression form of the
+	// reverse/forward adjacency, so a comprehension can ask "is anything of this
+	// color pointing at x?" (an empty list means no).
+	type graphEdge = functions.Edge[string, string, any]
+	for _, dir := range []struct {
+		name  string
+		edges func(dslGraph, string) []graphEdge
+		end   func(graphEdge) string
+	}{
+		{"graph_in_of", func(g dslGraph, id string) []graphEdge { return g.InEdges(id) }, func(e graphEdge) string { return e.From }},
+		{"graph_out_of", func(g dslGraph, id string) []graphEdge { return g.OutEdges(id) }, func(e graphEdge) string { return e.To }},
+	} {
+		m[dir.name] = functions.DSLFunc(func(args []any) (any, error) {
+			if len(args) != 3 {
+				return nil, fmt.Errorf("%s: want (color id graph), got %d args", dir.name, len(args))
+			}
+			g, ok := asDSLGraph(args[2])
+			if !ok {
+				return nil, fmt.Errorf("%s: last argument must be a graph, got %T", dir.name, args[2])
+			}
+			color := dslStr(args[0])
+			out := []any{}
+			for _, e := range dir.edges(g, dslStr(args[1])) {
+				if e.Color == color {
+					out = append(out, dir.end(e))
+				}
+			}
+			return out, nil
+		})
+	}
+
 	m["hamt_has_path"] = functions.DSLFunc(func(args []any) (any, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("hamt_has_path: want (path payload), got %d args", len(args))

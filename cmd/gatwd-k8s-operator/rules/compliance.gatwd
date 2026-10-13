@@ -1,0 +1,11 @@
+-- Use-case rules of the Kubernetes compliance operator. They run over the typed
+-- graph the embedded k8s prelude derives (k8s_graph) and are the part an operator
+-- hot-reloads from a ConfigMap. Each rule is a comprehension yielding
+-- [violation, resource] pairs; an empty list means the cluster is compliant.
+--
+--   UnselectedPod:  a Pod that no Service selects, so it receives no traffic.
+--   IdleDeployment: a Deployment that owns no ReplicaSet, so it manages no Pods.
+--
+-- Usage over one resource stream:
+--   spawn StrVal: ./manifests |> manifests |> compliance
+def compliance = k8s_graph |> fold (\_ g -> [ ["UnselectedPod", (hamt_path "metadata.name" p)] | p <- (graph_payloads_of "Pod" g), (graph_in_of "Selects" (hamt_path "metadata.name" p) g) == [] ] ++ [ ["IdleDeployment", (hamt_path "metadata.name" d)] | d <- (graph_payloads_of "Deployment" g), (graph_out_of "Owns" (hamt_path "metadata.name" d) g) == [] ]) 0
