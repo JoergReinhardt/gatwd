@@ -1,0 +1,3 @@
+# Negative fixture: names a resource file that does not exist.
+resources:
+  - does-not-exist.yaml

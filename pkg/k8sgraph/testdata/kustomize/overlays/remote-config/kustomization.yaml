@@ -1,0 +1,4 @@
+# Negative fixture: the remote file hides in a generator configuration, not in the
+# kustomization itself. The guard must follow `generators:` into the config file.
+generators:
+  - generator.yaml

@@ -1,0 +1,5 @@
+# A reusable base: one Pod, the Service in front of it, and the ConfigMap it mounts.
+resources:
+  - pod.yaml
+  - service.yaml
+  - configmap.yaml

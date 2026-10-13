@@ -1,0 +1,3 @@
+# Negative fixture: an exec plugin. Plugins stay disabled, so this must be refused.
+generators:
+  - generator.yaml

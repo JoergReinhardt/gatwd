@@ -1,0 +1,6 @@
+apiVersion: builtin
+kind: ConfigMapGenerator
+metadata:
+  name: remote-config
+files:
+  - settings=https://example.invalid/settings.env

@@ -1,0 +1,5 @@
+# Negative fixture: a patch outside the kustomization root (load restriction).
+resources:
+  - ../../base
+patches:
+  - path: ../../../stack.yaml
