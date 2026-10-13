@@ -1411,3 +1411,38 @@ spawn S: x |> emit 7, 007, 1.50, 1.5 |> drop 1 |> collect_list |> map (\v -> v =
 -- the step forms of hamt_get/hamt_set/hamt_del read a bare time token as a value too (the key `5s` is a Duration)
 hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get 5s |> assert a
 hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get @2026-10-13 |> assert d
+
+-- 117. A quoted `const` value is always a String (hardening §5.6.2, Track N). The quotes are the one way to say "text" for a
+-- spelling that is also a literal: `const Q = "2+3"` is the text 2+3, never 5, and `"5"` is never the Int. The unquoted forms keep
+-- the canonical-literal typing (`const N = 2+3` is an expression, 5). Each position is asserted inside a lambda.
+const Q117 = "2+3"
+const R117 = "5"
+const M117 = "-5"
+const T117 = "1 < 2"
+const N117 = 2+3
+const K117 = 5
+[1, 2] |> map (\x -> Q117) |> assert [2+3 2+3]
+[1, 2] |> map (\x -> length Q117) |> assert [3 3]
+[1, 2] |> map (\x -> Q117 == "2+3") |> assert [true true]
+[1, 2] |> map (\x -> Q117 ++ "!") |> assert [2+3! 2+3!]
+[1, 2] |> map (\x -> R117 == "5") |> assert [true true]
+[1, 2] |> map (\x -> R117 == 5) |> assert [false false]
+[1, 2] |> map (\x -> M117 == "-5") |> assert [true true]
+[1, 2] |> map (\x -> T117 == "1 < 2") |> assert [true true]
+[1, 2] |> filter (\x -> Q117 == "2+3") |> assert [1 2]
+[1, 2] |> map (\x -> length (R117 ++ R117)) |> assert [2 2]
+-- the pipeline head and a step argument
+Q117 ++ "!" |> assert 2+3!
+Q117 |> length |> assert 3
+R117 |> ++ "!" |> assert 5!
+Q117 |> ++ R117 |> assert 2+35
+[10, 20] |> map (\x -> "v" ++ R117) |> assert [v5 v5]
+-- `emit` and `spawn`: a quoted token is the String, an unquoted one is typed
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v ++ "!") |> assert [2+3! 5! 5!]
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v == "5") |> assert [false true false]
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v == 5) |> assert [false false true]
+-- the unquoted cases, pinned: an expression is evaluated, a canonical literal is typed
+[1, 2] |> map (\x -> N117 + x) |> assert [6 7]
+[1, 2] |> map (\x -> K117 + x) |> assert [6 7]
+N117 |> assert 5
+-- the String does not do arithmetic: `x + R117` is an error (checked as text in pkg/cli/typed_tokens_test.go, an error cannot be asserted here)
