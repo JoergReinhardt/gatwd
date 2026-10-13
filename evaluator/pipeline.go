@@ -378,23 +378,30 @@ func StepUpdate(field string, newValue any) PipelineStep[functions.Either[error,
 
 // StepFold collapses a stream of nodes into a single scalar value.
 // Supports: "count", "len", "length", "sum", "product", "prod", "min", "max", "concat", "any", "or", "all", "and".
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepFold(operation string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			op := strings.ToLower(strings.TrimSpace(operation))
 			var items []any
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			count := 0
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
-				} // Skip errors in fold
+				}
 				val, _ := node.Value.UnwrapRight()
 				items = append(items, val)
 				count++
 				lastFlag = node.DSLType
 			}
 
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
+			}
 			if len(items) == 1 {
 				if colSlice, ok := functions.ToSliceAny(items[0]); ok {
 					items = colSlice
@@ -895,6 +902,22 @@ func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipelin
 	}
 }
 
+// yieldFailed delivers the error nodes of a failed aggregation, in stream order, and reports
+// whether the consumer wants more. It is the one place the "aggregate or error, never an
+// aggregate over a failed stream" rule (Mandate 6) is written: every step that gathers a
+// whole stream into one value (collect_list, to_list, to_chunk, to_set, to_hamt, frequencies,
+// the build_* family, fold) yields these nodes INSTEAD of its aggregate when any element of
+// the stream was an error, because a list, tree or total that silently lacks the failed
+// element is worse than none.
+func yieldFailed(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool, failed []dsltypes.ASTNode[functions.Either[error, any]]) bool {
+	for _, node := range failed {
+		if !yield(node) {
+			return false
+		}
+	}
+	return true
+}
+
 // StepCollectList aggregates the entire stream into a single collections.List.
 // An error node (Left) in the stream is never dropped from the result: if the
 // stream carries any, those error nodes are yielded instead of the list.
@@ -916,11 +939,7 @@ func StepCollectList() PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 			if len(failed) > 0 {
-				for _, node := range failed {
-					if !yield(node) {
-						return
-					}
-				}
+				yieldFailed(yield, failed)
 				return
 			}
 
@@ -937,13 +956,16 @@ func StepCollectList() PipelineStep[functions.Either[error, any]] {
 }
 
 // StepBuildTree takes a stream (or a list) and builds a simple Tree with a Root node and the stream elements as children.
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepBuildTree(rootName string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var elements []any
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -951,6 +973,10 @@ func StepBuildTree(rootName string) PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
+			}
 			// Build children list
 			var children *collections.List[*collections.Tree[any]] = collections.Nil[*collections.Tree[any]]()
 			for i := len(elements) - 1; i >= 0; i-- {
@@ -1077,13 +1103,16 @@ func StepRoute[T any](engine *Engine[T]) PipelineStep[T] {
 // `1 2 3 9 10`, not the text order `1 10 2 3 9`. It is the step form of the function form
 // `bst_from` and the two build the same *collections.BST[any]. Two elements that cannot be
 // ordered (a String and an Int) end the stream in one error node naming both; no tree is yielded.
+// Likewise an upstream error node: it is delivered (all of them, in order) instead of a tree.
 func StepBuildBST() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var bst *collections.BST[any]
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -1096,6 +1125,10 @@ func StepBuildBST() PipelineStep[functions.Either[error, any]] {
 				}
 				bst = next
 			}
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
+			}
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(bst)), lastFlag)
 			yield(newNode)
 		}
@@ -1103,13 +1136,16 @@ func StepBuildBST() PipelineStep[functions.Either[error, any]] {
 }
 
 // StepBuildBTree aggregates a stream into a mock B-Tree with 3 keys per node
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var elements []any
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -1117,6 +1153,10 @@ func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
+			}
 			// Mock a B-Tree structure for visualizer testing
 			var btree *collections.BTree[any]
 			if len(elements) > 3 {
@@ -1134,13 +1174,16 @@ func StepBuildBTree() PipelineStep[functions.Either[error, any]] {
 }
 
 // StepBuildRBTree aggregates a stream into a Red-Black Tree
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var rbt *collections.RBTree[string]
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -1153,6 +1196,10 @@ func StepBuildRBTree() PipelineStep[functions.Either[error, any]] {
 				} else {
 					rbt = rbt.Insert(strVal, cmp)
 				}
+			}
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
 			}
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(rbt)), lastFlag)
 			yield(newNode)
@@ -1197,18 +1244,25 @@ func StepMathAdd(amount string) PipelineStep[functions.Either[error, any]] {
 }
 
 // StepBuildArray aggregates a stream into a native Go slice
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepBuildArray() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var arr []any
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
 				arr = append(arr, val)
 				lastFlag = node.DSLType
+			}
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
 			}
 			yield(dsltypes.NewASTNode(functions.Right[error, any](any(arr)), lastFlag))
 		}
@@ -1330,7 +1384,6 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 			set := EmptyValueSet()
 			var errs []dsltypes.ASTNode[functions.Either[error, any]]
 			var lastFlag dsltypes.BitFlag
-			unkeyed := false
 
 			for node := range stream {
 				if node.Value.IsLeft() {
@@ -1340,7 +1393,6 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 				val, _ := node.Value.UnwrapRight()
 				next, err := ValueSetAdd(set, val)
 				if err != nil {
-					unkeyed = true
 					errs = append(errs, InjectError[any](fmt.Errorf("to_set: %w", err), node.DSLType))
 					continue
 				}
@@ -1348,15 +1400,10 @@ func StepToSet() PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
-			for _, errNode := range errs {
-				if !yield(errNode) {
-					return
-				}
-			}
-			if unkeyed {
+			if len(errs) > 0 {
+				yieldFailed(yield, errs)
 				return
 			}
-
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(set)), lastFlag)
 			yield(newNode)
 		}
@@ -1412,10 +1459,9 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 				}
 			}
 
-			for _, errNode := range errs {
-				if !yield(errNode) {
-					return
-				}
+			if len(errs) > 0 {
+				yieldFailed(yield, errs)
+				return
 			}
 
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(hamt)), lastFlag)
@@ -1442,10 +1488,9 @@ func StepToList() PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
-			for _, errNode := range errs {
-				if !yield(errNode) {
-					return
-				}
+			if len(errs) > 0 {
+				yieldFailed(yield, errs)
+				return
 			}
 
 			resList := collections.Nil[any]()
@@ -1476,10 +1521,9 @@ func StepToChunk() PipelineStep[functions.Either[error, any]] {
 				lastFlag = node.DSLType
 			}
 
-			for _, errNode := range errs {
-				if !yield(errNode) {
-					return
-				}
+			if len(errs) > 0 {
+				yieldFailed(yield, errs)
+				return
 			}
 
 			resChunk := collections.NewChunk[any](len(items))
@@ -2020,13 +2064,16 @@ func StepYieldRuntimeNode(node dsltypes.ASTNode[functions.Either[error, any]]) P
 // StepFilterLess returns a PipelineStep that keeps only the nodes whose integer
 // value is strictly less than the pivot carried by pivotNode. Both the pivot
 // and each element are coerced to int (ints directly, strings via strconv);
-// Left nodes, a Left pivot, and non-integer values are dropped. Together with
+// Left nodes are passed on unchanged; a Left or non-integer pivot, and an element that is
+// not an integer, each yield an error node instead of being dropped. Together with
 // StepFilterGreaterEqual this forms the two halves of a quicksort-style
 // partition around a pivot.
 func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			if pivotNode.Value.IsLeft() {
+				// Fail loud: a failed pivot is reported, not read as "nothing matches".
+				yield(pivotNode)
 				return
 			}
 			pVal, _ := pivotNode.Value.UnwrapRight()
@@ -2037,11 +2084,15 @@ func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) Pi
 			case string:
 				pivotInt, _ = strconv.Atoi(p)
 			default:
+				yield(InjectError[any](fmt.Errorf("filter_less: pivot must be an integer, got %T", pVal), pivotNode.DSLType))
 				return
 			}
 
 			for node := range stream {
 				if node.Value.IsLeft() {
+					if !yield(node) { // an upstream error is passed on, never dropped
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -2052,6 +2103,11 @@ func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) Pi
 				case string:
 					vInt, _ = strconv.Atoi(v)
 				default:
+					// Fail loud: an element that cannot be ordered is reported, not dropped
+					// (a partition that loses elements is not a partition).
+					if !yield(InjectError[any](fmt.Errorf("filter_less: cannot compare %T with an integer pivot", val), node.DSLType)) {
+						return
+					}
 					continue
 				}
 
@@ -2068,13 +2124,15 @@ func StepFilterLess(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) Pi
 // StepFilterGreaterEqual returns a PipelineStep that keeps only the nodes whose
 // integer value is greater than or equal to the pivot carried by pivotNode.
 // Both the pivot and each element are coerced to int (ints directly, strings
-// via strconv); Left nodes, a Left pivot, and non-integer values are dropped.
+// via strconv); Left nodes are passed on, and a bad pivot or element is an error node.
 // It is the complement of StepFilterLess, together partitioning a stream around
 // a pivot.
 func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, any]]) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			if pivotNode.Value.IsLeft() {
+				// Fail loud: a failed pivot is reported, not read as "nothing matches".
+				yield(pivotNode)
 				return
 			}
 			pVal, _ := pivotNode.Value.UnwrapRight()
@@ -2085,11 +2143,15 @@ func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, a
 			case string:
 				pivotInt, _ = strconv.Atoi(p)
 			default:
+				yield(InjectError[any](fmt.Errorf("filter_greater: pivot must be an integer, got %T", pVal), pivotNode.DSLType))
 				return
 			}
 
 			for node := range stream {
 				if node.Value.IsLeft() {
+					if !yield(node) { // an upstream error is passed on, never dropped
+						return
+					}
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -2100,6 +2162,11 @@ func StepFilterGreaterEqual(pivotNode dsltypes.ASTNode[functions.Either[error, a
 				case string:
 					vInt, _ = strconv.Atoi(v)
 				default:
+					// Fail loud: an element that cannot be ordered is reported, not dropped
+					// (a partition that loses elements is not a partition).
+					if !yield(InjectError[any](fmt.Errorf("filter_greater: cannot compare %T with an integer pivot", val), node.DSLType)) {
+						return
+					}
 					continue
 				}
 
@@ -2228,13 +2295,16 @@ func StepEmpty() PipelineStep[functions.Either[error, any]] {
 }
 
 // StepFrequencies counts occurrences of elements in the stream, producing a persistent HAMT of item -> count.
+// An error node anywhere in the stream is delivered instead of the aggregate (see yieldFailed).
 func StepFrequencies() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			h := collections.NewHAMT[string, any]()
 			var lastFlag dsltypes.BitFlag
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			for node := range stream {
 				if node.Value.IsLeft() {
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
@@ -2252,6 +2322,10 @@ func StepFrequencies() PipelineStep[functions.Either[error, any]] {
 					}
 				}
 				h = h.Set(key, currentCount+1)
+			}
+			if len(failed) > 0 { // Mandate 6: no aggregate over a failed stream
+				yieldFailed(yield, failed)
+				return
 			}
 			yield(dsltypes.NewASTNode(functions.Right[error, any](any(h)), lastFlag))
 		}

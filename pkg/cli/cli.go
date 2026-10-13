@@ -485,11 +485,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			varName := strings.TrimSpace(stepStr[12:])
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterLess(pivotNode))
+			} else {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("filter_less: unknown pivot variable %q", varName)))
 			}
 		} else if strings.HasPrefix(stepStr, "filter_greater ") {
 			varName := strings.TrimSpace(stepStr[15:])
 			if pivotNode, ok := i.RuntimeNodes[varName]; ok {
 				pipeline = append(pipeline, evaluator.StepFilterGreaterEqual(pivotNode))
+			} else {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("filter_greater: unknown pivot variable %q", varName)))
 			}
 		} else if strings.HasPrefix(stepStr, "filter") || strings.HasPrefix(stepStr, "reject") {
 			// `reject p` keeps the complement of `filter p`; both share this branch
