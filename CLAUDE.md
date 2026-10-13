@@ -58,8 +58,9 @@ The repository skills are available to Claude Code under `.claude/skills/`
 4. **Recursive Dogfooding** — revisit older code to adopt newer abstractions.
 5. **Clean Core Prevention** — core imports only stdlib + this module (plus cobra/pflag in `pkg/cli` only) and names no
    domain; enforced by `internal/archtest`. Generic first, domain in a shim.
-6. **Fail Loud** — no silent failures; an assert on an empty stream passes
-   vacuously, so pair rules with negative fixtures and negative-control guards.
+6. **Fail Loud** — no silent failures; an assert on a stream that yields no node
+   is an error, and a rule returning `[]` still looks like a broken pipeline, so
+   pair rules with negative fixtures and negative-control guards.
 7. **Pure Assembly** — Editions/Appliances/shims wire; relations and rules live
    in `.gatwd`; prove live/offline parity with fakes.
 8. **Phase-Gated, Decision-Recorded Delivery** — small gated phases, ask at real

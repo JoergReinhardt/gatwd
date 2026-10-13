@@ -556,3 +556,38 @@ spawn IntVal: 5 |> (math_add 1 <+> math_add 10 <+> math_add 100) |> collect_list
 ```
 
 A complete domain built on all of this — Kubernetes resources lifted into a typed graph with relations and compliance rules written in the DSL, over a live cluster or offline manifests — is documented in [`k8s_graph_design.md`](k8s_graph_design.md); its entry points are `gatwd-k8s` (Edition) and `gatwd-k8s-operator` (Appliance).
+
+
+## 23. Arguments, Tasks and `main`
+
+What a script *sees* of its command line is defined by the interpreter, independent of the flag syntax:
+
+| Name | Meaning |
+| :-- | :-- |
+| `ARGS` | a `List` of `String`: everything after `--` (always defined; empty when there are none) |
+| `ARG0` | the script path (`""` when there is no script) |
+| task | any `def`, run with `ARGS` |
+| `main` | the default task, run after the script has loaded when no `--task` is given |
+
+```bash
+gatwd script.gatwd -- prod --strict          # loads script.gatwd, then runs `main`
+gatwd script.gatwd --task audit -- prod      # loads it, then runs `audit` instead of `main`
+```
+
+A task is one of two kinds, chosen by how the `def` is written:
+
+- **Lambda-bodied** (`def audit = \args -> …`) — a function called with the `ARGS` list; its value is printed.
+- **Pipeline-bodied** (`def audit = manifests |> k8s_graph |> …`) — a fragment. Its input stream is the
+  arguments, one `String` node each, so a fragment started with `-- some/path` receives that path as
+  its first node. With no arguments the stream is empty (a generator such as `emit` still produces output).
+
+```haskell
+def shout = \args -> map (\a -> a ++ "!") args
+def main  = \args -> [(length args), (shout args)]
+-- gatwd script.gatwd -- a "b c"      prints   ∷ [2 [a! b c!]]
+```
+
+Put invocations in `main` (or in tasks), not at the top level: top-level statements always run, which defeats
+`--task`. `ARGS` is a list *value* — use it inside expressions (`length ARGS`, `nth 0 ARGS`) rather than
+splicing it into step text. A task name that does not exist, a script that cannot be read, or a task that prints
+an `[ERROR]` makes the process exit non-zero (`1`; a malformed command line exits `2`).

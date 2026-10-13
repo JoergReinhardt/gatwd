@@ -68,7 +68,7 @@ cycles, and `internal/archtest` enforces the library-layer boundaries and the Cl
 
 ### Mandate 6: Fail Loud — Nothing Silent, and Every Test Must Be Able to Fail
 - **No silent failures.** A step, builtin or call that cannot do its job emits an error node / returns an error value that reaches the Left channel (`[ERROR] …`). It never yields nothing, `nil`, `0` or the unchanged input. A failure message names *what* failed (the missing key's path segment, the unknown step, the undeclared constructor).
-- **A pipeline that yields nothing is not a passing pipeline.** `assert` only checks nodes that arrive, so an assert on an empty stream passes vacuously. `./run_dsl_tests.sh` therefore fails on `(No output or node unhandled)` as well as on `[ERROR]`. When adding DSL tests, run your new section on its own and read every output line.
+- **A pipeline that yields nothing is not a passing pipeline.** `assert` on a stream that delivers no node at all is an error (`assertion on an empty stream`), and `./run_dsl_tests.sh` also fails on `(No output or node unhandled)` as well as on `[ERROR]`. A rule that legitimately returns `[]` is still indistinguishable from a broken pipeline, hence the negative fixtures below. When adding DSL tests, run your new section on its own and read every output line.
 - **Pair "no violations" with a negative fixture.** A compliant system returns `[]`, which looks exactly like a broken pipeline. Any rule set needs a fixture that violates *every* rule and a test expecting exactly those violations.
 - **Negative-control every new guard** (a test, a lint, a gate): introduce a deliberate violation, watch it fail, remove it. Never use `t.Logf` where an assertion belongs.
 - **Advisory is not silent.** Static checks (`gatwd --check` typing findings) are warnings, but they must be deterministic and must stay at zero false positives on every script in the repo; `Any` (unknown) is consistent with everything.
@@ -163,7 +163,7 @@ Each row is a mistake that happened; the rule is what prevents the next one. The
 | Use `fold (\_ g -> … g) graph_empty` for whole-graph passes | Use `map` on a graph element (that is the graph Functor over payloads) |
 | Write value functions as lambda-bodied `def f = \x y -> …` | Expect a pipeline-bodied `def` to take arguments (it is a re-parsed text macro) |
 | Use `EvaluateScript` for setup and `EvaluateToValues` for one query | Put `def` lines inside an `EvaluateToValues` string |
-| Use `|>` and read the output of every top-level line | Rely on `\|\|>` at top level — it currently prints nothing (pre-existing; ask before touching) |
+| Use `||>` only before a per-element step (map, filter, a command); expect any output order | Put a whole-stream step (`fold`, `sort`) after `||>` — it sees single nodes |
 | Check the output of every new DSL assertion | Trust `assert` on a stream that may be empty |
 | Pair a rule set with a violating fixture | Test only the compliant case (`[]` is also what a broken pipeline returns) |
 | Name a function differently when it cannot match its step form | Overload a name so step and function disagree |

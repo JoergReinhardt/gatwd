@@ -32,30 +32,38 @@ A **task** is a named `def` in a script. Two kinds, for two jobs:
 
 ```haskell
 -- examples/k8s_howto/tasks.gatwd
-def graph = manifests |> k8s_graph                                    -- a stream fragment (no arguments)
+def graph = manifests |> k8s_graph                                    -- a stream fragment (its input is the argument)
 def trace_to_pod = graph |> graph_shortest_path nginx-svc app-pod |> collect_list
 def count_kind = \kind g -> length (graph_payloads_of kind g)         -- a value function (takes arguments)
-
-spawn StrVal: examples/k8s_howto/cluster |> trace_to_pod              -- run it
+def main = (who_configures_what <+> trace_to_pod <+> pod_count)       -- the default task
 ```
 
-- A **pipeline-bodied** `def` is a reusable fragment you drop into a pipeline (`... |> trace_to_pod`).
-  It takes no arguments.
-- A **lambda-bodied** `def` is a curried function value: `count_kind "Pod" g`, or partially applied (`count_kind "Pod"`).
+- A **pipeline-bodied** `def` is a reusable fragment you drop into a pipeline (`... |> trace_to_pod`) or run
+  as a task: the command-line arguments arrive as its input stream.
+- A **lambda-bodied** `def` is a curried function value: `count_kind "Pod" g`, or partially applied
+  (`count_kind "Pod"`). As a task it is called with the `ARGS` list.
+- `main` is the task that runs when none is selected; keep invocations out of the top level.
 
-### Can I pass scripts as an argument?
+### Passing arguments and picking one task
 
-Yes — exactly **one script file** as the first argument. Nothing else is parsed: there are no extra
-arguments and no environment lookups, so a task cannot take parameters from the command line.
+The script path is the first argument; everything after `--` is handed to the script as `ARGS`, and
+`--task NAME` runs one `def` instead of the script's `main`. `tasks.gatwd` takes the manifest path from its
+arguments, so the same script serves any directory:
 
 ```bash
-gatwd-k8s examples/k8s_howto/tasks.gatwd        # run the script top to bottom, print every result
-gatwd-k8s --check examples/k8s_howto/tasks.gatwd # validate without running (structure + advisory typing)
-gatwd-k8s -i examples/k8s_howto/tasks.gatwd     # run it, then stay at a prompt with its defs loaded
+gatwd-k8s examples/k8s_howto/tasks.gatwd -- examples/k8s_howto/cluster                       # runs `main`: all three tasks
+gatwd-k8s examples/k8s_howto/tasks.gatwd --task trace_to_pod -- examples/k8s_howto/cluster   # ONE task
+gatwd-k8s --check examples/k8s_howto/tasks.gatwd                                              # validate without running
+gatwd-k8s -i examples/k8s_howto/tasks.gatwd -- examples/k8s_howto/cluster                    # run, then a prompt with the defs loaded
 ```
 
-To run **one** task, keep the definitions in the script and invoke from the prompt (which also works
-piped, handy in shell scripts and CI):
+A pipeline-bodied task is a **fragment**: the arguments arrive as its input stream, one `String` node each,
+so `manifests` receives the path. A lambda-bodied task is called with the `ARGS` list. With no arguments a
+fragment gets an empty stream and prints `[]`. `ARGS` and `main` are specified in
+[`dsl_guide.md`](dsl_guide.md) §23. A task name that does not exist exits non-zero and lists the defined ones.
+
+For the interactive route, load the definitions and type an invocation at the prompt (this also works piped,
+handy in shell scripts and CI):
 
 ```bash
 printf 'spawn StrVal: examples/k8s_howto/cluster |> trace_to_pod\nexit\n' | gatwd-k8s -i examples/k8s_howto/tasks.gatwd
@@ -64,44 +72,8 @@ printf 'spawn StrVal: examples/k8s_howto/cluster |> trace_to_pod\nexit\n' | gatw
 `:load other.gatwd` at the prompt loads another script. To compose several script files, make a small
 wrapper script that `import`s them (imports resolve relative to the importing file).
 
-Parameters: put them in the script — a `const` works as a seed (`const CLUSTER = path/to/manifests`, then
-`spawn StrVal: CLUSTER |> manifests |> k8s_graph`) — or generate the one-line invocation in your shell and
-pipe it in as above.
-
-### Can I extend the prelude?
-
-Yes, without rebuilding. The prelude is ordinary DSL, and a later definition **replaces** an earlier
-one of the same name. Your script runs after the prelude, so it can:
-
-```haskell
--- add something new (examples/k8s_howto/infra_relations.gatwd does this with databases)
-def my_relation = fold (\_ g -> graph_add_edges [ … ] g) graph_empty
-def my_graph    = k8s_graph |> my_relation
-
--- or change what the standard pipeline does, for this script only
-def k8s_relations = rel_owns |> rel_selects            -- k8s_graph now derives just these two
-```
-
-To edit an existing prelude file *without rebuilding the binary*, copy it, edit the copy and `import` it
-first; its definitions shadow the embedded ones:
-
-```bash
-cp pkg/k8sgraph/lib/k8s/relations.gatwd my_relations.gatwd      # edit it …
-printf 'import "my_relations.gatwd"\nspawn StrVal: examples/k8s_howto/cluster |> manifests |> k8s_graph |> graph_edges_inferred |> collect_list\n' > probe.gatwd
-gatwd-k8s probe.gatwd
-```
-
-### Which to do when
-
-| You want to… | Do this | Rebuild? |
-| :-- | :-- | :-- |
-| ask a one-off question | pipe a line into `gatwd-k8s`, or use its prompt | no |
-| run a repeatable task, for yourself or the team | a script in your repo (`tasks.gatwd`) run by `gatwd-k8s script.gatwd` | no |
-| add relations or queries just for your scripts | define them in your script, or `import` a file of them | no |
-| try a change to the shared prelude | shadow it with an `import`ed copy (above), then port the edit into `pkg/k8sgraph/lib/k8s/` | no (until you port it) |
-| change the vocabulary or relations **everyone** gets | edit `pkg/k8sgraph/lib/k8s/*.gatwd`, add a fixture and a test | yes — the prelude is embedded |
-| enforce policy continuously in a cluster | the operator, with rules in a ConfigMap override | no — edit the ConfigMap |
-| bring in a new kind of data (SQL, Redis, …) | a Go adapter and a thin edition `main.go` (§2.4) | yes |
+Parameters: pass them after `--` and read them from `ARGS`; for a fixed default, a `const` still works
+(`const CLUSTER = path/to/manifests`).
 
 ---
 
@@ -124,10 +96,9 @@ a rebuild.
 
 **Debugging.** Evaluate small pieces in the prompt first. Two traps:
 
-- An **inline** `fold (\acc x -> …) seed` that fails inside the lambda **returns the seed** (often `0`)
-  instead of an error. If a rule unexpectedly yields `0`, suspect a name that does not resolve.
-  The closure form is loud: move the body into a `def probe = \_ g -> …` and run `|> fold probe 0`; the
-  failure then prints as `[ERROR] fold: undefined identifier: …`.
+- A lambda that fails inside `map`, `filter`, `flatmap` or `fold` — inline or as a `def` — is reported as
+  `[ERROR] …` naming the cause (`fold: undefined identifier: …`, `map: element 2: …`). If a rule
+  unexpectedly yields `[]`, the source list or a guard is empty, not a swallowed error.
 - Inside a plain list literal, parenthesise calls: `[(f x), (g y)]`, not `[f x, g y]`.
 
 More traps and their causes: [`development_playbook.md`](development_playbook.md) §6.
@@ -342,7 +313,7 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 | :-- | :-- |
 | `no cluster access (…); running offline` | kubeconfig auth plugin not supported or no cluster; use `-manifests` or fix the kubeconfig |
 | `no -manifests given and no cluster reachable` (exit 2) | the operator has no source |
-| Operator prints `0` after you added a rule | an override replaced the embedded rules, or a name does not resolve and the inline `fold` swallowed the error (§2.1) |
+| Operator prints `[ERROR] …` after you added a rule | a name in the rule does not resolve, or an operator rejected its operands; the message names it (§2.1) |
 | Rule output is empty but should not be | a node kind is missing from the source list or RBAC, or ids collide (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |
 | Duplicate edges in a listing | harmless: a relation can be derived twice (e.g. `Configures` via a volume *and* an env reference) |
@@ -353,9 +324,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 - Override rules replace, not layer (§2.2). Layering embedded + override would be a small change to
   `Appliance.Reload` if you prefer it.
-- An inline `fold (\acc x -> …)` swallows evaluation errors and returns the seed (§2.1); the closure form
-  is loud. This is a silent-failure path that violates the project's "fail loud" rule and should be fixed.
 - The DSL has no base64 or string builtins (§2.4).
 - Node ids are `metadata.name` only (§2.3).
 - The operator does not set a non-zero exit code on violations (§3.2).
-- `||>` at the top level currently prints nothing; use `|>`.
+- `||>` runs the *following per-element step* across the stream on a worker pool (order is not
+  deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

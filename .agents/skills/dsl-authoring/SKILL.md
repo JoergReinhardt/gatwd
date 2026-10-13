@@ -68,6 +68,7 @@ lambda bodies can be pipeline-style (`echo hello %s`).
    after the last section (`grep -c '^-- [0-9]'`; do not copy counts into docs).
 2. Extract your section into a temp file (prepend the `type` lines it needs), run `./gatwd` on it
    and verify **every** line printed a value and the value is what you meant (a wrong expectation
-   shows `[ERROR] Assertion failed`; silence means vacuous).
+   shows `[ERROR] Assertion failed`; an assertion that never saw a value shows
+   `[ERROR] assertion on an empty stream`; any other silence is a bug).
 3. Include a **negative** case where behavior should differ (`assert false`, `assert []`).
 4. Run `./run_dsl_tests.sh`, then `gatwd --check tests/dsl_exhaustive_test.gatwd`.

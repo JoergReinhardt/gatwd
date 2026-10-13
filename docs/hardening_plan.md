@@ -1,7 +1,7 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
-> **Status: PROPOSAL — nothing here is implemented.** Decisions are recorded in §1: D2, D5, D6, D9, D10
-> are **decided** (2026-10-13); **D1, D3, D4, D7, D8 are still open** and must be answered before the
+> **Status (2026-10-13): W0 is implemented and the D4 slice of W1a is implemented — both committed (not pushed). W1b (the cobra tree) is next; W2–W7 are untouched.** Progress table: §0. Decisions are recorded in §1: D2, D5, D6, D9, D10
+> and **D4** are **decided** (2026-10-13); **D1, D3, D7, D8 are still open** and must be answered before the
 > affected phase starts (Mandate 8: ask at hard-to-reverse choices, record the answer here).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
 > facts marked **(researched)** come from the sources listed at the end.
@@ -26,6 +26,15 @@
 
 Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale in §10.
 
+**Progress**
+
+| Phase | State |
+| :-- | :-- |
+| W0 | **done** (committed). One deviation: item 3 is half done — unparsable statements report *why* (`cannot evaluate "…": <reason>`) but not *where*; `parser/errors.go` `FormatError` is not wired into the infix/line parsers yet (carry into W1b/W2 or drop). F2's missing operators (`Char`, `not`, `**`, unary minus) belong to W2/W3. |
+| W1a (`Run` API) | **partly done** (committed): `RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`, `ARGS`/`ARG0`/`main`/`--task` (D4), hand-rolled `parseRunArgs`. **Open:** `Eval`, `Define`, `Preludes`, `NoPrelude`, `Check`, `Interactive`, I/O writers and `context`; routing top-level statement output through a writer instead of `fmt.Printf`. |
+| W1b (cobra tree) | not started |
+| W2–W7 | not started |
+
 ---
 
 ## 1. Decisions
@@ -38,6 +47,7 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **D5** | **Layered overrides by default**: the embedded rules load first, the override on top; `replace` stays as an explicit mode (`-rules-mode replace`). | Chosen as the idiomatic model: systemd drop-ins, Helm values, Kustomize overlays and CSS all layer; "replace the whole file" is the exception, not the default. |
 | **D6** | **Qualified node ids** `Kind/namespace/name` + loud duplicate detection (A+C in §7). **All tests and examples are migrated in the same phase.** | |
 | **D9** | **`assert` on an empty stream is an error.** | Scripts that relied on a vacuous assert get fixed. |
+| **D4** | **Argument model, as recommended:** `ARGS` (List of String, after `--`), `ARG0`, `main` as the optional default task, `--task NAME` to run any `def`. | The flag syntax itself is cobra's (§4); D4 is what a script *sees*. **Extension made while implementing:** a pipeline-bodied task is a *fragment* whose input stream is the arguments (one String node each), a lambda-bodied task is called with the `ARGS` list. **Implemented** in `pkg/cli/run.go` (`RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`) with the existing hand-rolled flag parsing; the rest of `RunOptions` and the cobra tree are still W1. Spec: `docs/dsl_guide.md` §23. |
 | **D10** | **Use a real CLI library: cobra (+ pflag), integrated directly into core (`pkg/cli`).** The Clean Core rule gets an explicit, narrow exemption: cobra/pflag may be imported by `pkg/cli` only; the lower layers stay standard-library only. | Cobra is what kubectl, Helm and kind use; `pflag` is already in our module graph via client-go. A CLI framework is plumbing, not domain. **Implemented in `internal/archtest` (allowlist) and the rule docs on 2026-10-13.** |
 
 **Open — please answer before the phase starts:**
@@ -46,7 +56,6 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | :-- | :-- | :-- | :-- |
 | **D1** | Add a `Char` type with `'a'` literals, and make `String` a collection row (map/filter/fold over characters)? | **Yes** (Elm, Haskell have Char; strings index by characters, never bytes) | W2 |
 | **D3** | Numeric model: (a) keep the runtime types, **specify** the tower and add `Num`/`Integral`/`Fractional` as *annotation-level constraint names* (like Elm's `number`); (b) a boxed runtime `Num` value | **(a).** (b) adds boxing and no new capability | W3 |
-| **D4** | Argument model: constant `ARGS`, optional `def main = \args -> …`, `--task NAME` (shape in §4) | **Yes** | W1 |
 | **D7** | Kustomize: pin `sigs.k8s.io/kustomize/api` at **v0.21.0** (Go 1.26) or bump the repo to Go 1.27 for v0.21.3; and make `manifests` auto-render kustomization roots? | **Pin v0.21.0** now; **auto-render, with `--no-kustomize`** to opt out | W5 |
 | **D8** | Unknown pipeline step ⇒ run OS command: keep for trusted CLI use, **deny by default** for Appliance overrides and any script not given on the command line? | **Yes** (capability policy, §9) | W7 |
 
@@ -113,28 +122,28 @@ Takeaways for gatwd:
 
 | # | Defect | Evidence | Plan |
 | :-- | :-- | :-- | :-- |
-| F1 | `1 / 0`, `1 // 0`, `1 % 0` print nothing | probe | W0: arithmetic errors → `[ERROR]` |
-| F2 | `true + 1`, `'a'`, `**`, `!true`, `not true`, `- 5` print nothing | probe | W0 + W2: parse/eval errors surface with the reason; missing operators added |
-| F3 | inline `map (\x -> x + [1])` → `[<nil> <nil>]`; `map (\x -> nosuchfn x)` → `[<nil> <nil>]` | probe | W0: unify lambda evaluation (§3) |
-| F4 | inline `filter (\x -> nosuchfn x)` → `[]` (error read as "false") | probe | W0 |
-| F5 | inline `fold (\a x -> a + nosuch) 0` → `0` (the seed) | probe | W0 |
-| F6 | top-level `let r = <hamt> in hamt_get "kind" r` prints nothing (string-substituted value) | probe | W0 spike: bind values, not text |
-| F7 | `||>` at top level prints nothing | probe | W0 |
-| F8 | `assert` on an empty stream passes | design | W0 (D9) |
+| F1 | `1 / 0`, `1 // 0`, `1 % 0` print nothing | probe | **done (W0)** — W0: arithmetic errors → `[ERROR]` |
+| F2 | `true + 1`, `'a'`, `**`, `!true`, `not true`, `- 5` print nothing | probe | **W0 done:** every one now reports `[ERROR] cannot evaluate …` with the reason. **Open (W2/W3):** add `Char`, `not`, `**`, unary minus themselves — their rows in `pkg/cli/failloud_test.go` must then change from "error" to "value" |
+| F3 | inline `map (\x -> x + [1])` → `[<nil> <nil>]`; `map (\x -> nosuchfn x)` → `[<nil> <nil>]` | probe | **done (W0)** — W0: unify lambda evaluation (§3) |
+| F4 | inline `filter (\x -> nosuchfn x)` → `[]` (error read as "false") | probe | **done (W0)** — W0 |
+| F5 | inline `fold (\a x -> a + nosuch) 0` → `0` (the seed) | probe | **done (W0)** — W0 |
+| F6 | top-level `let r = <hamt> in hamt_get "kind" r` prints nothing (string-substituted value) | probe | **done (W0)** — W0 spike: bind values, not text |
+| F7 | `||>` at top level prints nothing | probe | **done (W0)** — W0 |
+| F8 | `assert` on an empty stream passes | design | **done (W0)** — W0 (D9) |
 | F9 | `gatwd --help` is read as a file name | probe | W1 |
-| F10 | operator exits 0 with violations; one OS-step probe with quoted arguments (`sh -c "echo …$((6*7))"`) printed nothing (cause not yet isolated — may be the `$(( ))`) | probe | W6; W0 (reproduce, then fix or document) |
+| F10 | operator exits 0 with violations; one OS-step probe with quoted arguments (`sh -c "echo …$((6*7))"`) printed nothing (cause not yet isolated — may be the `$(( ))`) | probe | **W0 done:** the quoted-argument probe was `strings.Fields` ignoring quotes (now `interactive.SplitCommandLine`), and failed starts / non-zero exits were dropped (now error nodes with stderr). **Open (W6):** the operator still exits 0 with violations |
 | F11 | `big.Int` results print with a leading `+` and are never demoted | probe | W3 |
 | F12 | `to_set` builds `Set[string]`, function forms build `Set[any]` | code | W2: one `Set[any]` |
 | F13 | edges to missing nodes are invisible in listings but visible in `graph_in_of` | code | W4: one consistent rule |
 | F14 | `Configures` derived twice (volume + env) → duplicate edge | fixture | W4: dedupe identical specs |
-| F15 | `Parser.Parse` godoc claims an unregistered `spawn` type yields no node (the interpreter registers on demand) | probe | doc fix |
+| F15 | `Parser.Parse` godoc claims an unregistered `spawn` type yields no node (the interpreter registers on demand) | probe | **done (W0)** — doc fix |
 | F16 | override replaces embedded rules; imports in an override resolve against the process cwd | probe | W6 |
 | F17 | **unknown pipeline step runs an OS command** (`|> printf …` executes) | probe | W7 |
 | F18 | `length` has no step form (function forms in general are not usable as steps) | probe | W2: generic builtin-as-step fallback (§5.4) |
 
 ---
 
-## 3. W0 — Fail-loud sweep
+## 3. W0 — Fail-loud sweep  (**done — see the progress table in §0**)
 
 Goal: **no evaluation path returns nothing, `nil`, `0`, or its input unchanged on failure.**
 

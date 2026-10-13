@@ -112,8 +112,8 @@ Run `gatwd --check` over all scripts too: it must stay silent (zero false positi
 A passing test proves nothing unless it could have failed. Three rules, each from a real
 incident:
 
-1. **Assert on non-empty output.** `assert` only checks nodes that arrive; a pipeline that
-   yields nothing passes vacuously. `run_dsl_tests.sh` now fails on
+1. **Assert on non-empty output.** `assert` on a stream that delivers no node is an error
+   (`assertion on an empty stream`), and `run_dsl_tests.sh` also fails on
    `(No output or node unhandled)`. When you add DSL tests, run just your new section and look
    at every output line.
 2. **Pair "no violations" with a negative fixture.** A compliant cluster yields `[]`, which is
@@ -221,14 +221,16 @@ The project's own relations and rules are the style reference
 | A comprehension errors on a missing field | filters are positional (run when their variables are bound) | **Put `hamt_has_path` guards *before* the dependent generator** |
 | `map (\g -> …)` changes payloads | `map` on a graph element is the graph Functor | **Whole-graph passes use `fold (\_ g -> …) seed`** |
 | A `def` mis-evaluates its arguments | a `def` whose body is a *pipeline* is a re-parsed text macro | **Value functions are lambda-bodied (`def f = \x y -> …`); pipeline fragments are zero-parameter defs** |
-| `assert` passes but nothing ran | assert on empty stream is vacuous | **Look at every output line; the gate fails on "(No output…)"** |
+| `assert` reports "empty stream" | `assert` now fails when no node arrives (D9) | **Fix the pipeline that produced nothing; do not weaken the assert** |
 | `-x` fails to parse | unary minus applies to numeric literals only | **Write `0 - x`** |
 | A partial application is run as a step | a step whose text evaluates to a *function* is not an expression value | **The infix-step detector ignores callables; keep it that way** |
 | `to_set` set ≠ function-form set | the step builds `Set[string]`, function forms normalise to `Set[any]` | **Compare via `member`/`length`, not `==`, across the two forms** |
 | Test helper wrote nonsense | `echo '…\x…'` interprets escapes in zsh | **Write scratch scripts with `cat > f <<'EOF'`** |
 | Results look odd in Go tests | `EvaluateToValues` treats its argument as one pipeline; `def` lines in a multi-line string are not registered | **Use `EvaluateScript` for setup, `EvaluateToValues` for the query** (empty input returns no values) |
 | Result type surprises | lists come back as `*collections.List[any]` | **Use `functions.ToSliceAny`** |
-| `||>` prints "(No output…)" | pre-existing at top level | Known; do not "fix" by accident, ask |
+| `||>` output order differs run to run | `||>` fans the next step out on a worker pool (`evaluator.StepPar`) | **Sort or assert order-insensitively; use `|>` when order matters** |
+| A `let`-bound HAMT/list/graph misbehaves in a head position | head-word text substitution used the lossy `%v` text | **Fixed: non-scalar runtime values are never substituted; do not re-add text substitution for them** |
+| A step that needs quotes (`sh -c "…"`) lost them | exec steps used `strings.Fields` | **Fixed: `interactive.SplitCommandLine` tokenizes like a shell (no expansion); an unterminated quote is an error** |
 
 ---
 
