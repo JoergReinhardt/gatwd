@@ -2103,14 +2103,20 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
 
 	var results []any
+	budget := i.exec.outputBudget() // nil unless an Appliance bounded this check's output
 	for result := range terminalNodes {
+		var val any
 		if result.Value.IsRight() {
-			val, _ := result.Value.UnwrapRight()
-			results = append(results, val)
+			val, _ = result.Value.UnwrapRight()
 		} else if result.Value.IsLeft() {
-			err, _ := result.Value.UnwrapLeft()
-			results = append(results, err)
+			val, _ = result.Value.UnwrapLeft()
+		} else {
+			continue
 		}
+		if budget != nil && !budget.take(resultSize(val)) {
+			break // over the limit: the budget cancelled the run, the caller reports it
+		}
+		results = append(results, val)
 	}
 	return results
 }

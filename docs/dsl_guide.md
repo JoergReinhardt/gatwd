@@ -953,7 +953,7 @@ res, err := interp.Run(cli.RunOptions{Source: body, Policy: &p, Context: ctx, Ma
 ```
 
 **Failures have a shape.** `cli.FailureOf(err)` classifies an error value — `capability_denied` (with `Step` and
-`Capability`), `unknown_step`, `stopped`, `error` — and the Appliance's `--format json` report carries the same
+`Capability`), `unknown_step`, `stopped`, `timeout` and `output_limit` (with `Limit`), `error` — and the Appliance's `--format json` report carries the same
 objects in a `diagnostics` array (below). The free-text `[ERROR]` line is unchanged.
 
 ### The Appliance command line
@@ -977,6 +977,12 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
 | `--fail-on-violation` | `check`: exit `3` when the result is non-empty (opt-in; off by default; rejected for `run`, which never exits on violations) |
 | `--allow-exec` `--allow-fs` `--allow-net` `--allow-env` | grant the rules (the override above all) a capability; all denied by default, see *Execution policy* below |
+| `--timeout DUR` | stop a check that runs longer than `DUR`: it fails with `[ERROR] check timed out after DUR` (exit `1`); every `run` round gets a fresh limit; `0` (default) is no limit, a negative value is a usage error |
+| `--max-output BYTES` | fail a check that produces more than `BYTES` of text report (`[ERROR] check output exceeded the limit of N bytes`, exit `1`; never silently truncated); `0` (default) is no limit |
+
+In Go the limits are `cli.WithTimeout(d)` and `cli.WithMaxOutput(n)` (or `ApplianceSettings.Options()`); each `Appliance.Execute`
+starts with a fresh deadline and budget, a check over a limit yields one `*cli.TimeoutError` / `*cli.OutputLimitError` and none of its
+results, and `Appliance.ExecuteContext(ctx, line)` adds the caller's own context.
 
 The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
 single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
@@ -988,7 +994,7 @@ running**. At start and whenever it changes, the Appliance prints which defs the
 
 **Exit status** — the same mapping as everywhere, plus one code for findings: `0` the check ran (and, with
 `--fail-on-violation`, found nothing); `1` the command failed — rules that do not load, a check that errored (`[ERROR]`
-result), a pipeline that yielded no result at all; `2` a malformed command line (unknown flag or `--format`, no data
+result, a `--timeout` or `--max-output` overrun included), a pipeline that yielded no result at all; `2` a malformed command line (unknown flag or `--format`, no data
 source); `3` the check ran correctly and, under `--fail-on-violation`, found violations. A CI job can therefore tell
 "policy findings" (`3`) from "the check could not run" (`1`). A check that both errored and found violations exits `1`:
 a broken run is never reported as a mere finding. In Go the codes are `cli.ExitOK`, `ExitFailed`, `ExitUsage` and
@@ -1008,8 +1014,8 @@ value JSON cannot hold (a Set, a function) is reported in `errors`, never droppe
 
 `errors` lists the failure messages as plain strings, as before. `diagnostics` describes the same failures, one object
 each and **in the same order**, so a consumer need not parse prose: `kind` is one of `capability_denied`, `unknown_step`,
-`stopped`, `no_result`, `unencodable_value` or `error` (treat an unknown kind like `error`), `message` is the text of the
-`[ERROR]` line, and `step` and `capability` appear where the failure names them:
+`stopped`, `timeout`, `output_limit`, `no_result`, `unencodable_value` or `error` (treat an unknown kind like `error`), `message` is the text of the
+`[ERROR]` line, and `step`, `capability` and (for `timeout` and `output_limit`) `limit` appear where the failure names them:
 
 ```json
 {"status":"error","count":0,"violations":[],"errors":["step 'echo' requires the exec capability (policy denies it)"],"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]}

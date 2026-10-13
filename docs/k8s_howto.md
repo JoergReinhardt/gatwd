@@ -178,8 +178,8 @@ fails the **load** (exit 1, the file and the step are named); a rule that needs 
 - **Which scripts run OS commands?** Only a script that is trusted: the one you name on the command line of `gatwd` or
   `gatwd-k8s` (and `-e`, preludes, the REPL), or one you grant `--allow-exec` for. Scripts from anywhere else —
   an override, a `RunOptions.Source` — do not.
-- **Time and size.** The Go API `Interpreter.Run` also takes a `context.Context` (a deadline kills a stuck step and the
-  OS command it started) and an output limit; the operator binary does not expose flags for them yet.
+- **Time and size.** A granted capability should come with a bound: `--timeout DUR` kills a stuck step and the OS command
+  it started, and `--max-output BYTES` fails a check that prints too much (§3.2). Neither is on by default.
 
 ### 2.3 The graph model and its extension points
 
@@ -428,11 +428,12 @@ The static operator is a single ELF binary of roughly 33 MB, 31 MiB (the in-proc
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env` (all off, §2.2). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), `--timeout DUR` and `--max-output BYTES` (per-check limits, both off by default, §3.2), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env` (all off, §2.2). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
-(`[ERROR] …`, including a duplicate node id), a pipeline that yields nothing; `2` a malformed command line
+(`[ERROR] …`, including a duplicate node id), a pipeline that yields nothing, a check that went over `--timeout` or
+`--max-output` (below); `2` a malformed command line
 (unknown flag or `--format`, no `--manifests` and no reachable cluster); `3` the check ran and found violations,
 **only with `--fail-on-violation`**. Without that flag the operator reports violations but exits 0, so a
 scheduled `run` is not restarted for finding something. A check that both errored and found violations exits `1`.
@@ -482,6 +483,35 @@ gatwd-k8s --no-kustomize eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/
 
 `run --interval` is a daemon: a failing check is printed and the loop continues; only a start-up failure ends it
 (and `--fail-on-violation` is rejected there).
+
+**Limits per check: `--timeout` and `--max-output`.** Rules (an override above all) can be slow or can produce more than
+anyone wants to read, so one check can be bounded in time and in size. Both are **off by default** (`0` is no limit);
+a negative value is a usage error (exit 2). Each `check`, and each round of `run --interval`, gets its own fresh limit —
+a slow round does not eat the next one's time.
+
+| Flag | Meaning |
+| :-- | :-- |
+| `--timeout DUR` | stop a check that runs longer than `DUR` (`30s`, `2m`): every pipeline step stops at its next node and an OS command a step started (`--allow-exec`) is killed |
+| `--max-output BYTES` | fail a check whose results are longer than `BYTES` as the text report prints them (each result and its newline); a stream that never ends is stopped as soon as it passes the limit |
+
+A check that goes over a limit is a **failed check**: exit `1` (not `3`, even under `--fail-on-violation`), and the
+report is that one error — the results it had produced up to then are dropped, never mixed in and never silently cut
+short:
+
+```bash
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --max-output 40
+# [ERROR] check output exceeded the limit of 40 bytes            (exit 1)
+gatwd-k8s-operator check --manifests DIR --rules slow.gatwd --allow-exec --timeout 30s
+# [ERROR] check timed out after 30s                              (exit 1)
+```
+
+In `--format json` the same failure is an entry in `errors` and a structured one in `diagnostics`:
+`{"kind":"timeout","message":"check timed out after 30s","limit":"30s"}` or
+`{"kind":"output_limit","message":"check output exceeded the limit of 40 bytes","limit":"40"}`. `run --interval`
+reports the failed round like any other failing check and carries on with the next one. Sensible starting values for a
+scheduled `run --interval 5m`: `--timeout 2m` (shorter than the interval, so rounds never overlap) and `--max-output
+1048576` (1 MiB of report per round); the limits bound what a check *emits*, the timeout is what bounds the memory and
+time it spends computing. Loading the rules (start-up, hot reload) is not part of a check and is not bounded.
 
 **Output formats.** `--format text` (default) prints the result as before: `[]` when compliant, otherwise
 `[[Rule resource] …]`; an error prints as `[ERROR] …`. `--format json` prints **one JSON object per check, on one
@@ -542,6 +572,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - **One replica is enough**; there is no leader election because it only reads and prints.
 - **Scope:** the sample uses `--namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
   `--namespace NAME` and a `Role` + `RoleBinding` instead.
+- **Bounding a round:** the sample's `args:` carry `--timeout 2m` and `--max-output 1048576` as a commented-out line; with
+  an override that can run a program (`--allow-exec`) a timeout is what keeps a stuck command from stalling the loop (§3.2).
 - **What the override may do:** the Deployment's `args:` are the only place a capability is granted (§2.2). A mounted
   `rules.gatwd` that `import`s a sibling key needs `--allow-fs` in `args:`; one that runs a program needs `--allow-exec`;
   a pure rule set (the sample's) needs nothing. Editing the ConfigMap can never add a flag.
@@ -559,6 +591,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 | `[ERROR] … duplicate node id "Kind/ns/name"` | the same resource is defined twice (the message quotes both); remove one, or give them different names or namespaces (§2.3) |
 | A reference you expect has no edge, or live and offline disagree | the two sides carry different namespaces (`Pod/_/x` vs `Pod/default/x`), or the target lives in another namespace than the referrer (§2.3) |
 | `[ERROR] step 'x' requires the exec capability (policy denies it)` (or `fs`, `net`) from an override | the override runs a program, reads a file or `import`s one; grant it on the command line (`--allow-exec`, `--allow-fs`, …) or remove it (§2.2) |
+| `[ERROR] check timed out after 30s` (exit 1) | the check ran longer than `--timeout` (a stuck command in an override, or a cluster crawl that is too slow); raise the limit or fix the rule (§3.2) |
+| `[ERROR] check output exceeded the limit of N bytes` (exit 1) | the report is larger than `--max-output`; raise it or narrow the rules (§3.2) |
 | `[ERROR] … Duration overflow: the difference between … is beyond about ±292 years` from an age rule | a `creationTimestamp` (or expiry) centuries away from now; fix the data (§2.6) |
 | `key 'kind' not found` after `--no-kustomize`, or from an `ownerReference` | the root's `kustomization.yaml` was read as a document (§3.2), or the owner reference names no `kind` (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |
@@ -570,10 +604,10 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - Node ids are `Kind/namespace/name` (§2.3). The duplicate error names the file (and document) of both
   declarations for offline manifests; for a live crawl, which has no files, it quotes the payloads only.
 - `--no-kustomize` exists on both `gatwd-k8s` and `gatwd-k8s-operator` (§3.2); on the operator it applies to `--manifests` only.
-- The operator has no per-check timeout, output limit or signal handling: the Go API `Interpreter.Run` takes a
-  `context.Context` and an output limit (a deadline kills a stuck step and the OS command it started), but the operator
-  binary exposes no flag for them, and `run --interval` ends only when the process is killed. A single closure that never
-  returns cannot be interrupted at all.
+- The operator has `--timeout` and `--max-output` per check (§3.2), but no signal handling: `run --interval` ends only
+  when the process is killed. A single closure that never returns cannot be interrupted at all (the timeout is checked
+  between nodes, and kills the OS commands a step started), and `--max-output` bounds what a check emits, not the
+  memory it uses while it computes.
 - The policy's `env` capability gates nothing yet: no builtin reads the environment (§2.2).
 - Rules cannot read the clock inside a lambda: `now` is a step, so an age rule takes the reading as a parameter from a
   top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` are a `Duration`.

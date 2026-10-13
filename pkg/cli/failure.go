@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/joergreinhardt/gatwd/interactive"
@@ -25,6 +26,10 @@ const (
 	FailUnknownStep = "unknown_step"
 	// FailStopped: the run was cut short by its context or output limit (Message names the cause).
 	FailStopped = "stopped"
+	// FailTimeout: a check ran longer than the Appliance's timeout (Limit is the duration, e.g. "30s").
+	FailTimeout = "timeout"
+	// FailOutputLimit: a check produced more than the Appliance's output limit (Limit is the byte count).
+	FailOutputLimit = "output_limit"
 	// FailNoResult: the pipeline yielded nothing at all, which a compliant rule set never does.
 	FailNoResult = "no_result"
 	// FailUnencodable: a finding is a value the report format cannot hold.
@@ -43,6 +48,9 @@ type Failure struct {
 	Step string
 	// Capability is the denied capability for FailCapabilityDenied.
 	Capability string
+	// Limit is the bound that was exceeded for FailTimeout (a duration such as "30s") and
+	// FailOutputLimit (a number of bytes).
+	Limit string
 }
 
 // FailureOf classifies err. The error may be wrapped anywhere in a chain (a step that
@@ -52,7 +60,13 @@ func FailureOf(err error) Failure {
 	var capErr *CapabilityError
 	var unknown *interactive.UnknownStepError
 	var stopped *CancelError
+	var timeout *TimeoutError
+	var over *OutputLimitError
 	switch {
+	case errors.As(err, &timeout):
+		d.Kind, d.Limit = FailTimeout, timeout.Limit.String()
+	case errors.As(err, &over):
+		d.Kind, d.Limit = FailOutputLimit, strconv.FormatInt(over.Limit, 10)
 	case errors.As(err, &capErr):
 		d.Kind, d.Step, d.Capability = FailCapabilityDenied, capErr.Step, string(capErr.Capability)
 	case errors.As(err, &unknown):
@@ -63,7 +77,7 @@ func FailureOf(err error) Failure {
 	return d
 }
 
-// json renders the diagnostic as one JSON object; step and capability appear only when set.
+// json renders the diagnostic as one JSON object; step, capability and limit appear only when set.
 func (d Failure) json() string {
 	var b strings.Builder
 	b.WriteString(`{"kind":` + quoteJSON(d.Kind) + `,"message":` + quoteJSON(d.Message))
@@ -72,6 +86,9 @@ func (d Failure) json() string {
 	}
 	if d.Capability != "" {
 		b.WriteString(`,"capability":` + quoteJSON(d.Capability))
+	}
+	if d.Limit != "" {
+		b.WriteString(`,"limit":` + quoteJSON(d.Limit))
 	}
 	b.WriteByte('}')
 	return b.String()

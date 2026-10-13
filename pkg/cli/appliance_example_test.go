@@ -32,3 +32,18 @@ func ExampleWithOverrideMode() {
 	// [101]
 	// [threshold]
 }
+
+// ExampleWithMaxOutput bounds one check: a check that produces more than its limit reports a
+// single error naming the limit instead of its results (WithTimeout does the same for time).
+func ExampleWithMaxOutput() {
+	rules := "def entry = \\x -> [(x + 1), (x + 10)]\n"
+	app, _ := cli.NewAppliance(cli.WithEmbeddedScript(rules), cli.WithMaxOutput(8))
+	fmt.Println(app.Execute("entry 1")[0])
+
+	tight, _ := cli.NewAppliance(cli.WithEmbeddedScript(rules), cli.WithMaxOutput(5))
+	got := tight.Execute("entry 1")
+	fmt.Println(len(got), got[0])
+	// Output:
+	// [2 11]
+	// 1 check output exceeded the limit of 5 bytes
+}

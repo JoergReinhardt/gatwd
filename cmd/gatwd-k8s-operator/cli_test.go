@@ -329,3 +329,118 @@ func TestOperatorJSONDiagnostics(t *testing.T) {
 		t.Errorf("the denied command ran:\n%s", stdout)
 	}
 }
+
+// TestOperatorCheckLimits drives the real binary through --timeout and --max-output. The slow
+// check is a real `sleep` run by an override (so --allow-exec); a check over a limit is a
+// failed check (exit 1, never 3), loud in text and JSON, and the limits are off by default.
+func TestOperatorCheckLimits(t *testing.T) {
+	bin := buildOperator(t)
+	slow := filepath.Join(t.TempDir(), "slow.gatwd")
+	if err := os.WriteFile(slow, []byte("def compliance = sleep 20\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const timeoutLine = "[ERROR] check timed out after 200ms"
+	rows := []struct {
+		name      string
+		args      []string
+		code      int
+		stdout    string // exact
+		stderrHas string
+	}{
+		{"a slow check is stopped and exits 1",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec", "--timeout", "200ms"}, 1,
+			timeoutLine + "\n", "the check failed"},
+		{"under --fail-on-violation a timeout is still 1, not 3",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec", "--timeout", "200ms", "--fail-on-violation"}, 1,
+			timeoutLine + "\n", ""},
+		{"json: errors and a structured timeout diagnostic",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec", "--timeout", "200ms", "--format", "json"}, 1,
+			`{"status":"error","count":0,"violations":[],"errors":["check timed out after 200ms"],"diagnostics":[{"kind":"timeout","message":"check timed out after 200ms","limit":"200ms"}]}` + "\n", ""},
+		{"a fast check under a generous timeout is unaffected",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--timeout", "5m", "--max-output", "1048576"}, 0, idleWant, ""},
+		{"output over the limit is an error, not a truncated report",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "40"}, 1,
+			"[ERROR] check output exceeded the limit of 40 bytes\n", "the check failed"},
+		{"json: an output_limit diagnostic",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "40", "--format", "json"}, 1,
+			`{"status":"error","count":0,"violations":[],"errors":["check output exceeded the limit of 40 bytes"],"diagnostics":[{"kind":"output_limit","message":"check output exceeded the limit of 40 bytes","limit":"40"}]}` + "\n", ""},
+		{"a limit as large as the report (79 bytes with its newline) passes",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "79"}, 0, idleWant, ""},
+		{"one byte less fails",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "78"}, 1,
+			"[ERROR] check output exceeded the limit of 78 bytes\n", "the check failed"},
+		{"a negative timeout is a usage error",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--timeout", "-1s"}, 2, "", "--timeout must not be negative"},
+		{"a negative output limit is a usage error",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output=-1"}, 2, "", "--max-output must not be negative"},
+		{"the limits are off by default, and 0 turns them off explicitly",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--timeout", "0", "--max-output", "0"}, 0, idleWant, ""},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			code, stdout, stderr := operator(t, bin, r.args...)
+			if code != r.code {
+				t.Fatalf("exit %d, want %d\nstdout: %s\nstderr: %s", code, r.code, stdout, stderr)
+			}
+			if stdout != r.stdout {
+				t.Errorf("stdout = %q\nwant     %q", stdout, r.stdout)
+			}
+			if !strings.Contains(stderr, r.stderrHas) {
+				t.Errorf("stderr lacks %q:\n%s", r.stderrHas, stderr)
+			}
+		})
+	}
+}
+
+// TestOperatorRunLoopSurvivesATimeout: every iteration of `run` gets its own timeout, a timed-out
+// check is reported on stdout like any failing check, and the loop goes on with the next one.
+func TestOperatorRunLoopSurvivesATimeout(t *testing.T) {
+	bin := buildOperator(t)
+	slow := filepath.Join(t.TempDir(), "slow.gatwd")
+	if err := os.WriteFile(slow, []byte("def compliance = sleep 20\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := exec.Command(bin, "run", "--manifests", "testdata/idle.yaml", "--rules", slow, "--allow-exec", "--timeout", "200ms", "--interval", "50ms")
+	c.Env = append(os.Environ(), "KUBECONFIG="+filepath.Join(t.TempDir(), "absent"), "HOME="+t.TempDir())
+	stdout, err := c.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Process.Kill(); _ = c.Wait() }()
+
+	lines := make(chan string, 8)
+	go func() {
+		sc := bufio.NewScanner(stdout)
+		for sc.Scan() {
+			lines <- sc.Text()
+		}
+		close(lines)
+	}()
+	for i := 0; i < 3; i++ {
+		select {
+		case l, ok := <-lines:
+			if !ok || l != "[ERROR] check timed out after 200ms" {
+				t.Fatalf("check %d: line %q (open=%v); each iteration must report its own timeout and nothing else", i+1, l, ok)
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatalf("check %d: no output; the loop stopped after a timeout", i+1)
+		}
+	}
+}
+
+// TestOperatorHelpListsTheLimitFlags keeps --timeout and --max-output discoverable.
+func TestOperatorHelpListsTheLimitFlags(t *testing.T) {
+	bin := buildOperator(t)
+	code, stdout, stderr := operator(t, bin, "check", "--help")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	for _, f := range []string{"--timeout DUR", "--max-output BYTES"} {
+		if !strings.Contains(stdout, f) {
+			t.Errorf("--help does not describe %s:\n%s", f, stdout)
+		}
+	}
+}
