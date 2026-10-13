@@ -446,14 +446,25 @@ registration (so preludes can use registered builtins), via
 first), `TestEditionWithPreludeFS` (via `fstest.MapFS`). All green; full
 `go test ./... && go vet ./... && ./run_dsl_tests.sh` pass. (No K8s.)
 
-**Phase P2 — structured K8s resource payload (`adapters/`, L4).** Add
-`adapters.NativeKubernetesResourceAdapter(client, gvr) evaluator.Adapter[any]`
-that yields each resource's full `unstructured.Unstructured` content as a **nested
-`HAMT`** payload (metadata/labels/ownerRefs/spec navigable via `hamt_get`), plus
-discovery-client GVR/CRD enumeration. Keep the legacy `Adapter[string]` name-only
-adapter for back-compat, or deprecate it. Must be lifted via `evaluator.EitherT`
-to enter the `Either[error,any]` engine. Tests with `fake.NewSimpleDynamicClient`
-asserting the emitted HAMT shape (not strings). client-go confined to this file.
+**Phase P2 — structured K8s resource payload (`adapters/`, L4). ✅ DONE (2026-10-13).**
+Added `adapters.NativeKubernetesResourceAdapter(client, gvr) evaluator.Adapter[any]`
+yielding each resource's full `unstructured.Unstructured` content as a **nested
+`HAMT`** payload. A recursive `unstructuredToValue` lifts the decoded Go shape into
+gatwd persistent collections — JSON object `map[string]any` → `*collections.HAMT[
+string, any]` (navigable via `hamt_get`/`hamt_values`), JSON array `[]any` →
+order-preserving `*collections.List[any]` (iterable: ownerReferences, containers,
+…), scalars carried through. A `List` failure is yielded as an `error`-valued node
+so `evaluator.EitherT` lifts it to `Left` (loud, not silent-halt). Added
+`EnumerateResources(discovery.DiscoveryInterface) ([]GVR, error)` → discovery-client
+GVR/CRD enumeration (skips subresources `name` with `/` and non-`list`-verb kinds;
+CRD groups surface like core kinds; tolerates partial-discovery errors). The legacy
+`Adapter[string]` name-only adapter is kept for back-compat. Tests
+(`adapters/kubernetes_adapter_test.go`): `TestNativeKubernetesResourceAdapter`
+(asserts the nested-HAMT/List shape — metadata→labels→app, ownerReferences list,
+spec — not strings), `TestNativeKubernetesResourceAdapterThroughEitherT` (clean
+`Right` lift into the engine payload), `TestEnumerateResources` (stub discovery:
+CRD included, subresource + non-listable excluded). client-go confined to this
+file. All gates green (`go build/vet/test ./...`, `./run_dsl_tests.sh`).
 
 **Phase P3 — adapter→DSL-step bridge, split generic vs. domain (DECISION).**
 The user asked whether the crawl step (§4.3) belongs in core, since *every* future
@@ -748,7 +759,7 @@ def rel_calls = \pod -> \services ->
       core/adapters/plugins/preload DSL (user rule, §0).
 - [x] Generic `Edition.WithPreludeFS`/`WithPrelude` added to `pkg/cli` (Phase P1). ✅
 - [x] Generic `cli.AdapterStep` bridges any `Adapter[any]`→DSL step (Phase P3a). ✅
-- [ ] K8s adapter emits structured nested-HAMT payloads, not bare names (Phase P2).
+- [x] K8s adapter emits structured nested-HAMT payloads, not bare names (Phase P2). ✅
 - [ ] Domain `k8sgraph.CrawlStep` constructs the K8s adapter → `cli.AdapterStep` (Phase P3b).
 - [ ] godoc + `doc.go` + `Example*` for all new exports (project-doc-sync).
 
@@ -784,7 +795,9 @@ skip re-exploration.
 - `type AdapterFactory func() evaluator.Adapter[functions.Either[error, any]]`; `Register(keyword string, factory AdapterFactory)`; `var Registry map[string]AdapterFactory` — consumed in `pkg/cli/cli.go` pipeline-step fallthrough via `StepAdapter(factory())`. (Nullary → no config injection; P3a's `AdapterStep` is the config-carrying alternative.)
 
 **Kubernetes adapter (`adapters/kubernetes_adapter.go`)**
-- `func NativeKubernetesAdapter(client dynamic.Interface, gvr schema.GroupVersionResource, targetFlag dsltypes.BitFlag) evaluator.Adapter[string]` — CURRENT (yields resource *names*, `Adapter[string]`). P2 adds `NativeKubernetesResourceAdapter(client, gvr) evaluator.Adapter[any]` (nested-HAMT payloads).
+- `func NativeKubernetesAdapter(client dynamic.Interface, gvr schema.GroupVersionResource, targetFlag dsltypes.BitFlag) evaluator.Adapter[string]` — legacy (yields resource *names*, `Adapter[string]`; kept for back-compat).
+- `func NativeKubernetesResourceAdapter(client dynamic.Interface, gvr schema.GroupVersionResource) evaluator.Adapter[any]` — **P2 ✅** (nested-HAMT payloads; `unstructuredToValue` object→HAMT / array→List / scalar; List error→node→`Left` via EitherT).
+- `func EnumerateResources(disco discovery.DiscoveryInterface) ([]schema.GroupVersionResource, error)` — **P2 ✅** (GVR/CRD discovery; skips subresources + non-listable).
 - Raw crawl wiring template: `examples/kubernetes_repl/main.go`; fake-client test: `adapters/kubernetes_adapter_test.go` (`fake.NewSimpleDynamicClient`).
 
 **Graph core (Phases 1–2, verified 2026-10-13)**
