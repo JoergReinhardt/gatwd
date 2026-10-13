@@ -198,7 +198,10 @@ Rules (Mandates 5 and 7):
   qualified by kind and by scope (`Pod/default/web`, `Database/pg-prod/orders`, `DBMS/_/pg-prod`;
   `_` = no scope): equal local names under another kind or scope are then other nodes. Ingest
   with `graph_insert_node`, which turns a repeated id into an `[ERROR]` naming both declarations
-  instead of a silent overwrite (`graph_add_node` is the upsert, for updates). The id is built in
+  instead of a silent overwrite (`graph_add_node` is the upsert, for updates). A file-reading adapter
+  attaches a `collections.Source` (file, document position) to each payload with `HAMT.WithSource`: a
+  side channel that rules, equality and JSON never see (so live/offline parity is untouched), shown only
+  in the duplicate error. Never put provenance into the payload as a key. The id is built in
   the *prelude* from the payload (`pkg/k8sgraph/lib/k8s/ids.gatwd`), never in the adapter, and a
   reference resolves in the referrer's scope (`k8s_ref`). Fixtures need an explicit scope on both
   the live and the offline side, or the two sources yield different ids and parity fails.

@@ -1,0 +1,10 @@
+# NEGATIVE fixture, source provenance: the same resource defined in two FILES (a.yaml and
+# more/b.yaml). The duplicate-id error must name both files, and the document position of
+# the one that sits inside a multi-document file.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup
+  namespace: default
+  labels:
+    app: first

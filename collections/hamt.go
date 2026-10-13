@@ -232,9 +232,14 @@ func (b *branchNode[K, V]) iter(yield func(K, V) bool) bool {
 
 // HAMT represents an immutable, persistent Hash Array Mapped Trie.
 // It provides O(log32 N) (~O(1)) lookups, insertions, and deletions with structural sharing.
+//
+// A HAMT may carry one Source (WithSource): provenance for error messages that is not part
+// of the map's contents. See Source for what it does and does not affect.
 type HAMT[K comparable, V any] struct {
 	root hamtNode[K, V]
 	size int
+	// src is the optional provenance; never consulted by Get, iteration, Equal or JSON.
+	src *Source
 }
 
 // NewHAMT creates a new empty persistent HAMT map.
@@ -275,10 +280,14 @@ func (h *HAMT[K, V]) Get(key K) (V, bool) {
 // The existing HAMT is not modified.
 func (h *HAMT[K, V]) Set(key K, val V) *HAMT[K, V] {
 	if h == nil || h.root == nil {
-		return &HAMT[K, V]{
+		res := &HAMT[K, V]{
 			root: &leafNode[K, V]{key: key, val: val, hash: hashKey(key)},
 			size: 1,
 		}
+		if h != nil {
+			res.src = h.src
+		}
+		return res
 	}
 	newRoot, added := h.root.set(key, val, hashKey(key), 0)
 	newSize := h.size
@@ -288,6 +297,7 @@ func (h *HAMT[K, V]) Set(key K, val V) *HAMT[K, V] {
 	return &HAMT[K, V]{
 		root: newRoot,
 		size: newSize,
+		src:  h.src,
 	}
 }
 
@@ -304,7 +314,30 @@ func (h *HAMT[K, V]) Delete(key K) *HAMT[K, V] {
 	return &HAMT[K, V]{
 		root: newRoot,
 		size: h.size - 1,
+		src:  h.src,
 	}
+}
+
+// WithSource returns a HAMT with the same contents that remembers where it came from. The
+// receiver is not modified and the structure is shared. Set and Delete keep the Source (the
+// result is still "that record, edited"), and so do the operations that are built from them
+// starting at the receiver (Merge and Diff keep the receiver's); the ones that build a fresh
+// map (Filter, Reject, MapValues, Intersect, ...) do not. The Source is invisible to
+// equality, iteration and JSON: see Source.
+func (h *HAMT[K, V]) WithSource(src Source) *HAMT[K, V] {
+	res := &HAMT[K, V]{src: &src}
+	if h != nil {
+		res.root, res.size = h.root, h.size
+	}
+	return res
+}
+
+// Source returns the Source attached with WithSource, and whether there is one.
+func (h *HAMT[K, V]) Source() (Source, bool) {
+	if h == nil || h.src == nil {
+		return Source{}, false
+	}
+	return *h.src, true
 }
 
 // Seq returns a Go 1.23 standard iter.Seq2 of (key, value) pairs.

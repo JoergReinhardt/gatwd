@@ -20,7 +20,9 @@ import (
 // and every relation derived afterwards would be about a thing that does not
 // exist. InsertNode is the strict twin — it refuses — and this error carries
 // what a person needs to tell the two declarations apart: the id, and the
-// color and payload of both.
+// color and payload of both — and, when the payloads remember where they were
+// read from (a manifest adapter attaches the file and document, see Source), that
+// origin too, which is usually the fastest way to find the second copy.
 //
 // The identity scheme itself (what an id is made of) belongs to the domain:
 // the convention is "every adapter names nodes Kind/scope/name" so that equal
@@ -38,6 +40,11 @@ type DuplicateNodeError struct {
 	NewColor        any // color of the rejected node
 	ExistingPayload any // payload of the node already in the graph
 	NewPayload      any // payload of the rejected node
+
+	// ExistingSource and NewSource are where the two payloads were read from, when they say
+	// (SourceOf); the zero Source otherwise. Error quotes them only when set.
+	ExistingSource Source
+	NewSource      Source
 
 	// Render, when set, turns a payload into the text Error quotes. The collection
 	// layer cannot know how to print an arbitrary payload (a nested map prints as a
@@ -61,8 +68,16 @@ func (e *DuplicateNodeError) Error() string {
 	if e.ExistingColor == e.NewColor && functions.StructuralEqual(e.ExistingPayload, e.NewPayload) {
 		what = "identical"
 	}
-	return fmt.Sprintf("duplicate node id %q: declared as %v (%s) and again as %v (%s) — the two declarations are %s",
-		fmt.Sprint(e.ID), e.ExistingColor, ex, e.NewColor, nw, what)
+	return fmt.Sprintf("duplicate node id %q: declared as %v%s (%s) and again as %v%s (%s) — the two declarations are %s",
+		fmt.Sprint(e.ID), e.ExistingColor, fromSource(e.ExistingSource), ex, e.NewColor, fromSource(e.NewSource), nw, what)
+}
+
+// fromSource is " in <source>" for a message, or "" when there is no source.
+func fromSource(s Source) string {
+	if s.IsZero() {
+		return ""
+	}
+	return " in " + s.String()
 }
 
 func clip(s string) string {
@@ -83,9 +98,12 @@ func clip(s string) string {
 // modified, whichever way the call goes.
 func (g *Graph[K, C, N, E]) InsertNode(id K, color C, payload N) (*Graph[K, C, N, E], error) {
 	if existing, ok := g.GetNode(id); ok {
+		exSrc, _ := SourceOf(existing.Payload)
+		newSrc, _ := SourceOf(payload)
 		return nil, &DuplicateNodeError{
 			ID: id, ExistingColor: existing.Color, NewColor: color,
 			ExistingPayload: existing.Payload, NewPayload: payload,
+			ExistingSource: exSrc, NewSource: newSrc,
 		}
 	}
 	return g.AddNode(id, color, payload), nil

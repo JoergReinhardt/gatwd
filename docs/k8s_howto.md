@@ -157,9 +157,13 @@ What the qualified id buys, and what it asks of you:
 - **Equal names no longer collide.** A Service and a Pod called `web`, or `web` in `default` and in
   `prod`, are different nodes (`pkg/k8sgraph/testdata/collisions.yaml`). A resource defined **twice**
   (same kind, namespace and name — two files of one kustomization, a pasted document) is an error that
-  names both declarations, never one silently replacing the other:
-  `[ERROR] … duplicate node id "Pod/default/dup": declared as Pod ({…"app":"first"…}) and again as Pod ({…"app":"second"…}) — the two declarations are different`
-  (`pkg/k8sgraph/testdata/duplicates.yaml`; the operator prints that error instead of a violation list).
+  names both declarations — **and the file each came from** — never one silently replacing the other:
+  `[ERROR] … duplicate node id "Pod/default/dup": declared as Pod in rendered/a.yaml ({…"app":"first"…}) and again as Pod in rendered/more/b.yaml, document 2 ({…"app":"second"…}) — the two declarations are different`
+  (`pkg/k8sgraph/testdata/duplicates.yaml` for two documents of one file, `duplicates-files/` for two files; the
+  operator prints that error instead of a violation list and exits 1). The position (`document N`) appears only
+  when the file holds several documents; a rendered kustomization root reads `kustomize render of DIR, document N`.
+  Offline manifests carry this provenance beside the resource (invisible to rules, equality and JSON); a live
+  cluster has none, so a live duplicate names the payloads only.
 - **References resolve in the referrer's namespace**, because Kubernetes references are namespace-local:
   an Ingress backend, a ConfigMap or claim a pod uses, a Service's selector, an `ownerReference` (which
   names the owner's kind), a `roleRef` (kind and name) and a RoleBinding subject (which may carry its own
@@ -421,9 +425,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 ## 4. Known limitations (as of this writing)
 
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
-- Node ids are `Kind/namespace/name` (§2.3). The duplicate error quotes both declarations' payloads but not the
-  file they came from: the manifest reader does not attach a source path to a payload, so with many files you
-  find the pair by the quoted fields.
+- Node ids are `Kind/namespace/name` (§2.3). The duplicate error names the file (and document) of both
+  declarations for offline manifests; for a live crawl, which has no files, it quotes the payloads only.
 - `--no-kustomize` exists on both `gatwd-k8s` and `gatwd-k8s-operator` (§3.2); on the operator it applies to `--manifests` only.
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

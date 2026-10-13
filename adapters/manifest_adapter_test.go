@@ -261,3 +261,62 @@ func TestManifestAdapterRenderErrorNamesTheRoot(t *testing.T) {
 		t.Fatalf("expected an error naming %s and the cause, got %v", dir, payloads[0])
 	}
 }
+
+// sourceOf is the provenance a payload carries ("" when it has none).
+func sourceOf(t *testing.T, payload any) (collections.Source, bool) {
+	t.Helper()
+	return collections.SourceOf(payload)
+}
+
+// TestManifestAdapterAttachesSource: every payload remembers its file, and its position
+// when the file holds several documents; a rendered kustomization root names the root.
+// The source is metadata beside the payload: the payload itself is unchanged.
+func TestManifestAdapterAttachesSource(t *testing.T) {
+	dir := t.TempDir()
+	multi := filepath.Join(dir, "app.yaml")
+	single := filepath.Join(dir, "single.yaml")
+	for p, content := range map[string]string{
+		multi:  "# leading comment\n" + multiDocManifest,
+		single: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cfg\n",
+	} {
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := collectPayloads(t, dir)
+	want := []collections.Source{
+		{Origin: multi, Document: 1},
+		{Origin: multi, Document: 2},
+		{Origin: single}, // one document: no position
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d payloads, want %d", len(got), len(want))
+	}
+	for i, w := range want {
+		if src, ok := sourceOf(t, got[i]); !ok || src != w {
+			t.Errorf("payload %d: source %+v (present=%v), want %+v", i, src, ok, w)
+		}
+	}
+	if s := (collections.Source{Origin: multi, Document: 2}).String(); s != multi+", document 2" {
+		t.Errorf("Source.String() = %q", s)
+	}
+
+	// the payload is what it was without the source: same keys, same values
+	if hamtGet(t, got[0], "kind") != "Pod" || got[0].(*collections.HAMT[string, any]).Len() != 4 {
+		t.Errorf("attaching a source changed the payload: %v", got[0])
+	}
+
+	// a rendered root: the origin is the render, the position counts inside the stream
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "kustomization.yaml"), []byte("resources: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rendered := collectPayloads(t, root, adapters.WithRenderer(func(string) ([]byte, error) { return []byte(multiDocManifest), nil }))
+	for i, p := range rendered {
+		want := collections.Source{Origin: "kustomize render of " + root, Document: i + 1}
+		if src, ok := sourceOf(t, p); !ok || src != want {
+			t.Errorf("rendered payload %d: source %+v (present=%v), want %+v", i, src, ok, want)
+		}
+	}
+}

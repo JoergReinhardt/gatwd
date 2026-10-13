@@ -1105,3 +1105,18 @@ spawn S: x |> graph_empty |> graph_add_node Pod Pod/default/web |> graph_add_nod
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_size (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "b"], ["E", 1, "a", "b"]] g)) 0 |> assert 1
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_out_of "E" "a" (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "ghost"]] g)) 0 |> assert [b]
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> graph_add_edge E 1 a ghost |> graph_add_edge E 1 a b |> graph_reachable a |> collect_list |> assert [a b]
+
+-- Provenance (hardening W4 follow-up), non-domain. with_source attaches the origin a record was read from
+-- BESIDE the record (like Clojure's with-meta); source_of reads it back as Maybe String. The source is
+-- invisible to ==, hamt_*, and printing; Set/Delete keep it; only error messages show it (the duplicate-id
+-- error is asserted in the Go tests: a DSL assert cannot match an [ERROR]).
+maybe_default "-" (source_of (with_source "a.yaml" 2 (hamt_from [["k", 1]]))) |> assert a.yaml, document 2
+maybe_default "-" (source_of (with_source "a.yaml" 0 (hamt_from [["k", 1]]))) |> assert a.yaml
+maybe_default "-" (source_of (hamt_from [["k", 1]])) |> assert -
+maybe_default "-" (source_of 42) |> assert -
+["a.yaml", "b.yaml"] |> map (\f -> maybe_default "-" (source_of (with_source f 0 (hamt_from [["k", 1]])))) |> assert [a.yaml b.yaml]
+["a.yaml", "b.yaml"] |> map (\f -> (with_source f 0 (hamt_from [["k", 1]])) == (hamt_from [["k", 1]])) |> assert [true true]
+["a.yaml", "b.yaml"] |> map (\f -> length (hamt_keys (with_source f 0 (hamt_from [["k", 1], ["j", 2]])))) |> assert [2 2]
+maybe_default "-" (source_of (hamt_set "z" 2 (with_source "a.yaml" 0 (hamt_from [["k", 1]])))) |> assert a.yaml
+maybe_default "-" (source_of (hamt_del "k" (with_source "a.yaml" 0 (hamt_from [["k", 1]])))) |> assert a.yaml
+hamt_get "k" (with_source "a.yaml" 3 (hamt_from [["k", 1]])) |> assert 1

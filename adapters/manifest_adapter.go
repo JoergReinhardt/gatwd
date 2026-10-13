@@ -13,6 +13,7 @@ import (
 
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 )
@@ -119,6 +120,14 @@ func execRenderer(name string, args ...string) func(string) ([]byte, error) {
 // visited in the lexical order filepath.WalkDir guarantees, so a crawl is
 // deterministic.
 //
+// Every yielded payload remembers where it was read — the file, and the document's
+// position when the file holds several (collections.Source) — so an error about the
+// payload, above all the duplicate-id error of an ingest, can name the file. The source
+// is metadata on the payload: invisible to the DSL, to equality and to JSON, so the graph
+// and every rule are exactly what they would be without it (and what a live cluster,
+// whose payloads carry none, yields). A rendered kustomization root is named
+// "kustomize render of DIR".
+//
 // With WithKustomize, WithKustomizeCommand or WithRenderer, a path that is a
 // *kustomization root* is first rendered and the resulting YAML stream is decoded
 // identically; a render error (the root and the tool's message) is yielded as an
@@ -154,8 +163,8 @@ func ManifestAdapter(opts ...ManifestOption) evaluator.Adapter[any] {
 						return
 					}
 				}
-				for _, doc := range docs {
-					if !yield(dsltypes.NewASTNode[any](unstructuredToValue(doc), node.DSLType)) {
+				for _, v := range sourcedValues(docs, "kustomize render of "+path) {
+					if !yield(dsltypes.NewASTNode[any](v, node.DSLType)) {
 						return
 					}
 				}
@@ -176,14 +185,39 @@ func ManifestAdapter(opts ...ManifestOption) evaluator.Adapter[any] {
 					}
 					continue
 				}
-				for _, doc := range docs {
-					if !yield(dsltypes.NewASTNode[any](unstructuredToValue(doc), node.DSLType)) {
+				for _, v := range sourcedValues(docs, file) {
+					if !yield(dsltypes.NewASTNode[any](v, node.DSLType)) {
 						return
 					}
 				}
 			}
 		}
 	}
+}
+
+// manifestDoc is one decoded document and its 1-based position in its stream, counting
+// the empty documents that were skipped (so it matches what a person sees in the file).
+type manifestDoc struct {
+	obj      map[string]any
+	position int
+}
+
+// sourcedValues converts decoded documents to payloads and attaches their Source: the
+// origin, plus the document's position when the stream holds more than one document.
+func sourcedValues(docs []manifestDoc, origin string) []any {
+	out := make([]any, len(docs))
+	for i, d := range docs {
+		src := collections.Source{Origin: origin}
+		if len(docs) > 1 {
+			src.Document = d.position
+		}
+		v := unstructuredToValue(d.obj)
+		if h, ok := v.(*collections.HAMT[string, any]); ok {
+			v = h.WithSource(src)
+		}
+		out[i] = v
+	}
+	return out
 }
 
 // isKustomizationRoot reports whether dir directly contains a kustomization file,
@@ -234,7 +268,7 @@ func manifestFiles(path string) ([]string, error) {
 // generic map[string]any shape (matching the live adapter's unstructured content),
 // skipping empty documents. It streams documents via the apimachinery YAML-or-JSON
 // decoder so multi-document files and JSON manifests are handled uniformly.
-func decodeManifestFile(path string) ([]map[string]any, error) {
+func decodeManifestFile(path string) ([]manifestDoc, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -246,10 +280,10 @@ func decodeManifestFile(path string) ([]map[string]any, error) {
 // decodeManifests decodes every YAML/JSON document from an arbitrary reader — a
 // manifest file on disk or the stdout of `kustomize build` — into the generic
 // map[string]any shape, skipping empty documents.
-func decodeManifests(r io.Reader) ([]map[string]any, error) {
+func decodeManifests(r io.Reader) ([]manifestDoc, error) {
 	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 4096)
-	var docs []map[string]any
-	for {
+	var docs []manifestDoc
+	for position := 1; ; position++ {
 		var obj map[string]any
 		decErr := decoder.Decode(&obj)
 		if decErr == io.EOF {
@@ -261,7 +295,7 @@ func decodeManifests(r io.Reader) ([]map[string]any, error) {
 		if len(obj) == 0 {
 			continue // empty document (e.g. a trailing `---`)
 		}
-		docs = append(docs, obj)
+		docs = append(docs, manifestDoc{obj: obj, position: position})
 	}
 	return docs, nil
 }

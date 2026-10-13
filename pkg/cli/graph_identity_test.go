@@ -126,3 +126,37 @@ func TestGraphAddEdgesDeduplicates(t *testing.T) {
 		t.Errorf("the single-edge step must stay a multigraph insert, Size = %d", multi.Size())
 	}
 }
+
+// TestGraphInsertNodeErrorNamesSources: payloads that remember where they were read
+// (with_source) are reported with that origin in the duplicate error, in the same words
+// the adapter-attached ones get; payloads without one read as before.
+func TestGraphInsertNodeErrorNamesSources(t *testing.T) {
+	in := NewInterpreter()
+	in.EvaluateLine(`let a = with_source "one.yaml" 0 (hamt_from [["kind", "Pod"], ["name", "web"]])`)
+	in.EvaluateLine(`let b = with_source "two.yaml" 3 (hamt_from [["kind", "Pod"], ["name", "other"]])`)
+	run := func(stmt string) string { return strings.Join(in.evaluatePipelineStr(stmt), "\n") }
+
+	got := run(`[a, b] |> fold (\g r -> graph_insert_node "Pod" "Pod/default/web" r g) graph_empty`)
+	for _, want := range []string{"[ERROR]", "duplicate node id", " in one.yaml (", " in two.yaml, document 3 ("} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q does not contain %q", got, want)
+		}
+	}
+
+	in.EvaluateLine(`let c = hamt_from [["kind", "Pod"], ["name", "web"]]`)
+	got = run(`[c, c] |> fold (\g r -> graph_insert_node "Pod" "Pod/default/web" r g) graph_empty`)
+	if !strings.Contains(got, "duplicate node id") || strings.Contains(got, ".yaml") {
+		t.Errorf("a payload without a source must not be given one: %q", got)
+	}
+	// the function form's argument checks
+	for stmt, want := range map[string]string{
+		`with_source 5 0 (hamt_from [["k", 1]])`:         "origin must be a String",
+		`with_source "f" "x" (hamt_from [["k", 1]])`:     "document",
+		`with_source "f" (0 - 1) (hamt_from [["k", 1]])`: "document must be",
+		`with_source "f" 0 [1 2]`:                        "want a HAMT",
+	} {
+		if got := run(stmt); !strings.Contains(got, "[ERROR]") || !strings.Contains(got, want) {
+			t.Errorf("%s: %q, want an error containing %q", stmt, got, want)
+		}
+	}
+}

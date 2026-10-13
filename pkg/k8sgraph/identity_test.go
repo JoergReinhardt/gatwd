@@ -9,12 +9,14 @@ import (
 
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/pkg/k8sgraph"
+	"github.com/joergreinhardt/gatwd/pkg/k8sgraph/k8sgraphtest"
 )
 
 const (
-	collisionsPath = "testdata/collisions.yaml"
-	scopesPath     = "testdata/scopes.yaml"
-	duplicatesPath = "testdata/duplicates.yaml"
+	collisionsPath      = "testdata/collisions.yaml"
+	scopesPath          = "testdata/scopes.yaml"
+	duplicatesPath      = "testdata/duplicates.yaml"
+	duplicatesFilesPath = "testdata/duplicates-files"
 )
 
 func offlineGraph(t *testing.T, path, step string) []string {
@@ -153,5 +155,71 @@ func TestIdHelpers(t *testing.T) {
 		if len(got) != 1 || fmt.Sprint(got[0]) != want {
 			t.Errorf("%s = %v, want %s", stmt, got, want)
 		}
+	}
+}
+
+// TestDuplicateIdNamesBothSources: the duplicate-id error says which file (and, inside a
+// multi-document file, which document) each declaration was read from. The fixtures cover
+// both shapes: two documents of one file, and two files of one directory, one of them a
+// multi-document file. The existing payload quotes stay.
+func TestDuplicateIdNamesBothSources(t *testing.T) {
+	rows := []struct {
+		name, path string
+		want       []string
+	}{
+		{"two documents of one file", duplicatesPath, []string{
+			` in ` + duplicatesPath + `, document 1 (`, ` in ` + duplicatesPath + `, document 2 (`, `"app":"first"`, `"app":"second"`}},
+		{"two files", duplicatesFilesPath, []string{
+			` in ` + duplicatesFilesPath + `/a.yaml (`, ` in ` + duplicatesFilesPath + `/more/b.yaml, document 2 (`, `"app":"first"`, `"app":"second"`}},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			out := newStackInterp().EvaluateToValues(`spawn StrVal: ` + r.path + ` |> manifests |> k8s_graph |> graph_order`)
+			if len(out) != 1 {
+				t.Fatalf("want exactly the error, got %v", out)
+			}
+			err, ok := out[0].(error)
+			if !ok {
+				t.Fatalf("got a %T (%v), want an error value", out[0], out[0])
+			}
+			for _, want := range r.want {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error does not contain %q:\n%s", want, err)
+				}
+			}
+		})
+	}
+}
+
+// TestSourceProvenanceIsInvisible: reading a resource through the manifest adapter
+// (which attaches a Source to every payload) yields exactly the resource a live crawl
+// yields: same JSON, same keys, so no rule can tell the sources apart and live/offline
+// parity holds on the payloads themselves, not only on the ids of the graph.
+func TestSourceProvenanceIsInvisible(t *testing.T) {
+	offline := k8sgraph.ApplyEdition(cli.NewEdition("p-off"), nil).BuildInterpreter()
+	live := k8sgraph.ApplyEdition(cli.NewEdition("p-live"), k8sgraphtest.FakeClusterFromFile(t, fullStackPath)).BuildInterpreter()
+
+	off := edgesOf(t, offline, `spawn StrVal: `+fullStackPath+` |> manifests |> json_encode |> collect_list`)
+	on := edgesOf(t, live, `spawn StrVal: default |> k8s_resources |> json_encode |> collect_list`)
+	if len(off) == 0 || !strings.Contains(off[0], `"kind"`) {
+		t.Fatalf("no resources read: the comparison would be vacuous: %v", off)
+	}
+	if !reflect.DeepEqual(off, on) {
+		t.Errorf("offline and live payloads differ:\n offline %v\n live    %v", off, on)
+	}
+	// and the offline payloads do carry a source, the live ones none, so the comparison
+	// above is not trivially between two sourceless things
+	sources := func(interp *cli.Interpreter, pipeline string) string {
+		vals := interp.EvaluateToValues(pipeline + ` |> source_of |> collect_list`)
+		if len(vals) != 1 {
+			t.Fatalf("%s: want one list, got %v", pipeline, vals)
+		}
+		return fmt.Sprint(vals[0])
+	}
+	if got := sources(offline, `spawn StrVal: `+fullStackPath+` |> manifests`); strings.Contains(got, "Nothing") || strings.Count(got, "Just("+fullStackPath+", document ") != len(off) {
+		t.Errorf("every offline payload must name its file and document: %s", got)
+	}
+	if got := sources(live, `spawn StrVal: default |> k8s_resources`); strings.Contains(got, "Just") || strings.Count(got, "Nothing") != len(on) {
+		t.Errorf("a live payload claims a source: %s", got)
 	}
 }

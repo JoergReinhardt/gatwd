@@ -109,8 +109,10 @@ func TestOperatorCommandLine(t *testing.T) {
 					t.Errorf("stdout = %q, want an error status naming the failing rule", stdout)
 				}
 			case "a duplicate id is a failed check (1), not a violation (3)":
-				if !strings.Contains(stdout, `duplicate node id "Pod/default/dup"`) {
-					t.Errorf("stdout = %q, want the duplicate-id error", stdout)
+				for _, want := range []string{`duplicate node id "Pod/default/dup"`, "duplicates.yaml, document 1 (", "duplicates.yaml, document 2 ("} {
+					if !strings.Contains(stdout, want) {
+						t.Errorf("stdout = %q, want the duplicate-id error naming %q", stdout, want)
+					}
 				}
 			case "version":
 				if !strings.HasPrefix(stdout, "gatwd-k8s-operator ") {

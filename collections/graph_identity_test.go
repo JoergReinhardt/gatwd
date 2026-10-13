@@ -127,3 +127,93 @@ func TestGraphAddEdgesOnce(t *testing.T) {
 		t.Errorf("AddEdge must stay a multigraph insert, Size = %d", got)
 	}
 }
+
+// TestSourceIsMetadataBesideTheValue: a HAMT's Source is invisible to every reader of the
+// map (equality, lookup, iteration, size, JSON), survives Set and Delete, and is dropped by
+// the operations that build a fresh map. Without it, the duplicate error reads as before;
+// with it, the error names where each payload was read.
+func TestSourceIsMetadataBesideTheValue(t *testing.T) {
+	plain := NewHAMT[string, any]().Set("a", 1).Set("b", 2)
+	a := plain.WithSource(Source{Origin: "a.yaml"})
+	b := plain.WithSource(Source{Origin: "b.yaml", Document: 2})
+
+	if _, ok := plain.Source(); ok {
+		t.Fatal("a HAMT without WithSource reports a source")
+	}
+	if a.Len() != 2 {
+		t.Fatalf("WithSource lost entries: %d", a.Len())
+	}
+	if src, ok := a.Source(); !ok || src.Origin != "a.yaml" {
+		t.Fatalf("source = %+v, %v", src, ok)
+	}
+	if !a.Equal(b) || !a.Equal(plain) || !plain.Equal(b) {
+		t.Error("equality must ignore the source")
+	}
+	if !functions.StructuralEqual(a, b) {
+		t.Error("StructuralEqual must ignore the source")
+	}
+	ja, _ := a.MarshalJSON()
+	jp, _ := plain.MarshalJSON()
+	if string(ja) != string(jp) {
+		t.Errorf("JSON shows the source: %s vs %s", ja, jp)
+	}
+	if v, _ := a.Get("b"); v != 2 {
+		t.Errorf("Get on a sourced map = %v", v)
+	}
+	if _, ok := plain.Source(); ok {
+		t.Error("WithSource modified its receiver")
+	}
+
+	// Set and Delete keep it (the result is still that record, edited); a bulk rebuild does not
+	if src, ok := a.Set("c", 3).Source(); !ok || src.Origin != "a.yaml" {
+		t.Errorf("Set dropped the source: %+v %v", src, ok)
+	}
+	if src, ok := a.Delete("a").Source(); !ok || src.Origin != "a.yaml" {
+		t.Errorf("Delete dropped the source: %+v %v", src, ok)
+	}
+	if src, ok := a.Merge(plain.Set("z", 9)).Source(); !ok || src.Origin != "a.yaml" {
+		t.Errorf("Merge keeps the receiver's source: %+v %v", src, ok)
+	}
+	if _, ok := a.Filter(func(string, any) bool { return true }).Source(); ok {
+		t.Error("Filter builds a fresh map and must not claim an origin")
+	}
+	var nilHAMT *HAMT[string, any]
+	if src, ok := nilHAMT.WithSource(Source{Origin: "x"}).Source(); !ok || src.Origin != "x" {
+		t.Errorf("WithSource on a nil HAMT: %+v %v", src, ok)
+	}
+
+	// SourceOf is for any value: a HAMT with a source, nothing for the rest
+	if _, ok := SourceOf("text"); ok {
+		t.Error("a String has no source")
+	}
+	if _, ok := SourceOf(nil); ok {
+		t.Error("nil has no source")
+	}
+
+	// the duplicate error names both origins, in the payloads' own words
+	g, err := newTestGraph().InsertNode("Pod/default/dup", "Pod", any(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = g.InsertNode("Pod/default/dup", "Pod", any(b))
+	var dup *DuplicateNodeError
+	if !errors.As(err, &dup) {
+		t.Fatalf("want a *DuplicateNodeError, got %v", err)
+	}
+	if dup.ExistingSource != (Source{Origin: "a.yaml"}) || dup.NewSource != (Source{Origin: "b.yaml", Document: 2}) {
+		t.Errorf("sources not recorded on the error: %+v / %+v", dup.ExistingSource, dup.NewSource)
+	}
+	for _, want := range []string{" in a.yaml (", " in b.yaml, document 2 ("} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message %q lacks %q", err.Error(), want)
+		}
+	}
+
+	// payloads without a source: the message is exactly what it was before provenance existed
+	g2, _ := newTestGraph().InsertNode("x", "A", "first")
+	_, err = g2.InsertNode("x", "B", "second")
+	want := `duplicate node id "x": declared as A (first) and again as B (second) — the two declarations are different`
+	if err == nil || err.Error() != want {
+		t.Errorf("message without sources changed:\n got %v\nwant %s", err, want)
+	}
+}
