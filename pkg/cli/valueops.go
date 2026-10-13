@@ -205,12 +205,6 @@ func elementsOf(v any) ([]any, bool) {
 			out = append(out, val)
 		}
 		return out, true
-	case *collections.BST[string]:
-		var out []any
-		for val := range c.Seq() {
-			out = append(out, val)
-		}
-		return out, true
 	case dsltypes.Variant:
 		_, _, payload := c.VariantElements()
 		return []any{payload}, true
