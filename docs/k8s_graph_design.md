@@ -657,6 +657,50 @@ prelude) + `lib/k8s/*.gatwd`. Prove 3 relations end-to-end first (`Owns` via
 ownerRefs, `Selects` via selector ⊆ labels, `RoutesTo` via Ingress backend), then
 expand the relation matrix. DSL tests over fixture manifests.
 
+**Phase 6 — ingest blocker RESOLVED (2026-10-13), option C.** The first blocker
+(handoff §3: no way to turn a crawled resource stream into graph nodes/edges, since
+every graph builtin took literal step args) is cleared by the user-chosen **option
+C** — generalize the existing custom `fold` so its accumulator can be a graph and the
+reducer a DSL lambda returning the updated graph. The enabling, generic, domain-free
+primitive is **function application (juxtaposition) in the infix expression
+language**: Layer 0 `functions.DSLFunc` (type-erased callable); `parser/infix.go`
+`ApplyExpr` + juxtaposition parsing (with an `appDisabled` guard so space-separated
+list literals `[2 1]`/`[nginx web]` still parse as separate elements — parens &
+comprehensions re-enable application); shared `evaluator.HAMTGetKey`/
+`NavigateHAMTPath` helpers (extracted from the hamt_get/hamt_path steps); and a
+registry of expression-level builtins in `pkg/cli/dslfuncs.go` wired into the fold &
+graph-lambda lookups — `graph_empty` (seed value), `graph_add_node`,
+`graph_add_edge`, `graph_add_inferred_edge`, `graph_add_edges`, `hamt_get`,
+`hamt_path` (each the function form of the like-named step). Ingest is now pure DSL:
+`resources |> fold (\g r -> graph_add_node (hamt_get "kind" r) (hamt_get "name" r) r g) graph_empty`,
+edges via a second fold feeding `graph_add_edges`. Asserts: `tests/dsl_exhaustive_test.gatwd`
+§73 (non-K8s: id-list, record ingest via hamt_get/hamt_path, edge ingest);
+`parser/apply_test.go`; `pkg/cli/dslfuncs_test.go` (structural, asserts the raw
+`*collections.Graph`) + Examples. Grammar documented in `docs/grammar.md`. All gates
+green.
+
+**Phase 6 — prelude + `ApplyEdition` LANDED (2026-10-13).** `pkg/k8sgraph/lib/k8s/`
+`{types,ingest,relations,queries,prelude}.gatwd` + `pkg/k8sgraph/edition.go`
+(`ApplyEdition`, `//go:embed lib/k8s/*.gatwd`, `PreludeFS`/`PreludePath`; `client` may
+be nil for an offline edition). Shape: `k8s_ingest` is a zero-parameter `def` fragment
+(`fold (\g r -> graph_add_node …) graph_empty`); each relation is a **graph-to-graph
+pass** `fold (\_ g -> graph_add_edges [ spec | … <- graph_payloads_of … ] g) graph_empty`
+(a graph stream element reaches the reducer as `g`, so the whole graph is readable and
+the rule can join across nodes); `k8s_graph = k8s_ingest |> k8s_relations`. `Owns`,
+`Selects` (via `subset_of`), `RoutesTo` proven over `testdata/stack.yaml` in
+`pkg/k8sgraph/edition_test.go`. Findings that shaped it: (1) multi-arg lambda `def`s
+used as `fold add_node …` still mis-evaluate — use zero-param fragments, which work;
+(2) `map` on a graph element is the graph Functor (payload map), not whole-graph
+application — use the `fold (\_ g -> …)` form. **Generic core additions (Mandate 3/5):**
+`graph_payloads` / `graph_payloads_of color g` and `hamt_has_path` expression builtins;
+**positional comprehension guards** (`parser.ListComprehensionExpr.FilterAfter` — a
+filter now runs as soon as its variables are bound, Haskell-style, so a guard can
+protect a later dependent generator); and **FS-aware `import`** (a prelude loaded from
+an `embed.FS` now imports its siblings from that FS). Asserts: DSL §76,
+`parser.TestComprehensionPositionalGuard`, `cli.TestLoadScriptFSResolvesImportsInFS`.
+**NEXT:** Phase 7 (`cmd/gatwd-k8s` Edition + `cmd/gatwd-k8s-operator` Appliance); then
+expand the relation matrix (`Configures`, `Mounts`, `Binds`, `Calls`, inferred edges).
+
 **Phase 7 — Editions & Appliances.** `cmd/gatwd-k8s/` Edition;
 `cmd/gatwd-k8s-operator/` Appliance w/ embedded compliance + reload. E2E demos for
 2 use cases (dependency resolve, request trace) over fixtures.

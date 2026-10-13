@@ -1,0 +1,18 @@
+-- Relation rules. Each rule is a graph-to-graph pass: it reads the node payloads of
+-- the ingested graph with a comprehension (graph_payloads / graph_payloads_of) and
+-- adds the colored edges it derives. `fold (\_ g -> ... g) graph_empty` hands the
+-- stream's graph to the reducer as g, and the reducer returns g grown by the edges.
+-- Edge specs are [color, weight, from, to]. hamt_has_path guards skip resources that
+-- simply lack the field a rule reads (a Deployment has no ownerReferences, etc.).
+
+-- Owns: owner -> dependent, from metadata.ownerReferences[].name.
+def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "name" o), (hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
+
+-- Selects: Service -> every Pod whose labels contain the Service's spec.selector.
+def rel_selects = fold (\_ g -> graph_add_edges [ ["Selects", 1, (hamt_path "metadata.name" s), (hamt_path "metadata.name" p)] | s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, p <- (graph_payloads_of "Pod" g), hamt_has_path "metadata.labels" p, subset_of (hamt_path "spec.selector" s) (hamt_path "metadata.labels" p) ] g) graph_empty
+
+-- RoutesTo: Ingress -> the Service named by each rule path's backend.
+def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (hamt_path "metadata.name" i), (hamt_path "backend.service.name" path)] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path ] g) graph_empty
+
+-- The full relation matrix as one pass chain over an ingested graph.
+def k8s_relations = rel_owns |> rel_selects |> rel_routes_to

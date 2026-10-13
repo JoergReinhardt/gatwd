@@ -1,0 +1,4 @@
+-- Kubernetes graph vocabulary: node colors (resource kinds) and edge colors (relations).
+-- Extend either sum type to add a new kind/relation; no Go change is needed.
+type NodeColor = Pod | Service | Ingress | ConfigMap | Secret | Deployment | ReplicaSet | PVC | ServiceAccount | Role
+type EdgeColor = Selects | RoutesTo | Configures | Owns | Mounts | Binds | Calls
