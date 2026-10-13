@@ -15,12 +15,14 @@ Appliance (single purpose, embedded rules)?
    (files/fixtures) producing the *same* payload shape.
 4. **Thin shim** `pkg/<domain>/`: `<Domain>Step(keyword, client, …)` → `cli.AdapterStep`;
    `ApplyEdition(e, client)` (nil client ⇒ offline-only); `//go:embed lib/<domain>/*.gatwd`.
-5. **Prelude** `lib/<domain>/*.gatwd`: `types`, `ingest`, `relations`, `queries`, `sources`
+5. **Prelude** `lib/<domain>/*.gatwd`: `types`, `ids` (qualified `Kind/scope/name`), `ingest`
+   (`graph_insert_node`: a duplicate id is an error), `relations`, `queries`, `sources`
    (merge producers with `(a <+> b <+> …)`), one `prelude.gatwd` entry point.
 6. **`cmd/gatwd-<domain>`** (Edition) / **`cmd/gatwd-<domain>-<role>`** (Appliance): pure assembly
    `main.go`; embedded `rules/*.gatwd`; ConfigMap override; testable `newAppliance`/pipeline helpers.
 7. **Tests**: fixtures; fake client from the same fixtures (`<domain>test` helper package);
-   **parity test** live-vs-offline; **negative fixture** violating every rule; hot-reload test;
+   **parity test** live-vs-offline; **negative fixture** violating every rule; an identity fixture
+   (same name, two kinds/scopes) and a duplicate-id fixture; hot-reload test;
    benchmark on a synthetic workload.
 8. **Docs**: `doc.go`, README feature line, design-doc phase entries, handoff if mid-project.
 

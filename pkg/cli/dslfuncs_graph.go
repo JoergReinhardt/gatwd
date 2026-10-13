@@ -1,11 +1,24 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/functions"
 )
+
+// payloadJSON renders a node payload for an error message: JSON when the value
+// encodes (resources are nested maps), otherwise its default text.
+func payloadJSON(v any) string {
+	var b strings.Builder
+	if err := encodeJSON(&b, v, "payload"); err != nil {
+		return fmt.Sprint(v)
+	}
+	return b.String()
+}
 
 // registerGraphFuncs adds the READ-side and inferred-edge function forms of the graph
 // row of the operator-type matrix, complementing the constructors and accessors in
@@ -14,6 +27,7 @@ import (
 //
 //	graph_add_inferred_edges specs g   twin of graph_add_edge_inferred, over a list of
 //	                                   [color weight from to] specs (assumed, trust-weighted)
+//	graph_insert_node c id [p] g       graph_add_node that REFUSES an id already in g (duplicate-id error)
 //	graph_has_node id g                is id a node of g?
 //	graph_nodes g                      node identities, sorted
 //	graph_order g / graph_size g       node / edge counts
@@ -51,14 +65,42 @@ func registerGraphFuncs(m map[string]any) {
 		if !ok {
 			return nil, fmt.Errorf("first argument must be a list of edge specs, got %T", a[0])
 		}
+		edges := make([]functions.Edge[string, string, any], 0, len(specs))
 		for _, spec := range specs {
 			f, ok := functions.ToSliceAny(spec)
 			if !ok || len(f) != 4 {
 				return nil, fmt.Errorf("each edge spec must be [color weight from to], got %v", spec)
 			}
-			g = g.AddInferredEdge(dslStr(f[2]), dslStr(f[3]), dslStr(f[0]), f[1])
+			edges = append(edges, functions.NewInferredEdge[string, string, any](dslStr(f[2]), dslStr(f[3]), dslStr(f[0]), f[1]))
 		}
-		return g, nil
+		return g.AddEdgesOnce(edges), nil // identical specs once, like graph_add_edges
+	})
+	// graph_insert_node color id [payload] g — the strict twin of graph_add_node: an id
+	// that is already a node is an error naming both declarations, not an overwrite.
+	// Like graph_add_node it takes 3 (payload = id) or 4 arguments and stays a raw
+	// DSLFunc, so the step form `graph_insert_node COLOR ID` and the function form agree.
+	m["graph_insert_node"] = functions.DSLFunc(func(args []any) (any, error) {
+		if len(args) != 3 && len(args) != 4 {
+			return nil, fmt.Errorf("graph_insert_node: want (color id [payload] graph), got %d args", len(args))
+		}
+		g, err := graphArg(args[len(args)-1])
+		if err != nil {
+			return nil, fmt.Errorf("graph_insert_node: %w", err)
+		}
+		color, id := dslStr(args[0]), dslStr(args[1])
+		var payload any = id
+		if len(args) == 4 {
+			payload = args[2]
+		}
+		res, err := g.InsertNode(id, color, payload)
+		var dup *collections.DuplicateNodeError
+		if errors.As(err, &dup) {
+			dup.Render = payloadJSON // a nested-map payload prints as JSON, not as a pointer
+		}
+		if err != nil {
+			return nil, fmt.Errorf("graph_insert_node: %w", err)
+		}
+		return res, nil
 	})
 	defn(m, "graph_has_node", "id g", func(a []any) (any, error) {
 		g, err := graphArg(a[1])

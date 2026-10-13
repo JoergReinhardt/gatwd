@@ -41,9 +41,9 @@ func TestPreludeRelations(t *testing.T) {
 		step string
 		want []string
 	}{
-		"Owns":     {"graph_edges_of Owns", []string{"nginx-deploy-Owns->nginx-rs", "nginx-rs-Owns->nginx-pod"}},
-		"Selects":  {"graph_edges_of Selects", []string{"nginx-svc-Selects->nginx-pod"}},
-		"RoutesTo": {"graph_edges_of RoutesTo", []string{"web-RoutesTo->nginx-svc"}},
+		"Owns":     {"graph_edges_of Owns", []string{"Deployment/default/nginx-deploy-Owns->ReplicaSet/default/nginx-rs", "ReplicaSet/default/nginx-rs-Owns->Pod/default/nginx-pod"}},
+		"Selects":  {"graph_edges_of Selects", []string{"Service/default/nginx-svc-Selects->Pod/default/nginx-pod"}},
+		"RoutesTo": {"graph_edges_of RoutesTo", []string{"Ingress/default/web-RoutesTo->Service/default/nginx-svc"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -56,17 +56,17 @@ func TestPreludeRelations(t *testing.T) {
 
 	t.Run("a Pod the selector does not match is not selected", func(t *testing.T) {
 		for _, e := range edgesOf(t, interp, src+` |> graph_edges |> collect_list`) {
-			if e == "nginx-svc-Selects->other-pod" {
+			if e == "Service/default/nginx-svc-Selects->Pod/default/other-pod" {
 				t.Fatalf("selector app=nginx must not select other-pod")
 			}
 		}
 	})
 
 	t.Run("transitive reachability from the Ingress", func(t *testing.T) {
-		got := edgesOf(t, interp, src+` |> graph_reachable web |> collect_list`)
-		want := []string{"nginx-pod", "nginx-svc", "web"}
+		got := edgesOf(t, interp, src+` |> graph_reachable Ingress/default/web |> collect_list`)
+		want := []string{"Ingress/default/web", "Pod/default/nginx-pod", "Service/default/nginx-svc"}
 		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("reachable from web = %v, want %v", got, want)
+			t.Fatalf("reachable from Ingress/default/web = %v, want %v", got, want)
 		}
 	})
 }
@@ -111,12 +111,12 @@ func ordered(t *testing.T, interp *cli.Interpreter, pipeline string) []string {
 // from the Ingress to the Pod that serves it, derived purely from the manifests.
 func TestE2ERequestTrace(t *testing.T) {
 	interp := newStackInterp()
-	got := ordered(t, interp, `spawn StrVal: `+stackPath+` |> manifests |> k8s_graph |> graph_shortest_path web nginx-pod |> collect_list`)
-	want := []string{"web", "nginx-svc", "nginx-pod"}
+	got := ordered(t, interp, `spawn StrVal: `+stackPath+` |> manifests |> k8s_graph |> graph_shortest_path Ingress/default/web Pod/default/nginx-pod |> collect_list`)
+	want := []string{"Ingress/default/web", "Service/default/nginx-svc", "Pod/default/nginx-pod"}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("trace web -> nginx-pod = %v, want %v", got, want)
+		t.Fatalf("trace Ingress/default/web -> Pod/default/nginx-pod = %v, want %v", got, want)
 	}
-	if none := ordered(t, interp, `spawn StrVal: `+stackPath+` |> manifests |> k8s_graph |> graph_shortest_path web other-pod |> collect_list`); len(none) != 0 {
+	if none := ordered(t, interp, `spawn StrVal: `+stackPath+` |> manifests |> k8s_graph |> graph_shortest_path Ingress/default/web Pod/default/other-pod |> collect_list`); len(none) != 0 {
 		t.Fatalf("the Ingress must not reach other-pod, got trace %v", none)
 	}
 }
@@ -127,10 +127,10 @@ func TestE2EDependencyResolve(t *testing.T) {
 	interp := newStackInterp()
 	src := `spawn StrVal: ` + stackPath + ` |> manifests |> k8s_graph`
 
-	got := edgesOf(t, interp, src+` |> graph_reachable nginx-deploy |> collect_list`)
-	want := []string{"nginx-deploy", "nginx-pod", "nginx-rs"}
+	got := edgesOf(t, interp, src+` |> graph_reachable Deployment/default/nginx-deploy |> collect_list`)
+	want := []string{"Deployment/default/nginx-deploy", "Pod/default/nginx-pod", "ReplicaSet/default/nginx-rs"}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("reachable from nginx-deploy = %v, want %v", got, want)
+		t.Fatalf("reachable from Deployment/default/nginx-deploy = %v, want %v", got, want)
 	}
 
 	order := ordered(t, interp, src+` |> k8s_apply_order |> collect_list`)
@@ -138,7 +138,7 @@ func TestE2EDependencyResolve(t *testing.T) {
 	for i, id := range order {
 		pos[id] = i
 	}
-	for _, e := range [][2]string{{"nginx-deploy", "nginx-rs"}, {"nginx-rs", "nginx-pod"}, {"web", "nginx-svc"}, {"nginx-svc", "nginx-pod"}} {
+	for _, e := range [][2]string{{"Deployment/default/nginx-deploy", "ReplicaSet/default/nginx-rs"}, {"ReplicaSet/default/nginx-rs", "Pod/default/nginx-pod"}, {"Ingress/default/web", "Service/default/nginx-svc"}, {"Service/default/nginx-svc", "Pod/default/nginx-pod"}} {
 		if from, ok := pos[e[0]]; !ok || from >= pos[e[1]] {
 			t.Errorf("apply order %v must place %s before %s", order, e[0], e[1])
 		}
@@ -158,18 +158,19 @@ func TestPodSpecRelations(t *testing.T) {
 		step string
 		want []string
 	}{
-		// volume + env reference from app-pod (the same triple appears once per source),
-		// plus the Deployment template's envFrom; missing-config has no node, so no edge.
-		"Configures": {"graph_edges_of Configures", []string{"app-config-Configures->app-pod", "app-config-Configures->worker"}},
-		"Mounts":     {"graph_edges_of Mounts", []string{"app-data-Mounts->app-pod"}},
+		// volume + env reference from app-pod are ONE fact (graph_add_edges adds an identical
+		// spec once), plus the Deployment template's envFrom; missing-config has no node,
+		// so no edge.
+		"Configures": {"graph_edges_of Configures", []string{"ConfigMap/default/app-config-Configures->Deployment/default/worker", "ConfigMap/default/app-config-Configures->Pod/default/app-pod"}},
+		"Mounts":     {"graph_edges_of Mounts", []string{"PersistentVolumeClaim/default/app-data-Mounts->Pod/default/app-pod"}},
 		// the User subject is not a ServiceAccount, so only app-sa (and the Role) bind.
-		"Binds":    {"graph_edges_of Binds", []string{"app-binding-Binds->app-role", "app-binding-Binds->app-sa"}},
-		"Selects":  {"graph_edges_of Selects", []string{"nginx-svc-Selects->app-pod"}},
-		"Inferred": {"graph_edges_inferred", []string{"app-config-Calls->nginx-svc", "app-pod-Calls->backend-svc"}},
+		"Binds":    {"graph_edges_of Binds", []string{"RoleBinding/default/app-binding-Binds->Role/default/app-role", "RoleBinding/default/app-binding-Binds->ServiceAccount/default/app-sa"}},
+		"Selects":  {"graph_edges_of Selects", []string{"Service/default/nginx-svc-Selects->Pod/default/app-pod"}},
+		"Inferred": {"graph_edges_inferred", []string{"ConfigMap/default/app-config-Calls->Service/default/nginx-svc", "Pod/default/app-pod-Calls->Service/default/backend-svc"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			got := dedupe(edgesOf(t, interp, src+` |> `+c.step+` |> collect_list`))
+			got := edgesOf(t, interp, src+` |> `+c.step+` |> collect_list`)
 			if !reflect.DeepEqual(got, c.want) {
 				t.Fatalf("%s = %v, want %v", name, got, c.want)
 			}
@@ -183,21 +184,11 @@ func TestPodSpecRelations(t *testing.T) {
 			t.Fatalf("Calls must all be inferred: declared=%v inferred=%v", declared, inferred)
 		}
 		for _, e := range edgesOf(t, interp, src+` |> graph_edges_inferred |> collect_list`) {
-			if e != "app-config-Calls->nginx-svc" && e != "app-pod-Calls->backend-svc" {
+			if e != "ConfigMap/default/app-config-Calls->Service/default/nginx-svc" && e != "Pod/default/app-pod-Calls->Service/default/backend-svc" {
 				t.Errorf("unexpected inferred edge %s", e)
 			}
 		}
 	})
-}
-
-func dedupe(sorted []string) []string {
-	var out []string
-	for i, s := range sorted {
-		if i == 0 || s != sorted[i-1] {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 // TestSelectsIndexedPassSemantics pins the label-index optimisation to the naive
@@ -247,10 +238,11 @@ spec:
 		t.Fatal(err)
 	}
 	got := edgesOf(t, newStackInterp(), `spawn StrVal: `+path+` |> manifests |> k8s_graph |> graph_edges_of Selects |> collect_list`)
+	// no manifest here names a namespace, so every id has the scope "_"
 	want := []string{
-		"everything-Selects->app-only", "everything-Selects->both",
-		"loose-Selects->app-only", "loose-Selects->both",
-		"strict-Selects->both",
+		"Service/_/everything-Selects->Pod/_/app-only", "Service/_/everything-Selects->Pod/_/both",
+		"Service/_/loose-Selects->Pod/_/app-only", "Service/_/loose-Selects->Pod/_/both",
+		"Service/_/strict-Selects->Pod/_/both",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Selects = %v\nwant     %v", got, want)

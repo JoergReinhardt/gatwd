@@ -2,11 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deploy
+  namespace: default
 ---
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: nginx-rs
+  namespace: default
   ownerReferences:
     - kind: Deployment
       name: nginx-deploy
@@ -15,6 +17,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx-pod
+  namespace: default
   labels:
     app: nginx
   ownerReferences:
@@ -25,6 +28,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: other-pod
+  namespace: default
   labels:
     app: other
 ---
@@ -32,6 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-svc
+  namespace: default
 spec:
   selector:
     app: nginx
@@ -40,6 +45,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: web
+  namespace: default
 spec:
   rules:
     - host: example.com

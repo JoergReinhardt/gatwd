@@ -699,22 +699,24 @@ If a function form cannot mean exactly what its step form means, it has a differ
 
 ```haskell
 -- Ingest: fold a record stream into a graph. Node id/color are computed from the record.
-def ingest = fold (\g r -> graph_add_node (hamt_get "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+def ingest = fold (\g r -> graph_insert_node (hamt_get "kind" r) (hamt_get "kind" r ++ "/" ++ hamt_path "metadata.name" r) r g) graph_empty
 
 -- A relation is a graph→graph pass. Edge specs are 4-element lists: [color, weight, from, to].
 -- Add NODES FIRST; guard edges with graph_has_node.
-def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "name" o), (hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
+def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "kind" o ++ "/" ++ hamt_get "name" o), (hamt_get "kind" x ++ "/" ++ hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
 
 -- Inferred evidence is recorded separately from declared relations:
 --   graph_add_inferred_edges [["Calls", 0.5, "a", "b"]] g
 
 -- Whole-graph algorithms are functions, so a rule can run them inside a comprehension:
 --   [ c | c <- (graph_scc g), (length c) > 1 ]        dependency cycles
---   graph_shortest_path "web" "pod" g                  a request trace
+--   graph_shortest_path "Ingress/default/web" "Pod/default/web-1" g   a request trace
 --   graph_topo_sort g                                  an apply order ([] when cyclic)
 ```
 
 Read side: `graph_payloads` `graph_payloads_of color` `graph_in_of color id` `graph_out_of color id` `graph_has_node` `graph_nodes` `graph_order` `graph_size` `graph_edge_pairs color` `graph_reachable` `graph_shortest_path` `graph_topo_sort` `graph_scc`. The pipeline steps (`graph_nodes_of`, `graph_edges_of`, `graph_walk_from`, `graph_map_nodes`, `graph_focus`/`graph_set`/`graph_over`, `graph_union`/`graph_diff`/`graph_intersect`, …) are exercised in `tests/dsl_exhaustive_test.gatwd`.
+
+**Node identity.** A node is identified by its id string alone, so two different things given the same id would become one node. The convention is therefore that **an id is qualified**: `Kind/scope/name` (the Kubernetes edition: `Pod/default/web`, `Service/default/web`, `Role/_/admin`, with `_` for "no namespace"), so equal local names under different kinds or scopes are different nodes. `graph_add_node` keeps its upsert meaning (a later declaration replaces the earlier one); **`graph_insert_node color id [payload] g`** (function form; step form `graph_insert_node COLOR ID`) is its strict twin and returns an `[ERROR] duplicate node id "…": declared as … and again as …` — naming the id and both colors and payloads (structured payloads print as JSON) — instead of overwriting. Use it for ingest. Two related rules: an edge whose far endpoint is not a declared node is stored (`graph_size`, `graph_edges` count it) but **not followed** (`graph_in_of`, `graph_out_of`, `graph_out`/`graph_in`, walks, `graph_shortest_path`), so adjacency agrees with `graph_nodes`; and `graph_add_edges` / `graph_add_inferred_edges` add an identical spec (same color, weight, endpoints) **once**, because a derivation pass can find one fact twice (the single-edge step `graph_add_edge` stays a multigraph insert). `collect_list` no longer drops an `[ERROR]` node from the stream it collects: it yields the errors instead of a list.
 
 **`(a <+> b <+> c)`** merges several sub-pipelines into one stream: each incoming node runs through every branch and the outputs are concatenated in branch order (the ArrowPlus / MonadPlus choice combinator; the zero arrow is the identity and it is associative). It is how many producers feed one downstream pipeline:
 
@@ -829,7 +831,7 @@ no data source).
 value as the pipeline produced it. `json` prints one line per check, every key always present:
 
 ```json
-{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"stray"},{"rule":"IdleDeployment","resource":"lonely"}],"errors":[]}
+{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[]}
 {"status":"ok","count":0,"violations":[],"errors":[]}
 {"status":"error","count":0,"violations":[],"errors":["undefined identifier: no_such_rule"]}
 ```

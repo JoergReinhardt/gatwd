@@ -146,8 +146,11 @@ spawn StrVal: Start |> echo "drwx root 4096 Jan 1 secret_file" |> parse_record P
 -- ---------------------------------------------------------------------
 -- 11. Graphs: typed nodes, labelled edges, queries, stream merge
 -- ---------------------------------------------------------------------
--- Add NODES first, then edges between existing nodes.
-spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_add_node Service web |> graph_add_edge Selects 1 web nginx |> graph_edges |> head |> assert web-Selects->nginx
+-- Add NODES first, then edges between existing nodes. A node is identified by its id string
+-- alone, so name it Kind/scope/name: a Pod and a Service both called "web" stay two nodes.
+-- graph_insert_node is graph_add_node that REFUSES an id already present (an [ERROR], not an overwrite).
+spawn S: x |> graph_empty |> graph_insert_node Pod Pod/default/nginx |> graph_insert_node Service Service/default/web |> graph_add_edge Selects 1 Service/default/web Pod/default/nginx |> graph_edges |> head |> assert Service/default/web-Selects->Pod/default/nginx
+spawn S: x |> graph_empty |> graph_insert_node Pod Pod/default/web |> graph_insert_node Service Service/default/web |> graph_order |> assert 2
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge Owns 1 a b |> graph_add_edge Owns 1 b c |> graph_shortest_path a c |> collect_list |> assert [a b c]
 
 

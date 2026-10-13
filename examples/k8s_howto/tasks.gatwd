@@ -13,7 +13,7 @@ def graph = manifests |> k8s_graph
 
 -- stream fragments (tasks)
 def who_configures_what = graph |> graph_edges_of Configures |> collect_list
-def trace_to_pod        = graph |> graph_shortest_path nginx-svc app-pod |> collect_list
+def trace_to_pod        = graph |> graph_shortest_path Service/default/nginx-svc Pod/default/app-pod |> collect_list
 def pod_count           = graph |> fold (\_ g -> count_kind "Pod" g) 0
 
 -- a value function over a graph (used by pod_count; takes arguments, so it is not a task)

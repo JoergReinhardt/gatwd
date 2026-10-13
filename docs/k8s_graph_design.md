@@ -715,7 +715,7 @@ Appliance: embedded `rules/compliance.gatwd` (UnselectedPod, IdleDeployment) ove
 `k8s_graph`, ConfigMap override + `Reload`, `-manifests`/`-rules`/`-interval` flags.
 New generic core builtins `graph_in_of` / `graph_out_of color id g` (DSL §77) back the
 rules. E2E tests over `pkg/k8sgraph/testdata/stack.yaml`: request trace
-(`graph_shortest_path web nginx-pod`) and dependency resolve (`graph_reachable`,
+(`graph_shortest_path Ingress/default/web Pod/default/nginx-pod`; the ids were the bare `web`/`nginx-pod` until hardening W4 qualified them) and dependency resolve (`graph_reachable`,
 `k8s_apply_order`) in `pkg/k8sgraph/edition_test.go`; operator tests in
 `cmd/gatwd-k8s-operator/main_test.go`. Gap: the operator checks offline manifests; a
 live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
@@ -734,7 +734,7 @@ live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
   `configMapKeyRef`, `envFrom`), `Mounts` (PVC → workload), `Binds` (RoleBinding →
   ServiceAccount subjects and → its Role) and the **inferred** `Calls` (weight 0.5:
   a workload env value / ConfigMap data value equal to a Service name). Authored in
-  pure DSL with first-class closures (`k8s_workloads`, `k8s_names`, `k8s_config_refs`,
+  pure DSL with first-class closures (`k8s_workloads`, `k8s_names` — replaced by `k8s_ref` in hardening W4 —, `k8s_config_refs`,
   `k8s_claim_refs`); edges only join existing nodes. Fixture `testdata/stack_full.yaml`;
   `TestPodSpecRelations`. Node color `PVC` renamed to the real kind
   `PersistentVolumeClaim`; `RoleBinding` added.
@@ -753,9 +753,10 @@ live source needs the multi-GVR crawl streams merged into one `k8s_graph` input.
   ~linear. Semantics pinned by `TestSelectsIndexedPassSemantics`.
 - *Dogfood/docs.* Relations rewritten on closures; `Example_graphInOfOutOf`,
   `Example_graphAlgorithmsInComprehension`; `EvaluateToValues("")` no longer panics;
-  `doc.go` for the prelude. **Remaining ideas (not started):** edges keyed by
-  `metadata.name` only (a Pod and Service with the same name collide — namespace/kind
-  qualified ids), a leak/soak harness for a long-running operator `-interval` loop,
+  `doc.go` for the prelude. **Remaining ideas:** ~~edges keyed by `metadata.name`
+  only (a Pod and Service with the same name collide)~~ — **done in the hardening plan's
+  W4: ids are `Kind/namespace/name` and a duplicate id is an error** (`docs/hardening_plan.md`
+  §7), a leak/soak harness for a long-running operator `-interval` loop,
   CRD-driven GVR discovery in the edition (`EnumerateResources` exists), live
   `kustomize`-vs-cluster drift diff (`graph_diff`).
 

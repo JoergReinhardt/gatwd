@@ -43,9 +43,9 @@ func operator(t *testing.T, bin string, args ...string) (int, string, string) {
 }
 
 const (
-	idleWant   = "[[UnselectedPod stray] [IdleDeployment lonely]]\n"
-	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"stray"},{"rule":"IdleDeployment","resource":"lonely"}],"errors":[]}` + "\n"
-	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"orphan"},{"rule":"UnusedService","resource":"unused-svc"},{"rule":"DanglingIngress","resource":"front"},{"rule":"MissingConfigMap","resource":"orphan"},{"rule":"DependencyCycle","resource":["loop-a","loop-b"]}],"errors":[]}` + "\n"
+	idleWant   = "[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]\n"
+	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[]}` + "\n"
+	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/orphan"},{"rule":"UnusedService","resource":"Service/default/unused-svc"},{"rule":"DanglingIngress","resource":"Ingress/default/front"},{"rule":"MissingConfigMap","resource":"Pod/default/orphan"},{"rule":"DependencyCycle","resource":["Deployment/default/loop-a","Deployment/default/loop-b"]}],"errors":[]}` + "\n"
 )
 
 // TestOperatorCommandLine drives the real binary through every command line the how-to
@@ -73,7 +73,7 @@ func TestOperatorCommandLine(t *testing.T) {
 		{"legacy form, long flags", []string{"--manifests", "testdata/idle.yaml", "--rules", absent}, 0, idleWant, nil},
 		{"legacy single-dash flags (deprecated)", []string{"-manifests", "testdata/idle.yaml", "-rules", absent}, 0, idleWant,
 			[]string{"-manifests is deprecated; use --manifests", "-rules is deprecated; use --rules"}},
-		{"a layered override reuses an embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered}, 0, "[[IdleDeployment lonely]]\n",
+		{"a layered override reuses an embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered}, 0, "[[IdleDeployment Deployment/default/lonely]]\n",
 			[]string{"layered on the embedded rules", "overridden: compliance", "added: probe"}},
 		{"replace mode cannot reach the embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered, "--rules-mode", "replace"}, 1, "",
 			[]string{"REPLACES"}},

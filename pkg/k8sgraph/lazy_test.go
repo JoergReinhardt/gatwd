@@ -49,8 +49,6 @@ func TestLazyClientFailureIsLoudAtTheCrawl(t *testing.T) {
 	edition := k8sgraph.ApplyEdition(cli.NewEdition("lazy"), k8sgraph.LazyClient(func() (dynamic.Interface, error) { return nil, cause }))
 	in := edition.BuildInterpreter()
 
-	// (No `collect_list` here: it drops error nodes from the list it builds, a pre-existing
-	// silent failure recorded in the plan, so the error would be invisible through it.)
 	vals := in.EvaluateToValues(`spawn StrVal: default |> k8s_pods`)
 	if len(vals) == 0 {
 		t.Fatal("a crawl with no cluster must report an error, got nothing")

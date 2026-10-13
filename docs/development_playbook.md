@@ -194,6 +194,14 @@ Rules (Mandates 5 and 7):
 - **Source-agnostic downstream.** Live and offline sources yield the *same* payload shape (nested
   HAMT), so the same prelude runs on both. Prove it with a parity test over a fake client
   (`pkg/k8sgraph/k8sgraphtest` + `TestLiveOfflineParity`), never by inspection.
+- **Name nodes `Kind/scope/name`.** A node is identified by one string, so every adapter's ids are
+  qualified by kind and by scope (`Pod/default/web`, `Database/pg-prod/orders`, `DBMS/_/pg-prod`;
+  `_` = no scope): equal local names under another kind or scope are then other nodes. Ingest
+  with `graph_insert_node`, which turns a repeated id into an `[ERROR]` naming both declarations
+  instead of a silent overwrite (`graph_add_node` is the upsert, for updates). The id is built in
+  the *prelude* from the payload (`pkg/k8sgraph/lib/k8s/ids.gatwd`), never in the adapter, and a
+  reference resolves in the referrer's scope (`k8s_ref`). Fixtures need an explicit scope on both
+  the live and the offline side, or the two sources yield different ids and parity fails.
 - **Merge sources generically.** `(a <+> b <+> c)` (`arrows.Plus` → `evaluator.StepPlus`) is the
   domain-free way to feed one pipeline from many producers; the domain only names the list
   (`lib/k8s/sources.gatwd`).
@@ -215,7 +223,7 @@ The project's own relations and rules are the style reference
 - *Relation* = a graph→graph pass: `fold (\_ g -> graph_add_edges [spec | …] g) graph_empty`
   (a graph stream element reaches the reducer as `g`). Chain passes with `|>`.
 - *Rule* = a closure `\g -> [ [violation, resource] | … ]`; combine rules with `++`.
-- *Helpers* = ordinary closures (`def k8s_names = \kind g -> […]`); they are values, so call them
+- *Helpers* = ordinary closures (`def k8s_ref = \kind ns name g -> […]`); they are values, so call them
   inside comprehensions.
 - *Optimise with an index, in DSL.* The label-indexed `Selects` pass builds a HAMT of pod lists
   with `fold` + `hamt_set` + `hamt_get_or` — no Go needed.
@@ -238,6 +246,7 @@ The project's own relations and rules are the style reference
 | Test helper wrote nonsense | `echo '…\x…'` interprets escapes in zsh | **Write scratch scripts with `cat > f <<'EOF'`** |
 | Results look odd in Go tests | `EvaluateToValues` treats its argument as one pipeline; `def` lines in a multi-line string are not registered | **Use `EvaluateScript` for setup, `EvaluateToValues` for the query** (empty input returns no values) |
 | Result type surprises | lists come back as `*collections.List[any]` | **Use `functions.ToSliceAny`** |
+| `head ([ x \| guard ] ++ [d])` always gives `d` | a comprehension with **no generator** yields `[]` even when the guard holds (`[ 1 \| true ]` is `[]`; not yet an error) | **Bind the value with a generator first: `[ x \| q <- [r], guard q ]`** (`k8s_scope` in `lib/k8s/ids.gatwd`). A parity test that passed vacuously exposed it |
 | `||>` output order differs run to run | `||>` fans the next step out on a worker pool (`evaluator.StepPar`) | **Sort or assert order-insensitively; use `|>` when order matters** |
 | A `let`-bound HAMT/list/graph misbehaves in a head position | head-word text substitution used the lossy `%v` text | **Fixed: non-scalar runtime values are never substituted; do not re-add text substitution for them** |
 | A step that needs quotes (`sh -c "…"`) lost them | exec steps used `strings.Fields` | **Fixed: `interactive.SplitCommandLine` tokenizes like a shell (no expansion); an unterminated quote is an error** |

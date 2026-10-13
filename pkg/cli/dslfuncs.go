@@ -21,10 +21,12 @@ import (
 // the accumulator can be a graph and the reducer can grow it one element at a time:
 //
 //	resources
-//	  |> fold (\g r -> graph_add_node (hamt_path "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+//	  |> fold (\g r -> graph_insert_node (hamt_path "kind" r) (k8s_id_of r) r g) graph_empty
 //
 // That is the ingest step: a stream/list of records folded into a single persistent
-// graph, each record lifted to a node whose payload is the record itself. Edges are
+// graph, each record lifted to a node whose payload is the record itself and whose id
+// is qualified (Kind/scope/name, so equal local names never collide; graph_insert_node
+// refuses an id that is already a node where graph_add_node would overwrite it). Edges are
 // a second fold over the same list using graph_add_edge / graph_add_edges. No step
 // is domain-specific: these are the generic graph-row and HAMT-navigation cells of
 // the operator matrix, now reachable as expression-level functions. The Kubernetes
@@ -162,14 +164,17 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if !ok {
 			return nil, fmt.Errorf("graph_add_edges: first argument must be a list of edge specs, got %T", args[0])
 		}
+		edges := make([]functions.Edge[string, string, any], 0, len(specs))
 		for _, spec := range specs {
 			fields, ok := functions.ToSliceAny(spec)
 			if !ok || len(fields) != 4 {
 				return nil, fmt.Errorf("graph_add_edges: each edge spec must be [color weight from to], got %v", spec)
 			}
-			g = g.Connect(dslStr(fields[2]), dslStr(fields[3]), dslStr(fields[0]), fields[1])
+			edges = append(edges, functions.NewEdge[string, string, any](dslStr(fields[2]), dslStr(fields[3]), dslStr(fields[0]), fields[1]))
 		}
-		return g, nil
+		// A derivation pass can find one fact twice (a ConfigMap mounted AND referenced
+		// from an env var); identical specs are added once (F14, collections.AddEdgesOnce).
+		return g.AddEdgesOnce(edges), nil
 	})
 
 	// hamt_get key payload → the value at key, or an error — the expression form of
@@ -195,7 +200,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 		return nodePayloads(g.NodesByColor(dslStr(args[0]))), nil
 	})
 
-	// graph_in_of / graph_out_of color id g → the identities of the nodes joined to id
+	// graph_in_of / graph_out_of color id g → the identities of the declared nodes joined to id
 	// by an incoming / outgoing edge of that color. The expression form of the
 	// reverse/forward adjacency, so a comprehension can ask "is anything of this
 	// color pointing at x?" (an empty list means no).
@@ -219,7 +224,9 @@ func buildDSLBuiltinFuncs() map[string]any {
 			color := dslStr(args[0])
 			out := []any{}
 			for _, e := range dir.edges(g, dslStr(args[1])) {
-				if e.Color == color {
+				// An edge whose far endpoint is not a declared node is stored but not
+				// followed: adjacency agrees with the node listing (F13, Graph.Neighbors).
+				if e.Color == color && g.HasNode(dir.end(e)) {
 					out = append(out, dir.end(e))
 				}
 			}

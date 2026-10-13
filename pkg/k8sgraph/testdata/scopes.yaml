@@ -1,0 +1,37 @@
+# Resources without a namespace (cluster-scoped kinds, or manifests that name none) get
+# the scope "_" in their id, and a reference from a namespaced resource falls back to
+# the "_" node when the namespaced one does not exist. Offline only: a live crawl always
+# reports a namespace for a namespaced resource.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shared
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: user
+  namespace: prod
+spec:
+  containers:
+    - name: c
+      image: nginx
+  volumes:
+    - name: cfg
+      configMap:
+        name: shared
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: grant
+  namespace: prod
+subjects: []
+roleRef:
+  kind: Role
+  name: shared

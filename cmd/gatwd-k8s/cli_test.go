@@ -82,7 +82,6 @@ func TestEditionKustomize(t *testing.T) {
 	if out, err := count("prod", "--no-kustomize"); err != nil || out != "∷ 3" {
 		t.Fatalf("--no-kustomize: %v, %q; want the 3 plain files", err, out)
 	}
-	// (no collect_list here: it drops error nodes, see docs/hardening_plan.md §8)
 	cmd := exec.Command(bin, "eval", "-e", "spawn StrVal: "+filepath.Join(root, "broken")+" |> manifests |> k8s_graph |> graph_edges")
 	cmd.Env = []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir()}
 	raw, err := cmd.Output()

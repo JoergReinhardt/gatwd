@@ -19,7 +19,7 @@ tour/examples, an Edition prelude (`pkg/<domain>/lib/**`), or Appliance rules
 | a reusable stream transformer | `def k8s_ingest = fold (\g r -> …) graph_empty` (no parameters) | a pipeline-bodied `def` is a re-parsed **text macro** |
 | a whole-graph pass | `fold (\_ g -> graph_add_edges […] g) graph_empty` | a graph stream element reaches the reducer as `g`; `map` on it would be the graph Functor over payloads |
 | a rule | `def rule_x = \g -> [ ["Violation", res] \| … ]`, combined with `++` | rules are closures from the graph to `[violation, resource]` pairs |
-| a lookup/helper | an ordinary closure (`def k8s_names = \kind g -> […]`) | closures are values; call them inside comprehensions |
+| a lookup/helper | an ordinary closure (`def k8s_ref = \kind ns name g -> […]`) | closures are values; call them inside comprehensions |
 | an index | `fold (\idx x -> hamt_set k (cons x (hamt_get_or [] k idx)) idx) hamt_empty xs` | avoids O(n·m) joins, stays pure DSL |
 
 ## 2. Step form vs function form

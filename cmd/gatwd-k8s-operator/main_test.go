@@ -28,8 +28,8 @@ func TestOperatorEmbeddedRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"testdata/idle.yaml":                     "[[UnselectedPod stray] [IdleDeployment lonely]]",
-		"../../pkg/k8sgraph/testdata/stack.yaml": "[[UnselectedPod other-pod]]",
+		"testdata/idle.yaml":                     "[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]",
+		"../../pkg/k8sgraph/testdata/stack.yaml": "[[UnselectedPod Pod/default/other-pod]]",
 	}
 	for path, want := range cases {
 		got := violations(t, app.Execute(checkPipeline(path)))
@@ -39,7 +39,7 @@ func TestOperatorEmbeddedRules(t *testing.T) {
 	}
 }
 
-const brokenWant = "[[UnselectedPod orphan] [UnusedService unused-svc] [DanglingIngress front] [MissingConfigMap orphan] [DependencyCycle [loop-a loop-b]]]"
+const brokenWant = "[[UnselectedPod Pod/default/orphan] [UnusedService Service/default/unused-svc] [DanglingIngress Ingress/default/front] [MissingConfigMap Pod/default/orphan] [DependencyCycle [Deployment/default/loop-a Deployment/default/loop-b]]]"
 
 // TestOperatorAllRules: one fixture violating every embedded rule yields exactly the
 // expected violations, in rule order — and the compliant parts (a selector-less
@@ -75,14 +75,14 @@ func TestOperatorHotReloadsRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	strict := "def compliance = k8s_graph |> fold (\\_ g -> [ [\"AnyPod\", (hamt_path \"metadata.name\" p)] | p <- (graph_payloads_of \"Pod\" g) ]) 0\n"
+	strict := "def compliance = k8s_graph |> fold (\\_ g -> [ [\"AnyPod\", (k8s_id_of p)] | p <- (graph_payloads_of \"Pod\" g) ]) 0\n"
 	if err := os.WriteFile(override, []byte(strict), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Reload(); err != nil {
 		t.Fatal(err)
 	}
-	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[AnyPod stray]]"}) {
+	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[AnyPod Pod/default/stray]]"}) {
 		t.Fatalf("after reload, violations = %v", got)
 	}
 
@@ -92,7 +92,7 @@ func TestOperatorHotReloadsRules(t *testing.T) {
 	if err := app.Reload(); err != nil {
 		t.Fatal(err)
 	}
-	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[UnselectedPod stray] [IdleDeployment lonely]]"}) {
+	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]"}) {
 		t.Fatalf("after override removal, violations = %v", got)
 	}
 }
@@ -129,5 +129,20 @@ func TestOperatorBrokenOverride(t *testing.T) {
 	}
 	if _, err := newAppliance(nil, override, cli.OverrideReplace); err == nil || !strings.Contains(err.Error(), "compliance") {
 		t.Fatalf("replace mode without compliance: %v", err)
+	}
+}
+
+// TestOperatorReportsDuplicateIds is the negative control of qualified node ids: two
+// documents with the same kind, namespace and name are not "no violations" (which prints
+// []) but an error that names the id — the operator never rules on a graph in which one of
+// the two resources has silently replaced the other.
+func TestOperatorReportsDuplicateIds(t *testing.T) {
+	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"), cli.OverrideLayer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := violations(t, app.Execute(checkPipeline("../../pkg/k8sgraph/testdata/duplicates.yaml")))
+	if len(got) != 1 || !strings.Contains(got[0], `duplicate node id "Pod/default/dup"`) {
+		t.Fatalf("violations = %v, want one error naming Pod/default/dup", got)
 	}
 }

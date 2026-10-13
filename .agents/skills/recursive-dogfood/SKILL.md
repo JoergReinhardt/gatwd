@@ -135,7 +135,7 @@ Run `go vet ./...` to guarantee no circular package imports.
 - The inline `map`/`filter` step bodies → `mapStepOver(evalElem)` / `filterStepOver(keep)`, reused by closure application so inline lambdas and closures cannot diverge.
 - The O(services × pods) Kubernetes `Selects` loop → an index built *in the DSL* with `fold` + `hamt_set` + `hamt_get_or`, pinned by a semantics test first.
 - Manual lambda-text parsing → `parser.LambdaExpr` producing a first-class `functions.Closure`.
-- A relation written with a multi-argument text macro → lambda-bodied `def` closures (`k8s_workloads`, `k8s_names`).
+- A relation written with a multi-argument text macro → lambda-bodied `def` closures (`k8s_workloads`, `k8s_ref`).
 - **Know when not to**: a pipeline-bodied `def` stays a text macro (it is a stream transformer, not a value function); do not force it into a closure.
 
 ---

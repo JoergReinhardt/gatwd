@@ -15,7 +15,7 @@ import (
 // A rule set conventionally answers with one list of findings, each a [rule, resource] pair,
 // and `[]` means compliant:
 //
-//	[[UnselectedPod stray] [IdleDeployment lonely]]
+//	[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]
 //
 // The report reads that convention without knowing any domain:
 //
@@ -77,7 +77,7 @@ func (r checkReport) writeText(w io.Writer) {
 // writeJSON prints the report as one JSON object on one line (JSON Lines), so a log pipeline
 // can ingest each check as an event:
 //
-//	{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"stray"},…],"errors":[]}
+//	{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},…],"errors":[]}
 //
 // status is ok, violations or error; count is the number of findings; every key is always
 // present. A finding that is a [rule, resource] pair with a String rule becomes

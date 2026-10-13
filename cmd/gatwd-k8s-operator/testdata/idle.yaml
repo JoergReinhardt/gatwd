@@ -2,8 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: lonely
+  namespace: default
 ---
 apiVersion: v1
 kind: Pod
 metadata:
   name: stray
+  namespace: default

@@ -2545,7 +2545,7 @@ func Run() {
 //
 // The builtins mirror the collections.Graph API as a new DSL collection row:
 //
-//	Construction : graph_empty, graph_add_node, graph_add_edge,
+//	Construction : graph_empty, graph_add_node, graph_insert_node, graph_add_edge,
 //	               graph_add_edge_inferred, graph_add_fanout, graph_add_fanin,
 //	               graph_remove_node, graph_remove_edge
 //	Projection   : graph_order, graph_size, graph_nodes, graph_edges,
@@ -2569,6 +2569,10 @@ func buildGraphStep(stepStr string) (evaluator.PipelineStep[functions.Either[err
 	case "graph_add_node":
 		if len(args) >= 2 {
 			return evaluator.StepGraphAddNode(args[0], args[1]), true
+		}
+	case "graph_insert_node":
+		if len(args) >= 2 {
+			return evaluator.StepGraphInsertNode(args[0], args[1]), true
 		}
 	case "graph_add_edge":
 		if len(args) >= 4 {

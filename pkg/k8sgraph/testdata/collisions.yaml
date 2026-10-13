@@ -1,0 +1,112 @@
+# Resources that collided while a node's id was its metadata.name alone: the same name
+# under another kind ("web" is a Service, a Pod, a ConfigMap and an Ingress) and under
+# another namespace ("web" exists in default and in prod). With qualified ids
+# (Kind/namespace/name) every one of them is its own node, and references stay inside
+# their namespace: default's Service selects default's Pod, never prod's.
+# Every object names its namespace, so the fake cluster (live) and the manifest reader
+# (offline) yield the same ids.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: default
+spec:
+  selector:
+    app: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: prod
+spec:
+  selector:
+    app: web
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  namespace: default
+  labels:
+    app: web
+spec:
+  serviceAccountName: web
+  containers:
+    - name: c
+      image: nginx
+      env:
+        - name: PEER
+          value: web
+  volumes:
+    - name: cfg
+      configMap:
+        name: web
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    app: web
+spec:
+  containers:
+    - name: c
+      image: nginx
+  volumes:
+    - name: cfg
+      configMap:
+        name: web
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web
+  namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web
+  namespace: prod
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  namespace: default
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: web
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: web
+  namespace: prod
+---
+# lives in prod, binds a ServiceAccount of ANOTHER namespace (the subject carries its own)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: web
+  namespace: prod
+subjects:
+  - kind: ServiceAccount
+    name: web
+    namespace: default
+roleRef:
+  kind: Role
+  name: web

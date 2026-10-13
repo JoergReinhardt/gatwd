@@ -893,19 +893,33 @@ func StepSplit(adapter1, adapter2 Adapter[functions.Either[error, any]]) Pipelin
 	}
 }
 
-// StepCollectList aggregates the entire stream into a single collections.List
+// StepCollectList aggregates the entire stream into a single collections.List.
+// An error node (Left) in the stream is never dropped from the result: if the
+// stream carries any, those error nodes are yielded instead of the list.
 func StepCollectList() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var elements []any
+			var failed []dsltypes.ASTNode[functions.Either[error, any]]
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
 				if node.Value.IsLeft() {
+					// Fail loud (Mandate 6): an error in the stream is never dropped
+					// from the collected list; it is passed on instead of the list.
+					failed = append(failed, node)
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
 				elements = append(elements, val)
 				lastFlag = node.DSLType
+			}
+			if len(failed) > 0 {
+				for _, node := range failed {
+					if !yield(node) {
+						return
+					}
+				}
+				return
 			}
 
 			// Build immutable list backwards

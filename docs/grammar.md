@@ -153,7 +153,7 @@ and the reducer calls `graph_add_node`/`graph_add_edges` to grow it — be writt
 pure DSL rather than faked with a Go loop.
 
 The generic, domain-free expression-level builtins currently registered are the
-graph constructors (`graph_empty` value; `graph_add_node`, `graph_add_edge`,
+graph constructors (`graph_empty` value; `graph_add_node`, `graph_insert_node` (errors on a duplicate id), `graph_add_edge`,
 `graph_add_inferred_edge`, `graph_add_edges`), the payload accessors (`hamt_get`,
 `hamt_path`), and the containment predicate `subset_of sub super` (Record/HAMT
 key-value containment or Set membership) — each the function form of the

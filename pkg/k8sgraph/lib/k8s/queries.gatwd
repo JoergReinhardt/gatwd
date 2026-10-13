@@ -1,6 +1,7 @@
 -- Reusable parameterless queries over a k8s_graph. Parameterised walks need no
--- wrapper: use the graph steps directly, e.g. `... |> k8s_graph |> graph_reachable web`
--- (everything an Ingress transitively reaches) or `graph_edges_of Owns`.
+-- wrapper: use the graph steps directly with qualified ids (ids.gatwd), e.g.
+-- `... |> k8s_graph |> graph_reachable Ingress/default/web` (everything an Ingress
+-- transitively reaches) or `graph_edges_of Owns`.
 
 -- Owners before dependents (a safe apply order); empty if the relations are cyclic.
 def k8s_apply_order = graph_topo_sort

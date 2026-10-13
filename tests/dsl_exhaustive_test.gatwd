@@ -372,13 +372,14 @@ let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fol
 
 -- 77. graph_in_of / graph_out_of (generic, domain-free): the colour-filtered
 -- reverse/forward adjacency as an expression, so a comprehension can test "does any
--- edge of this colour enter/leave x?" (an empty list means none).
+-- edge of this colour enter/leave x?" (an empty list means none). Edges are only followed
+-- between declared nodes (F13), so these graphs declare a, b and c first.
 -- (a) incoming and outgoing neighbours of one colour, ignoring other colours.
-let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_in_of Owns "b" g) 0 |> assert [a]
-let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_out_of Owns "b" g) 0 |> assert [c]
-let es = [["a", "b"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> graph_in_of Selects "b" g) 0 |> assert []
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) (fold (\g n -> graph_add_node "N" n g) graph_empty ["a", "b", "c"]) |> fold (\_ g -> graph_in_of Owns "b" g) 0 |> assert [a]
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) (fold (\g n -> graph_add_node "N" n g) graph_empty ["a", "b", "c"]) |> fold (\_ g -> graph_out_of Owns "b" g) 0 |> assert [c]
+let es = [["a", "b"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) (fold (\g n -> graph_add_node "N" n g) graph_empty ["a", "b", "c"]) |> fold (\_ g -> graph_in_of Selects "b" g) 0 |> assert []
 -- (b) used as a guard: the nodes no Owns edge enters (roots).
-let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) graph_empty |> fold (\_ g -> [ n | n <- ["a", "b", "c"], (graph_in_of Owns n g) == [] ]) 0 |> assert [a]
+let es = [["a", "b"], ["b", "c"]] in es |> fold (\g e -> graph_add_edges [[Owns, 1, f, t] | [f, t] <- [e]] g) (fold (\g n -> graph_add_node "N" n g) graph_empty ["a", "b", "c"]) |> fold (\_ g -> [ n | n <- ["a", "b", "c"], (graph_in_of Owns n g) == [] ]) 0 |> assert [a]
 
 -- 78. First-class Closure values (Workstream B): lambdas as expression values with
 -- multi-argument abstraction, currying/partial application, lexical capture, and
@@ -1091,3 +1092,16 @@ yaml_encode (hamt_from [["b", 1], ["a", [1, "x"]]]) |> assert a:\n  - 1\n  - x\n
 yaml_encode_all [[1], "x"] |> assert - 1\n---\nx
 ["a: 1", "a: [", "b: 2"] |> map (\s -> is_just (yaml_parse s)) |> assert [true false true]
 "k: v" |> yaml_parse |> map (\d -> hamt_path "k" d) |> maybe_default "?" |> assert v
+
+-- W4. Qualified node ids and loud duplicates (hardening W4, D6), all non-domain. An id is just a String;
+-- the convention "Kind/scope/name" keeps equal local names apart. graph_insert_node is graph_add_node
+-- that REFUSES an id already present (the error itself is asserted in the Go tests: a DSL assert cannot
+-- match an [ERROR]). Adjacency ignores edges to ids that are no node; one pass adds a repeated fact once.
+["Pod/default/web", "Service/default/web", "Pod/prod/web"] |> fold (\g i -> graph_insert_node (head (str_split "/" i)) i g) graph_empty |> graph_nodes |> collect_list |> assert [Pod/default/web Pod/prod/web Service/default/web]
+["Pod/default/web", "Service/default/web", "Pod/prod/web"] |> fold (\g i -> graph_insert_node (head (str_split "/" i)) i g) graph_empty |> graph_nodes_of Pod |> collect_list |> assert [Pod/default/web Pod/prod/web]
+spawn S: x |> graph_empty |> graph_insert_node Pod Pod/default/web |> graph_insert_node Service Service/default/web |> graph_order |> assert 2
+spawn S: x |> graph_empty |> graph_add_node Pod Pod/default/web |> graph_add_node Service Pod/default/web |> graph_nodes_of Service |> collect_list |> assert [Pod/default/web]
+["Pod/default/a", "Pod/default/b"] |> fold (\g i -> graph_insert_node "Pod" i g) graph_empty |> fold (\_ g -> graph_in_of "Calls" "Pod/default/b" (graph_add_edges [["Calls", 1, "Pod/default/a", "Pod/default/b"], ["Calls", 1, "Pod/default/a", "Pod/default/b"], ["Calls", 1, "Pod/default/ghost", "Pod/default/b"]] g)) 0 |> assert [Pod/default/a]
+["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_size (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "b"], ["E", 1, "a", "b"]] g)) 0 |> assert 1
+["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_out_of "E" "a" (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "ghost"]] g)) 0 |> assert [b]
+["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> graph_add_edge E 1 a ghost |> graph_add_edge E 1 a b |> graph_reachable a |> collect_list |> assert [a b]

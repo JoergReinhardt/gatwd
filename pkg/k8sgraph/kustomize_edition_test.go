@@ -141,9 +141,7 @@ func TestPlainManifestsBehaveAsBefore(t *testing.T) {
 
 // TestManifestsRenderErrorsAreLoud is the negative fixture of the edition: a broken or
 // refused kustomization root is an [ERROR] that names the root and the cause and fails
-// the command; it is never an empty graph. (The pipeline deliberately has no
-// `collect_list`: that step drops error nodes and prints `[]` — a pre-existing silent
-// failure recorded in docs/hardening_plan.md §8.)
+// the command; it is never an empty graph.
 func TestManifestsRenderErrorsAreLoud(t *testing.T) {
 	cases := []struct {
 		dir  string

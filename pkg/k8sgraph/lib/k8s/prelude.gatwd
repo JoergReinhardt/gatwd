@@ -1,5 +1,6 @@
 -- Single embed entry point of the Kubernetes graph library.
 import "types.gatwd"
+import "ids.gatwd"
 import "ingest.gatwd"
 import "relations.gatwd"
 import "sources.gatwd"

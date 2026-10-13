@@ -15,13 +15,16 @@ import (
 // inferred edges alike. Source-agnostic downstream is the point of the shared
 // nested-HAMT payload shape.
 func TestLiveOfflineParity(t *testing.T) {
-	for _, fixture := range []string{stackPath, fullStackPath} {
+	// ns is what the live crawl asks for: "default" for the single-namespace stacks, all
+	// namespaces ("") for the fixture whose point is the same name in two of them.
+	for _, fx := range []struct{ fixture, ns string }{{stackPath, `default`}, {fullStackPath, `default`}, {collisionsPath, `""`}} {
+		fixture := fx.fixture
 		t.Run(fixture, func(t *testing.T) {
 			offline := k8sgraph.ApplyEdition(cli.NewEdition("parity-offline"), nil).BuildInterpreter()
 			live := k8sgraph.ApplyEdition(cli.NewEdition("parity-live"), k8sgraphtest.FakeClusterFromFile(t, fixture)).BuildInterpreter()
 
 			offSrc := `spawn StrVal: ` + fixture + ` |> manifests |> k8s_graph`
-			liveSrc := `spawn StrVal: default |> k8s_resources |> k8s_graph`
+			liveSrc := `spawn StrVal: ` + fx.ns + ` |> k8s_resources |> k8s_graph`
 			for _, q := range []string{"graph_nodes", "graph_edges", "graph_edges_inferred"} {
 				off := edgesOf(t, offline, offSrc+` |> `+q+` |> collect_list`)
 				on := edgesOf(t, live, liveSrc+` |> `+q+` |> collect_list`)

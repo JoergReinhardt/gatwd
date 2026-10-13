@@ -45,7 +45,10 @@ cmd/gatwd-<domain>-<role>/          Appliance: edition + rules/*.gatwd + flags; 
 4. **Shim**: no graph or relation logic. Keep a `CoreCrawls`-style table (keyword → resource) so
    `ApplyEdition`, the prelude's `sources.gatwd` and the parity test cannot drift.
 5. **Prelude**: relations are graph→graph `fold` passes; rules are closures; merge producers with
-   `(a <+> b <+> …)`. Use the DSL skill (`dsl-authoring`).
+   `(a <+> b <+> …)`. Use the DSL skill (`dsl-authoring`). **Node ids are qualified**
+   (`Kind/scope/name`, `_` for no scope — see `lib/k8s/ids.gatwd`), ingest uses
+   `graph_insert_node` so a duplicate id is an error, and references resolve in the referrer's
+   scope (`k8s_ref`) and only join existing nodes.
 6. **Main**: assembly only. No domain loop, relation or type. Helpers for flags/pipeline strings
    are fine and should be unit-tested (`newAppliance`, `checkPipeline`, `livePipeline`).
 7. **Tests**
@@ -53,6 +56,9 @@ cmd/gatwd-<domain>-<role>/          Appliance: edition + rules/*.gatwd + flags; 
    - `TestLiveOfflineParity`: same prelude over fake client vs manifests, comparing nodes, declared
      and inferred edges, and asserting the offline result is non-empty (no vacuous equality);
    - a **negative fixture** violating every rule, with an exact expected violation list;
+   - an **identity fixture**: the same local name under two kinds and two scopes (they must stay
+     separate nodes, with scope-local references) and a **duplicate** fixture (the same id twice
+     must be an error naming both) — see `pkg/k8sgraph/testdata/{collisions,duplicates}.yaml`;
    - hot-reload test (override file → `Reload` → behavior changes → file removed → default again),
      plus a **broken override** (start fails loudly; reload keeps the last good rules) and a layered
      override that reuses an embedded rule;
@@ -65,6 +71,7 @@ cmd/gatwd-<domain>-<role>/          Appliance: edition + rules/*.gatwd + flags; 
 9. **Docs**: `doc.go` for shim and cmds, README feature, design-doc phase entries, handoff.
 
 ## Anti-patterns
-- SDK or domain identifier imported into core · relations written as Go loops ·
+- Ids that are a bare local name (two kinds or scopes collide) · ingest with `graph_add_node`
+  (a duplicate overwrites silently) · SDK or domain identifier imported into core · relations written as Go loops ·
   `main.go` containing logic · a shim that grew an algorithm · parity "verified by eye" ·
   only the compliant fixture tested · tests that need a cluster.

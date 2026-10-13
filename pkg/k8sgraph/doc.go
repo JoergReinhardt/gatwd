@@ -23,7 +23,9 @@
 // # The prelude (lib/k8s/*.gatwd)
 //
 //   - types.gatwd      node colors (resource kinds) and edge colors (relations)
-//   - ingest.gatwd     k8s_ingest: a resource stream folded into a typed graph
+//   - ids.gatwd        node identity: Kind/namespace/name (k8s_id, k8s_ref, k8s_short)
+//   - ingest.gatwd     k8s_ingest: a resource stream folded into a typed graph; a
+//     duplicate id is an error, never an overwrite
 //   - relations.gatwd  Owns, Selects (label-indexed), RoutesTo, Configures, Mounts,
 //     Binds and the INFERRED Calls, plus the helper closures they share
 //   - sources.gatwd    k8s_resources: every live crawl stream merged with <+>

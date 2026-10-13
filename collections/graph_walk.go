@@ -103,6 +103,9 @@ func (g *Graph[K, C, N, E]) ShortestPath(from, to K) (path []K, cost float64, ok
 		}
 		visited[cur] = true
 		for _, e := range src.OutEdges(cur) {
+			if !src.HasNode(e.To) {
+				continue // an edge to an undeclared node is not traversed (see Neighbors)
+			}
 			nd := dist[cur] + edgeCost(e)
 			if od, seen := dist[e.To]; !seen || nd < od {
 				dist[e.To] = nd
