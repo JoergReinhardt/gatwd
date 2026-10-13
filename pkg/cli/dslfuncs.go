@@ -120,7 +120,7 @@ func dslStr(v any) string {
 	if s, ok := v.(string); ok {
 		return s
 	}
-	return fmt.Sprintf("%v", v)
+	return functions.KeyText(v) // a Time keys by its instant, not by the zone it is shown in
 }
 
 // dslBuiltinFuncs is the registry of expression-level builtins, consulted as a
@@ -354,6 +354,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 	registerJSONFuncs(m)
 	registerYAMLFuncs(m)
 	registerRegexFuncs(m)
+	registerTimeFuncs(m)
 
 	// Fixed-arity builtins become curried Closures, so `map (hamt_get "a") rs` or
 	// `fold (graph_add_edge Owns 1 "a") …` partially apply like every user function.

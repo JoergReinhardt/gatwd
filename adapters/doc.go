@@ -19,4 +19,8 @@
 //     navigable Comonadic Rose Trees.
 //
 //   - WriteFile: Drains stream items into persistent files using Go io.Writer.
+//
+//   - ClockAdapter: The `now` step's source: reads an injectable clock (a func() time.Time, nil
+//     means time.Now) and emits one functions.Time per node, so the wall clock is the only impure
+//     input of the time types and tests pass a fixed clock.
 package adapters

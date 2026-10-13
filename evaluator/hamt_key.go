@@ -134,6 +134,12 @@ func encodeKeyValue(v any) (string, error) {
 			inner = enc
 		}
 		return "V" + lengthPrefixed(x.Tag) + strconv.FormatUint(uint64(x.Flag), 10) + ":" + inner, nil
+	case functions.Duration:
+		return "d" + strconv.FormatInt(int64(x), 10), nil
+	case functions.Time:
+		return "t" + x.UTC().String(), nil // an instant: the display zone is not part of the key
+	case functions.Date:
+		return "D" + x.String(), nil
 	case *collections.Tree[any]:
 		return encodeTreeKey(x)
 	case *collections.HAMT[string, any]:
@@ -314,6 +320,16 @@ func decodeKeyValue(s string) (any, error) {
 		return rest, nil
 	case 'b':
 		return rest == "1", nil
+	case 'd':
+		n, err := strconv.ParseInt(rest, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("malformed key")
+		}
+		return functions.Duration(n), nil
+	case 't':
+		return functions.ParseTime(rest)
+	case 'D':
+		return functions.ParseDate(rest)
 	case 'i':
 		b, ok := new(big.Int).SetString(rest, 10)
 		if !ok {

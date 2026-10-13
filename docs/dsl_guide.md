@@ -339,6 +339,95 @@ function returns — `map char_upper "abc"` is a list of `Char`s). The *closed* 
 `fold`, `head` … do not descend into it; inside a lambda or a function-form call use the function forms
 (`["abc", "de"] |> map (\s -> reverse s)`).
 
+### `Duration`, `Time` and `Date` (hardening §5.6, D14–D17)
+
+Three distinct types answer three questions: **how long** (`Duration`), **which instant** (`Time`), **which calendar day**
+(`Date`). They are separate because mixing them silently is the classic bug (`+ 24h` is not "tomorrow" across a
+daylight-saving change), so no operator converts between them; the conversions are named functions that take the zone.
+The rule behind the operators is the one for **points and vectors**: a `Duration` is a vector, `Time` and `Date` are
+points. Point − point is a vector, point ± vector is a point, vector ± vector is a vector, and point + point is an error.
+
+**Literals.**
+
+| Form | Value |
+| :-- | :-- |
+| `5s` `250ms` `1h30m` `2d` `1w` `1.5h` `-5s` | `Duration`. Units `ns us µs ms s m h d w`; a day is **exactly 24 h** and a week 7 days (fixed lengths, not calendar days). A number *immediately* followed by a unit is one token: `5s` is a literal, `5 s` is still an application. Segments chain (`1h30m15s`, any order, each unit once); only the first segment may be fractional. |
+| `@2026-10-13T09:30:00Z` `@2026-10-13T11:30:00+02:00` `@2026-10-13T09:30:00.25Z` | `Time` (RFC 3339). **A missing zone is an error**: local time is never implicit. |
+| `@2026-10-13` | `Date` (ISO 8601, years 1 to 9999) |
+
+A malformed literal is a lex error that names the problem (`5q` unknown unit, `1h1h` unit used twice, `1h30` no unit,
+`0.1ns` not whole nanoseconds, `@2026-02-30` day out of range, `@2026-10-13T09:30:00` no zone). They print as the
+canonical text, which lexes back: a `Duration` as `1h30m`, `1s500ms`, `-5s`, `0s` (the largest unit printed is the hour, so
+`30d` prints `720h`), a `Time` as RFC 3339 (`2026-10-13T09:30:00Z`), a `Date` as `2026-10-13`.
+
+**Operators** (anything not listed is an error naming both types; overflow is an error, never a wrap):
+
+| Operation | Result |
+| :-- | :-- |
+| `Duration ± Duration` · unary `-` · `abs` | `Duration` |
+| `Duration * n` · `n * Duration` · `Duration / n` (`n` an `Int`, `Ratio` or `Float`) | `Duration`, truncated toward zero to whole nanoseconds; `/ 0` is an error |
+| `Duration / Duration` | the **exact `Ratio`**, an `Int` when whole (`90m / 1h` is `3r2`, `2h / 1h` is `2`) |
+| `Duration // Duration` · `Duration % Duration` | floor quotient (`Int`) · remainder (`Duration`, the divisor's sign) |
+| `Time + Duration` · `Time - Duration` | `Time` (same display zone) |
+| `Time - Time` | `Duration` (an error beyond about ±292 years) |
+| `Date + Duration` · `Date - Duration` | `Date`, **only for a whole number of days** (`2d`, `-1w`, `0s`); `Date + 90m` is an error that says so (**D17**) |
+| `Date - Date` | `Duration` (a multiple of `1d`) |
+| `== != < <= > >=`, `min` `max` `compare` `sort` | within one type only; **`Date` against `Time` is an error** (no implicit zone) |
+
+`5s + 1`, `5s * 5s`, `Time + Time`, `Date + Date` and `Time * 2` are all errors. A `Duration` is never an `Int`
+(`5s == 5` is `false`). Calendar months and years are not fixed lengths and go through functions, not operators.
+
+**`Time` is an instant that remembers a display zone** (**D16**). `time_in "Europe/Berlin" t` is the *same instant* shown
+in another zone; `==` and the orderings compare instants, the calendar fields (`time_hour`, `date_of_time`) read the zone,
+and a parsed offset sets it. The default zone is UTC; the host's zone is never used (`time_in "Local" t` is an error). There
+is **no `DateTime` type**: a date and time of day without a zone is not a point on the timeline (deferred until a real
+need appears). The zone database is embedded in the binary, so zone names never depend on the host.
+
+| Function (data-last, curried; usable as steps) | Meaning |
+| :-- | :-- |
+| `dur_ns d` · `dur_ms d` · `to_seconds d` | `Int` nanoseconds · `Int` milliseconds (toward zero) · `Float` seconds |
+| `dur_from_seconds x` · `dur_parse s` | `Duration` from an `Int`/`Ratio`/`Float` of seconds (toward zero) · `Maybe Duration` (`dur_parse "1h30m"`) |
+| `dur_truncate unit d` · `dur_round unit d` | to a multiple of `unit` (a positive `Duration`, `1m`): toward zero · halves away from zero |
+| `time_parse s` · `time_format layout t` | `Maybe Time` (RFC 3339, zone required) · text, see the layout table below |
+| `time_unix t` · `time_from_unix n` | seconds since 1970 (`Int`) · `Time` in UTC |
+| `time_year` `time_month` `time_day` `time_hour` `time_minute` `time_second` `time_nano` `time_weekday` | `Int` fields **in the display zone**; the weekday is ISO, `1` Monday … `7` Sunday |
+| `time_in zone t` | the same instant in an IANA zone; an unknown or empty zone is an error |
+| `time_truncate d t` · `time_round d t` | to a multiple of `d` counted from `0001-01-01T00:00:00Z`, so `1d` is **UTC** midnight whatever the display zone |
+| `date_of y m d` · `date_parse s` · `date_format layout d` | `Date` (an invalid day such as 2026-02-30 is an error) · `Maybe Date` · text |
+| `date_year` `date_month` `date_day` `date_weekday` `date_days_in_month` · `is_leap_year y` | `Int` / `Bool` |
+| `date_add_days n d` · `date_add_months n d` · `date_add_years n d` | `Date`; months and years **clamp to the end of the month** (31 Jan + 1 month is 28/29 Feb) and never skip a month |
+| `date_of_time zone t` · `time_of_date zone d` | the calendar day of an instant in a zone · the **first instant of a day** in a zone (midnight; a midnight swallowed by a daylight-saving gap is the first valid instant after it, a repeated midnight is the earlier) |
+
+The parsers answer `Nothing` for malformed text (never an error); impossible requests are errors. **Layouts** use a
+strftime subset, never Go's reference-time layouts: `%Y %m %d %H %M %S` (zero padded), `%z` (`+0200`), `%Z` (`CEST`, or
+`+02:00` for a bare offset), `%%`, and the names `rfc3339`, `date` (`%Y-%m-%d`), `clock` (`%H:%M:%S`). An unknown
+directive is an error; `date_format` accepts only `%Y %m %d %%` (a `Date` has no time of day or zone).
+
+```
+-- Europe/Berlin, the clocks go forward on 2026-03-29: that day lasts 23 hours, so "+ 24h" is not "tomorrow"
+(time_of_date "Europe/Berlin" @2026-03-30) - (time_of_date "Europe/Berlin" @2026-03-29)   -- 23h
+@2026-03-29 |> time_of_date "Europe/Berlin" |> map (\t -> time_format "%Y-%m-%d %H:%M" (t + 24h))   -- 2026-03-30 01:00
+date_add_days 1 @2026-03-29                                                              -- 2026-03-30
+```
+
+**`now`** reads the clock, which is a side effect, so it is a stream-source **step** backed by an adapter
+(`adapters.ClockAdapter`), exactly like `scan_file` reads a file: `spawn S: x |> now` emits one `Time` (UTC), and a bare
+`now` at the head of a pipeline is the same reading (a `let now = …` binding shadows it). It reads `Interpreter.Clock`
+(`func() time.Time`, `nil` means `time.Now`); **tests and Editions inject a fixed clock** (`interp.Clock = func() …`), so
+nothing sleeps and nothing depends on the wall clock. The clock is read once at the edge and passed on as a value, which
+keeps rules pure: `def expiring = \now exp -> (exp - now) < 14d`, then `now |> map (\t -> expiring t cert_expiry)`; resource
+age is `(now - created) > 30d`. `now` is not a function form (inside a lambda, take the reading as a parameter). A
+`sleep` step is deliberately not provided (blocking steps need the execution policy of W7 first).
+
+**In collections.** Structural equality reaches inside lists, pairs and `Maybe`s. A `Time` is its instant, so one instant
+shown in two zones is **one** `Set` member and **one** `HAMT` key (a `Set` stores the canonical UTC form; use
+`time_in` to show it again). `sort`, `min`, `max`, `compare` order by value. **Encoding:** `json_encode`/`yaml_encode` write
+a `Time` as its RFC 3339 `String`, a `Date` as its ISO `String`, a `Duration` as its literal text (`"1h30m"`); decoding leaves
+text as text and `time_parse`/`date_parse`/`dur_parse` revive it on request (the same stance as YAML dates).
+**Not yet:** `const X = 30d`, `emit 5s` and `-D X=5s` keep the *text* (their tokens are typed only for canonical numbers),
+so write `let limit = 30d` or a `def limit = \_ -> 30d`, or `dur_parse "30d"`. The checker knows all three types
+(`Comparable`, never `Num`; `Duration / Duration` is typed `Ratio`; `now` is a `Time`).
+
 ### Booleans and `Ordering` (hardening W2)
 
 `not b`, `xor a b`, `and a b`, `or a b` are curried function forms (also steps: `true |> not`) for folds and lambdas —

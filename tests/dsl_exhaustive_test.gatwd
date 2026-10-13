@@ -1172,3 +1172,156 @@ maybe_default "-" (source_of 42) |> assert -
 maybe_default "-" (source_of (hamt_set "z" 2 (with_source "a.yaml" 0 (hamt_from [["k", 1]])))) |> assert a.yaml
 maybe_default "-" (source_of (hamt_del "k" (with_source "a.yaml" 0 (hamt_from [["k", 1]])))) |> assert a.yaml
 hamt_get "k" (with_source "a.yaml" 3 (hamt_from [["k", 1]])) |> assert 1
+
+-- 109. Duration (hardening §5.6, D14): a signed length of time, `5s`, `250ms`, `1h30m`, `2d`, `1w`, `1.5h`. A number
+-- IMMEDIATELY followed by a unit is one literal (`5 s` is still an application); the units are ns us µs ms s m h d w
+-- of fixed length (a day is exactly 24 h). A Duration is never a number: `5s + 1` is an error (asserted in the Go tests,
+-- a DSL assert cannot match an [ERROR]). It prints as the canonical chain, largest unit the hour (30d prints 720h).
+[5s, 1h30m, 250ms, 2d, 1w, 1.5h, 90m, -5s] |> map (\d -> d + 0s) |> assert [5s 1h30m 250ms 48h 168h 1h30m 1h30m -5s]
+[1s, 1h30m] |> map (\a -> a + 15m) |> assert [15m1s 1h45m]
+[1h, 90m] |> map (\a -> a - 30m) |> assert [30m 1h]
+[5s, 250ms] |> map (\a -> a * 3) |> assert [15s 750ms]
+[5s, 250ms] |> map (\a -> 3 * a) |> assert [15s 750ms]
+[5s, 1m] |> map (\a -> a * 1.5) |> assert [7s500ms 1m30s]
+[5s, 1m] |> map (\a -> a * 1r2) |> assert [2s500ms 30s]
+[1m, 10s] |> map (\a -> a / 4) |> assert [15s 2s500ms]
+[7ns, -7ns] |> map (\a -> a / 2) |> assert [3ns -3ns]
+[90m, 2h, 30m, -90m] |> map (\a -> a / 1h) |> assert [3r2 2 1r2 -3r2]
+[100m, -100m] |> map (\a -> a // 1h) |> assert [1 -2]
+[100m, -100m] |> map (\a -> a % 1h) |> assert [40m 20m]
+[10d, 40d] |> map (\age -> age > 30d) |> assert [false true]
+[10d, 30d, 40d] |> map (\age -> age >= 30d) |> assert [false true true]
+[1s, 1m, 1h] |> map (\a -> a < 90s) |> assert [true true false]
+[5s, 5000ms, 6s] |> map (\a -> a == 5s) |> assert [true true false]
+[5s, 5] |> map (\a -> a == 5s) |> assert [true false]
+[5s, 6s] |> map (\a -> a != 5s) |> assert [false true]
+[5s, -5s, 0s] |> map (\a -> abs a) |> assert [5s 5s 0s]
+[5s, -5s, 0s] |> map (\a -> negate a) |> assert [-5s 5s 0s]
+[5s, -5s] |> map (\a -> -a) |> assert [-5s 5s]
+hamt_from [["a", 5s], ["b", 1m], ["c", 2s]] |> hamt_values |> sort |> collect_list |> assert [2s 5s 1m]
+hamt_from [["a", 5], ["b", 100], ["c", 2r3], ["d", 1r2]] |> hamt_values |> sort |> collect_list |> assert [1r2 2r3 5 100]
+[5s, 1m, 2s] |> map (\a -> min a 10s) |> assert [5s 10s 2s]
+[5s, 1m, 2s] |> map (\a -> max a 10s) |> assert [10s 1m 10s]
+[5s, 1m, 2s] |> map (\a -> compare a 10s) |> assert [LT GT LT]
+[5s, 1m] |> fold (\acc a -> acc + a) 0s |> assert 1m5s
+[1h30m, 250ms] |> map (\a -> a + 0s) |> assert [1h30m 250ms]
+
+-- 110. Time (hardening §5.6, D14/D16): a point on the timeline, `@2026-10-13T09:30:00Z` or with an offset
+-- `@2026-10-13T11:30:00+02:00` (RFC 3339; a missing zone is an error, local time is never implicit). It remembers
+-- a display zone but == and the orderings compare INSTANTS. Points and vectors: Time ± Duration is a Time,
+-- Time - Time is a Duration, Time + Time and everything else is an error (asserted in the Go tests).
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00, @2026-10-13T09:30:00.25Z] |> map (\t -> t + 0s) |> assert [2026-10-13T09:30:00Z 2026-10-13T11:30:00+02:00 2026-10-13T09:30:00.25Z]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t + 1h30m) |> assert [2026-10-13T11:00:00Z 2026-10-13T13:00:00+02:00]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t - 30d) |> assert [2026-09-13T09:30:00Z 2026-09-13T11:30:00+02:00]
+[@2026-10-13T09:30:00Z, @2026-10-13T09:00:00Z] |> map (\t -> t - @2026-10-13T08:00:00Z) |> assert [1h30m 1h]
+[@2026-10-13T08:00:00Z, @2026-10-13T09:30:00Z] |> map (\t -> @2026-10-13T09:30:00Z - t) |> assert [1h30m 0s]
+[@2026-10-13T11:30:00+02:00, @2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z] |> map (\t -> t == @2026-10-13T09:30:00Z) |> assert [true false false]
+[@2026-10-13T11:30:00+02:00, @2026-10-13T09:30:01Z] |> map (\t -> t != @2026-10-13T09:30:00Z) |> assert [false true]
+[@2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z, @2026-10-13T09:30:00Z] |> map (\t -> t < @2026-10-13T11:30:00+02:00) |> assert [false true false]
+[@2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z, @2026-10-13T09:30:00Z] |> map (\t -> t >= @2026-10-13T11:30:00+02:00) |> assert [true false true]
+hamt_from [["a", @2026-10-13T09:30:01Z], ["b", @2026-10-13T08:00:00Z], ["c", @2026-10-13T11:30:00+02:00]] |> hamt_values |> sort |> collect_list |> assert [2026-10-13T08:00:00Z 2026-10-13T11:30:00+02:00 2026-10-13T09:30:01Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> min t @2026-10-13T09:00:00Z) |> assert [2026-10-13T09:00:00Z 2026-10-13T08:00:00Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> max t @2026-10-13T09:00:00Z) |> assert [2026-10-13T09:30:01Z 2026-10-13T09:00:00Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> compare t @2026-10-13T09:00:00Z) |> assert [GT LT]
+-- the motivating rule shape: the clock is read ONCE at the edge and passed in as an ordinary value (here a fixed one)
+def expiring = \now certs -> [fst c | c <- certs, (snd c) - now < 14d]
+expiring @2026-10-13T09:30:00Z [(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z), (pair "c" @2026-10-13T09:30:00Z)] |> assert [a c]
+[(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z)] |> map (\c -> (snd c) - @2026-10-13T09:30:00Z) |> assert [168h 1166h30m]
+
+-- 111. Date (hardening §5.6, D14/D17): a calendar day, `@2026-10-13`; no zone, no time of day, comparable. A Date moves
+-- by WHOLE-DAY Durations only (`+ 7d`, `- 1w`; `+ 90m` is an error, asserted in the Go tests), Date - Date is a Duration
+-- (a multiple of 1d), and a Date never mixes with a Time (no implicit zone). Months and years go through functions.
+[@2026-10-13, @2024-03-01] |> map (\d -> d + 0s) |> assert [2026-10-13 2024-03-01]
+[@2026-10-13, @2026-12-28] |> map (\d -> d + 7d) |> assert [2026-10-20 2027-01-04]
+[@2026-10-13, @2024-03-01] |> map (\d -> d - 1w) |> assert [2026-10-06 2024-02-23]
+[@2026-10-13, @2024-03-01] |> map (\d -> d - 1d) |> assert [2026-10-12 2024-02-29]
+[@2026-10-13, @2026-10-06] |> map (\d -> @2026-10-20 - d) |> assert [168h 336h]
+[@2026-10-13, @2026-10-06] |> map (\d -> d - @2026-10-13) |> assert [0s -168h]
+[@2026-10-13, @2026-10-14, @2026-10-12] |> map (\d -> d == @2026-10-13) |> assert [true false false]
+[@2026-10-13, @2026-10-14] |> map (\d -> d != @2026-10-13) |> assert [false true]
+[@2026-10-13, @2026-10-14, @2025-12-31, @2026-09-30] |> map (\d -> d < @2026-10-14) |> assert [true false true true]
+[@2026-10-13, @2026-10-14] |> map (\d -> d >= @2026-10-14) |> assert [false true]
+[@2026-10-13, @2026-10-12] |> map (\d -> (d + 7d) > @2026-10-19) |> assert [true false]
+hamt_from [["a", @2026-10-14], ["b", @2025-01-01], ["c", @2026-02-28]] |> hamt_values |> sort |> collect_list |> assert [2025-01-01 2026-02-28 2026-10-14]
+[@2026-10-14, @2025-01-01] |> map (\d -> min d @2026-01-01) |> assert [2026-01-01 2025-01-01]
+[@2026-10-14, @2025-01-01] |> map (\d -> max d @2026-01-01) |> assert [2026-10-14 2026-01-01]
+[@2026-10-14, @2025-01-01] |> map (\d -> compare d @2026-01-01) |> assert [GT LT]
+
+-- 112. Duration/Time/Date function forms (hardening §5.6): data-last and curried, Maybe for malformed text
+-- (dur_parse, time_parse, date_parse), errors for impossible requests (asserted in the Go tests). time_format uses a
+-- strftime subset (%Y %m %d %H %M %S %z %Z %%) and the names rfc3339, date, clock. date_add_months clamps to the end of
+-- the month; time_of_date is the zone's first instant of the day; a Date and a Time meet only through a named zone.
+["1h30m", "5q", "-5s", "1h1h", ""] |> map (\s -> maybe_default 0s (dur_parse s)) |> assert [1h30m 0s -5s 0s 0s]
+["2026-10-13T09:30:00Z", "2026-10-13T09:30:00", "x"] |> map (\s -> is_just (time_parse s)) |> assert [true false false]
+["2026-10-13", "2026-02-30", "13.10.2026"] |> map (\s -> is_just (date_parse s)) |> assert [true false false]
+["2026-10-13T11:30:00+02:00"] |> map (\s -> maybe_default @0001-01-01T00:00:00Z (time_parse s)) |> assert [2026-10-13T11:30:00+02:00]
+[1500ms, 90s] |> map (\d -> to_seconds d) |> assert [1.5 90]
+[1500ms, -1999us] |> map (\d -> dur_ms d) |> assert [1500 -1]
+[1.5, 90, 1r2] |> map (\x -> dur_from_seconds x) |> assert [1s500ms 1m30s 500ms]
+[90s, -90s, 89s, 29s] |> map (\d -> dur_round 1m d) |> assert [2m -2m 1m 0s]
+[90s, -90s, 89s] |> map (\d -> dur_truncate 1m d) |> assert [1m -1m 1m]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> time_format "%Y-%m-%d %H:%M:%S %z" t) |> assert [2026-10-13 09:30:00 +0000 2026-10-13 11:30:00 +0200]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_format "date" (time_in "Asia/Kolkata" t)) |> assert [2026-10-13]
+[@2026-10-13T23:30:00Z] |> map (\t -> time_format "date" (time_in "Asia/Kolkata" t)) |> assert [2026-10-14]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_format "clock" (time_in "Europe/Berlin" t)) |> assert [11:30:00]
+[@2026-10-13T09:30:00Z, @2026-10-18T09:30:00Z] |> map (\t -> time_weekday t) |> assert [2 7]
+[@2026-10-13T09:30:00Z] |> map (\t -> [(time_year t), (time_month t), (time_day t), (time_hour t), (time_minute t), (time_second t), (time_nano t)]) |> assert [[2026 10 13 9 30 0 0]]
+[@2026-10-13T09:30:00Z] |> map (\t -> time_from_unix (time_unix t)) |> assert [2026-10-13T09:30:00Z]
+[@2026-10-13T09:45:30Z] |> map (\t -> [(time_truncate 1h t), (time_round 1h t)]) |> assert [[2026-10-13T09:00:00Z 2026-10-13T10:00:00Z]]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t == time_in "UTC" t) |> assert [true true]
+[@2026-10-13, @2024-02-29] |> map (\d -> [(date_year d), (date_month d), (date_day d), (date_weekday d), (date_days_in_month d)]) |> assert [[2026 10 13 2 31] [2024 2 29 4 29]]
+[[2026, 10, 13], [2026, 12, 31]] |> map (\p -> date_of (head p) (nth 1 p) (nth 2 p)) |> assert [2026-10-13 2026-12-31]
+[@2026-01-31, @2024-01-31, @2026-03-31, @2026-12-31] |> map (\d -> date_add_months 1 d) |> assert [2026-02-28 2024-02-29 2026-04-30 2027-01-31]
+[@2026-03-31, @2026-01-15] |> map (\d -> date_add_months -1 d) |> assert [2026-02-28 2025-12-15]
+[@2024-02-29, @2026-10-13] |> map (\d -> date_add_years 1 d) |> assert [2025-02-28 2027-10-13]
+[@2026-10-13, @2026-12-31] |> map (\d -> date_add_days 30 d) |> assert [2026-11-12 2027-01-30]
+[2024, 1900, 2000, 2026] |> map (\y -> is_leap_year y) |> assert [true false true false]
+[@2026-10-13T22:30:00Z] |> map (\t -> [(date_of_time "UTC" t), (date_of_time "Europe/Berlin" t)]) |> assert [[2026-10-13 2026-10-14]]
+[@2026-10-13, @2026-03-29, @2026-10-25] |> map (\d -> time_of_date "Europe/Berlin" d) |> assert [2026-10-13T00:00:00+02:00 2026-03-29T00:00:00+01:00 2026-10-25T00:00:00+02:00]
+-- Daylight saving, Europe/Berlin: the spring day lasts 23 h and the autumn day 25 h, so "+ 24h" is not "tomorrow"
+[@2026-03-28, @2026-03-29, @2026-10-24, @2026-10-25] |> map (\d -> (time_of_date "Europe/Berlin" (date_add_days 1 d)) - (time_of_date "Europe/Berlin" d)) |> assert [24h 23h 24h 25h]
+[@2026-03-29] |> map (\d -> time_of_date "Europe/Berlin" d) |> map (\t -> t + 24h) |> map (\t -> time_format "%Y-%m-%d %H:%M" t) |> assert [2026-03-30 01:00]
+[@2026-10-25] |> map (\d -> time_of_date "Europe/Berlin" d) |> map (\t -> t + 24h) |> map (\t -> time_format "%Y-%m-%d %H:%M" t) |> assert [2026-10-25 23:00]
+[@2026-10-25T00:30:00Z, @2026-10-25T01:30:00Z] |> map (\t -> time_format "%H:%M %z" (time_in "Europe/Berlin" t)) |> assert [02:30 +0200 02:30 +0100]
+-- a midnight swallowed by a daylight-saving gap is the first valid instant after it
+[@2026-03-29] |> map (\d -> time_of_date "Asia/Beirut" d) |> assert [2026-03-29T01:00:00+03:00]
+-- step form is the function form
+@2026-10-13T09:30:00Z |> time_in "Europe/Berlin" |> time_hour |> assert 11
+@2026-10-13 |> date_add_months 1 |> assert 2026-11-13
+90s |> dur_round 1m |> assert 2m
+-- partial application and the pipeline
+[@2026-12-31, @2026-02-28] |> map (date_add_days 1) |> assert [2027-01-01 2026-03-01]
+[@2026-10-13T09:30:00Z, @2026-10-14T09:30:00Z, @2026-10-15T09:30:00Z] |> filter (\t -> time_day t > 13) |> map (\t -> time_day t) |> assert [14 15]
+
+-- 113. `now` (hardening §5.6, D15): the clock is a side effect, so it is a stream-source STEP (an adapter, like scan_file)
+-- reading Interpreter.Clock; a bare `now` at the head of a pipeline is the same reading. The suite cannot fix the wall
+-- clock, so these assert only what holds at any real time; the Go tests inject a fixed clock for exact values.
+spawn S: x |> now |> map (\t -> t > @2020-01-01T00:00:00Z) |> assert true
+now |> map (\t -> t > @2020-01-01T00:00:00Z) |> assert true
+now |> map (\t -> (time_year t) >= 2026) |> assert true
+now |> map (\t -> t - t) |> assert 0s
+now |> map (\t -> time_in "Europe/Berlin" t == t) |> assert true
+now |> map (\t -> (date_of_time "UTC" t) == (date_of_time "UTC" t)) |> assert true
+now |> map (\t -> ((t + 30d) - t) > 29d) |> assert true
+def expires_within = \limit now exp -> (exp - now) < limit
+now |> map (\t -> expires_within 14d t (t + 7d)) |> assert true
+now |> map (\t -> expires_within 14d t (t + 20d)) |> assert false
+now |> map (\t -> expires_within 14d t (t - 1d)) |> assert true
+
+-- 114. Duration/Time/Date as members of the collection rows (hardening §5.6). Structural equality reaches inside List,
+-- Pair and Maybe; a Time is its INSTANT, so one instant shown in two zones is one Set member and one HAMT key (a Set
+-- stores the canonical UTC form). json_encode/yaml_encode write the three types as Strings (RFC 3339, ISO 8601, the
+-- Duration literal); decoding leaves text as text, time_parse/date_parse/dur_parse revive it on request.
+[[1s, 2s], [1000ms, 3s]] |> map (\xs -> xs == [1s, 2s]) |> assert [true false]
+[@2026-10-13T09:30:00Z, @2026-10-13T09:30:01Z] |> map (\t -> [t] == [@2026-10-13T11:30:00+02:00]) |> assert [true false]
+[5s, 6s, 5] |> map (\d -> (just d) == (just 5000ms)) |> assert [true false false]
+[1s, 2s, 1000ms] |> map (\d -> member d (to_set [1s, 3s])) |> assert [true false true]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00, @2026-10-13T10:30:00+01:00] |> map (\t -> length (to_set [t, @2026-10-13T09:30:00Z])) |> assert [1 1 1]
+[@2026-10-13, @2026-10-14, @2026-10-15] |> map (\d -> member d (to_set [@2026-10-13, @2026-10-14])) |> assert [true true false]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> hamt_get t (hamt_from [[@2026-10-13T11:30:00+02:00, "x"]])) |> assert [x x]
+[@2026-10-13, @2026-10-14] |> map (\d -> hamt_get d (hamt_from [[@2026-10-13, "a"], [@2026-10-14, "b"]])) |> assert [a b]
+[1s, 5s] |> map (\d -> hamt_get d (hamt_from [[1000ms, "short"], [5s, "long"]])) |> assert [short long]
+[@2026-10-13T11:30:00+02:00, @2026-10-13, 90m, -5s] |> map (\v -> json_encode v) |> assert ["2026-10-13T11:30:00+02:00" "2026-10-13" "1h30m" "-5s"]
+json_encode (hamt_from [["at", @2026-10-13T09:30:00Z], ["for", 90m]]) |> assert {"at":"2026-10-13T09:30:00Z","for":"1h30m"}
+[@2026-10-13, @2024-02-29] |> map (\d -> maybe_default @0001-01-01 (date_parse (maybe_default "?" (map (\x -> hamt_path "d" x) (json_parse (json_encode (hamt_from [["d", d]]))))))) |> assert [2026-10-13 2024-02-29]
+yaml_encode [@2026-10-13, 1h] |> assert - "2026-10-13"\n- 1h

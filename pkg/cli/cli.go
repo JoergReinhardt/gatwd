@@ -55,6 +55,18 @@ type Interpreter struct {
 	EnableBuiltins bool          // Whether Go std builtins are active
 	// Out receives the printed result of every top-level statement; nil means os.Stdout.
 	Out io.Writer
+	// Clock is the clock the `now` step reads; nil means time.Now. It is the one injection
+	// point for the wall clock (hardening §5.6, D15): a test or an Edition sets a fixed or
+	// scripted clock and everything else (Time, Duration, Date) stays pure.
+	Clock func() time.Time
+}
+
+// nowReading is one reading of the injected clock (time.Now when none is set).
+func (i *Interpreter) nowReading() time.Time {
+	if i.Clock == nil {
+		return time.Now()
+	}
+	return i.Clock()
 }
 
 // out is the writer top-level statements print to.
@@ -107,6 +119,7 @@ func (i *Interpreter) fork() *Interpreter {
 	localInterp.EnableBuiltins = i.EnableBuiltins
 	localInterp.Out = i.Out
 	localInterp.CustomSteps = i.CustomSteps
+	localInterp.Clock = i.Clock
 	localInterp.Variables = make(map[string]string)
 	for k, v := range i.Variables {
 		localInterp.Variables[k] = v
@@ -1051,6 +1064,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, adapters.StepListenTCP("tcp", addr, maxConns))
 		} else if stepStr == "conn_lines" {
 			pipeline = append(pipeline, adapters.StepConnLines())
+		} else if stepStr == "now" {
+			// the clock is an adapter like scan_file: one Time per incoming node, read from i.Clock
+			pipeline = append(pipeline, evaluator.StepAdapter(evaluator.EitherT(adapters.ClockAdapter(i.Clock))))
 		} else if strings.HasPrefix(stepStr, "scan_words ") {
 			filePath := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
 			pipeline = append(pipeline, adapters.StepScanFile(filePath, bufio.ScanWords))
@@ -1765,6 +1781,9 @@ func scalarValue(v any) bool {
 	if functions.IsChar(v) {
 		return false // its text ("a") would re-parse as a String
 	}
+	if functions.IsTemporal(v) {
+		return false // a Duration is an int64 underneath, but its text is a typed literal, not a number
+	}
 	switch reflect.ValueOf(v).Kind() {
 	case reflect.Invalid, reflect.Bool, reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -1885,6 +1904,20 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		flag := i.Parser.GetFlag("Variable")
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			yield(dsltypes.NewASTNode(functions.Right[error, any](val), flag))
+		}
+	}
+
+	// A bare `now` head (not shadowed by a binding, which was looked up above) is the clock
+	// reading itself, the same Time the `now` step emits.
+	if firstPart == "now" && i.EnableBuiltins {
+		t, err := functions.NewTime(i.nowReading().UTC())
+		flag := i.Parser.GetFlag("Variable")
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			if err != nil {
+				yield(evaluator.InjectError[any](err, flag))
+				return
+			}
+			yield(dsltypes.NewASTNode(functions.Right[error, any](any(t)), flag))
 		}
 	}
 

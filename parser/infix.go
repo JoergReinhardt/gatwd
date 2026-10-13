@@ -33,6 +33,9 @@ const (
 	TokThinArrow                  // TokThinArrow is the lambda body arrow "->".
 	TokChar                       // TokChar is a single-quoted character literal (Text is the character itself).
 	TokPrefix                     // TokPrefix is a prefix (unary) operator in operand position: "-".
+	TokDuration                   // TokDuration is a duration literal such as 5s or 1h30m (Text is the source text).
+	TokTime                       // TokTime is an RFC 3339 instant literal @2026-10-13T09:30:00Z (Text omits the "@").
+	TokDate                       // TokDate is a calendar date literal @2026-10-13 (Text omits the "@").
 )
 
 // TokenItem is a single lexical token: its Type classifies it (one of the Tok*
@@ -221,7 +224,29 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 					continue
 				}
 			}
+			// Duration literals: a number immediately followed by a unit, `5s`, `1h30m`, `1.5h`.
+			if i < n && durationWordRune(runes[i]) && !strings.HasSuffix(string(runes[start:i]), "i") {
+				end := scanDurationExtent(runes, i)
+				text := string(runes[start:end])
+				if _, err := functions.ParseDuration(strings.TrimLeft(text, "+")); err != nil {
+					return nil, err
+				}
+				tokens = append(tokens, TokenItem{Type: TokDuration, Text: text})
+				i = end
+				continue
+			}
 			tokens = append(tokens, TokenItem{Type: TokNumber, Text: string(runes[start:i])})
+			continue
+		}
+
+		// Time and date literals: @2026-10-13T09:30:00Z, @2026-10-13
+		if r == '@' {
+			tok, next, err := lexTemporalLiteral(runes, i)
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, tok)
+			i = next
 			continue
 		}
 
@@ -272,11 +297,109 @@ func scanRatioSuffix(runes []rune, start, r int) (int, bool) {
 	return end, true // bare `5r`: reported as malformed by the literal reader
 }
 
+// lexTemporalLiteral reads the time or date literal that opens with the '@' at runes[at]:
+// `@2026-10-13` (a Date), `@2026-10-13T09:30:00Z`, `@2026-10-13T11:30:00+02:00`,
+// `@2026-10-13T09:30:00.25Z` (a Time). It checks the shape (ISO 8601 / a strict RFC 3339
+// layout, the zone required for a Time) and returns the token and the index just past it;
+// the calendar validity (month 13, February 30) is functions.ParseTime's and ParseDate's,
+// called by the lexer so a bad literal is a lex error.
+func lexTemporalLiteral(runes []rune, at int) (TokenItem, int, error) {
+	n := len(runes)
+	digits := func(i, count int) bool {
+		for k := 0; k < count; k++ {
+			if i+k >= n || runes[i+k] < '0' || runes[i+k] > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	is := func(i int, c rune) bool { return i < n && runes[i] == c }
+	i := at + 1
+	if !(digits(i, 4) && is(i+4, '-') && digits(i+5, 2) && is(i+7, '-') && digits(i+8, 2)) {
+		return TokenItem{}, 0, fmt.Errorf("malformed time literal after '@': want a date @2026-10-13 or an RFC 3339 time such as @2026-10-13T09:30:00Z")
+	}
+	identAt := func(i int) bool {
+		return i < n && (unicode.IsLetter(runes[i]) || unicode.IsDigit(runes[i]) || runes[i] == '_')
+	}
+	if !is(i+10, 'T') { // a date
+		if identAt(i + 10) {
+			return TokenItem{}, 0, fmt.Errorf("unexpected %q after a date literal (a time needs a T: @2026-10-13T09:30:00Z)", runes[i+10])
+		}
+		text := string(runes[at+1 : i+10])
+		if _, err := functions.ParseDate(text); err != nil {
+			return TokenItem{}, 0, err
+		}
+		return TokenItem{Type: TokDate, Text: text}, i + 10, nil
+	}
+	i += 11
+	if !(digits(i, 2) && is(i+2, ':') && digits(i+3, 2) && is(i+5, ':') && digits(i+6, 2)) {
+		return TokenItem{}, 0, fmt.Errorf("malformed time literal: want hh:mm:ss after the T, as in @2026-10-13T09:30:00Z")
+	}
+	i += 8
+	if is(i, '.') {
+		i++
+		start := i
+		for digits(i, 1) {
+			i++
+		}
+		if i == start {
+			return TokenItem{}, 0, fmt.Errorf("malformed time literal: nothing after the decimal point of the seconds")
+		}
+	}
+	switch {
+	case is(i, 'Z'):
+		i++
+	case is(i, '+') || is(i, '-'):
+		if !(digits(i+1, 2) && is(i+3, ':') && digits(i+4, 2)) {
+			return TokenItem{}, 0, fmt.Errorf("malformed time literal: the zone offset must be +hh:mm or -hh:mm")
+		}
+		i += 6
+	default:
+		return TokenItem{}, 0, fmt.Errorf("time literal has no zone: end it with Z or an offset such as +02:00 (local time is never implicit)")
+	}
+	if identAt(i) {
+		return TokenItem{}, 0, fmt.Errorf("unexpected %q after a time literal", runes[i])
+	}
+	text := string(runes[at+1 : i])
+	if _, err := functions.ParseTime(text); err != nil {
+		return TokenItem{}, 0, err
+	}
+	return TokenItem{Type: TokTime, Text: text}, i, nil
+}
+
+// durationWordRune reports whether r can start the unit of a duration literal: any letter
+// (so an unknown unit is reported by name rather than read as an application) or `_`.
+func durationWordRune(r rune) bool { return unicode.IsLetter(r) || r == '_' }
+
+// scanDurationExtent returns the index just past the duration literal whose first unit
+// starts at runes[i] (the number before it is already scanned): a unit word, then any
+// number of further `digits[.digits]` + unit-word segments. It only finds the extent; the
+// literal's validity (known units, no repeat, range) is functions.ParseDuration's to judge.
+func scanDurationExtent(runes []rune, i int) int {
+	n := len(runes)
+	for {
+		for i < n && durationWordRune(runes[i]) {
+			i++
+		}
+		j := i
+		for j < n && (unicode.IsDigit(runes[j]) || runes[j] == '.') {
+			j++
+		}
+		if j == i {
+			return i
+		}
+		i = j // a further segment: its number is scanned, its unit word follows
+		if i >= n || !durationWordRune(runes[i]) {
+			return i // a number without a unit: ParseDuration reports it
+		}
+	}
+}
+
 // endsOperand reports whether a token can end an operand, so that a following "-" is a
 // binary operator (or a tight negative argument) rather than a prefix.
 func endsOperand(t TokenItem) bool {
 	switch t.Type {
-	case TokNumber, TokString, TokChar, TokIdent, TokRParen, TokRBracket:
+	case TokNumber, TokString, TokChar, TokIdent, TokRParen, TokRBracket, TokDuration, TokTime, TokDate:
 		return true
 	}
 	return false
@@ -918,7 +1041,7 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 // adjacent atoms with no operator between them form a function application.
 func (p *InfixParser) isAtomStart() bool {
 	switch p.peek().Type {
-	case TokNumber, TokString, TokChar, TokIdent, TokLParen, TokLBracket, TokPrefix:
+	case TokNumber, TokString, TokChar, TokDuration, TokTime, TokDate, TokIdent, TokLParen, TokLBracket, TokPrefix:
 		return true
 	default:
 		return false
@@ -1036,6 +1159,27 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 	case TokChar:
 		r, _ := utf8.DecodeRuneInString(tok.Text)
 		return LiteralExpr{Value: functions.Char(r)}, nil
+
+	case TokDuration:
+		d, err := functions.ParseDuration(strings.TrimLeft(tok.Text, "+"))
+		if err != nil {
+			return nil, err
+		}
+		return LiteralExpr{Value: d}, nil
+
+	case TokTime:
+		t, err := functions.ParseTime(tok.Text)
+		if err != nil {
+			return nil, err
+		}
+		return LiteralExpr{Value: t}, nil
+
+	case TokDate:
+		d, err := functions.ParseDate(tok.Text)
+		if err != nil {
+			return nil, err
+		}
+		return LiteralExpr{Value: d}, nil
 
 	case TokIdent:
 		return VarExpr{Name: tok.Text}, nil

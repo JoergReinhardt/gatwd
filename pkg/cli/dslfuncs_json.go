@@ -100,6 +100,11 @@ func encodeJSON(b *strings.Builder, v any, path string) error {
 		str(x)
 	case functions.Char:
 		str(x.String())
+	case functions.Time, functions.Date, functions.Duration:
+		// A String, never a number and never an error: RFC 3339 for a Time (in its own zone),
+		// ISO 8601 for a Date, the printed literal for a Duration (`1h30m`). The decoders do
+		// not turn text back into these types; time_parse, date_parse and dur_parse do, on request.
+		str(fmt.Sprint(x))
 	case *big.Int:
 		b.WriteString(x.String())
 	case float32, float64:

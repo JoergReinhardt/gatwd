@@ -85,8 +85,13 @@ Expr           ::= (* infix arithmetic/relational/boolean expression, Applicatio
 Application    ::= Atom { Atom }   (* juxtaposition: `f a b` applies f to a, b; binds tighter than any operator *)
 Atom           ::= Identifier | Literal | StringLiteral | CharLiteral | "(" Expr ")" | "[" ... "]"
 LambdaExpr     ::= "\\" Identifier { Identifier } "->" Expr   (* a Closure VALUE; body extends as far right as possible; parenthesise to pass as an argument *)
-Literal        ::= Number | StringLiteral | CharLiteral | "[" [ Expr { "," Expr } ] "]"
+Literal        ::= Number | Duration | Time | Date | StringLiteral | CharLiteral | "[" [ Expr { "," Expr } ] "]"
 Number         ::= Integer | Float | Complex | Ratio
+Duration       ::= [ "+" | "-" ] Segment { Segment }   (* 5s  1h30m  250ms  2d  1w  1.5h ; a number IMMEDIATELY followed by a unit (`5 s` is an application) *)
+Segment        ::= ( Digits | Digits "." Digits ) Unit   (* only the first segment may be fractional; a unit once; whole nanoseconds; int64 range *)
+Unit           ::= "ns" | "us" | "µs" | "μs" | "ms" | "s" | "m" | "h" | "d" | "w"   (* d = 24 h and w = 7 d: fixed lengths, not calendar days *)
+Time           ::= "@" Digits4 "-" Digits2 "-" Digits2 "T" Digits2 ":" Digits2 ":" Digits2 [ "." Digits ] ( "Z" | ( "+" | "-" ) Digits2 ":" Digits2 )   (* RFC 3339; the zone is required; years 1..9999 *)
+Date           ::= "@" Digits4 "-" Digits2 "-" Digits2   (* ISO 8601, a real calendar day; years 1..9999 *)
 Ratio          ::= Digits "r" Digits | Digits "." Digits "r"   (* 3r4 ; the exact decimal 0.75r ; 1r0 is a lex error, a bare 5r is an error *)
 PrefixOp       ::= "-" | "!"   (* in operand position: `-x`, `!ok`; `!` only when not followed by "=" ; `f -3` (space before, none after) is a negative argument *)
 BinaryOp       ::= "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "+" | "-" | "++" | "*" | "/" | "//" | "%" | "**"
@@ -100,6 +105,8 @@ Integer        ::= DIGIT { DIGIT }   (* unbounded: an int64 fast path and big in
 Float          ::= DIGIT { DIGIT } "." DIGIT { DIGIT }
 Complex        ::= ( Integer | Float ) "i"
 Digits         ::= DIGIT { DIGIT }
+Digits2        ::= DIGIT DIGIT
+Digits4        ::= DIGIT DIGIT DIGIT DIGIT
 ALPHA          ::= "A".."Z" | "a".."z"
 DIGIT          ::= "0".."9"
 ```
