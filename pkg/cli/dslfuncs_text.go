@@ -132,13 +132,42 @@ func displayText(v any) string {
 	return fmt.Sprintf("%+v", v)
 }
 
+// quoteString renders s as a double-quoted literal that lexes back to s: the escapes of
+// the String literal (\n \t \r \0 \\ \") and \xHH for any other control character.
+func quoteString(s string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch {
+		case r == '"':
+			b.WriteString(`\"`)
+		case r == '\\':
+			b.WriteString(`\\`)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == 0:
+			b.WriteString(`\0`)
+		case unicode.IsControl(r) && r < 0x100:
+			fmt.Fprintf(&b, `\x%02x`, r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 // showText renders v as source-like text: Strings in double quotes, Chars in single quotes,
-// sequences of such elements in brackets. String literals have no escapes yet, so a String
-// holding a double quote does not re-lex.
+// sequences of such elements in brackets, all with the literals' escapes so the text lexes
+// back to the same value.
 func showText(v any) string {
 	switch x := v.(type) {
 	case string:
-		return `"` + x + `"`
+		return quoteString(x)
 	case functions.Char:
 		switch x {
 		case '\n':

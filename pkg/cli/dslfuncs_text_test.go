@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/functions"
+	"github.com/joergreinhardt/gatwd/parser"
 )
 
 func TestCharFuncsStructural(t *testing.T) {
@@ -372,6 +373,106 @@ func TestStrLibraryAsSteps(t *testing.T) {
 		fn := strings.Join(in.evaluatePipelineStr(c[1]), ";")
 		if step == "" || step != fn || strings.Contains(step, "ERROR") {
 			t.Errorf("%s = %q but %s = %q", c[0], step, c[1], fn)
+		}
+	}
+}
+
+// D18: "…" literals have escapes, and everything that scans for the end of a string agrees.
+func TestStringEscapesEndToEnd(t *testing.T) {
+	in := NewInterpreter()
+	for _, tc := range []struct {
+		src  string
+		want any
+	}{
+		{`length "a\nb"`, 3},
+		{`str_join "," (str_lines "a\nb\n")`, "a,b"},
+		{`str_join "|" (str_split "\n" "x\ny\nz")`, "x|y|z"},
+		{`"say \"hi\""`, `say "hi"`},
+		{`"back\\slash"`, `back\slash`},
+		{`'"' == "\""`, true},
+		{`"it's" ++ "!"`, "it's!"},
+		{`str_split "\"" "a\"b"`, nil},
+		{`"tab\there" == str_join (char_to_str '\t') ["tab", "here"]`, true},
+	} {
+		got := evalOne(t, in, tc.src)
+		if tc.want == nil {
+			if items := itemsOf(t, got); len(items) != 2 || items[0] != "a" || items[1] != "b" {
+				t.Errorf("%s = %#v", tc.src, got)
+			}
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%s = %#v, want %#v", tc.src, got, tc.want)
+		}
+	}
+	res := in.evaluatePipelineStr(`"bad\q"`)
+	if len(res) != 1 || !strings.Contains(res[0], "unknown escape") {
+		t.Errorf(`"bad\q" = %v, want an unknown-escape error`, res)
+	}
+}
+
+// show and quoteString emit text that lexes back to the same String, whatever it holds.
+func TestShowRoundTripsStrings(t *testing.T) {
+	for _, s := range []string{"", "plain", `say "hi"`, "a\nb", "tab\t", `back\slash`, "nul\x00", "bell\x07", "é😀", "it's", `\"`, `"\`} {
+		text := showText(s)
+		got, err := parser.EvalInfixString(text, nil)
+		if err != nil || got != s {
+			t.Errorf("show %q = %s lexes back to %#v, %v", s, text, got, err)
+		}
+	}
+}
+
+func TestUnterminatedString(t *testing.T) {
+	for _, tc := range []struct {
+		s    string
+		want bool
+	}{
+		{`"closed"`, false},
+		{`"open`, true},
+		{`"a\"b"`, false},
+		{`"a\"b`, true},
+		{`"ends with backslash\\"`, false},
+		{`'"'`, false},
+		{`'\"'`, false},
+		{`'"' == "x`, true},
+		{`x = 1`, false},
+		{`str_split "\"" "a\"b"`, false},
+	} {
+		if got := unterminatedString(tc.s); got != tc.want {
+			t.Errorf("unterminatedString(%s) = %v, want %v", tc.s, got, tc.want)
+		}
+	}
+}
+
+// A statement whose string holds an escaped quote must not swallow the next line.
+func TestLogicalLinesRespectEscapedQuotes(t *testing.T) {
+	lines := logicalLines("\"q\\\"uote\"\nlength \"abc\"\n'\"' == \"\\\"\"\n")
+	if len(lines) != 3 {
+		t.Fatalf("got %d logical lines %v, want 3", len(lines), lines)
+	}
+}
+
+// A let-bound String is spliced into a pipeline head as its quoted literal, so spaces,
+// quotes and newlines survive and a bare word is never read as an undefined name.
+func TestLetBoundStringSplice(t *testing.T) {
+	in := NewInterpreter()
+	for _, tc := range []struct {
+		bind, use string
+		want      any
+	}{
+		{`let sp = "hello world"`, `length sp`, 11},
+		{`let nl = "a\nb"`, `length nl`, 3},
+		{`let qt = "q\"x"`, `length qt`, 3},
+		{`let pl = "hello"`, `str_upper pl`, "HELLO"},
+		{`let em = ""`, `length em`, 0},
+	} {
+		in.EvaluateLine(tc.bind)
+		if got := evalOne(t, in, tc.use); got != tc.want {
+			t.Errorf("%s; %s = %#v, want %#v", tc.bind, tc.use, got, tc.want)
+		}
+		res := in.evaluatePipelineStr(tc.use)
+		if len(res) != 1 || res[0] != displayText(tc.want) {
+			t.Errorf("%s; %s (statement path) = %v, want [%v]", tc.bind, tc.use, res, tc.want)
 		}
 	}
 }

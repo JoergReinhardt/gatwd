@@ -290,7 +290,12 @@ range, a `%d` given a string) is an `[ERROR]`.
 
 `str_format` is a checked printf subset: `%s %v %d %f %g %e %x %q %c %%` with flags, width and precision
 (`str_format "%5d|%-5s|%.2f" [42, "ab", 3.14159]`); each verb names the type it needs, and a mismatch, a missing or a surplus
-argument is an error. String literals have **no escapes yet** (`"\n"` is a backslash and an `n`): build a newline with
+argument is an error.
+
+**String literals have escapes** (D18): `\n \t \r \0 \\ \' \" \xHH \uHHHH`, the same table as `Char` literals; an unknown escape is an
+error. So `str_lines "a\nb"`, `str_split "\n" s` and `"say \"hi\""` work, a literal backslash is `"\\"`, and `show` emits text that
+lexes back to the same `String`. (This changed `"\n"` from two characters to one; no committed script was affected.)
+A let-bound `String` is spliced into a pipeline head as its quoted literal, so `let s = "a b"` then `length s` is `3`.
 `char_to_str '\n'`.
 
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`

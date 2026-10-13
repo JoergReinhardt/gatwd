@@ -85,14 +85,24 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		// String literal: "..."
 		if r == '"' {
 			i++
-			start := i
+			var lit []rune
 			for i < n && runes[i] != '"' {
+				if runes[i] == '\\' {
+					c, last, err := lexEscape(runes, i+1, "string")
+					if err != nil {
+						return nil, err
+					}
+					lit = append(lit, c)
+					i = last + 1
+					continue
+				}
+				lit = append(lit, runes[i])
 				i++
 			}
 			if i >= n {
 				return nil, fmt.Errorf("unterminated string literal")
 			}
-			tokens = append(tokens, TokenItem{Type: TokString, Text: string(runes[start:i])})
+			tokens = append(tokens, TokenItem{Type: TokString, Text: string(lit)})
 			i++ // skip closing quote
 			continue
 		}
@@ -198,40 +208,10 @@ func lexCharLiteral(runes []rune, start int) (rune, int, error) {
 	case '\'':
 		return 0, 0, fmt.Errorf("empty character literal ''")
 	case '\\':
-		i++
-		if i >= n {
-			return 0, 0, fmt.Errorf("unterminated character literal")
-		}
-		switch e := runes[i]; e {
-		case 'n':
-			c = '\n'
-		case 't':
-			c = '\t'
-		case 'r':
-			c = '\r'
-		case '0':
-			c = 0
-		case '\\', '\'', '"':
-			c = e
-		case 'x', 'u':
-			width := 2
-			if e == 'u' {
-				width = 4
-			}
-			if i+width >= n {
-				return 0, 0, fmt.Errorf("unterminated character literal")
-			}
-			code, err := strconv.ParseUint(string(runes[i+1:i+1+width]), 16, 32)
-			if err != nil {
-				return 0, 0, fmt.Errorf("invalid \\%c escape in character literal", e)
-			}
-			if _, ok := functions.CharFromCode(int64(code)); !ok {
-				return 0, 0, fmt.Errorf("invalid code point U+%04X in character literal", code)
-			}
-			c = rune(code)
-			i += width
-		default:
-			return 0, 0, fmt.Errorf("unknown escape \\%c in character literal", e)
+		var err error
+		c, i, err = lexEscape(runes, i+1, "character")
+		if err != nil {
+			return 0, 0, err
 		}
 	default:
 		c = runes[i]
@@ -241,6 +221,47 @@ func lexCharLiteral(runes []rune, start int) (rune, int, error) {
 		return 0, 0, fmt.Errorf("character literal must hold exactly one character")
 	}
 	return c, i + 1, nil
+}
+
+// lexEscape decodes the escape sequence whose letter sits at runes[i] (the rune after the
+// backslash) and returns the decoded character and the index of the last rune consumed.
+// The escapes are \n \t \r \0 \\ \' \" \xHH \uHHHH, shared by Char and String literals; what
+// names the literal kind ("character" or "string") in error messages.
+func lexEscape(runes []rune, i int, what string) (rune, int, error) {
+	n := len(runes)
+	if i >= n {
+		return 0, 0, fmt.Errorf("unterminated %s literal", what)
+	}
+	switch e := runes[i]; e {
+	case 'n':
+		return '\n', i, nil
+	case 't':
+		return '\t', i, nil
+	case 'r':
+		return '\r', i, nil
+	case '0':
+		return 0, i, nil
+	case '\\', '\'', '"':
+		return e, i, nil
+	case 'x', 'u':
+		width := 2
+		if e == 'u' {
+			width = 4
+		}
+		if i+width >= n {
+			return 0, 0, fmt.Errorf("unterminated %s literal", what)
+		}
+		code, err := strconv.ParseUint(string(runes[i+1:i+1+width]), 16, 32)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid \\%c escape in %s literal", e, what)
+		}
+		if _, ok := functions.CharFromCode(int64(code)); !ok {
+			return 0, 0, fmt.Errorf("invalid code point U+%04X in %s literal", code, what)
+		}
+		return rune(code), i + width, nil
+	default:
+		return 0, 0, fmt.Errorf("unknown escape \\%c in %s literal", e, what)
+	}
 }
 
 // Expr represents an abstract syntax tree for infix expressions.

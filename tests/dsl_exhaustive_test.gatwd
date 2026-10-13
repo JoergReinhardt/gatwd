@@ -702,3 +702,25 @@ str_format "%s has %d items (%.2f%%)" ["x", 3, 12.345] |> assert x has 3 items (
 str_upper (map (\c -> char_lower c) "ABC") |> assert ABC
 -- a round trip through Char lists
 str_from_chars (reverse (str_chars "abc")) |> assert cba
+
+-- 91. Escapes in "…" literals (hardening W2, D18): \n \t \r \0 \\ \' \" \xHH \uHHHH, the same table as
+-- Char literals. A let-bound String keeps its exact value through the pipeline-head splice, and
+-- `show` emits text that lexes back to the same String.
+length "a\nb" |> assert 3
+str_lines "a\nb\n" |> assert [a b]
+str_split "\n" "x\ny\nz" |> assert [x y z]
+"say \"hi\"" |> assert say "hi"
+"back\\slash" |> assert back\slash
+'"' == "\"" |> assert true
+"tab\there" == (str_join (char_to_str '\t') ["tab", "here"]) |> assert true
+"\x41é" |> assert Aé
+length "\\n" |> assert 2
+let d18_sp = "hello world"
+length d18_sp |> assert 11
+let d18_nl = "a\nb"
+str_lines d18_nl |> assert [a b]
+let d18_q = "q\"x"
+length d18_q |> assert 3
+let d18_pl = "hello"
+str_upper d18_pl |> assert HELLO
+(show "a\"b\n") == "\"a\\\"b\\n\"" |> assert true

@@ -87,3 +87,65 @@ func TestCharLiteralInContext(t *testing.T) {
 		t.Errorf("['a', 'b'] = %#v", items)
 	}
 }
+
+func TestStringLiteralEscapes(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{`"plain"`, "plain"},
+		{`"a\nb"`, "a\nb"},
+		{`"tab\there"`, "tab\there"},
+		{`"cr\r"`, "cr\r"},
+		{`"nul\0"`, "nul\x00"},
+		{`"back\\slash"`, `back\slash`},
+		{`"say \"hi\""`, `say "hi"`},
+		{`"it\'s"`, "it's"},
+		{`"A\x41é"`, "AAé"},
+		{`"é😀"`, "é😀"},
+		{`""`, ""},
+		{`"\\"`, `\`},
+		{`"\\n"`, `\n`}, // an escaped backslash followed by n: two characters
+	} {
+		val, err := parser.EvalInfixString(tc.src, nil)
+		if err != nil {
+			t.Errorf("%s: %v", tc.src, err)
+			continue
+		}
+		if val != tc.want {
+			t.Errorf("%s = %q, want %q", tc.src, val, tc.want)
+		}
+	}
+}
+
+func TestStringLiteralEscapeErrors(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{`"bad\q"`, "unknown escape"},
+		{`"open`, "unterminated"},
+		{`"open\"`, "unterminated"},
+		{`"x\`, "unterminated"},
+		{`"\x4"`, "invalid"},
+		{`"\x4`, "unterminated"},
+		{`"\uD800"`, "invalid code point"},
+		{`"\xZZ"`, "invalid"},
+	} {
+		_, err := parser.EvalInfixString(tc.src, nil)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: error %v, want one containing %q", tc.src, err, tc.want)
+		}
+	}
+}
+
+// A Char and a String share one escape table.
+func TestCharAndStringShareEscapes(t *testing.T) {
+	for _, esc := range []string{`\n`, `\t`, `\r`, `\0`, `\\`, `\'`, `\"`, `\x41`, `é`} {
+		c, err := parser.EvalInfixString(`'`+esc+`'`, nil)
+		if err != nil {
+			t.Fatalf("char %s: %v", esc, err)
+		}
+		s, err := parser.EvalInfixString(`"`+esc+`"`, nil)
+		if err != nil {
+			t.Fatalf("string %s: %v", esc, err)
+		}
+		if string(rune(c.(functions.Char))) != s {
+			t.Errorf("%s: char %q and string %q disagree", esc, c, s)
+		}
+	}
+}

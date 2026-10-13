@@ -565,6 +565,9 @@ func lambdaGroups(s string) []string {
 	for idx := 0; idx < len(s); idx++ {
 		if s[idx] == '"' {
 			for idx++; idx < len(s) && s[idx] != '"'; idx++ {
+				if s[idx] == '\\' {
+					idx++ // an escape: skip the escaped byte
+				}
 			}
 			continue
 		}

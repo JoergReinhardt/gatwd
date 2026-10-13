@@ -87,3 +87,13 @@ func Example_strLibrary() {
 	fmt.Println(parts[0], n[0], msg[0])
 	// Output: [a b c] 0 x=3
 }
+
+// Example_stringEscapes shows escapes in String literals: a newline splits lines, and a
+// quote is written \".
+func Example_stringEscapes() {
+	interp := cli.NewInterpreter()
+	lines := interp.EvaluateToValues(`str_lines "a\nb\n"`)
+	quoted := interp.EvaluateToValues(`"say \"hi\""`)
+	fmt.Println(lines[0], quoted[0])
+	// Output: [a b] say "hi"
+}

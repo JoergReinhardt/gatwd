@@ -1411,7 +1411,16 @@ func unbalancedDelimiter(line string) (int, bool) {
 	}
 	closer := map[rune]rune{')': '(', ']': '[', '}': '{'}
 	inString := false
+	escaped := false
 	for i, r := range line {
+		if inString && escaped {
+			escaped = false
+			continue
+		}
+		if inString && r == '\\' {
+			escaped = true
+			continue
+		}
 		switch {
 		case r == '"':
 			inString = !inString
@@ -1727,6 +1736,20 @@ func (i *Interpreter) textSubstitutable(k string) bool {
 	return scalarValue(v)
 }
 
+// spliceText is the text a let-bound variable k (printed form v) is replaced by when it is
+// substituted into a pipeline head. A String is spliced as its quoted literal so the line
+// re-parses to the same String (a bare word would be read as an undefined name, and a
+// space, quote or newline would split or corrupt the line); everything else as its text.
+func (i *Interpreter) spliceText(k, v string) string {
+	if rt, ok := i.RuntimeNodes[k]; ok && rt.Value.IsRight() {
+		rv, _ := rt.Value.UnwrapRight()
+		if sv, isString := rv.(string); isString {
+			return quoteString(sv)
+		}
+	}
+	return v
+}
+
 func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 	lookup := func(k string) (any, bool) {
 		if rt, ok := i.RuntimeNodes[k]; ok {
@@ -1912,6 +1935,7 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 				if !i.textSubstitutable(k) {
 					continue
 				}
+				v = i.spliceText(k, v)
 				words := strings.Split(firstPart, " ")
 				for idx, w := range words {
 					if w == k {
@@ -1965,6 +1989,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 				if !i.textSubstitutable(k) {
 					continue
 				}
+				v = i.spliceText(k, v)
 				words := strings.Split(firstPart, " ")
 				for idx, w := range words {
 					if w == k {
@@ -2301,6 +2326,30 @@ type logicalLine struct {
 	text string
 }
 
+// unterminatedString reports whether s ends inside a double-quoted string literal. A
+// backslash escapes the next character inside a string (so `"a\"b"` is one string), and the
+// Char literals `'"'` and `'\"'` outside a string are not a quote.
+func unterminatedString(s string) bool {
+	in := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case in && c == '\\':
+			i++
+		case in && c == '"':
+			in = false
+		case in:
+		case c == '"':
+			in = true
+		case c == '\'' && strings.HasPrefix(s[i:], `'"'`):
+			i += 2
+		case c == '\'' && strings.HasPrefix(s[i:], `'\"'`):
+			i += 3
+		}
+	}
+	return in
+}
+
 // logicalLines splits a script into complete statements, joining physical lines
 // that continue a statement (unbalanced delimiters, an unterminated string, or a
 // trailing continuation operator like `=`, `|>`, or `in`). Comment and blank
@@ -2319,7 +2368,7 @@ func logicalLines(content string) []logicalLine {
 		}
 
 		if buffer != "" {
-			if strings.Count(buffer, "\"")%2 != 0 {
+			if unterminatedString(buffer) {
 				buffer += "\n" + rawLine
 			} else {
 				buffer += " " + line
@@ -2339,7 +2388,7 @@ func logicalLines(content string) []logicalLine {
 			strings.Count(buffer, "{") > strings.Count(buffer, "}") ||
 			strings.Count(buffer, "(") > strings.Count(buffer, ")") ||
 			strings.Count(buffer, "[") > strings.Count(buffer, "]") ||
-			strings.Count(buffer, "\"")%2 != 0 {
+			unterminatedString(buffer) {
 			continue // Wait for next line
 		}
 
