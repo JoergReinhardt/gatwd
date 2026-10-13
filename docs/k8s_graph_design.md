@@ -481,10 +481,19 @@ the adapter *construction* (client-go) is K8s-specific.
   while allowing config via closure, which `pkg/plugins.AdapterFactory` can't.)
   Test `TestAdapterStep` in `pkg/cli/edition_prelude_test.go` (in-memory fan-out
   adapter, no K8s). Green.
-- **P3b — domain (`pkg/k8sgraph/steps.go`): the construction only.**
+- **P3b — domain (`pkg/k8sgraph/steps.go`): the construction only. ✅ DONE (2026-10-13).**
   `k8sgraph.CrawlStep(keyword, client, gvr)` builds the configured K8s
-  `Adapter[any]` (from P2) and hands it to `cli.AdapterStep(keyword, adapter)`.
-  No lifting/step logic here — just client-go wiring.
+  `Adapter[any]` (from P2) and hands it to `cli.AdapterStep(keyword, adapter)` —
+  no lifting/step logic, just client-go wiring. Shim also provides the only genuine
+  I/O: `RestConfigFromKubeconfig` (in-cluster → $KUBECONFIG → ~/.kube/config),
+  `DynamicClientFromKubeconfig`, `DiscoveryClientFromKubeconfig`, plus convenience
+  core GVRs (`PodsGVR`/`ServicesGVR`/…). `pkg/k8sgraph/doc.go` documents the "pure
+  assembly, zero graph/relation logic" boundary. Test `TestCrawlStep`
+  (`pkg/k8sgraph/steps_test.go`): registers a fake-client CrawlStep on a real
+  `cli.NewInterpreter()` and drives it from the DSL —
+  `spawn StrVal: default |> k8s_pods |> hamt_path spec.selector.app` → `nginx`,
+  `… |> hamt_get kind` → `Pod` (proves P2→P3a→P3b wired through to Layer 5). All
+  gates green.
 - *Optional stretch (generic `pkg/plugins`):* widen `AdapterFactory` to
   `func(cfg any) evaluator.Adapter[...]` so the keyword-plugin registry can also
   carry config (its comment already anticipates this). Independent of P3a/P3b.
@@ -760,7 +769,7 @@ def rel_calls = \pod -> \services ->
 - [x] Generic `Edition.WithPreludeFS`/`WithPrelude` added to `pkg/cli` (Phase P1). ✅
 - [x] Generic `cli.AdapterStep` bridges any `Adapter[any]`→DSL step (Phase P3a). ✅
 - [x] K8s adapter emits structured nested-HAMT payloads, not bare names (Phase P2). ✅
-- [ ] Domain `k8sgraph.CrawlStep` constructs the K8s adapter → `cli.AdapterStep` (Phase P3b).
+- [x] Domain `k8sgraph.CrawlStep` constructs the K8s adapter → `cli.AdapterStep` (Phase P3b). ✅
 - [ ] godoc + `doc.go` + `Example*` for all new exports (project-doc-sync).
 
 ---
