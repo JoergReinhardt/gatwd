@@ -59,14 +59,20 @@ Lambda         ::= [ "(" ] "\\" Identifier "->" Pipeline [ ")" ]
 
 (* Pattern Matching (Catamorphisms) *)
                  | "match {" MatchRule { "|" MatchRule } "}"
-MatchRule      ::= Pattern "->" Pipeline
-Pattern        ::= Constructor                      (* registered sum-type branch: discriminates *)
+MatchRule      ::= MatchPattern "->" Pipeline      (* the pattern ends at the first "->" outside a String/Char literal *)
+MatchPattern   ::= Constructor                      (* registered sum-type branch: discriminates *)
                  | "_"                              (* wildcard catch-all *)
                  | Identifier                        (* fresh variable: binds any value *)
                  | "[]"                             (* empty list *)
-                 | "[" Identifier ", ..." Identifier "]"   (* head / tail *)
-                 | "[" Pattern { "," Pattern } "]"  (* fixed-length list/tuple, literals or binders *)
-                 | Literal
+                 | "[" ElemPattern ", ..." Identifier "]"   (* head / tail: ONE head element pattern, a tail name or _ *)
+                 | "[" ElemPattern { "," ElemPattern } "]" (* fixed-length list/tuple; also "(" ... ")" *)
+                 | Literal                          (* equality, never substring: see below *)
+ElemPattern    ::= "_" | Identifier | Literal       (* nested patterns are not supported yet *)
+(* A literal pattern (Number, "String", 'c', true, false, Duration, Time, Date) matches a value `v` exactly
+   when `v == literal` under the language's own equality: `0` matches 0 and 0.0, never "0", '0', 10 or 20; a
+   String is never a number. There is no substring matching. A value no arm matches is
+   `[ERROR] match: no arm matches <value>`; a pattern that is none of the forms above (a guard `n if n > 0`, an
+   expression `1 + 2`, a nested list) is an error naming the pattern when the match is built. *)
 
 (* List Comprehensions (multi-generator, with filter guards) *)
 Comprehension  ::= "[" Expr "|" Generator { "," ( Generator | Expr ) } "]"   (* at least one Generator: `[ e | guard ]` is an error; write `[ e | _ <- [0], guard ]` *)
