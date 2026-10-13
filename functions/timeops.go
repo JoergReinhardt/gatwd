@@ -16,7 +16,9 @@ import (
 //	Duration // Duration           the floor quotient, an Int
 //	Duration % Duration            the remainder, a Duration with the sign of the divisor
 //	-Duration, abs                 Duration
-//	==, !=, <, <=, >, >=           within one type only
+//	Time + Duration, Time - Duration   Time      (in the same display zone)
+//	Time - Time                        Duration  (an error beyond about ±292 years)
+//	==, !=, <, <=, >, >=           within one type only (a Time by instant, not by zone)
 //
 // Everything else is an error that names both types: there is no implicit conversion
 // between a Duration and an Int, so `5s + 1` and `5s * 5s` are mistakes the language
@@ -27,6 +29,8 @@ func temporalKind(v any) string {
 	switch v.(type) {
 	case Duration:
 		return "Duration"
+	case Time:
+		return "Time"
 	}
 	return ""
 }
@@ -65,6 +69,10 @@ func temporalBinaryOp(op OpKind, l, r any) (res any, handled bool, err error) {
 		}
 		return orderingHolds(op, c), true, nil
 	}
+	if lk == "Time" || rk == "Time" {
+		res, err = timeArith(op, l, r)
+		return res, true, err
+	}
 	if lk == "Duration" || rk == "Duration" {
 		res, err = durationArith(op, l, r)
 		return res, true, err
@@ -97,6 +105,11 @@ func temporalCompare(a, b any) (int, error) {
 				return 1, nil
 			}
 			return 0, nil
+		}
+	}
+	if x, ok := a.(Time); ok {
+		if y, ok := b.(Time); ok {
+			return x.Compare(y), nil
 		}
 	}
 	return 0, fmt.Errorf("cannot compare %s and %s", KindName(a), KindName(b))
@@ -178,4 +191,41 @@ const minInt64 = -1 << 63
 
 func durationOverflow(op OpKind, a, b Duration) error {
 	return fmt.Errorf("Duration overflow: %s %s %s is outside about ±292 years", a, op, b)
+}
+
+// timeArith is the Time row of the matrix: a point plus or minus a vector is a point, a
+// point minus a point is a vector, and every other combination is an error.
+func timeArith(op OpKind, l, r any) (any, error) {
+	lt, lIs := l.(Time)
+	rt, rIs := r.(Time)
+	switch {
+	case lIs && rIs:
+		if op == OpSub {
+			return timeSub(lt, rt)
+		}
+		if op == OpAdd {
+			return nil, mixedTemporal(op, "Time", "Time", "two instants cannot be added; subtract them to get a Duration")
+		}
+	case lIs:
+		if d, ok := r.(Duration); ok {
+			switch op {
+			case OpAdd:
+				return timeAdd(lt, d)
+			case OpSub:
+				neg, err := Negate(d)
+				if err != nil {
+					return nil, err
+				}
+				return timeAdd(lt, neg.(Duration))
+			}
+		}
+	case rIs:
+		if _, ok := l.(Duration); ok && op == OpAdd {
+			return nil, mixedTemporal(op, "Duration", "Time", "write the Time first: t + d")
+		}
+		if _, ok := l.(Duration); ok && op == OpSub {
+			return nil, mixedTemporal(op, "Duration", "Time", "a Duration minus an instant has no meaning; subtract the other way round")
+		}
+	}
+	return nil, mixedTemporal(op, KindName(l), KindName(r), "")
 }

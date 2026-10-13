@@ -1138,3 +1138,25 @@ hamt_from [["a", 5], ["b", 100], ["c", 2r3], ["d", 1r2]] |> hamt_values |> sort 
 [5s, 1m, 2s] |> map (\a -> compare a 10s) |> assert [LT GT LT]
 [5s, 1m] |> fold (\acc a -> acc + a) 0s |> assert 1m5s
 [1h30m, 250ms] |> map (\a -> a + 0s) |> assert [1h30m 250ms]
+
+-- 107. Time (hardening §5.6, D14/D16): a point on the timeline, `@2026-10-13T09:30:00Z` or with an offset
+-- `@2026-10-13T11:30:00+02:00` (RFC 3339; a missing zone is an error, local time is never implicit). It remembers
+-- a display zone but == and the orderings compare INSTANTS. Points and vectors: Time ± Duration is a Time,
+-- Time - Time is a Duration, Time + Time and everything else is an error (asserted in the Go tests).
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00, @2026-10-13T09:30:00.25Z] |> map (\t -> t + 0s) |> assert [2026-10-13T09:30:00Z 2026-10-13T11:30:00+02:00 2026-10-13T09:30:00.25Z]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t + 1h30m) |> assert [2026-10-13T11:00:00Z 2026-10-13T13:00:00+02:00]
+[@2026-10-13T09:30:00Z, @2026-10-13T11:30:00+02:00] |> map (\t -> t - 30d) |> assert [2026-09-13T09:30:00Z 2026-09-13T11:30:00+02:00]
+[@2026-10-13T09:30:00Z, @2026-10-13T09:00:00Z] |> map (\t -> t - @2026-10-13T08:00:00Z) |> assert [1h30m 1h]
+[@2026-10-13T08:00:00Z, @2026-10-13T09:30:00Z] |> map (\t -> @2026-10-13T09:30:00Z - t) |> assert [1h30m 0s]
+[@2026-10-13T11:30:00+02:00, @2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z] |> map (\t -> t == @2026-10-13T09:30:00Z) |> assert [true false false]
+[@2026-10-13T11:30:00+02:00, @2026-10-13T09:30:01Z] |> map (\t -> t != @2026-10-13T09:30:00Z) |> assert [false true]
+[@2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z, @2026-10-13T09:30:00Z] |> map (\t -> t < @2026-10-13T11:30:00+02:00) |> assert [false true false]
+[@2026-10-13T09:30:01Z, @2026-10-13T09:29:59Z, @2026-10-13T09:30:00Z] |> map (\t -> t >= @2026-10-13T11:30:00+02:00) |> assert [true false true]
+hamt_from [["a", @2026-10-13T09:30:01Z], ["b", @2026-10-13T08:00:00Z], ["c", @2026-10-13T11:30:00+02:00]] |> hamt_values |> sort |> collect_list |> assert [2026-10-13T08:00:00Z 2026-10-13T11:30:00+02:00 2026-10-13T09:30:01Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> min t @2026-10-13T09:00:00Z) |> assert [2026-10-13T09:00:00Z 2026-10-13T08:00:00Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> max t @2026-10-13T09:00:00Z) |> assert [2026-10-13T09:30:01Z 2026-10-13T09:00:00Z]
+[@2026-10-13T09:30:01Z, @2026-10-13T08:00:00Z] |> map (\t -> compare t @2026-10-13T09:00:00Z) |> assert [GT LT]
+-- the motivating rule shape: the clock is read ONCE at the edge and passed in as an ordinary value (here a fixed one)
+def expiring = \now certs -> [fst c | c <- certs, (snd c) - now < 14d]
+expiring @2026-10-13T09:30:00Z [(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z), (pair "c" @2026-10-13T09:30:00Z)] |> assert [a c]
+[(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z)] |> map (\c -> (snd c) - @2026-10-13T09:30:00Z) |> assert [168h 1166h30m]
