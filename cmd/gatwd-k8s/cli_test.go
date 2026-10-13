@@ -60,3 +60,36 @@ func TestEditionCommandLine(t *testing.T) {
 		t.Errorf("version: %v\n%s", err, out)
 	}
 }
+
+// TestEditionKustomize drives the real binary through the in-process kustomize path: no
+// kustomize, kubectl or git on PATH, `manifests` renders an overlay on its own,
+// --no-kustomize turns that off, and a broken overlay is a loud error naming the root.
+func TestEditionKustomize(t *testing.T) {
+	bin := buildEdition(t)
+	root := filepath.Join("..", "..", "pkg", "k8sgraph", "testdata", "kustomize", "overlays")
+	count := func(overlay string, flags ...string) (string, error) {
+		argv := append(append([]string{}, flags...), "eval", "-e", "spawn StrVal: "+filepath.Join(root, overlay)+" |> manifests |> collect_list |> length")
+		cmd := exec.Command(bin, argv...)
+		cmd.Env = []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir()}
+		out, err := cmd.Output()
+		return strings.TrimSpace(string(out)), err
+	}
+
+	if out, err := count("prod"); err != nil || out != "∷ 4" {
+		t.Fatalf("manifests on an overlay (auto-render): %v, %q; want 4 rendered resources", err, out)
+	}
+	if out, err := count("prod", "--no-kustomize"); err != nil || out != "∷ 3" {
+		t.Fatalf("--no-kustomize: %v, %q; want the 3 plain files", err, out)
+	}
+	// (no collect_list here: it drops error nodes, see docs/hardening_plan.md §8)
+	cmd := exec.Command(bin, "eval", "-e", "spawn StrVal: "+filepath.Join(root, "broken")+" |> manifests |> k8s_graph |> graph_edges")
+	cmd.Env = []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir()}
+	raw, err := cmd.Output()
+	out := string(raw)
+	if err == nil || !strings.Contains(out, "[ERROR]") || !strings.Contains(out, "overlays/broken") || !strings.Contains(out, "does-not-exist.yaml") {
+		t.Fatalf("a broken overlay must fail loudly, naming the root and the file: %v, %q", err, out)
+	}
+	if help, err := exec.Command(bin, "--help").CombinedOutput(); err != nil || !strings.Contains(string(help), "--no-kustomize") {
+		t.Errorf("--help must list --no-kustomize: %v\n%s", err, help)
+	}
+}
