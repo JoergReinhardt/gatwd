@@ -55,6 +55,12 @@ func WithoutKustomize() Option { return func(c *editionConfig) { c.noKustomize =
 // kustomization root is read as the plain files it contains; the explicit
 // `kustomize` step always renders. A render error is an `[ERROR]` that names the root.
 //
+// It also registers the write steps (`k8s_apply`, `k8s_rollout_*`, `k8s_scale`, see write.go),
+// denied unless the policy grants cli.CapClusterApply / cli.CapClusterRollout: the edition adds
+// the flags `--allow-cluster-apply`, `--allow-cluster-rollout`, `--dry-run` (default true, a
+// server dry run), `--force-conflicts`, `--field-manager`, `--out` and `--apply-namespace`;
+// a host with its own command line passes WithWriteFlags.
+//
 // It is pure assembly: every relation and graph algorithm comes from the
 // embedded .gatwd library and the generic graph core. Pass a nil client to build
 // an offline-only edition (manifests/kustomize), e.g. for CI or tests.

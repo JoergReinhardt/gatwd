@@ -1,0 +1,84 @@
+# OPT-IN write access for gatwd-k8s / gatwd-k8s-operator. Do NOT apply this unless a script or an
+# override really has to write to the cluster. The shipped deploy.yaml stays read-only (get/list).
+#
+# Writing is guarded three times, and each guard is independent of the others:
+#   1. the capability policy: the steps k8s_apply and k8s_rollout_restart/undo/pause/resume/k8s_scale
+#      are DENIED unless the process is started with --allow-cluster-apply / --allow-cluster-rollout
+#      (not even your own command-line script is exempt);
+#   2. server dry run: every request carries DryRun=All unless --dry-run=false is given;
+#   3. RBAC, this file: the identity the client runs as (the ServiceAccount below, or your kubeconfig user)
+#      can do only what is granted here.
+#
+# What is granted, and what is NOT:
+#   - apply is server-side apply: it reads the object (get), creates it when it does not exist (create) and
+#     otherwise patches it (patch). `update` is not needed, because nothing uses it.
+#   - the rollout family patches the workload (patch); `undo` also lists the ReplicaSets of the Deployment
+#     (list); `status` only reads (get). Scale patches spec.replicas of the workload itself, so it needs
+#     `patch` on the workload and NOT `deployments/scale`.
+#   - there is NO delete, deletecollection or wildcard verb anywhere. gatwd has no step that deletes or prunes.
+#
+# Narrow the lists to the kinds you actually write, and prefer a Role in ONE namespace (as below) to a
+# ClusterRole. Bind it to the operator's ServiceAccount, or to a dedicated one for the job.
+#
+# To use it with the operator, add the flags to the Deployment's args (a dry run, the default, needs only the first):
+#   args: ["run", "--namespace", "app", "--interval", "5m", "--allow-cluster-apply"]
+#   args: [..., "--allow-cluster-apply", "--dry-run=false"]     # real writes: only when you mean it
+---
+# The kinds `k8s_apply` may create and update in the namespace `app`.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gatwd-apply
+  namespace: app
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, services]
+    verbs: [get, create, patch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, create, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, create, patch]
+---
+# The rollout family (restart, undo, pause, resume, scale) on workloads in `app`.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gatwd-rollout
+  namespace: app
+rules:
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, daemonsets]
+    verbs: [get, patch]
+  - apiGroups: [apps]
+    resources: [replicasets]          # `undo` reads the revision history; `scale` may patch a ReplicaSet
+    verbs: [get, list, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gatwd-write
+  namespace: app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gatwd-apply
+subjects:
+  - kind: ServiceAccount
+    name: gatwd-k8s-operator
+    namespace: gatwd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gatwd-write-rollout
+  namespace: app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gatwd-rollout
+subjects:
+  - kind: ServiceAccount
+    name: gatwd-k8s-operator
+    namespace: gatwd

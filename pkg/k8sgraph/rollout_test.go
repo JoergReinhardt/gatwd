@@ -361,3 +361,40 @@ func TestRolloutWithNoClusterFailsLoudly(t *testing.T) {
 		}
 	}
 }
+
+// TestHowToRolloutSamplesMatchTheFakeCluster pins the rollout samples of docs/k8s_howto.md §3.5
+// (which need a cluster, so the binary tests cannot run them): the record each one shows is
+// exactly what the step answers on the fixture cluster, in a dry run, and the doc shows it.
+func TestHowToRolloutSamplesMatchTheFakeCluster(t *testing.T) {
+	raw, err := os.ReadFile("../../docs/k8s_howto.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Join(strings.Fields(string(raw)), " ")
+	for _, row := range []struct {
+		step, record string
+		persist      bool
+		real         string // the persisted outcome the doc names, "" when none
+	}{
+		{"k8s_rollout_restart", "rollout-restart Deployment/default/web would-restart", false, "restarted"},
+		{"k8s_rollout_undo", "rollout-undo Deployment/default/web would-roll-back:2", false, ""},
+		{"k8s_scale 5", "scale Deployment/default/web would-scale:5", false, ""},
+		{"k8s_rollout_status", "rollout-status Deployment/default/web complete", false, ""},
+	} {
+		r := newRolloutRig(t, true, row.persist)
+		got := r.records(t, on("Deployment/default/web", row.step))
+		wantRecords(t, got, []string{row.record})
+		if !strings.Contains(doc, "["+row.record+"]") {
+			t.Errorf("docs/k8s_howto.md no longer shows [%s]", row.record)
+		}
+		if row.real != "" {
+			if !strings.Contains(doc, row.real) {
+				t.Errorf("docs/k8s_howto.md no longer names the real outcome %q", row.real)
+			}
+			real := newRolloutRig(t, true, true)
+			if g := real.records(t, on("Deployment/default/web", row.step)); !strings.HasSuffix(g[0], " "+row.real) {
+				t.Errorf("%s persisted = %q, want outcome %q", row.step, g, row.real)
+			}
+		}
+	}
+}

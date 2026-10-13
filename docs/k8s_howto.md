@@ -161,6 +161,8 @@ a file — so the operator starts the rules, the override above all, under a **d
 | `fs` | touching files | `scan_file`, `scan_words`, `walk_fs`, `write_file`, `append_file`, `import "file"` | `--allow-fs` |
 | `net` | opening sockets | `dial_tcp`, `listen_tcp` | `--allow-net` |
 | `env` | reading the environment | (no builtin reads it yet; the switch for the one that will) | `--allow-env` |
+| `cluster-apply` | creating and updating objects in a cluster | `k8s_apply` (an Edition step; **not** granted even to a command-line script, §3.5) | `--allow-cluster-apply` |
+| `cluster-rollout` | restarting, rolling back, pausing and scaling workloads | `k8s_rollout_restart/undo/pause/resume`, `k8s_scale` (same) | `--allow-cluster-rollout` |
 
 A denied step does not run; it is an error value, never an empty result — in text `[ERROR] step 'printf' requires the
 exec capability (policy denies it)`, in `--format json` an entry in `errors` and a structured one in `diagnostics`
@@ -428,7 +430,7 @@ The static operator is a single ELF binary of roughly 33 MB, 31 MiB (the in-proc
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
 | Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), `--timeout DUR` and `--max-output BYTES` (per-check limits, both off by default, §3.2), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env` (all off, §2.2). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--no-kustomize` (read a kustomization root as plain files, §3.2), `--fail-on-violation` (exit 3, §3.2), `--timeout DUR` and `--max-output BYTES` (per-check limits, both off by default, §3.2), and the execution policy `--allow-exec`, `--allow-fs`, `--allow-net`, `--allow-env`, `--allow-cluster-apply`, `--allow-cluster-rollout` (all off, §2.2), plus the write flags `--dry-run` (default true), `--force-conflicts`, `--field-manager`, `--out`, `--apply-namespace` (§3.5). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
@@ -580,7 +582,128 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - **Add a kind** (a CRD): add a crawl step in `pkg/k8sgraph` (`CoreCrawls`), list it in
   `lib/k8s/sources.gatwd`, and add `get`/`list` for it to the `ClusterRole`.
 
-### 3.5 Troubleshooting
+### 3.5 Writing to the cluster
+
+Everything above reads. gatwd can also **write** to the cluster API, for two families of operations, and both are
+**denied by default** — including for your own command-line script:
+
+| Family | Steps | Capability | Flag that grants it |
+| :-- | :-- | :-- | :-- |
+| **apply** | `k8s_apply` (server-side apply, create or update; one `[apply, Kind/ns/name, outcome]` per object) | `cluster-apply` | `--allow-cluster-apply` |
+| **rollout** | `k8s_rollout_restart`, `k8s_rollout_undo [REV]`, `k8s_rollout_pause`, `k8s_rollout_resume`, `k8s_scale N` | `cluster-rollout` | `--allow-cluster-rollout` |
+| rollout, read-only | `k8s_rollout_status` | none: it only reads (`get`) | — |
+
+`k8s_scale` is in the rollout family because it is the natural sibling of restart and undo: it changes a running
+workload rather than defining an object. **There is no step that deletes or prunes**, and the adapter cannot express
+one (a test scans the sources for a delete call). `gatwd-k8s` has the flags below; the operator has the same flags and
+the same two capabilities for the rules it runs (below).
+
+**Three layers of defence, each independent of the others.**
+
+1. **The capability policy.** `cli.TrustedPolicy()` — what a script you name on the command line gets — grants `exec`,
+   `fs`, `net` and `env`, but **not** these two. A write step is an error value until you opt in:
+
+```bash
+gatwd-k8s eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> k8s_apply'
+# ∷ [ERROR] step 'k8s_apply' requires the cluster-apply capability (policy denies it)       (exit 1)
+```
+
+   In `--format json` (the operator) the denial is a `capability_denied` diagnostic with `"capability":"cluster-apply"`.
+2. **Dry run is the default.** With the capability but without `--dry-run=false`, every request carries the server
+   dry-run option (`DryRun: All`): the API server validates and admits the object, runs its webhooks, and answers what it
+   *would* have stored, and nothing is persisted. The outcomes say so: `would-create`, `would-configure`, `unchanged`.
+   Only `--dry-run=false` makes a write real (`created`, `configured`, `unchanged`). Other flags: `--force-conflicts`
+   (take over fields another manager owns; off), `--field-manager NAME` (default `gatwd`), `--apply-namespace NS`
+   (the namespace of a namespaced object that names none; without it such an object is an `[ERROR]`).
+3. **RBAC.** The identity the client runs as can do only what its Role grants. The shipped
+   [`deploy.yaml`](../examples/k8s_howto/deploy.yaml) stays `get`/`list`. For writing, apply
+   [`deploy-write-role.yaml`](../examples/k8s_howto/deploy-write-role.yaml) **separately and only if you need it**: a
+   commented `Role` per family in one namespace, with exactly the verbs used (`get`, `create`, `patch`; `list` for the
+   ReplicaSets of an undo) and no `delete`, no `update`, no wildcard.
+
+**Apply.** `k8s_apply` takes the objects `manifests` (or any stream of resources) produces, so a kustomize overlay is
+applied in one line. Results are values in the stream, one per object, so a script can assert on them; an object that
+cannot be written is an `[ERROR]` for that object and the stream goes on (an object with no `metadata.name`, a
+namespaced kind with no namespace, a kind the cluster does not serve, a field conflict, an API refusal):
+
+```bash
+gatwd-k8s --allow-cluster-apply eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> k8s_apply'
+# a dry run against your kubeconfig cluster:
+# ∷ [apply ConfigMap/prod/prod-web-config would-create]
+# …
+gatwd-k8s --allow-cluster-apply --dry-run=false eval -e '…same pipeline…'      # the real write
+```
+
+The order of mutation is the order of the stream — explicit in the DSL. To apply in dependency order, let the graph
+compute it: `k8s_apply_objects` puts the payloads of a `k8s_graph` in `k8s_apply_order` (owners and routers before what
+they point to), and `k8s_apply` takes that list as a batch, element by element. Namespaces and CRDs must be earlier in
+the order than what uses them; put them first yourself if the graph does not link them:
+
+```bash
+gatwd-k8s --allow-cluster-apply --out /tmp/rendered eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> k8s_graph |> k8s_apply_objects |> k8s_apply'
+# ∷ [apply ConfigMap/prod/prod-web-config written]
+# ∷ [apply Ingress/prod/prod-web-ing written]
+# ∷ [apply Service/prod/prod-web-svc written]
+# ∷ [apply Pod/prod/prod-web-pod written]
+```
+
+**The offline twin: `--out DIR`.** With `--out`, the same step renders each object as YAML into the directory — one
+file per object, `Kind.namespace.name.yaml` (`_` for no namespace) — and talks to no cluster, so tests, CI and a
+dry-run-by-eye need nothing. It still needs `--allow-cluster-apply` **and** the `fs` capability (a command-line script has
+it; an operator needs `--allow-fs`), and naming the directory is its own opt-in, so `--dry-run` does not apply to it. The result
+is `written`, or `unchanged` when the file already holds that content. `manifests` reads the directory back as the same
+graph (a test proves it), and a test applies the same objects to a fake cluster and compares the file with what the
+cluster holds. With **no cluster and no `--out`** `k8s_apply` fails loudly for every object:
+
+```bash
+gatwd-k8s --allow-cluster-apply eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> k8s_apply'
+# ∷ [ERROR] cannot apply ConfigMap/prod/prod-web-config: reading the current object: no cluster access (…); use manifests for offline work
+```
+
+**Rollout.** The steps take a workload as an object (a crawled `Deployment`) or as its id `Deployment/default/web`,
+and answer `[verb, id, outcome]`:
+
+```bash
+gatwd-k8s --allow-cluster-rollout eval -e 'spawn StrVal: Deployment/default/web |> k8s_rollout_restart'
+# ∷ [rollout-restart Deployment/default/web would-restart]       (--dry-run=false: restarted)
+gatwd-k8s --allow-cluster-rollout eval -e 'spawn StrVal: Deployment/default/web |> k8s_rollout_undo'
+# ∷ [rollout-undo Deployment/default/web would-roll-back:2]      (undo 1: to revision 1; none: the previous one)
+gatwd-k8s --allow-cluster-rollout eval -e 'spawn StrVal: Deployment/default/web |> k8s_scale 5'
+# ∷ [scale Deployment/default/web would-scale:5]
+gatwd-k8s eval -e 'spawn StrVal: Deployment/default/web |> k8s_rollout_status'
+# ∷ [rollout-status Deployment/default/web complete]             (no flag: status only reads)
+gatwd-k8s eval -e 'spawn StrVal: Deployment/default/web |> k8s_scale 5'
+# ∷ [ERROR] step 'k8s_scale' requires the cluster-rollout capability (policy denies it)   (no --allow-cluster-rollout)
+```
+
+`restart` sets the pod-template annotation `kubectl.kubernetes.io/restartedAt` (a merge patch); `undo` replaces
+`spec.template` with the template of the Deployment's own earlier ReplicaSet, less its `pod-template-hash` label (a JSON
+patch; it refuses a paused Deployment, an unknown revision and a history with no earlier revision); `pause` and `resume`
+set `spec.paused` (`unchanged`, with no request, when it already is); `scale` patches `spec.replicas` of the workload
+itself, so it needs `patch` on the workload and not on `…/scale`, and says `unchanged` when the count already matches.
+`status` reports `complete`, `paused`, `progressing: …` or `waiting: …` and is the only step of the family that needs
+no capability. Which kinds support what: restart on Deployment/StatefulSet/DaemonSet, pause/resume/undo/status on
+Deployment, scale on Deployment/StatefulSet/ReplicaSet; anything else is an `[ERROR]` naming the kind.
+
+**In the operator.** The same steps exist in the rules' interpreter and are denied under its deny-all policy; the
+Deployment's `args:` are the only place that grants them: `--allow-cluster-apply`, `--allow-cluster-rollout` (and, for
+`--out`, `--allow-fs`), with `--dry-run`, `--force-conflicts`, `--field-manager`, `--out` and `--apply-namespace` shaping
+them. A mounted override can never grant itself either capability. A rule that applies with only `--manifests` has no cluster
+to write to and fails loudly (use `--out`); against the live source the client is the operator's own, and its RBAC
+([`deploy.yaml`](../examples/k8s_howto/deploy.yaml)) is read-only until you add the write Role:
+
+```bash
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules apply_rules.gatwd      # apply_rules.gatwd: def compliance = k8s_apply
+# [ERROR] step 'k8s_apply' requires the cluster-apply capability (policy denies it)            (exit 1)
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules apply_rules.gatwd --allow-cluster-apply --allow-fs --out /tmp/rendered
+# [apply ConfigMap/default/app-config written]  …
+```
+
+The behavior against a cluster is pinned with a fake dynamic client (`pkg/k8sgraph/write_test.go`, `rollout_test.go`):
+apply creates, a second apply is `unchanged`, a changed field is `configured`, a dry run persists nothing and every request
+carries the dry-run option, and each rollout step sends exactly the patch described above and nothing else.
+
+### 3.6 Troubleshooting
 
 | Symptom | Likely cause |
 | :-- | :-- |
@@ -591,6 +714,9 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 | `[ERROR] … duplicate node id "Kind/ns/name"` | the same resource is defined twice (the message quotes both); remove one, or give them different names or namespaces (§2.3) |
 | A reference you expect has no edge, or live and offline disagree | the two sides carry different namespaces (`Pod/_/x` vs `Pod/default/x`), or the target lives in another namespace than the referrer (§2.3) |
 | `[ERROR] step 'x' requires the exec capability (policy denies it)` (or `fs`, `net`) from an override | the override runs a program, reads a file or `import`s one; grant it on the command line (`--allow-exec`, `--allow-fs`, …) or remove it (§2.2) |
+| `[ERROR] step 'k8s_apply' requires the cluster-apply capability (policy denies it)` (or `k8s_scale` … `cluster-rollout`) | writes are denied by default, even for your own script; opt in with `--allow-cluster-apply` / `--allow-cluster-rollout` (§3.5) |
+| `[ERROR] cannot apply …: no cluster is configured (give --out DIR …)` | `k8s_apply` has no cluster to write to (an offline source); give `--out DIR` or point it at a cluster (§3.5) |
+| `would-create` / `would-configure` and nothing changed | that is the default dry run; `--dry-run=false` makes it real (§3.5) |
 | `[ERROR] check timed out after 30s` (exit 1) | the check ran longer than `--timeout` (a stuck command in an override, or a cluster crawl that is too slow); raise the limit or fix the rule (§3.2) |
 | `[ERROR] check output exceeded the limit of N bytes` (exit 1) | the report is larger than `--max-output`; raise it or narrow the rules (§3.2) |
 | `[ERROR] … Duration overflow: the difference between … is beyond about ±292 years` from an age rule | a `creationTimestamp` (or expiry) centuries away from now; fix the data (§2.6) |
@@ -608,6 +734,11 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
   when the process is killed. A single closure that never returns cannot be interrupted at all (the timeout is checked
   between nodes, and kills the OS commands a step started), and `--max-output` bounds what a check emits, not the
   memory it uses while it computes.
+- Writing (§3.5) is **apply and the rollout family only, with no delete or prune**: removing an object is `kubectl delete`'s
+  job, and a rename leaves the old object behind. `k8s_rollout_status`, `undo` and `pause`/`resume` cover Deployments only
+  (StatefulSet and DaemonSet history lives in `ControllerRevision`s); `k8s_apply` resolves the common built-in kinds from a
+  table and anything else (a CRD) by discovery against the kubeconfig cluster. The write steps wait for nothing: `k8s_rollout_status`
+  is one reading, not `kubectl rollout status`'s watch.
 - The policy's `env` capability gates nothing yet: no builtin reads the environment (§2.2).
 - Rules cannot read the clock inside a lambda: `now` is a step, so an age rule takes the reading as a parameter from a
   top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` are a `Duration`.
