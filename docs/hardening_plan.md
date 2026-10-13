@@ -644,7 +644,7 @@ branch point, `--check` silent over every `*.gatwd`). The regression diff differ
 - **`Int ** negative Int` is a `Float`** (`2 ** -1 == 0.5`), like `/` on integers that do not divide; a `Ratio` base with a negative exponent is exact. The plan only described the `Ratio` case.
 - **`//` and `%` are defined for `Float` too** (`//` gives the `Int` floor of the quotient, `%` a `Float`); `Complex` is an error (no floor on a plane).
 - **`Integral` and `Fractional` are consistent with every *numeric* type** in the checker (the tower converts at runtime), so they contradict only non-numbers and each other; the plan's `Integral ≡ Int` would otherwise warn on every `Float` argument. `Appendable` is `String, Bytes, List, Chunk, Set, HAMT, Tree, Graph, Pair, Maybe` (the plan said `String ∪ List`; `++` is defined on all of them), `Comparable` is everything but `Complex` and functions.
-- **The `%v` fallback of `StructuralEqual` is kept for String-versus-*collection*** (`"[2 1]" == [2, 1]` is `true`): HAMT keys are Strings, and the pure-DSL Game of Life (`examples/game_of_life_pure_dsl`, `TestStructuralPipelines/Pure_DSL_Conway_Step`) compares keys that went through `frequencies |> hamt_pairs` with coordinate pairs. The real fix is HAMT keys that carry values (a Layer-1 change). A `String` never equals a number, `Bool` or `Char` (the D1 one-character rule is explicit).
+- **(Superseded by §6.3: the fallback is gone.) The `%v` fallback of `StructuralEqual` was kept for String-versus-*collection*** (`"[2 1]" == [2, 1]` was `true`): HAMT keys are Strings, and the pure-DSL Game of Life (`examples/game_of_life_pure_dsl`, `TestStructuralPipelines/Pure_DSL_Conway_Step`) compares keys that went through `frequencies |> hamt_pairs` with coordinate pairs. The real fix is HAMT keys that carry values (a Layer-1 change). A `String` never equals a number, `Bool` or `Char` (the D1 one-character rule is explicit).
 - `to_ratio 1e-3` in §6.1 cannot be written: the lexer has no exponent literals. `to_ratio 0.001` is `1r1000`. `str_to_ratio "1.5e-3"` does parse exponents (bounded at ±1000).
 - The `--check` advisory for an `Int` beyond 2^53 mixed with a `Float` (§6 item 2) judges **literals** only (the checker does not track values), so "a known `Int` that large" is deferred.
 - A fraction below the smallest double converts to `0.0` in `to_float` (documented in §6.1); beyond the range it is an error.
@@ -654,6 +654,38 @@ branch point, `--check` silent over every `*.gatwd`). The regression diff differ
 **Open questions for the user.** (1) Keep the String-versus-collection equality boundary, or schedule the HAMT-keys-carry-values change so the fallback can go? (2) Is `Int ** negative Int` as a `Float` right, or should it be an exact `Ratio` (`2 ** -3 == 1r8`)? It is one function (`intPow`). (3) `n -1` as an application error (Elm's rule): keep, or require `f (-1)` and leave `n -1` a subtraction?
 
 ---
+
+### 6.3 Track G closure notes: HAMT keys carry values; a String is not a printed collection (2026-10-13)
+
+Closes handoff Q7 / §6.2 "the `%v` fallback is kept for String-versus-collection". Branch `hardening/g`, four commits (key design + pinning
+tests; every user migrated; the fallback removed; docs). Gates after each: `gofmt` on touched files, `go vet`, `go test ./...`,
+`./run_dsl_tests.sh`, `-race ./pkg/... ./evaluator ./parser ./interactive`, `--check` silent (two pre-existing warnings in `tests/`), script
+regression diff (differences only in the five nondeterministic scripts, `tour_23` and `tour_08`, which counts files matching `gatwd` in the
+working directory; the Game of Life prints `3` and `5` as before).
+
+- **Key design (decided, no open choice remained).** *Options:* (A) a canonical string encoding of the value, kept in the existing
+  `*HAMT[string, any]`; (B) re-key the HAMT by a structural hash with equality buckets (`HAMT[any, V]`); (C) keep printing and leave `==` as it was.
+  *Chosen: A* — B changes the type every adapter, optic, JSON/YAML reader and the Kubernetes records rely on (a Layer-1 rewrite, hard to reverse) for no
+  gain; C is the lossy status quo. A keeps String keys byte-for-byte themselves (records unchanged) and encodes any other value as NUL + a tagged,
+  length-prefixed canonical text: `evaluator.EncodeKey` / `DecodeKey` (`evaluator/hamt_key.go`; it lives in Layer 3 because Layer 1 may not import `dsltypes`
+  for `Variant`), numbers through `functions.CanonNumber` (`functions/numkey.go`: whole numbers are the canonical Int, a fraction a double holds exactly is that
+  float, any other `Ratio` stays one — exactly the `==` classes, so `1r10` and `0.1` are different keys because `1r10 == 0.1` is false). Deterministic,
+  list order kept, Sets/HAMT entries sorted, injective (a property test over a pool and 70 random nested values checks `keys equal <=> StructuralEqual`
+  on every pair), invertible (`DecodeKey` gives a value `==` the original, a real `*List`/`*Set`/`*HAMT`).
+- **Migrated:** `hamt_from/set/get/has/del/get_or`, the `hamt_get/set/del` steps (`hamtStepKey`), `to_hamt` (a Pair key is any value),
+  `frequencies`, `hamt_keys/hamt_pairs` (steps and functions decode). `json_encode`/`yaml_encode` of a HAMT with non-String keys is an error.
+  **Graph ids and colors** were already Strings; `dslStr` printed any value, so a list id was its printed form. They now use `idStr`: a String, a
+  `Char`, or a number/Bool as its text, and a collection is an error naming `show`. No committed script or the k8s prelude passed anything else.
+- **Removed:** the printed-form block and `isCollectionValue` in `functions.StructuralEqual`; `"[2 1]" == [2, 1]` is `false`, `String == String` and the D1
+  `Char` rule are unchanged, `Compare(String, collection)` is an error. Tests: carrier x `String` matrix (`pkg/cli/hamt_keys_test.go`, negative-controlled by
+  restoring the fallback), DSL sections 106 and 107, `TestHAMT*`, `TestFrequencies*`, `TestGameOfLife*`.
+- **Deviations / deferred.** (1) The `to_set` and `distinct` *steps* still deduplicate by printed form (`StepToSet` builds a `Set[string]`, `StepDistinct`
+  hashes `%v`), so `emit [1,2] |> to_set` and `"[1 2]"` collapse — the same lossy coercion on a different type (the Set row, not equality); the function
+  form `to_set` is already value-typed. Not changed here because a Set of values changes the `set_*` step semantics (DSL test 55 asserts `set_contains [1 2]` on such a Set);
+  **open question for the user:** make the step value-typed too (recommended, small follow-up)? (2) A Complex number is `==` through doubles, a key is
+  exact, so two big integers differing only below double precision next to a Complex could be `==` but different keys; documented in `hamt_key.go`.
+  (3) `hamt_keys` of a HAMT built by the optics/JSON readers returns the same Strings as before.
+- **k8s.** `pkg/k8sgraph` tests (including live/offline parity) and `lib/k8s/*.gatwd` pass unchanged; ids are Strings (`Kind/ns/name`).
 
 ## 7. W4 — Node identity (D6, decided)
 
@@ -860,6 +892,7 @@ the how-to, and the script regression diff. Collect here as phases land; **each 
 | **W6 as built** (layered overrides, `LoadError`, `NewApplianceTree`, exit codes, `--format json`, lazy client) | §2.2/§3.2/§3.4 already describe layering, the flags, exit codes and formats — re-run every operator command of the how-to against the final binary after W4/W5 merge (ids in the sample output); add the `--format json` example to any CI section | after **W4** (qualified ids): `idleWant`/`idleJSON`/`brokenJSON` in `cmd/gatwd-k8s-operator/cli_test.go`, `main_test.go`, `howto_test.go` and `testdata/compliant.yaml`'s expectations carry ids; after **W5**: `ApplyEdition` must still pass `TestLazyClientBuildsOnFirstUseOnly` (`pkg/k8sgraph/lazy_test.go`); the operator rules (`rules/compliance.gatwd`) stay unchanged by W6 |
 | **W7 structured diagnostics** (follow-up to W6) | the JSON `errors` are plain strings today; document the structured form when it lands | `cli.checkReport` (`pkg/cli/appliance_report.go`) is the single place that renders text and JSON — change it there; the Appliance load problems (`LoadError.Problems`) become diagnostics with line/column |
 | **W3 numeric display and operators** (done, §6.2): `//`/`%` floor, `==` exact and String-never-a-number, big integers print without `+`, `-x`/`!x`/`**`, `Ratio` | re-run every how-to sample that prints numbers or negative values; `n -1` in a sample is now an application error (write `n - 1`); mention `Ratio` for resource quantities (`500m` is `1r2`) | grep `lib/k8s/*.gatwd`, the operator rules and `testdata` for `//`, `%`, a negative literal after an identifier (`x -1`), `== "<number text>"` and numeric strings given to `nth`/`range`/`min`/`max`/`compare`; the scan done in W3 found none in the committed scripts |
+| **HAMT keys carry values; a String is not a printed collection** (done, §6.3): graph ids/colors accept a String or a number's text and refuse a list/pair; `"[2 1]" == [2, 1]` is `false` | none of the how-to's samples compare a String with a collection; mention that an id is a String (`Kind/ns/name`) | `pkg/k8sgraph` parity tests and `lib/k8s/*.gatwd` pass unchanged; grep the how-to and `examples/k8s_howto/*.gatwd` for `graph_add_node` with a non-String id and for `== "[`; none found |
 | **`compare` and ordering of mixed values** (W3): `compare`, `min`, `max`, `<` on a String and a number are errors; two Strings order as text | anything that sorts or compares labels/ports as text vs numbers: convert with `str_to_int` first | rules that compare a label or annotation value with a number |
 | **W4 follow-ups** (the W4 row above is done on branch `hardening/w4`: how-to §2.3/§2.4/§3.5/§4, all ids and tests migrated) | after W5 (kustomize): say that `kubectl kustomize` output carries namespaces and that two overlays defining one object now fail with the duplicate-id error; if provenance (W4 §7.1 item 1) is decided, show the file in the error text | a source path in the duplicate error (adapter + payload shape, after Track C); decide `ownerReferences` without `kind` (§7.1 item 2); an override that still uses `k8s_names` or `metadata.name` ids fails loudly: mention it in the W6 layered-rules text |
 | **W4 finds for other tracks** | `prelude cat` reads only the entry file: either teach it the imported files (W6, `command.go`) or drop the claim "copy, edit, load with `--prelude`" for `relations.gatwd` | the operator prints a duplicate-id error and **exits 0** like a violation list: W6's exit codes (`--fail-on-violation`, `2` for no source) must also fail on an error result; the guard-only comprehension defect (§7.1 item 3) belongs to the parser |
