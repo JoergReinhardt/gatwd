@@ -89,3 +89,36 @@ A self-contained, single-purpose release (such as a Kubernetes Operator, event p
 - See [docs/architecture.md Section 5.5](architecture.md#55-zero-downtime-hot-reloading--configmap-mutation-architecture) for full architectural specifications.
 
 
+
+---
+
+## 4. Domain Editions: Adapters, Shims and Embedded Preludes
+
+A *domain* Edition (Kubernetes is the reference) is assembled from four generic pieces; none of them puts domain logic in Go or in core. The full recipe is the `edition-appliance` skill (`.agents/skills/edition-appliance/SKILL.md`).
+
+**1. An adapter does the real I/O** and yields *structured* values, not strings (`evaluator.Adapter[any]`: `func(node) iter.Seq[node]`). Errors become `Left` nodes. Keep third-party SDK imports confined to the adapter file, and give the adapter an **offline twin** that yields the same payload shape, so downstream DSL cannot tell live from offline.
+
+**2. `cli.AdapterStep(keyword, adapter)` lifts any adapter to a pipeline step** (it applies the `EitherT` lift and `StepAdapter` for you):
+
+```go
+e := cli.NewEdition("gatwd-k8s").
+    WithStep(cli.AdapterStep("k8s_pods", adapters.NativeKubernetesResourceAdapter(client, podsGVR)))
+```
+
+**3. A thin shim package** (`pkg/<domain>`) constructs the adapters and exposes one assembly function. It contains no algorithm:
+
+```go
+func ApplyEdition(e *cli.Edition, client dynamic.Interface) *cli.Edition {
+    e = e.WithStep(ManifestStep("manifests")).WithStep(KustomizeStep("kustomize"))
+    if client != nil { // nil client ⇒ offline-only edition (CI, tests)
+        for _, c := range CoreCrawls { e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR)) }
+    }
+    return e.WithPreludeFS(preludeFS, PreludePath)
+}
+```
+
+**4. An embedded DSL prelude defines the domain.** `Edition.WithPrelude(script)` / `WithPreludeFS(fsys, path)` evaluate a `.gatwd` library after the steps are registered; the prelude may `import` its sibling files from the same `embed.FS`. Vocabulary (`type NodeColor = Pod | Service | …`), ingest, relations and rules all live there, written with closures, folds and comprehensions (see [`dsl_guide.md`](dsl_guide.md) §§19–22).
+
+**Merging producers.** `(k8s_pods <+> k8s_services <+> k8s_deployments)` feeds one downstream pipeline from many adapters; the prelude names the list once (`def k8s_resources = (…)`).
+
+**Testing contract.** Use fixtures and a fake client built from them, a parity test that runs the same prelude over live and offline sources, a negative fixture that violates every rule, and skip (not fail) when an optional external binary is absent. See `pkg/k8sgraph/k8sgraphtest` and `pkg/k8sgraph/live_parity_test.go`.

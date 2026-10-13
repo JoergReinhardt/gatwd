@@ -1,6 +1,6 @@
 ---
 name: project-doc-sync
-description: "Audit, synchronize, and enforce Go built-in documentation (godoc), package doc.go overviews, testable Example* tests, and eliminate outdated references to legacy code."
+description: "Audit, synchronize, and enforce Go built-in documentation (godoc), package doc.go overviews, testable Example* tests, the grammar/DSL guide/components docs, and eliminate outdated references to legacy code, hard-coded counts, false 'not yet supported' claims and superseded handoffs."
 ---
 
 # Project Documentation Synchronization & Integrity (godoc)
@@ -72,3 +72,30 @@ go vet ./...
 go test -run Example ./...
 go test ./...
 ```
+
+### Step 6: Sync the Prose Docs With the Behavior
+
+After a feature lands, update in the same change:
+- `docs/grammar.md` — any new syntax (tokens, expression forms, steps such as `<+>`, annotations).
+- `docs/dsl_guide.md` — behavior and builtins, with a runnable example. **Search for "not yet", "not supported", "planned" and delete or fix every claim the change made false** (the lambda section said "currying is not yet supported" long after it was).
+- `docs/components.md` — new types, methods, packages; layer placement must match the real import graph (`go list -f '{{.Imports}}' ./<pkg>`).
+- `docs/architecture.md` — additive edits only; other sessions edit it concurrently.
+- `README.md` features and doc links.
+- `docs/<topic>_design.md` — the phase entry (DONE, what changed, tests, remaining ideas) and the mandate checklist (Appendix B) ticked.
+- Roadmap/status blocks.
+
+### Step 7: Rot Check
+
+```bash
+# hard-coded counts that go stale
+grep -rnE "[0-9]+-step|[0-9]+ (interactive )?tutorials|§[0-9]{2,3} " README.md docs/*.md | grep -v development_playbook
+# legacy references (must be empty outside legacy/)
+grep -rn "legacy/" docs/ README.md
+# broken relative links / machine-specific absolute links (a real test, in `go test ./...`)
+go test ./internal/archtest -run TestDocLinksResolve
+```
+
+- **Do not copy counts or hashes** (assertions, tutorials, HEAD) into docs — link to the section or test.
+- **Dated snapshots** (`docs/assessment.md`, `docs/report.md`) get a "historical" banner instead of edits.
+- **Handoffs** (`docs/phase*_handoff.md`): at most one current; mark superseded ones with a banner or delete them in the commit that finishes their phase.
+- Verify each claim against the tree (counts with `ls`/`grep -c`, layers with `go list`) rather than copying it from another doc — several docs disagreed with each other and with the code.

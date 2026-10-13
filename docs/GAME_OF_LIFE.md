@@ -40,8 +40,8 @@ Each tier addresses a specific developer persona and operational environment. Be
 ---
 
 ### Tier 1: Category Theory & 2D Toroidal Grid Comonad
-- **Location**: [`examples/game_of_life/`](file:///home/j/src/rnd/gatwd/examples/game_of_life)
-- **Primary Package**: [`comonads`](file:///home/j/src/rnd/gatwd/comonads/grid.go)
+- **Location**: [`examples/game_of_life/`](../examples/game_of_life)
+- **Primary Package**: [`comonads`](../comonads/grid.go)
 - **Role**: Pure mathematical modeling of spatial cellular automata using comonadic cobind in Go.
 
 #### 1. Cognitive Effort (High)
@@ -73,8 +73,8 @@ The developer must implement toroidal coordinate wrapping, spatial cursor offset
 ---
 
 ### Tier 2: Domain Extensibility via Minted Custom Editions
-- **Location**: [`examples/game_of_life_edition/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition)
-- **Primary Package**: [`pkg/cli`](file:///home/j/src/rnd/gatwd/pkg/cli/cli.go)
+- **Location**: [`examples/game_of_life_edition/`](../examples/game_of_life_edition)
+- **Primary Package**: [`pkg/cli`](../pkg/cli/cli.go)
 - **Role**: Packaging a custom standalone binary distribution (`gatwd-life`) with domain-specific transducers (`conway_step`, `conway_render`), enabling users to author simulations in pure `.gatwd` script syntax.
 
 #### 1. Cognitive Effort (Low to Moderate)
@@ -105,8 +105,8 @@ The developer writes standard Go functions for the heavy physics calculations, w
 ---
 
 ### Tier 3: 100% Pure Gatwd Guest DSL
-- **Location**: [`examples/game_of_life_pure_dsl/`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl)
-- **Primary Scripts**: [`game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/game_of_life.gatwd) & [`main.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/main.go)
+- **Location**: [`examples/game_of_life_pure_dsl/`](../examples/game_of_life_pure_dsl)
+- **Primary Scripts**: [`game_of_life.gatwd`](../examples/game_of_life_pure_dsl/game_of_life.gatwd) & [`main.go`](../examples/game_of_life_pure_dsl/main.go)
 - **Role**: Implementing the entire Conway simulation directly in declarative Gatwd DSL script using sparse coordinate sets, multi-generator list comprehensions, HAMT frequencies, and a reusable `def conway_step` macro.
 
 #### 1. Cognitive Effort (Low for Systems / Moderate for Functional Logic)
@@ -152,7 +152,7 @@ The table below contrasts all three implementation tiers across their architectu
 
 | Dimension | Tier 1: Category Comonad | Tier 2: Minted Edition | Tier 3: 100% Pure DSL |
 | :--- | :--- | :--- | :--- |
-| **Directory** | [`examples/game_of_life`](file:///home/j/src/rnd/gatwd/examples/game_of_life) | [`examples/game_of_life_edition`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition) | [`examples/game_of_life_pure_dsl`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl) |
+| **Directory** | [`examples/game_of_life`](../examples/game_of_life) | [`examples/game_of_life_edition`](../examples/game_of_life_edition) | [`examples/game_of_life_pure_dsl`](../examples/game_of_life_pure_dsl) |
 | **Host Language** | Go | Go + Gatwd DSL | **100% Pure Gatwd DSL** |
 | **Mathematical Abstraction** | Comonadic Cobind ($W(A) \to W(B)$) | Monadic Pipeline Composition | Sparse Set Algebra & Catamorphisms |
 | **Spatial Representation** | 2D Toroidal Grid Zipper | Domain Value Object (`LifeGrid`) | Immutable Sparse Coordinate Lists / Sets |
@@ -171,7 +171,7 @@ The table below contrasts all three implementation tiers across their architectu
 ## 4. Code Walkthroughs
 
 ### 4.1 Walkthrough: Tier 1 (Comonadic Grid)
-In Layer 2 ([`comonads/grid.go`](file:///home/j/src/rnd/gatwd/comonads/grid.go)), the engine provides strictly **generic spatial comonad primitives**:
+In Layer 2 ([`comonads/grid.go`](../comonads/grid.go)), the engine provides strictly **generic spatial comonad primitives**:
 
 ```go
 // 1. Counit: Extract the value under current focus
@@ -187,7 +187,7 @@ func Extend[A, B any](z *GridZipper[A], rule func(*GridZipper[A]) B) *Grid[B] {
 }
 ```
 
-In user-space ([`examples/game_of_life/rules.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life/rules.go)), Conway's rule is a local function passed to `Extend`:
+In user-space ([`examples/game_of_life/rules.go`](../examples/game_of_life/rules.go)), Conway's rule is a local function passed to `Extend`:
 
 ```go
 func ConwayRule(z *comonads.GridZipper[bool]) bool {
@@ -209,7 +209,7 @@ func StepConway(grid *comonads.Grid[bool]) *comonads.Grid[bool] {
 ---
 
 ### 4.2 Walkthrough: Tier 2 (Minted Custom Edition)
-In [`examples/game_of_life_edition/main.go`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition/main.go), the author mints a customized distribution (`gatwd-life`):
+In [`examples/game_of_life_edition/main.go`](../examples/game_of_life_edition/main.go), the author mints a customized distribution (`gatwd-life`):
 
 ```go
 func main() {
@@ -224,7 +224,7 @@ func main() {
 }
 ```
 
-In [`examples/game_of_life_edition/game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_edition/game_of_life.gatwd), end users author cellular automata cleanly:
+In [`examples/game_of_life_edition/game_of_life.gatwd`](../examples/game_of_life_edition/game_of_life.gatwd), end users author cellular automata cleanly:
 
 ```gatwd
 def step_and_render = conway_step |> conway_render quadrant
@@ -241,7 +241,7 @@ spawn LifeGrid: GLIDER |> parse_life 60 30 |> step_and_render
 ---
 
 ### 4.3 Walkthrough: Tier 3 (100% Pure Gatwd DSL)
-In [`examples/game_of_life_pure_dsl/game_of_life.gatwd`](file:///home/j/src/rnd/gatwd/examples/game_of_life_pure_dsl/game_of_life.gatwd), the simulation runs completely inside standard Gatwd using a reusable macro:
+In [`examples/game_of_life_pure_dsl/game_of_life.gatwd`](../examples/game_of_life_pure_dsl/game_of_life.gatwd), the simulation runs completely inside standard Gatwd using a reusable macro:
 
 ```gatwd
 -- 1. Reusable Conway B3/S23 transition step
@@ -268,7 +268,7 @@ let glider4 = glider0 |> conway_step |> conway_step |> conway_step |> conway_ste
 
 ## 5. High-Resolution UTF-8 Sub-Pixel Visualization
 
-All variants take advantage of the terminal visualizer in [`visualizer/subpixel.go`](file:///home/j/src/rnd/gatwd/visualizer/subpixel.go) to render high-resolution simulation grids directly into terminal character cells using Unicode sub-character encodings:
+All variants take advantage of the terminal visualizer in [`visualizer/subpixel.go`](../visualizer/subpixel.go) to render high-resolution simulation grids directly into terminal character cells using Unicode sub-character encodings:
 
 | Mode | Aspect Ratio | Resolution Gain | Unicode Block | Description |
 | :--- | :---: | :---: | :---: | :--- |

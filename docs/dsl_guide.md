@@ -425,29 +425,43 @@ spawn IntVal: 0 |> emit 2, 5, 8, 11 |> drop 1 |> filter (\x -> x > 6) |> to_list
 * `tree_size`: Evaluates the total node count of a Rose Tree.
 * `tree_depth`: Evaluates the maximum depth/height of a Rose Tree.
 
-## 19. First-Class Lambda Functions
+## 19. First-Class Functions: Closures, Currying & Lexical Scope
 
-A lambda `\x -> expr` is a first-class value in pipeline position: it applies to the incoming value. This makes **lambda-bodied functions** callable and composable — not just the pointfree/operator-section `def`s of §5.
+A lambda `\x y -> expr` is an **expression** that evaluates to a first-class *closure*: a function value carrying its parameter list and the environment it was defined in (lexical scope). Closures are **curried** — applying fewer arguments than the arity yields a function awaiting the rest, and applying more applies the result to the surplus. A lambda-bodied `def` and a `let`-bound lambda are the same kind of value.
 
 ```haskell
--- Lambda-bodied function definitions:
-def inc = \x -> x + 1
-def dbl = \x -> x * 2
+def add = \x y -> x + y
+def mk_adder = \k -> \x -> x + k       -- a function that returns a function
 
-spawn IntVal: 5 |> inc |> assert 6              -- apply by name
-spawn IntVal: 5 |> inc |> dbl |> assert 12      -- compose
-spawn IntVal: 5 |> (\x -> x * 10) |> assert 50  -- apply a lambda directly
+add 1 2 |> assert 3                      -- application by juxtaposition
+(add 10) 5 |> assert 15                  -- partial application
+mk_adder 5 10 |> assert 15               -- over-application through the returned closure
 
--- Bind a lambda with let, or pass one to a higher-order step by name:
-let f = \x -> x + 100 in spawn IntVal: 5 |> f |> assert 105
-let xs = [1, 2, 3] in xs |> map inc |> assert [2 3 4]
+-- In a pipeline the incoming value is the LAST argument (data-last):
+spawn IntVal: 5 |> add 3 |> assert 8     -- add 3 5
+
+-- Pass closures to higher-order steps by name or as partial applications:
+[1, 2, 3] |> map (add 10)  |> assert [11 12 13]
+[1, 2, 3] |> fold add 0    |> assert 6
+[1, -2, 3] |> filter pos   |> assert [1 3]       -- with def pos = \x -> x > 0
+
+-- Bind a partial application, or a lambda, with let:
+let add7 = mk_adder 7 in [1, 2] |> map add7 |> assert [8 9]
+let f = \x y -> x * y in spawn IntVal: 6 |> f 7 |> assert 42
 ```
 
-Lambdas are single-argument and applied in pipeline position; expression-position application (`f x`), multi-argument lambdas, and currying are not yet supported.
+Rules worth knowing:
 
-## 20. Static Checking & Loud Errors (`gatwd --check`)
+* **Lexical capture.** Two closures made by one factory keep their own captured values (`mk_adder 5` vs `mk_adder 9`).
+* **Bare one-argument closure in a pipeline maps element-wise** over collections (`[1,2,3] |> inc`), exactly like `map inc`; with arguments (`x |> f a b`) it is applied to the whole incoming value as the last argument.
+* **A call inside a plain list literal needs parentheses**: `[(f x), (g y)]`. Inside `[ … | … ]` comprehensions and `( … )` application works directly.
+* **A `def` whose body is a pipeline stays a text macro** (a stream transformer such as `def k8s_ingest = fold (\g r -> …) graph_empty`); it takes no arguments. Use a lambda-bodied `def` for value functions.
+* **Errors are values.** Applying a closure to an incompatible value yields an `[ERROR]` result naming the function (`sub: unsupported binary operator "-" for types string and string`), never a silent empty result.
+* Unary minus applies only to numeric literals; write `0 - x` for a negated variable.
 
-`gatwd` fails loudly rather than silently. A pipeline step that is neither a known builtin/function nor an available executable surfaces an error node instead of producing nothing:
+## 20. Static Checking, Gradual Typing & Loud Errors (`gatwd --check`)
+
+`gatwd` fails loudly rather than silently. A pipeline step that is neither a known builtin/function nor an available executable, and a function call that fails, surface an error node instead of producing nothing:
 
 ```
 spawn IntVal: 5 |> frobnicate
@@ -457,10 +471,88 @@ spawn IntVal: 5 |> frobnicate
 `gatwd --check <file.gatwd>` statically validates a script without running it, emitting `file:line:col:` diagnostics:
 
 * **Errors** (exit 1): unbalanced `()`/`[]`/`{}`, a `def`/`const`/`type` declaration missing `=`, a pipeline ending in a dangling `|>`, and the legacy `:=` operator.
-* **Warnings** (exit 0, advisory): a `match` over a closed sum type that is **non-exhaustive**, naming the uncovered branches — e.g. `warning: non-exhaustive match on OS: missing Darwin`. A `_` or bare-variable catch-all arm makes a match exhaustive.
+* **Warnings** (exit 0, advisory):
+  * a `match` over a closed sum type that is **non-exhaustive** (`warning: non-exhaustive match on OS: missing Darwin`);
+  * **gradual-typing findings**: wrong argument or result type, too many arguments (to a `def` or a builtin), an operator the runtime rejects for the operand types (`"a" - 1`, `[1] * 2`), an unbound name in an expression or lambda body, and a `spawn IntVal: hello` seed that contradicts a numeric/Bool `type` alias.
+
+### Optional type annotations
+
+`def name : Type = body` carries an optional signature. It never changes evaluation; it gives the checker something to check against and documents intent.
+
+```haskell
+type IntVal = Int
+def inc   : Int -> Int        = \x -> x + 1
+def add   : Int -> Int -> Int = \x y -> x + y
+def total : List(Int) -> Int  = \xs -> fold (\a x -> a + x) 0 xs
+
+inc "x"                       -- warning: argument 1 of 'inc' has type String, expected Int
+spawn IntVal: 5 |> add "a"    -- warning: argument 1 of 'add' has type String, expected Int
+```
+
+`Type ::= Atom { "->" Type }` (right-associative) with `Atom ::= Name [ "(" Type {"," Type} ")" ] | "(" Type ")"`; names declared by `type Alias = Int` resolve to their right-hand side. Types flow locally from literals, operators, annotated parameters, `let` bindings and comprehension generators (`x <- [1, 2]` types `x`). Operator checks ask the **runtime's own operator matrix** (`functions.EvalBinaryOp`) on representative values, so the checker cannot disagree with the evaluator about what is defined.
+
+The checker is *gradual*: anything it cannot determine — a runtime value, a pipeline step, a builtin without a signature — is `Any`, which is consistent with every type. That is why committed scripts check clean and why unannotated code is never second-class.
 
 ```bash
 gatwd --check examples/tour/09_pattern_matching.gatwd
 # examples/tour/09_pattern_matching.gatwd:6:1: warning: non-exhaustive match on OS: missing Darwin
 ```
 
+## 21. The Operator-Type Matrix as Functions
+
+Every operation exists in two forms. The **step form** takes literal tokens and sits in a pipeline (`xs |> hamt_set k 1`); the **function form** takes *computed values* and composes inside lambdas, folds and comprehensions (`hamt_set (hamt_get "k" r) n m`). Function forms are **curried**, **data-last** (`x |> f a` ≡ `f a x`), **type-preserving** (elements are never stringified) and report errors as values.
+
+| Family | Functions |
+| :--- | :--- |
+| Functor / Filterable / Foldable / Monad | `map` `filter` `reject` `fold` `flatmap` `bimap` — dispatch on the carrier: List, Chunk, Set, HAMT (values), Tree, Pair (second component), Maybe, Either (right), Variant (payload) |
+| Sequences | `length` `is_empty` `head` `tail` `nth` `reverse` `cons` `concat` `range` `member` `to_list` `to_set` |
+| Set | `set_empty` `set_add` `set_remove` `set_contains` `set_union` `set_intersect` `set_diff` `set_elements` |
+| HAMT | `hamt_empty` `hamt_from` `hamt_set` `hamt_del` `hamt_has` `hamt_get` `hamt_get_or` `hamt_path` `hamt_has_path` `hamt_keys` `hamt_values` `hamt_pairs` `hamt_merge` `hamt_diff` `hamt_intersect` |
+| Tree / BST | `tree_leaf` `tree_node` `tree_add_child` `tree_value` `tree_children` `tree_size` `tree_depth` `tree_flatten` `tree_member` · `bst_empty` `bst_from` `bst_insert` `bst_member` (a BST folds in order) |
+| Pair / Maybe / Either / Variant | `pair` `fst` `snd` `pair_swap` · `just` `nothing` `is_just` `is_nothing` `maybe_default` `maybe_fold` · `either_left` `either_right` `is_left` `is_right` `either_default` `either_fold` · `variant` `variant_tag` `variant_payload` `is_variant` |
+| Primitives | `min` `max` `abs` `negate` `compare` |
+| Containment | `subset_of sub super` — Record/HAMT key-value containment or Set membership |
+
+```haskell
+map (\x -> x * 2) [1, 2, 3] |> assert [2 4 6]
+hamt_get "ab" (fold (\h w -> hamt_set w (length w) h) hamt_empty ["ab", "c"]) |> assert 2
+map (set_contains 2) [(to_set [1, 2]), (to_set [3])] |> assert [true false]
+maybe_default 0 (map (\x -> x + 1) (just 1)) |> assert 2
+type Shape = Circle | Square
+variant_payload (map (\r -> r * 2) (variant "Circle" 3)) |> assert 6
+```
+
+If a function form cannot mean exactly what its step form means, it has a different name (`graph_edges_of` the step yields formatted edge strings; `graph_edge_pairs` the function yields `[from to]` pairs).
+
+## 22. Graphs, Inferred Edges & Stream Merge (`<+>`)
+
+`Graph(T)` is a persistent directed **multigraph** with colored nodes and edges. Colors are plain strings (a declared constructor such as `Owns` resolves to its tag); edge weights are any value; an edge can be **inferred** (assumed, lower-trust). Higher edge cardinality is modeled with grouped binary edges or by promoting a relation to a node (reification).
+
+```haskell
+-- Ingest: fold a record stream into a graph. Node id/color are computed from the record.
+def ingest = fold (\g r -> graph_add_node (hamt_get "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+
+-- A relation is a graph→graph pass. Edge specs are 4-element lists: [color, weight, from, to].
+-- Add NODES FIRST; guard edges with graph_has_node.
+def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "name" o), (hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
+
+-- Inferred evidence is recorded separately from declared relations:
+--   graph_add_inferred_edges [["Calls", 0.5, "a", "b"]] g
+
+-- Whole-graph algorithms are functions, so a rule can run them inside a comprehension:
+--   [ c | c <- (graph_scc g), (length c) > 1 ]        dependency cycles
+--   graph_shortest_path "web" "pod" g                  a request trace
+--   graph_topo_sort g                                  an apply order ([] when cyclic)
+```
+
+Read side: `graph_payloads` `graph_payloads_of color` `graph_in_of color id` `graph_out_of color id` `graph_has_node` `graph_nodes` `graph_order` `graph_size` `graph_edge_pairs color` `graph_reachable` `graph_shortest_path` `graph_topo_sort` `graph_scc`. The pipeline steps (`graph_nodes_of`, `graph_edges_of`, `graph_walk_from`, `graph_map_nodes`, `graph_focus`/`graph_set`/`graph_over`, `graph_union`/`graph_diff`/`graph_intersect`, …) are exercised in `tests/dsl_exhaustive_test.gatwd`.
+
+**`(a <+> b <+> c)`** merges several sub-pipelines into one stream: each incoming node runs through every branch and the outputs are concatenated in branch order (the ArrowPlus / MonadPlus choice combinator; the zero arrow is the identity and it is associative). It is how many producers feed one downstream pipeline:
+
+```haskell
+spawn IntVal: 5 |> (math_add 1 <+> math_add 10 <+> math_add 100) |> collect_list |> assert [6 15 105]
+-- the Kubernetes edition merges every crawl stream the same way:
+--   spawn StrVal: default |> k8s_resources |> k8s_graph
+```
+
+A complete domain built on all of this — Kubernetes resources lifted into a typed graph with relations and compliance rules written in the DSL, over a live cluster or offline manifests — is documented in [`k8s_graph_design.md`](k8s_graph_design.md); its entry points are `gatwd-k8s` (Edition) and `gatwd-k8s-operator` (Appliance).

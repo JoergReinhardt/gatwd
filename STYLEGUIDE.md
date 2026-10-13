@@ -54,6 +54,8 @@ This project relies on mathematically proven Category Theory architectures (Mona
 - **Aspire to Production-Readiness:** All tests must assume the goal is a fully production-ready system. Tests should exhaustively assert against edge cases inferred from the documentation and common-sense functional design.
 - **Structural Go Tests over String Matching:** Do not test the core engine merely by parsing CLI output strings. You must write structural integration tests (like in `evaluator/pipeline_test.go`) that instantiate the raw Go memory arrays (`[]PipelineStep`) and hard-assert against the resulting memory types (`int`, `functions.Pair`, `*collections.Tree`).
 - **DSL Native Assertions:** All DSL features must be tested natively using the Gatwd DSL `assert` keyword. If you add a new feature to the DSL, you must add it to `tests/dsl_exhaustive_test.gatwd` to ensure the mathematical engine can evaluate it natively without failing.
+- **Tests Must Be Able To Fail:** assert on *non-empty* output (an `assert` on an empty stream passes vacuously — `./run_dsl_tests.sh` fails on silent statements); pair every "no violations" test with a **negative fixture** that violates every rule; **negative-control** each new guard (break it once, watch it fail, restore). Never use `t.Logf` where an assertion belongs.
+- **Offline, Fake, Fixture:** tests for I/O-backed features use fakes and checked-in fixtures (a fake dynamic client built from `testdata/*.yaml`, `pkg/k8sgraph/k8sgraphtest`), prove live/offline **parity** by running the same prelude over both, and skip (never fail) when an optional external binary is absent.
 - **TDD (Test-Driven Design) Philosophy:** Always write tests that enforce the intended architectural purity of the code. If a pipeline expects a Tuple, assert that a native Go struct Tuple is yielded—not a formatted string. 
 - **Variety of Test Data & True Genericity:** Test across multiple generic types—primitives (`int`, `float64`, `string`), custom structs, nested collections (`List`, `HAMT`), and error branches. Never assume generic code works with only integers.
 
@@ -79,7 +81,7 @@ Lower-layer abstractions (Layers 0–4) must never remain stranded in Go API spa
 ### Official Architectural Nomenclature
 1. **Bare Runtime (`cli.NewBareInterpreter()`)**: A minimalist evaluation engine providing only host language primitives (`let`, `def`, `const`, `match`, `seq`, `emit`, `take`, `drop`, `head`, `tail`, `assert`). Builtins are disabled unless explicitly registered.
 2. **Gatwd Builtins (`cli.NewInterpreter()`)**: Features derived from Go's standard library and Gatwd core abstractions (`math`, `collections`, `adapters`, `testing`, `visualizer`, `checkpoints`, `scanner`, `net`). Enabled by default in the full interpreter.
-3. **Gatwd Editions (or Distributions)**: Standalone binary distributions (e.g., `cmd/gatwd-cloud`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, authored via the fluent `cli.NewEdition()` builder.
+3. **Gatwd Editions (or Distributions)**: Standalone binary distributions (e.g., `cmd/gatwd-cloud`, `cmd/gatwd-k8s`) that import `github.com/joergreinhardt/gatwd/pkg/cli`, authored via the fluent `cli.NewEdition()` builder. An Edition may carry an **embedded DSL prelude** (`WithPrelude`/`WithPreludeFS`) that defines its domain vocabulary and logic in `.gatwd`, and lifts any `evaluator.Adapter` to a step with `cli.AdapterStep`. The Edition `main.go` is **pure assembly** (Mandate 7).
 4. **Gatwd Appliances**: Single-purpose, self-contained release artifacts (Kubernetes Operators, HTTP/gRPC streaming servers, compliance daemons, diagnostic CLIs) authored via `cli.NewAppliance()`, compiling embedded `.gatwd` DSL rules (`//go:embed`) and supporting live ConfigMap hot-reloading.
 
 ### Ergonomic Extension Guidelines
@@ -90,6 +92,8 @@ To prevent intimidating contributors with nested Category Theory closures (`iter
 - Use **`cli.SinkStep(name, fn)`** for non-mutating side-effects (logging, telemetry).
 - Use **`cli.NewEdition(name)`** for building custom CLI distributions.
 - Use **`cli.NewAppliance(...)`** for building production-grade services and operators.
+- Use **`pkg/<domain>/` shims** (`pkg/k8sgraph`) for domain I/O wiring: construct the adapter, register it with the generic `cli.AdapterStep`, embed the prelude; zero domain logic in Go.
+- Use **`(a <+> b <+> c)`** (`arrows.Plus` → `evaluator.StepPlus`) to merge several producers into one stream; the domain only names the list.
 Raw `StepHandler` closures should only be authored when custom trampoline short-circuiting or multiplexing is explicitly required.
 
 ## 7. Exhaustive Operator-Type Matrix Completeness
@@ -109,12 +113,15 @@ Where [§6](#6-the-all-layers-through-mandate--release-architecture) demands *ve
 | `<`, `<=`, `>`, `>=` | Total / Partial Ord | primitives, `List`, `Chunk`, `Pair`, ADTs, streams (lexicographic) |
 | `union`, `intersect`, `diff` | Set algebra | `Set`, `HAMT` (keyed set) |
 
-Type rows span **persistent collections** (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `iter.Seq`), **ADTs** (`Pair`, `Either`, `Maybe`, `Variant`), and **scalar primitives** (`int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`).
+Further columns now filled: `reject`, `bimap`, `foldValue`/Foldable on `Tree`/`BST` (in-order), `member`, `length`, `head`/`tail`/`nth`, `set_*`, `hamt_*` (incl. `hamt_get_or`), `tree_*`, `bst_*`, `pair`/`fst`/`snd`, `just`/`nothing`/`either_*`, `variant`, `min`/`max`/`abs`/`compare`, and the graph read side (`graph_scc`, `graph_reachable`, `graph_shortest_path`, …) — see `pkg/cli/dslfuncs_matrix.go` and `dslfuncs_graph.go`.
+
+Type rows span **persistent collections** (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `BST`, `Graph`, `iter.Seq`), **ADTs** (`Pair`, `Either`, `Maybe`, `Variant`), and **scalar primitives** (`int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`).
 
 ### The Rules
 1. **No second-class citizens.** Never implement an operation for `List` without giving `Chunk`, `Set`, `HAMT`, `Tree`, and the eligible ADTs their corresponding algebraic implementation. `Variant` is a full ADT, not an afterthought.
 2. **Only where it is mathematically well-defined.** Skip a cell *only* when the operation is genuinely meaningless for that type (e.g. ordering on an unordered `Set`). When you skip, it must be because of the math, not because it was tedious.
-3. **A new cell is not "done" until it is complete through every layer.** The definition of done for one matrix cell is: the Go method on the type → the operator overload in `functions/operators.go` (if infix) → the evaluator transducer in `evaluator/pipeline.go` (if a stream op) → the DSL builtin in `pkg/cli/cli.go` → the self-asserting case in `tests/dsl_exhaustive_test.gatwd`.
+3. **A new cell is not "done" until it is complete through every layer.** The definition of done for one matrix cell is: the Go method on the type → the operator overload in `functions/operators.go` (if infix) → the evaluator transducer in `evaluator/pipeline.go` (if a stream op) → the DSL **step form** in `pkg/cli/cli.go` → the DSL **function form** in `pkg/cli/dslfuncs*.go` → the self-asserting cases in `tests/dsl_exhaustive_test.gatwd` (step form, and function form used inside a lambda/comprehension) → a structural Go test on the raw memory type.
+4. **Function forms are data-last, curried and type-preserving.** Register with `defn` (a `functions.Closure`), put the operated-on value last so `x |> f a` ≡ `f a x`, never stringify elements (only a HAMT key and a graph id/color are coerced), and return errors as values. Step and function form must behave identically; when they cannot, name the function differently (`graph_edges_of` step vs `graph_edge_pairs` function). Carrier dispatch is written once in `pkg/cli/valueops.go`.
 
 ### Anti-Patterns
 - **Piecemeal operator support:** adding `fold` for `List` only, leaving `Chunk`/`Set`/`HAMT`/`Tree` folds unimplemented.
@@ -123,5 +130,13 @@ Type rows span **persistent collections** (`List`, `Chunk`, `Set`, `HAMT`, `Tree
 
 This rule is enforced as **Mandate 2** in [`AGENTS.md`](AGENTS.md) and operationalized by the [`recursive-dogfood`](.agents/skills/recursive-dogfood/SKILL.md) skill.
 
+## 8. Writing gatwd (DSL) Code
 
+The embedded Kubernetes prelude and the operator rules are the style reference. In short (details and traps: [`docs/development_playbook.md` §6](docs/development_playbook.md), skill `dsl-authoring`):
 
+- **Value functions are closures**: `def add = \x y -> x + y`. They are curried, lexically scoped, usable as `add 1 2`, `map (add 10)`, `fold add 0`, `x |> add 3` (data-last). A `def` whose body is a *pipeline* is a text macro (a stream transformer) — keep those parameterless.
+- **Relations are graph→graph passes**: `fold (\_ g -> graph_add_edges [spec | …] g) graph_empty`; **rules are closures** `\g -> [ [violation, resource] | … ]` combined with `++`.
+- **Parenthesise calls inside plain list literals**; put `hamt_has_path` guards before the generator that depends on them; add nodes before edges.
+- **Prefer the function form inside lambdas**, the step form at the top of a pipe.
+- **Annotate when it documents intent**: `def inc : Int -> Int = …`. Annotations are advisory; `gatwd --check` must stay silent on committed scripts.
+- **Comment the "why"**: `--` comments state the relation or rule in domain terms and the invariants it relies on (e.g. "edges only join existing nodes").

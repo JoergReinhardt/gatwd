@@ -1,3 +1,5 @@
+> **HISTORICAL SNAPSHOT (2026-10-12).** This assessment describes the repository *before* the language roadmap, the matrix-completeness work and the Kubernetes-graph project. Several of its findings have since been fixed (matrix gaps, `conway_step`, loud errors, first-class functions, constructor matching) and the layer analysis in §4 is superseded by the corrected table in `AGENTS.md` §2 and by `internal/archtest`. Read it for method and context, not for current status.
+
 # gatwd — Aspiration vs. Reality Assessment
 
 > **Date:** 2026-10-12 · **Scope:** entire repository excluding `legacy/` (deprecated/inactive).

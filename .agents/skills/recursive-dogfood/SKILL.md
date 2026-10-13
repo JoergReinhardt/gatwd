@@ -28,7 +28,7 @@ This is a **structural integrity and language completeness pass** ensuring the c
 Gatwd maintains an explicit taxonomy of types and operators. Whenever a type or operator is touched, verify the full matrix:
 
 #### Data Types (Rows)
-- **Persistent Collections**: `List[T]`, `Chunk[T]`, `Set[T]`, `HAMT[K, V]`, `Tree[T]`, lazy streams (`iter.Seq[T]`)
+- **Persistent Collections**: `List[T]`, `Chunk[T]`, `Set[T]`, `HAMT[K, V]`, `Tree[T]`, `BST[T]`, `Graph[K, C, N, E]`, lazy streams (`iter.Seq[T]`)
 - **Algebraic Data Types (ADTs)**: `Pair[A, B]`, `Either[L, R]`, `Maybe[T]`, `Variant`
 - **Scalar Primitives**: `int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`
 
@@ -42,7 +42,9 @@ Gatwd maintains an explicit taxonomy of types and operators. Whenever a type or 
 | `==`, `!=` | Structural Equivalence | All collections (order-independent for `Set`/`HAMT`), ADTs, primitives |
 | `<`, `<=`, `>`, `>=` | Total / Partial Order | Primitives, `List`, `Chunk`, `Pair`, streams (lexicographic) |
 | `union`, `intersect`, `diff` | Set-Theoretic Algebra | `Set[T]`, `HAMT[K, V]` (keyed set), sequences |
-| `flatMap` / `bind` | Monad bind | `List`, `Maybe`, `Either`, streams |
+| `flatMap` / `bind` | Monad bind | `List`, `Chunk`, `Set`, `Maybe`, `Either`, `Variant`, streams |
+
+Each cell has a **step form** and a **curried, data-last, type-preserving function form** (`pkg/cli/dslfuncs_matrix.go`, `valueops.go`); a cell is not done until both exist and a DSL assertion uses the function form inside a lambda or comprehension.
 
 **Completeness Rule**: When introducing a new operator or type, you MUST implement all cells in the matrix where the operation is mathematically well-defined. Never implement `++` or `fold` for `List` without ensuring `Chunk`, `Set`, and `HAMT` also support their algebraic equivalents.
 
@@ -128,6 +130,14 @@ Run `go vet ./...` to guarantee no circular package imports.
 1. Update `docs/dsl_guide.md` with new operator semantics and keywords.
 2. Update `docs/components.md` with new type methods and algebraic properties.
 
+### Worked examples of dogfooding in this project (copy the pattern)
+- Three hand-copied `lookup := func(name string) …` blocks in the `map`, `filter` and `flatmap` lambda paths → one `i.graphLookup(map[string]any{param: arg})`, which also gave them user closures and builtins for free.
+- The inline `map`/`filter` step bodies → `mapStepOver(evalElem)` / `filterStepOver(keep)`, reused by closure application so inline lambdas and closures cannot diverge.
+- The O(services × pods) Kubernetes `Selects` loop → an index built *in the DSL* with `fold` + `hamt_set` + `hamt_get_or`, pinned by a semantics test first.
+- Manual lambda-text parsing → `parser.LambdaExpr` producing a first-class `functions.Closure`.
+- A relation written with a multi-argument text macro → lambda-bodied `def` closures (`k8s_workloads`, `k8s_names`).
+- **Know when not to**: a pipeline-bodied `def` stays a text macro (it is a stream transformer, not a value function); do not force it into a closure.
+
 ---
 
 ## Anti-Patterns to Avoid
@@ -137,3 +147,5 @@ Run `go vet ./...` to guarantee no circular package imports.
 - **Stranded Lower-Layer Abstractions**: Implementing a Go feature in `collections/` without wiring it to `evaluator/` and `pkg/cli/`.
 - **Cyclic Imports**: Importing a higher layer into a lower layer just to dogfood.
 - **Forced Dogfooding**: Replacing clear, simple code with over-abstracted combinators where no clarity or correctness benefit exists.
+- **Unpinned Refactors**: Dogfooding without a test that fixes the old behavior first. Write the pinning test, then replace.
+- **Silent Cells**: Leaving a matrix cell empty without a written mathematical reason in the code or the phase entry.

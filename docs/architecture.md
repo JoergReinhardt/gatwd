@@ -55,12 +55,16 @@ Because Go Generics are compile-time only and cannot evaluate user-defined dynam
 
 The project strictly follows a **one-way dependency hierarchy** (Layer $N$ imports only from Layers $0 \dots N-1$):
 
-1. **Layer 0 (`functions/`)**: Foundational algebraic types (`Either[error, any]`, `Pair`, `Option`, sequence combinators).
-2. **Layer 1 (`collections/`)**: Persistent, immutable data structures with structural sharing (`HAMT`, `List`, `Tree`, `Set`, `Map`, `Chunk`).
-3. **Layer 2 (`arrows/`, `comonads/`)**: Category theory combinators (Kleisli arrows `&&&` / `***`, Rose Tree spatial navigation).
+1. **Layer 0 (`functions/`, `dsltypes/`)**: Foundational algebraic types (`Either[error, any]`, `Pair`, `Maybe`, `Variant`), the callable values `Closure` (curried, lexically scoped) and `DSLFunc`, graph `Node`/`Edge`, sequence combinators, and the DSL's `BitFlag` type tokens.
+2. **Layer 1 (`collections/`)**: Persistent, immutable data structures with structural sharing (`HAMT`, `List`, `Tree`, `BST`, `Set`, `Map`, `Chunk`, `Graph`).
+3. **Layer 2 (`arrows/`, `comonads/`, `optics/`, `transducers/`, `transformers/`)**: Category theory combinators (Kleisli arrows `&&&` / `***` / `<+>`, Rose Tree and graph navigation, lenses/traversals, `EitherT`/`StateT`).
+   *Front end (`parser/`)* sits here physically: it imports only Layers 0–1 and is consumed by `evaluator/` and `pkg/cli/`.
 4. **Layer 3 (`evaluator/`)**: Stream execution engine, transducers (`PipelineStep`), checkpointing, performance benchmarking (`testing.B`), and diff assertions.
 5. **Layer 4 (`adapters/`)**: IO bridges mapping external systems (generalized `Scanner`, network `net.Listener` / `StepDial`, Go `fs.FS` trees) into lazy `iter.Seq` streams.
-6. **Layer 5 (`dsltypes/`, `parser/`, `visualizer/`, `pkg/cli/`)**: Language parsing, constants registry, AST nodes, and terminal visualization.
+   Also at this level: `interactive/`, `visualizer/` (terminal visualization) and `pkg/plugins/`.
+6. **Layer 5 (`pkg/cli/`, `pkg/<domain>/`, `cmd/`)**: The interpreter, builtins, Edition/Appliance builders, thin domain shims and the distribution binaries.
+
+The direction is machine-checked: `go vet ./...` rejects cycles and `internal/archtest` enforces the library-layer boundaries and the Clean Core rule (core imports only the standard library and this module and names no domain).
 
 ### 2.1 Planned: Layers 0–2 as a Standalone Functional Library
 
@@ -272,6 +276,25 @@ func main() {
     _ = res
 }
 ```
+
+---
+
+#### Archetype 4: A Domain Graph Tool (the Kubernetes reference implementation)
+The most complete example is `gatwd-k8s` (Edition) and `gatwd-k8s-operator` (Appliance). The architecture it demonstrates is the template for any domain:
+```
+adapters/kubernetes_adapter.go    live crawl  → nested-HAMT payload per resource   (client-go confined here)
+adapters/manifest_adapter.go      offline     → the SAME payload shape (YAML / kustomize build)
+pkg/k8sgraph/                     thin shim: CrawlStep/ManifestStep → generic cli.AdapterStep; ApplyEdition(e, client)
+pkg/k8sgraph/lib/k8s/*.gatwd      the logic, embedded: types, ingest, relations, queries, sources, prelude
+cmd/gatwd-k8s/                    Edition main = pure assembly
+cmd/gatwd-k8s-operator/           Appliance: edition + embedded rules/compliance.gatwd + ConfigMap hot-reload
+```
+```haskell
+-- offline and live feed the same prelude; (a <+> b <+> …) merges the crawl streams:
+spawn StrVal: ./manifests |> manifests       |> k8s_graph |> graph_shortest_path web nginx-pod
+spawn StrVal: default     |> k8s_resources   |> compliance
+```
+Relations (`Owns`, `Selects`, `RoutesTo`, `Configures`, `Mounts`, `Binds`, inferred `Calls`) and compliance rules are DSL, not Go; Go does only real I/O. Live/offline equivalence is proven by a test over a fake dynamic client rather than assumed. See [`k8s_graph_design.md`](k8s_graph_design.md) and the [Development Playbook](development_playbook.md) §5.
 
 ---
 
