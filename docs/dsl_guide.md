@@ -38,7 +38,7 @@ spawn OS: Linux |> audit_linux |> extract_ip
 `gatwd` provides immutable, natively implemented Trees designed to be graphed dynamically.
 
 * `build_tree "Root"`: Standard Rose Tree.
-* `build_bst`: Standard Binary Search Tree.
+* `build_bst`: Binary Search Tree of the stream's *values*, ordered by comparison like `sort` (`3, 1, 10, 9` is in order `1 3 9 10`, not the text order); two elements that cannot be ordered (a String and an Int) are an error naming both. The same `*BST[any]` as `bst_from`.
 * `build_btree`: N-ary chunked B-Tree.
 * `build_rbtree`: Okasaki purely functional Red-Black Tree.
 
@@ -111,9 +111,9 @@ So `const N = 5` and `const MAX_AGE = 30d` can be used inside a lambda (`map (\x
 a config value never silently becomes a value; convert it explicitly with `str_to_int` / `str_to_float` (`Maybe`) or
 `dur_parse` / `time_parse` / `date_parse`. A `const` whose value contains an operator character is an expression and is
 evaluated (`const P = +5` is `5`, `const D = 1h + 30m` a `Duration`, `const D = @2026-10-13` a `Date`); a *quoted*
-`const` value that evaluates to a time value stays the text you wrote. Operator sections read the same literals
+`const` value stays the text you wrote, whatever it would evaluate to (`const Q = "2+3"` is the String `2+3`, not `5`). Operator sections read the same literals
 (`|> + 5s`, `|> - 7d`), and a time constant is spliced into a pipeline head or step as its literal, so the line re-lexes to the
-same value. A `spawn` seed is not a literal token: for a type with no registered parser it stays text (`spawn T: 5s` seeds the String `5s`; use `emit 5s` or `let d = 5s`). A String
+same value. **Quotes are the one way to say "text"** for a spelling that is also a literal, in every position: `const Q = "2+3"`, `emit "5", 5` (the String `5`, then the Int), a spawn head `spawn S: Q`, an operator operand (`|> ++ "!"`; `|> + "5"` is an error, a String does not do arithmetic), and `-D`. On the command line the shell removes quotes before gatwd sees them, so `-D Q="2+3"` binds the text `2+3` anyway (it is not canonical) and `-D N=5` binds the Int `5`; to pass a *String that is spelled like a literal* keep the quotes in the value, `-D 'ZIP="10115"'` is the String `10115`, while `-D ZIP=10115` is the Int. Only a value that is *exactly one* quoted literal is unquoted: the interior is taken literally (no escapes), and `const J = "a" ++ "b"` is an expression, as before. An unquoted expression keeps being evaluated (`const N = 2+3` is `5`). A `spawn` seed is not a literal token: for a type with no registered parser it stays text (`spawn T: 5s` seeds the String `5s`; use `emit 5s` or `let d = 5s`). A String
 constant used inside a lambda is spliced quoted, so `const Q = "30d"` is a `String` there (it used to read as a Duration). A spawn of an **undeclared** type keeps its value as text, so declare
 the type you compute with (`type IntVal = Int`) — `x + 1` on text is an error that names both types.
 
@@ -797,7 +797,7 @@ Every operation exists in two forms. The **step form** takes literal tokens and 
 | Sequences | `length` `is_empty` `head` `tail` `nth` `reverse` `cons` `concat` `range` `member` `to_list` `to_set` |
 | Set | `set_empty` `set_add` `set_remove` `set_contains` `set_union` `set_intersect` `set_diff` `set_elements` |
 | HAMT | `hamt_empty` `hamt_from` `hamt_set` `hamt_del` `hamt_has` `hamt_get` `hamt_get_or` `hamt_path` `hamt_has_path` `hamt_keys` `hamt_values` `hamt_pairs` `hamt_merge` `hamt_diff` `hamt_intersect` `with_source` `source_of` |
-| Tree / BST | `tree_leaf` `tree_node` `tree_add_child` `tree_value` `tree_children` `tree_size` `tree_depth` `tree_flatten` `tree_member` · `bst_empty` `bst_from` `bst_insert` `bst_member` (a BST folds in order) |
+| Tree / BST | `tree_leaf` `tree_node` `tree_add_child` `tree_value` `tree_children` `tree_size` `tree_depth` `tree_flatten` `tree_member` · `bst_empty` `bst_from` `bst_insert` `bst_member` (a BST holds values ordered by comparison, so `10` follows `9`, and folds in order; `1` and `1.0` are one member; no `map`, which could break the order) |
 | Pair / Maybe / Either / Variant | `pair` `fst` `snd` `pair_swap` · `just` `nothing` `is_just` `is_nothing` `maybe_default` `maybe_fold` · `either_left` `either_right` `is_left` `is_right` `either_default` `either_fold` · `variant` `variant_tag` `variant_payload` `is_variant` |
 | Primitives | `min` `max` `abs` `negate` `compare` |
 | Containment | `subset_of sub super` — Record/HAMT key-value containment or Set membership |
