@@ -824,3 +824,26 @@ json_encode (maybe_default 0 (json_parse "[1, {\"k\": null}]")) |> assert [1,{"k
 json_encode "x" |> length |> assert 3
 ["[1]", "[2, 3]"] |> map (\s -> maybe_default 0 (map (\xs -> length xs) (json_parse s))) |> assert [1 2]
 "{\"n\": 4}" |> json_parse |> map (\d -> hamt_path "n" d) |> maybe_default 0 |> assert 4
+
+-- 97. Regular expressions (hardening W2 tier 2): Go RE2 (linear time, no backreferences), unanchored.
+-- No match is Nothing or an empty list, an invalid pattern an error. String constants and statements
+-- whose strings hold delimiters assemble correctly.
+re_match "^v[0-9]+$" "v12" |> assert true
+re_match "\\d+" "abc" |> assert false
+re_match "[(]" "f(x)" |> assert true
+maybe_default "?" (re_find "[a-z]+" "123abc456") |> assert abc
+maybe_default "?" (re_find "z" "abc") |> assert ?
+re_find_all "\\d+" "a1b22c333" |> assert [1 22 333]
+re_find_all "\\d+" "abc" |> assert []
+maybe_default [] (re_groups "(\\w+)@(\\w+)" "bob@example") |> assert [bob@example bob example]
+re_replace "(\\w+)@(\\w+)" "$2 at $1" "bob@example" |> assert example at bob
+re_replace "\\s+" " " "a   b" |> assert a b
+re_split "[,;]\\s*" "a, b;c" |> assert [a b c]
+re_quote "a.b" |> assert a\.b
+re_match (re_quote "a.b") "axb" |> assert false
+["v1", "x", "v22"] |> filter (\s -> re_match "^v\\d+$" s) |> assert [v1 v22]
+["a1", "b22"] |> map (\s -> maybe_default "" (re_find "\\d+" s)) |> assert [1 22]
+"v1.2" |> re_find "\\d+\\.\\d+" |> maybe_default "?" |> assert 1.2
+const RE97_WORD = gatwd
+str_upper RE97_WORD |> assert GATWD
+length RE97_WORD |> assert 5

@@ -310,6 +310,21 @@ bytes; the way back is explicit and partial.
 | encodings | `base64_encode`/`base64_decode` (standard, padded) · `base64url_encode`/`base64url_decode` · `hex_encode`/`hex_decode` · `url_encode s`/`url_decode s` (query escaping) — encoders return a `String`, **decoders return a `Maybe`** |
 | hashes | `sha256 b` · `md5 b` — lowercase hex `String` (md5 is a fingerprint, not a security measure) |
 
+### Regular expressions (hardening W2, tier 2)
+
+Go **RE2** syntax: the engine runs in time linear in the input, so a pattern from an untrusted source cannot cause
+catastrophic backtracking — and so there are no backreferences or lookaround (such a pattern is a compile error). Matching
+is unanchored; write `\d` as `"\\d"` in a String literal. An invalid pattern is an error naming it; *no match* is a `Maybe` or an
+empty list, never an error.
+
+| Function | Result |
+| :-- | :-- |
+| `re_match pat s` | `Bool` |
+| `re_find pat s` · `re_find_all pat s` | `Maybe String` (leftmost) · `List` of `String` |
+| `re_groups pat s` | `Maybe` of the whole match followed by each group (a group that took no part is `""`) |
+| `re_replace pat repl s` | `String`; `repl` expands `$1` / `${name}`, `$$` is a literal `$` |
+| `re_split pat s` · `re_quote s` | `List` of `String` · the pattern that matches `s` literally |
+
 ### JSON (hardening W2, tier 2)
 
 `json_parse s` reads JSON text into the **same nested shape a resource has**: an object is a `HAMT` (so `hamt_path "a.b" d`
@@ -341,7 +356,7 @@ argument is an error.
 **String literals have escapes** (D18): `\n \t \r \0 \\ \' \" \xHH \uHHHH`, the same table as `Char` literals; an unknown escape is an
 error. So `str_lines "a\nb"`, `str_split "\n" s` and `"say \"hi\""` work, a literal backslash is `"\\"`, and `show` emits text that
 lexes back to the same `String`. (This changed `"\n"` from two characters to one; no committed script was affected.)
-A let-bound `String` is spliced into a pipeline head as its quoted literal, so `let s = "a b"` then `length s` is `3`.
+A let-bound `String` or a `String` constant (`const`, `-D`) is spliced into a pipeline head as its quoted literal, so `let s = "a b"` then `length s` is `3`, and `-D NAME=bob` then `str_upper NAME` is `BOB` (both used to print nothing). Statement assembly ignores `(`, `[`, `{` inside string and `Char` literals, so a pattern such as `"("` does not swallow the next line.
 `char_to_str '\n'`.
 
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`

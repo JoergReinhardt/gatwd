@@ -1523,6 +1523,37 @@ func checkExhaustiveMatch(p *parser.Parser, stmt string, warn func(msg string)) 
 	}
 }
 
+// copyLiteral copies the String literal ("…", with backslash escapes) or the Char literal
+// ('x', '\n') that starts at runes[i] into out and returns the index of its last rune, so a
+// splitter can treat the whole literal as text. It reports false when runes[i] starts none (an
+// unterminated string is copied to the end of the line).
+func copyLiteral(runes []rune, i int, out *strings.Builder) (int, bool) {
+	switch runes[i] {
+	case '"':
+		out.WriteRune('"')
+		for j := i + 1; j < len(runes); j++ {
+			out.WriteRune(runes[j])
+			if runes[j] == '\\' && j+1 < len(runes) {
+				j++
+				out.WriteRune(runes[j])
+			} else if runes[j] == '"' {
+				return j, true
+			}
+		}
+		return len(runes) - 1, true
+	case '\'':
+		if i+2 < len(runes) && runes[i+1] != '\\' && runes[i+2] == '\'' {
+			out.WriteString(string(runes[i : i+3]))
+			return i + 2, true
+		}
+		if i+3 < len(runes) && runes[i+1] == '\\' && runes[i+3] == '\'' {
+			out.WriteString(string(runes[i : i+4]))
+			return i + 3, true
+		}
+	}
+	return 0, false
+}
+
 func splitCasesAware(line string) []string {
 	var parts []string
 	var current strings.Builder
@@ -1533,6 +1564,12 @@ func splitCasesAware(line string) []string {
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
+
+		// Delimiters and `|>` inside a String or Char literal are text, not structure.
+		if last, ok := copyLiteral(runes, i, &current); ok {
+			i = last
+			continue
+		}
 
 		if r == '(' {
 			depthParen++
@@ -1597,6 +1634,11 @@ func splitPipelineOps(line string) ([]string, []bool) {
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
+
+		if last, ok := copyLiteral(runes, i, &current); ok {
+			i = last
+			continue
+		}
 
 		if r == '(' {
 			depthParen++
@@ -1739,6 +1781,16 @@ func (i *Interpreter) textSubstitutable(k string) bool {
 	}
 	v, _ := rt.Value.UnwrapRight()
 	return scalarValue(v)
+}
+
+// constSplice is the text a constant's value is replaced by when a constant name appears as a
+// word of a pipeline head: a String as its quoted literal (a bare word would be read as an
+// undefined name, a space would split the line), anything else as its printed form.
+func constSplice(v any) string {
+	if s, ok := v.(string); ok {
+		return quoteString(s)
+	}
+	return fmt.Sprintf("%v", v)
 }
 
 // spliceText is the text a let-bound variable k (printed form v) is replaced by when it is
@@ -1960,7 +2012,7 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 		words := strings.Split(firstPart, " ")
 		for idx, w := range words {
 			if w == k {
-				words[idx] = fmt.Sprintf("%v", v)
+				words[idx] = constSplice(v)
 			}
 		}
 		firstPart = strings.Join(words, " ")
@@ -2022,7 +2074,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 			words := strings.Split(firstPart, " ")
 			for idx, w := range words {
 				if w == k {
-					words[idx] = fmt.Sprintf("%v", v)
+					words[idx] = constSplice(v)
 				}
 			}
 			firstPart = strings.Join(words, " ")
@@ -2339,29 +2391,60 @@ type logicalLine struct {
 	text string
 }
 
-// unterminatedString reports whether s ends inside a double-quoted string literal. A
-// backslash escapes the next character inside a string (so `"a\"b"` is one string), and the
-// Char literals `'"'` and `'\"'` outside a string are not a quote.
-func unterminatedString(s string) bool {
-	in := false
+// lineState is what a scan of statement text leaves open at its end: whether a double-quoted
+// string is unterminated and how many `{`, `(` and `[` are still unclosed. Delimiters inside
+// string literals and Char literals (`'('`, `'\"'`) do not count, and a backslash escapes the
+// next character inside a string, so `"a\"b"` is one string.
+type lineState struct {
+	inString                 bool
+	braces, parens, brackets int
+}
+
+// open reports whether the statement must continue on the next physical line.
+func (st lineState) open() bool {
+	return st.inString || st.braces > 0 || st.parens > 0 || st.brackets > 0
+}
+
+func scanLine(s string) lineState {
+	var st lineState
+	dec := func(n *int) {
+		if *n > 0 {
+			*n--
+		}
+	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch {
-		case in && c == '\\':
+		case st.inString && c == '\\':
 			i++
-		case in && c == '"':
-			in = false
-		case in:
+		case st.inString && c == '"':
+			st.inString = false
+		case st.inString:
 		case c == '"':
-			in = true
-		case c == '\'' && strings.HasPrefix(s[i:], `'"'`):
-			i += 2
-		case c == '\'' && strings.HasPrefix(s[i:], `'\"'`):
-			i += 3
+			st.inString = true
+		case c == '\'' && i+2 < len(s) && s[i+1] != '\\' && s[i+2] == '\'':
+			i += 2 // 'x'
+		case c == '\'' && i+3 < len(s) && s[i+1] == '\\' && s[i+3] == '\'':
+			i += 3 // '\n'
+		case c == '{':
+			st.braces++
+		case c == '}':
+			dec(&st.braces)
+		case c == '(':
+			st.parens++
+		case c == ')':
+			dec(&st.parens)
+		case c == '[':
+			st.brackets++
+		case c == ']':
+			dec(&st.brackets)
 		}
 	}
-	return in
+	return st
 }
+
+// unterminatedString reports whether s ends inside a double-quoted string literal.
+func unterminatedString(s string) bool { return scanLine(s).inString }
 
 // logicalLines splits a script into complete statements, joining physical lines
 // that continue a statement (unbalanced delimiters, an unterminated string, or a
@@ -2398,10 +2481,7 @@ func logicalLines(content string) []logicalLine {
 			strings.HasSuffix(buffer, " let") ||
 			strings.HasSuffix(buffer, " in") ||
 			strings.HasSuffix(buffer, "\\") ||
-			strings.Count(buffer, "{") > strings.Count(buffer, "}") ||
-			strings.Count(buffer, "(") > strings.Count(buffer, ")") ||
-			strings.Count(buffer, "[") > strings.Count(buffer, "]") ||
-			unterminatedString(buffer) {
+			scanLine(buffer).open() {
 			continue // Wait for next line
 		}
 

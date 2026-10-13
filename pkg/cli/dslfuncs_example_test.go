@@ -151,3 +151,15 @@ func Example_json() {
 	// web false
 	// {"a":[1,2],"b":1}
 }
+
+// Example_regex shows RE2 regular expressions: matching, extraction with groups, and
+// replacement with $1 expansion. A pattern that does not match is Nothing, not an error.
+func Example_regex() {
+	interp := cli.NewInterpreter()
+	ok := interp.EvaluateToValues(`re_match "^v[0-9]+$" "v12"`)
+	g := interp.EvaluateToValues(`maybe_default [] (re_groups "(\\w+)@(\\w+)" "bob@example")`)
+	r := interp.EvaluateToValues(`re_replace "(\\w+)@(\\w+)" "$2 at $1" "bob@example"`)
+	none := interp.EvaluateToValues(`is_just (re_find "z" "abc")`)
+	fmt.Println(ok[0], g[0], r[0], none[0])
+	// Output: true [bob@example bob example] example at bob false
+}

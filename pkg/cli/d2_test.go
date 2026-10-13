@@ -130,3 +130,26 @@ func TestCheckWarnsAboutStringPlus(t *testing.T) {
 		t.Errorf("--check must report string +, got %v", ws)
 	}
 }
+
+// A String constant (`const`, `-D`) is spliced into a pipeline head as its quoted literal: a
+// bare word would be read as an undefined name and the statement would print nothing.
+func TestStringConstantsSpliceAsLiterals(t *testing.T) {
+	in := NewInterpreter()
+	if err := in.setDefines(map[string]string{"NAME": "bob", "GREETING": "hello world", "ZIP": "01234"}); err != nil {
+		t.Fatal(err)
+	}
+	in.EvaluateScript("const LABEL = \"a b\"\nconst WORD = gatwd")
+	for src, want := range map[string]any{
+		`str_upper NAME`:     "BOB",
+		`length GREETING`:    11,
+		`str_upper GREETING`: "HELLO WORLD",
+		`length ZIP`:         5,
+		`length LABEL`:       3,
+		`str_upper WORD`:     "GATWD",
+	} {
+		got := in.evaluatePipelineStr(src)
+		if len(got) != 1 || got[0] != displayText(want) {
+			t.Errorf("%s = %v, want [%v]", src, got, want)
+		}
+	}
+}
