@@ -1411,3 +1411,74 @@ spawn S: x |> emit 7, 007, 1.50, 1.5 |> drop 1 |> collect_list |> map (\v -> v =
 -- the step forms of hamt_get/hamt_set/hamt_del read a bare time token as a value too (the key `5s` is a Duration)
 hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get 5s |> assert a
 hamt_from [[5s, "a"], [@2026-10-13, "d"]] |> hamt_get @2026-10-13 |> assert d
+
+-- 117. A quoted `const` value is always a String (hardening §5.6.2, Track N). The quotes are the one way to say "text" for a
+-- spelling that is also a literal: `const Q = "2+3"` is the text 2+3, never 5, and `"5"` is never the Int. The unquoted forms keep
+-- the canonical-literal typing (`const N = 2+3` is an expression, 5). Each position is asserted inside a lambda.
+const Q117 = "2+3"
+const R117 = "5"
+const M117 = "-5"
+const T117 = "1 < 2"
+const N117 = 2+3
+const K117 = 5
+[1, 2] |> map (\x -> Q117) |> assert [2+3 2+3]
+[1, 2] |> map (\x -> length Q117) |> assert [3 3]
+[1, 2] |> map (\x -> Q117 == "2+3") |> assert [true true]
+[1, 2] |> map (\x -> Q117 ++ "!") |> assert [2+3! 2+3!]
+[1, 2] |> map (\x -> R117 == "5") |> assert [true true]
+[1, 2] |> map (\x -> R117 == 5) |> assert [false false]
+[1, 2] |> map (\x -> M117 == "-5") |> assert [true true]
+[1, 2] |> map (\x -> T117 == "1 < 2") |> assert [true true]
+[1, 2] |> filter (\x -> Q117 == "2+3") |> assert [1 2]
+[1, 2] |> map (\x -> length (R117 ++ R117)) |> assert [2 2]
+-- the pipeline head and a step argument
+Q117 ++ "!" |> assert 2+3!
+Q117 |> length |> assert 3
+R117 |> ++ "!" |> assert 5!
+Q117 |> ++ R117 |> assert 2+35
+[10, 20] |> map (\x -> "v" ++ R117) |> assert [v5 v5]
+-- `emit` and `spawn`: a quoted token is the String, an unquoted one is typed
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v ++ "!") |> assert [2+3! 5! 5!]
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v == "5") |> assert [false true false]
+spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v == 5) |> assert [false false true]
+-- the unquoted cases, pinned: an expression is evaluated, a canonical literal is typed
+[1, 2] |> map (\x -> N117 + x) |> assert [6 7]
+[1, 2] |> map (\x -> K117 + x) |> assert [6 7]
+N117 |> assert 5
+-- the String does not do arithmetic: `x + R117` is an error (checked as text in pkg/cli/typed_tokens_test.go, an error cannot be asserted here)
+
+-- 118. A BST holds VALUES, ordered by comparison (hardening §6.3a, Track N). `bst_from`, `bst_insert`, `bst_member` and the
+-- `build_bst` step order any totally ordered value as `sort` does: the Ints 10 and 9 are in numeric order (as text 10 < 9),
+-- Strings order as text, an Int and the equal Float are one member, Lists order lexicographically. The step form and the
+-- function form build the same tree. Elements that cannot be ordered are an error naming them (pinned in pkg/cli/bst_values_test.go).
+to_list (bst_from [3, 1, 2, 10, 9]) |> assert [1 2 3 9 10]
+to_list (bst_from [10, 9, 100, 99]) |> assert [9 10 99 100]
+to_list (bst_from ["10", "9", "b", "a"]) |> assert [10 9 a b]
+to_list (bst_from [2.5, 1, 2]) |> assert [1 2 2.5]
+to_list (bst_from [1, 1.0, 1]) |> assert [1]
+to_list (bst_from [[2, 1], [1, 5], [1, 2]]) |> assert [[1 2] [1 5] [2 1]]
+-- inside a lambda and a comprehension, the elements are values: they add, they do not concatenate
+[(bst_from [3, 1, 2, 10, 9])] |> map (\t -> fold (\a x -> a + x) 0 t) |> assert [25]
+[(bst_from [3, 1, 2, 10, 9])] |> map (\t -> length (to_list t)) |> assert [5]
+[(bst_from [3, 1, 2, 10, 9])] |> map (\t -> bst_member 10 t) |> assert [true]
+[(bst_from [3, 1, 2, 10, 9])] |> map (\t -> bst_member 11 t) |> assert [false]
+[10, 9, 11] |> map (\n -> bst_member n (bst_from [3, 1, 2, 10, 9])) |> assert [true true false]
+[10, 100] |> map (\n -> to_list (bst_insert n (bst_from [3, 9]))) |> assert [[3 9 10] [3 9 100]]
+[1, 2] |> map (\n -> to_list (bst_insert "x" (bst_from ["a", "z"]))) |> assert [[a x z] [a x z]]
+[(to_list (bst_insert 5 bst_empty))] |> assert [[5]]
+-- a BST is persistent: insertion does not change the tree it was given
+let t118 = (bst_from [1, 2, 3])
+length (bst_insert 4 t118) |> assert 4
+length t118 |> assert 3
+-- the step form builds the same tree as the function form
+let s118 = spawn S: x |> emit 3, 1, 2, 10, 9 |> drop 1 |> build_bst
+to_list s118 |> assert [1 2 3 9 10]
+s118 == (bst_from [3, 1, 2, 10, 9]) |> assert true
+s118 == (bst_from [3, 1, 2, 10, 8]) |> assert false
+-- (`==` on two trees is shape-sensitive, hardening §6.3a: compare the in-order content to ask "same elements")
+[s118] |> map (\t -> to_list t == to_list (bst_from [10, 9, 3, 2, 1])) |> assert [true]
+let b118 = spawn S: x |> emit 10, 9 |> drop 1 |> build_bst
+to_list b118 |> assert [9 10]
+[10, 9, 11] |> map (\n -> bst_member n b118) |> assert [true true false]
+[b118] |> map (\t -> fold (\a x -> a + x) 0 t) |> assert [19]
+length (bst_insert 100 b118) |> assert 3

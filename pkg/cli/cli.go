@@ -2153,7 +2153,7 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		if len(colonParts) == 2 {
 			rhs := strings.TrimSpace(colonParts[1])
 			if rhs == k {
-				firstPart = colonParts[0] + ": " + constWord(v)
+				firstPart = colonParts[0] + ": " + constSplice(v)
 			}
 		} else {
 			words := strings.Split(firstPart, " ")
@@ -2371,11 +2371,16 @@ func (i *Interpreter) EvaluateLine(line string) {
 		if len(parts) == 2 {
 			constName := strings.TrimSpace(parts[0])
 			valStr := strings.TrimSpace(parts[1])
-			quoted := strings.HasPrefix(valStr, "\"")
-			valStr = strings.Trim(valStr, "\"")
+			// A quoted value is a String, whatever its text would evaluate to or read as
+			// (`const Q = "2+3"` holds the text 2+3, not 5): functions.LiteralToken's rule.
+			if text, quoted := functions.UnquoteLiteral(valStr); quoted {
+				i.invalidateCompiledCache()
+				i.Constants[constName] = text
+				return
+			}
 			i.invalidateCompiledCache()
 			if strings.Contains(valStr, "\n") {
-				i.Constants[constName] = valStr
+				i.Constants[constName] = strings.Trim(valStr, "\"") // multi-line text that is not one literal: as before
 				return
 			}
 			lookup := func(k string) (any, bool) {
@@ -2387,18 +2392,14 @@ func (i *Interpreter) EvaluateLine(line string) {
 			// If it's a compound expression, evaluate it
 			if strings.ContainsAny(valStr, "+-*/%&|<>= ") {
 				if evaluated, err := parser.EvalInfixString(valStr, lookup); err == nil {
-					if functions.IsNumeric(evaluated) || (functions.IsTemporal(evaluated) && !quoted) {
+					if functions.IsNumeric(evaluated) || functions.IsTemporal(evaluated) {
 						i.Constants[constName] = evaluated
-					} else if functions.IsTemporal(evaluated) {
-						i.Constants[constName] = valStr // a quoted value is a String, whatever it would evaluate to
 					} else {
 						i.Constants[constName] = fmt.Sprintf("%v", evaluated)
 					}
 				} else {
 					i.Constants[constName] = valStr
 				}
-			} else if quoted {
-				i.Constants[constName] = valStr
 			} else {
 				// A bare canonical literal is that value (`const N = 5`, `30d`), anything else text.
 				// (A Time or Date such as `@2026-10-13` holds a `-` and takes the expression path above.)

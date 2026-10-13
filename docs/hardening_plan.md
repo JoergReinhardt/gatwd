@@ -631,6 +631,31 @@ instead of `TemporalLiteral` in `constWord`, disabling the lambda quoting, and d
   documented "a quoted value is always a String"; only the time-valued case was fixed here. Fixing it means skipping the
   expression path for every quoted value.
 
+#### 5.6.2a T1b closure notes (Track N, 2026-10-13): a quoted value is always a String
+
+Closes T1b. Branch `hardening/n`, commit `0fadf61`.
+
+- **Root cause.** `const` stripped the quotes with `strings.Trim` and then decided with a flag; the expression path ran for any text
+  holding an operator character, so `"2+3"` was evaluated (Track I patched only the time-valued result). Quotes were not part of the
+  token rule at all: `emit "5"` kept the quotes as text, an operator operand `++ "!"` kept them too (`a"!"`), and a spawn head
+  `spawn S: Q` spliced the constant unquoted.
+- **The rule, in one place.** `functions.UnquoteLiteral` (a token that is *exactly one* double-quoted literal: no unescaped inner quote,
+  the interior taken literally, no escape processing, so a path or pattern holds what was typed) is the first test of
+  `functions.LiteralToken` (so `const`, `emit` and `-D` follow it) and of `functions.OperandValue` (operator sections). `const` returns
+  before the expression path for a quoted value; the spawn head splices a String constant with `constSplice` (quoted). Unquoted
+  tokens are unchanged: `const N = 2+3` is the Int `5` (pinned), `const B = 007` the String `007`, `const J = "a" ++ "b"` is not one
+  literal and stays an expression (`ab`).
+- **`-D` (decided, recommended option).** The shell removes quotes before the program sees them, so `-D Q="2+3"` is the value `2+3`
+  (a String since it is not canonical) and `-D N=5` an Int; keep the quotes in the value (`-D 'ZIP="10115"'`) to get a String that is
+  spelled like a literal. No flag syntax was added. Documented in the guide.
+- **Behaviour changes to know:** `emit "5"` is now the String `5` (it was the text `"5"` with quotes, a String either way);
+  `|> ++ "!"` appends `!` (it appended `"!"` with quotes); `|> + "5"` is an error (a String and an Int). No committed script
+  exercises these (the regression diff differs only in the five nondeterministic scripts; `--check` silent).
+- **Tests.** `functions.TestLiteralTokenQuotedIsString`, `cli.TestQuotedConstantIsAlwaysString` (stored value by raw type `string`,
+  every position, `-D`), DSL section 117 (inside lambdas, heads, operands, `emit`, the unquoted pins). Negative control: making
+  `UnquoteLiteral` always false fails 28 assertions and the DSL section fails on the base binary (13 errors).
+
+
 
 ---
 
@@ -845,6 +870,27 @@ Closes the §6.3 deferral (1) on the user's decision "make the step value-typed 
   (3) `set_*` step operands accept a let-bound name now (a bare word that names a variable is its value, not its text), the same resolution `set_union`/`subset_of` always had.
   (4) `subset_of` over two non-Set collections is still a pairwise `StructuralEqual` scan (O(n·m), value-typed, unchanged); the `set_intersect`/`set_diff` fallbacks over a List now build DSL Sets.
 - **Open question.** `emit 1.0` is a String (`LiteralToken` keeps a non-canonical number as text), so a Float needs a function form or a `let` list in step-form tests; that is Track I's area.
+
+**Track N follow-up (2026-10-13), closes deferral (1): `BST` holds values.** Branch `hardening/n`, commit `b627fca`.
+- **Finding.** Only the `build_bst` step produced a `BST[string]` (`%v` text, `strings.Compare`); the function forms already built a
+  `*BST[any]` ordered by `functions.Compare`, but accepted a `BST[string]` and stringified into it (`bst_insert`/`bst_member` over
+  `dslStr`), so a step-built tree behaved differently from `bst_from` (`[10, 9]` was `[10 9]`).
+- **Representation (decided, recommended option).** One type, `*collections.BST[any]`, and one implementation:
+  `collections.InsertOrdered` / `ContainsOrdered` (`collections/bst_ordered.go`, ordered by `functions.Compare`; the tree returned with an error is the
+  unchanged receiver). `StepBuildBST`, `bst_from`, `bst_insert` and `bst_member` all call them; every `BST[string]` branch (`length`, element
+  access, the function forms) is deleted. `collections.BST[T]` itself is unchanged (`BST[int]` etc. stay available to Go callers).
+- **Behaviour.** `[3, 1, 2, 10, 9]` is in order the Ints `1 2 3 9 10`; Strings order as text; an Int and the equal Float are one member
+  (`1`, `1.0`); Lists order lexicographically. Elements that cannot be ordered are an error naming both
+  (`bst_from: cannot order "a" and 1 in a BST: incomparable types: String and Int …`); `build_bst` yields that one error node and no tree.
+  `bst_member "10"` on a tree of Ints is the same error, not a quiet `false` (it used to stringify to match).
+- **Tests.** `collections` (`TestInsertOrdered*`, `ExampleInsertOrdered`), `evaluator` (`TestStepBuildBST*`, raw type), `pkg/cli`
+  (`TestBSTKeepsValuesStepAndFunctionForm`: step and function forms build `StructuralEqual` trees; `TestBSTIncomparable…`), DSL section 118
+  (function forms inside lambdas and comprehensions, then the step form). Negative controls: comparing printed text instead (12 Go failures),
+  and the base binary on section 118 (5 errors). `tour_16` (`build_bst |> visualize`) is byte-identical.
+- **Deferred / open.** (1) `==` on two trees is shape-sensitive (generic fallback): the same elements inserted in a different order are not `==`;
+  compare `to_list`. *Open question:* give a BST content equality (in-order sequence), which is what a Set-like ordered collection means. (2) `map` over a
+  BST is still an error (a Functor could break the ordering invariant; skipped for a mathematical reason). (3) `build_bst` still skips upstream error
+  nodes silently (pre-existing, not changed here). (4) There is no `to_bst`; `bst_from` is the constructor.
 
 ## 7. W4 — Node identity (D6, decided)
 

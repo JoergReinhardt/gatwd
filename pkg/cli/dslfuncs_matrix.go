@@ -227,8 +227,6 @@ func registerMatrixFuncs(m map[string]any) {
 			return c.Size(), nil
 		case *collections.BST[any]:
 			return c.Size(), nil
-		case *collections.BST[string]:
-			return c.Size(), nil
 		}
 		if l, ok := a[0].(interface{ Len() int }); ok {
 			return l.Len(), nil
@@ -635,56 +633,42 @@ func registerMatrixFuncs(m map[string]any) {
 		return false, nil
 	})
 
-	// ---- BST (ordered by functions.Compare for any, lexicographic for string) -----
+	// ---- BST (a search tree of values, ordered by functions.Compare) ----------------
 	m["bst_empty"] = any((*collections.BST[any])(nil))
-	bstInsert := func(tree any, x any) (any, error) {
-		switch t := tree.(type) {
-		case *collections.BST[string]:
-			return t.Insert(dslStr(x), strings.Compare), nil
-		case *collections.BST[any]:
-			var cerr error
-			res := t.Insert(x, func(p, q any) int {
-				c, err := compareAny(p, q)
-				if err != nil {
-					cerr = err
-				}
-				return c
-			})
-			return res, cerr
+	asBST := func(v any) (*collections.BST[any], error) {
+		t, ok := v.(*collections.BST[any])
+		if !ok {
+			return nil, fmt.Errorf("want a BST, got %T", v)
 		}
-		return nil, fmt.Errorf("want a BST, got %T", tree)
+		return t, nil
 	}
-	defn(m, "bst_insert", "x t", func(a []any) (any, error) { return bstInsert(a[1], a[0]) })
+	defn(m, "bst_insert", "x t", func(a []any) (any, error) {
+		t, err := asBST(a[1])
+		if err != nil {
+			return nil, err
+		}
+		return collections.InsertOrdered(t, a[0])
+	})
 	defn(m, "bst_from", "xs", func(a []any) (any, error) {
 		items, ok := functions.ToSliceAny(a[0])
 		if !ok {
 			return nil, fmt.Errorf("not a collection: %T", a[0])
 		}
-		var tree any = (*collections.BST[any])(nil)
+		var tree *collections.BST[any]
 		for _, it := range items {
 			var err error
-			if tree, err = bstInsert(tree, it); err != nil {
+			if tree, err = collections.InsertOrdered(tree, it); err != nil {
 				return nil, err
 			}
 		}
 		return tree, nil
 	})
 	defn(m, "bst_member", "x t", func(a []any) (any, error) {
-		switch t := a[1].(type) {
-		case *collections.BST[string]:
-			return t.Contains(dslStr(a[0]), strings.Compare), nil
-		case *collections.BST[any]:
-			var cerr error
-			ok := t.Contains(a[0], func(p, q any) int {
-				c, err := compareAny(p, q)
-				if err != nil {
-					cerr = err
-				}
-				return c
-			})
-			return ok, cerr
+		t, err := asBST(a[1])
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("want a BST, got %T", a[1])
+		return collections.ContainsOrdered(t, a[0])
 	})
 
 	// ---- Pair ----------------------------------------------------------------------

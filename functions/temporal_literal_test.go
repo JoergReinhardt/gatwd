@@ -63,3 +63,40 @@ func TestTemporalLiteralRoundTrip(t *testing.T) {
 		t.Error("an Int is not temporal")
 	}
 }
+
+// A quoted token is always the String between the quotes: the quotes are the one way to say
+// "text" for a spelling that is also a literal. An unquoted token keeps the canonical-literal
+// typing, and a token that is not exactly one quoted literal is left to the other rules.
+func TestLiteralTokenQuotedIsString(t *testing.T) {
+	for text, want := range map[string]string{
+		`"2+3"`: "2+3", `"5"`: "5", `"-5"`: "-5", `"30d"`: "30d", `"@2026-10-13"`: "@2026-10-13",
+		`"1 < 2"`: "1 < 2", `""`: "", `"a\"b"`: `a\"b`, `"x\ty"`: `x\ty`, `"a\\"`: `a\\`,
+	} {
+		got, ok := LiteralToken(text).(string)
+		if !ok || got != want {
+			t.Errorf("LiteralToken(%s) = %#v, want the String %q", text, LiteralToken(text), want)
+		}
+	}
+	// unquoted tokens keep today's typing
+	for text, kind := range map[string]string{"5": "Int", "-5": "Int", "1.5": "Float", "30d": "Duration", "@2026-10-13": "Date", "007": "String", "2+3": "String", "abc": "String"} {
+		if got := KindName(LiteralToken(text)); got != kind {
+			t.Errorf("LiteralToken(%s) is a %s, want %s", text, got, kind)
+		}
+	}
+	// not one literal: stays what the other rules make of it
+	for _, text := range []string{`"a" ++ "b"`, `"abc`, `abc"`, `"abc\"`, `"`, `"a"b"`} {
+		if s, ok := UnquoteLiteral(text); ok {
+			t.Errorf("UnquoteLiteral(%s) = %q, want not a literal", text, s)
+		}
+	}
+	// the operator-section operand follows: `++ "!"` appends !, and `+ "5"` is text (an error next to a number)
+	if got := OperandValue(OpConcat, `"!"`); got != "!" {
+		t.Errorf(`OperandValue(++, "!") = %#v`, got)
+	}
+	if got := OperandValue(OpAdd, `"5"`); got != "5" {
+		t.Errorf(`OperandValue(+, "5") = %#v, want the String`, got)
+	}
+	if got := OperandValue(OpAdd, `5`); KindName(got) != "Int" {
+		t.Errorf("OperandValue(+, 5) = %#v, want an Int", got)
+	}
+}

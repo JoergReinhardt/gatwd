@@ -161,3 +161,102 @@ func TestCheckerTypesTemporalConstants(t *testing.T) {
 		t.Errorf("want exactly two findings (AGE + 1d is fine), got:\n%s", got)
 	}
 }
+
+// A quoted `const` value is a String in every position, whatever its text would evaluate to
+// (`const Q = "2+3"` is the text 2+3, never 5). The unquoted forms keep the canonical-literal
+// typing: `const N = 2+3` is an expression and is 5.
+func TestQuotedConstantIsAlwaysString(t *testing.T) {
+	in := NewInterpreter()
+	in.EvaluateScript(strings.Join([]string{
+		`const Q = "2+3"`, `const R = "5"`, `const M = "-5"`, `const T = "1 < 2"`, `const E = ""`, `const D = "30d"`,
+		`const N = 2+3`, `const K = 5`, `const B = 007`, `const J = "a" ++ "b"`,
+	}, "\n"))
+	// the stored value, by raw Go type
+	for name, want := range map[string]string{"Q": "2+3", "R": "5", "M": "-5", "T": "1 < 2", "E": "", "D": "30d"} {
+		got, ok := in.Constants[name].(string)
+		if !ok || got != want {
+			t.Errorf("const %s = %#v, want the string %q", name, in.Constants[name], want)
+		}
+	}
+	// the unquoted cases are pinned as they were: an expression is evaluated, a canonical literal typed
+	if got := in.Constants["N"]; functions.KindName(got) != "Int" || got != 5 {
+		t.Errorf("const N = 2+3 is %#v, want the Int 5", got)
+	}
+	if got := in.Constants["K"]; functions.KindName(got) != "Int" {
+		t.Errorf("const K = 5 is %#v, want an Int", got)
+	}
+	if got, ok := in.Constants["B"].(string); !ok || got != "007" {
+		t.Errorf("const B = 007 is %#v, want the String 007", in.Constants["B"])
+	}
+	// a quoted concatenation expression is not one literal: evaluated, as before
+	if got, ok := in.Constants["J"].(string); !ok || got != "ab" {
+		t.Errorf(`const J = "a" ++ "b" is %#v, want ab`, in.Constants["J"])
+	}
+
+	// every position: bare expression, pipeline head, lambda body, step argument, emit, spawn
+	for src, want := range map[string]string{
+		`Q`:                                   "2+3",
+		`R`:                                   "5",
+		`Q ++ "!"`:                            "2+3!",
+		`R ++ "!"`:                            "5!",
+		`Q |> length`:                         "3",
+		`R |> ++ "!"`:                         "5!",
+		`Q |> ++ R`:                           "2+35",
+		`[1, 2] |> map (\x -> Q)`:             "[2+3 2+3]",
+		`[1, 2] |> map (\x -> R == "5")`:      "[true true]",
+		`[1, 2] |> map (\x -> M == "-5")`:     "[true true]",
+		`[1, 2] |> map (\x -> length Q)`:      "[3 3]",
+		`[1, 2] |> map (\x -> T == "1 < 2")`:  "[true true]",
+		`[1, 2] |> filter (\x -> Q == "2+3")`: "[1 2]",
+		`[1, 2] |> map (\x -> N + x)`:         "[6 7]",
+		`spawn S: Q |> collect_list`:          "[2+3]",
+		`spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v ++ "!")`: "[2+3! 5! 5!]",
+		`spawn S: x |> emit "2+3", "5", 5 |> drop 1 |> collect_list |> map (\v -> v == "5")`: "[false true false]",
+		`N`: "5",
+	} {
+		got := in.evaluatePipelineStr(src)
+		if len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %q, want %s", src, got, want)
+		}
+	}
+	// raw type on the value path: the String, not a number
+	for _, src := range []string{`Q`, `R`, `M`, `[1] |> map (\x -> R)`, `let v = Q in v`} {
+		vals := in.EvaluateToValues(src)
+		if len(vals) != 1 {
+			t.Errorf("%s = %v", src, vals)
+			continue
+		}
+		got := vals[0]
+		if items, ok := functions.ToSliceAny(got); ok && len(items) == 1 {
+			got = items[0]
+		}
+		if _, ok := got.(string); !ok {
+			t.Errorf("%s is %#v (%s), want a string", src, got, functions.KindName(got))
+		}
+	}
+	// the String does not do arithmetic (Mandate 6: loud, not coerced)
+	if got := in.evaluatePipelineStr(`[1] |> map (\x -> x + R)`); len(got) != 1 || !strings.Contains(got[0], "String") {
+		t.Errorf("an Int plus a quoted constant must be an error, got %v", got)
+	}
+	// `-D`: the value as the shell delivers it. Quotes that reach the program (`-D 'Q="5"'`) make a String;
+	// without them the canonical-literal rule applies, so `-D Q=5` is an Int and `-D Q=2+3` the text 2+3.
+	d := NewInterpreter()
+	if err := d.setDefines(map[string]string{"A": `"5"`, "B": "5", "C": "2+3", "E": `"2+3"`, "F": `"30d"`}); err != nil {
+		t.Fatal(err)
+	}
+	for name, kind := range map[string]string{"A": "String", "B": "Int", "C": "String", "E": "String", "F": "String"} {
+		if got := functions.KindName(d.Constants[name]); got != kind {
+			t.Errorf("-D %s is a %s (%#v), want %s", name, got, d.Constants[name], kind)
+		}
+	}
+	if d.Constants["A"] != "5" || d.Constants["E"] != "2+3" || d.Constants["F"] != "30d" {
+		t.Errorf("-D quotes must be removed, got %#v %#v %#v", d.Constants["A"], d.Constants["E"], d.Constants["F"])
+	}
+	for src, want := range map[string]string{
+		`[1] |> map (\x -> A == "5")`: "[true]", `[1] |> map (\x -> B + x)`: "[6]", `[1] |> map (\x -> E ++ "!")`: "[2+3!]",
+	} {
+		if got := d.evaluatePipelineStr(src); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %q, want %s", src, got, want)
+		}
+	}
+}

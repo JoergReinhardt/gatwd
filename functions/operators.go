@@ -662,16 +662,49 @@ func ParseCanonicalNumber(text string) (any, bool) {
 	return n, strconv.FormatInt(i, 10) == text
 }
 
+// UnquoteLiteral reports whether text, as written, is exactly one double-quoted string
+// literal, and if so returns the text between the quotes. The interior is taken literally:
+// no escape is processed (a `\"` keeps its backslash), because a script constant such as a
+// path or a pattern must hold what was typed. `"a" ++ "b"` is not one literal (an unescaped
+// quote ends the first), nor is `"abc` or `abc"`; those are expressions or plain text.
+func UnquoteLiteral(text string) (string, bool) {
+	if len(text) < 2 || text[0] != '"' || text[len(text)-1] != '"' {
+		return "", false
+	}
+	inner := text[1 : len(text)-1]
+	for k := 0; k < len(inner); k++ {
+		switch inner[k] {
+		case '\\':
+			k++ // the escaped byte cannot end the literal
+		case '"':
+			return "", false
+		}
+	}
+	// an odd run of backslashes before the closing quote escapes it: `"abc\"` is unterminated
+	if n := len(inner) - len(strings.TrimRight(inner, `\`)); n%2 == 1 {
+		return "", false
+	}
+	return inner, true
+}
+
 // LiteralToken is the value a bare literal token denotes — in `emit a, 10`, `const N = 5`
-// and `-D N=5`. One rule for every place a script writes a value without quotes: a token
-// that is a canonical literal is that value, anything else is the text.
+// and `-D N=5`. One rule for every place a script writes a value: a token written in double
+// quotes is always the String between the quotes, a token that is a canonical literal is that
+// value, anything else is the text.
 //
 // The canonical literals are numbers (ParseCanonicalNumber: `10`, `-5`, `1.5`), Durations
 // (ParseCanonicalDuration: `5s`, `1h30m`, `30d`), and Times and Dates with their `@`
 // (ParseCanonicalTemporal: `@2026-10-13`, `@2026-10-13T10:00:00Z`). Text that merely looks
 // like one but is not written canonically (`007`, `1.50`, `007s`, `+5s`) stays a String, so
 // typing a token never rewrites what the user wrote into something else.
+//
+// The quotes are the one way to say "text" for a spelling that is also a literal: `"5"`,
+// `"30d"` and `"2+3"` are Strings (UnquoteLiteral), never the number, Duration or sum they
+// resemble.
 func LiteralToken(text string) any {
+	if s, ok := UnquoteLiteral(text); ok {
+		return s
+	}
 	if n, ok := ParseCanonicalNumber(text); ok {
 		return n
 	}
@@ -688,6 +721,9 @@ func LiteralToken(text string) any {
 // `math_add 10`) into the value the operator is applied to: a numeric or time literal
 // becomes the value it spells, anything else stays the text. `++` always keeps the text.
 func OperandValue(op OpKind, text string) any {
+	if s, ok := UnquoteLiteral(text); ok {
+		return s // a quoted operand is the String between the quotes (`|> ++ "!"`, `|> + "5"` is an error)
+	}
 	if op != OpConcat {
 		if n, ok := ParseNumberLiteral(text); ok {
 			return n

@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"iter"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/collections"
@@ -224,5 +225,59 @@ func TestStepSetAndHAMTAlgebra(t *testing.T) {
 	mHamt, ok := resHamt[0].(*collections.HAMT[string, int])
 	if !ok || mHamt.Len() != 2 {
 		t.Fatalf("expected merged HAMT len=2, got %v", resHamt[0])
+	}
+}
+
+// build_bst keeps the VALUES, ordered by functions.Compare: 10 sorts after 9, and the tree is a
+// *collections.BST[any] holding the Ints themselves (it used to be a BST[string] of printed text).
+func TestStepBuildBSTKeepsValues(t *testing.T) {
+	res := runPipelineToValues([]PipelineStep[functions.Either[error, any]]{StepEmitValues(3, 1, 2, 10, 9), StepBuildBST()})
+	if len(res) != 1 {
+		t.Fatalf("want one tree, got %v", res)
+	}
+	tree, ok := res[0].(*collections.BST[any])
+	if !ok {
+		t.Fatalf("build_bst yielded %T, want *collections.BST[interface {}]", res[0])
+	}
+	var got []any
+	for v := range tree.Seq() {
+		got = append(got, v)
+	}
+	want := []any{1, 2, 3, 9, 10}
+	if len(got) != len(want) {
+		t.Fatalf("in order %#v, want %#v", got, want)
+	}
+	for k := range want {
+		if got[k] != want[k] {
+			t.Errorf("in order %#v, want the Ints %#v", got, want)
+			break
+		}
+	}
+	// Strings still order as text, and the empty stream is the empty tree
+	res = runPipelineToValues([]PipelineStep[functions.Either[error, any]]{StepEmit("b", "a"), StepBuildBST()})
+	if tree, ok := res[0].(*collections.BST[any]); !ok || tree.Size() != 2 {
+		t.Errorf("Strings: %#v", res)
+	}
+	if res = runPipelineToValues([]PipelineStep[functions.Either[error, any]]{StepEmit(), StepBuildBST()}); len(res) != 1 {
+		t.Errorf("the empty stream builds the empty tree, got %v", res)
+	}
+}
+
+// Elements that cannot be ordered end the stream in one error naming both; no tree is yielded.
+func TestStepBuildBSTIncomparableIsAnError(t *testing.T) {
+	engine := NewEngine[functions.Either[error, any]]()
+	empty := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {}
+	var errs []error
+	var trees int
+	for node := range engine.EvaluatePipeline(empty, []PipelineStep[functions.Either[error, any]]{StepEmitValues(1, "a"), StepBuildBST()}) {
+		if node.Value.IsLeft() {
+			err, _ := node.Value.UnwrapLeft()
+			errs = append(errs, err)
+		} else {
+			trees++
+		}
+	}
+	if trees != 0 || len(errs) != 1 || !strings.Contains(errs[0].Error(), `"a"`) || !strings.Contains(errs[0].Error(), "build_bst") {
+		t.Errorf("trees %d, errors %v, want one error naming build_bst and the elements", trees, errs)
 	}
 }

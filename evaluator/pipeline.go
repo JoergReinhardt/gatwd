@@ -1072,22 +1072,29 @@ func StepRoute[T any](engine *Engine[T]) PipelineStep[T] {
 	}
 }
 
-// StepBuildBST aggregates a stream of comparable strings into a Binary Search Tree
+// StepBuildBST aggregates a stream into a Binary Search Tree of its VALUES, ordered by
+// functions.Compare (collections.InsertOrdered): `[3, 1, 2, 10, 9]` in order is the Ints
+// `1 2 3 9 10`, not the text order `1 10 2 3 9`. It is the step form of the function form
+// `bst_from` and the two build the same *collections.BST[any]. Two elements that cannot be
+// ordered (a String and an Int) end the stream in one error node naming both; no tree is yielded.
 func StepBuildBST() PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-			var bst *collections.BST[string]
+			var bst *collections.BST[any]
 			var lastFlag dsltypes.BitFlag
 			for node := range stream {
 				if node.Value.IsLeft() {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				strVal := fmt.Sprintf("%v", val)
 				lastFlag = node.DSLType
 
-				cmp := func(a, b string) int { return strings.Compare(a, b) }
-				bst = bst.Insert(strVal, cmp)
+				next, err := collections.InsertOrdered(bst, val)
+				if err != nil {
+					yield(InjectError[any](fmt.Errorf("build_bst: %w", err), lastFlag))
+					return
+				}
+				bst = next
 			}
 			newNode := dsltypes.NewASTNode(functions.Right[error, any](any(bst)), lastFlag)
 			yield(newNode)

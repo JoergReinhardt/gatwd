@@ -167,6 +167,6 @@ func CanonicalKey(v any) any {
 }
 
 // KeyText is the printed form of CanonicalKey(v). It is text for display and for the few
-// places that really want a String (a graph-less path segment, a BST[string] element); it is
+// places that really want a String (a graph-less path segment, a Variant tag); it is
 // NOT an element's identity: Sets, distinct and HAMT keys use evaluator.EncodeKey.
 func KeyText(v any) string { return fmt.Sprintf("%v", CanonicalKey(v)) }
