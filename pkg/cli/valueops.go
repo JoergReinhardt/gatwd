@@ -102,6 +102,18 @@ func elementsOf(v any) ([]any, bool) {
 	return functions.ToSliceAny(v)
 }
 
+// notCarrierError reports that a value has no element structure for an action (a
+// scalar). Stream steps use it to tell "treat the value as one element" apart from a
+// genuine failure inside the element function.
+type notCarrierError struct {
+	what string
+	v    any
+}
+
+func (e *notCarrierError) Error() string {
+	return fmt.Sprintf("cannot %s a value of type %T", e.what, e.v)
+}
+
 // mapValue is the Functor action: it applies f to every element of v, rebuilding the
 // same carrier (Pair maps its second component, Either its Right, a Maybe its Just).
 func mapValue(v any, f func(any) (any, error)) (any, error) {
@@ -225,7 +237,7 @@ func mapValue(v any, f func(any) (any, error)) (any, error) {
 		}
 		return listOf(mapped), nil
 	}
-	return nil, fmt.Errorf("cannot map over a value of type %T", v)
+	return nil, &notCarrierError{what: "map over", v: v}
 }
 
 // filterValue is the Filterable action: it keeps the elements for which keep is true
@@ -304,7 +316,7 @@ func filterValue(v any, keep func(any) (bool, error)) (any, error) {
 		}
 		return listOf(kept), nil
 	}
-	return nil, fmt.Errorf("cannot filter a value of type %T", v)
+	return nil, &notCarrierError{what: "filter", v: v}
 }
 
 // foldValue is the Foldable catamorphism: a left fold of f over the elements of v
@@ -364,7 +376,7 @@ func bindValue(v any, f func(any) (any, error)) (any, error) {
 	}
 	items, ok := functions.ToSliceAny(v)
 	if !ok {
-		return nil, fmt.Errorf("cannot bind over a value of type %T", v)
+		return nil, &notCarrierError{what: "bind over", v: v}
 	}
 	out, err := flatten(items)
 	if err != nil {

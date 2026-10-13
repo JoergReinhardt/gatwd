@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -35,27 +36,75 @@ func one(t *testing.T, i *cli.Interpreter, line string) string {
 	return fmt.Sprint(vals[0])
 }
 
-// TestHowToTasks: the task definitions in tasks.gatwd (everything before its first
-// invocation) work when evaluated from a script, and select-one-task-at-a-time works by
-// running an invocation against the loaded definitions.
+// TestHowToTasks: tasks.gatwd takes the manifest path from its arguments; `main` runs every
+// task and --task selects one — through the same Run entry the command line uses, with no
+// text surgery on the script.
 func TestHowToTasks(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(howtoDir, "tasks.gatwd"))
-	if err != nil {
-		t.Fatal(err)
+	script := filepath.Join(howtoDir, "tasks.gatwd")
+	cluster := filepath.Join(howtoDir, "cluster")
+	run := func(task string, args ...string) cli.RunResult {
+		t.Helper()
+		res, err := howtoEdition().Run(cli.RunOptions{Script: script, Task: task, Args: args})
+		if err != nil {
+			t.Fatalf("task %q: %v", task, err)
+		}
+		return res
 	}
-	defs, _, _ := strings.Cut(string(raw), "\nspawn ")
-	i := howtoEdition()
-	i.EvaluateScript(defs)
+
+	if res := run("trace_to_pod", cluster); !reflect.DeepEqual(res.Lines, []string{"[nginx-svc app-pod]"}) {
+		t.Errorf("trace_to_pod = %v", res.Lines)
+	}
+	if res := run("who_configures_what", cluster); len(res.Lines) != 1 || !strings.Contains(res.Lines[0], "app-config-Configures->worker") {
+		t.Errorf("who_configures_what = %v", res.Lines)
+	}
+	if res := run("pod_count", cluster); !reflect.DeepEqual(res.Lines, []string{"1"}) {
+		t.Errorf("pod_count = %v", res.Lines)
+	}
+
+	// No --task: `main` merges the three tasks, so all three results appear.
+	res := run("", cluster)
+	if res.Task != "main" || len(res.Lines) != 3 {
+		t.Fatalf("main = %+v, want task main with 3 lines", res)
+	}
+	all := strings.Join(res.Lines, "\n")
+	for _, want := range []string{"app-config-Configures->worker", "[nginx-svc app-pod]", "1"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("main output lacks %q:\n%s", want, all)
+		}
+	}
+
+	// A task name that does not exist is an error naming the defined ones.
+	if _, err := howtoEdition().Run(cli.RunOptions{Script: script, Task: "nope", Args: []string{cluster}}); err == nil ||
+		!strings.Contains(err.Error(), "trace_to_pod") {
+		t.Errorf("unknown task: error = %v, want one listing the defined tasks", err)
+	}
+}
+
+// TestHowToTasksCommandLine builds the k8s edition and runs tasks.gatwd exactly as the
+// how-to shows: script, --task, and arguments after `--`.
+func TestHowToTasksCommandLine(t *testing.T) {
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+	bin := filepath.Join(t.TempDir(), "gatwd-k8s")
+	build := exec.Command(goBin, "build", "-o", bin, "../gatwd-k8s")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	script := filepath.Join(howtoDir, "tasks.gatwd")
 	cluster := filepath.Join(howtoDir, "cluster")
 
-	if got := one(t, i, "spawn StrVal: "+cluster+" |> trace_to_pod"); got != "[nginx-svc app-pod]" {
-		t.Errorf("trace_to_pod = %s", got)
+	out, err := exec.Command(bin, script, "--task", "trace_to_pod", "--", cluster).Output()
+	if err != nil || !strings.Contains(string(out), "∷ [nginx-svc app-pod]") {
+		t.Fatalf("--task trace_to_pod: %v\n%s", err, out)
 	}
-	if got := one(t, i, "spawn StrVal: "+cluster+" |> who_configures_what"); !strings.Contains(got, "app-config-Configures->worker") {
-		t.Errorf("who_configures_what = %s", got)
+	out, err = exec.Command(bin, script, "--", cluster).Output()
+	if err != nil || strings.Count(string(out), "∷ ") != 3 {
+		t.Fatalf("main: %v\n%s", err, out)
 	}
-	if got := one(t, i, "spawn StrVal: "+cluster+` |> graph |> fold (\_ g -> count_kind "Pod" g) 0`); got != "1" {
-		t.Errorf("count_kind Pod = %s", got)
+	if err := exec.Command(bin, script, "--task", "nope").Run(); err == nil {
+		t.Fatal("an unknown task must exit non-zero")
 	}
 }
 

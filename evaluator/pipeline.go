@@ -53,6 +53,29 @@ func StepAdapter[T any](adapter Adapter[T]) PipelineStep[T] {
 	}
 }
 
+// StepPar runs step over every incoming node concurrently on a pool of workers and
+// flattens the results into one stream (the `||>` operator). Each node is handed to
+// step as a one-element stream, so step must be a per-element transformation (map,
+// filter, an adapter, a command); a whole-stream step such as fold or sort would see
+// only singletons. Output order is non-deterministic, as for functions.ParBind.
+func StepPar[T any](step PipelineStep[T], workers int) PipelineStep[T] {
+	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
+		return functions.ParBind(stream, workers, func(node dsltypes.ASTNode[T]) iter.Seq[dsltypes.ASTNode[T]] {
+			return step(func(yield func(dsltypes.ASTNode[T]) bool) { yield(node) })
+		})
+	}
+}
+
+// ComposeSteps chains steps left to right into one step (the empty chain is identity).
+func ComposeSteps[T any](steps ...PipelineStep[T]) PipelineStep[T] {
+	return func(stream iter.Seq[dsltypes.ASTNode[T]]) iter.Seq[dsltypes.ASTNode[T]] {
+		for _, s := range steps {
+			stream = s(stream)
+		}
+		return stream
+	}
+}
+
 // StepTake returns a PipelineStep that yields at most the first n nodes of the
 // stream and then stops, truncating (potentially infinite) sequences. The type
 // parameter T is the node payload.
@@ -1806,10 +1829,14 @@ func StepEmitValues(values ...any) PipelineStep[functions.Either[error, any]] {
 
 // StepAssert checks if the incoming node's string representation matches the expected string.
 // If it fails, it yields an error node. If it passes, it yields the original node unaltered.
+// An assertion that never sees a node would pass vacuously, so a stream that ends without
+// delivering any node yields an error instead (fail loud: a broken pipeline is not a pass).
 func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			var seen bool
 			for node := range stream {
+				seen = true
 				if node.Value.IsLeft() {
 					if !yield(node) {
 						return
@@ -1841,6 +1868,9 @@ func StepAssert(expected string) PipelineStep[functions.Either[error, any]] {
 						return
 					}
 				}
+			}
+			if !seen {
+				yield(InjectError[any](fmt.Errorf("assertion on an empty stream: expected '%s' but no value arrived", expected), 0))
 			}
 		}
 	}

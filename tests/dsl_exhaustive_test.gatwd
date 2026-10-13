@@ -141,7 +141,7 @@ spawn IntVal: 0 |> emit 5, 5, 10, 10 |> drop 1 |> distinct |> collect_list |> as
 spawn StrVal: Start |> emit alpha, beta, gamma |> drop 1 |> filter bet |> assert beta
 
 -- 34. Visualizer UTF-8 Card Pipeline Formatting
-spawn StrVal: Start |> echo "TestBox" |> visualize --curved --border --border-color=yellow |> assert ╭───────────────────────╮\n│ ╰─ Type(0): "TestBox" │\n╰───────────────────────╯
+spawn StrVal: Start |> echo "TestBox" |> visualize --curved --border --border-color=yellow |> assert ╭─────────────────────╮\n│ ╰─ Type(0): TestBox │\n╰─────────────────────╯
 
 -- 35. Full Infix Arithmetic with Precedence & Division Float Promotion
 spawn FloatVal: 7 / 2 |> assert 3.5
@@ -568,3 +568,26 @@ def c2_pos = \x -> x > 0
 [1, -2, 3] |> reject (\x -> c2_pos x) |> assert [-2]
 [1, 2] |> flatmap (\x -> [x, (c2_add x 10)]) |> assert [1 11 2 12]
 [[1], [1, 2]] |> map (\x -> length x) |> assert [1 2]
+
+-- 84. Fail-loud sweep (hardening W0): a top-level let binds the REAL value, so a
+-- function form applied to a let-bound HAMT still sees a HAMT (not its `%v` text).
+let w0_h = spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt
+hamt_get "role" w0_h |> assert admin
+let w0_xs = [1, 2, 3]
+w0_xs |> map (\x -> x * 2) |> assert [2 4 6]
+-- A lambda that fails inside map/filter/fold becomes an [ERROR] node (asserted away
+-- here by the surrounding negative-control tests in pkg/cli/failloud_test.go), and a
+-- two-argument inline fold threads its accumulator through the shared closure path.
+[1, 2, 3] |> fold (\a x -> a + x) 0 |> assert 6
+[1, 2, 3] |> fold (\a x -> a * x) 1 |> assert 6
+
+-- 85. ARGS / ARG0 (hardening D4): always defined; with no `--` arguments ARGS is the empty
+-- list and ARG0 the script path (so a script can rely on them without a guard).
+length ARGS |> assert 0
+ARGS |> map (\a -> a ++ "!") |> assert []
+
+-- 86. A bare literal is a valid pipeline head (it used to yield nothing), including with a
+-- let-bound partial application.
+def lh_add = \x y -> x + y
+5 |> lh_add 1 |> assert 6
+let lh_inc = lh_add 1 in 5 |> lh_inc |> assert 6

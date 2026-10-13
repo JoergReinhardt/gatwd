@@ -10,6 +10,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -69,6 +70,7 @@ func NewBareInterpreter() *Interpreter {
 		lambdaCache:    &sync.Map{},
 		EnableBuiltins: false,
 	}
+	i.setArgs("", nil)
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
 		// Suppress REPL pause in batch mode; just return the exec adapter
 		return evaluator.EitherT(interactive.GenericExecAdapter("", flag))
@@ -237,6 +239,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 
 		// Constant Substitution
 		for k, v := range i.Constants {
+			if !scalarValue(v) {
+				continue
+			}
 			words := strings.Split(stepStr, " ")
 			for idx, w := range words {
 				if w == k {
@@ -453,41 +458,12 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			// ("filter" and "reject" are both 6 characters) with a negate flag.
 			negate := strings.HasPrefix(stepStr, "reject")
 			rawArg := strings.TrimSpace(stepStr[6:])
-			arg := rawArg
-			if strings.HasPrefix(arg, "(") && strings.HasSuffix(arg, ")") {
-				arg = strings.TrimSuffix(strings.TrimPrefix(arg, "("), ")")
-			}
-			if strings.Contains(arg, "->") {
-				parts2 := strings.SplitN(arg, "->", 2)
-				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
-				exprBody := strings.TrimSpace(parts2[1])
-
-				evalPred := func(item any, dslType dsltypes.BitFlag) bool {
-					lookup := i.graphLookup(map[string]any{varName: item})
-					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
-						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
-							if b, ok := resVal.(bool); ok {
-								return b
-							}
-						}
-					}
-					return false
-				}
-
-				// keep is evalPred, inverted for `reject`.
-				keep := evalPred
-				if negate {
-					keep = func(it any, t dsltypes.BitFlag) bool { return !evalPred(it, t) }
-				}
-
-				filterStep := filterStepOver(keep)
-				pipeline = append(pipeline, filterStep)
-			} else if pred, ok := i.closurePredicate(arg); ok {
-				keep := pred
-				if negate {
-					keep = func(it any, t dsltypes.BitFlag) bool { return !pred(it, t) }
-				}
-				pipeline = append(pipeline, filterStepOver(keep))
+			if c, ok, err := i.stepClosure(rawArg, 1); err != nil {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("%s: %w", stepStr[:6], err)))
+			} else if ok {
+				pipeline = append(pipeline, filterStepOver(closurePredicate(c, negate)))
+			} else if isLambdaText(rawArg) {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("%s: cannot use %s as a function: %v", stepStr[:6], rawArg, lambdaParseCause(rawArg))))
 			} else {
 				keyword := strings.Trim(rawArg, "\"")
 				predicate := func(val any) bool {
@@ -521,94 +497,10 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepDistinct())
 		} else if strings.HasPrefix(stepStr, "fold") {
 			op := strings.TrimSpace(stepStr[4:])
-			if strings.HasPrefix(op, "(\\") || strings.HasPrefix(op, "\\") {
-				// Custom left fold: fold (\acc x -> expr) <seed>. Threads an
-				// accumulator seeded by <seed> left-to-right over the elements,
-				// generalizing the fixed reducers (sum/product/min/max/…).
-				lamStr, seedStr := op, ""
-				if strings.HasPrefix(op, "(") {
-					depth := 0
-					for idx, r := range op {
-						if r == '(' {
-							depth++
-						} else if r == ')' {
-							depth--
-							if depth == 0 {
-								lamStr = strings.TrimSpace(op[1:idx])
-								seedStr = strings.TrimSpace(op[idx+1:])
-								break
-							}
-						}
-					}
-				}
-				lamStr = strings.TrimPrefix(lamStr, "\\")
-				lamParts := strings.SplitN(lamStr, "->", 2)
-				if len(lamParts) == 2 && len(strings.Fields(lamParts[0])) == 2 {
-					vars := strings.Fields(strings.TrimSpace(lamParts[0]))
-					accVar, xVar := vars[0], vars[1]
-					body := strings.TrimSpace(lamParts[1])
-					seedExpr := seedStr
-					foldStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-							var items []any
-							var lastFlag dsltypes.BitFlag
-							for node := range stream {
-								if node.Value.IsLeft() {
-									continue
-								}
-								v, _ := node.Value.UnwrapRight()
-								items = append(items, v)
-								lastFlag = node.DSLType
-							}
-							if len(items) == 1 {
-								if col, ok := functions.ToSliceAny(items[0]); ok {
-									items = col
-								}
-							}
-							baseLookup := func(name string) (any, bool) {
-								if rt, ok := i.RuntimeNodes[name]; ok {
-									vv, _ := rt.Value.UnwrapRight()
-									return vv, true
-								}
-								if c, ok := i.Constants[name]; ok {
-									return c, true
-								}
-								if vv, ok := i.Variables[name]; ok {
-									return vv, true
-								}
-								return i.exprFallback(name)
-							}
-							var acc any
-							if seedExpr != "" {
-								if sv, err := parser.EvalInfixString(seedExpr, baseLookup); err == nil {
-									acc = sv
-								} else {
-									acc = seedExpr
-								}
-							}
-							for _, it := range items {
-								lookup := func(name string) (any, bool) {
-									if name == accVar {
-										return acc, true
-									}
-									if name == xVar {
-										return it, true
-									}
-									return baseLookup(name)
-								}
-								if pe, err := parser.ParseInfixExpr(body); err == nil {
-									if rv, e := pe.Eval(lookup); e == nil {
-										acc = rv
-									}
-								}
-							}
-							yield(dsltypes.NewASTNode(functions.Right[error, any](acc), lastFlag))
-						}
-					}
-					pipeline = append(pipeline, foldStep)
-				}
-			} else if foldStep, ok := i.foldClosureStep(op); ok {
+			if foldStep, ok := i.foldClosureStep(op); ok {
 				pipeline = append(pipeline, foldStep)
+			} else if isLambdaText(op) {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("fold: expected a two-argument function and an optional seed (fold (\\acc x -> …) seed), got: %s", op)))
 			} else {
 				pipeline = append(pipeline, evaluator.StepFold(op))
 			}
@@ -1448,135 +1340,32 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, bimapStep)
 			}
 		} else if strings.HasPrefix(stepStr, "flatmap") {
-			// flatmap (\x -> expr): the Monad bind at the DSL level. Over a List the
-			// per-element results (themselves lists) are concatenated into one List;
-			// over a stream each element's result is flattened and emitted in turn.
-			lambda := strings.TrimSpace(stepStr[7:])
-			lambda = strings.TrimPrefix(lambda, "(")
-			lambda = strings.TrimSuffix(lambda, ")")
-			parts2 := strings.SplitN(lambda, "->", 2)
-			if len(parts2) == 2 {
-				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
-				exprBody := strings.TrimSpace(parts2[1])
-				evalElem := func(item any) any {
-					lookup := i.graphLookup(map[string]any{varName: item})
-					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
-						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
-							return resVal
-						}
-					}
-					return item
-				}
-				toElems := func(v any) []any {
-					if l, ok := v.(*collections.List[any]); ok {
-						var out []any
-						for it := range l.Seq() {
-							out = append(out, it)
-						}
-						return out
-					}
-					if seq, ok := functions.ToSliceAny(v); ok {
-						return seq
-					}
-					return []any{v}
-				}
-				flatStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
-					return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-						for node := range stream {
-							if node.Value.IsLeft() {
-								if !yield(node) {
-									return
-								}
-								continue
-							}
-							val, _ := node.Value.UnwrapRight()
-							// flatmap over a List value: concat per-element results.
-							if l, ok := val.(*collections.List[any]); ok {
-								var all []any
-								for it := range l.Seq() {
-									all = append(all, toElems(evalElem(it))...)
-								}
-								res := collections.Nil[any]()
-								for idx := len(all) - 1; idx >= 0; idx-- {
-									res = collections.Cons(all[idx], res)
-								}
-								if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
-									return
-								}
-								continue
-							}
-							// flatmap over a stream element: emit each flattened result.
-							for _, e := range toElems(evalElem(val)) {
-								if !yield(dsltypes.NewASTNode(functions.Right[error, any](e), node.DSLType)) {
-									return
-								}
-							}
-						}
-					}
-				}
-				pipeline = append(pipeline, flatStep)
+			// flatmap f: the Monad bind (bindValue) at the DSL level; a scalar stream
+			// element's result is flattened and emitted in turn.
+			arg := strings.TrimSpace(stepStr[7:])
+			if c, ok, err := i.stepClosure(arg, 1); err != nil {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("flatmap: %w", err)))
+			} else if ok {
+				pipeline = append(pipeline, flatmapStepOver(closureMapper(c)))
+			} else {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("flatmap: cannot use %q as a one-argument function", arg)))
 			}
 		} else if strings.HasPrefix(stepStr, "map") {
-			lambda := strings.TrimSpace(stepStr[3:])
-			lambda = strings.TrimPrefix(lambda, "(")
-			lambda = strings.TrimSuffix(lambda, ")")
-			parts2 := strings.SplitN(lambda, "->", 2)
-			if len(parts2) == 2 {
-				varName := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts2[0]), "\\"))
-				exprBody := strings.TrimSpace(parts2[1])
-
-				evalElem := func(item any, dslType dsltypes.BitFlag) (any, error) {
-					lookup := i.graphLookup(map[string]any{varName: item})
-					// 1. Try Infix parser
-					if parsedExpr, err := parser.ParseInfixExpr(exprBody); err == nil {
-						if resVal, errEval := parsedExpr.Eval(lookup); errEval == nil {
-							return resVal, nil
-						}
-					}
-					// 2. Try sub-pipeline evaluation
-					childInterp := &Interpreter{
-						Engine:         i.Engine,
-						EnableBuiltins: i.EnableBuiltins,
-						Funcs:          i.Funcs,
-						RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
-						Variables:      make(map[string]string),
-						Constants:      i.Constants,
-						CustomSteps:    i.CustomSteps,
-					}
-					for k, v := range i.Variables {
-						childInterp.Variables[k] = v
-					}
-					for k, v := range i.RuntimeNodes {
-						childInterp.RuntimeNodes[k] = v
-					}
-					childInterp.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](item), dslType)
-					childInterp.Variables[varName] = fmt.Sprintf("%v", item)
-
-					subParts, _ := splitPipelineAware(exprBody)
-					subPipeline := childInterp.parsePipelineSteps(subParts)
-					singleton := func(subYield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-						subYield(dsltypes.NewASTNode(functions.Right[error, any](item), dslType))
-					}
-					subRes := childInterp.Engine.EvaluatePipeline(singleton, subPipeline)
-					for r := range subRes {
-						if r.Value.IsRight() {
-							v, _ := r.Value.UnwrapRight()
-							return v, nil
-						} else {
-							err, _ := r.Value.UnwrapLeft()
-							return nil, err
-						}
-					}
-					return item, nil
+			arg := strings.TrimSpace(stepStr[3:])
+			if c, ok, err := i.stepClosure(arg, 1); err != nil {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("map: %w", err)))
+			} else if ok {
+				elem := closureMapper(c)
+				if vars, body, isLam := parseLambdaInner(strings.TrimSuffix(strings.TrimPrefix(arg, "("), ")")); isLam && isLambdaText(arg) && len(vars) == 1 {
+					elem = withPipelineFallback(elem, i.pipelineLambda(vars[0], body), body)
 				}
-
-				mapStep := mapStepOver(evalElem)
-				pipeline = append(pipeline, mapStep)
-			} else if mapper, ok := i.closureMapper(lambda); ok {
-				pipeline = append(pipeline, mapStepOver(mapper))
+				pipeline = append(pipeline, mapStepOver(elem))
+			} else if vars, body, isLam := parseLambdaInner(strings.TrimSuffix(strings.TrimPrefix(arg, "("), ")")); isLam && isLambdaText(arg) && len(vars) == 1 {
+				pipeline = append(pipeline, mapStepOver(i.pipelineLambda(vars[0], body)))
+			} else if isLambdaText(arg) {
+				pipeline = append(pipeline, i.failStep(fmt.Errorf("map: expected a one-argument function, got: %s", arg)))
 			} else {
-				targetStr := strings.TrimSpace(lambda)
-				subParts, _ := splitPipelineAware(targetStr)
+				subParts, _ := splitPipelineAware(arg)
 				subPipeline := i.parsePipelineSteps(subParts)
 				pipeline = append(pipeline, evaluator.StepMap(subPipeline, i.Engine))
 			}
@@ -1768,13 +1557,15 @@ func splitCasesAware(line string) []string {
 	return parts
 }
 
-func splitPipelineAware(line string) ([]string, bool) {
+func splitPipelineOps(line string) ([]string, []bool) {
 	var parts []string
 	var current strings.Builder
 	depthParen := 0
 	depthBrace := 0
 	depthBracket := 0
-	isParallel := false
+	// parallel[k] is true when the operator in front of parts[k] was `||>`.
+	var parallel []bool
+	nextParallel := false
 
 	runes := []rune(line)
 	for i := 0; i < len(runes); i++ {
@@ -1802,14 +1593,17 @@ func splitPipelineAware(line string) ([]string, bool) {
 		if depthParen == 0 && depthBrace == 0 && depthBracket == 0 {
 			if r == '|' && i+1 < len(runes) && runes[i+1] == '>' {
 				parts = append(parts, strings.TrimSpace(current.String()))
+				parallel = append(parallel, nextParallel)
+				nextParallel = false
 				current.Reset()
 				i++ // skip '>'
 				continue
 			} else if r == '|' && i+2 < len(runes) && runes[i+1] == '|' && runes[i+2] == '>' {
 				parts = append(parts, strings.TrimSpace(current.String()))
+				parallel = append(parallel, nextParallel)
+				nextParallel = true
 				current.Reset()
 				i += 2 // skip '|>'
-				isParallel = true
 				continue
 			}
 		}
@@ -1819,9 +1613,99 @@ func splitPipelineAware(line string) ([]string, bool) {
 
 	if current.Len() > 0 {
 		parts = append(parts, strings.TrimSpace(current.String()))
+		parallel = append(parallel, nextParallel)
 	}
 
-	return parts, isParallel
+	return parts, parallel
+}
+
+// splitPipelineAware splits a pipeline line at its top-level `|>` / `||>` operators and
+// reports whether any of them was the parallel `||>`.
+func splitPipelineAware(line string) ([]string, bool) {
+	parts, parallel := splitPipelineOps(line)
+	for _, p := range parallel {
+		if p {
+			return parts, true
+		}
+	}
+	return parts, false
+}
+
+// parallelWorkers is the worker-pool size of a `||>` step.
+const parallelWorkers = 10
+
+// pipelineStepsFor parses parts[1:] into steps. A part reached through `||>` becomes a
+// StepPar over the steps it parses to, so it runs across the stream's nodes on a
+// worker pool; the sequential case is parsed exactly as before.
+func (i *Interpreter) pipelineStepsFor(parts []string, parallel []bool) []evaluator.PipelineStep[functions.Either[error, any]] {
+	anyParallel := false
+	for k := 1; k < len(parallel); k++ {
+		anyParallel = anyParallel || parallel[k]
+	}
+	if !anyParallel {
+		return i.parsePipelineSteps(parts[1:])
+	}
+	var out []evaluator.PipelineStep[functions.Either[error, any]]
+	for k := 1; k < len(parts); k++ {
+		steps := i.parsePipelineSteps(parts[k : k+1])
+		if parallel[k] && len(steps) > 0 {
+			out = append(out, evaluator.StepPar(evaluator.ComposeSteps(steps...), parallelWorkers))
+		} else {
+			out = append(out, steps...)
+		}
+	}
+	return out
+}
+
+// letResultError turns a failed `let` right-hand side into an error: the pipeline
+// yielded no value at all, or its first result is an error value. Binding either would
+// leave later statements to fail far from the cause.
+func letResultError(name string, res []any) error {
+	if len(res) == 0 {
+		return fmt.Errorf("let %s: right-hand side yielded no value", name)
+	}
+	if e, ok := res[0].(error); ok {
+		return fmt.Errorf("let %s: %w", name, e)
+	}
+	return nil
+}
+
+// startsWithLiteral reports whether a pipeline head begins like a number or a string
+// literal, so a bare `5 |> f` or `"x" |> f` is evaluated as an expression instead of being
+// handed to Parser.Parse, which only knows `spawn` and `type` lines and would yield nothing.
+func startsWithLiteral(s string) bool {
+	if s == "" {
+		return false
+	}
+	r := rune(s[0])
+	return r == '"' || (r >= '0' && r <= '9')
+}
+
+// scalarValue reports whether v prints and re-parses losslessly as text: booleans,
+// numbers and strings (and nil). Collections, closures and other structures do not, so
+// they must reach the evaluator as values and never be spliced into pipeline text.
+func scalarValue(v any) bool {
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Invalid, reflect.Bool, reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	}
+	return false
+}
+
+// textSubstitutable reports whether the variable k may be replaced by its text in a
+// pipeline head. A name bound to a real, non-scalar value (a HAMT, list, graph, closure…)
+// must reach the expression evaluator as that value: its `%v` text is lossy, and
+// substituting it would turn `hamt_get "kind" r` into a call on a string.
+func (i *Interpreter) textSubstitutable(k string) bool {
+	rt, ok := i.RuntimeNodes[k]
+	if !ok || !rt.Value.IsRight() {
+		return true
+	}
+	v, _ := rt.Value.UnwrapRight()
+	return scalarValue(v)
 }
 
 func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -1900,7 +1784,7 @@ func (i *Interpreter) buildInitialStream(firstPart string) func(yield func(dslty
 		}
 	}
 
-	if strings.HasPrefix(firstPart, "(") || (strings.ContainsAny(firstPart, "+-*/%&|<>= ") && !strings.HasPrefix(firstPart, "emit ")) {
+	if strings.HasPrefix(firstPart, "(") || startsWithLiteral(firstPart) || (strings.ContainsAny(firstPart, "+-*/%&|<>= ") && !strings.HasPrefix(firstPart, "emit ")) {
 		val, err := parser.EvalInfixString(firstPart, lookup)
 		if err == nil {
 			flag := i.Parser.GetFlag("Variable")
@@ -1967,11 +1851,12 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 				}
 				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
 					res := i.EvaluateToValues(cleanPipeline)
-					if len(res) > 0 {
-						val := res[0]
-						i.Variables[varName] = fmt.Sprintf("%v", val)
-						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
+					if err := letResultError(varName, res); err != nil {
+						return []any{err}
 					}
+					val := res[0]
+					i.Variables[varName] = fmt.Sprintf("%v", val)
+					i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 				} else {
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
 						i.Variables[varName] = fmt.Sprintf("%v", val)
@@ -1999,14 +1884,15 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 		}
 	}
 
-	isParallel := strings.Contains(line, "||>")
-	line = strings.ReplaceAll(line, "||>", "|>")
-	parts, _ := splitPipelineAware(line)
+	parts, parallel := splitPipelineOps(line)
 
 	firstPart := parts[0]
 	if _, isVar := i.Variables[firstPart]; !isVar {
 		if _, isRt := i.RuntimeNodes[firstPart]; !isRt {
 			for k, v := range i.Variables {
+				if !i.textSubstitutable(k) {
+					continue
+				}
 				words := strings.Split(firstPart, " ")
 				for idx, w := range words {
 					if w == k {
@@ -2018,6 +1904,11 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 		}
 	}
 	for k, v := range i.Constants {
+		// A head that is exactly a constant's name resolves to the value itself (lookup),
+		// not to its text, which no parser would accept as a statement.
+		if !scalarValue(v) || strings.TrimSpace(firstPart) == k {
+			continue
+		}
 		words := strings.Split(firstPart, " ")
 		for idx, w := range words {
 			if w == k {
@@ -2029,12 +1920,8 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 
 	initialStream := i.buildInitialStream(firstPart)
 
-	pipeline := i.parsePipelineSteps(parts[1:])
+	pipeline := i.pipelineStepsFor(parts, parallel)
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
-
-	if isParallel {
-		terminalNodes = i.Engine.ParEvaluate(terminalNodes, 10)
-	}
 
 	var results []any
 	for result := range terminalNodes {
@@ -2050,12 +1937,15 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 }
 
 func (i *Interpreter) evaluatePipelineStr(line string) []string {
-	parts, isParallel := splitPipelineAware(line)
+	parts, parallel := splitPipelineOps(line)
 
 	firstPart := parts[0]
 	if _, isVar := i.Variables[firstPart]; !isVar {
 		if _, isRt := i.RuntimeNodes[firstPart]; !isRt {
 			for k, v := range i.Variables {
+				if !i.textSubstitutable(k) {
+					continue
+				}
 				words := strings.Split(firstPart, " ")
 				for idx, w := range words {
 					if w == k {
@@ -2067,6 +1957,11 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 		}
 	}
 	for k, v := range i.Constants {
+		// A head that is exactly a constant's name resolves to the value itself (lookup),
+		// not to its text, which no parser would accept as a statement.
+		if !scalarValue(v) || strings.TrimSpace(firstPart) == k {
+			continue
+		}
 		// Replace bare identifier in firstPart or after "spawn Type: IDENT"
 		colonParts := strings.SplitN(firstPart, ":", 2)
 		if len(colonParts) == 2 {
@@ -2087,28 +1982,59 @@ func (i *Interpreter) evaluatePipelineStr(line string) []string {
 
 	initialStream := i.buildInitialStream(firstPart)
 
-	pipeline := i.parsePipelineSteps(parts[1:])
+	pipeline := i.pipelineStepsFor(parts, parallel)
 	terminalNodes := i.Engine.EvaluatePipeline(initialStream, pipeline)
 
-	if isParallel {
-		terminalNodes = i.Engine.ParEvaluate(terminalNodes, 10)
-	}
-
-	var results []string
-	for node := range terminalNodes {
-		if node.Value.IsLeft() {
-			err, _ := node.Value.UnwrapLeft()
+	results := renderNodes(terminalNodes)
+	if len(results) == 0 {
+		if err := i.explainSilentStatement(line, parts); err != nil {
 			results = append(results, fmt.Sprintf("[ERROR] %v", err))
-		} else {
-			val, _ := node.Value.UnwrapRight()
-			if b, ok := val.([]byte); ok {
-				results = append(results, string(b))
-			} else {
-				results = append(results, fmt.Sprintf("%+v", val))
-			}
 		}
 	}
 	return results
+}
+
+// renderNodes drains a stream into the printed form of its nodes: `[ERROR] …` for a Left,
+// the raw text of a byte slice, and `%+v` for everything else.
+func renderNodes(nodes iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) []string {
+	var out []string
+	for node := range nodes {
+		out = append(out, renderValue(node.Value))
+	}
+	return out
+}
+
+func renderValue(v functions.Either[error, any]) string {
+	if v.IsLeft() {
+		err, _ := v.UnwrapLeft()
+		return fmt.Sprintf("[ERROR] %v", err)
+	}
+	val, _ := v.UnwrapRight()
+	if b, ok := val.([]byte); ok {
+		return string(b)
+	}
+	return fmt.Sprintf("%+v", val)
+}
+
+// explainSilentStatement reports why a single-part statement that produced nothing was
+// not understood: it is neither a declaration (`type`, `import`, `const`, `def`, `let`)
+// nor a spawn, and it does not evaluate as an infix expression. It returns nil when the
+// silence is legitimate or has no better explanation, leaving the caller's generic
+// "no output" message in place.
+func (i *Interpreter) explainSilentStatement(line string, parts []string) error {
+	line = strings.TrimSpace(line)
+	if len(parts) != 1 || line == "" || strings.HasPrefix(line, "--") {
+		return nil
+	}
+	for _, kw := range []string{"type ", "import ", "const ", "def ", "let ", "spawn ", "emit "} {
+		if strings.HasPrefix(line, kw) {
+			return nil
+		}
+	}
+	if _, err := parser.EvalInfixString(line, i.graphLookup(nil)); err != nil {
+		return fmt.Errorf("cannot evaluate %q: %w", line, err)
+	}
+	return nil
 }
 
 // RegisterConstant binds a native Go constant into the DSL environment.
@@ -2174,11 +2100,13 @@ func (i *Interpreter) EvaluateLine(line string) {
 				}
 				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
 					res := i.EvaluateToValues(cleanPipeline)
-					if len(res) > 0 {
-						val := res[0]
-						i.Variables[varName] = fmt.Sprintf("%v", val)
-						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
+					if err := letResultError(varName, res); err != nil {
+						fmt.Printf("∷ [ERROR] %v\n", err)
+						return
 					}
+					val := res[0]
+					i.Variables[varName] = fmt.Sprintf("%v", val)
+					i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 				} else {
 					// Direct infix expression evaluation
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
@@ -2233,11 +2161,13 @@ func (i *Interpreter) EvaluateLine(line string) {
 				}
 				if strings.Contains(cleanPipeline, "|>") || strings.HasPrefix(cleanPipeline, "spawn ") {
 					res := i.EvaluateToValues(cleanPipeline)
-					if len(res) > 0 {
-						val := res[0]
-						i.Variables[varName] = fmt.Sprintf("%v", val)
-						i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
+					if err := letResultError(varName, res); err != nil {
+						fmt.Printf("∷ [ERROR] %v\n", err)
+						return
 					}
+					val := res[0]
+					i.Variables[varName] = fmt.Sprintf("%v", val)
+					i.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](val), i.Parser.GetFlag("Variable"))
 				} else {
 					if val, err := parser.EvalInfixString(pipelineStr, lookup); err == nil {
 						i.Variables[varName] = fmt.Sprintf("%v", val)
@@ -2458,28 +2388,32 @@ func RunWithInterpreter(interpreter *Interpreter) {
 		os.Exit(0)
 	}
 
-	interactiveMode := len(os.Args) == 1
-	var scriptToLoad string
-	if len(os.Args) > 1 {
-		if os.Args[1] == "-i" {
-			interactiveMode = true
-			if len(os.Args) > 2 {
-				scriptToLoad = os.Args[2]
-			}
-		} else {
-			interactiveMode = false
-			scriptToLoad = os.Args[1]
+	ra, perr := parseRunArgs(os.Args[1:])
+	if perr != nil {
+		fmt.Fprintf(os.Stderr, "gatwd: %v\nusage: gatwd [-i] [--task NAME] [script] [-- arg ...]   |   gatwd --check <file.gatwd>\n", perr)
+		os.Exit(2)
+	}
+	// With nothing to run (no script, no task) the REPL is the default.
+	interactiveMode := ra.interactive || (ra.script == "" && ra.task == "")
+
+	if ra.script != "" && !interactiveMode {
+		fmt.Printf("Running Batch Mode: %s\n", ra.script)
+	}
+	result, runErr := interpreter.Run(RunOptions{Script: ra.script, Args: ra.args, Task: ra.task})
+	for _, line := range result.Lines {
+		fmt.Printf("∷ %s\n", line)
+	}
+	if result.Task != "" && len(result.Lines) == 0 {
+		fmt.Println("(No output or node unhandled)")
+	}
+	if runErr != nil {
+		fmt.Fprintf(os.Stderr, "gatwd: %v\n", runErr)
+		if !interactiveMode {
+			os.Exit(1)
 		}
 	}
-
-	if scriptToLoad != "" {
-		if !interactiveMode {
-			fmt.Printf("Running Batch Mode: %s\n", scriptToLoad)
-		}
-		interpreter.LoadScript(scriptToLoad)
-		if !interactiveMode {
-			return
-		}
+	if !interactiveMode {
+		return
 	}
 
 	fmt.Println("Running Interactive Mode. Type ':load <file>' to load a script, or 'exit' to quit.")
@@ -2709,60 +2643,78 @@ func (i *Interpreter) buildGraphLambdaStep(stepStr string) (evaluator.PipelineSt
 		}
 	case "graph_map_nodes":
 		if inside, _, ok := splitParen(rest); ok {
-			if f, ok := i.compileUnary(inside); ok {
-				return evaluator.StepGraphMapNodes(f), true
+			if c, ok := i.graphLambda(inside, 1); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					return evaluator.StepGraphMapNodes(unaryFn(c, fail))
+				}), true
 			}
 		}
 	case "graph_map_edges":
 		if inside, _, ok := splitParen(rest); ok {
-			if f, ok := i.compileUnary(inside); ok {
-				return evaluator.StepGraphMapEdges(f), true
+			if c, ok := i.graphLambda(inside, 1); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					return evaluator.StepGraphMapEdges(unaryFn(c, fail))
+				}), true
 			}
 		}
 	case "graph_bimap":
 		if in1, rest1, ok := splitParen(rest); ok {
 			if in2, _, ok := splitParen(rest1); ok {
-				fn, ok1 := i.compileUnary(in1)
-				fe, ok2 := i.compileUnary(in2)
+				cn, ok1 := i.graphLambda(in1, 1)
+				ce, ok2 := i.graphLambda(in2, 1)
 				if ok1 && ok2 {
-					return evaluator.StepGraphBimap(fn, fe), true
+					return latchedStep(func(fail errLatch) graphStep {
+						return evaluator.StepGraphBimap(unaryFn(cn, fail), unaryFn(ce, fail))
+					}), true
 				}
 			}
 		}
 	case "graph_filter_nodes":
 		if inside, _, ok := splitParen(rest); ok {
-			if p, ok := i.compilePred(inside); ok {
-				return evaluator.StepGraphFilterNodes(func(_ string, payload any) bool { return p(payload) }), true
+			if c, ok := i.graphLambda(inside, 1); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					p := predFn(c, fail)
+					return evaluator.StepGraphFilterNodes(func(_ string, payload any) bool { return p(payload) })
+				}), true
 			}
 		}
 	case "graph_filter_edges":
 		if inside, _, ok := splitParen(rest); ok {
-			if p, ok := i.compilePred(inside); ok {
-				return evaluator.StepGraphFilterEdges(func(weight any, _, _, _ string) bool { return p(weight) }), true
+			if c, ok := i.graphLambda(inside, 1); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					p := predFn(c, fail)
+					return evaluator.StepGraphFilterEdges(func(weight any, _, _, _ string) bool { return p(weight) })
+				}), true
 			}
 		}
 	case "graph_fold_nodes":
 		if inside, seedStr, ok := splitParen(rest); ok {
-			if f, ok := i.compileBinary(inside); ok {
-				return evaluator.StepGraphFoldNodes(i.evalSeed(seedStr), f), true
+			if c, ok := i.graphLambda(inside, 2); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					return evaluator.StepGraphFoldNodes(i.evalSeed(seedStr), binaryFn(c, fail))
+				}), true
 			}
 		}
 	case "graph_fold_edges":
 		if inside, seedStr, ok := splitParen(rest); ok {
-			if f, ok := i.compileBinary(inside); ok {
-				return evaluator.StepGraphFoldEdges(i.evalSeed(seedStr), f), true
+			if c, ok := i.graphLambda(inside, 2); ok {
+				return latchedStep(func(fail errLatch) graphStep {
+					return evaluator.StepGraphFoldEdges(i.evalSeed(seedStr), binaryFn(c, fail))
+				}), true
 			}
 		}
 	case "graph_fold_walk":
 		if inside, tail, ok := splitParen(rest); ok {
-			if f, ok := i.compileBinary(inside); ok {
+			if c, ok := i.graphLambda(inside, 2); ok {
 				tf := strings.Fields(tail)
 				if len(tf) >= 2 {
 					strategy := "bfs"
 					if len(tf) >= 3 {
 						strategy = tf[2]
 					}
-					return evaluator.StepGraphFoldWalk(tf[1], strategy, i.evalSeed(tf[0]), f), true
+					return latchedStep(func(fail errLatch) graphStep {
+						return evaluator.StepGraphFoldWalk(tf[1], strategy, i.evalSeed(tf[0]), binaryFn(c, fail))
+					}), true
 				}
 			}
 		}
@@ -2770,9 +2722,11 @@ func (i *Interpreter) buildGraphLambdaStep(stepStr string) (evaluator.PipelineSt
 		// graph_over <id> (\p -> expr) — focused single-node payload rewrite
 		if pidx := strings.Index(rest, "("); pidx > 0 {
 			id := strings.TrimSpace(rest[:pidx])
-			if inside, _, ok := splitParen(rest[pidx:]); ok {
-				if f, ok := i.compileUnary(inside); ok && id != "" {
-					return evaluator.StepGraphOver(id, f), true
+			if inside, _, ok := splitParen(rest[pidx:]); ok && id != "" {
+				if c, ok := i.graphLambda(inside, 1); ok {
+					return latchedStep(func(fail errLatch) graphStep {
+						return evaluator.StepGraphOver(id, unaryFn(c, fail))
+					}), true
 				}
 			}
 		}
@@ -2857,56 +2811,6 @@ func (i *Interpreter) evalSeed(s string) any {
 	return parseGraphWeight(s)
 }
 
-// compileUnary compiles a single-argument lambda body (`\x -> expr`) into a Go
-// mapper; on evaluation failure it returns the input unchanged (a safe identity).
-func (i *Interpreter) compileUnary(inside string) (func(any) any, bool) {
-	vars, body, ok := parseLambdaInner(inside)
-	if !ok || len(vars) != 1 {
-		return nil, false
-	}
-	v := vars[0]
-	return func(x any) any {
-		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{v: x})); err == nil {
-			return res
-		}
-		return x
-	}, true
-}
-
-// compilePred compiles a single-argument lambda body into a Go predicate; a
-// non-boolean or failed evaluation is treated as false.
-func (i *Interpreter) compilePred(inside string) (func(any) bool, bool) {
-	vars, body, ok := parseLambdaInner(inside)
-	if !ok || len(vars) != 1 {
-		return nil, false
-	}
-	v := vars[0]
-	return func(x any) bool {
-		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{v: x})); err == nil {
-			if b, ok := res.(bool); ok {
-				return b
-			}
-		}
-		return false
-	}, true
-}
-
-// compileBinary compiles a two-argument lambda body (`\acc x -> expr`) into a Go
-// fold step; on evaluation failure it returns the accumulator unchanged.
-func (i *Interpreter) compileBinary(inside string) (func(acc, x any) any, bool) {
-	vars, body, ok := parseLambdaInner(inside)
-	if !ok || len(vars) != 2 {
-		return nil, false
-	}
-	accName, xName := vars[0], vars[1]
-	return func(acc, x any) any {
-		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{accName: acc, xName: x})); err == nil {
-			return res
-		}
-		return acc
-	}, true
-}
-
 // parseLambdaInner splits an un-parenthesised lambda body `\v1 v2 -> expr` into its
 // bound variable names and expression body.
 func parseLambdaInner(s string) ([]string, string, bool) {
@@ -2946,10 +2850,10 @@ func splitParen(s string) (inside, rest string, ok bool) {
 }
 
 // mapStepOver lifts an element function into the polymorphic `map` pipeline step:
-// the Functor action over List, Chunk, Set, HAMT (values), Tree, Pair (snd), Maybe,
-// plain slices and, for any other value, the value itself. It is shared by the
-// inline-lambda `map` step and by closure application in pipeline position, so
-// both have identical structure-preserving semantics.
+// the Functor action (mapValue) over every carrier, and — for a scalar — the function
+// applied to the value itself. It is shared by the inline-lambda `map` step and by
+// closure application in pipeline position, and it is the stream-level twin of the
+// `map` function form. A failing element yields one error node naming that element.
 func mapStepOver(evalElem func(item any, dslType dsltypes.BitFlag) (any, error)) evaluator.PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
@@ -2961,183 +2865,36 @@ func mapStepOver(evalElem func(item any, dslType dsltypes.BitFlag) (any, error))
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-
-				// If val is a List collection:
-				if l, ok := val.(*collections.List[any]); ok {
-					var newItems []any
-					for it := range l.Seq() {
-						mVal, _ := evalElem(it, node.DSLType)
-						newItems = append(newItems, mVal)
+				res, err := mapValue(val, func(it any) (any, error) {
+					r, e := evalElem(it, node.DSLType)
+					if e != nil {
+						return nil, fmt.Errorf("map: element %v: %w", it, e)
 					}
-					resList := collections.Nil[any]()
-					for idx := len(newItems) - 1; idx >= 0; idx-- {
-						resList = collections.Cons(newItems[idx], resList)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-				if _, isList := val.(interface{ IsList() bool }); isList {
-					if seq, okSeq := functions.ToSliceAny(val); okSeq {
-						var newItems []any
-						for _, it := range seq {
-							mVal, _ := evalElem(it, node.DSLType)
-							newItems = append(newItems, mVal)
-						}
-						resList := collections.Nil[any]()
-						for idx := len(newItems) - 1; idx >= 0; idx-- {
-							resList = collections.Cons(newItems[idx], resList)
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
-							return
-						}
-						continue
+					return r, nil
+				})
+				if _, scalar := err.(*notCarrierError); scalar {
+					res, err = evalElem(val, node.DSLType)
+					if err != nil {
+						err = fmt.Errorf("map: %w", err)
 					}
 				}
-
-				// If val is a Chunk:
-				if c, ok := val.(*collections.Chunk[any]); ok {
-					resChunk := collections.NewChunk[any](c.Capacity())
-					for _, it := range c.Items() {
-						mVal, _ := evalElem(it, node.DSLType)
-						resChunk.Append(mVal)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
-						return
-					}
-					continue
+				out := dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)
+				if err != nil {
+					out = evaluator.InjectError[any](err, node.DSLType)
 				}
-				if _, isChunk := val.(interface{ IsChunk() bool }); isChunk {
-					if seq, okSeq := functions.ToSliceAny(val); okSeq {
-						resChunk := collections.NewChunk[any](len(seq))
-						for _, it := range seq {
-							mVal, _ := evalElem(it, node.DSLType)
-							resChunk.Append(mVal)
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
-							return
-						}
-						continue
-					}
-				}
-
-				// If val is a Set:
-				if _, isSet := val.(interface{ IsSet() bool }); isSet {
-					if seq, okSeq := functions.ToSliceAny(val); okSeq {
-						resSet := collections.NewSet[any]()
-						for _, it := range seq {
-							mVal, _ := evalElem(it, node.DSLType)
-							resSet = resSet.Add(mVal)
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
-							return
-						}
-						continue
-					}
-				}
-
-				// If val is a HAMT:
-				if h, ok := val.(*collections.HAMT[string, any]); ok {
-					resHamt := collections.NewHAMT[string, any]()
-					for k, v := range h.Seq() {
-						mVal, _ := evalElem(v, node.DSLType)
-						resHamt = resHamt.Set(k, mVal)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resHamt)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// If val is a Tree:
-				if tr, ok := val.(*collections.Tree[any]); ok {
-					var mapTree func(t *collections.Tree[any]) *collections.Tree[any]
-					mapTree = func(t *collections.Tree[any]) *collections.Tree[any] {
-						if t == nil {
-							return nil
-						}
-						mV, _ := evalElem(t.Value(), node.DSLType)
-						var newChList *collections.List[*collections.Tree[any]] = collections.Nil[*collections.Tree[any]]()
-						if t.Children() != nil {
-							var chs []*collections.Tree[any]
-							for c := range t.Children().Seq() {
-								chs = append(chs, mapTree(c))
-							}
-							for i := len(chs) - 1; i >= 0; i-- {
-								newChList = collections.Cons(chs[i], newChList)
-							}
-						}
-						return collections.NewTree(mV, newChList)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(mapTree(tr))), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// If val is a Pair:
-				if p, ok := val.(interface{ PairElements() (any, any) }); ok {
-					f, s := p.PairElements()
-					mS, _ := evalElem(s, node.DSLType)
-					newPair := functions.Pair[any, any]{Fst: f, Snd: mS}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newPair)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// If val is a Maybe:
-				if mb, ok := val.(interface{ MaybeValue() (any, bool) }); ok {
-					v, isJ := mb.MaybeValue()
-					if isJ {
-						mV, _ := evalElem(v, node.DSLType)
-						newMb := functions.Just(mV)
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newMb)), node.DSLType)) {
-							return
-						}
-					} else {
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)) {
-							return
-						}
-					}
-					continue
-				}
-
-				// If val is a standard Go slice:
-				if sl, okSl := val.([]any); okSl {
-					var newSl []any
-					for _, it := range sl {
-						mVal, _ := evalElem(it, node.DSLType)
-						newSl = append(newSl, mVal)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newSl)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// Scalar / individual stream node
-				resVal, errEval := evalElem(val, node.DSLType)
-				if errEval != nil {
-					if !yield(evaluator.InjectError[any](errEval, node.DSLType)) {
-						return
-					}
-				} else {
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](resVal), node.DSLType)) {
-						return
-					}
+				if !yield(out) {
+					return
 				}
 			}
 		}
 	}
 }
 
-// filterStepOver lifts a predicate into the polymorphic `filter` pipeline step over
-// List, Chunk, Set, slices, HAMT (by value), Tree (pruning subtrees) and plain
-// stream nodes. Shared by the inline-lambda `filter`/`reject` step and by closure
-// predicates, so both filter every collection identically.
-func filterStepOver(keep func(item any, dslType dsltypes.BitFlag) bool) evaluator.PipelineStep[functions.Either[error, any]] {
+// filterStepOver lifts a predicate into the polymorphic `filter` pipeline step: the
+// Filterable action (filterValue) over every carrier, and — for a scalar stream
+// node — pass or drop the node. It is shared by inline lambdas and closure predicates.
+// A predicate that fails (or is not boolean) yields an error node, never "false".
+func filterStepOver(keep func(item any, dslType dsltypes.BitFlag) (bool, error)) evaluator.PipelineStep[functions.Either[error, any]] {
 	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			for node := range stream {
@@ -3148,92 +2905,30 @@ func filterStepOver(keep func(item any, dslType dsltypes.BitFlag) bool) evaluato
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-
-				// If val is a List:
-				if l, ok := val.(*collections.List[any]); ok {
-					var kept []any
-					for it := range l.Seq() {
-						if keep(it, node.DSLType) {
-							kept = append(kept, it)
-						}
+				res, err := filterValue(val, func(it any) (bool, error) {
+					k, e := keep(it, node.DSLType)
+					if e != nil {
+						return false, fmt.Errorf("filter: element %v: %w", it, e)
 					}
-					resList := collections.Nil[any]()
-					for idx := len(kept) - 1; idx >= 0; idx-- {
-						resList = collections.Cons(kept[idx], resList)
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resList)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// If val is a Chunk:
-				if c, ok := val.(*collections.Chunk[any]); ok {
-					resChunk := collections.NewChunk[any](c.Capacity())
-					for _, it := range c.Items() {
-						if keep(it, node.DSLType) {
-							resChunk.Append(it)
-						}
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resChunk)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// If val is a Set:
-				if _, isSet := val.(interface{ IsSet() bool }); isSet {
-					if seq, okSeq := functions.ToSliceAny(val); okSeq {
-						resSet := collections.NewSet[any]()
-						for _, it := range seq {
-							if keep(it, node.DSLType) {
-								resSet = resSet.Add(it)
-							}
-						}
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(resSet)), node.DSLType)) {
+					return k, nil
+				})
+				if _, scalar := err.(*notCarrierError); scalar {
+					k, e := keep(val, node.DSLType)
+					if e != nil {
+						if !yield(evaluator.InjectError[any](fmt.Errorf("filter: %w", e), node.DSLType)) {
 							return
 						}
-						continue
-					}
-				}
-
-				// If val is a slice:
-				if sl, okSl := val.([]any); okSl {
-					var newSl []any
-					for _, it := range sl {
-						if keep(it, node.DSLType) {
-							newSl = append(newSl, it)
-						}
-					}
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(newSl)), node.DSLType)) {
+					} else if k && !yield(node) {
 						return
 					}
 					continue
 				}
-
-				// If val is a HAMT: keep entries whose value satisfies the predicate.
-				if h, ok := val.(*collections.HAMT[string, any]); ok {
-					res := h.Filter(func(_ string, v any) bool { return keep(v, node.DSLType) })
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
-						return
-					}
-					continue
+				out := dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)
+				if err != nil {
+					out = evaluator.InjectError[any](err, node.DSLType)
 				}
-
-				// If val is a Tree: prune child subtrees by the predicate.
-				if tr, ok := val.(*collections.Tree[any]); ok {
-					res := tr.Filter(func(x any) bool { return keep(x, node.DSLType) })
-					if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(res)), node.DSLType)) {
-						return
-					}
-					continue
-				}
-
-				// Stream node
-				if keep(val, node.DSLType) {
-					if !yield(node) {
-						return
-					}
+				if !yield(out) {
+					return
 				}
 			}
 		}

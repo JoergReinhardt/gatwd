@@ -209,8 +209,16 @@ func (e VarExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	if e.Name == "false" {
 		return false, nil
 	}
-	return nil, fmt.Errorf("undefined identifier: %s", e.Name)
+	return nil, &UndefinedError{Name: e.Name}
 }
+
+// UndefinedError reports an identifier that is neither bound by the lookup nor a
+// boolean literal. Callers use errors.As to tell a mere name-resolution miss (the
+// word may be a pipeline step) from an operation that was made and failed.
+type UndefinedError struct{ Name string }
+
+// Error returns "undefined identifier: <name>".
+func (e *UndefinedError) Error() string { return "undefined identifier: " + e.Name }
 
 // BinaryExpr is an interior Expr node applying operator Op to the results of its Left
 // and Right sub-expressions. Precedence and associativity are already resolved during
@@ -237,11 +245,16 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		return nil, err
 	}
 
+	var res any
 	if e.Op == functions.OpConcat {
-		return ConcatValues(l, r)
+		res, err = ConcatValues(l, r)
+	} else {
+		res, err = functions.EvalBinaryOp(e.Op, l, r)
 	}
-
-	return functions.EvalBinaryOp(e.Op, l, r)
+	if err != nil {
+		return nil, &ApplyError{Err: err}
+	}
+	return res, nil
 }
 
 // ConcatValues is the `++` Monoid operation as a Go function: it tries the native
@@ -526,8 +539,9 @@ func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	return res, nil
 }
 
-// ApplyError marks an error raised by function application itself — a non-callable
-// head or a callee that returned an error — as opposed to a lexical or name-resolution
+// ApplyError marks an error raised by an operation that was actually performed — a
+// non-callable head, a callee that returned an error, or an operator that rejected its
+// operands (`1 / 0`, `true + 1`) — as opposed to a lexical or name-resolution
 // failure (`undefined identifier`). The distinction lets the interpreter fall back
 // to other parses when an expression merely does not resolve, yet report loudly when a
 // real call was made and failed. Its message is the underlying error's.

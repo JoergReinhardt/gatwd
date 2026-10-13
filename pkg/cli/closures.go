@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"strings"
@@ -195,13 +196,21 @@ func (i *Interpreter) foldClosureStep(op string) (evaluator.PipelineStep[functio
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 			var items []any
 			var lastFlag dsltypes.BitFlag
+			upstreamFailed := false
 			for node := range stream {
 				if node.Value.IsLeft() {
+					upstreamFailed = true
+					if !yield(node) {
+						return
+					}
 					continue
 				}
 				v, _ := node.Value.UnwrapRight()
 				items = append(items, v)
 				lastFlag = node.DSLType
+			}
+			if upstreamFailed {
+				return
 			}
 			if len(items) == 1 {
 				if col, ok := functions.ToSliceAny(items[0]); ok {
@@ -239,33 +248,6 @@ func (i *Interpreter) foldClosureStep(op string) (evaluator.PipelineStep[functio
 	}, true
 }
 
-// closurePredicate resolves a filter/reject argument that is NOT an inline lambda
-// (a name or partial application such as `is_even` or `gt 3`) to a boolean
-// predicate over elements. It reports false when the expression does not evaluate
-// to a callable closure of remaining arity 1, so the keyword form is unaffected.
-func (i *Interpreter) closurePredicate(arg string) (func(any, dsltypes.BitFlag) bool, bool) {
-	expr, err := parser.ParseInfixExpr(arg)
-	if err != nil {
-		return nil, false
-	}
-	hv, err := expr.Eval(i.graphLookup(nil))
-	if err != nil {
-		return nil, false
-	}
-	c, ok := hv.(*functions.Closure)
-	if !ok || c.Arity() != 1 {
-		return nil, false
-	}
-	return func(item any, _ dsltypes.BitFlag) bool {
-		res, err := c.Apply([]any{item})
-		if err != nil {
-			return false
-		}
-		b, _ := res.(bool)
-		return b
-	}, true
-}
-
 // bindingAdapter compiles the right-hand side of an in-pipeline `let x = <rhs> in …`.
 // A lambda right-hand side is a VALUE (a Closure to bind), not a step to run on the
 // incoming node, so it is evaluated directly in the current environment; anything
@@ -283,22 +265,262 @@ func (i *Interpreter) bindingAdapter(rhs string) evaluator.Adapter[functions.Eit
 	return i.pipelineToAdapter(rhs)
 }
 
-// closureMapper resolves a `map` argument that is NOT an inline lambda — a closure
-// name or partial application such as `inc` or `add 10` — to an element function.
-// It reports false unless the expression evaluates to a closure of remaining arity 1
-// (e.g. `map (add 10)`), so sub-pipeline arguments are unaffected.
-func (i *Interpreter) closureMapper(arg string) (func(any, dsltypes.BitFlag) (any, error), bool) {
-	expr, err := parser.ParseInfixExpr(arg)
-	if err != nil {
-		return nil, false
+// isLambdaText reports whether arg is written as a lambda, optionally parenthesised.
+func isLambdaText(arg string) bool {
+	arg = strings.TrimSpace(arg)
+	return strings.HasPrefix(arg, "\\") || strings.HasPrefix(arg, "(\\")
+}
+
+// stepClosure resolves the function argument of a higher-order step (`map`, `filter`,
+// `reject`, `flatmap`) — an inline lambda, a closure name or a partial application —
+// to one *functions.Closure of the given remaining arity. This is the single
+// lambda implementation: a lambda is parsed once by parser.LambdaExpr and applied
+// through Closure.Apply, so errors inside the body reach the caller as values.
+//
+// ok=false means arg is not function-shaped (a keyword, a sub-pipeline, a
+// pipeline-bodied lambda) and the caller keeps its other readings. A non-nil err means
+// it is a lambda but cannot be used here (wrong number of parameters).
+func (i *Interpreter) stepClosure(arg string, arity int) (c *functions.Closure, ok bool, err error) {
+	expr, perr := parser.ParseInfixExpr(arg)
+	if perr != nil {
+		return nil, false, nil
 	}
-	hv, err := expr.Eval(i.graphLookup(nil))
-	if err != nil {
-		return nil, false
+	hv, eerr := expr.Eval(i.graphLookup(nil))
+	if eerr != nil {
+		return nil, false, nil
 	}
-	c, ok := hv.(*functions.Closure)
-	if !ok || c.Arity() != 1 {
-		return nil, false
+	cl, isClosure := hv.(*functions.Closure)
+	if !isClosure {
+		return nil, false, nil
 	}
-	return func(item any, _ dsltypes.BitFlag) (any, error) { return c.Apply([]any{item}) }, true
+	if cl.Arity() != arity {
+		if isLambdaText(arg) {
+			return nil, false, fmt.Errorf("function takes %d argument(s), want %d", cl.Arity(), arity)
+		}
+		return nil, false, nil
+	}
+	return cl, true, nil
+}
+
+// failStep is a pipeline step that emits one error node, used when a step cannot be
+// compiled (a bad argument) so the failure is reported where the step runs instead of
+// the step silently vanishing from the pipeline.
+func (i *Interpreter) failStep(err error) evaluator.PipelineStep[functions.Either[error, any]] {
+	return func(iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			yield(evaluator.InjectError[any](err, i.Parser.GetFlag("Variable")))
+		}
+	}
+}
+
+// closureMapper adapts a Closure to the element function mapStepOver expects.
+func closureMapper(c *functions.Closure) func(any, dsltypes.BitFlag) (any, error) {
+	return func(item any, _ dsltypes.BitFlag) (any, error) { return c.Apply([]any{item}) }
+}
+
+// closurePredicate adapts a Closure to the predicate filterStepOver expects,
+// requiring a boolean result.
+func closurePredicate(c *functions.Closure, negate bool) func(any, dsltypes.BitFlag) (bool, error) {
+	return func(item any, _ dsltypes.BitFlag) (bool, error) {
+		b, err := callPred(c, item)
+		return b != negate, err
+	}
+}
+
+// pipelineLambda compiles a lambda whose body is a pipeline rather than an infix
+// expression (`\x -> x |> step …`) into an element function: the body runs as a
+// sub-pipeline over the element, in a child interpreter that sees the current
+// bindings. A body that yields no value is an error, not the unchanged element.
+func (i *Interpreter) pipelineLambda(varName, body string) func(any, dsltypes.BitFlag) (any, error) {
+	return func(item any, dslType dsltypes.BitFlag) (any, error) {
+		child := &Interpreter{
+			Engine:         i.Engine,
+			EnableBuiltins: i.EnableBuiltins,
+			Funcs:          i.Funcs,
+			RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
+			Variables:      make(map[string]string),
+			Constants:      i.Constants,
+			CustomSteps:    i.CustomSteps,
+		}
+		for k, v := range i.Variables {
+			child.Variables[k] = v
+		}
+		for k, v := range i.RuntimeNodes {
+			child.RuntimeNodes[k] = v
+		}
+		child.RuntimeNodes[varName] = dsltypes.NewASTNode(functions.Right[error, any](item), dslType)
+		child.Variables[varName] = fmt.Sprintf("%v", item)
+
+		subParts, _ := splitPipelineAware(body)
+		subPipeline := child.parsePipelineSteps(subParts)
+		singleton := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			yield(dsltypes.NewASTNode(functions.Right[error, any](item), dslType))
+		}
+		for r := range child.Engine.EvaluatePipeline(singleton, subPipeline) {
+			if r.Value.IsRight() {
+				v, _ := r.Value.UnwrapRight()
+				return v, nil
+			}
+			err, _ := r.Value.UnwrapLeft()
+			return nil, err
+		}
+		return nil, fmt.Errorf("lambda body %q yielded no value", body)
+	}
+}
+
+// flatmapStepOver lifts an element function into the `flatmap` step: the Monad bind
+// (bindValue) over every carrier; for a scalar stream node the result is flattened
+// and each element emitted in turn.
+func flatmapStepOver(evalElem func(item any, dslType dsltypes.BitFlag) (any, error)) evaluator.PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					if !yield(node) {
+						return
+					}
+					continue
+				}
+				val, _ := node.Value.UnwrapRight()
+				res, err := bindValue(val, func(it any) (any, error) {
+					r, e := evalElem(it, node.DSLType)
+					if e != nil {
+						return nil, fmt.Errorf("flatmap: element %v: %w", it, e)
+					}
+					return r, nil
+				})
+				if _, scalar := err.(*notCarrierError); scalar {
+					r, e := evalElem(val, node.DSLType)
+					if e != nil {
+						if !yield(evaluator.InjectError[any](fmt.Errorf("flatmap: %w", e), node.DSLType)) {
+							return
+						}
+						continue
+					}
+					elems, ok := functions.ToSliceAny(r)
+					if !ok {
+						elems = []any{r}
+					}
+					for _, el := range elems {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](el), node.DSLType)) {
+							return
+						}
+					}
+					continue
+				}
+				out := dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType)
+				if err != nil {
+					out = evaluator.InjectError[any](err, node.DSLType)
+				}
+				if !yield(out) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// withPipelineFallback lets a lambda whose body is really a pipeline (`\x -> echo
+// Processing %s` parses as an infix expression, but `echo` is a step, not a value) run
+// as one: when the closure fails because the body's head word is an undefined name,
+// the sub-pipeline reading takes over, and its own failures are reported. Every other
+// failure of the closure is returned as is.
+func withPipelineFallback(primary, fallback func(any, dsltypes.BitFlag) (any, error), body string) func(any, dsltypes.BitFlag) (any, error) {
+	head := ""
+	if f := strings.Fields(body); len(f) > 0 {
+		head = f[0]
+	}
+	return func(item any, flag dsltypes.BitFlag) (any, error) {
+		res, err := primary(item, flag)
+		var undefined *parser.UndefinedError
+		if err != nil && errors.As(err, &undefined) && undefined.Name == head {
+			return fallback(item, flag)
+		}
+		return res, err
+	}
+}
+
+// lambdaParseCause explains why a lambda argument is not an expression.
+func lambdaParseCause(arg string) error {
+	_, err := parser.ParseInfixExpr(arg)
+	return err
+}
+
+// graphStep is the pipeline-step type of the graph builtins.
+type graphStep = evaluator.PipelineStep[functions.Either[error, any]]
+
+// errLatch records the first error raised by a lambda inside a graph step. The graph
+// steps in evaluator/ take error-free Go callbacks, so a failing lambda reports here
+// instead of returning its input unchanged.
+type errLatch func(error)
+
+// graphLambda resolves the text of one graph-step lambda (`\p -> expr`) to a Closure
+// of the given arity, parsed once. It reports false when the text is not such a lambda,
+// so the surrounding dispatch keeps trying other steps (and ends in "unknown step").
+func (i *Interpreter) graphLambda(inside string, arity int) (*functions.Closure, bool) {
+	c, ok, err := i.stepClosure(inside, arity)
+	return c, ok && err == nil
+}
+
+func unaryFn(c *functions.Closure, fail errLatch) func(any) any {
+	return func(x any) any {
+		r, err := c.Apply([]any{x})
+		if err != nil {
+			fail(err)
+			return x
+		}
+		return r
+	}
+}
+
+func predFn(c *functions.Closure, fail errLatch) func(any) bool {
+	return func(x any) bool {
+		b, err := callPred(c, x)
+		if err != nil {
+			fail(err)
+		}
+		return b
+	}
+}
+
+func binaryFn(c *functions.Closure, fail errLatch) func(acc, x any) any {
+	return func(acc, x any) any {
+		r, err := c.Apply([]any{acc, x})
+		if err != nil {
+			fail(err)
+			return acc
+		}
+		return r
+	}
+}
+
+// latchedStep runs the graph step built by build once per incoming node with a fresh
+// error latch. If any lambda fails while processing a node, that node's output is
+// replaced by a single error node carrying the first failure.
+func latchedStep(build func(fail errLatch) graphStep) graphStep {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				var first error
+				inner := build(func(err error) {
+					if first == nil {
+						first = err
+					}
+				})
+				single := func(y func(dsltypes.ASTNode[functions.Either[error, any]]) bool) { y(node) }
+				var out []dsltypes.ASTNode[functions.Either[error, any]]
+				for o := range inner(single) {
+					out = append(out, o)
+				}
+				if first != nil {
+					out = []dsltypes.ASTNode[functions.Either[error, any]]{evaluator.InjectError[any](first, node.DSLType)}
+				}
+				for _, o := range out {
+					if !yield(o) {
+						return
+					}
+				}
+			}
+		}
+	}
 }

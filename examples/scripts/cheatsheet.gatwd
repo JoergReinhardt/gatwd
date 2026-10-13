@@ -1,175 +1,192 @@
 -- =====================================================================
--- gatwd DSL Comprehensive Cheatsheet
+-- gatwd DSL Cheatsheet
 -- =====================================================================
--- This script demonstrates every datatype, operator, and Category Theory 
--- construct available in the Gophers All The Way Down engine.
+-- Run:    gatwd examples/scripts/cheatsheet.gatwd [-- arg ...]
+-- Check:  gatwd --check examples/scripts/cheatsheet.gatwd
+--
+-- Every statement below runs, prints one value, and (where it can) asserts it,
+-- so a regression shows up as an [ERROR] line or a missing value, never as
+-- silence. Nothing here touches the network or calls an OS command, so the
+-- output is the same on every machine. `pkg/cli/cheatsheet_test.go` runs this
+-- file on every `go test`, so it cannot drift from the language.
 -- =====================================================================
 
--- ---------------------------------------------------------------------
--- 1. Algebraic Data Types (Dynamic BitFlags)
--- ---------------------------------------------------------------------
 
--- Sum Types (OR)
--- Defines quasi-types on the fly. The Engine allocates bitflags 
--- automatically. No Go struct recompilation required!
+-- ---------------------------------------------------------------------
+-- 1. Types: sum, product and alias
+-- ---------------------------------------------------------------------
+-- Types are declared on the fly; the engine allocates their runtime flags.
 type OS = Linux | Windows | Darwin
-type Device = Mobile | Desktop | Server
-type Endpoint = Device | IoT
-
--- Product Types (Records / AND)
--- Defines strict schemas that can be targeted by Optics (Lenses).
 type NetworkConfig = { IP: String, Port: Int, Protocol: String }
-type KubePod = { Name: String, Namespace: String, Status: String }
-
-
--- ---------------------------------------------------------------------
--- 2. Spawning & The Trampoline Pipeline (|>)
--- ---------------------------------------------------------------------
-
--- 'spawn' creates the Root Node to begin graph traversal.
--- The '|>' (Pipe) operator is the Monadic Bind. It passes the stream of 
--- nodes to the next Adapter, which yields a new stream of nodes.
-basic_crawl =
-    spawn Datacenter "us-east-1"
-    |> getServers
-    |> filter (\s -> s.OS == "Linux")
-    |> getRunningContainers
-
-
--- ---------------------------------------------------------------------
--- 3. Parallel Execution (||>)
--- ---------------------------------------------------------------------
-
--- The '||>' operator utilizes the ParBind Worker Pool. 
--- Instead of evaluating the stream sequentially, it fans out across 
--- hundreds of goroutines concurrently!
-mass_audit =
-    spawn Datacenter "eu-central-1"
-    |> getServers
-    ||> runHeavySecurityScan
-
-
--- ---------------------------------------------------------------------
--- 4. Transducers (Stream Boundaries)
--- ---------------------------------------------------------------------
-
--- Because the pipeline is an infinite, lazy `iter.Seq` trampoline, 
--- you can safely query infinite graphs by bounding them with 'take' or 'drop'.
-sample_logs =
-    spawn KubeCluster "prod"
-    |> getPods
-    |> getLogs          -- Adapter might return 1,000,000 log lines!
-    |> drop 100         -- Skip the first 100
-    |> take 5           -- Stop evaluating after finding 5. Prevents OOM!
-
-
--- ---------------------------------------------------------------------
--- 5. Arrows (Kleisli Split & Fan-Out)
--- ---------------------------------------------------------------------
-
--- The '&&&' operator routes a single incoming Node into TWO different 
--- Adapters concurrently, returning a Pair/Tuple of both results.
-monitor_node =
-    spawn Server "db-primary"
-    |> (getSyslogs &&& getPrometheusMetrics)
-
-
--- ---------------------------------------------------------------------
--- 6. Zipping Streams
--- ---------------------------------------------------------------------
-
--- 'zip' joins the current stream with the results of a secondary adapter.
-paired_data =
-    spawn Server "web-01"
-    |> getProcesses
-    |> zip getNetworkSockets
-
-
--- ---------------------------------------------------------------------
--- 7. Zippers (Comonadic Navigation)
--- ---------------------------------------------------------------------
-
--- Zippers provide O(1) cursor movement across the AST graph. 
--- Useful in the Interactive REPL to explore unknown JSON/YAML structures.
-explore_ast =
-    spawn KubePod "nginx"
-    |> down             -- Move cursor to child (e.g., Containers array)
-    |> right            -- Move cursor to next sibling
-    |> extract          -- Comonad Extract: Yield the focused value
-
-
--- ---------------------------------------------------------------------
--- 8. Optics (Lenses)
--- ---------------------------------------------------------------------
-
--- Optics provide deep structural immutability. 
--- 'focus' acts as a Lens Get. 'update' acts as a Lens Set.
-read_ip =
-    spawn NetworkConfig "eth0"
-    |> focus IP
-
-patch_config =
-    spawn NetworkConfig "eth0"
-    |> update { NetworkConfig.Port: 8080 }  -- Yields a BRAND NEW immutable node
-
-
--- ---------------------------------------------------------------------
--- 9. Compliance Auditing (EitherT Monad Transformer)
--- ---------------------------------------------------------------------
-
--- 'expect' is an auditing gate. If a node fails the expectation, it is 
--- transformed into an explicit `Either.Left` Error Node, safely bypassing 
--- subsequent adapters but alerting the terminal.
-compliance_check =
-    spawn KubeCluster "prod-01"
-    |> getPods
-    |> expect "is_non_root" "CRITICAL: Pod is running as root!"
-    |> getLogs          -- The 'getLogs' adapter will automatically BYPASS the Error node!
-
-
--- ---------------------------------------------------------------------
--- 10. Infix Arithmetic & Operator Sections
--- ---------------------------------------------------------------------
-
--- Full operator precedence, true division (/), BigInt overflow protection,
--- and Haskell-style operator sections:
-math_pipeline =
-    spawn IntVal: 10
-    |> * 5
-    |> / 2              -- True division yields 25.0
-    |> + 10
-
-
--- ---------------------------------------------------------------------
--- 11. List Comprehensions & Functional Quicksort
--- ---------------------------------------------------------------------
-
--- Declarative Haskell-style list comprehensions over collections:
+type IntVal = Int
+type StrVal = String
 type IntList = List(Int)
+
+
+-- ---------------------------------------------------------------------
+-- 2. Pipelines: spawn, |>, literal heads
+-- ---------------------------------------------------------------------
+-- `spawn Type: value` creates the first node; `|>` binds it to the next step.
+-- Any expression is a valid head, including a bare literal.
+spawn IntVal: 10 |> + 5 |> * 2 |> assert 30
+5 |> + 1 |> assert 6
+"gatwd" |> map (\s -> s ++ "!") |> assert gatwd!
+
+
+-- ---------------------------------------------------------------------
+-- 3. Operators and literals
+-- ---------------------------------------------------------------------
+-- Usual precedence. `/` is true division, `//` integer division, `%` modulo.
+-- `+` is arithmetic; `++` concatenates (strings, lists, sets, maps, graphs).
+2 + 3 * 4
+10 / 4
+10 // 4
+10 % 4
+"abc" ++ "def"
+[1, 2] ++ [3]
+-- Integer overflow promotes to big integers instead of wrapping.
+
+
+-- ---------------------------------------------------------------------
+-- 4. Parallel pipes (||>)
+-- ---------------------------------------------------------------------
+-- `||>` fans the NEXT per-element step out over a worker pool. Output order
+-- is not guaranteed, so use it for independent work (scans, lookups).
+[1, 2, 3] ||> map (\x -> x * x)
+
+
+-- ---------------------------------------------------------------------
+-- 5. Transducers: bounding and slicing streams
+-- ---------------------------------------------------------------------
+-- The spawn node is the first element of the stream, so `drop 1` removes it.
+spawn IntVal: 0 |> emit 10, 20, 30, 40 |> drop 1 |> take 2 |> collect_list |> assert [10 20]
+spawn IntVal: 0 |> emit 10, 20, 30, 40 |> drop 1 |> chunk 2 |> head
+
+
+-- ---------------------------------------------------------------------
+-- 6. Arrows: fan-out (&&&), split (***) and choice (<+>)
+-- ---------------------------------------------------------------------
+-- `&&&` sends ONE node through two branches and pairs the results.
+spawn IntVal: 10 |> (math_add 10 &&& math_add 20) |> format_tuple "%v,%v" |> assert 20,30
+-- `***` applies a different branch to each component of a pair.
+spawn IntVal: 10 |> (math_add 10 &&& math_add 20) |> [math_add 10 *** math_add 10] |> format_tuple "%v,%v" |> assert 30,40
+-- `<+>` merges several sub-pipelines into ONE stream.
+spawn IntVal: 5 |> (math_add 1 <+> math_add 10 <+> math_add 100) |> collect_list |> assert [6 15 105]
+
+
+-- ---------------------------------------------------------------------
+-- 7. Closures, currying and function forms
+-- ---------------------------------------------------------------------
+-- A lambda-bodied `def` is a curried function value with lexical scope.
+def add = \x y -> x + y
+def compose = \f g x -> f (g x)
+add 1 2
+(add 10) 5
+(compose (add 1) (add 2)) 3
+-- Data-last: `x |> f a` is `f a x`, so partial application slots into a pipe.
+5 |> add 1 |> assert 6
+[1, 2, 3] |> map (add 10) |> assert [11 12 13]
+[1, 2, 3] |> fold add 0 |> assert 6
+-- A let-bound partial application is a first-class function too.
+let inc = add 1 in 5 |> inc |> assert 6
+-- Every step has a function form usable inside lambdas and comprehensions.
+map (add 100) [1, 2]
+filter (\x -> x > 1) [1, 2, 3]
+fold add 0 [1, 2, 3]
+length [10, 20, 30]
+
+
+-- ---------------------------------------------------------------------
+-- 8. Collections: lists, comprehensions, sets, maps, trees
+-- ---------------------------------------------------------------------
+[x * x | x <- [1, 2, 3, 4], x > 1] |> assert [4 9 16]
+[[a, b] | a <- [1, 2], b <- [10, 20]] |> assert [[1 10] [1 20] [2 10] [2 20]]
+[1, 2, 3] |> flatmap (\x -> [x, x * 10]) |> assert [1 10 2 20 3 30]
+[1, 2, 3, 4] |> reject (\x -> x % 2 == 0) |> assert [1 3]
+-- Persistent hash maps (HAMT) and sets.
+spawn StrVal: Start |> emit user:alice, role:admin |> to_hamt |> hamt_get role |> assert admin
+spawn StrVal: Start |> emit b, a, b |> drop 1 |> to_set |> set_elements |> sort |> collect_list |> assert [a b]
+-- Trees with a comonadic zipper: `down` moves the cursor, `extract` reads it.
+spawn StrVal: x |> build_tree Root |> into_zipper |> extract |> assert Root
+
+
+-- ---------------------------------------------------------------------
+-- 9. Pattern matching and recursion
+-- ---------------------------------------------------------------------
+-- A `match` arm that names a constructor discriminates on the sum-type branch;
+-- `gatwd --check` warns when the arms are not exhaustive.
+def route_os = match { Linux -> echo PENGUIN | Windows -> echo WINDOW | Darwin -> echo APPLE }
+spawn OS: Linux |> route_os |> assert PENGUIN
+spawn OS: Darwin |> route_os |> assert APPLE
+
+-- List patterns and comprehensions give a functional quicksort.
 def quicksort = match {
     [] -> empty
     | [pivot, ...rest] -> seq { [x | x <- rest, x < pivot] |> quicksort | pivot | [x | x <- rest, x >= pivot] |> quicksort }
 }
+spawn IntList: [5, 2, 8, 1, 9, 3] |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
 
-sort_sample =
-    spawn IntList: [5, 2, 8, 1, 9, 3]
-    |> quicksort
-    |> collect_list
-
-
--- ---------------------------------------------------------------------
--- 12. Non-Primitive Recursion & Ackermann Function
--- ---------------------------------------------------------------------
-
--- Tuple/pair destructuring and nested let-expressions:
+-- Non-primitive recursion: tuple patterns, nested let.
 def ackermann = match {
     [0, n] -> n + 1
     | [m, 0] -> [m - 1, 1] |> ackermann
     | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
 }
-
-ackermann_sample =
-    [2, 2]
-    |> ackermann
+[2, 2] |> ackermann |> assert 7
 
 
+-- ---------------------------------------------------------------------
+-- 10. Optics: Lens get (focus) and set (update) on records
+-- ---------------------------------------------------------------------
+-- `update` never mutates: it yields a BRAND NEW immutable record.
+spawn StrVal: Start |> echo "drwx root 4096 Jan 1 secret_file" |> parse_record Perms Owner Size Month Day Name |> focus Owner |> assert root
+spawn StrVal: Start |> echo "drwx root 4096 Jan 1 secret_file" |> parse_record Perms Owner Size Month Day Name |> update Owner admin |> focus Owner |> assert admin
+
+
+-- ---------------------------------------------------------------------
+-- 11. Graphs: typed nodes, labelled edges, queries, stream merge
+-- ---------------------------------------------------------------------
+-- Add NODES first, then edges between existing nodes.
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_add_node Service web |> graph_add_edge Selects 1 web nginx |> graph_edges |> head |> assert web-Selects->nginx
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge Owns 1 a b |> graph_add_edge Owns 1 b c |> graph_shortest_path a c |> collect_list |> assert [a b c]
+
+
+-- ---------------------------------------------------------------------
+-- 12. Compliance gates (expect)
+-- ---------------------------------------------------------------------
+-- `expect KEYWORD MESSAGE` lets a node through when it matches; a node that does
+-- not match becomes an explicit error node (`[ERROR] MESSAGE`) that later steps
+-- bypass. Only the passing case is shown so this file stays free of errors.
+spawn StrVal: Start |> echo "Linux x86_64" |> expect "Linux" "node is not Linux" |> assert Linux x86_64
+
+
+-- ---------------------------------------------------------------------
+-- 13. Gradual typing
+-- ---------------------------------------------------------------------
+-- Annotations are optional and advisory; `gatwd --check` reports mismatches
+-- without running anything, and stays silent on this file.
+def inc : Int -> Int = \x -> x + 1
+def twice : (Int -> Int) -> Int -> Int = \f x -> f (f x)
+twice inc 5
+
+
+-- ---------------------------------------------------------------------
+-- 14. Failures are loud
+-- ---------------------------------------------------------------------
+-- Nothing here is run (each line would print an [ERROR] naming its cause):
+--   1 / 0                                    -- division by zero
+--   [1, 2] |> map (\x -> nosuchfn x)         -- map: element 1: undefined identifier: nosuchfn
+--   [1, 2] |> filter (\x -> x)               -- predicate returned int, want bool
+--   spawn IntVal: 1 |> filter "zzz" |> assert 1   -- assertion on an empty stream
+
+
+-- ---------------------------------------------------------------------
+-- 15. Arguments and tasks
+-- ---------------------------------------------------------------------
+-- ARGS is the list of arguments after `--`; ARG0 is this script's path. Any `def`
+-- is a task: `gatwd cheatsheet.gatwd --task NAME -- args`. When the script defines
+-- `main` and no task is selected, `main` runs last, after the statements above.
+-- how many arguments were passed (0 without `--`)
+length ARGS
+def shout = \args -> map (\a -> a ++ "!") args
+def main = \args -> [(length args), (shout args)]

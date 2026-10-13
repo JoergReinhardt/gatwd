@@ -47,7 +47,9 @@ func NewParser() *Parser {
 // the type is a sum type and the value names one of its branches, MakeVariant boxes
 // it as a dsltypes.Variant. The returned sequence is lazy, so parsing of later lines
 // only happens as the caller pulls nodes, and iteration stops early if yield returns
-// false. A spawn of an unregistered type yields no node.
+// false. Parse itself yields no node for a spawn of a type that has not been declared
+// (there is no flag to tag it with); the interpreter in pkg/cli registers a spawned
+// type on demand before the line reaches this point, so scripts never see that.
 func (p *Parser) Parse(script string) iter.Seq[dsltypes.ASTNode[any]] {
 	return func(yield func(dsltypes.ASTNode[any]) bool) {
 		lines := strings.Split(script, "\n")

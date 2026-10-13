@@ -3,7 +3,8 @@
 # this gate fails on three things, not one:
 #   1. any [ERROR] in the output (a failed assert, an unknown step, a failed call);
 #   2. any "(No output or node unhandled)" — a statement that produced nothing. An
-#      `assert` on an empty stream passes vacuously, so silence must be a failure;
+#      `assert` that never sees a value reports an error, but any other silent
+#      statement is still a failure here;
 #   3. any structural error from `gatwd --check` (warnings are advisory).
 set -e
 
