@@ -557,19 +557,32 @@ project as `from-Color->to`; all green via `./run_dsl_tests.sh`). (Prelude suppo
 **Phase P1**, done independently.) *Gate met:* a graph is constructible, walkable,
 and queryable from pure DSL; core still has zero K8s.
 
-> **Deferred to Phase 4b (DSL higher-order / binary-operand cells).** The Go-level
-> Functor/Foldable/Filterable/Monoid/optics methods on `Graph` all exist (Phase 1–2)
-> but are **not yet** surfaced as DSL builtins, because each needs a wiring the
-> construction/projection steps don't: `graph_map_nodes`/`graph_map_edges`/
-> `graph_bimap`, `graph_fold_nodes`/`graph_fold_edges`/`graph_fold_walk`, and
-> `graph_filter_nodes`/`graph_filter_edges` need a **lambda argument** threaded into
-> a graph-typed step (the existing `map`/`filter`/`fold` DSL steps take lambdas but
-> operate on the generic stream, not a graph value); `graph_union`/`graph_diff`/
-> `graph_intersect` need a **second graph operand** in one pipeline (the `++`→`Union`
-> operator is already wired at the `functions.EvalBinaryOp` level, but the DSL has no
-> graph-valued binary-operand syntax yet); `graph_focus`/`graph_over`/`graph_set`
-> need the optic-rewrite surface. Tracked explicitly so the matrix gap is recorded,
-> not silent (Mandate 2).
+**Phase 4b — DSL higher-order / binary-operand cells (CORE L3+L5). ✅ DONE
+(2026-10-13).** The Functor/Foldable/Filterable/Monoid matrix cells are now DSL
+builtins. L3 (`evaluator/graph_steps.go`): `StepGraphMapNodes`/`MapEdges`/`Bimap`,
+`FilterNodes`/`FilterEdges`, `FoldNodes`/`FoldEdges`/`FoldWalk` — each takes the
+compiled lambda as a plain Go closure, so Layer 3 stays parser-free. L5
+(`pkg/cli/cli.go`): `(*Interpreter).buildGraphLambdaStep` (a *method*, so it can
+resolve names against the interpreter's `Constants`/`Variables`/`RuntimeNodes`),
+with lambda-compilation helpers `compileUnary`/`compilePred`/`compileBinary`
+(built on `parser.EvalInfixString`), `splitParen` (nesting-aware lambda/seed
+split), and `resolveGraphOperand`/`evalSeed`. Set-algebra reuses the existing
+reflection-dispatched `StepSetUnion`/`StepSetIntersect`/`StepSetDiff` (Graph already
+has `Union`/`Intersect`/`Diff` + `++`→`Union` via `EvalBinaryOp`), named
+`graph_union`/`graph_diff`/`graph_intersect` and taking a let-bound graph operand.
+**Binding convention:** node steps bind the node *payload* (its id by default); edge
+steps bind the edge *weight*. New builtins (12):
+`graph_map_nodes`/`graph_map_edges`/`graph_bimap`,
+`graph_filter_nodes`/`graph_filter_edges`,
+`graph_fold_nodes`/`graph_fold_edges`/`graph_fold_walk`,
+`graph_union`/`graph_diff`/`graph_intersect`. Exhaustive asserts in
+`tests/dsl_exhaustive_test.gatwd` §§69–71 (all green).
+
+> **Still deferred (Phase 4c — optics rewrites).** `graph_focus`/`graph_over`/
+> `graph_set` (the `optics/graph_optics.go` lens/prism/traversal rewrites) are the
+> one remaining matrix column not yet surfaced to the DSL; they need the focused
+> immutable-rewrite surface (`focus`/`update` grammar) extended to graph-typed
+> values. Recorded so the gap is explicit, not silent (Mandate 2).
 
 **Phase 5 — generic K8s I/O (L4).** Depends on **P2** (structured adapter). Add
 `kustomize_adapter.go` yielding the same nested-HAMT payloads as P2 (offline
@@ -717,8 +730,9 @@ def rel_calls = \pod -> \services ->
 - [x] Graph fills `map/fold/filter/++/==` as a new collection row at the Go
       level (Mandate 2) — Phase 1. ✅ (DSL builtins for the row land in Phase 4.)
 - [x] Graph construction/projection/walk ops → DSL builtins + `tests/dsl_exhaustive_test.gatwd`
-      asserts §§65–68 (M3) — Phases 3–4. ✅ (Functor/Fold/Filter/Monoid/optics cells
-      deferred to Phase 4b, recorded above — not silent.)
+      asserts §§65–68 (M3) — Phases 3–4. ✅
+- [x] Graph Functor/Foldable/Filterable/Monoid → DSL builtins + asserts §§69–71 (M3) —
+      Phase 4b. ✅ (Only optics `graph_focus`/`graph_over`/`graph_set` remain, Phase 4c.)
 - [ ] K8s relations are pure DSL; no Go loops faking a graph (M1/8).
 - [ ] Third-party K8s deps only in `adapters/` + `pkg/plugins` (M5).
 - [ ] Edition `main.go` is assembly-only; registered pieces come from

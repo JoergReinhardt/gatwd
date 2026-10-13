@@ -1155,6 +1155,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepHAMTPairs())
 		} else if stepStr == "frequencies" {
 			pipeline = append(pipeline, evaluator.StepFrequencies())
+		} else if step, ok := i.buildGraphLambdaStep(stepStr); ok {
+			pipeline = append(pipeline, step)
 		} else if step, ok := buildGraphStep(stepStr); ok {
 			pipeline = append(pipeline, step)
 		} else if strings.HasPrefix(stepStr, "chunk ") {
@@ -2934,4 +2936,242 @@ func parseGraphWeight(tok string) any {
 		return f
 	}
 	return tok
+}
+
+// buildGraphLambdaStep is the Phase-4b dispatch for the graph builtins that need
+// the interpreter's binding environment: the Functor/Foldable/Filterable steps
+// (which take a DSL lambda) and the set-algebra steps (which take a second graph
+// operand named by a let-bound variable). It is a method, not the free
+// buildGraphStep, precisely because it must resolve names against i's Constants,
+// Variables, and RuntimeNodes.
+//
+//	Functor     : graph_map_nodes (\p -> …)   graph_map_edges (\w -> …)
+//	              graph_bimap (\p -> …) (\w -> …)
+//	Filterable  : graph_filter_nodes (\p -> …)   graph_filter_edges (\w -> …)
+//	Foldable    : graph_fold_nodes (\acc p -> …) seed
+//	              graph_fold_edges (\acc w -> …) seed
+//	              graph_fold_walk  (\acc p -> …) seed start [bfs|dfs]
+//	Set-algebra : graph_union g2   graph_diff g2   graph_intersect g2
+//
+// Binding convention: node steps bind the node *payload* (its id by default); edge
+// steps bind the edge *weight*. Returns ok=false for any unrecognised/ill-formed
+// token so the surrounding dispatch keeps trying other steps.
+func (i *Interpreter) buildGraphLambdaStep(stepStr string) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+	fields := strings.Fields(stepStr)
+	if len(fields) == 0 || !strings.HasPrefix(fields[0], "graph_") {
+		return nil, false
+	}
+	name := fields[0]
+	rest := strings.TrimSpace(stepStr[len(name):])
+	switch name {
+	case "graph_union", "graph_diff", "graph_intersect":
+		if rest == "" {
+			return nil, false
+		}
+		operand := i.resolveGraphOperand(rest)
+		switch name {
+		case "graph_union":
+			return evaluator.StepSetUnion(operand), true
+		case "graph_diff":
+			return evaluator.StepSetDiff(operand), true
+		case "graph_intersect":
+			return evaluator.StepSetIntersect(operand), true
+		}
+	case "graph_map_nodes":
+		if inside, _, ok := splitParen(rest); ok {
+			if f, ok := i.compileUnary(inside); ok {
+				return evaluator.StepGraphMapNodes(f), true
+			}
+		}
+	case "graph_map_edges":
+		if inside, _, ok := splitParen(rest); ok {
+			if f, ok := i.compileUnary(inside); ok {
+				return evaluator.StepGraphMapEdges(f), true
+			}
+		}
+	case "graph_bimap":
+		if in1, rest1, ok := splitParen(rest); ok {
+			if in2, _, ok := splitParen(rest1); ok {
+				fn, ok1 := i.compileUnary(in1)
+				fe, ok2 := i.compileUnary(in2)
+				if ok1 && ok2 {
+					return evaluator.StepGraphBimap(fn, fe), true
+				}
+			}
+		}
+	case "graph_filter_nodes":
+		if inside, _, ok := splitParen(rest); ok {
+			if p, ok := i.compilePred(inside); ok {
+				return evaluator.StepGraphFilterNodes(func(_ string, payload any) bool { return p(payload) }), true
+			}
+		}
+	case "graph_filter_edges":
+		if inside, _, ok := splitParen(rest); ok {
+			if p, ok := i.compilePred(inside); ok {
+				return evaluator.StepGraphFilterEdges(func(weight any, _, _, _ string) bool { return p(weight) }), true
+			}
+		}
+	case "graph_fold_nodes":
+		if inside, seedStr, ok := splitParen(rest); ok {
+			if f, ok := i.compileBinary(inside); ok {
+				return evaluator.StepGraphFoldNodes(i.evalSeed(seedStr), f), true
+			}
+		}
+	case "graph_fold_edges":
+		if inside, seedStr, ok := splitParen(rest); ok {
+			if f, ok := i.compileBinary(inside); ok {
+				return evaluator.StepGraphFoldEdges(i.evalSeed(seedStr), f), true
+			}
+		}
+	case "graph_fold_walk":
+		if inside, tail, ok := splitParen(rest); ok {
+			if f, ok := i.compileBinary(inside); ok {
+				tf := strings.Fields(tail)
+				if len(tf) >= 2 {
+					strategy := "bfs"
+					if len(tf) >= 3 {
+						strategy = tf[2]
+					}
+					return evaluator.StepGraphFoldWalk(tf[1], strategy, i.evalSeed(tf[0]), f), true
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
+// graphLookup builds a name resolver over the interpreter's binding environment,
+// overlaid with a lambda's locally-bound variables (binds, highest precedence).
+func (i *Interpreter) graphLookup(binds map[string]any) func(string) (any, bool) {
+	return func(name string) (any, bool) {
+		if v, ok := binds[name]; ok {
+			return v, true
+		}
+		if rt, ok := i.RuntimeNodes[name]; ok {
+			v, _ := rt.Value.UnwrapRight()
+			return v, true
+		}
+		if v, ok := i.Constants[name]; ok {
+			return v, true
+		}
+		if v, ok := i.Variables[name]; ok {
+			return v, true
+		}
+		return nil, false
+	}
+}
+
+// resolveGraphOperand resolves a set-algebra operand token to its value — normally
+// a let-bound graph in RuntimeNodes — falling back to the raw token so the step can
+// still type-check (and no-op) rather than panic.
+func (i *Interpreter) resolveGraphOperand(s string) any {
+	if v, err := parser.EvalInfixString(s, i.graphLookup(nil)); err == nil {
+		return v
+	}
+	if rt, ok := i.RuntimeNodes[s]; ok {
+		v, _ := rt.Value.UnwrapRight()
+		return v
+	}
+	return s
+}
+
+// evalSeed evaluates a fold's seed token (a literal or a bound name) to a value,
+// defaulting to 0 for an empty seed.
+func (i *Interpreter) evalSeed(s string) any {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	if v, err := parser.EvalInfixString(s, i.graphLookup(nil)); err == nil {
+		return v
+	}
+	return parseGraphWeight(s)
+}
+
+// compileUnary compiles a single-argument lambda body (`\x -> expr`) into a Go
+// mapper; on evaluation failure it returns the input unchanged (a safe identity).
+func (i *Interpreter) compileUnary(inside string) (func(any) any, bool) {
+	vars, body, ok := parseLambdaInner(inside)
+	if !ok || len(vars) != 1 {
+		return nil, false
+	}
+	v := vars[0]
+	return func(x any) any {
+		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{v: x})); err == nil {
+			return res
+		}
+		return x
+	}, true
+}
+
+// compilePred compiles a single-argument lambda body into a Go predicate; a
+// non-boolean or failed evaluation is treated as false.
+func (i *Interpreter) compilePred(inside string) (func(any) bool, bool) {
+	vars, body, ok := parseLambdaInner(inside)
+	if !ok || len(vars) != 1 {
+		return nil, false
+	}
+	v := vars[0]
+	return func(x any) bool {
+		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{v: x})); err == nil {
+			if b, ok := res.(bool); ok {
+				return b
+			}
+		}
+		return false
+	}, true
+}
+
+// compileBinary compiles a two-argument lambda body (`\acc x -> expr`) into a Go
+// fold step; on evaluation failure it returns the accumulator unchanged.
+func (i *Interpreter) compileBinary(inside string) (func(acc, x any) any, bool) {
+	vars, body, ok := parseLambdaInner(inside)
+	if !ok || len(vars) != 2 {
+		return nil, false
+	}
+	accName, xName := vars[0], vars[1]
+	return func(acc, x any) any {
+		if res, err := parser.EvalInfixString(body, i.graphLookup(map[string]any{accName: acc, xName: x})); err == nil {
+			return res
+		}
+		return acc
+	}, true
+}
+
+// parseLambdaInner splits an un-parenthesised lambda body `\v1 v2 -> expr` into its
+// bound variable names and expression body.
+func parseLambdaInner(s string) ([]string, string, bool) {
+	s = strings.TrimSpace(s)
+	if !strings.Contains(s, "->") {
+		return nil, "", false
+	}
+	parts := strings.SplitN(s, "->", 2)
+	left := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(parts[0]), "\\"))
+	vars := strings.Fields(left)
+	if len(vars) == 0 {
+		return nil, "", false
+	}
+	return vars, strings.TrimSpace(parts[1]), true
+}
+
+// splitParen returns the contents of the first balanced parenthesised group in s
+// (nesting-aware) and the remainder after it, e.g. "(\x -> x) 0" → ("\x -> x", "0").
+func splitParen(s string) (inside, rest string, ok bool) {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "(") {
+		return "", "", false
+	}
+	depth := 0
+	for idx, r := range s {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return strings.TrimSpace(s[1:idx]), strings.TrimSpace(s[idx+1:]), true
+			}
+		}
+	}
+	return "", "", false
 }

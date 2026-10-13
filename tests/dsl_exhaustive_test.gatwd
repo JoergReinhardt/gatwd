@@ -288,3 +288,19 @@ spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_a
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_remove_node b |> graph_nodes |> collect_list |> assert [a c]
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_remove_edge Owns a b |> graph_size |> assert 0
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge E 1 a b |> graph_walk_from a bfs |> collect_list |> assert [a b]
+
+-- 69. Graph Functor: map_nodes / map_edges / bimap (verified via folds that read
+-- the mapped payload/weight, since identity/endpoints are preserved)
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_map_nodes (\p -> 10) |> graph_fold_nodes (\acc p -> acc + p) 0 |> assert 30
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 2 b c |> graph_map_edges (\w -> w * 10) |> graph_fold_edges (\acc w -> acc + w) 0 |> assert 30
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge E 1 a b |> graph_bimap (\p -> 20) (\w -> 5) |> graph_fold_edges (\acc w -> acc + w) 0 |> assert 5
+
+-- 70. Graph Filterable: filter_nodes (vertex-induced subgraph) / filter_edges
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_filter_nodes (\p -> p == "b") |> graph_nodes |> collect_list |> assert [b]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 2 b c |> graph_filter_edges (\w -> w > 1) |> graph_size |> assert 1
+
+-- 71. Graph Foldable (walk-ordered) + Monoid/set-algebra (union/intersect/diff)
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_fold_walk (\acc n -> acc + 1) 0 a |> assert 3
+let gu = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_union gu |> graph_nodes |> collect_list |> assert [a b c]
+let gi = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_intersect gi |> graph_nodes |> collect_list |> assert [b]
+let gd = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_diff gd |> graph_nodes |> collect_list |> assert [a]

@@ -428,6 +428,92 @@ func StepGraphSCC() PipelineStep[functions.Either[error, any]] {
 	})
 }
 
+// ---------------------------------------------------------------------------
+// Functor / Foldable / Filterable steps (take a compiled DSL lambda as a Go func)
+//
+// These are the Phase 4b cells of the operator-type matrix. The DSL lambda is
+// compiled to a plain Go closure in pkg/cli (where the interpreter's binding
+// environment lives) and handed in here, keeping this Layer-3 code free of parser
+// knowledge. The binding convention is uniform and documented per step: node steps
+// bind the node payload (its id by default), edge steps bind the edge weight.
+// ---------------------------------------------------------------------------
+
+// StepGraphMapNodes is the node Functor: it replaces every node's payload with
+// f(payload), preserving identities, colors, and edges (collections.Graph.MapNodes).
+func StepGraphMapNodes(f func(any) any) PipelineStep[functions.Either[error, any]] {
+	return graphMap(func(g dslGraph) dslGraph { return g.MapNodes(f) })
+}
+
+// StepGraphMapEdges is the edge Functor: it replaces every edge's weight with
+// f(weight), preserving endpoints, colors, groups, and the inferred flag.
+func StepGraphMapEdges(f func(any) any) PipelineStep[functions.Either[error, any]] {
+	return graphMap(func(g dslGraph) dslGraph { return g.MapEdges(f) })
+}
+
+// StepGraphBimap is the Bifunctor: it maps node payloads with fn and edge weights
+// with fe in one pass.
+func StepGraphBimap(fn, fe func(any) any) PipelineStep[functions.Either[error, any]] {
+	return graphMap(func(g dslGraph) dslGraph { return g.Bimap(fn, fe) })
+}
+
+// StepGraphFilterNodes is the node Filterable: it keeps the nodes for which keep
+// (receiving the node id and payload) is true, dropping the rest and any edge
+// incident to a dropped node — yielding a vertex-induced subgraph.
+func StepGraphFilterNodes(keep func(id string, payload any) bool) PipelineStep[functions.Either[error, any]] {
+	return graphMap(func(g dslGraph) dslGraph {
+		return g.FilterNodes(func(n functions.Node[string, string, any]) bool {
+			return keep(n.ID, n.Payload)
+		})
+	})
+}
+
+// StepGraphFilterEdges is the edge Filterable: it keeps the edges for which keep
+// (receiving weight, from, to, color) is true, leaving the node set intact.
+func StepGraphFilterEdges(keep func(weight any, from, to, color string) bool) PipelineStep[functions.Either[error, any]] {
+	return graphMap(func(g dslGraph) dslGraph {
+		return g.FilterEdges(func(e functions.Edge[string, string, any]) bool {
+			return keep(e.Weight, e.From, e.To, e.Color)
+		})
+	})
+}
+
+// StepGraphFoldNodes is the node Catamorphism: it folds f over the unordered node
+// set (each node's payload) from seed, emitting the single accumulated result.
+func StepGraphFoldNodes(seed any, f func(acc, payload any) any) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		res := g.FoldNodes(seed, func(acc any, n functions.Node[string, string, any]) any {
+			return f(acc, n.Payload)
+		})
+		return emitValue(flag, yield, res)
+	})
+}
+
+// StepGraphFoldEdges is the edge Catamorphism: it folds f over every edge (each
+// edge's weight) from seed, emitting the single accumulated result.
+func StepGraphFoldEdges(seed any, f func(acc, weight any) any) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		res := g.FoldEdges(seed, func(acc any, e functions.Edge[string, string, any]) any {
+			return f(acc, e.Weight)
+		})
+		return emitValue(flag, yield, res)
+	})
+}
+
+// StepGraphFoldWalk folds f over the node payloads *in traversal order* from start
+// (cycle-safe), the walk-ordered catamorphism, emitting the single result.
+func StepGraphFoldWalk(start, strategy string, seed any, f func(acc, payload any) any) PipelineStep[functions.Either[error, any]] {
+	strat := collections.WalkBFS
+	if strings.EqualFold(strategy, "dfs") {
+		strat = collections.WalkDFS
+	}
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		res := g.FoldWalk(start, strat, seed, func(acc any, n functions.Node[string, string, any]) any {
+			return f(acc, n.Payload)
+		})
+		return emitValue(flag, yield, res)
+	})
+}
+
 // sortStrings is a tiny insertion sort kept local so the graph steps need no extra
 // import; the slices it sorts (neighbourhoods, components) are small.
 func sortStrings(s []string) {

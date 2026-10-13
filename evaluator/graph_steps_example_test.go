@@ -71,3 +71,34 @@ func ExampleStepGraphShortestPath() {
 	// b
 	// c
 }
+
+// ExampleStepGraphFoldNodes shows the node Functor and Catamorphism composing:
+// every node's payload is rewritten to 10 by MapNodes, then FoldNodes sums the
+// three payloads to 30 — the DSL `… |> graph_map_nodes (\p -> 10) |>
+// graph_fold_nodes (\acc p -> acc + p) 0` surface.
+func ExampleStepGraphFoldNodes() {
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
+	flag := dsltypes.BitFlag(1)
+
+	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any("seed")), flag))
+	}
+
+	add := func(acc, payload any) any { return acc.(int) + payload.(int) }
+	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
+		evaluator.StepGraphEmpty(),
+		evaluator.StepGraphAddNode("N", "a"),
+		evaluator.StepGraphAddNode("N", "b"),
+		evaluator.StepGraphAddNode("N", "c"),
+		evaluator.StepGraphMapNodes(func(any) any { return 10 }),
+		evaluator.StepGraphFoldNodes(0, add),
+	}
+
+	for node := range engine.EvaluatePipeline(source, pipeline) {
+		val, _ := node.Value.UnwrapRight()
+		fmt.Println(val)
+	}
+
+	// Output:
+	// 30
+}
