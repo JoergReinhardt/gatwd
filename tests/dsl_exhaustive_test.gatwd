@@ -1106,7 +1106,59 @@ spawn S: x |> graph_empty |> graph_add_node Pod Pod/default/web |> graph_add_nod
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> fold (\_ g -> graph_out_of "E" "a" (graph_add_edges [["E", 1, "a", "b"], ["E", 1, "a", "ghost"]] g)) 0 |> assert [b]
 ["a", "b"] |> fold (\g i -> graph_add_node "N" i g) graph_empty |> graph_add_edge E 1 a ghost |> graph_add_edge E 1 a b |> graph_reachable a |> collect_list |> assert [a b]
 
--- Provenance (hardening W4 follow-up), non-domain. with_source attaches the origin a record was read from
+-- 106. HAMT keys are values (hardening, user decision 2026-10-13). A key is a value whose identity is
+-- `==`: equal keys are one entry (a list and a Pair, 3 and 3.0, 1r2 and 0.5), different keys never are
+-- (a list and its printed text, 3 and "3"), and hamt_keys / hamt_pairs return the keys as the values they
+-- were. A String key is still itself, so records from JSON, YAML and manifests are unchanged. Non-domain.
+let k106 = hamt_from [[[1, 2], "list"], ["[1 2]", "string"], [3, "int"], ["3", "text"], [0.5, "half"]]
+length k106 |> assert 5
+map (\k -> hamt_get k k106) [[1, 2], (pair 1 2), "[1 2]", 3, 3.0, "3", 1r2] |> assert [list list string int int text half]
+map (\k -> hamt_has k k106) [[2, 1], "[2 1]", 4, "4", [1, 2], "[1 2]"] |> assert [false false false false true true]
+map (\k -> hamt_get_or "none" k k106) [[2, 1], [1, 2], "x"] |> assert [none list none]
+map (\k -> length (hamt_del k k106)) [[1, 2], "[1 2]", 3, "3", [9]] |> assert [4 4 4 4 5]
+map (\k -> hamt_has "[1 2]" (hamt_del k k106)) [[1, 2], 3] |> assert [true true]
+map (\k -> hamt_has [1, 2] (hamt_del k k106)) ["[1 2]", 3] |> assert [true true]
+length (hamt_from [[1, "a"], ["1", "b"], [1.0, "c"]]) |> assert 2
+length (fold (\h k -> hamt_set k 0 h) hamt_empty [[1, 2], (pair 1 2), [1.0, 2]]) |> assert 1
+length (fold (\h k -> hamt_set k 0 h) hamt_empty [[1, 2], [2, 1], [[1, 2]], "[1 2]"]) |> assert 4
+-- keys read back as values (inside a lambda, so the function forms are the ones exercised)
+map (\k -> k == [1, 2]) (hamt_keys (hamt_from [[[1, 2], 1]])) |> assert [true]
+map (\p -> fst p) (hamt_pairs (hamt_from [[7, "x"]])) |> assert [7]
+map (\p -> fst p + 1) (hamt_pairs (hamt_from [[7, "x"]])) |> assert [8]
+length (filter (\p -> hamt_get (fst p) k106 == snd p) (hamt_pairs k106)) |> assert 5
+hamt_get [1, 2] (hamt_from (hamt_pairs k106)) |> assert list
+-- Sets, Maybes and nested collections are keys too
+hamt_get (to_set [1, 2]) (hamt_from [[(to_set [2, 1]), "set"]]) |> assert set
+hamt_get (just [1, 2]) (hamt_from [[(just [1, 2]), "j"], [[1, 2], "l"]]) |> assert j
+hamt_get [[1], [2, [3]]] (hamt_from [[[[1], [2, [3]]], "deep"], [[[1, 2], [3]], "other"]]) |> assert deep
+-- the step forms read their key token with the same rule: a bare canonical number is a number
+hamt_empty |> hamt_set 5 five |> hamt_get 5 |> assert five
+hamt_empty |> hamt_set "5" five |> hamt_get "5" |> assert five
+hamt_empty |> hamt_set a five |> hamt_get a |> assert five
+-- a graph id or color is a String; a number is written as its text
+graph_nodes (graph_add_node "N" 7 graph_empty) |> assert [7]
+graph_has_node "7" (graph_add_node "N" 7 graph_empty) |> assert true
+
+-- 107. A String is not the printed form of a collection (hardening, user decision 2026-10-13): == and !=
+-- between a String and any collection or ADT are false/true by type, for every carrier row (List, Pair,
+-- Set, HAMT, Maybe), not by comparing printed text. String == String and a one-character String == Char
+-- (D1) are unchanged, and a collection still equals a structurally equal collection. Non-domain.
+"[2 1]" == [2, 1] |> assert false
+[2, 1] == "[2 1]" |> assert false
+"[2 1]" != [2, 1] |> assert true
+"[2 1]" == "[2 1]" |> assert true
+map (\c -> c == "[2 1]") [[2, 1], "[2 1]", (pair 2 1)] |> assert [false true false]
+map (\c -> "[2, 1]" == c) [(pair 2 1), [2, 1]] |> assert [false false]
+map (\c -> c == "{1 2}") [(to_set [1, 2])] |> assert [false]
+map (\c -> c == "Just(1)") [(just 1), "Just(1)"] |> assert [false true]
+map (\c -> c == "[a:1]") [(hamt_from [["a", 1]])] |> assert [false]
+map (\c -> c == "[]") [[], "[]"] |> assert [false true]
+map (\c -> c != "[1 2]") [[1, 2], "[1 2]"] |> assert [true false]
+length (filter (\c -> c == [1, 2]) [[1, 2], "[1 2]", [1.0, 2], (pair 1 2)]) |> assert 3
+map (\c -> member c ["[1 2]"]) [[1, 2], "[1 2]"] |> assert [false true]
+map (\c -> c == 'x') ["x", "xy"] |> assert [true false]
+
+-- 108. Provenance (hardening W4 follow-up), non-domain. with_source attaches the origin a record was read from
 -- BESIDE the record (like Clojure's with-meta); source_of reads it back as Maybe String. The source is
 -- invisible to ==, hamt_*, and printing; Set/Delete keep it; only error messages show it (the duplicate-id
 -- error is asserted in the Go tests: a DSL assert cannot match an [ERROR]).

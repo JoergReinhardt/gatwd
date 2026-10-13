@@ -978,21 +978,18 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if stepStr == "to_hamt" {
 			pipeline = append(pipeline, evaluator.StepToHAMT())
 		} else if strings.HasPrefix(stepStr, "hamt_get ") {
-			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
-			pipeline = append(pipeline, evaluator.StepHAMTGet(key))
+			pipeline = append(pipeline, evaluator.StepHAMTGet(hamtStepKey(stepStr[9:])))
 		} else if strings.HasPrefix(stepStr, "hamt_path ") {
 			path := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
 			pipeline = append(pipeline, evaluator.StepHAMTPath(path))
 		} else if strings.HasPrefix(stepStr, "hamt_set ") {
 			parts := strings.Fields(strings.TrimSpace(stepStr[9:]))
 			if len(parts) >= 2 {
-				k := strings.Trim(parts[0], "\"")
 				v := strings.Trim(strings.Join(parts[1:], " "), "\"")
-				pipeline = append(pipeline, evaluator.StepHAMTSet(k, v))
+				pipeline = append(pipeline, evaluator.StepHAMTSet(hamtStepKey(parts[0]), v))
 			}
 		} else if strings.HasPrefix(stepStr, "hamt_del ") {
-			key := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
-			pipeline = append(pipeline, evaluator.StepHAMTDel(key))
+			pipeline = append(pipeline, evaluator.StepHAMTDel(hamtStepKey(stepStr[9:])))
 		} else if stepStr == "hamt_keys" {
 			pipeline = append(pipeline, evaluator.StepHAMTKeys())
 		} else if stepStr == "hamt_values" {
@@ -3060,4 +3057,23 @@ func plusBranches(stepStr string) ([]string, bool) {
 		}
 	}
 	return branches, true
+}
+
+// hamtStepKey is the key of a step-form `hamt_get K` / `hamt_set K V` / `hamt_del K`: the
+// token read as a value (a quoted token is a String, a bare canonical number a number —
+// the one literal rule of LiteralToken) and encoded as the function forms encode theirs,
+// so `|> hamt_get 1` and `hamt_get 1 m` find the same entry.
+func hamtStepKey(token string) string {
+	token = strings.TrimSpace(token)
+	var v any
+	if len(token) >= 2 && token[0] == '"' && token[len(token)-1] == '"' {
+		v = strings.Trim(token, "\"")
+	} else {
+		v = functions.LiteralToken(token)
+	}
+	key, err := evaluator.EncodeKey(v)
+	if err != nil { // a String or a number always encodes; keep the text rather than lose the step
+		return strings.Trim(token, "\"")
+	}
+	return key
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/joergreinhardt/gatwd/collections"
+	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
@@ -112,6 +113,11 @@ func encodeJSON(b *strings.Builder, v any, path string) error {
 		keys := make([]string, 0, x.Len())
 		vals := map[string]any{}
 		for k, val := range x.Seq() {
+			// an object key is a String; a HAMT keyed by another value (a list, a number) has
+			// no JSON form, and its encoded key must not leak out as text
+			if _, isText := evaluator.DecodeKey(k).(string); !isText {
+				return fmt.Errorf("%s: a HAMT with %s keys has no JSON form (object keys are Strings)", path, functions.KindName(evaluator.DecodeKey(k)))
+			}
 			keys = append(keys, k)
 			vals[k] = val
 		}

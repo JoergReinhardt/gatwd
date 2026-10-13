@@ -162,6 +162,20 @@ spawn StrVal: Start |> emit user:alice |> to_hamt |> hamt_set env prod |> hamt_g
 spawn StrVal: Start |> emit a:1, b:2 |> to_hamt |> hamt_del a |> hamt_get b |> assert 2
 ```
 
+**A key is a value.** A HAMT key may be any value, and `==` decides "the same key": equal keys are one entry and different keys never are.
+
+| Key written | Is the same entry as | Is a different entry from |
+| :-- | :-- | :-- |
+| `[1, 2]` | `(pair 1 2)`, a Chunk `[1, 2]`, `[1.0, 2]` | `"[1 2]"`, `[2, 1]`, `[[1, 2]]`, `(to_set [1, 2])` |
+| `3` | `3.0`, `3r1` | `"3"`, `true` |
+| `0.5` | `1r2` | `"0.5"`; and `0.1` is not `1r10` (`==` says they differ) |
+| `"a"` | `'a'` (D1) | `["a"]` |
+| `(to_set [1, 2])` | `(to_set [2, 1])` (a Set is unordered) | `[1, 2]` |
+
+`hamt_keys` and `hamt_pairs` return the keys as the values they were (`frequencies` over coordinate pairs gives pairs of `[x, y]` lists, so `fst p == [2, 1]` is `true` and the Game of Life compares real coordinates). A `String` key is still itself, so records from `json_parse`, `yaml_parse` and manifests are unchanged; `json_encode`/`yaml_encode` of a HAMT whose keys are not Strings is an error (object keys are Strings). A value that cannot be a key (a function, a Graph, `NaN`) is an error naming it, never a guess. The same rule is applied by the function forms (`hamt_set`, `hamt_get`, `hamt_has`, `hamt_del`, `hamt_get_or`, `hamt_from`), the step forms (`hamt_get K`, `hamt_set K V`, `hamt_del K`, a bare canonical number token is a number, a quoted one a String), `to_hamt` and `frequencies`.
+
+*Design (for contributors).* `evaluator.EncodeKey` writes a String as itself and anything else as a NUL byte plus a tagged, length-prefixed canonical text (numbers through `functions.CanonNumber`, the representative of their `==` class; Sets and HAMT entries sorted); `evaluator.DecodeKey` is the inverse. Order is kept for lists, `1` and `1.0` meet, and two different collections can never share a key because every element is tagged and length-prefixed. **Graph ids and colors** are different: they are Strings by construction, so `graph_add_node "c" 7 g` names the node `"7"` (a number is its text) but a list or pair is an error — use `show` to name a node by one. Not yet covered: `to_set` and `distinct` still deduplicate by printed form (`docs/hardening_plan.md` §6.3).
+
 ## 9. Performance Chunks & Continuations (`chunk`, `unchunk`, `checkpoint`, `telemetry`)
 
 * `chunk <size>`: Batches lazy streams into eager, bounded contiguous arrays for CPU cache efficiency.
@@ -296,7 +310,7 @@ The language has four number kinds: **`Int`** (unbounded, exact), **`Ratio`** (a
 
 **Numeric functions** (curried, data-last, usable as steps; every partial one has an error case): `pow base exp` (the function form of `**`) · `sqrt x` (a `Float`; negative is an error — use a `Complex`) · `isqrt n` (exact integer square root) · `floor` `ceil` `trunc` `round` (half away from zero) `round_even` (a number to an `Int`; `NaN`/`Inf` are errors) · `sign x` · `abs x` · `negate x` · `gcd a b` · `lcm a b` · `divmod a b` (floor, a pair) · `quot a b` / `rem a b` (truncated) · `to_int x` (**exact or an error**: `to_int 3.5` names `floor`/`round`) · `to_float x` · `is_nan x` · `is_inf x`.
 
-**Strings are not numbers** (the end of D2). `"5" == 5` is `false`; `ToFloat64`-style helpers no longer parse text, so `nth "1" xs`, `range "0" "2"`, `min "5" 3` and `compare "5" 3` are errors that point to `str_to_int`. **One boundary is kept on purpose:** a `String` still equals the *printed form of a collection* (`"[2 1]" == [2, 1]`), because HAMT keys are Strings (`frequencies |> hamt_pairs` gives `"[2 1]"` keys, and the pure-DSL Game of Life compares them with its coordinate pairs); it never equals a number, `Bool` or `Char`.
+**Strings are not numbers** (the end of D2). `"5" == 5` is `false`; `ToFloat64`-style helpers no longer parse text, so `nth "1" xs`, `range "0" "2"`, `min "5" 3` and `compare "5" 3` are errors that point to `str_to_int`. **A String is not the printed form of a collection either:** `"[2 1]" == [2, 1]` is `false` (it was `true` until HAMT keys carried values, below). A `String` equals only a `String`, and a one-character `String` a `Char` (D1).
 
 **Constraint names.** In annotations `Num` (any number), `Integral` (`Int`), `Fractional` (`Ratio`, `Float`, `Complex`), `Comparable` (everything but `Complex` and functions) and `Appendable` (`String`, `Bytes`, `List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Graph`, `Pair`, `Maybe`) state intent without a runtime wrapper: `def sum2 : Num -> Num -> Num = \a b -> a + b`. `gatwd --check` reports only definite contradictions (`sum2 "a" 1`, `x - "a"` under `Num`); because the tower converts at runtime a concrete number is consistent with every *numeric* constraint, so `Integral` and `Fractional` contradict only non-numbers and each other.
 

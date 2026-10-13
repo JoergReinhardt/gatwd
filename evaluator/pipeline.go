@@ -1348,9 +1348,16 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 				val, _ := node.Value.UnwrapRight()
 				lastFlag = node.DSLType
 
-				// Check if val is a Pair
-				if p, ok := val.(functions.Pair[string, any]); ok {
-					hamt = hamt.Set(p.Fst, p.Snd)
+				// A Pair is a key and a value; the key is any value (EncodeKey), so the pairs
+				// `hamt_pairs` yields feed straight back into to_hamt.
+				if pe, ok := val.(interface{ PairElements() (any, any) }); ok {
+					fst, snd := pe.PairElements()
+					key, err := EncodeKey(fst)
+					if err != nil {
+						errs = append(errs, InjectError[any](fmt.Errorf("to_hamt: %w", err), node.DSLType))
+						continue
+					}
+					hamt = hamt.Set(key, snd)
 				} else if str, ok := val.(string); ok {
 					// Split on ":" or "="
 					var k, v string
@@ -1365,7 +1372,12 @@ func StepToHAMT() PipelineStep[functions.Either[error, any]] {
 					}
 					hamt = hamt.Set(k, v)
 				} else {
-					hamt = hamt.Set(fmt.Sprintf("%v", val), val)
+					key, err := EncodeKey(val)
+					if err != nil {
+						errs = append(errs, InjectError[any](fmt.Errorf("to_hamt: %w", err), node.DSLType))
+						continue
+					}
+					hamt = hamt.Set(key, val)
 				}
 			}
 
@@ -1469,7 +1481,7 @@ func StepHAMTGet(key string) PipelineStep[functions.Either[error, any]] {
 				if found {
 					yield(dsltypes.NewASTNode(functions.Right[error, any](res), node.DSLType))
 				} else {
-					yield(InjectError[any](fmt.Errorf("key '%s' not found", key), node.DSLType))
+					yield(InjectError[any](fmt.Errorf("key '%v' not found", DecodeKey(key)), node.DSLType))
 				}
 			}
 		}
@@ -1628,7 +1640,7 @@ func StepHAMTKeys() PipelineStep[functions.Either[error, any]] {
 				v, _ := node.Value.UnwrapRight()
 				if h, ok := v.(*collections.HAMT[string, any]); ok {
 					for k := range h.Seq() {
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(k)), node.DSLType)) {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](DecodeKey(k)), node.DSLType)) {
 							return
 						}
 					}
@@ -1636,7 +1648,7 @@ func StepHAMTKeys() PipelineStep[functions.Either[error, any]] {
 				}
 				if m, ok := v.(*collections.Map[string, any]); ok {
 					for k := range m.Seq() {
-						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(k)), node.DSLType)) {
+						if !yield(dsltypes.NewASTNode(functions.Right[error, any](DecodeKey(k)), node.DSLType)) {
 							return
 						}
 					}
@@ -1696,7 +1708,7 @@ func StepHAMTPairs() PipelineStep[functions.Either[error, any]] {
 				v, _ := node.Value.UnwrapRight()
 				if h, ok := v.(*collections.HAMT[string, any]); ok {
 					for k, val := range h.Seq() {
-						pair := functions.Pair[any, any]{Fst: any(k), Snd: val}
+						pair := functions.Pair[any, any]{Fst: DecodeKey(k), Snd: val}
 						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(pair)), node.DSLType)) {
 							return
 						}
@@ -1705,7 +1717,7 @@ func StepHAMTPairs() PipelineStep[functions.Either[error, any]] {
 				}
 				if m, ok := v.(*collections.Map[string, any]); ok {
 					for k, val := range m.Seq() {
-						pair := functions.Pair[any, any]{Fst: any(k), Snd: val}
+						pair := functions.Pair[any, any]{Fst: DecodeKey(k), Snd: val}
 						if !yield(dsltypes.NewASTNode(functions.Right[error, any](any(pair)), node.DSLType)) {
 							return
 						}
@@ -2201,7 +2213,11 @@ func StepFrequencies() PipelineStep[functions.Either[error, any]] {
 					continue
 				}
 				val, _ := node.Value.UnwrapRight()
-				key := fmt.Sprintf("%v", val)
+				key, err := EncodeKey(val)
+				if err != nil {
+					yield(InjectError[any](fmt.Errorf("frequencies: %w", err), node.DSLType))
+					return
+				}
 				lastFlag = node.DSLType
 
 				currentCount := 0

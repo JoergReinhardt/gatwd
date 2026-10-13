@@ -191,10 +191,15 @@ func TestStringsAreNotNumbersInFunctionsAndEquality(t *testing.T) {
 	if got := in.EvaluateToValues(`nth (maybe_default 0 (str_to_int "1")) [7, 8, 9]`); len(got) != 1 || !functions.StructuralEqual(got[0], 8) {
 		t.Errorf("nth with a parsed index = %v, want [8]", got)
 	}
-	// The serialization boundary is kept (HAMT keys are Strings): a String still equals the
-	// printed form of a COLLECTION, never of a scalar.
-	if got := in.evaluatePipelineStr(`"[2 1]" == [2, 1]`); len(got) != 1 || got[0] != "true" {
-		t.Errorf(`"[2 1]" == [2, 1] = %v, want [true] (HAMT-key boundary)`, got)
+	// A String equals only a String: not a number, not a Char beyond the D1 one-character
+	// rule, and not the printed form of a collection (HAMT keys carry values now).
+	for stmt, want := range map[string]string{
+		`"[2 1]" == [2, 1]`: "false", `[2, 1] == "[2 1]"`: "false", `"[2 1]" != [2, 1]`: "true",
+		`"[2 1]" == "[2 1]"`: "true", `"5" == 5`: "false",
+	} {
+		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", stmt, got, want)
+		}
 	}
 }
 

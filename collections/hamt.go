@@ -235,6 +235,19 @@ func (b *branchNode[K, V]) iter(yield func(K, V) bool) bool {
 //
 // A HAMT may carry one Source (WithSource): provenance for error messages that is not part
 // of the map's contents. See Source for what it does and does not affect.
+//
+// # Keys in the DSL
+//
+// The DSL's dictionary is a *HAMT[string, any]: Go strings are the key carrier, because
+// every record (JSON, YAML, manifests, adapters, optics) is keyed by plain names. A DSL
+// key may nevertheless be any value — a coordinate pair, a number, a Set — and the
+// language's own equality decides what "the same key" means: two keys are one entry
+// exactly when `a == b`. The package evaluator turns a value into its string key with
+// EncodeKey and back with DecodeKey. A String is its own key (so records are unchanged);
+// any other value gets a canonical, collision-free, order-preserving encoding that starts
+// with a NUL byte, so `[2, 1]` and the text "[2 1]" are two different keys, `[2, 1]` and
+// the Pair 2,1 are one, and `3` and `3.0` are one. Decoding returns a value `==` the
+// original, never text. Use the DSL's hamt_* forms rather than Set with a printed value.
 type HAMT[K comparable, V any] struct {
 	root hamtNode[K, V]
 	size int

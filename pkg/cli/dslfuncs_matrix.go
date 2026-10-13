@@ -8,6 +8,7 @@ import (
 
 	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
 	"github.com/joergreinhardt/gatwd/parser"
 )
@@ -456,7 +457,11 @@ func registerMatrixFuncs(m map[string]any) {
 			if !ok || len(kv) != 2 {
 				return nil, fmt.Errorf("each entry must be a [key value] pair, got %v", it)
 			}
-			h = h.Set(dslStr(kv[0]), kv[1])
+			k, err := evaluator.EncodeKey(kv[0])
+			if err != nil {
+				return nil, fmt.Errorf("hamt_from: %w", err)
+			}
+			h = h.Set(k, kv[1])
 		}
 		return h, nil
 	})
@@ -465,21 +470,33 @@ func registerMatrixFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		return h.Set(dslStr(a[0]), a[1]), nil
+		k, err := evaluator.EncodeKey(a[0])
+		if err != nil {
+			return nil, fmt.Errorf("hamt_set: %w", err)
+		}
+		return h.Set(k, a[1]), nil
 	})
 	defn(m, "hamt_del", "k m", func(a []any) (any, error) {
 		h, err := asAnyHAMT(a[1])
 		if err != nil {
 			return nil, err
 		}
-		return h.Delete(dslStr(a[0])), nil
+		k, err := evaluator.EncodeKey(a[0])
+		if err != nil {
+			return nil, fmt.Errorf("hamt_del: %w", err)
+		}
+		return h.Delete(k), nil
 	})
 	defn(m, "hamt_get_or", "default k m", func(a []any) (any, error) {
 		h, err := asAnyHAMT(a[2])
 		if err != nil {
 			return nil, err
 		}
-		if v, ok := h.Get(dslStr(a[1])); ok {
+		k, err := evaluator.EncodeKey(a[1])
+		if err != nil {
+			return nil, fmt.Errorf("hamt_get_or: %w", err)
+		}
+		if v, ok := h.Get(k); ok {
 			return v, nil
 		}
 		return a[0], nil
@@ -489,7 +506,11 @@ func registerMatrixFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		_, ok := h.Get(dslStr(a[0]))
+		k, err := evaluator.EncodeKey(a[0])
+		if err != nil {
+			return nil, fmt.Errorf("hamt_has: %w", err)
+		}
+		_, ok := h.Get(k)
 		return ok, nil
 	})
 	defn(m, "hamt_keys", "m", func(a []any) (any, error) {
@@ -499,7 +520,7 @@ func registerMatrixFuncs(m map[string]any) {
 		}
 		var out []any
 		for k := range h.Keys() {
-			out = append(out, k)
+			out = append(out, evaluator.DecodeKey(k))
 		}
 		return listOf(out), nil
 	})
@@ -521,7 +542,7 @@ func registerMatrixFuncs(m map[string]any) {
 		}
 		var out []any
 		for k, v := range h.Seq() {
-			out = append(out, functions.Pair[any, any]{Fst: k, Snd: v})
+			out = append(out, functions.Pair[any, any]{Fst: evaluator.DecodeKey(k), Snd: v})
 		}
 		return listOf(out), nil
 	})
