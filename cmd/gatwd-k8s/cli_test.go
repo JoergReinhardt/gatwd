@@ -130,3 +130,99 @@ func TestEditionClientIsLazy(t *testing.T) {
 		t.Fatalf("a crawl without a cluster must fail naming the cause: err=%v\nstdout: %s\nstderr: %s", err, out, stderr.String())
 	}
 }
+
+// TestEditionWritesAreOptIn drives the real binary through the three layers that guard a
+// write to the cluster. The first two need no cluster; the third (RBAC) is the cluster's.
+//  1. the capability policy: k8s_apply is denied for the user's OWN script until
+//     --allow-cluster-apply, and the rollout steps until --allow-cluster-rollout;
+//  2. server dry run: with no --dry-run=false nothing is persisted (covered against a fake
+//     cluster in pkg/k8sgraph; here, that the flag exists and the offline twin works);
+//  3. the offline twin: --out DIR renders YAML files and needs no cluster.
+func TestEditionWritesAreOptIn(t *testing.T) {
+	bin := buildEdition(t)
+	cluster := filepath.Join("..", "..", "examples", "k8s_howto", "cluster")
+	apply := "spawn StrVal: " + cluster + " |> manifests |> k8s_apply"
+	run := func(args ...string) (int, string) {
+		c := exec.Command(bin, args...)
+		c.Env = append(os.Environ(), "KUBECONFIG="+filepath.Join(t.TempDir(), "absent"), "HOME="+t.TempDir(), "KUBERNETES_SERVICE_HOST=")
+		out, err := c.CombinedOutput()
+		code := 0
+		if ee, ok := err.(*exec.ExitError); ok {
+			code = ee.ExitCode()
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		return code, string(out)
+	}
+
+	out := filepath.Join(t.TempDir(), "rendered")
+	rows := []struct {
+		name string
+		args []string
+		ok   bool // exit status 0
+		has  []string
+		not  []string
+	}{
+		{"the user's own script is denied by default",
+			[]string{"eval", "-e", apply}, false,
+			[]string{"step 'k8s_apply' requires the cluster-apply capability (policy denies it)"}, []string{"written", "created"}},
+		{"--out does not lift the denial",
+			[]string{"--out", out, "eval", "-e", apply}, false,
+			[]string{"requires the cluster-apply capability"}, []string{"written"}},
+		{"the rollout capability does not grant apply",
+			[]string{"--allow-cluster-rollout", "eval", "-e", apply}, false,
+			[]string{"requires the cluster-apply capability"}, nil},
+		{"a rollout step is denied by default",
+			[]string{"eval", "-e", "spawn StrVal: Deployment/default/web |> k8s_scale 3"}, false,
+			[]string{"step 'k8s_scale' requires the cluster-rollout capability (policy denies it)"}, nil},
+		{"the apply capability does not grant rollout",
+			[]string{"--allow-cluster-apply", "eval", "-e", "spawn StrVal: Deployment/default/web |> k8s_rollout_restart"}, false,
+			[]string{"step 'k8s_rollout_restart' requires the cluster-rollout capability (policy denies it)"}, nil},
+		{"rollout status is a read: no capability, so it reaches the (absent) cluster",
+			[]string{"eval", "-e", "spawn StrVal: Deployment/default/web |> k8s_rollout_status"}, false,
+			[]string{"no cluster access"}, []string{"requires the"}},
+		{"allowed but with no cluster: a loud error, not a skipped write",
+			[]string{"--allow-cluster-apply", "eval", "-e", apply}, false,
+			[]string{"no cluster access"}, []string{"written", "created", "would-"}},
+		{"the offline twin renders files with no cluster",
+			[]string{"--allow-cluster-apply", "--out", out, "eval", "-e", apply}, true,
+			[]string{"written"}, []string{"[ERROR]"}},
+	}
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			code, o := run(r.args...)
+			if (code == 0) != r.ok {
+				t.Fatalf("exit %d, want ok=%v\n%s", code, r.ok, o)
+			}
+			for _, w := range r.has {
+				if !strings.Contains(o, w) {
+					t.Errorf("output lacks %q:\n%s", w, o)
+				}
+			}
+			for _, b := range r.not {
+				if strings.Contains(o, b) {
+					t.Errorf("output must not contain %q:\n%s", b, o)
+				}
+			}
+		})
+	}
+	if files, _ := filepath.Glob(filepath.Join(out, "*.yaml")); len(files) == 0 {
+		t.Fatal("the offline twin wrote no files")
+	}
+
+	code, help := run("--help")
+	if code != 0 {
+		t.Fatalf("--help: %s", help)
+	}
+	for _, f := range []string{"--allow-cluster-apply", "--allow-cluster-rollout", "--dry-run", "--out", "--force-conflicts", "--field-manager"} {
+		if !strings.Contains(help, f) {
+			t.Errorf("--help does not list %s:\n%s", f, help)
+		}
+	}
+	if !strings.Contains(help, "denied by default") || !strings.Contains(help, "--dry-run=false") {
+		t.Errorf("--help must say the writes are denied by default and how to make them real:\n%s", help)
+	}
+	if strings.Contains(help, "--prune") || strings.Contains(help, "--delete") {
+		t.Errorf("the first version has no delete or prune:\n%s", help)
+	}
+}

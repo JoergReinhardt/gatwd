@@ -44,8 +44,13 @@ func operatorTree() *cli.ApplianceTree {
 			manifests := cmd.PersistentFlags().String("manifests", "", "manifest file or directory to check; omit to check the live cluster")
 			namespace := cmd.PersistentFlags().String("namespace", "default", "namespace to crawl when checking the live cluster (\"\" = all)")
 			noKustomize := cmd.PersistentFlags().Bool("no-kustomize", false, "read a kustomization root under --manifests as plain files instead of rendering it")
+			// The write steps (k8s_apply, k8s_rollout_*) exist in the rules' interpreter but are denied
+			// unless --allow-cluster-apply / --allow-cluster-rollout are given; --dry-run (default true),
+			// --force-conflicts, --field-manager, --out and --apply-namespace shape them.
+			writes := k8sgraph.DefaultWriteFlags()
+			writes.Bind(cmd.PersistentFlags())
 			return func(s cli.ApplianceSettings) (*cli.Appliance, string, error) {
-				return setup(s, *manifests, *namespace, *noKustomize)
+				return setup(s, *manifests, *namespace, *noKustomize, writes)
 			}
 		},
 		Embedded:    embeddedRules,
@@ -63,9 +68,9 @@ func embeddedRules() (string, error) {
 // builds it here, once, and its failure is "no source" — a malformed invocation (exit 2).
 // --no-kustomize is the edition's switch (k8sgraph.WithoutKustomize) and means something only
 // for manifests: with the live source it would be silently ignored, so it is a usage error.
-func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize bool) (*cli.Appliance, string, error) {
+func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize bool, writes *k8sgraph.WriteFlags) (*cli.Appliance, string, error) {
+	opts := []k8sgraph.Option{k8sgraph.WithWriteFlags(writes)}
 	if manifests != "" {
-		var opts []k8sgraph.Option
 		if noKustomize {
 			opts = append(opts, k8sgraph.WithoutKustomize())
 		}
@@ -79,7 +84,7 @@ func setup(s cli.ApplianceSettings, manifests, namespace string, noKustomize boo
 	if err != nil {
 		return nil, "", cli.UsageError(fmt.Errorf("no --manifests given and no cluster reachable (%v)", err))
 	}
-	app, err := newAppliance(client, s.Rules, s.Mode, cli.WithPolicy(s.Policy), s.BoundOptions())
+	app, err := newApplianceWith(client, opts, s.Rules, s.Mode, cli.WithPolicy(s.Policy), s.BoundOptions())
 	return app, livePipeline(namespace), err
 }
 

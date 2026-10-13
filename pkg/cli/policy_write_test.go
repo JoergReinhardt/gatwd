@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // Tests for the two write capabilities (CapClusterApply, CapClusterRollout): denied by
@@ -184,5 +187,37 @@ func TestEditionCapabilityFlagIsTheOnlyWayToGrantAWriteCapability(t *testing.T) 
 	}
 	if code, out := run("--help"); code != 0 || !strings.Contains(out, "--allow-cluster-apply") || !strings.Contains(out, "denied by default") {
 		t.Fatalf("help must list the flag: %q", out)
+	}
+}
+
+// ---- the Appliance flags ----
+
+func TestApplianceFlagsMapToTheWriteCapabilities(t *testing.T) {
+	var got Policy
+	tree := NewApplianceTree(ApplianceSpec{
+		Name: "toy",
+		Bind: func(cmd *cobra.Command) ApplianceSetup {
+			return func(s ApplianceSettings) (*Appliance, string, error) {
+				got = s.Policy
+				return nil, "", UsageError(errors.New("stop after reading the settings"))
+			}
+		},
+	})
+	rows := []struct {
+		argv []string
+		want Policy
+	}{
+		{[]string{"check"}, DenyAll()},
+		{[]string{"check", "--allow-cluster-apply"}, Policy{AllowClusterApply: true}},
+		{[]string{"check", "--allow-cluster-rollout"}, Policy{AllowClusterRollout: true}},
+		{[]string{"--allow-cluster-apply", "--allow-cluster-rollout", "--allow-exec"}, Policy{AllowClusterApply: true, AllowClusterRollout: true, AllowExec: true}},
+		{[]string{"check", "--allow-fs", "--allow-net", "--allow-env", "--allow-exec"}, Policy{AllowFS: true, AllowNet: true, AllowEnv: true, AllowExec: true}},
+	}
+	for _, r := range rows {
+		got = TrustedPolicy().Grant(CapClusterApply).Grant(CapClusterRollout) // a stale value must not survive
+		toyRun(t, tree, r.argv...)
+		if got != r.want {
+			t.Errorf("%v: policy = %v, want %v", r.argv, got, r.want)
+		}
 	}
 }
