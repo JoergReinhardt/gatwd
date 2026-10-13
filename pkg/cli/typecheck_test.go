@@ -171,3 +171,192 @@ func TestCheckStructuralErrorsStillErrors(t *testing.T) {
 		t.Fatalf("want 3 structural errors, got %v", ds)
 	}
 }
+
+// ---- constraint names (hardening W3): Num, Integral, Fractional, Comparable, Appendable ----
+
+func TestConstraintNamesParse(t *testing.T) {
+	for _, src := range []string{"Num", "Num -> Num -> Num", "Integral -> Fractional", "Comparable -> Comparable -> Bool", "List(Num) -> Appendable"} {
+		ty, err := ParseTypeAnnotation(src)
+		if err != nil || ty.String() != src {
+			t.Errorf("%q -> %v, %v", src, ty, err)
+		}
+	}
+	if ty, _ := ParseTypeAnnotation("Num"); !ty.isConstraint() {
+		t.Error("Num must be a constraint")
+	}
+	if ty, _ := ParseTypeAnnotation("List(Num)"); ty.isConstraint() {
+		t.Error("List(Num) is a type, not a constraint")
+	}
+	for _, name := range []string{"Num", "Integral", "Fractional", "Comparable", "Appendable"} {
+		if !IsConstraintName(name) {
+			t.Errorf("%s must be a constraint name", name)
+		}
+		if _, err := ParseTypeAnnotation(name + "(Int)"); err == nil {
+			t.Errorf("%s(Int) must not parse: a constraint takes no type arguments", name)
+		}
+	}
+	if IsConstraintName("Int") || IsConstraintName("Number") {
+		t.Error("Int and Number are not constraint names")
+	}
+}
+
+// Valid uses of every constraint: the checker must stay silent (zero false positives).
+func TestConstraintsValidProgramIsSilent(t *testing.T) {
+	src := `
+def sum2 : Num -> Num -> Num = \a b -> a + b
+def half : Fractional -> Fractional = \x -> x / 2
+def idiv2 : Integral -> Integral = \n -> n // 2
+def modulo : Integral -> Integral -> Integral = \a b -> a % b
+def below : Comparable -> Comparable -> Bool = \a b -> a < b
+def glue : Appendable -> Appendable -> Appendable = \a b -> a ++ b
+def neg : Num -> Num = \x -> -x
+def sq : Num -> Num = \x -> x ** 2
+def as_int : Num -> Int = \x -> 1
+def mean : List(Num) -> Num = \xs -> sum2 (head xs) 1
+def keep : Num -> Num = \n -> sum2 n 1
+sum2 1 2
+sum2 1.5 2
+sum2 (1 + 2i) 1
+half 3
+half 3.5
+idiv2 7
+modulo 7 3
+below "a" "b"
+below 1 2
+below 'a' 'b'
+below [1] [2]
+glue "a" "b"
+glue [1] [2]
+neg 4
+sq 3
+as_int 2.5
+keep (sum2 1 2)
+[1, 2, 3] |> map (\x -> sum2 x 1)
+`
+	if ws := warnings(src); len(ws) != 0 {
+		t.Fatalf("valid constraint program must be silent, got %v", ws)
+	}
+}
+
+// Each contradiction is reported, with the constraint named in the message.
+func TestConstraintsReportContradictions(t *testing.T) {
+	for src, want := range map[string]string{
+		"def sum2 : Num -> Num = \\a -> a\nsum2 \"a\"":                                                   "expected Num",
+		"def sum2 : Num -> Num = \\a -> a\nsum2 true":                                                    "expected Num",
+		"def idiv : Integral -> Int = \\a -> 1\nidiv \"x\"":                                              "expected Integral",
+		"def fr : Fractional -> Int = \\a -> 1\nfr [1]":                                                  "expected Fractional",
+		"def cmp : Comparable -> Int = \\a -> 1\ncmp (3 + 4i)":                                           "expected Comparable",
+		"def app : Appendable -> Int = \\a -> 1\napp 3":                                                  "expected Appendable",
+		"def app : Appendable -> Int = \\a -> 1\napp true":                                               "expected Appendable",
+		"def f : Num -> String = \\a -> \"s\"\ndef g : String -> Int = \\s -> 1\ng (f 1)":                "", // fine
+		"def bad : Integral -> Fractional = \\a -> a\ndef use : Integral -> Int = \\i -> 1\nuse (bad 1)": "", // Fractional into Integral: meets only through the tower; see below
+		"def bad : Integral -> Int = \\x -> -\"a\"":                                                      "operator '-' is not defined for String",
+		"def bad : Num(Int) -> Int = \\x -> 1":                                                           "takes no type arguments",
+	} {
+		ws := warnings(src)
+		if want == "" {
+			continue
+		}
+		if !hasWarning(ws, want) {
+			t.Errorf("%q: want a warning containing %q, got %v", src, want, ws)
+		}
+	}
+	// a String-typed result where a Num is promised
+	if ws := warnings("def f : Num -> Num = \\a -> \"s\""); !hasWarning(ws, "annotation says Num") {
+		t.Errorf("a String body under a Num annotation must warn, got %v", ws)
+	}
+	// two constraints with no member in common contradict each other
+	if ws := warnings("def only_int : Integral -> Int = \\a -> 1\ndef frac : Fractional -> Int = \\a -> only_int a"); !hasWarning(ws, "expected Integral") {
+		t.Errorf("a Fractional where an Integral is wanted must warn, got %v", ws)
+	}
+}
+
+// Unary minus is typed through the runtime oracle.
+func TestUnaryMinusIsChecked(t *testing.T) {
+	if ws := warnings("def n : Int -> Int = \\x -> -x\nn 3\n- 5\n-2.5\n-(1 + 2)"); len(ws) != 0 {
+		t.Errorf("valid unary minus must be silent, got %v", ws)
+	}
+	if ws := warnings(`- "a"`); !hasWarning(ws, "operator '-' is not defined for String") {
+		t.Errorf(`- "a" must warn, got %v`, ws)
+	}
+	if ws := warnings("def s : String -> Int = \\x -> -x"); !hasWarning(ws, "operator '-' is not defined for String") {
+		t.Errorf("negating a String parameter must warn, got %v", ws)
+	}
+}
+
+// Ratio in the checker: a numeric type, a member of Num and Fractional, typed from literals.
+func TestRatioIsChecked(t *testing.T) {
+	valid := `
+def half : Ratio -> Ratio = \x -> x / 2r1
+def third : Fractional -> Fractional = \x -> x * 1r3
+def total : Num -> Num -> Num = \a b -> a + b
+def keep : Ratio -> Num = \x -> x
+half 1r3
+half 1
+third 1r2
+total 1r2 3
+total 1r2 0.5
+[1r2, 1, 2.5] |> map (\x -> total x 1r2)
+`
+	if ws := warnings(valid); len(ws) != 0 {
+		t.Fatalf("valid Ratio program must be silent, got %v", ws)
+	}
+	for src, want := range map[string]string{
+		"def f : Ratio -> Int = \\x -> x\nf \"a\"": "expected Ratio",
+		"def f : Num -> Num = \\x -> x - \"a\"":    "operator '-' is not defined for Num and String",
+		"def f : Num -> String = \\x -> x + 1":     "annotation says String",
+		"def f : Ratio -> String = \\x -> x + 1r2": "annotation says String",
+		"1r2 + \"a\"": "operator '+' is not defined for Ratio and String",
+		"def f : Integral -> Int = \\x -> 1\nf 1r2 ++ \"a\" ++ true": "", // nothing certain: stays silent or not, but must not panic
+	} {
+		ws := warnings(src)
+		if want != "" && !hasWarning(ws, want) {
+			t.Errorf("%q: want a warning containing %q, got %v", src, want, ws)
+		}
+	}
+	if ty := tyOfValue(mustRatio(t)); ty.Name != "Ratio" || !ty.isNumeric() {
+		t.Errorf("a Ratio literal must be typed Ratio and numeric, got %v", ty)
+	}
+}
+
+func mustRatio(t *testing.T) any {
+	t.Helper()
+	got := NewInterpreter().EvaluateToValues("1r2")
+	if len(got) != 1 {
+		t.Fatalf("1r2 = %v", got)
+	}
+	return got[0]
+}
+
+func TestPrefixBangIsChecked(t *testing.T) {
+	if ws := warnings("def inv : Bool -> Bool = \\b -> !b\ninv true\n!true\n!(1 == 2)\n[true] |> map (\\x -> !x)"); len(ws) != 0 {
+		t.Errorf("valid ! must be silent, got %v", ws)
+	}
+	if ws := warnings("!1"); !hasWarning(ws, "operator '!' is not defined for Int") {
+		t.Errorf("!1 must warn, got %v", ws)
+	}
+	if ws := warnings("def f : String -> Bool = \\s -> !s"); !hasWarning(ws, "operator '!' is not defined for String") {
+		t.Errorf("!String must warn, got %v", ws)
+	}
+}
+
+// The promotion lattice's advisory: an Int literal beyond 2^53 mixed with a Float.
+func TestInexactIntToFloatAdvisory(t *testing.T) {
+	for _, src := range []string{"9007199254740993 + 0.5", "0.5 * 9007199254740993", "2.5 / 100000000000000000000", "(-9007199254740993) + 1.5"} {
+		if ws := warnings(src); !hasWarning(ws, "converts to Float inexactly") {
+			t.Errorf("%q: want the inexact-conversion warning, got %v", src, ws)
+		}
+	}
+	for _, src := range []string{
+		"9007199254740992 + 0.5",  // exactly 2^53 is representable
+		"9007199254740993 + 1",    // Int with Int is exact
+		"9007199254740993 == 0.5", // comparison is exact, no conversion
+		"9007199254740993 > 9007199254740992.0",
+		"1r2 + 9007199254740993", // Ratio with Int is exact
+		"def f : Float -> Float = \\x -> x + 1.5\nf 2",
+	} {
+		if ws := warnings(src); hasWarning(ws, "inexactly") {
+			t.Errorf("%q must not warn, got %v", src, ws)
+		}
+	}
+}

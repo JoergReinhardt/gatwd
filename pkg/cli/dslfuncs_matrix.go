@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"unicode/utf8"
 
@@ -50,6 +51,9 @@ func defn(m map[string]any, name, params string, impl func(a []any) (any, error)
 	m[name] = functions.NewClosure(strings.Fields(params), func(a []any) (any, error) {
 		res, err := impl(a)
 		if err != nil {
+			if strings.HasPrefix(err.Error(), name+":") || strings.HasPrefix(err.Error(), name+" ") {
+				return nil, err // the message already names the function
+			}
 			return nil, fmt.Errorf("%s: %w", name, err)
 		}
 		return res, nil
@@ -84,12 +88,22 @@ func asAnySet(v any) (*collections.Set[any], error) {
 	return nil, fmt.Errorf("want a Set, got %T", v)
 }
 
+// asInt reads an integer argument: any Int that fits a Go int, or a Float that is a whole
+// number. Text is not a number (D2): `nth "1" xs` is an error that says so.
 func asInt(v any) (int, error) {
-	f, ok := functions.ToFloat64(v)
-	if !ok || f != float64(int(f)) {
-		return 0, fmt.Errorf("want an integer, got %v (%T)", v, v)
+	if b, ok := functions.ToBigInt(v); ok {
+		if !b.IsInt64() {
+			return 0, fmt.Errorf("want an integer that fits 64 bits, got %v", v)
+		}
+		return int(b.Int64()), nil
 	}
-	return int(f), nil
+	if _, isString := v.(string); isString {
+		return 0, fmt.Errorf("want an integer, got the String %q (a String is not a number; use str_to_int)", v)
+	}
+	if f, ok := functions.ToFloat64(v); ok && f == math.Trunc(f) && math.Abs(f) < 1<<62 {
+		return int(f), nil
+	}
+	return 0, fmt.Errorf("want an integer, got %v (%T)", v, v)
 }
 
 func structuralMember(x any, items []any) bool {
@@ -796,20 +810,8 @@ func registerMatrixFuncs(m map[string]any) {
 		}
 		return orderingOf(c), nil
 	})
-	negate := func(v any) (any, error) {
-		return functions.EvalBinaryOp(functions.OpSub, 0, v)
-	}
-	defn(m, "negate", "n", func(a []any) (any, error) { return negate(a[0]) })
-	defn(m, "abs", "n", func(a []any) (any, error) {
-		c, err := compareAny(a[0], 0)
-		if err != nil {
-			return nil, err
-		}
-		if c < 0 {
-			return negate(a[0])
-		}
-		return a[0], nil
-	})
+	// negate and abs are the numeric tower's (dslfuncs_numeric.go): unary minus and the
+	// absolute value of a real number, exact for any size of Int.
 }
 
 // safeSetOp2 is safeSetOp for boolean-valued Set queries.

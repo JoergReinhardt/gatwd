@@ -848,7 +848,229 @@ const RE97_WORD = gatwd
 str_upper RE97_WORD |> assert GATWD
 length RE97_WORD |> assert 5
 
--- 98. YAML (hardening W2 tier 2; the library joined the Clean Core allowlist 2026-10-13): yaml_parse yields
+-- 98. Numeric tower, step 1 (hardening W3): unary minus and `**`. A "-" in operand position negates
+-- (`- 5`, `-x`); `f -3` (a space before, none after) is a negative ARGUMENT, `a - 3` and `a-3` stay
+-- subtractions; `**` is right-associative and binds tighter than unary minus: -2 ** 2 is -4.
+- 5 |> assert -5
+-(2 + 3) |> assert -5
+2 ** 3 |> assert 8
+2 ** 3 ** 2 |> assert 512
+-2 ** 2 |> assert -4
+(-2) ** 2 |> assert 4
+10 - 3 |> assert 7
+abs -3 |> assert 3
+min -1 3 |> assert -1
+2 ** -1 |> assert 0.5
+2 ** 0.5 |> assert 1.4142135623730951
+2 ** 100 |> assert 1267650600228229401496703205376
+-9223372036854775808 |> assert -9223372036854775808
+[1, 2, 3] |> map (\x -> -x) |> assert [-1 -2 -3]
+[1, 2, 3] |> map (\x -> x ** 2) |> assert [1 4 9]
+[1, 2, 3] |> map (\x -> 2 ** x - 1) |> assert [1 3 7]
+[3, -1, 0 - 2] |> map (\x -> -x) |> assert [-3 1 2]
+[3 -1 -2] |> length |> assert 3
+def w3_dec = \n -> n - 1
+w3_dec 5 |> assert 4
+w3_dec -5 |> assert -6
+5 |> ** 2 |> assert 25
+5 |> math_pow 3 |> assert 125
+5 |> - 2 |> assert 3
+
+-- 99. Numeric tower, step 2 (hardening W3): the logical Int. Int is unbounded and exact; a result that
+-- fits int64 is an ordinary Int again (demotion), a larger one a big integer printed without a '+'.
+-- `/` is exact when it divides and a Float otherwise; `//` floors; `%` takes the sign of the divisor.
+2 ** 63 |> assert 9223372036854775808
+2 ** 63 - 1 |> assert 9223372036854775807
+2 ** 100 - 2 ** 100 |> assert 0
+(2 ** 64) / (2 ** 64) |> assert 1
+9223372036854775807 + 1 |> assert 9223372036854775808
+-9223372036854775807 - 2 |> assert -9223372036854775809
+[2 ** 64, 7] |> assert [18446744073709551616 7]
+[1, 2, 3] |> map (\x -> 2 ** 62 * x) |> assert [4611686018427387904 9223372036854775808 13835058055282163712]
+[1, 2, 3] |> fold (\acc x -> acc * 10 ** 12 + x) 0 |> assert 1000000000002000000000003
+7 // 2 |> assert 3
+-7 // 2 |> assert -4
+7 // -2 |> assert -4
+-7 % 3 |> assert 2
+7 % -3 |> assert -2
+[-7, 7, 0, 12] |> map (\a -> 3 * (a // 3) + a % 3) |> assert [-7 7 0 12]
+7 / 2 |> assert 3.5
+8 / 2 |> assert 4
+1 / 3 |> assert 0.3333333333333333
+-7.5 // 2 |> assert -4
+-7.5 % 2 |> assert 0.5
+divmod -7 2 |> assert [-4, 1]
+[-7, 7] |> map (\a -> fst (divmod a 2)) |> assert [-4 3]
+quot -7 2 |> assert -3
+rem -7 2 |> assert -1
+-- exact comparison, never through a double
+9007199254740993 > 9007199254740992.0 |> assert true
+9007199254740993 == 9007199254740992.0 |> assert false
+1 == 1.0 |> assert true
+0.1 + 0.2 == 0.3 |> assert false
+[1, 2.5, 3] |> map (\x -> x < 2.5) |> assert [true false false]
+-- the named functions, step form and function form inside a lambda
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> floor x) |> assert [2 -3 2 -3]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> ceil x) |> assert [3 -2 3 -2]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> trunc x) |> assert [2 -2 2 -2]
+[2.7, -2.7, 2.5, -2.5] |> map (\x -> round x) |> assert [3 -3 3 -3]
+[2.5, 3.5, -2.5] |> map (\x -> round_even x) |> assert [2 4 -2]
+[-3, 0, 4] |> map (\x -> sign x) |> assert [-1 0 1]
+[-3, 4] |> map (\x -> abs x) |> assert [3 4]
+-(2 ** 63) |> abs |> assert 9223372036854775808
+[4, 9, 16] |> map (\x -> sqrt x) |> assert [2 3 4]
+isqrt (10 ** 40) |> assert 100000000000000000000
+[12, 7, 0] |> map (\a -> gcd a 18) |> assert [6 1 18]
+[4, 6, 0] |> map (\a -> lcm a 6) |> assert [12 6 0]
+fold (\a x -> lcm a x) 1 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] |> assert 2520
+[3, 4] |> map (\x -> pow 2 x) |> assert [8 16]
+[3.0, 4.0] |> map (\x -> to_int x) |> assert [3 4]
+[3, 4] |> map (\x -> to_float x) |> assert [3 4]
+to_float (2 ** 53 + 1) |> assert 9.007199254740992e+15
+[1.5, 3] |> map (\x -> is_nan x) |> assert [false false]
+[1.5, 3] |> map (\x -> is_inf x) |> assert [false false]
+2.7 |> floor |> assert 2
+16 |> sqrt |> assert 4
+-- (the negative cases — sqrt -4, to_int 3.5, 1 // 0, ... — are errors by design, so they live in
+-- pkg/cli/numeric_test.go and failloud_test.go: this file must stay free of [ERROR].)
+
+-- 100. Strings are not numbers (hardening W3, the end of D2): == between a String and a number is false,
+-- two Strings compare as text, and text never converts implicitly — parse it with str_to_int / str_to_float.
+"5" == 5 |> assert false
+5 == "5" |> assert false
+"5" != 5 |> assert true
+"10" == "10.0" |> assert false
+"10" == "10" |> assert true
+'a' == "a" |> assert true
+["5", "5.0", "05"] |> map (\s -> s == "5") |> assert [true false false]
+["5", "5.0"] |> map (\s -> s == 5) |> assert [false false]
+["5", "5.0", "x"] |> map (\s -> maybe_default 0 (str_to_float s)) |> assert [5 5 0]
+nth (maybe_default 0 (str_to_int "1")) [7, 8, 9] |> assert 8
+[1, 2] |> map (\i -> nth i [7, 8, 9]) |> assert [8 9]
+max (maybe_default 0 (str_to_int "5")) 3 |> assert 5
+
+-- 101. Constraint names in annotations (hardening W3): Num, Integral, Fractional, Comparable, Appendable
+-- state intent and are checked by `gatwd --check` (advisory); they never change evaluation.
+def w3_sum2 : Num -> Num -> Num = \a b -> a + b
+def w3_half : Fractional -> Fractional = \x -> x / 2
+def w3_idiv2 : Integral -> Integral = \n -> n // 2
+def w3_below : Comparable -> Comparable -> Bool = \a b -> a < b
+def w3_glue : Appendable -> Appendable -> Appendable = \a b -> a ++ b
+def w3_neg : Num -> Num = \x -> -x
+[1, 2.5, 2 ** 70] |> map (\x -> w3_sum2 x 1) |> assert [2 3.5 1180591620717411303425]
+[3, 5] |> map (\x -> w3_half x) |> assert [1.5 2.5]
+[7, -7] |> map (\x -> w3_idiv2 x) |> assert [3 -4]
+[["a", "b"], ["b", "a"]] |> map (\p -> w3_below (head p) (nth 1 p)) |> assert [true false]
+w3_glue "ab" "cd" |> assert abcd
+w3_glue [1] [2] |> assert [1 2]
+[1, -2.5] |> map (\x -> w3_neg x) |> assert [-1 2.5]
+
+-- 102. Ratio, exact fractions (hardening W3, D11-D13): `3r4` and the exact decimal `0.75r`, `ratio n d`,
+-- a whole fraction demotes to an Int, arithmetic with a Float promotes to Float, comparison is exact.
+3r4 |> assert 3r4
+0.75r |> assert 3r4
+6r8 |> assert 3r4
+4r2 |> assert 2
+1r2 + 1r2 |> assert 1
+1r10 + 2r10 == 3r10 |> assert true
+0.1 + 0.2 == 0.3 |> assert false
+1r10 == 0.1 |> assert false
+to_ratio 0.1 == 1r10 |> assert true
+to_ratio 0.1 |> assert 1r10
+to_ratio_exact 0.5 |> assert 1r2
+to_ratio_approx 3.14159265 100 |> assert 311r99
+to_ratio_approx 0.3333333 100 |> assert 1r3
+7 / 2 |> assert 3.5
+1r3 / 2 |> assert 1r6
+1r2 + 0.5 |> assert 1
+7r2 // 1r2 |> assert 7
+7r2 % 1r3 |> assert 1r6
+-3r4 |> assert -3r4
+1r2 ** 3 |> assert 1r8
+1r2 ** -3 |> assert 8
+-- inside lambdas, folds and comprehensions
+[2, 3, 4, 5, 6, 7, 8, 9, 10] |> map (\n -> ratio 1 n) |> fold (\a x -> a + x) 0r1 |> assert 4861r2520
+[1, 2, 3] |> map (\n -> ratio n 6) |> assert [1r6 1r3 1r2]
+[ratio 1 n | n <- [2, 3, 6]] |> fold (\a x -> a + x) 0r1 |> assert 1
+[1r2, 1r3, 0.25, 2] |> map (\x -> x < 1r2) |> assert [false true true false]
+[1r2, 1r3, 1r6] |> map (\x -> numer x) |> assert [1 1 1]
+[1r2, 1r3, 1r6] |> map (\x -> denom x) |> assert [2 3 6]
+[7r2, -7r2, 5r2] |> map (\x -> floor x) |> assert [3 -4 2]
+[7r2, -7r2, 5r2] |> map (\x -> ceil x) |> assert [4 -3 3]
+[7r2, -7r2, 5r2] |> map (\x -> trunc x) |> assert [3 -3 2]
+[7r2, -7r2, 5r2] |> map (\x -> round x) |> assert [4 -4 3]
+[7r2, -7r2, 5r2] |> map (\x -> round_even x) |> assert [4 -4 2]
+[1r4, 3r4] |> map (\x -> to_float x) |> assert [0.25 0.75]
+[1r4, -3r4] |> map (\x -> abs x) |> assert [1r4 3r4]
+[1r2, 1r3] |> map (\x -> negate x) |> assert [-1r2 -1r3]
+[1r2, 1r3] |> map (\x -> sign x) |> assert [1 1]
+[3r4, 1r2, 1r3] |> map (\x -> min x 1r2) |> assert [1r2 1r2 1r3]
+[22r7, 7r3] |> map (\x -> ratio_parts x) |> assert [[22, 7] [7, 3]]
+ratio_mixed 7r2 |> assert [3, 1r2]
+ratio_cf 7r3 |> assert [2 3]
+ratio_from_cf [3, 7, 15, 1] |> assert 355r113
+ratio_mediant 1r2 2r3 |> assert 3r5
+[ "3/4", "-0.5", "12", "1.5e-3" ] |> map (\s -> maybe_default 0 (str_to_ratio s)) |> assert [3r4 -1r2 12 3r2000]
+is_just (str_to_ratio "nope") |> assert false
+compare 1r2 1r3 |> assert GT
+3 |> ratio 1 |> assert 1r3
+5 |> + 1r2 |> assert 11r2
+def w3_mean : Fractional -> Fractional -> Fractional = \a b -> (a + b) / 2
+w3_mean 1r2 1r3 |> assert 5r12
+
+-- 103. Prefix `!` (hardening W3, user decision 2026-10-13): a synonym of `not`. `!` is a prefix operator
+-- only when the next character is not `=`, so `a != b` is unchanged; it binds like unary minus.
+!true |> assert false
+!false |> assert true
+!(1 == 2) |> assert true
+!!true |> assert true
+1 != 2 |> assert true
+1 != 1 |> assert false
+[true, false] |> map (\x -> !x) |> assert [false true]
+[true, false] |> map (\x -> not x) |> assert [false true]
+[1, 2, 3] |> filter (\x -> !(x == 2)) |> assert [1 3]
+[1, 2, 3] |> filter (\x -> x != 2) |> assert [1 3]
+[1, 2, 3] |> map (\x -> !(x < 2) && x != 3) |> assert [false true false]
+def w3_inv = \b -> !b
+w3_inv true |> assert false
+[true, true, false] |> fold (\a x -> a && !(!x)) true |> assert false
+
+-- 104. The numeric operator matrix (hardening W3): the six arithmetic operators over Int, Ratio and Float
+-- pairs, through one closure. Expected values were computed independently with exact fractions.
+def w3_ops = \a b -> [a + b, a - b, a * b, a / b, a // b, a % b]
+w3_ops (7) (2) |> assert [9 5 14 3.5 3 1]
+w3_ops (3r2) (5r3) |> assert [19r6 -1r6 5r2 9r10 0 3r2]
+w3_ops (2.5) (0.5) |> assert [3 2 1.25 5 5 0]
+w3_ops (7) (3r2) |> assert [17r2 11r2 21r2 14r3 4 1]
+w3_ops (3r2) (2) |> assert [7r2 -1r2 3 3r4 0 3r2]
+w3_ops (7) (0.5) |> assert [7.5 6.5 3.5 14 14 0]
+w3_ops (-7) (2) |> assert [-5 -9 -14 -3.5 -4 1]
+w3_ops (7) (-2) |> assert [5 9 -14 -3.5 -4 -1]
+w3_ops (3r2) (0.5) |> assert [2 1 0.75 3 3 0]
+w3_ops (2 ** 70) (3) |> assert [1180591620717411303427 1180591620717411303421 3541774862152233910272 3.935305402391371e+20 393530540239137101141 1]
+-- ordering and equality over mixed numeric pairs, exactly
+def w3_cmp = \a b -> [a < b, a <= b, a > b, a >= b, a == b, a != b]
+w3_cmp 1 2 |> assert [true true false false false true]
+w3_cmp 1r2 0.5 |> assert [false true false true true false]
+w3_cmp 1r10 0.1 |> assert [true true false false false true]
+w3_cmp 1 1.0 |> assert [false true false true true false]
+w3_cmp (2 ** 70) 1180591620717411303424.0 |> assert [false true false true true false]
+w3_cmp "a" "b" |> assert [true true false false false true]
+w3_cmp "10" "9" |> assert [true true false false false true]
+-- (String against a number is an error for every operator but == and !=: see section 100 and the Go matrix test)
+-- the lattice: the class of a result is the join of the operand classes
+[[1, 2], [1, 1r2], [1, 0.5], [1r2, 0.5], [1r2, 1r3]] |> map (\p -> head p + nth 1 p) |> assert [3 3r2 1.5 1 5r6]
+[[1, 2], [1, 1r2], [1, 0.5]] |> map (\p -> head p * nth 1 p) |> assert [2 1r2 0.5]
+-- the same operators as pipeline sections (step form)
+7 |> + 2 |> assert 9
+7 |> - 3r2 |> assert 11r2
+7 |> * 0.5 |> assert 3.5
+7 |> / 2 |> assert 3.5
+7 |> // 2 |> assert 3
+7 |> % 3r2 |> assert 1
+3r2 |> ** 2 |> assert 9r4
+
+-- 105. YAML (hardening W2 tier 2; the library joined the Clean Core allowlist 2026-10-13): yaml_parse yields
 -- the same nested shape as json_parse inside a Maybe; malformed or unsupported text is Nothing; text
 -- is never altered silently (a date stays text, a merge key expands, an explicit key wins).
 maybe_default 0 (map (\d -> hamt_path "a.b" d) (yaml_parse "a:\n  b: 7\n")) |> assert 7

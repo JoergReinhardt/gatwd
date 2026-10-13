@@ -29,6 +29,8 @@ const (
 	OpIDiv OpKind = "//"
 	// OpMod is the remainder/modulo operator ("%").
 	OpMod OpKind = "%"
+	// OpPow is exponentiation ("**"), right-associative.
+	OpPow OpKind = "**"
 	// OpConcat is the monoidal concatenation operator ("++"), used to combine
 	// strings, lists, and other monoids.
 	OpConcat OpKind = "++"
@@ -50,20 +52,21 @@ const (
 	OpOr OpKind = "||"
 )
 
-// IsNumeric checks if val is a signed integer, unsigned integer, float, complex, or *big.Int.
+// IsNumeric checks if val is a signed integer, unsigned integer, float, complex, *big.Int or *Ratio.
 func IsNumeric(val any) bool {
 	switch val.(type) {
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128,
-		*big.Int, *big.Float:
+		*big.Int, *big.Float, *Ratio:
 		return true
 	default:
 		return false
 	}
 }
 
-// ToComplex128 attempts to convert numeric or complex value to complex128.
+// ToComplex128 converts a number to complex128. Text is never a number (D2): a String is
+// not parsed, use str_to_float or parse explicitly.
 func ToComplex128(val any) (complex128, bool) {
 	switch v := val.(type) {
 	case complex128:
@@ -74,22 +77,25 @@ func ToComplex128(val any) (complex128, bool) {
 		return complex(v, 0), true
 	case float32:
 		return complex(float64(v), 0), true
+	case *Ratio:
+		if f, ok := ratioFloat(v.rat()); ok {
+			return complex(f, 0), true
+		}
+	case *big.Int:
+		if f, ok := floatOperand(v); ok {
+			return complex(f, 0), true
+		}
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
 		if f, ok := ToFloat64(v); ok {
 			return complex(f, 0), true
 		}
-	case string:
-		// parse complex string like "1+2i" or "3i"
-		v = strings.TrimSpace(v)
-		if c, err := strconv.ParseComplex(v, 128); err == nil {
-			return c, true
-		}
 	}
 	return 0, false
 }
 
-// ToBigInt attempts to convert any integer/numeric value to *big.Int.
+// ToBigInt converts any integer value to a fresh *big.Int; a Float, a String or anything
+// else is not an integer (false).
 func ToBigInt(val any) (*big.Int, bool) {
 	switch v := val.(type) {
 	case *big.Int:
@@ -114,16 +120,12 @@ func ToBigInt(val any) (*big.Int, bool) {
 		return new(big.Int).SetUint64(uint64(v)), true
 	case uint8:
 		return new(big.Int).SetUint64(uint64(v)), true
-	case string:
-		n := new(big.Int)
-		if _, ok := n.SetString(strings.TrimSpace(v), 10); ok {
-			return n, true
-		}
 	}
 	return nil, false
 }
 
-// ToFloat64 converts any numeric value or numeric string to float64.
+// ToFloat64 converts a number to float64. Text is never a number (D2): a numeric String is
+// not parsed.
 func ToFloat64(val any) (float64, bool) {
 	switch v := val.(type) {
 	case float64:
@@ -156,10 +158,8 @@ func ToFloat64(val any) (float64, bool) {
 	case *big.Float:
 		f, _ := v.Float64()
 		return f, true
-	case string:
-		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
-			return f, true
-		}
+	case *Ratio:
+		return ratioFloat(v.rat())
 	}
 	return 0, false
 }
@@ -316,6 +316,20 @@ func fitInt(v int64) any {
 	return v
 }
 
+// orderingHolds applies one of the ordering operators to a three-way comparison result.
+func orderingHolds(op OpKind, cmp int) bool {
+	switch op {
+	case OpLt:
+		return cmp < 0
+	case OpLte:
+		return cmp <= 0
+	case OpGt:
+		return cmp > 0
+	default:
+		return cmp >= 0
+	}
+}
+
 // EvalBinaryOp evaluates an overloaded infix binary operation over two values.
 func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	// Monoidal concatenation operator ++
@@ -465,7 +479,7 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	// `"5" < 10` are errors, and two Strings never do arithmetic. Two Strings still ORDER, as
 	// text (see Compare). A Char next to a String is the D1 on-demand conversion, not a number.
 	switch op {
-	case OpSub, OpMul, OpDiv, OpIDiv, OpMod, OpLt, OpLte, OpGt, OpGte:
+	case OpSub, OpMul, OpDiv, OpIDiv, OpMod, OpPow, OpLt, OpLte, OpGt, OpGte:
 		_, lStr := left.(string)
 		_, rStr := right.(string)
 		ordering := op == OpLt || op == OpLte || op == OpGt || op == OpGte
@@ -491,8 +505,20 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 		}
 	}
 
+	// Exponentiation has its own exact/float rules (see Pow).
+	if op == OpPow {
+		return Pow(left, right)
+	}
+
 	// Relational ordering across all comparable types (<, <=, >, >=)
 	if op == OpLt || op == OpLte || op == OpGt || op == OpGte {
+		// Numbers order exactly; NaN is unordered, so every ordering with it is false.
+		if cmp, ordered, isReal := CompareNumbers(left, right); isReal {
+			if !ordered {
+				return false, nil
+			}
+			return orderingHolds(op, cmp), nil
+		}
 		if cmp, err := Compare(left, right); err == nil {
 			switch op {
 			case OpLt:
@@ -528,235 +554,9 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 		return !StructuralEqual(left, right), nil
 	}
 
-	// Complex numbers
-	isComplex := false
-	switch left.(type) {
-	case complex64, complex128:
-		isComplex = true
-	}
-	switch right.(type) {
-	case complex64, complex128:
-		isComplex = true
-	}
-	if isComplex {
-		lc, lok := ToComplex128(left)
-		rc, rok := ToComplex128(right)
-		if lok && rok {
-			switch op {
-			case OpAdd:
-				return AddComplexWithPromotion(lc, rc), nil
-			case OpSub:
-				return lc - rc, nil
-			case OpMul:
-				res := lc * rc
-				if cmplx.IsInf(res) && !cmplx.IsInf(lc) && !cmplx.IsInf(rc) {
-					// Overflow occurred
-					r := new(big.Float).Sub(
-						new(big.Float).Mul(big.NewFloat(real(lc)), big.NewFloat(real(rc))),
-						new(big.Float).Mul(big.NewFloat(imag(lc)), big.NewFloat(imag(rc))),
-					)
-					im := new(big.Float).Add(
-						new(big.Float).Mul(big.NewFloat(real(lc)), big.NewFloat(imag(rc))),
-						new(big.Float).Mul(big.NewFloat(imag(lc)), big.NewFloat(real(rc))),
-					)
-					return fmt.Sprintf("(%s+%si)", r.Text('g', 10), im.Text('g', 10)), nil
-				}
-				return res, nil
-			case OpDiv:
-				if rc == 0 {
-					return nil, fmt.Errorf("division by zero in complex arithmetic")
-				}
-				return lc / rc, nil
-			}
-		}
-	}
-
-	// BigFloat Operations
-	_, lIsBigF := left.(*big.Float)
-	_, rIsBigF := right.(*big.Float)
-	if lIsBigF || rIsBigF {
-		lbf := toBigFloat(left)
-		rbf := toBigFloat(right)
-		switch op {
-		case OpAdd:
-			return new(big.Float).Add(lbf, rbf), nil
-		case OpSub:
-			return new(big.Float).Sub(lbf, rbf), nil
-		case OpMul:
-			return new(big.Float).Mul(lbf, rbf), nil
-		case OpDiv:
-			if rbf.Sign() == 0 {
-				return nil, fmt.Errorf("division by zero")
-			}
-			return new(big.Float).Quo(lbf, rbf), nil
-		case OpLt:
-			return lbf.Cmp(rbf) < 0, nil
-		case OpLte:
-			return lbf.Cmp(rbf) <= 0, nil
-		case OpGt:
-			return lbf.Cmp(rbf) > 0, nil
-		case OpGte:
-			return lbf.Cmp(rbf) >= 0, nil
-		}
-	}
-
-	// BigInt Operations
-	_, lIsBig := left.(*big.Int)
-	_, rIsBig := right.(*big.Int)
-	if lIsBig || rIsBig {
-		lb, lok := ToBigInt(left)
-		rb, rok := ToBigInt(right)
-		if lok && rok {
-			switch op {
-			case OpAdd:
-				return new(big.Int).Add(lb, rb), nil
-			case OpSub:
-				return new(big.Int).Sub(lb, rb), nil
-			case OpMul:
-				return new(big.Int).Mul(lb, rb), nil
-			case OpIDiv:
-				if rb.Sign() == 0 {
-					return nil, fmt.Errorf("division by zero")
-				}
-				return new(big.Int).Quo(lb, rb), nil
-			case OpDiv:
-				if rb.Sign() == 0 {
-					return nil, fmt.Errorf("division by zero")
-				}
-				lf, _ := new(big.Float).SetInt(lb).Float64()
-				rf, _ := new(big.Float).SetInt(rb).Float64()
-				return lf / rf, nil
-			case OpMod:
-				if rb.Sign() == 0 {
-					return nil, fmt.Errorf("modulo by zero")
-				}
-				return new(big.Int).Rem(lb, rb), nil
-			case OpLt:
-				return lb.Cmp(rb) < 0, nil
-			case OpLte:
-				return lb.Cmp(rb) <= 0, nil
-			case OpGt:
-				return lb.Cmp(rb) > 0, nil
-			case OpGte:
-				return lb.Cmp(rb) >= 0, nil
-			}
-		}
-	}
-
-	// Float Operations (if either operand is float, or true division OpDiv)
-	isFloatOp := op == OpDiv
-	if !isFloatOp {
-		switch left.(type) {
-		case float32, float64:
-			isFloatOp = true
-		}
-		switch right.(type) {
-		case float32, float64:
-			isFloatOp = true
-		}
-	}
-
-	if isFloatOp {
-		lf, lok := ToFloat64(left)
-		rf, rok := ToFloat64(right)
-		if lok && rok {
-			switch op {
-			case OpAdd:
-				return AddFloatWithPromotion(lf, rf), nil
-			case OpSub:
-				return SubFloatWithPromotion(lf, rf), nil
-			case OpMul:
-				return MulFloatWithPromotion(lf, rf), nil
-			case OpDiv:
-				if rf == 0 {
-					return nil, fmt.Errorf("division by zero")
-				}
-				return lf / rf, nil
-			case OpLt:
-				return lf < rf, nil
-			case OpLte:
-				return lf <= rf, nil
-			case OpGt:
-				return lf > rf, nil
-			case OpGte:
-				return lf >= rf, nil
-			}
-		}
-	}
-
-	// Unsigned Integer Operations (uint, uint64, uint32, uint16, uint8)
-	isUintOp := false
-	switch left.(type) {
-	case uint, uint64, uint32, uint16, uint8:
-		isUintOp = true
-	}
-	switch right.(type) {
-	case uint, uint64, uint32, uint16, uint8:
-		isUintOp = true
-	}
-	if isUintOp {
-		lu, lok := toUint64(left)
-		ru, rok := toUint64(right)
-		if lok && rok {
-			switch op {
-			case OpAdd:
-				return AddUintWithPromotion(lu, ru), nil
-			case OpSub:
-				return SubUintWithPromotion(lu, ru), nil
-			case OpMul:
-				return MulUintWithPromotion(lu, ru), nil
-			case OpIDiv:
-				if ru == 0 {
-					return nil, fmt.Errorf("division by zero")
-				}
-				return lu / ru, nil
-			case OpMod:
-				if ru == 0 {
-					return nil, fmt.Errorf("modulo by zero")
-				}
-				return lu % ru, nil
-			case OpLt:
-				return lu < ru, nil
-			case OpLte:
-				return lu <= ru, nil
-			case OpGt:
-				return lu > ru, nil
-			case OpGte:
-				return lu >= ru, nil
-			}
-		}
-	}
-
-	// Signed Integer Operations (int8, int16, int32, int64, int)
-	li, lok := toInt64(left)
-	ri, rok := toInt64(right)
-	if lok && rok {
-		switch op {
-		case OpAdd:
-			return AddWithPromotion(li, ri), nil
-		case OpSub:
-			return SubWithPromotion(li, ri), nil
-		case OpMul:
-			return MulWithPromotion(li, ri), nil
-		case OpIDiv:
-			if ri == 0 {
-				return nil, fmt.Errorf("division by zero")
-			}
-			return fitInt(li / ri), nil
-		case OpMod:
-			if ri == 0 {
-				return nil, fmt.Errorf("modulo by zero")
-			}
-			return fitInt(li % ri), nil
-		case OpLt:
-			return li < ri, nil
-		case OpLte:
-			return li <= ri, nil
-		case OpGt:
-			return li > ri, nil
-		case OpGte:
-			return li >= ri, nil
-		}
+	// Numbers: the promotion lattice Int ⊂ Float ⊂ Complex (see arith in numeric.go).
+	if res, handled, err := arith(op, left, right); handled {
+		return res, err
 	}
 
 	// Relational String comparisons if both are strings
@@ -796,6 +596,9 @@ func ParseNumberLiteral(text string) (any, bool) {
 	if text == "" {
 		return nil, false
 	}
+	if strings.Contains(text, "r") {
+		return parseSignedRatioLiteral(text)
+	}
 	switch {
 	case strings.HasSuffix(text, "i"):
 		c, err := strconv.ParseComplex(text, 128)
@@ -813,6 +616,23 @@ func ParseNumberLiteral(text string) (any, bool) {
 	return nil, false
 }
 
+// parseSignedRatioLiteral reads a ratio literal with an optional single sign.
+func parseSignedRatioLiteral(text string) (any, bool) {
+	body := strings.TrimLeft(text, "+-")
+	if len(text)-len(body) > 1 {
+		return nil, false
+	}
+	v, err := parseRatioLiteral(body)
+	if err != nil {
+		return nil, false
+	}
+	if text[0] == '-' {
+		neg, err := Negate(v)
+		return neg, err == nil
+	}
+	return v, true
+}
+
 // ParseCanonicalNumber is ParseNumberLiteral restricted to text that prints back unchanged
 // (`10`, `-5`, `1.5`; not `007`, `+5`, `1.50`, `2i`), so turning a token into a number
 // never loses information about how it was written.
@@ -827,6 +647,8 @@ func ParseCanonicalNumber(text string) (any, bool) {
 	case complex128:
 		return nil, false
 	case *big.Int:
+		return n, x.String() == text
+	case *Ratio:
 		return n, x.String() == text
 	}
 	i, _ := toInt64(n)
@@ -871,6 +693,8 @@ func KindName(v any) string {
 		return "Complex"
 	case *big.Int:
 		return "BigInt"
+	case *Ratio:
+		return "Ratio"
 	case Bytes, []byte:
 		return "Bytes"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -942,10 +766,6 @@ func toUint64(val any) (uint64, bool) {
 		if v >= 0 {
 			return uint64(v), true
 		}
-	case string:
-		if u, err := strconv.ParseUint(strings.TrimSpace(v), 10, 64); err == nil {
-			return u, true
-		}
 	}
 	return 0, false
 }
@@ -976,10 +796,6 @@ func toInt64(val any) (int64, bool) {
 		return int64(v), true
 	case uint8:
 		return int64(v), true
-	case string:
-		if iv, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil {
-			return iv, true
-		}
 	}
 	return 0, false
 }
@@ -1023,6 +839,13 @@ func Compare(a, b any) (int, error) {
 	if b == nil {
 		return 1, nil
 	}
+	// Numbers order exactly across Int, big integers and Floats (never through a double).
+	if cmp, ordered, isReal := CompareNumbers(a, b); isReal {
+		if !ordered {
+			return 0, fmt.Errorf("NaN is not ordered")
+		}
+		return cmp, nil
+	}
 	if StructuralEqual(a, b) {
 		return 0, nil
 	}
@@ -1043,65 +866,6 @@ func Compare(a, b any) (int, error) {
 			return 1, nil
 		}
 		return 0, nil
-	}
-
-	// BigFloat Operations
-	_, lIsBigF := a.(*big.Float)
-	_, rIsBigF := b.(*big.Float)
-	if lIsBigF || rIsBigF {
-		lbf := toBigFloat(a)
-		rbf := toBigFloat(b)
-		return lbf.Cmp(rbf), nil
-	}
-
-	// BigInt Operations
-	_, lIsBig := a.(*big.Int)
-	_, rIsBig := b.(*big.Int)
-	if lIsBig || rIsBig {
-		lb, lok := ToBigInt(a)
-		rb, rok := ToBigInt(b)
-		if lok && rok {
-			return lb.Cmp(rb), nil
-		}
-	}
-
-	// Floats
-	if af, okA := ToFloat64(a); okA {
-		if bf, okB := ToFloat64(b); okB {
-			if af < bf {
-				return -1, nil
-			}
-			if af > bf {
-				return 1, nil
-			}
-			return 0, nil
-		}
-	}
-
-	// Signed Integers
-	if ai, okA := toInt64(a); okA {
-		if bi, okB := toInt64(b); okB {
-			if ai < bi {
-				return -1, nil
-			}
-			if ai > bi {
-				return 1, nil
-			}
-			return 0, nil
-		}
-	}
-
-	// Unsigned Integers
-	if au, okA := toUint64(a); okA {
-		if bu, okB := toUint64(b); okB {
-			if au < bu {
-				return -1, nil
-			}
-			if au > bu {
-				return 1, nil
-			}
-			return 0, nil
-		}
 	}
 
 	// Strings
@@ -1214,7 +978,24 @@ func Compare(a, b any) (int, error) {
 		return 0, nil
 	}
 
-	return 0, fmt.Errorf("incomparable types: %T and %T", a, b)
+	hint := ""
+	_, aStr := a.(string)
+	_, bStr := b.(string)
+	if (aStr && IsNumber(b)) || (bStr && IsNumber(a)) {
+		hint = " (a String is not a number; use str_to_int / str_to_float to parse)"
+	}
+	return 0, fmt.Errorf("incomparable types: %s and %s%s", KindName(a), KindName(b), hint)
+}
+
+// isCollectionValue reports whether v is a collection or ADT — anything that is not a
+// scalar (a number, Bool, Char, String or nil). Only these have a printed form a String may
+// equal (see StructuralEqual).
+func isCollectionValue(v any) bool {
+	switch v.(type) {
+	case nil, bool, string, Char, Bytes, []byte:
+		return false
+	}
+	return !IsNumber(v)
 }
 
 // StructuralEqual tests equality across primitives, pointers, complex, and types.
@@ -1238,33 +1019,16 @@ func StructuralEqual(a, b any) bool {
 		return ca == cb
 	}
 
-	// Complex equality
-	if ac, ok := ToComplex128(a); ok {
-		if bc, ok := ToComplex128(b); ok {
-			return ac == bc
+	// Numbers: exact across Int, big integers and Floats (a NaN equals nothing); Complex
+	// numbers compare by both parts.
+	if ca, cb := classOf(a), classOf(b); ca != clsNone && cb != clsNone {
+		if ca == clsComplex || cb == clsComplex {
+			ac, aok := ToComplex128(a)
+			bc, bok := ToComplex128(b)
+			return aok && bok && ac == bc
 		}
-	}
-
-	// Compare BigInts
-	if ab, ok := a.(*big.Int); ok {
-		if bb, ok := b.(*big.Int); ok {
-			return ab.Cmp(bb) == 0
-		}
-		if bb, ok := ToBigInt(b); ok {
-			return ab.Cmp(bb) == 0
-		}
-	}
-	if bb, ok := b.(*big.Int); ok {
-		if ab, ok := ToBigInt(a); ok {
-			return ab.Cmp(bb) == 0
-		}
-	}
-
-	// Numeric equality across int and float
-	if af, ok := ToFloat64(a); ok {
-		if bf, ok := ToFloat64(b); ok {
-			return af == bf
-		}
+		cmp, ordered, _ := CompareNumbers(a, b)
+		return ordered && cmp == 0
 	}
 
 	// Pairs
@@ -1396,13 +1160,17 @@ func StructuralEqual(a, b any) bool {
 		}
 	}
 
-	// Fallback for formatted string comparison across collection/serialized boundaries
-	if strA, okA := a.(string); okA {
+	// The serialization boundary, kept on purpose: HAMT keys are Strings, so a String key
+	// read back from a collection (`frequencies |> hamt_pairs` gives "[2 1]") must still
+	// equal the coordinate pair [2 1] it came from. A String equals the PRINTED FORM of a
+	// COLLECTION only — never of a number, Bool or Char: `"5" == 5` is false (D2: strings are
+	// not numbers), and `'a' == "a"` is the explicit one-character rule above (D1).
+	if strA, okA := a.(string); okA && isCollectionValue(b) {
 		if fmt.Sprintf("%v", b) == strA {
 			return true
 		}
 	}
-	if strB, okB := b.(string); okB {
+	if strB, okB := b.(string); okB && isCollectionValue(a) {
 		if fmt.Sprintf("%v", a) == strB {
 			return true
 		}

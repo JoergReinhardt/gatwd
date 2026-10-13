@@ -242,19 +242,63 @@ spawn RecordVal: {Title: PipelineCard, Status: Active} |> visualize --curved --b
 Gatwd supports full infix mathematical, relational, and boolean expressions with standard operator precedence and parentheses everywhere: in `spawn <Type>: <expr>`, in `let <var> = <expr>`, and as pipeline operator sections (`|> * 5`, `|> / 2`).
 
 ### Supported Infix Operators
-- **Arithmetic**:
-  - `+` (**numeric addition only**: `"a" + "b"` and `"1" + 2` are errors — use `++` to concatenate and `str_to_int` to parse; D2). The same holds for `-`, `*`, `/`, `//`, `%` and `<`, `<=`, `>`, `>=`: a `String` is never read as a number (`"5" - 1`, `"5" < 10` are errors), and two `String`s **order as text** (`"10" < "9"` is `true`)
-  - `-` (Subtraction)
+- **Arithmetic** (the numeric tower, see "The numeric tower" below):
+  - `+` (**numeric addition only**: `"a" + "b"` and `"1" + 2` are errors — use `++` to concatenate and `str_to_int` to parse; D2). The same holds for `-`, `*`, `/`, `//`, `%`, `**` and `<`, `<=`, `>`, `>=`: a `String` is never read as a number (`"5" - 1`, `"5" < 10` are errors), and two `String`s **order as text** (`"10" < "9"` is `true`)
+  - `-` (Subtraction; **unary minus** in operand position: `- 5`, `-x`, `-(a + b)`)
   - `*` (Multiplication)
-  - `/` (True division: **automatically promotes integer division to `Float` / `float64`**, e.g. `7 / 2 == 3.5`)
-  - `//` (Euclidean integer division, e.g. `7 // 2 == 3`)
-  - `%` (Modulo / remainder)
+  - `/` (True division: **exact when it divides, otherwise a `Float`**, e.g. `8 / 2 == 4`, `7 / 2 == 3.5`; exact with a `Ratio` operand: `1r3 / 2 == 1r6`)
+  - `//` (**Floor** division: `7 // 2 == 3`, `-7 // 2 == -4`; the result is an `Int`)
+  - `%` (**Modulo**, taking the sign of the divisor: `-7 % 3 == 2`, `7 % -3 == -2`; always `a == b * (a // b) + a % b`)
+  - `**` (Exponentiation, right-associative, tighter than unary minus: `2 ** 3 ** 2 == 512`, `-2 ** 2 == -4`)
 - **Monoidal Concatenation**:
   - `++` (String and collection concatenation, e.g. `"Hello " ++ "Gatwd"`)
 - **Relational & Equality**:
-  - `==`, `!=`, `<`, `<=`, `>`, `>=` (Structural equality and scalar comparisons)
+  - `==`, `!=`, `<`, `<=`, `>`, `>=` (Structural equality and scalar comparisons; numbers compare **exactly**, never through a double, and `"5" == 5` is `false`)
 - **Boolean Logic**:
-  - `&&`, `||`
+  - `&&`, `||`, and the prefix **`!`** (a synonym of `not`: `!true`, `!(a == b)`; `!` is a prefix operator only when the next character is not `=`, so `a != b` is unchanged and `! =` is an error)
+
+Precedence, loosest to tightest: `||` · `&&` · `==` `!=` · `<` `<=` `>` `>=` · `+` `-` `++` · `*` `/` `//` `%` · prefix `-` `!` · `**`; function application binds tighter than all of them.
+
+**Minus, sign and application.** A `-` in operand position (after an operator, `(`, `[`, `,`, `->`, or at the start) is the prefix operator, and it is folded into a numeric literal, so `-9223372036854775808` is the smallest int64. After an operand, `a - 3`, `a-3` and `a- 3` are subtractions, but **`f -3` (a space before the `-`, none after) is a negative *argument***: `abs -3` is `3`, `min -1 3` is `-1`, `divmod -7 2` is `[-4, 1]`. The price is that `n -1` with `n` bound to a number is an application error (with a hint to write `n - 1`). In a plain list `[3 -1]` is two elements, so a printed list of negatives reads back as written. A literal cannot be applied, so `5 -3` is still `2`.
+
+### The numeric tower (hardening W3, D3, D11–D13)
+
+The language has four number kinds: **`Int`** (unbounded, exact), **`Ratio`** (an exact fraction), **`Float`** (an IEEE double) and **`Complex`**, ordered `Int ⊂ Ratio ⊂ Float(approx) ⊂ Complex`. An operation on two numbers is carried out in the *join* of their kinds: `Int + Ratio` is a `Ratio`, `Ratio + Float` a `Float`, anything with a `Complex` a `Complex`. `BigInt` and `Uint` remain accepted type names for `Int` (so `type Balance = BigInt` keeps working).
+
+| | `Int` | `Ratio` | `Float` | `Complex` |
+| :-- | :-- | :-- | :-- | :-- |
+| `+` `-` `*` | `Int` | `Ratio` (an `Int` when whole) | `Float` | `Complex` |
+| `/` | `Int` if it divides, else `Float` (**D11**) | `Ratio` (exact; an `Int` when whole) | `Float` | `Complex` |
+| `//` | `Int` | `Int` (floor) | `Int` (floor of the quotient) | error |
+| `%` | `Int` | `Ratio` (`a - b*(a//b)`) | `Float` | error |
+| `**` | `Int` for a non-negative `Int` exponent, `Float` for a negative one | exact for an `Int` exponent, `Float` otherwise | `Float` | `Complex` |
+| `<` `<=` `>` `>=` `==` | exact | exact | exact against `Int`/`Ratio` (**D12**) | `==` only |
+
+(a row names the result when both operands are of the column's kind or lower; mixed pairs follow the join). Division, floor division and modulo by zero are errors in every kind; an `Int` too large for a double never silently becomes `+Inf` — mixing it with a `Float` is an error.
+
+**`Int` is logical.** Behind the one type the runtime keeps an int64 fast path and a big integer; every integer result is *canonical* (an int when it fits, a big integer only beyond), so `2 ** 100 - 2 ** 100` is the plain `0`, `(2 ** 64) / (2 ** 64)` is `1`, and big integers print as plain digits (no `+`). `**` refuses a result over four million bits (`2 ** 99999999` is an error), and an exact power with an exponent beyond int64 is an error.
+
+**Exact comparison.** `==`, `<`, … never round an `Int` or `Ratio` to a double: `9007199254740993 > 9007199254740992.0` is `true`, `1r2 == 0.5` is `true`, `1r10 == 0.1` is **`false`** (the double nearest to 0.1 is not one tenth; ask `to_ratio 0.1 == 1r10`). A `NaN` is unordered: every ordering with it is `false`, `NaN == NaN` is `false`.
+
+**`Ratio` literals and functions.** `3r4` (numerator `r` denominator) and the exact decimal `0.75r` are `Ratio` values, always in lowest terms and with a positive denominator; a whole fraction **is an `Int`** (`4r2` is `2`, `1r2 + 1r2` is `1`). `1r0` and a bare `5r` are lex errors. A `Ratio` prints as the literal (`3r4`), so printed values read back. `%` stays *modulo* (**D13**) and `/` on two `Int`s keeps its meaning (**D11**): exactness is opt-in through `3r4` or `ratio n d`.
+
+| function (data-last, curried, also a step) | meaning |
+| :-- | :-- |
+| `ratio n d` | the exact quotient of two `Int`/`Ratio` (`ratio 1 3` is `1r3`; `d = 0` is an error; a `Float` argument is an error) |
+| `to_ratio x` | the fraction of the **shortest decimal** that round-trips: `to_ratio 0.1` is `1r10`, `to_ratio 0.75` is `3r4` |
+| `to_ratio_exact x` | the exact binary value of the double: `to_ratio_exact 0.1` is `3602879701896397r36028797018963968` |
+| `to_ratio_approx x max_den` | the best fraction with denominator ≤ `max_den` (continued fractions): `to_ratio_approx 3.14159265 100` is `311r99` |
+| `str_to_ratio s` | `Maybe Ratio` from `"3/4"`, `"3r4"`, `"-0.75"`, `"1.5e-3"`; malformed text is `Nothing` |
+| `numer r`, `denom r`, `ratio_parts r` | the parts (`denom` of an `Int` is `1`); `ratio_mixed 7r2` is `[3, 1r2]` |
+| `ratio_cf r`, `ratio_from_cf xs`, `ratio_mediant a b` | continued-fraction coefficients, their inverse, the Stern–Brocot mediant |
+
+`NaN` and `±Inf` have no `Ratio` (an error). `to_float r` is the correctly rounded double (a magnitude beyond the double range is an error; a fraction below the smallest double is `0.0`).
+
+**Numeric functions** (curried, data-last, usable as steps; every partial one has an error case): `pow base exp` (the function form of `**`) · `sqrt x` (a `Float`; negative is an error — use a `Complex`) · `isqrt n` (exact integer square root) · `floor` `ceil` `trunc` `round` (half away from zero) `round_even` (a number to an `Int`; `NaN`/`Inf` are errors) · `sign x` · `abs x` · `negate x` · `gcd a b` · `lcm a b` · `divmod a b` (floor, a pair) · `quot a b` / `rem a b` (truncated) · `to_int x` (**exact or an error**: `to_int 3.5` names `floor`/`round`) · `to_float x` · `is_nan x` · `is_inf x`.
+
+**Strings are not numbers** (the end of D2). `"5" == 5` is `false`; `ToFloat64`-style helpers no longer parse text, so `nth "1" xs`, `range "0" "2"`, `min "5" 3` and `compare "5" 3` are errors that point to `str_to_int`. **One boundary is kept on purpose:** a `String` still equals the *printed form of a collection* (`"[2 1]" == [2, 1]`), because HAMT keys are Strings (`frequencies |> hamt_pairs` gives `"[2 1]"` keys, and the pure-DSL Game of Life compares them with its coordinate pairs); it never equals a number, `Bool` or `Char`.
+
+**Constraint names.** In annotations `Num` (any number), `Integral` (`Int`), `Fractional` (`Ratio`, `Float`, `Complex`), `Comparable` (everything but `Complex` and functions) and `Appendable` (`String`, `Bytes`, `List`, `Chunk`, `Set`, `HAMT`, `Tree`, `Graph`, `Pair`, `Maybe`) state intent without a runtime wrapper: `def sum2 : Num -> Num -> Num = \a b -> a + b`. `gatwd --check` reports only definite contradictions (`sum2 "a" 1`, `x - "a"` under `Num`); because the tower converts at runtime a concrete number is consistent with every *numeric* constraint, so `Integral` and `Fractional` contradict only non-numbers and each other.
 
 ### `Char` literals and functions (hardening W2, D1)
 
@@ -373,9 +417,8 @@ A let-bound `String` or a `String` constant (`const`, `-D`) is spliced into a pi
 `char_to_str '\n'`.
 
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`
-Gatwd protects numerical pipelines against arithmetic overflow across all numeric types:
-- **Signed Integers (`Int`, `int64`)**: Operations exceeding `math.MaxInt64` / `math.MinInt64` automatically promote to arbitrary-precision `*big.Int`.
-- **Unsigned Integers (`Uint`, `uint64`)**: Addition or multiplication exceeding `math.MaxUint64` promotes to `*big.Int`; unsigned subtraction underflow promotes to negative signed `int64` / `*big.Int`.
+Gatwd protects numerical pipelines against arithmetic overflow across all numeric types (the integer rules are the logical `Int` of "The numeric tower" above):
+- **Integers (`Int`, `Uint`, `int64`, `uint64`)**: Operations exceeding `math.MaxInt64` / `math.MinInt64` promote to arbitrary-precision `*big.Int`, and a result that fits int64 again **demotes**; unsigned values take part as ordinary integers, so unsigned subtraction underflow is simply a negative `Int`.
 - **Floating Point (`Float`, `float64`)**: Operations that would overflow IEEE-754 limits into `+Inf`/`-Inf` automatically promote to arbitrary-precision `*big.Float`.
 - **Complex Numbers (`Complex`, `complex128`)**: Overloaded arithmetic over complex numbers (e.g. `1+2i + 3+4i == (4+6i)`), promoting component floats to `*big.Float` if infinite overflow occurs.
 
@@ -612,6 +655,8 @@ def total : List(Int) -> Int  = \xs -> fold (\a x -> a + x) 0 xs
 inc "x"                       -- warning: argument 1 of 'inc' has type String, expected Int
 spawn IntVal: 5 |> add "a"    -- warning: argument 1 of 'add' has type String, expected Int
 ```
+
+Besides concrete types, annotations accept the **constraint names** `Num`, `Integral`, `Fractional`, `Comparable` and `Appendable` (see §15, "The numeric tower"): `def sum2 : Num -> Num -> Num = \a b -> a + b`; a constraint takes no type arguments.
 
 `Type ::= Atom { "->" Type }` (right-associative) with `Atom ::= Name [ "(" Type {"," Type} ")" ] | "(" Type ")"`; names declared by `type Alias = Int` resolve to their right-hand side. Types flow locally from literals, operators, annotated parameters, `let` bindings and comprehension generators (`x <- [1, 2]` types `x`). Operator checks ask the **runtime's own operator matrix** (`functions.EvalBinaryOp`) on representative values, so the checker cannot disagree with the evaluator about what is defined.
 

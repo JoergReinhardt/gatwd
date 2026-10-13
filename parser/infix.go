@@ -32,6 +32,7 @@ const (
 	TokLambda                     // TokLambda is the lambda introducer '\\'.
 	TokThinArrow                  // TokThinArrow is the lambda body arrow "->".
 	TokChar                       // TokChar is a single-quoted character literal (Text is the character itself).
+	TokPrefix                     // TokPrefix is a prefix (unary) operator in operand position: "-".
 )
 
 // TokenItem is a single lexical token: its Type classifies it (one of the Tok*
@@ -40,6 +41,11 @@ const (
 type TokenItem struct {
 	Type TokenType
 	Text string
+	// Tight marks a "-" that follows an operand after whitespace and is itself followed
+	// directly by an operand character (`f -3`, `abs -x`): in an application it starts
+	// a negative argument rather than a subtraction, the rule Elm uses. `a - 3`, `a-3`
+	// and `a- 3` stay subtractions.
+	Tight bool
 }
 
 // TokenizeInfix splits an expression string into tokens.
@@ -132,6 +138,11 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 				i += 2
 				continue
 			}
+			if two == "**" {
+				tokens = append(tokens, TokenItem{Type: TokOp, Text: two})
+				i += 2
+				continue
+			}
 			if two == "++" || two == "==" || two == "!=" || two == "<=" || two == ">=" || two == "&&" || two == "||" || two == "//" {
 				tokens = append(tokens, TokenItem{Type: TokOp, Text: two})
 				i += 2
@@ -151,10 +162,35 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			continue
 		}
 
-		// Single-character operators: +, -, *, /, %, <, >
-		if r == '+' || r == '-' || r == '*' || r == '/' || r == '%' || r == '<' || r == '>' {
-			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokLParen || tokens[len(tokens)-1].Type == TokLBracket || tokens[len(tokens)-1].Type == TokComma || tokens[len(tokens)-1].Type == TokPipe || tokens[len(tokens)-1].Type == TokArrow || tokens[len(tokens)-1].Type == TokThinArrow)
-			if (r == '-' || r == '+') && isUnary && i+1 < n && (unicode.IsDigit(runes[i+1])) {
+		// Prefix `!` is `not` (the two-character `!=` was consumed above, so a `!` that
+		// reaches here is never part of an inequality; `! =` is a prefix followed by a stray `=`).
+		if r == '!' {
+			tokens = append(tokens, TokenItem{Type: TokPrefix, Text: "!"})
+			i++
+			continue
+		}
+
+		// Unary and binary minus. In operand position (start, after an operator, an opening
+		// bracket, a comma, ...) "-" is the prefix operator; after an operand it is a
+		// subtraction, except that `f -3` (a space before, none after) starts a negative
+		// argument — see TokenItem.Tight. The parser folds the sign into a numeric literal.
+		if r == '-' {
+			afterOperand := len(tokens) > 0 && endsOperand(tokens[len(tokens)-1])
+			switch {
+			case !afterOperand:
+				tokens = append(tokens, TokenItem{Type: TokPrefix, Text: "-"})
+			default:
+				tight := i > 0 && unicode.IsSpace(runes[i-1]) && i+1 < n && startsOperandRune(runes[i+1])
+				tokens = append(tokens, TokenItem{Type: TokOp, Text: "-", Tight: tight})
+			}
+			i++
+			continue
+		}
+
+		// Single-character operators: +, *, /, %, <, >
+		if r == '+' || r == '*' || r == '/' || r == '%' || r == '<' || r == '>' {
+			isUnary := (len(tokens) == 0 || tokens[len(tokens)-1].Type == TokOp || tokens[len(tokens)-1].Type == TokPrefix || tokens[len(tokens)-1].Type == TokLParen || tokens[len(tokens)-1].Type == TokLBracket || tokens[len(tokens)-1].Type == TokComma || tokens[len(tokens)-1].Type == TokPipe || tokens[len(tokens)-1].Type == TokArrow || tokens[len(tokens)-1].Type == TokThinArrow)
+			if r == '+' && isUnary && i+1 < n && (unicode.IsDigit(runes[i+1])) {
 				// Parse signed number below
 			} else {
 				tokens = append(tokens, TokenItem{Type: TokOp, Text: string(r)})
@@ -164,13 +200,26 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		}
 
 		// Number (integer, float, or complex literal with 'i')
-		if unicode.IsDigit(r) || ((r == '-' || r == '+') && i+1 < n && unicode.IsDigit(runes[i+1])) {
+		if unicode.IsDigit(r) || (r == '+' && i+1 < n && unicode.IsDigit(runes[i+1])) {
 			start := i
-			if r == '-' || r == '+' {
+			if r == '+' {
 				i++
 			}
 			for i < n && (unicode.IsDigit(runes[i]) || runes[i] == '.' || runes[i] == 'i') {
 				i++
+			}
+			// Ratio literals: `3r4` (numerator r denominator) and the exact decimal `0.75r`.
+			if i < n && runes[i] == 'r' && !strings.HasSuffix(string(runes[start:i]), "i") {
+				end, isRatio := scanRatioSuffix(runes, start, i)
+				if isRatio {
+					text := string(runes[start:end])
+					if _, err := functions.ParseRatioLiteral(strings.TrimLeft(text, "+")); err != nil {
+						return nil, err
+					}
+					tokens = append(tokens, TokenItem{Type: TokNumber, Text: text})
+					i = end
+					continue
+				}
 			}
 			tokens = append(tokens, TokenItem{Type: TokNumber, Text: string(runes[start:i])})
 			continue
@@ -191,6 +240,51 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 
 	tokens = append(tokens, TokenItem{Type: TokEOF, Text: ""})
 	return tokens, nil
+}
+
+// scanRatioSuffix decides whether the number scanned in runes[start:r] (where runes[r] is
+// 'r') is a ratio literal and returns the index just past it. `3r4`: digits, `r`, digits.
+// `0.75r`: a decimal with the `r` suffix, not followed by an identifier character. A bare
+// `5r` is a malformed ratio and is reported by the literal reader; `5rem` (digits, `r`,
+// a letter) stays a number followed by an identifier.
+func scanRatioSuffix(runes []rune, start, r int) (int, bool) {
+	n := len(runes)
+	identRune := func(c rune) bool { return unicode.IsLetter(c) || unicode.IsDigit(c) || c == '_' }
+	if strings.Contains(string(runes[start:r]), ".") {
+		if r+1 < n && identRune(runes[r+1]) {
+			return 0, false
+		}
+		return r + 1, true
+	}
+	end := r + 1
+	for end < n && unicode.IsDigit(runes[end]) {
+		end++
+	}
+	if end > r+1 {
+		if end < n && identRune(runes[end]) {
+			return 0, false
+		}
+		return end, true
+	}
+	if end < n && identRune(runes[end]) {
+		return 0, false // `5rem`: not ours
+	}
+	return end, true // bare `5r`: reported as malformed by the literal reader
+}
+
+// endsOperand reports whether a token can end an operand, so that a following "-" is a
+// binary operator (or a tight negative argument) rather than a prefix.
+func endsOperand(t TokenItem) bool {
+	switch t.Type {
+	case TokNumber, TokString, TokChar, TokIdent, TokRParen, TokRBracket:
+		return true
+	}
+	return false
+}
+
+// startsOperandRune reports whether r can begin an operand directly after a "-".
+func startsOperandRune(r rune) bool {
+	return unicode.IsDigit(r) || unicode.IsLetter(r) || r == '_' || r == '(' || r == '['
 }
 
 // lexCharLiteral reads the character literal that opens at runes[start] (a quote) and
@@ -349,6 +443,40 @@ func (e BinaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		return nil, &ApplyError{Err: err}
 	}
 	return res, nil
+}
+
+// UnaryExpr is an interior Expr node applying the prefix operator Op ("-" or "!") to Operand.
+// A negated numeric literal is folded into the literal at parse time, so `-5` is a
+// LiteralExpr and `-9223372036854775808` is the smallest int64, not a negated big integer.
+type UnaryExpr struct {
+	Op      string
+	Operand Expr
+}
+
+// Eval evaluates the operand and applies the operator; a failure is an ApplyError, like a
+// binary operator that rejected its operands.
+func (e UnaryExpr) Eval(lookup func(string) (any, bool)) (any, error) {
+	v, err := e.Operand.Eval(lookup)
+	if err != nil {
+		return nil, err
+	}
+	res, err := ApplyUnary(e.Op, v)
+	if err != nil {
+		return nil, &ApplyError{Err: err}
+	}
+	return res, nil
+}
+
+// ApplyUnary applies a prefix operator to a value: "-" is functions.Negate, "!" is
+// functions.Not (a synonym of the `not` function).
+func ApplyUnary(op string, v any) (any, error) {
+	switch op {
+	case "-":
+		return functions.Negate(v)
+	case "!":
+		return functions.Not(v)
+	}
+	return nil, fmt.Errorf("unknown prefix operator %q", op)
 }
 
 // ConcatValues is the `++` Monoid operation as a Go function: it tries the native
@@ -612,7 +740,11 @@ func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		return nil, err
 	}
 	if !functions.IsCallable(hv) {
-		return nil, &ApplyError{Err: fmt.Errorf("cannot apply non-function value of type %T", hv)}
+		hint := ""
+		if len(e.Args) > 0 && isNegation(e.Args[0]) {
+			hint = " (a '-' directly before an operand starts a negative argument; write a subtraction with spaces, `a - 1`)"
+		}
+		return nil, &ApplyError{Err: fmt.Errorf("cannot apply non-function value of type %T%s", hv, hint)}
 	}
 	args := make([]any, len(e.Args))
 	for idx, a := range e.Args {
@@ -631,6 +763,20 @@ func (e ApplyExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 		return nil, &ApplyError{Err: err}
 	}
 	return res, nil
+}
+
+// isNegation reports whether e is a negated operand: a prefix expression or a literal
+// folded from one.
+func isNegation(e Expr) bool {
+	switch x := e.(type) {
+	case UnaryExpr:
+		return x.Op == "-"
+	case LiteralExpr:
+		if f, ok := functions.ToFloat64(x.Value); ok {
+			return f < 0
+		}
+	}
+	return false
 }
 
 // ApplyError marks an error raised by an operation that was actually performed — a
@@ -737,13 +883,22 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 		if tok.Type != TokOp {
 			break
 		}
+		// In a plain list literal `[1 -2]` the tight minus starts the next element
+		// (so a printed list of negatives, `[3 -1]`, reads back as written).
+		if tok.Tight && p.appDisabled {
+			break
+		}
 		prec := getPrecedence(tok.Text)
 		if prec <= minPrec {
 			break
 		}
 
 		p.next() // consume op
-		right, err := p.parsePrecedence(prec)
+		nextMin := prec
+		if meta, ok := CanonicalOperators[tok.Text]; ok && meta.Associativity == "right" {
+			nextMin = prec - 1
+		}
+		right, err := p.parsePrecedence(nextMin)
 		if err != nil {
 			return nil, err
 		}
@@ -763,11 +918,52 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 // adjacent atoms with no operator between them form a function application.
 func (p *InfixParser) isAtomStart() bool {
 	switch p.peek().Type {
-	case TokNumber, TokString, TokChar, TokIdent, TokLParen, TokLBracket:
+	case TokNumber, TokString, TokChar, TokIdent, TokLParen, TokLBracket, TokPrefix:
 		return true
 	default:
 		return false
 	}
+}
+
+// isTightMinusArg reports whether the next token is a tight "-" (`f -3`) that starts a
+// negative argument of the application whose callee is head. Only an identifier or an
+// application can be applied, so `5 -3` stays a subtraction.
+func (p *InfixParser) isTightMinusArg(head Expr) bool {
+	tok := p.peek()
+	if tok.Type != TokOp || tok.Text != "-" || !tok.Tight {
+		return false
+	}
+	switch head.(type) {
+	case VarExpr, ApplyExpr:
+		return true
+	}
+	return false
+}
+
+// precUnary is the binding strength of a prefix operator's operand: tighter than `*`
+// (so `-2 * 3` is `(-2) * 3`) and looser than `**` (so `-2 ** 2` is `-(2 ** 2)`).
+const precUnary = 6
+
+// parsePrefix finishes a prefix operator whose token was just consumed. In operand
+// position its operand extends over an application and `**`; as an application
+// argument (atomOnly) it is a single atom, so `f -x y` is `f (-x) y`.
+func (p *InfixParser) parsePrefix(op string, atomOnly bool) (Expr, error) {
+	var operand Expr
+	var err error
+	if atomOnly {
+		operand, err = p.parsePrimary()
+	} else {
+		operand, err = p.parsePrecedence(precUnary)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if lit, ok := operand.(LiteralExpr); ok && op == "-" {
+		if v, err := ApplyUnary(op, lit.Value); err == nil && functions.IsNumeric(lit.Value) {
+			return LiteralExpr{Value: v}, nil
+		}
+	}
+	return UnaryExpr{Op: op, Operand: operand}, nil
 }
 
 // parseApplication parses a run of juxtaposed atoms as function application:
@@ -787,10 +983,24 @@ func (p *InfixParser) parseApplication() (Expr, error) {
 		return nil, err
 	}
 	var args []Expr
-	for p.isAtomStart() {
-		arg, err := p.parsePrimary()
+	for {
+		var arg Expr
+		var err error
+		switch {
+		case p.peek().Type == TokPrefix:
+			tok := p.next()
+			arg, err = p.parsePrefix(tok.Text, true)
+		case p.isTightMinusArg(head):
+			tok := p.next()
+			arg, err = p.parsePrefix(tok.Text, true)
+		case p.isAtomStart():
+			arg, err = p.parsePrimary()
+		}
 		if err != nil {
 			return nil, err
+		}
+		if arg == nil {
+			break
 		}
 		args = append(args, arg)
 	}
@@ -811,6 +1021,17 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 
 	case TokString:
 		return LiteralExpr{Value: tok.Text}, nil
+
+	case TokPrefix:
+		return p.parsePrefix(tok.Text, false)
+
+	case TokOp:
+		// A tight minus where an operand is expected: the start of the next element of a
+		// plain list (`[3 -1]`), see parsePrecedence.
+		if tok.Text == "-" && tok.Tight {
+			return p.parsePrefix(tok.Text, false)
+		}
+		return nil, fmt.Errorf("unexpected token in expression: %s", tok.Text)
 
 	case TokChar:
 		r, _ := utf8.DecodeRuneInString(tok.Text)

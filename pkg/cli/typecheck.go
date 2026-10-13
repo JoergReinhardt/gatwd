@@ -67,13 +67,116 @@ func (t Ty) isFn() bool  { return t.Name == "->" && len(t.Args) == 2 }
 func (t Ty) isAny() bool { return t.Name == "Any" || t.Name == "" }
 func (t Ty) isNumeric() bool {
 	switch t.Name {
-	case "Int", "Float", "BigInt", "Uint", "Complex":
+	case "Int", "Float", "BigInt", "Uint", "Complex", "Ratio":
 		return true
 	}
 	return false
 }
 
 func isCharOrString(t Ty) bool { return t.Name == "Char" || t.Name == "String" }
+
+// ---- constraint names (hardening W3, D3) -----------------------------------------
+//
+// `Num`, `Integral`, `Fractional`, `Comparable` and `Appendable` are annotation-level
+// CONSTRAINT names, the gradual-typing counterpart of Haskell's classes and Elm's
+// `number`, `comparable`, `appendable`: `def sum2 : Num -> Num -> Num = \a b -> a + b`
+// documents and checks that sum2 takes any numbers, with no runtime wrapper (nothing is
+// boxed; annotations never change evaluation). A constraint names a SET of concrete types:
+//
+//	Num         Int, BigInt, Uint, Float, Complex, Ratio — any number
+//	Integral    Int, BigInt, Uint — the operands of // and %
+//	Fractional  Ratio, Float, Complex — the operands of /
+//	Comparable  every type but Complex (no order on a plane) and functions; a List(T) is
+//	            comparable when T is
+//	Appendable  String, Bytes, List, Chunk, Set, HAMT, Tree, Graph, Pair, Maybe — what ++ joins
+//
+// The checker stays gradual and advisory: a value of a concrete type satisfies a constraint
+// when it is in the set, a constraint-typed value is consistent with a type when SOME member
+// is, and two constraints are consistent when their sets meet. Because the numeric tower
+// converts at runtime (an Int promotes to a Float, `//` floors a Float), a concrete number
+// is consistent with every NUMERIC constraint — so Integral and Fractional contradict
+// only non-numbers and each other; they exist to state intent. Only a definite
+// contradiction is reported.
+
+var constraintNames = map[string]bool{"Num": true, "Integral": true, "Fractional": true, "Comparable": true, "Appendable": true}
+
+// IsConstraintName reports whether name is one of the constraint names.
+func IsConstraintName(name string) bool { return constraintNames[name] }
+
+func (t Ty) isConstraint() bool { return len(t.Args) == 0 && constraintNames[t.Name] }
+
+// numericConstraint reports whether c ranges over numbers only.
+func numericConstraint(c string) bool { return c == "Num" || c == "Integral" || c == "Fractional" }
+
+// constraintUniverse is every concrete type name a constraint can stand for; the
+// consistency and operator rules are decided by enumerating it.
+var constraintUniverse = []string{
+	"Int", "BigInt", "Uint", "Float", "Complex", "Ratio",
+	"String", "Char", "Bool", "Bytes",
+	"List", "Chunk", "Set", "HAMT", "Tree", "Graph", "Pair", "Maybe",
+}
+
+// satisfies reports whether the concrete type t is a member of constraint c.
+func satisfies(c, t Ty) bool {
+	if t.isAny() {
+		return true
+	}
+	switch c.Name {
+	case "Num":
+		return t.isNumeric()
+	case "Integral":
+		return t.Name == "Int" || t.Name == "BigInt" || t.Name == "Uint"
+	case "Fractional":
+		return t.Name == "Ratio" || t.Name == "Float" || t.Name == "Complex"
+	case "Comparable":
+		if t.Name == "Complex" || t.isFn() {
+			return false
+		}
+		if t.Name == "List" && len(t.Args) == 1 {
+			return satisfies(c, t.Args[0])
+		}
+		return true
+	case "Appendable":
+		switch t.Name {
+		case "String", "Bytes", "List", "Chunk", "Set", "HAMT", "Tree", "Graph", "Pair", "Maybe":
+			return true
+		}
+	}
+	return false
+}
+
+// members lists the concrete types a constraint stands for (one Ty per universe name).
+func members(c Ty) []Ty {
+	var out []Ty
+	for _, n := range constraintUniverse {
+		if t := (Ty{Name: n}); satisfies(c, t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// constraintConsistent decides consistency when at least one side is a constraint.
+func constraintConsistent(want, got Ty) bool {
+	switch {
+	case want.isConstraint() && got.isConstraint():
+		for _, m := range members(want) {
+			if satisfies(got, m) {
+				return true
+			}
+		}
+		return false
+	case want.isConstraint():
+		return satisfies(want, got) || (numericConstraint(want.Name) && got.isNumeric())
+	default:
+		for _, m := range members(got) {
+			if consistent(want, m) {
+				return true
+			}
+		}
+		return false
+	}
+}
 
 // String renders the type in annotation syntax.
 func (t Ty) String() string {
@@ -113,6 +216,9 @@ func (t Ty) arity() int {
 func consistent(want, got Ty) bool {
 	if want.isAny() || got.isAny() {
 		return true
+	}
+	if want.isConstraint() || got.isConstraint() {
+		return constraintConsistent(want, got)
 	}
 	if want.isNumeric() && got.isNumeric() {
 		return true
@@ -203,6 +309,9 @@ func (p *tyParser) app() (Ty, error) {
 		return Ty{}, fmt.Errorf("expected a type name at %q", string(p.src[start:]))
 	}
 	t := Ty{Name: string(p.src[start:p.pos])}
+	if constraintNames[t.Name] && p.pos < len(p.src) && p.src[p.pos] == '(' {
+		return Ty{}, fmt.Errorf("the constraint %s takes no type arguments", t.Name)
+	}
 	if p.pos < len(p.src) && p.src[p.pos] == '(' {
 		p.pos++
 		for {
@@ -254,6 +363,8 @@ func tyOfValue(v any) Ty {
 		return Ty{Name: "Complex"}
 	case *big.Int:
 		return Ty{Name: "BigInt"}
+	case *functions.Ratio:
+		return Ty{Name: "Ratio"}
 	case *collections.List[any]:
 		return tyList(tyAny)
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -280,6 +391,9 @@ func sampleOf(t Ty) (any, bool) {
 		return functions.Char('a'), true
 	case "BigInt":
 		return big.NewInt(1), true
+	case "Ratio":
+		r, _ := functions.NewRatio(big.NewInt(1), big.NewInt(2))
+		return r, true
 	case "Complex":
 		return complex(1, 1), true
 	case "List":
@@ -292,6 +406,9 @@ func sampleOf(t Ty) (any, bool) {
 // operator on samples: an error means the operator is genuinely undefined for the
 // pair (reported), success yields the result type. Anything involving Any is Any.
 func binaryType(op functions.OpKind, l, r Ty) (Ty, string) {
+	if l.isConstraint() || r.isConstraint() {
+		return constraintBinaryType(op, l, r)
+	}
 	if l.isAny() || r.isAny() {
 		switch op {
 		case functions.OpEq, functions.OpNeq, functions.OpLt, functions.OpLte, functions.OpGt, functions.OpGte, functions.OpAnd, functions.OpOr:
@@ -318,7 +435,132 @@ func binaryType(op functions.OpKind, l, r Ty) (Ty, string) {
 	if t.Name == "List" {
 		t = tyList(joinTy(elemTy(l), elemTy(r)))
 	}
+	// A fraction that happens to be whole demotes to an Int, so the sample answered Int
+	// for `Ratio + Ratio`; the type of the operation is the Ratio the operands generally give.
+	if t.Name == "Int" && (l.Name == "Ratio" || r.Name == "Ratio") {
+		switch op {
+		case functions.OpAdd, functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpPow:
+			t = Ty{Name: "Ratio"}
+		}
+	}
 	return t, ""
+}
+
+// constraintBinaryType types `l op r` when an operand is a constraint: the operator is
+// asked about every pair of member types. If it is defined for NO pair the operation is a
+// definite error; otherwise the result is the common type of the pairs that work (all Int
+// → Int, all numbers → Num, anything else → Any, comparisons → Bool).
+func constraintBinaryType(op functions.OpKind, l, r Ty) (Ty, string) {
+	if l.isAny() || r.isAny() {
+		return binaryType(op, tyAny, tyAny)
+	}
+	ls, rs := []Ty{l}, []Ty{r}
+	if l.isConstraint() {
+		ls = members(l)
+	}
+	if r.isConstraint() {
+		rs = members(r)
+	}
+	var results []Ty
+	unknown := false // a member the oracle has no sample for might support the operator
+	for _, a := range ls {
+		for _, b := range rs {
+			_, aok := sampleOf(a)
+			_, bok := sampleOf(b)
+			if !aok || !bok {
+				unknown = true
+				continue
+			}
+			if t, msg := binaryType(op, a, b); msg == "" {
+				results = append(results, t)
+			}
+		}
+	}
+	switch {
+	case len(results) > 0 && !unknown:
+		return joinResults(results), ""
+	case len(results) > 0:
+		return tyAny, ""
+	case unknown:
+		return tyAny, ""
+	}
+	return tyAny, fmt.Sprintf("operator '%s' is not defined for %s and %s", op, l, r)
+}
+
+// joinResults is the common type of operator results: equal types stay, a mix of
+// numbers is Num, anything else is Any.
+func joinResults(ts []Ty) Ty {
+	out := ts[0]
+	for _, t := range ts[1:] {
+		switch {
+		case t.String() == out.String():
+		case t.isNumeric() && out.isNumeric():
+			out = Ty{Name: "Num"}
+		case t.Name == "Num" && out.isNumeric(), out.Name == "Num" && t.isNumeric():
+			out = Ty{Name: "Num"}
+		default:
+			return tyAny
+		}
+	}
+	return out
+}
+
+// inexactIntBound is 2^53: beyond it an Int is not exactly representable as a Float.
+var inexactIntBound = new(big.Int).Lsh(big.NewInt(1), 53)
+
+// warnInexactIntToFloat is the advisory of the promotion lattice (plan §6 item 2): an Int
+// LITERAL larger than 2^53 combined with a Float converts to the nearest double and loses
+// digits silently. `to_float` states the conversion; keeping the operation on integers
+// avoids it. Only a literal is judged (the checker does not track values), so there are no
+// false positives.
+func (c *typeChecker) warnInexactIntToFloat(x parser.BinaryExpr, l, r Ty) {
+	switch x.Op {
+	case functions.OpAdd, functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpPow:
+	default:
+		return
+	}
+	check := func(e parser.Expr, other Ty) {
+		lit, ok := e.(parser.LiteralExpr)
+		if !ok || other.Name != "Float" {
+			return
+		}
+		b, isInt := functions.ToBigInt(lit.Value)
+		if !isInt || new(big.Int).Abs(b).Cmp(inexactIntBound) <= 0 {
+			return
+		}
+		c.warn(fmt.Sprintf("integer %s is larger than 2^53 and converts to Float inexactly in '%s'; use to_float to say so, or keep the operation on integers", b, x.Op))
+	}
+	check(x.Left, r)
+	check(x.Right, l)
+}
+
+// unaryType types a prefix operator by asking the runtime (parser.ApplyUnary) about
+// representative values, like binaryType: an error is a definite contradiction.
+func unaryType(op string, t Ty) (Ty, string) {
+	if t.isAny() {
+		if op == "!" {
+			return tyBool, "" // `!x` is a Bool whatever x turns out to be (or an error)
+		}
+		return tyAny, ""
+	}
+	cands := []Ty{t}
+	if t.isConstraint() {
+		cands = members(t)
+	}
+	var results []Ty
+	for _, cand := range cands {
+		v, ok := sampleOf(cand)
+		if !ok {
+			return tyAny, ""
+		}
+		if res, err := parser.ApplyUnary(op, v); err == nil {
+			results = append(results, tyOfValue(res))
+		}
+	}
+	if len(results) == 0 {
+		return tyAny, fmt.Sprintf("operator '%s' is not defined for %s", op, t)
+	}
+	return joinResults(results), ""
 }
 
 func elemTy(t Ty) Ty {
@@ -335,8 +577,11 @@ func joinTy(a, b Ty) Ty {
 		return a
 	}
 	if a.isNumeric() && b.isNumeric() {
-		if a.Name == "Float" || b.Name == "Float" {
-			return tyFloat
+		// the join in the tower Int ⊂ Ratio ⊂ Float ⊂ Complex
+		for _, name := range []string{"Complex", "Float", "Ratio"} {
+			if a.Name == name || b.Name == name {
+				return Ty{Name: name}
+			}
 		}
 		return tyInt
 	}
@@ -456,7 +701,18 @@ func (c *typeChecker) infer(e parser.Expr, scope tyScope) Ty {
 		if msg != "" {
 			c.warn(msg)
 		}
+		c.warnInexactIntToFloat(x, l, r)
 		return t
+	case parser.UnaryExpr:
+		saved := c.lenient
+		c.lenient = 0
+		t := c.infer(x.Operand, scope)
+		c.lenient = saved
+		res, msg := unaryType(x.Op, t)
+		if msg != "" {
+			c.warn(msg)
+		}
+		return res
 	case parser.ListLiteralExpr:
 		elem := Ty{}
 		for idx, el := range x.Elements {

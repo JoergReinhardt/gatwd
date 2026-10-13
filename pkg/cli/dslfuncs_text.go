@@ -128,6 +128,9 @@ func displayText(v any) string {
 		return x
 	case []byte:
 		return string(x)
+	case *big.Int:
+		// `%+v` would print a leading '+' (F11); a big integer prints as plain digits.
+		return x.String()
 	}
 	return fmt.Sprintf("%+v", v)
 }

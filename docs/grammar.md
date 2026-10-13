@@ -85,13 +85,21 @@ Expr           ::= (* infix arithmetic/relational/boolean expression, Applicatio
 Application    ::= Atom { Atom }   (* juxtaposition: `f a b` applies f to a, b; binds tighter than any operator *)
 Atom           ::= Identifier | Literal | StringLiteral | CharLiteral | "(" Expr ")" | "[" ... "]"
 LambdaExpr     ::= "\\" Identifier { Identifier } "->" Expr   (* a Closure VALUE; body extends as far right as possible; parenthesise to pass as an argument *)
-Literal        ::= Integer | StringLiteral | CharLiteral | "[" [ Expr { "," Expr } ] "]"
+Literal        ::= Number | StringLiteral | CharLiteral | "[" [ Expr { "," Expr } ] "]"
+Number         ::= Integer | Float | Complex | Ratio
+Ratio          ::= Digits "r" Digits | Digits "." Digits "r"   (* 3r4 ; the exact decimal 0.75r ; 1r0 is a lex error, a bare 5r is an error *)
+PrefixOp       ::= "-" | "!"   (* in operand position: `-x`, `!ok`; `!` only when not followed by "=" ; `f -3` (space before, none after) is a negative argument *)
+BinaryOp       ::= "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "+" | "-" | "++" | "*" | "/" | "//" | "%" | "**"
+                   (* tightest last; "**" is right-associative and binds tighter than a prefix operator *)
 Identifier     ::= ALPHA { ALPHA | DIGIT | "_" }
 StringLiteral  ::= "\"" { ANY_CHAR | CharEscape } "\""   (* the same escapes as a Char; an unknown escape is an error *)
 CharLiteral    ::= "'" ( ANY_CHAR | CharEscape ) "'"   (* exactly one Unicode code point; a value of type Char *)
 CharEscape     ::= "\\" ( "n" | "t" | "r" | "0" | "\\" | "'" | "\"" | "x" HEX HEX | "u" HEX HEX HEX HEX )
 HEX            ::= DIGIT | "a".."f" | "A".."F"
-Integer        ::= DIGIT { DIGIT }
+Integer        ::= DIGIT { DIGIT }   (* unbounded: an int64 fast path and big integers, canonical after every operation *)
+Float          ::= DIGIT { DIGIT } "." DIGIT { DIGIT }
+Complex        ::= ( Integer | Float ) "i"
+Digits         ::= DIGIT { DIGIT }
 ALPHA          ::= "A".."Z" | "a".."z"
 DIGIT          ::= "0".."9"
 ```
