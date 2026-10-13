@@ -246,6 +246,8 @@ func tyOfValue(v any) Ty {
 		return tyString
 	case functions.Char:
 		return tyChar
+	case functions.Bytes, []byte:
+		return Ty{Name: "Bytes"}
 	case float32, float64:
 		return tyFloat
 	case complex64, complex128:

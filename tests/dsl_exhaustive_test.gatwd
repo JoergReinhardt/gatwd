@@ -779,3 +779,31 @@ spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> map (\x -> x + 1) |> collect_lis
 maybe_default 0 (str_to_int "10") < maybe_default 0 (str_to_int "9") |> assert false
 maybe_default 0 (str_to_int "5") - 1 |> assert 4
 "a" < 'b' |> assert true
+
+-- 95. Bytes, encodings and hashes (hardening W2 tier 2). Bytes prints as 0x-hex and is a collection
+-- row of Ints; a String is accepted where Bytes is wanted (its UTF-8 bytes); decoders return Maybe.
+base64_encode "foobar" |> assert Zm9vYmFy
+base64_encode "foob" |> length |> assert 8
+maybe_default (utf8_encode "") (base64_decode "Zm9vYmFy") |> hex_encode |> assert 666f6f626172
+is_just (base64_decode "Zg") |> assert false
+hex_encode "hi" |> assert 6869
+is_just (hex_decode "zz") |> assert false
+url_encode "a b&c" |> assert a+b%26c
+maybe_default "?" (url_decode "a+b%26c") |> assert a b&c
+sha256 "abc" |> assert ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+md5 "abc" |> assert 900150983cd24fb0d6963f7d28e17f72
+maybe_default "?" (utf8_decode (utf8_encode "héllo")) |> assert héllo
+is_just (utf8_decode (bytes_from_list [255, 254])) |> assert false
+bytes_length (utf8_encode "héllo") |> assert 6
+bytes_to_list (utf8_encode "AB") |> assert [65 66]
+hex_encode (bytes_slice 1 3 (utf8_encode "hello")) |> assert 656c
+hex_encode (utf8_encode "ab" ++ utf8_encode "cd") |> assert 61626364
+utf8_encode "ab" == utf8_encode "ab" |> assert true
+hex_encode (reverse (utf8_encode "abc")) |> assert 636261
+hex_encode (filter (\x -> x > 97) (utf8_encode "abc")) |> assert 6263
+map (\x -> x + 1) (utf8_encode "AB") |> assert [66 67]
+fold (\a x -> a + x) 0 (utf8_encode "ab") |> assert 195
+["ab", "cd"] |> map (\s -> sha256 s) |> map (\h -> length h) |> assert [64 64]
+-- as steps
+"foo" |> base64_encode |> assert Zm9v
+"hi" |> utf8_encode |> hex_encode |> assert 6869

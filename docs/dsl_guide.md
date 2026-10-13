@@ -295,6 +295,21 @@ type): `compare 1 2 == LT`, `compare x y |> match { LT -> … | EQ -> … | GT -
 (`ordering_then (compare x1 y1) (compare x2 y2)`). `min`, `max` and the infix comparisons are unchanged. (`compare` used to
 return `-1`/`0`/`1`; wrap it in `ordering_to_int` for that.)
 
+### Bytes, encodings and hashes (hardening W2, tier 2)
+
+`Bytes` is immutable binary data (`functions.Bytes`); it prints as `0x`-hex (`0x6869`) and is a collection row of `Int`s
+0..255 — `length`, `head`, `nth`, `member`, `fold`, `to_list`, `map`/`flatmap` (a list), and the closed operations
+`filter`, `reject`, `reverse`, `tail`, `cons` (Bytes again). `++` concatenates two `Bytes`, `==` compares them. A `String` is
+**not** silently `Bytes`, but wherever a function wants `Bytes` (the encoders and hashes) a `String` is accepted as its UTF-8
+bytes; the way back is explicit and partial.
+
+| Group | Functions |
+| :-- | :-- |
+| text ↔ bytes | `utf8_encode s` → `Bytes` · `utf8_decode b` → `Maybe String` (`Nothing` for invalid UTF-8) |
+| build / take apart | `bytes_from_list xs` (Ints 0..255, else an error naming the element) · `bytes_to_list b` · `bytes_length b` · `bytes_slice from to b` (half-open) |
+| encodings | `base64_encode`/`base64_decode` (standard, padded) · `base64url_encode`/`base64url_decode` · `hex_encode`/`hex_decode` · `url_encode s`/`url_decode s` (query escaping) — encoders return a `String`, **decoders return a `Maybe`** |
+| hashes | `sha256 b` · `md5 b` — lowercase hex `String` (md5 is a fingerprint, not a security measure) |
+
 ### The `str_*` library (hardening W2)
 
 Data-last, curried, usable as steps (`"a,b" |> str_split ","`), positions count **characters**, and a collection of `Char`s is

@@ -92,12 +92,37 @@ func charList(s string) (*collections.List[any], error) {
 	return listOf(items), nil
 }
 
-// seqOf is functions.ToSliceAny extended with the String row: a String is the sequence of
-// its Chars. It is for the expression function forms only — in a pipeline a String node is
-// one element of the stream, so the stream steps never call it.
-func seqOf(v any) ([]any, bool) {
+// isRow reports whether v is one of the "row" scalars that are also a sequence for the
+// expression function forms: a String (its Chars) or a Bytes (its Ints 0..255).
+func isRow(v any) bool {
+	if _, ok := v.(string); ok {
+		return true
+	}
+	return functions.IsBytes(v)
+}
+
+// rowList lists the elements of a String (Chars) or Bytes (Ints) as a List; ok is false for
+// any other value.
+func rowList(v any) (*collections.List[any], bool, error) {
 	if s, ok := v.(string); ok {
 		l, err := charList(s)
+		return l, true, err
+	}
+	if b, ok := functions.AsBytes(v); ok {
+		items := make([]any, len(b))
+		for i, x := range b {
+			items[i] = int(x)
+		}
+		return listOf(items), true, nil
+	}
+	return nil, false, nil
+}
+
+// seqOf is functions.ToSliceAny extended with the String and Bytes rows. It is for the
+// expression function forms only — in a pipeline a String node is one element of the
+// stream, so the stream steps never call it.
+func seqOf(v any) ([]any, bool) {
+	if l, ok, err := rowList(v); ok {
 		if err != nil {
 			return nil, false
 		}
@@ -106,12 +131,28 @@ func seqOf(v any) ([]any, bool) {
 	return functions.ToSliceAny(v)
 }
 
-// textResult gives a carrier-preserving result for an operation applied to a String: a
-// sequence of Chars is spelled back as a String, so filter/reverse/tail/cons on a String
-// answer with a String.
-func textResult(res any) any {
-	if s, ok := functions.CharsAsString(res); ok {
-		return s
+// rowResult gives a carrier-preserving result for an operation applied to a String or Bytes:
+// a sequence of Chars is spelled back as a String and a sequence of Ints 0..255 as Bytes, so
+// filter/reverse/tail/cons answer in the carrier they were given.
+func rowResult(orig, res any) any {
+	if _, isString := orig.(string); isString {
+		if s, ok := functions.CharsAsString(res); ok {
+			return s
+		}
+		return res
+	}
+	if functions.IsBytes(orig) {
+		if items, ok := functions.ToSliceAny(res); ok {
+			out := make(functions.Bytes, len(items))
+			for i, it := range items {
+				b, err := functions.ByteOf(it)
+				if err != nil {
+					return res
+				}
+				out[i] = b
+			}
+			return out
+		}
 	}
 	return res
 }
@@ -173,6 +214,8 @@ func elementsOf(v any) ([]any, bool) {
 		_, _, payload := c.VariantElements()
 		return []any{payload}, true
 	case string:
+		return seqOf(c)
+	case functions.Bytes:
 		return seqOf(c)
 	}
 	if mb, ok := v.(interface{ MaybeValue() (any, bool) }); ok {

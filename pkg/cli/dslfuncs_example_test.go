@@ -122,3 +122,18 @@ func Example_plusIsNumeric() {
 	// 3 12 42
 	// operator '+' is not defined for String and Int; use ++ to concatenate
 }
+
+// Example_encodings shows Bytes: encoders take a String or Bytes, decoders are Maybe, and a
+// hash is a hex String.
+func Example_encodings() {
+	interp := cli.NewInterpreter()
+	enc := interp.EvaluateToValues(`base64_encode "hello"`)
+	back := interp.EvaluateToValues(`maybe_default "?" (utf8_decode (maybe_default (utf8_encode "") (base64_decode "aGVsbG8=")))`)
+	bad := interp.EvaluateToValues(`is_just (base64_decode "!!!")`)
+	sum := interp.EvaluateToValues(`sha256 "abc"`)
+	fmt.Println(enc[0], back[0], bad[0])
+	fmt.Println(sum[0])
+	// Output:
+	// aGVsbG8= hello false
+	// ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+}

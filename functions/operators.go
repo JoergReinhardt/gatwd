@@ -320,6 +320,13 @@ func fitInt(v int64) any {
 func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 	// Monoidal concatenation operator ++
 	if op == OpConcat {
+		// Bytes ++ Bytes is a fresh Bytes (neither operand is aliased).
+		if lb, ok := AsBytes(left); ok {
+			if rb, ok := AsBytes(right); ok {
+				return append(lb, rb...), nil
+			}
+		}
+
 		// Set ++ Set (Set Union)
 		if _, isSetA := left.(interface{ IsSet() bool }); isSetA {
 			if _, isSetB := right.(interface{ IsSet() bool }); isSetB {
@@ -864,6 +871,8 @@ func KindName(v any) string {
 		return "Complex"
 	case *big.Int:
 		return "BigInt"
+	case Bytes, []byte:
+		return "Bytes"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return "Int"
 	}

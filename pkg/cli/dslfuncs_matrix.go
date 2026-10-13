@@ -120,12 +120,13 @@ func compareAny(a, b any) (int, error) {
 	return c, nil
 }
 
-// textAsChars lifts a String argument to the List of its Chars so the collection function
-// forms (map, filter, flatmap) treat it as the collection row it is; any other value passes
-// through. Stream steps do not use it: in a pipeline a String node is one element.
+// textAsChars lifts a String (or Bytes) argument to the List of its Chars (Ints) so the
+// collection function forms (map, filter, flatmap) treat it as the collection row it is; any
+// other value passes through. Stream steps do not use it: in a pipeline a String node is one
+// element.
 func textAsChars(v any) (any, error) {
-	if s, ok := v.(string); ok {
-		return charList(s)
+	if l, ok, err := rowList(v); ok {
+		return l, err
 	}
 	return v, nil
 }
@@ -160,8 +161,8 @@ func registerMatrixFuncs(m map[string]any) {
 				ok, err := callPred(a[0], e)
 				return ok != neg, err
 			})
-			if _, wasText := a[1].(string); wasText && err == nil {
-				return textResult(res), nil
+			if isRow(a[1]) && err == nil {
+				return rowResult(a[1], res), nil
 			}
 			return res, err
 		})
@@ -274,8 +275,8 @@ func registerMatrixFuncs(m map[string]any) {
 		if !ok || len(items) == 0 {
 			return nil, fmt.Errorf("empty or non-sequence %T", a[0])
 		}
-		if _, wasText := a[0].(string); wasText {
-			return textResult(listOf(items[1:])), nil
+		if isRow(a[0]) {
+			return rowResult(a[0], listOf(items[1:])), nil
 		}
 		return listOf(items[1:]), nil
 	})
@@ -308,8 +309,8 @@ func registerMatrixFuncs(m map[string]any) {
 		for idx, it := range items {
 			out[len(items)-1-idx] = it
 		}
-		if _, wasText := a[0].(string); wasText {
-			return textResult(listOf(out)), nil
+		if isRow(a[0]) {
+			return rowResult(a[0], listOf(out)), nil
 		}
 		return listOf(out), nil
 	})
@@ -321,12 +322,19 @@ func registerMatrixFuncs(m map[string]any) {
 		if !ok {
 			return nil, fmt.Errorf("not a sequence: %T", a[1])
 		}
-		if _, wasText := a[1].(string); wasText {
+		if _, isString := a[1].(string); isString {
 			c, err := asChar(a[0])
 			if err != nil {
 				return nil, fmt.Errorf("cannot cons onto a String: %w", err)
 			}
-			return textResult(listOf(append([]any{c}, items...))), nil
+			return rowResult(a[1], listOf(append([]any{c}, items...))), nil
+		}
+		if functions.IsBytes(a[1]) {
+			b, err := functions.ByteOf(a[0])
+			if err != nil {
+				return nil, fmt.Errorf("cannot cons onto Bytes: %w", err)
+			}
+			return rowResult(a[1], listOf(append([]any{int(b)}, items...))), nil
 		}
 		return listOf(append([]any{a[0]}, items...)), nil
 	})
