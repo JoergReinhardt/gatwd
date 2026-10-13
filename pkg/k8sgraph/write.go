@@ -53,6 +53,10 @@ type WriteFlags struct {
 	FieldManager string
 	// Namespace is the namespace of a namespaced object that names none (--apply-namespace).
 	Namespace string
+	// Out, when set, is the offline twin: k8s_apply renders each object to a YAML file in this
+	// directory instead of talking to a cluster (--out DIR). Naming the directory is the
+	// opt-in, so --dry-run does not apply to it; it still needs the fs capability.
+	Out string
 }
 
 // DefaultWriteFlags is the safe starting point: a dry run, no forced conflicts.
@@ -63,6 +67,7 @@ func (w *WriteFlags) Bind(f *pflag.FlagSet) {
 	f.BoolVar(&w.DryRun, "dry-run", w.DryRun, "server dry run for the write steps: validate and report, persist nothing; --dry-run=false makes the writes real")
 	f.BoolVar(&w.ForceConflicts, "force-conflicts", w.ForceConflicts, "let k8s_apply take over fields another field manager owns")
 	f.StringVar(&w.FieldManager, "field-manager", w.FieldManager, "server-side apply field manager `NAME` (default \"gatwd\")")
+	f.StringVar(&w.Out, "out", w.Out, "render the objects of k8s_apply as YAML files (one per object) into `DIR` instead of writing to a cluster; needs no cluster")
 	f.StringVar(&w.Namespace, "apply-namespace", w.Namespace, "namespace `NS` for a namespaced object that names none (default: such an object is an error)")
 }
 
@@ -166,14 +171,22 @@ func recordList(r adapters.WriteRecord) any {
 	return collections.Cons[any](r.Verb, collections.Cons[any](r.ID, collections.Cons[any](r.Outcome, collections.Nil[any]())))
 }
 
-// ApplyStep is the `k8s_apply` step: server-side apply of every object of the stream, one
-// [apply, Kind/ns/name, outcome] record each. It is denied unless the policy grants
-// cli.CapClusterApply, and a dry run unless the settings say otherwise (see WriteFlags).
-// client may be nil (no cluster): the step then fails loudly per object.
-func ApplyStep(keyword string, a *adapters.Applier) cli.StepHandler {
-	return cli.GatedStep(cli.CapClusterApply, recordStep(keyword, func(ctx context.Context, _ *cli.Interpreter, arg string, v any) (adapters.WriteRecord, error) {
+// ApplyStep is the `k8s_apply` step: server-side apply of every object of the stream (or of a
+// list of objects, in list order), one [apply, Kind/ns/name, outcome] record each. It is denied
+// unless the policy grants cli.CapClusterApply, and a dry run unless the settings say
+// otherwise (see WriteFlags). With out() naming a directory it renders the objects there
+// instead (the offline twin, see adapters.Applier.RenderTo), which additionally needs the fs
+// capability. a.Client may be nil (no cluster): applying then fails loudly per object.
+func ApplyStep(keyword string, a *adapters.Applier, out func() string) cli.StepHandler {
+	return cli.GatedStep(cli.CapClusterApply, recordStep(keyword, func(ctx context.Context, interp *cli.Interpreter, arg string, v any) (adapters.WriteRecord, error) {
 		if strings.TrimSpace(arg) != "" {
-			return adapters.WriteRecord{}, fmt.Errorf("%s takes no argument (got %q); set the behavior with --dry-run, --force-conflicts, --field-manager", keyword, arg)
+			return adapters.WriteRecord{}, fmt.Errorf("%s takes no argument (got %q); set the behavior with --dry-run, --force-conflicts, --field-manager, --out", keyword, arg)
+		}
+		if dir := out(); dir != "" {
+			if err := interp.RequireCapability(cli.CapFS, keyword, dir); err != nil {
+				return adapters.WriteRecord{}, err
+			}
+			return a.RenderTo(dir, v)
 		}
 		return a.Apply(ctx, v)
 	}))

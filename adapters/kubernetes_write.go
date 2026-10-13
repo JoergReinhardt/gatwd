@@ -1,9 +1,12 @@
 package adapters
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -14,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/yaml"
 
 	"github.com/joergreinhardt/gatwd/collections"
 )
@@ -437,4 +441,36 @@ func sameContent(a, b *unstructured.Unstructured) bool {
 		return c.Object
 	}
 	return reflect.DeepEqual(strip(a), strip(b))
+}
+
+// RenderTo is the offline twin of Apply: it writes the object to dir as YAML, one file per
+// object named `Kind.namespace.name.yaml` (`_` for no namespace), and reports
+// [apply, id, written] — or [apply, id, unchanged] when the file already holds exactly that
+// content, so a second render is as idempotent as a second apply. It needs no cluster and no
+// resolver, and applies the same validation as Apply (a payload that is no object, or has no
+// kind or name, is an error); the namespace default of the settings is NOT applied, the file
+// holds the object as the manifest wrote it. Whether the caller may write files at all is
+// the caller's policy (the shim requires the fs capability).
+func (a *Applier) RenderTo(dir string, payload any) (WriteRecord, error) {
+	obj, err := ObjectFromPayload(payload)
+	if err != nil {
+		return WriteRecord{}, err
+	}
+	id := ObjectID(obj)
+	unstructured.RemoveNestedField(obj.Object, "metadata", "managedFields")
+	body, err := yaml.Marshal(obj.Object)
+	if err != nil {
+		return WriteRecord{}, fmt.Errorf("cannot render %s: %w", id, err)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return WriteRecord{}, fmt.Errorf("cannot render %s: %w", id, err)
+	}
+	path := filepath.Join(dir, strings.ReplaceAll(id, "/", ".")+".yaml")
+	if old, err := os.ReadFile(path); err == nil && bytes.Equal(old, body) {
+		return WriteRecord{Verb: "apply", ID: id, Outcome: "unchanged"}, nil
+	}
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		return WriteRecord{}, fmt.Errorf("cannot render %s: %w", id, err)
+	}
+	return WriteRecord{Verb: "apply", ID: id, Outcome: "written"}, nil
 }

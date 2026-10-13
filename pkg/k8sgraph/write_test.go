@@ -2,10 +2,12 @@ package k8sgraph_test
 
 import (
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sigs.k8s.io/yaml"
 	"slices"
 	"strings"
 	"testing"
@@ -393,6 +395,155 @@ func TestApplyAppliesAListInTheOrderTheDSLComputed(t *testing.T) {
 		if !strings.HasPrefix(m, "[ERROR]") {
 			t.Errorf("a non-object in a batch must be an error, got %q", m)
 		}
+	}
+}
+
+// ---- the offline twin: --out DIR ----
+
+func offlineRig(t *testing.T, out string, policy cli.Policy) *cli.Interpreter {
+	t.Helper()
+	flags := k8sgraph.DefaultWriteFlags()
+	flags.Out = out
+	interp := k8sgraph.ApplyEdition(cli.NewEdition("offline-write"), nil, k8sgraph.WithWriteFlags(flags)).BuildInterpreter() // no cluster at all
+	interp.SetPolicy(policy)
+	return interp
+}
+
+func values(t *testing.T, interp *cli.Interpreter, line string) []string {
+	t.Helper()
+	r := &writeRig{interp: interp}
+	return r.records(t, line)
+}
+
+func TestOutRendersOneYamlFilePerObjectWithNoCluster(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "rendered") // not yet existing: the step creates it
+	interp := offlineRig(t, dir, cli.TrustedPolicy().Grant(cli.CapClusterApply))
+	wantRecords(t, values(t, interp, applyLine), []string{
+		"apply ConfigMap/default/web-config written",
+		"apply Deployment/default/web written",
+		"apply Service/default/web written",
+	})
+	files, _ := filepath.Glob(filepath.Join(dir, "*.yaml"))
+	var names []string
+	for _, f := range files {
+		names = append(names, filepath.Base(f))
+	}
+	wantNames := []string{"ConfigMap.default.web-config.yaml", "Deployment.default.web.yaml", "Service.default.web.yaml"}
+	if !slices.Equal(names, wantNames) {
+		t.Fatalf("files %v, want %v", names, wantNames)
+	}
+	// a second render is idempotent, like a second apply
+	wantRecords(t, values(t, interp, applyLine), []string{
+		"apply ConfigMap/default/web-config unchanged",
+		"apply Deployment/default/web unchanged",
+		"apply Service/default/web unchanged",
+	})
+	// a changed object rewrites only its file
+	scaled := values(t, interp, `spawn StrVal: `+scaledPath+` |> manifests |> k8s_apply`)
+	if scaled[1] != "apply Deployment/default/web written" || scaled[0] != "apply ConfigMap/default/web-config unchanged" {
+		t.Fatalf("re-render of a changed object: %q", scaled)
+	}
+
+	// round trip: the rendered directory is read back by `manifests` as the same graph
+	reader := k8sgraph.ApplyEdition(cli.NewEdition("reader"), nil).BuildInterpreter()
+	for _, q := range []string{"graph_nodes", "graph_edges"} {
+		want := edgesOf(t, reader, `spawn StrVal: `+scaledPath+` |> manifests |> k8s_graph |> `+q+` |> collect_list`)
+		got := edgesOf(t, reader, `spawn StrVal: `+dir+` |> manifests |> k8s_graph |> `+q+` |> collect_list`)
+		if len(want) == 0 && q == "graph_nodes" || !slices.Equal(got, want) {
+			t.Fatalf("%s: rendered %v, source %v", q, got, want)
+		}
+	}
+}
+
+func TestOutParityWithTheLiveApply(t *testing.T) {
+	// the SAME objects, applied to the fake cluster and rendered to files, are the same content
+	rig := newWriteRig(t, true, true)
+	rig.records(t, applyLine)
+	dir := t.TempDir()
+	interp := offlineRig(t, dir, cli.TrustedPolicy().Grant(cli.CapClusterApply))
+	values(t, interp, applyLine)
+	for _, c := range []struct {
+		gvr        schema.GroupVersionResource
+		file, name string
+	}{
+		{configMapsGVR, "ConfigMap.default.web-config.yaml", "web-config"},
+		{deploymentsGVR, "Deployment.default.web.yaml", "web"},
+	} {
+		stored, err := rig.client.Tracker().Get(c.gvr, "default", c.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, c.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fromFile map[string]any
+		if err := yaml.Unmarshal(raw, &fromFile); err != nil {
+			t.Fatal(err)
+		}
+		a, _ := json.Marshal(fromFile)
+		b, _ := json.Marshal(stored.(*unstructured.Unstructured).Object)
+		if string(a) != string(b) {
+			t.Errorf("%s: file\n  %s\n live\n  %s", c.name, a, b)
+		}
+	}
+}
+
+func TestOutNeedsTheFileSystemCapabilityAndTheApplyCapability(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "must-not-exist")
+	// apply without fs: the render is denied, naming fs
+	interp := offlineRig(t, dir, cli.DenyAll().Grant(cli.CapClusterApply))
+	for _, g := range values(t, interp, applyLine) {
+		if g != "[ERROR] step 'k8s_apply' requires the fs capability (policy denies it)" {
+			t.Errorf("got %q", g)
+		}
+	}
+	// fs without apply: denied by the apply gate (the trusted script has fs)
+	interp = offlineRig(t, dir, cli.TrustedPolicy())
+	if g := values(t, interp, applyLine); len(g) != 1 || !strings.Contains(g[0], "requires the cluster-apply capability") {
+		t.Errorf("got %q", g)
+	}
+	if _, err := os.Stat(dir); err == nil {
+		t.Fatal("a denied render created the directory")
+	}
+}
+
+func TestOutDoesNotTouchTheCluster(t *testing.T) {
+	r := newWriteRig(t, true, true)
+	r.flags.Out = t.TempDir()
+	r.records(t, applyLine)
+	if acts := r.client.Actions(); len(acts) != 0 {
+		t.Fatalf("--out talked to the cluster: %v", r.verbs())
+	}
+}
+
+func TestOutRefusesAnInvalidObjectAndKeepsTheRest(t *testing.T) {
+	dir := t.TempDir()
+	interp := offlineRig(t, dir, cli.TrustedPolicy().Grant(cli.CapClusterApply))
+	got := values(t, interp, `spawn StrVal: `+brokenPath+` |> manifests |> k8s_apply`)
+	if len(got) != 5 || !strings.HasPrefix(got[1], "[ERROR] cannot write a ConfigMap with no metadata.name") {
+		t.Fatalf("got %q", got)
+	}
+	for i, w := range map[int]string{0: "apply ConfigMap/default/first written", 2: "apply ConfigMap/_/no-namespace written", 3: "apply Widget/default/w written", 4: "apply ConfigMap/default/last written"} {
+		if got[i] != w {
+			t.Errorf("result %d = %q, want %q", i, got[i], w)
+		}
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.yaml")); len(files) != 4 {
+		t.Fatalf("%d files for 4 valid objects: %v", len(files), files)
+	}
+}
+
+func TestOutFlagOnTheCommandLine(t *testing.T) {
+	dir := t.TempDir()
+	ed := k8sgraph.ApplyEdition(cli.NewEdition("out-flag-test"), nil)
+	var out, errb strings.Builder
+	ed.Command().Execute([]string{"--allow-cluster-apply", "--out", dir, "eval", "-e", applyLine}, strings.NewReader(""), &out, &errb)
+	if !strings.Contains(out.String(), "written") || strings.Contains(out.String(), "[ERROR]") {
+		t.Fatalf("stdout %q stderr %q", out.String(), errb.String())
+	}
+	if files, _ := filepath.Glob(filepath.Join(dir, "*.yaml")); len(files) != 3 {
+		t.Fatalf("files %v", files)
 	}
 }
 

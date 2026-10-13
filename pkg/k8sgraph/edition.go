@@ -87,7 +87,7 @@ func ApplyEdition(e *cli.Edition, client dynamic.Interface, opts ...Option) *cli
 		e = e.WithFlags(write.Bind).
 			WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster (k8s_apply)")
 	}
-	e = e.WithStep(ApplyStep("k8s_apply", newApplier(client, write, cfg.resolver)))
+	e = e.WithStep(ApplyStep("k8s_apply", newApplier(client, write, cfg.resolver), func() string { return write.Out }))
 	if client != nil {
 		for _, c := range CoreCrawls {
 			e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR))
