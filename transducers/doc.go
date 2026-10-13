@@ -28,6 +28,14 @@
 // Transducer that wraps the downstream Reducer. Sequence applies a composed
 // transducer to a slice and collects the result.
 //
+// # Graph walks as a transducer source
+//
+// WalkNodes materialises a cycle-safe traversal of a collections.Graph (the same
+// order as Graph.WalkFrom), and TransduceWalk drives a composed Transducer over
+// that walk — so "breadth-first from the ingress, keep Service nodes, project their
+// names" fuses into a single allocation-free pass, exactly as Sequence does for a
+// plain slice.
+//
 // # Quick start
 //
 //	// Double, then keep the even results, in one fused pass.

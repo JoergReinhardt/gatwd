@@ -13,6 +13,14 @@
 //     Satisfies the comonad laws via Extract (W[A] -> A), Duplicate (W[A] -> W[W[A]]), and
 //     Extend/Cobind ((W[A] -> B) -> W[A] -> W[B]). Enables simultaneous neighborhood transitions,
 //     spatial stencils (Moore, Von Neumann), and 2D image/grid convolution filters.
+//
+//   - Graph Cursor Comonad (GraphCursor): Focuses a single node of a cyclic
+//     collections.Graph together with its in/out neighbourhood. Extract reads the
+//     focused node; ExtendGraph/DuplicateGraph recompute every node's payload from a
+//     cursor focused on it ((W[A] -> B) -> W[A] -> W[B]). This is the comonadic way
+//     to express neighbourhood propagation over an infrastructure graph — taint
+//     spread, trust/score diffusion, compliance fixpoints — without a hand-rolled
+//     traversal.
 package comonads
 
 

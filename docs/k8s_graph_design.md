@@ -510,8 +510,25 @@ with `// Output:` in `collections/graph_example_test.go`. All gates green
 `FoldWalk`, weighted `ShortestPath`/`TopoSort`/`SCC`, zipper, optics. *Deferred to
 Phase 4:* `Graph(` grammar + DSL builtins.
 
-**Phase 2 — traversal structure (CORE L2).** zipper, optics, walk transducer,
-weighted `ShortestPath`/`TopoSort`/`SCC`. Structural tests.
+**Phase 2 — traversal structure (CORE L1–L2). ✅ DONE (2026-10-13).** The
+traversal *algorithms* landed beside the collection (L1, `collections/graph_walk.go`):
+`FoldWalk` (catamorphism along a cycle-safe walk), `ShortestPath` (Dijkstra, numeric
+weight via `functions.ToFloat64`, O(V²), deterministic tie-break, `from==to`→cost 0),
+`TopoSort` → `functions.Either[[]K cyclic-remainder, []K order]` (Kahn, lexicographic),
+`SCC` → `[][]K` (Tarjan, components sorted; partitions the declared vertex set). The
+L2 traversal *structures*: **comonad** `comonads/graph_cursor.go` —
+`GraphCursor` (`Extract`/`To`/`Successors`/`Predecessors`/`OutEdges`/`InEdges`),
+`Extend` (N→N, iterable to a fixpoint) + free `ExtendGraph` (N→R cobind) +
+`DuplicateGraph` (W a→W (W a)); **optics** `optics/graph_optics.go` —
+`NodePayloadLens` (Maybe payload; Set Nothing removes), `ColorNodePrism`,
+`AllEdgeWeights`/`OutEdgeWeights` traversals, plus a new generic
+`optics/traversal.go` `Traversal[S,A]` optic (`GetAll`/`Modify`/`Set`/`ComposeTraversals`);
+**transducer** `transducers/graph_walk.go` — `WalkNodes` + `TransduceWalk` (Sequence
+over the cycle-safe walk, fuses Map/Filter). Structural Go tests + `Example*` with
+`// Output:` in each package; `doc.go` overviews updated. All gates green
+(`go build/vet/test ./...`, `go test -run Example ./...`, `./run_dsl_tests.sh`).
+*Deferred to Phase 4:* DSL builtins (`graph_fold_walk`/`graph_shortest_path`/
+`graph_topo_sort`/`graph_scc`/`graph_focus`/`graph_over`/…) + exhaustive asserts.
 
 **Phase 3 — evaluator steps (CORE L3).** `evaluator/graph_steps.go` + tests
 asserting yielded memory types, not strings.
@@ -711,6 +728,15 @@ skip re-exploration.
 **Kubernetes adapter (`adapters/kubernetes_adapter.go`)**
 - `func NativeKubernetesAdapter(client dynamic.Interface, gvr schema.GroupVersionResource, targetFlag dsltypes.BitFlag) evaluator.Adapter[string]` — CURRENT (yields resource *names*, `Adapter[string]`). P2 adds `NativeKubernetesResourceAdapter(client, gvr) evaluator.Adapter[any]` (nested-HAMT payloads).
 - Raw crawl wiring template: `examples/kubernetes_repl/main.go`; fake-client test: `adapters/kubernetes_adapter_test.go` (`fake.NewSimpleDynamicClient`).
+
+**Graph core (Phases 1–2, verified 2026-10-13)**
+- `functions/graph_node.go` — `Node[K,C,N]`, `Edge[K,C,E]` (color generic `C comparable`; `Group`/`Inferred`; `Equal`/`Compare`).
+- `collections/graph.go` — `Graph[K,C,N,E]` (3 HAMT indexes); construct/project/Functor/Foldable/Filterable/Monoid; `WalkFrom`/`BFS`/`DFS`/`Reachable`; `WalkStrategy{WalkBFS,WalkDFS}`.
+- `collections/graph_walk.go` — `FoldWalk`, `ShortestPath(from,to)([]K,float64,bool)`, `TopoSort() functions.Either[[]K,[]K]`, `SCC() [][]K`.
+- `comonads/graph_cursor.go` — `GraphCursor[K,C,N,E]`, `NewGraphCursor`, `Extract`/`To`/`Successors`/`Predecessors`/`OutEdges`/`InEdges`/`Extend`; free `ExtendGraph[K,C,N,R,E]`, `DuplicateGraph[K,C,N,E]`.
+- `optics/traversal.go` — generic `Traversal[S,A]{GetAll,Modify}`, `ComposeTraversals`, `(Traversal).Set`.
+- `optics/graph_optics.go` — `NodePayloadLens[K,C,N,E](id)`, `ColorNodePrism[K,C,N,E](id,color)`, `AllEdgeWeights[K,C,N,E]()`, `OutEdgeWeights[K,C,N,E](id)`.
+- `transducers/graph_walk.go` — `WalkNodes[K,C,N,E](g,start,strategy)`, `TransduceWalk[K,C,N,E,B](g,start,strategy,xf)`.
 
 **DSL grammar (`docs/grammar.md`, parser in `parser/`)**
 - `TypeDef ::= "type" Ident "=" (SumType | RecordType | TupleType | CollectionType | NativeType)`;
