@@ -145,9 +145,11 @@ Consequences for us:
 - **Appliance** (`pkg/cli/appliance.go`): `cli.NewAppliance(opts...)` with
   `WithEmbeddedFS(fsys, path)` / `WithEmbeddedScript(str)` /
   `WithConfigMapOverride(path)` / `WithStep` / `WithType` / `WithEdition`;
-  `Reload()` reads ConfigMap-or-embedded, `EvaluateScript`s it, and atomically
-  swaps the interpreter pointer (zero-downtime hot reload). This is the operator
-  substrate.
+  `Reload()` loads the embedded rules, layers the ConfigMap override on top
+  (`WithOverrideMode(OverrideLayer)`, the default; `OverrideReplace` loads the
+  override alone), and atomically swaps the interpreter pointer (zero-downtime
+  hot reload); a broken override is a `*LoadError` and the last good rules keep
+  serving. This is the operator substrate.
 - **Steps** (`pkg/cli/steps.go`): ergonomic `MapStep(name, fn)`,
   `FilterStep(name, pred)`, `ArgStep(prefix, fn)`, `SinkStep(name, fn)` — all
   return a `StepHandler` that pattern-matches `stepStr` and operates on the
