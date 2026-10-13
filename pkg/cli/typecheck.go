@@ -58,6 +58,7 @@ var (
 	tyFloat  = Ty{Name: "Float"}
 	tyString = Ty{Name: "String"}
 	tyBool   = Ty{Name: "Bool"}
+	tyChar   = Ty{Name: "Char"}
 )
 
 func tyList(elem Ty) Ty  { return Ty{Name: "List", Args: []Ty{elem}} }
@@ -71,6 +72,8 @@ func (t Ty) isNumeric() bool {
 	}
 	return false
 }
+
+func isCharOrString(t Ty) bool { return t.Name == "Char" || t.Name == "String" }
 
 // String renders the type in annotation syntax.
 func (t Ty) String() string {
@@ -113,6 +116,9 @@ func consistent(want, got Ty) bool {
 	}
 	if want.isNumeric() && got.isNumeric() {
 		return true
+	}
+	if isCharOrString(want) && isCharOrString(got) {
+		return true // a one-character String converts to a Char on demand (D1)
 	}
 	if want.Name != got.Name {
 		return false
@@ -238,6 +244,8 @@ func tyOfValue(v any) Ty {
 		return tyBool
 	case string:
 		return tyString
+	case functions.Char:
+		return tyChar
 	case float32, float64:
 		return tyFloat
 	case complex64, complex128:
@@ -266,6 +274,8 @@ func sampleOf(t Ty) (any, bool) {
 		return "s", true
 	case "Bool":
 		return true, true
+	case "Char":
+		return functions.Char('a'), true
 	case "BigInt":
 		return big.NewInt(1), true
 	case "Complex":

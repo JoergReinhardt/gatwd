@@ -272,6 +272,7 @@ func buildDSLBuiltinFuncs() map[string]any {
 
 	registerMatrixFuncs(m)
 	registerGraphFuncs(m)
+	registerCharFuncs(m)
 
 	// Fixed-arity builtins become curried Closures, so `map (hamt_get "a") rs` or
 	// `fold (graph_add_edge Owns 1 "a") …` partially apply like every user function.

@@ -591,3 +591,29 @@ ARGS |> map (\a -> a ++ "!") |> assert []
 def lh_add = \x y -> x + y
 5 |> lh_add 1 |> assert 6
 let lh_inc = lh_add 1 in 5 |> lh_inc |> assert 6
+
+-- 87. Char (hardening W2, D1): a distinct code-point type with its own literal, ordering and
+-- function forms. A Char is not an Int and not a String, but a one-character String converts
+-- to a Char on demand wherever a Char is expected.
+'a' == 'a' |> assert true
+'a' < 'b' |> assert true
+'a' == "a" |> assert true
+'\n' == '\x0a' |> assert true
+'é' == 'é' |> assert true
+char_code 'a' |> assert 97
+char_code "é" |> assert 233
+char_from_code 98 == 'b' |> assert true
+char_to_str 'x' |> assert x
+-- inside lambdas and comprehensions (the function form is the DSL cell)
+['a', 'b', 'c'] |> map (\c -> char_code c) |> assert [97 98 99]
+['a', 'b', 'c'] |> map (\c -> (char_upper c) == 'A') |> assert [true false false]
+['a', '1', 'B'] |> filter (\c -> char_is_alpha c) |> map (\c -> char_code c) |> assert [97 66]
+['a', ' ', '7'] |> map (\c -> [(char_is_digit c), (char_is_space c)]) |> assert [[false false] [false true] [true false]]
+['Q', 'q'] |> map (\c -> [(char_is_upper c), (char_is_lower c)]) |> assert [[true false] [false true]]
+[ char_code c | c <- ['x', 'y'], c > 'x' ] |> assert [121]
+fold (\acc c -> acc + (char_code c)) 0 ['a', 'b'] |> assert 195
+-- Maybe, not an error, for malformed text
+maybe_default 0 (map (\c -> char_code c) (char_of_str "z")) |> assert 122
+maybe_default 0 (map (\c -> char_code c) (char_of_str "zz")) |> assert 0
+is_just (char_of_str "z") |> assert true
+is_just (char_of_str "zz") |> assert false

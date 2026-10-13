@@ -249,6 +249,23 @@ Gatwd supports full infix mathematical, relational, and boolean expressions with
 - **Boolean Logic**:
   - `&&`, `||`
 
+### `Char` literals and functions (hardening W2, D1)
+
+`'a'`, `'é'`, `'\n'`, `'\x41'`, `'\u00e9'` (escapes `\n \t \r \0 \\ \' \" \xHH \uHHHH`) are values of type **`Char`**: one Unicode
+code point. A `Char` is neither an `Int` nor a `String` — `'a' + 1` is an error — but they convert **on demand**: wherever a
+`Char` is expected a one-character `String` is accepted (`char_code "é"` is `233`, `'a' == "a"` is `true`), and ordering is
+by code point (`'a' < 'b'`). The function forms are data-last and curried (they also work inside lambdas and comprehensions):
+
+| Function | Meaning |
+| :-- | :-- |
+| `char_code c` · `char_from_code n` | `Char` ↔ `Int` code point (`char_from_code` is an error for a surrogate or `> 0x10FFFF`) |
+| `char_to_str c` · `char_of_str s` | `Char` → `String` · `String` → `Maybe Char` (`Nothing` unless `s` is exactly one character) |
+| `char_is_digit` `char_is_alpha` `char_is_space` `char_is_upper` `char_is_lower` | `Char` → `Bool` |
+| `char_upper c` · `char_lower c` | `Char` → `Char` |
+
+The `Char` annotation is understood by `gatwd --check` (`def isa : Char -> Bool = \c -> c == 'a'`). The remaining conversions
+of the D1 table (`String` as a collection row of `Char`s) arrive with the rest of W2.
+
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`
 Gatwd protects numerical pipelines against arithmetic overflow across all numeric types:
 - **Signed Integers (`Int`, `int64`)**: Operations exceeding `math.MaxInt64` / `math.MinInt64` automatically promote to arbitrary-precision `*big.Int`.

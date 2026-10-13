@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/functions"
@@ -30,6 +31,7 @@ const (
 	TokArrow                      // TokArrow is the generator binding arrow "<-".
 	TokLambda                     // TokLambda is the lambda introducer '\\'.
 	TokThinArrow                  // TokThinArrow is the lambda body arrow "->".
+	TokChar                       // TokChar is a single-quoted character literal (Text is the character itself).
 )
 
 // TokenItem is a single lexical token: its Type classifies it (one of the Tok*
@@ -92,6 +94,17 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			}
 			tokens = append(tokens, TokenItem{Type: TokString, Text: string(runes[start:i])})
 			i++ // skip closing quote
+			continue
+		}
+
+		// Char literal: 'a', '\n', 'é'
+		if r == '\'' {
+			c, next, err := lexCharLiteral(runes, i)
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, TokenItem{Type: TokChar, Text: string(c)})
+			i = next
 			continue
 		}
 
@@ -168,6 +181,66 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 
 	tokens = append(tokens, TokenItem{Type: TokEOF, Text: ""})
 	return tokens, nil
+}
+
+// lexCharLiteral reads the character literal that opens at runes[start] (a quote) and
+// returns the character and the index just past the closing quote. Escapes: \n \t \r \0
+// \\ \' \" \xHH \uHHHH. Anything else — an empty literal, two characters, an unknown
+// escape, a missing closing quote — is an error naming the problem.
+func lexCharLiteral(runes []rune, start int) (rune, int, error) {
+	i := start + 1
+	n := len(runes)
+	if i >= n {
+		return 0, 0, fmt.Errorf("unterminated character literal")
+	}
+	var c rune
+	switch runes[i] {
+	case '\'':
+		return 0, 0, fmt.Errorf("empty character literal ''")
+	case '\\':
+		i++
+		if i >= n {
+			return 0, 0, fmt.Errorf("unterminated character literal")
+		}
+		switch e := runes[i]; e {
+		case 'n':
+			c = '\n'
+		case 't':
+			c = '\t'
+		case 'r':
+			c = '\r'
+		case '0':
+			c = 0
+		case '\\', '\'', '"':
+			c = e
+		case 'x', 'u':
+			width := 2
+			if e == 'u' {
+				width = 4
+			}
+			if i+width >= n {
+				return 0, 0, fmt.Errorf("unterminated character literal")
+			}
+			code, err := strconv.ParseUint(string(runes[i+1:i+1+width]), 16, 32)
+			if err != nil {
+				return 0, 0, fmt.Errorf("invalid \\%c escape in character literal", e)
+			}
+			if _, ok := functions.CharFromCode(int64(code)); !ok {
+				return 0, 0, fmt.Errorf("invalid code point U+%04X in character literal", code)
+			}
+			c = rune(code)
+			i += width
+		default:
+			return 0, 0, fmt.Errorf("unknown escape \\%c in character literal", e)
+		}
+	default:
+		c = runes[i]
+	}
+	i++
+	if i >= n || runes[i] != '\'' {
+		return 0, 0, fmt.Errorf("character literal must hold exactly one character")
+	}
+	return c, i + 1, nil
 }
 
 // Expr represents an abstract syntax tree for infix expressions.
@@ -669,7 +742,7 @@ func (p *InfixParser) parsePrecedence(minPrec int) (Expr, error) {
 // adjacent atoms with no operator between them form a function application.
 func (p *InfixParser) isAtomStart() bool {
 	switch p.peek().Type {
-	case TokNumber, TokString, TokIdent, TokLParen, TokLBracket:
+	case TokNumber, TokString, TokChar, TokIdent, TokLParen, TokLBracket:
 		return true
 	default:
 		return false
@@ -737,6 +810,10 @@ func (p *InfixParser) parsePrimary() (Expr, error) {
 
 	case TokString:
 		return LiteralExpr{Value: tok.Text}, nil
+
+	case TokChar:
+		r, _ := utf8.DecodeRuneInString(tok.Text)
+		return LiteralExpr{Value: functions.Char(r)}, nil
 
 	case TokIdent:
 		return VarExpr{Name: tok.Text}, nil

@@ -79,6 +79,9 @@ spawn IntVal: hello |> inc
 spawn IntVal: 5 |> two "a"
 [ x - 1 | x <- ["a", "b"] ]
 let s = "hi" in inc s
+inc 'a'
+'a' + 1
+def cwrong : Char -> Int = \c -> c
 `
 	ws := warnings(src)
 	for _, want := range []string{
@@ -93,6 +96,9 @@ let s = "hi" in inc s
 		"seed 'hello' has type String, but IntVal is declared as Int",
 		"argument 1 of 'two' has type String, expected Int",
 		"def wrong: body has type Int but the annotation says String",
+		"argument 1 of 'inc' has type Char, expected Int",
+		"operator '+' is not defined for Char and Int",
+		"def cwrong: body has type Char but the annotation says Int",
 	} {
 		if !hasWarning(ws, want) {
 			t.Errorf("missing warning %q in %v", want, ws)
@@ -130,6 +136,15 @@ def macro = graph_topo_sort
 "a" ++ "b"
 [1] ++ [2]
 1 + 2.5
+def isa : Char -> Bool = \c -> c == 'a'
+def code : Char -> Int = \c -> char_code c
+def asStr : Char -> String = \c -> char_to_str c
+isa 'a'
+isa "a"
+code 'z'
+'a' < 'b'
+'a' == "a"
+['a', 'b'] |> map (\c -> code c)
 `
 	if ws := warnings(src); len(ws) != 0 {
 		t.Fatalf("valid program must be silent, got %v", ws)

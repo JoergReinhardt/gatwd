@@ -1690,13 +1690,16 @@ func startsWithLiteral(s string) bool {
 		return false
 	}
 	r := rune(s[0])
-	return r == '"' || (r >= '0' && r <= '9')
+	return r == '"' || r == '\'' || (r >= '0' && r <= '9')
 }
 
 // scalarValue reports whether v prints and re-parses losslessly as text: booleans,
 // numbers and strings (and nil). Collections, closures and other structures do not, so
 // they must reach the evaluator as values and never be spliced into pipeline text.
 func scalarValue(v any) bool {
+	if functions.IsChar(v) {
+		return false // its text ("a") would re-parse as a String
+	}
 	switch reflect.ValueOf(v).Kind() {
 	case reflect.Invalid, reflect.Bool, reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,

@@ -55,3 +55,13 @@ func Example_graphAlgorithmsInComprehension() {
 	fmt.Println(cycles[0], order[0], path[0])
 	// Output: [[x y]] [] [x y z]
 }
+
+// Example_charFuncs shows the Char type: a literal, the function forms inside a lambda, and
+// the on-demand conversion of a one-character String to a Char.
+func Example_charFuncs() {
+	interp := cli.NewInterpreter()
+	up := interp.EvaluateToValues(`['a', 'b'] |> map (\c -> char_upper c)`)
+	code := interp.EvaluateToValues(`char_code "é"`)
+	fmt.Println(up[0], code[0])
+	// Output: [A B] 233
+}

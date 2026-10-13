@@ -30,6 +30,35 @@ func listOf(items []any) *collections.List[any] {
 	return res
 }
 
+// ---- the Char / String conversion table (D1) --------------------------------------
+//
+// Conversion is on demand and narrow; it happens only where a function or operator
+// names the type it needs, never silently elsewhere:
+//
+//	wanted        given                          result
+//	Char          Char                           itself
+//	Char          String of exactly one char     that Char
+//	String        String                         itself
+//	String        List/Chunk/slice of Chars      the joined String (an empty collection too)
+//	[Char]        String                         the Chars of the String
+//
+// Anything else — a longer String where a Char is wanted, a collection holding a
+// non-Char — is an error that names the offending element.
+
+// asChar reads v as a Char, converting a one-character String on demand.
+func asChar(v any) (functions.Char, error) {
+	switch c := v.(type) {
+	case functions.Char:
+		return c, nil
+	case string:
+		if ch, ok := functions.CharOfString(c); ok {
+			return ch, nil
+		}
+		return 0, fmt.Errorf("want a Char, got the String %q (only a one-character String converts)", c)
+	}
+	return 0, fmt.Errorf("want a Char, got %T", v)
+}
+
 // call1 applies a callable to one argument.
 func call1(fn, x any) (any, error) { return functions.Apply(fn, []any{x}) }
 

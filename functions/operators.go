@@ -864,6 +864,17 @@ func Compare(a, b any) (int, error) {
 		return 0, nil
 	}
 
+	// Chars order by code point; a one-character String converts on demand (D1).
+	if ca, cb, ok := charPair(a, b); ok {
+		switch {
+		case ca < cb:
+			return -1, nil
+		case ca > cb:
+			return 1, nil
+		}
+		return 0, nil
+	}
+
 	// BigFloat Operations
 	_, lIsBigF := a.(*big.Float)
 	_, rIsBigF := b.(*big.Float)
@@ -1050,6 +1061,11 @@ func StructuralEqual(a, b any) bool {
 		if a == b {
 			return true
 		}
+	}
+
+	// Char equality; a one-character String converts on demand (D1).
+	if ca, cb, ok := charPair(a, b); ok {
+		return ca == cb
 	}
 
 	// Complex equality
