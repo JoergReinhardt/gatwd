@@ -20,7 +20,7 @@ Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language refere
 go build -o /tmp/gatwd-k8s ./cmd/gatwd-k8s
 go build -o /tmp/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 
-/tmp/gatwd-k8s-operator -manifests examples/k8s_howto/cluster          # offline compliance check
+/tmp/gatwd-k8s-operator check --manifests examples/k8s_howto/cluster   # offline compliance check
 echo 'spawn StrVal: examples/k8s_howto/cluster |> manifests |> k8s_graph |> graph_order' | /tmp/gatwd-k8s
 ```
 
@@ -89,11 +89,11 @@ gatwd-k8s check my.gatwd            # structural errors (exit 1) and advisory wa
 gatwd-k8s prelude cat lib/k8s/prelude.gatwd   # read the embedded relations; copy, edit, load with --prelude
 gatwd-k8s --no-prelude my.gatwd     # run without the embedded prelude (the steps stay registered)
 gatwd-k8s my.gatwd                  # run it
-gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules my_rules.gatwd   # try operator rules
-gatwd-k8s-operator -manifests … -rules my_rules.gatwd -interval 5s               # and edit while it runs
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules my_rules.gatwd   # try operator rules
+gatwd-k8s-operator run --manifests … --rules my_rules.gatwd --interval 5s               # and edit while it runs
 ```
 
-With `-interval`, the operator re-reads the rules file before each check, so saving an edit changes the
+With `run --interval`, the operator re-reads the rules file before each check, so saving an edit changes the
 very next report — no restart. Only Go changes (adapters, the embedded prelude, the operator itself) need
 a rebuild.
 
@@ -108,7 +108,7 @@ More traps and their causes: [`development_playbook.md`](development_playbook.md
 
 ### 2.2 Changing the operator's rules
 
-The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file given with `-rules` (default
+The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file given with `--rules` (default
 `/etc/gatwd/rules.gatwd`, i.e. a mounted ConfigMap) is **layered on top of** the embedded rules (decision D5):
 the embedded file loads first, then the override in the same interpreter, so the override names only what it
 changes and can call every embedded `rule_*` closure. Redefining a name overrides it; a new name extends.
@@ -122,7 +122,7 @@ changes and can call every embedded `rule_*` closure. Redefining a name override
 one extra rule, and a `compliance` that runs the embedded rules plus the new one over `infra_graph`:
 
 ```bash
-gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules examples/k8s_howto/rules.gatwd
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules examples/k8s_howto/rules.gatwd
 # [[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]
 ```
 
@@ -136,7 +136,7 @@ checking with the **last good rules** — it never silently falls back to the em
 syntactically fine but fails when it runs is reported by the check itself as `[ERROR] …`.)
 
 **Replace mode.** Where the platform team wants to own every rule, the override can replace the embedded
-rules instead (`-rules-mode replace`, see §3.2). The file then must be a complete rule set — a copy of the embedded
+rules instead (`--rules-mode replace`, see §3.2). The file then must be a complete rule set — a copy of the embedded
 file plus changes — and it cannot call `rule_*` names it does not define.
 
 ### 2.3 The graph model and its extension points
@@ -262,8 +262,8 @@ The static operator is a single ELF binary of roughly 29 MB. To install into `$G
 | | `gatwd-k8s` | `gatwd-k8s-operator` |
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
-| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `-manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | `-manifests PATH` (omit for live), `-namespace NS` (default `default`; `""` = all namespaces), `-rules FILE` (default `/etc/gatwd/rules.gatwd`), `-interval DUR` (`0` = once) |
+| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`. Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
 **Exit codes.** The operator exits **0** whether or not it found violations (`2` if it has neither
@@ -274,7 +274,7 @@ test "$(gatwd-k8s-operator -manifests ./rendered)" = "[]" || { echo "policy viol
 ```
 
 The operator reads plain manifests (`manifests` step). For kustomize output, render first
-(`kubectl kustomize overlay > rendered/all.yaml`, then `-manifests rendered`). In `gatwd-k8s` scripts the
+(`kubectl kustomize overlay > rendered/all.yaml`, then `--manifests rendered`). In `gatwd-k8s` scripts the
 separate `kustomize` step renders a kustomization root itself — `spawn StrVal: ./overlay |> kustomize |> k8s_graph` —
 but it shells out to the `kustomize` binary, which must be installed (it is not in this guide's tested set).
 
@@ -293,7 +293,7 @@ ENTRYPOINT ["/gatwd-k8s-operator"]
 ```bash
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 docker build -t registry.example.com/gatwd-k8s-operator:0.1.0 .
-docker run --rm -v "$PWD/examples/k8s_howto/cluster:/data:ro" registry.example.com/gatwd-k8s-operator:0.1.0 -manifests /data
+docker run --rm -v "$PWD/examples/k8s_howto/cluster:/data:ro" registry.example.com/gatwd-k8s-operator:0.1.0 check --manifests /data
 ```
 
 The image needs nothing else for live checks or plain manifests; the `kustomize` step would also need that binary in the image.
@@ -310,7 +310,7 @@ kubectl -n gatwd create configmap gatwd-rules --from-file=rules.gatwd=examples/k
 kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 ```
 
-- **Where the results go:** stdout, so `kubectl logs` — one line per check (`-interval 5m` in the sample).
+- **Where the results go:** stdout, so `kubectl logs` — one line per check (`run --interval 5m` in the sample).
   Ship them with your normal log pipeline and alert on lines that are not `[]`.
 - **Changing rules live:** `kubectl create configmap … --dry-run=client -o yaml | kubectl apply -f -`. The
   kubelet refreshes the mounted file (typically within about a minute) and the operator re-reads it before
@@ -318,8 +318,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - The ConfigMap volume is `optional: true`, so the operator starts with its embedded rules if the ConfigMap
   does not exist yet.
 - **One replica is enough**; there is no leader election because it only reads and prints.
-- **Scope:** the sample uses `-namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
-  `-namespace NAME` and a `Role` + `RoleBinding` instead.
+- **Scope:** the sample uses `--namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
+  `--namespace NAME` and a `Role` + `RoleBinding` instead.
 - **Add a kind** (a CRD): add a crawl step in `pkg/k8sgraph` (`CoreCrawls`), list it in
   `lib/k8s/sources.gatwd`, and add `get`/`list` for it to the `ClusterRole`.
 
@@ -327,8 +327,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 | Symptom | Likely cause |
 | :-- | :-- |
-| `[ERROR] no cluster access (…)` from a `k8s_*` crawl step | kubeconfig auth plugin not supported or no cluster; use `-manifests` / the `manifests` step or fix the kubeconfig |
-| `no -manifests given and no cluster reachable` (exit 2) | the operator has no source |
+| `[ERROR] no cluster access (…)` from a `k8s_*` crawl step | kubeconfig auth plugin not supported or no cluster; use `--manifests` / the `manifests` step or fix the kubeconfig |
+| `no --manifests given and no cluster reachable` (exit 2) | the operator has no source |
 | Operator prints `[ERROR] …` after you added a rule | a name in the rule does not resolve, or an operator rejected its operands; the message names it (§2.1) |
 | Rule output is empty but should not be | a node kind is missing from the source list or RBAC, or ids collide (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |

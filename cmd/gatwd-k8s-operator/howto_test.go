@@ -223,6 +223,19 @@ func TestHowToDeployManifest(t *testing.T) {
 			continue
 		}
 		kinds = append(kinds, obj.GetKind())
+		if obj.GetKind() == "Deployment" {
+			// The container's args must be a valid command line of the operator's own tree
+			// (long flags, a subcommand), so the sample cannot drift from the binary.
+			containers, _, _ := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+			rawArgs, _, _ := unstructured.NestedStringSlice(containers[0].(map[string]any), "args")
+			cmd, rest, err := operatorTree().Root().Find(rawArgs)
+			if err != nil || cmd.Name() != "run" {
+				t.Fatalf("deploy.yaml args %v: command %v, err %v; want the run subcommand", rawArgs, cmd.Name(), err)
+			}
+			if err := cmd.ParseFlags(rest); err != nil {
+				t.Fatalf("deploy.yaml args %v are not valid operator flags: %v", rawArgs, err)
+			}
+		}
 		if obj.GetKind() == "ClusterRole" {
 			rules, _, _ := unstructured.NestedSlice(obj.Object, "rules")
 			for _, r := range rules {

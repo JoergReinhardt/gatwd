@@ -79,7 +79,7 @@ spawn K8sDeployment: "production-namespace"
 
 *(The script above is an illustrative sketch of the programming model — `watch_pods`, `apply_k8s` and `GoKubeAPI` are not shipped steps.)*
 
-**A working, tested implementation of this pattern ships in the repository:** [`cmd/gatwd-k8s-operator`](../cmd/gatwd-k8s-operator/main.go). It is a Gatwd Appliance whose compliance rules are written in the DSL (`rules/compliance.gatwd`: unselected Pods, idle Deployments, unused Services, dangling Ingress backends, missing ConfigMaps, dependency cycles), run over a typed resource graph derived from a live cluster (`-namespace`) or offline manifests (`-manifests`), with the rules hot-reloaded from a mounted ConfigMap. Its `main.go` is pure assembly — every relation and rule is `.gatwd`. See [`k8s_graph_design.md`](k8s_graph_design.md) and the [Development Playbook](development_playbook.md) §5.
+**A working, tested implementation of this pattern ships in the repository:** [`cmd/gatwd-k8s-operator`](../cmd/gatwd-k8s-operator/main.go). It is a Gatwd Appliance whose compliance rules are written in the DSL (`rules/compliance.gatwd`: unselected Pods, idle Deployments, unused Services, dangling Ingress backends, missing ConfigMaps, dependency cycles), run over a typed resource graph derived from a live cluster (`--namespace`) or offline manifests (`--manifests`), with a mounted ConfigMap layered on top of the embedded rules and hot-reloaded. Its `main.go` is pure assembly — every relation and rule is `.gatwd`. See [`k8s_graph_design.md`](k8s_graph_design.md) and the [Development Playbook](development_playbook.md) §5.
 
 ---
 
