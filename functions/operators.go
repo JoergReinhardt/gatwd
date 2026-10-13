@@ -380,6 +380,18 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 			}
 		}
 
+		// Graph ++ Graph (graph monoid: node + edge set union)
+		if _, isGraphA := left.(interface{ IsGraph() bool }); isGraphA {
+			if _, isGraphB := right.(interface{ IsGraph() bool }); isGraphB {
+				rvA := reflect.ValueOf(left)
+				mUnion := rvA.MethodByName("Union")
+				if mUnion.IsValid() {
+					out := mUnion.Call([]reflect.Value{reflect.ValueOf(right)})
+					return out[0].Interface(), nil
+				}
+			}
+		}
+
 		// Pair ++ Pair (element-wise concatenation)
 		if pa, okA := left.(interface{ PairElements() (any, any) }); okA {
 			if pb, okB := right.(interface{ PairElements() (any, any) }); okB {
@@ -1117,6 +1129,16 @@ func StructuralEqual(a, b any) bool {
 				return false
 			}
 			return StructuralEqual(valA, valB)
+		}
+	}
+
+	// Graphs (structural node + edge equality, order-independent on edges)
+	if ga, okA := a.(interface {
+		IsGraph() bool
+		GraphEqual(any) bool
+	}); okA {
+		if _, okB := b.(interface{ IsGraph() bool }); okB {
+			return ga.GraphEqual(b)
 		}
 	}
 

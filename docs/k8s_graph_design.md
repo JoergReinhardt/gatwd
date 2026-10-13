@@ -487,10 +487,28 @@ HAMTs (P3b); `cli.AdapterStep` surfaces an arbitrary adapter as a step (P3a).
 confirm the `Graph(` grammar insertion point in `parser/`. (Mostly done via this
 doc's scan.)
 
-**Phase 1 — Graph ADTs + collection (CORE L0–L1).** `functions/graph_node.go`,
-`collections/graph.go`; construct/project/`Map*`/`Fold*`/`Filter*`/`Union/Diff/
-Intersect`/`BFS/DFS/Reachable`. Structural tests + examples. *Gate:* graph is a
-complete new matrix row for `map/fold/filter/++/==`.
+**Phase 1 — Graph ADTs + collection (CORE L0–L1). ✅ DONE (2026-10-13).**
+`functions/graph_node.go` — `Node[K,C,N]` + `Edge[K,C,E]` ADTs (color is a
+**generic `C comparable` param**, not hard-coded `dsltypes.Variant`, to keep
+Layer 0/1 pure generics per the host/guest split; the DSL instantiates `C` in
+Phase 4); `Edge` carries `Group` + `Inferred`; `Equal`, lexicographic `Compare`,
+marker/stringer methods. `collections/graph.go` — persistent directed multigraph
+`Graph[K,C,N,E]` over three HAMT adjacency indexes (nodes, out, in):
+construct (`AddNode`/`AddEdge`/`Connect`/`AddFanOut`/`AddFanIn`/`AddInferredEdge`/
+`RemoveNode`/`RemoveEdge`), project (`Order`/`Size`/`Nodes`/`Edges`/`OutEdges`/
+`InEdges`/`Neighbors`/`Predecessors`/`NodesByColor`/`EdgesByColor`/`EdgesByGroup`/
+`InferredEdges`), Functor (`MapNodes`/`MapEdges`/`Bimap`), Foldable
+(`FoldNodes`/`FoldEdges`), Filterable (`FilterNodes`/`FilterEdges`/`Reject*`),
+Monoid/set-algebra (`Union`/`Diff`/`Intersect`), cycle-safe walks
+(`WalkFrom`/`BFS`/`DFS`/`Reachable`), order-independent `Equal`, `IsGraph`/
+`GraphEqual`/`Graph()` visualizer hook. Operators wired in
+`functions/operators.go`: `++`→`Union` (EvalBinaryOp) and `==`→`GraphEqual`
+(StructuralEqual). Structural tests `collections/graph_test.go` (assert memory
+types, incl. operator dispatch through `functions.EvalBinaryOp`) + `Example*`
+with `// Output:` in `collections/graph_example_test.go`. All gates green
+(`go build/vet/test ./...`, `./run_dsl_tests.sh`). *Deferred to Phase 2:*
+`FoldWalk`, weighted `ShortestPath`/`TopoSort`/`SCC`, zipper, optics. *Deferred to
+Phase 4:* `Graph(` grammar + DSL builtins.
 
 **Phase 2 — traversal structure (CORE L2).** zipper, optics, walk transducer,
 weighted `ShortestPath`/`TopoSort`/`SCC`. Structural tests.
@@ -646,7 +664,8 @@ def rel_calls = \pod -> \services ->
 ## 8. Appendix B — mandate compliance checklist
 
 - [ ] Core contains no `kubernetes`/`k8s` identifier (Mandate 5).
-- [ ] Graph fills `map/fold/filter/++/==` as a new collection row (Mandate 2).
+- [x] Graph fills `map/fold/filter/++/==` as a new collection row at the Go
+      level (Mandate 2) — Phase 1. ✅ (DSL builtins for the row land in Phase 4.)
 - [ ] Every graph op → DSL builtin + `tests/dsl_exhaustive_test.gatwd` assert (M3).
 - [ ] K8s relations are pure DSL; no Go loops faking a graph (M1/8).
 - [ ] Third-party K8s deps only in `adapters/` + `pkg/plugins` (M5).
