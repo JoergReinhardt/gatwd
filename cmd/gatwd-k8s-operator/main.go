@@ -25,9 +25,15 @@ func main() {
 	manifests := flag.String("manifests", "", "manifest file or directory to check; omit to check the live cluster")
 	namespace := flag.String("namespace", "default", "namespace to crawl when checking the live cluster")
 	override := flag.String("rules", "/etc/gatwd/rules.gatwd", "mounted ConfigMap rules that override the embedded ones")
+	rulesMode := flag.String("rules-mode", "layer", "how the override combines with the embedded rules: layer (on top of them) or replace (instead of them)")
 	interval := flag.Duration("interval", 0, "re-check (and hot-reload rules) every interval; 0 checks once")
 	flag.Parse()
 
+	mode, err := cli.ParseOverrideMode(*rulesMode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gatwd-k8s-operator: %v\n", err)
+		os.Exit(2)
+	}
 	client, err := k8sgraph.DynamicClientFromKubeconfig()
 	if err != nil {
 		client = nil
@@ -42,10 +48,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "gatwd-k8s-operator: no -manifests given and no cluster reachable")
 		os.Exit(2)
 	}
-	app, err := newAppliance(client, *override)
+	app, err := newAppliance(client, *override, mode)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gatwd-k8s-operator: %v\n", err)
 		os.Exit(1)
+	}
+	for _, line := range app.Report().Lines() {
+		fmt.Fprintln(os.Stderr, "gatwd-k8s-operator: "+line)
 	}
 
 	for {
@@ -62,11 +71,16 @@ func main() {
 	}
 }
 
-func newAppliance(client dynamic.Interface, override string) (*cli.Appliance, error) {
+// newAppliance assembles the operator: the k8s edition, the embedded rules, and the override
+// (a mounted ConfigMap) combined with them according to mode. `compliance` is the entry point
+// every rule set must define.
+func newAppliance(client dynamic.Interface, override string, mode cli.OverrideMode) (*cli.Appliance, error) {
 	return cli.NewAppliance(
 		cli.WithEdition(k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s-operator"), client)),
 		cli.WithEmbeddedFS(rulesFS, "rules/compliance.gatwd"),
 		cli.WithConfigMapOverride(override),
+		cli.WithOverrideMode(mode),
+		cli.WithRequiredDefs("compliance"),
 	)
 }
 

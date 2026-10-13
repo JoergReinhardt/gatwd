@@ -109,22 +109,35 @@ More traps and their causes: [`development_playbook.md`](development_playbook.md
 ### 2.2 Changing the operator's rules
 
 The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file given with `-rules` (default
-`/etc/gatwd/rules.gatwd`, i.e. a mounted ConfigMap) is used **instead of** the embedded rules:
+`/etc/gatwd/rules.gatwd`, i.e. a mounted ConfigMap) is **layered on top of** the embedded rules (decision D5):
+the embedded file loads first, then the override in the same interpreter, so the override names only what it
+changes and can call every embedded `rule_*` closure. Redefining a name overrides it; a new name extends.
 
-> **An override replaces the embedded rules; it is not layered on top.** It cannot call the embedded
-> `rule_*` closures. To add a rule, copy the embedded file, add to the copy, and redefine `compliance`.
-> If the file is missing or empty the embedded rules are used.
+> To add a rule: define `rule_mine` and redefine `compliance` (the embedded one lists the six embedded rules
+> explicitly) to include it. The operator **reports** what the override did when it loads and on every reload:
+> `rules: overridden: compliance` / `rules: added: rule_mine`. A def that is an identical copy of the embedded
+> one is not reported. If the file is missing or empty only the embedded rules run.
 
-`examples/k8s_howto/rules.gatwd` is exactly that: the six embedded rules, the infra relations inlined
-(a ConfigMap key is one file), one extra rule, and a `compliance` that runs over `infra_graph`:
+`examples/k8s_howto/rules.gatwd` is exactly that: the infra relations (inlined — a ConfigMap key is one file),
+one extra rule, and a `compliance` that runs the embedded rules plus the new one over `infra_graph`:
 
 ```bash
 gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules examples/k8s_howto/rules.gatwd
 # [[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]
 ```
 
-Imports inside an override resolve against the process's working directory, so use absolute paths
-(`import "/etc/gatwd/infra_relations.gatwd"` with several ConfigMap keys mounted) or inline the code.
+Imports inside an override resolve against **the override file's directory**, not the working directory, so
+`import "infra_relations.gatwd"` finds a sibling key of the same mounted ConfigMap.
+
+**A broken override fails loudly.** An unreadable file, a structural error (`unbalanced delimiter`), a statement
+that prints `[ERROR]`, an import that cannot be read, or a `compliance` left undefined is a load error naming the
+file and the problems: at start-up the operator exits 1; on a hot reload it prints the error on stderr and keeps
+checking with the **last good rules** — it never silently falls back to the embedded ones. (A rule that is
+syntactically fine but fails when it runs is reported by the check itself as `[ERROR] …`.)
+
+**Replace mode.** Where the platform team wants to own every rule, the override can replace the embedded
+rules instead (`-rules-mode replace`, see §3.2). The file then must be a complete rule set — a copy of the embedded
+file plus changes — and it cannot call `rule_*` names it does not define.
 
 ### 2.3 The graph model and its extension points
 
@@ -325,8 +338,6 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 ## 4. Known limitations (as of this writing)
 
-- Override rules replace, not layer (§2.2). Layering embedded + override would be a small change to
-  `Appliance.Reload` if you prefer it.
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `metadata.name` only (§2.3).
 - The operator does not set a non-zero exit code on violations (§3.2).
