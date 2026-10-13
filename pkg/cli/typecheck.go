@@ -363,6 +363,8 @@ func tyOfValue(v any) Ty {
 		return Ty{Name: "Complex"}
 	case *big.Int:
 		return Ty{Name: "BigInt"}
+	case *functions.Ratio:
+		return Ty{Name: "Ratio"}
 	case *collections.List[any]:
 		return tyList(tyAny)
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -389,6 +391,9 @@ func sampleOf(t Ty) (any, bool) {
 		return functions.Char('a'), true
 	case "BigInt":
 		return big.NewInt(1), true
+	case "Ratio":
+		r, _ := functions.NewRatio(big.NewInt(1), big.NewInt(2))
+		return r, true
 	case "Complex":
 		return complex(1, 1), true
 	case "List":
@@ -429,6 +434,14 @@ func binaryType(op functions.OpKind, l, r Ty) (Ty, string) {
 	t := tyOfValue(res)
 	if t.Name == "List" {
 		t = tyList(joinTy(elemTy(l), elemTy(r)))
+	}
+	// A fraction that happens to be whole demotes to an Int, so the sample answered Int
+	// for `Ratio + Ratio`; the type of the operation is the Ratio the operands generally give.
+	if t.Name == "Int" && (l.Name == "Ratio" || r.Name == "Ratio") {
+		switch op {
+		case functions.OpAdd, functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpPow:
+			t = Ty{Name: "Ratio"}
+		}
 	}
 	return t, ""
 }
@@ -532,8 +545,11 @@ func joinTy(a, b Ty) Ty {
 		return a
 	}
 	if a.isNumeric() && b.isNumeric() {
-		if a.Name == "Float" || b.Name == "Float" {
-			return tyFloat
+		// the join in the tower Int ⊂ Ratio ⊂ Float ⊂ Complex
+		for _, name := range []string{"Complex", "Float", "Ratio"} {
+			if a.Name == name || b.Name == name {
+				return Ty{Name: name}
+			}
 		}
 		return tyInt
 	}

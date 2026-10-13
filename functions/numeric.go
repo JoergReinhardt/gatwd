@@ -15,9 +15,9 @@ import (
 //
 // The language has four number kinds, ordered by what they can represent:
 //
-//	Int ⊂ Float(approx) ⊂ Complex
+//	Int ⊂ Ratio ⊂ Float(approx) ⊂ Complex
 //
-// (Ratio, exact fractions, joins between Int and Float.) An `Int` is unbounded and
+// (Ratio, exact fractions, is in ratio.go.) An `Int` is unbounded and
 // exact. Behind that single logical type the runtime keeps a fast path — the Go
 // integer types, narrowed to the smallest that fits when a literal is read — and a
 // *big.Int for everything beyond int64. The two are never visible to a program: an
@@ -67,6 +67,8 @@ func floatOperand(v any) (float64, bool) {
 	case *big.Float:
 		f, _ := x.Float64()
 		return f, true
+	case *Ratio:
+		return ratioFloat(x.rat())
 	case *big.Int:
 		f, _ := new(big.Float).SetInt(x).Float64()
 		if math.IsInf(f, 0) {
@@ -96,6 +98,8 @@ func Negate(v any) (any, error) {
 		return -complex128(x), nil
 	case *big.Float:
 		return new(big.Float).Neg(x), nil
+	case *Ratio:
+		return CanonRat(new(big.Rat).Neg(x.rat())), nil
 	}
 	if b, ok := intOperand(v); ok {
 		return CanonInt(b.Neg(b)), nil
@@ -128,6 +132,11 @@ func Pow(base, exp any) (any, error) {
 	if bi, ok := intOperand(base); ok {
 		if ei, ok := intOperand(exp); ok {
 			return intPow(bi, ei)
+		}
+	}
+	if br, ok := base.(*Ratio); ok {
+		if ei, ok := intOperand(exp); ok {
+			return ratPow(br.rat(), ei)
 		}
 	}
 	bf, bok := floatOperand(base)
@@ -185,6 +194,32 @@ func intPow(base, exp *big.Int) (any, error) {
 	return CanonInt(new(big.Int).Exp(base, exp, nil)), nil
 }
 
+// ratPow is a fraction raised to an Int: exact (a negative exponent takes the reciprocal);
+// a result over maxPowBits is an error.
+func ratPow(base *big.Rat, exp *big.Int) (any, error) {
+	if exp.Sign() == 0 {
+		return fitInt(1), nil
+	}
+	if !exp.IsInt64() {
+		return nil, fmt.Errorf("exponent %s is too large", exp)
+	}
+	n := exp.Int64()
+	if n < 0 {
+		if base.Sign() == 0 {
+			return nil, fmt.Errorf("division by zero: 0 ** a negative power")
+		}
+		base = new(big.Rat).Inv(base)
+		n = -n
+	}
+	bits := int64(base.Num().BitLen()) + int64(base.Denom().BitLen())
+	if bits*n > maxPowBits {
+		return nil, fmt.Errorf("result of ** is too large (more than %d bits)", maxPowBits)
+	}
+	num := new(big.Int).Exp(base.Num(), big.NewInt(n), nil)
+	den := new(big.Int).Exp(base.Denom(), big.NewInt(n), nil)
+	return CanonRat(new(big.Rat).SetFrac(num, den)), nil
+}
+
 func floatPow(b, e float64) (any, error) {
 	if b == 0 && e < 0 {
 		return nil, fmt.Errorf("division by zero: 0 ** a negative power")
@@ -201,13 +236,14 @@ func floatPow(b, e float64) (any, error) {
 
 // ---- the promotion lattice -----------------------------------------------------------
 
-// numClass is a number's position in the lattice Int ⊂ Float ⊂ Complex. An operation on
+// numClass is a number's position in the lattice Int ⊂ Ratio ⊂ Float ⊂ Complex. An operation on
 // two numbers is carried out in the join (the larger class) of the operands.
 type numClass int
 
 const (
 	clsNone numClass = iota
 	clsInt
+	clsRatio
 	clsFloat
 	clsComplex
 )
@@ -218,6 +254,8 @@ func classOf(v any) numClass {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, *big.Int:
 		return clsInt
+	case *Ratio:
+		return clsRatio
 	case float32, float64, *big.Float:
 		return clsFloat
 	case complex64, complex128:
@@ -239,6 +277,8 @@ func IsNumber(v any) bool { return classOf(v) != clsNone }
 //     demoted whenever the result fits again. `/` is exact when it divides and a Float
 //     (correctly rounded, even for huge integers) otherwise; `//` floors; `%` is the
 //     modulo that takes the sign of the divisor, so a == b*(a//b) + a%b always holds.
+//   - Ratio involved (and no Float): exact fractions, demoted to an Int when whole; `//` is
+//     the Int floor of the quotient and `%` the remainder a - b*(a//b), a Ratio.
 //   - Float involved: the other operand converts to Float (an integer too large for a
 //     double is an error, never +Inf); `//` is the Int floor of the quotient, `%` a Float.
 //   - Complex involved: + - * /; `//` and `%` are errors (no floor on a plane).
@@ -262,6 +302,8 @@ func arith(op OpKind, left, right any) (any, bool, error) {
 	switch class {
 	case clsInt:
 		res, err = intArith(op, left, right)
+	case clsRatio:
+		res, err = ratioArith(op, left, right)
 	case clsFloat:
 		res, err = floatArith(op, left, right)
 	default:
@@ -344,6 +386,34 @@ func intArith(op OpKind, left, right any) (any, error) {
 
 // floorDiv is the quotient rounded toward negative infinity; b must be non-zero and the
 // pair must not be (MinInt64, -1).
+func ratioArith(op OpKind, left, right any) (any, error) {
+	l, _ := exactOperand(left)
+	r, _ := exactOperand(right)
+	switch op {
+	case OpAdd:
+		return CanonRat(l.Add(l, r)), nil
+	case OpSub:
+		return CanonRat(l.Sub(l, r)), nil
+	case OpMul:
+		return CanonRat(l.Mul(l, r)), nil
+	}
+	if r.Sign() == 0 {
+		return nil, divZero(op)
+	}
+	switch op {
+	case OpDiv:
+		return CanonRat(l.Quo(l, r)), nil
+	}
+	// floor(l / r): the quotient of two fractions is a fraction; its floor is the Int.
+	q := new(big.Rat).Quo(l, r)
+	fl := new(big.Int).Div(q.Num(), q.Denom()) // Euclidean = floor, the denominator is positive
+	if op == OpIDiv {
+		return CanonInt(fl), nil
+	}
+	rem := new(big.Rat).Sub(l, new(big.Rat).Mul(r, new(big.Rat).SetInt(fl)))
+	return CanonRat(rem), nil
+}
+
 func floorDiv(a, b int64) int64 {
 	q := a / b
 	if a%b != 0 && (a < 0) != (b < 0) {
@@ -500,9 +570,15 @@ func CompareNumbers(a, b any) (cmp int, ordered, ok bool) {
 		}
 		return 0, true, true
 	}
-	// An Int against a Float: exact, through the rational value of the double.
+	// Int and Ratio against each other: exact fractions.
+	if ca != clsFloat && cb != clsFloat {
+		x, _ := ratOperand(a)
+		y, _ := ratOperand(b)
+		return x.Cmp(y), true, true
+	}
+	// An exact number (Int or Ratio) against a Float: exact, through the rational value of the double.
 	f, i, flip := a, b, false
-	if ca == clsInt {
+	if ca != clsFloat {
 		f, i, flip = b, a, true
 	}
 	x, _ := floatOperand(f)
@@ -516,9 +592,8 @@ func CompareNumbers(a, b any) (cmp int, ordered, ok bool) {
 	case math.IsInf(x, -1):
 		res = -1
 	default:
-		ib, _ := intOperand(i)
-		fr := new(big.Rat).SetFloat64(x)
-		res = fr.Cmp(new(big.Rat).SetInt(ib))
+		ir, _ := ratOperand(i)
+		res = new(big.Rat).SetFloat64(x).Cmp(ir)
 	}
 	if flip {
 		res = -res
@@ -543,6 +618,8 @@ func Abs(v any) (any, error) {
 	case clsInt:
 		b, _ := intOperand(v)
 		return CanonInt(b.Abs(b)), nil
+	case clsRatio:
+		return CanonRat(new(big.Rat).Abs(v.(*Ratio).rat())), nil
 	case clsFloat:
 		if bf, ok := v.(*big.Float); ok {
 			return new(big.Float).Abs(bf), nil
@@ -576,10 +653,10 @@ func Sqrt(v any) (any, error) {
 	case clsComplex:
 		c, _ := ToComplex128(v)
 		return cmplx.Sqrt(c), nil
-	case clsInt, clsFloat:
+	case clsInt, clsRatio, clsFloat:
 		f, ok := floatOperand(v)
 		if !ok {
-			return nil, fmt.Errorf("sqrt: the integer is too large for a Float; use isqrt")
+			return nil, fmt.Errorf("sqrt: the number is too large for a Float; use isqrt")
 		}
 		if f < 0 {
 			return nil, fmt.Errorf("sqrt of a negative number is not real; use a Complex argument")
@@ -625,6 +702,8 @@ func RoundToInt(mode RoundingMode, v any) (any, error) {
 	switch classOf(v) {
 	case clsInt:
 		return v, nil
+	case clsRatio:
+		return CanonInt(roundRat(mode, v.(*Ratio).rat())), nil
 	case clsFloat:
 		if bf, ok := v.(*big.Float); ok {
 			// beyond the double range every value is an integer already
@@ -653,6 +732,44 @@ func RoundToInt(mode RoundingMode, v any) (any, error) {
 		return nil, fmt.Errorf("%s is not defined for Complex", mode.name())
 	}
 	return nil, notNumber(mode.name(), v)
+}
+
+// roundRat rounds a (non-integral) fraction to a big integer by mode. The denominator is
+// positive, so Euclidean division is the floor.
+func roundRat(mode RoundingMode, r *big.Rat) *big.Int {
+	num, den := r.Num(), r.Denom()
+	floor := new(big.Int).Div(num, den)
+	switch mode {
+	case RoundFloor:
+		return floor
+	case RoundCeil:
+		return floor.Add(floor, big.NewInt(1)) // not integral, so the ceiling is floor + 1
+	case RoundTrunc:
+		if num.Sign() < 0 {
+			return floor.Add(floor, big.NewInt(1))
+		}
+		return floor
+	}
+	// halves: compare the fractional part with 1/2
+	frac := new(big.Rat).Sub(r, new(big.Rat).SetInt(floor))
+	switch frac.Cmp(big.NewRat(1, 2)) {
+	case -1:
+		return floor
+	case 1:
+		return floor.Add(floor, big.NewInt(1))
+	}
+	// exactly half: away from zero, or to the even neighbour
+	up := new(big.Int).Add(floor, big.NewInt(1))
+	if mode == RoundHalfAway {
+		if num.Sign() < 0 {
+			return floor
+		}
+		return up
+	}
+	if floor.Bit(0) == 0 {
+		return floor
+	}
+	return up
 }
 
 // GCD is the greatest common divisor of two Ints (always non-negative; gcd 0 0 is 0).
@@ -695,6 +812,8 @@ func ToInt(v any) (any, error) {
 	switch classOf(v) {
 	case clsInt:
 		return v, nil
+	case clsRatio:
+		return nil, fmt.Errorf("to_int of %v loses its fractional part; use floor, ceil, round or trunc", v)
 	case clsFloat:
 		r, err := RoundToInt(RoundTrunc, v)
 		if err != nil {
@@ -719,10 +838,10 @@ func ToFloat(v any) (any, error) {
 			return f, nil
 		}
 		return v, nil
-	case clsInt:
+	case clsInt, clsRatio:
 		f, ok := floatOperand(v)
 		if !ok {
-			return nil, fmt.Errorf("to_float: the integer is beyond the range of a Float")
+			return nil, fmt.Errorf("to_float: the number is beyond the range of a Float")
 		}
 		return f, nil
 	case clsComplex:
@@ -737,7 +856,7 @@ func IsNaN(v any) (bool, error) {
 	if f, ok := v.(float64); ok {
 		return math.IsNaN(f), nil
 	}
-	if cl := classOf(v); cl == clsInt || cl == clsFloat {
+	if cl := classOf(v); cl == clsInt || cl == clsRatio || cl == clsFloat {
 		f, ok := floatOperand(v)
 		return ok && math.IsNaN(f), nil
 	}
@@ -746,7 +865,7 @@ func IsNaN(v any) (bool, error) {
 
 // IsInf reports whether a Float is +Inf or -Inf; an Int is never infinite.
 func IsInf(v any) (bool, error) {
-	if cl := classOf(v); cl == clsInt || cl == clsFloat {
+	if cl := classOf(v); cl == clsInt || cl == clsRatio || cl == clsFloat {
 		f, ok := floatOperand(v)
 		return ok && math.IsInf(f, 0), nil
 	}

@@ -200,6 +200,19 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			for i < n && (unicode.IsDigit(runes[i]) || runes[i] == '.' || runes[i] == 'i') {
 				i++
 			}
+			// Ratio literals: `3r4` (numerator r denominator) and the exact decimal `0.75r`.
+			if i < n && runes[i] == 'r' && !strings.HasSuffix(string(runes[start:i]), "i") {
+				end, isRatio := scanRatioSuffix(runes, start, i)
+				if isRatio {
+					text := string(runes[start:end])
+					if _, err := functions.ParseRatioLiteral(strings.TrimLeft(text, "+")); err != nil {
+						return nil, err
+					}
+					tokens = append(tokens, TokenItem{Type: TokNumber, Text: text})
+					i = end
+					continue
+				}
+			}
 			tokens = append(tokens, TokenItem{Type: TokNumber, Text: string(runes[start:i])})
 			continue
 		}
@@ -219,6 +232,36 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 
 	tokens = append(tokens, TokenItem{Type: TokEOF, Text: ""})
 	return tokens, nil
+}
+
+// scanRatioSuffix decides whether the number scanned in runes[start:r] (where runes[r] is
+// 'r') is a ratio literal and returns the index just past it. `3r4`: digits, `r`, digits.
+// `0.75r`: a decimal with the `r` suffix, not followed by an identifier character. A bare
+// `5r` is a malformed ratio and is reported by the literal reader; `5rem` (digits, `r`,
+// a letter) stays a number followed by an identifier.
+func scanRatioSuffix(runes []rune, start, r int) (int, bool) {
+	n := len(runes)
+	identRune := func(c rune) bool { return unicode.IsLetter(c) || unicode.IsDigit(c) || c == '_' }
+	if strings.Contains(string(runes[start:r]), ".") {
+		if r+1 < n && identRune(runes[r+1]) {
+			return 0, false
+		}
+		return r + 1, true
+	}
+	end := r + 1
+	for end < n && unicode.IsDigit(runes[end]) {
+		end++
+	}
+	if end > r+1 {
+		if end < n && identRune(runes[end]) {
+			return 0, false
+		}
+		return end, true
+	}
+	if end < n && identRune(runes[end]) {
+		return 0, false // `5rem`: not ours
+	}
+	return end, true // bare `5r`: reported as malformed by the literal reader
 }
 
 // endsOperand reports whether a token can end an operand, so that a following "-" is a

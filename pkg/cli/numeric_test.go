@@ -196,3 +196,109 @@ func TestStringsAreNotNumbersInFunctionsAndEquality(t *testing.T) {
 		t.Errorf(`"[2 1]" == [2, 1] = %v, want [true] (HAMT-key boundary)`, got)
 	}
 }
+
+// ---- Ratio through the interpreter ---------------------------------------------------
+
+func TestRatioThroughTheInterpreter(t *testing.T) {
+	in := NewInterpreter()
+	in.EvaluateScript(`def rt_third = \x -> x / 3r1 + 1r3
+def rt_sum = \xs -> fold (\a x -> a + x) 0r1 xs`)
+	for stmt, want := range map[string]string{
+		`3r4`:                                   "3r4",
+		`0.75r`:                                 "3r4",
+		`1r2 + 1r2`:                             "1",
+		`1r10 + 2r10`:                           "3r10",
+		`1r10 + 2r10 == 3r10`:                   "true",
+		`0.1 + 0.2 == 0.3`:                      "false",
+		`1r10 == 0.1`:                           "false",
+		`to_ratio 0.1 == 1r10`:                  "true",
+		`to_ratio 0.1`:                          "1r10",
+		`to_ratio_exact 0.5`:                    "1r2",
+		`to_ratio_approx 3.14159265 100`:        "311r99",
+		`ratio 1 3`:                             "1r3",
+		`3 |> ratio 1`:                          "1r3",
+		`1r3 / 2`:                               "1r6",
+		`7 / 2`:                                 "3.5", // D11: Int / Int is unchanged
+		`1r2 + 0.5`:                             "1",   // D12: arithmetic with a Float is a Float
+		`7r2 // 1r2`:                            "7",
+		`7r2 % 1r3`:                             "1r6",
+		`-3r4`:                                  "-3r4",
+		`abs -3r4`:                              "3r4",
+		`floor 7r2`:                             "3",
+		`round 5r2`:                             "3",
+		`round_even 5r2`:                        "2",
+		`to_float 1r4`:                          "0.25",
+		`numer 6r8`:                             "3",
+		`denom 6r8`:                             "4",
+		`str_from 3r4`:                          "3r4",
+		`show -3r4`:                             "-3r4",
+		`[1r2, 1r3]`:                            "[1r2 1r3]",
+		`rt_sum [1r2, 1r3, 1r6]`:                "1",
+		`rt_sum [1r2, 1r3]`:                     "5r6",
+		`maybe_default 0 (str_to_ratio "3/4")`:  "3r4",
+		`maybe_default 0 (str_to_ratio "-0.5")`: "-1r2",
+		`is_just (str_to_ratio "nope")`:         "false",
+		`5 |> + 1r2`:                            "11r2",
+		`5 |> * 1r2`:                            "5r2",
+		`2 |> ** 1r2`:                           "1.4142135623730951",
+		`1r2 |> ** 3`:                           "1r8",
+	} {
+		if got := in.evaluatePipelineStr(stmt); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", stmt, got, want)
+		}
+	}
+	// memory types: *functions.Ratio for a fraction, a plain int when whole
+	if v := in.EvaluateToValues(`1r3 + 1r6`); len(v) != 1 {
+		t.Fatal(v)
+	} else if r, ok := v[0].(*functions.Ratio); !ok || r.String() != "1r2" {
+		t.Errorf("1r3 + 1r6 is %T %v, want *functions.Ratio 1r2", v[0], v[0])
+	}
+	if v := in.EvaluateToValues(`1r3 + 2r3`); len(v) != 1 || v[0] != 1 {
+		t.Errorf("1r3 + 2r3 = %#v, want the int 1", v)
+	}
+}
+
+func TestRatioErrorsAreLoud(t *testing.T) {
+	in := NewInterpreter()
+	for stmt, want := range map[string]string{
+		`1r0`:                   "denominator is zero",
+		`5r`:                    "malformed ratio",
+		`ratio 1 0`:             "denominator zero",
+		`ratio 1.5 2`:           "Ints or Ratios",
+		`to_ratio nan`:          "", // nan is an undefined name: loud anyway
+		`to_ratio "0.5"`:        "str_to_ratio",
+		`to_int 1r2`:            "fractional",
+		`1r2 // 0`:              "by zero",
+		`1r2 % 0`:               "by zero",
+		`1r2 / 0`:               "by zero",
+		`0r1 ** -1`:             "",
+		`0 ** -1`:               "by zero",
+		`numer 1.5`:             "Int or a Ratio",
+		`to_ratio_approx 0.5 0`: "at least 1",
+		`ratio_from_cf [1, 0]`:  "positive",
+		`json_encode 1r2`:       "Ratio",
+		`1r2 + "a"`:             "not defined for Ratio and String",
+		`1r2 < "a"`:             "not defined for Ratio and String",
+	} {
+		got := in.evaluatePipelineStr(stmt)
+		joined := strings.Join(got, "\n")
+		if !strings.Contains(joined, "[ERROR]") || !strings.Contains(joined, want) {
+			t.Errorf("%s = %v, want an [ERROR] mentioning %q", stmt, got, want)
+		}
+	}
+}
+
+// A Ratio is a first-class value: usable as a let-binding, a -D constant and a pipeline operand.
+func TestRatioAsValue(t *testing.T) {
+	in := NewInterpreter()
+	in.EvaluateLine(`let half = 1r2`)
+	if got := in.evaluatePipelineStr(`half + half`); len(got) != 1 || got[0] != "1" {
+		t.Errorf("let-bound Ratio: half + half = %v", got)
+	}
+	if got := in.evaluatePipelineStr(`half + 1r3`); len(got) != 1 || got[0] != "5r6" {
+		t.Errorf("half + 1r3 = %v", got)
+	}
+	if got := in.evaluatePipelineStr(`[half, 1] |> map (\x -> x * 2)`); len(got) != 1 || got[0] != "[1 2]" {
+		t.Errorf("map over Ratios = %v", got)
+	}
+}

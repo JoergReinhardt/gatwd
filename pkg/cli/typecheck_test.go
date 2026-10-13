@@ -283,3 +283,47 @@ func TestUnaryMinusIsChecked(t *testing.T) {
 		t.Errorf("negating a String parameter must warn, got %v", ws)
 	}
 }
+
+// Ratio in the checker: a numeric type, a member of Num and Fractional, typed from literals.
+func TestRatioIsChecked(t *testing.T) {
+	valid := `
+def half : Ratio -> Ratio = \x -> x / 2r1
+def third : Fractional -> Fractional = \x -> x * 1r3
+def total : Num -> Num -> Num = \a b -> a + b
+def keep : Ratio -> Num = \x -> x
+half 1r3
+half 1
+third 1r2
+total 1r2 3
+total 1r2 0.5
+[1r2, 1, 2.5] |> map (\x -> total x 1r2)
+`
+	if ws := warnings(valid); len(ws) != 0 {
+		t.Fatalf("valid Ratio program must be silent, got %v", ws)
+	}
+	for src, want := range map[string]string{
+		"def f : Ratio -> Int = \\x -> x\nf \"a\"": "expected Ratio",
+		"def f : Num -> Num = \\x -> x - \"a\"":    "operator '-' is not defined for Num and String",
+		"def f : Num -> String = \\x -> x + 1":     "annotation says String",
+		"def f : Ratio -> String = \\x -> x + 1r2": "annotation says String",
+		"1r2 + \"a\"": "operator '+' is not defined for Ratio and String",
+		"def f : Integral -> Int = \\x -> 1\nf 1r2 ++ \"a\" ++ true": "", // nothing certain: stays silent or not, but must not panic
+	} {
+		ws := warnings(src)
+		if want != "" && !hasWarning(ws, want) {
+			t.Errorf("%q: want a warning containing %q, got %v", src, want, ws)
+		}
+	}
+	if ty := tyOfValue(mustRatio(t)); ty.Name != "Ratio" || !ty.isNumeric() {
+		t.Errorf("a Ratio literal must be typed Ratio and numeric, got %v", ty)
+	}
+}
+
+func mustRatio(t *testing.T) any {
+	t.Helper()
+	got := NewInterpreter().EvaluateToValues("1r2")
+	if len(got) != 1 {
+		t.Fatalf("1r2 = %v", got)
+	}
+	return got[0]
+}

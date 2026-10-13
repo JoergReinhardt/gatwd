@@ -2,6 +2,8 @@ package parser_test
 
 import (
 	"math/big"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/functions"
@@ -109,3 +111,52 @@ func TestUnaryErrors(t *testing.T) {
 		t.Fatal("x -1 must be an application error, not a silent subtraction")
 	}
 }
+
+func TestRatioLiteralsLexAndEvaluate(t *testing.T) {
+	for src, want := range map[string]string{
+		"3r4": "3r4", "0.75r": "3r4", "6r8": "3r4", "-3r4": "-3r4", "- 3r4": "-3r4", "1r2 + 1r3": "5r6",
+		"3r4 * 4": "3", "(1r2) ** 3": "1r8", "2 ** -1r1": "0.5",
+	} {
+		v, err := parser.EvalInfixString(src, nil)
+		if err != nil {
+			t.Errorf("%s: %v", src, err)
+			continue
+		}
+		got := ""
+		if s, ok := v.(interface{ String() string }); ok {
+			got = s.String()
+		} else {
+			got = functions.KindName(v)
+			if b, ok := functions.ToBigInt(v); ok {
+				got = b.String()
+			} else if f, ok := v.(float64); ok {
+				got = fmtFloat(f)
+			}
+		}
+		if got != want {
+			t.Errorf("%s = %s, want %s", src, got, want)
+		}
+	}
+	// the application `f 3 r4` is not a ratio: only `3r4` with no space is
+	if _, err := parser.EvalInfixString("3 r4", func(n string) (any, bool) { return nil, false }); err == nil {
+		t.Error("`3 r4` is an application of 3, not a ratio literal")
+	}
+	for _, bad := range []string{"1r0", "5r", "1.5r2", "0.5r5"} {
+		if v, err := parser.EvalInfixString(bad, nil); err == nil {
+			t.Errorf("%s = %v, want a lex error", bad, v)
+		}
+	}
+	if _, err := parser.ParseInfixExpr("1r0"); err == nil || !strings.Contains(err.Error(), "denominator is zero") {
+		t.Errorf("1r0: %v, want a denominator-is-zero error", err)
+	}
+	// a plain list keeps ratio elements apart
+	v, err := parser.EvalInfixString("[1r2 3r4 5]", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if items, _ := functions.ToSliceAny(v); len(items) != 3 {
+		t.Errorf("[1r2 3r4 5] has %d elements, want 3", len(items))
+	}
+}
+
+func fmtFloat(f float64) string { return strconv.FormatFloat(f, 'g', -1, 64) }

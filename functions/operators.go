@@ -52,13 +52,13 @@ const (
 	OpOr OpKind = "||"
 )
 
-// IsNumeric checks if val is a signed integer, unsigned integer, float, complex, or *big.Int.
+// IsNumeric checks if val is a signed integer, unsigned integer, float, complex, *big.Int or *Ratio.
 func IsNumeric(val any) bool {
 	switch val.(type) {
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128,
-		*big.Int, *big.Float:
+		*big.Int, *big.Float, *Ratio:
 		return true
 	default:
 		return false
@@ -77,6 +77,10 @@ func ToComplex128(val any) (complex128, bool) {
 		return complex(v, 0), true
 	case float32:
 		return complex(float64(v), 0), true
+	case *Ratio:
+		if f, ok := ratioFloat(v.rat()); ok {
+			return complex(f, 0), true
+		}
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64:
 		if f, ok := ToFloat64(v); ok {
@@ -150,6 +154,8 @@ func ToFloat64(val any) (float64, bool) {
 	case *big.Float:
 		f, _ := v.Float64()
 		return f, true
+	case *Ratio:
+		return ratioFloat(v.rat())
 	}
 	return 0, false
 }
@@ -586,6 +592,9 @@ func ParseNumberLiteral(text string) (any, bool) {
 	if text == "" {
 		return nil, false
 	}
+	if strings.Contains(text, "r") {
+		return parseSignedRatioLiteral(text)
+	}
 	switch {
 	case strings.HasSuffix(text, "i"):
 		c, err := strconv.ParseComplex(text, 128)
@@ -603,6 +612,23 @@ func ParseNumberLiteral(text string) (any, bool) {
 	return nil, false
 }
 
+// parseSignedRatioLiteral reads a ratio literal with an optional single sign.
+func parseSignedRatioLiteral(text string) (any, bool) {
+	body := strings.TrimLeft(text, "+-")
+	if len(text)-len(body) > 1 {
+		return nil, false
+	}
+	v, err := parseRatioLiteral(body)
+	if err != nil {
+		return nil, false
+	}
+	if text[0] == '-' {
+		neg, err := Negate(v)
+		return neg, err == nil
+	}
+	return v, true
+}
+
 // ParseCanonicalNumber is ParseNumberLiteral restricted to text that prints back unchanged
 // (`10`, `-5`, `1.5`; not `007`, `+5`, `1.50`, `2i`), so turning a token into a number
 // never loses information about how it was written.
@@ -617,6 +643,8 @@ func ParseCanonicalNumber(text string) (any, bool) {
 	case complex128:
 		return nil, false
 	case *big.Int:
+		return n, x.String() == text
+	case *Ratio:
 		return n, x.String() == text
 	}
 	i, _ := toInt64(n)
@@ -661,6 +689,8 @@ func KindName(v any) string {
 		return "Complex"
 	case *big.Int:
 		return "BigInt"
+	case *Ratio:
+		return "Ratio"
 	case Bytes, []byte:
 		return "Bytes"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
