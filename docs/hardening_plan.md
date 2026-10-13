@@ -119,6 +119,7 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **String vs collection equality** | **Yes, fix:** HAMT keys must stop depending on the printed form of a collection, then `"[2 1]" == [2, 1]` becomes `false`. | A small phase after §5.6 (D2 completeness). |
 | **`2 ** -3`** | **Keep the default:** a `Float`; an exact result needs an explicit `ratio`. | §6.2. |
 | **`n -1`** | **Keep:** an application error with a hint. | §6.2. |
+| **W7 design points** | **Taken on the recommendation** (the user said "continue" after the three points were put to them, 2026-10-13): (1) the policy gates only capabilities reachable from script text — the unknown-step OS-command fallback and file/network/env builtins; steps an Edition wires itself (`manifests`, the cluster crawl) stay allowed; (2) the operator opts in with `--allow-exec/--allow-fs/--allow-net/--allow-env`, all off by default, and a ConfigMap can never widen them; (3) diagnostics keep the free-text `[ERROR] …` and add structured fields (kind, step, capability) to the JSON `errors` entries. | Reversible while W7 is unmerged; veto at any time. |
 
 ---
 
