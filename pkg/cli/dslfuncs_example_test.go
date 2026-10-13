@@ -137,3 +137,17 @@ func Example_encodings() {
 	// aGVsbG8= hello false
 	// ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 }
+
+// Example_json shows JSON: parse into the resource shape (a Maybe), navigate with hamt_path,
+// and encode back deterministically.
+func Example_json() {
+	interp := cli.NewInterpreter()
+	name := interp.EvaluateToValues(`maybe_default "?" (map (\d -> hamt_path "metadata.name" d) (json_parse "{\"metadata\": {\"name\": \"web\"}}"))`)
+	bad := interp.EvaluateToValues(`is_just (json_parse "[1,]")`)
+	out := interp.EvaluateToValues(`json_encode (hamt_from [["b", 1], ["a", [1, 2]]])`)
+	fmt.Println(name[0], bad[0])
+	fmt.Println(out[0])
+	// Output:
+	// web false
+	// {"a":[1,2],"b":1}
+}

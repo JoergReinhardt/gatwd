@@ -310,6 +310,16 @@ bytes; the way back is explicit and partial.
 | encodings | `base64_encode`/`base64_decode` (standard, padded) · `base64url_encode`/`base64url_decode` · `hex_encode`/`hex_decode` · `url_encode s`/`url_decode s` (query escaping) — encoders return a `String`, **decoders return a `Maybe`** |
 | hashes | `sha256 b` · `md5 b` — lowercase hex `String` (md5 is a fingerprint, not a security measure) |
 
+### JSON (hardening W2, tier 2)
+
+`json_parse s` reads JSON text into the **same nested shape a resource has**: an object is a `HAMT` (so `hamt_path "a.b" d`
+navigates it), an array a `List`, a number an `Int` / `BigInt` (an integer) or a `Float`, a string a `String`, `true`/`false`
+a `Bool`, and `null` the null value (`is_null x`). The result is a **`Maybe`**: malformed text, or anything after the one value,
+is `Nothing`, never an error (`json_parse "null"` is `Just` null). `json_encode v` is the reverse and deterministic (object keys
+sorted, no whitespace, no HTML escaping); `json_pretty v` indents by two spaces. A value JSON cannot hold — a `Pair`, a closure,
+a `Set` (no defined order), `Bytes` (use `base64_encode`), `NaN`/`Inf` — is an error that names the path to it (`$.a[1]`).
+YAML is not part of core (it needs a third-party library); an Edition can register it.
+
 ### The `str_*` library (hardening W2)
 
 Data-last, curried, usable as steps (`"a,b" |> str_split ","`), positions count **characters**, and a collection of `Char`s is

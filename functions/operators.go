@@ -876,16 +876,30 @@ func KindName(v any) string {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return "Int"
 	}
-	switch {
-	case implementsList(v):
-		return "List"
+	for _, c := range []struct {
+		name  string
+		match func(any) bool
+	}{
+		{"List", func(v any) bool { l, ok := v.(interface{ IsList() bool }); return ok && l.IsList() }},
+		{"Chunk", func(v any) bool { l, ok := v.(interface{ IsChunk() bool }); return ok && l.IsChunk() }},
+		{"Set", func(v any) bool { l, ok := v.(interface{ IsSet() bool }); return ok && l.IsSet() }},
+		{"HAMT", func(v any) bool { l, ok := v.(interface{ IsHAMT() bool }); return ok && l.IsHAMT() }},
+		{"Tree", func(v any) bool { l, ok := v.(interface{ IsTree() bool }); return ok && l.IsTree() }},
+		{"Graph", func(v any) bool { l, ok := v.(interface{ IsGraph() bool }); return ok && l.IsGraph() }},
+		{"Pair", func(v any) bool { _, ok := v.(interface{ PairElements() (any, any) }); return ok }},
+		{"Maybe", func(v any) bool { _, ok := v.(interface{ MaybeValue() (any, bool) }); return ok }},
+		{"Either", func(v any) bool { _, ok := v.(interface{ EitherValue() (any, any, bool) }); return ok }},
+		{"Variant", func(v any) bool { _, ok := v.(interface{ VariantElements() (string, uint64, any) }); return ok }},
+		{"Function", IsCallable},
+	} {
+		if c.match(v) {
+			return c.name
+		}
+	}
+	if v == nil {
+		return "Null"
 	}
 	return fmt.Sprintf("%T", v)
-}
-
-func implementsList(v any) bool {
-	l, ok := v.(interface{ IsList() bool })
-	return ok && l.IsList()
 }
 
 func toBigFloat(val any) *big.Float {

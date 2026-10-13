@@ -807,3 +807,20 @@ fold (\a x -> a + x) 0 (utf8_encode "ab") |> assert 195
 -- as steps
 "foo" |> base64_encode |> assert Zm9v
 "hi" |> utf8_encode |> hex_encode |> assert 6869
+
+-- 96. JSON (hardening W2 tier 2): json_parse yields the nested shape resources have (object = HAMT,
+-- array = List) in a Maybe; malformed text is Nothing; json_encode is deterministic (sorted keys).
+maybe_default 0 (map (\d -> hamt_path "a.b" d) (json_parse "{\"a\": {\"b\": 7}}")) |> assert 7
+maybe_default [] (json_parse "[1, 2, 3]") |> assert [1 2 3]
+maybe_default 0 (map (\xs -> length xs) (json_parse "[1, 2, 3]")) |> assert 3
+is_just (json_parse "[1,]") |> assert false
+is_just (json_parse "nope") |> assert false
+is_just (json_parse "[1] x") |> assert false
+is_just (json_parse "null") |> assert true
+is_null (maybe_default 5 (json_parse "null")) |> assert true
+json_encode (hamt_from [["b", 1], ["a", [1, 2]]]) |> assert {"a":[1,2],"b":1}
+json_encode [1, "a", 'c', true, 2.5] |> assert [1,"a","c",true,2.5]
+json_encode (maybe_default 0 (json_parse "[1, {\"k\": null}]")) |> assert [1,{"k":null}]
+json_encode "x" |> length |> assert 3
+["[1]", "[2, 3]"] |> map (\s -> maybe_default 0 (map (\xs -> length xs) (json_parse s))) |> assert [1 2]
+"{\"n\": 4}" |> json_parse |> map (\d -> hamt_path "n" d) |> maybe_default 0 |> assert 4
