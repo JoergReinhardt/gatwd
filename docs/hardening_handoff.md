@@ -9,7 +9,7 @@
 
 ---
 
-## 0. START HERE — nothing is open
+## 0. START HERE — the plan is `followup_plan.md`; no decision is pending except the open D-F ones
 
 Every question raised by the tracks and the closing checklist was answered on 2026-10-13 and implemented (plan §1: "Answered at the start of the parallel run", "…after the parallel run", "…after the closing checklist", "…after tracks L–N", and the W7 design points).
 
