@@ -1,0 +1,21 @@
+-- tasks.gatwd — named, reusable tasks over a manifest directory or file.
+-- Run:   gatwd-k8s examples/k8s_howto/tasks.gatwd
+-- Check: gatwd-k8s --check examples/k8s_howto/tasks.gatwd
+--
+-- A task is a `def`. A pipeline-bodied def is a reusable stream fragment (no arguments);
+-- a lambda-bodied def is a value function (curried, takes arguments).
+
+def graph = manifests |> k8s_graph
+
+-- stream fragments
+def who_configures_what = graph |> graph_edges_of Configures |> collect_list
+def trace_to_pod        = graph |> graph_shortest_path nginx-svc app-pod |> collect_list
+
+-- a value function over a graph
+def count_kind = \kind g -> length (graph_payloads_of kind g)
+
+-- Invocations. In a script they run top to bottom; to pick ONE task, load the script with
+-- `gatwd-k8s -i tasks.gatwd` (or `:load`) and type the invocation at the prompt.
+spawn StrVal: examples/k8s_howto/cluster |> who_configures_what
+spawn StrVal: examples/k8s_howto/cluster |> trace_to_pod
+spawn StrVal: examples/k8s_howto/cluster |> graph |> fold (\_ g -> count_kind "Pod" g) 0

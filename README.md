@@ -50,6 +50,7 @@ spawn Balance: 999999999999999999 |> math_add 1 |> (audit_node &&& parse_access)
 * **[Formal Grammar](docs/grammar.md)**: The EBNF specification for the DSL.
 * **[Native Adapters, Editions & Appliances](docs/native_adapters.md)**: How to write pure Go adapters, register third-party types/steps, and package standalone appliances.
 * **[Agentic Workflows & AI](docs/agentic_workflows.md)**: Harnessing the DSL for LLMs, autonomous agents, and K8s Operators.
+* **[How-To: Kubernetes Edition & Operator](docs/k8s_howto.md)**: Define tasks with scripts, extend the prelude and graph model (e.g. Secret → database → DBMS), and build, package and deploy the binaries.
 * **[Kubernetes Graph: Design & Implementation Record](docs/k8s_graph_design.md)**: The generic graph core and the Kubernetes edition built on it, phase by phase.
 * **[Language Roadmap](docs/language_roadmap.md)**: First-class functions, gradual typing and the expression-level function matrix.
 * **[Development Playbook](docs/development_playbook.md)**: How work is done here — delivery protocol, gates, traps, performance and handoff protocols.

@@ -1,0 +1,33 @@
+# Stand-in for a SQL adapter: same payload shape (kind + metadata.name + spec).
+apiVersion: infra.example.com/v1
+kind: DBMS
+metadata:
+  name: pg-prod
+spec:
+  engine: postgres
+  host: pg-prod.db.internal
+  port: 5432
+---
+apiVersion: infra.example.com/v1
+kind: Database
+metadata:
+  name: orders
+spec:
+  dbms: pg-prod
+---
+apiVersion: infra.example.com/v1
+kind: Database
+metadata:
+  name: audit
+spec:
+  dbms: pg-prod
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orders-db-credentials
+  annotations:
+    gatwd.io/database: orders
+data:
+  username: b3JkZXJz
+  password: aHVudGVyMg==

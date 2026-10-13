@@ -1,0 +1,99 @@
+# A fuller stack exercising the pod-spec relations (Configures, Mounts, Binds, Calls).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  mode: prod
+  upstream: nginx-svc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-data
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-binding
+subjects:
+  - kind: ServiceAccount
+    name: app-sa
+  - kind: User
+    name: alice
+roleRef:
+  kind: Role
+  name: app-role
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+spec:
+  selector:
+    app: nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+spec:
+  selector:
+    app: backend
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  labels:
+    app: nginx
+spec:
+  serviceAccountName: app-sa
+  volumes:
+    - name: cfg
+      configMap:
+        name: app-config
+    - name: data
+      persistentVolumeClaim:
+        claimName: app-data
+    - name: scratch
+      emptyDir: {}
+  containers:
+    - name: web
+      image: nginx
+      env:
+        - name: UPSTREAM
+          value: backend-svc
+        - name: MODE
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: mode
+        - name: PLAIN
+          value: not-a-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  template:
+    spec:
+      containers:
+        - name: w
+          image: worker
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - configMapRef:
+                name: missing-config
