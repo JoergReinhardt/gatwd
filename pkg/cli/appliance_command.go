@@ -24,11 +24,14 @@ import (
 //
 // Flags every Appliance has: --rules FILE, --rules-mode layer|replace, --interval DUR,
 // --format text|json, --fail-on-violation, and the execution policy --allow-exec, --allow-fs,
-// --allow-net, --allow-env (all off: the rules, an override above all, may only compute). A domain adds its own (its data source) in Bind.
+// --allow-net, --allow-env (all off: the rules, an override above all, may only compute), and the
+// per-check limits --timeout DUR and --max-output BYTES (both off by default; a check that goes
+// over one fails, and each iteration of `run` starts with fresh limits). A domain adds its own
+// (its data source) in Bind.
 //
 // Exit status, the same mapping as the Edition command tree plus one: 0 the check ran and,
 // with --fail-on-violation, found nothing; 1 the command failed — rules that do not load, a
-// check that errored or yielded nothing; 2 a malformed command line; 3 (ExitViolations) the
+// check that errored, yielded nothing or went over its --timeout/--max-output; 2 a malformed command line; 3 (ExitViolations) the
 // check ran correctly and, under --fail-on-violation, found violations. An error always wins
 // over violations: a check that both errored and found violations exits 1. `run` is a daemon: a failing check is reported and the loop continues, and
 // only a start-up failure ends it.
@@ -43,13 +46,26 @@ type ApplianceSettings struct {
 	// Policy is what the rules may do beyond computing (--allow-exec, --allow-fs, --allow-net,
 	// --allow-env); every capability is denied unless its flag is given.
 	Policy Policy
+	// Timeout is how long one check may take (--timeout); zero means no limit.
+	Timeout time.Duration
+	// MaxOutput is how many bytes one check may produce (--max-output); zero means no limit.
+	MaxOutput int64
 }
 
 // Options returns the ApplianceOptions that apply the settings: WithConfigMapOverride,
-// WithOverrideMode and WithPolicy. A domain setup passes them to NewAppliance next to its own edition and
-// embedded rules.
+// WithOverrideMode, WithPolicy, WithTimeout and WithMaxOutput. A domain setup passes them to
+// NewAppliance next to its own edition and embedded rules.
 func (s ApplianceSettings) Options() []ApplianceOption {
-	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode), WithPolicy(s.Policy)}
+	return []ApplianceOption{WithConfigMapOverride(s.Rules), WithOverrideMode(s.Mode), WithPolicy(s.Policy), s.BoundOptions()}
+}
+
+// BoundOptions returns the options for the per-check limits alone (WithTimeout and
+// WithMaxOutput), for a domain setup that assembles the other options itself.
+func (s ApplianceSettings) BoundOptions() ApplianceOption {
+	return func(a *Appliance) {
+		WithTimeout(s.Timeout)(a)
+		WithMaxOutput(s.MaxOutput)(a)
+	}
 }
 
 // ApplianceSetup builds the Appliance and the pipeline to evaluate, once the command line has
@@ -97,6 +113,8 @@ type applianceFlags struct {
 	format          string
 	failOnViolation bool
 	allow           Policy
+	timeout         time.Duration
+	maxOutput       int64
 }
 
 // Root returns a fresh cobra root for the spec.
@@ -129,6 +147,8 @@ func (t *ApplianceTree) Root() *cobra.Command {
 	pf.BoolVar(&f.allow.AllowFS, "allow-fs", false, "let the rules read and write files and `import` other files; denied by default")
 	pf.BoolVar(&f.allow.AllowNet, "allow-net", false, "let the rules open network connections; denied by default")
 	pf.BoolVar(&f.allow.AllowEnv, "allow-env", false, "let the rules read the process environment; denied by default")
+	pf.DurationVar(&f.timeout, "timeout", 0, "stop a check that takes longer than `DUR` (a failed check, exit 1; each check of `run` gets its own); 0 means no limit")
+	pf.Int64Var(&f.maxOutput, "max-output", 0, "fail a check that produces more than `BYTES` of output (never truncated silently; each check of `run` gets its own); 0 means no limit")
 	root.Flags().DurationVar(&f.interval, "interval", 0, "re-check (and hot-reload the rules) every `DUR`; 0 checks once")
 	if t.spec.Bind != nil {
 		setup = t.spec.Bind(root)
@@ -237,6 +257,12 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	if f.interval < 0 {
 		return usagef("--interval must not be negative")
 	}
+	if f.timeout < 0 {
+		return usagef("--timeout must not be negative")
+	}
+	if f.maxOutput < 0 {
+		return usagef("--max-output must not be negative")
+	}
 	if f.format != FormatText && f.format != FormatJSON {
 		return usagef("unknown --format %q: want text or json", f.format)
 	}
@@ -245,7 +271,7 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 	}
 	stdout, stderr := cmd.OutOrStdout(), cmd.ErrOrStderr()
 
-	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow})
+	app, pipeline, err := setup(ApplianceSettings{Rules: f.rules, Mode: mode, Policy: f.allow, Timeout: f.timeout, MaxOutput: f.maxOutput})
 	if err != nil {
 		return err
 	}
