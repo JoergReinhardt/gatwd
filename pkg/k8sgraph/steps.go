@@ -52,6 +52,19 @@ func CrawlStep(keyword string, client dynamic.Interface, gvr schema.GroupVersion
 	return cli.AdapterStep(keyword, adapter)
 }
 
+// ManifestStep is the offline twin of CrawlStep: it exposes the filesystem
+// manifest reader (adapters.ManifestAdapter) as a named `|>` pipeline step, so an
+// edition can crawl `kustomize build` output or raw manifests with the SAME DSL it
+// uses against a live cluster. The step takes the path from the spawned node value:
+//
+//	spawn StrVal: ./overlays/prod |> manifests |> hamt_path spec.selector
+//
+// Because the manifest adapter yields the identical nested-HAMT payload as the live
+// crawl, every downstream graph/relation rule is source-agnostic (live vs. offline).
+func ManifestStep(keyword string) cli.StepHandler {
+	return cli.AdapterStep(keyword, adapters.ManifestAdapter())
+}
+
 // RestConfigFromKubeconfig loads a *rest.Config for talking to the cluster,
 // preferring the in-cluster service-account config (so the same binary runs as an
 // Appliance inside the cluster) and falling back to a kubeconfig file — $KUBECONFIG

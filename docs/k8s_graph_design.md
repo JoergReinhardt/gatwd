@@ -611,10 +611,30 @@ not the whole graph. L5: `graph_focus <id>` + `graph_set <id> <value>` in the fr
 now complete through the DSL** (construct / project / walk / Functor / Foldable /
 Filterable / Monoid / Lens).
 
-**Phase 5 — generic K8s I/O (L4).** Depends on **P2** (structured adapter). Add
-`kustomize_adapter.go` yielding the same nested-HAMT payloads as P2 (offline
-parity); register the kustomize source via `pkg/plugins`/`CrawlStep`-style step.
-Tests with fixtures (no live cluster in CI).
+**Phase 5 — generic offline I/O (L4). ✅ DONE (2026-10-13).** Depends on **P2**
+(structured adapter). Added `adapters/manifest_adapter.go`:
+`adapters.ManifestAdapter() evaluator.Adapter[any]` reads YAML/JSON manifests from a
+file *or* a directory tree (every `*.yaml`/`*.yml`/`*.json`, lexical `WalkDir`
+order), decodes multi-document files via `k8s.io/apimachinery/pkg/util/yaml`
+(`NewYAMLOrJSONDecoder`, empty docs skipped), and yields **the same nested-HAMT
+payload as P2** through the shared `unstructuredToValue` — so every downstream
+graph/relation rule is source-agnostic (live vs. offline), giving the §6 #10
+live→offline parity. Path comes from the spawned node value; read/parse errors
+surface as error nodes → `Left` via `EitherT`. Edition-facing twin of `CrawlStep`
+in the shim: `k8sgraph.ManifestStep(keyword) cli.StepHandler`
+(`= cli.AdapterStep(keyword, adapters.ManifestAdapter())`). Tests:
+`adapters.TestManifestAdapterMultiDoc` / `…DirectoryWalk` (ignores non-manifests,
+asserts lexical order) / `…MissingPath`; `k8sgraph.TestManifestStep` drives it from
+the DSL — `spawn StrVal: <file> |> manifests |> hamt_path spec.selector.app` →
+`nginx` (confirms a filesystem path survives as a `spawn` value). All gates green.
+
+**DECISION (2026-10-13): manifest reader now, in-process `kustomize build` deferred.**
+The `sigs.k8s.io/kustomize/api` dep is a heavy tree and is *not* required for offline
+parity: `kustomize build overlay/ > out.yaml` output is just a YAML document stream,
+so `… |> manifests` over that file already works. A native in-process
+`KustomizeAdapter` (adding the kustomize API dep, reusing `unstructuredToValue`
+identically) is a thin follow-up an edition can add when it needs build-on-read —
+kept out of core adapters until a consumer needs it, per the clean-core rule.
 
 **Phase 6 — K8s Graph base library.** Depends on **P1, P2, P3** and Phases 1–4.
 `pkg/k8sgraph/` shim (`ApplyEdition`, `DynamicClientFromKubeconfig`, embedded

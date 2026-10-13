@@ -1,6 +1,8 @@
 package k8sgraph_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,4 +53,26 @@ func TestCrawlStep(t *testing.T) {
 			t.Fatalf("hamt_get kind = %v, want [Pod]", vals)
 		}
 	})
+}
+
+// TestManifestStep proves offline/live parity: the same DSL that crawls a live
+// cluster crawls a manifest file, yielding the identical nested-HAMT payload.
+func TestManifestStep(t *testing.T) {
+	dir := t.TempDir()
+	manifest := "apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-pod\nspec:\n  selector:\n    app: nginx\n"
+	file := filepath.Join(dir, "pod.yaml")
+	if err := os.WriteFile(file, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	interp := cli.NewInterpreter()
+	interp.RegisterStep(k8sgraph.ManifestStep("manifests"))
+
+	vals := interp.EvaluateToValues(`spawn StrVal: ` + file + ` |> manifests |> hamt_path spec.selector.app`)
+	if len(vals) != 1 {
+		t.Fatalf("expected 1 value, got %d: %v", len(vals), vals)
+	}
+	if vals[0] != "nginx" {
+		t.Fatalf("manifests spec.selector.app = %v, want nginx", vals[0])
+	}
 }
