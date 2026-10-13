@@ -9,7 +9,7 @@ This guide covers the two binaries built on the Kubernetes graph:
 
 Both read a **live cluster** (kubeconfig or in-cluster service account) or **offline manifests**
 (files, directories, kustomize overlays rendered in process) and lift the resources into one typed graph
-(`k8s_graph`). If no cluster is reachable the edition says so and runs offline.
+(`k8s_graph`). The cluster client is built only when a live crawl step runs, so `version`, `completion`, `check` and offline work never look for a kubeconfig; a crawl with no reachable cluster is an `[ERROR] no cluster access (…)` result that names the cause.
 
 Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language reference:
 [`dsl_guide.md`](dsl_guide.md). Everything below was run against the files in
@@ -20,7 +20,7 @@ Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language refere
 go build -o /tmp/gatwd-k8s ./cmd/gatwd-k8s
 go build -o /tmp/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 
-/tmp/gatwd-k8s-operator -manifests examples/k8s_howto/cluster          # offline compliance check
+/tmp/gatwd-k8s-operator check --manifests examples/k8s_howto/cluster   # offline compliance check
 echo 'spawn StrVal: examples/k8s_howto/cluster |> manifests |> k8s_graph |> graph_order' | /tmp/gatwd-k8s
 ```
 
@@ -89,11 +89,11 @@ gatwd-k8s check my.gatwd            # structural errors (exit 1) and advisory wa
 gatwd-k8s prelude cat lib/k8s/prelude.gatwd   # read the embedded relations; copy, edit, load with --prelude
 gatwd-k8s --no-prelude my.gatwd     # run without the embedded prelude (the steps stay registered)
 gatwd-k8s my.gatwd                  # run it
-gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules my_rules.gatwd   # try operator rules
-gatwd-k8s-operator -manifests … -rules my_rules.gatwd -interval 5s               # and edit while it runs
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules my_rules.gatwd   # try operator rules
+gatwd-k8s-operator run --manifests … --rules my_rules.gatwd --interval 5s               # and edit while it runs
 ```
 
-With `-interval`, the operator re-reads the rules file before each check, so saving an edit changes the
+With `run --interval`, the operator re-reads the rules file before each check, so saving an edit changes the
 very next report — no restart. Only Go changes (adapters, the embedded prelude, the operator itself) need
 a rebuild.
 
@@ -108,23 +108,39 @@ More traps and their causes: [`development_playbook.md`](development_playbook.md
 
 ### 2.2 Changing the operator's rules
 
-The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file given with `-rules` (default
-`/etc/gatwd/rules.gatwd`, i.e. a mounted ConfigMap) is used **instead of** the embedded rules:
+The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file given with `--rules` (default
+`/etc/gatwd/rules.gatwd`, i.e. a mounted ConfigMap) is **layered on top of** the embedded rules (decision D5):
+the embedded file loads first, then the override in the same interpreter, so the override names only what it
+changes and can call every embedded `rule_*` closure. Redefining a name overrides it; a new name extends.
 
-> **An override replaces the embedded rules; it is not layered on top.** It cannot call the embedded
-> `rule_*` closures. To add a rule, copy the embedded file, add to the copy, and redefine `compliance`.
-> If the file is missing or empty the embedded rules are used.
+> To add a rule: define `rule_mine` and redefine `compliance` (the embedded one lists the six embedded rules
+> explicitly) to include it. The operator **reports** what the override did when it loads and on every reload:
+> `rules: overridden: compliance` / `rules: added: rule_mine`. A def that is an identical copy of the embedded
+> one is not reported. If the file is missing or empty only the embedded rules run.
 
-`examples/k8s_howto/rules.gatwd` is exactly that: the six embedded rules, the infra relations inlined
-(a ConfigMap key is one file), one extra rule, and a `compliance` that runs over `infra_graph`:
+`examples/k8s_howto/rules.gatwd` is exactly that: the infra relations (inlined — a ConfigMap key is one file),
+one extra rule, and a `compliance` that runs the embedded rules plus the new one over `infra_graph`:
 
 ```bash
-gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules examples/k8s_howto/rules.gatwd
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules examples/k8s_howto/rules.gatwd
 # [[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]
+#   (stderr)  gatwd-k8s-operator: rules: override …/rules.gatwd layered on the embedded rules (mode layer)
+#   (stderr)  gatwd-k8s-operator: rules: overridden: compliance
+#   (stderr)  gatwd-k8s-operator: rules: added: infra_graph, rel_hosted_on, rel_uses_database, rule_database_without_credentials, secret_target
 ```
 
-Imports inside an override resolve against the process's working directory, so use absolute paths
-(`import "/etc/gatwd/infra_relations.gatwd"` with several ConfigMap keys mounted) or inline the code.
+Imports inside an override resolve against **the override file's directory**, not the working directory, so
+`import "infra_relations.gatwd"` finds a sibling key of the same mounted ConfigMap.
+
+**A broken override fails loudly.** An unreadable file, a structural error (`unbalanced delimiter`), a statement
+that prints `[ERROR]`, an import that cannot be read, or a `compliance` left undefined is a load error naming the
+file and the problems: at start-up the operator exits 1; on a hot reload it prints the error on stderr and keeps
+checking with the **last good rules** — it never silently falls back to the embedded ones. (A rule that is
+syntactically fine but fails when it runs is reported by the check itself as `[ERROR] …`.)
+
+**Replace mode.** Where the platform team wants to own every rule, the override can replace the embedded
+rules instead (`--rules-mode replace`, see §3.2). The file then must be a complete rule set — a copy of the embedded
+file plus changes — and it cannot call `rule_*` names it does not define.
 
 ### 2.3 The graph model and its extension points
 
@@ -252,15 +268,18 @@ The static operator is a single ELF binary of roughly 31 MB (the in-process kust
 | | `gatwd-k8s` | `gatwd-k8s-operator` |
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
-| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; on failure prints a notice and runs offline | the same; with `-manifests` it never needs one |
-| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | `-manifests PATH` (omit for live), `-namespace NS` (default `default`; `""` = all namespaces), `-rules FILE` (default `/etc/gatwd/rules.gatwd`), `-interval DUR` (`0` = once) |
+| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `--manifests` it never needs one |
+| Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | subcommands `check` (once), `run --interval DUR` (repeat), `rules cat` (print the embedded rules), `version`, `completion`; flags `--manifests PATH` (omit for live), `--namespace NS` (default `default`; `""` = all namespaces), `--rules FILE` (default `/etc/gatwd/rules.gatwd`), `--rules-mode layer\|replace` (default `layer`, §2.2), `--interval DUR`, `--format text\|json`, `--fail-on-violation` (see below). Without a subcommand the operator behaves as before: `--interval` makes it loop, otherwise it checks once. The single-dash spellings of earlier releases (`-manifests`, `-rules`, `-interval`, …) still work for one release and print a deprecation notice on stderr |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
-**Exit codes.** The operator exits **0** whether or not it found violations (`2` if it has neither
-`-manifests` nor a reachable cluster). It reports; it does not gate. For a CI gate compare the output:
+**Exit codes.** `0` the check ran; `1` the command failed — an override that does not load, a rule that errors
+(`[ERROR] …`), a pipeline that yields nothing, or, with `--fail-on-violation`, a non-empty result; `2` a
+malformed command line (unknown flag or `--format`, no `--manifests` and no reachable cluster). Without
+`--fail-on-violation` the operator reports violations but exits 0, so a scheduled `run` is not restarted for
+finding something. For a CI gate:
 
 ```bash
-test "$(gatwd-k8s-operator -manifests ./rendered)" = "[]" || { echo "policy violations"; exit 1; }
+gatwd-k8s-operator check --manifests ./rendered --fail-on-violation || { echo "policy violations"; exit 1; }
 ```
 
 **Kustomize.** The `manifests` step renders a *kustomization root* — a directory holding `kustomization.yaml`,
@@ -290,6 +309,23 @@ gatwd-k8s --no-kustomize eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/
   message>` and a non-zero exit, never an empty graph.
 - Cost: the kustomize library adds about 3 MB (11%) to the stripped static binaries (§3.1).
 
+`run --interval` is a daemon: a failing check is printed and the loop continues; only a start-up failure ends it
+(and `--fail-on-violation` is rejected there).
+
+**Output formats.** `--format text` (default) prints the result as before: `[]` when compliant, otherwise
+`[[Rule resource] …]`; an error prints as `[ERROR] …`. `--format json` prints **one JSON object per check, on one
+line**, for log pipelines (every key always present):
+
+```bash
+gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --format json
+# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"worker"},…],"errors":[]}
+```
+
+`status` is `ok`, `violations` or `error`; a resource that is a list (a dependency cycle) stays a JSON array.
+Diagnostics — the rules report, reload failures — always go to **stderr**, so stdout stays machine-readable.
+
+The operator renders kustomization roots the same way `manifests` does (§3.2); the separate `kustomize` step in `gatwd-k8s` scripts always renders, in process.
+
 ### 3.3 Container image
 
 A static binary needs nothing else in the image. This minimal image was built and run for this guide
@@ -305,7 +341,7 @@ ENTRYPOINT ["/gatwd-k8s-operator"]
 ```bash
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 docker build -t registry.example.com/gatwd-k8s-operator:0.1.0 .
-docker run --rm -v "$PWD/examples/k8s_howto/cluster:/data:ro" registry.example.com/gatwd-k8s-operator:0.1.0 -manifests /data
+docker run --rm -v "$PWD/examples/k8s_howto/cluster:/data:ro" registry.example.com/gatwd-k8s-operator:0.1.0 check --manifests /data
 ```
 
 The image needs nothing else for live checks, plain manifests or kustomize overlays: rendering happens inside the binary.
@@ -322,7 +358,7 @@ kubectl -n gatwd create configmap gatwd-rules --from-file=rules.gatwd=examples/k
 kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 ```
 
-- **Where the results go:** stdout, so `kubectl logs` — one line per check (`-interval 5m` in the sample).
+- **Where the results go:** stdout, so `kubectl logs` — one line per check (`run --interval 5m` in the sample).
   Ship them with your normal log pipeline and alert on lines that are not `[]`.
 - **Changing rules live:** `kubectl create configmap … --dry-run=client -o yaml | kubectl apply -f -`. The
   kubelet refreshes the mounted file (typically within about a minute) and the operator re-reads it before
@@ -330,8 +366,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - The ConfigMap volume is `optional: true`, so the operator starts with its embedded rules if the ConfigMap
   does not exist yet.
 - **One replica is enough**; there is no leader election because it only reads and prints.
-- **Scope:** the sample uses `-namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
-  `-namespace NAME` and a `Role` + `RoleBinding` instead.
+- **Scope:** the sample uses `--namespace ""` (all namespaces) with a `ClusterRole`. For one namespace use
+  `--namespace NAME` and a `Role` + `RoleBinding` instead.
 - **Add a kind** (a CRD): add a crawl step in `pkg/k8sgraph` (`CoreCrawls`), list it in
   `lib/k8s/sources.gatwd`, and add `get`/`list` for it to the `ClusterRole`.
 
@@ -339,8 +375,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 | Symptom | Likely cause |
 | :-- | :-- |
-| `no cluster access (…); running offline` | kubeconfig auth plugin not supported or no cluster; use `-manifests` or fix the kubeconfig |
-| `no -manifests given and no cluster reachable` (exit 2) | the operator has no source |
+| `[ERROR] no cluster access (…)` from a `k8s_*` crawl step | kubeconfig auth plugin not supported or no cluster; use `--manifests` / the `manifests` step or fix the kubeconfig |
+| `no --manifests given and no cluster reachable` (exit 2) | the operator has no source |
 | Operator prints `[ERROR] …` after you added a rule | a name in the rule does not resolve, or an operator rejected its operands; the message names it (§2.1) |
 | Rule output is empty but should not be | a node kind is missing from the source list or RBAC, or ids collide (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |
@@ -350,11 +386,8 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 ## 4. Known limitations (as of this writing)
 
-- Override rules replace, not layer (§2.2). Layering embedded + override would be a small change to
-  `Appliance.Reload` if you prefer it.
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `metadata.name` only (§2.3).
-- The operator does not set a non-zero exit code on violations (§3.2).
 - `collect_list` drops error nodes: a failing source (a broken overlay, a missing path) piped into it prints `[]` and exits 0 instead of `[ERROR]`. Leave `collect_list` out of pipelines whose failure you need to see.
 - `--no-kustomize` is a `gatwd-k8s` flag; the operator renders overlays but only has the `k8sgraph.WithoutKustomize()` option, not a flag (§3.2).
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not

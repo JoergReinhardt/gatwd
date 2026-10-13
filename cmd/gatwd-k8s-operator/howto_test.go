@@ -129,29 +129,77 @@ func TestHowToExtendModelFromScript(t *testing.T) {
 	}
 }
 
-// TestHowToRulesOverride: an override file replaces the embedded rules wholesale; the
-// shipped example keeps all six embedded rules and adds one.
+// TestHowToRulesOverride: the shipped override is LAYERED on the embedded rules (decision D5): it
+// holds only the additions, calls the embedded rule_* closures, and the operator reports what it
+// overrode and added. The same additions behind a full copy of the embedded rules give the same
+// answer in replace mode, and a layered override that reuses one embedded rule works while the
+// replace mode (where the embedded rules are gone) says which rule is missing.
 func TestHowToRulesOverride(t *testing.T) {
-	app, err := newAppliance(nil, filepath.Join(howtoDir, "rules.gatwd"))
+	override := filepath.Join(howtoDir, "rules.gatwd")
+	cluster := filepath.Join(howtoDir, "cluster")
+	want := "[[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]"
+
+	app, err := newAppliance(nil, override, cli.OverrideLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := violations(t, app.Execute(checkPipeline(filepath.Join(howtoDir, "cluster"))))
-	want := "[[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]"
-	if !reflect.DeepEqual(got, []string{want}) {
-		t.Fatalf("violations = %v\nwant        %s", got, want)
+	if got := violations(t, app.Execute(checkPipeline(cluster))); !reflect.DeepEqual(got, []string{want}) {
+		t.Fatalf("layered violations = %v\nwant              %s", got, want)
+	}
+	rep := app.Report()
+	if !reflect.DeepEqual(rep.Overridden, []string{"compliance"}) {
+		t.Errorf("Overridden = %v, want only compliance (the six embedded rules are not copied)", rep.Overridden)
+	}
+	for _, name := range []string{"rule_database_without_credentials", "infra_graph", "rel_uses_database"} {
+		found := false
+		for _, a := range rep.Added {
+			found = found || a == name
+		}
+		if !found {
+			t.Errorf("Added = %v lacks %s", rep.Added, name)
+		}
 	}
 
-	// A minimal override that only REUSES an embedded rule must not silently look like success:
-	// the embedded rules are gone, so the pipeline cannot find them.
+	// Replace mode: the override must carry the whole rule set, so give it a copy of the
+	// embedded rules in front of the same additions.
+	embedded, err := rulesFS.ReadFile("rules/compliance.gatwd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	additions, err := os.ReadFile(override)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full := filepath.Join(t.TempDir(), "full.gatwd")
+	if err := os.WriteFile(full, append(append(embedded, '\n'), additions...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app3, err := newAppliance(nil, full, cli.OverrideReplace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := violations(t, app3.Execute(checkPipeline(cluster))); !reflect.DeepEqual(got, []string{want}) {
+		t.Fatalf("replace-mode violations = %v\nwant                  %s", got, want)
+	}
+
+	// An override that only REUSES an embedded rule: fine layered, a named error in replace mode.
 	p := filepath.Join(t.TempDir(), "reuse.gatwd")
-	_ = os.WriteFile(p, []byte(`def compliance = k8s_graph |> fold probe 0
-def probe = \_ g -> rule_idle_deployment g
+	_ = os.WriteFile(p, []byte(`def probe = \_ g -> rule_idle_deployment g
+def compliance = k8s_graph |> fold probe 0
 `), 0o644)
-	app2, _ := newAppliance(nil, p)
-	out := fmt.Sprint(app2.Execute(checkPipeline(filepath.Join(howtoDir, "cluster"))))
-	if !strings.Contains(out, "rule_idle_deployment") {
-		t.Fatalf("expected an error naming the missing embedded rule (override replaces, not layers), got %s", out)
+	app2, err := newAppliance(nil, p, cli.OverrideLayer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := violations(t, app2.Execute(checkPipeline(cluster))); !reflect.DeepEqual(got, []string{"[[IdleDeployment worker]]"}) {
+		t.Fatalf("layered reuse of rule_idle_deployment = %v", got)
+	}
+	app4, err := newAppliance(nil, p, cli.OverrideReplace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out := fmt.Sprint(app4.Execute(checkPipeline(cluster))); !strings.Contains(out, "rule_idle_deployment") {
+		t.Fatalf("replace mode: want an error naming the missing embedded rule, got %s", out)
 	}
 }
 
@@ -175,6 +223,19 @@ func TestHowToDeployManifest(t *testing.T) {
 			continue
 		}
 		kinds = append(kinds, obj.GetKind())
+		if obj.GetKind() == "Deployment" {
+			// The container's args must be a valid command line of the operator's own tree
+			// (long flags, a subcommand), so the sample cannot drift from the binary.
+			containers, _, _ := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+			rawArgs, _, _ := unstructured.NestedStringSlice(containers[0].(map[string]any), "args")
+			cmd, rest, err := operatorTree().Root().Find(rawArgs)
+			if err != nil || cmd.Name() != "run" {
+				t.Fatalf("deploy.yaml args %v: command %v, err %v; want the run subcommand", rawArgs, cmd.Name(), err)
+			}
+			if err := cmd.ParseFlags(rest); err != nil {
+				t.Fatalf("deploy.yaml args %v are not valid operator flags: %v", rawArgs, err)
+			}
+		}
 		if obj.GetKind() == "ClusterRole" {
 			rules, _, _ := unstructured.NestedSlice(obj.Object, "rules")
 			for _, r := range rules {

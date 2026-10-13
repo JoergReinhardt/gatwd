@@ -58,7 +58,7 @@ spec:
       containers:
         - name: operator
           image: registry.example.com/gatwd-k8s-operator:0.1.0
-          args: ["-namespace", "", "-interval", "5m"]
+          args: ["run", "--namespace", "", "--interval", "5m"]
           volumeMounts:
             - {name: rules, mountPath: /etc/gatwd, readOnly: true}
           securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}

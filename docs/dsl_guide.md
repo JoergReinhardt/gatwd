@@ -431,6 +431,7 @@ Gatwd's runtime model is categorized into four distinct concepts:
   )
   res := app.Execute("spawn Status: OK |> check_rules")
   ```
+  The override is **layered on top of** the embedded rules by default (`cli.WithOverrideMode(cli.OverrideLayer)`): it names only what it changes and may call the embedded defs; `cli.OverrideReplace` makes it the whole rule set. A broken override is a `*cli.LoadError` (from `NewAppliance`, or from `Reload`, which then keeps the last good rules); `app.Report()` lists the defs it overrode or added. See §23 for the Appliance command line.
 
 ## 18. Functional Operations Completeness & Typeclass Parity
 
@@ -731,3 +732,49 @@ Global flags: `-D NAME=VALUE` (a constant: a canonical number such as `10` or `1
 before the script), `--no-prelude` (skip the embedded preludes; their steps stay registered). Exit status: `0` ok,
 `1` a command failed, `2` a malformed command line. A script literally named like a subcommand is run as `gatwd ./check`.
 Go callers can capture output by setting `Interpreter.Out`; an Edition adds a command with `Edition.WithCommand`.
+
+### The Appliance command line
+
+An Appliance binary (for example `gatwd-k8s-operator`) gets its own tree from `cli.NewApplianceTree`, because it is
+single-purpose: it evaluates one pipeline against its rules, once or on a schedule, and does not run scripts.
+
+```bash
+NAME check [flags]                 # evaluate the rules once
+NAME run --interval 5m [flags]     # evaluate every 5m, re-reading the override before each check
+NAME rules cat                     # print the embedded rules (copy, edit, mount as the override)
+NAME version · NAME completion bash|zsh|fish|powershell
+NAME [flags]                       # legacy form: loops when --interval is given, else checks once
+```
+
+| Flag | Meaning |
+| :-- | :-- |
+| `--rules FILE` | override rules (a mounted ConfigMap); missing or empty means none |
+| `--rules-mode layer\|replace` | `layer` (default, decision D5): the override is loaded on top of the embedded rules and may call them; `replace`: the override is the whole rule set |
+| `--interval DUR` | `run`/legacy form: wait between checks; the override is re-read each time |
+| `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
+| `--fail-on-violation` | `check`: exit 1 when the result is non-empty (rejected for `run`, which never exits on violations) |
+
+The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
+single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
+
+**Loading is loud.** An unreadable override, a structural error in it, a statement that prints `[ERROR]`, an `import`
+that cannot be read (imports resolve against the override's directory) or a required def left undefined fails the
+start with exit `1` and names the problems; on a hot reload the error is printed and the **last good rules keep
+running**. At start and whenever it changes, the Appliance prints which defs the override overrode and which it added.
+
+**Exit status** — the same mapping as everywhere: `0` the check ran (and, with `--fail-on-violation`, found nothing);
+`1` the command failed — rules that do not load, a check that errored (`[ERROR]` result), a pipeline that yielded no
+result at all, or violations under `--fail-on-violation`; `2` a malformed command line (unknown flag or `--format`,
+no data source).
+
+**Formats.** A rule set answers with a list of `[rule, resource]` findings; `[]` is compliant. `text` prints the
+value as the pipeline produced it. `json` prints one line per check, every key always present:
+
+```json
+{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"stray"},{"rule":"IdleDeployment","resource":"lonely"}],"errors":[]}
+{"status":"ok","count":0,"violations":[],"errors":[]}
+{"status":"error","count":0,"violations":[],"errors":["undefined identifier: no_such_rule"]}
+```
+
+`status` is `ok`, `violations` or `error`; a finding that is not a `[String, value]` pair becomes `{"value": …}`; a
+value JSON cannot hold (a Set, a function) is reported in `errors`, never dropped.

@@ -82,13 +82,14 @@ func (s silentExit) Error() string { return fmt.Sprintf("exit status %d", s.code
 
 func usagef(format string, a ...any) error { return usageError{fmt.Errorf(format, a...)} }
 
+// UsageError marks err as a malformed command line: the tree reports it with a pointer to
+// `--help` and exits with status 2. A domain command (Edition.WithCommand, an Appliance's
+// setup) uses it for "you invoked me wrongly", as opposed to "I ran and failed" (status 1).
+func UsageError(err error) error { return usageError{err} }
+
 // Execute runs the command line argv (without the program name) and returns the exit
 // status: 0 on success, 1 when a command failed, 2 when the command line is malformed.
 func (t *CommandTree) Execute(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	root := t.Root()
-	root.SetIn(stdin)
-	root.SetOut(stdout)
-	root.SetErr(stderr)
 	args := append([]string{}, argv...)
 	if t.spec.NormalizeArgs != nil {
 		args = t.spec.NormalizeArgs(args)
@@ -96,6 +97,15 @@ func (t *CommandTree) Execute(argv []string, stdin io.Reader, stdout, stderr io.
 			args = []string{}
 		}
 	}
+	return executeRoot(t.spec.Name, t.Root(), args, stdin, stdout, stderr)
+}
+
+// executeRoot runs a cobra root with the streams and maps its error to the exit status shared
+// by every command line in this package: 0 ok, 1 a command failed, 2 a malformed command line.
+func executeRoot(name string, root *cobra.Command, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	root.SetIn(stdin)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
 	root.SetArgs(args)
 	err := root.Execute()
 	var silent silentExit
@@ -106,10 +116,10 @@ func (t *CommandTree) Execute(argv []string, stdin io.Reader, stdout, stderr io.
 	case errors.As(err, &silent):
 		return silent.code
 	case errors.As(err, &usage):
-		fmt.Fprintf(stderr, "%s: %v\nRun '%s --help' for usage.\n", t.spec.Name, err, t.spec.Name)
+		fmt.Fprintf(stderr, "%s: %v\nRun '%s --help' for usage.\n", name, err, name)
 		return 2
 	default:
-		fmt.Fprintf(stderr, "%s: %v\n", t.spec.Name, err)
+		fmt.Fprintf(stderr, "%s: %v\n", name, err)
 		return 1
 	}
 }
@@ -277,7 +287,17 @@ func (t *CommandTree) Root() *cobra.Command {
 		},
 	}
 
-	version := &cobra.Command{
+	version := versionCommand(name)
+
+	root.AddCommand(run, eval, check, task, repl, preludeCmd, builtins, version)
+	root.AddCommand(t.spec.Commands...)
+	return root
+}
+
+// versionCommand is the `version` subcommand every command line has: the program name and the
+// module version the binary was built from.
+func versionCommand(name string) *cobra.Command {
+	return &cobra.Command{
 		Use: "version", Short: "print the version", Args: noArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
 			v := "(unknown)"
@@ -287,10 +307,6 @@ func (t *CommandTree) Root() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", name, v)
 		},
 	}
-
-	root.AddCommand(run, eval, check, task, repl, preludeCmd, builtins, version)
-	root.AddCommand(t.spec.Commands...)
-	return root
 }
 
 func addRunFlags(cmd *cobra.Command, rf *runFlags) {

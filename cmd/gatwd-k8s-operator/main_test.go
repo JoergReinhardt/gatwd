@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/pkg/k8sgraph/k8sgraphtest"
 )
 
@@ -20,7 +23,7 @@ func violations(t *testing.T, vals []any) []string {
 }
 
 func TestOperatorEmbeddedRules(t *testing.T) {
-	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"))
+	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"), cli.OverrideLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +45,7 @@ const brokenWant = "[[UnselectedPod orphan] [UnusedService unused-svc] [Dangling
 // expected violations, in rule order — and the compliant parts (a selector-less
 // ExternalName Service, the missing-config Pod's other fields) are not flagged.
 func TestOperatorAllRules(t *testing.T) {
-	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"))
+	app, err := newAppliance(nil, filepath.Join(t.TempDir(), "absent.gatwd"), cli.OverrideLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +58,7 @@ func TestOperatorAllRules(t *testing.T) {
 // TestOperatorLiveSource: the operator, given a (fake) cluster instead of manifests,
 // reports exactly what it reports for the same objects offline.
 func TestOperatorLiveSource(t *testing.T) {
-	app, err := newAppliance(k8sgraphtest.FakeClusterFromFile(t, "testdata/broken.yaml"), filepath.Join(t.TempDir(), "absent.gatwd"))
+	app, err := newAppliance(k8sgraphtest.FakeClusterFromFile(t, "testdata/broken.yaml"), filepath.Join(t.TempDir(), "absent.gatwd"), cli.OverrideLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +70,7 @@ func TestOperatorLiveSource(t *testing.T) {
 
 func TestOperatorHotReloadsRules(t *testing.T) {
 	override := filepath.Join(t.TempDir(), "rules.gatwd")
-	app, err := newAppliance(nil, override)
+	app, err := newAppliance(nil, override, cli.OverrideLayer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,5 +94,40 @@ func TestOperatorHotReloadsRules(t *testing.T) {
 	}
 	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[UnselectedPod stray] [IdleDeployment lonely]]"}) {
 		t.Fatalf("after override removal, violations = %v", got)
+	}
+}
+
+// TestOperatorBrokenOverride: a broken ConfigMap fails the start loudly and, on a hot reload,
+// leaves the last good rules serving — it never silently falls back to the embedded rules.
+func TestOperatorBrokenOverride(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "rules.gatwd")
+	good := "def compliance = k8s_graph |> fold (\\_ g -> [ [\"AnyPod\", (hamt_path \"metadata.name\" p)] | p <- (graph_payloads_of \"Pod\" g) ]) 0\n"
+	if err := os.WriteFile(override, []byte(good), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app, err := newAppliance(nil, override, cli.OverrideLayer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(override, []byte("def compliance = k8s_graph |> fold (\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var le *cli.LoadError
+	if err := app.Reload(); !errors.As(err, &le) {
+		t.Fatalf("Reload of a broken override: %v, want a *cli.LoadError", err)
+	}
+	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[AnyPod stray]]"}) {
+		t.Fatalf("after a failed reload the last good rules must serve, got %v", got)
+	}
+	if _, err := newAppliance(nil, override, cli.OverrideLayer); !errors.As(err, &le) {
+		t.Fatalf("a broken override at start: %v, want a *cli.LoadError", err)
+	}
+
+	// replace mode: an override without the entry point is a load error, not a runtime surprise.
+	if err := os.WriteFile(override, []byte("def rule_x = \\g -> []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newAppliance(nil, override, cli.OverrideReplace); err == nil || !strings.Contains(err.Error(), "compliance") {
+		t.Fatalf("replace mode without compliance: %v", err)
 	}
 }

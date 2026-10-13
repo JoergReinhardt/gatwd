@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -91,5 +92,36 @@ func TestEditionKustomize(t *testing.T) {
 	}
 	if help, err := exec.Command(bin, "--help").CombinedOutput(); err != nil || !strings.Contains(string(help), "--no-kustomize") {
 		t.Errorf("--help must list --no-kustomize: %v\n%s", err, help)
+	}
+}
+
+// TestEditionClientIsLazy: commands that need no cluster neither look for a kubeconfig nor
+// print the old "no cluster access" notice; a crawl with no cluster is an error that names
+// the cause (and exits non-zero), not a step that silently does not exist.
+func TestEditionClientIsLazy(t *testing.T) {
+	bin := buildEdition(t)
+	noCluster := func(args ...string) *exec.Cmd {
+		c := exec.Command(bin, args...)
+		c.Env = append(os.Environ(), "KUBECONFIG="+filepath.Join(t.TempDir(), "absent"), "HOME="+t.TempDir(), "KUBERNETES_SERVICE_HOST=")
+		return c
+	}
+	for _, args := range [][]string{{"version"}, {"completion", "bash"}, {"prelude", "list"}, {"eval", "-e", "1 + 1"}} {
+		var stderr strings.Builder
+		c := noCluster(args...)
+		c.Stderr = &stderr
+		if err := c.Run(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if stderr.Len() != 0 {
+			t.Errorf("%v wrote to stderr (the cluster client must be lazy): %q", args, stderr.String())
+		}
+	}
+
+	var stderr strings.Builder
+	c := noCluster("eval", "-e", "spawn StrVal: default |> k8s_pods")
+	c.Stderr = &stderr
+	out, err := c.Output()
+	if err == nil || !strings.Contains(string(out), "no cluster access") {
+		t.Fatalf("a crawl without a cluster must fail naming the cause: err=%v\nstdout: %s\nstderr: %s", err, out, stderr.String())
 	}
 }

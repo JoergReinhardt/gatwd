@@ -13,7 +13,13 @@ Prompt: `.agents/prompts/mint-edition-appliance.md`.
 - **Edition** — a binary distribution users run arbitrary scripts against
   (`cli.NewEdition(name)…Run()`).
 - **Appliance** — a single-purpose release with embedded rules and hot reload
-  (`cli.NewAppliance(WithEdition, WithEmbeddedFS, WithConfigMapOverride)`).
+  (`cli.NewAppliance(WithEdition, WithEmbeddedFS, WithConfigMapOverride, WithOverrideMode, WithRequiredDefs)`).
+  The override is **layered on top of** the embedded rules by default (it may call them and names
+  only what it changes); `OverrideReplace` is the explicit alternative. A broken override is a
+  `*cli.LoadError`, never a silent fall-back, and a failed reload keeps the last good rules.
+  Its command line is `cli.NewApplianceTree` (`check`, `run --interval`, `rules cat`, `--format
+  text|json`, `--fail-on-violation`; exit 0 ok / 1 failed / 2 malformed): the domain supplies only
+  `Bind` (its source flags and a setup that builds the Appliance and the pipeline).
 - **Shim** — `pkg/<domain>`: wiring only.
 - **Prelude** — `lib/<domain>/*.gatwd` embedded with `//go:embed`: the domain's vocabulary and
   logic, loaded through `Edition.WithPreludeFS`.
@@ -47,7 +53,12 @@ cmd/gatwd-<domain>-<role>/          Appliance: edition + rules/*.gatwd + flags; 
    - `TestLiveOfflineParity`: same prelude over fake client vs manifests, comparing nodes, declared
      and inferred edges, and asserting the offline result is non-empty (no vacuous equality);
    - a **negative fixture** violating every rule, with an exact expected violation list;
-   - hot-reload test (override file → `Reload` → behavior changes → file removed → default again);
+   - hot-reload test (override file → `Reload` → behavior changes → file removed → default again),
+     plus a **broken override** (start fails loudly; reload keeps the last good rules) and a layered
+     override that reuses an embedded rule;
+   - one real-binary row per command line and exit status (0, 1 for violations/errors, 2 for a
+     malformed line), a JSON-format row, and "commands that need no cluster build no client"
+     (`k8sgraph.LazyDynamicClient`);
    - tests that need an external binary skip when it is absent; never contact a real service;
    - `internal/archtest` must stay green (no domain/SDK in core).
 8. **Benchmark** on a synthetic, scalable workload before declaring done; profile per pass.
