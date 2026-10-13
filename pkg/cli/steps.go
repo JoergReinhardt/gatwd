@@ -123,6 +123,41 @@ func ArgStep(prefix string, fn func(arg string, val any) (any, error)) StepHandl
 	}
 }
 
+// AdapterStep exposes an arbitrary pure Adapter[any] as a named DSL pipeline step.
+//
+// This is the generic bridge every data-gathering edition needs: hand it any
+// evaluator.Adapter[any] — a Kubernetes crawler, an AWS lister, a database query,
+// a filesystem walker — together with a keyword, and the adapter becomes callable
+// as "|> keyword" in the DSL. Because an Adapter maps one node to a *sequence* of
+// nodes (a Kleisli fan-out), AdapterStep is how an edition lifts external data
+// sources into the engine's node-expansion trampoline so their results can be
+// walked, folded, and composed like any other stream.
+//
+// The adapter is lifted into the engine's error-aware payload type via the EitherT
+// monad transformer (evaluator.EitherT), so a failing adapter surfaces a
+// Left(error) node downstream instead of crashing the pipeline, and then bound
+// over the stream via evaluator.StepAdapter.
+//
+// Unlike the pkg/plugins keyword registry — whose AdapterFactory is a nullary
+// func() and therefore cannot carry configuration — AdapterStep accepts a
+// fully-constructed adapter, so edition authors inject configuration (clients,
+// endpoints, credentials, GVRs) by closure at assembly time.
+//
+// Example:
+//
+//	adapter := mycloud.ListInstances(client, region) // evaluator.Adapter[any]
+//	interp.RegisterStep(cli.AdapterStep("list_instances", adapter))
+//	// DSL:  spawn Region: eu-central-1 |> list_instances |> ...
+func AdapterStep(name string, adapter evaluator.Adapter[any]) StepHandler {
+	step := evaluator.StepAdapter(evaluator.EitherT(adapter))
+	return func(stepStr string, interp *Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
+		if stepStr != name {
+			return nil, false
+		}
+		return step, true
+	}
+}
+
 // SinkStep creates an ergonomic StepHandler for side effects (logging, metric recording, printing).
 // The stream items pass through unchanged to downstream steps.
 //
