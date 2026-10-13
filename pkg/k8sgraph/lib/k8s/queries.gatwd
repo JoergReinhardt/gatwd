@@ -9,3 +9,10 @@ def k8s_apply_order = graph_topo_sort
 -- Strongly connected components: any component with more than one resource is a
 -- dependency cycle.
 def k8s_cycles = graph_scc
+
+-- The resource payloads of a k8s_graph in k8s_apply_order, as one list: the objects, not
+-- just their ids, so the order can be fed to a write step:
+--     ... |> manifests |> k8s_graph |> k8s_apply_objects |> k8s_apply
+-- (k8s_apply applies a list element by element, in list order). Empty when the relations
+-- are cyclic, like the order it follows.
+def k8s_apply_objects = \g -> [ p | id <- graph_topo_sort g, p <- graph_payloads g, (k8s_id_of p) == id ]

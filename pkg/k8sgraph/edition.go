@@ -28,7 +28,11 @@ func PreludeFS() fs.FS { return preludeFS }
 // Option adjusts ApplyEdition.
 type Option func(*editionConfig)
 
-type editionConfig struct{ noKustomize bool }
+type editionConfig struct {
+	noKustomize bool
+	write       *WriteFlags
+	resolver    adapters.ResourceResolver
+}
 
 // WithoutKustomize makes `manifests` read a kustomization root as the plain files it
 // contains, as it did before auto-render; it is the programmatic form of the
@@ -74,6 +78,16 @@ func ApplyEdition(e *cli.Edition, client dynamic.Interface, opts ...Option) *cli
 		adapters.WithRenderer(InProcessRenderer()),
 		adapters.WithKustomizeSwitch(func() bool { return !noKustomize }))).
 		WithStep(KustomizeStep("kustomize"))
+	// The write steps are always registered and always gated: a script needs the explicit
+	// capability (--allow-cluster-apply) and writes nothing but a server dry run until
+	// --dry-run=false. With no client they fail loudly per object (nothing to write to).
+	write := cfg.write
+	if write == nil {
+		write = DefaultWriteFlags()
+		e = e.WithFlags(write.Bind).
+			WithCapabilityFlag("allow-cluster-apply", cli.CapClusterApply, "let scripts create and update objects in the cluster (k8s_apply)")
+	}
+	e = e.WithStep(ApplyStep("k8s_apply", newApplier(client, write, cfg.resolver)))
 	if client != nil {
 		for _, c := range CoreCrawls {
 			e = e.WithStep(CrawlStep(c.Keyword, client, c.GVR))

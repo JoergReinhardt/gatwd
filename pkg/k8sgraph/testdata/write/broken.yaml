@@ -1,0 +1,30 @@
+# One good object, then objects a write must refuse loudly, then another good object: the
+# refusals must not swallow the neighbours.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: first
+  namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default
+data: {a: b}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: no-namespace
+---
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: w
+  namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: last
+  namespace: default
