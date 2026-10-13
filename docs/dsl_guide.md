@@ -977,12 +977,24 @@ NAME [flags]                       # legacy form: loops when --interval is given
 | `--format text\|json` | `text` (default): one result per line; `json`: one JSON object per check (JSON Lines) |
 | `--fail-on-violation` | `check`: exit `3` when the result is non-empty (opt-in; off by default; rejected for `run`, which never exits on violations) |
 | `--allow-exec` `--allow-fs` `--allow-net` `--allow-env` | grant the rules (the override above all) a capability; all denied by default, see *Execution policy* below |
-| `--timeout DUR` | stop a check that runs longer than `DUR`: it fails with `[ERROR] check timed out after DUR` (exit `1`); every `run` round gets a fresh limit; `0` (default) is no limit, a negative value is a usage error |
+| `--timeout DUR` | stop a check that runs longer than `DUR`: it fails with `[ERROR] check timed out after DUR` (exit `1`); every `run` round gets a fresh limit; it also bounds each load and reload of the rules (below); `0` (default) is no limit, a negative value is a usage error |
 | `--max-output BYTES` | fail a check that produces more than `BYTES` of text report (`[ERROR] check output exceeded the limit of N bytes`, exit `1`; never silently truncated); `0` (default) is no limit |
 
 In Go the limits are `cli.WithTimeout(d)` and `cli.WithMaxOutput(n)` (or `ApplianceSettings.Options()`); each `Appliance.Execute`
 starts with a fresh deadline and budget, a check over a limit yields one `*cli.TimeoutError` / `*cli.OutputLimitError` and none of its
 results, and `Appliance.ExecuteContext(ctx, line)` adds the caller's own context.
+
+The same timeout bounds **loading**: `NewAppliance`, `Reload` and `ReloadContext(ctx)` evaluate the top-level statements of the
+embedded rules and the override, and one that runs over fails with a `*cli.LoadError` whose `Err` is a `*cli.TimeoutError`
+(`loading the rules timed out after 30s`, `errors.Is(err, context.DeadlineExceeded)`): `NewAppliance` returns it, and a failed
+`Reload` leaves the last good rules in place. `cli.WithLoadContext(ctx)` (or `ApplianceSettings.Context`) bounds a load by a
+context of the caller's, with a `*cli.CancelError` cause.
+
+**Stop requests.** SIGINT and SIGTERM stop `check` and `run`: the context of the check (or of a load) in progress is cancelled, so
+every pipeline step stops at its next node and a started OS command is killed. `run` prints one line on stderr (`NAME: received
+terminated, stopping`) and exits `0` — a requested stop is a daemon's normal end; `check` exits `1` (`the check was interrupted`).
+A second signal exits `1` at once. In Go the loop is `ApplianceTree`; a Kubernetes pod's SIGTERM, delivered to PID 1, is handled
+(a handler is what lets PID 1 receive it at all).
 
 The Appliance's own data-source flags (the operator's `--manifests`, `--namespace`) are added by the domain; older
 single-dash spellings (`-manifests`) are rewritten with a deprecation notice.
