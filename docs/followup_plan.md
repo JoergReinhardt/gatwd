@@ -140,7 +140,7 @@ Raised by the user's question about Haskell-style definitions ("first line defin
 | patterns in lambda parameters | `\x y ->` binds variables only |
 | what exists | `def f = match { pat -> body \| pat -> body … }`, one arm per line (multi-line works, brackets are open), applied with `x \|> f`; patterns: literal, variable, `_`, constructor, `[]`, `[a, b]`, `(a, b)`, `[h, ...t]` |
 
-**Already fixed as Track R (merged 2026-10-14, see `hardening_plan.md` §6.4):** literal patterns matched by *substring* (`0 -> …` matched 10 and 20; a recursive `fib` was wrong from 10 on), element patterns compared printed text, and a value matching no arm vanished silently. They are value equality, a loud error for an unrecognised pattern and a loud `no arm matches` error now. Everything below builds on that.
+**Already fixed as Track R (merged 2026-10-14, `hardening_plan.md` §6.4, `pkg/cli/matchpattern.go`):** literal patterns matched by *substring* (`0 -> …` matched 10 and 20; a recursive `fib` was wrong from 10 on), element patterns compared printed text, and a value matching no arm vanished silently. They are value equality, a loud error for an unrecognised pattern and a loud `no arm matches` error now. Everything below builds on that.
 
 **F9a. Guards.** `| pattern if condition -> body`, evaluated after the pattern binds its variables; a failing guard falls through to the next arm (as in Haskell); the condition is an ordinary expression (`n > 0`, `x == y`, `str_starts_with "a" s`) and must be a `Bool` (anything else is a loud error naming the arm). `--check`: variables bound by the pattern are in scope in the guard (zero false positives on committed scripts); exhaustiveness treats a guarded arm as not covering its pattern (so `n if n > 0 -> …` alone still warns). **Decision D-F9a:** spelling `pat if cond ->` (recommended: reads like the existing arms and like Rust/OCaml `when`/Scala `if`) versus Haskell's `| cond` after the pattern. Recommended: `if`.
 
@@ -158,11 +158,13 @@ def add x y = x + y
 
 **F9c. Patterns in lambda parameters** (`\0 y -> y`, `\(a, b) -> a + b`): the same tuple desugaring applied to `\` parameters. Optional; do it when a consumer exists (the clause form of F9b covers the use case).
 
+**F9e. A crash found by Track R (fix first, it is a panic):** `[0, 1] |> map (\n -> n |> one)`, where `one` is a `match`-bodied `def`, panics with a nil `Parser` in the lambda's child interpreter (`Interpreter.fork` for a lambda body does not carry the parser that `match` needs for constructor lookup). It reproduces on the pre-Track-R binary too, so it is old. *Work:* a Go regression test (RED), carry the parser into the forked interpreter (check every other `fork`/child construction in `pkg/cli/closures.go` for the same omission), then make any remaining nil-parser path an error value, never a panic. Calling a `match` def from inside a lambda is exactly what clause-style definitions (F9b) will do, so this is a prerequisite for F9b.
+
 **F9d. The silent acceptance of `def fact 0 = 1` is a defect of its own** until F9b lands: make the current form a loud error (`def NAME` must be followed by `=`; a pattern before `=` is not supported yet, see clause-style definitions) as the first, 10-line sub-step, so nothing can be silently defined-as-nothing in the meantime.
 
 *Tests.* A table of clause definitions (factorial, fib, `add` with tuple patterns, a guard, partial application, a catch-all missing → `--check` warning, arity mismatch error, a gap error); step form vs closure parity; negative controls: break the clause grouping and the guard fall-through and watch the tests fail; the committed pure-DSL examples (`examples/game_of_life_pure_dsl`, `quicksort`/`ackermann` in `tests/dsl_exhaustive_test.gatwd`) get a clause-style twin as dogfooding (Mandate 4), asserting the same results. Docs: `docs/dsl_guide.md` (a Haskell-comparison table like the one above), `docs/grammar.md`, the `dsl-authoring` skill.
 
-**Order inside F9:** F9d (loud error) → F9a guards → F9b clause definitions (needs F8a if the clauses use trailing-operator continuation) → F9c if wanted.
+**Order inside F9:** F9e (the panic) → F9d (loud error) → F9a guards → F9b clause definitions (needs F8a if the clauses use trailing-operator continuation) → F9c if wanted.
 
 ## 8. Standing decisions that stay as they are
 
