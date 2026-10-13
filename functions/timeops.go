@@ -18,6 +18,8 @@ import (
 //	-Duration, abs                 Duration
 //	Time + Duration, Time - Duration   Time      (in the same display zone)
 //	Time - Time                        Duration  (an error beyond about ±292 years)
+//	Date + Duration, Date - Duration   Date      (only a whole number of days: 2d, -1w)
+//	Date - Date                        Duration  (a multiple of 1d)
 //	==, !=, <, <=, >, >=           within one type only (a Time by instant, not by zone)
 //
 // Everything else is an error that names both types: there is no implicit conversion
@@ -31,6 +33,8 @@ func temporalKind(v any) string {
 		return "Duration"
 	case Time:
 		return "Time"
+	case Date:
+		return "Date"
 	}
 	return ""
 }
@@ -73,6 +77,10 @@ func temporalBinaryOp(op OpKind, l, r any) (res any, handled bool, err error) {
 		res, err = timeArith(op, l, r)
 		return res, true, err
 	}
+	if lk == "Date" || rk == "Date" {
+		res, err = dateArith(op, l, r)
+		return res, true, err
+	}
 	if lk == "Duration" || rk == "Duration" {
 		res, err = durationArith(op, l, r)
 		return res, true, err
@@ -88,6 +96,9 @@ func kindOrName(v any, kind string) string {
 }
 
 func mixedTemporal(op OpKind, l, r, hint string) error {
+	if hint == "" && ((l == "Date" && r == "Time") || (l == "Time" && r == "Date")) {
+		hint = "a Date has no zone: convert with date_of_time or time_of_date"
+	}
 	if hint != "" {
 		hint = "; " + hint
 	}
@@ -109,6 +120,11 @@ func temporalCompare(a, b any) (int, error) {
 	}
 	if x, ok := a.(Time); ok {
 		if y, ok := b.(Time); ok {
+			return x.Compare(y), nil
+		}
+	}
+	if x, ok := a.(Date); ok {
+		if y, ok := b.(Date); ok {
 			return x.Compare(y), nil
 		}
 	}
@@ -225,6 +241,39 @@ func timeArith(op OpKind, l, r any) (any, error) {
 		}
 		if _, ok := l.(Duration); ok && op == OpSub {
 			return nil, mixedTemporal(op, "Duration", "Time", "a Duration minus an instant has no meaning; subtract the other way round")
+		}
+	}
+	return nil, mixedTemporal(op, KindName(l), KindName(r), "")
+}
+
+// dateArith is the Date row of the matrix (D17): a day plus or minus a whole number of days
+// is a day, a day minus a day is a Duration, and everything else is an error. A Date and a
+// Time never mix: the zone that would connect them is an argument of a function.
+func dateArith(op OpKind, l, r any) (any, error) {
+	ld, lIs := l.(Date)
+	rd, rIs := r.(Date)
+	switch {
+	case lIs && rIs:
+		if op == OpSub {
+			return dateSub(ld, rd)
+		}
+		if op == OpAdd {
+			return nil, mixedTemporal(op, "Date", "Date", "two days cannot be added; subtract them to get a Duration")
+		}
+	case lIs:
+		if d, ok := r.(Duration); ok && (op == OpAdd || op == OpSub) {
+			days, whole := wholeDays(d)
+			if !whole {
+				return nil, mixedTemporal(op, "Date", "Duration", fmt.Sprintf("a Date moves by whole days only (%s is not a multiple of 1d); use date_add_months or time_of_date for finer steps", d))
+			}
+			if op == OpSub {
+				days = -days
+			}
+			return ld.AddDays(days)
+		}
+	case rIs:
+		if _, ok := l.(Duration); ok && (op == OpAdd || op == OpSub) {
+			return nil, mixedTemporal(op, "Duration", "Date", "write the Date first: d + 7d")
 		}
 	}
 	return nil, mixedTemporal(op, KindName(l), KindName(r), "")

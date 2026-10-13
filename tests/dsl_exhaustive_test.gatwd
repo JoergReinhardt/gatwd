@@ -1160,3 +1160,22 @@ hamt_from [["a", @2026-10-13T09:30:01Z], ["b", @2026-10-13T08:00:00Z], ["c", @20
 def expiring = \now certs -> [fst c | c <- certs, (snd c) - now < 14d]
 expiring @2026-10-13T09:30:00Z [(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z), (pair "c" @2026-10-13T09:30:00Z)] |> assert [a c]
 [(pair "a" @2026-10-20T09:30:00Z), (pair "b" @2026-12-01T00:00:00Z)] |> map (\c -> (snd c) - @2026-10-13T09:30:00Z) |> assert [168h 1166h30m]
+
+-- 108. Date (hardening §5.6, D14/D17): a calendar day, `@2026-10-13`; no zone, no time of day, comparable. A Date moves
+-- by WHOLE-DAY Durations only (`+ 7d`, `- 1w`; `+ 90m` is an error, asserted in the Go tests), Date - Date is a Duration
+-- (a multiple of 1d), and a Date never mixes with a Time (no implicit zone). Months and years go through functions.
+[@2026-10-13, @2024-03-01] |> map (\d -> d + 0s) |> assert [2026-10-13 2024-03-01]
+[@2026-10-13, @2026-12-28] |> map (\d -> d + 7d) |> assert [2026-10-20 2027-01-04]
+[@2026-10-13, @2024-03-01] |> map (\d -> d - 1w) |> assert [2026-10-06 2024-02-23]
+[@2026-10-13, @2024-03-01] |> map (\d -> d - 1d) |> assert [2026-10-12 2024-02-29]
+[@2026-10-13, @2026-10-06] |> map (\d -> @2026-10-20 - d) |> assert [168h 336h]
+[@2026-10-13, @2026-10-06] |> map (\d -> d - @2026-10-13) |> assert [0s -168h]
+[@2026-10-13, @2026-10-14, @2026-10-12] |> map (\d -> d == @2026-10-13) |> assert [true false false]
+[@2026-10-13, @2026-10-14] |> map (\d -> d != @2026-10-13) |> assert [false true]
+[@2026-10-13, @2026-10-14, @2025-12-31, @2026-09-30] |> map (\d -> d < @2026-10-14) |> assert [true false true true]
+[@2026-10-13, @2026-10-14] |> map (\d -> d >= @2026-10-14) |> assert [false true]
+[@2026-10-13, @2026-10-12] |> map (\d -> (d + 7d) > @2026-10-19) |> assert [true false]
+hamt_from [["a", @2026-10-14], ["b", @2025-01-01], ["c", @2026-02-28]] |> hamt_values |> sort |> collect_list |> assert [2025-01-01 2026-02-28 2026-10-14]
+[@2026-10-14, @2025-01-01] |> map (\d -> min d @2026-01-01) |> assert [2026-01-01 2025-01-01]
+[@2026-10-14, @2025-01-01] |> map (\d -> max d @2026-01-01) |> assert [2026-10-14 2026-01-01]
+[@2026-10-14, @2025-01-01] |> map (\d -> compare d @2026-01-01) |> assert [GT LT]
