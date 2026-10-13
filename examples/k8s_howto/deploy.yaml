@@ -59,6 +59,9 @@ spec:
         - name: operator
           image: registry.example.com/gatwd-k8s-operator:0.1.0
           args: ["run", "--namespace", "", "--interval", "5m"]
+          # Optional per-check limits (both off by default; each round gets its own): stop a round that runs
+          # longer than 2 minutes (keep it below the interval) and fail one whose report is over 1 MiB:
+          #   args: ["run", "--namespace", "", "--interval", "5m", "--timeout", "2m", "--max-output", "1048576"]
           volumeMounts:
             - {name: rules, mountPath: /etc/gatwd, readOnly: true}
           securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}

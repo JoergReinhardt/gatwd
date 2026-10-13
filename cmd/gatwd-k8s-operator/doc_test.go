@@ -97,6 +97,10 @@ func TestHowToDocSamples(t *testing.T) {
 	importer := filepath.Join(dir, "importer.gatwd")
 	mustWrite(t, importer, "import \"sibling.gatwd\"\ndef compliance = k8s_graph |> fold (\\_ g -> (rule_s g)) 0\n")
 
+	// an override whose check never finishes in time
+	slowRule := filepath.Join(dir, "slow.gatwd")
+	mustWrite(t, slowRule, "def compliance = sleep 20\n")
+
 	const cluster = "examples/k8s_howto/cluster"
 	const prod = "pkg/k8sgraph/testdata/kustomize/overlays/prod"
 	rows := []docSample{
@@ -164,6 +168,18 @@ func TestHowToDocSamples(t *testing.T) {
 		{name: "an import with --allow-fs", which: "operator", code: 0,
 			args:       []string{"check", "--manifests", cluster, "--rules", importer, "--allow-fs"},
 			docNeedles: []string{"--allow-fs"}, outNeedles: []string{"added: rule_s"}},
+		{name: "the output limit fails the check loudly", which: "operator", code: 1,
+			args:       []string{"check", "--manifests", cluster, "--max-output", "40"},
+			docNeedles: []string{"check --manifests examples/k8s_howto/cluster --max-output 40", "[ERROR] check output exceeded the limit of 40 bytes"},
+			outNeedles: []string{"[ERROR] check output exceeded the limit of 40 bytes"}},
+		{name: "a timed-out check (the doc shows 30s, the test waits 200ms)", which: "operator", code: 1,
+			args:       []string{"check", "--manifests", cluster, "--rules", slowRule, "--allow-exec", "--timeout", "200ms"},
+			docNeedles: []string{"--rules slow.gatwd --allow-exec --timeout 30s", "[ERROR] check timed out after 30s"},
+			outNeedles: []string{"[ERROR] check timed out after 200ms"}},
+		{name: "the timeout in the json report", which: "operator", code: 1,
+			args:       []string{"check", "--manifests", cluster, "--rules", slowRule, "--allow-exec", "--timeout", "200ms", "--format", "json"},
+			docNeedles: []string{`{"kind":"timeout","message":"check timed out after 30s","limit":"30s"}`, `{"kind":"output_limit","message":"check output exceeded the limit of 40 bytes","limit":"40"}`},
+			outNeedles: []string{`{"kind":"timeout","message":"check timed out after 200ms","limit":"200ms"}`}},
 		{name: "structured data in resources", which: "edition",
 			args:       []string{"examples/k8s_howto/data.gatwd", "--", "examples/k8s_howto/data"},
 			docNeedles: []string{"∷ [3 2Gi 3r4 [[WeakPassword Secret/default/weak-secret]] [622493693890 f52fbd32b2b3]]"}},
@@ -235,6 +251,8 @@ func TestHowToHasNoStaleClaims(t *testing.T) {
 		"has no flag for this yet",      // the operator has --no-kustomize
 		"does not attach a source path", // duplicate errors name the file
 		"the encodings tier of the hardening plan adds it",
+		"has no per-check timeout",       // --timeout and --max-output exist
+		"does not expose flags for them", //
 	} {
 		if strings.Contains(text, stale) {
 			t.Errorf("docs/k8s_howto.md carries a stale claim: %q", stale)
