@@ -102,3 +102,33 @@ func ExampleStepGraphFoldNodes() {
 	// Output:
 	// 30
 }
+
+// ExampleStepGraphOver shows the single-node payload Lens: graph_set pins node a's
+// payload to 10, graph_over doubles just that node's payload via the lens (b is
+// untouched), and graph_focus reads the result back — the focused-rewrite surface
+// `… |> graph_set a 10 |> graph_over a (\p -> p * 2) |> graph_focus a`.
+func ExampleStepGraphOver() {
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
+	flag := dsltypes.BitFlag(1)
+
+	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any("seed")), flag))
+	}
+
+	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
+		evaluator.StepGraphEmpty(),
+		evaluator.StepGraphAddNode("N", "a"),
+		evaluator.StepGraphAddNode("N", "b"),
+		evaluator.StepGraphSet("a", 10),
+		evaluator.StepGraphOver("a", func(p any) any { return p.(int) * 2 }),
+		evaluator.StepGraphFocus("a"),
+	}
+
+	for node := range engine.EvaluatePipeline(source, pipeline) {
+		val, _ := node.Value.UnwrapRight()
+		fmt.Println(val)
+	}
+
+	// Output:
+	// 20
+}

@@ -304,3 +304,11 @@ spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_a
 let gu = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_union gu |> graph_nodes |> collect_list |> assert [a b c]
 let gi = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_intersect gi |> graph_nodes |> collect_list |> assert [b]
 let gd = spawn S: x |> graph_empty |> graph_add_node N b |> graph_add_node N c in spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_diff gd |> graph_nodes |> collect_list |> assert [a]
+
+-- 72. Graph optics: single-node payload Lens — focus (read) / set / over (modify).
+-- Distinct from the bulk Functor graph_map_nodes: these target ONE node, leaving
+-- every sibling node and all edges untouched (structural sharing preserved).
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_focus nginx |> assert nginx
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_set nginx running |> graph_focus nginx |> assert running
+spawn S: x |> graph_empty |> graph_add_node Pod nginx |> graph_set nginx 10 |> graph_over nginx (\p -> p + 5) |> graph_focus nginx |> assert 15
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_set a 1 |> graph_set b 2 |> graph_over a (\p -> p * 100) |> graph_focus b |> assert 2

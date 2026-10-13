@@ -578,11 +578,18 @@ steps bind the edge *weight*. New builtins (12):
 `graph_union`/`graph_diff`/`graph_intersect`. Exhaustive asserts in
 `tests/dsl_exhaustive_test.gatwd` §§69–71 (all green).
 
-> **Still deferred (Phase 4c — optics rewrites).** `graph_focus`/`graph_over`/
-> `graph_set` (the `optics/graph_optics.go` lens/prism/traversal rewrites) are the
-> one remaining matrix column not yet surfaced to the DSL; they need the focused
-> immutable-rewrite surface (`focus`/`update` grammar) extended to graph-typed
-> values. Recorded so the gap is explicit, not silent (Mandate 2).
+**Phase 4c — optics rewrites (CORE L3+L5). ✅ DONE (2026-10-13).** The single-node
+payload **Lens** trio closes the last matrix column. L3 (`evaluator/graph_steps.go`):
+`StepGraphFocus` (read/preview the payload — missing node → injected error, not
+silent), `StepGraphSet` (Lens Set with Just), `StepGraphOver` (Lens "over": Get →
+f → Set), all backed by `optics.NodePayloadLens` so editing one node copies a path,
+not the whole graph. L5: `graph_focus <id>` + `graph_set <id> <value>` in the free
+`buildGraphStep`; `graph_over <id> (\p -> …)` in `buildGraphLambdaStep` (reuses
+`compileUnary`). These are the *focused* counterpart to the bulk Functor
+`graph_map_nodes` — one node, siblings/edges untouched. Asserts §72 +
+`ExampleStepGraphOver`. **The graph collection row of the operator-type matrix is
+now complete through the DSL** (construct / project / walk / Functor / Foldable /
+Filterable / Monoid / Lens).
 
 **Phase 5 — generic K8s I/O (L4).** Depends on **P2** (structured adapter). Add
 `kustomize_adapter.go` yielding the same nested-HAMT payloads as P2 (offline
@@ -732,7 +739,9 @@ def rel_calls = \pod -> \services ->
 - [x] Graph construction/projection/walk ops → DSL builtins + `tests/dsl_exhaustive_test.gatwd`
       asserts §§65–68 (M3) — Phases 3–4. ✅
 - [x] Graph Functor/Foldable/Filterable/Monoid → DSL builtins + asserts §§69–71 (M3) —
-      Phase 4b. ✅ (Only optics `graph_focus`/`graph_over`/`graph_set` remain, Phase 4c.)
+      Phase 4b. ✅
+- [x] Graph optics (single-node payload Lens: `graph_focus`/`graph_set`/`graph_over`) →
+      DSL builtins + asserts §72 (M3) — Phase 4c. ✅ **Matrix row complete through DSL.**
 - [ ] K8s relations are pure DSL; no Go loops faking a graph (M1/8).
 - [ ] Third-party K8s deps only in `adapters/` + `pkg/plugins` (M5).
 - [ ] Edition `main.go` is assembly-only; registered pieces come from

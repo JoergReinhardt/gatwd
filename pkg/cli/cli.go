@@ -2922,6 +2922,15 @@ func buildGraphStep(stepStr string) (evaluator.PipelineStep[functions.Either[err
 		return evaluator.StepGraphTopoSort(), true
 	case "graph_scc":
 		return evaluator.StepGraphSCC(), true
+	// --- optics: single-node payload lens (read/set) ---
+	case "graph_focus":
+		if len(args) >= 1 {
+			return evaluator.StepGraphFocus(args[0]), true
+		}
+	case "graph_set":
+		if len(args) >= 2 {
+			return evaluator.StepGraphSet(args[0], parseGraphWeight(strings.Join(args[1:], " "))), true
+		}
 	}
 	return nil, false
 }
@@ -3033,6 +3042,16 @@ func (i *Interpreter) buildGraphLambdaStep(stepStr string) (evaluator.PipelineSt
 						strategy = tf[2]
 					}
 					return evaluator.StepGraphFoldWalk(tf[1], strategy, i.evalSeed(tf[0]), f), true
+				}
+			}
+		}
+	case "graph_over":
+		// graph_over <id> (\p -> expr) — focused single-node payload rewrite
+		if pidx := strings.Index(rest, "("); pidx > 0 {
+			id := strings.TrimSpace(rest[:pidx])
+			if inside, _, ok := splitParen(rest[pidx:]); ok {
+				if f, ok := i.compileUnary(inside); ok && id != "" {
+					return evaluator.StepGraphOver(id, f), true
 				}
 			}
 		}

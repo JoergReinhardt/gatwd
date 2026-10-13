@@ -9,6 +9,7 @@ import (
 	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/functions"
+	"github.com/joergreinhardt/gatwd/optics"
 )
 
 // This file wires the generic persistent Graph collection (collections/graph.go,
@@ -511,6 +512,58 @@ func StepGraphFoldWalk(start, strategy string, seed any, f func(acc, payload any
 			return f(acc, n.Payload)
 		})
 		return emitValue(flag, yield, res)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Optic steps — the single-node payload Lens (optics/graph_optics.go)
+//
+// These are the Phase 4c cells: a *focused* rewrite of one node's payload, as
+// opposed to the bulk Functor StepGraphMapNodes that rewrites every node. They are
+// backed by optics.NodePayloadLens so the structural sharing of the underlying HAMT
+// adjacency is preserved — editing one node copies a path, not the whole graph.
+// ---------------------------------------------------------------------------
+
+// dslNodeLens is the NodePayloadLens at the DSL's concrete graph instantiation.
+func dslNodeLens(id string) optics.Lens[dslGraph, functions.Maybe[any]] {
+	return optics.NodePayloadLens[string, string, any, any](id)
+}
+
+// StepGraphFocus reads (previews) the payload of the node identified by id and
+// emits it as the stream value. A missing node injects an error rather than a zero
+// value, so a mis-typed focus is visible rather than silently empty.
+func StepGraphFocus(id string) PipelineStep[functions.Either[error, any]] {
+	lens := dslNodeLens(id)
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		mv := lens.Get(g)
+		if mv.IsNothing() {
+			return yield(InjectError[any](fmt.Errorf("graph_focus: no node %q", id), flag))
+		}
+		v, _ := mv.Unwrap()
+		return emitValue(flag, yield, v)
+	})
+}
+
+// StepGraphSet sets the payload of node id to value (the Lens Set with Just),
+// preserving the node's color and every edge; setting on an absent node is a no-op.
+func StepGraphSet(id string, value any) PipelineStep[functions.Either[error, any]] {
+	lens := dslNodeLens(id)
+	return graphMap(func(g dslGraph) dslGraph { return lens.Set(g, functions.Just[any](value)) })
+}
+
+// StepGraphOver modifies the payload of node id *in place* by applying f to its
+// current payload (the Lens "over"): Get, map with f, Set. It is the focused
+// single-node counterpart to the whole-graph StepGraphMapNodes. An absent node is
+// left unchanged (nothing to read, nothing to write).
+func StepGraphOver(id string, f func(any) any) PipelineStep[functions.Either[error, any]] {
+	lens := dslNodeLens(id)
+	return graphMap(func(g dslGraph) dslGraph {
+		mv := lens.Get(g)
+		if mv.IsNothing() {
+			return g
+		}
+		v, _ := mv.Unwrap()
+		return lens.Set(g, functions.Just[any](f(v)))
 	})
 }
 
