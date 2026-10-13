@@ -30,7 +30,8 @@ var listKinds = map[string]string{
 }
 
 // FakeClusterFromYAML decodes a multi-document manifest (YAML or JSON) and returns a
-// fake dynamic client holding every object in the namespace "default". Every GVR in
+// fake dynamic client holding every object in the namespace its manifest names, or
+// in "default" when it names none. Every GVR in
 // k8sgraph.CoreCrawls is registered so kinds with no objects still list cleanly.
 func FakeClusterFromYAML(t testing.TB, raw []byte) *fake.FakeDynamicClient {
 	t.Helper()
@@ -46,7 +47,12 @@ func FakeClusterFromYAML(t testing.TB, raw []byte) *fake.FakeDynamicClient {
 		if len(obj.Object) == 0 {
 			continue
 		}
-		obj.SetNamespace("default")
+		// A namespaced object keeps the namespace its manifest names (a fixture with the
+		// same name in two namespaces is how qualified node ids are exercised); one
+		// without a namespace lands in "default", where a live crawl would find it.
+		if obj.GetNamespace() == "" {
+			obj.SetNamespace("default")
+		}
 		objs = append(objs, obj)
 	}
 	kinds := map[schema.GroupVersionResource]string{}
