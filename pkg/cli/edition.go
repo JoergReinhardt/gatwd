@@ -5,6 +5,7 @@ import (
 	"io/fs"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // preludeEntry is one DSL prelude queued on an Edition. Exactly one of its two
@@ -28,6 +29,7 @@ type Edition struct {
 	stepHandlers []StepHandler
 	preludes     []preludeEntry
 	commands     []*cobra.Command
+	flags        []func(*pflag.FlagSet)
 	normalize    func([]string) []string
 }
 
@@ -116,6 +118,25 @@ func (e *Edition) WithCommand(cmd *cobra.Command) *Edition {
 	return e
 }
 
+// WithFlags lets the edition declare persistent flags on its root command (they apply to
+// every subcommand and show up in --help and shell completion). fn is called each time the
+// command line is built, with a fresh pflag.FlagSet, so it should bind the flags to variables
+// the edition's steps read when they run, never at registration time: the flags are parsed
+// after the steps are registered. It is a generic hook, like WithCommand: the edition names
+// a flag, the steps (or a prelude constant) give it meaning.
+//
+// Example:
+//
+//	var verbose bool
+//	cli.NewEdition("gatwd-x").
+//	    WithFlags(func(f *pflag.FlagSet) { f.BoolVar(&verbose, "verbose", false, "chatty steps") }).
+//	    WithStep(stepThatReads(&verbose)).
+//	    Run()
+func (e *Edition) WithFlags(fn func(*pflag.FlagSet)) *Edition {
+	e.flags = append(e.flags, fn)
+	return e
+}
+
 // WithArgNormalizer registers a rewrite applied to the command-line arguments before they
 // are parsed, so an edition can keep accepting a retired spelling (a single-dash long flag,
 // a renamed flag) for a release while it prints its own notice.
@@ -148,6 +169,7 @@ func (e *Edition) Command() *CommandTree {
 		Build:         e.buildInterpreter,
 		Preludes:      preludes,
 		Commands:      e.commands,
+		Flags:         e.flags,
 		NormalizeArgs: e.normalize,
 	})
 }

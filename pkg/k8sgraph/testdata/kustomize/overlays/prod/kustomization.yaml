@@ -1,0 +1,13 @@
+# The production overlay of ../../base: every name gets the prefix `prod-` (and the
+# references between the objects follow), everything moves into the `prod` namespace,
+# a patch flips a setting, and an Ingress that only exists in production is added.
+resources:
+  - ../../base
+  - ingress.yaml
+namespace: prod
+namePrefix: prod-
+labels:
+  - pairs:
+      env: prod
+patches:
+  - path: pod-patch.yaml

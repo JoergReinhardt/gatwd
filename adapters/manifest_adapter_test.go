@@ -1,9 +1,11 @@
 package adapters_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/adapters"
@@ -196,5 +198,66 @@ func TestManifestAdapterKustomizeEndToEnd(t *testing.T) {
 	meta := hamtGet(t, payloads[0], "metadata")
 	if name := hamtGet(t, meta, "name"); name != "rendered-base-cm" {
 		t.Fatalf("rendered metadata.name = %v, want rendered-base-cm (namePrefix applied)", name)
+	}
+}
+
+// TestManifestAdapterKustomizeSwitch proves the render switch is read at read time, not
+// when the adapter is built: while it is off a kustomization root is read as the plain
+// files it holds (the renderer must not run, and the kustomization file itself is one of
+// the documents), once it is on the same adapter renders.
+func TestManifestAdapterKustomizeSwitch(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("kustomization.yaml", "resources:\n  - pod.yaml\nnamePrefix: x-\n")
+	write("pod.yaml", "kind: Pod\nmetadata:\n  name: raw\n")
+
+	renders := 0
+	on := false
+	adapter := adapters.WithRenderer(func(string) ([]byte, error) {
+		renders++
+		return []byte("kind: Pod\nmetadata:\n  name: x-raw\n"), nil
+	})
+
+	off := collectPayloads(t, dir, adapter, adapters.WithKustomizeSwitch(func() bool { return on }))
+	if renders != 0 {
+		t.Fatal("renderer ran while the switch was off")
+	}
+	if len(off) != 2 { // kustomization.yaml and pod.yaml, in lexical order
+		t.Fatalf("switch off: expected the 2 plain files, got %d: %v", len(off), off)
+	}
+	if name := hamtGet(t, hamtGet(t, off[1], "metadata"), "name"); name != "raw" {
+		t.Fatalf("switch off: pod name = %v, want the raw one", name)
+	}
+
+	on = true
+	rendered := collectPayloads(t, dir, adapter, adapters.WithKustomizeSwitch(func() bool { return on }))
+	if renders != 1 || len(rendered) != 1 {
+		t.Fatalf("switch on: renders=%d payloads=%d, want 1 and 1", renders, len(rendered))
+	}
+	if name := hamtGet(t, hamtGet(t, rendered[0], "metadata"), "name"); name != "x-raw" {
+		t.Fatalf("switch on: pod name = %v, want x-raw", name)
+	}
+}
+
+// TestManifestAdapterRenderErrorNamesTheRoot proves a failing renderer is loud: one
+// error node, carrying the renderer's message, and no half-rendered resources.
+func TestManifestAdapterRenderErrorNamesTheRoot(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "kustomization.yaml"), []byte("resources: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payloads := collectPayloads(t, dir, adapters.WithRenderer(func(d string) ([]byte, error) {
+		return nil, fmt.Errorf("kustomize: rendering %s failed: boom", d)
+	}))
+	if len(payloads) != 1 {
+		t.Fatalf("expected exactly one error node, got %d: %v", len(payloads), payloads)
+	}
+	err, ok := payloads[0].(error)
+	if !ok || !strings.Contains(err.Error(), dir) || !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("expected an error naming %s and the cause, got %v", dir, payloads[0])
 	}
 }

@@ -1,0 +1,3 @@
+# Negative fixture: a remote base. In-process kustomize must refuse it, never fetch it.
+resources:
+  - https://example.invalid/org/repo//base?ref=v1

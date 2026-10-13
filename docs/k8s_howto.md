@@ -8,7 +8,7 @@ This guide covers the two binaries built on the Kubernetes graph:
 | `gatwd-k8s-operator` | an **Appliance**: the edition plus embedded compliance rules, hot-reloadable | check a cluster (or manifests) against rules, once or on a schedule |
 
 Both read a **live cluster** (kubeconfig or in-cluster service account) or **offline manifests**
-(files, directories, `kustomize build` output) and lift the resources into one typed graph
+(files, directories, kustomize overlays rendered in process) and lift the resources into one typed graph
 (`k8s_graph`). If no cluster is reachable the edition says so and runs offline.
 
 Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language reference:
@@ -233,6 +233,9 @@ access to Secrets by default.
 
 ### 3.1 Build
 
+The module needs **Go 1.27** (`go.mod` says `go 1.27.0`; the in-process kustomize renderer requires it). An older `go` command fetches
+the toolchain by itself (`GOTOOLCHAIN=auto`, the default); a container build stage must use a `golang:1.27` image or newer.
+
 ```bash
 go build -o bin/gatwd-k8s ./cmd/gatwd-k8s
 go build -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
@@ -241,7 +244,7 @@ go build -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/gatwd-k8s-operator ./cmd/gatwd-k8s-operator
 ```
 
-The static operator is a single ELF binary of roughly 29 MB. To install into `$GOBIN` (default
+The static operator is a single ELF binary of roughly 31 MB (the in-process kustomize library accounts for about 3 MB of that). To install into `$GOBIN` (default
 `~/go/bin`) from a checkout: `go install ./cmd/gatwd-k8s ./cmd/gatwd-k8s-operator`.
 
 ### 3.2 Run it
@@ -260,10 +263,32 @@ The static operator is a single ELF binary of roughly 29 MB. To install into `$G
 test "$(gatwd-k8s-operator -manifests ./rendered)" = "[]" || { echo "policy violations"; exit 1; }
 ```
 
-The operator reads plain manifests (`manifests` step). For kustomize output, render first
-(`kubectl kustomize overlay > rendered/all.yaml`, then `-manifests rendered`). In `gatwd-k8s` scripts the
-separate `kustomize` step renders a kustomization root itself — `spawn StrVal: ./overlay |> kustomize |> k8s_graph` —
-but it shells out to the `kustomize` binary, which must be installed (it is not in this guide's tested set).
+**Kustomize.** The `manifests` step renders a *kustomization root* — a directory holding `kustomization.yaml`,
+`kustomization.yml` or `Kustomization` — by itself, **in process**: the kustomize library is linked into the
+binary, so no `kustomize`, `kubectl` or `git` is needed, not even in a scratch container. Every other path (a
+file, a directory without such a file) is read exactly as before. The operator's `-manifests overlay/` renders
+the same way.
+
+```bash
+gatwd-k8s eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> k8s_graph |> graph_order'      # ∷ 4: rendered, prefix and namespace applied
+gatwd-k8s --no-kustomize eval -e 'spawn StrVal: pkg/k8sgraph/testdata/kustomize/overlays/prod |> manifests |> collect_list |> length'   # ∷ 3: the plain files
+```
+
+- **`--no-kustomize`** (a persistent flag of `gatwd-k8s`; `k8sgraph.WithoutKustomize()` for an Appliance) makes
+  `manifests` read a root as the plain files it contains, as it did before auto-render. The root's own
+  `kustomization.yaml` is then one of the documents and usually has no `kind`, so building a graph from it fails with
+  `key 'kind' not found`: the switch is for a tree of already-rendered YAML that happens to hold such a file. The
+  operator renders by default and has no flag for this yet (use the option).
+- The separate **`kustomize` step** (`… |> kustomize |> k8s_graph`) always renders, whatever the flag says. Use
+  `kubectl kustomize overlay > rendered/all.yaml` only if you want an artifact on disk.
+- Only the path you give is tested for being a root. A directory *tree* that contains roots (`overlays/dev`,
+  `overlays/prod`) is read file by file, so point `manifests` at the overlay you mean.
+- The output is what `kustomize build` prints (the tests compare it with `kubectl kustomize` when that is
+  installed). **Refused, loudly:** exec plugins, KRM functions and Helm charts; remote bases and files (`https://…`,
+  `git@…`, `github.com/…`), which are rejected *before* anything is fetched; files outside the kustomization root
+  (kustomize's load restriction). A broken overlay is `[ERROR] kustomize: rendering <root> failed: <kustomize's
+  message>` and a non-zero exit, never an empty graph.
+- Cost: the kustomize library adds about 3 MB (11%) to the stripped static binaries (§3.1).
 
 ### 3.3 Container image
 
@@ -283,7 +308,7 @@ docker build -t registry.example.com/gatwd-k8s-operator:0.1.0 .
 docker run --rm -v "$PWD/examples/k8s_howto/cluster:/data:ro" registry.example.com/gatwd-k8s-operator:0.1.0 -manifests /data
 ```
 
-The image needs nothing else for live checks or plain manifests; the `kustomize` step would also need that binary in the image.
+The image needs nothing else for live checks, plain manifests or kustomize overlays: rendering happens inside the binary.
 
 ### 3.4 Deploy to a cluster
 
@@ -330,5 +355,7 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
 - Node ids are `metadata.name` only (§2.3).
 - The operator does not set a non-zero exit code on violations (§3.2).
+- `collect_list` drops error nodes: a failing source (a broken overlay, a missing path) piped into it prints `[]` and exits 0 instead of `[ERROR]`. Leave `collect_list` out of pipelines whose failure you need to see.
+- `--no-kustomize` is a `gatwd-k8s` flag; the operator renders overlays but only has the `k8sgraph.WithoutKustomize()` option, not a flag (§3.2).
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

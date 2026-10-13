@@ -81,30 +81,35 @@ func CrawlStep(keyword string, client dynamic.Interface, gvr schema.GroupVersion
 
 // ManifestStep is the offline twin of CrawlStep: it exposes the filesystem
 // manifest reader (adapters.ManifestAdapter) as a named `|>` pipeline step, so an
-// edition can crawl `kustomize build` output or raw manifests with the SAME DSL it
-// uses against a live cluster. The step takes the path from the spawned node value:
+// edition can crawl rendered or raw manifests with the SAME DSL it uses against a
+// live cluster. The step takes the path from the spawned node value:
 //
 //	spawn StrVal: ./overlays/prod |> manifests |> hamt_path spec.selector
 //
 // Because the manifest adapter yields the identical nested-HAMT payload as the live
 // crawl, every downstream graph/relation rule is source-agnostic (live vs. offline).
-func ManifestStep(keyword string) cli.StepHandler {
-	return cli.AdapterStep(keyword, adapters.ManifestAdapter())
+//
+// With no options the step reads plain files and directories only. ApplyEdition
+// registers it with InProcessRenderer and a switch, which is what makes `manifests`
+// render a kustomization root on its own (see ApplyEdition); pass
+// adapters.ManifestOption values to wire the same behavior by hand.
+func ManifestStep(keyword string, opts ...adapters.ManifestOption) cli.StepHandler {
+	return cli.AdapterStep(keyword, adapters.ManifestAdapter(opts...))
 }
 
-// KustomizeStep is a Kustomize-aware ManifestStep: when the spawned path is a
-// kustomization root it renders the library with the external `kustomize build`
-// first, then treats the output as any other YAML (plain files/dirs still read
-// directly). This is the step editions register to work with the kustomize
-// overlays that dominate real-world clusters:
+// KustomizeStep is the explicit, always-rendering ManifestStep: when the spawned
+// path is a kustomization root it is built in process (InProcessRenderer — no
+// external binary) and the output is treated as any other YAML; plain files and
+// directories are read directly. Unlike `manifests`, it ignores `--no-kustomize`: a
+// script that names the step asked for the render.
 //
 //	spawn StrVal: ./overlays/prod |> kustomize |> hamt_path spec.selector
 //
-// To render with a different tool (e.g. `kubectl kustomize`), build the adapter
-// directly: cli.AdapterStep(keyword,
+// To render with an external tool instead (e.g. `kubectl kustomize`), build the
+// adapter directly: cli.AdapterStep(keyword,
 // adapters.ManifestAdapter(adapters.WithKustomizeCommand("kubectl", "kustomize"))).
 func KustomizeStep(keyword string) cli.StepHandler {
-	return cli.AdapterStep(keyword, adapters.ManifestAdapter(adapters.WithKustomize()))
+	return cli.AdapterStep(keyword, adapters.ManifestAdapter(adapters.WithRenderer(InProcessRenderer())))
 }
 
 // RestConfigFromKubeconfig loads a *rest.Config for talking to the cluster,

@@ -1,0 +1,8 @@
+apiVersion: example.com/v1
+kind: Generate
+metadata:
+  name: exec-plugin
+  annotations:
+    config.kubernetes.io/function: |
+      exec:
+        path: /bin/true

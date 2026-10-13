@@ -92,7 +92,7 @@ and Workstream F in [`language_roadmap.md`](language_roadmap.md)):
 ## 3. Quick Start & Setup
 
 ### Prerequisites
-- Go 1.23 or later (Go 1.24+ recommended for native `maphash.Comparable`).
+- Go 1.27 or later. `go.mod` says `go 1.27.0`; with the default `GOTOOLCHAIN=auto` an older `go` command downloads the matching toolchain itself (network access needed once), so no system update is required. CI images and Dockerfiles that build the module must carry Go 1.27+ (or allow the toolchain download).
 
 ### Building the CLI
 ```bash
@@ -283,7 +283,7 @@ func main() {
 The most complete example is `gatwd-k8s` (Edition) and `gatwd-k8s-operator` (Appliance). The architecture it demonstrates is the template for any domain:
 ```
 adapters/kubernetes_adapter.go    live crawl  → nested-HAMT payload per resource   (client-go confined here)
-adapters/manifest_adapter.go      offline     → the SAME payload shape (YAML / kustomize build)
+adapters/manifest_adapter.go      offline     → the SAME payload shape (YAML; a kustomization root via an injected renderer)
 pkg/k8sgraph/                     thin shim: CrawlStep/ManifestStep → generic cli.AdapterStep; ApplyEdition(e, client)
 pkg/k8sgraph/lib/k8s/*.gatwd      the logic, embedded: types, ingest, relations, queries, sources, prelude
 cmd/gatwd-k8s/                    Edition main = pure assembly
