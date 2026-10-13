@@ -11,11 +11,9 @@
 
 ## 1. Where we are
 
-**Committed:** the language roadmap, the Kubernetes graph tool, the agent rules/skills/guards, the how-to, the hardening plan,
-W0 (fail-loud sweep) and the D4 argument model.
-**Implemented but NOT committed (2026-10-13):** **W1b**, the cobra command tree. `git status` lists it; ask the user whether to commit
-(suggested split: one commit for code+tests, one for docs) and never push without being asked. `output.txt` in the repo root is
-untracked and **not ours** — do not add it. Stage by name.
+**Committed and pushed (2026-10-13, `master` at `19a4b03`; local commit `4cc0c8a` = W2 step 1, `Char`, not pushed):** the language roadmap, the Kubernetes graph tool, the agent rules/skills/guards, the how-to, the
+hardening plan, W0 (fail-loud sweep), the D4 argument model and **W1b**, the cobra command tree. `output.txt` in the repo root is untracked and **not ours** —
+do not add it. Stage by name; commit and push only when asked.
 
 What W1b changed (for orientation):
 
@@ -40,8 +38,9 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 
 | ID | Decision |
 | :-- | :-- |
-| D1 | `Char` added and `String` becomes a collection row — the user's words: *"convert to char on demand if possible, otherwise yes"*. **Confirm the reading with the user at the start of W2** (plan §1): a one-character `String` converts to `Char` on demand where a `Char` is expected; otherwise a real distinct `Char`. Keep the conversion table narrow (D2 removed implicit `+` coercion for the opposite reason). |
-| D2 | `+` is numeric-only; `++` concatenates. *Proposed corollary, not yet confirmed:* `"a" + "b"` is also an error with a hint to use `++` — **ask when you reach it.** |
+| D1 | `Char` added; `String` is a collection row of `Char`s; **conversion works both ways, on demand** (user, 2026-10-13: *"if a serialized collection of chars gets treated as a string, convert it"*): a `Char` collection used as a `String` becomes the `String`, a one-character `String` becomes a `Char`, a `String` used as a `Char` collection becomes one. **Details accepted 2026-10-13:** `List`/`Chunk` of `Char` count as a string, a mixed collection is an error naming the element, an empty collection converts only where a `String` is demanded. Keep the conversion table narrow and in `valueops.go` (D2 removed implicit `+` coercion for the opposite reason). |
+| D2 | `+` is numeric-only; `++` concatenates. **Corollary confirmed (2026-10-13):** `"a" + "b"` is also an error with a hint to use `++`. Check how `const`s (stored as text) behave first. |
+| D11, D12 | **Proposed, unanswered** (plan §6.1, the `Ratio` fraction type for W3): `/` on `Int`/`Int` unchanged; `Ratio` vs `Float` promotes in arithmetic and compares exactly. Ask at the start of W3. |
 | D3 | (a): keep the runtime types, specify the tower, `Num`/`Integral`/`Fractional` are annotation-level constraint names. |
 | D4, D5, D6, D9, D10 | as in plan §1 (D4 and D10 are implemented). |
 | D7 | Bump the repo to **Go 1.27**, kustomize v0.21.3 (W5). No system Go update needed: `GOTOOLCHAIN=auto` fetches `go1.27.x`; only CI/Docker images need ≥ 1.27. Auto-render of kustomization roots was **not** explicitly answered — confirm at W5. |
@@ -51,14 +50,14 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 
 Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
 
-**W2 (plan §5):** tier 1 first — `Char` (literal `'a'`, escapes; `char_*`), String as a collection row in `pkg/cli/valueops.go`, the `str_*` library, `not`/`xor`/`and`/`or`,
+**W2 (plan §5):** **`Char` is done** (`4cc0c8a`: literal, escapes, `char_*`, `asChar`, checker). Remaining tier 1 — String as a collection row in `pkg/cli/valueops.go`, the `str_*` library, `not`/`xor`/`and`/`or`,
 `Ordering` ADT, `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`), the generic *function-form-as-step* fallback (F18) placed after the
 existing step chain and before the OS-exec fallback. Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
-**The F2 rows in `pkg/cli/failloud_test.go` (`'a'`, `**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands.**
+**The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** Next sub-step recommended: F18 (function-form-as-step), because `x |> char_upper` still says `unknown step`.
 
 **W3 (plan §6):** the numeric tower as a tested specification: logical `Int` (int64 fast path + `big.Int`, **demote** results that fit; fix the leading `+` of big integers, F11),
 promotion lattice, `/ // %` and zero-division errors, `**`/`pow`/`sqrt`/`floor`/`ceil`/`round`/…, unary minus, and the constraint names `Num`/`Integral`/`Fractional`/`Comparable`/
-`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`) with **zero false positives** on every committed script. An operator × type-pair matrix test.
+`Appendable` in `ParseTypeAnnotation` and the checker (`pkg/cli/typecheck.go`) with **zero false positives** on every committed script. An operator × type-pair matrix test. **Plus `Ratio`, exact fractions (plan §6.1):** `3r4` and `0.75r` literals, `ratio n d`, `*big.Rat` with demotion to `Int`, `to_ratio` (shortest-decimal), `to_ratio_exact`, `to_ratio_approx x max_den`, correctly rounded `to_float`; ask D11/D12 first.
 
 **Definition of done per cell** is in `AGENTS.md` Mandate 2 (Go method → operator → evaluator step → step form → function form → DSL assertion *inside a lambda* → structural Go test → `Example`).
 Each partial function needs a negative case; the parity check "step form ≡ function form" is a test, not a hope.
@@ -133,8 +132,8 @@ D2 will change the output of any script that concatenated with `+` (none found);
 
 ## 8. First steps
 
-1. `git status -sb`: confirm W1b is still uncommitted (or committed, if the user asked), and the tree is otherwise clean apart from `output.txt`. Run the §7 gates once for a known-green start; build the baseline binary from `HEAD` **before** editing.
-2. Ask the user: **commit W1b?** (and push? — never without asking). Then confirm the D1 reading (§2) and the D2 corollary (`"a" + "b"`).
+1. `git status -sb`: confirm the tree is clean apart from `output.txt` (the D1 clarification may still be an uncommitted doc edit). Run the §7 gates once for a known-green start; build the baseline binary from `HEAD` **before** editing.
+2. Ask the user: **commit W1b?** (and push? — never without asking). Then settle the D1 details (§2) and confirm the D2 corollary (`"a" + "b"`).
 3. Write W2's design note into plan §5 (grounded in `pkg/cli/valueops.go`, `functions/`, `parser/`): how `Char` literals lex, which cells of the Char/String × operation matrix exist, the on-demand conversion table.
 4. Pinning tests first (the F2 rows, the `+` rows), then the generic Go type in `functions/` with structural tests, then registration in `pkg/cli/dslfuncs_*.go`, then DSL assertions (read every output line), then docs (`dsl_guide.md`, `grammar.md`).
 5. W3 in parallel only if the tree stays reviewable; otherwise W2 tier 1 first. Update the plan's progress table and rewrite this handoff at the end of each phase; mark the old one superseded.

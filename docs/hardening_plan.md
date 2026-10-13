@@ -1,8 +1,8 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
-> **Status (2026-10-13): W0, W1a and W1b (the cobra command tree) are implemented; W2–W7 are untouched.** Progress table: §0.
-> **All decisions D1–D10 are answered** (§1, 2026-10-13). Two answers carry a point to confirm when their phase starts: D1 (the
-> exact `Char` conversion rule, W2) and D7 (auto-render, W5).
+> **Status (2026-10-13): W0, W1a and W1b (the cobra command tree) are implemented; W2 has started (`Char` done); W3–W7 are untouched.** Progress table: §0.
+> **All decisions D1–D10 are answered** (§1, 2026-10-13); **D11/D12 (the `Ratio` type, §6.1) are proposed**. Two answers carry a point to settle when their phase starts: D1 (the
+> details of the two-way `Char`/`String` conversion, W2) and D7 (auto-render, W5).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
 > facts marked **(researched)** come from the sources listed at the end.
 > **To start implementing, read [`hardening_handoff.md`](hardening_handoff.md).**
@@ -18,7 +18,7 @@
 | W0 | **Fail-loud sweep** | many failures are silent (verified list in §2.4) — the project's own Mandate 6 | M | mild (turns silence into errors) |
 | W1 | **CLI**: a core `Run` API (script + arguments, `-e`, optional/additive preludes) **and a cobra command tree built into `pkg/cli`** with subcommands, completion, `--help` | needed by every future project; Editions/Appliances inherit it | M–L | operator flags become `--long` (migration shim) |
 | W2 | **Base types & stdlib**: `Char`, string library, `not`, `Ordering`, conversions, `Bytes` + encodings, formatting | the DSL has a String *value* but no string *library*, no `Char`, no boolean `not` (§2) | L | `"x" + 1` becomes an error |
-| W3 | **Numeric tower, specified**: logical `Int` (unbounded), `Float`, `Ratio?`, `Complex`; `Num`/`Integral`/`Fractional` as *constraint names*; `**`, rounding, conversions | promotion exists but is undocumented and untested as a matrix | M | display fix (`+123`) |
+| W3 | **Numeric tower, specified**: logical `Int` (unbounded), `Float`, **`Ratio` (exact fractions, §6.1)**, `Complex`; `Num`/`Integral`/`Fractional` as *constraint names*; `**`, rounding, conversions | promotion exists but is undocumented and untested as a matrix | M | display fix (`+123`) |
 | W4 | **Node identity**: collision-proof ids | ids are `metadata.name` only (verified) | M–L | yes for ids in queries/tests |
 | W5 | **In-process kustomize** in the k8s edition | no external binary; `manifests` can render | S–M | no |
 | W6 | **Operator/Appliance**: layered overrides, exit codes, formats | override replaces rules (verified); exit 0 always | S | override mode default (D5) |
@@ -33,7 +33,8 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | W0 | **done** (committed). One deviation: item 3 is half done — unparsable statements report *why* (`cannot evaluate "…": <reason>`) but not *where*; `parser/errors.go` `FormatError` is not wired into the infix/line parsers — **decided at W1b: deferred to W7**, see §4.5. F2's missing operators (`Char`, `not`, `**`, unary minus) belong to W2/W3. |
 | W1a (`Run` API) | **done**: `RunOptions{Script, Args, Task, Eval, Define, Preludes}`, `Interpreter.Run`/`RunTask`, `ARGS`/`ARG0`/`main`/`--task` (D4), `Interpreter.Out` (statement output as a writer), `ParseDefines`. Deferred with reasons in §4.5. |
 | W1b (cobra tree) | **done** (2026-10-13): `pkg/cli/command.go` (`CommandTree`, `CommandSpec`), `repl.go`; `Edition.Command/WithCommand/WithArgNormalizer`; the hand-rolled `parseRunArgs` and `--check` branch are deleted; backward-compatibility table `TestCommandTreeBackwardCompatible`, subcommand table, two real-binary tests (`cmd/gatwd`, `cmd/gatwd-k8s`). Design calls and deferrals: §4.5. |
-| W2–W7 | not started |
+| W2 tier 1, step 1 (`Char`) | **done** (2026-10-13, commit `4cc0c8a`): `functions.Char` (`type Char rune`, so it never matches the numeric `int32` arms), `'a'` literals with escapes (`parser.lexCharLiteral`, `TokChar`), `==`/ordering incl. the D1 one-character-String rule (`Compare`, `StructuralEqual`), `char_*` function forms (`dslfuncs_text.go`), the `asChar` entry of the conversion table (`valueops.go`), checker support (`Char`; `Char`/`String` are consistent), docs (`dsl_guide.md` §15, `grammar.md`). Not yet: String as a collection row, `str_*`, `not`/`xor`/`and`/`or`, `Ordering`, D2, F18 (function-form-as-step — `'a' |> char_upper` is `unknown step` until it lands), `Bytes`. Notes: `const K = 'k'` stores text like every constant (a pre-existing limitation, revisit with D2); `StructuralEqual`'s string/`%v` fallback already equated `'a'` and `"a"`, the explicit `Char` case documents D1 and survives removing that fallback. |
+| W2 rest, W3–W7 | not started |
 
 ---
 
@@ -50,11 +51,20 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | **D4** | **Argument model, as recommended:** `ARGS` (List of String, after `--`), `ARG0`, `main` as the optional default task, `--task NAME` to run any `def`. | The flag syntax itself is cobra's (§4); D4 is what a script *sees*. **Extension made while implementing:** a pipeline-bodied task is a *fragment* whose input stream is the arguments (one String node each), a lambda-bodied task is called with the `ARGS` list. **Implemented** in `pkg/cli/run.go` (`RunOptions{Script, Args, Task}`, `Interpreter.Run`/`RunTask`) and, since W1b, on the cobra tree. Spec: `docs/dsl_guide.md` §23. |
 | **D10** | **Use a real CLI library: cobra (+ pflag), integrated directly into core (`pkg/cli`).** The Clean Core rule gets an explicit, narrow exemption: cobra/pflag may be imported by `pkg/cli` only; the lower layers stay standard-library only. | Cobra is what kubectl, Helm and kind use; `pflag` is already in our module graph via client-go. A CLI framework is plumbing, not domain. **Implemented in `internal/archtest` (allowlist) and the rule docs on 2026-10-13.** |
 
+**Confirmed by the user (2026-10-13, after W2 step 1):**
+
+| ID | Decision | Notes |
+| :-- | :-- | :-- |
+| **D2** (corollary) | **`"a" + "b"` is an error** with a hint to use `++` (the operator's message names `++`). | Applies when D2 is implemented (W2, after `str_*`). Check first how `const`s (stored as text) behave under a numeric-only `+`. |
+| **D1** (details) | **Accepted as proposed:** a `List`/`Chunk` of `Char`s counts as a serialized string; a mixed collection (`['a', 1]`) is an error naming the element; an empty collection converts to `""` only where a `String` is demanded (annotation or string function). | The table is in `pkg/cli/valueops.go` (`asChar` is its first row). |
+
+**Proposed in this revision, awaiting an answer (§6.1):** **D11** `/` on two `Int`s keeps today's meaning (exact when divisible, else `Float`); exactness is opt-in through the `Ratio` literal or `ratio`. **D12** `Ratio` vs `Float`: arithmetic promotes to `Float`, comparison is exact (Python's `fractions`).
+
 **Decided later the same day (2026-10-13):**
 
 | ID | Decision | Notes |
 | :-- | :-- | :-- |
-| **D1** | **`Char` is added; `String` becomes a collection row — "convert to char on demand if possible, otherwise yes"** (the user's words). | **Reading to confirm when W2 starts:** `Char` is a real type with `'a'` literals; where a one-character `String` meets a `Char` position (`char_code "a"`, `'a' == "a"`, a `Char` annotation) it converts on demand instead of erroring; where on-demand conversion is not possible (a multi-character string, a different type) the answer is "yes, a real distinct `Char` and a real collection row". Keep the coercion rule narrow and listed in one table, because D2 removed implicit `+` coercion for the opposite reason. |
+| **D1** | **`Char` is added; `String` is a collection row of `Char`s; conversion works both ways, on demand.** The user's words: *"convert to char on demand if possible, otherwise yes"*, clarified the same day: *"should work both ways: i.e. if a serialized collection of chars gets treated as a string, convert it"*. | **Rule:** wherever a `String` is expected, a collection of `Char`s (a `List`/`Chunk` of `Char`, e.g. the result of `map`/`filter` over a string) converts to the `String`; wherever a `Char` is expected, a one-character `String` converts; wherever a collection of `Char`s is expected, a `String` converts to one. Otherwise a real distinct `Char`. One narrow, tested conversion table (D2 removed implicit `+` coercion for the opposite reason). **To settle in the W2 design note:** which carriers count as "serialized" (`List`, `Chunk`, `iter.Seq` of `Char`), what a mixed collection (`['a', 1]`) does (an error naming the element), and the empty collection (`[]` is not a `String` on its own — convert only when the context demands a `String`, as an annotation or a string function does). |
 | **D3** | **(a)** keep the runtime representations; specify the tower; `Num`/`Integral`/`Fractional` are annotation-level constraint names (no boxed `Num`). | W3 as written in §6. |
 | **D7** | **Bump the repo to Go 1.27** and use `sigs.k8s.io/kustomize/api` **v0.21.3** (not the v0.21.0 pin). | The user also asked whether system Go must be updated: **no** — `GOTOOLCHAIN=auto` (the default; this machine has system Go 1.26.0 and the toolchain cache) downloads `go1.27.x` (1.27.2 is on proxy.golang.org) when `go.mod` says `go 1.27.0`. Only CI images, Dockerfiles and other contributors need Go ≥ 1.27 or auto-toolchain with network access (the repo has no Dockerfile or CI file that pins a Go version). **Not answered explicitly:** auto-render of kustomization roots with `--no-kustomize` — proceed on the recommendation at W5 and confirm. |
 | **D8** | **Yes** — unknown pipeline step ⇒ OS command stays for trusted CLI use; **denied by default** for Appliance overrides and any script not given on the command line (capability policy, §9). | W7. |
@@ -312,6 +322,7 @@ registered as curried data-last function forms in `pkg/cli/dslfuncs_*.go`, and g
 
 - **`Char`**: literal `'a'`, escapes `'\n'`, `'é'`; a Unicode code point (Go `rune`); `==`, `<`, `compare`;
   `char_code`, `char_from_code`, `char_is_digit/alpha/space/upper/lower`, `char_upper/lower`.
+- **Two-way conversion (D1):** a collection of `Char`s used as a `String` becomes that `String` (`str_upper (map char_upper "abc")` works), and a `String` used as a collection of `Char`s becomes one. Table lives in `valueops.go`, one place, listed in the doc.
 - **String is a collection row of Chars** (Mandate 2): `map`, `filter`, `fold`, `reverse`, `length`, `++`,
   `==`, `<`, `member` added to `valueops.go` — Elm has `String.map/filter/foldl` for exactly this.
 - **`str_*` library** (data-last, curried): `str_split sep s`, `str_join sep xs`, `str_trim`, `str_upper`, `str_lower`,
@@ -349,7 +360,7 @@ meaning) and *before* the OS-exec fallback. This closes the step/function parity
 
 ### 5.5 Later tier
 
-`Time`/`Duration` (Go `time`), `Rational` (exact fractions; see W3), bit operations, n-ary tuples.
+`Time`/`Duration` (Go `time`), bit operations, n-ary tuples. (`Ratio`, exact fractions, is in W3: §6.1.)
 
 **DoD (W2):** each type/library row has structural Go tests, DSL assertions (output verified non-empty),
 `Example*`, docs in `dsl_guide.md`/`grammar.md` (new literal), checker support for `Char`/`Bytes`/`Ordering`, and a
@@ -363,10 +374,12 @@ negative case per partial function.
 
 1. **Logical types:** `Int` (unbounded; implemented as `int64` fast path + `big.Int`, canonical after each operation —
    **demote** `big.Int` results that fit, fixing F11's "never demoted"), `Float` (IEEE 754 double), `Complex`;
-   optional `Ratio` (exact fractions) as a later addition. `BigInt`/`Uint` remain accepted *names* (aliases of
-   `Int`) so existing `type X = BigInt` lines keep parsing.
+   **`Ratio`** (exact fractions, §6.1). `BigInt`/`Uint` remain accepted *names* (aliases of `Int`) so existing
+   `type X = BigInt` lines keep parsing.
 2. **Promotion lattice (documented):** `Int → Float` only when the other operand is `Float` or the operation is
-   inexact; `Int/BigInt` overflow stays exact; anything `→ Complex` when an imaginary operand appears.
+   inexact; `Int/BigInt` overflow stays exact; `Int → Ratio` when the other operand is a `Ratio` (always exact);
+   `Ratio → Float` when the other operand is a `Float`; anything `→ Complex` when an imaginary operand appears.
+   Mathematically `Int ⊂ Ratio ⊂ Float(approx) ⊂ Complex`.
    `Int → Float` can lose precision beyond 2⁵³ — **raise a *warning* from `--check`** when the operand is a literal
    or a known `Int` that large, and document `toFloat` as the explicit form.
 3. **Division:** keep `/` (exact when divisible, else `Float`) and `//` (floor division); add `divmod`, `quot/rem`
@@ -374,12 +387,86 @@ negative case per partial function.
 4. **New functions:** `**`/`pow`, `sqrt`, `floor`, `ceil`, `round`, `trunc`, `sign`, `gcd`, `lcm`, `to_int`,
    `to_float`, `is_nan`, `is_inf`; unary minus on any expression; `min/max/abs/compare` already exist.
 5. **Constraint names for annotations** (the generalized `Num`): in `ParseTypeAnnotation` and the checker,
-   - `Num` ≡ any of Int, Float, Complex (what `number` is in Elm),
-   - `Integral` ≡ Int (operands of `//`, `%`), `Fractional` ≡ Float/Complex-ish (operands of `/`),
+   - `Num` ≡ any of Int, Ratio, Float, Complex (what `number` is in Elm),
+   - `Integral` ≡ Int (operands of `//`, `%`), `Fractional` ≡ Ratio/Float/Complex (operands of `/`),
    - `Comparable` ≡ Num ∪ Char ∪ String ∪ lists/tuples of Comparable, `Appendable` ≡ String ∪ List,
    so `def sum2 : Num -> Num -> Num = \a b -> a + b` documents and checks intent without a runtime wrapper.
 6. **Tests:** an operator × type-pair matrix for the tower (Mandate 2 for numerics), promotion/demotion cases,
    overflow boundaries, and the display of big integers without `+`.
+
+### 6.1 `Ratio` — exact fractions
+
+**Representation.** A `Ratio` is a Go `*math/big.Rat`, always normalised (lowest terms, positive denominator) and
+never mutated. Core stays standard-library only (Mandate 5); the type lives in `functions/ratio.go` next to `Char`.
+**Canonical form:** a result whose denominator is 1 **demotes to `Int`** (so `1r2 + 1r2` is `1`, and `ℤ ⊂ ℚ` holds
+without a `4r1` that is "almost an Int"); this is the same rule as the `big.Int` → `int64` demotion in item 1.
+
+**Syntax (proposed, D11 is the one open point).**
+
+| Form | Meaning |
+| :-- | :-- |
+| `3r4` | literal: numerator `r` denominator, both unsigned integers (`-3r4` is unary minus on it; `6r8` normalises to `3r4`; `1r0` is a lex error: *denominator is zero*) |
+| `0.75r`, `12.5r` | **exact decimal literal**: the decimal text is parsed as written, so `0.1r` is exactly `1r10` and never the nearest double |
+| `ratio n d` | function form (data-last, curried): `ratio 1 3`, `3 \|> ratio 1`; `d = 0` is an error; arguments are `Int`/`Ratio` (so `ratio 1r2 3` is `1r6`) |
+| `a + b`, `-`, `*`, `/`, `**` with a `Ratio` operand | exact; `Ratio / Int` and `Int / Ratio` stay exact (`1r3 / 2` is `1r6`); `x ** n` is exact for an `Int` exponent (negative exponent: reciprocal, `0` base is an error), a non-integer exponent promotes to `Float` |
+| `a // b`, `a % b` with a `Ratio` | floor quotient (`Int`) and the matching remainder (`a - b * (a // b)`, a `Ratio`); `b = 0` is an error |
+| `==`, `<`, … | exact across `Int`, `BigInt`, `Ratio` (D12: also exact against `Float`, so `1r10 == 0.1` is `false`) |
+| `3r4` printed | `3r4` (round-trips through the lexer); `show` and `str_from` agree |
+
+Why a suffix and not `1/3`: `/` on two `Int`s already means "exact when divisible, otherwise `Float`" (`7 / 2 == 3.5`,
+pinned in `dsl_guide.md` and the tests) and **D11 proposes keeping it** — silently turning every division into a
+fraction would change the output of existing scripts, and `1:3` would collide with the `key:value` syntax of `emit`
+and `spawn`. `%` is modulo (Haskell's `%` is not available), `1/3` as a *literal* would make `/` context-dependent.
+The `r` suffix reads like Clojure's `1/3`, Scheme's `1/3` and Python's `Fraction`, keeps the lexer change to one
+character in the number scanner (`TokNumber` already scans digits, `.` and the complex `i`), and `ratio` covers computed
+operands. The alternative to decide against D11 is *exact `/` for `Int`/`Int`* (Scheme/Clojure/Julia-`//`-style); the
+costs are in the D11 note below and the choice is cheap to reverse because `/` goes through one function.
+
+**Converting from a `Float` — three named, explicit functions** (a float never converts to a `Ratio` implicitly):
+
+| Function | Result | Use |
+| :-- | :-- | :-- |
+| `to_ratio x` | **the shortest decimal that round-trips** (`strconv.FormatFloat(x, 'g', -1, 64)`), parsed exactly: `to_ratio 0.1` is `1r10`, `to_ratio 0.75` is `3r4`, `to_ratio 1e-3` is `1r1000` | the default and the "smart" one: it returns the number the user *meant*, not the binary artefact |
+| `to_ratio_exact x` | the exact value of the double (`big.Rat.SetFloat64`): `0.1` is `3602879701896397r36028797018963968` | when exactness of the *stored* value matters (reproducing a computation, hashing) |
+| `to_ratio_approx x max_den` | the **best rational approximation with denominator ≤ `max_den`** by continued-fraction convergents (Python's `limit_denominator`): `to_ratio_approx 3.14159265 100` is `311r99`, `to_ratio_approx 0.3333333 100` is `1r3` | measured data, recovering a simple fraction from a noisy float |
+
+`NaN` and `±Inf` have no `Ratio`: all three return an error value (Mandate 6). `to_ratio` on an `Int` is the
+`Int` itself; on a `Ratio`, itself; on a `String`, see `str_to_ratio` below.
+
+**Converting to a `Float` and `Int`:** `to_float r` is `big.Rat.Float64` — the **correctly rounded** nearest double,
+never the lossy `numerator/denominator` division of two doubles; a magnitude beyond the double range is an error, an
+underflow is `0.0` (documented). `to_int r` is an error unless `r` is integral (so a lossy conversion is never
+silent); the rounding family is explicit and returns `Int`: `floor`, `ceil`, `trunc`, `round` (half away from zero,
+Go's `math.Round`; `round_even` for banker's rounding). `numer r` and `denom r` give the parts (`Int`; `denom` of an `Int`
+is `1`), `ratio_parts r` the `Pair`.
+
+**Text:** `str_to_ratio s` is `Maybe Ratio` and accepts `"3/4"`, `"3r4"`, `"-0.75"` and `"1.5e-3"` (malformed text is
+`Nothing`, never an error — same rule as `str_to_int`); `show`/`str_from` print the literal form. `ratio_mixed r`
+returns the `Pair` (whole part, proper fraction) for display, `7r2 → (3, 1r2)`.
+
+**Smart extras (cheap, decided with the rest of the tier):** `ratio_cf r` the continued-fraction coefficients
+(`List Int`) and `ratio_from_cf xs`, which is also the building block of `to_ratio_approx`; `ratio_mediant a b`
+(Stern–Brocot mediant). Each is one function over `big.Rat`; skipped if time-boxed, with the reason recorded.
+
+**Where it plugs in (Mandate 2 cells):** `functions.Ratio` helpers and `EvalBinaryOp`/`Compare`/`StructuralEqual`
+arms (the promotion lattice of item 2 decides the arm order: `Ratio` before `Float`, `Float` before `Complex`) →
+number scanner `r`-suffix in `parser/infix.go` and `parsePrimary` → `functions.TryNarrowInteger`-style demotion
+(`fitRatio`) → function forms in `pkg/cli/dslfuncs_numeric.go` → `tyRatio` in the checker (`Ratio` is numeric, so
+the existing "all numerics are consistent" rule applies, plus `Fractional ⊇ Ratio`) → `sampleOf` → DSL assertions inside
+lambdas/comprehensions (`fold (\a x -> a + x) 0r1 …` summing `1r2 … 1r10` exactly) → a structural Go test on the raw
+`*big.Rat` → `Example`. Negative cases: `1r0`, `ratio 1 0`, `to_ratio nan`, `to_int 1r2`, `1r2 // 0`, `0r1 ** -1`.
+`Ratio` is a scalar, so no carrier row is needed; as a collection element it already travels through `map`/`fold`.
+`scalarValue` (the text-substitution guard in `cli.go`) must treat `*big.Rat` as non-scalar for the same reason as `Char`.
+
+**Tests specific to the type:** the field axioms by property loop (associativity, distributivity, `a - a == 0`,
+`a * (1 / a) == 1` for `a ≠ 0`) over a table of mixed `Int`/`Ratio` values; `(1r10 + 2r10) == 3r10` as the headline case
+that `0.1 + 0.2 == 0.3` fails for `Float`; round-trips `to_ratio (to_float r)` for decimal-representable `r`;
+`to_ratio_approx` on the convergents of π; every `Ratio × {Int, BigInt, Float, Complex}` operator pair in the W3 matrix.
+
+**Decision notes.**
+- **D11 (proposed):** keep `/` on `Int`/`Int` as is; exactness is opt-in. Recommendation: yes — no existing script changes, and the literal makes the intent visible at the call site. Against: users coming from Scheme/Clojure expect `(/ 1 3)` to be exact.
+- **D12 (proposed):** `Ratio` ⊕ `Float` arithmetic promotes to `Float`; `==`/`<` are exact (the `Float` is compared by its exact value). Recommendation: yes, it is what Python's `fractions.Fraction` does and it keeps `==` honest, at the price that `1r10 == 0.1` is `false` (the documented answer is `to_ratio 0.1 == 1r10`). Note this is stricter than today's `Int == Float` (compared as doubles); the difference only shows beyond 2⁵³.
+- **Size:** about a day of work inside W3, after the logical-`Int` demotion rule exists (the `Ratio` demotion reuses it).
 
 ---
 
