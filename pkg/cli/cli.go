@@ -53,6 +53,8 @@ type Interpreter struct {
 	lambdaCache    *sync.Map     // map[string]parser.Expr; concurrent-safe because ||> evaluates in parallel
 	CustomSteps    []StepHandler // Pluggable extension step handlers
 	EnableBuiltins bool          // Whether Go std builtins are active
+	// exec is the execution policy and context, shared with every fork (see policy.go).
+	exec *execState
 	// Out receives the printed result of every top-level statement; nil means os.Stdout.
 	Out io.Writer
 }
@@ -80,6 +82,7 @@ func NewBareInterpreter() *Interpreter {
 		compiledFuncs:  make(map[string][]evaluator.PipelineStep[functions.Either[error, any]]),
 		lambdaCache:    &sync.Map{},
 		EnableBuiltins: false,
+		exec:           newExecState(),
 	}
 	i.setArgs("", nil)
 	i.Engine.OnMissingAdapter = func(flag dsltypes.BitFlag) evaluator.Adapter[functions.Either[error, any]] {
@@ -106,6 +109,7 @@ func (i *Interpreter) fork() *Interpreter {
 	localInterp := NewBareInterpreter()
 	localInterp.EnableBuiltins = i.EnableBuiltins
 	localInterp.Out = i.Out
+	localInterp.exec = i.exec
 	localInterp.CustomSteps = i.CustomSteps
 	localInterp.Variables = make(map[string]string)
 	for k, v := range i.Variables {
@@ -521,13 +525,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 		} else if strings.HasPrefix(stepStr, "memoize") {
 			cmd := strings.TrimSpace(stepStr[7:])
-			adapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
-			pipeline = append(pipeline, evaluator.StepMemoize(adapter))
+			pipeline = append(pipeline, i.gated(CapExec, "memoize", evaluator.StepMemoize(i.execAdapter(cmd))))
 		} else if strings.HasPrefix(stepStr, "zip") {
 			for res := range parser.ParseZip()(stepStr) {
 				cmd := res.Fst
-				secAdapter := evaluator.EitherT(interactive.GenericExecAdapter(cmd, 0))
-				pipeline = append(pipeline, evaluator.StepZip(secAdapter))
+				pipeline = append(pipeline, i.gated(CapExec, "zip", evaluator.StepZip(i.execAdapter(cmd))))
 				break
 			}
 		} else if strings.HasPrefix(stepStr, "format_tuple") {
@@ -579,7 +581,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "walk_fs ") {
 			pathStr := strings.TrimSpace(stepStr[8:])
 			adapter := adapters.WalkFSAdapter(pathStr)
-			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			pipeline = append(pipeline, i.gated(CapFS, "walk_fs", evaluator.StepAdapter(adapter)))
 		} else if strings.HasPrefix(stepStr, "assert_unordered ") {
 			expected := strings.TrimSpace(stepStr[17:])
 			expected = strings.ReplaceAll(expected, ",", "\n")
@@ -916,11 +918,11 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "write_file") {
 			filename := strings.TrimSpace(stepStr[10:])
 			adapter := adapters.WriteFile(filename, false)
-			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			pipeline = append(pipeline, i.gated(CapFS, "write_file", evaluator.StepAdapter(adapter)))
 		} else if strings.HasPrefix(stepStr, "append_file") {
 			filename := strings.TrimSpace(stepStr[11:])
 			adapter := adapters.WriteFile(filename, true)
-			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			pipeline = append(pipeline, i.gated(CapFS, "append_file", evaluator.StepAdapter(adapter)))
 		} else if stepStr == "route" {
 			pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
 		} else if stepStr == "build_bst" {
@@ -1038,7 +1040,7 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			}
 		} else if strings.HasPrefix(stepStr, "dial_tcp ") {
 			addr := strings.Trim(strings.TrimSpace(stepStr[9:]), "\"")
-			pipeline = append(pipeline, adapters.StepDial("tcp", addr, 5*time.Second))
+			pipeline = append(pipeline, i.gated(CapNet, "dial_tcp", adapters.StepDial("tcp", addr, 5*time.Second)))
 		} else if strings.HasPrefix(stepStr, "listen_tcp ") {
 			args := strings.Fields(strings.TrimSpace(stepStr[11:]))
 			addr := "127.0.0.1:0"
@@ -1051,15 +1053,15 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 					maxConns = mc
 				}
 			}
-			pipeline = append(pipeline, adapters.StepListenTCP("tcp", addr, maxConns))
+			pipeline = append(pipeline, i.gated(CapNet, "listen_tcp", adapters.StepListenTCP("tcp", addr, maxConns)))
 		} else if stepStr == "conn_lines" {
 			pipeline = append(pipeline, adapters.StepConnLines())
 		} else if strings.HasPrefix(stepStr, "scan_words ") {
 			filePath := strings.Trim(strings.TrimSpace(stepStr[11:]), "\"")
-			pipeline = append(pipeline, adapters.StepScanFile(filePath, bufio.ScanWords))
+			pipeline = append(pipeline, i.gated(CapFS, "scan_words", adapters.StepScanFile(filePath, bufio.ScanWords)))
 		} else if strings.HasPrefix(stepStr, "scan_file ") {
 			filePath := strings.Trim(strings.TrimSpace(stepStr[10:]), "\"")
-			pipeline = append(pipeline, adapters.StepScanFile(filePath, nil))
+			pipeline = append(pipeline, i.gated(CapFS, "scan_file", adapters.StepScanFile(filePath, nil)))
 		} else if stepStr == "head" {
 			pipeline = append(pipeline, evaluator.StepTake[functions.Either[error, any]](1))
 		} else if stepStr == "tail" {
@@ -1403,11 +1405,25 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				pipeline = append(pipeline, bs)
 				continue
 			}
-			adapter := evaluator.EitherT(interactive.GenericExecAdapter(stepStr, 0))
-			pipeline = append(pipeline, evaluator.StepAdapter(adapter))
+			// The OS-command fallback: any word that is no step runs as a program. This is the
+			// capability the policy exists for (see policy.go).
+			name := stepStr
+			if len(parts) > 0 {
+				name = parts[0]
+			}
+			pipeline = append(pipeline, i.gated(CapExec, name, evaluator.StepAdapter(i.execAdapter(stepStr))))
 		}
 	}
+	for k, step := range pipeline {
+		pipeline[k] = i.cancellable(step)
+	}
 	return pipeline
+}
+
+// execAdapter is the OS-command adapter for template, bound to the context of the run it
+// executes in, so a deadline or cancel kills the child process.
+func (i *Interpreter) execAdapter(template string) evaluator.Adapter[functions.Either[error, any]] {
+	return evaluator.EitherT(interactive.GenericExecAdapterContext(i.runContext, template, 0))
 }
 
 // unbalancedDelimiter reports whether a line's (), [], and {} delimiters are
@@ -2367,6 +2383,10 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 // embedded with //go:embed can import its sibling modules.
 func (i *Interpreter) loadScriptContent(content string, baseDir string, fsys fs.FS) {
 	for _, stmt := range logicalLines(content) {
+		if err := i.exec.cancelled(); err != nil {
+			fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
+			return
+		}
 		buffer := stmt.text
 		// Module Imports
 		if strings.HasPrefix(buffer, "import ") {
@@ -2379,6 +2399,10 @@ func (i *Interpreter) loadScriptContent(content string, baseDir string, fsys fs.
 					continue
 				}
 				i.loadScriptContent(string(bytes), pathpkg.Dir(importFile), fsys)
+				continue
+			}
+			if err := i.exec.current().Require(CapFS, "import", importFile); err != nil {
+				fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
 				continue
 			}
 			if !filepath.IsAbs(importFile) {

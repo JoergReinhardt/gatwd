@@ -368,6 +368,7 @@ func (i *Interpreter) pipelineLambda(varName, body string) func(any, dsltypes.Bi
 			Variables:      make(map[string]string),
 			Constants:      i.Constants,
 			CustomSteps:    i.CustomSteps,
+			exec:           i.exec,
 		}
 		for k, v := range i.Variables {
 			child.Variables[k] = v
