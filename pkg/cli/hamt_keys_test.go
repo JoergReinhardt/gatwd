@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
@@ -103,5 +104,181 @@ func TestHAMTStringKeysUnchanged(t *testing.T) {
 	}
 	if s, ok := items[0].(string); !ok || s != "a" {
 		t.Errorf("a String key reads back as the String, got %#v", items[0])
+	}
+}
+
+// ---- step 2: a HAMT key is a value ---------------------------------------------------
+//
+// hamt_from/hamt_set/hamt_get/hamt_has/hamt_del/hamt_get_or, the step forms, to_hamt and
+// frequencies all encode a key with evaluator.EncodeKey, so two keys are one entry exactly
+// when `==`, and hamt_keys/hamt_pairs hand back values, not text.
+
+const keyHAMT = `hamt_from [[[1, 2], "list"], ["[1 2]", "string"], [3, "int"], ["3", "text"], [0.5, "half"]]`
+
+func TestHAMTCollectionKeysAreValues(t *testing.T) {
+	in := NewInterpreter()
+	for src, want := range map[string]any{
+		`length (` + keyHAMT + `)`:                    5, // a list, its printed form, 3, "3" and 0.5 are five keys
+		`hamt_get [1, 2] (` + keyHAMT + `)`:           "list",
+		`hamt_get (pair 1 2) (` + keyHAMT + `)`:       "list", // a Pair is == the list, so the same entry
+		`hamt_get "[1 2]" (` + keyHAMT + `)`:          "string",
+		`hamt_get 3 (` + keyHAMT + `)`:                "int",
+		`hamt_get 3.0 (` + keyHAMT + `)`:              "int", // Int and Float keys are one entry exactly as == says
+		`hamt_get "3" (` + keyHAMT + `)`:              "text",
+		`hamt_get 1r2 (` + keyHAMT + `)`:              "half", // 1r2 == 0.5
+		`hamt_has [2, 1] (` + keyHAMT + `)`:           false,
+		`hamt_has "[2 1]" (` + keyHAMT + `)`:          false,
+		`hamt_get_or "none" 4 (` + keyHAMT + `)`:      "none",
+		`length (hamt_del [1, 2] (` + keyHAMT + `))`:  4,
+		`length (hamt_del "[1 2]" (` + keyHAMT + `))`: 4,
+	} {
+		if got := evalOne(t, in, src); !functions.StructuralEqual(got, want) || functions.KindName(got) != functions.KindName(want) {
+			t.Errorf("%s = %#v, want %#v", src, got, want)
+		}
+	}
+	// deleting the list key leaves the String key of the same print (and the reverse)
+	if got := evalOne(t, in, `hamt_has "[1 2]" (hamt_del [1, 2] (`+keyHAMT+`))`); got != true {
+		t.Errorf("deleting the list key must keep the String key, got %v", got)
+	}
+	if got := evalOne(t, in, `hamt_has [1, 2] (hamt_del "[1 2]" (`+keyHAMT+`))`); got != true {
+		t.Errorf("deleting the String key must keep the list key, got %v", got)
+	}
+	// 1 and "1" never meet either
+	if got := evalOne(t, in, `length (hamt_from [[1, "a"], ["1", "b"], [1.0, "c"]])`); got != 2 {
+		t.Errorf("Int, String and an equal Float are two keys, got %v", got)
+	}
+}
+
+// hamt_keys / hamt_pairs return the keys as the values they were (raw memory types).
+func TestHAMTKeysReadBackAsValues(t *testing.T) {
+	in := NewInterpreter()
+	keys, _ := functions.ToSliceAny(evalOne(t, in, `hamt_keys (hamt_from [[[1, 2], 1]])`))
+	if len(keys) != 1 {
+		t.Fatalf("keys = %#v", keys)
+	}
+	if _, ok := keys[0].(*collections.List[any]); !ok {
+		t.Errorf("a list key reads back as a *List, got %T", keys[0])
+	}
+	if got := evalOne(t, in, `map (\k -> k == [1, 2]) (hamt_keys (hamt_from [[[1, 2], 1]]))`); !functions.StructuralEqual(got, []any{true}) {
+		t.Errorf("the key read back is == the list it was made from, got %v", got)
+	}
+	ints, _ := functions.ToSliceAny(evalOne(t, in, `hamt_keys (hamt_from [[7, 1]])`))
+	if len(ints) != 1 || functions.KindName(ints[0]) != "Int" {
+		t.Errorf("an Int key reads back as an Int, got %#v", ints)
+	}
+	// pairs feed back in: hamt_from (hamt_pairs h) is h
+	if got := evalOne(t, in, `length (hamt_from (hamt_pairs (`+keyHAMT+`)))`); got != 5 {
+		t.Errorf("hamt_from (hamt_pairs h) keeps all five keys, got %v", got)
+	}
+	if got := evalOne(t, in, `hamt_get [1, 2] (hamt_from (hamt_pairs (`+keyHAMT+`)))`); got != "list" {
+		t.Errorf("a round-tripped HAMT finds the list key, got %v", got)
+	}
+}
+
+// frequencies keys the stream's own elements; Game of Life reads them back as coordinates.
+func TestFrequenciesKeysAreValues(t *testing.T) {
+	in := NewInterpreter()
+	const counted = `let nb = [[x, y] | [x, y] <- [[2, 1], [2, 1], [3, 3]]] in let m = nb |> unchunk |> frequencies in `
+	if got := evalOne(t, in, counted+`hamt_get [2, 1] m`); got != 2 {
+		t.Errorf("frequencies counts the coordinate list, got %v", got)
+	}
+	if got := evalOne(t, in, counted+`hamt_has "[2 1]" m`); got != false {
+		t.Errorf("the printed form is not the key, got %v", got)
+	}
+	pairs, _ := functions.ToSliceAny(evalOne(t, in, counted+`m |> hamt_pairs |> collect_list`))
+	if len(pairs) != 2 {
+		t.Fatalf("pairs = %#v", pairs)
+	}
+	for _, p := range pairs {
+		a, _ := p.(interface{ PairElements() (any, any) }).PairElements()
+		if _, ok := a.(*collections.List[any]); !ok {
+			t.Errorf("a frequencies key is the element (a *List), got %T", a)
+		}
+	}
+}
+
+// The Game of Life rule now compares real coordinates: its births are lists, not text.
+func TestGameOfLifeBirthsAreCells(t *testing.T) {
+	in, _ := quietInterpreter()
+	in.EvaluateScript(conwayDef(t))
+	cells, _ := functions.ToSliceAny(evalOne(t, in, `[[[2, 1], [2, 2], [2, 3]], 8, 8] |> conway_step`))
+	if len(cells) != 3 {
+		t.Fatalf("cells = %#v", cells)
+	}
+	for _, c := range cells {
+		if _, ok := c.(*collections.List[any]); !ok {
+			t.Errorf("a cell is a coordinate *List, got %T (%v)", c, c)
+		}
+	}
+}
+
+func TestHAMTStepFormKeysMatchFunctionForms(t *testing.T) {
+	in := NewInterpreter()
+	for src, want := range map[string]any{
+		`hamt_empty |> hamt_set 5 five |> hamt_get 5`:                              "five",
+		`hamt_empty |> hamt_set "5" five |> hamt_get "5"`:                          "five",
+		`hamt_empty |> hamt_set a five |> hamt_get a`:                              "five",
+		`hamt_get 5 (hamt_set 5 "five" hamt_empty)`:                                "five",
+		`hamt_empty |> hamt_set 5 five |> hamt_del 5 |> hamt_keys |> collect_list`: nil,
+	} {
+		got := evalOne(t, in, src)
+		if want != nil && !functions.StructuralEqual(got, want) {
+			t.Errorf("%s = %#v, want %#v", src, got, want)
+		}
+	}
+	// the Int key 5 and the String key "5" are different entries in both forms
+	for _, src := range []string{
+		`hamt_empty |> hamt_set 5 five |> hamt_get "5"`,
+		`hamt_empty |> hamt_set "5" five |> hamt_get 5`,
+		`hamt_get "5" (hamt_set 5 "five" hamt_empty)`,
+	} {
+		res := in.EvaluateToValues(src)
+		if len(res) != 1 || !strings.Contains(fmt.Sprint(res[0]), "[ERROR]") && !strings.Contains(fmt.Sprint(res[0]), "not found") {
+			t.Errorf("%s = %v, want a not-found error", src, res)
+		}
+	}
+}
+
+func TestHAMTKeyErrorsAreLoud(t *testing.T) {
+	in := NewInterpreter()
+	for src, want := range map[string]string{
+		`hamt_set (\x -> x) 1 hamt_empty`:           "cannot be a HAMT key",
+		`hamt_from [[(\x -> x), 1]]`:                "cannot be a HAMT key",
+		`hamt_get [1, (\x -> x)] hamt_empty`:        "cannot be a HAMT key",
+		`hamt_has (\x -> x) hamt_empty`:             "cannot be a HAMT key",
+		`graph_add_node "c" [1, 2] graph_empty`:     "graph id or color must be a String",
+		`graph_has_node [1, 2] graph_empty`:         "graph id or color must be a String",
+		`graph_add_edge "c" 1 [1] "b" graph_empty`:  "graph id or color must be a String",
+		`graph_add_node (pair 1 2) "n" graph_empty`: "graph id or color must be a String",
+	} {
+		res := in.EvaluateToValues(src)
+		if len(res) != 1 {
+			t.Errorf("%s = %v, want one error", src, res)
+			continue
+		}
+		if _, isErr := res[0].(error); !isErr || !strings.Contains(fmt.Sprint(res[0]), want) {
+			t.Errorf("%s = %v, want an error containing %q", src, res[0], want)
+		}
+	}
+	// a number or a String names a node, as before
+	if got := evalOne(t, in, `graph_nodes (graph_add_node "c" 7 graph_empty)`); !functions.StructuralEqual(got, []any{"7"}) {
+		t.Errorf("a number id is its text, got %#v", got)
+	}
+}
+
+// A HAMT whose keys are not Strings has no JSON object form; the encoded key never leaks as text.
+func TestJSONRefusesNonStringHAMTKeys(t *testing.T) {
+	in := NewInterpreter()
+	for _, src := range []string{`json_encode (hamt_from [[[1, 2], 1]])`, `json_encode (hamt_from [[7, 1]])`} {
+		res := in.EvaluateToValues(src)
+		if len(res) != 1 {
+			t.Fatalf("%s = %v", src, res)
+		}
+		if err, ok := res[0].(error); !ok || !strings.Contains(err.Error(), "keys has no JSON form") && !strings.Contains(err.Error(), "keys have no JSON form") {
+			t.Errorf("%s = %v, want a loud error", src, res[0])
+		}
+	}
+	if got := evalOne(t, in, `json_encode (hamt_from [["a", 1]])`); got != `{"a":1}` {
+		t.Errorf("String keys still encode, got %v", got)
 	}
 }

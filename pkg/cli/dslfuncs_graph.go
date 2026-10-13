@@ -71,7 +71,11 @@ func registerGraphFuncs(m map[string]any) {
 			if !ok || len(f) != 4 {
 				return nil, fmt.Errorf("each edge spec must be [color weight from to], got %v", spec)
 			}
-			edges = append(edges, functions.NewInferredEdge[string, string, any](dslStr(f[2]), dslStr(f[3]), dslStr(f[0]), f[1]))
+			ids, err := idStrs(f[2], f[3], f[0])
+			if err != nil {
+				return nil, err
+			}
+			edges = append(edges, functions.NewInferredEdge[string, string, any](ids[0], ids[1], ids[2], f[1]))
 		}
 		return g.AddEdgesOnce(edges), nil // identical specs once, like graph_add_edges
 	})
@@ -87,7 +91,11 @@ func registerGraphFuncs(m map[string]any) {
 		if err != nil {
 			return nil, fmt.Errorf("graph_insert_node: %w", err)
 		}
-		color, id := dslStr(args[0]), dslStr(args[1])
+		ids, err := idStrs(args[0], args[1])
+		if err != nil {
+			return nil, fmt.Errorf("graph_insert_node: %w", err)
+		}
+		color, id := ids[0], ids[1]
 		var payload any = id
 		if len(args) == 4 {
 			payload = args[2]
@@ -107,7 +115,11 @@ func registerGraphFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		return g.HasNode(dslStr(a[0])), nil
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.HasNode(id), nil
 	})
 	defn(m, "graph_nodes", "g", func(a []any) (any, error) {
 		g, err := graphArg(a[0])
@@ -138,7 +150,11 @@ func registerGraphFuncs(m map[string]any) {
 			return nil, err
 		}
 		var out []any
-		for _, e := range g.EdgesByColor(dslStr(a[0])) {
+		color, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range g.EdgesByColor(color) {
 			out = append(out, listOf([]any{e.From, e.To}))
 		}
 		return listOf(out), nil
@@ -149,7 +165,11 @@ func registerGraphFuncs(m map[string]any) {
 			return nil, err
 		}
 		var ids []string
-		for _, id := range g.Reachable(dslStr(a[0])).Elements() {
+		from, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range g.Reachable(from).Elements() {
 			ids = append(ids, id)
 		}
 		sort.Strings(ids)
@@ -160,7 +180,11 @@ func registerGraphFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		path, _, ok := g.ShortestPath(dslStr(a[0]), dslStr(a[1]))
+		ends, err := idStrs(a[0], a[1])
+		if err != nil {
+			return nil, err
+		}
+		path, _, ok := g.ShortestPath(ends[0], ends[1])
 		if !ok {
 			return listOf(nil), nil
 		}

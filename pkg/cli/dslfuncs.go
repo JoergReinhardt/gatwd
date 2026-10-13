@@ -77,8 +77,45 @@ func nodePayloads(nodes []functions.Node[string, string, any]) []any {
 	return out
 }
 
-// dslStr coerces a DSL value to the string carrier the graph uses for identities and
-// colors, leaving an existing string untouched and formatting anything else.
+// idStr is how a DSL value becomes a graph identity or color. Both are Strings by
+// construction (they name things; the k8s ids are `Kind/ns/name`), so a String is itself
+// and a Char is its one-character text. A number or Bool is written as its text (`7` names
+// the node "7"), a documented conversion rather than an equality: the node answers to the
+// String "7", and `7 == "7"` is false. Anything else — a list, a pair, a function — is an
+// error, never its printed form, because a printed form is shared by different values
+// (a list of Ints and a list of Strings print alike). Use `show` to name a node by one.
+func idStr(v any) (string, error) {
+	switch x := v.(type) {
+	case string:
+		return x, nil
+	case functions.Char:
+		return string(rune(x)), nil
+	case bool:
+		return fmt.Sprintf("%v", x), nil
+	}
+	if functions.IsNumber(v) {
+		return fmt.Sprintf("%v", v), nil
+	}
+	return "", fmt.Errorf("a graph id or color must be a String (a number is written as its text); got a %s — use show to name it", functions.KindName(v))
+}
+
+// idStrs is idStr over several arguments, in order; the first failure is reported.
+func idStrs(vals ...any) ([]string, error) {
+	out := make([]string, len(vals))
+	for i, v := range vals {
+		s, err := idStr(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = s
+	}
+	return out, nil
+}
+
+// dslStr coerces a DSL value to text by printing it, leaving an existing string
+// untouched. It is for text-shaped arguments (a variant tag, a dotted path), not for
+// identities or keys: those use idStr and evaluator.EncodeKey, which never conflate
+// two different values.
 func dslStr(v any) string {
 	if s, ok := v.(string); ok {
 		return s
@@ -110,14 +147,21 @@ func buildDSLBuiltinFuncs() map[string]any {
 			if !ok {
 				return nil, fmt.Errorf("graph_add_node: last argument must be a graph, got %T", args[2])
 			}
-			id := dslStr(args[1])
-			return g.AddNode(id, dslStr(args[0]), any(id)), nil
+			ids, err := idStrs(args[1], args[0])
+			if err != nil {
+				return nil, fmt.Errorf("graph_add_node: %w", err)
+			}
+			return g.AddNode(ids[0], ids[1], any(ids[0])), nil
 		case 4:
 			g, ok := asDSLGraph(args[3])
 			if !ok {
 				return nil, fmt.Errorf("graph_add_node: last argument must be a graph, got %T", args[3])
 			}
-			return g.AddNode(dslStr(args[1]), dslStr(args[0]), args[2]), nil
+			ids, err := idStrs(args[1], args[0])
+			if err != nil {
+				return nil, fmt.Errorf("graph_add_node: %w", err)
+			}
+			return g.AddNode(ids[0], ids[1], args[2]), nil
 		default:
 			return nil, fmt.Errorf("graph_add_node: want (color id [payload] graph), got %d args", len(args))
 		}
@@ -132,7 +176,11 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if !ok {
 			return nil, fmt.Errorf("graph_add_edge: last argument must be a graph, got %T", args[4])
 		}
-		return g.Connect(dslStr(args[2]), dslStr(args[3]), dslStr(args[0]), args[1]), nil
+		ids, err := idStrs(args[2], args[3], args[0])
+		if err != nil {
+			return nil, fmt.Errorf("graph_add_edge: %w", err)
+		}
+		return g.Connect(ids[0], ids[1], ids[2], args[1]), nil
 	})
 
 	// graph_add_inferred_edge color weight from to g → g with an inferred (assumed,
@@ -145,7 +193,11 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if !ok {
 			return nil, fmt.Errorf("graph_add_inferred_edge: last argument must be a graph, got %T", args[4])
 		}
-		return g.AddInferredEdge(dslStr(args[2]), dslStr(args[3]), dslStr(args[0]), args[1]), nil
+		ids, err := idStrs(args[2], args[3], args[0])
+		if err != nil {
+			return nil, fmt.Errorf("graph_add_inferred_edge: %w", err)
+		}
+		return g.AddInferredEdge(ids[0], ids[1], ids[2], args[1]), nil
 	})
 
 	// graph_add_edges specs g → g with every edge in specs added, where specs is a
@@ -170,7 +222,11 @@ func buildDSLBuiltinFuncs() map[string]any {
 			if !ok || len(fields) != 4 {
 				return nil, fmt.Errorf("graph_add_edges: each edge spec must be [color weight from to], got %v", spec)
 			}
-			edges = append(edges, functions.NewEdge[string, string, any](dslStr(fields[2]), dslStr(fields[3]), dslStr(fields[0]), fields[1]))
+			ids, err := idStrs(fields[2], fields[3], fields[0])
+			if err != nil {
+				return nil, fmt.Errorf("graph_add_edges: %w", err)
+			}
+			edges = append(edges, functions.NewEdge[string, string, any](ids[0], ids[1], ids[2], fields[1]))
 		}
 		// A derivation pass can find one fact twice (a ConfigMap mounted AND referenced
 		// from an env var); identical specs are added once (F14, collections.AddEdgesOnce).
@@ -197,7 +253,11 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if !ok {
 			return nil, fmt.Errorf("graph_payloads_of: last argument must be a graph, got %T", args[1])
 		}
-		return nodePayloads(g.NodesByColor(dslStr(args[0]))), nil
+		color, err := idStr(args[0])
+		if err != nil {
+			return nil, fmt.Errorf("graph_payloads_of: %w", err)
+		}
+		return nodePayloads(g.NodesByColor(color)), nil
 	})
 
 	// graph_in_of / graph_out_of color id g → the identities of the declared nodes joined to id
@@ -221,9 +281,13 @@ func buildDSLBuiltinFuncs() map[string]any {
 			if !ok {
 				return nil, fmt.Errorf("%s: last argument must be a graph, got %T", dir.name, args[2])
 			}
-			color := dslStr(args[0])
+			ids, err := idStrs(args[0], args[1])
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", dir.name, err)
+			}
+			color := ids[0]
 			out := []any{}
-			for _, e := range dir.edges(g, dslStr(args[1])) {
+			for _, e := range dir.edges(g, ids[1]) {
 				// An edge whose far endpoint is not a declared node is stored but not
 				// followed: adjacency agrees with the node listing (F13, Graph.Neighbors).
 				if e.Color == color && g.HasNode(dir.end(e)) {
@@ -246,13 +310,16 @@ func buildDSLBuiltinFuncs() map[string]any {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("hamt_get: want (key payload), got %d args", len(args))
 		}
-		key := dslStr(args[0])
+		key, err := evaluator.EncodeKey(args[0])
+		if err != nil {
+			return nil, fmt.Errorf("hamt_get: %w", err)
+		}
 		v, found, navigable := evaluator.HAMTGetKey(args[1], key)
 		if !navigable {
 			return nil, fmt.Errorf("hamt_get: value of type %T is not a Record/HAMT/Map", args[1])
 		}
 		if !found {
-			return nil, fmt.Errorf("hamt_get: key '%s' not found", key)
+			return nil, fmt.Errorf("hamt_get: key '%v' not found", args[0])
 		}
 		return v, nil
 	})
