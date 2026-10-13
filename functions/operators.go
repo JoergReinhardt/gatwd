@@ -434,6 +434,18 @@ func EvalBinaryOp(op OpKind, left, right any) (any, error) {
 			return combined, nil
 		}
 
+		// A String and a collection of Chars concatenate as Strings (D1: the String side
+		// demands a String, so the Char collection converts).
+		if ls, ok := left.(string); ok {
+			if rs, isChars := CharsAsString(right); isChars {
+				return ls + rs, nil
+			}
+		}
+		if rs, ok := right.(string); ok {
+			if ls, isChars := CharsAsString(left); isChars {
+				return ls + rs, nil
+			}
+		}
 		if ls, ok := left.(string); ok {
 			return ls + fmt.Sprintf("%v", right), nil
 		}

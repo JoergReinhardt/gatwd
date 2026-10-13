@@ -121,6 +121,16 @@ func compareAny(a, b any) (int, error) {
 	return c, nil
 }
 
+// textAsChars lifts a String argument to the List of its Chars so the collection function
+// forms (map, filter, flatmap) treat it as the collection row it is; any other value passes
+// through. Stream steps do not use it: in a pipeline a String node is one element.
+func textAsChars(v any) (any, error) {
+	if s, ok := v.(string); ok {
+		return charList(s)
+	}
+	return v, nil
+}
+
 // registerMatrixFuncs adds every function form of the matrix to m.
 func registerMatrixFuncs(m map[string]any) {
 	// ---- generic Functor / Filterable / Foldable / Monad -------------------------
@@ -128,7 +138,11 @@ func registerMatrixFuncs(m map[string]any) {
 		if err := requireCallable("first argument", a[0]); err != nil {
 			return nil, err
 		}
-		return mapValue(a[1], func(e any) (any, error) { return call1(a[0], e) })
+		x, err := textAsChars(a[1])
+		if err != nil {
+			return nil, err
+		}
+		return mapValue(x, func(e any) (any, error) { return call1(a[0], e) })
 	})
 	for _, neg := range []bool{false, true} {
 		name := "filter"
@@ -139,10 +153,18 @@ func registerMatrixFuncs(m map[string]any) {
 			if err := requireCallable("first argument", a[0]); err != nil {
 				return nil, err
 			}
-			return filterValue(a[1], func(e any) (bool, error) {
+			x, err := textAsChars(a[1])
+			if err != nil {
+				return nil, err
+			}
+			res, err := filterValue(x, func(e any) (bool, error) {
 				ok, err := callPred(a[0], e)
 				return ok != neg, err
 			})
+			if _, wasText := a[1].(string); wasText && err == nil {
+				return textResult(res), nil
+			}
+			return res, err
 		})
 	}
 	defn(m, "fold", "f seed x", func(a []any) (any, error) {
@@ -157,7 +179,11 @@ func registerMatrixFuncs(m map[string]any) {
 		if err := requireCallable("first argument", a[0]); err != nil {
 			return nil, err
 		}
-		return bindValue(a[1], func(e any) (any, error) { return call1(a[0], e) })
+		x, err := textAsChars(a[1])
+		if err != nil {
+			return nil, err
+		}
+		return bindValue(x, func(e any) (any, error) { return call1(a[0], e) })
 	})
 	defn(m, "bimap", "f g x", func(a []any) (any, error) {
 		if err := requireCallable("first argument", a[0]); err != nil {
@@ -245,9 +271,12 @@ func registerMatrixFuncs(m map[string]any) {
 			}
 			return c.Slice(1, c.Len()), nil
 		}
-		items, ok := functions.ToSliceAny(a[0])
+		items, ok := seqOf(a[0])
 		if !ok || len(items) == 0 {
 			return nil, fmt.Errorf("empty or non-sequence %T", a[0])
+		}
+		if _, wasText := a[0].(string); wasText {
+			return textResult(listOf(items[1:])), nil
 		}
 		return listOf(items[1:]), nil
 	})
@@ -256,7 +285,7 @@ func registerMatrixFuncs(m map[string]any) {
 		if err != nil {
 			return nil, err
 		}
-		items, ok := functions.ToSliceAny(a[1])
+		items, ok := seqOf(a[1])
 		if !ok {
 			return nil, fmt.Errorf("not a sequence: %T", a[1])
 		}
@@ -272,7 +301,7 @@ func registerMatrixFuncs(m map[string]any) {
 		case *collections.Chunk[any]:
 			return c.Reverse(), nil
 		}
-		items, ok := functions.ToSliceAny(a[0])
+		items, ok := seqOf(a[0])
 		if !ok {
 			return nil, fmt.Errorf("not a sequence: %T", a[0])
 		}
@@ -280,15 +309,25 @@ func registerMatrixFuncs(m map[string]any) {
 		for idx, it := range items {
 			out[len(items)-1-idx] = it
 		}
+		if _, wasText := a[0].(string); wasText {
+			return textResult(listOf(out)), nil
+		}
 		return listOf(out), nil
 	})
 	defn(m, "cons", "x xs", func(a []any) (any, error) {
 		if l, ok := a[1].(*collections.List[any]); ok {
 			return collections.Cons(a[0], l), nil
 		}
-		items, ok := functions.ToSliceAny(a[1])
+		items, ok := seqOf(a[1])
 		if !ok {
 			return nil, fmt.Errorf("not a sequence: %T", a[1])
+		}
+		if _, wasText := a[1].(string); wasText {
+			c, err := asChar(a[0])
+			if err != nil {
+				return nil, fmt.Errorf("cannot cons onto a String: %w", err)
+			}
+			return textResult(listOf(append([]any{c}, items...))), nil
 		}
 		return listOf(append([]any{a[0]}, items...)), nil
 	})

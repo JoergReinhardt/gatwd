@@ -263,8 +263,16 @@ by code point (`'a' < 'b'`). The function forms are data-last and curried (they 
 | `char_is_digit` `char_is_alpha` `char_is_space` `char_is_upper` `char_is_lower` | `Char` → `Bool` |
 | `char_upper c` · `char_lower c` | `Char` → `Char` |
 
-The `Char` annotation is understood by `gatwd --check` (`def isa : Char -> Bool = \c -> c == 'a'`). The remaining conversions
-of the D1 table (`String` as a collection row of `Char`s) arrive with the rest of W2.
+The `Char` annotation is understood by `gatwd --check` (`def isa : Char -> Bool = \c -> c == 'a'`). 
+
+**`String` is a collection row of `Char`s.** The expression function forms see a `String` as its characters:
+`length`, `head`/`nth` (a `Char`), `member`, `fold`, `to_list`/`to_set`, and `map`/`flatmap` (a `List` of whatever the
+function returns — `map char_upper "abc"` is a list of `Char`s). The *closed* operations answer with a `String`:
+`filter`, `reject`, `reverse`, `tail`, `cons 'x' s`. A collection of `Char`s used where a `String` is demanded converts:
+`"ab" ++ ['c', 'd']` is `"abcd"` (a mixed collection is an error naming the element; the empty collection spells `""`).
+**In a pipeline a `String` node is one element of the stream** (a line, a word), so the stream steps `map`, `filter`,
+`fold`, `head` … do not descend into it; inside a lambda or a function-form call use the function forms
+(`["abc", "de"] |> map (\s -> reverse s)`).
 
 ### Automatic Overflow Promotion to `BigInt` & `BigFloat`
 Gatwd protects numerical pipelines against arithmetic overflow across all numeric types:

@@ -632,3 +632,32 @@ is_just (char_of_str "zz") |> assert false
 (just 4) |> maybe_default 0 |> assert 4
 -- inside a lambda prefer the function form (a pipeline-bodied lambda streams its input's elements)
 [[1, 2], [3]] |> map (\xs -> length xs) |> assert [2 1]
+
+-- 89. String is a collection row of Chars (hardening W2, D1). The EXPRESSION function forms see
+-- a String as its Chars; the closed operations (filter reject reverse tail cons) answer with a
+-- String, map and flatmap with a List. In a PIPELINE a String node stays one stream element.
+length "héllo" |> assert 5
+reverse "abc" |> assert cba
+filter (\c -> c != 'b') "abc" |> assert ac
+reject (\c -> c == 'b') "abc" |> assert ac
+tail "abc" |> assert bc
+cons 'x' "abc" |> assert xabc
+head "abc" == 'a' |> assert true
+nth 1 "abc" == 'b' |> assert true
+member 'b' "abc" |> assert true
+member 'z' "abc" |> assert false
+fold (\a c -> a + (char_code c)) 0 "ab" |> assert 195
+map (\c -> char_code c) "ab" |> assert [97 98]
+map (\c -> char_upper c) "ab" |> assert [A B]
+flatmap (\c -> [c, c]) "ab" |> assert [a a b b]
+to_list "ab" |> assert [a b]
+-- inside lambdas and comprehensions
+["abc", "de"] |> map (\s -> reverse s) |> assert [cba ed]
+["abc", "de"] |> map (\s -> length (filter (\c -> c != 'b') s)) |> assert [2 2]
+[ (reverse s) | s <- ["xy", "z"] ] |> assert [yx z]
+-- a collection of Chars used where a String is demanded (++) is converted; the empty one too
+"ab" ++ ['c', 'd'] |> assert abcd
+['a'] ++ "bc" |> assert abc
+"ab" ++ [] |> assert ab
+-- the pipeline boundary: each stream node is one String, not its characters
+spawn S: x |> emit ab, cd |> drop 1 |> map (\s -> s ++ "!") |> collect_list |> assert [ab! cd!]

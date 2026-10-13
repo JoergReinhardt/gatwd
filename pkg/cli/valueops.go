@@ -59,6 +59,63 @@ func asChar(v any) (functions.Char, error) {
 	return 0, fmt.Errorf("want a Char, got %T", v)
 }
 
+// asString reads v as a String: a String itself, or a List/Chunk/slice of Chars spelling
+// one (the empty collection spells ""). A collection holding a non-Char is an error that
+// names the first offending element.
+func asString(v any) (string, error) {
+	if s, ok := v.(string); ok {
+		return s, nil
+	}
+	items, ok := functions.ToSliceAny(v)
+	if !ok {
+		return "", fmt.Errorf("want a String, got %T", v)
+	}
+	for idx, it := range items {
+		if !functions.IsChar(it) {
+			return "", fmt.Errorf("want a String or a collection of Chars; element %d is %v (%T)", idx, it, it)
+		}
+	}
+	s, _ := functions.CharsAsString(v)
+	return s, nil
+}
+
+// charList lists the Chars of a String as a List (the String → collection-of-Chars row).
+func charList(s string) (*collections.List[any], error) {
+	cs, err := functions.CharsOfString(s)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]any, len(cs))
+	for idx, c := range cs {
+		items[idx] = c
+	}
+	return listOf(items), nil
+}
+
+// seqOf is functions.ToSliceAny extended with the String row: a String is the sequence of
+// its Chars. It is for the expression function forms only — in a pipeline a String node is
+// one element of the stream, so the stream steps never call it.
+func seqOf(v any) ([]any, bool) {
+	if s, ok := v.(string); ok {
+		l, err := charList(s)
+		if err != nil {
+			return nil, false
+		}
+		return functions.ToSliceAny(l)
+	}
+	return functions.ToSliceAny(v)
+}
+
+// textResult gives a carrier-preserving result for an operation applied to a String: a
+// sequence of Chars is spelled back as a String, so filter/reverse/tail/cons on a String
+// answer with a String.
+func textResult(res any) any {
+	if s, ok := functions.CharsAsString(res); ok {
+		return s
+	}
+	return res
+}
+
 // call1 applies a callable to one argument.
 func call1(fn, x any) (any, error) { return functions.Apply(fn, []any{x}) }
 
@@ -115,6 +172,8 @@ func elementsOf(v any) ([]any, bool) {
 	case dsltypes.Variant:
 		_, _, payload := c.VariantElements()
 		return []any{payload}, true
+	case string:
+		return seqOf(c)
 	}
 	if mb, ok := v.(interface{ MaybeValue() (any, bool) }); ok {
 		if x, isJust := mb.MaybeValue(); isJust {

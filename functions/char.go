@@ -104,3 +104,26 @@ func StringOfChars(cs []Char) string {
 	}
 	return string(rs)
 }
+
+// CharsAsString reads a collection of Chars (a List, Chunk or slice whose elements are all
+// Chars) as the String it spells — the collection-of-Chars → String half of the on-demand
+// conversion. It is false for a String itself, for a non-collection, and for a collection
+// holding anything but Chars; the empty collection spells "".
+func CharsAsString(v any) (string, bool) {
+	if _, isString := v.(string); isString {
+		return "", false
+	}
+	items, ok := ToSliceAny(v)
+	if !ok {
+		return "", false
+	}
+	cs := make([]Char, len(items))
+	for i, it := range items {
+		c, isChar := it.(Char)
+		if !isChar {
+			return "", false
+		}
+		cs[i] = c
+	}
+	return StringOfChars(cs), true
+}

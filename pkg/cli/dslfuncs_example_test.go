@@ -65,3 +65,14 @@ func Example_charFuncs() {
 	fmt.Println(up[0], code[0])
 	// Output: [A B] 233
 }
+
+// Example_stringRow shows String as a collection of Chars: filter and reverse answer with a
+// String, map with a list of whatever the function returns.
+func Example_stringRow() {
+	interp := cli.NewInterpreter()
+	kept := interp.EvaluateToValues(`filter (\c -> c != 'b') "abcb"`)
+	back := interp.EvaluateToValues(`reverse "abc"`)
+	codes := interp.EvaluateToValues(`map (\c -> char_code c) "ab"`)
+	fmt.Println(kept[0], back[0], codes[0])
+	// Output: ac cba [97 98]
+}

@@ -3,6 +3,7 @@ package functions_test
 import (
 	"testing"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/functions"
 )
 
@@ -104,5 +105,44 @@ func TestCharComparison(t *testing.T) {
 	}
 	if c, err := functions.Compare(functions.Char('é'), functions.Char('z')); err != nil || c <= 0 {
 		t.Errorf("é (U+00E9) must order after z (U+007A) by code point, got %d, %v", c, err)
+	}
+}
+
+func TestCharsAsString(t *testing.T) {
+	list := collections.Cons[any](functions.Char('a'), collections.Cons[any](functions.Char('é'), collections.Nil[any]()))
+	if s, ok := functions.CharsAsString(list); !ok || s != "aé" {
+		t.Errorf("CharsAsString(list of Chars) = %q, %v", s, ok)
+	}
+	if s, ok := functions.CharsAsString([]any{}); !ok || s != "" {
+		t.Errorf("the empty collection spells the empty String, got %q, %v", s, ok)
+	}
+	if _, ok := functions.CharsAsString([]any{functions.Char('a'), 1}); ok {
+		t.Error("a mixed collection must not convert")
+	}
+	if _, ok := functions.CharsAsString("abc"); ok {
+		t.Error("a String is not a collection of Chars for this conversion")
+	}
+	if _, ok := functions.CharsAsString(5); ok {
+		t.Error("a non-collection must not convert")
+	}
+}
+
+// ++ between a String and a collection of Chars spells a String (D1); anything else keeps
+// its previous behaviour.
+func TestConcatStringAndChars(t *testing.T) {
+	chars := []any{functions.Char('c'), functions.Char('d')}
+	for _, tc := range []struct {
+		l, r any
+		want string
+	}{
+		{"ab", chars, "abcd"},
+		{chars, "ab", "cdab"},
+		{"ab", []any{}, "ab"},
+		{"ab", functions.Char('c'), "abc"},
+	} {
+		got, err := functions.EvalBinaryOp(functions.OpConcat, tc.l, tc.r)
+		if err != nil || got != tc.want {
+			t.Errorf("%#v ++ %#v = %#v, %v; want %q", tc.l, tc.r, got, err, tc.want)
+		}
 	}
 }

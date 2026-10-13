@@ -50,7 +50,7 @@ and fails on `[ERROR]` or silence; `steps` is `builtins`; `task` takes `-s SCRIP
 
 Start each from `.agents/prompts/add-language-feature.md` / `fill-matrix-cell.md` and the `phase-delivery` skill. Ask before the choices that are hard to reverse.
 
-**W2 (plan §5):** **`Char` is done** (`4cc0c8a`: literal, escapes, `char_*`, `asChar`, checker). Remaining tier 1 — String as a collection row in `pkg/cli/valueops.go`, the `str_*` library, `not`/`xor`/`and`/`or`,
+**W2 (plan §5):** **`Char` is done** (`4cc0c8a`: literal, escapes, `char_*`, `asChar`, checker). Remaining tier 1 — (String as a collection row is **done**, plan §0) the `str_*` library (entry point `asString` in `valueops.go`), `not`/`xor`/`and`/`or`,
 `Ordering` ADT, `D2` (`+` numeric-only; every script in the repo was checked: none relies on string `+`), the generic *function-form-as-step* fallback (F18, **done**) placed after the
 existing step chain and before the OS-exec fallback. Second tier: `Bytes` + encodings, JSON/YAML, regex (RE2), hashes. Time later.
 **The F2 rows in `pkg/cli/failloud_test.go` (`**`, `!true`, `not true`, `- 5`) expect `cannot evaluate`; flip them to values when the feature lands (the `'a'` row is already replaced).** **F18 (function-form-as-step) is done too** (plan §5.4).
