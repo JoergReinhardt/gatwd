@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/joergreinhardt/gatwd/functions"
 )
@@ -47,6 +48,9 @@ type CommandSpec struct {
 	Preludes []Prelude
 	// Commands are domain subcommands added to the root (Edition.WithCommand).
 	Commands []*cobra.Command
+	// Flags declare extra persistent flags on the root (Edition.WithFlags); each is called
+	// with the root's flag set every time the tree is built.
+	Flags []func(*pflag.FlagSet)
 	// NormalizeArgs, when set, rewrites the arguments before parsing; it is the hook for
 	// accepting a retired spelling (for example a single-dash long flag) for a release.
 	NormalizeArgs func([]string) []string
@@ -161,6 +165,9 @@ func (t *CommandTree) Root() *cobra.Command {
 	pf.StringArrayVar(&g.preludes, "prelude", nil, "load `FILE` before the script (repeatable)")
 	pf.BoolVar(&g.noPrelude, "no-prelude", false, "skip the embedded preludes")
 	pf.StringArrayVarP(&g.defines, "define", "D", nil, "bind the string constant `NAME=VALUE` (repeatable)")
+	for _, declare := range t.spec.Flags {
+		declare(pf)
+	}
 
 	addRunFlags(root, &rf)
 	root.Flags().BoolVarP(&rf.check, "check", "c", false, "only check the given files (see `check`)")
