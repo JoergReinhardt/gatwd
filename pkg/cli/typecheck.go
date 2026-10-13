@@ -505,6 +505,35 @@ func joinResults(ts []Ty) Ty {
 	return out
 }
 
+// inexactIntBound is 2^53: beyond it an Int is not exactly representable as a Float.
+var inexactIntBound = new(big.Int).Lsh(big.NewInt(1), 53)
+
+// warnInexactIntToFloat is the advisory of the promotion lattice (plan §6 item 2): an Int
+// LITERAL larger than 2^53 combined with a Float converts to the nearest double and loses
+// digits silently. `to_float` states the conversion; keeping the operation on integers
+// avoids it. Only a literal is judged (the checker does not track values), so there are no
+// false positives.
+func (c *typeChecker) warnInexactIntToFloat(x parser.BinaryExpr, l, r Ty) {
+	switch x.Op {
+	case functions.OpAdd, functions.OpSub, functions.OpMul, functions.OpDiv, functions.OpPow:
+	default:
+		return
+	}
+	check := func(e parser.Expr, other Ty) {
+		lit, ok := e.(parser.LiteralExpr)
+		if !ok || other.Name != "Float" {
+			return
+		}
+		b, isInt := functions.ToBigInt(lit.Value)
+		if !isInt || new(big.Int).Abs(b).Cmp(inexactIntBound) <= 0 {
+			return
+		}
+		c.warn(fmt.Sprintf("integer %s is larger than 2^53 and converts to Float inexactly in '%s'; use to_float to say so, or keep the operation on integers", b, x.Op))
+	}
+	check(x.Left, r)
+	check(x.Right, l)
+}
+
 // unaryType types a prefix operator by asking the runtime (parser.ApplyUnary) about
 // representative values, like binaryType: an error is a definite contradiction.
 func unaryType(op string, t Ty) (Ty, string) {
@@ -672,6 +701,7 @@ func (c *typeChecker) infer(e parser.Expr, scope tyScope) Ty {
 		if msg != "" {
 			c.warn(msg)
 		}
+		c.warnInexactIntToFloat(x, l, r)
 		return t
 	case parser.UnaryExpr:
 		saved := c.lenient

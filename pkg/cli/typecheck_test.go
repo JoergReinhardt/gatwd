@@ -339,3 +339,24 @@ func TestPrefixBangIsChecked(t *testing.T) {
 		t.Errorf("!String must warn, got %v", ws)
 	}
 }
+
+// The promotion lattice's advisory: an Int literal beyond 2^53 mixed with a Float.
+func TestInexactIntToFloatAdvisory(t *testing.T) {
+	for _, src := range []string{"9007199254740993 + 0.5", "0.5 * 9007199254740993", "2.5 / 100000000000000000000", "(-9007199254740993) + 1.5"} {
+		if ws := warnings(src); !hasWarning(ws, "converts to Float inexactly") {
+			t.Errorf("%q: want the inexact-conversion warning, got %v", src, ws)
+		}
+	}
+	for _, src := range []string{
+		"9007199254740992 + 0.5",  // exactly 2^53 is representable
+		"9007199254740993 + 1",    // Int with Int is exact
+		"9007199254740993 == 0.5", // comparison is exact, no conversion
+		"9007199254740993 > 9007199254740992.0",
+		"1r2 + 9007199254740993", // Ratio with Int is exact
+		"def f : Float -> Float = \\x -> x + 1.5\nf 2",
+	} {
+		if ws := warnings(src); hasWarning(ws, "inexactly") {
+			t.Errorf("%q must not warn, got %v", src, ws)
+		}
+	}
+}
