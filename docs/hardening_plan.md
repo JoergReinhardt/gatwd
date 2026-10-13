@@ -1,6 +1,6 @@
 # Plan: Base Types & Stdlib, Core CLI, Node Identity, In-Process Kustomize, Fail-Loud Sweep
 
-> **Status (2026-10-13): W0–W6 and YAML are implemented and merged (see §0); `Duration`/`Time`/`Date` (§5.6) and W7 remain.** Progress table: §0.
+> **Status (2026-10-13): W0–W7, YAML, the time types and the follow-ups are implemented and merged (see §0); only the closing checklist (§10.1) remains.** Progress table: §0.
 > **All decisions D1–D10 are answered** (§1, 2026-10-13); **D11–D13 (the `Ratio` type, §6.1) are decided on the recommendation**. Two answers carry a point to settle when their phase starts: D1 (the
 > details of the two-way `Char`/`String` conversion, W2) and D7 (auto-render, W5).
 > Facts marked **(verified)** were reproduced against the current tree while writing this plan;
@@ -49,9 +49,13 @@ Order: **W0 → W1 → W2/W3 (parallel) → W4 → W5 → W6 → W7.** Rationale
 | W5 (in-process kustomize, Go 1.27) | **done and merged** (2026-10-13, Track C, `0f6c6db`): `go 1.27.0`, kustomize v0.21.3 in `pkg/k8sgraph/kustomize.go`, `manifests` auto-renders, `--no-kustomize`. Notes: §8.1. |
 | W6 (operator: layering, exit codes, formats, lazy client) | **done and merged** (2026-10-13, Track D, `9e8fde6`): layered overrides by default (D5), `*LoadError`, `NewApplianceTree`, `--fail-on-violation`, `--format json`, `LazyDynamicClient`. Notes: §9. |
 | YAML | **done** (`fca8917`), see the W2 row. |
+| Operator follow-ups (Track E) | **done and merged** (2026-10-13): exit status 3 for violations under the opt-in `--fail-on-violation`, the operator's `--no-kustomize`, source provenance (`collections.Source` side channel, `with_source`/`source_of`) so duplicate-id errors name both files. Notes: §7.1, §9. |
+| Dependencies | **done** (`3e4927b`): `client-go`/`apimachinery`/`api` v0.38.0-alpha.2, the kube-openapi `replace` removed. |
+| String vs collection equality (Track G, `0d30e85`) | **done and merged**: canonical, collision-free HAMT keys (`evaluator/hamt_key.go`), the printed-form fallback removed from `StructuralEqual`. Notes: §6.3. Open: `to_set`/`distinct` steps still deduplicate by printed form (recommended: make them value-typed). |
+| §5.6 `Duration`/`Time`/`Date` (Track F, `51830ae`) | **done and merged**: three core types, unit/`@` literals, arithmetic, function forms, `now` through an injectable clock, checker support, JSON/YAML as strings; time keys encoded by UTC instant in `EncodeKey`. Notes: §5.6; open T1-T3 there. |
+| W7 execution policy (Track H, `84a5c85`) | **done and merged**: `cli.Policy`, capability gates (exec, fs, net; env has no builtin yet), `RunOptions.Source/Policy/Context/MaxOutput`, operator `--allow-*` flags, deny-by-default overrides, `diagnostics` in the JSON report. Notes: §9. Deferred: `parser.FormatError` wiring, operator timeout/output-limit flags. |
+| Closing checklist (§10.1) | in progress (branch `hardening/closing`). |
 | Merged-tree gates (2026-10-13) | `go vet`, `go test ./...`, `./run_dsl_tests.sh`, `-race`, silent `--check` all green; script regression diff against `2526cc0`: only explained differences (ids, `collect_list` now loud, the big-integer `+`, the cheatsheet's new step; the visualizer tours and `tour_23` differ between runs of the same binary). |
-| §5.6 `Duration`/`Time`/`Date` | not started (D14–D17 accepted; Track A has landed). |
-| W7 | not started (Track D has landed). Layered overrides are only safe with the deny-by-default policy: do W7 before relying on ConfigMap overrides. |
 
 ---
 
