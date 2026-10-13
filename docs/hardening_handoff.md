@@ -13,7 +13,7 @@
 
 Every question raised by the tracks and the closing checklist was answered on 2026-10-13 and implemented (plan §1: "Answered at the start of the parallel run", "…after the parallel run", "…after the closing checklist", "…after tracks L–N", and the W7 design points).
 
-**All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed: `build_bst` drops upstream error nodes; `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
+**All answered on 2026-10-13 (plan §1, "Answered after tracks L–N"); nothing is open.** Queued, only when needed (full plan: `followup_plan.md`): `rollout status --watch`; undo/status/pause for StatefulSet/DaemonSet; a pure closure that never returns is not interruptible; `gatwd` itself has no signal handling; `Unit`; `parser.FormatError` wiring; `strptime`-style parsing; an `env` builtin; a third message element in rule results.
 
 **The larger deferred items now have a written plan: [`followup_plan.md`](followup_plan.md)** (phases F1 error positions, F2 interruptible evaluation, F3 `gatwd` signals, F4 rollout completion, F5 rule messages, F6 small language items, F7 operator configuration; decisions D-F1…D-F7a with recommendations; sequencing and what runs in parallel).
 
@@ -27,9 +27,7 @@ W6 (layered overrides, exit codes, formats, lazy client), the follow-ups (exit s
 canonical HAMT keys and `String != printed collection`, §5.6 `Duration`/`Time`/`Date`, W7 (`cli.Policy`, capability gates, `--allow-*`, `diagnostics`), and the §10.1 closing checklist (the how-to is pinned by
 `cmd/gatwd-k8s-operator/doc_test.go`). Gates on the final tree: `gofmt`, `go vet`, `go test ./...`, `./run_dsl_tests.sh`, `-race`, silent `--check`; script regression diff against `2526cc0` explained.
 
-**Deferred with reasons (all in the plan):** `Unit`; `parser.FormatError` wiring (the infix and line parsers do not use the tracker); operator timeout flags (Q8); a guard-only comprehension (`[ e | guard ]` with no generator silently yields `[]`,
-documented as a trap, a parser fix is open); `GATWD_<FLAG>` environment defaults; ConfigMap watching; remote kustomize bases (stay refused, user decision); `zip` is suspect (`echo Primary: %s |> zip date`); `json_encode` of a `Ratio`;
-exponent float literals (`1e-3`); the `--check` advisory beyond literals.
+**Deferred with reasons:** everything still open is planned in [`followup_plan.md`](followup_plan.md) (F1–F7). Fixed since the hardening plan closed: a guard-only comprehension is a loud error (Track P), the collecting steps deliver upstream error nodes (Track Q), `zip` pairs its input with the command's output (Track Q; a list-level `zip xs ys` needs a distinct name, plan §6.3b).
 
 ## 2. Decisions — all answered (2026-10-13)
 
@@ -66,7 +64,7 @@ A change to a binary's command line also gets a row in that binary's real-binary
 - `main` and `--task` run after the script's top-level statements, which always run — keep invocations out of the top level. With `-e`, `main` does not run.
 - Exec steps split quotes like a shell and a non-zero exit is an error. An unknown pipeline step **runs an OS command** (F17) only under a policy that allows exec: the command-line script and `-e` are trusted, while Appliance overrides and `RunOptions.Source` scripts default to `DenyAll` (W7; `--allow-*` on the operator).
 - `+` is numeric-only (D2, done): `"a" + 1` is an error naming both types and `++`. Text reaching arithmetic must be converted (`str_to_int`); the tokens of `emit`/`const`/`-D` are typed literals; spawn an **undeclared** type and the value is text (declare `type IntVal = Int`). a numeric `String` is no longer a number anywhere (W3: arithmetic, comparison, `==` and the number helpers reject it).
-- Known, **not fixed**: `zip` is suspect (`echo Primary: %s |> zip date` yields only the date). F11 (a leading `+` on big integers) is fixed.
+- `zip CMD` yields a `Pair` of the incoming value and the command's output (fixed in Track Q); F11 (a leading `+` on big integers) is fixed.
 - `-D X=5` binds the **number** 5 (canonical numbers only; `-D X=007` or `bob` are Strings) — this amends D4, see plan §0 step 7.
 
 **CLI and tooling**

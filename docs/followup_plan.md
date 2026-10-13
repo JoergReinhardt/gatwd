@@ -4,8 +4,8 @@
 > finished; every item below was **deferred there with a reason** and none blocks anything.
 > This file turns the deferrals into phases that can be picked up one at a time. Decisions
 > already taken are in `hardening_plan.md` §1; open ones are marked **Decision** and carry a
-> recommendation. The small silent-failure fixes (guard-only comprehension, `build_bst`
-> error nodes, `zip`) are not here: they were done as their own tracks first.
+> recommendation. The small silent-failure fixes (guard-only comprehension, collectors
+> dropping error nodes, `zip`) are not here: they were done as their own tracks first (merged 2026-10-14).
 
 ## 0. How to work through it
 
