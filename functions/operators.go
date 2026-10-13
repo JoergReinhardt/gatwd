@@ -661,11 +661,23 @@ func ParseCanonicalNumber(text string) (any, bool) {
 }
 
 // LiteralToken is the value a bare literal token denotes — in `emit a, 10`, `const N = 5`
-// and `-D N=5`: a canonical number is that number, anything else is the text. One rule for
-// every place a script writes a value without quotes.
+// and `-D N=5`. One rule for every place a script writes a value without quotes: a token
+// that is a canonical literal is that value, anything else is the text.
+//
+// The canonical literals are numbers (ParseCanonicalNumber: `10`, `-5`, `1.5`), Durations
+// (ParseCanonicalDuration: `5s`, `1h30m`, `30d`), and Times and Dates with their `@`
+// (ParseCanonicalTemporal: `@2026-10-13`, `@2026-10-13T10:00:00Z`). Text that merely looks
+// like one but is not written canonically (`007`, `1.50`, `007s`, `+5s`) stays a String, so
+// typing a token never rewrites what the user wrote into something else.
 func LiteralToken(text string) any {
 	if n, ok := ParseCanonicalNumber(text); ok {
 		return n
+	}
+	if d, ok := ParseCanonicalDuration(text); ok {
+		return d
+	}
+	if v, ok := ParseCanonicalTemporal(text); ok {
+		return v
 	}
 	return text
 }
