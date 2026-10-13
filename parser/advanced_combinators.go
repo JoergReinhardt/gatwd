@@ -143,24 +143,54 @@ func ParseZip() Combinator[string] {
 	})
 }
 
-// ParseMatchCase parses a match branch of the form "Pattern -> TargetPipeline".
+// ParseMatchCase parses a match branch of the form "Pattern -> TargetPipeline". The pattern
+// ends at the first "->" that is not inside a String or Char literal, so a pattern may
+// itself contain a minus sign or an arrow-looking literal (`-1 -> …`, `"a->b" -> …`,
+// `@2026-10-13 -> …`); the body is everything after it. Text with no such arrow yields no
+// result, which the caller must report (a match arm is never silently dropped).
 func ParseMatchCase() Combinator[functions.Pair[string, string]] {
-	isPatternChar := func(b byte) bool { return b != '-' && b != '\n' }
-	patternParser := Map(Many(Satisfy(isPatternChar)), func(b []byte) string { return strings.TrimSpace(string(b)) })
+	return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
+		return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
+			at := indexArrowOutsideLiterals(input)
+			if at < 0 {
+				return
+			}
+			yield(functions.Pair[functions.Pair[string, string], string]{
+				Fst: functions.Pair[string, string]{
+					Fst: strings.TrimSpace(input[:at]),
+					Snd: strings.TrimSpace(input[at+2:]),
+				},
+				Snd: "",
+			})
+		}
+	}
+}
 
-	return Bind(patternParser, func(pattern string) Combinator[functions.Pair[string, string]] {
-		return Bind(Token("->"), func(_ string) Combinator[functions.Pair[string, string]] {
-			return func(input string) iter.Seq[functions.Pair[functions.Pair[string, string], string]] {
-				return func(yield func(functions.Pair[functions.Pair[string, string], string]) bool) {
-					target := strings.TrimSpace(input)
-					yield(functions.Pair[functions.Pair[string, string], string]{
-						Fst: functions.Pair[string, string]{Fst: pattern, Snd: target},
-						Snd: "",
-					})
+// indexArrowOutsideLiterals returns the byte index of the first "->" in s that is not inside
+// a double-quoted String literal or a single-quoted Char literal ('x' or an escape '\n'), or
+// -1 when there is none.
+func indexArrowOutsideLiterals(s string) int {
+	for k := 0; k < len(s); k++ {
+		switch s[k] {
+		case '"':
+			for k++; k < len(s) && s[k] != '"'; k++ {
+				if s[k] == '\\' {
+					k++
 				}
 			}
-		})
-	})
+		case '\'':
+			if k+2 < len(s) && s[k+1] != '\\' && s[k+2] == '\'' {
+				k += 2
+			} else if k+3 < len(s) && s[k+1] == '\\' && s[k+3] == '\'' {
+				k += 3
+			}
+		case '-':
+			if k+1 < len(s) && s[k+1] == '>' {
+				return k
+			}
+		}
+	}
+	return -1
 }
 
 // ParseSplit parses the arrow split combinator "[ Left *** Right ]".

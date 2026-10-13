@@ -1102,22 +1102,43 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner)
 			type matchCase struct {
-				pattern string
-				cmd     string
+				pat armPattern
+				cmd string
 			}
 			var cases []matchCase
+			var buildErr error
 			matchCaseParser := parser.ParseMatchCase()
 			for _, c := range casesStr {
 				c = strings.TrimSpace(c)
 				if c == "" {
 					continue
 				}
+				parsed := false
 				for res := range matchCaseParser(c) {
-					cases = append(cases, matchCase{pattern: strings.TrimSpace(res.Fst.Fst), cmd: strings.TrimSpace(res.Fst.Snd)})
+					parsed = true
+					pat, err := compileArmPattern(res.Fst.Fst)
+					cmd := strings.TrimSpace(res.Fst.Snd)
+					if err == nil && cmd == "" {
+						err = fmt.Errorf("match: the arm for pattern %q has no body", pat.text)
+					}
+					if err != nil && buildErr == nil {
+						buildErr = err
+					}
+					cases = append(cases, matchCase{pat: pat, cmd: cmd})
 					break
 				}
+				if !parsed && buildErr == nil {
+					buildErr = fmt.Errorf("match: arm %q is not of the form `pattern -> body`", c)
+				}
+			}
+			if buildErr != nil {
+				// A pattern that means nothing must say so, not silently never match.
+				pipeline = append(pipeline, i.failStep(buildErr))
+				continue
 			}
 
+			// dynamicMatch runs, for each value, the body of the first arm whose pattern
+			// matches it (matchArm). A value that no arm matches is an error node, not silence.
 			dynamicMatch := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 				return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
 					for node := range stream {
@@ -1128,152 +1149,24 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							continue
 						}
 						val, _ := node.Value.UnwrapRight()
-						strVal := fmt.Sprintf("%v", val)
-
+						matched := false
 						for _, mc := range cases {
-							pattern := mc.pattern
-							cmd := mc.cmd
-
-							// 1. Head/Tail list pattern: [head, ...tail]
-							if strings.HasPrefix(pattern, "[") && strings.Contains(pattern, ", ...") && strings.HasSuffix(pattern, "]") {
-								if list, isList := val.(*collections.List[any]); isList {
-									if list.IsEmpty() {
-										continue
-									}
-									parts := strings.Split(pattern[1:len(pattern)-1], ", ...")
-									headVar := strings.TrimSpace(parts[0])
-									tailVar := strings.TrimSpace(parts[1])
-
-									localInterp := i.fork()
-									headVal, _ := list.Head()
-									tailVal, _ := list.Tail()
-									localInterp.RuntimeNodes[headVar] = dsltypes.NewASTNode(functions.Right[error, any](headVal), node.DSLType)
-									localInterp.RuntimeNodes[tailVar] = dsltypes.NewASTNode(functions.Right[error, any](any(tailVal)), node.DSLType)
-
-									adapter := localInterp.pipelineToAdapter(cmd)
-									for res := range adapter(node) {
-										if !yield(res) {
-											return
-										}
-									}
-									break
-								}
-							}
-
-							// 2. Empty list pattern: []
-							if pattern == "[]" {
-								if list, isList := val.(*collections.List[any]); isList && list.IsEmpty() {
-									adapter := i.pipelineToAdapter(cmd)
-									for res := range adapter(node) {
-										if !yield(res) {
-											return
-										}
-									}
-									break
-								}
-							}
-
-							// 3. Fixed-length list / tuple pattern: [p1, p2, ...] or (p1, p2, ...)
-							if (strings.HasPrefix(pattern, "[") && strings.HasSuffix(pattern, "]") && !strings.Contains(pattern, ", ...")) ||
-								(strings.HasPrefix(pattern, "(") && strings.HasSuffix(pattern, ")")) {
-								innerPat := pattern[1 : len(pattern)-1]
-								patParts := strings.Split(innerPat, ",")
-								var elemPats []string
-								for _, p := range patParts {
-									elemPats = append(elemPats, strings.TrimSpace(p))
-								}
-								if elems, ok := toListElements(val); ok && len(elems) == len(elemPats) {
-									matchedElems := true
-									localInterp := i.fork()
-									for idx, p := range elemPats {
-										elem := elems[idx]
-										if p == "_" {
-											continue
-										}
-										if isIdent(p) {
-											localInterp.RuntimeNodes[p] = dsltypes.NewASTNode(functions.Right[error, any](elem), node.DSLType)
-										} else {
-											if fmt.Sprintf("%v", elem) != p {
-												matchedElems = false
-												break
-											}
-										}
-									}
-									if matchedElems {
-										adapter := localInterp.pipelineToAdapter(cmd)
-										for res := range adapter(node) {
-											if !yield(res) {
-												return
-											}
-										}
-										break
-									}
-								}
-							}
-
-							// 4. Wildcard pattern: _
-							if pattern == "_" {
-								adapter := i.pipelineToAdapter(cmd)
-								for res := range adapter(node) {
-									if !yield(res) {
-										return
-									}
-								}
-								break
-							}
-
-							// 5. Constructor pattern: an identifier naming a registered sum-type
-							// branch (e.g. `Linux`, `Red`, `Nothing`). It discriminates on the
-							// incoming value's variant tag rather than binding a variable. A
-							// registered constructor whose tag does not match this value falls
-							// through to the NEXT case (continue), never to the variable arm —
-							// so `match { Red -> a | Green -> b }` routes correctly instead of
-							// letting the first arm win.
-							if isIdent(pattern) && i.Parser.IsConstructor(pattern) {
-								matched := false
-								if variant, ok := val.(dsltypes.Variant); ok {
-									// Value was boxed as a sum-type Variant (parser path).
-									matched = variant.Is(pattern)
-								} else {
-									// Value flows as its bare tag string (interpreter spawn
-									// path): discriminate by exact tag equality, not substring.
-									matched = strVal == pattern
-								}
-								if matched {
-									adapter := i.pipelineToAdapter(cmd)
-									for res := range adapter(node) {
-										if !yield(res) {
-											return
-										}
-									}
-									break
-								}
-								// Constructor pattern that did not match: try the next case.
+							scope, ok := i.matchArm(mc.pat, val, node.DSLType)
+							if !ok {
 								continue
 							}
-
-							// 6. Variable identifier pattern: x -> cmd (binds incoming value to variable x)
-							if isIdent(pattern) && pattern != "true" && pattern != "false" {
-								localInterp := i.fork()
-								localInterp.RuntimeNodes[pattern] = dsltypes.NewASTNode(functions.Right[error, any](val), node.DSLType)
-								adapter := localInterp.pipelineToAdapter(cmd)
-								for res := range adapter(node) {
-									if !yield(res) {
-										return
-									}
+							matched = true
+							adapter := scope.pipelineToAdapter(mc.cmd)
+							for res := range adapter(node) {
+								if !yield(res) {
+									return
 								}
-								break
 							}
-
-							// 7. String/Value substring matching
-							if !strings.HasPrefix(pattern, "[") && !strings.HasPrefix(pattern, "(") && strings.Contains(strVal, pattern) {
-								adapter := i.pipelineToAdapter(cmd)
-								for res := range adapter(node) {
-									if !yield(res) {
-										return
-									}
-								}
-								break
+							break
+						}
+						if !matched {
+							if !yield(evaluator.InjectError[any](fmt.Errorf("match: no arm matches %v", val), node.DSLType)) {
+								return
 							}
 						}
 					}
