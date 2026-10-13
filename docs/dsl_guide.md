@@ -886,7 +886,7 @@ gatwd eval -e '1 + 2' -e '"a" ++ "b"'   # one-liners; exit 1 if a statement erro
 gatwd script -e 'main_helper 3'         # -e after a script: replaces `main`
 gatwd check a.gatwd b.gatwd             # structural errors exit 1; typing findings are advisory
 gatwd task NAME [-s script] -- arg ...  # a def from the prelude, or from `script`
-gatwd prelude list | cat NAME           # the embedded prelude files
+gatwd prelude list | cat NAME           # the embedded preludes: each entry and the .gatwd files beside it (its imports)
 gatwd builtins                          # function forms (with parameters), defs, constants
 gatwd version · gatwd completion bash|zsh|fish|powershell · gatwd --help
 ```

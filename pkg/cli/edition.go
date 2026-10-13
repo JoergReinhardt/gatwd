@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io/fs"
+	"path"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -164,6 +165,7 @@ func (e *Edition) Command() *CommandTree {
 			return string(b), err
 		}}
 	}
+	preludes = withSiblingPreludes(preludes, e.preludes)
 	return NewCommandTree(CommandSpec{
 		Name:          e.Name,
 		Build:         e.buildInterpreter,
@@ -172,6 +174,42 @@ func (e *Edition) Command() *CommandTree {
 		Flags:         e.flags,
 		NormalizeArgs: e.normalize,
 	})
+}
+
+// withSiblingPreludes appends, after the entry preludes, every other `.gatwd` file that sits
+// next to an embedded entry file. A prelude is usually one entry that `import`s its
+// siblings (imports resolve relative to the importing file), so `prelude cat` of the entry
+// alone shows only the import lines; listing the siblings makes the whole library readable
+// (and copyable) from the binary. Names are the file's path inside its filesystem, an
+// entry already listed is not repeated, and an unreadable directory simply adds nothing.
+func withSiblingPreludes(listed []Prelude, entries []preludeEntry) []Prelude {
+	seen := map[string]bool{}
+	for _, p := range listed {
+		seen[p.Name] = true
+	}
+	for _, e := range entries {
+		if e.fsys == nil {
+			continue
+		}
+		dir := path.Dir(e.path)
+		files, err := fs.ReadDir(e.fsys, dir)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			name := path.Join(dir, f.Name())
+			if f.IsDir() || path.Ext(name) != ".gatwd" || seen[name] {
+				continue
+			}
+			seen[name] = true
+			fsys := e.fsys
+			listed = append(listed, Prelude{Name: name, Source: func() (string, error) {
+				b, err := fs.ReadFile(fsys, name)
+				return string(b), err
+			}})
+		}
+	}
+	return listed
 }
 
 // BuildInterpreter instantiates and configures a new Interpreter from this Edition blueprint.
