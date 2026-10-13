@@ -33,7 +33,7 @@ A **task** is a named `def` in a script. Two kinds, for two jobs:
 ```haskell
 -- examples/k8s_howto/tasks.gatwd
 def graph = manifests |> k8s_graph                                    -- a stream fragment (its input is the argument)
-def trace_to_pod = graph |> graph_shortest_path nginx-svc app-pod |> collect_list
+def trace_to_pod = graph |> graph_shortest_path Service/default/nginx-svc Pod/default/app-pod |> collect_list
 def count_kind = \kind g -> length (graph_payloads_of kind g)         -- a value function (takes arguments)
 def main = (who_configures_what <+> trace_to_pod <+> pod_count)       -- the default task
 ```
@@ -120,7 +120,7 @@ The operator embeds `cmd/gatwd-k8s-operator/rules/compliance.gatwd`. A file give
 
 ```bash
 gatwd-k8s-operator -manifests examples/k8s_howto/cluster -rules examples/k8s_howto/rules.gatwd
-# [[IdleDeployment worker] [UnusedService backend-svc] [MissingConfigMap worker] [DatabaseWithoutCredentials audit]]
+# [[IdleDeployment Deployment/default/worker] [UnusedService Service/default/backend-svc] [MissingConfigMap Deployment/default/worker] [DatabaseWithoutCredentials Database/default/audit]]
 ```
 
 Imports inside an override resolve against the process's working directory, so use absolute paths
@@ -128,18 +128,39 @@ Imports inside an override resolve against the process's working directory, so u
 
 ### 2.3 The graph model and its extension points
 
-Every resource becomes a node **coloured by its `kind`**, with id `metadata.name` and the whole resource
-(a nested map) as payload. Edges are `["Color", weight, "from", "to"]`; a relation is a pass that adds
-them. So a new node kind needs **no model change at all** — anything with `kind` and `metadata.name`
+Every resource becomes a node **coloured by its `kind`**, with the whole resource (a nested map) as
+payload and a **qualified id `Kind/namespace/name`** (`Pod/default/web`, `Service/prod/web`). A resource
+without a namespace — a cluster-scoped kind, or a manifest that names none — gets the scope `_`
+(`Role/_/admin`). Edges are `["Color", weight, "from", "to"]` over those ids; a relation is a pass that
+adds them. So a new node kind needs **no model change at all** — anything with `kind` and `metadata.name`
 is a node — and a new relation is a DSL pass. Declared vocabulary (`type NodeColor = …`) is for readers
 and exhaustiveness checks.
 
-Two caveats that matter when you add kinds:
+What the qualified id buys, and what it asks of you:
 
-- **Ids are `metadata.name` only.** A Pod and a Service with the same name collide, and so would a
-  Database named like a Service. Give new kinds a naming convention that cannot collide.
+- **Equal names no longer collide.** A Service and a Pod called `web`, or `web` in `default` and in
+  `prod`, are different nodes (`pkg/k8sgraph/testdata/collisions.yaml`). A resource defined **twice**
+  (same kind, namespace and name — two files of one kustomization, a pasted document) is an error that
+  names both declarations, never one silently replacing the other:
+  `[ERROR] … duplicate node id "Pod/default/dup": declared as Pod ({…"app":"first"…}) and again as Pod ({…"app":"second"…}) — the two declarations are different`
+  (`pkg/k8sgraph/testdata/duplicates.yaml`; the operator prints that error instead of a violation list).
+- **References resolve in the referrer's namespace**, because Kubernetes references are namespace-local:
+  an Ingress backend, a ConfigMap or claim a pod uses, a Service's selector, an `ownerReference` (which
+  names the owner's kind), a `roleRef` (kind and name) and a RoleBinding subject (which may carry its own
+  `namespace`). `k8s_ref kind ns name g` returns the id that exists — `Kind/ns/name`, else `Kind/_/name`
+  (a cluster-scoped target or a manifest without namespaces), else `Kind/ns/name` again so a missing
+  target still reads as the id it was looked for under. Use it in your own relations instead of building
+  ids by hand; `k8s_id_of resource` is the id of a payload and `k8s_short id` its bare name (the helpers are
+  in `pkg/k8sgraph/lib/k8s/ids.gatwd`).
+- **Queries use the qualified ids:** `graph_shortest_path Ingress/default/web Pod/default/nginx-pod`,
+  `graph_reachable Deployment/default/nginx-deploy`. Rule results print them too, so a violation says
+  which namespace it is in.
+- **Live and offline must agree on the namespace.** A live crawl always reports `metadata.namespace`;
+  a manifest that omits it is `Kind/_/name`. Compare like with like: give offline manifests the
+  namespace they will have in the cluster (`kubectl kustomize` output already does), or the ids differ.
 - Edges only join nodes that exist (`graph_has_node` guards), so a reference to something missing yields
-  no edge. Find dangling references with a rule (see `rule_dangling_ingress`).
+  no edge, and an edge to an id that is no node is never followed. Find dangling references with a rule
+  (see `rule_dangling_ingress`).
 
 ### 2.4 Example: Secret → database → DBMS, with a SQL (or Redis, …) adapter
 
@@ -147,12 +168,13 @@ Goal: a Kubernetes Secret holds credentials for a database, the database lives i
 ask "which DBMS does this workload ultimately depend on?" across both worlds.
 
 **Step 1 — put the data in the graph.** Your adapter yields one value per database and per DBMS, in the
-same shape every resource has: nested maps with `kind`, `metadata.name` and `spec`.
+same shape every resource has: nested maps with `kind`, `metadata.name` (and `metadata.namespace`, if the
+source has a scope) and `spec`. The ids follow from that: `DBMS/default/pg-prod`, `Database/default/orders`.
 
 ```yaml
-kind: DBMS                       kind: Database
-metadata: {name: pg-prod}        metadata: {name: orders}
-spec: {engine: postgres, …}      spec: {dbms: pg-prod}
+kind: DBMS                                     kind: Database
+metadata: {name: pg-prod, namespace: default}  metadata: {name: orders, namespace: default}
+spec: {engine: postgres, …}                    spec: {dbms: pg-prod}
 ```
 
 You can try the whole model first with **no Go**: `examples/k8s_howto/cluster/databases.yaml` is those
@@ -162,22 +184,23 @@ records as a manifest, so `manifests` ingests them.
 
 ```haskell
 def secret_target = \s -> hamt_get "gatwd.io/database" (hamt_path "metadata.annotations" s)
-def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (hamt_path "metadata.name" s), (secret_target s)] | s <- (graph_payloads_of "Secret" g), … graph_has_node (secret_target s) g ] g) graph_empty
-def rel_hosted_on     = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (hamt_path "metadata.name" d), (hamt_path "spec.dbms" d)] | d <- (graph_payloads_of "Database" g), … ] g) graph_empty
+def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (k8s_id_of s), did] | s <- (graph_payloads_of "Secret" g), …, did <- [ (k8s_ref "Database" (k8s_scope s) (secret_target s) g) ], graph_has_node did g ] g) graph_empty
+def rel_hosted_on     = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (k8s_id_of d), mid] | d <- (graph_payloads_of "Database" g), …, mid <- [ (k8s_ref "DBMS" (k8s_scope d) (hamt_path "spec.dbms" d) g) ], graph_has_node mid g ] g) graph_empty
 def infra_graph = k8s_graph |> rel_uses_database |> rel_hosted_on
 ```
 
 ```bash
 gatwd-k8s examples/k8s_howto/infra.gatwd
-# [orders-db-credentials-UsesDatabase->orders]
-# [audit-HostedOn->pg-prod orders-HostedOn->pg-prod]
-# [orders-db-credentials orders pg-prod]            ← the path Secret → Database → DBMS
+# [Secret/default/orders-db-credentials-UsesDatabase->Database/default/orders]
+# [Database/default/audit-HostedOn->DBMS/default/pg-prod Database/default/orders-HostedOn->DBMS/default/pg-prod]
+# [Secret/default/orders-db-credentials Database/default/orders DBMS/default/pg-prod]   ← the path Secret → Database → DBMS
 ```
 
 **Why an annotation instead of reading the credentials?** The DSL has string functions (`str_*`) but no base64 yet
 (the encodings tier of the hardening plan adds it), and a Secret's `data` is base64. An annotation (`gatwd.io/database: orders`) is plaintext, visible from a live
-cluster, and keeps credentials out of the graph logic. Matching by *exact equality* of a value to a node
-name also works (that is how the inferred `Calls` relation works). If you genuinely need decoded values,
+cluster, and keeps credentials out of the graph logic. Matching by *exact equality* of a value to the name of
+a node in the same namespace also works (that is how the inferred `Calls` relation works: `k8s_ref` turns the
+value into the Service's id). If you genuinely need decoded values,
 add a **generic** `base64_decode` builtin to core first (the Go-standard-library rule: wire `encoding/base64`
 through every layer with a non-domain DSL test), never a Secret-specific hack in the shim.
 
@@ -206,9 +229,10 @@ def infra_resources = (k8s_resources <+> sql_databases <+> redis_instances)   --
 def infra_offline   = (manifests <+> sql_databases)                           -- offline k8s + live DB
 ```
 
-Then `spawn StrVal: default |> infra_resources |> infra_graph |> graph_shortest_path orders-db-credentials pg-prod`.
+Then `spawn StrVal: default |> infra_resources |> infra_graph |> graph_shortest_path Secret/default/orders-db-credentials DBMS/default/pg-prod`.
 This assembly (extra adapter step + extra embedded prelude on top of `ApplyEdition`) was built and run for
-this guide. Rules for the adapter: do real I/O only, yield **nested maps/lists, not strings**, turn errors
+this guide. Rules for the adapter: do real I/O only, yield **nested maps/lists, not strings** (with `kind`, `metadata.name`
+and a `metadata.namespace` or other scope, from which the prelude builds the qualified id), turn errors
 into error nodes, keep third-party drivers inside the adapter file, and give it an offline twin (files) with
 the same shape. Full recipe: [`.agents/skills/edition-appliance/SKILL.md`](../.agents/skills/edition-appliance/SKILL.md).
 
@@ -317,9 +341,10 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 | `no cluster access (…); running offline` | kubeconfig auth plugin not supported or no cluster; use `-manifests` or fix the kubeconfig |
 | `no -manifests given and no cluster reachable` (exit 2) | the operator has no source |
 | Operator prints `[ERROR] …` after you added a rule | a name in the rule does not resolve, or an operator rejected its operands; the message names it (§2.1) |
-| Rule output is empty but should not be | a node kind is missing from the source list or RBAC, or ids collide (§2.3) |
+| Rule output is empty but should not be | a node kind is missing from the source list or RBAC (§2.3) |
+| `[ERROR] … duplicate node id "Kind/ns/name"` | the same resource is defined twice (the message quotes both); remove one, or give them different names or namespaces (§2.3) |
+| A reference you expect has no edge, or live and offline disagree | the two sides carry different namespaces (`Pod/_/x` vs `Pod/default/x`), or the target lives in another namespace than the referrer (§2.3) |
 | Edge you expect is missing | an endpoint node does not exist (`graph_has_node` guard), or the relation guards a field the resource lacks |
-| Duplicate edges in a listing | harmless: a relation can be derived twice (e.g. `Configures` via a volume *and* an env reference) |
 
 ---
 
@@ -328,7 +353,9 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 - Override rules replace, not layer (§2.2). Layering embedded + override would be a small change to
   `Appliance.Reload` if you prefer it.
 - The DSL has no base64 builtin yet (§2.4); the string library `str_*` exists.
-- Node ids are `metadata.name` only (§2.3).
+- Node ids are `Kind/namespace/name` (§2.3). The duplicate error quotes both declarations' payloads but not the
+  file they came from: the manifest reader does not attach a source path to a payload, so with many files you
+  find the pair by the quoted fields.
 - The operator does not set a non-zero exit code on violations (§3.2).
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.

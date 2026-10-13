@@ -643,6 +643,59 @@ that `0.1 + 0.2 == 0.3` fails for `Float`; round-trips `to_ratio (to_float r)` f
   queries become `graph_shortest_path Ingress/default/web Pod/default/nginx-pod`. Mechanical but wide; one commit
   for the prelude + tests, one for docs/examples.
 
+### 7.1 What W4 built, decided and left open (2026-10-13, branch `hardening/w4`)
+
+Four commits, each with every gate green: (1) the generic graph pieces, (2) the fake cluster keeps namespaces,
+(3) the Kubernetes prelude + every test/fixture/example migrated, (4) docs and this closure note.
+The design above is implemented as written; these are the calls made while doing it.
+
+- **Generic first.** `collections.Graph.InsertNode` and `*DuplicateNodeError` (id, both colors, both payloads, an
+  optional `Render` so the DSL can print a nested-map payload as JSON); the step `graph_insert_node COLOR ID`
+  (`evaluator.StepGraphInsertNode`) and the function form `graph_insert_node color id [payload] g` (3 or 4
+  arguments, like `graph_add_node`, whose raw-`DSLFunc` exception it shares). No Kubernetes word is in core; the id
+  scheme itself is *prelude* code (`pkg/k8sgraph/lib/k8s/ids.gatwd`: `k8s_scope`, `k8s_id`, `k8s_id_of`,
+  `k8s_ref`, `k8s_short`, `k8s_id_kind`, `k8s_id_scope`) built from `str_*` and the payload; adapters and the shim
+  needed **no change** (the payload already carries `kind`, `metadata.namespace`, `metadata.name`).
+- **F13 (one adjacency rule).** `Graph.Neighbors`, `Predecessors`, `ShortestPath`, and so the walks/`reachable`/`graph_out`/
+  `graph_in`, and the function forms `graph_in_of`/`graph_out_of`, no longer follow an edge whose far endpoint is not
+  a declared node. The edge stays stored (`Edges`, `Size`, `graph_edges` still count it) and the raw
+  `OutEdges`/`InEdges` accessors are unchanged: `Connect` still does not create endpoints. `TopoSort` and `SCC` already
+  ignored undeclared targets. One DSL test (section 77) relied on undeclared endpoints and now declares its nodes.
+- **F14.** `Graph.AddEdgesOnce`; `graph_add_edges` and `graph_add_inferred_edges` add an *identical* spec (color,
+  weight, endpoints, group, inferred flag) once, also against edges already in the graph. Edges that differ in any
+  field stay; the single-edge step `graph_add_edge` stays a multigraph insert. (The plan said "identical
+  `(from, to, color)` specs"; a different weight is a different fact, so the whole spec is compared.)
+- **A fail-loud defect this exposed and fixed:** `collect_list` dropped error nodes from its stream, so a duplicate
+  id would have printed as a plausible list. It now yields the errors instead of a list (`evaluator`, pinned by
+  `TestStepCollectListKeepsErrors`); the regression diff shows only `examples/k8s_howto/infra.gatwd` run with the
+  plain binary changing from `[]` to `unknown step "manifests"`, which is the point.
+- **Relations.** Every reference resolves with the referrer's scope through `k8s_ref` and every edge is guarded by
+  `graph_has_node` (the `Owns` and `RoutesTo` passes used to add edges to missing targets). `Selects` keeps its label
+  index, now keyed by namespace, and an empty selector selects the Service's namespace only. `RoleBinding` subjects use
+  their own `namespace`, a `roleRef` its `kind`; `Calls` resolves env values and ConfigMap data in the referrer's
+  namespace. `k8s_names` is deleted (a `graph_has_node` on a `k8s_ref` replaces it) and the compliance rules print
+  qualified ids; **an override file that used `k8s_names` or `metadata.name` ids must be migrated** (the how-to's
+  `rules.gatwd` is).
+- **Fixtures and parity.** Every fixture now names `namespace: default` (a live crawl always reports one, so a
+  namespace-less offline fixture would yield `Pod/_/x` against the fake cluster's `Pod/default/x`); the fake cluster
+  keeps the namespaces a manifest names. New: `collisions.yaml` (same names across kinds and namespaces, **with**
+  live/offline parity over all namespaces), `scopes.yaml` (the `_` fallback), `duplicates.yaml` (the negative fixture;
+  also through the operator). All were seen red first (guards negative-controlled).
+- **Cost.** About 1.6x slower on the synthetic cluster, still linear (`benchmarks/README.md`). Not optimised.
+- **Left open, with the reason:**
+  1. *"Naming both sources"*: the duplicate error names the id, both colors and both payloads as JSON, but **not the
+     file** each document came from, because no adapter attaches a source to a payload. Adding a provenance field to
+     the payload would touch `adapters/manifest_adapter.go` (Track C's file) and the live/offline parity shape; decide
+     the shape (a reserved `_source` key? a side channel?) before doing it. **Open question for the user.**
+  2. *`ownerReferences` without `kind`* (invalid in Kubernetes, but easy to write by hand) is now an error from
+     `hamt_get` (`key 'kind' not found`) instead of matching the owner by name. Loud and cheap to change: a lenient
+     fallback (match any kind by name) would reintroduce the ambiguity D6 removes. **Open question: keep strict?**
+  3. *Not W4's files, found on the way:* a comprehension with **no generator** (`[ e | guard ]`) yields `[]` even when
+     the guard holds (worked around in `k8s_scope`; the playbook trap table has it) — a silent defect for the parser
+     owner; `gatwd-k8s prelude list|cat` shows only the entry file `lib/k8s/prelude.gatwd`, not the files it imports
+     (`relations.gatwd` cannot be read, so the "copy, edit, shadow" workflow of the how-to is half a workflow) — W6's
+     `command.go`.
+
 ---
 
 ## 8. W5 — In-process kustomize (D7: bump to Go 1.27)
@@ -732,6 +785,8 @@ the how-to, and the script regression diff. Collect here as phases land; **each 
 | **W6 operator: `--long` flags, layered rules (D5), exit codes, lazy client** | §2.2 (override rules now *layer*; `replace` is a mode), §3.2 flag table, §3.4 deploy manifests (args, exit codes), §4 (drop the "replace, not layer" and "exit 0 always" limitations) | `cmd/gatwd-k8s/main.go` (lazy client: `version`/`completion` must not print the "no cluster access" notice), `cmd/gatwd-k8s-operator/main.go`, `pkg/cli/appliance.go` reload semantics, the operator's embedded default rules |
 | **W7 policy (D8), `context`, structured diagnostics** | a security section: which scripts may run OS commands; how a ConfigMap-sourced override is sandboxed | the Appliance's default policy for overrides; diagnostics instead of free-text `[ERROR]` in the operator output |
 | **Anything that renames or removes a builtin** (`compare` now returns `Ordering`, `-D` typing, …) | grep the how-to and `examples/k8s_howto/` for the old behaviour | grep `lib/k8s/*.gatwd`, the operator rules and `testdata` |
+| **W4 follow-ups** (the W4 row above is done on branch `hardening/w4`: how-to §2.3/§2.4/§3.5/§4, all ids and tests migrated) | after W5 (kustomize): say that `kubectl kustomize` output carries namespaces and that two overlays defining one object now fail with the duplicate-id error; if provenance (W4 §7.1 item 1) is decided, show the file in the error text | a source path in the duplicate error (adapter + payload shape, after Track C); decide `ownerReferences` without `kind` (§7.1 item 2); an override that still uses `k8s_names` or `metadata.name` ids fails loudly: mention it in the W6 layered-rules text |
+| **W4 finds for other tracks** | `prelude cat` reads only the entry file: either teach it the imported files (W6, `command.go`) or drop the claim "copy, edit, load with `--prelude`" for `relations.gatwd` | the operator prints a duplicate-id error and **exits 0** like a violation list: W6's exit codes (`--fail-on-violation`, `2` for no source) must also fail on an error result; the guard-only comprehension defect (§7.1 item 3) belongs to the parser |
 
 | Risk | Mitigation |
 | :-- | :-- |

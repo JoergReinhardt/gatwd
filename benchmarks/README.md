@@ -207,6 +207,26 @@ selectors, empty selector) and by the live/offline parity test.
 
 *Single runs (`-benchtime 2x`) on one dev machine; order-of-magnitude only.*
 
+**Cost of qualified node ids (hardening W4).** Building `Kind/namespace/name` ids,
+resolving every reference with `k8s_ref` (up to two id builds and a node lookup per
+reference) and keeping the label index per namespace made the whole pipeline about
+1.6x slower on the same synthetic clusters (single runs, `-benchtime 3x`, same
+machine, ms per op):
+
+| cluster (services x pods) | metadata.name ids | qualified ids |
+|---|---|---|
+| 10 x 100   | 17  | 26  |
+| 25 x 250   | 44  | 62  |
+| 50 x 500   | 97  | 152 |
+| 100 x 1000 | 193 | 344 |
+
+The scaling stays linear (2x the cluster, about 2.2x the time). The costliest passes
+are `Configures` (about 27 ms at 50 x 500: every workload's references are resolved
+through `k8s_ref`) and `Owns`/`Selects` (about 15 and 13 ms); no pass is quadratic. A
+cheaper `k8s_ref` (one id build instead of two on the common path) is the obvious next
+step if a cluster ever makes this matter; it was not done because nothing is slow
+enough to justify more code.
+
 ## TODO
 
 - In-process leak harness: loop a fixed `A(3,n)` N times, assert `HeapInuse`

@@ -640,18 +640,18 @@ If a function form cannot mean exactly what its step form means, it has a differ
 
 ```haskell
 -- Ingest: fold a record stream into a graph. Node id/color are computed from the record.
-def ingest = fold (\g r -> graph_add_node (hamt_get "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+def ingest = fold (\g r -> graph_insert_node (hamt_get "kind" r) (hamt_get "kind" r ++ "/" ++ hamt_path "metadata.name" r) r g) graph_empty
 
 -- A relation is a graph→graph pass. Edge specs are 4-element lists: [color, weight, from, to].
 -- Add NODES FIRST; guard edges with graph_has_node.
-def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "name" o), (hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
+def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, (hamt_get "kind" o ++ "/" ++ hamt_get "name" o), (hamt_get "kind" x ++ "/" ++ hamt_path "metadata.name" x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x) ] g) graph_empty
 
 -- Inferred evidence is recorded separately from declared relations:
 --   graph_add_inferred_edges [["Calls", 0.5, "a", "b"]] g
 
 -- Whole-graph algorithms are functions, so a rule can run them inside a comprehension:
 --   [ c | c <- (graph_scc g), (length c) > 1 ]        dependency cycles
---   graph_shortest_path "web" "pod" g                  a request trace
+--   graph_shortest_path "Ingress/default/web" "Pod/default/web-1" g   a request trace
 --   graph_topo_sort g                                  an apply order ([] when cyclic)
 ```
 

@@ -285,13 +285,13 @@ The most complete example is `gatwd-k8s` (Edition) and `gatwd-k8s-operator` (App
 adapters/kubernetes_adapter.go    live crawl  → nested-HAMT payload per resource   (client-go confined here)
 adapters/manifest_adapter.go      offline     → the SAME payload shape (YAML / kustomize build)
 pkg/k8sgraph/                     thin shim: CrawlStep/ManifestStep → generic cli.AdapterStep; ApplyEdition(e, client)
-pkg/k8sgraph/lib/k8s/*.gatwd      the logic, embedded: types, ingest, relations, queries, sources, prelude
+pkg/k8sgraph/lib/k8s/*.gatwd      the logic, embedded: types, ids (qualified node ids), ingest, relations, queries, sources, prelude
 cmd/gatwd-k8s/                    Edition main = pure assembly
 cmd/gatwd-k8s-operator/           Appliance: edition + embedded rules/compliance.gatwd + ConfigMap hot-reload
 ```
 ```haskell
 -- offline and live feed the same prelude; (a <+> b <+> …) merges the crawl streams:
-spawn StrVal: ./manifests |> manifests       |> k8s_graph |> graph_shortest_path web nginx-pod
+spawn StrVal: ./manifests |> manifests       |> k8s_graph |> graph_shortest_path Ingress/default/web Pod/default/nginx-pod
 spawn StrVal: default     |> k8s_resources   |> compliance
 ```
 Relations (`Owns`, `Selects`, `RoutesTo`, `Configures`, `Mounts`, `Binds`, inferred `Calls`) and compliance rules are DSL, not Go; Go does only real I/O. Live/offline equivalence is proven by a test over a fake dynamic client rather than assumed. See [`k8s_graph_design.md`](k8s_graph_design.md) and the [Development Playbook](development_playbook.md) §5.

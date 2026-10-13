@@ -17,7 +17,7 @@ and `cmd/gatwd-k8s-operator/rules/compliance.gatwd` (the style reference);
      appended to the `k8s_relations` chain. Inferred evidence → `graph_add_inferred_edges`, weight < 1.
    - Rule: `def rule_x = \g -> [ ["Violation", resource] | … ]`, added to the `++` chain in
      `compliance`.
-   - Shared sub-expressions → ordinary closures (`def k8s_names = \kind g -> […]`).
+   - Shared sub-expressions → ordinary closures (`def k8s_ref = \kind ns name g -> […]`).
 4. **Apply the traps**: nodes before edges; guard with `graph_has_node`; `hamt_has_path` *before*
    the dependent generator; parenthesise calls in list literals; the graph is the last argument.
 5. **Extend the vocabulary** (`types.gatwd`: `NodeColor`/`EdgeColor`) so exhaustiveness and

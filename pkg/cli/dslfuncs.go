@@ -21,10 +21,12 @@ import (
 // the accumulator can be a graph and the reducer can grow it one element at a time:
 //
 //	resources
-//	  |> fold (\g r -> graph_add_node (hamt_path "kind" r) (hamt_path "metadata.name" r) r g) graph_empty
+//	  |> fold (\g r -> graph_insert_node (hamt_path "kind" r) (k8s_id_of r) r g) graph_empty
 //
 // That is the ingest step: a stream/list of records folded into a single persistent
-// graph, each record lifted to a node whose payload is the record itself. Edges are
+// graph, each record lifted to a node whose payload is the record itself and whose id
+// is qualified (Kind/scope/name, so equal local names never collide; graph_insert_node
+// refuses an id that is already a node where graph_add_node would overwrite it). Edges are
 // a second fold over the same list using graph_add_edge / graph_add_edges. No step
 // is domain-specific: these are the generic graph-row and HAMT-navigation cells of
 // the operator matrix, now reachable as expression-level functions. The Kubernetes
