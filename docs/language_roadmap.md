@@ -294,6 +294,8 @@ infra already covered by `parser/apply_test.go` and `pkg/cli/dslfuncs_test.go`.
 | — | **E** — expression-level function forms across the operator-type matrix (recommended, independent) | ~1–3 days, incremental per type | B expression slice (✅ landed) | yes (additive registration) |
 
 **How much of each hurdle this recovers:**
+| — | **F** — Layers 0–2 as a reusable Go library (proposal, see §6) | multi-week, incremental | coordinate with B/E (same files) | yes (additive first; DSL moves behind a facade) |
+| — | **G** — program-level IR + pluggable backends (proposal, see §7) | IR: multi-week; backends: incremental | benefits from F (typed core); IR itself is independent | yes (interpreter becomes the first IR consumer) |
 
 - **Hurdle B (first-class functions): ~fully.** Nothing about it needs static types or AOT; Workstream B
   closes it. Its expression-application slice is already landed, and **Workstream E** then turns that into
@@ -305,3 +307,69 @@ infra already covered by `parser/apply_test.go` and `pkg/cli/dslfuncs_test.go`.
 Net: of the two hurdles from `docs/assessment.md`, B is essentially recoverable and A is recoverable to its
 gradual ceiling — all while `gatwd` stays a lazy, interpreted, `iter.Seq`-trampolined language.
 </content>
+
+---
+
+## 6. Workstream F — Layers 0–2 as a reusable procedural-Go library (proposal)
+
+Not a language feature, but it shares files with Workstreams B and E, so it is tracked here.
+
+**Observation.** Layers 0–2 depend only on each other (plus `dsltypes/` in `optics/` and `transformers/`)
+and already use real generics. With modest decoupling they could serve as a standalone toolkit that adds
+functional tools (persistent collections, `Either`/`Maybe`, state/reader monads, lenses, lazy `iter.Seq`
+pipelines) to ordinary procedural Go code.
+
+**Main gaps.** `any`-typed folds and `Elements()`; `Map` limited to `func(T) T`; DSL-specific files and
+`dsltypes` imports inside the library layers; per-type duplication of the operator-type matrix.
+
+**Direction (details in [`library_extraction_plan.md`](library_extraction_plan.md)):**
+
+1. Boundary guard test for Layers 0–2 (`go list -deps`).
+2. `iter.Seq[T]` as the interchange format, with generic `Map[T,U]`/`Fold[T,B]` written once. This also
+   collapses the matrix cost from N×M to N+M while keeping parity (Mandate 2).
+3. Move DSL-bound code behind a dynamic facade above Layer 2, so the DSL depends on the typed core and
+   never the reverse.
+4. Make `collections/` dependency-free; optionally split into `fp` / `persistent` / `graph` modules if a
+   real external consumer appears.
+
+**Trade-off.** Relaxing strict per-type rigor for the library surface buys a smaller, more idiomatic API
+and faster iteration, at the cost of weaker per-type parity guarantees. The plan keeps parity via the
+iterator interchange and keeps correctness via optional law tests. Status: proposal; step 1 (boundary guard
+test, `internal/archtest/layers_test.go`) is done, the rest is unscheduled.
+
+---
+
+## 7. Workstream G — Program-level IR and pluggable backends (proposal)
+
+**Observation.** The parser produces an AST only for *expressions* (`parser.Expr`: `BinaryExpr`,
+`ApplyExpr`, `LambdaExpr`, …). Statements and pipelines (`def`, `let`, `match`, `|>` steps) are parsed
+and executed together, line by line, largely by string handling in `pkg/cli/cli.go`; `match` works on the
+string form of values. There is therefore no program representation that a different execution strategy
+could consume, so neither the backend nor the middle layer can be swapped today. (`evaluator/` is already
+a generic, DSL-independent engine; Go callers can use Layers 0–3 directly.)
+
+**Direction (intent only; details will change):**
+
+1. **G1 — Program-level IR.** Extend the expression AST to cover statements and pipelines, produced by the
+   parser *before* anything runs. The existing interpreter becomes the first consumer. Side benefits: real
+   error positions, a single place for the gradual checker (Workstream D) and exhaustiveness checks to
+   run, and removal of the re-parsed-macro `def` special case.
+2. **G2 — Closure-compiling backend (optional).** Compile the IR to Go closures instead of re-evaluating
+   text. Conventional procedural execution, no new typing requirements, expected large speedup.
+3. **G3 — Typed dialect + Go codegen (optional, only with a real use case).** Parse → IR → mandatory type
+   check → emit Go source that instantiates the generic core (`List[int]`, `Either[E, T]`, …) → `go build`.
+   Go generics cannot be instantiated at runtime, so this must be a transpiler, not a typed interpreter.
+
+**Constraints and risks for G3.**
+
+- The checker must become mandatory and complete. `pkg/cli/typecheck.go` is advisory and local today, and
+  global inference is an explicit non-goal in §0, so G3 means a statically typed *dialect or subset*, not
+  the current language.
+- Dynamic features need typed equivalents or exclusion: string-form `match`, `spawn`, macro-style `def`
+  bodies, `Any`. `Variant` would become generated Go types.
+- Depends on Workstream F: codegen should target the typed core (generic `Map[T,U]`/`Fold[T,B]`, no `any`
+  leakage), while the interpreter keeps using the `any` facade.
+
+**Sequencing.** G1 first (useful on its own); G2 and G3 are independent follow-ons and are not committed
+to. Coordinate G1 with Workstream F step 3, since both move code out of `pkg/cli/cli.go` and the
+DSL-bound files. Status: proposal, unscheduled.

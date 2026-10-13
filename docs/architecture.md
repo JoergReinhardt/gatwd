@@ -62,6 +62,25 @@ The project strictly follows a **one-way dependency hierarchy** (Layer $N$ impor
 5. **Layer 4 (`adapters/`)**: IO bridges mapping external systems (generalized `Scanner`, network `net.Listener` / `StepDial`, Go `fs.FS` trees) into lazy `iter.Seq` streams.
 6. **Layer 5 (`dsltypes/`, `parser/`, `visualizer/`, `pkg/cli/`)**: Language parsing, constants registry, AST nodes, and terminal visualization.
 
+### 2.1 Planned: Layers 0–2 as a Standalone Functional Library
+
+Layers 0–2 depend only on each other (and, for now, `dsltypes/` in `optics/` and `transformers/`), use
+real Go generics, and have no third-party dependencies, so they can in principle be used on their own to
+bring functional tools (persistent collections, `Either`/`Maybe`, `State`/`Reader`/`Writer`, lenses,
+lazy `iter.Seq` pipelines) to procedural Go code. Today that is a property of the layout, not an enforced
+or polished one. Known gaps: `any`-typed folds, `Map` limited to `func(T) T`, DSL-specific files inside
+the library layers, and per-type duplication of the operator-type matrix.
+
+Planned direction (proposal, subject to change; see [`library_extraction_plan.md`](library_extraction_plan.md)
+and Workstream F in [`language_roadmap.md`](language_roadmap.md)):
+
+- **Dependency inversion:** the DSL depends on the typed core, never the reverse; dynamic `any`/BitFlag
+  adapters move into a facade above Layer 2.
+- **`iter.Seq[T]` as interchange format:** collections expose `All()`/`FromSeq`; `Map`, `Filter`, `Fold`
+  and friends are written once as generic functions, shrinking the matrix cost from N×M to N+M.
+- **Enforced boundaries:** a `go list -deps` guard test, a dependency-free `collections/`, and optional
+  `fp` / `persistent` / `graph` module split if an external consumer emerges.
+
 *Note on `legacy/`: Early pre-generics prototypes using reflection and non-generic interfaces were quarantined into the `legacy/` directory to preserve git history while ensuring the active project runs on pure modern Go.*
 
 ---
