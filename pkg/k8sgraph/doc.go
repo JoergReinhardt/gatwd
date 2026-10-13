@@ -38,7 +38,7 @@
 //
 // # Quick start (Edition assembly)
 //
-//	client, _ := k8sgraph.DynamicClientFromKubeconfig()
+//	client := k8sgraph.LazyDynamicClient() // built on the first crawl, never for `version` or offline work
 //	cli.NewEdition("gatwd-k8s").
 //	    WithStep(k8sgraph.CrawlStep("k8s_pods", client, k8sgraph.PodsGVR)).
 //	    Run()

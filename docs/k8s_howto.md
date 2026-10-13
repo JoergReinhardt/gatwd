@@ -9,7 +9,7 @@ This guide covers the two binaries built on the Kubernetes graph:
 
 Both read a **live cluster** (kubeconfig or in-cluster service account) or **offline manifests**
 (files, directories, `kustomize build` output) and lift the resources into one typed graph
-(`k8s_graph`). If no cluster is reachable the edition says so and runs offline.
+(`k8s_graph`). The cluster client is built only when a live crawl step runs, so `version`, `completion`, `check` and offline work never look for a kubeconfig; a crawl with no reachable cluster is an `[ERROR] no cluster access (…)` result that names the cause.
 
 Design background: [`k8s_graph_design.md`](k8s_graph_design.md). Language reference:
 [`dsl_guide.md`](dsl_guide.md). Everything below was run against the files in
@@ -262,7 +262,7 @@ The static operator is a single ELF binary of roughly 29 MB. To install into `$G
 | | `gatwd-k8s` | `gatwd-k8s-operator` |
 | :-- | :-- | :-- |
 | Input | one script file, or stdin at a prompt | flags below |
-| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; on failure prints a notice and runs offline | the same; with `-manifests` it never needs one |
+| Cluster access | in-cluster service account, else `$KUBECONFIG`, else `~/.kube/config`; built lazily on the first crawl — with none reachable a crawl step yields `[ERROR] no cluster access (…)` (offline steps are unaffected) | the same; with `-manifests` it never needs one |
 | Flags | `[script] [-- args]`, `-i`, `--task NAME`, `-e STMT`, `-D NAME=VALUE`, `--prelude FILE`, `--no-prelude`, `--check file`; subcommands `run eval check task repl prelude builtins version completion` (see the DSL guide §23) | `-manifests PATH` (omit for live), `-namespace NS` (default `default`; `""` = all namespaces), `-rules FILE` (default `/etc/gatwd/rules.gatwd`), `-interval DUR` (`0` = once) |
 | Output | each result on stdout | one result per check: `[]` when compliant, otherwise `[[Rule resource] …]` |
 
@@ -327,7 +327,7 @@ kubectl -n gatwd logs deploy/gatwd-k8s-operator -f
 
 | Symptom | Likely cause |
 | :-- | :-- |
-| `no cluster access (…); running offline` | kubeconfig auth plugin not supported or no cluster; use `-manifests` or fix the kubeconfig |
+| `[ERROR] no cluster access (…)` from a `k8s_*` crawl step | kubeconfig auth plugin not supported or no cluster; use `-manifests` / the `manifests` step or fix the kubeconfig |
 | `no -manifests given and no cluster reachable` (exit 2) | the operator has no source |
 | Operator prints `[ERROR] …` after you added a rule | a name in the rule does not resolve, or an operator rejected its operands; the message names it (§2.1) |
 | Rule output is empty but should not be | a node kind is missing from the source list or RBAC, or ids collide (§2.3) |
