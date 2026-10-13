@@ -1,0 +1,27 @@
+# Structured data inside resources, for data.gatwd: YAML and JSON in a ConfigMap, base64 in Secrets.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-settings
+  namespace: default
+data:
+  settings: |
+    replicas: 3
+    mode: prod
+  limits: '{"cpu": "500m", "memory": "2Gi"}'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: weak-secret
+  namespace: default
+data:
+  password: aHVudGVyMg==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: strong-secret
+  namespace: default
+data:
+  password: Y29ycmVjdC1ob3JzZS1iYXR0ZXJ5

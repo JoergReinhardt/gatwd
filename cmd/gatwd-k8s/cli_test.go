@@ -21,7 +21,7 @@ func buildEdition(t *testing.T) string {
 	return bin
 }
 
-// TestEditionCommandLine drives the real binary: the embedded prelude is listed and
+// TestEditionCommandLine drives the real binary: the embedded prelude and the files it imports are listed and
 // printable, --no-prelude removes it while the offline steps stay registered, and the
 // generated completion and version commands work.
 func TestEditionCommandLine(t *testing.T) {
@@ -30,8 +30,14 @@ func TestEditionCommandLine(t *testing.T) {
 	graph := "spawn StrVal: " + cluster + " |> manifests |> k8s_graph |> graph_order"
 
 	out, err := exec.Command(bin, "prelude", "list").Output()
-	if err != nil || strings.TrimSpace(string(out)) != "lib/k8s/prelude.gatwd" {
+	// the entry comes first, then the files it imports (so they can be read with `prelude cat`)
+	listed := strings.Fields(string(out))
+	if err != nil || len(listed) < 2 || listed[0] != "lib/k8s/prelude.gatwd" || !strings.Contains(string(out), "lib/k8s/relations.gatwd") {
 		t.Fatalf("prelude list: %v\n%s", err, out)
+	}
+	out, err = exec.Command(bin, "prelude", "cat", "lib/k8s/relations.gatwd").Output()
+	if err != nil || !strings.Contains(string(out), "def rel_binds") {
+		t.Fatalf("prelude cat of an imported file: %v\n%s", err, out)
 	}
 	out, err = exec.Command(bin, "prelude", "cat", "lib/k8s/prelude.gatwd").Output()
 	if err != nil || !strings.Contains(string(out), "def k8s_graph") {

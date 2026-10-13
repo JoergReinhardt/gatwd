@@ -48,3 +48,24 @@ func TestLiveSourceMergesAllKinds(t *testing.T) {
 		t.Fatalf("merged kinds = %v, want %v", got, want)
 	}
 }
+
+// TestLiveCrawlWithoutSecrets backs the how-to's security recipe (§2.4): the standard crawl
+// includes Secrets (their payload, `data` included, enters the graph), and an override that
+// redefines `k8s_resources` without `k8s_secrets` leaves them out while every other kind is
+// still crawled. Both halves are asserted, so neither "Secrets are never read" nor "the
+// recipe does nothing" can pass unnoticed.
+func TestLiveCrawlWithoutSecrets(t *testing.T) {
+	fixture := "testdata/secrets.yaml"
+	live := k8sgraph.ApplyEdition(cli.NewEdition("secrets"), k8sgraphtest.FakeClusterFromFile(t, fixture)).BuildInterpreter()
+	kinds := `spawn StrVal: default |> k8s_resources |> hamt_get kind |> collect_list`
+	want := []string{"Pod", "Secret", "Secret"}
+	if got := edgesOf(t, live, kinds); !reflect.DeepEqual(got, want) {
+		t.Fatalf("standard crawl kinds = %v, want %v", got, want)
+	}
+
+	// The recipe, as the how-to prints it.
+	live.EvaluateScript(`def k8s_resources = (k8s_pods <+> k8s_services <+> k8s_configmaps <+> k8s_endpoints <+> k8s_deployments <+> k8s_replicasets <+> k8s_ingresses <+> k8s_pvcs <+> k8s_serviceaccounts <+> k8s_roles <+> k8s_rolebindings)`)
+	if got, want := edgesOf(t, live, kinds), []string{"Pod"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("crawl without k8s_secrets: kinds = %v, want %v", got, want)
+	}
+}

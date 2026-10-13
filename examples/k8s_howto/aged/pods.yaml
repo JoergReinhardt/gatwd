@@ -1,0 +1,28 @@
+# Four Pods for age.gatwd: one older than 30 days, one fresh, one with no creationTimestamp, one with an unreadable one.
+# (A live cluster always reports the stamp; a hand-written manifest usually has none.)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: old-pod
+  namespace: default
+  creationTimestamp: "2025-01-15T08:00:00Z"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fresh-pod
+  namespace: default
+  creationTimestamp: "2026-10-10T08:00:00Z"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-stamp-pod
+  namespace: default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-stamp-pod
+  namespace: default
+  creationTimestamp: "yesterday"

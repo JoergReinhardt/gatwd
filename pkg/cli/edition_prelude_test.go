@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"iter"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -83,5 +84,34 @@ func TestAdapterStep(t *testing.T) {
 	}
 	if fmt.Sprint(vals[0]) != "X_a" || fmt.Sprint(vals[1]) != "X_b" {
 		t.Fatalf("AdapterStep children wrong: got %v, want [X_a X_b]", vals)
+	}
+}
+
+// TestEditionPreludeCatShowsTheImportedFiles: `prelude list` names the entry and the .gatwd
+// files beside it, and `prelude cat` prints each, so a library split over several files
+// (an entry that `import`s its siblings) is readable from the binary. Files of other
+// directories and other extensions are not listed.
+func TestEditionPreludeCatShowsTheImportedFiles(t *testing.T) {
+	fsys := fstest.MapFS{
+		"lib/entry.gatwd":   {Data: []byte("import \"rel.gatwd\"\ndef one = \\u -> 1\n")},
+		"lib/rel.gatwd":     {Data: []byte("def two = \\u -> 2\n")},
+		"lib/notes.txt":     {Data: []byte("not a script")},
+		"other/alien.gatwd": {Data: []byte("def three = \\u -> 3\n")},
+	}
+	tree := NewEdition("sib").WithPreludeFS(fsys, "lib/entry.gatwd").Command()
+	run := func(args ...string) (int, string, string) {
+		var o, e strings.Builder
+		code := tree.Execute(args, strings.NewReader(""), &o, &e)
+		return code, o.String(), e.String()
+	}
+	code, out, _ := run("prelude", "list")
+	if code != 0 || out != "lib/entry.gatwd\nlib/rel.gatwd\n" {
+		t.Fatalf("prelude list: exit %d, out %q; want the entry and its sibling only", code, out)
+	}
+	if code, out, _ := run("prelude", "cat", "lib/rel.gatwd"); code != 0 || out != "def two = \\u -> 2\n" {
+		t.Fatalf("prelude cat of the imported file: exit %d, out %q", code, out)
+	}
+	if code, _, errOut := run("prelude", "cat", "lib/notes.txt"); code == 0 || !strings.Contains(errOut, "no prelude") {
+		t.Fatalf("a non-script sibling must stay unlisted: exit %d, stderr %q", code, errOut)
 	}
 }

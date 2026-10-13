@@ -1,0 +1,11 @@
+-- age.gatwd — ages and expiry with the time types (Duration, Time): the age rule of
+-- age_rules.gatwd run on its own over any manifests.
+--
+--   gatwd-k8s examples/k8s_howto/age.gatwd -- examples/k8s_howto/aged
+--
+-- Imports resolve relative to this file. Use the injectable clock in tests (Interpreter.Clock).
+
+import "age_rules.gatwd"
+
+-- A fragment: the argument (a manifest path) arrives as the input stream.
+def main = manifests |> k8s_graph |> fold (\_ g -> rule_stale_pod clock max_age g) 0
