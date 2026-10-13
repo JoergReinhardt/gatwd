@@ -290,6 +290,12 @@ func (i *Interpreter) cancellable(step pipelineStep) pipelineStep {
 			return out
 		}
 		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			select {
+			case <-done: // already over: do not start the step at all
+				yield(evaluator.InjectError[any](&CancelError{Cause: cancelCause(ctx)}, errorNodeFlag))
+				return
+			default:
+			}
 			for n := range out {
 				if isCancelNode(n) {
 					yield(n) // an earlier step already reported it; do not repeat
