@@ -10,5 +10,11 @@ type Node = String
 -- `down |> right` navigates geometrically into the first child, and then to its sibling.
 -- `extract` unwraps the Zipper context back into the raw file path.
 
-spawn Node: Start |> walk_fs examples/tour |> into_zipper |> down |> right |> extract |> visualize --color-val=File:magenta
+spawn Node: Start
+  |> walk_fs examples/tour
+  |> into_zipper
+  |> down
+  |> right
+  |> extract
+  |> visualize --color-val=File:magenta
 

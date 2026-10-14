@@ -5,7 +5,12 @@ type ListVal = List(Int)
 spawn IntVal: 1 |> + 1 |> * 2 |> visualize --color-val=4:green
 
 -- 2. Explicit Lambdas mapping over Shell Strings
-spawn Node: A |> echo Node1 |> echo Node2 |> map (\x -> echo Processing %s) |> build_array |> visualize --color-type=List:cyan
+spawn Node: A
+  |> echo Node1
+  |> echo Node2
+  |> map (\x -> echo Processing %s)
+  |> build_array
+  |> visualize --color-type=List:cyan
 
 -- 3. List Comprehensions (Declarative stream transformations)
 spawn ListVal: [x * 10 | x <- [1, 2, 3, 4], x > 1] |> visualize --color-type=List:cyan

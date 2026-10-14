@@ -5,4 +5,7 @@ type Folder = Node
 spawn Node: Kube |> echo Child_1 |> echo Child_2 |> build_tree "Root_Pod" |> visualize
 
 -- 2. Visualizing Records with Options (ASCII fallback + Depth Limit)
-spawn Folder: mock |> echo "drwxr-xr-x 2 root root 4096 Jan 1 00:00 my_folder" |> parse_record Perms Links Owner Group Size Month Day Time Name |> visualize --ascii --depth=1
+spawn Folder: mock
+  |> echo "drwxr-xr-x 2 root root 4096 Jan 1 00:00 my_folder"
+  |> parse_record Perms Links Owner Group Size Month Day Time Name
+  |> visualize --ascii --depth=1

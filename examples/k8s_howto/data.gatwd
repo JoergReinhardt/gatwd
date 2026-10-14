@@ -28,5 +28,7 @@ def setting = \parse key field g -> field_of parse key field (cm g)
 
 -- [replicas from the YAML entry, memory from the JSON entry, two quantities added, the weak
 --  Secrets, the fingerprints of every Secret's password]
-def main = manifests |> k8s_graph |> fold (\_ g -> [ (setting yaml_parse "settings" "replicas" g), (setting json_parse "limits" "memory" g), ((cores "500m") + (cores "250m")), (rule_weak_password g), [ (fingerprint s)
+def main = manifests
+  |> k8s_graph
+  |> fold (\_ g -> [ (setting yaml_parse "settings" "replicas" g), (setting json_parse "limits" "memory" g), ((cores "500m") + (cores "250m")), (rule_weak_password g), [ (fingerprint s)
       | s <- (graph_payloads_of "Secret" g) ] ]) 0

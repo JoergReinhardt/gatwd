@@ -36,7 +36,13 @@ spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_render braille cyan
 spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_step |> conway_render braille cyan
 
 -- 6. Advance Glider by 4 full generations (completes one diagonal translation cycle!)
-spawn LifeGrid: GLIDER_ASCII |> parse_life 60 30 |> conway_step |> conway_step |> conway_step |> conway_step |> conway_render braille cyan
+spawn LifeGrid: GLIDER_ASCII
+  |> parse_life 60 30
+  |> conway_step
+  |> conway_step
+  |> conway_step
+  |> conway_step
+  |> conway_render braille cyan
 
 -- 7. Execute Blinker Period-2 Oscillator check
 spawn LifeGrid: BLINKER_ASCII |> parse_life 20 20 |> conway_step |> conway_render quadrant yellow

@@ -68,7 +68,14 @@ let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in
 -- ------------------------------------------------------------
 -- 8. HAMT.Filter wired to the DSL (filter entries by value)
 -- ------------------------------------------------------------
-let hf = spawn S: x |> emit a:yes, b:no, c:no |> drop 1 |> to_hamt |> filter (\x -> x == "yes") |> hamt_keys |> collect_list in hf |> assert [a]
+let hf = spawn S: x
+  |> emit a:yes, b:no, c:no
+  |> drop 1
+  |> to_hamt
+  |> filter (\x -> x == "yes")
+  |> hamt_keys
+  |> collect_list in hf
+  |> assert [a]
 
 -- ------------------------------------------------------------
 -- 9. Closures: curried, lexically scoped, first-class values

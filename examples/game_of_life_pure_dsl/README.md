@@ -16,22 +16,37 @@ The rule is defined **once**, in `game_of_life.gatwd`. The viewer loads that sam
 
 ## The pure-DSL implementation
 
-Two definitions in [`game_of_life.gatwd`](game_of_life.gatwd):
+The rule and loop are defined in [`game_of_life.gatwd`](game_of_life.gatwd):
 
 ```gatwd
--- One B3/S23 generation on a w x h torus (neighbour coords taken modulo the grid).
-def conway_step = match {
-    [live, w, h] -> let nbrs = [[((x + dx) % w + w) % w, ((y + dy) % h + h) % h] | [x, y] <- live, dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
-            in let pairs = nbrs |> frequencies |> hamt_pairs |> collect_list
-            in let births = [pt | [pt, cnt] <- pairs, cnt == 3]
-            in let survivors = [p | [pt, cnt] <- pairs, p <- live, cnt == 2, p == pt]
-            in births ++ survivors
-}
+-- Wrap a coordinate onto the torus (also for -1 and size).
+def wrap = \n size -> (n % size + size) % size
+
+-- The 8 offsets of a Moore neighbourhood (everything but the centre).
+let offsets = [[dx, dy] | dx <- [-1, 0, 1], dy <- [-1, 0, 1], (dx != 0 || dy != 0)]
+
+-- One entry per (live cell, neighbour) pair: the wrapped neighbours of every live cell.
+def neighbours = \w h live ->
+    [[(wrap (x + dx) w), (wrap (y + dy) h)] | [x, y] <- live, [dx, dy] <- offsets]
+
+-- Count occurrences: a HAMT cell -> number of live neighbours.
+def tally = \cells -> fold (\acc c -> hamt_set c ((hamt_get_or 0 c acc) + 1) acc) hamt_empty cells
+
+def births = \pairs -> [pt | [pt, n] <- pairs, n == 3]
+def survivors = \live pairs -> [p | [pt, n] <- pairs, p <- live, n == 2, p == pt]
+
+-- B3/S23: births plus survivors, from the neighbour counts.
+def next_from = \live pairs -> (births pairs) ++ (survivors live pairs)
+def next_gen = \w h live -> next_from live (hamt_pairs (tally (neighbours w h live)))
+
+def conway_step = match { [live, w, h] -> (next_gen w h live) }
 
 -- Iterate conway_step n times on a w x h torus, purely by recursion (ackermann-shaped).
 def evolve = match {
     [state, 0, w, h] -> state
-    | [state, n, w, h] -> let next = [state, w, h] |> conway_step in [next, n - 1, w, h] |> evolve
+    | [state, n, w, h] ->
+        let next = [state, w, h] |> conway_step
+        in [next, n - 1, w, h] |> evolve
 }
 ```
 
