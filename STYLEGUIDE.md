@@ -90,16 +90,45 @@ To prevent intimidating contributors with nested Category Theory closures (`iter
 - Use **`cli.FilterStep(name, predicate)`** for stream predicate filtering.
 - Use **`cli.ArgStep(prefix, fn)`** for parameterized pipeline steps.
 - Use **`cli.SinkStep(name, fn)`** for non-mutating side-effects (logging, telemetry).
-- Use **`cli.TaskCommand(edition, name, short, taskName)`** to promote a DSL def that
-  already exists in an Edition's own prelude to its own first-class cobra subcommand
+- Use **`cli.TaskCommand(edition, name, short, taskName, knownDefines...)`** to promote a DSL
+  def that already exists in an Edition's own prelude to its own first-class cobra subcommand
   (`NAME verb -- args` beside the generic `NAME task verb -- args`) — the generic half of
   giving a CLI "verbs"; see `docs/development_playbook.md` §5b for where the *other* half
-  (what the verb actually does) belongs.
+  (what the verb actually does) belongs, and "CLI Help and Completion" just below for
+  `knownDefines`.
 - Use **`cli.NewEdition(name)`** for building custom CLI distributions.
 - Use **`cli.NewAppliance(...)`** for building production-grade services and operators.
 - Use **`pkg/<domain>/` shims** (`pkg/k8sgraph`) for domain I/O wiring: construct the adapter, register it with the generic `cli.AdapterStep`, embed the prelude; zero domain logic in Go.
 - Use **`(a <+> b <+> c)`** (`arrows.Plus` → `evaluator.StepPlus`) to merge several producers into one stream; the domain only names the list.
 Raw `StepHandler` closures should only be authored when custom trampoline short-circuiting or multiplexing is explicitly required.
+
+### CLI Help and Completion (for people AND agents wiring a new verb)
+
+Every Edition builds exactly **one** cobra root; `--help` and subcommand-name tab-completion
+(cobra's dynamic `__complete`) reflect over that one tree, so they show the union of whatever
+every layer registered via `Edition.WithCommand` — core, a domain shim, a child repo — with
+**zero extra wiring**. Do not write help text generation or a custom completion list "by hand"
+anywhere; it already accumulates for free. Verify this the same way it was discovered, not by
+assumption: `./binary --help`, `./binary <verb> --help`, and `./binary __complete <prefix>` all
+work against a plain build with no flags.
+
+What does **not** come free: completing a flag's *value* or a positional *arg*. Two rules:
+- **Positional `--` args need nothing.** Leaving `ValidArgsFunction` unset already tells the
+  shell to fall back to its native file completion (`ShellCompDirectiveDefault`) — correct for
+  `TaskCommand`'s args, which are almost always paths. Do not add a `ValidArgsFunction` that
+  just re-requests the default; it is a no-op.
+- **A flag whose value is a closed set of names (`-D NAME=VALUE`) needs an explicit
+  completer, and the names come from whoever defines the verb, never from guessing.**
+  `TaskCommand`'s `knownDefines` is the pattern: the caller that already names `taskName`
+  already knows which `-D` constants it reads, so it supplies the list directly — `wide`/
+  `wide_graph` pass `"OVERLAY", "PATTERN"`; `main`/`dot`/`graph` pass none and get no completion
+  function at all (an absent completer, not an empty or wrong one). **Never** try to discover
+  these names by statically scanning the prelude for "unbound" identifiers — it was tried
+  during this feature's design, turned out unreliable (`gatwd --check` does not flag every
+  such name depending on how a def is reached), and a wrong suggestion is worse than none. If
+  a future, more generic discovery mechanism is wanted, it needs its own correctness
+  argument and tests before it replaces an explicit list — do not swap `knownDefines` for a
+  "clever" inference shortcut.
 
 ## 7. Exhaustive Operator-Type Matrix Completeness
 
