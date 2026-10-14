@@ -215,6 +215,72 @@ Minting a new Edition/Appliance: follow `.agents/skills/edition-appliance/SKILL.
 
 ---
 
+## 5a. Child repos: when a project moves outside this tree
+
+Every Edition/Appliance built so far (`cmd/gatwd-k8s`, `cmd/gatwd-k8s-operator`, and formerly
+`userland/*`) lived inside the gatwd tree. That stops working the moment a project needs its
+own release cadence, its own hosting, or — the case that prompted this section — confidential
+content that must never share gatwd's public commit history. The answer is a **child repo**: a
+separate, independently-hosted repository that depends on gatwd as an ordinary Go module
+(`go get github.com/joergreinhardt/gatwd`) rather than as a subtree of this one.
+
+**What stays the same.** A child repo follows the same mandates as any Edition built in this
+tree: pure assembly in `main.go` (§5), domain logic in `.gatwd` not Go, the Edition/Appliance/
+shim pattern, exhaustive DSL tests, fakes-and-fixtures over real I/O. The generic/domain split
+still applies *within* the child repo too — if a child repo needs a capability a second domain
+could also use, that capability belongs in gatwd core (or a core-adjacent library), not
+reinvented privately; see Mandate 5's "generic first, domain second."
+
+**What's different: the agent-instructions file is a pointer, not a copy.** A child repo's own
+`AGENTS.md`/`CLAUDE.md` does not paste in gatwd's mandates — they would rot the moment they're
+copied. Instead it:
+
+1. Names gatwd's `AGENTS.md`, `PROMPTS.md`, `STYLEGUIDE.md` and `.agents/skills/` as its base
+   ruleset, by local path while gatwd is a sibling checkout (`../gatwd/AGENTS.md`), or by URL +
+   pinned commit/tag once the child repo has moved away from a filesystem-adjacent gatwd.
+2. Lists only its own deltas: its domain vocabulary, its confidentiality/hosting rule (below),
+   any mandate it deliberately relaxes and why.
+3. May mirror a short excerpt of the parts that matter operationally (the 8-mandate summary,
+   the verification gate commands) inline for convenience when a path/URL reference isn't
+   practical to re-read every session — clearly marked "mirrored from gatwd, not authoritative."
+
+**The hosting/confidentiality rule, stated generically (gatwd names no domain or employer,
+Mandate 5).** A child repo may be confidential — owned by an employer, a client, or otherwise
+non-public. **A confidential child repo is never hosted on, or has any commit pushed to, a
+public forge.** It lives on whatever private forge its owner designates, and is pushed only by
+a human acting deliberately — never by an agent inferring that a generic "push" or "set up the
+repo" instruction license a public remote. gatwd itself stays public and domain-free: no child
+repo's name, employer, or domain vocabulary is ever written into gatwd's own tracked files.
+*Which* repos are confidential, and where each may be hosted, is recorded by the operator
+outside this tree (their own agent memory, the child repo's own privately-hosted docs) — never
+here, which is exactly what keeps this file safe to keep public.
+
+**Dependency style before the child repo has a real remote.** Use a placeholder module path and
+a `replace` directive to the local gatwd checkout:
+
+```
+// child repo's go.mod
+module example.invalid/placeholder-name   // swap for the real path once hosted
+
+require github.com/joergreinhardt/gatwd v0.0.0
+replace github.com/joergreinhardt/gatwd => ../gatwd
+```
+
+Switch to a real `require` with a pinned version once the child repo has a remote and gatwd has
+a tagged (or otherwise pinned) commit the child repo is compatible with.
+
+**Extracting an existing subtree into a child repo.** `git subtree split --prefix=<path> -b
+<branch>` preserves the subtree's history as a standalone branch; build the new repo from that
+branch, give it its own `go.mod` (above), add the pointer `AGENTS.md`/`CLAUDE.md`, verify it
+builds and tests standalone, then remove the subtree from gatwd. If the subtree had *already*
+been pushed to gatwd's public remote before the confidentiality need was caught, purging it
+from gatwd's history (an interactive rebase or `git filter-repo`, followed by a force-push) is a
+separate, explicitly-confirmed, high-blast-radius step on its own — never fold it silently into
+the extraction, and never force-push shared history without the operator asking for it at the
+time.
+
+---
+
 ## 6. Writing DSL: conventions and traps
 
 The project's own relations and rules are the style reference

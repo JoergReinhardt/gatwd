@@ -7,6 +7,8 @@ This directory contains repository-specific agent skills, task prompts and rules
 1. [`AGENTS.md`](../AGENTS.md) — layers, the eight mandates, verification gates, prevention rules.
 2. [`docs/development_playbook.md`](../docs/development_playbook.md) — how work is done here and why (delivery protocol, gates, Edition/Appliance pattern, DSL traps, performance and handoff protocols, the k8s-graph case study).
 3. The skill or prompt below that matches your task.
+4. Working on (or minting) a repo that depends on gatwd rather than living in this tree? See
+   `AGENTS.md` §7 and `docs/development_playbook.md` §5a for the **child repo** pattern.
 
 ## Available Skills (`skills/`)
 

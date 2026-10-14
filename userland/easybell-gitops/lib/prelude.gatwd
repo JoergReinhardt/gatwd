@@ -1,3 +1,0 @@
--- Entry point of the easybell GitOps library (builds on the generic k8s prelude).
-import "relations.gatwd"
-import "views.gatwd"

@@ -229,6 +229,29 @@ gofmt -w <changed files>       # or: go fmt ./<changed pkg>
 goimports -w <changed files>   # fix/order imports
 ```
 
+---
+
+## 7. Child Repos
+
+A **child repo** is a separate, independently-hosted repository that depends on gatwd as a
+library (`go get github.com/joergreinhardt/gatwd`) instead of living under this tree. It is
+the right home for a project that needs its own release cadence or hosting constraints — in
+particular, one that is confidential and must never share gatwd's public commit history.
+
+A child repo still follows gatwd's mandates, but does not copy this file: its own
+`AGENTS.md`/`CLAUDE.md` is a short pointer naming gatwd's `AGENTS.md`, `PROMPTS.md`,
+`STYLEGUIDE.md` and `.agents/skills/` as its base ruleset, plus only its own deltas (domain
+vocabulary, confidentiality/hosting rule, any mandate it deliberately relaxes and why).
+
+**The hosting rule, stated generically (gatwd names no domain, Mandate 5):** a confidential
+child repo is never hosted on, or has a commit pushed to, a public forge. It lives on
+whatever private forge its owner designates, pushed only by a human. Which repos are
+confidential, and where they may go, is recorded by the operator outside this tree — never
+inside gatwd's tracked files.
+
+Full detail (extraction procedure, dependency style before a remote exists, pointer-file
+shape): `docs/development_playbook.md` §5a.
+
 These complement — do not replace — the standard file-editing tools; reach for them
 whenever a task involves finding call sites, confirming a signature, checking for
 name collisions, or renaming.
