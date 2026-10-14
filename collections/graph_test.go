@@ -93,6 +93,37 @@ func TestGraphImmutabilityAndRemoval(t *testing.T) {
 	}
 }
 
+// Degree counts EDGES, not distinct neighbors: svc has two outgoing selects
+// edges (to two different pods, so OutDegree and len(Neighbors) agree here) and
+// one incoming calls edge from pod1 (the cycle back-edge) — svc's total degree
+// is 2+1=3, matching neither in isolation.
+func TestGraphDegree(t *testing.T) {
+	g := buildSample()
+	if got := g.OutDegree("svc"); got != 2 {
+		t.Errorf("OutDegree(svc) = %d, want 2", got)
+	}
+	if got := g.InDegree("svc"); got != 1 {
+		t.Errorf("InDegree(svc) = %d, want 1", got)
+	}
+	if got := g.Degree("svc"); got != 3 {
+		t.Errorf("Degree(svc) = %d, want 3", got)
+	}
+	// pod2 only ever receives: in-degree 1 (svc's selects), out-degree 0.
+	if got := g.OutDegree("pod2"); got != 0 {
+		t.Errorf("OutDegree(pod2) = %d, want 0", got)
+	}
+	if got := g.InDegree("pod2"); got != 1 {
+		t.Errorf("InDegree(pod2) = %d, want 1", got)
+	}
+	// A node with no incident edges at all has degree 0 — negative control so
+	// this test can fail if Degree ever drifts to counting declared nodes
+	// instead of incident edges.
+	g2 := g.AddNode("lonely", "pod", 9)
+	if got := g2.Degree("lonely"); got != 0 {
+		t.Errorf("Degree(lonely) = %d, want 0", got)
+	}
+}
+
 func TestGraphInferredEdge(t *testing.T) {
 	g := NewGraph[string, string, float64, float64]()
 	g = g.AddNode("pod", "pod", 0)

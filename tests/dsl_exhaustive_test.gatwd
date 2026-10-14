@@ -312,6 +312,22 @@ spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_a
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_topo_sort |> collect_list |> assert [a b c]
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge E 1 a b |> graph_add_edge E 1 b a |> graph_scc |> head |> assert a,b
 
+-- 67a. Degree (edge counts, not distinct-neighbor counts), reverse reachability
+-- (graph_reachable_to is graph_reachable's mirror: who depends on id, not what id
+-- depends on), and graph_unroll (a cyclic/DAG graph rendered as a tree, DUPLICATING a
+-- node reached via more than one path instead of collapsing it to one occurrence).
+-- b has two parallel a->b edges plus one b->c edge: in-degree 2, out-degree 1, degree 3.
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_in_degree b |> assert 2
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_out_degree b |> assert 1
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_degree b |> assert 3
+-- reverse reachability: everyone upstream of c in a chain a->b->c.
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_reachable_to c |> collect_list |> assert [a b c]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_reachable_to b |> collect_list |> assert [a b]
+-- unroll a diamond a->b->d, a->c->d: d is duplicated (one leaf per incoming path),
+-- so the flattened tree has 5 entries though the graph itself has only 4 nodes.
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_node N d |> graph_add_edge E 1 a b |> graph_add_edge E 1 a c |> graph_add_edge E 1 b d |> graph_add_edge E 1 c d |> graph_unroll a |> tree_flatten |> assert [a b d c d]
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_node N d |> graph_add_edge E 1 a b |> graph_add_edge E 1 a c |> graph_add_edge E 1 b d |> graph_add_edge E 1 c d |> graph_unroll a |> tree_size |> assert 5
+
 -- 68. Graph mutation: remove_node / remove_edge, and walk_from strategy
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_remove_node b |> graph_nodes |> collect_list |> assert [a c]
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_edge Owns 1 a b |> graph_remove_edge Owns a b |> graph_size |> assert 0
@@ -574,10 +590,23 @@ def g_cycle = fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g ->
 ["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_shortest_path "a" "c" g) 0 |> assert [a b c]
 ["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_shortest_path "c" "a" g) 0 |> assert []
 ["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_topo_sort g) 0 |> assert [a b c]
+-- (b2) degree and reverse reachability function forms, same chain: a has out-degree 1
+-- and in-degree 0 (nothing points to it); b's total degree is 2 (one in, one out);
+-- graph_reachable_to is graph_reachable's mirror (who depends on c vs. what b depends on).
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_out_degree "a" g) 0 |> assert 1
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_in_degree "a" g) 0 |> assert 0
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_degree "b" g) 0 |> assert 2
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_reachable_to "c" g) 0 |> assert [a b c]
+["a", "b", "c"] |> g_chain |> fold (\_ g -> graph_reachable_to "a" g) 0 |> assert [a]
 -- (c) cycles: no topological order exists; scc finds the component, and a rule can
 -- keep only the non-trivial ones inside a comprehension.
 ["x", "y", "z"] |> g_cycle |> fold (\_ g -> graph_topo_sort g) 0 |> assert []
 ["x", "y", "z"] |> g_cycle |> fold (\_ g -> [ c | c <- (graph_scc g), (length c) > 1 ]) 0 |> assert [[x y]]
+-- (c2) graph_unroll's function form, over the SAME cycle: x<->y closes a cycle through
+-- every path, so unrolling from x duplicates x itself (the occurrence that would re-enter
+-- its own ancestor path becomes a leaf, per the Termination doc on collections.Graph.Unroll)
+-- rather than looping forever; z is reached once, with no further cycle beneath it.
+["x", "y", "z"] |> g_cycle |> fold (\_ g -> graph_unroll "x" g) 0 |> tree_flatten |> assert [x y x z]
 -- (d) inferred edges are tracked separately from asserted ones.
 ["a", "b"] |> fold (\g n -> graph_add_node "N" n g) graph_empty |> fold (\_ g -> graph_add_inferred_edges [["Calls", 0.5, "a", "b"]] g) graph_empty |> graph_edges_inferred |> collect_list |> assert [a-Calls->b]
 

@@ -113,7 +113,7 @@ Where [§6](#6-the-all-layers-through-mandate--release-architecture) demands *ve
 | `<`, `<=`, `>`, `>=` | Total / Partial Ord | primitives, `List`, `Chunk`, `Pair`, ADTs, streams (lexicographic) |
 | `union`, `intersect`, `diff` | Set algebra | `Set`, `HAMT` (keyed set) |
 
-Further columns now filled: `reject`, `bimap`, `foldValue`/Foldable on `Tree`/`BST` (in-order), `member`, `length`, `head`/`tail`/`nth`, `set_*`, `hamt_*` (incl. `hamt_get_or`), `tree_*`, `bst_*`, `pair`/`fst`/`snd`, `just`/`nothing`/`either_*`, `variant`, `min`/`max`/`abs`/`compare`, and the graph read side (`graph_scc`, `graph_reachable`, `graph_shortest_path`, …) — see `pkg/cli/dslfuncs_matrix.go` and `dslfuncs_graph.go`.
+Further columns now filled: `reject`, `bimap`, `foldValue`/Foldable on `Tree`/`BST` (in-order), `member`, `length`, `head`/`tail`/`nth`, `set_*`, `hamt_*` (incl. `hamt_get_or`), `tree_*`, `bst_*`, `pair`/`fst`/`snd`, `just`/`nothing`/`either_*`, `variant`, `min`/`max`/`abs`/`compare`, and the graph read side (`graph_scc`, `graph_reachable`, `graph_reachable_to`, `graph_degree`/`graph_in_degree`/`graph_out_degree`, `graph_unroll`, `graph_shortest_path`, …) — see `pkg/cli/dslfuncs_matrix.go` and `dslfuncs_graph.go`.
 
 Type rows span **persistent collections** (`List`, `Chunk`, `Set`, `HAMT`, `Tree`, `BST`, `Graph`, `iter.Seq`), **ADTs** (`Pair`, `Either`, `Maybe`, `Variant`), and **scalar primitives** (`int`, `float64`, `big.Int`, `complex128`, `string`, `bool`, `rune`).
 

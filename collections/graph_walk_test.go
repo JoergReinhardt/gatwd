@@ -2,6 +2,8 @@ package collections
 
 import (
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/joergreinhardt/gatwd/functions"
@@ -99,6 +101,83 @@ func TestTopoSortCycleYieldsRemainder(t *testing.T) {
 	// never becomes a source. Kahn's remainder is everything left unordered.
 	if !reflect.DeepEqual(rem, []string{"b", "c", "d"}) {
 		t.Fatalf("cyclic remainder = %v, want [b c d]", rem)
+	}
+}
+
+// reachableToStrings is a small test helper rendering a *Set[string] as a
+// sorted slice, so ReachableTo's set-valued result compares with reflect.DeepEqual.
+func reachableToStrings(s *Set[string]) []string {
+	out := s.Elements()
+	sort.Strings(out)
+	return out
+}
+
+// ReachableTo is Reachable's mirror image: everyone who can reach d (forward),
+// versus only a and b who can reach b.
+func TestReachableToMirrorsReachable(t *testing.T) {
+	g := buildWalkGraph()
+	if got, want := reachableToStrings(g.ReachableTo("d")), []string{"a", "b", "c", "d"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("ReachableTo(d) = %v, want %v (everyone depends on d)", got, want)
+	}
+	if got, want := reachableToStrings(g.ReachableTo("b")), []string{"a", "b"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("ReachableTo(b) = %v, want %v", got, want)
+	}
+	// Negative control: Reachable(d) (forward) must NOT agree with ReachableTo(d)
+	// (backward) on this asymmetric graph — if it ever did, the two would have
+	// collapsed into the same (wrong) direction.
+	if got := reachableToStrings(g.Reachable("d")); reflect.DeepEqual(got, []string{"a", "b", "c", "d"}) {
+		t.Fatalf("control failed: forward Reachable(d) = %v should differ from ReachableTo(d)", got)
+	}
+}
+
+// A cycle must not make ReachableTo loop forever, exactly as Reachable is
+// already pinned against TestFoldWalkVisitsEachNodeOnceOnCycle.
+func TestReachableToTerminatesOnCycle(t *testing.T) {
+	g := buildWalkGraph().Connect("d", "a", "e", 1) // d→a closes a cycle
+	got := reachableToStrings(g.ReachableTo("a"))
+	want := []string{"a", "b", "c", "d"} // the whole cycle can now reach a
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ReachableTo(a) on cyclic graph = %v, want %v", got, want)
+	}
+}
+
+// renderTree flattens a Tree into "id(child,child)" so structure (including
+// duplication) is a single comparable string in tests.
+func renderTree(t *Tree[string]) string {
+	kids := t.Children().Elements()
+	if len(kids) == 0 {
+		return t.Value()
+	}
+	parts := make([]string, len(kids))
+	for i, k := range kids {
+		parts[i] = renderTree(k.(*Tree[string]))
+	}
+	return t.Value() + "(" + strings.Join(parts, ",") + ")"
+}
+
+// Unroll must DUPLICATE d (reached via both b and c) rather than collapsing it
+// to the single node the graph itself has — the whole point of unrolling.
+func TestUnrollDuplicatesSharedDescendant(t *testing.T) {
+	g := buildWalkGraph() // a→b→d, a→c→d (diamond)
+	tree := g.Unroll("a")
+	if got, want := renderTree(tree), "a(b(d),c(d))"; got != want {
+		t.Fatalf("Unroll(a) = %q, want %q", got, want)
+	}
+	// d appears twice in the tree though the graph has only 4 nodes — that
+	// extra occurrence IS the duplication; a negative control on this count
+	// would catch an accidental collapse back to a DAG-shaped tree (size 4).
+	if got, want := tree.Size(), 5; got != want {
+		t.Fatalf("Unroll(a).Size() = %d, want %d (b, c and TWO occurrences of d, plus a)", got, want)
+	}
+}
+
+// A cycle must terminate Unroll (a tree cannot be infinite): the node that
+// would re-enter its own ancestor path becomes a leaf instead of recursing.
+func TestUnrollTerminatesOnCycleByDuplicatingTheCyclingNode(t *testing.T) {
+	g := buildWalkGraph().Connect("d", "a", "e", 1) // d→a closes a cycle through every path
+	tree := g.Unroll("a")
+	if got, want := renderTree(tree), "a(b(d(a)),c(d(a)))"; got != want {
+		t.Fatalf("Unroll(a) on cyclic graph = %q, want %q", got, want)
 	}
 }
 

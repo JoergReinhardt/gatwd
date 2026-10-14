@@ -2752,6 +2752,18 @@ func buildGraphStep(stepStr string) (evaluator.PipelineStep[functions.Either[err
 		if len(args) >= 1 {
 			return evaluator.StepGraphNeighbors(args[0]), true
 		}
+	case "graph_out_degree":
+		if len(args) >= 1 {
+			return evaluator.StepGraphOutDegree(args[0]), true
+		}
+	case "graph_in_degree":
+		if len(args) >= 1 {
+			return evaluator.StepGraphInDegree(args[0]), true
+		}
+	case "graph_degree":
+		if len(args) >= 1 {
+			return evaluator.StepGraphDegree(args[0]), true
+		}
 	case "graph_nodes_of":
 		if len(args) >= 1 {
 			return evaluator.StepGraphNodesOf(args[0]), true
@@ -2769,6 +2781,14 @@ func buildGraphStep(stepStr string) (evaluator.PipelineStep[functions.Either[err
 	case "graph_reachable":
 		if len(args) >= 1 {
 			return evaluator.StepGraphReachable(args[0]), true
+		}
+	case "graph_reachable_to":
+		if len(args) >= 1 {
+			return evaluator.StepGraphReachableTo(args[0]), true
+		}
+	case "graph_unroll":
+		if len(args) >= 1 {
+			return evaluator.StepGraphUnroll(args[0]), true
 		}
 	// --- walks & algorithms ---
 	case "graph_bfs":

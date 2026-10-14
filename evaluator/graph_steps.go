@@ -27,12 +27,12 @@ import (
 //
 //   - K (identity) = string   — node names are strings in the DSL
 //   - C (color)    = string   — a color is a sum-type constructor *name*; the
-//                               parser already lexes `type EdgeColor = Selects | …`
-//                               into tags, and the DSL passes the tag as a string
+//     parser already lexes `type EdgeColor = Selects | …`
+//     into tags, and the DSL passes the tag as a string
 //   - N (payload)  = any      — a node's associated data (a HAMT after ingest, or
-//                               just its id for a bare topological graph)
+//     just its id for a bare topological graph)
 //   - E (weight)   = any      — numeric by default (int 1), but kept open so richer
-//                               weights can flow; ShortestPath reads it via ToFloat64
+//     weights can flow; ShortestPath reads it via ToFloat64
 //
 // dslGraph names that single instantiation so the steps below read cleanly.
 type dslGraph = *collections.Graph[string, string, any, any]
@@ -263,6 +263,27 @@ func StepGraphOut(id string) PipelineStep[functions.Either[error, any]] {
 	return idUnfold(func(g dslGraph) []string { return g.Neighbors(id) })
 }
 
+// StepGraphOutDegree emits the number of edges leaving id (collections.Graph.OutDegree).
+func StepGraphOutDegree(id string) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		return emitValue(flag, yield, g.OutDegree(id))
+	})
+}
+
+// StepGraphInDegree emits the number of edges entering id (collections.Graph.InDegree).
+func StepGraphInDegree(id string) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		return emitValue(flag, yield, g.InDegree(id))
+	})
+}
+
+// StepGraphDegree emits id's total degree, InDegree+OutDegree (collections.Graph.Degree).
+func StepGraphDegree(id string) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		return emitValue(flag, yield, g.Degree(id))
+	})
+}
+
 // StepGraphIn unfolds the in-neighbour identities of id (reverse adjacency).
 func StepGraphIn(id string) PipelineStep[functions.Either[error, any]] {
 	return idUnfold(func(g dslGraph) []string { return g.Predecessors(id) })
@@ -339,6 +360,47 @@ func StepGraphReachable(id string) PipelineStep[functions.Either[error, any]] {
 			}
 		}
 		return true
+	})
+}
+
+// StepGraphReachableTo unfolds the identities that can reach id (inclusive),
+// sorted — the mirror of StepGraphReachable (collections.Graph.ReachableTo).
+func StepGraphReachableTo(id string) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		set := g.ReachableTo(id)
+		ids := make([]string, 0, set.Len())
+		for k := range set.Seq() {
+			ids = append(ids, k)
+		}
+		sortStrings(ids)
+		for _, k := range ids {
+			if !emitValue(flag, yield, k) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// anyTree reboxes a *collections.Tree[string] as *collections.Tree[any] so a
+// Graph.Unroll result interops with every other tree_* builtin, which all
+// share the single DSL tree carrier collections.Tree[any] (see dslfuncs_matrix.go).
+func anyTree(t *collections.Tree[string]) *collections.Tree[any] {
+	kids := t.Children().Elements()
+	list := collections.Nil[*collections.Tree[any]]()
+	for i := len(kids) - 1; i >= 0; i-- {
+		list = collections.Cons(anyTree(kids[i].(*collections.Tree[string])), list)
+	}
+	return collections.NewTree[any](t.Value(), list)
+}
+
+// StepGraphUnroll emits the single Tree value produced by unrolling the graph
+// from id (collections.Graph.Unroll): a node reached via more than one path, or
+// via a cycle, is duplicated rather than collapsed to its single graph
+// occurrence — see Unroll's doc for why a tree cannot represent a cycle.
+func StepGraphUnroll(id string) PipelineStep[functions.Either[error, any]] {
+	return graphUnfold(func(g dslGraph, flag dsltypes.BitFlag, yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) bool {
+		return emitValue(flag, yield, anyTree(g.Unroll(id)))
 	})
 }
 

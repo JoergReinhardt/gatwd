@@ -20,6 +20,19 @@ func payloadJSON(v any) string {
 	return b.String()
 }
 
+// anyTreeFromGraph reboxes a *collections.Tree[string] (collections.Graph.Unroll's
+// result type) as *collections.Tree[any], the single carrier every tree_* DSL
+// builtin shares (dslfuncs_matrix.go), so graph_unroll's result interops with
+// tree_value, tree_children, visualize and the rest without a special case.
+func anyTreeFromGraph(t *collections.Tree[string]) *collections.Tree[any] {
+	kids := t.Children().Elements()
+	list := collections.Nil[*collections.Tree[any]]()
+	for i := len(kids) - 1; i >= 0; i-- {
+		list = collections.Cons(anyTreeFromGraph(kids[i].(*collections.Tree[string])), list)
+	}
+	return collections.NewTree[any](t.Value(), list)
+}
+
 // registerGraphFuncs adds the READ-side and inferred-edge function forms of the graph
 // row of the operator-type matrix, complementing the constructors and accessors in
 // dslfuncs.go. They are the expression-level twins of the graph_* pipeline steps and
@@ -33,6 +46,12 @@ func payloadJSON(v any) string {
 //	graph_order g / graph_size g       node / edge counts
 //	graph_edge_pairs color g           [from to] pairs of every edge of that color
 //	graph_reachable id g               ids reachable from id (including id), sorted
+//	graph_reachable_to id g            ids that can reach id (including id), sorted — Reachable's mirror
+//	graph_out_degree id g              number of edges leaving id
+//	graph_in_degree id g               number of edges entering id
+//	graph_degree id g                  id's total degree (in + out)
+//	graph_unroll id g                  id's reachable subgraph rendered as a Tree, duplicating a node
+//	                                   every time a path (or a cycle) reaches it again
 //	graph_shortest_path from to g      node ids of a least-weight path, [] when none
 //	graph_topo_sort g                  a dependency order, [] when the graph is cyclic
 //	graph_scc g                        strongly connected components (lists of ids)
@@ -175,6 +194,66 @@ func registerGraphFuncs(m map[string]any) {
 		}
 		sort.Strings(ids)
 		return listOf(idList(ids)), nil
+	})
+	defn(m, "graph_reachable_to", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		target, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		var ids []string
+		for _, id := range g.ReachableTo(target).Elements() {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		return listOf(idList(ids)), nil
+	})
+	defn(m, "graph_out_degree", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.OutDegree(id), nil
+	})
+	defn(m, "graph_in_degree", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.InDegree(id), nil
+	})
+	defn(m, "graph_degree", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return g.Degree(id), nil
+	})
+	defn(m, "graph_unroll", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		return anyTreeFromGraph(g.Unroll(id)), nil
 	})
 	defn(m, "graph_shortest_path", "from to g", func(a []any) (any, error) {
 		g, err := graphArg(a[2])

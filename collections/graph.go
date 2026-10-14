@@ -378,6 +378,21 @@ func (g *Graph[K, C, N, E]) Predecessors(id K) []K {
 	return dedupIDs(g.InEdges(id), func(e functions.Edge[K, C, E]) K { return e.From }, g.HasNode)
 }
 
+// OutDegree returns the number of edges leaving id. Unlike len(Neighbors(id)),
+// which dedupes, two edges of different colors (or weights) to the same
+// successor count as 2 here and as 1 neighbor there — OutDegree is the edge
+// count, Neighbors the distinct-successor count.
+func (g *Graph[K, C, N, E]) OutDegree(id K) int { return len(g.OutEdges(id)) }
+
+// InDegree returns the number of edges entering id; see OutDegree for how it
+// differs from len(Predecessors(id)).
+func (g *Graph[K, C, N, E]) InDegree(id K) int { return len(g.InEdges(id)) }
+
+// Degree returns id's total degree, InDegree(id) + OutDegree(id) — the
+// classic undirected notion of "how connected is this node", read off a
+// directed graph by adding both directions.
+func (g *Graph[K, C, N, E]) Degree(id K) int { return g.InDegree(id) + g.OutDegree(id) }
+
 // dedupIDs projects an endpoint out of each edge, drops endpoints that are not
 // declared nodes (see Neighbors) and removes duplicates, preserving the (already
 // sorted) edge order.
@@ -739,6 +754,34 @@ func (g *Graph[K, C, N, E]) Reachable(start K) *Set[K] {
 	res := NewSet[K]()
 	for k := range g.BFS(start) {
 		res = res.Add(k)
+	}
+	return res
+}
+
+// ReachableTo returns the set of identities that can reach target via a
+// directed path, including target itself — the mirror image of Reachable,
+// which walks forward (successors); this walks backward (predecessors).
+// Reachable(x) answers "everything x depends on, transitively"; ReachableTo(x)
+// answers "everything that (transitively) depends on x" — genuinely different
+// questions over the same graph, neither derivable from the other without
+// walking it again. The walk is guarded by a visited set, so it terminates on
+// a cyclic graph exactly as Reachable does.
+func (g *Graph[K, C, N, E]) ReachableTo(target K) *Set[K] {
+	src := g.norm()
+	res := NewSet[K]()
+	frontier := []K{target}
+	for len(frontier) > 0 {
+		cur := frontier[0]
+		frontier = frontier[1:]
+		if res.Contains(cur) {
+			continue
+		}
+		res = res.Add(cur)
+		for _, p := range src.Predecessors(cur) {
+			if !res.Contains(p) {
+				frontier = append(frontier, p)
+			}
+		}
 	}
 	return res
 }

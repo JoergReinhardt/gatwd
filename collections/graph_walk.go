@@ -50,6 +50,55 @@ func (g *Graph[K, C, N, E]) FoldWalk(
 	return acc
 }
 
+// Unroll renders the subgraph reachable from start as a Tree, following
+// out-edges (Neighbors), by DUPLICATING a node every time traversal reaches it
+// again — once as a child of every distinct parent that leads to it, and again
+// each time a cycle brings the walk back around to it — rather than collapsing
+// it back to the single occurrence the underlying graph gives it. This is the
+// standard graph-to-tree "unrolling" transformation: the right shape whenever a
+// consumer (a report, a renderer) wants one line per *path* to a resource
+// rather than one line per resource — e.g. to see the two distinct call chains
+// that both end up depending on the same shared Service, each with its own
+// branch instead of one shared box.
+//
+// # Termination on a cyclic graph
+//
+// A graph may contain cycles; a tree cannot. Unroll breaks a cycle the moment
+// an identity reappears among its OWN ancestors on the path being built (not
+// globally — reaching the same node again via an unrelated branch is exactly
+// the duplication this function exists to produce, so that occurrence is
+// expanded again): that occurrence becomes a leaf instead of recursing forever.
+// Since no path's ancestor set can exceed the graph's declared node count
+// before one would have to repeat, every path in the result is finite, and so
+// is the whole tree — though it can be exponentially larger than the graph
+// itself on a densely connected one, which is inherent to duplicating every
+// path and not a defect of the implementation. A dangling edge target (see
+// Neighbors) is never reached, matching every other traversal in this file.
+func (g *Graph[K, C, N, E]) Unroll(start K) *Tree[K] {
+	src := g.norm()
+	var walk func(id K, ancestors map[K]bool) *Tree[K]
+	walk = func(id K, ancestors map[K]bool) *Tree[K] {
+		if ancestors[id] {
+			return Leaf(id)
+		}
+		next := src.Neighbors(id)
+		if len(next) == 0 {
+			return Leaf(id)
+		}
+		onPath := make(map[K]bool, len(ancestors)+1)
+		for k := range ancestors {
+			onPath[k] = true
+		}
+		onPath[id] = true
+		children := Nil[*Tree[K]]()
+		for i := len(next) - 1; i >= 0; i-- {
+			children = Cons(walk(next[i], onPath), children)
+		}
+		return NewTree(id, children)
+	}
+	return walk(start, map[K]bool{})
+}
+
 // edgeCost extracts an edge's numeric weight for the weighted algorithms. Any
 // weight convertible to a float64 is used directly; a non-numeric weight defaults
 // to 1, so an "unweighted" graph (the default weight is int 1) behaves like a

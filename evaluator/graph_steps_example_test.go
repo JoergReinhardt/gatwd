@@ -3,6 +3,7 @@ package evaluator_test
 import (
 	"fmt"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/dsltypes"
 	"github.com/joergreinhardt/gatwd/evaluator"
 	"github.com/joergreinhardt/gatwd/functions"
@@ -132,4 +133,126 @@ func ExampleStepGraphOver() {
 
 	// Output:
 	// 20
+}
+
+// ExampleStepGraphDegree shows that degree counts EDGES, not distinct
+// neighbors: b has one out-edge (to c) and two in-edges (from a and from the
+// parallel a→b edge), so its total degree is 3 though it has only one
+// predecessor and one successor.
+func ExampleStepGraphDegree() {
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
+	flag := dsltypes.BitFlag(1)
+
+	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any("seed")), flag))
+	}
+
+	build := []evaluator.PipelineStep[functions.Either[error, any]]{
+		evaluator.StepGraphEmpty(),
+		evaluator.StepGraphAddNode("N", "a"),
+		evaluator.StepGraphAddNode("N", "b"),
+		evaluator.StepGraphAddNode("N", "c"),
+		evaluator.StepGraphAddEdge("E", 1, "a", "b"),
+		evaluator.StepGraphAddEdge("E", 1, "a", "b"), // a second, parallel a→b edge
+		evaluator.StepGraphAddEdge("E", 1, "b", "c"),
+	}
+
+	run := func(extra evaluator.PipelineStep[functions.Either[error, any]]) any {
+		pipeline := append(append([]evaluator.PipelineStep[functions.Either[error, any]]{}, build...), extra)
+		var out any
+		for node := range engine.EvaluatePipeline(source, pipeline) {
+			out, _ = node.Value.UnwrapRight()
+		}
+		return out
+	}
+
+	fmt.Println(run(evaluator.StepGraphInDegree("b")))
+	fmt.Println(run(evaluator.StepGraphOutDegree("b")))
+	fmt.Println(run(evaluator.StepGraphDegree("b")))
+
+	// Output:
+	// 2
+	// 1
+	// 3
+}
+
+// ExampleStepGraphReachableTo shows the mirror of StepGraphReachable: everyone
+// upstream of c (a and b depend on it, transitively through b), where
+// StepGraphReachable from a would instead show everything a depends on.
+func ExampleStepGraphReachableTo() {
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
+	flag := dsltypes.BitFlag(1)
+
+	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any("seed")), flag))
+	}
+
+	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
+		evaluator.StepGraphEmpty(),
+		evaluator.StepGraphAddNode("N", "a"),
+		evaluator.StepGraphAddNode("N", "b"),
+		evaluator.StepGraphAddNode("N", "c"),
+		evaluator.StepGraphAddEdge("E", 1, "a", "b"),
+		evaluator.StepGraphAddEdge("E", 1, "b", "c"),
+		evaluator.StepGraphReachableTo("c"),
+	}
+
+	for node := range engine.EvaluatePipeline(source, pipeline) {
+		val, _ := node.Value.UnwrapRight()
+		fmt.Println(val)
+	}
+
+	// Output:
+	// a
+	// b
+	// c
+}
+
+// ExampleStepGraphUnroll shows the graph→tree unrolling DUPLICATING d, reached
+// via both b and c, instead of collapsing it to the single node the graph has:
+// the rendered tree shows two distinct leaves named d, one per path.
+func ExampleStepGraphUnroll() {
+	engine := evaluator.NewEngine[functions.Either[error, any]]()
+	flag := dsltypes.BitFlag(1)
+
+	source := func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+		yield(dsltypes.NewASTNode(functions.Right[error, any](any("seed")), flag))
+	}
+
+	pipeline := []evaluator.PipelineStep[functions.Either[error, any]]{
+		evaluator.StepGraphEmpty(),
+		evaluator.StepGraphAddNode("N", "a"),
+		evaluator.StepGraphAddNode("N", "b"),
+		evaluator.StepGraphAddNode("N", "c"),
+		evaluator.StepGraphAddNode("N", "d"),
+		evaluator.StepGraphAddEdge("E", 1, "a", "b"),
+		evaluator.StepGraphAddEdge("E", 1, "a", "c"),
+		evaluator.StepGraphAddEdge("E", 1, "b", "d"),
+		evaluator.StepGraphAddEdge("E", 1, "c", "d"),
+		evaluator.StepGraphUnroll("a"),
+	}
+
+	var render func(t *collections.Tree[any]) string
+	render = func(t *collections.Tree[any]) string {
+		kids := t.Children().Elements()
+		if len(kids) == 0 {
+			return fmt.Sprint(t.Value())
+		}
+		out := fmt.Sprint(t.Value()) + "("
+		for i, k := range kids {
+			if i > 0 {
+				out += ","
+			}
+			out += render(k.(*collections.Tree[any]))
+		}
+		return out + ")"
+	}
+
+	for node := range engine.EvaluatePipeline(source, pipeline) {
+		val, _ := node.Value.UnwrapRight()
+		fmt.Println(render(val.(*collections.Tree[any])))
+	}
+
+	// Output:
+	// a(b(d),c(d))
 }
