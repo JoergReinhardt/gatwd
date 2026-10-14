@@ -305,3 +305,47 @@ func TestGraphOperatorDispatch(t *testing.T) {
 		t.Errorf("a != b = %v, want true", neq)
 	}
 }
+
+// TestGraphDotNodesDrawsFanInOnce is the property a generic struct/slice walk gets wrong: "svc"
+// is the target of two edges (from pod1 and pod2's... no, here svc fans OUT to both pods, so the
+// shared node is svc itself, reached once as a node but twice as an edge endpoint) — DotNodes
+// must still report it exactly once, with DotEdges carrying both connections separately.
+func TestGraphDotNodesDrawsFanInOnce(t *testing.T) {
+	g := buildSample()
+
+	nodes := g.DotNodes()
+	if len(nodes) != g.Order() {
+		t.Fatalf("DotNodes() returned %d nodes, want %d (one per node, regardless of edge count)", len(nodes), g.Order())
+	}
+	seen := map[string]int{}
+	for _, n := range nodes {
+		if n[0] != n[1] {
+			t.Errorf("DotNodes() entry %v: id and label must both be the node's identity", n)
+		}
+		seen[n[0]]++
+	}
+	for id, count := range seen {
+		if count != 1 {
+			t.Errorf("node %q appears %d times in DotNodes(), want exactly once", id, count)
+		}
+	}
+
+	edges := g.DotEdges()
+	if len(edges) != g.Size() {
+		t.Fatalf("DotEdges() returned %d edges, want %d", len(edges), g.Size())
+	}
+	want := map[[3]string]bool{
+		{"svc", "pod1", "selects"}: true,
+		{"svc", "pod2", "selects"}: true,
+		{"pod1", "svc", "calls"}:   true,
+	}
+	for _, e := range edges {
+		if !want[e] {
+			t.Errorf("unexpected DotEdges() entry %v", e)
+		}
+		delete(want, e)
+	}
+	if len(want) != 0 {
+		t.Errorf("DotEdges() is missing %v", want)
+	}
+}

@@ -814,3 +814,35 @@ func (g *Graph[K, C, N, E]) Graph() any {
 		Edges []string
 	}{Nodes: nodes, Edges: edges}
 }
+
+// DotNodes implements the visualizer's DotGraph structurally (visualizer.DotGraph, without this
+// package importing visualizer — see its doc): one {id, label} pair per node. The id and the
+// label are both the node's own identity, so a DOT rendering of this graph draws exactly one box
+// per node, however many edges reach it, with the SAME label an edge's From/To already names.
+func (g *Graph[K, C, N, E]) DotNodes() [][2]string {
+	if g == nil {
+		return nil
+	}
+	nodes := g.Nodes()
+	out := make([][2]string, 0, len(nodes))
+	for _, n := range nodes {
+		id := fmt.Sprint(n.ID)
+		out = append(out, [2]string{id, id})
+	}
+	return out
+}
+
+// DotEdges implements the visualizer's DotGraph structurally: {from, to, label} per edge, the
+// label naming the edge's color (its discriminator) so a diagram with several relation colors
+// (Owns, Selects, Exposes, ...) still shows which is which.
+func (g *Graph[K, C, N, E]) DotEdges() [][3]string {
+	if g == nil {
+		return nil
+	}
+	edges := g.Edges()
+	out := make([][3]string, 0, len(edges))
+	for _, e := range edges {
+		out = append(out, [3]string{fmt.Sprint(e.From), fmt.Sprint(e.To), fmt.Sprint(e.Color)})
+	}
+	return out
+}

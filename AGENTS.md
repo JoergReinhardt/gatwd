@@ -182,6 +182,7 @@ Each row is a mistake that happened; the rule is what prevents the next one. The
 | Write scratch scripts with `cat > f <<'EOF'` | `echo '…\x…' > f` (zsh interprets escapes) |
 | Give core a generic primitive and put the domain in a shim/prelude | Put a domain word, import or step in core |
 | Change `spec/spec.go`, then run `go run ./cmd/gatwd-gen .` and commit the regenerated files | Hand-edit anything under `editors/` or `parser/tokens_gen.go`, or add a keyword/step/builtin without the spec entry |
+| Make a reusable task script read its source from the `--` arguments (`manifests`, `walk_fs` with no inline arg); swap sources by rerunning with a different argument | Put a path/URL/directory inside a task's `def` — it then only ever works against the one source it was written for |
 
 ---
 

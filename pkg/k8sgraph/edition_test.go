@@ -159,9 +159,9 @@ func TestPodSpecRelations(t *testing.T) {
 		want []string
 	}{
 		// volume + env reference from app-pod are ONE fact (graph_add_edges adds an identical
-		// spec once), plus the Deployment template's envFrom; missing-config has no node,
-		// so no edge.
-		"Configures": {"graph_edges_of Configures", []string{"ConfigMap/default/app-config-Configures->Deployment/default/worker", "ConfigMap/default/app-config-Configures->Pod/default/app-pod"}},
+		// spec once), plus the Deployment and StatefulSet templates' envFrom; missing-config
+		// has no node, so no edge.
+		"Configures": {"graph_edges_of Configures", []string{"ConfigMap/default/app-config-Configures->Deployment/default/worker", "ConfigMap/default/app-config-Configures->Pod/default/app-pod", "ConfigMap/default/app-config-Configures->StatefulSet/default/db"}},
 		"Mounts":     {"graph_edges_of Mounts", []string{"PersistentVolumeClaim/default/app-data-Mounts->Pod/default/app-pod"}},
 		// the User subject is not a ServiceAccount, so only app-sa (and the Role) bind.
 		"Binds":    {"graph_edges_of Binds", []string{"RoleBinding/default/app-binding-Binds->Role/default/app-role", "RoleBinding/default/app-binding-Binds->ServiceAccount/default/app-sa"}},

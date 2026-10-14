@@ -43,7 +43,7 @@ func TestLiveOfflineParity(t *testing.T) {
 func TestLiveSourceMergesAllKinds(t *testing.T) {
 	live := k8sgraph.ApplyEdition(cli.NewEdition("merge"), k8sgraphtest.FakeClusterFromFile(t, fullStackPath)).BuildInterpreter()
 	got := edgesOf(t, live, `spawn StrVal: default |> k8s_resources |> hamt_get kind |> collect_list`)
-	want := []string{"ConfigMap", "Deployment", "PersistentVolumeClaim", "Pod", "Role", "RoleBinding", "Service", "Service", "ServiceAccount"}
+	want := []string{"ConfigMap", "Deployment", "PersistentVolumeClaim", "Pod", "Role", "RoleBinding", "Service", "Service", "ServiceAccount", "StatefulSet"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("merged kinds = %v, want %v", got, want)
 	}

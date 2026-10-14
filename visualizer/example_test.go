@@ -108,17 +108,29 @@ func ExampleFormat_tree() {
 	fmt.Print(visualizer.Format(tree, opts))
 
 	// Output:
-	// ╰─ Struct
-	//     ├─ Value: root_node
-	//     ╰─ Children: Struct
-	//         ├─ Head: Struct
-	//         │   ├─ Value: child_A
-	//         │   ╰─ Children: <empty List>
-	//         ╰─ Tail: Struct
-	//             ├─ Head: Struct
-	//             │   ├─ Value: child_B
-	//             │   ╰─ Children: <empty List>
-	//             ╰─ Tail: <empty List>
+	// ╰─ root_node
+	//     ├─ child_A
+	//     ╰─ child_B
+}
+
+// ExampleFormat_graph shows a Graph rendering as a real directed diagram in --dot output (one
+// box per node, real arrows for its edges) instead of the generic reflection walk every other
+// type gets: a node reached by more than one edge is still drawn once, not once per incoming
+// edge.
+func ExampleFormat_graph() {
+	g := collections.NewGraph[string, string, int, int]().
+		AddNode("svc", "service", 0).AddNode("pod", "pod", 0).
+		Connect("svc", "pod", "selects", 1)
+
+	opts := visualizer.ParseOptions("--dot")
+	fmt.Print(visualizer.Format(g, opts))
+	// Output:
+	// digraph G {
+	//   node [shape=box, style=filled, color=black, fillcolor=white];
+	//   "pod" [label="pod"];
+	//   "svc" [label="svc"];
+	//   "svc" -> "pod" [label="selects"];
+	// }
 }
 
 func ExampleStepVisualize() {

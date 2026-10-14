@@ -1,0 +1,34 @@
+-- tasks.gatwd — named views, source-agnostic: every task reads its source from its `--`
+-- argument, never from a path written into this file. Swap sources by rerunning with a
+-- different argument, not by editing the script (see AGENTS.md §5a and the dsl-authoring skill
+-- for the pattern this follows).
+--
+-- A pipeline-bodied def is a FRAGMENT: run as a task, the arguments (everything after `--`)
+-- arrive as its input stream, one String node each, so `manifests`/`walk_fs` below receive the
+-- path directly. `task` (the subcommand, not the bare script) also skips the startup banner.
+--
+--   gatwd-easybell-gitops task main  -s tasks.gatwd -- /path/to/overlay         (tree view)
+--   gatwd-easybell-gitops task dot   -s tasks.gatwd -- /path/to/overlay         (DOT tree; pipe to `dot`)
+--   gatwd-easybell-gitops -D OVERLAY=production -D PATTERN=** task wide -s tasks.gatwd -- /path/to/repo
+--     (whole repo, tree; PATTERN narrows which projects: -D PATTERN=/path/to/repo/**/sip*/**
+--      keeps the render small enough to read — see glob_match's doc for the pattern language)
+--   gatwd-easybell-gitops task graph -s tasks.gatwd -- /path/to/overlay         (raw graph DOT: every
+--     relation, incl. DependsOn/Hairpin/Configures, which the tree view doesn't show; pipe to `dot`)
+--   gatwd-easybell-gitops -D OVERLAY=production -D PATTERN=** task wide_graph -s tasks.gatwd -- /path/to/repo
+--     (same, whole repo or a PATTERN-narrowed subset)
+-- Check: gatwd-easybell-gitops --check tasks.gatwd
+
+def main = manifests |> gitops_graph |> gp_trees |> visualize
+def dot  = manifests |> gitops_graph |> gp_trees |> visualize --dot
+
+-- Bare `walk_fs` (no inline path) reads the root to walk from its input, same as `manifests`:
+-- this is what lets `wide`/`wide_graph` scan ANY repo passed after `--`, with nothing to edit
+-- here. `gp_roots` additionally requires -D PATTERN (see its own doc in relations.gatwd).
+def wide = walk_fs |> gp_roots |> manifests |> skip_errors |> gitops_graph |> gp_trees |> visualize --dot
+
+-- The raw graph, not the curated Ingress-rooted tree: every node and every relation (Owns,
+-- Selects, RoutesTo, Exposes, Configures, Mounts, Binds, DependsOn, Hairpin) as its own box and
+-- arrow. This is the one to narrow with -D PATTERN — the untamed whole-fleet graph is wide
+-- enough to need a browser, and too wide to debug anything in.
+def graph      = manifests |> gitops_graph |> visualize --dot
+def wide_graph = walk_fs |> gp_roots |> manifests |> skip_errors |> gitops_graph |> visualize --dot

@@ -24,8 +24,9 @@ import (
 // registered before it can List that resource.
 var listKinds = map[string]string{
 	"pods": "PodList", "services": "ServiceList", "configmaps": "ConfigMapList", "secrets": "SecretList",
-	"endpoints": "EndpointsList", "deployments": "DeploymentList", "replicasets": "ReplicaSetList",
-	"ingresses": "IngressList", "persistentvolumeclaims": "PersistentVolumeClaimList",
+	"endpoints": "EndpointsList", "deployments": "DeploymentList", "statefulsets": "StatefulSetList",
+	"replicasets": "ReplicaSetList",
+	"ingresses":   "IngressList", "persistentvolumeclaims": "PersistentVolumeClaimList",
 	"serviceaccounts": "ServiceAccountList", "roles": "RoleList", "rolebindings": "RoleBindingList",
 	"controllerrevisions": "ControllerRevisionList",
 }

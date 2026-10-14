@@ -555,6 +555,8 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			pipeline = append(pipeline, evaluator.StepEmpty())
 		} else if stepStr == "distinct" {
 			pipeline = append(pipeline, evaluator.StepDistinct())
+		} else if stepStr == "skip_errors" {
+			pipeline = append(pipeline, evaluator.StepSkipErrors())
 		} else if strings.HasPrefix(stepStr, "fold") {
 			op := strings.TrimSpace(stepStr[4:])
 			if foldStep, ok := i.foldClosureStep(op); ok {
@@ -626,6 +628,12 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 		} else if strings.HasPrefix(stepStr, "walk_fs ") {
 			pathStr := strings.TrimSpace(stepStr[8:])
 			adapter := adapters.WalkFSAdapter(pathStr)
+			pipeline = append(pipeline, i.gated(CapFS, "walk_fs", evaluator.StepAdapter(adapter)))
+		} else if stepStr == "walk_fs" {
+			// No inline path: walk the directory named by each upstream value instead, so a
+			// reusable script can be pointed at a different root per run (-- <path>) rather
+			// than having one baked in.
+			adapter := adapters.WalkFSStreamAdapter()
 			pipeline = append(pipeline, i.gated(CapFS, "walk_fs", evaluator.StepAdapter(adapter)))
 		} else if strings.HasPrefix(stepStr, "assert_unordered ") {
 			expected := strings.TrimSpace(stepStr[17:])

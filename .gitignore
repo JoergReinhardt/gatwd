@@ -1,3 +1,7 @@
 /gatwd
 tiny_vm
 kuberepl
+*.test
+/gatwd-easybell-gitops
+userland/*/gatwd-*
+output.txt

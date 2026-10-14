@@ -29,13 +29,11 @@ func ExampleList() {
 	fmt.Print(visualizer.Format(list, opts))
 
 	// Output:
-	// ╭───────────────────────────────╮
-	// │ ╰─ Struct                     │
-	// │     ├─ Head: 2                │
-	// │     ╰─ Tail: Struct           │
-	// │         ├─ Head: 1            │
-	// │         ╰─ Tail: <empty List> │
-	// ╰───────────────────────────────╯
+	// ╭───────────────╮
+	// │ ╰─ List       │
+	// │     ├─ [0]: 2 │
+	// │     ╰─ [1]: 1 │
+	// ╰───────────────╯
 }
 
 func ExampleSet() {
@@ -50,6 +48,23 @@ func ExampleSet() {
 	// │ ┗━━ List            │
 	// │     ┗━━ [0]: reader │
 	// ╰─────────────────────╯
+}
+
+func ExampleBTree() {
+	// A root with two leaves; each node's label is its keys, bracket-joined
+	leaf1 := collections.NewBTreeNode([]int{10, 20}, nil)
+	leaf2 := collections.NewBTreeNode([]int{30, 40}, nil)
+	root := collections.NewBTreeNode([]int{25}, []*collections.BTree[int]{leaf1, leaf2})
+
+	opts := visualizer.ParseOptions("--curved --border")
+	fmt.Print(visualizer.Format(root, opts))
+
+	// Output:
+	// ╭────────────────╮
+	// │ ╰─ [25]        │
+	// │     ├─ [10 20] │
+	// │     ╰─ [30 40] │
+	// ╰────────────────╯
 }
 
 func ExampleChunk() {

@@ -75,3 +75,44 @@ lambda bodies can be pipeline-style (`echo hello %s`).
    `[ERROR] assertion on an empty stream`; any other silence is a bug).
 3. Include a **negative** case where behavior should differ (`assert false`, `assert []`).
 4. Run `./run_dsl_tests.sh`, then `gatwd --check tests/dsl_exhaustive_test.gatwd`.
+
+## 6. Reusable task scripts: parameterize by argument, never by editing the script
+
+When a script defines a *view*, *transformation* or *query* meant to be applied to more than one
+source (a different overlay, repo, file, cluster — "apply this to a variety of sources"), the
+source is always a **runtime argument**, never text written into the script:
+
+```gatwd
+-- Good: the script names no path. Run as:
+--   gatwd-<edition> task main -s script.gatwd -- /path/to/source-a
+--   gatwd-<edition> task main -s script.gatwd -- /path/to/source-b
+def main = manifests |> gitops_graph |> gp_trees |> visualize
+```
+
+```gatwd
+-- Bad: this view now only works for one source, ever — it has to be *edited* to point anywhere
+-- else, which defeats the entire point of a reusable script.
+def main = spawn StrVal: /path/to/source-a |> manifests |> gitops_graph |> gp_trees |> visualize
+```
+
+This works because of the **fragment** convention (`pkg/cli/run.go`): a pipeline-bodied `def` run
+as a task (`gatwd-<edition> task NAME -s script.gatwd -- arg ...`) gets the `--` arguments as its
+*input stream*, one String node each — that is what `manifests` (and `walk_fs` used with no inline
+argument) read their path from. `task` (the subcommand, not the bare `gatwd-<edition> script.gatwd`
+form) also skips the startup banner, so a task's output pipes straight into `dot`/`jq`/etc.
+
+A step that only accepts a **literal** argument (`walk_fs <dir>`, fixed at parse time) cannot be
+parameterized this way, and a `-D NAME=VALUE` constant does not help either — constants substitute
+into *expressions*, never into a step's literal text, so `walk_fs REPO` tries to walk a directory
+literally named `REPO`. Per Mandate 1, the fix is never to hardcode the one path the script
+happens to need right now; it is to give the step a stream-driven form (no inline argument, reads
+its subject from the upstream value, exactly like `manifests` already does) so the existing
+fragment mechanism parameterizes it for free. If the step you need doesn't have that form yet,
+add it (`adapters/`, wired through `pkg/cli`) before reaching for a workaround in the script.
+
+A view that genuinely consumes its argument (`manifests`, `walk_fs`) fixes itself this way: give it
+a source and it runs, give it none and it correctly produces nothing — there is no source to view.
+A fragment that has *no* per-run use for its argument at all (a fixed computation, not a view over
+a source) still needs at least one `--` argument to fire, because the task's input stream has
+exactly as many elements as arguments given and every step runs per upstream element: zero
+arguments is an empty stream is no output, not a sensible default.

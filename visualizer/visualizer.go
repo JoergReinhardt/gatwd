@@ -16,6 +16,35 @@ type Visualizer interface {
 	Visualize(opts Options, prefix string, isLast bool, currentDepth int) string
 }
 
+// TreeNode is implemented by a value that already IS one node of an n-ary tree: its own label
+// plus its ordered children. Graphable (Graph() any) is the right default for a type whose
+// *internal* representation needs exposing for a generic reflection-based walk (a Record, a
+// flat slice) — but a type that already knows "I am a single node with these children"
+// (collections.Tree chief among them) should render as that label with nested branches
+// directly, instead of the walk printing a synthetic "Value" field, a synthetic "Children"
+// field, and this node's index inside its parent's children slice. Both methods return only
+// `any`/`[]any` so a Layer 0/1 type can implement this interface without importing visualizer.
+type TreeNode interface {
+	NodeLabel() any
+	NodeChildren() []any
+}
+
+// DotGraph is implemented by a value that already represents a full directed graph: distinct
+// nodes (each with its own id and label) and edges that connect them. Graphable's generic
+// struct/slice walk is the right default for a type whose *internal* representation needs
+// exposing (a Record, a flat list) — but it cannot draw a true graph correctly: a node reached by
+// two edges would be walked twice, as two separate boxes, with nothing to show they are the same
+// node. A DotGraph instead gets real nodes and real arrows between them in --dot output. There is
+// no ASCII-tree equivalent (arbitrary many-to-many connectivity isn't a tree to begin with), so
+// this only changes --dot rendering. Both methods return plain string arrays, not a project type,
+// so a Layer 0/1 type (collections.Graph) can implement this without importing visualizer.
+type DotGraph interface {
+	// DotNodes returns {id, label} for every node.
+	DotNodes() [][2]string
+	// DotEdges returns {from, to, label} for every edge; label may be empty.
+	DotEdges() [][3]string
+}
+
 func applyColor(text, fg, bg string) string {
 	fgCodes := map[string]string{"red": "31", "green": "32", "yellow": "33", "blue": "34", "magenta": "35", "cyan": "36", "white": "37"}
 	bgCodes := map[string]string{"red": "41", "green": "42", "yellow": "43", "blue": "44", "magenta": "45", "cyan": "46", "white": "47"}
@@ -32,6 +61,11 @@ func applyColor(text, fg, bg string) string {
 		return code + text + "\033[0m"
 	}
 	return text
+}
+
+// escapeDotString escapes the double quotes in s so it is safe inside a DOT "..." label.
+func escapeDotString(s string) string {
+	return strings.ReplaceAll(s, "\"", "\\\"")
 }
 
 // FormatAST formats an AST node value using its BitFlag DSL type rather than Go reflection.
@@ -118,6 +152,30 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 				val = rightVal
 			}
 		}
+	}
+
+	if treeNode, ok := val.(TreeNode); ok {
+		formatDotNode(treeNode.NodeLabel(), name, id, opts, depth, lines, 0, false)
+		for i, c := range treeNode.NodeChildren() {
+			childID := fmt.Sprintf("%s_%d", id, i)
+			formatDotNode(c, "", childID, opts, depth+1, lines, 0, false)
+			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\";", id, childID))
+		}
+		return id, lines
+	}
+
+	if dg, ok := val.(DotGraph); ok {
+		for _, n := range dg.DotNodes() {
+			*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s\"];", escapeDotString(n[0]), escapeDotString(n[1])))
+		}
+		for _, e := range dg.DotEdges() {
+			attr := ""
+			if e[2] != "" {
+				attr = fmt.Sprintf(" [label=\"%s\"]", escapeDotString(e[2]))
+			}
+			*lines = append(*lines, fmt.Sprintf("  \"%s\" -> \"%s\"%s;", escapeDotString(e[0]), escapeDotString(e[1]), attr))
+		}
+		return id, lines
 	}
 
 	if g, ok := val.(Graphable); ok {
@@ -208,11 +266,15 @@ func formatDotNode(val any, name string, id string, opts Options, depth int, lin
 			}
 		}
 	default:
-		valStr := strings.ReplaceAll(fmt.Sprintf("%v", val), "\"", "\\\"")
+		valStr := escapeDotString(fmt.Sprintf("%v", val))
 		if c, ok := opts.ValueColors[valStr]; ok {
 			colorAttr = fmt.Sprintf(", fillcolor=\"%s\"", c)
 		}
-		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s: %s\"%s];", id, nodeLabel, valStr, colorAttr))
+		label := valStr
+		if name != "" {
+			label = nodeLabel + ": " + valStr
+		}
+		*lines = append(*lines, fmt.Sprintf("  \"%s\" [label=\"%s\"%s];", id, label, colorAttr))
 	}
 	return id, lines
 }
@@ -240,6 +302,16 @@ func formatNode(val any, name string, prefix string, isLast bool, opts Options, 
 				val = rightVal
 			}
 		}
+	}
+
+	if tn, ok := val.(TreeNode); ok {
+		res := formatNode(tn.NodeLabel(), name, prefix, isLast, opts, depth, 0, false)
+		newPrefix := prefix + extend(isLast, opts.Style)
+		children := tn.NodeChildren()
+		for i, c := range children {
+			res += formatNode(c, "", newPrefix, i == len(children)-1, opts, depth+1, 0, false)
+		}
+		return res
 	}
 
 	if g, ok := val.(Graphable); ok {

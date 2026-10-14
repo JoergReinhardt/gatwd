@@ -34,6 +34,7 @@ PipelineStep   ::= OSCommand
                  | "drop " Integer
                  | "fold " FoldOp
                  | "distinct"
+                 | "skip_errors"                   (* report each Left on stderr and drop it so a downstream aggregate sees only the Rights *)
                  | "memoize " OSCommand
                  | "map " Lambda
                  | Lambda                         (* bare lambda applies to the incoming value *)

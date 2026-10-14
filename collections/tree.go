@@ -306,3 +306,26 @@ func (t *Tree[T]) Graph() any {
 		Children: t.children,
 	}
 }
+
+// NodeLabel implements visualizer.TreeNode: a Tree already IS one node of the n-ary tree it
+// represents, so its own payload is the label rendered for that node directly — the visualizer
+// needs no synthetic "Value" field on the way there.
+func (t *Tree[T]) NodeLabel() any {
+	if t == nil {
+		return "<nil Tree>"
+	}
+	return t.value
+}
+
+// NodeChildren implements visualizer.TreeNode: this node's children, in traversal order, each
+// rendered as its own nested branch — no synthetic "Children" field or cons-list wrapper.
+func (t *Tree[T]) NodeChildren() []any {
+	if t == nil || t.children == nil {
+		return nil
+	}
+	out := make([]any, 0, t.children.Len())
+	for c := range t.children.Seq() {
+		out = append(out, c)
+	}
+	return out
+}

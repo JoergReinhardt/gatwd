@@ -1,0 +1,81 @@
+-- Exposes: Service -> every Deployment or StatefulSet of ITS namespace whose pod template
+-- labels contain the Service's spec.selector (both carry the same PodTemplateSpec shape, and
+-- a Service cannot tell them apart). Rendered kustomize output has no Pods, so this is the link
+-- that completes Ingress -> Service -> workload offline. Edges only join existing nodes.
+-- (Same shape as k8s/relations.gatwd's rel_selects: a *_specs function builds the edge
+-- specs as data, rel_exposes just folds them into the graph.)
+def gp_exposes_specs = \g -> [ ["Exposes", 1, (k8s_id_of s), (k8s_id_of d)]
+    | s <- (graph_payloads_of "Service" g)
+    , hamt_has_path "spec.selector" s
+    , d <- (graph_payloads_of "Deployment" g) ++ (graph_payloads_of "StatefulSet" g)
+    , hamt_has_path "spec.template.metadata.labels" d
+    , (k8s_scope d) == (k8s_scope s)
+    , subset_of (hamt_path "spec.selector" s) (hamt_path "spec.template.metadata.labels" d) ]
+
+def rel_exposes = fold (\_ g -> graph_add_edges (gp_exposes_specs g) g) graph_empty
+
+-- DependsOn/Hairpin: Deployment/StatefulSet -> Service or Ingress, derived from a URL-shaped
+-- value in a ConfigMap it mounts (core's generic `Configures` edge already says which workload
+-- that is — see k8s/relations.gatwd's k8s_config_refs: a volume, an env valueFrom, or envFrom).
+-- Two DNS shapes resolve inside this cluster; NEITHER is the Kubernetes default
+-- "<svc>.<ns>.svc.cluster.local" (CoreDNS here answers the bare form, see
+-- sipwise-broker/base/configmap.yaml's CTA_URL/ORDER_GATEWAY_URL/... for real examples):
+--
+--   "<svc>.<ns>.svc[:port][/path]" -> DependsOn, directly to the target Service.
+--   "<host>.dev-k8s.easybell.de" / "...k8s.easybell.de" (an external-dns hostname this cluster
+--   answers for) -> Hairpin, to the Ingress declaring that exact host. The hop in between (the
+--   external load balancer, external-dns, public DNS) is not a Kubernetes resource and is not
+--   represented; the workload is recorded as depending straight through to that Ingress, which
+--   is already linked onward to its Service/workload by RoutesTo/Exposes. The distinct color
+--   (rather than one "DependsOn" for both) is what lets a view or a query tell "calls the
+--   Service directly" apart from "round-trips through the external load balancer and back in"
+--   without re-deriving it — `graph_edges_of Hairpin g` finds every hairpin dependency on its own.
+--
+-- A ConfigMap is never part of the dependency path itself — only Configures touches it — so the
+-- same ConfigMap and the same Ingress can anchor edges from many different consumers; that is
+-- an ordinary graph fan-in, not something to flatten away.
+def gp_url_host = \v -> map (\grp -> nth 1 grp) (re_groups "^https?://(?:[^@/]*@)?([^/:]+)" v)
+
+def gp_configmap_hosts = \c -> [ (maybe_default "" m)
+    | q <- [c], hamt_has_path "data" q
+    , kv <- (hamt_pairs (hamt_path "data" q))
+    , m <- [ (gp_url_host (snd kv)) ]
+    , is_just m ]
+
+def gp_internal_svc_match = \host -> re_groups "^([^.]+)\\.([^.]+)\\.svc$" host
+
+def gp_internal_dep_specs = \g -> [ ["DependsOn", 1, wid, (k8s_id "Service" (nth 2 grp) (nth 1 grp))]
+    | c <- (graph_payloads_of "ConfigMap" g)
+    , host <- (gp_configmap_hosts c)
+    , m <- [ (gp_internal_svc_match host) ]
+    , is_just m
+    , grp <- [ (maybe_default [] m) ]
+    , graph_has_node (k8s_id "Service" (nth 2 grp) (nth 1 grp)) g
+    , wid <- (graph_out_of "Configures" (k8s_id_of c) g) ]
+
+def gp_is_external_round_trip_host = \host -> (length [ s | s <- [".dev-k8s.easybell.de", ".k8s.easybell.de"], str_ends_with s host ]) > 0
+
+def gp_hairpin_dep_specs = \g -> [ ["Hairpin", 1, wid, (k8s_id_of i)]
+    | c <- (graph_payloads_of "ConfigMap" g)
+    , host <- (gp_configmap_hosts c)
+    , gp_is_external_round_trip_host host
+    , i <- (graph_payloads_of "Ingress" g)
+    , member host (gp_rule_hosts i)
+    , wid <- (graph_out_of "Configures" (k8s_id_of c) g) ]
+
+def rel_depends_on = fold (\_ g -> graph_add_edges ((gp_internal_dep_specs g) ++ (gp_hairpin_dep_specs g)) g) graph_empty
+
+-- The k8s graph plus Exposes and DependsOn/Hairpin.
+def gitops_graph = k8s_graph |> rel_exposes |> rel_depends_on
+
+-- Kustomization roots below the spawned directory, one root directory per node, for the
+-- overlay named by the constant OVERLAY (-D OVERLAY=production), further narrowed to those
+-- whose full path matches the constant PATTERN (-D PATTERN=**, the glob that matches
+-- everything, when no narrowing is wanted — see glob_match's doc for the pattern language).
+-- Scoping down to a few projects this way is what keeps a `visualize --dot` render small enough
+-- to read: pass a literal repo root for the whole fleet, or a `**`-containing PATTERN to pick
+-- the few projects you are actually debugging. Feed the result to `manifests`.
+def gp_roots = tree_flatten
+    |> filter (\p -> and (str_ends_with ("overlays/" ++ OVERLAY ++ "/kustomization.yaml") p) (glob_match PATTERN p))
+    |> map (str_replace "/kustomization.yaml" "")
+    |> unchunk

@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"iter"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -957,6 +958,45 @@ func yieldFailed(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool
 		}
 	}
 	return true
+}
+
+// StepSkipErrors is the explicit, opt-in escape hatch from the rule yieldFailed
+// documents: every aggregate (collect_list, fold, the build_* family, ...)
+// abandons its whole result the moment one element of its stream is an error
+// (Left), because a list that silently lacks the failed element is worse than
+// none. That is the right default, but a caller who is scanning many
+// independent elements (many directories, many hosts, many files) and already
+// expects some to fail sometimes wants the rest anyway, with the failures
+// named instead of swallowed.
+//
+// StepSkipErrors removes every Left from the stream before it reaches such an
+// aggregate: each one is reported to stderr (so the failure stays loud, Mandate
+// 6) and dropped, while every Right passes through unchanged. It is a plain
+// stream filter, generic over whatever the stream carries - it does not know
+// or care that the Left came from a file read, a network call or a bad
+// manifest.
+//
+// Example:
+//
+//	// Without skip_errors: one bad root loses every root's resources.
+//	spawn StrVal: x |> walk_fs dir |> gp_roots |> manifests |> gitops_graph
+//	// With skip_errors: the bad roots are reported on stderr, the rest ingest.
+//	spawn StrVal: x |> walk_fs dir |> gp_roots |> manifests |> skip_errors |> gitops_graph
+func StepSkipErrors() PipelineStep[functions.Either[error, any]] {
+	return func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
+		return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
+			for node := range stream {
+				if node.Value.IsLeft() {
+					err, _ := node.Value.UnwrapLeft()
+					fmt.Fprintf(os.Stderr, "skip_errors: %v\n", err)
+					continue
+				}
+				if !yield(node) {
+					return
+				}
+			}
+		}
+	}
 }
 
 // StepCollectList aggregates the entire stream into a single collections.List.

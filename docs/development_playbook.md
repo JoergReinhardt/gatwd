@@ -230,6 +230,21 @@ The project's own relations and rules are the style reference
   inside comprehensions.
 - *Optimise with an index, in DSL.* The label-indexed `Selects` pass builds a HAMT of pod lists
   with `fold` + `hamt_set` + `hamt_get_or` — no Go needed.
+- *Reusable view/query, source-agnostic.* A task script defines what to compute, never which
+  source to compute it over: `def main = manifests |> gitops_graph |> gp_trees |> visualize`
+  names no path. Run with `gatwd-<edition> task main -s script.gatwd -- /path/to/source`; swap
+  sources by rerunning with a different argument, never by editing the script. This works because
+  a pipeline-bodied def run as a task is a **fragment**: its input stream is the `--` arguments,
+  one String node each — exactly what `manifests` (and `walk_fs` used with no inline path) reads
+  its path from. See §5a's prevention-rule row and `.agents/skills/dsl-authoring`.
+
+  A step that insists on a *literal* argument (the old `walk_fs <dir>`) cannot be parameterized
+  this way — `-D` constants are substituted into expressions, never into a step's literal text, so
+  `walk_fs REPO` would try to walk a directory literally named `REPO`. The fix is never to bake
+  the one real path into the script; it is to give the step a stream-driven form (`walk_fs` with
+  no inline argument reads the root from the upstream value) so the *existing* fragment mechanism
+  parameterizes it for free. Mandate 1 applies here as much as anywhere: implement the missing
+  primitive, don't hack the script around its absence.
 
 **Traps (each cost real time; prevention rule in bold)**
 
@@ -240,6 +255,7 @@ The project's own relations and rules are the style reference
 | A comprehension errors on a missing field | filters are positional (run when their variables are bound) | **Put `hamt_has_path` guards *before* the dependent generator** |
 | `map (\g -> …)` changes payloads | `map` on a graph element is the graph Functor | **Whole-graph passes use `fold (\_ g -> …) seed`** |
 | A `def` mis-evaluates its arguments | a `def` whose body is a *pipeline* is a re-parsed text macro | **Value functions are lambda-bodied (`def f = \x y -> …`); pipeline fragments are zero-parameter defs** |
+| A "reusable" script only works for the one path it was written against | the source got typed into the `def` instead of read from the task's `--` arguments | **Never put a path/URL in a task script; make the step read it from the stream (`manifests`, `walk_fs` with no inline arg) and pass it with `-- <source>`** |
 | `assert` reports "empty stream" | `assert` now fails when no node arrives (D9) | **Fix the pipeline that produced nothing; do not weaken the assert** |
 | `n -1` is "cannot apply non-function value" | since W3 `-` is unary minus, and `f -3` (space before, none after) is a negative *argument* | **Write a subtraction with spaces: `n - 1`** (`-x`, `- 5`, `abs -3` all parse now) |
 | `-7 // 2` / `-7 % 3` differ from Go | `//` floors and `%` takes the sign of the divisor (W3); `quot`/`rem` are the truncated forms | **Use `quot`/`rem` for Go's `/` and `%`; `a == b*(a//b) + a%b` always holds** |

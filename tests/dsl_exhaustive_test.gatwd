@@ -35,6 +35,11 @@ spawn StrVal: Start |> emit dup, unique, dup |> to_set |> assert Set
 -- `down` enters `examples/tour/01_basics.gatwd` (alphabetically first)
 spawn StrVal: Start |> walk_fs examples/tour |> into_zipper |> down |> extract |> assert examples/tour/01_basics.gatwd
 
+-- 7a. walk_fs with no inline path reads the root from the stream instead (same tree as 7): the
+-- step that lets a reusable script name its source as a runtime argument, never a path baked
+-- into the script (an [ERROR] on a non-path upstream value is pinned in adapters/fs_test.go,
+-- since an [ERROR] cannot be asserted here).
+spawn StrVal: examples/tour |> walk_fs |> into_zipper |> down |> extract |> assert examples/tour/01_basics.gatwd
 
 -- 8. Let Bindings (Variable substitution)
 let x = spawn IntVal: 5 |> math_add 5 in spawn IntVal: x |> math_add 10 |> assert 20
@@ -116,6 +121,13 @@ spawn StrVal: Start |> emit ruby |> to_set |> set_add golang |> set_contains gol
 
 -- 26. Chunk Unpack Transducer (unchunk roundtrip)
 spawn IntVal: 0 |> emit 10, 20, 30 |> drop 1 |> chunk 2 |> unchunk |> collect_list |> assert [10 20 30]
+
+-- 26b. skip_errors (Mandate 6's opt-in escape hatch): one of three elements fails (division
+-- by zero); without skip_errors collect_list withholds its whole aggregate over the failed
+-- stream (an [ERROR] cannot be asserted here; evaluator/skip_errors_test.go pins it), but
+-- skip_errors reports that one element on stderr and drops it, so collect_list sees only the
+-- two that succeeded.
+spawn IntVal: 0 |> emit 1, 2, 0 |> drop 1 |> map (\x -> 10 / x) |> skip_errors |> collect_list |> assert [10 5]
 
 -- 27. Word-Level Scanner Adapter (bufio.ScanWords integration)
 spawn StrVal: Start |> scan_words examples/tour/data/data1.txt |> head |> assert M
@@ -287,6 +299,11 @@ spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_a
 spawn S: x |> graph_empty |> graph_add_node N svc |> graph_add_node N p1 |> graph_add_node N p2 |> graph_add_fanout Selects 1 svc p1 p2 |> graph_edges_of_group Selects:svc |> collect_list |> assert [svc-Selects->p1 svc-Selects->p2]
 spawn S: x |> graph_empty |> graph_add_node N cm |> graph_add_node N svc |> graph_add_edge_inferred Consumes 0 cm svc |> graph_edges_inferred |> head |> assert cm-Consumes->svc
 spawn S: x |> graph_empty |> graph_add_node N d |> graph_add_node N r1 |> graph_add_node N r2 |> graph_add_fanin Owns 1 d r1 r2 |> graph_edges_of_group Owns:d |> collect_list |> assert [r1-Owns->d r2-Owns->d]
+
+-- 66a. A Graph renders as a real directed DOT diagram (DotGraph), not the generic struct walk:
+-- a node reached by two edges (here "b", fanned in from both "a" and "c") is still drawn once.
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge Owns 1 a b |> graph_add_edge Owns 1 c b |> visualize --dot |> str_contains "digraph G" |> assert true
+spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge Owns 1 a b |> graph_add_edge Owns 1 c b |> visualize --dot |> str_split "\n" |> filter (\l -> str_contains l "\"b\" [label=\"b\"]") |> length |> assert 1
 
 -- 67. Graph walks & algorithms: reachable, BFS/DFS, shortest path, topo sort, SCC
 spawn S: x |> graph_empty |> graph_add_node N a |> graph_add_node N b |> graph_add_node N c |> graph_add_edge E 1 a b |> graph_add_edge E 1 b c |> graph_reachable a |> collect_list |> assert [a b c]
@@ -849,6 +866,16 @@ re_match (re_quote "a.b") "axb" |> assert false
 ["v1", "x", "v22"] |> filter (\s -> re_match "^v\\d+$" s) |> assert [v1 v22]
 ["a1", "b22"] |> map (\s -> maybe_default "" (re_find "\\d+" s)) |> assert [1 22]
 "v1.2" |> re_find "\\d+\\.\\d+" |> maybe_default "?" |> assert 1.2
+
+-- Path globbing: a literal pattern matches itself and everything under it; "*"/"**" match
+-- within/across path segments; glob_root is the longest wildcard-free directory prefix.
+glob_match "/repo" "/repo/a/b" |> assert true
+glob_match "/repo" "/repox" |> assert false
+glob_match "/repo/**/overlays/staging" "/repo/a/b/overlays/staging" |> assert true
+glob_match "/repo/**/overlays/staging" "/repo/a/overlays/production" |> assert false
+glob_match "/repo/sip*/overlays/staging" "/repo/sipwise-broker/overlays/staging" |> assert true
+["/repo/sip/x", "/repo/other/x"] |> filter (glob_match "/repo/sip*/**") |> assert [/repo/sip/x]
+glob_root "/repo/**/overlays/staging" |> assert /repo
 const RE97_WORD = gatwd
 str_upper RE97_WORD |> assert GATWD
 length RE97_WORD |> assert 5

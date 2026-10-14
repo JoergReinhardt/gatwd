@@ -67,12 +67,15 @@ def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (k8s_id_of i
 -- find those from the manifests themselves.
 -- ---------------------------------------------------------------------------
 
--- [id, podSpec] for every Pod and every Deployment pod template; the id is the node id,
--- whose scope (k8s_id_scope) is the namespace the spec's references resolve in.
+-- [id, podSpec] for every Pod and every Deployment/StatefulSet pod template; the id is the
+-- node id, whose scope (k8s_id_scope) is the namespace the spec's references resolve in.
+-- (DaemonSet, Job and CronJob carry a pod template too but are not yet ingested by any fixture
+-- in this repo; add them here, the same way, when a script needs them — deferred, not missing
+-- by design.)
 def k8s_workloads = \g -> [ [(k8s_id_of p), (hamt_path "spec" p)]
   | p <- (graph_payloads_of "Pod" g)
   , hamt_has_path "spec" p ] ++ [ [(k8s_id_of d), (hamt_path "spec.template.spec" d)]
-  | d <- (graph_payloads_of "Deployment" g)
+  | d <- (graph_payloads_of "Deployment" g) ++ (graph_payloads_of "StatefulSet" g)
   , hamt_has_path "spec.template.spec" d ]
 
 -- Names of ConfigMaps a pod spec references: as a volume, as an env var source

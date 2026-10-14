@@ -232,18 +232,21 @@ func (l *List[T]) Seq() iter.Seq[T] {
 	}
 }
 
-// Graph exposes the internal structure for generic UTF-8 Tree visualizations
+// Graph exposes the List's elements as a slice for visualizer tree/DOT formatting.
+//
+// A cons list is internally a chain of Head/Tail cells, but that chain is an
+// implementation detail: visualizing it literally would nest one nil wrapper per
+// element instead of showing the elements as siblings. Chunk and Set already
+// flatten themselves the same way (see their Graph methods); List now matches.
 func (l *List[T]) Graph() any {
 	if l == nil || l.empty {
 		return "<empty List>"
 	}
-	return struct {
-		Head T
-		Tail *List[T]
-	}{
-		Head: l.head,
-		Tail: l.tail,
+	items := make([]T, 0, l.Len())
+	for v := range l.Seq() {
+		items = append(items, v)
 	}
+	return items
 }
 
 func (l *List[T]) String() string {

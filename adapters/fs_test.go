@@ -1,10 +1,14 @@
 package adapters
 
 import (
+	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/joergreinhardt/gatwd/collections"
 	"github.com/joergreinhardt/gatwd/comonads"
+	"github.com/joergreinhardt/gatwd/dsltypes"
+	"github.com/joergreinhardt/gatwd/functions"
 )
 
 func TestBuildFSTree(t *testing.T) {
@@ -83,5 +87,61 @@ func TestBuildFSTree(t *testing.T) {
 	valSub2 := zSubChild2.Extract().(string)
 	if valSub2 != "subdir/file2.txt" {
 		t.Errorf("Expected 'subdir/file2.txt', got %v", valSub2)
+	}
+}
+
+// TestWalkFSStreamAdapterReadsRootFromUpstream pins the whole point of the stream-driven form:
+// the SAME adapter value, with no reconstruction, walks whatever directory arrives on the
+// stream — unlike WalkFSAdapter(root), which fixes root once at construction.
+func TestWalkFSStreamAdapterReadsRootFromUpstream(t *testing.T) {
+	adapter := WalkFSStreamAdapter()
+	flag := dsltypes.BitFlag(1)
+
+	for _, root := range []string{".", "testdata"} {
+		in := dsltypes.NewASTNode(functions.Right[error, any](any(root)), flag)
+		var got *collections.Tree[any]
+		for out := range adapter(in) {
+			val, ok := out.Value.UnwrapRight()
+			if !ok {
+				err, _ := out.Value.UnwrapLeft()
+				t.Fatalf("walk_fs %q: %v", root, err)
+			}
+			tree, ok := val.(*collections.Tree[any])
+			if !ok {
+				t.Fatalf("walk_fs %q: want *collections.Tree[any], got %T", root, val)
+			}
+			got = tree
+		}
+		if got == nil {
+			t.Fatalf("walk_fs %q: produced no node", root)
+		}
+		if got.Value() != root {
+			t.Errorf("walk_fs %q: tree root value = %v, want %v", root, got.Value(), root)
+		}
+	}
+}
+
+// TestWalkFSStreamAdapterFailsLoudOnNonPath is the negative control: a non-string upstream value
+// must surface as a named error, never an empty or silently-wrong result (Mandate 6).
+func TestWalkFSStreamAdapterFailsLoudOnNonPath(t *testing.T) {
+	adapter := WalkFSStreamAdapter()
+	flag := dsltypes.BitFlag(1)
+	in := dsltypes.NewASTNode(functions.Right[error, any](any(5)), flag)
+
+	var gotErr error
+	count := 0
+	for out := range adapter(in) {
+		count++
+		err, isLeft := out.Value.UnwrapLeft()
+		if !isLeft {
+			t.Fatalf("walk_fs on a non-path value: want a Left, got a Right")
+		}
+		gotErr = err
+	}
+	if count != 1 {
+		t.Fatalf("walk_fs on a non-path value: produced %d nodes, want exactly 1", count)
+	}
+	if gotErr == nil || !strings.Contains(gotErr.Error(), "expected a directory path") {
+		t.Fatalf("walk_fs on a non-path value: error = %v, want it to name what was expected", gotErr)
 	}
 }

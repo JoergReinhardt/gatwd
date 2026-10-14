@@ -20,14 +20,15 @@ import (
 // including CRDs discovered at runtime via EnumerateSteps — these are just the
 // built-ins an edition is most likely to register by hand.
 var (
-	PodsGVR        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-	ServicesGVR    = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
-	ConfigMapsGVR  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
-	SecretsGVR     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
-	EndpointsGVR   = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
-	DeploymentsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	ReplicaSetsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
-	IngressesGVR   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
+	PodsGVR         = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	ServicesGVR     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
+	ConfigMapsGVR   = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	SecretsGVR      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	EndpointsGVR    = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
+	DeploymentsGVR  = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	StatefulSetsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+	ReplicaSetsGVR  = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+	IngressesGVR    = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 
 	PVCsGVR            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}
 	ServiceAccountsGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "serviceaccounts"}
@@ -49,6 +50,7 @@ var CoreCrawls = []struct {
 	{"k8s_secrets", SecretsGVR},
 	{"k8s_endpoints", EndpointsGVR},
 	{"k8s_deployments", DeploymentsGVR},
+	{"k8s_statefulsets", StatefulSetsGVR},
 	{"k8s_replicasets", ReplicaSetsGVR},
 	{"k8s_ingresses", IngressesGVR},
 	{"k8s_pvcs", PVCsGVR},
