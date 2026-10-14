@@ -183,6 +183,8 @@ Each row is a mistake that happened; the rule is what prevents the next one. The
 | Give core a generic primitive and put the domain in a shim/prelude | Put a domain word, import or step in core |
 | Change `spec/spec.go`, then run `go run ./cmd/gatwd-gen .` and commit the regenerated files | Hand-edit anything under `editors/` or `parser/tokens_gen.go`, or add a keyword/step/builtin without the spec entry |
 | Make a reusable task script read its source from the `--` arguments (`manifests`, `walk_fs` with no inline arg); swap sources by rerunning with a different argument | Put a path/URL/directory inside a task's `def` — it then only ever works against the one source it was written for |
+| Use `const NAME = …` for a genuine constant value (a list, a record) | Use a non-lambda `def` for a value — it's a pipeline fragment (a text macro), not a constant, and silently yields nothing or "undefined identifier" |
+| Keep a task-closure's (`cli.TaskCommand`/`RunOptions.Task` on a `\args -> …` def) body to at most one `\|>` chain, calling only non-pipe helpers by name | Chain more than one `\|>`, or call another `\|>`-bodied def by name, inside a task-closure's body — the task-closure parser does not reliably resolve it; combine multiple pipelines via a top-level `let x = (… \|> …) in let y = (… \|> …) in f x y` run with `RunOptions.Eval` instead |
 
 ---
 
