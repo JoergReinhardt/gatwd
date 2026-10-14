@@ -20,7 +20,6 @@ type Cell = [Int]
 --   births    = empty cells with exactly 3 live neighbours
 --   survivors = live cells with exactly 2 live neighbours (3 already appear as
 --               births, so the union gives the standard B3/S23 next state)
-def wrap = \n size -> (n % size + size) % size
 
 -- Wrap a coordinate onto the torus (also for -1 and size).
 def wrap = \n size -> (n % size + size) % size

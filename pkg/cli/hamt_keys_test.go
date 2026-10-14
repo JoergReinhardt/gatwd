@@ -22,7 +22,12 @@ func conwayDef(t *testing.T) string {
 		t.Fatal(err)
 	}
 	text := string(src)
-	start := strings.Index(text, "def conway_step = match {")
+	// conway_step (the match wrapper) depends on the whole helper chain defined
+	// above it in the file (wrap, offsets, neighbours, tally, births, survivors,
+	// next_from, next_gen) — the extraction must start before all of that, not at
+	// "def conway_step" itself, or conway_step's own match arm (which calls
+	// next_gen) sees an interpreter with next_gen undefined.
+	start := strings.Index(text, "type Cell = [Int]")
 	end := strings.Index(text, "-- Iterate conway_step")
 	if start < 0 || end < 0 {
 		t.Fatal("conway_step moved in the example script")

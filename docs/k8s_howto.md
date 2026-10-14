@@ -34,7 +34,9 @@ A **task** is a named `def` in a script. Two kinds, for two jobs:
 ```haskell
 -- examples/k8s_howto/tasks.gatwd
 def graph = manifests |> k8s_graph                                    -- a stream fragment (its input is the argument)
-def trace_to_pod = graph |> graph_shortest_path Service/default/nginx-svc Pod/default/app-pod |> collect_list
+def trace_to_pod        = graph
+  |> graph_shortest_path Service/default/nginx-svc Pod/default/app-pod
+  |> collect_list
 def count_kind = \kind g -> length (graph_payloads_of kind g)         -- a value function (takes arguments)
 def main = (who_configures_what <+> trace_to_pod <+> pod_count)       -- the default task
 ```
