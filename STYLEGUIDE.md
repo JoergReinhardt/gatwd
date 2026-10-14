@@ -90,6 +90,11 @@ To prevent intimidating contributors with nested Category Theory closures (`iter
 - Use **`cli.FilterStep(name, predicate)`** for stream predicate filtering.
 - Use **`cli.ArgStep(prefix, fn)`** for parameterized pipeline steps.
 - Use **`cli.SinkStep(name, fn)`** for non-mutating side-effects (logging, telemetry).
+- Use **`cli.TaskCommand(edition, name, short, taskName)`** to promote a DSL def that
+  already exists in an Edition's own prelude to its own first-class cobra subcommand
+  (`NAME verb -- args` beside the generic `NAME task verb -- args`) — the generic half of
+  giving a CLI "verbs"; see `docs/development_playbook.md` §5b for where the *other* half
+  (what the verb actually does) belongs.
 - Use **`cli.NewEdition(name)`** for building custom CLI distributions.
 - Use **`cli.NewAppliance(...)`** for building production-grade services and operators.
 - Use **`pkg/<domain>/` shims** (`pkg/k8sgraph`) for domain I/O wiring: construct the adapter, register it with the generic `cli.AdapterStep`, embed the prelude; zero domain logic in Go.

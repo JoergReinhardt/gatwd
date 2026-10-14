@@ -252,6 +252,10 @@ inside gatwd's tracked files.
 Full detail (extraction procedure, dependency style before a remote exists, pointer-file
 shape): `docs/development_playbook.md` §5a.
 
+**Deciding where a new CLI verb belongs** (core vs. a domain shim like `pkg/k8sgraph` vs. a
+child repo) is a related, recurring question with its own test — `docs/development_playbook.md`
+§5b.
+
 These complement — do not replace — the standard file-editing tools; reach for them
 whenever a task involves finding call sites, confirming a signature, checking for
 name collisions, or renaming.

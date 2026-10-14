@@ -281,6 +281,61 @@ time.
 
 ---
 
+## 5b. Where a CLI verb belongs (core vs. domain shim vs. child repo)
+
+A recurring question once a domain tool grows past its first few pipelines: a new CLI
+"verb" (a named operation — filter, rank, diff, show-dependents, …) feels domain-specific
+because it is used *on* domain objects, but is it actually generic? The test is not "does
+it touch Kubernetes (or any domain) objects" — almost everything does, if the tool is for
+that domain. The test is **does it need domain-shaped *data knowledge*, or only the
+domain's already-generic container.**
+
+**Why this works: Functor/Filterable/Foldable genericity.** Once a container has `map`,
+`filter` and `fold` (collections/*, the Graph instance included), *every* query that is
+really "pick some elements, maybe transform them, maybe reduce them" is already expressible
+with those three combinators plus a predicate or accessor over the payload — no new
+algorithm needed. "Find Services missing a label," "rank nodes by replica count," "show
+everything with a hairpin dependency" are not new graph operations; they are
+`graph_filter_nodes`/`graph_fold_nodes`/`graph_nodes_of` plus a `hamt_path`-shaped
+predicate. The *topology* operations (reachability, degree, shortest path, SCC, unrolling a
+cycle into a tree) are the genuinely new mathematical content, and they are domain-blind by
+construction — a dependency graph does not care whether its nodes are Kubernetes resources,
+Go packages, or people on an org chart.
+
+That gives a three-way placement test, cheapest check first:
+
+1. **Is it topology-only (data-blind)?** → **gatwd core** (`pkg/cli`/`collections`/
+   `evaluator`), as a new matrix cell if the algorithm is genuinely missing (Mandate 2's
+   full definition of done), or free if it already composes from existing generic ops
+   (`sort`/`take` over a list of `(degree, id)` pairs needs no new "rank" verb — see
+   `graph_degree`/`graph_out_degree`/`graph_in_degree`, added for exactly this reason: the
+   *count* was missing, the *ranking* was not).
+2. **Does it need domain-shaped data knowledge but nothing repo/employer-specific?** → the
+   domain shim's own prelude (`pkg/k8sgraph/lib/k8s/*.gatwd`), as a **`.gatwd` def naming a
+   predicate or accessor over the existing generic ops** — new Go code only when the
+   knowledge is genuinely I/O (a new adapter, a new client call), never to reimplement a
+   combinator the shim could call instead. Live-vs-offline source selection is the
+   canonical example: it reads like it needs new plumbing, but `k8sgraph.LazyClient` (defers
+   connecting until a live step actually runs) composing with `k8sgraph.ApplyEdition(e,
+   client)` (client-or-nil) already means passing `LazyClient(DynamicClientFromKubeconfig)`
+   instead of `nil` makes a *single* binary serve both `manifests` (offline) and
+   `k8s_pods`/… (live) — no new flag, no new Go, because the two generic pieces already
+   composed into the answer.
+3. **Is it specific to one repo's conventions (an employer's DNS scheme, a directory
+   layout, a particular overlay naming)?** → the child repo only (`AGENTS.md` §7), never
+   upstreamed into the shim just because it is convenient to.
+
+**The CLI-surface half of this is separately generic.** Whether a verb lands at tier 1, 2 or
+3, *exposing* it as both a DSL task and a cobra subcommand is the same zero-logic wiring
+every time: `cli.TaskCommand(edition, name, short, taskName)` promotes a `def` already in an
+Edition's prelude to its own subcommand (`NAME name -- args`), beside the generic `NAME task
+name -- args` it already had. Tier 1/2 verbs call it from `pkg/cli`/`pkg/k8sgraph` directly;
+a child repo calls it the same way for its own tier-3 verbs. This is what "a generalized
+cobra-subcommand and pipeline layer available to all CLIs" means in practice: one Go
+function, reused at every tier, never a bespoke RunE per verb.
+
+---
+
 ## 6. Writing DSL: conventions and traps
 
 The project's own relations and rules are the style reference
