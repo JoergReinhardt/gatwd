@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -27,16 +28,31 @@ import (
 // constant (gp_roots' `-D OVERLAY`/`-D PATTERN` convention) still works when
 // invoked as a verb. It does not expose `--prelude`/`--no-prelude`: those pick
 // which script loads, which is meaningless once the script (the Edition's own
-// prelude) is already fixed.
+// prelude) is already fixed. Positional args need no completion wiring of
+// their own: with no ValidArgsFunction registered, cobra already tells the
+// shell to fall back to its native default (filename completion) — the right
+// behavior for `--` args, which are almost always paths, for free.
+//
+// knownDefines, if given, names the `-D`/`--define` constants taskName actually
+// reads (e.g. "OVERLAY", "PATTERN" for a task following the gp_roots
+// convention), so `--define <TAB>` completes "OVERLAY=", "PATTERN=" instead of
+// nothing. TaskCommand has no way to discover these on its own — a task is a
+// plain DSL def, not a declared signature — so the caller, which already names
+// taskName and therefore already knows what it reads, supplies the list; this
+// keeps the completion MECHANISM generic here while the domain knowledge of
+// which names matter for a given task stays with whichever layer defines that
+// task (`docs/development_playbook.md` §5b). Omit it for a task that takes no
+// `-D` constants.
 //
 // Example:
 //
 //	edition := cli.NewEdition("gatwd-x").WithPreludeFS(lib, "lib/tasks.gatwd")
 //	edition = edition.WithCommand(cli.TaskCommand(edition, "filter", "filter the graph", "filter_task"))
+//	edition = edition.WithCommand(cli.TaskCommand(edition, "wide", "whole-repo view", "wide", "OVERLAY", "PATTERN"))
 //	// Now both work:
 //	//   gatwd-x task filter_task -- ...
 //	//   gatwd-x filter -- ...
-func TaskCommand(edition *Edition, cmdName, short, taskName string) *cobra.Command {
+func TaskCommand(edition *Edition, cmdName, short, taskName string, knownDefines ...string) *cobra.Command {
 	var defines []string
 	cmd := &cobra.Command{
 		Use:           cmdName + " [-- arg ...]",
@@ -68,5 +84,17 @@ func TaskCommand(edition *Edition, cmdName, short, taskName string) *cobra.Comma
 		},
 	}
 	cmd.Flags().StringArrayVarP(&defines, "define", "D", nil, "bind the constant `NAME=VALUE` (repeatable)")
+	if len(knownDefines) > 0 {
+		names := append([]string{}, knownDefines...)
+		_ = cmd.RegisterFlagCompletionFunc("define", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			var out []string
+			for _, n := range names {
+				if candidate := n + "="; strings.HasPrefix(candidate, toComplete) {
+					out = append(out, candidate)
+				}
+			}
+			return out, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+		})
+	}
 	return cmd
 }

@@ -49,6 +49,47 @@ func TestTaskCommandOwnDefineFlag(t *testing.T) {
 	}
 }
 
+// TestTaskCommandDefineCompletion proves the one new piece: a caller that names
+// the `-D` constants a task reads gets tab-completion for them ("OVERLAY=",
+// "PATTERN="), filtered by what the user already typed, while a verb given no
+// knownDefines registers no completion function at all (nothing to suggest is
+// better than suggesting nothing dressed up as a list).
+func TestTaskCommandDefineCompletion(t *testing.T) {
+	edition := NewEdition("verbtest").
+		WithPrelude("def wide = map (\\_ -> OVERLAY)\n").
+		WithPrelude("def plain = map (\\a -> a)\n")
+	edition = edition.
+		WithCommand(TaskCommand(edition, "wide", "wide view", "wide", "OVERLAY", "PATTERN")).
+		WithCommand(TaskCommand(edition, "plain", "plain view", "plain"))
+
+	root := edition.Command().Root()
+	wide, _, err := root.Find([]string{"wide"})
+	if err != nil {
+		t.Fatalf("Find(wide): %v", err)
+	}
+	fn, ok := wide.GetFlagCompletionFunc("define")
+	if !ok {
+		t.Fatal("wide: no completion function registered for --define, want one (knownDefines was given)")
+	}
+	got, _ := fn(wide, nil, "")
+	want := []string{"OVERLAY=", "PATTERN="}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("define completions for \"\" = %v, want %v", got, want)
+	}
+	got, _ = fn(wide, nil, "P")
+	if strings.Join(got, ",") != "PATTERN=" {
+		t.Fatalf(`define completions for "P" = %v, want [PATTERN=]`, got)
+	}
+
+	plain, _, err := root.Find([]string{"plain"})
+	if err != nil {
+		t.Fatalf("Find(plain): %v", err)
+	}
+	if _, ok := plain.GetFlagCompletionFunc("define"); ok {
+		t.Fatal("plain: a completion function was registered though no knownDefines was given")
+	}
+}
+
 // A task that produces no output at all must say so, not exit silently — the
 // same "(No output or node unhandled)" notice the root script runner gives,
 // kept consistent so a verb command cannot look like a passing no-op.
