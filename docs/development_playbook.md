@@ -341,7 +341,9 @@ function, reused at every tier, never a bespoke RunE per verb.
 These generalize from real usage of gatwd *as a library* underneath other tools — the
 clearest test of whether a principle actually holds, since nobody is grading their own
 homework. Both are domain-free by construction; the domains that prompted them are not
-named here (Mandate 5) — only the shape.
+named here (Mandate 5) — only the shape. `docs/adapter_roadmap.md` applies both to a concrete
+(still generic) set of planned adapter domains and the per-domain package-isolation
+prerequisite found while planning them.
 
 ### When "a second domain could use it" is enough to generalize now
 
