@@ -42,6 +42,7 @@ func anyTreeFromGraph(t *collections.Tree[string]) *collections.Tree[any] {
 //	                                   [color weight from to] specs (assumed, trust-weighted)
 //	graph_insert_node c id [p] g       graph_add_node that REFUSES an id already in g (duplicate-id error)
 //	graph_has_node id g                is id a node of g?
+//	graph_payload_at id g              the payload of node id, or an error if absent
 //	graph_nodes g                      node identities, sorted
 //	graph_order g / graph_size g       node / edge counts
 //	graph_edge_pairs color g           [from to] pairs of every edge of that color
@@ -129,6 +130,21 @@ func registerGraphFuncs(m map[string]any) {
 			return nil, fmt.Errorf("graph_insert_node: %w", err)
 		}
 		return res, nil
+	})
+	defn(m, "graph_payload_at", "id g", func(a []any) (any, error) {
+		g, err := graphArg(a[1])
+		if err != nil {
+			return nil, err
+		}
+		id, err := idStr(a[0])
+		if err != nil {
+			return nil, err
+		}
+		n, ok := g.GetNode(id)
+		if !ok {
+			return nil, fmt.Errorf("graph_payload_at: no node %q", id)
+		}
+		return n.Payload, nil
 	})
 	defn(m, "graph_has_node", "id g", func(a []any) (any, error) {
 		g, err := graphArg(a[1])

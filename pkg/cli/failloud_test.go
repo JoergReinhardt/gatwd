@@ -61,6 +61,7 @@ var failLoudRows = []struct {
 	{"R1 match expression pattern", `5 |> match { 1 + 2 -> 1 | _ -> 2 }`, "invalid pattern"},
 	{"R1 match arm without arrow", `5 |> match { 1 -> 1 | zzz }`, `arm "zzz"`},
 	{"F8 assert on empty stream", `spawn Node: A |> filter "zzz" |> assert "A"`, "empty stream"},
+	{"graph_payload_at missing node", `spawn S: x |> graph_empty |> graph_add_node N a |> fold (\_ g -> graph_payload_at "z" g) 0`, `no node "z"`},
 }
 
 func TestFailLoudSweep(t *testing.T) {

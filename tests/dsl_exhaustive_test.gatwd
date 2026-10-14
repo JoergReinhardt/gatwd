@@ -418,6 +418,10 @@ let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fol
 let r = spawn S: x |> emit kind:Pod, name:api |> drop 1 |> to_hamt in [r] |> fold (\a x -> hamt_has_path "missing" x) true |> assert false
 -- (d) a guard between generators prunes before the next generator runs; unchanged semantics.
 [ y | x <- [1, 2, 3], x > 1, y <- [x, x] ] |> assert [2 2 3 3]
+-- (e) graph_payload_at: the payload of a node looked up by id, inside a lambda (the
+-- missing-id [ERROR] case is pinned in pkg/cli/failloud_test.go — an [ERROR] cannot
+-- be asserted here).
+let ids = ["a", "b"] in ids |> fold (\g i -> graph_add_node "N" i i g) graph_empty |> fold (\_ g -> graph_payload_at "b" g) 0 |> assert b
 
 -- 77. graph_in_of / graph_out_of (generic, domain-free): the colour-filtered
 -- reverse/forward adjacency as an expression, so a comprehension can test "does any
