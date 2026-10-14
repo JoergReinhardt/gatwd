@@ -620,6 +620,19 @@ func StepSetUnion(operand ...any) PipelineStep[functions.Either[error, any]] {
 	}
 }
 
+// isMapLike reports whether v is a product-like payload (a persistent
+// *collections.HAMT, a *collections.Map, or a map[string]any Record) without
+// iterating it — the type-test half of rangeMapLike, split out so IsSubsetValue
+// can decide whether to recurse into a nested value before paying for a walk.
+func isMapLike(v any) bool {
+	switch v.(type) {
+	case *collections.HAMT[string, any], *collections.Map[string, any], map[string]any:
+		return true
+	default:
+		return false
+	}
+}
+
 // rangeMapLike invokes fn for every key/value of a product-like payload (a
 // persistent *collections.HAMT, a *collections.Map, or a map[string]any Record),
 // reporting whether v was map-like at all. It is the iteration dual of HAMTGetKey.
@@ -645,19 +658,53 @@ func rangeMapLike(v any, fn func(k string, val any)) bool {
 	}
 }
 
+// subsetCompare decides how two MATCHED values (the same key of sub/super, or a
+// candidate pair of collection elements) are compared inside IsSubsetValue: when
+// both are map-like, or both are collection-like, the comparison recurses into
+// IsSubsetValue itself — "the nested record/list only needs to contain what sub
+// declares, not equal it" — exactly what a Kubernetes manifest vs. a live object
+// needs (the live side is always allowed to have more, at every nesting level,
+// including inside list elements; see docs/manifest_live_parity_design.md §2.2).
+// Otherwise (both scalars, or the two sides are different shapes — one a map, the
+// other a list) the comparison is exact structural equality, which is already the
+// correct answer for a genuine leaf and for a shape mismatch (not a type-mismatch
+// error: only the top-level operand pairing in IsSubsetValue reports that).
+func subsetCompare(v, sv any) bool {
+	if isMapLike(v) && isMapLike(sv) {
+		ok, _ := IsSubsetValue(v, sv)
+		return ok
+	}
+	if _, okV := functions.ToSliceAny(v); okV {
+		if _, okSV := functions.ToSliceAny(sv); okSV {
+			ok, _ := IsSubsetValue(v, sv)
+			return ok
+		}
+	}
+	return functions.StructuralEqual(v, sv)
+}
+
 // IsSubsetValue reports whether sub ⊆ super, generically and domain-free, across the
-// two families where containment is well-defined:
+// two families where containment is well-defined, RECURSIVELY:
 //
 //   - Record/map-like (HAMT, Map, map[string]any): sub ⊆ super iff every (key,value)
-//     of sub is present in super with a structurally-equal value. This is the
-//     "selector ⊆ labels" shape — a map is a subset when all its bindings hold.
+//     of sub is present in super, where a matched value that is itself map-like or
+//     collection-like on both sides only needs to be a subset of its counterpart
+//     (recursing via subsetCompare), not structurally equal to it — a plain scalar
+//     value still needs exact equality. This is the "selector ⊆ labels" shape at
+//     the top level, generalized so a whole nested record (not just a flat map) can
+//     be compared the same way at any depth.
 //   - Set/collection-like (Set, List, Chunk, any ToSliceAny-able value): sub ⊆ super
-//     iff every element of sub is a member of super (by structural equality).
+//     iff every element of sub matches some element of super, where "matches" is
+//     the same recursive subsetCompare — a sub element with fewer fields than its
+//     super counterpart still matches, as long as every field it does declare holds.
 //
-// The empty subset is ⊆ anything (vacuously true). A type mismatch (one map-like and
-// one not, or neither recognizable) is an error, not a silent false, so a mistyped
-// operand is debuggable. Equality uses functions.StructuralEqual so nested
-// collections and ADTs compare by value.
+// The empty subset is ⊆ anything (vacuously true). A type mismatch at the TOP level
+// (one map-like and one not, or neither recognizable) is an error, not a silent
+// false, so a mistyped operand is debuggable; a shape mismatch at a NESTED level
+// (a key whose sub-value is a map but whose super-value is not, say) is simply "not
+// equal" via subsetCompare's structural-equality fallback, not a propagated error —
+// only the outermost pairing needs to be type-sound for subset_of to be a sensible
+// question at all.
 func IsSubsetValue(sub, super any) (bool, error) {
 	// Map-like subset: every binding of sub must hold in super.
 	subIsMap := false
@@ -665,7 +712,7 @@ func IsSubsetValue(sub, super any) (bool, error) {
 	ranged := rangeMapLike(sub, func(k string, v any) {
 		subIsMap = true
 		sv, found, navigable := HAMTGetKey(super, k)
-		if !navigable || !found || !functions.StructuralEqual(v, sv) {
+		if !navigable || !found || !subsetCompare(v, sv) {
 			result = false
 		}
 	})
@@ -684,7 +731,7 @@ func IsSubsetValue(sub, super any) (bool, error) {
 		for _, e := range subEls {
 			member := false
 			for _, s := range superEls {
-				if functions.StructuralEqual(e, s) {
+				if subsetCompare(e, s) {
 					member = true
 					break
 				}

@@ -395,6 +395,18 @@ let labels = (spawn S: x |> emit app:nginx |> drop 1 |> to_hamt) in spawn S: x |
 -- (c) the function form inside an expression (fold reducer): colors a node by whether
 -- the selector is a subset of the labels, then projects the matching color.
 let labels = spawn S: x |> emit app:nginx, tier:web |> drop 1 |> to_hamt in let sel = spawn S: x |> emit app:nginx |> drop 1 |> to_hamt in [sel] |> fold (\g s -> graph_add_node (subset_of s labels) "match" s g) graph_empty |> graph_nodes_of true |> collect_list |> assert [match]
+-- (d) RECURSIVE containment: a nested HAMT value only needs to CONTAIN its
+-- counterpart, not equal it (the manifest declares "spec.replicas", the live side's
+-- "spec" may have more, e.g. a server-defaulted "selector") — still a subset, true;
+-- a nested VALUE mismatch ("replicas" differs) is still caught, false.
+let super = (hamt_set "spec" (hamt_set "selector" "app=web" (hamt_set "replicas" 3 hamt_empty)) hamt_empty) in let subholds = (hamt_set "spec" (hamt_set "replicas" 3 hamt_empty) hamt_empty) in subholds |> subset_of super |> assert true
+let super = (hamt_set "spec" (hamt_set "selector" "app=web" (hamt_set "replicas" 3 hamt_empty)) hamt_empty) in let submismatch = (hamt_set "spec" (hamt_set "replicas" 5 hamt_empty) hamt_empty) in submismatch |> subset_of super |> assert false
+-- (e) RECURSIVE containment inside a LIST element: one declared container with
+-- fewer fields than its live counterpart (which has an extra "image") still matches.
+let super = (hamt_set "containers" [(hamt_set "image" "nginx" (hamt_set "name" "app" hamt_empty))] hamt_empty) in let sub = (hamt_set "containers" [(hamt_set "name" "app" hamt_empty)] hamt_empty) in sub |> subset_of super |> assert true
+-- (f) the function form, same nested shape as (d), inside a fold reducer (Mandate 2:
+-- exercised inside a comprehension, not only as a bare pipeline step).
+let super = (hamt_set "spec" (hamt_set "replicas" 3 hamt_empty) hamt_empty) in let subholds = (hamt_set "spec" (hamt_set "replicas" 3 hamt_empty) hamt_empty) in [subholds] |> fold (\g s -> graph_add_node (subset_of s super) "match" s g) graph_empty |> graph_nodes_of true |> collect_list |> assert [match]
 
 -- 76. Expression-level graph read side + path-presence guard (generic, domain-free).
 -- (a) graph_payloads: a graph stream element handed to a reducer as g exposes every node payload.

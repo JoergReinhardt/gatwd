@@ -160,3 +160,21 @@ func ExampleRunExample() {
 	// │     ╰─ Passed: true       │
 	// ╰───────────────────────────╯
 }
+
+// ExampleIsSubsetValue shows recursive containment: super's "spec" has an extra
+// "selector" field sub never declared, and recursion into that nested HAMT is what
+// lets the subset still hold — the manifest-vs-live-cluster shape (a live Kubernetes
+// object always has more than the manifest that produced it), not merely a flat
+// key/value comparison.
+func ExampleIsSubsetValue() {
+	super := collections.NewHAMT[string, any]().Set("spec",
+		collections.NewHAMT[string, any]().Set("replicas", 3).Set("selector", "app=web"))
+	sub := collections.NewHAMT[string, any]().Set("spec",
+		collections.NewHAMT[string, any]().Set("replicas", 3))
+
+	ok, err := evaluator.IsSubsetValue(sub, super)
+	fmt.Println(ok, err)
+
+	// Output:
+	// true <nil>
+}
