@@ -13,5 +13,6 @@ import (
 )
 
 func main() {
-	k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s"), k8sgraph.LazyDynamicClient()).Run()
+	edition := k8sgraph.ApplyEdition(cli.NewEdition("gatwd-k8s"), k8sgraph.LazyDynamicClient())
+	edition.WithCommand(k8sgraph.ParityCommand(edition)).Run()
 }

@@ -5,6 +5,7 @@ import "ingest.gatwd"
 import "relations.gatwd"
 import "sources.gatwd"
 import "queries.gatwd"
+import "parity.gatwd"
 
 -- A resource stream lifted to a typed graph with every relation derived:
 --   spawn StrVal: ./manifests |> manifests |> k8s_graph

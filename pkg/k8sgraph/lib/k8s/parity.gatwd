@@ -1,0 +1,62 @@
+-- Manifest <-> live parity (read-only). A manifest-declared resource is "up to
+-- date" when every field it declares is present and equal live -- the live
+-- object is always allowed to have MORE (server defaults, injected sidecars,
+-- controller labels): see docs/manifest_live_parity_design.md for why this must
+-- be a RECURSIVE subset test (subset_of), not flat equality, and what it does
+-- not catch (a value the API server canonicalizes, e.g. a Quantity string,
+-- still reads as drift).
+
+-- status is a clean, well-known, server-only subresource: never user-declared.
+-- These metadata fields are server-managed siblings of the user-declared ones
+-- (name, namespace, labels, annotations) with no structural separation in the
+-- API, so they are named explicitly rather than inferred. A plain list VALUE
+-- needs `const`, not `def`: a non-lambda `def` is a pipeline fragment (a text
+-- macro expecting an input stream), so referencing it bare, or passing it as a
+-- plain argument, resolves to nothing or "undefined identifier" — not a
+-- reusable constant. `const` is this language's actual constant-binding form
+-- (tests/dsl_exhaustive_test.gatwd's TAX_BASE/MAX_AGE, STYLEGUIDE.md's Bare
+-- Runtime primitives).
+const K8S_RUNTIME_METADATA_FIELDS = ["resourceVersion", "uid", "generation", "managedFields", "creationTimestamp", "deletionTimestamp", "selfLink"]
+
+def k8s_strip_metadata = \meta -> fold (\m f -> hamt_del f m) meta K8S_RUNTIME_METADATA_FIELDS
+
+-- The "stable view" of a resource: what a manifest could plausibly have declared,
+-- with the server-only/server-managed fields removed. Comparing two stable views
+-- with subset_of answers "is everything I declared still true live," not "are
+-- these two objects identical" -- spec's additive, recursive defaulting makes
+-- exact equality the wrong question.
+def k8s_stable_view = \r -> hamt_set "metadata" (k8s_strip_metadata (hamt_get "metadata" r)) (hamt_del "status" r)
+
+-- Is a manifest-declared resource present, and up to date, in a live graph? The
+-- guard (graph_has_node ...) runs before graph_payload_at: && does NOT
+-- short-circuit in this language, so calling graph_payload_at on a missing id
+-- unconditionally would turn "missing" into an [ERROR] instead of `false` here.
+-- A comprehension guard, unlike &&, only evaluates its body once the guard holds.
+def k8s_up_to_date = \sub live_g ->
+    head ([ (subset_of (k8s_stable_view sub) (k8s_stable_view (graph_payload_at (k8s_id_of sub) live_g)))
+          | q <- [sub], (graph_has_node (k8s_id_of sub) live_g) ]
+       ++ [false])
+
+-- One status per manifest resource: "missing" (not present live), "ok" (present
+-- and up to date) or "drift" (present, but the stable views differ). Read-only:
+-- never calls k8s_apply or any write step. Each comprehension needs its own
+-- generator even though it only ever binds one element (`_ <- [0]`): a
+-- guard-only comprehension `[ e | guard ]` loops over nothing and silently
+-- yields [] regardless of the guard, so it is rejected loudly instead
+-- (Mandate 6) rather than making every status "missing".
+def k8s_parity_status = \sub live_g ->
+    head ([ "missing" | _ <- [0], (graph_has_node (k8s_id_of sub) live_g) == false ]
+       ++ [ "ok"      | _ <- [0], (graph_has_node (k8s_id_of sub) live_g), (k8s_up_to_date sub live_g) ]
+       ++ [ "drift"   | _ <- [0], (graph_has_node (k8s_id_of sub) live_g), (k8s_up_to_date sub live_g) == false ])
+
+-- One [id, status] pair per resource the manifest subset declares. Callable
+-- directly (`k8s_parity_report m l`) once both graphs are already built; the
+-- `parity` CLI verb (cmd/gatwd-k8s/main.go) builds both with a top-level
+-- `let ... in` expression rather than a reusable task def here — see that
+-- file's comment for why (a lambda whose body chains more than one `|>`, or
+-- that calls another `|>`-bodied def by name, is not reliably resolved by this
+-- interpreter's task-closure path; a top-level `let` with two independent
+-- `|>` chains is, and is the shape every DSL-level test below and in
+-- parity_test.go actually uses).
+def k8s_parity_report = \manifest_g live_g ->
+    [ [(k8s_id_of sub), (k8s_parity_status sub live_g)] | sub <- (graph_payloads manifest_g) ]

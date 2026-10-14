@@ -30,6 +30,8 @@
 //     Binds and the INFERRED Calls, plus the helper closures they share
 //   - sources.gatwd    k8s_resources: every live crawl stream merged with <+>
 //   - queries.gatwd    k8s_apply_order, k8s_apply_objects, k8s_cycles
+//   - parity.gatwd     k8s_up_to_date, k8s_parity_report: read-only manifest ⊆ live
+//     drift check (docs/manifest_live_parity_design.md)
 //   - prelude.gatwd    the embed entry point; defines k8s_graph
 //
 // One resource stream feeds one pipeline, offline or live — the downstream is

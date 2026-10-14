@@ -1,7 +1,26 @@
 # Design & Implementation Plan: Manifest ⊆ Live Parity Check (read-only "is it up to date?" verb)
 
-> Status: **DRAFT — design only, nothing implemented.** Grounded against the actual
-> codebase on 2026-10-14. Follows the format and conventions of
+> Status: **IMPLEMENTED — Phases 1, 1b, 2, 3 all done (2026-10-14).** §6 #1–#3 were
+> decided as recommended (non-injective list matching kept, verb placed in
+> `pkg/k8sgraph`, `graph_payload_at` added to core). One thing this plan's sketches
+> got wrong, found only by running them: **the interpreter's task-closure path
+> (`defClosure`/`ParseInfixExpr`, `pkg/cli/closures.go`) does not reliably resolve a
+> lambda whose body chains more than one `|>`, or that calls another `|>`-bodied def
+> by name** — `k8s_parity_task` as originally sketched (§5.1, a two-positional-arg
+> lambda task) never got past "unknown step or command" / "undefined identifier"
+> errors, for reasons unrelated to this feature's own logic. The working fix: no
+> `k8s_parity_task` def at all; `pkg/k8sgraph/parity_command.go`'s `ParityCommand`
+> builds a top-level `let m = (... |> manifests |> k8s_graph) in let l = (... |>
+> k8s_resources |> k8s_graph) in k8s_parity_report m l` string from the command's own
+> flags and runs it via `RunOptions.Eval`, not `RunOptions.Task`/`cli.TaskCommand` —
+> a top-level `let` with two independent `|>` chains IS reliably resolved (it is the
+> exact shape `pkg/k8sgraph/parity_test.go` uses throughout). A second, smaller
+> surprise: a bare `def NAME = [a, b, c]` (no lambda) is a pipeline fragment in this
+> language, not a reusable constant — `const K8S_RUNTIME_METADATA_FIELDS = [...]` is
+> what actually works. Neither of these is a defect in the design itself; both are
+> pre-existing interpreter behavior this plan's own "verify before implementing"
+> principle (§9's note on Appendix C) was written to catch, and did. Grounded against
+> the actual codebase on 2026-10-14. Follows the format and conventions of
 > [`docs/k8s_graph_design.md`](k8s_graph_design.md) (that document's Phases 1–8 are
 > DONE and are the substrate this plan builds on).
 > Scope: (1) a read-only CLI verb that compares a subset of Kubernetes resources
