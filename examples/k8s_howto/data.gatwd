@@ -18,7 +18,9 @@ def password_bytes = \s -> base64_decode (hamt_path "data.password" s)
 
 -- A Secret whose password is shorter than 8 bytes, or not base64 at all. The rule reports the
 -- id, never the value; `fingerprint` is what you may show next to it.
-def rule_weak_password = \g -> [ ["WeakPassword", (k8s_id_of s)] | s <- (graph_payloads_of "Secret" g), maybe_fold true (\b -> (bytes_length b) < 8) (password_bytes s) ]
+def rule_weak_password = \g -> [ ["WeakPassword", (k8s_id_of s)]
+  | s <- (graph_payloads_of "Secret" g)
+  , maybe_fold true (\b -> (bytes_length b) < 8) (password_bytes s) ]
 def fingerprint = \s -> maybe_fold "undecodable" (\b -> str_slice 0 12 (sha256 b)) (password_bytes s)
 
 def cm = \g -> head (graph_payloads_of "ConfigMap" g)
@@ -26,4 +28,5 @@ def setting = \parse key field g -> field_of parse key field (cm g)
 
 -- [replicas from the YAML entry, memory from the JSON entry, two quantities added, the weak
 --  Secrets, the fingerprints of every Secret's password]
-def main = manifests |> k8s_graph |> fold (\_ g -> [ (setting yaml_parse "settings" "replicas" g), (setting json_parse "limits" "memory" g), ((cores "500m") + (cores "250m")), (rule_weak_password g), [ (fingerprint s) | s <- (graph_payloads_of "Secret" g) ] ]) 0
+def main = manifests |> k8s_graph |> fold (\_ g -> [ (setting yaml_parse "settings" "replicas" g), (setting json_parse "limits" "memory" g), ((cores "500m") + (cores "250m")), (rule_weak_password g), [ (fingerprint s)
+      | s <- (graph_payloads_of "Secret" g) ] ]) 0

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +60,9 @@ type CommandSpec struct {
 // CommandTree is a CommandSpec turned into a runnable command line.
 type CommandTree struct {
 	spec CommandSpec
+	// signals and exit are hooks for tests; NewCommandTree installs the real ones.
+	signals func() (<-chan os.Signal, func())
+	exit    func(int)
 }
 
 // NewCommandTree builds the command line for spec.
@@ -66,7 +70,7 @@ func NewCommandTree(spec CommandSpec) *CommandTree {
 	if spec.Name == "" {
 		spec.Name = "gatwd"
 	}
-	return &CommandTree{spec: spec}
+	return &CommandTree{spec: spec, signals: notifyStopSignals, exit: os.Exit}
 }
 
 // The exit statuses of every command line in this package (Edition trees and Appliance trees).
@@ -404,7 +408,21 @@ func (t *CommandTree) run(cmd *cobra.Command, g *globalFlags, opts RunOptions, i
 	opts.Preludes = g.preludes
 	in := t.interp(cmd, g)
 	out := cmd.OutOrStdout()
+	if !interactive && t.signals != nil {
+		// SIGINT/SIGTERM cancel the script; a second signal ends the process at once.
+		ctx, release := stopOnSignal(t.spec.Name, t.signals, t.exit, context.Background(), cmd.ErrOrStderr())
+		defer release()
+		opts.Context = ctx
+	}
 	res, runErr := in.Run(opts)
+	var stop stopRequest
+	if errors.As(runErr, &stop) {
+		for _, line := range res.Lines {
+			fmt.Fprintf(out, "∷ %s\n", line)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "%s: %v, stopped\n", t.spec.Name, stop)
+		return silentExit{exitForSignal(stop.sig)}
+	}
 	for _, line := range res.Lines {
 		fmt.Fprintf(out, "∷ %s\n", line)
 	}

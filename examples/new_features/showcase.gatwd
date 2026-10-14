@@ -58,8 +58,12 @@ let bp = [3, 4] in bp |> bimap (\x -> x + 10) (\y -> y * 2) |> assert [13 8]
 -- ------------------------------------------------------------
 -- 7. HAMT keyed set-algebra: hamt_intersect / hamt_diff
 -- ------------------------------------------------------------
-let hi = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_intersect hi |> hamt_keys |> collect_list |> assert [a]
-let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt |> hamt_diff hd |> hamt_keys |> collect_list |> assert [b]
+let hi = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in
+  spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt
+    |> hamt_intersect hi |> hamt_keys |> collect_list |> assert [a]
+let hd = spawn S: x |> emit a:1, c:3 |> drop 1 |> to_hamt in
+  spawn S: x |> emit a:1, b:2 |> drop 1 |> to_hamt
+    |> hamt_diff hd |> hamt_keys |> collect_list |> assert [b]
 
 -- ------------------------------------------------------------
 -- 8. HAMT.Filter wired to the DSL (filter entries by value)

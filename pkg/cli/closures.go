@@ -362,8 +362,11 @@ func (i *Interpreter) pipelineLambda(varName, body string) func(any, dsltypes.Bi
 	return func(item any, dslType dsltypes.BitFlag) (any, error) {
 		child := &Interpreter{
 			Engine:         i.Engine,
+			Parser:         i.Parser,
 			EnableBuiltins: i.EnableBuiltins,
 			Funcs:          i.Funcs,
+			compiledFuncs:  i.compiledFuncs,
+			lambdaCache:    i.lambdaCache,
 			RuntimeNodes:   make(map[string]dsltypes.ASTNode[functions.Either[error, any]]),
 			Variables:      make(map[string]string),
 			Constants:      i.Constants,
@@ -552,4 +555,24 @@ func latchedStep(build func(fail errLatch) graphStep) graphStep {
 			}
 		}
 	}
+}
+
+// matchDefClosure resolves a `def name = match { … }` to a one-argument closure, so a
+// match def can be applied in expression position (`name [a, b]`, inside a lambda body)
+// as well as piped to. The closure runs `x |> name` in a child interpreter and fails
+// loudly when the match yields no value.
+func (i *Interpreter) matchDefClosure(name string) (*functions.Closure, bool) {
+	src, ok := i.Funcs[name]
+	if !ok || !strings.HasPrefix(strings.TrimSpace(src), "match") {
+		return nil, false
+	}
+	run := i.pipelineLambda("__arg", name)
+	return functions.NewClosure([]string{"x"}, func(a []any) (any, error) {
+		if i.exec != nil {
+			if err := i.exec.interrupter().Interrupted(); err != nil {
+				return nil, err
+			}
+		}
+		return run(a[0], 0)
+	}), true
 }

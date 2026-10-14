@@ -302,3 +302,39 @@ func (i *Interpreter) matchArm(p armPattern, val any, flag dsltypes.BitFlag) (*I
 	}
 	return local, true
 }
+
+// splitArmGuard splits `pattern if condition` at the first top-level ` if ` (outside String
+// and Char literals) into the pattern and its guard. hasGuard is false for a plain pattern.
+func splitArmGuard(arm string) (pattern, guard string, hasGuard bool) {
+	runes := []rune(arm)
+	var sink strings.Builder
+	for k := 0; k < len(runes); k++ {
+		if last, ok := copyLiteral(runes, k, &sink); ok {
+			k = last
+			continue
+		}
+		if runes[k] == ' ' && strings.HasPrefix(string(runes[k:]), " if ") {
+			return strings.TrimSpace(string(runes[:k])), strings.TrimSpace(string(runes[k+4:])), true
+		}
+	}
+	return strings.TrimSpace(arm), "", false
+}
+
+// evalGuard runs a guard condition in the scope of an arm's bindings and requires a Bool: a
+// guard that errors, yields nothing or yields a non-Bool is an error naming it, never a
+// silent fall-through.
+func (i *Interpreter) evalGuard(cond string, node dsltypes.ASTNode[functions.Either[error, any]]) (bool, error) {
+	for res := range i.pipelineToAdapter(cond)(node) {
+		if res.Value.IsLeft() {
+			err, _ := res.Value.UnwrapLeft()
+			return false, err
+		}
+		v, _ := res.Value.UnwrapRight()
+		b, ok := v.(bool)
+		if !ok {
+			return false, fmt.Errorf("guard %q must be a Bool, got %v (%T)", cond, v, v)
+		}
+		return b, nil
+	}
+	return false, fmt.Errorf("guard %q yielded no value", cond)
+}

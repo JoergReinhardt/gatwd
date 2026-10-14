@@ -202,7 +202,6 @@ func TestMatchBadPatternIsAnError(t *testing.T) {
 		name, def string
 		want      []string
 	}{
-		{"guard", "def k = match { n if n > 0 -> 1 | _ -> 2 }", []string{"guards are not supported yet", "n if n > 0"}},
 		{"operator expression", "def k = match { 1 + 2 -> 1 | _ -> 2 }", []string{"invalid pattern", "1 + 2"}},
 		{"nested list", "def k = match { [[a, b], c] -> 1 | _ -> 2 }", []string{"nested", "[a, b]"}},
 		{"arm without arrow", "def k = match { 1 -> 1 | zzz }", []string{"arm", "zzz"}},

@@ -160,6 +160,9 @@ spec:
   template:
     metadata:
       labels: {app: db}
+    spec:
+      containers:
+        - {name: db, image: "db:3"}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -170,3 +173,114 @@ spec:
   template:
     metadata:
       labels: {app: agent}
+    spec:
+      containers:
+        - {name: agent, image: "agent:2"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: db-1
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: StatefulSet, name: db}
+revision: 1
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: db}
+      spec:
+        containers:
+          - {name: db, image: "db:1"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: db-2
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: StatefulSet, name: db}
+revision: 2
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: db}
+      spec:
+        containers:
+          - {name: db, image: "db:2"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: db-3
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: StatefulSet, name: db}
+revision: 3
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: db}
+      spec:
+        containers:
+          - {name: db, image: "db:3"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: other-9
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: StatefulSet, name: not-db}
+revision: 9
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: db}
+      spec:
+        containers:
+          - {name: db, image: "evil:9"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: agent-1
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: DaemonSet, name: agent}
+revision: 1
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: agent}
+      spec:
+        containers:
+          - {name: agent, image: "agent:1"}
+---
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: agent-2
+  namespace: default
+  ownerReferences:
+    - {apiVersion: apps/v1, kind: DaemonSet, name: agent}
+revision: 2
+data:
+  spec:
+    template:
+      $patch: replace
+      metadata:
+        labels: {app: agent}
+      spec:
+        containers:
+          - {name: agent, image: "agent:2"}

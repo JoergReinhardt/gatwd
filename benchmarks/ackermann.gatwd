@@ -1,11 +1,10 @@
 -- ==============================================================================
 -- gatwd Benchmark: Ackermann A(3, n) — interpreter throughput & peak-memory probe
 -- ==============================================================================
--- Reuses the tour's Ackermann definition (examples/tour/23_ackermann.gatwd) as a
--- deliberately allocation-heavy workload. Each recursive call re-parses the macro
--- body, spins up a fresh evaluator engine, and forks the interpreter scope for the
--- `let ... in ...` arm — so deep recursion stresses exactly the interpreter's
--- allocation and scoping paths.
+-- Reuses the tour's Ackermann clauses (examples/tour/23_ackermann.gatwd) as a
+-- deliberately allocation-heavy workload. It is written as clause definitions, so each
+-- call goes through a curried wrapper and a hidden match, and the nested call is an
+-- argument — deep recursion stresses the interpreter's allocation and scoping paths.
 --
 -- Why A(3, n): it stays on the native int64 fast path (A(3, n) = 2^(n+3) - 3), so
 -- this measures *interpreter overhead*, not big.Int arithmetic. Call count — and
@@ -21,20 +20,16 @@
 -- rather than silently skewing the timing.
 -- ==============================================================================
 
-type NatPair = List(Int)
-
-def ackermann = match {
-    [0, n] -> n + 1
-    | [m, 0] -> [m - 1, 1] |> ackermann
-    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
-}
+def ackermann 0 n = n + 1
+def ackermann m 0 = ackermann (m - 1) 1
+def ackermann m n = ackermann (m - 1) (ackermann m (n - 1))
 
 -- Hyperoperation-3 ramp: A(3, n) = 2^(n+3) - 3. Cheap arms validate correctness;
 -- the final A(3, 6) arm dominates runtime.
-spawn NatPair: [3, 0] |> ackermann |> assert 5
-[3, 1] |> ackermann |> assert 13
-[3, 2] |> ackermann |> assert 29
-[3, 3] |> ackermann |> assert 61
-[3, 4] |> ackermann |> assert 125
-[3, 5] |> ackermann |> assert 253
-[3, 6] |> ackermann |> assert 509
+ackermann 3 0 |> assert 5
+ackermann 3 1 |> assert 13
+ackermann 3 2 |> assert 29
+ackermann 3 3 |> assert 61
+ackermann 3 4 |> assert 125
+ackermann 3 5 |> assert 253
+ackermann 3 6 |> assert 509

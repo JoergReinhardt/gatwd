@@ -43,3 +43,12 @@ auditCluster =
 ```
 
 If any Pod in your cluster is running as root, the pipeline yields an Error node containing that exact string, while the valid pods continue processing!
+
+## Syntax error positions
+
+Every infix token carries its rune offset (`parser.TokenItem.Pos`). A parse or lexer error is a
+`parser.PosError` (message unchanged, `Pos` = offset of the offending token). The interpreter
+prints a caret under that exact column, also for statements split by `let … in`, strings
+containing delimiters, multi-line scripts and multibyte text. `gatwd --check` reports the same
+positions as `file:line:col: error: …` for lambda definitions and arithmetic statements; pipelines
+are left to the evaluator.

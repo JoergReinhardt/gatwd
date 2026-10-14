@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 // This file is the ROLLOUT family of the write adapter: the `kubectl rollout` and `kubectl
@@ -23,6 +24,7 @@ import (
 //	Status   rollout status   read-only: Get
 //	Restart  rollout restart  merge patch: pod template annotation kubectl.kubernetes.io/restartedAt
 //	Undo     rollout undo     JSON patch: spec.template := the template of an earlier ReplicaSet
+//	                          (Deployment) or ControllerRevision (StatefulSet, DaemonSet)
 //	Pause    rollout pause    merge patch: spec.paused = true
 //	Resume   rollout resume   merge patch: spec.paused = false
 //	Scale    scale            merge patch: spec.replicas
@@ -44,8 +46,8 @@ type workload struct {
 
 var workloads = map[string]workload{
 	"Deployment":  {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, true, true, true, true, true},
-	"StatefulSet": {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, true, false, false, false, true},
-	"DaemonSet":   {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}, true, false, false, false, false},
+	"StatefulSet": {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}, true, false, true, true, true},
+	"DaemonSet":   {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}, true, false, true, true, false},
 	"ReplicaSet":  {schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}, false, false, false, false, true},
 }
 
@@ -203,7 +205,9 @@ func (a *Applier) Scale(ctx context.Context, v any, replicas int64) (WriteRecord
 	return WriteRecord{Verb: "scale", ID: t.id(), Outcome: a.outcome("scaled:"+n, "would-scale:"+n)}, nil
 }
 
-// Undo rolls a Deployment back to an earlier revision from its ReplicaSet history: revision 0
+// Undo rolls a workload back to an earlier revision: a Deployment from its ReplicaSet history,
+// a StatefulSet or DaemonSet from its ControllerRevisions (Pause and Resume stay undefined for
+// those two kinds, as in Kubernetes, and fail with a named error). Revision 0
 // means the one before the current, any other value that revision. It replaces spec.template
 // with that ReplicaSet's template (less the controller's pod-template-hash label), as `kubectl
 // rollout undo` does. Outcome rolled-back:REV / would-roll-back:REV, or unchanged when the
@@ -218,7 +222,7 @@ func (a *Applier) Undo(ctx context.Context, v any, revision int64) (WriteRecord,
 	if err != nil {
 		return WriteRecord{}, err
 	}
-	if paused, _, _ := unstructured.NestedBool(dep.Object, "spec", "paused"); paused {
+	if paused, _, _ := unstructured.NestedBool(dep.Object, "spec", "paused"); paused && t.kind == "Deployment" {
 		return WriteRecord{}, fmt.Errorf("rollout undo %s: the deployment is paused; resume it first", t.id())
 	}
 	history, err := a.history(ctx, t, dep)
@@ -226,6 +230,9 @@ func (a *Applier) Undo(ctx context.Context, v any, revision int64) (WriteRecord,
 		return WriteRecord{}, err
 	}
 	current := annotationInt(dep, revisionAnnotation)
+	if t.kind != "Deployment" && len(history) > 0 {
+		current = history[0].revision // the newest ControllerRevision is the live one
+	}
 	var chosen *revisionRS
 	switch {
 	case revision < 0:
@@ -250,7 +257,11 @@ func (a *Applier) Undo(ctx context.Context, v any, revision int64) (WriteRecord,
 			return WriteRecord{}, fmt.Errorf("rollout undo %s: revision %d not found (history %v)", t.id(), revision, revisionsOf(history))
 		}
 	}
-	tmpl, found, err := unstructured.NestedMap(chosen.obj.Object, "spec", "template")
+	tmplPath := []string{"spec", "template"}
+	if t.kind != "Deployment" {
+		tmplPath = []string{"data", "spec", "template"} // ControllerRevision.data is a strategic patch
+	}
+	tmpl, found, err := unstructured.NestedMap(chosen.obj.Object, tmplPath...)
 	if err != nil || !found {
 		return WriteRecord{}, fmt.Errorf("rollout undo %s: revision %d has no pod template", t.id(), chosen.revision)
 	}
@@ -258,6 +269,7 @@ func (a *Applier) Undo(ctx context.Context, v any, revision int64) (WriteRecord,
 		delete(labels, "pod-template-hash")
 		_ = unstructured.SetNestedMap(tmpl, labels, "metadata", "labels")
 	}
+	delete(tmpl, "$patch")
 	rev := strconv.FormatInt(chosen.revision, 10)
 	if curTmpl, _, _ := unstructured.NestedMap(dep.Object, "spec", "template"); sameJSON(curTmpl, tmpl) {
 		return WriteRecord{Verb: "rollout-undo", ID: t.id(), Outcome: "unchanged"}, nil
@@ -282,24 +294,34 @@ func revisionsOf(h []revisionRS) []int64 {
 	return out
 }
 
-// history lists the ReplicaSets the Deployment owns, newest revision first.
+var controllerRevisionGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "controllerrevisions"}
+
+// history lists the revisions the workload owns, newest first: ReplicaSets for a Deployment,
+// ControllerRevisions (numbered by their top-level `revision` field) for a StatefulSet or DaemonSet.
 func (a *Applier) history(ctx context.Context, t target, dep *unstructured.Unstructured) ([]revisionRS, error) {
 	rsGVR := workloads["ReplicaSet"].gvr
+	if t.kind != "Deployment" {
+		rsGVR = controllerRevisionGVR
+	}
 	opts := metav1.ListOptions{}
 	if sel, found, _ := unstructured.NestedStringMap(dep.Object, "spec", "selector", "matchLabels"); found && len(sel) > 0 {
 		opts.LabelSelector = labelSelector(sel)
 	}
 	list, err := resourceFor(a.Client, rsGVR, t.namespace).List(ctx, opts)
 	if err != nil {
-		return nil, fmt.Errorf("rollout undo %s: listing its ReplicaSets: %w", t.id(), err)
+		return nil, fmt.Errorf("rollout undo %s: listing its revisions: %w", t.id(), err)
 	}
 	var out []revisionRS
 	for i := range list.Items {
 		rs := &list.Items[i]
-		if !ownedBy(rs, "Deployment", t.name, string(dep.GetUID())) {
+		if !ownedBy(rs, t.kind, t.name, string(dep.GetUID())) {
 			continue
 		}
-		if rev := annotationInt(rs, revisionAnnotation); rev > 0 {
+		rev := annotationInt(rs, revisionAnnotation)
+		if t.kind != "Deployment" {
+			rev, _, _ = nestedInt(rs.Object, "revision")
+		}
+		if rev > 0 {
 			out = append(out, revisionRS{revision: rev, obj: rs})
 		}
 	}
@@ -372,7 +394,124 @@ func (a *Applier) Status(ctx context.Context, v any) (WriteRecord, error) {
 	if err != nil {
 		return WriteRecord{}, err
 	}
-	return WriteRecord{Verb: "rollout-status", ID: t.id(), Outcome: deploymentStatus(dep)}, nil
+	return WriteRecord{Verb: "rollout-status", ID: t.id(), Outcome: rolloutState(t.kind, dep)}, nil
+}
+
+// Wait is Status with a wait: it returns [rollout-status, id, complete] once the rollout is
+// complete, and an error naming the last status when ctx ends first (the --timeout deadline or
+// an interrupt). It watches the one object, so it is read-only like Status and needs no
+// write capability.
+func (a *Applier) Wait(ctx context.Context, v any) (WriteRecord, error) {
+	t, err := parseTarget(v, "rollout wait", func(w workload) bool { return w.status })
+	if err != nil {
+		return WriteRecord{}, err
+	}
+	obj, err := a.get(ctx, t, "rollout wait")
+	if err != nil {
+		return WriteRecord{}, err
+	}
+	last := rolloutState(t.kind, obj)
+	for last != "complete" {
+		w, err := watchFor(a.Client, t.w.gvr, t.namespace).Watch(ctx, metav1.ListOptions{
+			FieldSelector:   "metadata.name=" + t.name,
+			ResourceVersion: obj.GetResourceVersion(),
+		})
+		if err != nil {
+			return WriteRecord{}, fmt.Errorf("rollout wait %s: %w", t.id(), err)
+		}
+		last, err = a.drain(ctx, w, t, last)
+		w.Stop()
+		if err != nil {
+			return WriteRecord{}, err
+		}
+		if last != "complete" {
+			// the watch closed without completing: re-read, then watch again
+			if obj, err = a.get(ctx, t, "rollout wait"); err != nil {
+				return WriteRecord{}, err
+			}
+			last = rolloutState(t.kind, obj)
+		}
+	}
+	return WriteRecord{Verb: "rollout-status", ID: t.id(), Outcome: "complete"}, nil
+}
+
+// drain reads watch events until the rollout completes (returning "complete"), the watch ends
+// (returning the last state seen) or ctx ends (an error naming the last state).
+func (a *Applier) drain(ctx context.Context, w watch.Interface, t target, last string) (string, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return last, fmt.Errorf("rollout wait %s: %w (last status: %s)", t.id(), ctx.Err(), last)
+		case ev, open := <-w.ResultChan():
+			if !open {
+				return last, nil
+			}
+			switch ev.Type {
+			case watch.Deleted:
+				return last, fmt.Errorf("rollout wait %s: the workload was deleted", t.id())
+			case watch.Error:
+				return last, fmt.Errorf("rollout wait %s: watch error: %v", t.id(), ev.Object)
+			}
+			if u, ok := ev.Object.(*unstructured.Unstructured); ok {
+				last = rolloutState(t.kind, u)
+				if last == "complete" {
+					return last, nil
+				}
+			}
+		}
+	}
+}
+
+// rolloutState dispatches on the workload kind.
+func rolloutState(kind string, o *unstructured.Unstructured) string {
+	switch kind {
+	case "StatefulSet":
+		return statefulSetStatus(o)
+	case "DaemonSet":
+		return daemonSetStatus(o)
+	}
+	return deploymentStatus(o)
+}
+
+func statefulSetStatus(o *unstructured.Unstructured) string {
+	gen, _, _ := nestedInt(o.Object, "metadata", "generation")
+	observed, _, _ := nestedInt(o.Object, "status", "observedGeneration")
+	if gen > observed {
+		return "waiting: the statefulset spec has not been observed yet"
+	}
+	want, found, _ := nestedInt(o.Object, "spec", "replicas")
+	if !found {
+		want = 1
+	}
+	ready, _, _ := nestedInt(o.Object, "status", "readyReplicas")
+	updated, _, _ := nestedInt(o.Object, "status", "updatedReplicas")
+	cur, _, _ := unstructured.NestedString(o.Object, "status", "currentRevision")
+	upd, _, _ := unstructured.NestedString(o.Object, "status", "updateRevision")
+	switch {
+	case ready < want:
+		return fmt.Sprintf("progressing: %d of %d replicas are ready", ready, want)
+	case updated < want || cur != upd:
+		return fmt.Sprintf("progressing: %d of %d replicas have been updated", updated, want)
+	}
+	return "complete"
+}
+
+func daemonSetStatus(o *unstructured.Unstructured) string {
+	gen, _, _ := nestedInt(o.Object, "metadata", "generation")
+	observed, _, _ := nestedInt(o.Object, "status", "observedGeneration")
+	if gen > observed {
+		return "waiting: the daemonset spec has not been observed yet"
+	}
+	want, _, _ := nestedInt(o.Object, "status", "desiredNumberScheduled")
+	updated, _, _ := nestedInt(o.Object, "status", "updatedNumberScheduled")
+	available, _, _ := nestedInt(o.Object, "status", "numberAvailable")
+	switch {
+	case updated < want:
+		return fmt.Sprintf("progressing: %d out of %d new pods have been updated", updated, want)
+	case available < want:
+		return fmt.Sprintf("progressing: %d of %d updated pods are available", available, want)
+	}
+	return "complete"
 }
 
 func deploymentStatus(d *unstructured.Unstructured) string {

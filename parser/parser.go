@@ -171,6 +171,9 @@ func (p *Parser) SumTypeOf(branch string) (name string, branches []string, ok bo
 // names an ADT constructor (which must discriminate on the value's variant tag)
 // from a pattern that introduces a fresh variable binding (which matches anything).
 func (p *Parser) IsConstructor(name string) bool {
+	if p == nil {
+		return false
+	}
 	for _, sumDef := range p.sumTypes {
 		if _, ok := sumDef.Branches[name]; ok {
 			return true

@@ -47,6 +47,7 @@ spawn Balance: 999999999999999999 |> math_add 1 |> (audit_node &&& parse_access)
 * **[Architecture & Extensibility](docs/architecture.md)**: Deep dive into the host-guest engine, builtins, custom editions, and appliances.
 * **[Conway's Game of Life: Architectural Tiers & Trade-Offs](docs/GAME_OF_LIFE.md)**: Flagship case study demonstrating the 3 tiers of implementation (from Category Theory Comonads to 100% Pure DSL), detailing effort, intimidation, performance, and the Clean Core Prevention Rule.
 * **[DSL Guide](docs/dsl_guide.md)**: A complete handbook on how to write `gatwd` scripts.
+* **[Language Reference](docs/reference.md)**: Beginner-friendly, example-driven reference (all examples are tested).
 * **[Formal Grammar](docs/grammar.md)**: The EBNF specification for the DSL.
 * **[Native Adapters, Editions & Appliances](docs/native_adapters.md)**: How to write pure Go adapters, register third-party types/steps, and package standalone appliances.
 * **[Agentic Workflows & AI](docs/agentic_workflows.md)**: Harnessing the DSL for LLMs, autonomous agents, and K8s Operators.

@@ -15,11 +15,17 @@ let clock = (now |> head)
 
 -- When a resource was created: Just a Time, or Nothing when it has no (parsable) stamp.
 -- (The guard first: hamt_path on a missing key is an error.)
-def born = \r -> head ([ (time_parse (hamt_path "metadata.creationTimestamp" q)) | q <- [r], hamt_has_path "metadata.creationTimestamp" q ] ++ [ nothing ])
+def born = \r -> head ([ (time_parse (hamt_path "metadata.creationTimestamp" q))
+    | q <- [r]
+    , hamt_has_path "metadata.creationTimestamp" q ] ++ [ nothing ])
 
 def older_than : Time -> Duration -> Any -> Bool = \now limit r -> maybe_fold false (\t -> (now - t) > limit) (born r)
 
 -- StalePod: a Pod older than `limit`.  UnknownAge: a Pod we cannot date, so we cannot call it fresh.
-def rule_stale_pod = \now limit g -> [ ["StalePod", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), (older_than now limit p) ] ++ [ ["UnknownAge", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), is_nothing (born p) ]
+def rule_stale_pod = \now limit g -> [ ["StalePod", (k8s_id_of p)]
+  | p <- (graph_payloads_of "Pod" g)
+  , (older_than now limit p) ] ++ [ ["UnknownAge", (k8s_id_of p)]
+  | p <- (graph_payloads_of "Pod" g)
+  , is_nothing (born p) ]
 
 def compliance = k8s_graph |> fold (\_ g -> (rule_unselected_pod g) ++ (rule_idle_deployment g) ++ (rule_unused_service g) ++ (rule_dangling_ingress g) ++ (rule_missing_configmap g) ++ (rule_dependency_cycle g) ++ (rule_stale_pod clock max_age g)) 0

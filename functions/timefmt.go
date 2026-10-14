@@ -276,3 +276,111 @@ func TimeOfDate(loc *time.Location, d Date) (Time, error) {
 	}
 	return NewTime(best)
 }
+
+// ---- parsing with a layout ----------------------------------------------------------
+
+// ParseTimeWith reads text with the strftime-subset layout FormatTime writes: %Y %m %d %H
+// %M %S, %z (an offset such as +0200, +02:00 or Z) and %%; every other layout character must
+// match literally. The layout must carry %Y %m %d and %z: a missing date field or zone is
+// an error, never a default (local time is never implicit).
+func ParseTimeWith(layout, text string) (Time, error) {
+	if len(text) > 64 || len(layout) > 64 {
+		return Time{}, fmt.Errorf("time text and layout are limited to 64 characters")
+	}
+	fields := map[byte]int{}
+	zoneOff, haveZone := 0, false
+	pos := 0
+	digits := func(n int) (int, error) {
+		if pos+n > len(text) {
+			return 0, fmt.Errorf("text %q ends early (want %d digits at offset %d)", text, n, pos)
+		}
+		v := 0
+		for _, c := range []byte(text[pos : pos+n]) {
+			if c < '0' || c > '9' {
+				return 0, fmt.Errorf("text %q: want %d digits at offset %d", text, n, pos)
+			}
+			v = v*10 + int(c-'0')
+		}
+		pos += n
+		return v, nil
+	}
+	for i := 0; i < len(layout); i++ {
+		c := layout[i]
+		if c != '%' {
+			if pos >= len(text) || text[pos] != c {
+				return Time{}, fmt.Errorf("text %q does not match layout %q at offset %d (want %q)", text, layout, pos, string(c))
+			}
+			pos++
+			continue
+		}
+		i++
+		if i >= len(layout) {
+			return Time{}, fmt.Errorf("layout %q ends with a lone %%", layout)
+		}
+		d := layout[i]
+		var err error
+		switch d {
+		case 'Y':
+			fields[d], err = digits(4)
+		case 'm', 'd', 'H', 'M', 'S':
+			fields[d], err = digits(2)
+		case 'z':
+			rest := text[pos:]
+			switch {
+			case strings.HasPrefix(rest, "Z"):
+				pos++
+			case len(rest) >= 5 && (rest[0] == '+' || rest[0] == '-'):
+				sign := 1
+				if rest[0] == '-' {
+					sign = -1
+				}
+				pos++
+				var hh, mm int
+				if hh, err = digits(2); err == nil {
+					if pos < len(text) && text[pos] == ':' {
+						pos++
+					}
+					if mm, err = digits(2); err == nil {
+						zoneOff = sign * (hh*3600 + mm*60)
+					}
+				}
+			default:
+				err = fmt.Errorf("text %q: want an offset (Z, +hhmm or +hh:mm) at offset %d", text, pos)
+			}
+			haveZone = true
+		case '%':
+			if pos >= len(text) || text[pos] != '%' {
+				err = fmt.Errorf("text %q does not match layout %q at offset %d (want %%)", text, layout, pos)
+			}
+			pos++
+		default:
+			return Time{}, fmt.Errorf("unknown layout directive %%%c in %q (directives: %%Y %%m %%d %%H %%M %%S %%z %%%%)", d, layout)
+		}
+		if err != nil {
+			return Time{}, err
+		}
+	}
+	if pos != len(text) {
+		return Time{}, fmt.Errorf("text %q has trailing characters after layout %q", text, layout)
+	}
+	for _, need := range []byte{'Y', 'm', 'd'} {
+		if _, ok := fields[need]; !ok {
+			return Time{}, fmt.Errorf("layout %q has no %%%c: a date field is never defaulted", layout, need)
+		}
+	}
+	if !haveZone {
+		return Time{}, fmt.Errorf("layout %q has no %%z: a time without a zone is never implicit", layout)
+	}
+	if fields['m'] < 1 || fields['m'] > 12 || fields['d'] < 1 || fields['H'] > 23 || fields['M'] > 59 || fields['S'] > 59 {
+		return Time{}, fmt.Errorf("time %q has a field out of range", text)
+	}
+	loc := time.UTC
+	if zoneOff != 0 {
+		loc = time.FixedZone("", zoneOff)
+	}
+	t := time.Date(fields['Y'], time.Month(fields['m']), fields['d'], fields['H'], fields['M'], fields['S'], 0, loc)
+	if t.Day() != fields['d'] {
+		return Time{}, fmt.Errorf("time %q is not a real calendar day", text)
+	}
+	return NewTime(t)
+}

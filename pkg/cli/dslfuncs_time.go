@@ -17,7 +17,7 @@ import (
 //
 //	Duration  dur_ns d · dur_ms d · to_seconds d · dur_from_seconds x · dur_parse s (Maybe)
 //	          dur_truncate unit d · dur_round unit d       (unit: a positive Duration, `1m`)
-//	Time      time_parse s (Maybe) · time_format layout t · time_unix t · time_from_unix n
+//	Time      time_parse s (Maybe) · time_parse_with layout s (Maybe) · time_format layout t · time_unix t · time_from_unix n
 //	          time_year/month/day/hour/minute/second/nano t · time_weekday t (1 Monday .. 7)
 //	          time_in zone t · time_truncate d t · time_round d t
 //	Date      date_of y m d · date_parse s (Maybe) · date_format layout d
@@ -109,6 +109,17 @@ func registerTimeFuncs(m map[string]any) {
 			return nil, err
 		}
 		return maybe(functions.ParseTime(s))
+	})
+	defn(m, "time_parse_with", "layout s", func(a []any) (any, error) {
+		layout, err := asString(a[0])
+		if err != nil {
+			return nil, err
+		}
+		s, err := asString(a[1])
+		if err != nil {
+			return nil, err
+		}
+		return maybe(functions.ParseTimeWith(layout, s))
 	})
 	defn(m, "time_format", "layout t", func(a []any) (any, error) {
 		layout, err := asString(a[0])

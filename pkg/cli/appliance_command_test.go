@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -263,5 +264,55 @@ func TestApplianceTreeRunSurvivesFailingChecks(t *testing.T) {
 	code, stdout, _ := toyRun(t, tree, "run", "--source", "broken 0", "--interval", "1s", "--format", "json")
 	if code != 0 || strings.Count(stdout, `"status":"error"`) != 3 {
 		t.Fatalf("exit %d, stdout: %s", code, stdout)
+	}
+}
+
+// GATWD_<FLAG> defaults a flag that the command line leaves out: flag > environment > default,
+// and an unparsable value is a usage error naming the variable.
+func TestApplianceTreeEnvDefaults(t *testing.T) {
+	override := writeFile(t, "rules.gatwd", "def rule_b = \\x -> x + 100\n")
+	run := func(argv ...string) (int, string, string) { return toyRun(t, toyTree(toyRules), argv...) }
+
+	if code, out, _ := run("check", "--source", "entry 1"); code != 0 || out != "[2 11]\n" {
+		t.Fatalf("baseline: %d %q", code, out)
+	}
+	t.Setenv("GATWD_RULES", override)
+	if code, out, _ := run("check", "--source", "entry 1"); code != 0 || out != "[2 101]\n" {
+		t.Errorf("GATWD_RULES not applied: %d %q", code, out)
+	}
+	other := writeFile(t, "none.gatwd", "")
+	if code, out, _ := run("check", "--source", "entry 1", "--rules", other); code != 0 || out != "[2 11]\n" {
+		t.Errorf("the flag must beat the environment: %d %q", code, out)
+	}
+	t.Setenv("GATWD_SOURCE", "entry 1")
+	if code, out, _ := run("check"); code != 0 || out != "[2 101]\n" {
+		t.Errorf("GATWD_SOURCE (a domain flag): %d %q", code, out)
+	}
+	t.Setenv("GATWD_TIMEOUT", "soon")
+	code, _, stderr := run("check")
+	if code != 2 || !strings.Contains(stderr, "GATWD_TIMEOUT") {
+		t.Errorf("bad value: exit %d, stderr %q", code, stderr)
+	}
+}
+
+// An edit of the override file ends the wait between two checks long before the interval.
+func TestApplianceTreeWaitSeesFileChange(t *testing.T) {
+	path := writeFile(t, "rules.gatwd", "def a = 1\n")
+	tree := toyTree(toyRules)
+	tree.watchEvery = 10 * time.Millisecond
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		os.WriteFile(path, []byte("def a = 22\n"), 0o644)
+	}()
+	start := time.Now()
+	if !tree.wait(context.Background(), time.Hour, path) {
+		t.Fatal("wait reported a stop")
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("the change was not noticed")
+	}
+	// no change: the interval still bounds the wait
+	if !tree.wait(context.Background(), 50*time.Millisecond, path) {
+		t.Fatal("wait reported a stop")
 	}
 }

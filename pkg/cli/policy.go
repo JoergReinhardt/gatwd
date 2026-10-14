@@ -39,9 +39,8 @@ import (
 // `write_file`, `append_file`, `scan_file`, `scan_words`) and file `import`, and the network
 // steps (`dial_tcp`, `listen_tcp`). Steps an Edition wires itself (`RegisterStep`,
 // `AdapterStep`: the Kubernetes crawl, `manifests`) are the author's decision, made in Go,
-// and stay allowed. No script-reachable builtin reads the environment today, so AllowEnv
-// gates nothing yet; it is the switch a future `env` builtin (or an Edition step) must
-// consult through Interpreter.RequireCapability.
+// and stay allowed. The one builtin that reads the environment, `env_get NAME`, is gated
+// by AllowEnv; an Edition step that does the same consults Interpreter.RequireCapability.
 //
 // # The two capabilities even a trusted script does not get
 //
@@ -75,7 +74,7 @@ const (
 	CapFS Capability = "fs"
 	// CapNet is opening sockets: `dial_tcp`, `listen_tcp`.
 	CapNet Capability = "net"
-	// CapEnv is reading the process environment. No builtin needs it yet (see the file comment).
+	// CapEnv is reading the process environment: `env_get NAME`.
 	CapEnv Capability = "env"
 	// CapClusterApply is creating or updating objects in a remote cluster (a declarative
 	// apply). It is NOT part of TrustedPolicy: it needs an explicit opt-in, even for the
@@ -211,6 +210,8 @@ type execState struct {
 	ctx    atomic.Pointer[ctxBox]
 	// budget, when set, bounds the bytes EvaluateToValues collects (Appliance.WithMaxOutput).
 	budget atomic.Pointer[outputBudget]
+	// calls counts closure calls across the run, to sample the context cheaply.
+	calls atomic.Uint32
 }
 
 type ctxBox struct{ ctx context.Context }
@@ -249,6 +250,21 @@ func (s *execState) cancelled() error {
 	}
 	return &CancelError{Cause: cancelCause(ctx)}
 }
+
+// interruptEvery is how many closure calls pass between context checks.
+const interruptEvery = 256
+
+type interrupter struct{ s *execState }
+
+// Interrupted samples the run's context every interruptEvery calls.
+func (it *interrupter) Interrupted() error {
+	if it.s.calls.Add(1)%interruptEvery != 0 {
+		return nil
+	}
+	return it.s.cancelled()
+}
+
+func (s *execState) interrupter() functions.Interrupter { return &interrupter{s: s} }
 
 // SetPolicy installs p for this interpreter and every fork of it, and returns the policy it
 // replaced so a caller can restore it.

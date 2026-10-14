@@ -12,46 +12,42 @@
 --   A(m, n) = A(m - 1, A(m, n - 1))        for m > 0, n > 0
 --
 -- In gatwd, Ackermann demonstrates:
---   1. Fixed-size tuple and list pattern matching: [0, n], [m, 0], [m, n]
---   2. Infix arithmetic expressions in match arms: (n + 1), (m - 1)
---   3. Pipeline-level let-bindings for nested recursion: let res = ... in ...
+--   1. Clause definitions: one `def` per case, matched top to bottom
+--   2. Infix arithmetic in clause bodies: (n + 1), (m - 1)
+--   3. Nested recursion as a plain argument: ackermann (m - 1) (ackermann m (n - 1))
 --   4. Deep recursion over immutable state with automatic stack safety
 -- ==============================================================================
 
-type NatPair = List(Int)
-
 -- 1. Definition of the Ackermann Function
-def ackermann = match {
-    [0, n] -> n + 1
-    | [m, 0] -> [m - 1, 1] |> ackermann
-    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
-}
+def ackermann 0 n = n + 1
+def ackermann m 0 = ackermann (m - 1) 1
+def ackermann m n = ackermann (m - 1) (ackermann m (n - 1))
 
 -- 2. Base Hyperoperation 0: Successor
 -- A(0, 0) = 1, A(0, 4) = 5
-spawn NatPair: [0, 0] |> ackermann |> assert 1
-spawn NatPair: [0, 4] |> ackermann |> assert 5
+ackermann 0 0 |> assert 1
+ackermann 0 4 |> assert 5
 
 -- 3. Hyperoperation 1: Addition-like
 -- A(1, n) = n + 2
 -- A(1, 0) = 2, A(1, 2) = 4, A(1, 3) = 5
-[1, 0] |> ackermann |> assert 2
-[1, 2] |> ackermann |> assert 4
-[1, 3] |> ackermann |> assert 5
+ackermann 1 0 |> assert 2
+ackermann 1 2 |> assert 4
+ackermann 1 3 |> assert 5
 
 -- 4. Hyperoperation 2: Multiplication-like
 -- A(2, n) = 2n + 3
 -- A(2, 0) = 3, A(2, 1) = 5, A(2, 2) = 7, A(2, 3) = 9
-[2, 0] |> ackermann |> assert 3
-[2, 1] |> ackermann |> assert 5
-[2, 2] |> ackermann |> assert 7
-[2, 3] |> ackermann |> assert 9
+ackermann 2 0 |> assert 3
+ackermann 2 1 |> assert 5
+ackermann 2 2 |> assert 7
+ackermann 2 3 |> assert 9
 
 -- 5. Hyperoperation 3: Exponential / Tower
 -- A(3, n) = 2^(n + 3) - 3
 -- A(3, 0) = 2^3 - 3 = 5
 -- A(3, 1) = 2^4 - 3 = 13
 -- A(3, 2) = 2^5 - 3 = 29
-[3, 0] |> ackermann |> assert 5
-[3, 1] |> ackermann |> assert 13
-[3, 2] |> ackermann |> assert 29
+ackermann 3 0 |> assert 5
+ackermann 3 1 |> assert 13
+ackermann 3 2 |> assert 29

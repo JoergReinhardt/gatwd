@@ -340,7 +340,7 @@ func TestEditionStepsStayAllowedUnderDenyAll(t *testing.T) {
 }
 
 func TestRequireCapabilityLetsStepsTakePartInThePolicy(t *testing.T) {
-	// an Edition step that reads the environment asks for CapEnv, the capability no builtin uses yet
+	// an Edition step that reads the environment asks for CapEnv, the capability `env_get` also consults
 	step := func() StepHandler {
 		return func(stepStr string, interp *Interpreter) (evaluator.PipelineStep[functions.Either[error, any]], bool) {
 			if stepStr != "getenv_probe" {

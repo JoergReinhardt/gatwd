@@ -273,6 +273,13 @@ The project's own relations and rules are the style reference
 
 ## 8. Documentation protocol
 
+- **Spec and editor pipeline.** `spec/spec.go` is the source for keywords, steps, types, operators
+  and snippets; `go run ./cmd/gatwd-gen .` generates the editor plugins (Neovim, VS Code,
+  tree-sitter) and `parser/tokens_gen.go` from it plus `cli.FunctionForms()`. In the same change
+  as any syntax/keyword/step/builtin/snippet edit: update the spec, update `docs/grammar.md`,
+  regenerate, review and commit the generated diff. `cmd/gatwd-gen/main_test.go` guards spec
+  coverage and grammar-doc agreement. Procedure: `.agents/prompts/maintain-language-spec-and-editors.md`.
+
 - **godoc on every exported identifier**, starting with the identifier's name; package `doc.go`
   for every package; `Example*` with `// Output:` (they are tests). The educational standard in
   `STYLEGUIDE.md` §3 applies: explain the concept, why it is needed here, how it is implemented,

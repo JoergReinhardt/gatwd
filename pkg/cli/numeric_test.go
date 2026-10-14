@@ -282,7 +282,6 @@ func TestRatioErrorsAreLoud(t *testing.T) {
 		`numer 1.5`:             "Int or a Ratio",
 		`to_ratio_approx 0.5 0`: "at least 1",
 		`ratio_from_cf [1, 0]`:  "positive",
-		`json_encode 1r2`:       "Ratio",
 		`1r2 + "a"`:             "not defined for Ratio and String",
 		`1r2 < "a"`:             "not defined for Ratio and String",
 	} {

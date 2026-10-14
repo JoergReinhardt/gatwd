@@ -126,13 +126,11 @@ def quicksort = match {
 }
 spawn IntList: [5, 2, 8, 1, 9, 3] |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
 
--- Non-primitive recursion: tuple patterns, nested let.
-def ackermann = match {
-    [0, n] -> n + 1
-    | [m, 0] -> [m - 1, 1] |> ackermann
-    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
-}
-[2, 2] |> ackermann |> assert 7
+-- Non-primitive recursion: one clause per case, first match wins.
+def ackermann 0 n = n + 1
+def ackermann m 0 = ackermann (m - 1) 1
+def ackermann m n = ackermann (m - 1) (ackermann m (n - 1))
+ackermann 2 2 |> assert 7
 
 
 -- ---------------------------------------------------------------------

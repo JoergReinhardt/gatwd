@@ -7,11 +7,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/spec"
 )
 
 func main() {
 	s := spec.DefaultSpec()
+	var names []string
+	params := map[string][]string{}
+	for _, f := range cli.FunctionForms() {
+		names = append(names, f.Name)
+		params[f.Name] = f.Params
+	}
+	s = s.WithFunctionForms(names, params)
 	rootDir := "."
 	if len(os.Args) > 1 {
 		rootDir = os.Args[1]
@@ -401,8 +409,8 @@ func genTextMate(rootDir string, s spec.GrammarSpec) {
 	}
 
 	tm := map[string]any{
-		"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-		"name":    "Gatwd",
+		"$schema":   "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+		"name":      "Gatwd",
 		"scopeName": "source.gatwd",
 		"fileTypes": []string{"gatwd"},
 		"patterns": []map[string]any{

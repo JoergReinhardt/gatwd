@@ -59,7 +59,7 @@ func TestGameOfLifeRulePinned(t *testing.T) {
 	}
 }
 
-// The committed example keeps its output: both invariants hold after 20 and 40 generations.
+// The committed example keeps its output: both invariants hold after 20 and 40 generations, and the clause twin agrees.
 func TestGameOfLifeExampleOutputPinned(t *testing.T) {
 	in, buf := quietInterpreter()
 	if _, err := in.Run(RunOptions{Script: "../../examples/game_of_life_pure_dsl/game_of_life.gatwd"}); err != nil {
@@ -74,8 +74,8 @@ func TestGameOfLifeExampleOutputPinned(t *testing.T) {
 	if len(vals) == 0 || strings.Contains(buf.String(), "[ERROR]") {
 		t.Fatalf("the example printed %q", buf.String())
 	}
-	if got := strings.Join(vals, "|"); !strings.HasSuffix(got, "∷ 3|∷ 5") && !strings.HasSuffix(got, "3|5") {
-		t.Fatalf("blinker count 3 then glider count 5 expected at the end, got %q", got)
+	if got := strings.Join(vals, "|"); !strings.HasSuffix(got, "∷ 3|∷ 5|∷ 3|∷ 5|∷ [5 5]|∷ true") {
+		t.Fatalf("match-form counts 3, 5, clause-twin counts 3, 5 and parity [5 5], true expected at the end, got %q", got)
 	}
 }
 

@@ -16,8 +16,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/joergreinhardt/gatwd/collections"
 
@@ -55,6 +57,12 @@ type Interpreter struct {
 	EnableBuiltins bool          // Whether Go std builtins are active
 	// exec is the execution policy and context, shared with every fork (see policy.go).
 	exec *execState
+	// clauses records clause-style definition groups (see clausedef.go).
+	clauses *clauseState
+	// stmtLine is the script line of the statement being evaluated (0 outside a script), for error positions.
+	stmtLine int
+	// stmtText is the whole statement being evaluated, so a pointer into a fragment (the body of a let) can be shown in place.
+	stmtText string
 	// Out receives the printed result of every top-level statement; nil means os.Stdout.
 	Out io.Writer
 	// Clock is the clock the `now` step reads; nil means time.Now. It is the one injection
@@ -455,9 +463,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				// as `map (\x -> …)`) is a pipeline step, not an expression value.
 				if probe, err := parser.EvalInfixString(stepStr, lookup); err == nil && !functions.IsCallable(probe) {
 					rawStep := stepStr
+					// The probe already evaluated the expression; the first run reuses that
+					// value, so a recursive call inside it is not evaluated twice per level.
+					var probed atomic.Pointer[any]
+					probed.Store(&probe)
 					infixStep := func(stream iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]]) iter.Seq[dsltypes.ASTNode[functions.Either[error, any]]] {
 						return func(yield func(dsltypes.ASTNode[functions.Either[error, any]]) bool) {
-							v, err := parser.EvalInfixString(rawStep, lookup)
+							var v any
+							err := error(nil)
+							if pv := probed.Swap(nil); pv != nil {
+								v = *pv
+							} else {
+								v, err = parser.EvalInfixString(rawStep, lookup)
+							}
 							if err == nil {
 								wrapped := functions.Right[error, any](v)
 								flag := i.Parser.GetFlag("Int")
@@ -947,6 +965,21 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			filename := strings.TrimSpace(stepStr[11:])
 			adapter := adapters.WriteFile(filename, true)
 			pipeline = append(pipeline, i.gated(CapFS, "append_file", evaluator.StepAdapter(adapter)))
+		} else if stepStr == "env_get" || strings.HasPrefix(stepStr, "env_get ") {
+			// env_get NAME replaces each value with Maybe String of that environment variable.
+			// Reading the process environment is the env capability; a name that is not set is
+			// Nothing, never an empty string, and an empty name is an error.
+			handler := ArgStep("env_get", func(name string, _ any) (any, error) {
+				if name == "" {
+					return nil, fmt.Errorf("env_get needs a variable name (env_get HOME)")
+				}
+				if v, ok := os.LookupEnv(name); ok {
+					return functions.Just[any](v), nil
+				}
+				return functions.Nothing[any](), nil
+			})
+			step, _ := handler(stepStr, i)
+			pipeline = append(pipeline, i.gated(CapEnv, "env_get", step))
 		} else if stepStr == "route" {
 			pipeline = append(pipeline, evaluator.StepRoute(i.Engine))
 		} else if stepStr == "build_bst" {
@@ -1102,8 +1135,9 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 			inner := strings.TrimSpace(stepStr[7 : len(stepStr)-1])
 			casesStr := splitCasesAware(inner)
 			type matchCase struct {
-				pat armPattern
-				cmd string
+				pat   armPattern
+				guard string // optional `if cond` after the pattern; "" when absent
+				cmd   string
 			}
 			var cases []matchCase
 			var buildErr error
@@ -1116,15 +1150,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 				parsed := false
 				for res := range matchCaseParser(c) {
 					parsed = true
-					pat, err := compileArmPattern(res.Fst.Fst)
+					patText, guard, hasGuard := splitArmGuard(res.Fst.Fst)
+					pat, err := compileArmPattern(patText)
 					cmd := strings.TrimSpace(res.Fst.Snd)
+					if err == nil && hasGuard && guard == "" {
+						err = fmt.Errorf("match: the guard of pattern %q has no condition", pat.text)
+					}
 					if err == nil && cmd == "" {
 						err = fmt.Errorf("match: the arm for pattern %q has no body", pat.text)
 					}
 					if err != nil && buildErr == nil {
 						buildErr = err
 					}
-					cases = append(cases, matchCase{pat: pat, cmd: cmd})
+					cases = append(cases, matchCase{pat: pat, guard: guard, cmd: cmd})
 					break
 				}
 				if !parsed && buildErr == nil {
@@ -1154,6 +1192,19 @@ func (i *Interpreter) parsePipelineSteps(parts []string) []evaluator.PipelineSte
 							scope, ok := i.matchArm(mc.pat, val, node.DSLType)
 							if !ok {
 								continue
+							}
+							if mc.guard != "" {
+								pass, gerr := scope.evalGuard(mc.guard, node)
+								if gerr != nil {
+									if !yield(evaluator.InjectError[any](fmt.Errorf("match: guard of arm %q: %w", mc.pat.text, gerr), node.DSLType)) {
+										return
+									}
+									matched = true
+									break
+								}
+								if !pass {
+									continue
+								}
 							}
 							matched = true
 							adapter := scope.pipelineToAdapter(mc.cmd)
@@ -1896,6 +1947,11 @@ func (i *Interpreter) EvaluateToValues(line string) []any {
 	if line == "" {
 		return nil
 	}
+	rewritten, err := i.rewriteLine(line)
+	if err != nil {
+		return []any{err}
+	}
+	line = rewritten
 	// A comprehension with a guard but no generator is an error wherever it sits in the
 	// statement; the let/def/lambda paths below would otherwise swallow it as text.
 	if err := parser.CheckComprehensions(line); err != nil {
@@ -2125,9 +2181,49 @@ func (i *Interpreter) explainSilentStatement(line string, parts []string) error 
 		}
 	}
 	if _, err := parser.EvalInfixString(line, i.graphLookup(nil)); err != nil {
-		return fmt.Errorf("cannot evaluate %q: %w", line, err)
+		return fmt.Errorf("cannot evaluate %q: %w%s", line, err, i.errorPointer(line, err))
 	}
 	return nil
+}
+
+// errorPointer renders the F1 position block appended below a syntax error: the script line (when the statement
+// came from a script), the 1-based column of the offending token and a caret under it. The infix parser names the
+// token but not its offset, so the column is the first occurrence of that token (the end of the statement when the
+// input ended early). It returns "" when there is nothing useful to add.
+func (i *Interpreter) errorPointer(line string, err error) string {
+	msg := err.Error()
+	col := len(line)
+	var pe *parser.PosError
+	if errors.As(err, &pe) && pe.Input != "" {
+		// the exact offset the lexer or parser reported, inside the text it was handed
+		if base := strings.Index(line, pe.Input); base >= 0 {
+			rs := []rune(pe.Input)
+			if pe.Pos <= len(rs) {
+				return i.pointerAt(line, base+len(string(rs[:pe.Pos])))
+			}
+		}
+	}
+	if k := strings.LastIndex(msg, ": "); k >= 0 {
+		if tok := strings.TrimSpace(msg[k+2:]); tok != "" {
+			if at := strings.Index(line, tok); at >= 0 {
+				col = at
+			}
+		}
+	}
+	return i.pointerAt(line, col)
+}
+
+// pointerAt renders the position block for a byte offset col into line.
+func (i *Interpreter) pointerAt(line string, col int) string {
+	if at := strings.Index(i.stmtText, line); i.stmtLine > 0 && at >= 0 && i.stmtText != line {
+		line, col = i.stmtText, col+at
+	}
+	cols := utf8.RuneCountInString(line[:col])
+	where := fmt.Sprintf("column %d", cols+1)
+	if i.stmtLine > 0 {
+		where = fmt.Sprintf("line %d, column %d", i.stmtLine, cols+1)
+	}
+	return fmt.Sprintf("\n  at %s:\n    %s\n    %s^", where, line, strings.Repeat(" ", cols))
 }
 
 // RegisterConstant binds a native Go constant into the DSL environment.
@@ -2158,6 +2254,15 @@ func (i *Interpreter) RegisterType(definition string, factory func(string) any) 
 }
 
 func (i *Interpreter) EvaluateLine(line string) {
+	if rewritten, err := i.rewriteLine(line); err != nil {
+		fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
+		return
+	} else {
+		line = rewritten
+	}
+	if i.tryClauseDef(strings.TrimSpace(line)) {
+		return
+	}
 	// See EvaluateToValues: `[ e | guard ]` has no generator and must not become text.
 	if err := parser.CheckComprehensions(line); err != nil && !strings.HasPrefix(strings.TrimSpace(line), "--") {
 		fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
@@ -2328,9 +2433,15 @@ func (i *Interpreter) EvaluateLine(line string) {
 		parts := strings.SplitN(line[4:], "=", 2)
 		if len(parts) == 2 {
 			funcName, _ := splitDefHead(parts[0]) // optional `: type` annotation is advisory only
+			if !isDefName(funcName) {
+				fmt.Fprintf(i.out(), "∷ [ERROR] cannot define %q: `def NAME = body` takes a plain name before `=`; a pattern or parameter list is not supported (write `def NAME = \\x y -> …` or `def NAME = match { pat -> body | … }`)\n", strings.TrimSpace(parts[0]))
+				return
+			}
 			pipelineStr := strings.TrimSpace(parts[1])
 			i.Funcs[funcName] = pipelineStr
 			i.invalidateCompiledCache()
+		} else {
+			fmt.Fprintf(i.out(), "∷ [ERROR] cannot define %q: a `def` needs `=` and a body\n", strings.TrimSpace(line[4:]))
 		}
 		return
 	}
@@ -2360,12 +2471,16 @@ func (i *Interpreter) LoadScriptContent(content string, baseDir string) {
 // relative to baseDir) instead of the OS filesystem, so a multi-file prelude
 // embedded with //go:embed can import its sibling modules.
 func (i *Interpreter) loadScriptContent(content string, baseDir string, fsys fs.FS) {
+	saved := i.stmtLine
+	defer func() { i.stmtLine = saved }()
 	for _, stmt := range logicalLines(content) {
 		if err := i.exec.cancelled(); err != nil {
 			fmt.Fprintf(i.out(), "∷ [ERROR] %v\n", err)
 			return
 		}
 		buffer := stmt.text
+		i.stmtLine = stmt.num
+		i.stmtText = stmt.text
 		// Module Imports
 		if strings.HasPrefix(buffer, "import ") {
 			importFile := strings.Trim(strings.TrimSpace(buffer[7:]), "\"")
@@ -2472,6 +2587,13 @@ func logicalLines(content string) []logicalLine {
 			continue
 		}
 
+		// A line that starts with a pipe, `++` or `<+>` can never begin a statement: it continues the previous one.
+		if buffer == "" && len(out) > 0 && startsContinuation(line) {
+			last := out[len(out)-1]
+			out = out[:len(out)-1]
+			buffer, startNum = last.text, last.num
+		}
+
 		if buffer != "" {
 			if unterminatedString(buffer) {
 				buffer += "\n" + rawLine
@@ -2490,6 +2612,7 @@ func logicalLines(content string) []logicalLine {
 			strings.HasSuffix(buffer, " let") ||
 			strings.HasSuffix(buffer, " in") ||
 			strings.HasSuffix(buffer, "\\") ||
+			endsContinuation(buffer) ||
 			scanLine(buffer).open() {
 			continue // Wait for next line
 		}
@@ -2852,7 +2975,16 @@ func (i *Interpreter) graphLookup(binds map[string]any) func(string) (any, bool)
 //     in `match` arms is unaffected — that path is handled by the match evaluator, not
 //     by this expression lookup.
 func (i *Interpreter) exprFallback(name string) (any, bool) {
+	if name == functions.InterruptName {
+		if i.exec == nil {
+			return nil, false
+		}
+		return i.exec.interrupter(), true
+	}
 	if c, ok := i.defClosure(name); ok {
+		return c, true
+	}
+	if c, ok := i.matchDefClosure(name); ok {
 		return c, true
 	}
 	if v, ok := dslBuiltinLookup(name); ok {
@@ -3096,4 +3228,45 @@ func hamtStepKey(token string) string {
 		return strings.Trim(token, "\"")
 	}
 	return key
+}
+
+// isDefName reports whether name is a plain identifier, the only thing that may
+// stand left of `=` in a `def`.
+func isDefName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for n, r := range name {
+		if r == '_' || unicode.IsLetter(r) || (n > 0 && unicode.IsDigit(r)) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// continuationSuffixes end a physical line that cannot end a statement: a lambda arrow, a comma or a binary
+// operator (the Go/Kotlin rule). Longer spellings come first only for readability; every one is a suffix test.
+var continuationSuffixes = []string{"->", ",", "<+>", "++", "//", "**", "==", "!=", "<=", ">=", "&&", "||", "+", "*", "/", "%", "<", ">"}
+
+// continuationPrefixes begin a physical line that cannot start a statement.
+var continuationPrefixes = []string{"|", "++", "<+>"}
+
+func endsContinuation(buffer string) bool {
+	for _, s := range continuationSuffixes {
+		if strings.HasSuffix(buffer, s) {
+			return true
+		}
+	}
+	// a trailing `-` is deliberately not a continuation: `assert -` compares against the text "-"
+	return false
+}
+
+func startsContinuation(line string) bool {
+	for _, p := range continuationPrefixes {
+		if strings.HasPrefix(line, p) {
+			return true
+		}
+	}
+	return false
 }

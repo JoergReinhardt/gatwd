@@ -17,6 +17,7 @@ definition of done as the acceptance test. Always finish with the verification g
 | [`add-dsl-relation-or-rule.md`](add-dsl-relation-or-rule.md) | a new graph relation, compliance rule or ingest in a domain prelude |
 | [`mint-edition-appliance.md`](mint-edition-appliance.md) | a new domain tool: adapter → shim → prelude → Edition/Appliance |
 | [`investigate-performance.md`](investigate-performance.md) | something is slow or scales badly |
+| [`maintain-language-spec-and-editors.md`](maintain-language-spec-and-editors.md) | syntax, keyword, step, builtin or snippet changed: spec → generator → editors/tokens |
 | [`phase-handoff.md`](phase-handoff.md) | a context is ending mid-project and a fresh one must continue |
 | [`sync-documentation.md`](sync-documentation.md) | after a feature lands, or before a release |
 | [`review-against-mandates.md`](review-against-mandates.md) | reviewing a diff (your own or someone else's) |

@@ -9,7 +9,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/joergreinhardt/gatwd/pkg/cli"
 	"github.com/joergreinhardt/gatwd/pkg/k8sgraph"
@@ -89,11 +92,11 @@ func TestRolloutStatusReadsOnlyAndNeedsNoCapability(t *testing.T) {
 	}
 	// a kind with no status, a missing object, a malformed id: errors, never "complete"
 	for line, want := range map[string]string{
-		on("StatefulSet/default/db", "k8s_rollout_status"):   "does not support StatefulSet",
-		on("Deployment/default/ghost", "k8s_rollout_status"): "not found",
-		on("web", "k8s_rollout_status"):                      "is not a workload id",
-		on("Service/default/web", "k8s_rollout_status"):      "is not a workload kind",
-		on("Deployment/default/web", "k8s_rollout_status 3"): "takes no argument",
+		on("ReplicaSet/default/web-ccc", "k8s_rollout_status"): "does not support ReplicaSet",
+		on("Deployment/default/ghost", "k8s_rollout_status"):   "not found",
+		on("web", "k8s_rollout_status"):                        "is not a workload id",
+		on("Service/default/web", "k8s_rollout_status"):        "is not a workload kind",
+		on("Deployment/default/web", "k8s_rollout_status 3"):   "takes no argument",
 	} {
 		g := r.records(t, line)
 		if len(g) != 1 || !strings.HasPrefix(g[0], "[ERROR]") || !strings.Contains(g[0], want) {
@@ -326,7 +329,9 @@ func TestRolloutUndo(t *testing.T) {
 		on(id, "k8s_rollout_undo -1"):                       "must not be negative",
 		on("Deployment/default/slow", "k8s_rollout_undo"):   "no previous revision",
 		on("Deployment/default/halted", "k8s_rollout_undo"): "is paused",
-		on("StatefulSet/default/db", "k8s_rollout_undo"):    "does not support StatefulSet",
+		on("StatefulSet/default/db", "k8s_rollout_undo 9"):  "revision 9 not found", // owned by another StatefulSet
+		on("StatefulSet/default/db", "k8s_rollout_pause"):   "does not support StatefulSet",
+		on("DaemonSet/default/agent", "k8s_rollout_resume"): "does not support DaemonSet",
 	} {
 		g := r.records(t, line)
 		if len(g) != 1 || !strings.HasPrefix(g[0], "[ERROR]") || !strings.Contains(g[0], want) {
@@ -336,6 +341,43 @@ func TestRolloutUndo(t *testing.T) {
 	// a ReplicaSet of another Deployment (revision 9, image evil:9) is never a candidate
 	if r.image(t, "web") == "evil:9" {
 		t.Fatal("undo adopted a ReplicaSet the Deployment does not own")
+	}
+	r.onlyReadsAndPatches(t)
+}
+
+// StatefulSets and DaemonSets keep their history in ControllerRevisions, whose data is a
+// strategic patch carrying spec.template ($patch: replace).
+func TestRolloutUndoStatefulSetAndDaemonSet(t *testing.T) {
+	r := newRolloutRig(t, true, true)
+	image := func(kind, name string) string {
+		gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: strings.ToLower(kind) + "s"}
+		obj, err := r.client.Tracker().Get(gvr, "default", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cs, _, _ := unstructured.NestedSlice(obj.(*unstructured.Unstructured).Object, "spec", "template", "spec", "containers")
+		return cs[0].(map[string]any)["image"].(string)
+	}
+	db, agent := "StatefulSet/default/db", "DaemonSet/default/agent"
+	wantRecords(t, r.records(t, on(db, "k8s_rollout_undo")), []string{"rollout-undo " + db + " rolled-back:2"})
+	if got := image("StatefulSet", "db"); got != "db:2" {
+		t.Fatalf("db image after undo = %s", got)
+	}
+	ps := r.patches()
+	if len(ps) != 1 || ps[0].GetPatchType() != types.JSONPatchType || strings.Contains(string(ps[0].GetPatch()), "$patch") {
+		t.Fatalf("undo must be one JSON patch without the $patch directive: %s", ps[0].GetPatch())
+	}
+	wantRecords(t, r.records(t, on(db, "k8s_rollout_undo 1")), []string{"rollout-undo " + db + " rolled-back:1"})
+	if got := image("StatefulSet", "db"); got != "db:1" {
+		t.Fatalf("db image after undo 1 = %s", got)
+	}
+	wantRecords(t, r.records(t, on(db, "k8s_rollout_undo 1")), []string{"rollout-undo " + db + " unchanged"})
+	wantRecords(t, r.records(t, on(agent, "k8s_rollout_undo")), []string{"rollout-undo " + agent + " rolled-back:1"})
+	if got := image("DaemonSet", "agent"); got != "agent:1" {
+		t.Fatalf("agent image after undo = %s", got)
+	}
+	if got := image("StatefulSet", "db"); got == "evil:9" {
+		t.Fatal("undo adopted a ControllerRevision of another StatefulSet")
 	}
 	r.onlyReadsAndPatches(t)
 }
@@ -395,6 +437,63 @@ func TestHowToRolloutSamplesMatchTheFakeCluster(t *testing.T) {
 			if g := real.records(t, on("Deployment/default/web", row.step)); !strings.HasSuffix(g[0], " "+row.real) {
 				t.Errorf("%s persisted = %q, want outcome %q", row.step, g, row.real)
 			}
+		}
+	}
+}
+
+// ---- F4: status of StatefulSet and DaemonSet, and rollout wait ----
+
+func TestRolloutStatusStatefulSetAndDaemonSet(t *testing.T) {
+	r := newRolloutRig(t, false, true)
+	wantRecords(t, r.records(t, on("StatefulSet/default/db", "k8s_rollout_status")),
+		[]string{"rollout-status StatefulSet/default/db progressing: 0 of 1 replicas are ready"})
+	wantRecords(t, r.records(t, on("DaemonSet/default/agent", "k8s_rollout_status")),
+		[]string{"rollout-status DaemonSet/default/agent complete"})
+	r.onlyReadsAndPatches(t)
+}
+
+func TestRolloutWaitWatchesUntilComplete(t *testing.T) {
+	r := newRolloutRig(t, false, true)
+	fw := watch.NewFake()
+	r.client.PrependWatchReactor("statefulsets", func(k8stesting.Action) (bool, watch.Interface, error) {
+		go func() {
+			ready := func(n int64) *unstructured.Unstructured {
+				o := &unstructured.Unstructured{Object: map[string]any{
+					"spec":   map[string]any{"replicas": int64(2)},
+					"status": map[string]any{"readyReplicas": n, "updatedReplicas": n, "currentRevision": "r1", "updateRevision": "r1"},
+				}}
+				return o
+			}
+			fw.Modify(ready(1))
+			fw.Modify(ready(2))
+		}()
+		return true, fw, nil
+	})
+	got := r.records(t, on("StatefulSet/default/db", "k8s_rollout_wait 30"))
+	wantRecords(t, got, []string{"rollout-status StatefulSet/default/db complete"})
+	for _, v := range r.verbs() {
+		if !slices.Contains([]string{"get", "list", "watch"}, v) {
+			t.Fatalf("rollout wait sent a %q request; it only reads (%v)", v, r.verbs())
+		}
+	}
+}
+
+func TestRolloutWaitTimesOutNamingTheLastStatus(t *testing.T) {
+	r := newRolloutRig(t, false, true)
+	r.client.PrependWatchReactor("statefulsets", func(k8stesting.Action) (bool, watch.Interface, error) {
+		return true, watch.NewFake(), nil // never delivers an event
+	})
+	g := r.records(t, on("StatefulSet/default/db", "k8s_rollout_wait 1"))
+	if len(g) != 1 || !strings.Contains(g[0], "[ERROR]") || !strings.Contains(g[0], "last status: progressing: 0 of 1 replicas are ready") {
+		t.Fatalf("got %q", g)
+	}
+	for line, want := range map[string]string{
+		on("StatefulSet/default/db", "k8s_rollout_wait x"): "number of seconds",
+		on("StatefulSet/default/db", "k8s_rollout_wait 0"): "positive",
+		on("Deployment/default/ghost", "k8s_rollout_wait"): "not found",
+	} {
+		if g := r.records(t, line); len(g) != 1 || !strings.Contains(g[0], want) {
+			t.Errorf("%s = %q, want %q", line, g, want)
 		}
 	}
 }

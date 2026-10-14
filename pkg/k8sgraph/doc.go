@@ -55,7 +55,7 @@
 //
 // ApplyEdition also registers the WRITE steps (write.go): `k8s_apply` (server-side
 // apply) and the rollout family `k8s_rollout_restart|undo|pause|resume`, `k8s_scale`
-// and the read-only `k8s_rollout_status`. They are denied by default, in three
+// and the read-only `k8s_rollout_status` and `k8s_rollout_wait`. They are denied by default, in three
 // independent layers: the capability policy (cli.CapClusterApply and
 // cli.CapClusterRollout, which not even cli.TrustedPolicy grants, opted in with
 // --allow-cluster-apply / --allow-cluster-rollout), server dry run as the default

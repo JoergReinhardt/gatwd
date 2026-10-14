@@ -39,7 +39,10 @@ func Expect[A any](p Combinator[A], expected string, tracker *SyntaxErrorTracker
 	}
 }
 
-// FormatError pretty-prints an Elm/Rust style syntax error pointer!
+// FormatError pretty-prints an Elm/Rust style syntax error pointer.
+//
+// Superseded for the CLI by pkg/cli errorPointer, which uses exact token offsets
+// (PosError); kept for parser-only callers.
 func FormatError(originalInput string, tracker *SyntaxErrorTracker) string {
 	if tracker.Expected == "" {
 		return "Unknown Syntax Error"

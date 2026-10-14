@@ -610,7 +610,7 @@ func ParseNumberLiteral(text string) (any, bool) {
 	case strings.HasSuffix(text, "i"):
 		c, err := strconv.ParseComplex(text, 128)
 		return c, err == nil
-	case strings.Contains(text, "."):
+	case strings.Contains(text, ".") || isExponentLiteral(text):
 		f, err := strconv.ParseFloat(text, 64)
 		return f, err == nil
 	}
@@ -621,6 +621,16 @@ func ParseNumberLiteral(text string) (any, bool) {
 		return b, true
 	}
 	return nil, false
+}
+
+// isExponentLiteral reports whether text is decimal digits with an `e`/`E` exponent
+// (`1e3`, `-2E+10`); it excludes spellings ParseFloat also accepts such as "Infinity".
+func isExponentLiteral(text string) bool {
+	body := strings.TrimLeft(text, "+-")
+	if len(text)-len(body) > 1 || !strings.ContainsAny(body, "eE") {
+		return false
+	}
+	return strings.Trim(body, "0123456789.eE+-") == "" && body[0] >= '0' && body[0] <= '9'
 }
 
 // parseSignedRatioLiteral reads a ratio literal with an optional single sign.

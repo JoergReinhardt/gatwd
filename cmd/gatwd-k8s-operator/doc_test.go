@@ -112,7 +112,7 @@ func TestHowToDocSamples(t *testing.T) {
 		{name: "the layered override and its report", which: "operator",
 			args: []string{"check", "--manifests", cluster, "--rules", "examples/k8s_howto/rules.gatwd"},
 			docNeedles: []string{
-				"[[IdleDeployment Deployment/default/worker] [UnusedService Service/default/backend-svc] [MissingConfigMap Deployment/default/worker] [DatabaseWithoutCredentials Database/default/audit]]",
+				"[[IdleDeployment Deployment/default/worker this Deployment owns no ReplicaSet, so it manages no Pods] [UnusedService Service/default/backend-svc the selector of this Service matches no Pod] [MissingConfigMap Deployment/default/worker this workload references a ConfigMap that does not exist] [DatabaseWithoutCredentials Database/default/audit]]",
 				"rules: overridden: compliance",
 				"rules: added: infra_graph, rel_hosted_on, rel_uses_database, rule_database_without_credentials, secret_target",
 			}},
@@ -134,7 +134,7 @@ func TestHowToDocSamples(t *testing.T) {
 		{name: "the json report", which: "operator",
 			args: []string{"check", "--manifests", cluster, "--format", "json"},
 			docNeedles: []string{
-				`{"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker"},`,
+				`{"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker","message":"this Deployment owns no ReplicaSet, so it manages no Pods"},`,
 				`"errors":[],"diagnostics":[]}`,
 			}},
 		{name: "exit 3 for violations under --fail-on-violation", which: "operator", code: 3,

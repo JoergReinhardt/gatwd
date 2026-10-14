@@ -107,6 +107,9 @@ func encodeJSON(b *strings.Builder, v any, path string) error {
 		str(fmt.Sprint(x))
 	case *big.Int:
 		b.WriteString(x.String())
+	case *functions.Ratio:
+		// the exact literal as a String ("3r4"), never a lossy float; the decoders leave it text
+		str(x.String())
 	case float32, float64:
 		f, _ := functions.ToFloat64(x)
 		if math.IsNaN(f) || math.IsInf(f, 0) {

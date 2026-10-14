@@ -119,3 +119,18 @@ func TestJSONReportUnencodableFindingIsADiagnostic(t *testing.T) {
 		t.Fatalf("an unencodable finding must be reported, not dropped: %s", line)
 	}
 }
+
+// F5: a finding may carry a third element, the human message; two-element findings are unchanged.
+func TestJSONReportFindingMessage(t *testing.T) {
+	var buf bytes.Buffer
+	classify([]any{[]any{[]any{"A", "Pod/x", "has no owner"}, []any{"B", "Pod/y"}}}).writeJSON(&buf)
+	want := `"violations":[{"rule":"A","resource":"Pod/x","message":"has no owner"},{"rule":"B","resource":"Pod/y"}]`
+	if !strings.Contains(buf.String(), want) {
+		t.Fatalf("got %s, want it to contain %s", buf.String(), want)
+	}
+	buf.Reset()
+	classify([]any{[]any{[]any{"A", "Pod/x", 3}}}).writeJSON(&buf)
+	if !strings.Contains(buf.String(), `"status":"error"`) || !strings.Contains(buf.String(), "message (third element)") {
+		t.Fatalf("a non-String message must be an error, got %s", buf.String())
+	}
+}

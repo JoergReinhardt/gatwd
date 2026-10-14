@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -1114,6 +1115,7 @@ func CheckScript(content string) []Diagnostic {
 	}
 
 	var diags []Diagnostic
+	diags = append(diags, checkClauseDefs(checkParser, stmts)...)
 	tc := &typeChecker{defs: tyScope{}, aliases: aliases, ctors: checkParser.IsConstructor, seen: map[string]bool{}}
 	for _, stmt := range stmts {
 		line := stmt.text
@@ -1122,6 +1124,14 @@ func CheckScript(content string) []Diagnostic {
 		}
 		warn := func(msg string) {
 			diags = append(diags, Diagnostic{Line: stmt.num, Col: 1, Severity: "warning", Msg: msg})
+		}
+		if rewritten, err := rewritePatternLambdas(line, checkParser.IsConstructor, func(_, def string) {
+			checkExhaustiveMatch(checkParser, def, warn)
+		}); err != nil {
+			report(1, err.Error())
+			continue
+		} else {
+			line = rewritten
 		}
 		checkExhaustiveMatch(checkParser, line, warn)
 		if strings.Contains(line, ":=") && !strings.Contains(line, "ebnf_parse") {
@@ -1146,6 +1156,12 @@ func CheckScript(content string) []Diagnostic {
 			report(len(line)-1, "pipeline ends with '|>' but has no following stage")
 			structural = true
 		}
+		if !structural && !hasErrorOn(diags, stmt.num) {
+			if col, msg := expressionSyntaxError(line); msg != "" {
+				report(col, msg)
+				structural = true
+			}
+		}
 		if !structural {
 			tc.warnLine = func(msg string) { warn(msg) }
 			tc.seen = map[string]bool{}
@@ -1153,4 +1169,101 @@ func CheckScript(content string) []Diagnostic {
 		}
 	}
 	return diags
+}
+
+// checkClauseDefs applies the clause-definition rules (see clausedef.go) statically, so that
+// `gatwd --check` and evaluation agree: the consecutive clauses of one name are one function,
+// which must have a single arity, must not be interrupted by another statement, and is
+// checked for exhaustiveness as the `match` it desugars to (a final catch-all silences it).
+func checkClauseDefs(p *parser.Parser, stmts []logicalLine) []Diagnostic {
+	var diags []Diagnostic
+	type group struct {
+		line, arity int
+		arms        []string
+	}
+	groups := map[string]*group{}
+	var open *group
+	var openName string
+	flush := func() {
+		if open != nil {
+			checkExhaustiveMatch(p, "def "+openName+" = match { "+strings.Join(open.arms, " | ")+" }", func(msg string) {
+				diags = append(diags, Diagnostic{Line: open.line, Col: 1, Severity: "warning", Msg: msg})
+			})
+		}
+		open, openName = nil, ""
+	}
+	for _, stmt := range stmts {
+		name, pats, guard, body, ok := splitClause(stmt.text)
+		if !ok {
+			flush()
+			continue
+		}
+		fail := func(msg string) {
+			diags = append(diags, Diagnostic{Line: stmt.num, Col: 1, Severity: "error", Msg: "def " + name + ": " + msg})
+		}
+		g, exists := groups[name]
+		switch {
+		case body == "":
+			fail("a clause needs a body after `=`")
+			continue
+		case exists && open != g:
+			fail(fmt.Sprintf("clauses of %q must be consecutive (first defined on line %d)", name, g.line))
+			continue
+		case exists && g.arity != len(pats):
+			fail(fmt.Sprintf("clause has %d parameter(s) but earlier clauses of %q have %d", len(pats), name, g.arity))
+			continue
+		case !exists:
+			flush()
+			g = &group{line: stmt.num, arity: len(pats)}
+			groups[name], open, openName = g, g, name
+		}
+		pat := pats[0]
+		if len(pats) > 1 {
+			pat = "[" + strings.Join(pats, ", ") + "]"
+		}
+		if guard != "" {
+			pat += " if " + guard
+		}
+		g.arms = append(g.arms, pat+" -> "+body)
+	}
+	flush()
+	return diags
+}
+
+// expressionSyntaxError reports the position and message of a syntax error in a statement that is
+// always a pure infix expression: a lambda definition (`def f = \x -> …`) or a statement that
+// starts like an arithmetic expression. Pipelines and commands are left to the evaluator, since
+// their steps are not infix syntax. The column is 1-based within the statement.
+func expressionSyntaxError(line string) (int, string) {
+	expr, base := line, 0
+	if strings.HasPrefix(line, "def ") || strings.HasPrefix(line, "const ") {
+		eq := strings.Index(line, "=")
+		rhs := strings.TrimSpace(line[eq+1:])
+		if eq < 0 || !strings.HasPrefix(rhs, "\\") || strings.Contains(rhs, "|>") {
+			return 0, ""
+		}
+		expr, base = rhs, strings.LastIndex(line, rhs)
+	} else if line == "" || !(line[0] >= '0' && line[0] <= '9') || strings.Contains(line, "|>") {
+		return 0, ""
+	}
+	_, err := parser.ParseInfixExpr(expr)
+	if err == nil {
+		return 0, ""
+	}
+	col := 1
+	var pe *parser.PosError
+	if errors.As(err, &pe) {
+		col = base + len(string([]rune(expr)[:pe.Pos])) + 1
+	}
+	return col, err.Error()
+}
+
+// hasErrorOn reports whether diags already holds an error for the given line.
+func hasErrorOn(diags []Diagnostic, line int) bool {
+	for _, d := range diags {
+		if d.Line == line && d.Severity == "error" {
+			return true
+		}
+	}
+	return false
 }

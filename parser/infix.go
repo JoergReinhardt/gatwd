@@ -49,21 +49,60 @@ type TokenItem struct {
 	// a negative argument rather than a subtraction, the rule Elm uses. `a - 3`, `a-3`
 	// and `a- 3` stay subtractions.
 	Tight bool
+	// Pos is the rune offset of the token's first character in the lexed input.
+	Pos int
 }
+
+// PosError is a syntax error with the rune offset in Input where it was detected. Its message
+// is the wrapped error's, unchanged, so callers that match on the text keep working; callers
+// that render a pointer read Pos and Input through errors.As.
+type PosError struct {
+	Err   error
+	Input string
+	Pos   int
+}
+
+// Error returns the wrapped message.
+func (e *PosError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the wrapped error to errors.Is and errors.As.
+func (e *PosError) Unwrap() error { return e.Err }
 
 // TokenizeInfix splits an expression string into tokens.
 func TokenizeInfix(input string) ([]TokenItem, error) {
-	var tokens []TokenItem
+	tokens, at, err := tokenizeInfix(input)
+	if err != nil {
+		return nil, &PosError{Err: err, Input: input, Pos: at}
+	}
+	return tokens, nil
+}
+
+// tokenizeInfix lexes input; on error it also returns the offset of the token being scanned.
+// Each token's Pos is stamped at the top of the next iteration, from the start recorded for it.
+func tokenizeInfix(input string) (tokens []TokenItem, at int, err error) {
 	runes := []rune(input)
 	n := len(runes)
 	i := 0
+	mark, stamped := 0, 0
+	stamp := func() {
+		for ; stamped < len(tokens); stamped++ {
+			tokens[stamped].Pos = mark
+		}
+	}
+	defer func() {
+		if err != nil {
+			at = mark
+		}
+	}()
 
 	for i < n {
+		stamp()
 		r := runes[i]
 		if unicode.IsSpace(r) {
 			i++
 			continue
 		}
+		mark = i
 
 		if r == '(' {
 			tokens = append(tokens, TokenItem{Type: TokLParen, Text: "("})
@@ -99,7 +138,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 				if runes[i] == '\\' {
 					c, last, err := lexEscape(runes, i+1, "string")
 					if err != nil {
-						return nil, err
+						return nil, 0, err
 					}
 					lit = append(lit, c)
 					i = last + 1
@@ -109,7 +148,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 				i++
 			}
 			if i >= n {
-				return nil, fmt.Errorf("unterminated string literal")
+				return nil, 0, fmt.Errorf("unterminated string literal")
 			}
 			tokens = append(tokens, TokenItem{Type: TokString, Text: string(lit)})
 			i++ // skip closing quote
@@ -120,7 +159,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		if r == '\'' {
 			c, next, err := lexCharLiteral(runes, i)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			tokens = append(tokens, TokenItem{Type: TokChar, Text: string(c)})
 			i = next
@@ -211,13 +250,36 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			for i < n && (unicode.IsDigit(runes[i]) || runes[i] == '.' || runes[i] == 'i') {
 				i++
 			}
+			// Exponent literals: `1e3`, `1.5e-3`, `2E10` are Floats. An `e` not followed by
+			// digits (optionally signed) is not an exponent (`5em`, `2e`) and is left alone.
+			if i < n && (runes[i] == 'e' || runes[i] == 'E') && !strings.ContainsRune(string(runes[start:i]), 'i') {
+				j := i + 1
+				if j < n && (runes[j] == '+' || runes[j] == '-') {
+					j++
+				}
+				if j < n && unicode.IsDigit(runes[j]) {
+					for j < n && unicode.IsDigit(runes[j]) {
+						j++
+					}
+					if j < n && (unicode.IsLetter(runes[j]) || runes[j] == '_' || runes[j] == '.') {
+						return nil, 0, fmt.Errorf("malformed number %q: unexpected %q after the exponent", string(runes[start:j+1]), runes[j])
+					}
+					text := string(runes[start:j])
+					if _, ok := functions.ParseNumberLiteral(text); !ok {
+						return nil, 0, fmt.Errorf("number %q is out of range or malformed (a float literal must fit in 64 bits)", text)
+					}
+					tokens = append(tokens, TokenItem{Type: TokNumber, Text: text})
+					i = j
+					continue
+				}
+			}
 			// Ratio literals: `3r4` (numerator r denominator) and the exact decimal `0.75r`.
 			if i < n && runes[i] == 'r' && !strings.HasSuffix(string(runes[start:i]), "i") {
 				end, isRatio := scanRatioSuffix(runes, start, i)
 				if isRatio {
 					text := string(runes[start:end])
 					if _, err := functions.ParseRatioLiteral(strings.TrimLeft(text, "+")); err != nil {
-						return nil, err
+						return nil, 0, err
 					}
 					tokens = append(tokens, TokenItem{Type: TokNumber, Text: text})
 					i = end
@@ -229,7 +291,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 				end := scanDurationExtent(runes, i)
 				text := string(runes[start:end])
 				if _, err := functions.ParseDuration(strings.TrimLeft(text, "+")); err != nil {
-					return nil, err
+					return nil, 0, err
 				}
 				tokens = append(tokens, TokenItem{Type: TokDuration, Text: text})
 				i = end
@@ -243,7 +305,7 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 		if r == '@' {
 			tok, next, err := lexTemporalLiteral(runes, i)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			tokens = append(tokens, tok)
 			i = next
@@ -260,11 +322,13 @@ func TokenizeInfix(input string) ([]TokenItem, error) {
 			continue
 		}
 
-		return nil, fmt.Errorf("unexpected character in infix expression: %c", r)
+		return nil, 0, fmt.Errorf("unexpected character in infix expression: %c", r)
 	}
 
-	tokens = append(tokens, TokenItem{Type: TokEOF, Text: ""})
-	return tokens, nil
+	stamp()
+	mark = n
+	tokens = append(tokens, TokenItem{Type: TokEOF, Text: "", Pos: n})
+	return tokens, 0, nil
 }
 
 // scanRatioSuffix decides whether the number scanned in runes[start:r] (where runes[r] is
@@ -938,7 +1002,18 @@ type LambdaExpr struct {
 // Eval returns the Closure for this lambda over the given defining environment.
 func (e LambdaExpr) Eval(lookup func(string) (any, bool)) (any, error) {
 	params, body := e.Params, e.Body
+	var intr functions.Interrupter
+	if lookup != nil {
+		if v, ok := lookup(functions.InterruptName); ok {
+			intr, _ = v.(functions.Interrupter)
+		}
+	}
 	return functions.NewClosure(params, func(args []any) (any, error) {
+		if intr != nil {
+			if err := intr.Interrupted(); err != nil {
+				return nil, err
+			}
+		}
 		return body.Eval(func(name string) (any, bool) {
 			for idx := len(params) - 1; idx >= 0; idx-- {
 				if params[idx] == name {
@@ -979,6 +1054,23 @@ func (p *InfixParser) peek() TokenItem {
 		return TokenItem{Type: TokEOF, Text: ""}
 	}
 	return p.tokens[p.pos]
+}
+
+// located attaches the offset of the offending token to err: the token after the last one
+// consumed, or the consumed one itself when the message names it ("unexpected token").
+func (p *InfixParser) located(input string, err error) error {
+	var pe *PosError
+	if errors.As(err, &pe) || len(p.tokens) == 0 {
+		return err
+	}
+	at := p.pos
+	if strings.HasPrefix(err.Error(), "unexpected token") && at > 0 {
+		at--
+	}
+	if at >= len(p.tokens) {
+		at = len(p.tokens) - 1
+	}
+	return &PosError{Err: err, Input: input, Pos: p.tokens[at].Pos}
 }
 
 func (p *InfixParser) next() TokenItem {
@@ -1404,10 +1496,10 @@ func ParseInfixExpr(input string) (Expr, error) {
 	p := NewInfixParser(tokens)
 	expr, err := p.ParseExpression()
 	if err != nil {
-		return nil, err
+		return nil, p.located(input, err)
 	}
 	if p.peek().Type != TokEOF {
-		return nil, fmt.Errorf("unexpected trailing tokens: %s", p.peek().Text)
+		return nil, p.located(input, fmt.Errorf("unexpected trailing tokens: %s", p.peek().Text))
 	}
 	return expr, nil
 }

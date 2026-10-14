@@ -17,8 +17,8 @@ const (
 	hangingStatement = "spawn StrVal: s |> mock_stream 40000000 |> fold sum\n"
 	ruleIdle         = "def compliance = k8s_graph |> fold (\\_ g -> rule_idle_deployment g) 0\n"
 	rulePod          = "def compliance = k8s_graph |> fold (\\_ g -> rule_unselected_pod g) 0\n"
-	idleLine         = "[[IdleDeployment Deployment/default/lonely]]"
-	podLine          = "[[UnselectedPod Pod/default/stray]]"
+	idleLine         = "[[IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]"
+	podLine          = "[[UnselectedPod Pod/default/stray no Service selects this Pod, so it receives no traffic]]"
 )
 
 // writeAtomic replaces path in one step, so the loop never reads half an override.

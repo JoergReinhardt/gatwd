@@ -4,7 +4,7 @@ This is the formal Extended Backus-Naur Form (EBNF) grammar for the `gatwd` Doma
 
 ```ebnf
 Program        ::= { Statement }
-Statement      ::= Import | TypeDef | FunctionDef | LetBinding | Pipeline | Comment
+Statement      ::= Import | TypeDef | ConstDef | FunctionDef | LetBinding | Pipeline | Comment
 Comment        ::= "--" { ANY_CHAR } "\n"
 
 (* Modularity & Reusability *)
@@ -12,6 +12,7 @@ Import         ::= "import " StringLiteral
 FunctionDef    ::= "def " Identifier [ ":" TypeAnnotation ] "=" ( Pipeline | LambdaExpr )   (* the annotation is advisory: read by `gatwd --check`, ignored by evaluation *)
 TypeAnnotation ::= TypeAtom { "->" TypeAtom }                                  (* right-associative; "(" TypeAnnotation ")" groups *)
 TypeAtom       ::= Identifier [ "(" TypeAnnotation { "," TypeAnnotation } ")" ]
+ConstDef       ::= "const " Identifier "=" Pipeline                          (* a script-wide constant; ARG0 / ARGS are predefined *)
 LetBinding     ::= "let " Identifier "=" Pipeline " in " Pipeline
 
 (* Type Definitions (Algebraic Data Types) *)
@@ -44,7 +45,7 @@ PipelineStep   ::= OSCommand
 
 FoldOp         ::= "count" | "sum" | "product" | "min" | "max" | "concat" | "any" | "all"
                  | Lambda Atom                    (* custom left fold: fold (\acc x -> expr) seed *)
-Lambda         ::= [ "(" ] "\\" Identifier "->" Pipeline [ ")" ]
+Lambda         ::= [ "(" ] "\\" Identifier { Identifier } "->" Pipeline [ ")" ]   (* several parameters make a curried closure *)
 
 (* Error Handling & Compliance *)
                  | "expect " StringLiteral " " StringLiteral
@@ -67,16 +68,20 @@ MatchPattern   ::= Constructor                      (* registered sum-type branc
                  | "[" ElemPattern ", ..." Identifier "]"   (* head / tail: ONE head element pattern, a tail name or _ *)
                  | "[" ElemPattern { "," ElemPattern } "]" (* fixed-length list/tuple; also "(" ... ")" *)
                  | Literal                          (* equality, never substring: see below *)
+Arm            ::= MatchPattern [ "if" Expr ] "->" Expr   (* guard: false falls through to the next arm *)
+LambdaParam    ::= Identifier | MatchPattern   (* a non-identifier parameter makes the lambda a hoisted match *)
+ClauseDef      ::= "def" Identifier MatchPattern { MatchPattern } [ "if" Expr ] "=" Expr   (* consecutive same-name lines = one curried function *)
 ElemPattern    ::= "_" | Identifier | Literal       (* nested patterns are not supported yet *)
 (* A literal pattern (Number, "String", 'c', true, false, Duration, Time, Date) matches a value `v` exactly
    when `v == literal` under the language's own equality: `0` matches 0 and 0.0, never "0", '0', 10 or 20; a
    String is never a number. There is no substring matching. A value no arm matches is
-   `[ERROR] match: no arm matches <value>`; a pattern that is none of the forms above (a guard `n if n > 0`, an
+   `[ERROR] match: no arm matches <value>`; a pattern that is none of the forms above (an
    expression `1 + 2`, a nested list) is an error naming the pattern when the match is built. *)
 
 (* List Comprehensions (multi-generator, with filter guards) *)
 Comprehension  ::= "[" Expr "|" Generator { "," ( Generator | Expr ) } "]"   (* at least one Generator: `[ e | guard ]` is an error; write `[ e | _ <- [0], guard ]` *)
-Generator      ::= Pattern "<-" Expr
+Generator      ::= GenPattern "<-" Expr
+GenPattern     ::= "_" | Identifier | "[" ElemPattern { "," ElemPattern } "]"   (* binds the element, or destructures a fixed-length one *)
 
 (* Optics (Lenses) & Records *)
                  | "parse_record " { Identifier }
@@ -98,7 +103,8 @@ Segment        ::= ( Digits | Digits "." Digits ) Unit   (* only the first segme
 Unit           ::= "ns" | "us" | "µs" | "μs" | "ms" | "s" | "m" | "h" | "d" | "w"   (* d = 24 h and w = 7 d: fixed lengths, not calendar days *)
 Time           ::= "@" Digits4 "-" Digits2 "-" Digits2 "T" Digits2 ":" Digits2 ":" Digits2 [ "." Digits ] ( "Z" | ( "+" | "-" ) Digits2 ":" Digits2 )   (* RFC 3339; the zone is required; years 1..9999 *)
 Date           ::= "@" Digits4 "-" Digits2 "-" Digits2   (* ISO 8601, a real calendar day; years 1..9999 *)
-LiteralToken   ::= Number | Duration | Time | Date | Text   (* the UNQUOTED value of `const`, `emit` and `-D`: a CANONICAL literal (prints back unchanged; Duration segments have no `+`, leading or trailing zeros) is that value, any other text, `007`, `007s`, `1.50`, a quoted const, is a String; `functions.LiteralToken` *)
+LiteralToken   ::= Number | Duration | Time | Date | AnyText   (* the UNQUOTED value of `const`, `emit` and `-D`: a CANONICAL literal (prints back unchanged; Duration segments have no `+`, leading or trailing zeros) is that value, any other text, `007`, `007s`, `1.50`, a quoted const, is a String; `functions.LiteralToken` *)
+AnyText        ::= ANY_CHAR { ANY_CHAR }   (* any other unquoted text is a String *)
 Ratio          ::= Digits "r" Digits | Digits "." Digits "r"   (* 3r4 ; the exact decimal 0.75r ; 1r0 is a lex error, a bare 5r is an error *)
 PrefixOp       ::= "-" | "!"   (* in operand position: `-x`, `!ok`; `!` only when not followed by "=" ; `f -3` (space before, none after) is a negative argument *)
 BinaryOp       ::= "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "+" | "-" | "++" | "*" | "/" | "//" | "%" | "**"
@@ -110,6 +116,7 @@ CharEscape     ::= "\\" ( "n" | "t" | "r" | "0" | "\\" | "'" | "\"" | "x" HEX HE
 HEX            ::= DIGIT | "a".."f" | "A".."F"
 Integer        ::= DIGIT { DIGIT }   (* unbounded: an int64 fast path and big integers, canonical after every operation *)
 Float          ::= DIGIT { DIGIT } "." DIGIT { DIGIT }
+               | DIGIT { DIGIT } [ "." DIGIT { DIGIT } ] ( "e" | "E" ) [ "+" | "-" ] DIGIT { DIGIT }   (* 1e3  2.5E-3 are Floats; `5em` / `2e` are not exponents *)
 Complex        ::= ( Integer | Float ) "i"
 Digits         ::= DIGIT { DIGIT }
 Digits2        ::= DIGIT DIGIT

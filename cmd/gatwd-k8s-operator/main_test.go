@@ -28,8 +28,8 @@ func TestOperatorEmbeddedRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"testdata/idle.yaml":                     "[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]",
-		"../../pkg/k8sgraph/testdata/stack.yaml": "[[UnselectedPod Pod/default/other-pod]]",
+		"testdata/idle.yaml":                     "[[UnselectedPod Pod/default/stray no Service selects this Pod, so it receives no traffic] [IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]",
+		"../../pkg/k8sgraph/testdata/stack.yaml": "[[UnselectedPod Pod/default/other-pod no Service selects this Pod, so it receives no traffic]]",
 	}
 	for path, want := range cases {
 		got := violations(t, app.Execute(checkPipeline(path)))
@@ -39,7 +39,7 @@ func TestOperatorEmbeddedRules(t *testing.T) {
 	}
 }
 
-const brokenWant = "[[UnselectedPod Pod/default/orphan] [UnusedService Service/default/unused-svc] [DanglingIngress Ingress/default/front] [MissingConfigMap Pod/default/orphan] [DependencyCycle [Deployment/default/loop-a Deployment/default/loop-b]]]"
+const brokenWant = "[[UnselectedPod Pod/default/orphan no Service selects this Pod, so it receives no traffic] [UnusedService Service/default/unused-svc the selector of this Service matches no Pod] [DanglingIngress Ingress/default/front this Ingress routes to a Service that does not exist] [MissingConfigMap Pod/default/orphan this workload references a ConfigMap that does not exist] [DependencyCycle [Deployment/default/loop-a Deployment/default/loop-b] these resources own or depend on each other in a cycle]]"
 
 // TestOperatorAllRules: one fixture violating every embedded rule yields exactly the
 // expected violations, in rule order — and the compliant parts (a selector-less
@@ -92,7 +92,7 @@ func TestOperatorHotReloadsRules(t *testing.T) {
 	if err := app.Reload(); err != nil {
 		t.Fatal(err)
 	}
-	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]"}) {
+	if got := violations(t, app.Execute(checkPipeline("testdata/idle.yaml"))); !reflect.DeepEqual(got, []string{"[[UnselectedPod Pod/default/stray no Service selects this Pod, so it receives no traffic] [IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]"}) {
 		t.Fatalf("after override removal, violations = %v", got)
 	}
 }

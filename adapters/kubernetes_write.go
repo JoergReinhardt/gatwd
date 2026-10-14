@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
@@ -223,6 +224,20 @@ type writableResource interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error)
 	Apply(ctx context.Context, name string, obj *unstructured.Unstructured, opts metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error)
+}
+
+// watchableResource is the one read-only addition rollout wait needs: a Watch. It is kept out
+// of writableResource so that interface stays a write-narrowing guard.
+type watchableResource interface {
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+}
+
+// watchFor narrows the dynamic client to a watch on one resource.
+func watchFor(client dynamic.Interface, gvr schema.GroupVersionResource, namespace string) watchableResource {
+	if namespace == "" {
+		return client.Resource(gvr)
+	}
+	return client.Resource(gvr).Namespace(namespace)
 }
 
 // resourceFor narrows the dynamic client to one resource, in a namespace when the kind is

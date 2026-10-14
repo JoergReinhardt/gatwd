@@ -136,7 +136,6 @@ func TestDurationLiteralErrors(t *testing.T) {
 		{"0.1ns", "not a whole number of nanoseconds"},
 		{"9223372036854775808ns", "out of range"},
 		{"106752d", "out of range"},
-		{"1e5", "unknown duration unit"},
 		{"5_s", "unknown duration unit"},
 	} {
 		_, err := parser.EvalInfixString(tc.src, nil)

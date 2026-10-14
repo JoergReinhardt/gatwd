@@ -43,9 +43,9 @@ func operator(t *testing.T, bin string, args ...string) (int, string, string) {
 }
 
 const (
-	idleWant   = "[[UnselectedPod Pod/default/stray] [IdleDeployment Deployment/default/lonely]]\n"
-	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely"}],"errors":[],"diagnostics":[]}` + "\n"
-	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/orphan"},{"rule":"UnusedService","resource":"Service/default/unused-svc"},{"rule":"DanglingIngress","resource":"Ingress/default/front"},{"rule":"MissingConfigMap","resource":"Pod/default/orphan"},{"rule":"DependencyCycle","resource":["Deployment/default/loop-a","Deployment/default/loop-b"]}],"errors":[],"diagnostics":[]}` + "\n"
+	idleWant   = "[[UnselectedPod Pod/default/stray no Service selects this Pod, so it receives no traffic] [IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]\n"
+	idleJSON   = `{"status":"violations","count":2,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/stray","message":"no Service selects this Pod, so it receives no traffic"},{"rule":"IdleDeployment","resource":"Deployment/default/lonely","message":"this Deployment owns no ReplicaSet, so it manages no Pods"}],"errors":[],"diagnostics":[]}` + "\n"
+	brokenJSON = `{"status":"violations","count":5,"violations":[{"rule":"UnselectedPod","resource":"Pod/default/orphan","message":"no Service selects this Pod, so it receives no traffic"},{"rule":"UnusedService","resource":"Service/default/unused-svc","message":"the selector of this Service matches no Pod"},{"rule":"DanglingIngress","resource":"Ingress/default/front","message":"this Ingress routes to a Service that does not exist"},{"rule":"MissingConfigMap","resource":"Pod/default/orphan","message":"this workload references a ConfigMap that does not exist"},{"rule":"DependencyCycle","resource":["Deployment/default/loop-a","Deployment/default/loop-b"],"message":"these resources own or depend on each other in a cycle"}],"errors":[],"diagnostics":[]}` + "\n"
 )
 
 // TestOperatorCommandLine drives the real binary through every command line the how-to
@@ -73,7 +73,7 @@ func TestOperatorCommandLine(t *testing.T) {
 		{"legacy form, long flags", []string{"--manifests", "testdata/idle.yaml", "--rules", absent}, 0, idleWant, nil},
 		{"legacy single-dash flags (deprecated)", []string{"-manifests", "testdata/idle.yaml", "-rules", absent}, 0, idleWant,
 			[]string{"-manifests is deprecated; use --manifests", "-rules is deprecated; use --rules"}},
-		{"a layered override reuses an embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered}, 0, "[[IdleDeployment Deployment/default/lonely]]\n",
+		{"a layered override reuses an embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered}, 0, "[[IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]\n",
 			[]string{"layered on the embedded rules", "overridden: compliance", "added: probe"}},
 		{"replace mode cannot reach the embedded rule", []string{"check", "--manifests", "testdata/idle.yaml", "--rules", layered, "--rules-mode", "replace"}, 1, "",
 			[]string{"REPLACES"}},
@@ -260,7 +260,7 @@ func TestOperatorOverridePolicy(t *testing.T) {
 			[]string{"UnselectedPod"}, []string{"[ERROR]", "ran-at-load"}, nil},
 		{"a pure override needs no capability and is unaffected",
 			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", pure}, 0,
-			[]string{"[[IdleDeployment Deployment/default/lonely]]"}, []string{"[ERROR]"}, nil},
+			[]string{"[[IdleDeployment Deployment/default/lonely this Deployment owns no ReplicaSet, so it manages no Pods]]"}, []string{"[ERROR]"}, nil},
 		{"the embedded rules over the offline source need no capability",
 			[]string{"check", "--manifests", "testdata/idle.yaml", "--rules", filepath.Join(dir, "absent.gatwd")}, 0,
 			[]string{idleWant[:len(idleWant)-1]}, []string{"[ERROR]"}, nil},
@@ -364,11 +364,11 @@ func TestOperatorCheckLimits(t *testing.T) {
 		{"json: an output_limit diagnostic",
 			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "40", "--format", "json"}, 1,
 			`{"status":"error","count":0,"violations":[],"errors":["check output exceeded the limit of 40 bytes"],"diagnostics":[{"kind":"output_limit","message":"check output exceeded the limit of 40 bytes","limit":"40"}]}` + "\n", ""},
-		{"a limit as large as the report (79 bytes with its newline) passes",
-			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "79"}, 0, idleWant, ""},
+		{"a limit as large as the report (192 bytes with its newline) passes",
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "192"}, 0, idleWant, ""},
 		{"one byte less fails",
-			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "78"}, 1,
-			"[ERROR] check output exceeded the limit of 78 bytes\n", "the check failed"},
+			[]string{"check", "--manifests", "testdata/idle.yaml", "--max-output", "191"}, 1,
+			"[ERROR] check output exceeded the limit of 191 bytes\n", "the check failed"},
 		{"a negative timeout is a usage error",
 			[]string{"check", "--manifests", "testdata/idle.yaml", "--timeout", "-1s"}, 2, "", "--timeout must not be negative"},
 		{"a negative output limit is a usage error",

@@ -100,6 +100,9 @@ func defaultResolver() adapters.ResourceResolver {
 		adapters.DiscoveryResolver(func() (discovery.DiscoveryInterface, error) { return DiscoveryClientFromKubeconfig() }))
 }
 
+// DefaultRolloutWait is how long k8s_rollout_wait waits when no argument gives a number of seconds.
+const DefaultRolloutWait = 5 * time.Minute
+
 // writeTimeout bounds one object's round trips to the API server.
 const writeTimeout = 60 * time.Second
 
@@ -222,12 +225,13 @@ func rolloutRecordOp(a *adapters.Applier, op rolloutOp) recordOp {
 }
 
 // RolloutStepNames are the keywords of the rollout family, in documentation order.
-var RolloutStepNames = []string{"k8s_rollout_status", "k8s_rollout_restart", "k8s_rollout_undo", "k8s_rollout_pause", "k8s_rollout_resume", "k8s_scale"}
+var RolloutStepNames = []string{"k8s_rollout_status", "k8s_rollout_wait", "k8s_rollout_restart", "k8s_rollout_undo", "k8s_rollout_pause", "k8s_rollout_resume", "k8s_scale"}
 
 // RolloutSteps returns the rollout family as steps over a workload (an object payload or the
 // id `Deployment/default/web`), each yielding [verb, id, outcome]:
 //
 //	k8s_rollout_status          read-only; needs no capability, only `get`
+//	k8s_rollout_wait [SECONDS]  read-only; blocks until the rollout is complete or the seconds (default 300) pass
 //	k8s_rollout_restart         annotate the pod template with restartedAt
 //	k8s_rollout_undo [REVISION] roll back to the previous (or the given) revision
 //	k8s_rollout_pause           spec.paused = true
@@ -237,9 +241,27 @@ var RolloutStepNames = []string{"k8s_rollout_status", "k8s_rollout_restart", "k8
 // Everything but status is denied unless the policy grants cli.CapClusterRollout, and a server
 // dry run unless the write settings persist (--dry-run=false).
 func RolloutSteps(a *adapters.Applier) []cli.StepHandler {
-	status := recordStep("k8s_rollout_status", rolloutRecordOp(a, noArg("k8s_rollout_status", (*adapters.Applier).Status))) // read-only: no capability gate
+	status := recordStep("k8s_rollout_status", rolloutRecordOp(a, noArg("k8s_rollout_status", (*adapters.Applier).Status)))                                     // read-only: no capability gate
+	wait := recordStep("k8s_rollout_wait", rolloutRecordOp(a, func(a *adapters.Applier, ctx context.Context, arg string, v any) (adapters.WriteRecord, error) { // read-only: no capability gate
+		secs := int64(DefaultRolloutWait / time.Second)
+		if strings.TrimSpace(arg) != "" {
+			n, err := intArg("k8s_rollout_wait", arg, "a number of seconds (or no argument for the default)")
+			if err != nil {
+				return adapters.WriteRecord{}, err
+			}
+			if n <= 0 {
+				return adapters.WriteRecord{}, fmt.Errorf("k8s_rollout_wait needs a positive number of seconds, got %d", n)
+			}
+			secs = n
+		}
+		// a wait outlives the per-object round-trip bound of writeTimeout; it has its own
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(secs)*time.Second)
+		defer cancel()
+		return a.Wait(ctx, v)
+	}))
 	return []cli.StepHandler{
 		status,
+		wait,
 		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_restart", rolloutRecordOp(a, noArg("k8s_rollout_restart", (*adapters.Applier).Restart)))),
 		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_pause", rolloutRecordOp(a, noArg("k8s_rollout_pause", (*adapters.Applier).Pause)))),
 		cli.GatedStep(cli.CapClusterRollout, recordStep("k8s_rollout_resume", rolloutRecordOp(a, noArg("k8s_rollout_resume", (*adapters.Applier).Resume)))),

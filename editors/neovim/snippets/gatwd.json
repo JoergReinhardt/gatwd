@@ -1,11 +1,9 @@
 {
   "Canonical non-primitive recursive Ackermann function": {
     "body": [
-      "def ackermann = match {",
-      "    [0, n] -\u003e n + 1",
-      "    | [m, 0] -\u003e [m - 1, 1] |\u003e ackermann",
-      "    | [m, n] -\u003e let res = [m, n - 1] |\u003e ackermann in [m - 1, res] |\u003e ackermann",
-      "}"
+      "def ackermann 0 n = n + 1",
+      "def ackermann m 0 = ackermann (m - 1) 1",
+      "def ackermann m n = ackermann (m - 1) (ackermann m (n - 1))"
     ],
     "description": "Canonical non-primitive recursive Ackermann function",
     "prefix": "ackermann"

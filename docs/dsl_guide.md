@@ -147,14 +147,13 @@ def quicksort = match {
 spawn IntVal: 0 |> emit 5, 2, 8, 1, 9, 3 |> drop 1 |> collect_list |> quicksort |> collect_list |> assert [1 2 3 5 8 9]
 
 -- Computability Theory: Non-Primitive Recursive Ackermann Function
-def ackermann = match {
-    [0, n] -> n + 1
-    | [m, 0] -> [m - 1, 1] |> ackermann
-    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann
-}
+-- (clause definitions: one `def` per case, first match wins)
+def ackermann 0 n = n + 1
+def ackermann m 0 = ackermann (m - 1) 1
+def ackermann m n = ackermann (m - 1) (ackermann m (n - 1))
 
-[2, 2] |> ackermann |> assert 7
-[3, 2] |> ackermann |> assert 29
+ackermann 2 2 |> assert 7
+ackermann 3 2 |> assert 29
 ```
 
 ### Literal Patterns, Fall-Through and Errors
@@ -174,8 +173,39 @@ Arms are tried in order and the first match wins; put the catch-all (`_` or a va
 
 * A value that **no arm matches** yields `[ERROR] match: no arm matches <value>` (the stream continues with the next value).
 * A pattern that is none of `_`, a name, a literal, `[]`, `[h, ...t]` or a flat list/tuple of names, `_` and literals is an error naming
-  the pattern as soon as the `match` is built: a guard `n if n > 0` says *guards are not supported yet* (they are planned), an
-  expression such as `1 + 2`, a nested pattern `[[a, b], c]` and an arm without `->` are rejected the same way.
+  the pattern as soon as the `match` is built: an expression such as `1 + 2`, a nested pattern `[[a, b], c]` and an arm without `->`
+  are rejected the same way.
+
+**Guards.** `pattern if condition -> body` binds the pattern's variables, evaluates the condition (an ordinary expression, which
+must be a `Bool`; anything else is `[ERROR] match: guard of arm …`) and, when it is false, falls through to the next arm:
+`def sign = match { n if n > 0 -> 1 | 0 -> 0 | _ -> -1 }`. `gatwd --check` does not count a guarded arm as covering its pattern.
+
+**Clause-style definitions** (Haskell layout). Consecutive `def NAME <patterns> = body` lines with the same name form one curried
+closure (`add 3 4`, `map (add 1)`, partial application all work); several parameters match as a tuple, and a clause may carry a guard:
+
+```
+def fact 0 = 1
+def fact n = n * (fact (n - 1))
+def add 0 y = y
+def add x y = x + y
+def mx x y if x > y = x
+def mx x y = y
+```
+
+| Haskell | gatwd |
+| :-- | :-- |
+| `fact 0 = 1` / `fact n = …` | `def fact 0 = 1` / `def fact n = …` |
+| `f x \| x > 0 = …` | `def f x if x > 0 = …` |
+| `add 0 y = y` | `def add 0 y = y` (arguments matched as the tuple `[0, y]`) |
+| `case x of …` | `x \|> match { … }` |
+
+Clauses of different arity, a statement between clauses of one name, and a later redefinition are `[ERROR]`s. `gatwd --check` reports the arity and gap errors statically and warns when the clauses of a sum type miss a constructor. A multi-token clause body is an expression, so `def f x y = add x y` does not receive the matched value as an extra argument. A `match` def can also
+be applied in expression position (`m [a, b]`), which is how the clauses call each other.
+
+**Pattern lambdas.** A `\` parameter may be a pattern: `\(a, b) -> a + b`, `\0 y -> y`, `\[h, ...t] -> h`, `\Red -> 1`. The lambda is
+desugared to a hidden `match` (several parameters match as a tuple, so then each must be `_`, a name or a literal; a list/tuple pattern
+needs a lambda of its own). A value no pattern accepts is an `[ERROR]` (`no arm matches …`), never silently dropped; `gatwd --check`
+warns when a sum type's constructors are not all covered. The body sees only the lambda's own parameters, not the locals of an enclosing lambda.
 
 ## 8. Persistent HAMT Dictionaries (`to_hamt`, `hamt_get`, `hamt_set`, `hamt_del`, `hamt_keys`, `hamt_values`)
 
@@ -328,6 +358,8 @@ The language has four number kinds: **`Int`** (unbounded, exact), **`Ratio`** (a
 
 (a row names the result when both operands are of the column's kind or lower; mixed pairs follow the join). Division, floor division and modulo by zero are errors in every kind; an `Int` too large for a double never silently becomes `+Inf` — mixing it with a `Float` is an error.
 
+**Literals.** A Float may carry an exponent: `1e3`, `1.5e-3`, `2E10`; `1e400` and `1e3x` are errors, `2e` is not an exponent. `json_encode`/`yaml_encode` write a Ratio as its exact string (`"3r4"`), never as a lossy Float. `env_get NAME` (capability `env`) yields `Just value` or `Nothing`.
+
 **`Int` is logical.** Behind the one type the runtime keeps an int64 fast path and a big integer; every integer result is *canonical* (an int when it fits, a big integer only beyond), so `2 ** 100 - 2 ** 100` is the plain `0`, `(2 ** 64) / (2 ** 64)` is `1`, and big integers print as plain digits (no `+`). `**` refuses a result over four million bits (`2 ** 99999999` is an error), and an exact power with an exponent beyond int64 is an error.
 
 **Exact comparison.** `==`, `<`, … never round an `Int` or `Ratio` to a double: `9007199254740993 > 9007199254740992.0` is `true`, `1r2 == 0.5` is `true`, `1r10 == 0.1` is **`false`** (the double nearest to 0.1 is not one tenth; ask `to_ratio 0.1 == 1r10`). A `NaN` is unordered: every ordering with it is `false`, `NaN == NaN` is `false`.
@@ -426,7 +458,7 @@ need appears). The zone database is embedded in the binary, so zone names never 
 | `dur_ns d` · `dur_ms d` · `to_seconds d` | `Int` nanoseconds · `Int` milliseconds (toward zero) · `Float` seconds |
 | `dur_from_seconds x` · `dur_parse s` | `Duration` from an `Int`/`Ratio`/`Float` of seconds (toward zero) · `Maybe Duration` (`dur_parse "1h30m"`) |
 | `dur_truncate unit d` · `dur_round unit d` | to a multiple of `unit` (a positive `Duration`, `1m`): toward zero · halves away from zero |
-| `time_parse s` · `time_format layout t` | `Maybe Time` (RFC 3339, zone required) · text, see the layout table below |
+| `time_parse s` · `time_parse_with layout s` · `time_format layout t` | `Maybe Time` (RFC 3339, zone required) · `Maybe Time` for a strftime-style layout (`%Y %m %d %H %M %S %z %%`; the layout must carry date and `%z`) · text, see the layout table below |
 | `time_unix t` · `time_from_unix n` | seconds since 1970 (`Int`) · `Time` in UTC |
 | `time_year` `time_month` `time_day` `time_hour` `time_minute` `time_second` `time_nano` `time_weekday` | `Int` fields **in the display zone**; the weekday is ISO, `1` Monday … `7` Sunday |
 | `time_in zone t` | the same instant in an IANA zone; an unknown or empty zone is an error |
@@ -1048,7 +1080,7 @@ result, a `--timeout` or `--max-output` overrun included), a pipeline that yield
 source); `3` the check ran correctly and, under `--fail-on-violation`, found violations. A CI job can therefore tell
 "policy findings" (`3`) from "the check could not run" (`1`). A check that both errored and found violations exits `1`:
 a broken run is never reported as a mere finding. In Go the codes are `cli.ExitOK`, `ExitFailed`, `ExitUsage` and
-`ExitViolations`; a domain command returns `cli.ViolationsError` to exit `3`.
+`ExitViolations`; a domain command returns `cli.ViolationsError` to exit `3`. A script run stopped by SIGINT/SIGTERM exits `130`/`143` (a second signal exits `1` at once); in the REPL Ctrl-C cancels only the current statement.
 
 **Formats.** A rule set answers with a list of `[rule, resource]` findings; `[]` is compliant. `text` prints the
 value as the pipeline produced it. `json` prints one line per check, every key always present:
@@ -1070,3 +1102,18 @@ each and **in the same order**, so a consumer need not parse prose: `kind` is on
 ```json
 {"status":"error","count":0,"violations":[],"errors":["step 'echo' requires the exec capability (policy denies it)"],"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]}
 ```
+
+## Multi-line statements and error positions
+
+A physical line continues onto the next when it ends in `=`, `->`, `,`, `|>`, `||>` or a binary operator (`+ * / ++ == < && …`),
+when a bracket or string is still open, or when the next line starts with `|`, `++` or `<+>`:
+
+```
+def area = \w h ->
+  w * h
+[1, 2, 3]
+  |> map (\x -> x + 1)
+  |> length
+```
+
+A syntax error in a script names the line and column and points at the offending token below the original message.

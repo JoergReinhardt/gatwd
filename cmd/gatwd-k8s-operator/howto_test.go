@@ -140,7 +140,7 @@ func TestHowToExtendModelFromScript(t *testing.T) {
 func TestHowToRulesOverride(t *testing.T) {
 	override := filepath.Join(howtoDir, "rules.gatwd")
 	cluster := filepath.Join(howtoDir, "cluster")
-	want := "[[IdleDeployment Deployment/default/worker] [UnusedService Service/default/backend-svc] [MissingConfigMap Deployment/default/worker] [DatabaseWithoutCredentials Database/default/audit]]"
+	want := "[[IdleDeployment Deployment/default/worker this Deployment owns no ReplicaSet, so it manages no Pods] [UnusedService Service/default/backend-svc the selector of this Service matches no Pod] [MissingConfigMap Deployment/default/worker this workload references a ConfigMap that does not exist] [DatabaseWithoutCredentials Database/default/audit]]"
 
 	app, err := newAppliance(nil, override, cli.OverrideLayer)
 	if err != nil {
@@ -194,7 +194,7 @@ def compliance = k8s_graph |> fold probe 0
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := violations(t, app2.Execute(checkPipeline(cluster))); !reflect.DeepEqual(got, []string{"[[IdleDeployment Deployment/default/worker]]"}) {
+	if got := violations(t, app2.Execute(checkPipeline(cluster))); !reflect.DeepEqual(got, []string{"[[IdleDeployment Deployment/default/worker this Deployment owns no ReplicaSet, so it manages no Pods]]"}) {
 		t.Fatalf("layered reuse of rule_idle_deployment = %v", got)
 	}
 	app4, err := newAppliance(nil, p, cli.OverrideReplace)

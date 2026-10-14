@@ -96,7 +96,7 @@ func (r checkReport) writeText(w io.Writer) {
 //	"diagnostics":[{"kind":"capability_denied","message":"step 'echo' requires the exec capability (policy denies it)","step":"echo","capability":"exec"}]
 //
 // A finding that is a [rule, resource] pair with a String rule becomes
-// {"rule":…,"resource":…}; any other finding is {"value":…}. A value JSON cannot hold (a Set, a
+// {"rule":…,"resource":…}, and a [rule, resource, message] triple (String message) additionally carries "message"; any other finding is {"value":…}. A value JSON cannot hold (a Set, a
 // function) is reported in errors, never dropped. It returns the number of errors reported.
 func (r checkReport) writeJSON(w io.Writer) int {
 	errs := append([]string(nil), r.errs...)
@@ -144,12 +144,21 @@ func (r checkReport) writeJSON(w io.Writer) int {
 // findingJSON encodes one finding.
 func findingJSON(f any) (string, error) {
 	var value strings.Builder
-	if parts, ok := functions.ToSliceAny(f); ok && len(parts) == 2 {
+	if parts, ok := functions.ToSliceAny(f); ok && (len(parts) == 2 || len(parts) == 3) {
 		if rule, isString := parts[0].(string); isString {
 			if err := encodeJSON(&value, parts[1], "$.resource"); err != nil {
 				return "", fmt.Errorf("finding %s: %w", rule, err)
 			}
-			return `{"rule":` + quoteJSON(rule) + `,"resource":` + value.String() + `}`, nil
+			message := ""
+			if len(parts) == 3 {
+				// F5: an optional third element is the human message ("why"); it must be a String
+				text, isText := parts[2].(string)
+				if !isText {
+					return "", fmt.Errorf("finding %s: the message (third element) must be a String, got %T", rule, parts[2])
+				}
+				message = `,"message":` + quoteJSON(text)
+			}
+			return `{"rule":` + quoteJSON(rule) + `,"resource":` + value.String() + message + `}`, nil
 		}
 	}
 	if err := encodeJSON(&value, f, "$.value"); err != nil {

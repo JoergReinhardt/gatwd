@@ -600,7 +600,7 @@ func TestEveryWriteStepIsGated(t *testing.T) {
 				continue
 			}
 			sites++
-			if strings.Contains(line, `recordStep("k8s_rollout_status"`) && strings.Contains(line, "// read-only: no capability gate") {
+			if (strings.Contains(line, `recordStep("k8s_rollout_status"`) || strings.Contains(line, `recordStep("k8s_rollout_wait"`)) && strings.Contains(line, "// read-only: no capability gate") {
 				continue // the one read-only step: `rollout status` only needs the get permission
 			}
 			if !strings.Contains(line, "cli.GatedStep(cli.Cap") {

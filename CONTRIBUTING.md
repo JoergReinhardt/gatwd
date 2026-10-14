@@ -114,5 +114,8 @@ Do not import third-party domain packages (e.g. AWS, Kubernetes, specific databa
 5. **Prove it**: fixtures + a fake client, a live/offline **parity** test, a **negative fixture** violating every rule, a hot-reload test, and a benchmark on a synthetic workload (`.agents/skills/edition-appliance`).
 6. **Package Releases**: compile static binaries (`CGO_ENABLED=0 go build`) or distroless images with live script overrides via arguments or ConfigMaps. See [`examples/custom_cli/main.go`](examples/custom_cli/main.go), [`examples/hot_reload_appliance/main.go`](examples/hot_reload_appliance/main.go) and [`cmd/gatwd-k8s-operator`](cmd/gatwd-k8s-operator/main.go).
 
+## Maintaining the Language Spec & Editor Support
+Syntax, keywords, steps, types and snippets are declared once in `spec/spec.go`. `go run ./cmd/gatwd-gen .` generates the Neovim, VS Code and tree-sitter support and `parser/tokens_gen.go` from it (registered function forms are picked up automatically). When you add or change any of these: edit the spec, update `docs/grammar.md`, run the generator, review the diff and commit the regenerated files with your change. Never hand-edit generated files (`DO NOT EDIT` headers). `go test ./cmd/gatwd-gen` fails if the spec misses a function form or step, or if `docs/grammar.md` and the spec disagree. Snippets must be valid, readable gatwd. Details: [`.agents/prompts/maintain-language-spec-and-editors.md`](.agents/prompts/maintain-language-spec-and-editors.md).
+
 ## Working in a Shared Tree
 Another contributor or an AI session may be editing the same checkout. Re-read a file right before editing it, prefer additive edits, never revert changes you did not make, stage files by explicit path (never `git add -A`), and commit or push only when asked.

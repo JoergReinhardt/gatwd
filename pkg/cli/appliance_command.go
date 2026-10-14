@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // This file is the command line of a rule-checking Appliance: one binary that evaluates a
@@ -119,8 +120,9 @@ type ApplianceSpec struct {
 
 // ApplianceTree is an ApplianceSpec turned into a runnable command line.
 type ApplianceTree struct {
-	spec  ApplianceSpec
-	sleep func(time.Duration) bool // waits between checks; false stops the loop; nil: wait on a timer or a stop request (replaced in tests)
+	spec       ApplianceSpec
+	watchEvery time.Duration            // how often wait polls the override file; zero means one second
+	sleep      func(time.Duration) bool // waits between checks; false stops the loop; nil: wait on a timer or a stop request (replaced in tests)
 	// signals starts listening for stop requests and returns their channel and a function that
 	// stops listening; tests inject a channel instead of sending the process a real signal.
 	signals func() (<-chan os.Signal, func())
@@ -153,7 +155,13 @@ func (s stopRequest) Error() string { return "received " + s.sig.String() }
 // function that releases it. After the first request the goroutine keeps listening: a second
 // one means the graceful stop is stuck, and ends the process at once.
 func (t *ApplianceTree) stopContext(parent context.Context, stderr io.Writer) (context.Context, func()) {
-	ch, stopListening := t.signals()
+	return stopOnSignal(t.spec.Name, t.signals, t.exit, parent, stderr)
+}
+
+// stopOnSignal is the shared stop-request machinery of every command line: signals supplies
+// the stop signals, exit ends the process when a second one arrives.
+func stopOnSignal(name string, signals func() (<-chan os.Signal, func()), exit func(int), parent context.Context, stderr io.Writer) (context.Context, func()) {
+	ch, stopListening := signals()
 	ctx, cancel := context.WithCancelCause(parent)
 	done := make(chan struct{})
 	go func() {
@@ -165,8 +173,8 @@ func (t *ApplianceTree) stopContext(parent context.Context, stderr io.Writer) (c
 		}
 		select {
 		case sig := <-ch:
-			fmt.Fprintf(stderr, "%s: received %v again, exiting without waiting for the check\n", t.spec.Name, sig)
-			t.exit(ExitFailed)
+			fmt.Fprintf(stderr, "%s: received %v again, exiting without waiting for the check\n", name, sig)
+			exit(ExitFailed)
 		case <-done:
 		}
 	}()
@@ -177,20 +185,57 @@ func (t *ApplianceTree) stopContext(parent context.Context, stderr io.Writer) (c
 	}
 }
 
-// wait pauses for d between two checks and reports whether the loop goes on: false when the
-// context is done first (a stop request) or, in a test, when the sleep hook says so.
-func (t *ApplianceTree) wait(ctx context.Context, d time.Duration) bool {
+// exitForSignal is the Unix convention for a process ended by a signal: 128 plus its number.
+func exitForSignal(sig os.Signal) int {
+	if s, ok := sig.(syscall.Signal); ok {
+		return 128 + int(s)
+	}
+	return ExitFailed
+}
+
+// wait pauses for d between two checks, or until the override file at path changes (polled
+// once per watchEvery), and reports whether the loop goes on: false when the context is done first
+// (a stop request) or, in a test, when the sleep hook says so.
+func (t *ApplianceTree) wait(ctx context.Context, d time.Duration, path string) bool {
 	if t.sleep != nil {
 		return t.sleep(d)
 	}
 	timer := time.NewTimer(d)
 	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return true
-	case <-ctx.Done():
-		return false
+	poll := t.watchEvery
+	if poll <= 0 {
+		poll = time.Second
 	}
+	tick := time.NewTicker(poll)
+	defer tick.Stop()
+	before := fileStamp(path)
+	for {
+		select {
+		case <-timer.C:
+			return true
+		case <-tick.C:
+			// a mounted ConfigMap swaps its file in place: re-check at once rather than
+			// after the rest of the interval
+			if path != "" && fileStamp(path) != before {
+				return true
+			}
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
+// fileStamp identifies the current content of path by modification time and size (a missing
+// file has its own stamp), so a change is noticed by polling with the standard library only.
+func fileStamp(path string) string {
+	if path == "" {
+		return ""
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "missing"
+	}
+	return fmt.Sprintf("%d/%d", fi.ModTime().UnixNano(), fi.Size())
 }
 
 // stopped ends the command after a stop request. `run` is a daemon and a stop request is its
@@ -242,6 +287,7 @@ func (t *ApplianceTree) Root() *cobra.Command {
 		},
 	}
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error { return applyEnvDefaults(cmd) }
 	pf := root.PersistentFlags()
 	pf.StringVar(&f.rules, "rules", t.spec.RulesPath, "override rules `FILE` (a mounted ConfigMap); a missing or empty file means none")
 	pf.StringVar(&f.rulesMode, "rules-mode", OverrideLayer.String(), "how the override combines with the embedded rules: `layer` (on top of them) or `replace` (instead of them)")
@@ -302,6 +348,35 @@ func (t *ApplianceTree) Root() *cobra.Command {
 		root.AddCommand(rules)
 	}
 	return root
+}
+
+// EnvPrefix is the prefix of the environment variables that default an Appliance's flags:
+// --allow-exec is GATWD_ALLOW_EXEC, --rules-mode is GATWD_RULES_MODE.
+const EnvPrefix = "GATWD_"
+
+// envName is the environment variable that defaults the flag name.
+func envName(name string) string {
+	return EnvPrefix + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+}
+
+// applyEnvDefaults gives every flag of cmd that was not set on the command line the value of
+// its environment variable, if there is one: flag > environment > default. A value that does
+// not parse is a usage error naming the variable; an empty variable counts as unset.
+func applyEnvDefaults(cmd *cobra.Command) error {
+	var err error
+	cmd.Flags().VisitAll(func(fl *pflag.Flag) {
+		if err != nil || fl.Changed || fl.Name == "help" {
+			return
+		}
+		v, ok := os.LookupEnv(envName(fl.Name))
+		if !ok || v == "" {
+			return
+		}
+		if serr := fl.Value.Set(v); serr != nil {
+			err = usagef("%s=%q: %v", envName(fl.Name), v, serr)
+		}
+	})
+	return err
 }
 
 // Execute runs the command line argv (without the program name) and returns the exit status.
@@ -415,7 +490,7 @@ func (t *ApplianceTree) serve(cmd *cobra.Command, f *applianceFlags, setup Appli
 			}
 			return nil
 		}
-		if !t.wait(ctx, f.interval) {
+		if !t.wait(ctx, f.interval, f.rules) {
 			if ctx.Err() != nil {
 				return t.stopped(ctx, stderr, loop, false)
 			}

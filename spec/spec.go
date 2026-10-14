@@ -39,14 +39,14 @@ type SnippetDef struct {
 
 // GrammarSpec is the single source of truth for the Gatwd DSL syntax, tokens, and metadata.
 type GrammarSpec struct {
-	LanguageName string        `json:"language_name"`
-	FileExtension string       `json:"file_extension"`
-	CommentPrefix string       `json:"comment_prefix"`
-	Keywords     []KeywordDef  `json:"keywords"`
-	Types        []TypeDef     `json:"types"`
-	Builtins     []BuiltinDef  `json:"builtins"`
-	Operators    []OperatorDef `json:"operators"`
-	Snippets     []SnippetDef  `json:"snippets"`
+	LanguageName  string        `json:"language_name"`
+	FileExtension string        `json:"file_extension"`
+	CommentPrefix string        `json:"comment_prefix"`
+	Keywords      []KeywordDef  `json:"keywords"`
+	Types         []TypeDef     `json:"types"`
+	Builtins      []BuiltinDef  `json:"builtins"`
+	Operators     []OperatorDef `json:"operators"`
+	Snippets      []SnippetDef  `json:"snippets"`
 }
 
 // DefaultSpec returns the canonical, comprehensive Gatwd Grammar Specification.
@@ -85,6 +85,18 @@ func DefaultSpec() GrammarSpec {
 			{Name: "Pair", Description: "Heterogeneous 2-element tuple product type"},
 			{Name: "Tuple", Description: "N-ary product type"},
 			{Name: "Grid", Description: "Immutable 2D spatial plane or comonadic torus grid"},
+			{Name: "Char", Description: "A single Unicode code point ('a', '\\n')"},
+			{Name: "Bytes", Description: "Immutable byte string"},
+			{Name: "Ratio", Description: "Exact rational number (3r4)"},
+			{Name: "Duration", Description: "Fixed-length time span (5s, 1h30m, 2d)"},
+			{Name: "Time", Description: "RFC 3339 instant with zone (@2026-10-13T12:00:00Z)"},
+			{Name: "Date", Description: "ISO 8601 calendar day (@2026-10-13)"},
+			{Name: "Chunk", Description: "Contiguous, cache-friendly immutable batch of values"},
+			{Name: "HAMT", Description: "Persistent hash array mapped trie (immutable dictionary)"},
+			{Name: "Graph", Description: "Typed, coloured, weighted persistent directed graph"},
+			{Name: "Maybe", Description: "Optional value: just x or nothing"},
+			{Name: "Either", Description: "Value that is either a Left (error) or a Right (success)"},
+			{Name: "Variant", Description: "Boxed constructor of a declared sum type with its payload"},
 		},
 		Builtins: []BuiltinDef{
 			// Transducers & Core
@@ -145,6 +157,74 @@ func DefaultSpec() GrammarSpec {
 			{Name: "visualize", Category: "observability", Signature: "visualize [flags]", Description: "Render stream as pretty UTF-8 visual cards"},
 			{Name: "telemetry", Category: "observability", Signature: "telemetry", Description: "Track and emit stream throughput telemetry"},
 			{Name: "checkpoint", Category: "reliability", Signature: "checkpoint <id> <interval>", Description: "Periodically persist pipeline state for recovery"},
+			{Name: "to_list", Category: "transducer", Signature: "to_list", Description: "Collect the stream into an immutable List"},
+			{Name: "to_chunk", Category: "transducer", Signature: "to_chunk", Description: "Collect the stream into a Chunk"},
+			{Name: "flatten_chunk", Category: "transducer", Signature: "flatten_chunk", Description: "Flatten Chunks back into individual stream nodes"},
+			{Name: "reject", Category: "transducer", Signature: "reject <pred>", Description: "Drop nodes matching a predicate"},
+			{Name: "flatmap", Category: "transducer", Signature: "flatmap (\\x -> ...)", Description: "Map then flatten (monadic bind)"},
+			{Name: "bimap", Category: "transducer", Signature: "bimap <f> <g>", Description: "Map both sides of a Pair or Either"},
+			{Name: "subset_of", Category: "collections", Signature: "subset_of <super>", Description: "Key-value containment (Record/HAMT) or Set membership test"},
+			{Name: "hamt_path", Category: "collections", Signature: "hamt_path <k1.k2...>", Description: "Look up a nested path in a HAMT"},
+			{Name: "hamt_merge", Category: "collections", Signature: "hamt_merge <other>", Description: "Merge two HAMTs"},
+			{Name: "hamt_diff", Category: "collections", Signature: "hamt_diff <other>", Description: "Keys of this HAMT absent from the other"},
+			{Name: "hamt_intersect", Category: "collections", Signature: "hamt_intersect <other>", Description: "Keys present in both HAMTs"},
+			{Name: "set_union", Category: "collections", Signature: "set_union <other>", Description: "Set union"},
+			{Name: "set_intersect", Category: "collections", Signature: "set_intersect <other>", Description: "Set intersection"},
+			{Name: "set_diff", Category: "collections", Signature: "set_diff <other>", Description: "Set difference"},
+			{Name: "build_bst", Category: "collections", Signature: "build_bst", Description: "Build a binary search tree from the stream"},
+			{Name: "build_btree", Category: "collections", Signature: "build_btree", Description: "Build a B-tree from the stream"},
+			{Name: "build_rbtree", Category: "collections", Signature: "build_rbtree", Description: "Build a red-black tree from the stream"},
+			{Name: "build_array", Category: "collections", Signature: "build_array", Description: "Build an array from the stream"},
+			{Name: "math_add", Category: "math", Signature: "math_add <n>", Description: "Add n to each value (also the step form `+ n`)"},
+			{Name: "math_sub", Category: "math", Signature: "math_sub <n>", Description: "Subtract n (also `- n`)"},
+			{Name: "math_mul", Category: "math", Signature: "math_mul <n>", Description: "Multiply by n (also `* n`)"},
+			{Name: "math_div", Category: "math", Signature: "math_div <n>", Description: "True division by n (also `/ n`)"},
+			{Name: "math_idiv", Category: "math", Signature: "math_idiv <n>", Description: "Integer floor division by n (also `// n`)"},
+			{Name: "math_mod", Category: "math", Signature: "math_mod <n>", Description: "Remainder modulo n (also `% n`)"},
+			{Name: "math_pow", Category: "math", Signature: "math_pow <n>", Description: "Raise to the power n (also `** n`)"},
+			{Name: "now", Category: "time", Signature: "now", Description: "Emit the current Time (reads the injectable clock)"},
+			{Name: "walk_fs", Category: "io", Signature: "walk_fs <dir>", Description: "Stream the files below a directory"},
+			{Name: "write_file", Category: "io", Signature: "write_file <path>", Description: "Write the stream to a file"},
+			{Name: "env_get", Category: "io", Signature: "env_get <NAME>", Description: "Look up an environment variable: Just value or Nothing (needs the env capability)"},
+			{Name: "append_file", Category: "io", Signature: "append_file <path>", Description: "Append the stream to a file"},
+			{Name: "scan_file", Category: "io", Signature: "scan_file <path>", Description: "Stream a file line by line"},
+			{Name: "scan_words", Category: "io", Signature: "scan_words <path>", Description: "Stream a file word by word"},
+			{Name: "dial_tcp", Category: "io", Signature: "dial_tcp <addr>", Description: "Connect to a TCP address"},
+			{Name: "listen_tcp", Category: "io", Signature: "listen_tcp <addr>", Description: "Listen on a TCP address"},
+			{Name: "conn_lines", Category: "io", Signature: "conn_lines", Description: "Stream the lines of a connection"},
+			{Name: "route", Category: "io", Signature: "route", Description: "Route connection traffic through the pipeline"},
+			{Name: "assert_unordered", Category: "testing", Signature: "assert_unordered <items...>", Description: "Assert the stream equals the items in any order"},
+			{Name: "example_test", Category: "testing", Signature: "example_test <name> ...", Description: "Run an inline example test"},
+			{Name: "mock_stream", Category: "testing", Signature: "mock_stream <n>", Description: "Deterministic mock stream of n nodes"},
+			{Name: "mock_users", Category: "testing", Signature: "mock_users <n>", Description: "Deterministic mock user records"},
+			{Name: "graph_add_edge_inferred", Category: "graph", Signature: "graph_add_edge_inferred <color> <from> <to>", Description: "Add an inferred (derived) edge"},
+			{Name: "graph_add_fanout", Category: "graph", Signature: "graph_add_fanout <color> <from> <to...>", Description: "Add one edge from a node to many"},
+			{Name: "graph_add_fanin", Category: "graph", Signature: "graph_add_fanin <color> <from...> <to>", Description: "Add edges from many nodes to one"},
+			{Name: "graph_remove_node", Category: "graph", Signature: "graph_remove_node <id>", Description: "Remove a node and its edges"},
+			{Name: "graph_remove_edge", Category: "graph", Signature: "graph_remove_edge <color> <from> <to>", Description: "Remove an edge"},
+			{Name: "graph_edges", Category: "graph", Signature: "graph_edges", Description: "Stream all edges"},
+			{Name: "graph_edges_inferred", Category: "graph", Signature: "graph_edges_inferred", Description: "Stream the inferred edges"},
+			{Name: "graph_edges_of", Category: "graph", Signature: "graph_edges_of <id>", Description: "Stream the edges touching a node"},
+			{Name: "graph_edges_of_group", Category: "graph", Signature: "graph_edges_of_group <color>", Description: "Stream the edges of one colour"},
+			{Name: "graph_nodes_of", Category: "graph", Signature: "graph_nodes_of <color>", Description: "Stream the nodes of one colour"},
+			{Name: "graph_in", Category: "graph", Signature: "graph_in <id>", Description: "Incoming neighbours of a node"},
+			{Name: "graph_out", Category: "graph", Signature: "graph_out <id>", Description: "Outgoing neighbours of a node"},
+			{Name: "graph_neighbors", Category: "graph", Signature: "graph_neighbors <id>", Description: "All neighbours of a node"},
+			{Name: "graph_bfs", Category: "graph", Signature: "graph_bfs <id>", Description: "Breadth-first walk from a node"},
+			{Name: "graph_dfs", Category: "graph", Signature: "graph_dfs <id>", Description: "Depth-first walk from a node"},
+			{Name: "graph_walk_from", Category: "graph", Signature: "graph_walk_from <id>", Description: "Walk the graph from a node"},
+			{Name: "graph_focus", Category: "graph", Signature: "graph_focus <id>", Description: "Focus the graph on a node's payload (lens)"},
+			{Name: "graph_set", Category: "graph", Signature: "graph_set <id> <val>", Description: "Replace a node's payload"},
+			{Name: "graph_over", Category: "graph", Signature: "graph_over <id> <f>", Description: "Modify a node's payload with a function"},
+			{Name: "graph_union", Category: "graph", Signature: "graph_union <other>", Description: "Union of two graphs"},
+			{Name: "graph_map_nodes", Category: "graph", Signature: "graph_map_nodes <f>", Description: "Map node payloads"},
+			{Name: "graph_map_edges", Category: "graph", Signature: "graph_map_edges <f>", Description: "Map edge payloads"},
+			{Name: "graph_bimap", Category: "graph", Signature: "graph_bimap <f> <g>", Description: "Map node and edge payloads"},
+			{Name: "graph_filter_nodes", Category: "graph", Signature: "graph_filter_nodes <pred>", Description: "Keep nodes matching a predicate"},
+			{Name: "graph_filter_edges", Category: "graph", Signature: "graph_filter_edges <pred>", Description: "Keep edges matching a predicate"},
+			{Name: "graph_fold_nodes", Category: "graph", Signature: "graph_fold_nodes <f> <seed>", Description: "Fold over nodes"},
+			{Name: "graph_fold_edges", Category: "graph", Signature: "graph_fold_edges <f> <seed>", Description: "Fold over edges"},
+			{Name: "graph_fold_walk", Category: "graph", Signature: "graph_fold_walk <id> <f> <seed>", Description: "Fold over a walk from a node"},
 			{Name: "ebnf_parse", Category: "parser", Signature: "ebnf_parse <rule> <grammar>", Description: "Compile dynamic EBNF grammar and parse string stream into AST"},
 		},
 		Operators: []OperatorDef{
@@ -154,13 +234,16 @@ func DefaultSpec() GrammarSpec {
 
 			// Arrows
 			{Symbol: "->", Unicode: "→", Category: "arrow", Description: "Pattern match branch arrow and lambda return"},
+			{Symbol: "\\", Category: "arrow", Description: "Lambda introducer: \\x y -> body"},
 			{Symbol: "<-", Category: "arrow", Description: "List comprehension generator source binding"},
 
 			// Applicatives & Kleisli
+			{Symbol: "<+>", Category: "arrows", Description: "ArrowPlus: merge several producers into one stream, in order"},
 			{Symbol: "&&&", Category: "arrows", Description: "Kleisli FanOut: route single input to two parallel arrows"},
 			{Symbol: "***", Category: "arrows", Description: "Applicative Split: apply independent arrows to Pair halves"},
 
 			// Infix Math & Logic
+			{Symbol: "!", Category: "logic", Description: "Prefix logical NOT (when not followed by =)"},
 			{Symbol: "||", Category: "logic", Precedence: 1, Associativity: "left", Description: "Logical OR"},
 			{Symbol: "&&", Category: "logic", Precedence: 2, Associativity: "left", Description: "Logical AND"},
 			{Symbol: "==", Category: "comparison", Precedence: 3, Associativity: "left", Description: "Structural equality test"},
@@ -216,7 +299,7 @@ func DefaultSpec() GrammarSpec {
 			},
 			{
 				Prefix:      "ackermann",
-				Body:        "def ackermann = match {\n    [0, n] -> n + 1\n    | [m, 0] -> [m - 1, 1] |> ackermann\n    | [m, n] -> let res = [m, n - 1] |> ackermann in [m - 1, res] |> ackermann\n}",
+				Body:        "def ackermann 0 n = n + 1\ndef ackermann m 0 = ackermann (m - 1) 1\ndef ackermann m n = ackermann (m - 1) (ackermann m (n - 1))",
 				Description: "Canonical non-primitive recursive Ackermann function",
 			},
 			{
@@ -236,4 +319,29 @@ func DefaultSpec() GrammarSpec {
 			},
 		},
 	}
+}
+
+// WithFunctionForms returns s extended with one builtin per expression-level function
+// form. names maps a function name to its parameter names (data-last). A name already
+// listed in s.Builtins (a pipeline step with the same name) keeps its richer entry, so
+// the merge only ever adds. cmd/gatwd-gen feeds it from the live interpreter registry
+// (cli.FunctionForms), which is what keeps the generated editor support from drifting.
+func (s GrammarSpec) WithFunctionForms(names []string, params map[string][]string) GrammarSpec {
+	seen := map[string]bool{}
+	for _, b := range s.Builtins {
+		seen[b.Name] = true
+	}
+	out := s
+	out.Builtins = append([]BuiltinDef(nil), s.Builtins...)
+	for _, n := range names {
+		if seen[n] {
+			continue
+		}
+		sig := n
+		for _, p := range params[n] {
+			sig += " " + p
+		}
+		out.Builtins = append(out.Builtins, BuiltinDef{Name: n, Category: "function", Signature: sig, Description: "Expression-level function form (curried, data-last)"})
+	}
+	return out
 }

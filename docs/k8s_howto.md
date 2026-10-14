@@ -128,7 +128,7 @@ one extra rule, and a `compliance` that runs the embedded rules plus the new one
 
 ```bash
 gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --rules examples/k8s_howto/rules.gatwd
-# [[IdleDeployment Deployment/default/worker] [UnusedService Service/default/backend-svc] [MissingConfigMap Deployment/default/worker] [DatabaseWithoutCredentials Database/default/audit]]
+# [[IdleDeployment Deployment/default/worker this Deployment owns no ReplicaSet, so it manages no Pods] [UnusedService Service/default/backend-svc the selector of this Service matches no Pod] [MissingConfigMap Deployment/default/worker this workload references a ConfigMap that does not exist] [DatabaseWithoutCredentials Database/default/audit]]
 #   (stderr)  gatwd-k8s-operator: rules: override …/rules.gatwd layered on the embedded rules (mode layer)
 #   (stderr)  gatwd-k8s-operator: rules: overridden: compliance
 #   (stderr)  gatwd-k8s-operator: rules: added: infra_graph, rel_hosted_on, rel_uses_database, rule_database_without_credentials, secret_target
@@ -246,8 +246,16 @@ records as a manifest, so `manifests` ingests them.
 
 ```haskell
 def secret_target = \s -> hamt_get "gatwd.io/database" (hamt_path "metadata.annotations" s)
-def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (k8s_id_of s), did] | s <- (graph_payloads_of "Secret" g), …, did <- [ (k8s_ref "Database" (k8s_scope s) (secret_target s) g) ], graph_has_node did g ] g) graph_empty
-def rel_hosted_on     = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (k8s_id_of d), mid] | d <- (graph_payloads_of "Database" g), …, mid <- [ (k8s_ref "DBMS" (k8s_scope d) (hamt_path "spec.dbms" d) g) ], graph_has_node mid g ] g) graph_empty
+def rel_uses_database = fold (\_ g -> graph_add_edges [ ["UsesDatabase", 1, (k8s_id_of s), did]
+    | s <- (graph_payloads_of "Secret" g)
+    , …
+    , did <- [ (k8s_ref "Database" (k8s_scope s) (secret_target s) g) ]
+    , graph_has_node did g ] g) graph_empty
+def rel_hosted_on     = fold (\_ g -> graph_add_edges [ ["HostedOn", 1, (k8s_id_of d), mid]
+    | d <- (graph_payloads_of "Database" g)
+    , …
+    , mid <- [ (k8s_ref "DBMS" (k8s_scope d) (hamt_path "spec.dbms" d) g) ]
+    , graph_has_node mid g ] g) graph_empty
 def infra_graph = k8s_graph |> rel_uses_database |> rel_hosted_on
 ```
 
@@ -345,7 +353,9 @@ entry and a JSON entry, and two Secrets):
 def field_of = \parse key field cm -> maybe_fold nothing (\d -> hamt_get field d) (parse (hamt_path ("data." ++ key) cm))
 def cores : String -> Num = \q -> maybe_fold 0 (\m -> ratio m 1000) (str_to_int (str_slice 0 ((length q) - 1) q))
 def password_bytes = \s -> base64_decode (hamt_path "data.password" s)
-def rule_weak_password = \g -> [ ["WeakPassword", (k8s_id_of s)] | s <- (graph_payloads_of "Secret" g), maybe_fold true (\b -> (bytes_length b) < 8) (password_bytes s) ]
+def rule_weak_password = \g -> [ ["WeakPassword", (k8s_id_of s)]
+  | s <- (graph_payloads_of "Secret" g)
+  , maybe_fold true (\b -> (bytes_length b) < 8) (password_bytes s) ]
 def fingerprint = \s -> maybe_fold "undecodable" (\b -> str_slice 0 12 (sha256 b)) (password_bytes s)
 ```
 
@@ -378,9 +388,15 @@ as an operator override:
 -- examples/k8s_howto/age_rules.gatwd
 let max_age = 30d
 let clock = (now |> head)
-def born = \r -> head ([ (time_parse (hamt_path "metadata.creationTimestamp" q)) | q <- [r], hamt_has_path "metadata.creationTimestamp" q ] ++ [ nothing ])
+def born = \r -> head ([ (time_parse (hamt_path "metadata.creationTimestamp" q))
+    | q <- [r]
+    , hamt_has_path "metadata.creationTimestamp" q ] ++ [ nothing ])
 def older_than : Time -> Duration -> Any -> Bool = \now limit r -> maybe_fold false (\t -> (now - t) > limit) (born r)
-def rule_stale_pod = \now limit g -> [ ["StalePod", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), (older_than now limit p) ] ++ [ ["UnknownAge", (k8s_id_of p)] | p <- (graph_payloads_of "Pod" g), is_nothing (born p) ]
+def rule_stale_pod = \now limit g -> [ ["StalePod", (k8s_id_of p)]
+  | p <- (graph_payloads_of "Pod" g)
+  , (older_than now limit p) ] ++ [ ["UnknownAge", (k8s_id_of p)]
+  | p <- (graph_payloads_of "Pod" g)
+  , is_nothing (born p) ]
 ```
 
 ```bash
@@ -555,7 +571,7 @@ line**, for log pipelines (every key always present):
 
 ```bash
 gatwd-k8s-operator check --manifests examples/k8s_howto/cluster --format json
-# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker"},…],"errors":[],"diagnostics":[]}
+# {"status":"violations","count":3,"violations":[{"rule":"IdleDeployment","resource":"Deployment/default/worker","message":"this Deployment owns no ReplicaSet, so it manages no Pods"},…],"errors":[],"diagnostics":[]}
 ```
 
 `status` is `ok`, `violations` or `error`; a resource that is a list (a dependency cycle) stays a JSON array.
@@ -629,7 +645,7 @@ Everything above reads. gatwd can also **write** to the cluster API, for two fam
 | :-- | :-- | :-- | :-- |
 | **apply** | `k8s_apply` (server-side apply, create or update; one `[apply, Kind/ns/name, outcome]` per object) | `cluster-apply` | `--allow-cluster-apply` |
 | **rollout** | `k8s_rollout_restart`, `k8s_rollout_undo [REV]`, `k8s_rollout_pause`, `k8s_rollout_resume`, `k8s_scale N` | `cluster-rollout` | `--allow-cluster-rollout` |
-| rollout, read-only | `k8s_rollout_status` | none: it only reads (`get`) | — |
+| rollout, read-only | `k8s_rollout_status`, `k8s_rollout_wait [SECONDS]` (watches until complete; default 300 s; an error naming the last status on timeout) | none: they only read (`get`, `watch`) | — |
 
 `k8s_scale` is in the rollout family because it is the natural sibling of restart and undo: it changes a running
 workload rather than defining an object. **There is no step that deletes or prunes**, and the adapter cannot express
@@ -720,8 +736,7 @@ patch; it refuses a paused Deployment, an unknown revision and a history with no
 set `spec.paused` (`unchanged`, with no request, when it already is); `scale` patches `spec.replicas` of the workload
 itself, so it needs `patch` on the workload and not on `…/scale`, and says `unchanged` when the count already matches.
 `status` reports `complete`, `paused`, `progressing: …` or `waiting: …` and is the only step of the family that needs
-no capability. Which kinds support what: restart on Deployment/StatefulSet/DaemonSet, pause/resume/undo/status on
-Deployment, scale on Deployment/StatefulSet/ReplicaSet; anything else is an `[ERROR]` naming the kind.
+no capability. Which kinds support what: restart on Deployment/StatefulSet/DaemonSet, pause/resume on Deployment, undo/status on Deployment/StatefulSet/DaemonSet, scale on Deployment/StatefulSet/ReplicaSet; anything else is an `[ERROR]` naming the kind.
 
 **In the operator.** The same steps exist in the rules' interpreter and are denied under its deny-all policy; the
 Deployment's `args:` are the only place that grants them: `--allow-cluster-apply`, `--allow-cluster-rollout` (and, for
@@ -775,10 +790,9 @@ carries the dry-run option, and each rollout step sends exactly the patch descri
   timeout and a stop request are checked between nodes and between statements, and kill the OS commands a step started),
   and `--max-output` bounds what a check emits, not the memory it uses while it computes.
 - Writing (§3.5) is **apply and the rollout family only, with no delete or prune**: removing an object is `kubectl delete`'s
-  job, and a rename leaves the old object behind. `k8s_rollout_status`, `undo` and `pause`/`resume` cover Deployments only
-  (StatefulSet and DaemonSet history lives in `ControllerRevision`s); `k8s_apply` resolves the common built-in kinds from a
-  table and anything else (a CRD) by discovery against the kubeconfig cluster. The write steps wait for nothing: `k8s_rollout_status`
-  is one reading, not `kubectl rollout status`'s watch.
+  job, and a rename leaves the old object behind. `k8s_rollout_status` and `k8s_rollout_wait` cover Deployments, StatefulSets and DaemonSets; `undo` covers Deployments (ReplicaSet history) plus StatefulSets and DaemonSets (owner-checked `ControllerRevision`s); `pause`/`resume` cover Deployments only; `k8s_apply` resolves the common built-in kinds from a
+  table and anything else (a CRD) by discovery against the kubeconfig cluster. The write steps wait for nothing; `k8s_rollout_status` is one reading and
+  `k8s_rollout_wait` is the watch.
 - The policy's `env` capability gates nothing yet: no builtin reads the environment (§2.2).
 - Rules cannot read the clock inside a lambda: `now` is a step, so an age rule takes the reading as a parameter from a
   top-level `let clock = (now |> head)` (§2.6). `-D X=30d` and `const X = 30d` are a `Duration`.
@@ -786,3 +800,7 @@ carries the dry-run option, and each rollout step sends exactly the patch descri
   redaction.
 - `||>` runs the *following per-element step* across the stream on a worker pool (order is not
   deterministic); a whole-stream step such as `fold` or `sort` after `||>` would see single nodes.
+
+### Configuring the operator from the environment
+
+Every flag has a `GATWD_<FLAG>` default (`--rules-mode` is `GATWD_RULES_MODE`, `--interval` is `GATWD_INTERVAL`), so a Deployment can set them with `env:` instead of `args:`. A flag given on the command line wins; an empty variable counts as unset; an unparsable value exits with status 2 naming the variable. In `run` mode an edit of the mounted rules file is noticed within about a second and reloaded at once; a broken edit keeps the previous rules and says so on stderr.

@@ -27,6 +27,7 @@ var listKinds = map[string]string{
 	"endpoints": "EndpointsList", "deployments": "DeploymentList", "replicasets": "ReplicaSetList",
 	"ingresses": "IngressList", "persistentvolumeclaims": "PersistentVolumeClaimList",
 	"serviceaccounts": "ServiceAccountList", "roles": "RoleList", "rolebindings": "RoleBindingList",
+	"controllerrevisions": "ControllerRevisionList",
 }
 
 // FakeClusterFromYAML decodes a multi-document manifest (YAML or JSON) and returns a
@@ -59,6 +60,8 @@ func FakeClusterFromYAML(t testing.TB, raw []byte) *fake.FakeDynamicClient {
 	for _, c := range k8sgraph.CoreCrawls {
 		kinds[c.GVR] = listKinds[c.GVR.Resource]
 	}
+	// Rollout history of StatefulSets and DaemonSets is listed from ControllerRevisions.
+	kinds[schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "controllerrevisions"}] = listKinds["controllerrevisions"]
 	return fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, objs...)
 }
 

@@ -10,7 +10,12 @@
 
 -- Owns: owner -> dependent, from metadata.ownerReferences[] (kind and name; the owner
 -- lives in the dependent's namespace, or is cluster-scoped).
-def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, oid, (k8s_id_of x)] | x <- (graph_payloads g), hamt_has_path "metadata.ownerReferences" x, o <- (hamt_path "metadata.ownerReferences" x), oid <- [ (k8s_ref (hamt_get "kind" o) (k8s_scope x) (hamt_get "name" o) g) ], graph_has_node oid g ] g) graph_empty
+def rel_owns = fold (\_ g -> graph_add_edges [ ["Owns", 1, oid, (k8s_id_of x)]
+    | x <- (graph_payloads g)
+    , hamt_has_path "metadata.ownerReferences" x
+    , o <- (hamt_path "metadata.ownerReferences" x)
+    , oid <- [ (k8s_ref (hamt_get "kind" o) (k8s_scope x) (hamt_get "name" o) g) ]
+    , graph_has_node oid g ] g) graph_empty
 
 -- Selects: Service -> every Pod of ITS namespace whose labels contain the Service's spec.selector.
 -- A naive pass compares every (Service, Pod) pair: O(services x pods). Instead the Pods
@@ -23,14 +28,35 @@ def k8s_label_key = \ns kv -> ns ++ "/" ++ (fst kv) ++ "=" ++ (snd kv)
 
 def k8s_label_index = \pods -> fold (\idx p -> fold (\i kv -> hamt_set (k8s_label_key (k8s_scope p) kv) (cons p (hamt_get_or [] (k8s_label_key (k8s_scope p) kv) i)) i) idx (hamt_pairs (hamt_path "metadata.labels" p))) hamt_empty pods
 
-def k8s_selector_candidates = \idx pods ns pairs -> [ q | (is_empty pairs) == false, q <- (hamt_get_or [] (k8s_label_key ns (head pairs)) idx) ] ++ [ q | is_empty pairs, q <- pods, (k8s_scope q) == ns ]
+def k8s_selector_candidates = \idx pods ns pairs -> [ q
+  | (is_empty pairs) == false
+  , q <- (hamt_get_or [] (k8s_label_key ns (head pairs)) idx) ] ++ [ q
+  | is_empty pairs
+  , q <- pods
+  , (k8s_scope q) == ns ]
 
-def k8s_selects_specs = \g -> [ ["Selects", 1, (k8s_id_of s), (k8s_id_of p)] | pods <- [ [ q | q <- (graph_payloads_of "Pod" g), hamt_has_path "metadata.labels" q ] ], idx <- [ (k8s_label_index pods) ], s <- (graph_payloads_of "Service" g), hamt_has_path "spec.selector" s, p <- (k8s_selector_candidates idx pods (k8s_scope s) (hamt_pairs (hamt_path "spec.selector" s))), subset_of (hamt_path "spec.selector" s) (hamt_path "metadata.labels" p) ]
+def k8s_selects_specs = \g -> [ ["Selects", 1, (k8s_id_of s), (k8s_id_of p)]
+  | pods <- [ [ q
+      | q <- (graph_payloads_of "Pod" g)
+      , hamt_has_path "metadata.labels" q ] ]
+  , idx <- [ (k8s_label_index pods) ]
+  , s <- (graph_payloads_of "Service" g)
+  , hamt_has_path "spec.selector" s
+  , p <- (k8s_selector_candidates idx pods (k8s_scope s) (hamt_pairs (hamt_path "spec.selector" s)))
+  , subset_of (hamt_path "spec.selector" s) (hamt_path "metadata.labels" p) ]
 
 def rel_selects = fold (\_ g -> graph_add_edges (k8s_selects_specs g) g) graph_empty
 
 -- RoutesTo: Ingress -> the Service (of its namespace) named by each rule path's backend.
-def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (k8s_id_of i), sid] | i <- (graph_payloads_of "Ingress" g), hamt_has_path "spec.rules" i, rule <- (hamt_path "spec.rules" i), hamt_has_path "http.paths" rule, path <- (hamt_path "http.paths" rule), hamt_has_path "backend.service.name" path, sid <- [ (k8s_ref "Service" (k8s_scope i) (hamt_path "backend.service.name" path) g) ], graph_has_node sid g ] g) graph_empty
+def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (k8s_id_of i), sid]
+    | i <- (graph_payloads_of "Ingress" g)
+    , hamt_has_path "spec.rules" i
+    , rule <- (hamt_path "spec.rules" i)
+    , hamt_has_path "http.paths" rule
+    , path <- (hamt_path "http.paths" rule)
+    , hamt_has_path "backend.service.name" path
+    , sid <- [ (k8s_ref "Service" (k8s_scope i) (hamt_path "backend.service.name" path) g) ]
+    , graph_has_node sid g ] g) graph_empty
 
 -- ---------------------------------------------------------------------------
 -- Pod-spec relations. A "workload" is anything that carries a pod spec: a Pod (its
@@ -43,14 +69,34 @@ def rel_routes_to = fold (\_ g -> graph_add_edges [ ["RoutesTo", 1, (k8s_id_of i
 
 -- [id, podSpec] for every Pod and every Deployment pod template; the id is the node id,
 -- whose scope (k8s_id_scope) is the namespace the spec's references resolve in.
-def k8s_workloads = \g -> [ [(k8s_id_of p), (hamt_path "spec" p)] | p <- (graph_payloads_of "Pod" g), hamt_has_path "spec" p ] ++ [ [(k8s_id_of d), (hamt_path "spec.template.spec" d)] | d <- (graph_payloads_of "Deployment" g), hamt_has_path "spec.template.spec" d ]
+def k8s_workloads = \g -> [ [(k8s_id_of p), (hamt_path "spec" p)]
+  | p <- (graph_payloads_of "Pod" g)
+  , hamt_has_path "spec" p ] ++ [ [(k8s_id_of d), (hamt_path "spec.template.spec" d)]
+  | d <- (graph_payloads_of "Deployment" g)
+  , hamt_has_path "spec.template.spec" d ]
 
 -- Names of ConfigMaps a pod spec references: as a volume, as an env var source
 -- (valueFrom.configMapKeyRef) or wholesale (envFrom[].configMapRef).
-def k8s_config_refs = \ws -> [ (hamt_path "configMap.name" v) | hamt_has_path "volumes" ws, v <- (hamt_path "volumes" ws), hamt_has_path "configMap.name" v ] ++ [ (hamt_path "valueFrom.configMapKeyRef.name" e) | hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "env" c, e <- (hamt_path "env" c), hamt_has_path "valueFrom.configMapKeyRef.name" e ] ++ [ (hamt_path "configMapRef.name" f) | hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "envFrom" c, f <- (hamt_path "envFrom" c), hamt_has_path "configMapRef.name" f ]
+def k8s_config_refs = \ws -> [ (hamt_path "configMap.name" v)
+  | hamt_has_path "volumes" ws
+  , v <- (hamt_path "volumes" ws)
+  , hamt_has_path "configMap.name" v ] ++ [ (hamt_path "valueFrom.configMapKeyRef.name" e)
+  | hamt_has_path "containers" ws
+  , c <- (hamt_path "containers" ws)
+  , hamt_has_path "env" c
+  , e <- (hamt_path "env" c)
+  , hamt_has_path "valueFrom.configMapKeyRef.name" e ] ++ [ (hamt_path "configMapRef.name" f)
+  | hamt_has_path "containers" ws
+  , c <- (hamt_path "containers" ws)
+  , hamt_has_path "envFrom" c
+  , f <- (hamt_path "envFrom" c)
+  , hamt_has_path "configMapRef.name" f ]
 
 -- Names of PersistentVolumeClaims a pod spec mounts as volumes.
-def k8s_claim_refs = \ws -> [ (hamt_path "persistentVolumeClaim.claimName" v) | hamt_has_path "volumes" ws, v <- (hamt_path "volumes" ws), hamt_has_path "persistentVolumeClaim.claimName" v ]
+def k8s_claim_refs = \ws -> [ (hamt_path "persistentVolumeClaim.claimName" v)
+  | hamt_has_path "volumes" ws
+  , v <- (hamt_path "volumes" ws)
+  , hamt_has_path "persistentVolumeClaim.claimName" v ]
 
 -- The ids those references point at, resolved in the workload's namespace (k8s_ref).
 def k8s_config_ids = \wid ws g -> [ (k8s_ref "ConfigMap" (k8s_id_scope wid) n g) | n <- (k8s_config_refs ws) ]
@@ -59,23 +105,54 @@ def k8s_claim_ids = \wid ws g -> [ (k8s_ref "PersistentVolumeClaim" (k8s_id_scop
 
 -- Configures: ConfigMap -> workload that mounts or env-references it. A ConfigMap used
 -- both as a volume and as an env source is one fact: graph_add_edges adds it once.
-def rel_configures = fold (\_ g -> graph_add_edges [ ["Configures", 1, cid, wid] | [wid, ws] <- (k8s_workloads g), cid <- (k8s_config_ids wid ws g), graph_has_node cid g ] g) graph_empty
+def rel_configures = fold (\_ g -> graph_add_edges [ ["Configures", 1, cid, wid]
+    | [wid, ws] <- (k8s_workloads g)
+    , cid <- (k8s_config_ids wid ws g)
+    , graph_has_node cid g ] g) graph_empty
 
 -- Mounts: PersistentVolumeClaim -> workload that mounts it as a volume.
-def rel_mounts = fold (\_ g -> graph_add_edges [ ["Mounts", 1, cid, wid] | [wid, ws] <- (k8s_workloads g), cid <- (k8s_claim_ids wid ws g), graph_has_node cid g ] g) graph_empty
+def rel_mounts = fold (\_ g -> graph_add_edges [ ["Mounts", 1, cid, wid]
+    | [wid, ws] <- (k8s_workloads g)
+    , cid <- (k8s_claim_ids wid ws g)
+    , graph_has_node cid g ] g) graph_empty
 
 -- The namespace a RoleBinding subject lives in: its own, else the binding's.
 def k8s_subject_scope = \s rb -> head ([ (hamt_get "namespace" q) | q <- [s], hamt_has_path "namespace" q ] ++ [ (k8s_scope rb) ])
 
 -- Binds: RoleBinding -> each ServiceAccount subject, and -> the role it grants (roleRef
 -- names the kind, so a ClusterRole never binds to a Role of the same name).
-def rel_binds = fold (\_ g -> graph_add_edges ([ ["Binds", 1, (k8s_id_of rb), sid] | rb <- (graph_payloads_of "RoleBinding" g), hamt_has_path "subjects" rb, s <- (hamt_path "subjects" rb), hamt_has_path "kind" s, hamt_get "kind" s == "ServiceAccount", sid <- [ (k8s_ref "ServiceAccount" (k8s_subject_scope s rb) (hamt_get "name" s) g) ], graph_has_node sid g ] ++ [ ["Binds", 1, (k8s_id_of rb), rid] | rb <- (graph_payloads_of "RoleBinding" g), hamt_has_path "roleRef.kind" rb, hamt_has_path "roleRef.name" rb, rid <- [ (k8s_ref (hamt_path "roleRef.kind" rb) (k8s_scope rb) (hamt_path "roleRef.name" rb) g) ], graph_has_node rid g ]) g) graph_empty
+def rel_binds = fold (\_ g -> graph_add_edges ([ ["Binds", 1, (k8s_id_of rb), sid]
+      | rb <- (graph_payloads_of "RoleBinding" g)
+      , hamt_has_path "subjects" rb
+      , s <- (hamt_path "subjects" rb)
+      , hamt_has_path "kind" s
+      , hamt_get "kind" s == "ServiceAccount"
+      , sid <- [ (k8s_ref "ServiceAccount" (k8s_subject_scope s rb) (hamt_get "name" s) g) ]
+      , graph_has_node sid g ] ++ [ ["Binds", 1, (k8s_id_of rb), rid]
+      | rb <- (graph_payloads_of "RoleBinding" g)
+      , hamt_has_path "roleRef.kind" rb
+      , hamt_has_path "roleRef.name" rb
+      , rid <- [ (k8s_ref (hamt_path "roleRef.kind" rb) (k8s_scope rb) (hamt_path "roleRef.name" rb) g) ]
+      , graph_has_node rid g ]) g) graph_empty
 
 -- Calls (INFERRED, weight 0.5): evidence-based, not declared. A workload whose env var
 -- value is exactly a Service name, or a ConfigMap data value equal to a Service name,
 -- is assumed to call that Service (of the same namespace). These are recorded as inferred edges so a query can
 -- keep them apart from the declared relations (graph_edges_inferred).
-def rel_calls = fold (\_ g -> graph_add_inferred_edges ([ ["Calls", 0.5, wid, sid] | [wid, ws] <- (k8s_workloads g), hamt_has_path "containers" ws, c <- (hamt_path "containers" ws), hamt_has_path "env" c, e <- (hamt_path "env" c), hamt_has_path "value" e, sid <- [ (k8s_ref "Service" (k8s_id_scope wid) (hamt_get "value" e) g) ], graph_has_node sid g ] ++ [ ["Calls", 0.5, (k8s_id_of cm), sid] | cm <- (graph_payloads_of "ConfigMap" g), hamt_has_path "data" cm, v <- (hamt_values (hamt_path "data" cm)), sid <- [ (k8s_ref "Service" (k8s_scope cm) v g) ], graph_has_node sid g ]) g) graph_empty
+def rel_calls = fold (\_ g -> graph_add_inferred_edges ([ ["Calls", 0.5, wid, sid]
+      | [wid, ws] <- (k8s_workloads g)
+      , hamt_has_path "containers" ws
+      , c <- (hamt_path "containers" ws)
+      , hamt_has_path "env" c
+      , e <- (hamt_path "env" c)
+      , hamt_has_path "value" e
+      , sid <- [ (k8s_ref "Service" (k8s_id_scope wid) (hamt_get "value" e) g) ]
+      , graph_has_node sid g ] ++ [ ["Calls", 0.5, (k8s_id_of cm), sid]
+      | cm <- (graph_payloads_of "ConfigMap" g)
+      , hamt_has_path "data" cm
+      , v <- (hamt_values (hamt_path "data" cm))
+      , sid <- [ (k8s_ref "Service" (k8s_scope cm) v g) ]
+      , graph_has_node sid g ]) g) graph_empty
 
 -- The full relation matrix as one pass chain over an ingested graph.
 def k8s_relations = rel_owns |> rel_selects |> rel_routes_to |> rel_configures |> rel_mounts |> rel_binds |> rel_calls

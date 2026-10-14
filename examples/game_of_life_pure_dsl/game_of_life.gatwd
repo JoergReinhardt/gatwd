@@ -44,3 +44,19 @@ let blinker = [[2, 1], [2, 2], [2, 3]]
 -- A glider is a c/4 spaceship: it translates but always has 5 cells.
 let glider = [[2, 1], [3, 2], [1, 3], [2, 3], [3, 3]]
 [glider, 40, 64, 42] |> evolve |> to_chunk |> unchunk |> fold count |> assert 5
+
+-- --- The same loop as clause definitions ------------------------------------
+-- A base case and a step case, curried; the transition is the match-def above.
+-- (`state ++ []` keeps the board a list value; a bare variable body would stream it.)
+def evolve_clause 0 w h state = state ++ []
+def evolve_clause n w h state = evolve_clause (n - 1) w h (conway_step [state, w, h])
+
+-- Clause recursion re-evaluates its argument per level, so the twin runs few generations.
+evolve_clause 6 64 42 blinker |> head |> length |> assert 3
+evolve_clause 6 64 42 glider |> head |> length |> assert 5
+-- Parity with the match form: the same cells (as sets) after the same generations.
+let by_clause = evolve_clause 6 64 42 glider |> head
+let by_match = [glider, 6, 64, 42] |> evolve |> collect_list |> head
+def cells_of = \b -> fold (\acc c -> set_add c acc) set_empty b
+[(cells_of by_clause), (cells_of by_match)] |> map (\c -> set_elements c |> length) |> assert [5 5]
+(cells_of by_clause) == (cells_of by_match) |> assert true

@@ -4,8 +4,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // TestCommandLine drives the real binary through the invocations that must keep working:
@@ -61,6 +64,45 @@ func TestCommandLine(t *testing.T) {
 		code, out := exit(c.args...)
 		if code != c.code || !strings.Contains(out, c.want) {
 			t.Errorf("gatwd %q: exit %d (want %d), output lacks %q:\n%s", c.args, code, c.code, c.want, out)
+		}
+	}
+}
+
+// TestSignalStopsSpinningScript sends SIGINT and SIGTERM to the real binary running an
+// endless script: it must stop promptly with 130 / 143.
+func TestSignalStopsSpinningScript(t *testing.T) {
+	goBin, err := exec.LookPath("go")
+	if err != nil || runtime.GOOS == "windows" {
+		t.Skip("needs the go toolchain and POSIX signals")
+	}
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "gatwd")
+	if out, err := exec.Command(goBin, "build", "-o", bin, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	script := filepath.Join(dir, "spin.gatwd")
+	if err := os.WriteFile(script, []byte("def spin = \\n -> spin (n + 1)\nspin 0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for sig, want := range map[syscall.Signal]int{syscall.SIGINT: 130, syscall.SIGTERM: 143} {
+		cmd := exec.Command(bin, script)
+		cmd.Stdin = strings.NewReader("")
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(500 * time.Millisecond)
+		_ = cmd.Process.Signal(sig)
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case err := <-done:
+			ee, ok := err.(*exec.ExitError)
+			if !ok || ee.ExitCode() != want {
+				t.Errorf("%v: exit %v, want %d", sig, err, want)
+			}
+		case <-time.After(10 * time.Second):
+			_ = cmd.Process.Kill()
+			t.Errorf("%v: binary did not stop", sig)
 		}
 	}
 }

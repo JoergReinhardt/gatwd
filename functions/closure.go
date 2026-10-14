@@ -118,3 +118,14 @@ func Apply(fn any, args []any) (any, error) {
 		return nil, fmt.Errorf("cannot apply non-function value of type %T", fn)
 	}
 }
+
+// InterruptName is the reserved lookup name under which an environment may supply a
+// functions.Interrupter. A lambda fetches it once, when it is created, and consults it on
+// every call, so a runaway recursion can be stopped cooperatively.
+const InterruptName = "\x00interrupt"
+
+// Interrupter is consulted before each closure call. A non-nil error aborts the call and
+// is returned as the call's error value; implementations should be cheap and may sample.
+type Interrupter interface {
+	Interrupted() error
+}

@@ -151,6 +151,17 @@ Interpreter, parser or evaluator changes additionally need the **script regressi
 
 ---
 
+## 4a. Language Spec & Editor-Support Pipeline
+
+`spec/spec.go` is the single hand-edited source for the language's surface vocabulary (keywords, steps, types, operators, snippets). `go run ./cmd/gatwd-gen .` turns it, plus the registered function forms (`cli.FunctionForms()`), into the Neovim, VS Code and tree-sitter files under `editors/` and `parser/tokens_gen.go`. Generated files carry a `DO NOT EDIT` header; never edit them by hand.
+
+- **Whenever you add or change syntax, a keyword, a step, a builtin or a snippet**: update `spec/spec.go` (and `docs/grammar.md` for syntax), run the generator, review the diff, and commit generated files together with the spec change. Follow `.agents/prompts/maintain-language-spec-and-editors.md`.
+- `cmd/gatwd-gen/main_test.go` fails when the spec misses a registered function form or pipeline step, or when `docs/grammar.md` and the spec disagree. Negative-control any new coverage guard.
+- Snippets are documentation: keep them valid, current and in the most readable form (clause defs, guards); check them with `gatwd --check`.
+- The generator is domain-free like core: domain vocabulary (e.g. `k8s_*`) comes from an Edition's own prelude, not from the spec.
+
+---
+
 ## 5a. Prevention Rules (traps that already cost time)
 
 Each row is a mistake that happened; the rule is what prevents the next one. The long table with causes is in `docs/development_playbook.md` §6.
@@ -170,6 +181,7 @@ Each row is a mistake that happened; the rule is what prevents the next one. The
 | Re-read a file immediately before editing it | Overwrite a file another session is changing |
 | Write scratch scripts with `cat > f <<'EOF'` | `echo '…\x…' > f` (zsh interprets escapes) |
 | Give core a generic primitive and put the domain in a shim/prelude | Put a domain word, import or step in core |
+| Change `spec/spec.go`, then run `go run ./cmd/gatwd-gen .` and commit the regenerated files | Hand-edit anything under `editors/` or `parser/tokens_gen.go`, or add a keyword/step/builtin without the spec entry |
 
 ---
 
