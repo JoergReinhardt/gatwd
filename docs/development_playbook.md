@@ -163,18 +163,61 @@ name (`graph_edge_pairs`) instead of overloading.
 
 ---
 
-## 5. Placing code: the Edition / Appliance / shim pattern
+## 5. Placing code: the Edition / Appliance / shim pattern, and "Batteries Included"
 
 Reference implementation: `pkg/k8sgraph`, `cmd/gatwd-k8s`, `cmd/gatwd-k8s-operator`.
 
+**"Batteries Included"** is this project's name (from 2026-10-15 onward — see `docs/
+adapter_roadmap.md`) for the intended end state of this pattern applied across many domains:
+gatwd grows a wide, ever-expanding shelf of ready-made domain adapters and shims *in this one
+repository* (Kubernetes today; version-control-hosted config, relational databases, network-
+inventory systems planned — `docs/adapter_roadmap.md` §3), so a new tool built on gatwd gets
+to pick off the shelf instead of writing I/O glue from scratch — **and no Edition pays, in
+keyword space or compiled size, for a battery it didn't pick up.** The second half of that
+sentence is not a slogan, it is an architectural requirement with a precise mechanism (below),
+and `docs/adapter_roadmap.md` §2 records the one place it currently fails (and the fix).
+
 ```
-core (generic, domain-free)  ──►  adapters/ (I/O, client-go confined here)
+core (generic, domain-free)  ──►  adapters/                (generic I/O: fs, net, http,
+                                      │                       scanner, clock — core imports
+                                      │                       this directly; stays domain-free)
                                       │
-                         pkg/<domain>/  (thin shim: clients + step registration)
-                                      │            embeds lib/<domain>/*.gatwd (the logic)
-                       cmd/gatwd-<domain>  (Edition main = pure assembly)
+                                      ▼
+                         adapters/<domain>/   (I/O for ONE domain, its OWN Go package —
+                                      │         never shared with another domain's adapter,
+                                      │         never shared with the generic `adapters`
+                                      │         package above. Only `pkg/<domain>/` imports it.)
+                                      │
+                         pkg/<domain>/       (thin shim: constructs the adapter, registers
+                                      │        steps via cli.AdapterStep/WithStep, assembles
+                                      │        ApplyEdition; embeds lib/<domain>/*.gatwd — the
+                                      │        logic)
+                       cmd/gatwd-<domain>        (Edition main = pure assembly)
                        cmd/gatwd-<domain>-<role>  (Appliance: edition + embedded rules)
 ```
+
+**The precise split, per domain, once this is done (target state — `pkg/k8sgraph` is the
+example this still needs applying to, `docs/adapter_roadmap.md` §2):**
+
+| Where | Owns | Imports | Never |
+| :-- | :-- | :-- | :-- |
+| `adapters/<domain>/` | Real I/O only: the actual client/driver call, auth, retries, pagination. Implements `evaluator.Adapter[any]`. Its own unit tests, with fakes for the external system (`adapters/<domain>/<domain>test` or similar), proving the I/O boundary alone, independent of the DSL. | Whatever third-party SDK the domain needs — Layer 4 allows this freely. | Anything from `pkg/cli`, `evaluator`'s step machinery, or the DSL/Interpreter types. An adapter is a value-producing function; it does not know gatwd exists. |
+| `pkg/<domain>/` | The shim: wraps the adapter(s) into named steps (`cli.AdapterStep`), `ApplyEdition(e, client)`, write-capability gating (a new `Capability`, `WithCapabilityFlag`) if the domain supports writes, the embedded `.gatwd` prelude (`lib/<domain>/*.gatwd`) — the actual node/edge vocabulary and relations. Its own `doc.go` and howto doc (`docs/<domain>_howto.md`, never folded into `dsl_guide.md`). | `adapters/<domain>/`, generic `pkg/cli`. | Another domain's `adapters/<other>/` or `pkg/<other>/` — domains don't call each other directly; a cross-domain relation lives in whichever domain's prelude needs it, reading the other domain's already-ingested graph nodes, not its adapter. |
+| `cmd/gatwd-<domain>/main.go` | Pure assembly: `domain.ApplyEdition(cli.NewEdition(...), realClient).Run()`. | `pkg/<domain>/`, `pkg/cli`. | Everything else — no domain logic, ever (Mandate 7). |
+
+**Should the adapter and the shim ever share one package, for a small domain?** No — keep them
+as two packages even when a domain is small enough that merging them would "save" one import
+line. Two independent reasons, not just convention: (1) `pkg/k8sgraph/k8sgraphtest`'s fake
+client exists specifically because the adapter boundary is a *separately testable* seam
+(live-vs-offline parity is proved by faking exactly there, not by faking the shim); merging the
+packages blurs the one seam that test depends on. (2) If a second shim ever legitimately needs
+the same domain's raw I/O without wanting that domain's DSL/prelude baggage along for the ride,
+a separate adapter package makes that free; a merged package makes it impossible without
+importing the whole shim. The one flexible part is *where* the adapter package lives —
+`adapters/<domain>/` matches the layer table above and is the default, but `pkg/<domain>/
+adapter` (a sub-package under the domain's own tree) is an equally valid location if that reads
+better for a given domain; the invariant is "its own Go package, imported by nothing but that
+domain's shim," not a specific path.
 
 Rules (Mandates 5 and 7):
 
@@ -187,7 +230,9 @@ Rules (Mandates 5 and 7):
 - **The shim has zero logic.** `k8sgraph.CrawlStep` constructs an adapter and hands it to the
   generic `cli.AdapterStep`. `k8sgraph.ApplyEdition(e, client)` assembles steps + prelude; a nil
   client builds an offline-only edition (CI, tests).
-- **Third-party SDKs are confined** to specific adapter/shim files. Prefer an external binary plus
+- **Third-party SDKs are confined** to that domain's own `adapters/<domain>/` package (never the
+  shared generic `adapters` package core imports — this is "Batteries Included"'s whole point).
+  Prefer an external binary plus
   an injectable seam (`ManifestAdapter` + `WithRenderer`, shelling out to `kustomize`) over a heavy
   dependency, unless the user decides otherwise. (The user did decide, later: D7 puts the kustomize
   library into the k8s shim, `pkg/k8sgraph.InProcessRenderer`, behind that very seam — plan §8.1.)
