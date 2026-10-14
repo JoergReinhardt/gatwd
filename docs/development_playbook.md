@@ -336,6 +336,65 @@ function, reused at every tier, never a bespoke RunE per verb.
 
 ---
 
+## 5c. Two sharpenings that came from using gatwd as a dependency, not just building it
+
+These generalize from real usage of gatwd *as a library* underneath other tools — the
+clearest test of whether a principle actually holds, since nobody is grading their own
+homework. Both are domain-free by construction; the domains that prompted them are not
+named here (Mandate 5) — only the shape.
+
+### When "a second domain could use it" is enough to generalize now
+
+Mandate 5's "generic first, domain second" needs a sharper test than "I can imagine
+someone else wanting this," because imagination is cheap and a wrong abstraction is
+expensive to unwind. Two conditions, and generalizing now is justified when **either**
+holds:
+
+1. **A second domain already exists and needs it.** The uncontroversial case — this is
+   what "generic first" always meant.
+2. **A second consumer is *committed*, not merely imaginable**: a named project on an
+   actual backlog, not a "someone, someday might." A long-lived platform that expects to
+   keep adding tools against the same handful of external systems (a version-control
+   host, a datastore, an inventory system, a config-management target — whatever they are
+   for the project in question) can reasonably treat "we will need an adapter for this
+   again" as settled fact rather than speculation, *once it already has one working,
+   concrete instance to generalize from*. Generalizing on that basis — before the second
+   consumer is literally built — is correct engineering, not premature abstraction.
+
+What is **not** justified either way: generalizing from a *single* instance with **no**
+second consumer, committed or otherwise, and no backlog naming one. That is designing an
+interface for an audience of one imagined reader — the classic premature-abstraction
+trap, just dressed up in Mandate 5's language. The discipline is the same one phase
+delivery already asks for (§2): ground the generalization in something real (an existing
+second user, or a dated, named line in an actual backlog), not in "this feels reusable."
+
+### Write adapters follow the same gated-capability shape, whatever the domain
+
+`pkg/cli/policy.go`'s `Capability` system (`CapClusterApply`, `CapClusterRollout` are the
+first two instances) is not a Kubernetes-specific mechanism that happens to live next to
+one — it is the **general shape every write-capable adapter should follow**, regardless
+of what external system it mutates:
+
+1. A new named `Capability` constant, **denied by `TrustedPolicy` by default** — reading
+   is cheap and safe by default; mutating something outside the process never is.
+2. An explicit, per-Edition opt-in flag (`Edition.WithCapabilityFlag`) — the capability
+   exists in the binary, but a script only gets it if the person running the command line
+   asked for it that run, not because the Edition's author assumed it was fine.
+3. **A dry-run default where the underlying system has the concept** (a server-side dry
+   run, a diff instead of a write, a draft instead of a publish) — a second explicit flag
+   turns the dry run off, mirroring the capability flag's own "opt in twice for something
+   consequential" shape.
+
+A future write adapter for some other external system — anything that can create,
+modify, or delete state outside the current process — should reuse this exact shape
+(new `Capability`, denied-by-default, `WithCapabilityFlag`, dry-run-first) rather than
+inventing a bespoke gate per domain. The point of naming it as a pattern here, instead of
+leaving it implicit in `pkg/k8sgraph/write.go`'s comments, is so the *next* write adapter
+copies the shape on purpose instead of re-deriving it (or, worse, skipping the gate
+because nothing in the docs said it was a general rule and not a Kubernetes quirk).
+
+---
+
 ## 6. Writing DSL: conventions and traps
 
 The project's own relations and rules are the style reference
@@ -349,6 +408,18 @@ The project's own relations and rules are the style reference
 - *Rule* = a closure `\g -> [ [violation, resource] | … ]`; combine rules with `++`.
 - *Helpers* = ordinary closures (`def k8s_ref = \kind ns name g -> […]`); they are values, so call them
   inside comprehensions.
+- *Reconciliation* = compare two sources describing the same identity space (a designated
+  state vs. a live one, or any two independently-derived views of the same resources) by
+  recursive `subset_of` over a "stable view" of each (a domain-shaped projection that
+  strips the fields each source alone is allowed to vary — e.g. the first instance of
+  this, `k8s_stable_view`/`k8s_up_to_date`/`k8s_parity_report` in
+  `pkg/k8sgraph/lib/k8s/parity.gatwd`, drops server-managed Kubernetes fields before
+  comparing). The report is "present and matching" / "present but drifted" / "missing" —
+  never a bare boolean, so a caller can tell "nothing to reconcile" from "didn't run."
+  This shape is not specific to its first use: any two sources over the same identity
+  space fit it, and a write-back correction from the reconciliation (if the system has
+  one) is itself a write adapter and follows §5c's gated-capability shape, not a bespoke
+  one.
 - *Optimise with an index, in DSL.* The label-indexed `Selects` pass builds a HAMT of pod lists
   with `fold` + `hamt_set` + `hamt_get_or` — no Go needed.
 - *Reusable view/query, source-agnostic.* A task script defines what to compute, never which
